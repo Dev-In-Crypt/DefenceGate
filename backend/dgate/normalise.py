@@ -301,6 +301,25 @@ def normalise_org_name(raw: str, *, strip_noise: bool = False) -> str:
 
 # ------------------------------------------------------------ TED mapping
 
+_LANG2_TO_3 = {v: k for k, v in _LANG3_TO_2.items()}
+
+
+def _in_language(value: Any, lang3: str | None) -> str | None:
+    """Pull one language out of a multilingual block.
+
+    TED returns titles in all twenty-four EU languages at once, keyed by
+    three-letter code. Taking whichever key comes first yields a Hungarian
+    title on a Polish notice, so the language has to be named.
+    """
+    if not isinstance(value, dict) or not lang3:
+        return None
+    for key, val in value.items():
+        if key.lower() == lang3.lower():
+            got = _first(val)
+            return str(got).strip() if got else None
+    return None
+
+
 def from_ted(notice: dict[str, Any]) -> Opportunity:
     """Map one raw TED notice onto the unified schema.
 
@@ -309,7 +328,10 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
     """
     g = notice.get
 
-    native_id = _first(g("notice-identifier")) or _first(g("publication-number"))
+    # The publication number ("550462-2026") is the identifier TED uses in its
+    # own URLs and the one a buyer can quote. notice-identifier is a UUID that
+    # identifies the same thing but resolves nowhere, so it is only a fallback.
+    native_id = _first(g("publication-number")) or _first(g("notice-identifier"))
     if not native_id:
         raise ValueError("notice has no identifier")
 
@@ -326,11 +348,11 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
         g("deadline-receipt-tender-time-lot"),
     ) or _parse_datetime(g("deadline-receipt-request-date-lot"))
 
-    url = _first(g("links"))
-    if isinstance(url, dict):
-        url = _first(url)
-    if not url:
-        url = f"https://ted.europa.eu/en/notice/-/detail/{native_id}"
+    # `links` is a nested dict of format and language variants
+    # ({"xml": {"MUL": ...}, "pdf": {"BUL": ..., "SPA": ...}}), so picking the
+    # first leaf hands the user a Bulgarian PDF. Build the notice page instead;
+    # it is the page a person can actually read and quote.
+    url = f"https://ted.europa.eu/en/notice/-/detail/{native_id}"
 
     version = _first(g("notice-version"))
     try:
@@ -341,11 +363,24 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
     clearance = _first(g("csecurity-clearance-description-lot"))
     nda = _first(g("non-disclosure-agreement-lot"))
 
+    # TED publishes the title in every EU language. Keep the authoritative one
+    # in title_original and take the English rendering for free rather than
+    # paying a model to reproduce a translation the source already made.
+    lang3 = str(_first(g("official-language")) or "").lower() or None
+    title_block = g("notice-title")
+    title_original = (_in_language(title_block, lang3)
+                      or _in_language(title_block, _LANG2_TO_3.get((_lang2(g("official-language")) or "")))
+                      or str(_first(title_block) or "").strip())
+    title_en = _in_language(title_block, "eng")
+    if title_en and title_en == title_original:
+        title_en = None      # the notice is already English; do not duplicate it
+
     return Opportunity(
         source_code="ted",
         native_id=str(native_id),
         buyer_name_raw=str(_first(g("buyer-name")) or "").strip() or "UNKNOWN",
-        title_original=str(_first(g("notice-title")) or "").strip(),
+        title_original=title_original,
+        title_en=title_en,
         country=_country2(g("buyer-country")),
         original_language=_lang2(g("official-language")),
         procedure_type=_first(g("notice-subtype")),

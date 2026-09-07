@@ -8,7 +8,7 @@ classifies them, and archives every observed version.
 ## What is here
 
 ```
-migrations/             Postgres schema, applied in order. opportunity_version is append-only.
+schema.sql              Postgres schema. opportunity_version is append-only.
 src/sources/ted.py      TED Search API connector (anonymous, no key)
 src/sources/placsp.py   Spanish PLACSP ATOM/CODICE connector
 src/normalise.py        Source payloads to unified schema; personal data stripped here
@@ -23,7 +23,7 @@ tests/                  28 unit tests, 21 integration checks
 
 ```bash
 createdb dgate
-python -m dgate.migrate
+psql -d dgate -f schema.sql
 pip install -r requirements.txt
 
 export DGATE_DSN="postgresql://localhost/dgate"

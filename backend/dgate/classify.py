@@ -37,6 +37,15 @@ CPV_CIVIL_GROUPS = {
     "352",  # Police equipment
 }
 
+# Exceptions inside the otherwise military groups. Class 3581 is uniforms, and
+# only 35811300 of it is military: the other two dress fire brigades and police.
+# Found on live TED, where a fire-brigade uniform framework was reaching the
+# defence feed on the strength of its group alone.
+CPV_CIVIL_EXCEPTIONS = {
+    "35811100",   # fire-brigade uniforms
+    "35811200",   # police uniforms
+}
+
 # Divisions outside 35 that carry dual-use work. Never sufficient alone.
 CPV_DUAL_USE_DIVISIONS = {
     "34",  # Transport equipment
@@ -86,18 +95,29 @@ class DefenceSignals:
     def is_defence(self) -> bool:
         """Verdict.
 
-        Strong signals stand alone. Weak signals need a partner. Dual-use CPV
-        is never sufficient by itself, or the feed fills with IT contracts.
+        Strong signals stand alone: the defence directive as legal basis, and
+        an unambiguously military CPV group.
+
+        The clearance field is deliberately NOT a strong signal, despite being
+        documented as one. Checked against live TED notices, BT-732 mostly
+        carries something else entirely: the Russia sanctions declaration under
+        Regulation (EU) 2022/576, which appears on ordinary contracts, and
+        criminal-record checks for staff. One live sample flagged a cleaning
+        contract (CPV 90911100) as defence on the strength of "extended police
+        clearance certificates for the cleaning staff". So clearance
+        corroborates; it never decides alone.
         """
-        if self.legal_basis or self.cpv_military or self.clearance:
-            return True
-        if self.buyer and (self.cpv or self.cpv_dual_use):
+        if self.legal_basis or self.cpv_military:
             return True
         if self.buyer:
             # A defence ministry buying anything is worth surfacing to a
             # supplier trying to get into that ministry's supply chain.
             return True
-        if self.cpv_civil_security and self.clearance:
+        if self.clearance and self.cpv:
+            # Corroboration has to be specific. Pairing the clearance field
+            # with a dual-use division is not enough: engineering services
+            # (CPV 71) carrying the sanctions declaration would qualify, and
+            # that is a false positive, not a lead.
             return True
         return False
 
@@ -107,14 +127,18 @@ class DefenceSignals:
             return 1.00
         if self.legal_basis or self.cpv_military:
             return 0.90
-        if self.clearance:
-            return 0.85
         if self.buyer and self.cpv:
             return 0.80
+        if self.clearance and self.cpv:
+            return 0.70
         if self.buyer:
             return 0.60
         if self.cpv_civil_security:
             return 0.40
+        if self.clearance:
+            # Recorded, but on its own it is as likely to be a sanctions clause
+            # as a security requirement.
+            return 0.30
         return 0.10
 
 
@@ -146,7 +170,9 @@ def classify(
         div, grp = cpv_division(code), cpv_group(code)
         if div == CPV_DEFENCE_DIVISION:
             sig.matched_cpv.append(code)
-            if grp in CPV_MILITARY_GROUPS:
+            if code in CPV_CIVIL_EXCEPTIONS:
+                sig.cpv_civil_security = True
+            elif grp in CPV_MILITARY_GROUPS:
                 sig.cpv_military = True
             elif grp in CPV_CIVIL_GROUPS:
                 sig.cpv_civil_security = True

@@ -12,3 +12,4 @@ reports/run-*.jsonl
 reports/*.stderr
 reports/*.stderr.txt
 .mypy_cache/
+.verify/

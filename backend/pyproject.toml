@@ -13,6 +13,9 @@ dependencies = [
     # to Europe/Madrid, so this is a hard dependency, not a convenience.
     "tzdata>=2024.1; sys_platform == 'win32'",
     "apscheduler>=3.10",
+    # Use the OS certificate store: networks that terminate TLS with their
+    # own CA otherwise look like an outage at the source.
+    "truststore>=0.9",
 ]
 
 [project.optional-dependencies]

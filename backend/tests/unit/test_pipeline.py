@@ -100,10 +100,39 @@ def test_dual_use_cpv_alone_is_never_enough():
     assert sig.cpv_dual_use
 
 
-def test_clearance_requirement_is_a_strong_signal():
+def test_clearance_alone_is_not_enough():
+    """Verified against live TED notices, against the documented assumption.
+
+    BT-732 usually carries something other than a security clearance: the
+    Russia sanctions declaration under Regulation (EU) 2022/576, which appears
+    on ordinary contracts, or criminal-record checks for staff. Treating its
+    presence as decisive put a cleaning contract in the defence feed.
+    """
     sig = classify(legal_basis=None, cpv_codes=[], buyer_is_defence=False,
                    security_clearance_text="Clearance required")
+    assert sig.clearance, "the signal is still recorded"
+    assert not sig.is_defence, "but it must not decide on its own"
+
+
+def test_clearance_plus_defence_cpv_is_enough():
+    sig = classify(legal_basis=None, cpv_codes=["35110000"], buyer_is_defence=False,
+                   security_clearance_text="NATO SECRET facility clearance required")
     assert sig.is_defence and sig.clearance
+
+
+def test_cleaning_contract_with_staff_vetting_is_not_defence():
+    """The real false positive: CPV 90911100, 'police clearance for cleaners'."""
+    sig = classify(legal_basis="32014L0024", cpv_codes=["90911100"], buyer_is_defence=False,
+                   security_clearance_text="Erweiterte Fuehrungszeugnisse der Reinigungskraefte")
+    assert not sig.is_defence
+
+
+def test_sanctions_boilerplate_does_not_create_a_defence_notice():
+    """Engineering services carrying the Regulation 2022/576 declaration."""
+    sig = classify(legal_basis="32014L0024", cpv_codes=["71000000", "71310000"],
+                   buyer_is_defence=False,
+                   security_clearance_text="Entsprechend der Verordnung (EU) 2022/576 ...")
+    assert not sig.is_defence, "dual-use CPV plus a sanctions clause is not defence"
 
 
 def test_nda_alone_counts_as_clearance_signal():
@@ -261,7 +290,18 @@ def test_defence_query_covers_all_three_signals():
     assert "32009L0081" in q
     assert "35*" in q
     assert "csecurity-clearance" in q
-    assert "2026-01-01" in q and "2026-01-31" in q
+
+
+def test_defence_query_uses_the_compact_date_format_ted_demands():
+    """Verified against the live API: an ISO date is rejected outright.
+
+    TED answers an ISO date with QUERY_INVALID_FIELD_FORMAT and the pattern
+    20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01]). Every live run failed on
+    this until it was checked against the API instead of a fixture.
+    """
+    q = defence_query(date(2026, 1, 1), date(2026, 1, 31))
+    assert "20260101" in q and "20260131" in q
+    assert "2026-01-01" not in q
 
 
 # ------------------------------------------------------- end to end
@@ -289,3 +329,30 @@ def test_full_path_municipal_notice_is_excluded():
     sig = classify(legal_basis=o.legal_basis, cpv_codes=o.cpv_codes,
                    buyer_is_defence=False)
     assert not sig.is_defence
+
+
+def test_fire_brigade_uniforms_are_not_military():
+    """Class 3581 is uniforms and only 35811300 of it is military.
+
+    Found on live TED: a fire-brigade uniform framework was reaching the
+    defence feed because its whole CPV group is treated as military.
+    """
+    sig = classify(legal_basis="32014L0024", cpv_codes=["35811100"], buyer_is_defence=False)
+    assert not sig.is_defence
+    assert sig.cpv_civil_security and not sig.cpv_military
+
+
+def test_police_uniforms_are_not_military():
+    sig = classify(legal_basis="32014L0024", cpv_codes=["35811200"], buyer_is_defence=False)
+    assert not sig.is_defence
+
+
+def test_military_uniforms_still_are():
+    sig = classify(legal_basis=None, cpv_codes=["35811300"], buyer_is_defence=False)
+    assert sig.is_defence and sig.cpv_military
+
+
+def test_defence_buyer_buying_anything_still_surfaces():
+    """A ministry procuring cooking kettles under 2009/81 is a real opening."""
+    sig = classify(legal_basis="32009L0081", cpv_codes=["39721100"], buyer_is_defence=False)
+    assert sig.is_defence

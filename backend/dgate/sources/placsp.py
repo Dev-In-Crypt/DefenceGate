@@ -97,13 +97,27 @@ AGGREGATED = Dataset("es_placsp_agg", BASE_AGG, LIVE_FEED_AGG, ENTRY_FILE_AGG,
                      "PlataformasAgregadasSinMenores")
 DATASETS = {d.source_code: d for d in (MAIN, AGGREGATED)}
 
+# PLACSP publishes CODICE under the Spanish `dgpe` namespaces, not the OASIS
+# UBL ones. Getting this wrong is silent: the `place-ext` lookups still match,
+# so a notice parses and carries a status while every CPV code, deadline, value
+# and identifier comes back empty. Verified against the live feed on
+# 7 September 2026, where 405 of 405 entries parsed with zero CPV codes.
 NS = {
     "atom": "http://www.w3.org/2005/Atom",
-    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+    "cbc": "urn:dgpe:names:draft:codice:schema:xsd:CommonBasicComponents-2",
+    "cac": "urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2",
     "cac-place-ext": "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2",
     "cbc-place-ext": "urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonBasicComponents-2",
 }
+
+# Older archive packages were published under the OASIS UBL namespaces, so both
+# are tried before a field is called absent.
+NS_FALLBACK = {
+    **NS,
+    "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+    "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
+}
+NAMESPACE_SETS = (NS, NS_FALLBACK)
 
 
 def annual_archive_url(year: int, dataset: Dataset = MAIN) -> str:
@@ -116,10 +130,19 @@ def monthly_archive_url(year: int, month: int, dataset: Dataset = MAIN) -> str:
 
 # ------------------------------------------------------------- XML helpers
 
-def _text(el: ET.Element | None, path: str) -> str | None:
+def _find(el: ET.Element | None, path: str) -> ET.Element | None:
+    """Find one element, trying each known namespace set in turn."""
     if el is None:
         return None
-    found = el.find(path, NS)
+    for ns in NAMESPACE_SETS:
+        found = el.find(path, ns)
+        if found is not None:
+            return found
+    return None
+
+
+def _text(el: ET.Element | None, path: str) -> str | None:
+    found = _find(el, path)
     if found is None or found.text is None:
         return None
     val = found.text.strip()
@@ -129,8 +152,12 @@ def _text(el: ET.Element | None, path: str) -> str | None:
 def _findall_text(el: ET.Element | None, path: str) -> list[str]:
     if el is None:
         return []
-    return [n.text.strip() for n in el.findall(path, NS)
-            if n is not None and n.text and n.text.strip()]
+    for ns in NAMESPACE_SETS:
+        found = [n.text.strip() for n in el.findall(path, ns)
+                 if n is not None and n.text and n.text.strip()]
+        if found:
+            return found
+    return []
 
 
 def _parse_date(raw: str | None) -> date | None:
@@ -178,7 +205,7 @@ def _float(raw: str | None) -> float | None:
 
 def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunity | None:
     """Map one ATOM entry containing a CODICE ContractFolderStatus."""
-    cfs = entry.find(".//cac-place-ext:ContractFolderStatus", NS)
+    cfs = _find(entry, ".//cac-place-ext:ContractFolderStatus")
     if cfs is None:
         # Some entries wrap the payload without the ext namespace prefix.
         for child in entry:
@@ -194,10 +221,10 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
     if not native_id:
         return None
 
-    project = cfs.find("cac:ProcurementProject", NS)
-    party = cfs.find(".//cac-place-ext:LocatedContractingParty/cac:Party", NS)
+    project = _find(cfs, "cac:ProcurementProject")
+    party = _find(cfs, ".//cac-place-ext:LocatedContractingParty/cac:Party")
     if party is None:
-        party = cfs.find(".//cac:ContractingParty/cac:Party", NS)
+        party = _find(cfs, ".//cac:ContractingParty/cac:Party")
 
     buyer = (_text(party, "cac:PartyName/cbc:Name")
              or _text(entry, "atom:title")
@@ -215,7 +242,7 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
     if amount is None:
         amount = _float(_text(project, "cac:BudgetAmount/cbc:TaxExclusiveAmount"))
 
-    tender_period = cfs.find(".//cac:TenderSubmissionDeadlinePeriod", NS)
+    tender_period = _find(cfs, ".//cac:TenderSubmissionDeadlinePeriod")
     deadline = _parse_datetime(
         _text(tender_period, "cbc:EndDate"),
         _text(tender_period, "cbc:EndTime"),
@@ -223,9 +250,9 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
 
     published = _parse_date(_text(entry, "atom:updated"))
 
-    link_el = entry.find("atom:link[@rel='alternate']", NS)
+    link_el = _find(entry, "atom:link[@rel='alternate']")
     if link_el is None:
-        link_el = entry.find("atom:link", NS)
+        link_el = _find(entry, "atom:link")
     url = link_el.get("href") if link_el is not None else None
 
     status_native = _text(cfs, "cbc-place-ext:ContractFolderStatusCode")

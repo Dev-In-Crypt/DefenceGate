@@ -162,3 +162,46 @@ def test_backfill_years_are_oldest_first():
     urls = list(placsp.backfill_years(2012, 2014))
     assert len(urls) == 3
     assert "2012" in urls[0] and "2014" in urls[-1]
+
+
+# ------------------------------- namespaces (verified against the live feed)
+
+# PLACSP publishes CODICE under the Spanish `dgpe` namespaces. The parser was
+# written against the OASIS UBL ones, which fails silently: the `place-ext`
+# lookups still match, so every entry parses and carries a status while CPV,
+# deadline, value and identifier all come back empty. Against the live feed on
+# 7 September 2026 that was 405 of 405 entries with no CPV code at all.
+ATOM_DGPE = ATOM.replace(
+    'xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"',
+    'xmlns:cbc="urn:dgpe:names:draft:codice:schema:xsd:CommonBasicComponents-2"',
+).replace(
+    'xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"',
+    'xmlns:cac="urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2"',
+)
+
+
+def test_dgpe_namespaces_parse_every_field():
+    """The namespace set the live platform actually uses."""
+    opps, _ = placsp.parse_feed(ATOM_DGPE.encode("utf-8"))
+    by_id = {o.native_id: o for o in opps}
+    assert "EXP-1001" in by_id, "the contract folder id must be read, not the atom id"
+    o = by_id["EXP-1001"]
+    assert o.cpv_codes == ["35700000"]
+    assert o.value_amount == 4200000.0
+    assert o.deadline_at is not None
+    assert o.buyer_name_raw == "Ministerio de Defensa"
+    assert o.status == "open"
+
+
+def test_oasis_namespaces_still_parse():
+    """Older archive packages use the UBL namespaces; both must work."""
+    opps, _ = placsp.parse_feed(ATOM.encode("utf-8"))
+    o = {x.native_id: x for x in opps}["EXP-1001"]
+    assert o.cpv_codes == ["35700000"] and o.value_amount == 4200000.0
+
+
+def test_identifier_never_falls_back_to_a_url_when_the_folder_id_is_present():
+    """A URL as native_id is the visible symptom of a namespace mismatch."""
+    for payload in (ATOM, ATOM_DGPE):
+        opps, _ = placsp.parse_feed(payload.encode("utf-8"))
+        assert all(not o.native_id.startswith("http") for o in opps)

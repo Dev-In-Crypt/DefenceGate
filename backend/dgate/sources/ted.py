@@ -90,7 +90,11 @@ def defence_query(since: date, until: date | None = None) -> str:
     applied downstream after ingestion.
     """
     until = until or date.today()
-    window = f"publication-date>={since.isoformat()} AND publication-date<={until.isoformat()}"
+    # Expert search dates are YYYYMMDD. An ISO date is rejected outright with
+    # QUERY_INVALID_FIELD_FORMAT, which is how every live run failed until this
+    # was checked against the API rather than against a fixture.
+    window = (f"publication-date>={since.strftime('%Y%m%d')} AND "
+              f"publication-date<={until.strftime('%Y%m%d')}")
     signals = " OR ".join(
         [
             'legal-basis IN ("32009L0081")',
