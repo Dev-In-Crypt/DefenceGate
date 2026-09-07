@@ -1,0 +1,45 @@
+# Development overlay. Postgres and the API on published ports, code bind
+# mounted with reload, mail captured locally instead of sent.
+#
+#   docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d --build
+#
+# Port 15432 rather than 5432 or 55432: the local Postgres port may be taken and
+# the 54xxx range is inside Windows' reserved Hyper-V port ranges.
+
+name: dgate
+
+services:
+  postgres:
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_PASSWORD: dgate
+
+  migrate:
+    environment:
+      DGATE_DSN: postgresql://dgate:dgate@postgres:5432/dgate
+
+  api:
+    command: ["uvicorn", "dgate.api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      DGATE_DSN: postgresql://dgate:dgate@postgres:5432/dgate
+    volumes:
+      - ../backend/dgate:/app/dgate:ro
+    ports:
+      - "8000:8000"
+
+  worker:
+    environment:
+      DGATE_DSN: postgresql://dgate:dgate@postgres:5432/dgate
+    volumes:
+      - ../backend/dgate:/app/dgate:ro
+
+  caddy:
+    profiles: ["proxy"]   # not needed in development; the API is published directly
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web interface
+      - "1025:1025"   # SMTP

@@ -1,0 +1,23 @@
+# Caddy obtains and renews certificates on its own.
+# DGATE_DOMAIN is set in infra/.env; it falls back to localhost for local runs.
+
+{$DGATE_DOMAIN:localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# The frontend is not built yet (plan milestone M1). Until it exists,
+	# everything goes to the API.
+	reverse_proxy api:8000
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+backend/raw/
+.env
+*.log
+tmp/
+*.egg-info/
+reports/run-*.jsonl
+reports/*.stderr
+reports/*.stderr.txt
+.mypy_cache/

@@ -1,0 +1,96 @@
+# Production topology: one host, five containers, no orchestrator.
+#
+#   caddy     TLS and reverse proxy
+#   api       the serving layer
+#   worker    scheduled ingestion; the process that must never fail silently
+#   migrate   one-shot, applies migrations before api and worker start
+#   postgres  the archive
+#
+# Run from the repository root:
+#   docker compose -f infra/docker-compose.yml up -d --build
+
+name: dgate
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dgate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-dgate}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dgate} -d ${POSTGRES_DB:-dgate}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build:
+      context: ../backend
+    command: ["python", "-m", "dgate.migrate"]
+    environment:
+      DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../backend
+    command: ["uvicorn", "dgate.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  worker:
+    build:
+      context: ../backend
+    command: ["python", "-m", "dgate.worker"]
+    environment:
+      DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+      DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
+      DGATE_RAW_DIR: /raw
+      # Alerting. Unset means log-only; see dgate/ops/notify.py.
+      DGATE_HEALTHCHECKS_BASE: ${DGATE_HEALTHCHECKS_BASE:-}
+      DGATE_TELEGRAM_TOKEN: ${DGATE_TELEGRAM_TOKEN:-}
+      DGATE_TELEGRAM_CHAT_ID: ${DGATE_TELEGRAM_CHAT_ID:-}
+    volumes:
+      - raw:/raw
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DGATE_DOMAIN: ${DGATE_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  raw:
+  caddydata:
+  caddyconfig:
