@@ -272,3 +272,21 @@ def test_migrations_are_recorded(conn):
     rows = conn.execute("SELECT version, name FROM schema_migrations ORDER BY version").fetchall()
     assert rows, "the runner must record what it applied"
     assert rows[0]["version"] == 1
+
+
+def test_a_zero_floor_with_nothing_fetched_is_success(conn):
+    """TED publishes nothing at weekends, so the Monday run legitimately finds
+    nothing. A floor of zero must mean "nothing expected", not "no floor"."""
+    run_id = db.start_run(conn, "ted", expected_min=0)
+    db.finish_run(conn, run_id, fetched=0, new=0, changed=0)
+    row = conn.execute("SELECT status FROM ingest_run WHERE id=%s", (run_id,)).fetchone()
+    assert row["status"] == "success"
+
+
+def test_a_source_with_no_measured_floor_is_not_judged(conn):
+    """None means the volumes have not been measured yet. Guessing a floor
+    would produce alerts nobody can act on."""
+    run_id = db.start_run(conn, "ted", expected_min=None)
+    db.finish_run(conn, run_id, fetched=1, new=1, changed=0)
+    row = conn.execute("SELECT status FROM ingest_run WHERE id=%s", (run_id,)).fetchone()
+    assert row["status"] == "success"

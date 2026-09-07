@@ -31,7 +31,7 @@ from . import USER_AGENT
 log = logging.getLogger(__name__)
 
 TED_SEARCH_URL = "https://api.ted.europa.eu/v3/notices/search"
-PAGE_SIZE = 250          # API maximum is higher, but this keeps payloads sane
+PAGE_SIZE = 250          # the API maximum; 500 is rejected outright
 MAX_PAGES = 400          # hard stop so a bad query cannot run forever
 
 # Exactly the fields we map in normalise.py. Requesting a narrow set keeps

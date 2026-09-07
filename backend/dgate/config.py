@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -32,17 +33,57 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-def _default_floors() -> dict[str, int]:
-    """Coverage floors per source.
+# Coverage floors, measured against the live sources on 7 September 2026.
+#
+# A run that finishes below its floor is marked `partial`, never `success`,
+# because silent under-collection is the failure that quietly destroys a
+# coverage promise.
+#
+# One number cannot serve, because TED publishes nothing at weekends: measured
+# per day, Saturday and Sunday are exactly 0 while weekdays run 60 to 89. The
+# daily job at 06:15 UTC covers the two preceding days, so what it should find
+# depends on which weekdays those were:
+#
+#   run day    window covers      measured        floor (~40%)
+#   Monday     Sat, Sun           0               0
+#   Tuesday    Sun, Mon           ~83             30
+#   Wed-Sat    two weekdays       ~150            60
+#   Sunday     Fri, Sat           ~76             30
+#
+# PLACSP publishes in packages chained by rel="next", 405 to 500 entries per
+# page, and the daily run walks up to 20 pages. One page is the floor: below
+# that, the chain is broken rather than quiet.
+_TED_FLOORS = {0: 0, 1: 30, 2: 60, 3: 60, 4: 60, 5: 60, 6: 30}   # Monday = 0
+_PLACSP_FLOORS = dict.fromkeys(range(7), 400)
+_PLACSP_AGG_FLOORS = dict.fromkeys(range(7), 50)
 
-    A run that finishes below its floor is marked ``partial``, never
-    ``success``. Tune from observed volumes after two weeks of running; silent
-    under-collection is the failure that quietly destroys a coverage promise.
+
+def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
+    """Per-weekday floors, overridable with one env var per source.
+
+    ``DGATE_FLOOR_TED=0,30,60,60,60,60,30`` sets Monday through Sunday. A single
+    number sets every day, which is what a source with no weekly rhythm wants.
     """
+    raw = os.environ.get(name)
+    if not raw or not raw.strip():
+        return dict(defaults)
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    try:
+        values = [int(p) for p in parts]
+    except ValueError:
+        return dict(defaults)
+    if len(values) == 1:
+        return dict.fromkeys(range(7), values[0])
+    if len(values) == 7:
+        return dict(enumerate(values))
+    return dict(defaults)
+
+
+def _default_floors() -> dict[str, dict[int, int]]:
     return {
-        "ted": _env_int("DGATE_FLOOR_TED", 5),
-        "es_placsp": _env_int("DGATE_FLOOR_ES_PLACSP", 20),
-        "es_placsp_agg": _env_int("DGATE_FLOOR_ES_PLACSP_AGG", 10),
+        "ted": _weekday_floors("DGATE_FLOOR_TED", _TED_FLOORS),
+        "es_placsp": _weekday_floors("DGATE_FLOOR_ES_PLACSP", _PLACSP_FLOORS),
+        "es_placsp_agg": _weekday_floors("DGATE_FLOOR_ES_PLACSP_AGG", _PLACSP_AGG_FLOORS),
     }
 
 
@@ -60,10 +101,10 @@ class Settings:
     raw_dir: Path = field(default_factory=lambda: Path(_env("DGATE_RAW_DIR", "./raw")))
 
     # --- ingestion ------------------------------------------------------
-    floors: dict[str, int] = field(default_factory=_default_floors)
+    floors: dict[str, dict[int, int]] = field(default_factory=_default_floors)
     user_agent: str = field(default_factory=lambda: _env(
         "DGATE_USER_AGENT",
-        "dgate/0.1 (+https://github.com/defencegate; contact in repository)"))
+        "dgate/0.1 (+https://github.com/Dev-In-Crypt/DefenceGate)"))
 
     # --- alerting -------------------------------------------------------
     # All optional. Unconfigured means log-only: an alerting backend must
@@ -85,8 +126,18 @@ class Settings:
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
 
-    def floor(self, source_code: str) -> int | None:
-        return self.floors.get(source_code)
+    def floor(self, source_code: str, when: date | None = None) -> int | None:
+        """The minimum a healthy run should collect on the given day.
+
+        None means the source has no floor yet, which is honest for a connector
+        whose volumes have not been measured. Zero is a real floor: it says
+        "nothing is expected today", which is the correct expectation for TED
+        on a Monday.
+        """
+        per_day = self.floors.get(source_code)
+        if per_day is None:
+            return None
+        return per_day.get((when or date.today()).weekday())
 
 
 @lru_cache(maxsize=1)
