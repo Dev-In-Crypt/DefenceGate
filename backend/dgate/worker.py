@@ -27,7 +27,7 @@ from typing import Callable, Sequence
 from . import db
 from .config import settings
 from .ops.notify import notify, ping
-from .pipeline import run_placsp_live, run_ted, seed_buyers
+from .pipeline import run_ezamowienia, run_placsp_live, run_ted, seed_buyers
 
 log = logging.getLogger("worker")
 
@@ -117,6 +117,12 @@ def job_placsp() -> JobResult:
                    sources=["es_placsp", "es_placsp_agg"])
 
 
+def job_ezamowienia() -> JobResult:
+    return run_job("ezamowienia_daily",
+                   lambda: run_ezamowienia(days=settings().ingest_days),
+                   sources=[ezam_source()])
+
+
 def job_seed_buyers() -> JobResult:
     return run_job("seed_buyers", seed_buyers)
 
@@ -137,8 +143,15 @@ def job_health_report() -> JobResult:
     return run_job("health_report", _report)
 
 
+def ezam_source() -> str:
+    from .sources.ezamowienia import SOURCE_CODE
+
+    return SOURCE_CODE
+
+
 JOBS: dict[str, Callable[[], JobResult]] = {
     "ted": job_ted,
+    "ezamowienia": job_ezamowienia,
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
@@ -157,6 +170,8 @@ def build_scheduler():
                   id="ted_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_placsp, CronTrigger(hour=cfg.placsp_hour, minute=cfg.placsp_minute),
                   id="placsp_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_ezamowienia, CronTrigger(hour=cfg.ezam_hour, minute=cfg.ezam_minute),
+                  id="ezamowienia_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     return sched
@@ -169,6 +184,8 @@ def describe_schedule() -> list[str]:
         f"(window {cfg.ingest_days} days, overlapping on purpose)",
         f"placsp_daily   {cfg.placsp_hour:02d}:{cfg.placsp_minute:02d} UTC  "
         f"(datasets 1 and 2)",
+        f"ezamowienia    {cfg.ezam_hour:02d}:{cfg.ezam_minute:02d} UTC  "
+        f"(targeted defence queries, not a full scan)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
     ]
 

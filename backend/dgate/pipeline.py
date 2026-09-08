@@ -22,9 +22,9 @@ from typing import Iterable
 from . import db
 from .classify import classify, detects_subcontracting
 from .config import settings
-from .normalise import Opportunity, from_ted, strip_personal_data
+from .normalise import Opportunity, from_ezamowienia, from_ted, strip_personal_data
 from .rawstore import build_store, storage_key
-from .sources import placsp, ted
+from .sources import ezamowienia, placsp, ted
 
 log = logging.getLogger("pipeline")
 
@@ -93,6 +93,45 @@ def run_ted(days: int = 2) -> None:
                           status="failed", error=str(exc))
             raise
     log.info("ted done: %s fetched, %s new, %s changed", fetched, new, changed)
+
+
+def run_ezamowienia(days: int = 2) -> None:
+    """Daily incremental pull of the Polish bulletin.
+
+    Same ordering rule as every other source: land the raw record, normalise,
+    classify, archive. The connector already narrows to defence angles, so most
+    of what arrives here survives classification; the rest is dropped exactly as
+    it is for TED.
+    """
+    code = ezamowienia.SOURCE_CODE
+    with db.connect(settings().dsn) as conn:
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        fetched = new = changed = 0
+        try:
+            for record in ezamowienia.fetch_window(days_back=days):
+                fetched += 1
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                try:
+                    opp = from_ezamowienia(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed notice: %s", exc)
+                    continue
+                key = _store_raw(code, opp.native_id, clean)
+                db.record_raw(conn, src_id, opp.native_id, h, key)
+                opp = _finalise(conn, opp, src_id)
+                if not opp.is_defence:
+                    continue
+                _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
 
 
 def _ingest_placsp(opps: Iterable[Opportunity], label: str,
@@ -235,6 +274,9 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--pages", type=int, default=20)
     s.add_argument("--backfill", nargs=2, type=int, metavar=("START", "END"))
 
+    e = sub.add_parser("ezamowienia", help="ingest the Polish bulletin (BZP)")
+    e.add_argument("--days", type=int, default=2)
+
     sub.add_parser("seed-buyers", help="seed the defence buyer list")
 
     a = p.parse_args(argv)
@@ -245,6 +287,8 @@ def main(argv: list[str] | None = None) -> int:
             run_placsp_backfill(*a.backfill)
         else:
             run_placsp_live(max_pages=a.pages)
+    elif a.cmd == "ezamowienia":
+        run_ezamowienia(days=a.days)
     elif a.cmd == "seed-buyers":
         seed_buyers()
     return 0

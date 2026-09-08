@@ -20,6 +20,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ PERSONAL_DATA_FIELDS = {
     "first-name-ubo", "jury-member-name-lot",
     "organisation-contact-point", "organisation-email", "organisation-tel",
     "winner-contact-point", "winner-email", "winner-tel",
+    # e-Zamowienia (Poland). userId identifies the person who published the
+    # notice. Pseudonymous is still personal: it singles out an individual
+    # across every notice they ever filed.
+    "userId",
 }
 
 
@@ -198,17 +203,42 @@ def _parse_amount(value: Any) -> float | None:
         return None
 
 
+_CPV_CODE = re.compile(r"(?<!\d)(\d{8})(?:-\d)?(?!\d)")
+
+
 def _clean_cpv(value: Any) -> list[str]:
-    """Return 8-digit CPV codes, deduplicated, order preserved."""
+    """Return 8-digit CPV codes, deduplicated, order preserved.
+
+    Every code in every string, not just the first: Poland packs the whole set
+    into one field as `45453000-7 (label),45110000-1 (label)`, so stopping at
+    the first match silently discarded the rest.
+    """
     out, seen = [], set()
     for raw in _all_strings(value):
-        m = re.search(r"(\d{8})", raw)
-        if m:
-            code = m.group(1)
+        for code in _CPV_CODE.findall(raw):
             if code not in seen:
                 seen.add(code)
                 out.append(code)
     return out
+
+
+def parse_iso_datetime(value: Any, *, default_tz: tzinfo = timezone.utc) -> datetime | None:
+    """Parse a full ISO instant such as `2026-09-23T06:00:00Z`.
+
+    ``_parse_datetime`` takes a date and a separate time, which is TED's and
+    PLACSP's shape. A single combined stamp needs its own parser: feeding it to
+    the two-field one silently produced 23:59 for every deadline, because the
+    time regex is anchored at the start of the string.
+    """
+    raw = _first(value)
+    if not raw:
+        return None
+    text = str(raw).strip().replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=default_tz)
 
 
 _LANG3_TO_2 = {
@@ -405,3 +435,84 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     restricted access. Everything downstream of this call is clean.
     """
     return {k: v for k, v in notice.items() if k not in PERSONAL_DATA_FIELDS}
+
+
+# --------------------------------------------------- e-Zamowienia mapping
+
+_PL_TZ = "Europe/Warsaw"
+
+# Which BZP notice types carry the defence and security directive. Poland
+# transposes Directive 2009/81/EC in the PZP, and these notice types exist to
+# publish under it, so the classifier's legal-basis signal is the right home
+# for them: the CELEX reference is recorded, and the native type is kept in
+# procedure_type so nothing is lost in the translation.
+_PL_DEFENCE_NOTICE_TYPES = {
+    "PriorInformationNoticeForContractsInTheFieldOfDefenceAndSecurityEU",
+    "ContractNoticeForContractsInTheFieldOfDefenceAndSecurityEU",
+    "ContractAwardNoticeForContractsInTheFieldOfDefenceAndSecurityEU",
+}
+
+
+def _pl_cpv(raw: Any) -> list[str]:
+    """Pull codes out of `45453000-7 (Roboty...),45110000-1 (Roboty...)`.
+
+    The field is one string mixing codes, check digits and Polish labels, and
+    it repeats codes. `_clean_cpv` already deduplicates and takes eight digits.
+    """
+    return _clean_cpv(raw)
+
+
+def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
+    """Map one BZP board record onto the unified schema."""
+    g = record.get
+
+    # bzpNumber ("2026/BZP 00426594") identifies the procurement; noticeNumber
+    # appends a version ("/01"). Keying on the former is what lets a re-issued
+    # notice become a new version of the same opportunity rather than a
+    # duplicate row.
+    native_id = _first(g("bzpNumber")) or _first(g("noticeNumber")) or _first(g("objectId"))
+    if not native_id:
+        raise ValueError("notice has no identifier")
+
+    version = None
+    notice_number = str(_first(g("noticeNumber")) or "")
+    if "/" in notice_number:
+        tail = notice_number.rsplit("/", 1)[-1].strip()
+        if tail.isdigit():
+            version = int(tail)
+
+    notice_type = _first(g("noticeType"))
+    object_id = _first(g("objectId")) or _first(g("moIdentifier"))
+    url = (f"https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/{object_id}"
+           if object_id else None)
+
+    deadline = parse_iso_datetime(g("submittingOffersDate"), default_tz=ZoneInfo(_PL_TZ))
+
+    return Opportunity(
+        source_code="pl_ezam",
+        native_id=str(native_id),
+        buyer_name_raw=str(_first(g("organizationName")) or "").strip() or "UNKNOWN",
+        title_original=str(_first(g("orderObject")) or "").strip(),
+        country=_country2(g("organizationCountry")) or "PL",
+        original_language="PL",
+        procedure_type=notice_type,
+        legal_basis=("32009L0081" if notice_type in _PL_DEFENCE_NOTICE_TYPES else None),
+        # The board listing carries no contract value. It is on the notice
+        # document, which is a separate fetch, so the field stays honestly empty
+        # rather than being guessed at.
+        value_amount=None,
+        value_currency=None,
+        published_at=_parse_date(g("publicationDate")),
+        deadline_at=deadline,
+        cpv_codes=_pl_cpv(g("cpvCode")),
+        source_url=url,
+        notice_version=version,
+        status=_pl_status(notice_type),
+        status_native=notice_type,
+    )
+
+
+def _pl_status(notice_type: str | None) -> str:
+    from .sources.ezamowienia import map_status
+
+    return map_status(notice_type)

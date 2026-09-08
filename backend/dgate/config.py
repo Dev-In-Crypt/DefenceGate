@@ -56,6 +56,13 @@ def _env_int(name: str, default: int) -> int:
 _TED_FLOORS = {0: 0, 1: 30, 2: 60, 3: 60, 4: 60, 5: 60, 6: 30}   # Monday = 0
 _PLACSP_FLOORS = dict.fromkeys(range(7), 400)
 _PLACSP_AGG_FLOORS = dict.fromkeys(range(7), 50)
+# Poland. The connector runs targeted queries rather than scanning the bulletin,
+# so what it fetches is a fraction of the 2,200-odd notices a Polish weekday
+# carries. Measured over two-day windows: 384 across a Wednesday and Thursday,
+# 139 across a Saturday and Sunday. Unlike TED, the Polish bulletin does publish
+# at weekends, so one number serves every day; it is set below the weekend
+# figure so a quiet Monday window cannot raise a false alarm.
+_EZAM_FLOORS = dict.fromkeys(range(7), 50)
 
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
@@ -84,6 +91,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "ted": _weekday_floors("DGATE_FLOOR_TED", _TED_FLOORS),
         "es_placsp": _weekday_floors("DGATE_FLOOR_ES_PLACSP", _PLACSP_FLOORS),
         "es_placsp_agg": _weekday_floors("DGATE_FLOOR_ES_PLACSP_AGG", _PLACSP_AGG_FLOORS),
+        "pl_ezam": _weekday_floors("DGATE_FLOOR_PL_EZAM", _EZAM_FLOORS),
     }
 
 
@@ -123,6 +131,8 @@ class Settings:
     ted_minute: int = field(default_factory=lambda: _env_int("DGATE_TED_MINUTE", 15))
     placsp_hour: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_HOUR", 6))
     placsp_minute: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_MINUTE", 30))
+    ezam_hour: int = field(default_factory=lambda: _env_int("DGATE_EZAM_HOUR", 6))
+    ezam_minute: int = field(default_factory=lambda: _env_int("DGATE_EZAM_MINUTE", 45))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
 

@@ -94,10 +94,11 @@ def test_unreadable_ingest_run_table_degrades_rather_than_hides(captured, monkey
 
 def test_schedule_is_described_for_operators():
     lines = worker.describe_schedule()
+    assert any("ezamowienia" in line for line in lines)
     assert any("ted_daily" in line for line in lines)
     assert any("placsp_daily" in line for line in lines)
     assert any("health_report" in line for line in lines)
 
 
 def test_every_job_is_reachable_from_the_cli():
-    assert set(worker.JOBS) == {"ted", "placsp", "seed-buyers", "health"}
+    assert set(worker.JOBS) == {"ted", "ezamowienia", "placsp", "seed-buyers", "health"}

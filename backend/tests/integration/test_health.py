@@ -38,12 +38,22 @@ def test_never_run_source_is_not_reported_healthy(client, conn):
     """The empty database case: no failed runs, because there are no runs."""
     body = client.get("/v1/health").json()
     assert body["status"] == "degraded"
-    assert set(body["unhealthy_sources"]) >= {"ted", "es_placsp", "es_placsp_agg"}
+    assert set(body["unhealthy_sources"]) >= {"ted", "es_placsp", "es_placsp_agg", "pl_ezam"}
     assert all(s["status"] == "never_run" for s in body["sources"])
 
 
+def _active_sources(conn) -> list[str]:
+    """Read them from the database rather than hardcoding.
+
+    Adding a source used to break these tests, which is backwards: a new
+    connector must not require editing the health tests to stay green.
+    """
+    return [r["code"] for r in conn.execute(
+        "SELECT code FROM source WHERE active ORDER BY code").fetchall()]
+
+
 def test_all_sources_fresh_is_ok(client, conn):
-    for code in ("ted", "es_placsp", "es_placsp_agg"):
+    for code in _active_sources(conn):
         _mark_finished(conn, code)
     body = client.get("/v1/health").json()
     assert body["status"] == "ok", body["unhealthy_sources"]
@@ -52,9 +62,10 @@ def test_all_sources_fresh_is_ok(client, conn):
 
 def test_stale_success_is_degraded(client, conn):
     """Succeeding once, a week ago, is not health."""
-    _mark_finished(conn, "ted", age_hours=24 * 7)
-    for code in ("es_placsp", "es_placsp_agg"):
-        _mark_finished(conn, code)
+    # ted gets only the old run: the endpoint reads the most recent run per
+    # source, so a fresh one would simply hide the stale one.
+    for code in _active_sources(conn):
+        _mark_finished(conn, code, age_hours=24 * 7 if code == "ted" else 0)
     body = client.get("/v1/health").json()
     assert body["status"] == "degraded"
     assert body["unhealthy_sources"] == ["ted"]
@@ -63,7 +74,7 @@ def test_stale_success_is_degraded(client, conn):
 
 
 def test_partial_run_is_degraded(client, conn):
-    for code in ("es_placsp", "es_placsp_agg"):
+    for code in _active_sources(conn):
         _mark_finished(conn, code)
     run_id = db.start_run(conn, "ted", expected_min=100)
     db.finish_run(conn, run_id, fetched=2, new=0, changed=0)  # under floor
