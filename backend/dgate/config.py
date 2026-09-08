@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 
 def _env(name: str, default: str) -> str:
@@ -105,8 +106,20 @@ class Settings:
     test_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_TEST_DSN"))
 
     # --- raw payload storage --------------------------------------------
+    # `fs` keeps payloads on the same disk as everything else, which protects
+    # against a bad parser and nothing else. `s3` is what makes the store a
+    # separate failure domain from the database, which is the whole point.
     raw_backend: str = field(default_factory=lambda: _env("DGATE_RAW_BACKEND", "fs"))
     raw_dir: Path = field(default_factory=lambda: Path(_env("DGATE_RAW_DIR", "./raw")))
+    s3_bucket: str = field(default_factory=lambda: _env("DGATE_S3_BUCKET", "dgate-raw"))
+    # Empty means Amazon. Cloudflare R2 and MinIO need their own endpoint.
+    s3_endpoint: str | None = field(
+        default_factory=lambda: os.environ.get("DGATE_S3_ENDPOINT") or None)
+    s3_region: str = field(default_factory=lambda: _env("DGATE_S3_REGION", "auto"))
+    s3_access_key: str | None = field(
+        default_factory=lambda: os.environ.get("DGATE_S3_ACCESS_KEY") or None)
+    s3_secret_key: str | None = field(
+        default_factory=lambda: os.environ.get("DGATE_S3_SECRET_KEY") or None)
 
     # --- ingestion ------------------------------------------------------
     floors: dict[str, dict[int, int]] = field(default_factory=_default_floors)
@@ -138,6 +151,22 @@ class Settings:
     backup_keep_days: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
+
+
+    def s3_settings(self) -> dict[str, Any]:
+        """Client arguments, with empty values dropped rather than passed as None.
+
+        Credentials left unset fall through to the environment and instance
+        metadata, which is how a deployment should supply them: they belong in
+        the process, never in a file in this repository.
+        """
+        options: dict[str, Any] = {"region_name": self.s3_region}
+        if self.s3_endpoint:
+            options["endpoint_url"] = self.s3_endpoint
+        if self.s3_access_key and self.s3_secret_key:
+            options["aws_access_key_id"] = self.s3_access_key
+            options["aws_secret_access_key"] = self.s3_secret_key
+        return options
 
     def floor(self, source_code: str, when: date | None = None) -> int | None:
         """The minimum a healthy run should collect on the given day.

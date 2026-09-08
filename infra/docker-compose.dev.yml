@@ -31,11 +31,37 @@ services:
   worker:
     environment:
       DGATE_DSN: postgresql://dgate:dgate@postgres:5432/dgate
+      DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-s3}
+      DGATE_S3_ENDPOINT: http://minio:9000
+      DGATE_S3_BUCKET: ${DGATE_S3_BUCKET:-dgate-raw}
+      DGATE_S3_ACCESS_KEY: ${DGATE_S3_ACCESS_KEY:-dgatedev}
+      DGATE_S3_SECRET_KEY: ${DGATE_S3_SECRET_KEY:-dgatedevsecret}
     volumes:
       - ../backend/dgate:/app/dgate:ro
 
   caddy:
     profiles: ["proxy"]   # not needed in development; the API is published directly
+
+  # S3-compatible object storage for development, so the s3 backend is exercised
+  # locally rather than first meeting reality in production. Production points
+  # at Cloudflare R2 or Amazon instead; only the endpoint and credentials change.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${DGATE_S3_ACCESS_KEY:-dgatedev}
+      MINIO_ROOT_PASSWORD: ${DGATE_S3_SECRET_KEY:-dgatedevsecret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"   # web console
+    volumes:
+      - minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   mailpit:
     image: axllent/mailpit:latest
@@ -43,3 +69,6 @@ services:
     ports:
       - "8025:8025"   # web interface
       - "1025:1025"   # SMTP
+
+volumes:
+  minio:

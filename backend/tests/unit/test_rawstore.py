@@ -57,3 +57,85 @@ def test_build_store_follows_configuration(tmp_path, monkeypatch):
 def test_unknown_backend_fails_loudly():
     with pytest.raises(ValueError):
         build_store("carrier-pigeon")
+
+
+# ------------------------------------------------ backend selection
+
+def test_the_s3_backend_is_built_from_configuration(monkeypatch):
+    from dgate.rawstore import S3RawStore
+
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "s3")
+    monkeypatch.setenv("DGATE_S3_BUCKET", "somewhere")
+    monkeypatch.setenv("DGATE_S3_ENDPOINT", "https://example.test")
+    monkeypatch.setenv("DGATE_S3_ACCESS_KEY", "key")
+    monkeypatch.setenv("DGATE_S3_SECRET_KEY", "secret")
+    config.reset_cache()
+    try:
+        store = build_store()
+        assert isinstance(store, S3RawStore)
+        assert store.bucket == "somewhere"
+        assert store._client_kwargs["endpoint_url"] == "https://example.test"
+    finally:
+        config.reset_cache()
+
+
+def test_credentials_left_empty_are_not_passed_as_none(monkeypatch):
+    """Unset credentials must fall through to the instance role, not override
+    it with None, which is how a deployment supplies them without a file."""
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "s3")
+    monkeypatch.delenv("DGATE_S3_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("DGATE_S3_SECRET_KEY", raising=False)
+    monkeypatch.delenv("DGATE_S3_ENDPOINT", raising=False)
+    config.reset_cache()
+    try:
+        options = config.settings().s3_settings()
+        assert "aws_access_key_id" not in options
+        assert "endpoint_url" not in options
+        assert options["region_name"] == "auto"
+    finally:
+        config.reset_cache()
+
+
+def test_deleting_is_available_for_probes_only(tmp_path):
+    """The check writes a probe and must be able to remove it. Ingested
+    payloads are never deleted; that is why this is the only caller."""
+    store = FileRawStore(tmp_path)
+    key = storage_key("ted", "probe", date(2026, 9, 8))
+    store.put(key, {"probe": True})
+    assert store.delete(key) is True
+    assert store.delete(key) is False, "deleting what is not there is not an error"
+    assert not store.exists(key)
+
+
+def test_the_check_writes_reads_and_cleans_up(tmp_path, monkeypatch):
+    from dgate.ops.rawstore_cli import check, count
+
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "fs")
+    monkeypatch.setenv("DGATE_RAW_DIR", str(tmp_path))
+    config.reset_cache()
+    try:
+        message = check()
+        assert "wrote, read and deleted" in message
+        assert count() == {}, "the probe must not be left behind"
+    finally:
+        config.reset_cache()
+
+
+def test_copying_between_stores_skips_what_is_already_there(tmp_path, monkeypatch):
+    from dgate.ops.rawstore_cli import copy_from
+
+    origin = tmp_path / "origin"
+    target = tmp_path / "target"
+    source_store = FileRawStore(origin)
+    for i in range(3):
+        source_store.put(storage_key("ted", f"n{i}", date(2026, 9, 8)), {"i": i})
+
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "fs")
+    monkeypatch.setenv("DGATE_RAW_DIR", str(target))
+    config.reset_cache()
+    try:
+        assert copy_from(origin) == 3
+        assert copy_from(origin) == 0, "a second copy must move nothing"
+        assert len(list(FileRawStore(target).list())) == 3
+    finally:
+        config.reset_cache()

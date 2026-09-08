@@ -60,6 +60,14 @@ class RawStore(ABC):
         ...
 
     @abstractmethod
+    def delete(self, key: str) -> bool:
+        """Remove one object. Only ever used for probe objects.
+
+        Ingested payloads are never deleted: the store is the archive's
+        insurance, and an insurance policy with a delete path is a liability.
+        """
+
+    @abstractmethod
     def list(self, prefix: str = "") -> Iterator[str]:
         """Every key under a prefix, oldest first.
 
@@ -108,6 +116,13 @@ class FileRawStore(RawStore):
     def exists(self, key: str) -> bool:
         return self._path(key).is_file()
 
+    def delete(self, key: str) -> bool:
+        path = self._path(key)
+        if not path.is_file():
+            return False
+        path.unlink()
+        return True
+
     def list(self, prefix: str = "") -> Iterator[str]:
         root = self.root.resolve()
         base = (root / prefix).resolve() if prefix else root
@@ -133,6 +148,23 @@ class S3RawStore(RawStore):
             self._client = boto3.client("s3", **self._client_kwargs)
         return self._client
 
+    def ensure_bucket(self) -> bool:
+        """Create the bucket if it is absent. Explicit, never on a write path.
+
+        A store that creates its own bucket on first use will happily write a
+        year of payloads into a typo, and nobody notices until the day the
+        archive is needed.
+        """
+        from botocore.exceptions import ClientError
+
+        try:
+            self.client.head_bucket(Bucket=self.bucket)
+            return False
+        except ClientError:
+            self.client.create_bucket(Bucket=self.bucket)
+            log.info("created bucket %s", self.bucket)
+            return True
+
     def put(self, key: str, payload: Any, content_type: str = "application/json") -> str:
         self.client.put_object(Bucket=self.bucket, Key=key,
                                Body=self.serialise(payload), ContentType=content_type)
@@ -147,6 +179,15 @@ class S3RawStore(RawStore):
 
         try:
             self.client.head_object(Bucket=self.bucket, Key=key)
+            return True
+        except ClientError:
+            return False
+
+    def delete(self, key: str) -> bool:
+        from botocore.exceptions import ClientError
+
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=key)
             return True
         except ClientError:
             return False
@@ -167,12 +208,5 @@ def build_store(backend: str | None = None) -> RawStore:
     if backend == "fs":
         return FileRawStore(cfg.raw_dir)
     if backend == "s3":
-        import os
-
-        return S3RawStore(
-            bucket=os.environ.get("DGATE_S3_BUCKET", "dgate-raw"),
-            endpoint_url=os.environ.get("DGATE_S3_ENDPOINT") or None,
-            aws_access_key_id=os.environ.get("DGATE_S3_ACCESS_KEY") or None,
-            aws_secret_access_key=os.environ.get("DGATE_S3_SECRET_KEY") or None,
-        )
+        return S3RawStore(bucket=cfg.s3_bucket, **cfg.s3_settings())
     raise ValueError(f"unknown raw storage backend: {backend!r}")
