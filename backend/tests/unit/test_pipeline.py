@@ -356,3 +356,18 @@ def test_defence_buyer_buying_anything_still_surfaces():
     """A ministry procuring cooking kettles under 2009/81 is a real opening."""
     sig = classify(legal_basis="32009L0081", cpv_codes=["39721100"], buyer_is_defence=False)
     assert sig.is_defence
+
+
+def test_flags_are_not_military():
+    """Found live: a village school buying teaching aids, one code of which was
+    35821000. Group 358 is individual and support equipment; flags are in it."""
+    sig = classify(legal_basis=None,
+                   cpv_codes=["44411000", "39162100", "35821000", "34911100"],
+                   buyer_is_defence=False)
+    assert not sig.is_defence
+
+
+def test_a_military_unit_buying_flags_still_surfaces():
+    """The buyer signal is what should catch this, not the code."""
+    sig = classify(legal_basis=None, cpv_codes=["35821000"], buyer_is_defence=True)
+    assert sig.is_defence

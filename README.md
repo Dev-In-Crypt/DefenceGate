@@ -23,7 +23,7 @@ uv venv .venv
 uv pip install --python .venv/Scripts/python.exe -e "backend[dev]"
 
 docker run -d --name dgate-db -e POSTGRES_USER=dgate -e POSTGRES_PASSWORD=dgate \
-  -e POSTGRES_DB=dgate -p 15432:5432 postgres:16
+  -e POSTGRES_DB=dgate -p 15432:5432 postgres:17
 
 export DGATE_DSN="postgresql://dgate:dgate@localhost:15432/dgate"
 cd backend

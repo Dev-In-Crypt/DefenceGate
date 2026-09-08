@@ -134,6 +134,9 @@ class Settings:
     ezam_hour: int = field(default_factory=lambda: _env_int("DGATE_EZAM_HOUR", 6))
     ezam_minute: int = field(default_factory=lambda: _env_int("DGATE_EZAM_MINUTE", 45))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
+    backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
+    backup_keep_days: int = field(
+        default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
 
     def floor(self, source_code: str, when: date | None = None) -> int | None:

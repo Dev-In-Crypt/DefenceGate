@@ -13,7 +13,10 @@ name: dgate
 
 services:
   postgres:
-    image: postgres:16
+    # Kept in step with the client tools in the backend image: pg_dump 17 emits
+    # SET transaction_timeout, which a 16 server rejects on restore, so a
+    # mismatched pair produces backups that cannot be restored.
+    image: postgres:17
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dgate}
@@ -61,12 +64,15 @@ services:
       DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
       DGATE_RAW_DIR: /raw
+      DGATE_BACKUP_DIR: /backups
+      DGATE_BACKUP_KEEP_DAYS: ${DGATE_BACKUP_KEEP_DAYS:-30}
       # Alerting. Unset means log-only; see dgate/ops/notify.py.
       DGATE_HEALTHCHECKS_BASE: ${DGATE_HEALTHCHECKS_BASE:-}
       DGATE_TELEGRAM_TOKEN: ${DGATE_TELEGRAM_TOKEN:-}
       DGATE_TELEGRAM_CHAT_ID: ${DGATE_TELEGRAM_CHAT_ID:-}
     volumes:
       - raw:/raw
+      - backups:/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,5 +98,6 @@ services:
 volumes:
   pgdata:
   raw:
+  backups:
   caddydata:
   caddyconfig:

@@ -37,13 +37,15 @@ CPV_CIVIL_GROUPS = {
     "352",  # Police equipment
 }
 
-# Exceptions inside the otherwise military groups. Class 3581 is uniforms, and
-# only 35811300 of it is military: the other two dress fire brigades and police.
-# Found on live TED, where a fire-brigade uniform framework was reaching the
-# defence feed on the strength of its group alone.
+# Exceptions inside the otherwise military groups. Group 358 is individual and
+# support equipment, and not all of it is military: class 3581 is uniforms, of
+# which only 35811300 is military, and 35821000 is flags. Both were found in
+# live feeds, the uniforms on TED and the flags on a Polish village school
+# buying teaching aids, which the group alone put in a defence feed.
 CPV_CIVIL_EXCEPTIONS = {
     "35811100",   # fire-brigade uniforms
     "35811200",   # police uniforms
+    "35821000",   # flags
 }
 
 # Divisions outside 35 that carry dual-use work. Never sufficient alone.

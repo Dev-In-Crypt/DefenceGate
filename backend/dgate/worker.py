@@ -127,6 +127,42 @@ def job_seed_buyers() -> JobResult:
     return run_job("seed_buyers", seed_buyers)
 
 
+def job_backup() -> JobResult:
+    """Nightly dump, pruned to the retention window.
+
+    A dump is not the primary safety net; the raw payload store is, because the
+    database is derived from it. What a dump adds is speed, and the observation
+    timeline, which a replay cannot reconstruct: it can rebuild what a notice
+    said, never when we first saw it say so.
+    """
+    def _run() -> None:
+        from .ops.backup import create, prune
+
+        result = create()
+        removed = prune(settings().backup_keep_days)
+        log.info("backup %s (%.1f MB), pruned %s old dumps",
+                 result.path.name, result.megabytes, len(removed))
+
+    return run_job("backup_nightly", _run)
+
+
+def job_backup_verify() -> JobResult:
+    """Restore the newest dump into a scratch database and count what arrived.
+
+    An unverified backup is a belief. This is the job that turns it into a fact,
+    and it is the one whose failure should worry an operator most.
+    """
+    def _run() -> None:
+        from .ops.backup import verify
+
+        counts = verify()
+        if not counts.get("opportunity_version"):
+            raise RuntimeError(f"restored database has no archive rows: {counts}")
+        log.info("backup verified: %s", counts)
+
+    return run_job("backup_verify", _run)
+
+
 def job_health_report() -> JobResult:
     """Daily coverage summary. Reports degradation even when nothing crashed."""
     def _report() -> None:
@@ -155,6 +191,8 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
+    "backup": job_backup,
+    "backup-verify": job_backup_verify,
 }
 
 
@@ -174,6 +212,10 @@ def build_scheduler():
                   id="ezamowienia_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
+                  id="backup_nightly", max_instances=1, misfire_grace_time=7200)
+    sched.add_job(job_backup_verify, CronTrigger(day_of_week="sun", hour=cfg.backup_hour, minute=30),
+                  id="backup_verify", max_instances=1, misfire_grace_time=7200)
     return sched
 
 
@@ -187,6 +229,10 @@ def describe_schedule() -> list[str]:
         f"ezamowienia    {cfg.ezam_hour:02d}:{cfg.ezam_minute:02d} UTC  "
         f"(targeted defence queries, not a full scan)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
+        f"backup_nightly {cfg.backup_hour:02d}:00 UTC  "
+        f"(keep {cfg.backup_keep_days} days)",
+        f"backup_verify  Sun {cfg.backup_hour:02d}:30 UTC  "
+        f"(restore into a scratch database and count)",
     ]
 
 

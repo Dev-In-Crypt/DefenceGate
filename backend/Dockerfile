@@ -15,6 +15,10 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# postgresql-client is here for one reason: the worker takes the nightly dump,
+# and a backup tool that lives on somebody's laptop is not a backup tool.
+RUN apt-get update  && apt-get install -y --no-install-recommends postgresql-client  && rm -rf /var/lib/apt/lists/*
+
 # Non-root. The container reads public data and writes to a mounted volume; it
 # has no business running as root.
 RUN useradd --create-home --uid 10001 dgate
@@ -23,6 +27,12 @@ COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=dgate:dgate dgate ./dgate
 COPY --chown=dgate:dgate migrations ./migrations
+
+# Create the mount points in the image and give them to the non-root user.
+# A named volume inherits the ownership of the image path it covers; without
+# this the first write fails with EACCES, which is a fine thing to discover
+# now and a terrible thing to discover on the first night of ingestion.
+RUN mkdir -p /raw /backups && chown dgate:dgate /raw /backups
 
 USER dgate
 

@@ -23,7 +23,7 @@ import re
 from abc import ABC, abstractmethod
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from .config import settings
 
@@ -58,6 +58,17 @@ class RawStore(ABC):
     @abstractmethod
     def exists(self, key: str) -> bool:
         ...
+
+    @abstractmethod
+    def list(self, prefix: str = "") -> Iterator[str]:
+        """Every key under a prefix, oldest first.
+
+        This is what makes the store an insurance policy rather than a cache.
+        `raw_ingest` indexes these keys, but that table lives in the database:
+        if the database is lost, the index goes with it. Enumerating the store
+        itself is the only path that survives losing everything except the
+        payloads, which is exactly the disaster this exists for.
+        """
 
     @staticmethod
     def serialise(payload: Any) -> bytes:
@@ -97,6 +108,14 @@ class FileRawStore(RawStore):
     def exists(self, key: str) -> bool:
         return self._path(key).is_file()
 
+    def list(self, prefix: str = "") -> Iterator[str]:
+        root = self.root.resolve()
+        base = (root / prefix).resolve() if prefix else root
+        if not base.exists():
+            return
+        for path in sorted(base.rglob("*.json")):
+            yield path.resolve().relative_to(root).as_posix()
+
 
 class S3RawStore(RawStore):
     """S3-compatible object storage (Cloudflare R2 in production)."""
@@ -131,6 +150,14 @@ class S3RawStore(RawStore):
             return True
         except ClientError:
             return False
+
+    def list(self, prefix: str = "") -> Iterator[str]:
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith(".json"):
+                    yield key
 
 
 def build_store(backend: str | None = None) -> RawStore:

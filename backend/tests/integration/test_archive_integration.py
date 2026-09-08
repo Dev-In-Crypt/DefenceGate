@@ -290,3 +290,65 @@ def test_a_source_with_no_measured_floor_is_not_judged(conn):
     db.finish_run(conn, run_id, fetched=1, new=1, changed=0)
     row = conn.execute("SELECT status FROM ingest_run WHERE id=%s", (run_id,)).fetchone()
     assert row["status"] == "success"
+
+
+# ------------------------------------------- rebuild after losing everything
+
+def test_the_archive_can_be_rebuilt_from_raw_storage_alone(seeded, tmp_path, monkeypatch):
+    """The guarantee the raw store exists for.
+
+    `raw_ingest` indexes the payloads, but it is a table inside the database.
+    When the database is gone, the index goes with it, so the rebuild has to
+    enumerate the object store itself.
+    """
+    from dgate import config, reprocess
+    from dgate.rawstore import FileRawStore, storage_key
+
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "fs")
+    monkeypatch.setenv("DGATE_RAW_DIR", str(tmp_path))
+    config.reset_cache()
+    try:
+        store = FileRawStore(tmp_path)
+        clean = strip_personal_data(NOTICE)
+        store.put(storage_key("ted", "00512345-2026"), clean)
+
+        oid, action = ingest(seeded, NOTICE)
+        assert action == "new"
+        before = seeded.execute(
+            "SELECT native_id, value_amount FROM opportunity ORDER BY native_id").fetchall()
+
+        # The disaster: serving layer and index both gone.
+        seeded.execute("""TRUNCATE opportunity_version, opportunity_capability,
+                          opportunity, raw_ingest RESTART IDENTITY CASCADE""")
+        seeded.commit()
+        assert seeded.execute("SELECT count(*) n FROM opportunity").fetchone()["n"] == 0
+
+        result = reprocess.reprocess(from_store=True)
+        assert result.failed == 0 and result.rebuilt == 1
+
+        after = seeded.execute(
+            "SELECT native_id, value_amount FROM opportunity ORDER BY native_id").fetchall()
+        assert [dict(r) for r in after] == [dict(r) for r in before]
+    finally:
+        config.reset_cache()
+
+
+def test_replaying_twice_writes_no_second_version(seeded, tmp_path, monkeypatch):
+    """Replay is idempotent: the content hash decides, so a replay of a day
+    already in the database must not inflate the archive with duplicates."""
+    from dgate import config, reprocess
+    from dgate.rawstore import FileRawStore, storage_key
+
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "fs")
+    monkeypatch.setenv("DGATE_RAW_DIR", str(tmp_path))
+    config.reset_cache()
+    try:
+        FileRawStore(tmp_path).put(storage_key("ted", "00512345-2026"),
+                                   strip_personal_data(NOTICE))
+        reprocess.reprocess(from_store=True)
+        first = reprocess.reprocess(from_store=True)
+        assert first.rebuilt == 0 and first.unchanged == 1
+        versions = seeded.execute("SELECT count(*) n FROM opportunity_version").fetchone()["n"]
+        assert versions == 1
+    finally:
+        config.reset_cache()

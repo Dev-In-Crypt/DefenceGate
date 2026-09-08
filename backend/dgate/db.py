@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from datetime import date, datetime
 from typing import Any, Iterator
 
@@ -47,6 +47,40 @@ def _jsonable(value: Any) -> Any:
 
 def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     return {k: _jsonable(v) for k, v in asdict(opp).items()}
+
+
+# Fields that come back out of a payload as strings and have to become dates
+# and datetimes again. Everything else round-trips as itself.
+_DATE_FIELDS = {"published_at"}
+_DATETIME_FIELDS = {"deadline_at"}
+
+
+def opportunity_from_payload(payload: dict[str, Any]) -> Opportunity:
+    """The inverse of ``opportunity_payload``.
+
+    Sources whose connectors parse during fetching, PLACSP among them, land the
+    normalised record rather than the source document. Rebuilding the database
+    from raw storage therefore has to read that shape back, and it has to
+    tolerate an old payload written before a field existed: an archive is only
+    replayable if yesterday's payload still loads into today's code.
+    """
+    known = {f.name for f in fields(Opportunity)}
+    values: dict[str, Any] = {}
+    for key, value in payload.items():
+        if key not in known:
+            continue        # a field this version no longer has
+        if value is None:
+            values[key] = None
+        elif key in _DATE_FIELDS and isinstance(value, str):
+            values[key] = date.fromisoformat(value[:10])
+        elif key in _DATETIME_FIELDS and isinstance(value, str):
+            values[key] = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        else:
+            values[key] = value
+    missing = {"source_code", "native_id", "buyer_name_raw", "title_original"} - values.keys()
+    if missing:
+        raise ValueError(f"payload is missing required fields: {sorted(missing)}")
+    return Opportunity(**values)
 
 
 @contextmanager
