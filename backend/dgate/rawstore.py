@@ -139,7 +139,7 @@ class FileRawStore(RawStore):
         self.root = Path(os.path.abspath(root))
 
     def _path(self, key: str) -> Path:
-        """Full path for a key, refusing any key that would escape the root.
+        r"""Full path for a key, refusing any key that would escape the root.
 
         The containment check is textual on purpose. `Path.resolve()` asks the
         filesystem, and on Windows it answers differently depending on whether

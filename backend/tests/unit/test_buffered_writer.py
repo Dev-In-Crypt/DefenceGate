@@ -110,7 +110,7 @@ def test_a_single_worker_writes_straight_through(tmp_path):
 
 
 def test_the_first_write_into_a_new_directory_is_accepted(tmp_path):
-    """A key whose parent does not exist yet must still be accepted.
+    r"""A key whose parent does not exist yet must still be accepted.
 
     On Windows `Path.resolve()` returns the extended-length `\\?\C:\...` form
     for a path that does not exist and the plain form for one that does, so a

@@ -44,7 +44,12 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B"]
+# "W" is here for W605, invalid escape sequence. A docstring describing a
+# Windows path wrote \?\C: outside a raw string; Python reports that only as a
+# DeprecationWarning buried in pytest output, so the gate stayed green and the
+# daily audit is what noticed. Today it was a docstring. The same mistake in a
+# regex is a silently wrong pattern.
+select = ["E", "F", "I", "B", "W"]
 ignore = ["E501"]
 
 [tool.ruff.lint.flake8-bugbear]
