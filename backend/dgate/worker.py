@@ -107,19 +107,24 @@ def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -
 
 # ----------------------------------------------------------------- jobs
 
-def job_ted() -> JobResult:
-    return run_job("ted_daily", lambda: run_ted(days=settings().ingest_days),
-                   sources=["ted"])
+def job_ted(days: int | None = None) -> JobResult:
+    window = days or settings().ingest_days
+    return run_job("ted_daily", lambda: run_ted(days=window), sources=["ted"])
 
 
-def job_placsp() -> JobResult:
-    return run_job("placsp_daily", run_placsp_live,
+def job_placsp(days: int | None = None) -> JobResult:
+    # PLACSP has no date window: the feed is a chain walked backwards, so a
+    # wider catch-up means walking further back rather than asking for more days.
+    pages = settings().placsp_pages
+    if days:
+        pages = min(pages * days, settings().placsp_max_pages)
+    return run_job("placsp_daily", lambda: run_placsp_live(max_pages=pages),
                    sources=["es_placsp", "es_placsp_agg"])
 
 
-def job_ezamowienia() -> JobResult:
-    return run_job("ezamowienia_daily",
-                   lambda: run_ezamowienia(days=settings().ingest_days),
+def job_ezamowienia(days: int | None = None) -> JobResult:
+    window = days or settings().ingest_days
+    return run_job("ezamowienia_daily", lambda: run_ezamowienia(days=window),
                    sources=[ezam_source()])
 
 
@@ -185,6 +190,98 @@ def ezam_source() -> str:
     return SOURCE_CODE
 
 
+# --------------------------------------------------------------- catch-up
+
+def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
+    """Each daily ingest job with the sources it feeds, so a gap can be measured."""
+    return {
+        "ted_daily": (job_ted, ("ted",)),
+        "placsp_daily": (job_placsp, ("es_placsp", "es_placsp_agg")),
+        "ezamowienia_daily": (job_ezamowienia, (ezam_source(),)),
+    }
+
+
+def hours_since_last_success(codes: Sequence[str]) -> float | None:
+    """Age of the most recent successful run across these sources.
+
+    None means no source here has ever succeeded, which is its own kind of gap
+    and is treated as one.
+    """
+    with db.connect(settings().dsn) as conn:
+        row = conn.execute(
+            """SELECT max(r.finished_at) AS t
+                 FROM ingest_run r JOIN source s ON s.id = r.source_id
+                WHERE s.code = ANY(%s) AND r.status = 'success'""",
+            (list(codes),),
+        ).fetchone()
+    finished = row["t"] if row else None
+    if finished is None:
+        return None
+    return (datetime.now(timezone.utc) - finished).total_seconds() / 3600
+
+
+def close_interrupted_runs() -> list[int]:
+    """Fail any ingest_run left `running` by a process that was killed.
+
+    Safe only at start-up, where "still running" can only mean "was killed",
+    because this process has not opened a run yet. Left alone such a row makes
+    its source look permanently degraded: coverage is read from the latest run
+    per source, so every later alert for it becomes noise.
+    """
+    try:
+        with db.connect(settings().dsn) as conn:
+            return db.close_interrupted_runs(conn)
+    except Exception as exc:  # noqa: BLE001 - a start-up tidy must not block start-up
+        log.warning("could not close interrupted runs: %s", exc)
+        return []
+
+
+def catch_up() -> list[JobResult]:
+    """Run any daily job whose sources have gone stale, before scheduling starts.
+
+    A cron entry only fires while the process is alive. On a machine that is
+    switched off overnight the missed slot is simply lost, and a day of the
+    archive cannot be collected twice. So on every start the worker asks how
+    long it has been since each source last succeeded, and covers the gap with
+    a window wide enough to reach back over it.
+
+    Deliberately not unbounded: a month-long gap is a decision for a person,
+    not something to pull silently at start-up, so the window stops at
+    `catch_up_max_days` and the shortfall stays visible in the log.
+    """
+    cfg = settings()
+    if not cfg.catch_up_on_start:
+        return []
+
+    results: list[JobResult] = []
+    for name, (job, codes) in daily_jobs().items():
+        try:
+            age = hours_since_last_success(codes)
+        except Exception as exc:  # noqa: BLE001 - a start-up check must not block start-up
+            log.warning("catch-up: cannot read ingest_run for %s: %s", name, exc)
+            continue
+        if age is not None and age < cfg.catch_up_after_hours:
+            log.info("catch-up: %s succeeded %.0fh ago, nothing to cover", name, age)
+            continue
+        gap_days = cfg.ingest_days if age is None else int(age // 24) + 1
+        window = min(max(gap_days, cfg.ingest_days), cfg.catch_up_max_days)
+        log.warning("catch-up: %s last succeeded %s, running now over %s days",
+                    name, "never" if age is None else f"{age:.0f}h ago", window)
+        results.append(job(days=window))
+    return results
+
+
+def job_catch_up() -> JobResult:
+    """The catch-up as a single job, for `--once catch-up`."""
+    close_interrupted_runs()
+    results = catch_up()
+    if not results:
+        return JobResult("catch_up", "success", 0.0, "nothing was stale")
+    worst = min(results, key=lambda r: ("failed", "partial", "success").index(r.status))
+    detail = "; ".join(f"{r.name}={r.status}" for r in results)
+    return JobResult("catch_up", worst.status, sum(r.seconds for r in results), detail)
+
+
 JOBS: dict[str, Callable[[], JobResult]] = {
     "ted": job_ted,
     "ezamowienia": job_ezamowienia,
@@ -193,6 +290,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "health": job_health_report,
     "backup": job_backup,
     "backup-verify": job_backup_verify,
+    "catch-up": job_catch_up,
 }
 
 
@@ -259,6 +357,12 @@ def main(argv: list[str] | None = None) -> int:
     log.info("worker starting at %s UTC", datetime.now(timezone.utc).isoformat(timespec="seconds"))
     for line in describe_schedule():
         log.info("scheduled: %s", line)
+    # Before the scheduler blocks: tidy up after whatever killed the last
+    # process, then cover whatever was missed while it was not running. A cron
+    # entry cannot catch up on its own.
+    close_interrupted_runs()
+    for result in catch_up():
+        log.info("catch-up %s: %s %s", result.name, result.status, result.detail)
     build_scheduler().start()
     return 0
 

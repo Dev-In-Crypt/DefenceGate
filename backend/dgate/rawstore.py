@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from abc import ABC, abstractmethod
 from datetime import date
@@ -94,12 +95,29 @@ class FileRawStore(RawStore):
     """Local filesystem. Development, and a fallback if object storage is down."""
 
     def __init__(self, root: Path | str) -> None:
-        self.root = Path(root)
+        # Resolved once. Resolving per call was both a syscall per write and a
+        # correctness bug: see _path.
+        self.root = Path(os.path.abspath(root))
 
     def _path(self, key: str) -> Path:
-        path = (self.root / key).resolve()
-        root = self.root.resolve()
-        if root not in path.parents and path != root:
+        """Full path for a key, refusing any key that would escape the root.
+
+        The containment check is textual on purpose. `Path.resolve()` asks the
+        filesystem, and on Windows it answers differently depending on whether
+        the path exists yet: a key under a directory not yet created comes back
+        in the extended-length `\?\C:\...` form while the existing root comes
+        back as plain `C:\...`, so the comparison fails and a perfectly good key
+        is rejected. Every date directory is new once, which made this the first
+        write of each day, and concurrent writers creating that directory made
+        it intermittent on top.
+
+        normpath collapses `..` without consulting the filesystem, which is
+        exactly what this guards against -- a malformed native_id reaching
+        storage_key -- and it gives the same answer on every thread and in
+        every state of the disk.
+        """
+        path = Path(os.path.normpath(self.root / key))
+        if path != self.root and self.root not in path.parents:
             raise ValueError(f"key escapes the store root: {key}")
         return path
 
@@ -210,3 +228,94 @@ def build_store(backend: str | None = None) -> RawStore:
     if backend == "s3":
         return S3RawStore(bucket=cfg.s3_bucket, **cfg.s3_settings())
     raise ValueError(f"unknown raw storage backend: {backend!r}")
+
+
+class BufferedWriter:
+    """Write raw payloads concurrently, and know when they have all landed.
+
+    A raw payload is one small HTTPS round trip to object storage. Measured
+    against Cloudflare R2 from this deployment: 530 ms each, which caps
+    ingestion at under two records a second. PLACSP alone publishes tens of
+    thousands of notices a day, so a sequential daily run could not finish
+    inside a day, and it never once did. Sixteen concurrent writers measured
+    23.5 a second on the same link -- the latency is round trips, not
+    bandwidth, so overlapping them is the entire fix.
+
+    The ordering rule survives, at batch granularity rather than per record:
+    `drain()` blocks until every outstanding payload is stored and re-raises
+    the first failure, and the pipeline drains before it commits. So a
+    committed `raw_ingest` row always has its object in the store.
+
+    The other direction is deliberately left open. If the process dies between
+    a write and its commit, the store holds objects the index does not list --
+    which is harmless, because the store is the source of truth and
+    `reprocess --from-store` reads the bucket rather than the index. The
+    reverse, an index pointing at objects that were never written, is the one
+    that would quietly break replay, and draining before commit is what rules
+    it out.
+    """
+
+    def __init__(self, store: RawStore, workers: int = 16) -> None:
+        self._store = store
+        self._workers = max(1, workers)
+        self._pool: Any = None
+        self._pending: list[Any] = []
+
+    def _ensure_pool(self) -> Any:
+        if self._pool is None:
+            from concurrent.futures import ThreadPoolExecutor
+
+            self._pool = ThreadPoolExecutor(max_workers=self._workers,
+                                            thread_name_prefix="rawstore")
+        return self._pool
+
+    def put(self, key: str, payload: Any,
+            content_type: str = "application/json") -> str:
+        """Queue a payload and return its key at once.
+
+        The key is known before the write completes, so the caller can record
+        it immediately; what the caller must not do is commit that record
+        before `drain()` has returned.
+        """
+        if self._workers == 1:
+            return self._store.put(key, payload, content_type)
+        # Serialise on this thread: the payload may be mutated after this
+        # returns, and a writer thread reading it later would store whatever
+        # it had become rather than what was fetched.
+        body = self._store.serialise(payload)
+        self._pending.append(
+            self._ensure_pool().submit(self._store.put, key, body, content_type))
+        return key
+
+    def drain(self) -> int:
+        """Block until every queued write has landed. Re-raise the first failure."""
+        pending, self._pending = self._pending, []
+        error: BaseException | None = None
+        for future in pending:
+            try:
+                future.result()
+            except BaseException as exc:  # noqa: BLE001 - reported after all settle
+                error = error or exc
+        if error is not None:
+            raise error
+        return len(pending)
+
+    def close(self) -> None:
+        try:
+            self.drain()
+        finally:
+            if self._pool is not None:
+                self._pool.shutdown(wait=True)
+                self._pool = None
+
+    def __enter__(self) -> "BufferedWriter":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if exc_type is None:
+            self.close()
+        else:
+            # The run is already failing; do not mask its exception with ours.
+            if self._pool is not None:
+                self._pool.shutdown(wait=False)
+                self._pool = None

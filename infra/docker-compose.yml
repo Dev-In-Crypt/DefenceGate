@@ -64,8 +64,22 @@ services:
       DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
       DGATE_RAW_DIR: /raw
+      # The raw store is the thing the archive can be rebuilt from, so the
+      # worker is the one process that must never be without credentials for
+      # it. Left unset here it would fall back to the container's own disk and
+      # keep reporting success, which is the failure that hides itself.
+      DGATE_S3_ENDPOINT: ${DGATE_S3_ENDPOINT:-}
+      DGATE_S3_BUCKET: ${DGATE_S3_BUCKET:-dgate-raw}
+      DGATE_S3_REGION: ${DGATE_S3_REGION:-auto}
+      DGATE_S3_ACCESS_KEY: ${DGATE_S3_ACCESS_KEY:-}
+      DGATE_S3_SECRET_KEY: ${DGATE_S3_SECRET_KEY:-}
       DGATE_BACKUP_DIR: /backups
       DGATE_BACKUP_KEEP_DAYS: ${DGATE_BACKUP_KEEP_DAYS:-30}
+      # Cover whatever was missed while this container was down. See
+      # docs/RUNBOOK.md, "Missed days".
+      DGATE_CATCH_UP: ${DGATE_CATCH_UP:-1}
+      DGATE_CATCH_UP_AFTER_HOURS: ${DGATE_CATCH_UP_AFTER_HOURS:-20}
+      DGATE_CATCH_UP_MAX_DAYS: ${DGATE_CATCH_UP_MAX_DAYS:-7}
       # Alerting. Unset means log-only; see dgate/ops/notify.py.
       DGATE_HEALTHCHECKS_BASE: ${DGATE_HEALTHCHECKS_BASE:-}
       DGATE_TELEGRAM_TOKEN: ${DGATE_TELEGRAM_TOKEN:-}

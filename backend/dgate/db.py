@@ -135,13 +135,62 @@ def finish_run(
         log.warning("ingest run %s under floor: %s < %s", run_id, fetched, floor)
 
     conn.execute(
+        # clock_timestamp(), not now(): now() is the transaction's start time,
+        # and an ingest runs inside a long transaction by design. Recorded with
+        # now(), a PLACSP run that took forty minutes closed with a finished_at
+        # three seconds after it started, which made every duration in the
+        # operational history a fiction and would have hidden a source slowing
+        # down until it stopped finishing at all.
         """UPDATE ingest_run
-              SET finished_at = now(), status = %s, records_fetched = %s,
+              SET finished_at = clock_timestamp(), status = %s, records_fetched = %s,
                   records_new = %s, records_changed = %s, error_message = %s
             WHERE id = %s""",
         (status, fetched, new, changed, error, run_id),
     )
     conn.commit()
+
+
+def record_progress(conn: psycopg.Connection, run_id: int, *,
+                    fetched: int, new: int, changed: int) -> None:
+    """Write a run's counters mid-flight, so a long run is not opaque.
+
+    Called from the ingest checkpoint. Without it a run in progress reports
+    zero records however far along it is, which is indistinguishable from a run
+    that is stuck -- a distinction that cost an hour of diagnosis.
+    """
+    conn.execute(
+        """UPDATE ingest_run
+              SET records_fetched = %s, records_new = %s, records_changed = %s
+            WHERE id = %s""",
+        (fetched, new, changed, run_id),
+    )
+
+
+def close_interrupted_runs(conn: psycopg.Connection) -> list[int]:
+    """Fail any run still marked `running`, and say which.
+
+    A run is only ever closed by the process that opened it, so a process that
+    is killed -- a container recreated, a machine switched off -- leaves its row
+    `running` for ever. Nothing reaps it, and `source_run_status` reads the
+    latest run per source, so one interrupted run makes that source look
+    degraded permanently and every subsequent alert becomes noise.
+
+    Called at worker start, where "still running" can only mean "was killed",
+    because this process has not started anything yet.
+    """
+    rows = conn.execute(
+        """UPDATE ingest_run
+              SET status = 'failed', finished_at = clock_timestamp(),
+                  error_message = coalesce(error_message,
+                      'interrupted: the process that opened this run did not close it')
+            WHERE status = 'running'
+        RETURNING id""",
+    ).fetchall()
+    conn.commit()
+    ids = [r["id"] for r in rows]
+    if ids:
+        log.warning("closed %s interrupted ingest run(s): %s", len(ids), ids)
+    return ids
 
 
 # ------------------------------------------------------ organisations
@@ -270,16 +319,28 @@ def upsert_opportunity(
         return opp_id, "unchanged"
 
     version = (last["version"] if last else 0) + 1
-    conn.execute(
-        """UPDATE opportunity_version SET valid_to = now()
-            WHERE opportunity_id = %s AND valid_to IS NULL""",
+    # One instant closes the old version and opens the new one, so the two
+    # intervals meet exactly. Taken from the database's own clock rather than
+    # this process's, because every other timestamp in the archive is, and two
+    # clocks in one column is a drift nobody would think to look for.
+    #
+    # clock_timestamp(), not now(): now() would return the transaction's start,
+    # which during an ingest is minutes or hours before the change was seen.
+    closed = conn.execute(
+        """UPDATE opportunity_version SET valid_to = clock_timestamp()
+            WHERE opportunity_id = %s AND valid_to IS NULL
+        RETURNING valid_to""",
         (opp_id,),
-    )
+    ).fetchone()
+    # No previous version means nothing was closed; the column defaults apply.
+    at = closed["valid_to"] if closed else None
     conn.execute(
         """INSERT INTO opportunity_version
-             (opportunity_id, version, payload, raw_hash, changed_fields)
-           VALUES (%s, %s, %s, %s, %s)""",
-        (opp_id, version, Jsonb(payload), raw_hash, changed),
+             (opportunity_id, version, payload, raw_hash, changed_fields,
+              observed_at, valid_from)
+           VALUES (%s, %s, %s, %s, %s,
+                   coalesce(%s, clock_timestamp()), coalesce(%s, clock_timestamp()))""",
+        (opp_id, version, Jsonb(payload), raw_hash, changed, at, at),
     )
     sets = ", ".join(f"{k} = %s" for k in cols)
     conn.execute(

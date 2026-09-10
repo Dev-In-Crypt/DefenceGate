@@ -37,7 +37,7 @@ from typing import Any, Iterable, Iterator
 
 import httpx
 
-from . import USER_AGENT
+from . import USER_AGENT, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -135,8 +135,12 @@ def defence_queries(
 # ----------------------------------------------------------------- fetching
 
 def _page(client: httpx.Client, params: dict[str, Any], page: int) -> list[dict[str, Any]]:
-    response = client.get(SEARCH_URL, params={**params, "PageNumber": page}, timeout=90.0)
-    response.raise_for_status()
+    def send() -> httpx.Response:
+        response = client.get(SEARCH_URL, params={**params, "PageNumber": page}, timeout=90.0)
+        response.raise_for_status()
+        return response
+
+    response = request_with_retry(send, what=f"{SOURCE_CODE} page {page}")
     payload = response.json()
     if not isinstance(payload, list):
         raise ValueError(f"expected a list of notices, got {type(payload).__name__}")

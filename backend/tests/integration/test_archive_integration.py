@@ -352,3 +352,102 @@ def test_replaying_twice_writes_no_second_version(seeded, tmp_path, monkeypatch)
         assert versions == 1
     finally:
         config.reset_cache()
+
+
+def test_the_version_timeline_has_no_gap_between_versions(amended):
+    """valid_to of one version is valid_from of the next, to the microsecond.
+
+    The archive's claim is that it can say what a notice said at any past
+    instant. An instant that falls in a gap between two versions has no answer,
+    so the intervals have to meet rather than merely follow one another.
+    """
+    conn, opp_id = amended
+    rows = conn.execute(
+        """SELECT version, valid_from, valid_to FROM opportunity_version
+            WHERE opportunity_id = %s ORDER BY version""",
+        (opp_id,),
+    ).fetchall()
+    assert len(rows) == 2
+    assert rows[0]["valid_to"] == rows[1]["valid_from"]
+    assert rows[1]["valid_to"] is None
+
+
+def test_observation_times_are_wall_clock_not_transaction_start(conn):
+    """Two versions written in one transaction must not share an instant.
+
+    now() is transaction-scoped in Postgres, so under it every row an ingest
+    wrote carried the moment the transaction opened -- thousands of notices all
+    claiming to have been observed at an instant when none of them had been.
+    This is the archive's core claim, so it gets its own test.
+    """
+    before = conn.execute("SELECT clock_timestamp() AS t").fetchone()["t"]
+    seen = []
+    for _ in range(3):
+        seen.append(conn.execute("SELECT clock_timestamp() AS t").fetchone()["t"])
+    frozen = conn.execute("SELECT now() AS t").fetchone()["t"]
+
+    assert len(set(seen)) == 3, "clock_timestamp() should advance within a transaction"
+    assert all(t >= before for t in seen)
+    assert frozen <= before, "now() should be the transaction start, which is the bug"
+
+
+def test_ingest_run_records_a_real_duration(conn):
+    """finished_at must come from the wall clock, not the transaction's start.
+
+    Under now() a forty-minute PLACSP run closed three seconds after it opened,
+    which made every duration in the operational history a fiction and would
+    have hidden a source slowing down until it stopped finishing at all.
+    """
+    run_id = db.start_run(conn, "ted", expected_min=0)
+    conn.execute("SELECT pg_sleep(0.05)")
+    db.finish_run(conn, run_id, fetched=1, new=1, changed=0)
+    row = conn.execute(
+        "SELECT started_at, finished_at FROM ingest_run WHERE id = %s", (run_id,)
+    ).fetchone()
+    assert row["finished_at"] > row["started_at"]
+
+
+def test_an_interrupted_run_is_closed_at_start_up(conn):
+    """A killed process leaves its run `running`, and nothing else reaps it.
+
+    Coverage is read from the latest run per source, so one such row makes that
+    source look degraded for ever and turns every later alert into noise.
+    """
+    run_id = db.start_run(conn, "ted", expected_min=0)
+    assert conn.execute(
+        "SELECT status FROM ingest_run WHERE id = %s", (run_id,)
+    ).fetchone()["status"] == "running"
+
+    closed = db.close_interrupted_runs(conn)
+    assert run_id in closed
+
+    row = conn.execute(
+        "SELECT status, finished_at, error_message FROM ingest_run WHERE id = %s",
+        (run_id,),
+    ).fetchone()
+    assert row["status"] == "failed"
+    assert row["finished_at"] is not None
+    assert "interrupted" in row["error_message"]
+
+
+def test_closing_interrupted_runs_leaves_finished_runs_alone(conn):
+    run_id = db.start_run(conn, "ted", expected_min=0)
+    db.finish_run(conn, run_id, fetched=5, new=5, changed=0)
+    db.close_interrupted_runs(conn)
+    row = conn.execute(
+        "SELECT status, records_fetched FROM ingest_run WHERE id = %s", (run_id,)
+    ).fetchone()
+    assert row["status"] == "success"
+    assert row["records_fetched"] == 5
+
+
+def test_progress_is_visible_while_a_run_is_still_going(conn):
+    """A long run reporting zero records is indistinguishable from a stuck one."""
+    run_id = db.start_run(conn, "ted", expected_min=0)
+    db.record_progress(conn, run_id, fetched=400, new=12, changed=3)
+    row = conn.execute(
+        """SELECT status, records_fetched, records_new, records_changed
+             FROM ingest_run WHERE id = %s""", (run_id,)
+    ).fetchone()
+    assert row["status"] == "running"
+    assert (row["records_fetched"], row["records_new"], row["records_changed"]) == (400, 12, 3)

@@ -35,7 +35,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from ..normalise import Opportunity, tz_from_offset
-from . import USER_AGENT
+from . import USER_AGENT, request_with_retry
 
 SPAIN_TZ = ZoneInfo("Europe/Madrid")
 
@@ -314,8 +314,12 @@ def fetch_live(
     try:
         url = dataset.live_feed
         for page in range(max_pages):
-            r = client.get(url)
-            r.raise_for_status()
+            def fetch(target: str = url) -> httpx.Response:
+                response = client.get(target)
+                response.raise_for_status()
+                return response
+
+            r = request_with_retry(fetch, what=f"{dataset.source_code} page {page + 1}")
             opps, next_url = parse_feed(r.content, dataset.source_code)
             log.info("%s page %s: %s entries", dataset.source_code, page + 1, len(opps))
             yield from opps
@@ -341,8 +345,12 @@ def fetch_archive(
     client = client or httpx.Client(headers={"User-Agent": USER_AGENT},
                                     timeout=300.0, follow_redirects=True)
     try:
-        r = client.get(url)
-        r.raise_for_status()
+        def fetch() -> httpx.Response:
+            response = client.get(url)
+            response.raise_for_status()
+            return response
+
+        r = request_with_retry(fetch, what=f"archive {url[-12:]}")
         with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
             names = [n for n in zf.namelist() if n.endswith(".atom")]
             # entry file first, matching the documented reading order

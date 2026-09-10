@@ -26,7 +26,7 @@ from typing import Any, Iterator
 
 import httpx
 
-from . import USER_AGENT
+from . import USER_AGENT, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -106,14 +106,17 @@ def defence_query(since: date, until: date | None = None) -> str:
 
 
 def _post(client: httpx.Client, payload: dict[str, Any]) -> dict[str, Any]:
-    r = client.post(
-        TED_SEARCH_URL,
-        json=payload,
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-        timeout=60.0,
-    )
-    r.raise_for_status()
-    return r.json()
+    def send() -> httpx.Response:
+        r = client.post(
+            TED_SEARCH_URL,
+            json=payload,
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            timeout=60.0,
+        )
+        r.raise_for_status()
+        return r
+
+    return request_with_retry(send, what=f"TED page {payload.get('page')}").json()
 
 
 def search(

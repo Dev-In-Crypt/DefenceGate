@@ -151,6 +151,22 @@ class Settings:
     backup_keep_days: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
+    placsp_pages: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_PAGES", 20))
+    placsp_max_pages: int = field(
+        default_factory=lambda: _env_int("DGATE_PLACSP_MAX_PAGES", 120))
+
+    # --- catch-up --------------------------------------------------------
+    # A cron entry only fires while the process is alive, so a machine that is
+    # off overnight loses that slot entirely. On every start the worker asks how
+    # stale each source is and covers the gap.
+    catch_up_on_start: bool = field(
+        default_factory=lambda: _env("DGATE_CATCH_UP", "1").strip() not in ("0", "false", "no"))
+    catch_up_after_hours: int = field(
+        default_factory=lambda: _env_int("DGATE_CATCH_UP_AFTER_HOURS", 20))
+    # A gap of a month is a decision for a person, not something to pull
+    # silently at start-up.
+    catch_up_max_days: int = field(
+        default_factory=lambda: _env_int("DGATE_CATCH_UP_MAX_DAYS", 7))
 
 
     def s3_settings(self) -> dict[str, Any]:

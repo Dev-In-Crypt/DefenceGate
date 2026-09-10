@@ -23,17 +23,51 @@ from . import db
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import Opportunity, from_ezamowienia, from_ted, strip_personal_data
-from .rawstore import build_store, storage_key
+from .rawstore import BufferedWriter, build_store, storage_key
 from .sources import ezamowienia, placsp, ted
 
 log = logging.getLogger("pipeline")
 
 
 
-def _store_raw(source: str, native_id: str, payload: dict) -> str:
-    """Land the raw payload and return the storage key recorded in raw_ingest."""
+def _store_raw(source: str, native_id: str, payload: dict,
+               writer: BufferedWriter | None = None) -> str:
+    """Land the raw payload and return the storage key recorded in raw_ingest.
+
+    With a writer the store happens on a background thread and this returns as
+    soon as the key is known. The payload is guaranteed to be in the store only
+    once the writer has been drained, which `_checkpoint` does before it
+    commits, so no committed `raw_ingest` row can point at an object that was
+    never written.
+    """
     key = storage_key(source, native_id)
+    if writer is not None:
+        return writer.put(key, payload)
     return build_store().put(key, payload)
+
+
+def _checkpoint(conn, label: str, fetched: int, new: int, changed: int,
+                every: int = 200, writer: BufferedWriter | None = None,
+                run_id: int | None = None) -> None:
+    """Commit what has been collected so far, and say so.
+
+    Must be called before anything in the loop that can `continue`. It was not,
+    and the consequence was invisible: in a feed that is mostly non-defence --
+    which is every feed we ingest -- the skip fired on almost every record, so
+    neither the commit nor the progress line was ever reached. A PLACSP run
+    held one transaction open for its whole length, printed nothing for half an
+    hour, and would have thrown away every `raw_ingest` row on any failure
+    while the payloads it had already written to object storage stayed there.
+    An index that rolls back away from the store it indexes is the one
+    divergence this design is supposed to prevent.
+    """
+    if fetched and fetched % every == 0:
+        if writer is not None:
+            writer.drain()
+        if run_id is not None:
+            db.record_progress(conn, run_id, fetched=fetched, new=new, changed=changed)
+        conn.commit()
+        log.info("%s: %s fetched, %s new, %s changed", label, fetched, new, changed)
 
 
 def _finalise(conn, opp: Opportunity, src_id: int) -> Opportunity:
@@ -61,13 +95,15 @@ def _finalise(conn, opp: Opportunity, src_id: int) -> Opportunity:
 
 def run_ted(days: int = 2) -> None:
     """Daily incremental pull. Overlaps by design so a missed run self-heals."""
-    with db.connect(settings().dsn) as conn:
+    with db.connect(settings().dsn) as conn, BufferedWriter(build_store()) as writer:
         src_id = db.source_id(conn, "ted")
         run_id = db.start_run(conn, "ted", settings().floor("ted"))
         fetched = new = changed = 0
         try:
             for notice in ted.fetch_window(days_back=days):
                 fetched += 1
+                _checkpoint(conn, "ted", fetched, new, changed, every=100,
+                            writer=writer, run_id=run_id)
                 clean = strip_personal_data(notice)
                 h = ted.content_hash(clean)
                 try:
@@ -75,7 +111,7 @@ def run_ted(days: int = 2) -> None:
                 except ValueError as exc:
                     log.warning("skipping malformed notice: %s", exc)
                     continue
-                key = _store_raw("ted", opp.native_id, clean)
+                key = _store_raw("ted", opp.native_id, clean, writer)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
                 opp = _finalise(conn, opp, src_id)
                 if not opp.is_defence:
@@ -83,10 +119,7 @@ def run_ted(days: int = 2) -> None:
                 _, action = db.upsert_opportunity(conn, opp, h, src_id)
                 new += action == "new"
                 changed += action == "changed"
-                if fetched % 100 == 0:
-                    conn.commit()
-                    log.info("ted: %s fetched, %s new, %s changed",
-                             fetched, new, changed)
+            writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -104,13 +137,15 @@ def run_ezamowienia(days: int = 2) -> None:
     it is for TED.
     """
     code = ezamowienia.SOURCE_CODE
-    with db.connect(settings().dsn) as conn:
+    with db.connect(settings().dsn) as conn, BufferedWriter(build_store()) as writer:
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         fetched = new = changed = 0
         try:
             for record in ezamowienia.fetch_window(days_back=days):
                 fetched += 1
+                _checkpoint(conn, code, fetched, new, changed, every=100,
+                            writer=writer, run_id=run_id)
                 clean = strip_personal_data(record)
                 h = ted.content_hash(clean)
                 try:
@@ -118,7 +153,7 @@ def run_ezamowienia(days: int = 2) -> None:
                 except ValueError as exc:
                     log.warning("skipping malformed notice: %s", exc)
                     continue
-                key = _store_raw(code, opp.native_id, clean)
+                key = _store_raw(code, opp.native_id, clean, writer)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
                 opp = _finalise(conn, opp, src_id)
                 if not opp.is_defence:
@@ -126,6 +161,7 @@ def run_ezamowienia(days: int = 2) -> None:
                 _, action = db.upsert_opportunity(conn, opp, h, src_id)
                 new += action == "new"
                 changed += action == "changed"
+            writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -137,16 +173,18 @@ def run_ezamowienia(days: int = 2) -> None:
 def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                    dataset: placsp.Dataset = placsp.MAIN) -> None:
     code = dataset.source_code
-    with db.connect(settings().dsn) as conn:
+    with db.connect(settings().dsn) as conn, BufferedWriter(build_store()) as writer:
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         fetched = new = changed = 0
         try:
             for opp in opps:
                 fetched += 1
+                _checkpoint(conn, label, fetched, new, changed, writer=writer,
+                            run_id=run_id)
                 payload = db.opportunity_payload(opp)
                 h = ted.content_hash(payload)
-                key = _store_raw(code, opp.native_id, payload)
+                key = _store_raw(code, opp.native_id, payload, writer)
                 db.record_raw(conn, src_id, opp.native_id, h, key,
                               content_type="application/atom+xml")
                 opp = _finalise(conn, opp, src_id)
@@ -155,10 +193,7 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                 _, action = db.upsert_opportunity(conn, opp, h, src_id)
                 new += action == "new"
                 changed += action == "changed"
-                if fetched % 200 == 0:
-                    conn.commit()
-                    log.info("%s: %s fetched, %s new, %s changed",
-                             label, fetched, new, changed)
+            writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
