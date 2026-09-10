@@ -32,7 +32,11 @@ COPY --chown=dgate:dgate migrations ./migrations
 # A named volume inherits the ownership of the image path it covers; without
 # this the first write fails with EACCES, which is a fine thing to discover
 # now and a terrible thing to discover on the first night of ingestion.
-RUN mkdir -p /raw /backups && chown dgate:dgate /raw /backups
+# Every path that gets a named volume mounted over it needs to exist and be
+# owned here. Docker creates a missing mount point as root, and the container
+# does not run as root, so the first write fails with EACCES -- which is how
+# /raw, /backups and now /data/atlas each found out in turn.
+RUN mkdir -p /raw /backups /data/atlas  && chown dgate:dgate /raw /backups /data/atlas
 
 USER dgate
 

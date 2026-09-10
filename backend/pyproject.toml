@@ -20,6 +20,10 @@ dependencies = [
     # failure domain from the database, or it protects against a bad parser
     # and nothing else.
     "boto3>=1.34",
+    # Parquet, for the one-off Polish historical backfill. The year files are a
+    # sixth the size of the CSV copies and carry types, which is what makes a
+    # schema change show up as a missing column rather than as silence.
+    "pyarrow>=16",
 ]
 
 [project.optional-dependencies]

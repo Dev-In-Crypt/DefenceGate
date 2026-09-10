@@ -75,6 +75,10 @@ services:
       DGATE_S3_SECRET_KEY: ${DGATE_S3_SECRET_KEY:-}
       DGATE_BACKUP_DIR: /backups
       DGATE_BACKUP_KEEP_DAYS: ${DGATE_BACKUP_KEEP_DAYS:-30}
+      # Where the Atlas Przetargow year files land for the one-off Polish
+      # backfill. Its own volume so an interrupted multi-hour run does not
+      # re-download hundreds of megabytes on every retry.
+      DGATE_ATLAS_DIR: /data/atlas
       # Cover whatever was missed while this container was down. See
       # docs/RUNBOOK.md, "Missed days".
       DGATE_CATCH_UP: ${DGATE_CATCH_UP:-1}
@@ -87,6 +91,7 @@ services:
     volumes:
       - raw:/raw
       - backups:/backups
+      - atlas:/data/atlas
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,6 +115,7 @@ services:
       - api
 
 volumes:
+  atlas:
   pgdata:
   raw:
   backups:

@@ -93,6 +93,11 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "es_placsp": _weekday_floors("DGATE_FLOOR_ES_PLACSP", _PLACSP_FLOORS),
         "es_placsp_agg": _weekday_floors("DGATE_FLOOR_ES_PLACSP_AGG", _PLACSP_AGG_FLOORS),
         "pl_ezam": _weekday_floors("DGATE_FLOOR_PL_EZAM", _EZAM_FLOORS),
+        # pl_atlas has no floor on purpose. A floor answers "did today's feed
+        # arrive?"; this source is a one-off historical load with no daily
+        # rhythm, and a resumed run legitimately reads almost nothing because
+        # the rest already landed. None means "not measured", which is honest,
+        # and finish_run leaves such a run `success` rather than `partial`.
     }
 
 
@@ -127,6 +132,11 @@ class Settings:
     # through, which is what a local filesystem store wants.
     raw_write_workers: int = field(
         default_factory=lambda: _env_int("DGATE_RAW_WRITE_WORKERS", 16))
+    # Where the Atlas Przetargow year files are downloaded for the one-off
+    # Polish backfill. Hundreds of megabytes, wanted only while the backfill
+    # runs, so it is deliberately not the raw store.
+    atlas_dir: Path = field(
+        default_factory=lambda: Path(_env("DGATE_ATLAS_DIR", "./data/atlas")))
 
     # --- ingestion ------------------------------------------------------
     floors: dict[str, dict[int, int]] = field(default_factory=_default_floors)

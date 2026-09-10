@@ -17,12 +17,13 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 from typing import Iterable
 
 from . import db
 from .classify import classify, detects_subcontracting
 from .config import settings
-from .normalise import Opportunity, from_ezamowienia, from_ted, strip_personal_data
+from .normalise import Opportunity, from_atlas_pl, from_ezamowienia, from_ted, strip_personal_data
 from .rawstore import BufferedWriter, build_store, storage_key
 from .sources import ezamowienia, placsp, ted
 
@@ -265,6 +266,99 @@ DEFENCE_BUYERS = [
 ]
 
 
+
+def already_ingested(conn, code: str) -> set[str]:
+    """Identifiers this source has already landed.
+
+    A backfill of two thirds of a million rows takes hours, and the machine it
+    runs on has demonstrably been switched off mid-run. Re-running from the
+    start would be correct but wasteful, so the ones already recorded are read
+    once and skipped. Held as a set because asking the database per row would
+    cost more than the whole rest of the loop.
+    """
+    rows = conn.execute(
+        """SELECT r.native_id FROM raw_ingest r JOIN source s ON s.id = r.source_id
+            WHERE s.code = %s AND r.native_id IS NOT NULL""",
+        (code,),
+    ).fetchall()
+    return {r["native_id"] for r in rows}
+
+
+def run_atlas_backfill(year: int, *, path: Path | None = None,
+                       limit: int | None = None, resume: bool = True) -> None:
+    """One-off historical load of the Polish bulletin from Atlas Przetargow.
+
+    Run once per year file, then never again: this is the part of the archive a
+    competitor starting after us cannot obtain, and the dataset is immutable
+    and citable by DOI, so a second run would only rewrite what is already
+    there.
+
+    Every row is recorded in `raw_ingest`, whether or not it is defence. That
+    is the point of the record: when the classifier improves, what we have
+    already looked at is known, and can be looked at again without guessing.
+    Only rows carrying a defence signal become opportunities.
+    """
+    from .sources import atlas_pl
+
+    cfg = settings()
+    code = atlas_pl.SOURCE_CODE
+    filename = atlas_pl.YEAR_FILES.get(year)
+    if filename is None:
+        raise ValueError(
+            f"no dataset file for {year}; the release covers "
+            f"{sorted(atlas_pl.YEAR_FILES)}")
+
+    if path is None:
+        path = Path(cfg.atlas_dir) / filename
+        atlas_pl.download(filename, path)
+    total = atlas_pl.row_count(path)
+    log.info("atlas %s: %s rows in %s", year, total, path.name)
+
+    with (db.connect(cfg.dsn) as conn,
+          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+        src_id = db.source_id(conn, code)
+        seen = already_ingested(conn, code) if resume else set()
+        if seen:
+            log.info("atlas %s: %s identifiers already landed, skipping those",
+                     year, len(seen))
+        run_id = db.start_run(conn, code, cfg.floor(code))
+        fetched = new = changed = skipped = 0
+        try:
+            for record in atlas_pl.read_rows(path):
+                if limit is not None and fetched >= limit:
+                    break
+                native_id = str(record.get("id") or "")
+                if native_id in seen:
+                    skipped += 1
+                    continue
+                fetched += 1
+                _checkpoint(conn, f"atlas-{year}", fetched, new, changed,
+                            writer=writer, run_id=run_id)
+                clean = strip_personal_data(record)
+                h = atlas_pl.content_hash(clean)
+                try:
+                    opp = from_atlas_pl(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed row: %s", exc)
+                    continue
+                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                db.record_raw(conn, src_id, opp.native_id, h, key)
+                opp = _finalise(conn, opp, src_id)
+                if not opp.is_defence:
+                    continue
+                _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("atlas %s done: %s rows read, %s already had, %s new, %s changed",
+             year, fetched, skipped, new, changed)
+
+
 def seed_buyers() -> None:
     from .normalise import normalise_org_name
     with db.connect(settings().dsn) as conn:
@@ -319,6 +413,17 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("ezamowienia", help="ingest the Polish bulletin (BZP)")
     e.add_argument("--days", type=int, default=2)
 
+    b = sub.add_parser("atlas-pl",
+                       help="one-off Polish historical backfill (Atlas Przetargow)")
+    b.add_argument("--year", type=int, required=True,
+                   help="dataset year; the 2026.Q2 release covers 2024 and 2025")
+    b.add_argument("--file", type=Path, default=None,
+                   help="use a local parquet file instead of downloading")
+    b.add_argument("--limit", type=int, default=None,
+                   help="stop after this many rows; for a rehearsal")
+    b.add_argument("--no-resume", action="store_true",
+                   help="re-read rows already landed instead of skipping them")
+
     sub.add_parser("seed-buyers", help="seed the defence buyer list")
 
     a = p.parse_args(argv)
@@ -331,6 +436,9 @@ def main(argv: list[str] | None = None) -> int:
             run_placsp_live(max_pages=a.pages)
     elif a.cmd == "ezamowienia":
         run_ezamowienia(days=a.days)
+    elif a.cmd == "atlas-pl":
+        run_atlas_backfill(a.year, path=a.file, limit=a.limit,
+                           resume=not a.no_resume)
     elif a.cmd == "seed-buyers":
         seed_buyers()
     return 0

@@ -37,6 +37,14 @@ PERSONAL_DATA_FIELDS = {
     # notice. Pseudonymous is still personal: it singles out an individual
     # across every notice they ever filed.
     "userId",
+    # Atlas Przetargow (Poland, historical). Contractor identity, which is a
+    # natural person on roughly a quarter of 2024 rows. The publisher already
+    # pseudonymises those -- '[Osoba fizyczna]' for the name, a stable SHA-256
+    # for the identifier -- but a stable hash still singles out one person
+    # across every contract they ever won, which is the same reasoning that put
+    # userId here. Nothing downstream stores a contractor, so dropping both
+    # costs no product value.
+    "contractor_name", "contractor_national_id",
 }
 
 
@@ -460,6 +468,111 @@ def _pl_cpv(raw: Any) -> list[str]:
     it repeats codes. `_clean_cpv` already deduplicates and takes eight digits.
     """
     return _clean_cpv(raw)
+
+
+
+# Atlas Przetargow rows that are award or performance notices rather than live
+# calls. Taken from the values actually present in the 2024 file, counted:
+# ContractPerformingNotice 224,209, TenderResultNotice 135,885,
+# ContractNotice 129,547, NoticeUpdateNotice 63,387, cn-standard 50,780,
+# can-standard 36,764. The `*-standard` forms are the eForms names on rows that
+# came from TED; the CamelCase ones are the BZP bulletin's own.
+_ATLAS_CLOSED_TYPES = {
+    "TenderResultNotice", "ContractPerformingNotice", "can-standard",
+}
+_ATLAS_OPEN_TYPES = {
+    "ContractNotice", "NoticeUpdateNotice", "cn-standard", "pin-standard",
+}
+
+
+def _atlas_status(notice_type: str | None) -> str:
+    """Live call, or a record of one that has already been decided.
+
+    Anything unrecognised is `open`, matching the rest of the pipeline: a
+    notice wrongly left open is visible and gets corrected, one wrongly closed
+    is invisible and never does.
+    """
+    if notice_type in _ATLAS_CLOSED_TYPES:
+        return "awarded"
+    return "open"
+
+
+# ISO 4217 codes accepted for an Atlas value. An allowlist rather than a shape
+# test, because the shape test does not work here: counted over the 2024 file,
+# the currency column holds 488,791 PLN, 72 SEK and 5 EUR against 181,062 nulls
+# and a tail of three-letter strings that are not currencies at all -- 'pkt'
+# (punkty), 'net', 'bru', 'ton', 'ppm', 'MPa', 'mil'. They are the first three
+# characters of some free-text unit field, and every one of them is alphabetic
+# and three letters long, so anything checking the shape lets them all through.
+_ISO_4217 = {
+    "PLN", "EUR", "USD", "GBP", "CHF", "SEK", "NOK", "DKK",
+    "CZK", "HUF", "RON", "BGN", "UAH", "JPY", "CAD", "AUD",
+}
+
+
+def _atlas_value(amount: Any, currency: Any) -> tuple[float | None, str | None]:
+    """A value only when the currency says what it is denominated in.
+
+    A number whose currency is 'net' is not a value, it is a parsing accident,
+    and carrying it would put a wrong figure in front of someone deciding
+    whether to bid. Dropping the pair is the only honest option: the amount on
+    its own is meaningless.
+    """
+    if amount is None:
+        return None, None
+    code = str(currency or "").strip().upper()
+    if code not in _ISO_4217:
+        return None, None
+    try:
+        value = float(amount)
+    except (TypeError, ValueError):
+        return None, None
+    if value <= 0:
+        return None, None
+    return value, code
+
+
+def from_atlas_pl(record: dict[str, Any]) -> Opportunity:
+    """Map one Atlas Przetargow row onto the unified schema.
+
+    Two of the four defence signals cannot fire here. The dataset carries no
+    legal basis and no security-clearance text, so `legal_basis` stays None
+    rather than being guessed from the notice type: a guess would set the
+    strongest signal we have on the flimsiest evidence we have.
+    """
+    g = record.get
+
+    native_id = _first(g("id"))
+    if not native_id:
+        raise ValueError("Atlas row has no id")
+
+    # Prefer the bulletin's own numbering for the URL, and fall back to the
+    # column the dataset built for exactly this.
+    url = _first(g("notice_url")) or None
+
+    deadline = parse_iso_datetime(g("submitting_offers_date"),
+                                  default_tz=ZoneInfo(_PL_TZ))
+    value, currency = _atlas_value(g("estimated_value"), g("currency"))
+    notice_type = _first(g("notice_type"))
+
+    return Opportunity(
+        source_code="pl_atlas",
+        native_id=str(native_id),
+        buyer_name_raw=str(_first(g("buyer")) or "").strip() or "UNKNOWN",
+        title_original=str(_first(g("title")) or "").strip(),
+        country=_country2(g("organization_country")) or "PL",
+        original_language="PL",
+        procedure_type=notice_type,
+        legal_basis=None,
+        value_amount=value,
+        value_currency=currency,
+        published_at=_parse_date(g("date")),
+        deadline_at=deadline,
+        cpv_codes=_clean_cpv(g("cpv_code")),
+        source_url=url,
+        status=_atlas_status(notice_type),
+        status_native=notice_type,
+    )
 
 
 def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
