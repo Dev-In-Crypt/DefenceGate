@@ -120,6 +120,13 @@ class Settings:
         default_factory=lambda: os.environ.get("DGATE_S3_ACCESS_KEY") or None)
     s3_secret_key: str | None = field(
         default_factory=lambda: os.environ.get("DGATE_S3_SECRET_KEY") or None)
+    # How many raw payloads are written at once. One payload is one HTTPS round
+    # trip -- 530 ms against R2 from this deployment -- so sequential writes cap
+    # ingestion at under two records a second, and a daily PLACSP run cannot
+    # finish inside a day. Sixteen measured 23.5/s. Set 1 to write straight
+    # through, which is what a local filesystem store wants.
+    raw_write_workers: int = field(
+        default_factory=lambda: _env_int("DGATE_RAW_WRITE_WORKERS", 16))
 
     # --- ingestion ------------------------------------------------------
     floors: dict[str, dict[int, int]] = field(default_factory=_default_floors)

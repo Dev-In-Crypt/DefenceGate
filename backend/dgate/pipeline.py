@@ -31,7 +31,8 @@ log = logging.getLogger("pipeline")
 
 
 def _store_raw(source: str, native_id: str, payload: dict,
-               writer: BufferedWriter | None = None) -> str:
+               writer: BufferedWriter | None = None,
+               content_hash: str | None = None) -> str:
     """Land the raw payload and return the storage key recorded in raw_ingest.
 
     With a writer the store happens on a background thread and this returns as
@@ -40,7 +41,7 @@ def _store_raw(source: str, native_id: str, payload: dict,
     commits, so no committed `raw_ingest` row can point at an object that was
     never written.
     """
-    key = storage_key(source, native_id)
+    key = storage_key(source, native_id, content_hash=content_hash)
     if writer is not None:
         return writer.put(key, payload)
     return build_store().put(key, payload)
@@ -95,7 +96,9 @@ def _finalise(conn, opp: Opportunity, src_id: int) -> Opportunity:
 
 def run_ted(days: int = 2) -> None:
     """Daily incremental pull. Overlaps by design so a missed run self-heals."""
-    with db.connect(settings().dsn) as conn, BufferedWriter(build_store()) as writer:
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
         src_id = db.source_id(conn, "ted")
         run_id = db.start_run(conn, "ted", settings().floor("ted"))
         fetched = new = changed = 0
@@ -111,7 +114,7 @@ def run_ted(days: int = 2) -> None:
                 except ValueError as exc:
                     log.warning("skipping malformed notice: %s", exc)
                     continue
-                key = _store_raw("ted", opp.native_id, clean, writer)
+                key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
                 opp = _finalise(conn, opp, src_id)
                 if not opp.is_defence:
@@ -137,7 +140,9 @@ def run_ezamowienia(days: int = 2) -> None:
     it is for TED.
     """
     code = ezamowienia.SOURCE_CODE
-    with db.connect(settings().dsn) as conn, BufferedWriter(build_store()) as writer:
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         fetched = new = changed = 0
@@ -153,7 +158,7 @@ def run_ezamowienia(days: int = 2) -> None:
                 except ValueError as exc:
                     log.warning("skipping malformed notice: %s", exc)
                     continue
-                key = _store_raw(code, opp.native_id, clean, writer)
+                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
                 opp = _finalise(conn, opp, src_id)
                 if not opp.is_defence:
@@ -173,7 +178,9 @@ def run_ezamowienia(days: int = 2) -> None:
 def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                    dataset: placsp.Dataset = placsp.MAIN) -> None:
     code = dataset.source_code
-    with db.connect(settings().dsn) as conn, BufferedWriter(build_store()) as writer:
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         fetched = new = changed = 0
@@ -184,7 +191,7 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                             run_id=run_id)
                 payload = db.opportunity_payload(opp)
                 h = ted.content_hash(payload)
-                key = _store_raw(code, opp.native_id, payload, writer)
+                key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
                 db.record_raw(conn, src_id, opp.native_id, h, key,
                               content_type="application/atom+xml")
                 opp = _finalise(conn, opp, src_id)

@@ -33,20 +33,47 @@ log = logging.getLogger(__name__)
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]")
 
 
-def storage_key(source_code: str, native_id: str, when: date | None = None) -> str:
-    """Deterministic key: ``source/YYYY/MM/DD/native_id.json``.
+def storage_key(source_code: str, native_id: str, when: date | None = None,
+                content_hash: str | None = None) -> str:
+    """Deterministic key: ``source/YYYY/MM/DD/native_id-hash.json``.
 
     Partitioned by source and date so a day can be replayed, audited or expired
     on its own. The identifier is sanitised because native identifiers come
     from twenty-seven national systems and some of them contain slashes.
+
+    The content hash is part of the key, and has to be. Without it a notice
+    observed twice in one day wrote twice to one key and the earlier payload was
+    gone -- silently, because overwriting is not an error. That is not a corner
+    case: PLACSP publishes one feed entry per modification, which *is* its
+    version history, so the same notice appearing several times a day is the
+    normal shape of the source. Measured on 10 September 2026, a single day's
+    ingest destroyed 11,496 distinct payloads this way, in the store the whole
+    durability guarantee rests on.
+
+    With the hash in the key, an identical payload maps to the identical key, so
+    re-running an ingest stays idempotent and costs no extra objects, while a
+    payload that differs by a byte gets its own object and survives. A key
+    without a hash is still valid and still readable; those are the objects
+    written before this was understood.
     """
     day = when or date.today()
     safe = _UNSAFE.sub("_", native_id or "unknown")[:200]
-    return f"{source_code}/{day.year:04d}/{day.month:02d}/{day.day:02d}/{safe}.json"
+    prefix = f"{source_code}/{day.year:04d}/{day.month:02d}/{day.day:02d}/{safe}"
+    if content_hash:
+        # Twelve hex characters. Collisions within one notice-day are the only
+        # ones that could matter, and at that scale this is far past sufficient.
+        return f"{prefix}-{content_hash[:12]}.json"
+    return f"{prefix}.json"
 
 
 class RawStore(ABC):
-    """Write-once storage. Nothing here ever overwrites deliberately."""
+    """Write-once storage.
+
+    Write-once is a property of the *key*, not of the backend: both backends
+    will happily overwrite. It holds only because `storage_key` includes the
+    content hash, so two different payloads can never be handed the same key.
+    Anything that constructs a key by another route gives that up.
+    """
 
     @abstractmethod
     def put(self, key: str, payload: Any, content_type: str = "application/json") -> str:
@@ -69,6 +96,17 @@ class RawStore(ABC):
         """
 
     @abstractmethod
+    def listing(self, prefix: str = "") -> Iterator[tuple[str, float]]:
+        """Every key under a prefix with the time it was written.
+
+        Needed because a notice can now have several payloads in one day, and a
+        rebuild has to replay them in the order they were observed or it will
+        number the versions wrongly. Key order cannot carry that: the part that
+        distinguishes them is a content hash, which sorts arbitrarily.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def list(self, prefix: str = "") -> Iterator[str]:
         """Every key under a prefix, oldest first.
 
@@ -78,6 +116,7 @@ class RawStore(ABC):
         itself is the only path that survives losing everything except the
         payloads, which is exactly the disaster this exists for.
         """
+        raise NotImplementedError
 
     @staticmethod
     def serialise(payload: Any) -> bytes:
@@ -142,12 +181,15 @@ class FileRawStore(RawStore):
         return True
 
     def list(self, prefix: str = "") -> Iterator[str]:
-        root = self.root.resolve()
-        base = (root / prefix).resolve() if prefix else root
+        for key, _ in self.listing(prefix):
+            yield key
+
+    def listing(self, prefix: str = "") -> Iterator[tuple[str, float]]:
+        base = Path(os.path.normpath(self.root / prefix)) if prefix else self.root
         if not base.exists():
             return
         for path in sorted(base.rglob("*.json")):
-            yield path.resolve().relative_to(root).as_posix()
+            yield path.relative_to(self.root).as_posix(), path.stat().st_mtime
 
 
 class S3RawStore(RawStore):
@@ -162,8 +204,17 @@ class S3RawStore(RawStore):
     def client(self) -> Any:
         if self._client is None:
             import boto3  # imported lazily: development does not need it
+            from botocore.config import Config
 
-            self._client = boto3.client("s3", **self._client_kwargs)
+            # botocore pools ten connections by default, and BufferedWriter runs
+            # sixteen threads. The overflow was discarded and reopened, paying a
+            # fresh TLS handshake per write and giving back part of what the
+            # concurrency bought. The pool has to be at least as wide as the
+            # writers, so it is derived from the same setting.
+            options = dict(self._client_kwargs)
+            options.setdefault("config", Config(
+                max_pool_connections=max(settings().raw_write_workers + 4, 10)))
+            self._client = boto3.client("s3", **options)
         return self._client
 
     def ensure_bucket(self) -> bool:
@@ -211,12 +262,15 @@ class S3RawStore(RawStore):
             return False
 
     def list(self, prefix: str = "") -> Iterator[str]:
+        for key, _ in self.listing(prefix):
+            yield key
+
+    def listing(self, prefix: str = "") -> Iterator[tuple[str, float]]:
         paginator = self.client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
-                key = obj["Key"]
-                if key.endswith(".json"):
-                    yield key
+                if obj["Key"].endswith(".json"):
+                    yield obj["Key"], obj["LastModified"].timestamp()
 
 
 def build_store(backend: str | None = None) -> RawStore:

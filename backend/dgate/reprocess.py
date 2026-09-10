@@ -83,13 +83,23 @@ def keys_from_store(
     store: RawStore, source: str | None = None,
     since: date | None = None, until: date | None = None,
 ) -> Iterator[str]:
-    """Enumerate the object store, filtered by source and date."""
-    for key in store.list(source or ""):
+    """Enumerate the object store, filtered by source and date, oldest first.
+
+    Ordered by when each object was written, which is when we observed it. A
+    notice can have several payloads in one day -- PLACSP publishes one entry
+    per modification -- and replaying them out of order would number the
+    versions wrongly and attribute the wrong changed_fields to each. Key order
+    cannot supply it, because what separates those payloads is a content hash.
+    """
+    found = []
+    for key, written in store.listing(source or ""):
         day = _day_of(key)
         if since and (day is None or day < since):
             continue
         if until and (day is None or day > until):
             continue
+        found.append((written, key))
+    for _, key in sorted(found):
         yield key
 
 
