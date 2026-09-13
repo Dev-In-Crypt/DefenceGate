@@ -198,11 +198,15 @@ def get_versions(opp_id: int, conn=Depends(get_conn)):
     from any upstream source.
     """
     rows = conn.execute(
-        """SELECT version, observed_at, valid_from, valid_to,
-                  changed_fields, payload
-             FROM opportunity_version
-            WHERE opportunity_id = %s
-            ORDER BY version""",
+        """SELECT v.version, v.observed_at, v.valid_from, v.valid_to,
+                  v.changed_fields, v.payload,
+                  coalesce(json_agg(json_build_object('kind', n.kind, 'note', n.note))
+                           FILTER (WHERE n.id IS NOT NULL), '[]') AS notes
+             FROM opportunity_version v
+             LEFT JOIN opportunity_version_note n ON n.opportunity_version_id = v.id
+            WHERE v.opportunity_id = %s
+            GROUP BY v.id
+            ORDER BY v.version""",
         (opp_id,),
     ).fetchall()
     if not rows:
@@ -219,6 +223,10 @@ def get_versions(opp_id: int, conn=Depends(get_conn)):
                 "valid_to": r["valid_to"],
                 "changed_fields": r["changed_fields"] or [],
                 "snapshot": r["payload"],
+                # A version the archive recorded wrongly is annotated, never
+                # removed: see migration 0006. Clients should not present a
+                # `reread` or `out_of_order` version as a real amendment.
+                "notes": r["notes"],
             }
             for r in rows
         ],

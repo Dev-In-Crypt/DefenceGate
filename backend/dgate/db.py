@@ -257,19 +257,9 @@ def is_defence_buyer(conn: psycopg.Connection, org_id: int | None) -> bool:
 
 # ------------------------------------------------------- the archive
 
-def upsert_opportunity(
-    conn: psycopg.Connection, opp: Opportunity, raw_hash: str, src_id: int,
-) -> tuple[int, str]:
-    """Insert or version an opportunity. Returns (id, "new"|"changed"|"unchanged")."""
-    payload = opportunity_payload(opp)
-
-    existing = conn.execute(
-        """SELECT id, current_version FROM opportunity
-            WHERE source_id = %s AND native_id = %s""",
-        (src_id, opp.native_id),
-    ).fetchone()
-
-    cols = dict(
+def _serving_columns(opp: Opportunity) -> dict[str, Any]:
+    """The `opportunity` row's columns for a record: the serving layer's view."""
+    return dict(
         buyer_name_raw=opp.buyer_name_raw, country=opp.country,
         title_original=opp.title_original, title_en=opp.title_en,
         summary_en=opp.summary_en, original_language=opp.original_language,
@@ -285,40 +275,37 @@ def upsert_opportunity(
         status=opp.status, status_native=opp.status_native,
     )
 
-    if not existing:
-        fields = ["source_id", "native_id"] + list(cols)
-        values = [src_id, opp.native_id] + list(cols.values())
-        placeholders = ", ".join(["%s"] * len(fields))
-        opp_id = conn.execute(
-            f"INSERT INTO opportunity ({', '.join(fields)}) "
-            f"VALUES ({placeholders}) RETURNING id",
-            values,
-        ).fetchone()["id"]
-        conn.execute(
-            """INSERT INTO opportunity_version
-                 (opportunity_id, version, payload, raw_hash, changed_fields)
-               VALUES (%s, 1, %s, %s, %s)""",
-            (opp_id, Jsonb(payload), raw_hash, []),
-        )
-        return opp_id, "new"
 
-    opp_id = existing["id"]
-    last = conn.execute(
-        """SELECT version, payload, raw_hash FROM opportunity_version
-            WHERE opportunity_id = %s ORDER BY version DESC LIMIT 1""",
-        (opp_id,),
-    ).fetchone()
+def refresh_classification(conn: psycopg.Connection, opp_id: int, opp: Opportunity) -> None:
+    """Update the derived signals on the serving row, without a version.
 
-    if last and last["raw_hash"] == raw_hash:
-        return opp_id, "unchanged"
+    A version records a change in what the source said. The classification is
+    our conclusion from it, and it moves when the classifier or the buyer list
+    does: on 13 September 2026 the list went from empty to 111 buyers, and every
+    archived notice from those buyers still carried sig_buyer = false.
+    """
+    conn.execute(
+        """UPDATE opportunity
+              SET is_defence = %s, sig_legal_basis = %s, sig_cpv = %s, sig_buyer = %s,
+                  sig_clearance = %s, buyer_org_id = %s
+            WHERE id = %s""",
+        (opp.is_defence, opp.sig_legal_basis, opp.sig_cpv, opp.sig_buyer,
+         opp.sig_clearance, opp.buyer_org_id, opp_id),
+    )
 
-    prev = last["payload"] if last else {}
-    changed = [f for f in VERSIONED_FIELDS if prev.get(f) != payload.get(f)]
-    if not changed:
-        # Hash moved but nothing we track did: a cosmetic upstream edit.
-        return opp_id, "unchanged"
 
-    version = (last["version"] if last else 0) + 1
+def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
+                   raw_hash: str, changed: list[str], *, after: int) -> int:
+    """Close the open version, append the next one, and move the serving row.
+
+    The only code that writes a version after the first. Ingestion reaches it
+    through upsert_opportunity once a change is established; a repair reaches
+    it directly, having established the change another way. One path means the
+    two cannot disagree about how a version is written.
+    """
+    payload = opportunity_payload(opp)
+    cols = _serving_columns(opp)
+    version = after + 1
     # One instant closes the old version and opens the new one, so the two
     # intervals meet exactly. Taken from the database's own clock rather than
     # this process's, because every other timestamp in the archive is, and two
@@ -347,6 +334,90 @@ def upsert_opportunity(
         f"UPDATE opportunity SET {sets}, current_version = %s WHERE id = %s",
         list(cols.values()) + [version, opp_id],
     )
+    return version
+
+
+def upsert_opportunity(
+    conn: psycopg.Connection, opp: Opportunity, raw_hash: str, src_id: int,
+) -> tuple[int, str]:
+    """Insert or version an opportunity.
+
+    Returns (id, action), action being "new", "changed", "unchanged" -- also for
+    content already archived at an earlier version -- or "stale" for content
+    older than the current version by the source's own date.
+    """
+    payload = opportunity_payload(opp)
+
+    existing = conn.execute(
+        """SELECT id, current_version FROM opportunity
+            WHERE source_id = %s AND native_id = %s""",
+        (src_id, opp.native_id),
+    ).fetchone()
+
+    cols = _serving_columns(opp)
+
+    if not existing:
+        fields = ["source_id", "native_id"] + list(cols)
+        values = [src_id, opp.native_id] + list(cols.values())
+        placeholders = ", ".join(["%s"] * len(fields))
+        opp_id = conn.execute(
+            f"INSERT INTO opportunity ({', '.join(fields)}) "
+            f"VALUES ({placeholders}) RETURNING id",
+            values,
+        ).fetchone()["id"]
+        conn.execute(
+            """INSERT INTO opportunity_version
+                 (opportunity_id, version, payload, raw_hash, changed_fields)
+               VALUES (%s, 1, %s, %s, %s)""",
+            (opp_id, Jsonb(payload), raw_hash, []),
+        )
+        return opp_id, "new"
+
+    opp_id = existing["id"]
+    last = conn.execute(
+        """SELECT version, payload, raw_hash FROM opportunity_version
+            WHERE opportunity_id = %s ORDER BY version DESC LIMIT 1""",
+        (opp_id,),
+    ).fetchone()
+
+    if last and last["raw_hash"] == raw_hash:
+        return opp_id, "unchanged"
+
+    # Content already archived at ANY earlier version is not a change. Comparing
+    # against the latest version alone let a re-read of old content look new:
+    # PLACSP serves its feed newest first, so every run saw a notice's award and
+    # then its older call for tenders, and wrote the call back as a "change".
+    # On 13 September 2026 one notice with a single real change -- open on the
+    # 7th, awarded on the 8th -- had twelve versions flipping between the same
+    # two payloads, and its current state read "open". 75 notices were affected.
+    # A publisher genuinely restoring earlier content byte for byte is not
+    # distinguishable from re-reading it, and is far rarer; this errs that way.
+    if conn.execute(
+        """SELECT 1 FROM opportunity_version
+            WHERE opportunity_id = %s AND raw_hash = %s LIMIT 1""",
+        (opp_id, raw_hash),
+    ).fetchone():
+        return opp_id, "unchanged"
+
+    prev = last["payload"] if last else {}
+
+    # Content older than the current version, by the source's own date, is
+    # history arriving late. It must not become the current state: that is how
+    # an awarded tender came to be served as open. The sequential version model
+    # cannot insert it in the past either, so it is recorded as stale and not
+    # archived. Day granularity is all every source provides here; two versions
+    # published the same day fall through to arrival order.
+    incoming_date = payload.get("published_at")
+    current_date = prev.get("published_at")
+    if incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
+        return opp_id, "stale"
+    changed = [f for f in VERSIONED_FIELDS if prev.get(f) != payload.get(f)]
+    if not changed:
+        # Hash moved but nothing we track did: a cosmetic upstream edit.
+        return opp_id, "unchanged"
+
+    version = append_version(conn, opp_id, opp, raw_hash, changed,
+                             after=last["version"] if last else 0)
     log.info("opportunity %s -> v%s, changed: %s", opp.native_id, version, changed)
     return opp_id, "changed"
 

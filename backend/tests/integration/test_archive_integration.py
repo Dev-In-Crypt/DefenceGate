@@ -54,6 +54,181 @@ def seeded(conn):
     return conn
 
 
+def write_seeds(tmp_path, rows: list[str]):
+    path = tmp_path / "seeds.csv"
+    path.write_text("country,canonical_name,raw_name,category,seen\n" + "\n".join(rows) + "\n",
+                    encoding="utf-8")
+    return path
+
+
+# ------------------------------------------------- re-read content (reversions)
+
+def _placsp_state(status: str, published: str):
+    from datetime import date
+
+    from dgate.normalise import Opportunity
+
+    return Opportunity(
+        source_code="es_placsp", native_id="2026/ETSAE0906/00002554E",
+        buyer_name_raw="Ministerio de Defensa", title_original="Suministro",
+        country="ES", published_at=date.fromisoformat(published),
+        status=status, status_native=status, cpv_codes=["35700000"], is_defence=True,
+    )
+
+
+def _upsert(conn, opp):
+    src = db.source_id(conn, "es_placsp")
+    digest = content_hash(db.opportunity_payload(opp))
+    result = db.upsert_opportunity(conn, opp, digest, src)
+    conn.commit()
+    return result
+
+
+def _versions(conn, oid):
+    return conn.execute(
+        """SELECT version, payload->>'status' AS status, valid_to
+             FROM opportunity_version WHERE opportunity_id = %s ORDER BY version""",
+        (oid,),
+    ).fetchall()
+
+
+def test_re_reading_old_content_does_not_flip_the_archive(conn):
+    """The live defect, reproduced. One real change -- open on the 7th, awarded
+    on the 8th -- read in both orders across four runs produced twelve versions
+    alternating between the same two payloads, with "open" left current."""
+    opened = _placsp_state("open", "2026-09-07")
+    awarded = _placsp_state("awarded", "2026-09-08")
+    oid, _ = _upsert(conn, opened)
+    for _ in range(4):
+        _upsert(conn, awarded)
+        _upsert(conn, opened)
+    rows = _versions(conn, oid)
+    assert [r["status"] for r in rows] == ["open", "awarded"]
+    current = conn.execute("SELECT status FROM opportunity WHERE id = %s", (oid,)).fetchone()
+    assert current["status"] == "awarded"
+
+
+def test_older_content_arriving_after_newer_never_becomes_current(conn):
+    """Newest first is how the feed is served. The award must stay current."""
+    oid, _ = _upsert(conn, _placsp_state("awarded", "2026-09-08"))
+    _, action = _upsert(conn, _placsp_state("open", "2026-09-07"))
+    assert action == "stale"
+    assert [r["status"] for r in _versions(conn, oid)] == ["awarded"]
+
+
+def test_a_genuinely_newer_change_is_still_archived(conn):
+    oid, _ = _upsert(conn, _placsp_state("open", "2026-09-07"))
+    _upsert(conn, _placsp_state("awarded", "2026-09-08"))
+    _, action = _upsert(conn, _placsp_state("cancelled", "2026-09-09"))
+    assert action == "changed"
+    assert [r["status"] for r in _versions(conn, oid)] == ["open", "awarded", "cancelled"]
+
+
+def test_a_flipped_history_is_repaired_by_appending_never_by_deleting(conn):
+    """Rebuild the damaged history the way the old code wrote it, then repair."""
+    from dgate.api import get_versions
+    from dgate.ops.repair_reversions import run as repair
+
+    awarded = _placsp_state("awarded", "2026-09-08")
+    opened = _placsp_state("open", "2026-09-07")
+    oid, _ = _upsert(conn, awarded)
+    # append_version skips the change checks, so it reproduces the old writes.
+    after = 1
+    for opp in (opened, awarded, opened):
+        digest = content_hash(db.opportunity_payload(opp))
+        after = db.append_version(conn, oid, opp, digest, ["status", "published_at"],
+                                  after=after)
+    conn.commit()
+    assert conn.execute("SELECT status FROM opportunity WHERE id=%s", (oid,)).fetchone()[
+        "status"] == "open"
+
+    from dgate.config import settings
+
+    dsn = settings().test_dsn  # conn.info.dsn omits the password
+    totals = repair(dsn=dsn)
+    assert totals["corrected"] == 1
+
+    rows = _versions(conn, oid)
+    assert len(rows) == 5, "four damaged versions kept, one correction appended"
+    assert rows[-1]["status"] == "awarded"
+    assert conn.execute("SELECT status FROM opportunity WHERE id=%s", (oid,)).fetchone()[
+        "status"] == "awarded"
+
+    notes = {v["version"]: [n["kind"] for n in v["notes"]]
+             for v in get_versions(oid, conn)["versions"]}
+    assert notes[2] == ["out_of_order"]
+    assert notes[3] == ["reread"] and notes[4] == ["reread"]
+    assert notes[5] == ["correction"]
+
+    # Running it again changes nothing -- including the notes. The first version
+    # of the repair passed the two checks above and still marked the correction
+    # `reread` on its second run.
+    assert repair(dsn=dsn)["corrected"] == 0
+    assert len(_versions(conn, oid)) == 5
+    again = {v["version"]: sorted(n["kind"] for n in v["notes"])
+             for v in get_versions(oid, conn)["versions"]}
+    assert again == {1: [], 2: ["out_of_order"], 3: ["reread"], 4: ["reread"],
+                     5: ["correction"]}
+
+
+# --------------------------------------------------------- buyer seeding (M1-03)
+
+def test_seeding_twice_creates_no_duplicates(conn, tmp_path):
+    """M1-03's done-when. It failed before migration 0005: seeded aliases have
+    no source, NULL is distinct from NULL in a unique constraint, and a second
+    run turned 20 alias rows into 40."""
+    seeds = write_seeds(tmp_path, [
+        "PL,2 Regionalna Baza Logistyczna,2 Regionalna Baza Logistyczna,logistics_base,792",
+        "PL,2 Regionalna Baza Logistyczna,2. Regionalna Baza Logistyczna,logistics_base,511",
+    ])
+
+    def counts():
+        return conn.execute(
+            """SELECT (SELECT count(*) FROM organisation_alias
+                        WHERE normalised_name = '2 regionalna baza logistyczna') AS aliases,
+                      (SELECT count(*) FROM organisation
+                        WHERE canonical_name = '2 regionalna baza logistyczna') AS orgs"""
+        ).fetchone()
+
+    seed_buyers(seeds)
+    conn.commit()
+    first = counts()
+    seed_buyers(seeds)
+    seed_buyers(seeds)
+    conn.commit()
+    assert counts() == first
+    # Both spellings normalise to the same name, so one alias and one organisation.
+    assert (first["aliases"], first["orgs"]) == (1, 1)
+
+
+def test_a_variant_spelling_resolves_to_a_defence_buyer(conn, tmp_path):
+    seeds = write_seeds(tmp_path, [
+        "PL,31 Wojskowy Oddzial Gospodarczy,31 Wojskowy Oddzial Gospodarczy,economic_unit,1430",
+        "PL,31 Wojskowy Oddzial Gospodarczy,31 Wojskowy Oddzial Gospodarczy w Krakowie,economic_unit,4",
+    ])
+    seed_buyers(seeds)
+    conn.commit()
+    org = db.resolve_organisation(conn, "31 Wojskowy Oddzial Gospodarczy w Krakowie", "PL")
+    assert db.is_defence_buyer(conn, org)
+
+
+def test_an_organisation_ingestion_created_first_is_flagged_too(conn, tmp_path):
+    """Ingestion may already have created an organisation under a variant
+    spelling. Merging it would be a resolution decision without a method;
+    flagging it means the buyer signal fires whichever one a notice hits."""
+    src = db.source_id(conn, "pl_ezam")
+    early = db.resolve_organisation(conn, "7 Wojskowy Oddzial Gospodarczy w Gdyni", "PL",
+                                    src_id=src)
+    conn.commit()
+    seeds = write_seeds(tmp_path, [
+        "PL,7 Wojskowy Oddzial Gospodarczy,7 Wojskowy Oddzial Gospodarczy,economic_unit,10",
+        "PL,7 Wojskowy Oddzial Gospodarczy,7 Wojskowy Oddzial Gospodarczy w Gdyni,economic_unit,3",
+    ])
+    seed_buyers(seeds)
+    conn.commit()
+    assert db.is_defence_buyer(conn, early)
+
+
 @pytest.fixture()
 def amended(seeded):
     """One notice ingested, then re-ingested with a later deadline and value."""
@@ -451,3 +626,64 @@ def test_progress_is_visible_while_a_run_is_still_going(conn):
     ).fetchone()
     assert row["status"] == "running"
     assert (row["records_fetched"], row["records_new"], row["records_changed"]) == (400, 12, 3)
+
+
+def test_reclassifying_after_the_buyer_list_grows(conn, tmp_path, monkeypatch):
+    """The five days the buyer list was empty, and the pass that makes up for it.
+
+    A notice archived on its CPV alone gains the buyer signal without a new
+    version, because its content did not change. A notice from the same buyer
+    that did not qualify then is archived now, from the payload stored at the
+    time -- which is why every payload was kept, defence or not.
+    """
+    from datetime import date
+
+    from dgate import config, reprocess
+    from dgate.normalise import Opportunity
+    from dgate.pipeline import seed_buyers
+    from dgate.rawstore import FileRawStore, storage_key
+
+    monkeypatch.setenv("DGATE_RAW_BACKEND", "fs")
+    monkeypatch.setenv("DGATE_RAW_DIR", str(tmp_path / "raw"))
+    config.reset_cache()
+    try:
+        buyer = "Jefatura de Asuntos Economicos del Mando de Apoyo Logistico"
+        store = FileRawStore(tmp_path / "raw")
+        src = db.source_id(conn, "es_placsp")
+
+        def land(native_id, cpv):
+            opp = Opportunity(source_code="es_placsp", native_id=native_id,
+                              buyer_name_raw=buyer, title_original=native_id, country="ES",
+                              published_at=date(2026, 9, 1), cpv_codes=[cpv])
+            payload = db.opportunity_payload(opp)
+            digest = content_hash(payload)
+            key = store.put(storage_key("es_placsp", native_id, content_hash=digest), payload)
+            db.record_raw(conn, src, native_id, digest, key)
+            opp = _finalise(conn, opp, src)
+            if opp.is_defence:
+                db.upsert_opportunity(conn, opp, digest, src)
+            conn.commit()
+
+        land("EXP-MILITARY", "35300000")      # weapons: qualifies on CPV alone
+        land("EXP-WORKS", "45000000")         # construction: needed the buyer list
+
+        def row(native_id):
+            return conn.execute(
+                """SELECT is_defence, sig_buyer, current_version FROM opportunity
+                    WHERE source_id = %s AND native_id = %s""", (src, native_id)).fetchone()
+
+        assert row("EXP-MILITARY")["sig_buyer"] is False
+        assert row("EXP-WORKS") is None
+
+        seeds = write_seeds(tmp_path, [f"ES,{buyer},{buyer},army_economic_unit,33"])
+        seed_buyers(seeds)
+        conn.commit()
+        result = reprocess.reprocess(source="es_placsp", workers=4)
+        assert result.failed == 0
+
+        military = row("EXP-MILITARY")
+        assert military["sig_buyer"] is True and military["current_version"] == 1
+        works = row("EXP-WORKS")
+        assert works is not None and works["is_defence"] and works["sig_buyer"]
+    finally:
+        config.reset_cache()

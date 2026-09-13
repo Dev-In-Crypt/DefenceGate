@@ -378,21 +378,64 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
             encoding="utf-8")
 
 
-def seed_buyers() -> None:
-    from .normalise import normalise_org_name
-    with db.connect(settings().dsn) as conn:
+SEEDS_FILE = Path(__file__).resolve().parents[1] / "seeds" / "defence_buyers.csv"
+
+
+def load_seed_rows(path: Path | None = None) -> dict[tuple[str, str], list[tuple[str, str]]]:
+    """The seed file grouped by organisation: (country, canonical) -> spellings.
+
+    Falls back to the hand-curated DEFENCE_BUYERS when the file is absent, so
+    an image built without it still has a working buyer signal rather than
+    none -- which is the failure this list already had once.
+    """
+    import csv
+
+    path = path or SEEDS_FILE
+    groups: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    if not path.exists():
+        log.warning("seed file %s not found; using the built-in list", path)
         for country, name in DEFENCE_BUYERS:
-            norm = normalise_org_name(name)
+            groups.setdefault((country, name), []).append((name, "curated"))
+        return groups
+    with path.open(encoding="utf-8", newline="") as fh:
+        for row in csv.DictReader(fh):
+            key = (row["country"].strip(), row["canonical_name"].strip())
+            groups.setdefault(key, []).append((row["raw_name"].strip(), row["category"]))
+    return groups
+
+
+def seed_buyers(path: Path | None = None) -> int:
+    """Mark the defence buyers, idempotently. Returns organisations seeded.
+
+    Each organisation gets one row and one alias per real spelling. The
+    canonical spelling is a human decision (confidence 1.00); the others were
+    grouped by a written rule in dgate/ops/derive_buyers.py (0.98), which puts
+    them above the 0.95 an automatic exact-name match gets, so a seeded
+    spelling wins when ingestion has already created an alias of its own.
+
+    Any organisation ingestion already created under one of those spellings is
+    flagged as well. Merging it into the canonical one would be an
+    entity-resolution decision without a stored method; flagging both means
+    the buyer signal fires whichever of them a notice resolves to.
+    """
+    from .normalise import normalise_org_name
+
+    groups = load_seed_rows(path)
+    with db.connect(settings().dsn) as conn:
+        for (country, canonical), spellings in groups.items():
+            norm = normalise_org_name(canonical)
             row = conn.execute(
-                "SELECT id FROM organisation WHERE country = %s AND canonical_name = %s",
+                """SELECT id FROM organisation
+                    WHERE country = %s AND lower(canonical_name) = %s
+                    ORDER BY id LIMIT 1""",
                 (country, norm),
             ).fetchone()
             if row:
+                org_id = row["id"]
                 conn.execute(
                     "UPDATE organisation SET is_defence_buyer = TRUE WHERE id = %s",
-                    (row["id"],),
+                    (org_id,),
                 )
-                org_id = row["id"]
             else:
                 org_id = conn.execute(
                     """INSERT INTO organisation
@@ -402,15 +445,28 @@ def seed_buyers() -> None:
                        RETURNING id""",
                     (norm, country),
                 ).fetchone()["id"]
-            conn.execute(
-                """INSERT INTO organisation_alias
-                     (organisation_id, raw_name, normalised_name, country_hint,
-                      match_method, confidence)
-                   VALUES (%s, %s, %s, %s, 'human', 1.00)
-                   ON CONFLICT DO NOTHING""",
-                (org_id, name, norm, country),
-            )
-    log.info("seeded %s defence buyers", len(DEFENCE_BUYERS))
+
+            for raw, _category in spellings:
+                raw_norm = normalise_org_name(raw)
+                is_canonical = raw_norm == norm
+                conn.execute(
+                    """INSERT INTO organisation_alias
+                         (organisation_id, raw_name, normalised_name, country_hint,
+                          match_method, confidence)
+                       VALUES (%s, %s, %s, %s, %s, %s)
+                       ON CONFLICT DO NOTHING""",
+                    (org_id, raw, raw_norm, country,
+                     "human" if is_canonical else "seed_rule",
+                     1.00 if is_canonical else 0.98),
+                )
+                conn.execute(
+                    """UPDATE organisation SET is_defence_buyer = TRUE
+                        WHERE country = %s AND lower(canonical_name) = %s
+                          AND NOT is_defence_buyer""",
+                    (country, raw_norm),
+                )
+    log.info("seeded %s defence buyers", len(groups))
+    return len(groups)
 
 
 def main(argv: list[str] | None = None) -> int:

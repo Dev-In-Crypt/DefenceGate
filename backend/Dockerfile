@@ -27,6 +27,8 @@ COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=dgate:dgate dgate ./dgate
 COPY --chown=dgate:dgate migrations ./migrations
+# The defence buyer list. Without it the buyer signal silently cannot fire.
+COPY --chown=dgate:dgate seeds ./seeds
 
 # Create the mount points in the image and give them to the non-root user.
 # A named volume inherits the ownership of the image path it covers; without

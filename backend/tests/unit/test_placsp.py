@@ -205,3 +205,59 @@ def test_identifier_never_falls_back_to_a_url_when_the_folder_id_is_present():
     for payload in (ATOM, ATOM_DGPE):
         opps, _ = placsp.parse_feed(payload.encode("utf-8"))
         assert all(not o.native_id.startswith("http") for o in opps)
+
+
+# ------------------------------------------------ order within a live walk
+
+def _entry(folder: str, status: str, updated: str) -> str:
+    return f"""
+  <entry>
+    <id>https://contrataciondelsectorpublico.gob.es/{folder}/{status}</id>
+    <title>{folder}</title>
+    <updated>{updated}</updated>
+    <cac-place-ext:ContractFolderStatus>
+      <cbc:ContractFolderID>{folder}</cbc:ContractFolderID>
+      <cbc-place-ext:ContractFolderStatusCode>{status}</cbc-place-ext:ContractFolderStatusCode>
+      <cac:ProcurementProject><cbc:Name>{folder}</cbc:Name></cac:ProcurementProject>
+    </cac-place-ext:ContractFolderStatus>
+  </entry>"""
+
+
+def _page(entries: str, next_href: str | None) -> bytes:
+    head = ATOM.split("<entry>", 1)[0]
+    if next_href is None:
+        head = head.replace('<link rel="next" href="https://example.test/page2.atom"/>', "")
+    else:
+        head = head.replace("https://example.test/page2.atom", next_href)
+    return (head + entries + "</feed>").encode("utf-8")
+
+
+def test_a_live_walk_hands_on_entries_in_the_order_they_happened():
+    """PLACSP serves its chain newest first, and one tender appears once per
+    modification. Handed on in that order, the award reached the archive before
+    the call for tenders it followed, and the call was written back as a change.
+    One real notice ended up with twelve versions flipping between the two."""
+    import httpx
+
+    pages = {
+        "https://example.test/live.atom": _page(
+            _entry("EXP-9", "ADJ", "2026-09-08T20:12:20.5+02:00"),
+            "https://example.test/older.atom"),
+        "https://example.test/older.atom": _page(
+            _entry("EXP-9", "PUB", "2026-09-07T10:00:00+02:00"), None),
+    }
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, content=pages[str(req.url)]))
+    import dataclasses
+
+    dataset = dataclasses.replace(placsp.MAIN, live_feed="https://example.test/live.atom")
+    with httpx.Client(transport=transport) as client:
+        walked = list(placsp.fetch_live(dataset, client=client, max_pages=5))
+    assert [o.status_native for o in walked] == ["PUB", "ADJ"]
+
+
+def test_timestamps_compare_as_instants_not_as_strings():
+    """09:00 in Madrid is before 08:30 in London; string order says otherwise."""
+    madrid = placsp._updated_key("2026-09-08T09:00:00+02:00")
+    london = placsp._updated_key("2026-09-08T08:30:00+01:00")
+    assert madrid < london
+    assert placsp._updated_key("not a date") < madrid

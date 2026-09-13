@@ -27,7 +27,7 @@ import logging
 import re
 import zipfile
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Iterator
 from xml.etree import ElementTree as ET
 from zoneinfo import ZoneInfo
@@ -277,8 +277,13 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
     )
 
 
-def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp") -> tuple[list[Opportunity], str | None]:
-    """Parse one ATOM file. Returns (opportunities, next_url)."""
+def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
+               *, stamps: list[str] | None = None) -> tuple[list[Opportunity], str | None]:
+    """Parse one ATOM file. Returns (opportunities, next_url).
+
+    Pass `stamps` to collect each parsed entry's full `atom:updated` alongside,
+    in the same order; `published_at` keeps only the date.
+    """
     root = ET.fromstring(xml_bytes)
     out: list[Opportunity] = []
     for entry in root.findall("atom:entry", NS):
@@ -286,6 +291,8 @@ def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp") -> tuple[list[O
             opp = parse_entry(entry, source_code)
             if opp:
                 out.append(opp)
+                if stamps is not None:
+                    stamps.append(_text(entry, "atom:updated") or "")
         except Exception as exc:  # one bad entry must not kill the batch
             log.warning("PLACSP entry parse failed: %s", exc)
 
@@ -311,6 +318,7 @@ def fetch_live(
     owns = client is None
     client = client or httpx.Client(headers={"User-Agent": USER_AGENT},
                                     timeout=60.0, follow_redirects=True)
+    walked: list[tuple[str, Opportunity]] = []
     try:
         url = dataset.live_feed
         for page in range(max_pages):
@@ -320,15 +328,38 @@ def fetch_live(
                 return response
 
             r = request_with_retry(fetch, what=f"{dataset.source_code} page {page + 1}")
-            opps, next_url = parse_feed(r.content, dataset.source_code)
+            stamps: list[str] = []
+            opps, next_url = parse_feed(r.content, dataset.source_code, stamps=stamps)
             log.info("%s page %s: %s entries", dataset.source_code, page + 1, len(opps))
-            yield from opps
+            walked.extend(zip(stamps, opps, strict=True))
             if not next_url:
                 break
             url = next_url
     finally:
         if owns:
             client.close()
+
+    # The chain is served newest first, and one tender appears once per
+    # modification. Handed on in that order, a run archived a notice's award
+    # and then its earlier call for tenders as though the call came after.
+    # Sorting by the source's own full timestamp makes arrival order the order
+    # things happened in. It costs holding one run's entries in memory, a few
+    # tens of megabytes, and the first record is only handed on once the walk
+    # has finished.
+    walked.sort(key=lambda pair: _updated_key(pair[0]))
+    for _, opp in walked:
+        yield opp
+
+
+def _updated_key(stamp: str) -> datetime:
+    """`atom:updated` as a comparable instant; unparseable sorts first."""
+    try:
+        value = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value
 
 
 def fetch_archive(
