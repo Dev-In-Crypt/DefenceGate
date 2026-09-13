@@ -687,3 +687,56 @@ def test_reclassifying_after_the_buyer_list_grows(conn, tmp_path, monkeypatch):
         assert works is not None and works["is_defence"] and works["sig_buyer"]
     finally:
         config.reset_cache()
+
+
+def test_a_run_that_fails_mid_write_commits_no_index_row_without_its_object(
+        conn, tmp_path, monkeypatch):
+    """The index must never list a payload the store does not have.
+
+    On 13 September 2026 R2 dropped out during the Polish backfill. The failed
+    write raised at a checkpoint, and the failure handler's commit saved the
+    raw_ingest rows written since the previous checkpoint -- rows whose objects
+    never landed. The resumed run skipped them as already there.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from dgate import pipeline
+    from dgate.rawstore import FileRawStore
+    from dgate.sources import atlas_pl
+
+    rows = 450
+    table = {c: [None] * rows for c in atlas_pl.COLUMNS}
+    table["id"] = [f"2024/BZP {i:08d}" for i in range(rows)]
+    table["title"] = ["Dostawa"] * rows
+    table["buyer"] = ["Gmina Testowa"] * rows
+    table["cpv_code"] = ["45000000"] * rows
+    table["date"] = ["2024-01-02"] * rows
+    table["notice_type"] = ["ContractNotice"] * rows
+    path = tmp_path / "tenders_2024.parquet"
+    pq.write_table(pa.table({k: pa.array(v, type=pa.string()) for k, v in table.items()}), path)
+
+    class DyingStore(FileRawStore):
+        written = 0
+
+        def put(self, key, payload, content_type="application/json"):
+            DyingStore.written += 1
+            if DyingStore.written > 300:
+                raise ConnectionError("Could not connect to the endpoint URL")
+            return super().put(key, payload, content_type)
+
+    store = DyingStore(tmp_path / "raw")
+    monkeypatch.setattr(pipeline, "build_store", lambda *a, **k: store)
+    with pytest.raises(ConnectionError):
+        pipeline.run_atlas_backfill(2024, path=path, workers=4)
+
+    keys = [r["storage_key"] for r in conn.execute(
+        """SELECT r.storage_key FROM raw_ingest r JOIN source s ON s.id = r.source_id
+            WHERE s.code = 'pl_atlas'""").fetchall()]
+    assert keys, "the first checkpoint's rows should have been kept"
+    missing = [k for k in keys if not store.exists(k)]
+    assert missing == []
+    status = conn.execute(
+        """SELECT r.status FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE s.code = 'pl_atlas' ORDER BY r.id DESC LIMIT 1""").fetchone()["status"]
+    assert status == "failed"

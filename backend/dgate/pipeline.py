@@ -127,6 +127,13 @@ def run_ted(days: int = 2) -> None:
             writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
+            # Roll back first. finish_run commits, and without this it committed
+            # the raw_ingest rows written since the last checkpoint along with the
+            # failure -- including rows whose payloads never reached the store,
+            # because the write that failed is what raised. Resume then skipped
+            # those identifiers as landed. Found on 13 September 2026 as a key the
+            # index listed and R2 did not have.
+            conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
                           status="failed", error=str(exc))
             raise
@@ -171,6 +178,13 @@ def run_ezamowienia(days: int = 2) -> None:
             writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
+            # Roll back first. finish_run commits, and without this it committed
+            # the raw_ingest rows written since the last checkpoint along with the
+            # failure -- including rows whose payloads never reached the store,
+            # because the write that failed is what raised. Resume then skipped
+            # those identifiers as landed. Found on 13 September 2026 as a key the
+            # index listed and R2 did not have.
+            conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
                           status="failed", error=str(exc))
             raise
@@ -205,6 +219,13 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
             writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
+            # Roll back first. finish_run commits, and without this it committed
+            # the raw_ingest rows written since the last checkpoint along with the
+            # failure -- including rows whose payloads never reached the store,
+            # because the write that failed is what raised. Resume then skipped
+            # those identifiers as landed. Found on 13 September 2026 as a key the
+            # index listed and R2 did not have.
+            conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
                           status="failed", error=str(exc))
             raise
@@ -367,6 +388,13 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
             writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
+            # Roll back first. finish_run commits, and without this it committed
+            # the raw_ingest rows written since the last checkpoint along with the
+            # failure -- including rows whose payloads never reached the store,
+            # because the write that failed is what raised. Resume then skipped
+            # those identifiers as landed. Found on 13 September 2026 as a key the
+            # index listed and R2 did not have.
+            conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
                           status="failed", error=str(exc))
             raise
