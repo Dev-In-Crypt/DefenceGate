@@ -79,6 +79,11 @@ services:
       # backfill. Its own volume so an interrupted multi-hour run does not
       # re-download hundreds of megabytes on every retry.
       DGATE_ATLAS_DIR: /data/atlas
+      # Year files the worker finishes loading by itself, e.g. "2024,2025".
+      # Empty by default: a multi-hour history load should be chosen, not
+      # inherited. Once a year's .done marker exists it is skipped for good.
+      DGATE_ATLAS_BACKFILL_YEARS: ${DGATE_ATLAS_BACKFILL_YEARS:-}
+      DGATE_ATLAS_WRITE_WORKERS: ${DGATE_ATLAS_WRITE_WORKERS:-64}
       # Cover whatever was missed while this container was down. See
       # docs/RUNBOOK.md, "Missed days".
       DGATE_CATCH_UP: ${DGATE_CATCH_UP:-1}

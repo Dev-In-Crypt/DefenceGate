@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -220,6 +221,61 @@ def hours_since_last_success(codes: Sequence[str]) -> float | None:
     return (datetime.now(timezone.utc) - finished).total_seconds() / 3600
 
 
+def pending_backfill_years() -> list[int]:
+    """Configured Atlas years that have not been loaded completely yet."""
+    from .pipeline import atlas_done_marker
+
+    return [y for y in settings().atlas_backfill_years
+            if not atlas_done_marker(y).exists()]
+
+
+def job_atlas_backfill(attempts: int = 6, pause: float = 120.0) -> JobResult:
+    """Finish whatever part of the Polish historical backfill is still missing.
+
+    Run by the worker itself rather than by hand, because a hand-started run
+    lives in a process that any container restart kills. On 13 September 2026
+    that happened three times in one morning -- a reboot, a DNS outage, and the
+    WSL virtual machine that Docker runs in restarting under it -- and each time
+    the run stopped until someone noticed and started it again.
+
+    Each year is retried in place after a failure, and every retry is cheap
+    because the backfill skips what has already landed. Anything still
+    unfinished when the process dies is picked up on the next start.
+    """
+    from .pipeline import run_atlas_backfill
+
+    def _run() -> None:
+        for year in pending_backfill_years():
+            for attempt in range(1, attempts + 1):
+                try:
+                    run_atlas_backfill(year, workers=settings().atlas_write_workers)
+                    break
+                except Exception as exc:  # noqa: BLE001 - retried, then reported
+                    if attempt == attempts:
+                        raise
+                    log.warning("atlas %s attempt %s of %s failed (%s); retrying in %.0fs",
+                                year, attempt, attempts, exc, pause)
+                    time.sleep(pause)
+
+    return run_job("atlas_backfill", _run, sources=["pl_atlas"])
+
+
+def start_backfill_thread() -> threading.Thread | None:
+    """Resume an unfinished backfill alongside, not before, the catch-up.
+
+    A thread, so that three days of missed daily collection are not held up
+    behind two hours of history, and history is not held up behind them.
+    """
+    years = pending_backfill_years()
+    if not years:
+        return None
+    log.info("atlas backfill still to finish for %s; resuming in the background", years)
+    thread = threading.Thread(target=job_atlas_backfill, name="atlas-backfill",
+                              daemon=True)
+    thread.start()
+    return thread
+
+
 def wait_for_database(timeout: float = 180.0, interval: float = 3.0) -> bool:
     """Block until Postgres accepts a query, or give up after `timeout` seconds.
 
@@ -318,6 +374,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "backup": job_backup,
     "backup-verify": job_backup_verify,
     "catch-up": job_catch_up,
+    "atlas-backfill": job_atlas_backfill,
 }
 
 
@@ -389,6 +446,7 @@ def main(argv: list[str] | None = None) -> int:
     # entry cannot catch up on its own.
     if wait_for_database():
         close_interrupted_runs()
+        start_backfill_thread()
         results = catch_up()
     else:
         # Loud rather than silent: a catch-up that could not run is a gap that

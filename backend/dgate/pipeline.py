@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -284,8 +285,22 @@ def already_ingested(conn, code: str) -> set[str]:
     return {r["native_id"] for r in rows}
 
 
+def atlas_done_marker(year: int) -> Path:
+    """The file whose existence means a year has been loaded completely.
+
+    A marker rather than a row count, because rows the mapper refuses are never
+    recorded, so a count could fall short of the file for ever and the worker
+    would reload the year on every start. It lives beside the downloaded file;
+    losing that volume only costs a resumed run, which skips what has landed.
+    """
+    from .sources import atlas_pl
+
+    return Path(settings().atlas_dir) / (atlas_pl.YEAR_FILES[year] + ".done")
+
+
 def run_atlas_backfill(year: int, *, path: Path | None = None,
-                       limit: int | None = None, resume: bool = True) -> None:
+                       limit: int | None = None, resume: bool = True,
+                       workers: int | None = None) -> None:
     """One-off historical load of the Polish bulletin from Atlas Przetargow.
 
     Run once per year file, then never again: this is the part of the archive a
@@ -315,7 +330,7 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
     log.info("atlas %s: %s rows in %s", year, total, path.name)
 
     with (db.connect(cfg.dsn) as conn,
-          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+          BufferedWriter(build_store(), workers or cfg.raw_write_workers) as writer):
         src_id = db.source_id(conn, code)
         seen = already_ingested(conn, code) if resume else set()
         if seen:
@@ -357,6 +372,10 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
             raise
     log.info("atlas %s done: %s rows read, %s already had, %s new, %s changed",
              year, fetched, skipped, new, changed)
+    if limit is None:
+        atlas_done_marker(year).write_text(
+            "completed " + datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            encoding="utf-8")
 
 
 def seed_buyers() -> None:

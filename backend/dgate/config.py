@@ -34,6 +34,16 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_int_list(name: str) -> list[int]:
+    raw = os.environ.get(name) or ""
+    out: list[int] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part.isdigit():
+            out.append(int(part))
+    return out
+
+
 # Coverage floors, measured against the live sources on 7 September 2026.
 #
 # A run that finishes below its floor is marked `partial`, never `success`,
@@ -137,6 +147,16 @@ class Settings:
     # runs, so it is deliberately not the raw store.
     atlas_dir: Path = field(
         default_factory=lambda: Path(_env("DGATE_ATLAS_DIR", "./data/atlas")))
+    # Year files the worker should finish loading, e.g. "2024,2025". Empty means
+    # the worker never starts a backfill on its own. A year is finished once its
+    # `.done` marker exists, so leaving this set costs nothing afterwards.
+    atlas_backfill_years: list[int] = field(
+        default_factory=lambda: _env_int_list("DGATE_ATLAS_BACKFILL_YEARS"))
+    # The backfill writes far more than a daily run and is bound by R2 latency,
+    # so it gets its own, wider writer pool: 64 measured 89 rows/s against 27
+    # at the daily default of 16.
+    atlas_write_workers: int = field(
+        default_factory=lambda: _env_int("DGATE_ATLAS_WRITE_WORKERS", 64))
 
     # --- ingestion ------------------------------------------------------
     floors: dict[str, dict[int, int]] = field(default_factory=_default_floors)
