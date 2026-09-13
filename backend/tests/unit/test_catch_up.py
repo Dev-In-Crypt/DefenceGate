@@ -94,3 +94,42 @@ def test_placsp_widens_by_pages_not_days(monkeypatch, fresh_settings):
     worker.job_placsp(days=3)
     worker.job_placsp(days=30)
     assert seen == [60, cfg.placsp_max_pages]
+
+
+def test_start_up_waits_for_a_database_that_is_still_starting(monkeypatch):
+    """After a reboot Docker starts every container at once, and Postgres takes
+    a few seconds to accept queries. Catch-up has to wait for it rather than
+    record three warnings and cover nothing."""
+    attempts = {"n": 0}
+
+    class Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql):
+            return None
+
+    def connect(dsn):
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise RuntimeError("the database system is starting up")
+        return Conn()
+
+    monkeypatch.setattr(worker.db, "connect", connect)
+    monkeypatch.setattr(worker.time, "sleep", lambda s: None)
+    assert worker.wait_for_database(timeout=60, interval=0) is True
+    assert attempts["n"] == 3
+
+
+def test_start_up_gives_up_on_a_database_that_never_comes(monkeypatch):
+    def connect(dsn):
+        raise RuntimeError("connection refused")
+
+    clock = iter(range(0, 10_000, 5))
+    monkeypatch.setattr(worker.db, "connect", connect)
+    monkeypatch.setattr(worker.time, "sleep", lambda s: None)
+    monkeypatch.setattr(worker.time, "monotonic", lambda: next(clock))
+    assert worker.wait_for_database(timeout=30, interval=0) is False

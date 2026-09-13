@@ -220,6 +220,32 @@ def hours_since_last_success(codes: Sequence[str]) -> float | None:
     return (datetime.now(timezone.utc) - finished).total_seconds() / 3600
 
 
+def wait_for_database(timeout: float = 180.0, interval: float = 3.0) -> bool:
+    """Block until Postgres accepts a query, or give up after `timeout` seconds.
+
+    Needed because start-up after a reboot is not start-up after `compose up`.
+    `depends_on: service_healthy` is honoured only by compose; when the Docker
+    daemon itself restarts containers on boot, it starts them all at once. On
+    13 September 2026 the worker came up while Postgres was still replaying its
+    log, every catch-up check failed with "the database system is starting up",
+    each was logged as a warning, and the scheduler started having covered
+    nothing -- after three days off, which is the exact case catch-up exists
+    for. Waiting a few seconds would have been enough.
+    """
+    deadline = time.monotonic() + timeout
+    last: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            with db.connect(settings().dsn) as conn:
+                conn.execute("SELECT 1")
+            return True
+        except Exception as exc:  # noqa: BLE001 - any failure here means "not yet"
+            last = exc
+            time.sleep(interval)
+    log.error("database still unavailable after %.0fs: %s", timeout, last)
+    return False
+
+
 def close_interrupted_runs() -> list[int]:
     """Fail any ingest_run left `running` by a process that was killed.
 
@@ -273,6 +299,7 @@ def catch_up() -> list[JobResult]:
 
 def job_catch_up() -> JobResult:
     """The catch-up as a single job, for `--once catch-up`."""
+    wait_for_database()
     close_interrupted_runs()
     results = catch_up()
     if not results:
@@ -360,8 +387,16 @@ def main(argv: list[str] | None = None) -> int:
     # Before the scheduler blocks: tidy up after whatever killed the last
     # process, then cover whatever was missed while it was not running. A cron
     # entry cannot catch up on its own.
-    close_interrupted_runs()
-    for result in catch_up():
+    if wait_for_database():
+        close_interrupted_runs()
+        results = catch_up()
+    else:
+        # Loud rather than silent: a catch-up that could not run is a gap that
+        # is still open, and the next scheduled slot may be a day away.
+        notify("[dgate] worker started but the database never came up; "
+               "catch-up did not run and missed days are still missing")
+        results = []
+    for result in results:
         log.info("catch-up %s: %s %s", result.name, result.status, result.detail)
     build_scheduler().start()
     return 0
