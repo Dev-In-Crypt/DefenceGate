@@ -133,3 +133,31 @@ def test_start_up_gives_up_on_a_database_that_never_comes(monkeypatch):
     monkeypatch.setattr(worker.time, "sleep", lambda s: None)
     monkeypatch.setattr(worker.time, "monotonic", lambda: next(clock))
     assert worker.wait_for_database(timeout=30, interval=0) is False
+
+
+def test_start_up_seeds_the_buyer_list_before_classifying(monkeypatch):
+    """The list lives only in the database. After a rebuild it was gone for five
+    days and the buyer signal could not fire for any source."""
+    from dgate import pipeline
+
+    order = []
+    monkeypatch.setattr(pipeline, "seed_buyers", lambda: order.append("seed"))
+    monkeypatch.setattr(worker, "catch_up", lambda: order.append("catch-up") or [])
+    monkeypatch.setattr(worker, "wait_for_database", lambda *a, **k: True)
+    monkeypatch.setattr(worker, "close_interrupted_runs", lambda: [])
+    worker.job_catch_up()
+    assert order == ["seed", "catch-up"]
+
+
+def test_a_failed_seed_is_reported_not_swallowed(monkeypatch):
+    from dgate import pipeline
+
+    sent = []
+
+    def boom():
+        raise RuntimeError("relation organisation does not exist")
+
+    monkeypatch.setattr(pipeline, "seed_buyers", boom)
+    monkeypatch.setattr(worker, "notify", lambda text: sent.append(text))
+    worker.ensure_buyer_list()
+    assert sent and "not seeded" in sent[0]

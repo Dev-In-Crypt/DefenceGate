@@ -221,6 +221,28 @@ def hours_since_last_success(codes: Sequence[str]) -> float | None:
     return (datetime.now(timezone.utc) - finished).total_seconds() / 3600
 
 
+def ensure_buyer_list() -> None:
+    """Seed the defence buyer list before anything is classified.
+
+    The list lives only in the database, so it is lost with it, and nothing in
+    the raw store can bring it back. The database was rebuilt on 8 September
+    and never reseeded; for five days the buyer signal -- which on its own
+    qualifies a notice -- could not fire for any source. Measured afterwards on
+    the Polish backfill alone, with just the two Polish entries on the list,
+    310 notices from the Ministry of National Defence and the Armament Agency
+    were not archived. Seeding is idempotent, so doing it on every start costs
+    one query per listed buyer and closes that hole for good.
+    """
+    from .pipeline import seed_buyers
+
+    try:
+        seed_buyers()
+    except Exception as exc:  # noqa: BLE001 - loud, but must not block start-up
+        log.error("could not seed the defence buyer list: %s", exc)
+        notify(f"[dgate] defence buyer list not seeded: {exc}; "
+               "the buyer signal cannot fire until it is")
+
+
 def pending_backfill_years() -> list[int]:
     """Configured Atlas years that have not been loaded completely yet."""
     from .pipeline import atlas_done_marker
@@ -357,6 +379,7 @@ def job_catch_up() -> JobResult:
     """The catch-up as a single job, for `--once catch-up`."""
     wait_for_database()
     close_interrupted_runs()
+    ensure_buyer_list()
     results = catch_up()
     if not results:
         return JobResult("catch_up", "success", 0.0, "nothing was stale")
@@ -446,6 +469,7 @@ def main(argv: list[str] | None = None) -> int:
     # entry cannot catch up on its own.
     if wait_for_database():
         close_interrupted_runs()
+        ensure_buyer_list()
         start_backfill_thread()
         results = catch_up()
     else:
