@@ -212,8 +212,17 @@ class S3RawStore(RawStore):
             # concurrency bought. The pool has to be at least as wide as the
             # writers, so it is derived from the same setting.
             options = dict(self._client_kwargs)
+            #
+            # Retries: botocore's default gives up within seconds, which is fine
+            # for one request and fatal for a backfill that runs for hours. On
+            # 13 September 2026 a brief DNS outage made R2 unresolvable and
+            # killed the Polish backfill 106,600 rows into its resumed run.
+            # Standard mode backs off exponentially up to 20 s between tries,
+            # so ten attempts ride out a couple of minutes of network trouble.
             options.setdefault("config", Config(
-                max_pool_connections=max(settings().raw_write_workers + 4, 10)))
+                max_pool_connections=max(settings().raw_write_workers + 4, 10),
+                retries={"mode": "standard", "max_attempts": 10},
+                connect_timeout=10, read_timeout=60))
             self._client = boto3.client("s3", **options)
         return self._client
 

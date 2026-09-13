@@ -145,7 +145,11 @@ def download(filename: str, dest: Path, *, chunk: int = 1 << 20) -> Path:
                     written += len(block)
         log.info("downloaded %s (%.0f MB)", filename, written / 1e6)
 
-    request_with_retry(lambda: fetch(), what=f"download {filename}")
+    # Zenodo answers 504 for minutes at a time when busy: on 13 September 2026 it
+    # did so four times in a row and the default budget of fourteen seconds gave
+    # up on the 2025 file. Six attempts from ten seconds wait about five minutes.
+    request_with_retry(lambda: fetch(), attempts=6, base_delay=10.0,
+                       what=f"download {filename}")
     partial.replace(dest)
     return dest
 
