@@ -244,6 +244,44 @@ def test_accents_folded():
     assert normalise_org_name("Télécom Défense SAS") == "telecom defense"
 
 
+def test_letters_without_decomposition_are_transliterated():
+    """NFKD folds ą and ę but leaves ł alone, which split one buyer into two.
+
+    Atlas Przetargow and e-Zamowienia spell the name in Polish, TED and the seed
+    list often in ASCII; both must reach the same organisation.
+    """
+    pairs = [
+        ("16 Wojskowy Oddział Gospodarczy w Białymstoku",
+         "16 Wojskowy Oddzial Gospodarczy w Bialymstoku"),
+        ("Wojskowe Zakłady Łączności Nr 1 S.A.", "WOJSKOWE ZAKLADY LACZNOSCI NR 1 SA"),
+        ("Bumar-Łabędy S.A.", "Bumar-Labedy SA"),
+        ("Zakłady Mechaniczne Tarnów S.A.", "Zaklady Mechaniczne Tarnow S.A."),
+        ("Politechnika Łódzka", "Politechnika Lodzka"),
+    ]
+    for polish, ascii_ in pairs:
+        assert normalise_org_name(polish) == normalise_org_name(ascii_), polish
+    assert normalise_org_name("16 Wojskowy Oddział Gospodarczy w Białymstoku") == (
+        "16 wojskowy oddzial gospodarczy w bialymstoku")
+    assert normalise_org_name("Wojskowe Zakłady Łączności Nr 1 S.A.") == (
+        "wojskowe zaklady lacznosci nr 1")
+
+
+def test_polish_legal_form_is_stripped_once_transliterated():
+    """"spółka akcyjna" only matches the legal-form list after ł becomes l."""
+    assert normalise_org_name("MESKO Spółka Akcyjna") == "mesko"
+
+
+def test_other_non_decomposing_letters():
+    assert normalise_org_name("Forsvarsministeriets Materiel- og Indkøbsstyrelse") == (
+        "forsvarsministeriets materiel- og indkobsstyrelse")
+    assert normalise_org_name("Landesamt für Straßenbau") == "landesamt fur strassenbau"
+    assert normalise_org_name("LANDESAMT FÜR STRAẞENBAU") == "landesamt fur strassenbau"
+    assert normalise_org_name("Đuro Đaković") == "duro dakovic"
+    assert normalise_org_name("Ħal Far") == "hal far"
+    assert normalise_org_name("Æbeltoft Kommune") == "aebeltoft kommune"
+    assert normalise_org_name("Œuvre Sociale") == "oeuvre sociale"
+
+
 def test_various_legal_forms():
     assert normalise_org_name("Rheinmetall AG") == "rheinmetall"
     assert normalise_org_name("PGZ Sp. z o.o.") == "pgz"

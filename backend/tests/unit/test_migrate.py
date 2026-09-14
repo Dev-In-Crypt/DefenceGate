@@ -69,3 +69,47 @@ def test_both_placsp_datasets_are_seeded_as_sources():
 
 def test_status_native_column_exists():
     assert "status_native" in _core_sql()
+
+
+# ------------------------------------- 0005: stored org names re-normalised
+
+def _renormalise_sql() -> str:
+    return (MIGRATIONS_DIR / "0005_transliterate_org_names.sql").read_text(encoding="utf-8")
+
+
+def _sql_code(sql: str) -> str:
+    return "\n".join(line.split("--", 1)[0] for line in sql.splitlines())
+
+
+def test_renormalise_migration_covers_every_transliterated_letter():
+    """The SQL copy of _TRANSLITERATE must not fall behind the Python one."""
+    from dgate.normalise import _TRANSLITERATE
+
+    code = _sql_code(_renormalise_sql())
+    for codepoint in _TRANSLITERATE:
+        assert chr(codepoint) in code, f"{chr(codepoint)!r} missing from 0005"
+
+
+def test_renormalise_migration_strips_legal_forms_in_python_order():
+    import re
+
+    from dgate.normalise import _LEGAL_FORMS
+
+    code = _sql_code(_renormalise_sql())
+    block = re.search(r"FOREACH form IN ARRAY ARRAY\[(.*?)\]", code, re.S)
+    assert block, "legal-form list not found in 0005"
+    in_sql = re.findall(r"'([^']*)'", block.group(1))
+    expected = [f for f in sorted(_LEGAL_FORMS, key=len, reverse=True)
+                if re.fullmatch(r"[\w\s&-]+", f)]
+    assert in_sql == expected
+
+
+def test_renormalise_migration_never_touches_the_archive():
+    assert "opportunity_version" not in _sql_code(_renormalise_sql())
+
+
+def test_renormalise_migration_does_not_merge_or_delete():
+    code = _sql_code(_renormalise_sql()).upper()
+    assert "DELETE" not in code
+    assert "BUYER_ORG_ID" not in code
+    assert "ORGANISATION_ID =" not in code.replace("CANDIDATE_ORG", "")

@@ -16,7 +16,8 @@ import pytest
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
 TABLES = """opportunity_version, opportunity_capability, opportunity,
-            organisation_alias, organisation, raw_ingest, ingest_run"""
+            organisation_merge_candidate, organisation_alias, organisation,
+            raw_ingest, ingest_run"""
 
 
 @pytest.fixture(scope="session")

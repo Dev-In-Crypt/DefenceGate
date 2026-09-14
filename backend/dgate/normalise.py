@@ -306,11 +306,30 @@ _LEGAL_FORMS = [
 _NOISE_TOKENS = {"group", "grupo", "groupe", "holding", "holdings",
                  "international", "internacional", "gruppe"}
 
+# Letters that NFKD leaves alone because Unicode gives them no decomposition.
+# Without this, "Białymstoku" from a Polish source and "Bialymstoku" from an
+# ASCII one are two organisations. Migration 0005 repeats this table in SQL for
+# the names already stored; the two must stay in step.
+_TRANSLITERATE = str.maketrans({
+    "ł": "l", "Ł": "l",
+    "ø": "o", "Ø": "o",
+    "ß": "ss", "ẞ": "ss",
+    "đ": "d", "Đ": "d",
+    "ħ": "h", "Ħ": "h",
+    "æ": "ae", "Æ": "ae",
+    "œ": "oe", "Œ": "oe",
+    "ð": "d", "Ð": "d",
+    "þ": "th", "Þ": "th",
+    "ı": "i",
+})
+
 
 def normalise_org_name(raw: str, *, strip_noise: bool = False) -> str:
     """Canonical form for entity resolution.
 
-    Fold accents, lowercase, strip legal form, collapse punctuation. Legal form
+    Fold accents (by decomposition, then by explicit transliteration for letters
+    such as Polish ł that do not decompose), lowercase, strip legal form,
+    collapse punctuation. Legal form
     is removed rather than kept because the same company appears with and
     without it across sources, and that difference alone should never create a
     duplicate organisation.
@@ -319,6 +338,7 @@ def normalise_org_name(raw: str, *, strip_noise: bool = False) -> str:
         return ""
     s = unicodedata.normalize("NFKD", raw)
     s = "".join(c for c in s if not unicodedata.combining(c))
+    s = s.translate(_TRANSLITERATE)
     s = s.lower()
     s = re.sub(r"[^\w\s.&-]", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
