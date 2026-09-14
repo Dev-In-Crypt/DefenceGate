@@ -308,7 +308,7 @@ _NOISE_TOKENS = {"group", "grupo", "groupe", "holding", "holdings",
 
 # Letters that NFKD leaves alone because Unicode gives them no decomposition.
 # Without this, "Białymstoku" from a Polish source and "Bialymstoku" from an
-# ASCII one are two organisations. Migration 0005 repeats this table in SQL for
+# ASCII one are two organisations. Migration 0007 repeats this table in SQL for
 # the names already stored; the two must stay in step.
 _TRANSLITERATE = str.maketrans({
     "ł": "l", "Ł": "l",

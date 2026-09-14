@@ -47,14 +47,11 @@ from ..normalise import normalise_org_name
 
 log = logging.getLogger("derive_buyers")
 
-# Letters NFKD cannot fold. Used only to compute rule and grouping keys here;
-# stored names keep going through normalise_org_name unchanged, so seed and
-# ingest still agree with each other.
-_LOOSE = str.maketrans({"ł": "l", "ø": "o", "ß": "ss", "đ": "d"})
-
-
 def loose(raw: str) -> str:
-    return normalise_org_name(raw).translate(_LOOSE)
+    """Rule and grouping key. This used to fold ł, ø, ß and đ on top of
+    normalise_org_name, which could not; the normaliser now does that itself,
+    so the key and the stored name are the same string."""
+    return normalise_org_name(raw)
 
 
 # ------------------------------------------------------------------- Poland

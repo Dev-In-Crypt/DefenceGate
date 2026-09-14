@@ -71,10 +71,10 @@ def test_status_native_column_exists():
     assert "status_native" in _core_sql()
 
 
-# ------------------------------------- 0005: stored org names re-normalised
+# ------------------------------------- 0007: stored org names re-normalised
 
 def _renormalise_sql() -> str:
-    return (MIGRATIONS_DIR / "0005_transliterate_org_names.sql").read_text(encoding="utf-8")
+    return (MIGRATIONS_DIR / "0007_transliterate_org_names.sql").read_text(encoding="utf-8")
 
 
 def _sql_code(sql: str) -> str:
@@ -87,7 +87,7 @@ def test_renormalise_migration_covers_every_transliterated_letter():
 
     code = _sql_code(_renormalise_sql())
     for codepoint in _TRANSLITERATE:
-        assert chr(codepoint) in code, f"{chr(codepoint)!r} missing from 0005"
+        assert chr(codepoint) in code, f"{chr(codepoint)!r} missing from 0007"
 
 
 def test_renormalise_migration_strips_legal_forms_in_python_order():
@@ -97,7 +97,7 @@ def test_renormalise_migration_strips_legal_forms_in_python_order():
 
     code = _sql_code(_renormalise_sql())
     block = re.search(r"FOREACH form IN ARRAY ARRAY\[(.*?)\]", code, re.S)
-    assert block, "legal-form list not found in 0005"
+    assert block, "legal-form list not found in 0007"
     in_sql = re.findall(r"'([^']*)'", block.group(1))
     expected = [f for f in sorted(_LEGAL_FORMS, key=len, reverse=True)
                 if re.fullmatch(r"[\w\s&-]+", f)]

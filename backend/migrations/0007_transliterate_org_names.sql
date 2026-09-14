@@ -103,7 +103,7 @@ SELECT DISTINCT ON (LEAST(r.id, o.id), GREATEST(r.id, o.id))
               r.old_name,
               COALESCE((SELECT old_name FROM org_renamed x WHERE x.id = o.id), o.canonical_name),
               r.new_name, r.country),
-       '0005_transliterate_org_names'
+       '0007_transliterate_org_names'
   FROM org_renamed r
   JOIN organisation o
     ON o.country = r.country AND o.canonical_name = r.new_name AND o.id <> r.id
@@ -122,9 +122,9 @@ SELECT a.id, a.organisation_id, a.country_hint, a.source_id,
 
 -- The unique key is (normalised_name, country_hint, source_id). An alias can only
 -- take its new name if no other row holds that key afterwards: not an untouched
--- row that already had it, and not an earlier renamed row claiming it too. NULLs
--- are distinct in that index, so rows with a NULL country_hint or source_id never
--- collide and are always renamed.
+-- row that already had it, and not an earlier renamed row claiming it too. Since
+-- 0005 the index is NULLS NOT DISTINCT, so seeded aliases (source_id NULL) collide
+-- like any other, and the comparison has to be IS NOT DISTINCT FROM.
 CREATE TEMP TABLE alias_blocked ON COMMIT DROP AS
 SELECT r.id, r.organisation_id, r.old_name, r.new_name, r.country_hint,
        holder.id AS holder_alias_id, holder.organisation_id AS holder_org_id
@@ -135,15 +135,15 @@ SELECT r.id, r.organisation_id, r.old_name, r.new_name, r.country_hint,
         SELECT 0 AS rank, a.id, a.organisation_id
           FROM organisation_alias a
          WHERE a.normalised_name = r.new_name
-           AND a.country_hint = r.country_hint
-           AND a.source_id = r.source_id
+           AND a.country_hint IS NOT DISTINCT FROM r.country_hint
+           AND a.source_id IS NOT DISTINCT FROM r.source_id
            AND a.id NOT IN (SELECT id FROM alias_renamed)
         UNION ALL
         SELECT 1, r2.id, r2.organisation_id
           FROM alias_renamed r2
          WHERE r2.new_name = r.new_name
-           AND r2.country_hint = r.country_hint
-           AND r2.source_id = r.source_id
+           AND r2.country_hint IS NOT DISTINCT FROM r.country_hint
+           AND r2.source_id IS NOT DISTINCT FROM r.source_id
            AND r2.id < r.id
          ORDER BY 1, 2
          LIMIT 1
@@ -170,7 +170,7 @@ SELECT DISTINCT ON (LEAST(b.organisation_id, b.holder_org_id),
        'alias_transliteration_fold', 0.90,
        format('alias %s (%L) and alias %s both normalise to %L in %s; alias %s left unchanged',
               b.id, b.old_name, b.holder_alias_id, b.new_name, b.country_hint, b.id),
-       '0005_transliterate_org_names'
+       '0007_transliterate_org_names'
   FROM alias_blocked b
  WHERE b.organisation_id <> b.holder_org_id
  ORDER BY LEAST(b.organisation_id, b.holder_org_id),
@@ -185,8 +185,8 @@ BEGIN
     SELECT count(*) INTO n_alias FROM alias_renamed WHERE new_name <> '';
     SELECT count(*) INTO n_blocked FROM alias_blocked;
     SELECT count(*) INTO n_pending FROM organisation_merge_candidate
-     WHERE detected_by = '0005_transliterate_org_names' AND status = 'pending';
-    RAISE NOTICE '0005: % organisation name(s) and % alias(es) re-normalised, '
+     WHERE detected_by = '0007_transliterate_org_names' AND status = 'pending';
+    RAISE NOTICE '0007: % organisation name(s) and % alias(es) re-normalised, '
                  '% alias(es) left in old form on key collision, '
                  '% merge candidate(s) pending review',
                  n_org, n_alias - n_blocked, n_blocked, n_pending;

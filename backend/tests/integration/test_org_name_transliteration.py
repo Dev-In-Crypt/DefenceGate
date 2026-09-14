@@ -1,6 +1,6 @@
-"""Migration 0005 against a real Postgres.
+"""Migration 0007 against a real Postgres.
 
-The session fixture has already applied 0005 to an empty schema, where it does
+The session fixture has already applied 0007 to an empty schema, where it does
 nothing. These tests write names in the form the old normaliser produced, run
 the migration file again, and check the result against the Python normaliser:
 the SQL copy is only correct if the two agree.
@@ -17,7 +17,7 @@ from tests.integration.test_archive_integration import NOTICE, ingest
 
 pytestmark = pytest.mark.integration
 
-SQL = (MIGRATIONS / "0005_transliterate_org_names.sql").read_text(encoding="utf-8")
+SQL = (MIGRATIONS / "0007_transliterate_org_names.sql").read_text(encoding="utf-8")
 
 BIALYSTOK = "16 Wojskowy Oddział Gospodarczy w Białymstoku"
 BIALYSTOK_ASCII = "16 WOJSKOWY ODDZIAL GOSPODARCZY W BIALYMSTOKU"
@@ -191,18 +191,28 @@ def test_alias_collision_within_one_organisation_needs_no_review(conn, old_form)
     assert candidates(conn) == []
 
 
-def test_null_keys_never_collide_so_seeded_aliases_are_renamed(conn, old_form):
-    org = add_org(conn, old_form(BIALYSTOK))
-    add_alias(conn, org, BIALYSTOK_ASCII, old_form(BIALYSTOK_ASCII), None)
-    renamed = add_alias(conn, org, BIALYSTOK, old_form(BIALYSTOK), None)
+def test_seeded_aliases_with_no_source_collide_since_0005(conn, old_form):
+    """0005 made the alias key NULLS NOT DISTINCT; seeded rows have source_id NULL.
+
+    Treating NULL as distinct here would try to write a second row with the same
+    key and abort the whole migration on the unique index.
+    """
+    seeded = add_org(conn, old_form(BIALYSTOK))
+    ingested = add_org(conn, "16 wog bialystok")
+    held = add_alias(conn, ingested, BIALYSTOK_ASCII, old_form(BIALYSTOK_ASCII), None)
+    blocked = add_alias(conn, seeded, BIALYSTOK, old_form(BIALYSTOK), None)
+    renamed = add_alias(conn, seeded, "Oddział Białystok", old_form("Oddział Białystok"), None)
     conn.commit()
 
     run_migration(conn)
 
-    row = conn.execute(
-        "SELECT normalised_name FROM organisation_alias WHERE id = %s", (renamed,)
-    ).fetchone()
-    assert row["normalised_name"] == normalise_org_name(BIALYSTOK)
+    names = {r["id"]: r["normalised_name"] for r in conn.execute(
+        "SELECT id, normalised_name FROM organisation_alias").fetchall()}
+    assert names[held] == normalise_org_name(BIALYSTOK)
+    assert names[blocked] == old_form(BIALYSTOK)
+    assert names[renamed] == "oddzial bialystok", "a free NULL-source key is still renamed"
+    got = [c for c in candidates(conn) if c["match_method"] == "alias_transliteration_fold"]
+    assert [(c["organisation_id"], c["candidate_org_id"]) for c in got] == [(seeded, ingested)]
 
 
 def test_running_again_changes_nothing(conn, old_form):
