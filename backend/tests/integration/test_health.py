@@ -88,3 +88,39 @@ def test_archive_depth_is_reported(client, conn):
     body = client.get("/v1/health").json()
     assert "archive_versions" in body
     assert "archive_oldest_observation" in body
+
+
+# ------------------------------------------------------- scope of the list
+
+def _opp(conn, native_id, *, cpv, buyer, legal=False):
+    from datetime import date
+
+    from dgate.normalise import Opportunity
+    from dgate.sources.ted import content_hash
+
+    opp = Opportunity(source_code="pl_atlas", native_id=native_id, buyer_name_raw="B",
+                      title_original=native_id, country="PL", published_at=date(2024, 5, 1),
+                      is_defence=True, sig_cpv=cpv, sig_buyer=buyer, sig_legal_basis=legal)
+    src = db.source_id(conn, "pl_atlas")
+    db.upsert_opportunity(conn, opp, content_hash(db.opportunity_payload(opp)), src)
+    conn.commit()
+
+
+def test_the_default_list_is_the_core_defence_slice(client, conn):
+    """Buyer-only matches became 90% of the slice. They are served on request."""
+    _opp(conn, "RATIONS", cpv=True, buyer=False)
+    _opp(conn, "UNIFORMS-AT-ARMY", cpv=True, buyer=True)
+    _opp(conn, "EGGS-FOR-GARRISON", cpv=False, buyer=True)
+
+    def ids(query=""):
+        return sorted(o["native_id"] for o in client.get("/v1/opportunities" + query).json())
+
+    assert ids() == ["RATIONS", "UNIFORMS-AT-ARMY"]
+    assert ids("?scope=supply") == ["EGGS-FOR-GARRISON"]
+    assert ids("?scope=all") == ["EGGS-FOR-GARRISON", "RATIONS", "UNIFORMS-AT-ARMY"]
+    scopes = {o["native_id"]: o["scope"] for o in client.get("/v1/opportunities?scope=all").json()}
+    assert scopes == {"RATIONS": "core", "UNIFORMS-AT-ARMY": "core", "EGGS-FOR-GARRISON": "supply"}
+
+
+def test_an_unknown_scope_is_refused(client):
+    assert client.get("/v1/opportunities?scope=everything").status_code == 422

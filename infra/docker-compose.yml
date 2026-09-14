@@ -87,7 +87,6 @@ services:
       # Cover whatever was missed while this container was down. See
       # docs/RUNBOOK.md, "Missed days".
       DGATE_CATCH_UP: ${DGATE_CATCH_UP:-1}
-      DGATE_CATCH_UP_AFTER_HOURS: ${DGATE_CATCH_UP_AFTER_HOURS:-20}
       DGATE_CATCH_UP_MAX_DAYS: ${DGATE_CATCH_UP_MAX_DAYS:-7}
       # Alerting. Unset means log-only; see dgate/ops/notify.py.
       DGATE_HEALTHCHECKS_BASE: ${DGATE_HEALTHCHECKS_BASE:-}

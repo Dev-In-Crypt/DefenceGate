@@ -73,7 +73,17 @@ _PLACSP_AGG_FLOORS = dict.fromkeys(range(7), 50)
 # 139 across a Saturday and Sunday. Unlike TED, the Polish bulletin does publish
 # at weekends, so one number serves every day; it is set below the weekend
 # figure so a quiet Monday window cannot raise a false alarm.
-_EZAM_FLOORS = dict.fromkeys(range(7), 50)
+# Re-measured on 14 September 2026, per publication day, over the same queries:
+# Wed 229, Thu 207, Fri 103, Sat 4, Sun 20. The single floor of 50 marked a
+# healthy Monday run partial, the Monday problem TED's floors already solve. The
+# daily job at 06:45 covers the two preceding days plus the morning:
+#
+#   run day    window covers      expected    floor
+#   Monday     Sat, Sun           ~25         10
+#   Sunday     Fri, Sat           ~105        30
+#   Tue-Sat    at least one       100+        50
+#              weekday
+_EZAM_FLOORS = {0: 10, 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 30}   # Monday = 0
 
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
@@ -198,8 +208,6 @@ class Settings:
     # stale each source is and covers the gap.
     catch_up_on_start: bool = field(
         default_factory=lambda: _env("DGATE_CATCH_UP", "1").strip() not in ("0", "false", "no"))
-    catch_up_after_hours: int = field(
-        default_factory=lambda: _env_int("DGATE_CATCH_UP_AFTER_HOURS", 20))
     # A gap of a month is a decision for a person, not something to pull
     # silently at start-up.
     catch_up_max_days: int = field(

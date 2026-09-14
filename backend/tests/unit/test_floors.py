@@ -70,12 +70,16 @@ def test_unknown_source_has_no_floor_rather_than_a_guessed_one():
     assert config.settings().floor("ro_seap") is None
 
 
-def test_poland_has_a_measured_floor():
-    """Set below the weekend figure: Poland, unlike TED, publishes at weekends,
-    and 139 records came back across a measured Saturday and Sunday."""
+def test_poland_floors_follow_the_week():
+    """One floor of 50 for every day assumed Poland's weekends were busy, from a
+    single measurement of 139. Re-measured per day on 14 September 2026: Sat 4,
+    Sun 20, weekdays 103 to 229. The flat floor marked that Monday's healthy run
+    partial -- the Monday problem TED's floors already solve."""
     settings = config.settings()
-    assert settings.floor("pl_ezam", DAYS["mon"]) == 50
-    assert len({settings.floor("pl_ezam", d) for d in DAYS.values()}) == 1
+    assert settings.floor("pl_ezam", DAYS["mon"]) == 10    # covers Sat and Sun
+    assert settings.floor("pl_ezam", DAYS["sun"]) == 30    # covers Fri and Sat
+    for day in ("tue", "wed", "thu", "fri", "sat"):
+        assert settings.floor("pl_ezam", DAYS[day]) == 50, day
 
 
 def test_zero_is_a_real_floor_not_a_missing_one():

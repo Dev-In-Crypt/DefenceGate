@@ -22,7 +22,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Sequence
 
 from . import db
@@ -221,6 +221,25 @@ def hours_since_last_success(codes: Sequence[str]) -> float | None:
     return (datetime.now(timezone.utc) - finished).total_seconds() / 3600
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def hours_since_last_slot(name: str) -> float:
+    """Hours since this job's most recent scheduled slot, today's or yesterday's."""
+    cfg = settings()
+    hour, minute = {
+        "ted_daily": (cfg.ted_hour, cfg.ted_minute),
+        "placsp_daily": (cfg.placsp_hour, cfg.placsp_minute),
+        "ezamowienia_daily": (cfg.ezam_hour, cfg.ezam_minute),
+    }[name]
+    now = _now()
+    slot = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if slot > now:
+        slot -= timedelta(days=1)
+    return (now - slot).total_seconds() / 3600
+
+
 def ensure_buyer_list() -> None:
     """Seed the defence buyer list before anything is classified.
 
@@ -364,8 +383,14 @@ def catch_up() -> list[JobResult]:
         except Exception as exc:  # noqa: BLE001 - a start-up check must not block start-up
             log.warning("catch-up: cannot read ingest_run for %s: %s", name, exc)
             continue
-        if age is not None and age < cfg.catch_up_after_hours:
-            log.info("catch-up: %s succeeded %.0fh ago, nothing to cover", name, age)
+        # Run when the job's scheduled slot has passed since it last succeeded.
+        # This replaced a fixed "older than 20 hours" threshold, which on
+        # 14 September 2026 let PLACSP through at 20h ago: its 06:30 slot had
+        # been missed with the machine off, the next was a day away, and the
+        # gap would have reached 44 hours before anyone noticed.
+        if age is not None and age <= hours_since_last_slot(name):
+            log.info("catch-up: %s succeeded %.0fh ago, after its last slot; "
+                     "nothing to cover", name, age)
             continue
         gap_days = cfg.ingest_days if age is None else int(age // 24) + 1
         window = min(max(gap_days, cfg.ingest_days), cfg.catch_up_max_days)

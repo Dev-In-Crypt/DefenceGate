@@ -25,7 +25,8 @@ def fresh_settings(monkeypatch):
     config.reset_cache()
 
 
-def _run_catch_up(monkeypatch, ages: dict[str, float | None]) -> list[tuple[str, int]]:
+def _run_catch_up(monkeypatch, ages: dict[str, float | None],
+                  since_slot: float = 4.0) -> list[tuple[str, int]]:
     """Run catch_up() with the database and the jobs replaced by fakes."""
     called: list[tuple[str, int]] = []
 
@@ -39,19 +40,20 @@ def _run_catch_up(monkeypatch, ages: dict[str, float | None]) -> list[tuple[str,
         name: (fake_job(name), (name,)) for name in ages
     })
     monkeypatch.setattr(worker, "hours_since_last_success", lambda codes: ages[codes[0]])
+    monkeypatch.setattr(worker, "hours_since_last_slot", lambda name: since_slot)
     worker.catch_up()
     return called
 
 
 def test_a_fresh_source_is_left_alone(monkeypatch, fresh_settings):
-    fresh_settings(DGATE_CATCH_UP_AFTER_HOURS=20)
+    fresh_settings()
     assert _run_catch_up(monkeypatch, {"ted_daily": 3.0}) == []
 
 
 def test_a_two_day_gap_is_covered_by_a_three_day_window(monkeypatch, fresh_settings):
     # Missed Tuesday and Wednesday, started Thursday: the window has to reach
     # back past both, not just past yesterday.
-    fresh_settings(DGATE_CATCH_UP_AFTER_HOURS=20, DGATE_INGEST_DAYS=2)
+    fresh_settings(DGATE_INGEST_DAYS=2)
     assert _run_catch_up(monkeypatch, {"ted_daily": 50.0}) == [("ted_daily", 3)]
 
 
@@ -161,3 +163,29 @@ def test_a_failed_seed_is_reported_not_swallowed(monkeypatch):
     monkeypatch.setattr(worker, "notify", lambda text: sent.append(text))
     worker.ensure_buyer_list()
     assert sent and "not seeded" in sent[0]
+
+
+def test_a_missed_slot_is_caught_up_even_under_a_day_old(monkeypatch, fresh_settings):
+    """14 September 2026: PLACSP last succeeded 20 hours before the worker
+    started, its 06:30 slot had passed with the machine off, and the old
+    20-hour threshold let it wait another day."""
+    fresh_settings(DGATE_INGEST_DAYS=2)
+    assert _run_catch_up(monkeypatch, {"placsp_daily": 20.3}, since_slot=0.55) == [
+        ("placsp_daily", 2)]
+
+
+def test_a_job_that_ran_after_its_slot_is_left_alone(monkeypatch, fresh_settings):
+    fresh_settings()
+    assert _run_catch_up(monkeypatch, {"ted_daily": 0.5}, since_slot=0.8) == []
+
+
+@pytest.mark.parametrize("now, expected", [
+    ("2026-09-14T07:03:00+00:00", 0.55),     # after today's 06:30 slot
+    ("2026-09-14T05:00:00+00:00", 22.5),     # before it: yesterday's slot counts
+])
+def test_the_last_slot_is_today_or_yesterday(monkeypatch, fresh_settings, now, expected):
+    from datetime import datetime
+
+    fresh_settings(DGATE_PLACSP_HOUR=6, DGATE_PLACSP_MINUTE=30)
+    monkeypatch.setattr(worker, "_now", lambda: datetime.fromisoformat(now))
+    assert worker.hours_since_last_slot("placsp_daily") == pytest.approx(expected, abs=0.01)

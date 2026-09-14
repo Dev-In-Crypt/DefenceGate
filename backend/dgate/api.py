@@ -88,6 +88,10 @@ class OpportunityOut(BaseModel):
     source_url: str | None
     version: int
     attribution: str
+    # Why the notice is here: `core` when the notice itself carries a defence
+    # signal, `supply` when only the buyer does -- the armed forces buying
+    # anything. See SCOPE_SQL.
+    scope: str
 
 
 def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
@@ -123,7 +127,27 @@ def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
         source_url=r.get("source_url"),
         version=r.get("current_version") or 1,
         attribution=ATTRIBUTION.get(r["source_code"], ""),
+        scope="core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
     )
+
+
+# The defence slice has two populations, and they are not the same product.
+#
+# `core`: the notice itself says defence -- the 2009/81/EC legal basis, or a CPV
+# code in division 35 -- whoever the buyer is.
+#
+# `supply`: only the buyer does. A listed defence body qualifies a notice on its
+# own, whatever it buys, and after the buyer list went from empty to 111
+# organisations on 13 September 2026 these became 90% of the slice: garrison
+# maintenance, construction, food, cleaning, office supplies, with real defence
+# items among them. Valuable to a supplier trying to get into the forces'
+# supply chain, noise to one looking for defence contracts, so they are served
+# only when asked for.
+SCOPE_SQL = {
+    "core": "(o.sig_legal_basis OR o.sig_cpv)",
+    "supply": "(o.sig_buyer AND NOT o.sig_legal_basis AND NOT o.sig_cpv)",
+    "all": "TRUE",
+}
 
 
 BASE_SELECT = """
@@ -143,11 +167,14 @@ def list_opportunities(
     value_min: float | None = None,
     subcontracting: bool | None = None,
     status: str = "open",
+    scope: str = Query("core", pattern="^(core|supply|all)$",
+                       description="core: the notice itself is defence (default); "
+                                   "supply: only the buyer is a defence body; all: both"),
     limit: int = Query(50, le=200),
     offset: int = 0,
     conn=Depends(get_conn),
 ):
-    where = ["o.is_defence = TRUE", "o.status = %s"]
+    where = ["o.is_defence = TRUE", "o.status = %s", SCOPE_SQL[scope]]
     params: list[Any] = [status]
 
     if country:
