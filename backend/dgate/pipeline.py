@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -192,7 +192,10 @@ def run_ezamowienia(days: int = 2) -> None:
 
 
 def _ingest_placsp(opps: Iterable[Opportunity], label: str,
-                   dataset: placsp.Dataset = placsp.MAIN) -> None:
+                   dataset: placsp.Dataset = placsp.MAIN,
+                   stale_reason=None) -> None:
+    """Ingest one PLACSP stream. `stale_reason()`, if given, is asked once the
+    stream is exhausted; a non-empty answer records the run as partial."""
     code = dataset.source_code
     cfg = settings()
     with (db.connect(cfg.dsn) as conn,
@@ -217,7 +220,12 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                 new += action == "new"
                 changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            stale = stale_reason() if stale_reason else None
+            if stale:
+                db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                              status="partial", error=stale)
+            else:
+                db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the
@@ -232,16 +240,55 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
     log.info("%s done: %s fetched, %s new, %s changed", label, fetched, new, changed)
 
 
-def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()) -> None:
+def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = (),
+                    now: datetime | None = None) -> None:
     """Daily incremental for both PLACSP datasets.
 
     Dataset 2 carries the autonomous communities, which reach PLACSP through
     aggregation. Running only dataset 1 loses every regional buyer without any
     error being raised, so both run by default and each has its own floor.
+
+    A live feed can stop moving while still answering. Dataset 1's head file was
+    last modified on 8 September 2026 and was still served unchanged on the
+    14th, and for six days every run re-read the same 19,497 entries, cleared its
+    floor of 400, and reported success -- a floor counts what was read, not what
+    was new. So the newest entry's own timestamp is checked: past
+    `placsp_stale_hours` the live run is partial and loud, and the current
+    month's archive, which the publisher rebuilds daily through the previous
+    day, is ingested to cover the gap. Early in a month the previous month's
+    archive is read too, since the current one may not yet hold the days before.
     """
+    cfg = settings()
+    now = now or datetime.now(timezone.utc)
+    limit = timedelta(hours=cfg.placsp_stale_hours)
     for ds in (datasets or (placsp.MAIN, placsp.AGGREGATED)):
-        _ingest_placsp(placsp.fetch_live(ds, max_pages=max_pages),
-                       f"{ds.source_code}-live", ds)
+        seen: dict = {}
+
+        def staleness(seen=seen) -> str | None:
+            newest = seen.get("newest")
+            if newest is not None and now - newest <= limit:
+                return None
+            return (f"live feed stale: newest entry {newest.isoformat() if newest else 'none'}, "
+                    f"older than {cfg.placsp_stale_hours}h")
+
+        _ingest_placsp(placsp.fetch_live(ds, max_pages=max_pages, observe=seen),
+                       f"{ds.source_code}-live", ds, stale_reason=staleness)
+        reason = staleness()
+        if not reason:
+            continue
+
+        from .ops.notify import notify
+
+        months = [(now.year, now.month)]
+        if now.day <= 3:
+            prev = (now.replace(day=1) - timedelta(days=1))
+            months.insert(0, (prev.year, prev.month))
+        log.warning("%s %s; covering from the monthly archive %s",
+                    ds.source_code, reason, months)
+        notify(f"[dgate] {ds.source_code} {reason}; covering from monthly archive")
+        for year, month in months:
+            _ingest_placsp(placsp.fetch_archive(ds.monthly_archive_url(year, month), ds),
+                           f"{ds.source_code}-{year}{month:02d}", ds)
 
 
 def run_placsp_backfill(start: int, end: int,

@@ -307,13 +307,17 @@ def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
 # --------------------------------------------------------------- fetching
 
 def fetch_live(
-    dataset: Dataset = MAIN, *, client: httpx.Client | None = None, max_pages: int = 50
+    dataset: Dataset = MAIN, *, client: httpx.Client | None = None, max_pages: int = 50,
+    observe: dict | None = None,
 ) -> Iterator[Opportunity]:
     """Walk one dataset's live feed, following rel="next".
 
     max_pages exists because the chain reaches back to 2012. For daily
     incremental runs a handful of pages is enough; the backfill uses the
     archives instead.
+
+    Pass `observe` to learn the newest entry's timestamp as `observe["newest"]`,
+    set before the first record is handed on.
     """
     owns = client is None
     client = client or httpx.Client(headers={"User-Agent": USER_AGENT},
@@ -346,7 +350,15 @@ def fetch_live(
     # things happened in. It costs holding one run's entries in memory, a few
     # tens of megabytes, and the first record is only handed on once the walk
     # has finished.
+    yield from _in_source_order(walked, observe)
+
+
+def _in_source_order(walked: list[tuple[str, Opportunity]],
+                     observe: dict | None) -> Iterator[Opportunity]:
     walked.sort(key=lambda pair: _updated_key(pair[0]))
+    if observe is not None:
+        observe["newest"] = _updated_key(walked[-1][0]) if walked else None
+        observe["entries"] = len(walked)
     for _, opp in walked:
         yield opp
 
@@ -363,7 +375,8 @@ def _updated_key(stamp: str) -> datetime:
 
 
 def fetch_archive(
-    url: str, dataset: Dataset = MAIN, *, client: httpx.Client | None = None
+    url: str, dataset: Dataset = MAIN, *, client: httpx.Client | None = None,
+    observe: dict | None = None,
 ) -> Iterator[Opportunity]:
     """Download and walk one annual or monthly ZIP.
 
@@ -382,19 +395,24 @@ def fetch_archive(
             return response
 
         r = request_with_retry(fetch, what=f"archive {url[-12:]}")
+        walked: list[tuple[str, Opportunity]] = []
         with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
             names = [n for n in zf.namelist() if n.endswith(".atom")]
-            # entry file first, matching the documented reading order
-            names.sort(key=lambda n: (not n.endswith(dataset.entry_file), n))
             for name in names:
                 try:
-                    opps, _ = parse_feed(zf.read(name), dataset.source_code)
-                    yield from opps
+                    stamps: list[str] = []
+                    opps, _ = parse_feed(zf.read(name), dataset.source_code, stamps=stamps)
+                    walked.extend(zip(stamps, opps, strict=True))
                 except Exception as exc:
                     log.warning("PLACSP archive member %s failed: %s", name, exc)
+        log.info("%s archive %s: %s entries", dataset.source_code, url.rsplit("/", 1)[-1],
+                 len(walked))
     finally:
         if owns:
             client.close()
+    # Same reason as the live walk: an archive is the same chain, newest first,
+    # and read in file order it re-archives history as change.
+    yield from _in_source_order(walked, observe)
 
 
 def backfill_years(

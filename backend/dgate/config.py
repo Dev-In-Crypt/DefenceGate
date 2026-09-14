@@ -199,6 +199,11 @@ class Settings:
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
     placsp_pages: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_PAGES", 20))
+    # Past this age of its newest entry a PLACSP live feed counts as stopped:
+    # the run is partial and the monthly archive covers the gap. Both feeds
+    # normally move many times a day; 36 hours tolerates a quiet weekend night.
+    placsp_stale_hours: int = field(
+        default_factory=lambda: _env_int("DGATE_PLACSP_STALE_HOURS", 36))
     placsp_max_pages: int = field(
         default_factory=lambda: _env_int("DGATE_PLACSP_MAX_PAGES", 120))
 
