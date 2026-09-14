@@ -23,7 +23,8 @@ from .test_placsp import _entry, _page
 NOW = datetime(2026, 9, 14, 7, 9, tzinfo=timezone.utc)
 
 
-def _run(monkeypatch, newest: datetime | None, now: datetime = NOW):
+def _run(monkeypatch, newest: datetime | None, now: datetime = NOW,
+         archive_newest: datetime | None = datetime(2026, 9, 13, 20, 0, tzinfo=timezone.utc)):
     calls: list[tuple[str, str | None]] = []
     sent: list[str] = []
 
@@ -36,7 +37,12 @@ def _run(monkeypatch, newest: datetime | None, now: datetime = NOW):
         calls.append((label, stale_reason() if stale_reason else None))
 
     monkeypatch.setattr(placsp, "fetch_live", fake_live)
-    monkeypatch.setattr(placsp, "fetch_archive", lambda url, ds: iter(()))
+    def fake_archive(url, ds, observe=None, since=None):
+        if observe is not None:
+            observe["newest"] = archive_newest
+        return iter(())
+
+    monkeypatch.setattr(placsp, "fetch_archive", fake_archive)
     monkeypatch.setattr(pipeline, "_ingest_placsp", fake_ingest)
     monkeypatch.setattr("dgate.ops.notify.notify", lambda text: sent.append(text))
     pipeline.run_placsp_live(datasets=[placsp.MAIN], now=now)
@@ -65,7 +71,8 @@ def test_an_empty_feed_counts_as_stale(monkeypatch):
 
 def test_early_in_a_month_the_previous_month_is_read_too(monkeypatch):
     early = datetime(2026, 10, 2, 7, 0, tzinfo=timezone.utc)
-    calls, _ = _run(monkeypatch, datetime(2026, 9, 28, tzinfo=timezone.utc), now=early)
+    calls, _ = _run(monkeypatch, datetime(2026, 9, 28, tzinfo=timezone.utc), now=early,
+                    archive_newest=datetime(2026, 10, 1, 20, 0, tzinfo=timezone.utc))
     assert [label for label, _ in calls[1:]] == ["es_placsp-202609", "es_placsp-202610"]
 
 
@@ -93,3 +100,30 @@ def test_the_threshold_is_the_configured_hours(monkeypatch, hours, stale):
 
     calls, _ = _run(monkeypatch, NOW - timedelta(hours=hours))
     assert bool(calls[0][1]) is stale
+
+
+def test_an_archive_no_newer_than_the_frozen_feed_is_not_ingested(monkeypatch):
+    """14 September 2026: the September archive ended where the live feed did.
+    The source had stopped publishing, not just its feed; re-reading the archive
+    closed nothing and only imported the publisher's stray 2021 file."""
+    frozen = datetime(2026, 9, 8, 18, 12, tzinfo=timezone.utc)
+    calls, sent = _run(monkeypatch, frozen, archive_newest=frozen)
+    assert [label for label, _ in calls] == ["es_placsp-live"]
+    assert any("stopped publishing" in text for text in sent)
+
+
+def test_archive_entries_from_long_before_the_month_are_dropped():
+    """Both recent archives carry a 2021 file whose time of day, 20:26:09,
+    matched the publisher's filename filter for 202609."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("current.atom", _page(_entry("EXP-1", "PUB", "2026-09-05T10:00:00+02:00"), None))
+        zf.writestr("x_20210930_202609.atom",
+                    _page(_entry("EXP-OLD", "PUB", "2021-09-30T20:26:09+02:00"), None))
+    body = buf.getvalue()
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, content=body))
+    with httpx.Client(transport=transport) as client:
+        opps = list(placsp.fetch_archive("https://example.test/x_202609.zip", placsp.MAIN,
+                                         client=client,
+                                         since=datetime(2026, 8, 1, tzinfo=timezone.utc)))
+    assert [o.native_id for o in opps] == ["EXP-1"]

@@ -286,9 +286,26 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
         log.warning("%s %s; covering from the monthly archive %s",
                     ds.source_code, reason, months)
         notify(f"[dgate] {ds.source_code} {reason}; covering from monthly archive")
+        live_newest = seen.get("newest")
         for year, month in months:
-            _ingest_placsp(placsp.fetch_archive(ds.monthly_archive_url(year, month), ds),
-                           f"{ds.source_code}-{year}{month:02d}", ds)
+            first = datetime(year, month, 1, tzinfo=timezone.utc)
+            since = (first - timedelta(days=1)).replace(day=1)
+            arch: dict = {}
+            entries = list(placsp.fetch_archive(ds.monthly_archive_url(year, month), ds,
+                                                observe=arch, since=since))
+            newest = arch.get("newest")
+            if newest is None or (live_newest is not None and newest <= live_newest):
+                # An archive holding nothing newer than the frozen live feed
+                # cannot close the gap; the source has stopped publishing, not
+                # just its feed. Ingesting it anyway re-reads what we have and
+                # says nothing new, so it is skipped and said out loud.
+                msg = (f"{ds.source_code} archive {year}{month:02d} holds nothing newer than the "
+                       f"live feed (newest {newest.isoformat() if newest else 'none'}); "
+                       "the source itself appears to have stopped publishing")
+                log.warning(msg)
+                notify(f"[dgate] {msg}")
+                continue
+            _ingest_placsp(iter(entries), f"{ds.source_code}-{year}{month:02d}", ds)
 
 
 def run_placsp_backfill(start: int, end: int,

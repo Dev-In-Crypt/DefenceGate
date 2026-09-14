@@ -99,7 +99,9 @@ def _opp(conn, native_id, *, cpv, buyer, legal=False):
     from dgate.sources.ted import content_hash
 
     opp = Opportunity(source_code="pl_atlas", native_id=native_id, buyer_name_raw="B",
-                      title_original=native_id, country="PL", published_at=date(2024, 5, 1),
+                      title_original=native_id, country="PL",
+                      # Recent: a 2024 call with no deadline now counts as expired.
+                      published_at=date.today(),
                       is_defence=True, sig_cpv=cpv, sig_buyer=buyer, sig_legal_basis=legal)
     src = db.source_id(conn, "pl_atlas")
     db.upsert_opportunity(conn, opp, content_hash(db.opportunity_payload(opp)), src)
@@ -124,3 +126,47 @@ def test_the_default_list_is_the_core_defence_slice(client, conn):
 
 def test_an_unknown_scope_is_refused(client):
     assert client.get("/v1/opportunities?scope=everything").status_code == 422
+
+
+def test_a_job_is_as_fresh_as_its_most_behind_source(conn):
+    """A PLACSP dataset 1 success used to hide a dataset 2 failure from catch-up."""
+    from dgate import worker
+
+    _mark_finished(conn, "es_placsp", age_hours=1)
+    _mark_finished(conn, "es_placsp_agg", age_hours=30)
+    assert worker.hours_since_last_success(["es_placsp", "es_placsp_agg"]) == pytest.approx(30, abs=0.1)
+
+    run_id = db.start_run(conn, "es_placsp_agg", expected_min=1)
+    db.finish_run(conn, run_id, fetched=0, new=0, changed=0, status="failed", error="dns")
+    assert worker.hours_since_last_success(["es_placsp", "es_placsp_agg"]) == pytest.approx(30, abs=0.1)
+
+
+def test_a_source_that_never_succeeded_makes_the_job_a_gap(conn):
+    from dgate import worker
+
+    _mark_finished(conn, "es_placsp", age_hours=1)
+    assert worker.hours_since_last_success(["es_placsp", "es_placsp_agg"]) is None
+
+
+def test_expired_calls_are_not_served_as_open(client, conn):
+    from datetime import date, datetime, timedelta, timezone
+
+    from dgate.normalise import Opportunity
+    from dgate.sources.ted import content_hash
+
+    src = db.source_id(conn, "pl_atlas")
+    now = datetime.now(timezone.utc)
+    for native_id, deadline in (("LIVE-CALL", now + timedelta(days=10)),
+                                ("DEAD-CALL", now - timedelta(days=400))):
+        opp = Opportunity(source_code="pl_atlas", native_id=native_id, buyer_name_raw="B",
+                          title_original=native_id, country="PL",
+                          published_at=date.today() - timedelta(days=30), deadline_at=deadline,
+                          status="open", is_defence=True, sig_cpv=True)
+        db.upsert_opportunity(conn, opp, content_hash(db.opportunity_payload(opp)), src)
+    conn.commit()
+
+    open_ids = [o["native_id"] for o in client.get("/v1/opportunities").json()]
+    assert open_ids == ["LIVE-CALL"]
+    expired = client.get("/v1/opportunities?status=expired").json()
+    assert [o["native_id"] for o in expired] == ["DEAD-CALL"]
+    assert expired[0]["status"] == "expired"

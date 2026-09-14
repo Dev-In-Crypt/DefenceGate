@@ -92,6 +92,10 @@ class OpportunityOut(BaseModel):
     # signal, `supply` when only the buyer does -- the armed forces buying
     # anything. See SCOPE_SQL.
     scope: str
+    # As of now: an open call whose deadline has passed is `expired`. The
+    # source's own code is kept alongside, so the mapping stays checkable.
+    status: str | None = None
+    status_native: str | None = None
 
 
 def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
@@ -128,6 +132,8 @@ def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
         version=r.get("current_version") or 1,
         attribution=ATTRIBUTION.get(r["source_code"], ""),
         scope="core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
+        status=effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at")),
+        status_native=r.get("status_native"),
     )
 
 
@@ -143,6 +149,36 @@ def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
 # items among them. Valuable to a supplier trying to get into the forces'
 # supply chain, noise to one looking for defence contracts, so they are served
 # only when asked for.
+# The status a notice carries is the one it was published or last amended with,
+# and a source rarely publishes "this call has now closed". Served as stored,
+# "open" meant open-when-seen: on 14 September 2026, 12,539 of 13,412 notices
+# served as open had a passed deadline, or no deadline and a publication date
+# over a year old -- mostly 2024 and 2025 calls from the Polish backfill. The
+# stored value is versioned history and stays as it is; what is served is the
+# status as of now.
+OPEN_WITHOUT_DEADLINE_DAYS = 365
+EFFECTIVE_STATUS_SQL = f"""(CASE
+    WHEN o.status = 'open' AND (
+         o.deadline_at < now()
+      OR (o.deadline_at IS NULL
+          AND o.published_at < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')))
+    THEN 'expired' ELSE o.status END)"""
+
+
+def effective_status(status: str | None, deadline_at: datetime | None,
+                     published_at: date | None, now: datetime | None = None) -> str | None:
+    """The Python twin of EFFECTIVE_STATUS_SQL, for a row already fetched."""
+    if status != "open":
+        return status
+    now = now or datetime.now(timezone.utc)
+    if deadline_at is not None:
+        return "expired" if deadline_at < now else "open"
+    if published_at is not None and published_at < (now - timedelta(
+            days=OPEN_WITHOUT_DEADLINE_DAYS)).date():
+        return "expired"
+    return "open"
+
+
 SCOPE_SQL = {
     "core": "(o.sig_legal_basis OR o.sig_cpv)",
     "supply": "(o.sig_buyer AND NOT o.sig_legal_basis AND NOT o.sig_cpv)",
@@ -174,7 +210,7 @@ def list_opportunities(
     offset: int = 0,
     conn=Depends(get_conn),
 ):
-    where = ["o.is_defence = TRUE", "o.status = %s", SCOPE_SQL[scope]]
+    where = ["o.is_defence = TRUE", f"{EFFECTIVE_STATUS_SQL} = %s", SCOPE_SQL[scope]]
     params: list[Any] = [status]
 
     if country:

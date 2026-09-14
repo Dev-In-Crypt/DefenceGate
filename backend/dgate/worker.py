@@ -203,22 +203,29 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
 
 
 def hours_since_last_success(codes: Sequence[str]) -> float | None:
-    """Age of the most recent successful run across these sources.
+    """Age of the stalest source's last successful run.
 
-    None means no source here has ever succeeded, which is its own kind of gap
-    and is treated as one.
+    The job is only as fresh as its most behind source. This used to take the
+    newest success across all of them, and on 14 September 2026 a successful
+    run of PLACSP dataset 1 hid dataset 2 having failed on a DNS outage: the job
+    looked current and was not re-run.
+
+    None means some source here has never succeeded, which is its own kind of
+    gap and is treated as one.
     """
     with db.connect(settings().dsn) as conn:
-        row = conn.execute(
-            """SELECT max(r.finished_at) AS t
-                 FROM ingest_run r JOIN source s ON s.id = r.source_id
-                WHERE s.code = ANY(%s) AND r.status = 'success'""",
+        rows = conn.execute(
+            """SELECT s.code, max(r.finished_at) AS t
+                 FROM source s LEFT JOIN ingest_run r
+                   ON r.source_id = s.id AND r.status = 'success'
+                WHERE s.code = ANY(%s)
+                GROUP BY s.code""",
             (list(codes),),
-        ).fetchone()
-    finished = row["t"] if row else None
-    if finished is None:
+        ).fetchall()
+    finished = [r["t"] for r in rows]
+    if len(finished) < len(set(codes)) or any(t is None for t in finished):
         return None
-    return (datetime.now(timezone.utc) - finished).total_seconds() / 3600
+    return (datetime.now(timezone.utc) - min(finished)).total_seconds() / 3600
 
 
 def _now() -> datetime:

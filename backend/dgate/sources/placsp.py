@@ -376,7 +376,7 @@ def _updated_key(stamp: str) -> datetime:
 
 def fetch_archive(
     url: str, dataset: Dataset = MAIN, *, client: httpx.Client | None = None,
-    observe: dict | None = None,
+    observe: dict | None = None, since: datetime | None = None,
 ) -> Iterator[Opportunity]:
     """Download and walk one annual or monthly ZIP.
 
@@ -407,6 +407,19 @@ def fetch_archive(
                     log.warning("PLACSP archive member %s failed: %s", name, exc)
         log.info("%s archive %s: %s entries", dataset.source_code, url.rsplit("/", 1)[-1],
                  len(walked))
+        if since is not None:
+            # The publisher's monthly archives are assembled by a filename
+            # match, and the match is loose: both the August and September 2026
+            # files carry licitacionesPerfilesContratanteCompleto3_20210930_202609,
+            # whose time of day, 20:26:09, contains "202609". That is 1,430
+            # entries from September 2021 in every recent archive, and ingesting
+            # one put 64 five-year-old notices into the archive as new.
+            kept = [pair for pair in walked if _updated_key(pair[0]) >= since]
+            if len(kept) != len(walked):
+                log.warning("%s archive %s: dropped %s entries updated before %s",
+                            dataset.source_code, url.rsplit("/", 1)[-1],
+                            len(walked) - len(kept), since.date())
+            walked = kept
     finally:
         if owns:
             client.close()
