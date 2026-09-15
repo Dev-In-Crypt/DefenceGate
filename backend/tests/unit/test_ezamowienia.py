@@ -249,7 +249,14 @@ def test_the_window_is_walked_one_whole_day_at_a_time():
     assert len(got) == 29
     asked = sorted({c["publicationDateFrom"][:10] for c in client.calls})
     assert asked == ["2026-09-13", "2026-09-14", "2026-09-15"]
-    assert all(c["publicationDateTo"].endswith("T23:59:59.000Z") for c in client.calls)
+    assert all(c["publicationDateTo"] == c["publicationDateFrom"] for c in client.calls)
+
+
+def test_a_day_query_does_not_reach_into_the_next_day():
+    """The API ignores the time in publicationDateTo: 23:59:59 on the 14th
+    returned the 15th as well, so both bounds are the day's own midnight."""
+    q = ez.day_query(date(2026, 9, 14))
+    assert q["publicationDateFrom"] == q["publicationDateTo"] == "2026-09-14T00:00:00.000Z"
 
 
 def test_every_query_is_unfiltered_so_nothing_is_decided_before_landing():

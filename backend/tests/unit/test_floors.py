@@ -72,15 +72,15 @@ def test_unknown_source_has_no_floor_rather_than_a_guessed_one():
 
 def test_poland_floors_follow_the_week():
     """Floors for full collection, measured per publication day on 15 September
-    2026: Sat 97, Sun 2,728, Mon 4,609, Thu 5,733. The earlier floors (10, 30,
-    50) were for targeted defence queries and would never fire on a full scan
-    that lost half a day."""
+    2026: Sat 36, Sun 61, Mon 2,667, Thu and Fri 5,733 together. The earlier
+    floors (10, 30, 50) were for targeted defence queries and would never fire
+    on a full scan that lost half a day."""
     settings = config.settings()
-    assert settings.floor("pl_ezam", DAYS["mon"]) == 1000
-    assert settings.floor("pl_ezam", DAYS["tue"]) == 3000
-    assert settings.floor("pl_ezam", DAYS["sun"]) == 2000
+    assert settings.floor("pl_ezam", DAYS["mon"]) == 40
+    assert settings.floor("pl_ezam", DAYS["tue"]) == 1000
+    assert settings.floor("pl_ezam", DAYS["sun"]) == 1000
     for day in ("wed", "thu", "fri", "sat"):
-        assert settings.floor("pl_ezam", DAYS[day]) == 4000, day
+        assert settings.floor("pl_ezam", DAYS[day]) == 2000, day
 
 
 def test_zero_is_a_real_floor_not_a_missing_one():

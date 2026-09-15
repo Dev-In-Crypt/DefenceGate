@@ -67,24 +67,18 @@ def _env_int_list(name: str) -> list[int]:
 _TED_FLOORS = {0: 0, 1: 30, 2: 60, 3: 60, 4: 60, 5: 60, 6: 30}   # Monday = 0
 _PLACSP_FLOORS = dict.fromkeys(range(7), 400)
 _PLACSP_AGG_FLOORS = dict.fromkeys(range(7), 50)
-# Poland. The connector runs targeted queries rather than scanning the bulletin,
-# so what it fetches is a fraction of the 2,200-odd notices a Polish weekday
-# carries. Measured over two-day windows: 384 across a Wednesday and Thursday,
-# 139 across a Saturday and Sunday. Unlike TED, the Polish bulletin does publish
-# at weekends, so one number serves every day; it is set below the weekend
-# figure so a quiet Monday window cannot raise a false alarm.
-# Full collection since 15 September 2026, re-measured per publication day over
-# every notice, sorted stably: Thu 10 Sep 5,733, Sat 12 Sep 97, Sun 13 Sep 2,728,
-# Mon 14 Sep 4,609. The daily job at 06:45 covers the two preceding days and the
-# morning so far, so what it should find depends on which days those were. Floors
-# are about 40% of the measured window, as for TED:
+# Poland, full collection since 15 September 2026. Measured per publication day
+# over every notice: Thursday and Friday 10-11 Sep 5,733 together, Saturday 12
+# Sep 36, Sunday 13 Sep 61, Monday 14 Sep 2,667, Tuesday 15 Sep 2,449 by 12:15
+# UTC. The daily job at 06:45 covers the two preceding days and the morning so
+# far. Floors are about 40% of that:
 #
 #   run day    window covers          measured      floor
-#   Monday     Sat, Sun               ~2,800        1,000
-#   Tuesday    Sun, Mon               ~7,300        3,000
-#   Wed-Sat    two weekdays           ~11,000       4,000
-#   Sunday     Fri, Sat               ~5,800        2,000
-_EZAM_FLOORS = {0: 1000, 1: 3000, 2: 4000, 3: 4000, 4: 4000, 5: 4000, 6: 2000}   # Monday = 0
+#   Monday     Sat, Sun               ~100          40
+#   Tuesday    Sun, Mon               ~2,700        1,000
+#   Wed-Sat    two weekdays           ~5,500        2,000
+#   Sunday     Fri, Sat               ~2,900        1,000
+_EZAM_FLOORS = {0: 40, 1: 1000, 2: 2000, 3: 2000, 4: 2000, 5: 2000, 6: 1000}   # Monday = 0
 
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:

@@ -17,8 +17,8 @@ Three properties of this API shape everything below.
    so never collected the notices a listed defence buyer published outside CPV
    division 35 -- the buyer list covers 56 Polish bodies, the queries two. Since
    15 September 2026 it collects everything, one publication day at a time:
-   measured, a Thursday is 5,733 notices (574 requests, about seven minutes), a
-   Saturday 97, a Sunday 2,728. Every notice is landed; classification decides
+   measured, a Monday is 2,667 notices (267 requests, under four minutes), a
+   Saturday 36, a Sunday 61. Every notice is landed; classification decides
    what becomes an opportunity, as for Atlas and PLACSP.
 
 2. **`cpvCode` matches as a substring, not a prefix.** `cpvCode=35` also returns
@@ -190,10 +190,17 @@ def search(
 
 
 def day_query(day: date) -> dict[str, Any]:
-    """Every notice published on one day, in a stable order."""
+    """Every notice published on one day, in a stable order.
+
+    Both bounds are that day's midnight. The API reads `publicationDateTo` as a
+    whole date and ignores its time, so `23:59:59` reaches into the next day:
+    measured on 15 September 2026, the 14th asked that way returned 2,667
+    notices from the 14th and 2,449 from the 15th, and a midnight bound returned
+    the 14th alone (latest 23:49:46).
+    """
     return {
         "publicationDateFrom": _iso(day),
-        "publicationDateTo": _iso(day, end_of_day=True),
+        "publicationDateTo": _iso(day),
         "SortingColumnName": SORT_COLUMN,
         "SortingDirection": SORT_DIRECTION,
         "PageSize": PAGE_SIZE,
