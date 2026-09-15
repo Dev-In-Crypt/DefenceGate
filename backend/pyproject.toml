@@ -24,6 +24,9 @@ dependencies = [
     # sixth the size of the CSV copies and carry types, which is what makes a
     # schema change show up as a missing column rather than as silence.
     "pyarrow>=16",
+    # LLM enrichment (plan M1-04 onwards): translation, summaries, capability
+    # classification, through the Messages and Message Batches APIs.
+    "anthropic>=1.0",
 ]
 
 [project.optional-dependencies]
