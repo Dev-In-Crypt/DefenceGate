@@ -13,9 +13,13 @@ one is reachable from the portal's startup config at `/mo-board/api/v1/Config`.
 Three properties of this API shape everything below.
 
 1. **The page size is capped at 10.** Asking for 100, 500 or 1000 returns 10.
-   One Polish weekday carries well over 2,200 notices, so scanning everything
-   would be 500-odd requests a day against a government service for a handful of
-   defence records. This connector therefore issues targeted queries instead.
+   The connector used to issue targeted defence queries to avoid scanning, and
+   so never collected the notices a listed defence buyer published outside CPV
+   division 35 -- the buyer list covers 56 Polish bodies, the queries two. Since
+   15 September 2026 it collects everything, one publication day at a time:
+   measured, a Thursday is 5,733 notices (574 requests, about seven minutes), a
+   Saturday 97, a Sunday 2,728. Every notice is landed; classification decides
+   what becomes an opportunity, as for Atlas and PLACSP.
 
 2. **`cpvCode` matches as a substring, not a prefix.** `cpvCode=35` also returns
    `09135100` and `71355000`, and a dashed code matches nothing. So the query
@@ -50,7 +54,20 @@ SOURCE_CODE = "pl_ezam"
 
 # The API ignores anything larger. Measured, not assumed.
 PAGE_SIZE = 10
-MAX_PAGES = 400          # hard stop so a bad query cannot walk forever
+# A hard stop so a bad query cannot walk forever -- and, since a day is walked
+# whole, reaching it means the day was cut short, which search() raises on
+# rather than returning a truncated day as if it were complete. The busiest day
+# measured needed 574 pages.
+MAX_PAGES = 2000
+
+# Paging is only stable on a unique sort key. Sorted by PublicationDate -- the
+# obvious choice, and what this connector used -- notices sharing a timestamp
+# change places between requests: one walk of 10 September 2026 repeated 256
+# records and returned 5,478 distinct, against 5,733 when sorted by
+# NoticeNumber, which repeated none and returned the identical set twice. The
+# date sort silently lost about 4.5% of notices.
+SORT_COLUMN = "NoticeNumber"
+SORT_DIRECTION = "ASC"
 REQUEST_PAUSE = 0.25     # seconds between requests; this is a public service
 
 # The three BZP notice types that exist to publish under the defence and
@@ -122,8 +139,8 @@ def defence_queries(
     window = {
         "publicationDateFrom": _iso(since),
         "publicationDateTo": _iso(until, end_of_day=True),
-        "SortingColumnName": "PublicationDate",
-        "SortingDirection": "DESC",
+        "SortingColumnName": SORT_COLUMN,
+        "SortingDirection": SORT_DIRECTION,
         "PageSize": PAGE_SIZE,
     }
     queries: list[dict[str, Any]] = [{**window, "cpvCode": "35"}]
@@ -164,43 +181,57 @@ def search(
             if len(records) < PAGE_SIZE:
                 return
             time.sleep(REQUEST_PAUSE)
+        raise RuntimeError(
+            f"{SOURCE_CODE}: query still returning full pages after {max_pages} pages; "
+            f"the result was cut short, not complete ({params})")
     finally:
         if owns:
             client.close()
+
+
+def day_query(day: date) -> dict[str, Any]:
+    """Every notice published on one day, in a stable order."""
+    return {
+        "publicationDateFrom": _iso(day),
+        "publicationDateTo": _iso(day, end_of_day=True),
+        "SortingColumnName": SORT_COLUMN,
+        "SortingDirection": SORT_DIRECTION,
+        "PageSize": PAGE_SIZE,
+    }
 
 
 def fetch_window(
     days_back: int = 2,
     *,
     client: httpx.Client | None = None,
-    buyer_tax_ids: Iterable[str] = DEFENCE_BUYER_TAX_IDS,
     max_pages: int = MAX_PAGES,
+    today: date | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """Daily incremental pull across every defence angle, deduplicated.
+    """Every notice published from `days_back` days ago to today, deduplicated.
 
-    The queries overlap by design: a defence buyer purchasing a division 35 item
-    appears in two of them. The notice number decides identity, so the caller
-    sees each record once.
+    One query per publication day. The API ignores the time of day in its date
+    filter, so a day is the smallest window that can be asked for; a day is
+    also small enough to walk whole, and walking it whole is the only way to
+    know it was complete. A notice repeated at a day boundary is yielded once.
     """
-    since = date.today() - timedelta(days=days_back)
+    today = today or date.today()
     owns = client is None
     client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
     seen: set[str] = set()
     try:
-        for params in defence_queries(since, buyer_tax_ids=buyer_tax_ids):
-            angle = params.get("cpvCode") or params.get("noticeType") or \
-                params.get("organizationNationalId")
+        for offset in range(days_back, -1, -1):
+            day = today - timedelta(days=offset)
             count = 0
-            for record in search(params, client=client, max_pages=max_pages):
+            for record in search(day_query(day), client=client, max_pages=max_pages):
                 key = str(record.get("noticeNumber") or record.get("objectId") or "")
                 if not key or key in seen:
                     continue
                 seen.add(key)
                 count += 1
                 yield record
-            log.info("%s: %s new records from %s", SOURCE_CODE, count, angle)
+            log.info("%s: %s notices published %s", SOURCE_CODE, count, day)
     finally:
         if owns:
             client.close()

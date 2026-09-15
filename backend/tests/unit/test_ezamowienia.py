@@ -219,3 +219,64 @@ def test_search_rejects_an_unexpected_envelope():
     client = _FakeClient([{"items": []}])
     with pytest.raises(ValueError, match="expected a list"):
         list(ez.search({}, client=client))
+
+
+# ------------------------------------------------------ full collection
+
+class _DayClient:
+    """Serves each publication day's notices in pages of ten."""
+
+    def __init__(self, by_day):
+        self.by_day = by_day
+        self.calls = []
+
+    def get(self, url, params=None, timeout=None):
+        self.calls.append(dict(params))
+        day = params["publicationDateFrom"][:10]
+        records = self.by_day.get(day, [])
+        page = params.get("PageNumber", 1)
+        start = (page - 1) * ez.PAGE_SIZE
+        return _FakeResponse(records[start:start + ez.PAGE_SIZE])
+
+
+def test_the_window_is_walked_one_whole_day_at_a_time():
+    """The API ignores the time of day, so a day is the smallest window."""
+    days = {"2026-09-13": [{"noticeNumber": f"a{i}"} for i in range(25)],
+            "2026-09-14": [{"noticeNumber": f"b{i}"} for i in range(3)],
+            "2026-09-15": [{"noticeNumber": "c0"}]}
+    client = _DayClient(days)
+    got = list(ez.fetch_window(days_back=2, client=client, today=date(2026, 9, 15)))
+    assert len(got) == 29
+    asked = sorted({c["publicationDateFrom"][:10] for c in client.calls})
+    assert asked == ["2026-09-13", "2026-09-14", "2026-09-15"]
+    assert all(c["publicationDateTo"].endswith("T23:59:59.000Z") for c in client.calls)
+
+
+def test_every_query_is_unfiltered_so_nothing_is_decided_before_landing():
+    """A defence buyer publishing outside CPV division 35 was never collected
+    while the connector sent targeted queries: 2 buyers queried, 56 listed."""
+    client = _DayClient({})
+    list(ez.fetch_window(days_back=1, client=client, today=date(2026, 9, 15)))
+    for call in client.calls:
+        assert not ({"cpvCode", "noticeType", "organizationNationalId"} & call.keys())
+
+
+def test_paging_is_sorted_on_a_unique_key():
+    """Sorted by PublicationDate, one walk of a day repeated 256 notices and lost
+    about 4.5%; sorted by NoticeNumber it repeated none."""
+    q = ez.day_query(date(2026, 9, 10))
+    assert (q["SortingColumnName"], q["SortingDirection"]) == ("NoticeNumber", "ASC")
+    assert q["PageSize"] == ez.PAGE_SIZE
+
+
+def test_a_notice_repeated_across_days_is_yielded_once():
+    days = {"2026-09-14": [{"noticeNumber": "x"}], "2026-09-15": [{"noticeNumber": "x"}]}
+    got = list(ez.fetch_window(days_back=1, client=_DayClient(days), today=date(2026, 9, 15)))
+    assert [r["noticeNumber"] for r in got] == ["x"]
+
+
+def test_a_day_cut_short_by_the_page_cap_is_an_error_not_a_smaller_day():
+    days = {"2026-09-15": [{"noticeNumber": f"n{i}"} for i in range(50)]}
+    with pytest.raises(RuntimeError, match="cut short"):
+        list(ez.fetch_window(days_back=0, client=_DayClient(days), today=date(2026, 9, 15),
+                             max_pages=3))

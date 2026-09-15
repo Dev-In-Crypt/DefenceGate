@@ -73,17 +73,18 @@ _PLACSP_AGG_FLOORS = dict.fromkeys(range(7), 50)
 # 139 across a Saturday and Sunday. Unlike TED, the Polish bulletin does publish
 # at weekends, so one number serves every day; it is set below the weekend
 # figure so a quiet Monday window cannot raise a false alarm.
-# Re-measured on 14 September 2026, per publication day, over the same queries:
-# Wed 229, Thu 207, Fri 103, Sat 4, Sun 20. The single floor of 50 marked a
-# healthy Monday run partial, the Monday problem TED's floors already solve. The
-# daily job at 06:45 covers the two preceding days plus the morning:
+# Full collection since 15 September 2026, re-measured per publication day over
+# every notice, sorted stably: Thu 10 Sep 5,733, Sat 12 Sep 97, Sun 13 Sep 2,728,
+# Mon 14 Sep 4,609. The daily job at 06:45 covers the two preceding days and the
+# morning so far, so what it should find depends on which days those were. Floors
+# are about 40% of the measured window, as for TED:
 #
-#   run day    window covers      expected    floor
-#   Monday     Sat, Sun           ~25         10
-#   Sunday     Fri, Sat           ~105        30
-#   Tue-Sat    at least one       100+        50
-#              weekday
-_EZAM_FLOORS = {0: 10, 1: 50, 2: 50, 3: 50, 4: 50, 5: 50, 6: 30}   # Monday = 0
+#   run day    window covers          measured      floor
+#   Monday     Sat, Sun               ~2,800        1,000
+#   Tuesday    Sun, Mon               ~7,300        3,000
+#   Wed-Sat    two weekdays           ~11,000       4,000
+#   Sunday     Fri, Sat               ~5,800        2,000
+_EZAM_FLOORS = {0: 1000, 1: 3000, 2: 4000, 3: 4000, 4: 4000, 5: 4000, 6: 2000}   # Monday = 0
 
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
