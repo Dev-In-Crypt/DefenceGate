@@ -145,6 +145,7 @@ def test_start_up_seeds_the_buyer_list_before_classifying(monkeypatch):
     order = []
     monkeypatch.setattr(pipeline, "seed_buyers", lambda: order.append("seed"))
     monkeypatch.setattr(worker, "catch_up", lambda: order.append("catch-up") or [])
+    monkeypatch.setattr(worker, "catch_up_backups", lambda: [])
     monkeypatch.setattr(worker, "wait_for_database", lambda *a, **k: True)
     monkeypatch.setattr(worker, "close_interrupted_runs", lambda: [])
     worker.job_catch_up()
@@ -189,3 +190,67 @@ def test_the_last_slot_is_today_or_yesterday(monkeypatch, fresh_settings, now, e
     fresh_settings(DGATE_PLACSP_HOUR=6, DGATE_PLACSP_MINUTE=30)
     monkeypatch.setattr(worker, "_now", lambda: datetime.fromisoformat(now))
     assert worker.hours_since_last_slot("placsp_daily") == pytest.approx(expected, abs=0.01)
+
+
+# ---------------------------------------------------------------- backups
+
+def _backups(monkeypatch, fresh_settings, *, taken, verified, now):
+    from datetime import datetime
+
+    fresh_settings(DGATE_BACKUP_HOUR=2)
+    monkeypatch.setattr(worker, "_now", lambda: datetime.fromisoformat(now))
+    monkeypatch.setattr(worker, "last_backup_taken",
+                        lambda: datetime.fromisoformat(taken) if taken else None)
+    monkeypatch.setattr(worker, "last_backup_verified",
+                        lambda: datetime.fromisoformat(verified) if verified else None)
+    ran = []
+    monkeypatch.setattr(worker, "job_backup",
+                        lambda: ran.append("dump") or worker.JobResult("backup_nightly", "success", 0))
+    monkeypatch.setattr(worker, "job_backup_verify",
+                        lambda: ran.append("verify") or worker.JobResult("backup_verify", "success", 0))
+    worker.catch_up_backups()
+    return ran
+
+
+def test_a_week_without_a_dump_is_caught_up_on_start(monkeypatch, fresh_settings):
+    """8 to 15 September 2026: the 02:00 dump never ran on a laptop that is off at
+    night, and the newest files were test dumps of an empty database."""
+    ran = _backups(monkeypatch, fresh_settings, taken="2026-09-08T11:41:00+00:00",
+                   verified="2026-09-14T09:00:00+00:00", now="2026-09-15T08:30:00+00:00")
+    assert ran == ["dump"]
+
+
+def test_no_dump_at_all_is_caught_up(monkeypatch, fresh_settings):
+    ran = _backups(monkeypatch, fresh_settings, taken=None,
+                   verified="2026-09-14T09:00:00+00:00", now="2026-09-15T08:30:00+00:00")
+    assert ran == ["dump"]
+
+
+def test_a_dump_taken_after_its_slot_is_left_alone(monkeypatch, fresh_settings):
+    ran = _backups(monkeypatch, fresh_settings, taken="2026-09-15T02:01:00+00:00",
+                   verified="2026-09-14T09:00:00+00:00", now="2026-09-15T08:30:00+00:00")
+    assert ran == []
+
+
+def test_a_restore_check_missed_on_sunday_night_runs_on_start(monkeypatch, fresh_settings):
+    # Tuesday; the last Sunday 02:30 slot passed with no check since.
+    ran = _backups(monkeypatch, fresh_settings, taken="2026-09-15T02:01:00+00:00",
+                   verified="2026-09-10T09:00:00+00:00", now="2026-09-15T08:30:00+00:00")
+    assert ran == ["verify"]
+
+
+def test_a_restore_check_never_recorded_runs(monkeypatch, fresh_settings):
+    ran = _backups(monkeypatch, fresh_settings, taken="2026-09-15T02:01:00+00:00",
+                   verified=None, now="2026-09-15T08:30:00+00:00")
+    assert ran == ["verify"]
+
+
+@pytest.mark.parametrize("now, expected", [
+    ("2026-09-15T08:30:00+00:00", 54.0),    # Tuesday: last Sunday 02:30 was 2 days 6 h ago
+    ("2026-09-13T02:00:00+00:00", 167.5),   # Sunday before the slot: the previous Sunday
+])
+def test_the_weekly_slot_is_the_most_recent_sunday(monkeypatch, now, expected):
+    from datetime import datetime
+
+    monkeypatch.setattr(worker, "_now", lambda: datetime.fromisoformat(now))
+    assert worker.hours_since_last_weekly_slot(6, 2, 30) == pytest.approx(expected, abs=0.01)

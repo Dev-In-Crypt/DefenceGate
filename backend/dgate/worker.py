@@ -165,6 +165,11 @@ def job_backup_verify() -> JobResult:
         if not counts.get("opportunity_version"):
             raise RuntimeError(f"restored database has no archive rows: {counts}")
         log.info("backup verified: %s", counts)
+        # Only a restore that produced archive rows counts. Recorded so a
+        # machine that is off on Sunday nights still gets its weekly check.
+        from .ops.backup import backup_dir
+
+        (backup_dir() / VERIFIED_MARKER).write_text(_now().isoformat(), encoding="utf-8")
 
     return run_job("backup_verify", _run)
 
@@ -239,12 +244,87 @@ def hours_since_last_slot(name: str) -> float:
         "ted_daily": (cfg.ted_hour, cfg.ted_minute),
         "placsp_daily": (cfg.placsp_hour, cfg.placsp_minute),
         "ezamowienia_daily": (cfg.ezam_hour, cfg.ezam_minute),
+        "backup_nightly": (cfg.backup_hour, 0),
     }[name]
     now = _now()
     slot = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
     if slot > now:
         slot -= timedelta(days=1)
     return (now - slot).total_seconds() / 3600
+
+
+def hours_since_last_weekly_slot(weekday: int, hour: int, minute: int) -> float:
+    """Hours since the most recent weekly slot (Monday = 0)."""
+    now = _now()
+    slot = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    slot -= timedelta(days=(now.weekday() - weekday) % 7)
+    if slot > now:
+        slot -= timedelta(days=7)
+    return (now - slot).total_seconds() / 3600
+
+
+VERIFIED_MARKER = "last-verified"
+
+
+def _age_hours(when: datetime | None) -> float | None:
+    return None if when is None else (_now() - when).total_seconds() / 3600
+
+
+def last_backup_taken() -> datetime | None:
+    from .ops.backup import listing
+
+    dumps = listing()
+    return dumps[-1].taken_at if dumps else None
+
+
+def last_backup_verified() -> datetime | None:
+    from .ops.backup import backup_dir
+
+    marker = backup_dir() / VERIFIED_MARKER
+    try:
+        return datetime.fromisoformat(marker.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
+def catch_up_backups() -> list[JobResult]:
+    """Take the nightly dump, and run the weekly restore check, if their slots passed.
+
+    The dump is scheduled at 02:00 UTC, which on a laptop is a time it is off.
+    From 8 September to 15 September 2026 not one real dump was taken: the
+    newest files were three 14 KB test dumps of an empty database, while the
+    archive grew to 762 MB. The raw store can rebuild what the notices said, but
+    not when each change was first observed -- that exists only in the database,
+    so for a week it had no second copy. Catch-up covered ingestion and nothing
+    else.
+
+    Runs before the ingest catch-up, so the observation timeline is copied before
+    hours of new writing, and costs a minute at the archive's current size.
+    """
+    cfg = settings()
+    if not cfg.catch_up_on_start:
+        return []
+    results: list[JobResult] = []
+
+    try:
+        age = _age_hours(last_backup_taken())
+    except Exception as exc:  # noqa: BLE001 - a start-up check must not block start-up
+        log.warning("catch-up: cannot list backups: %s", exc)
+        return results
+    if age is None or age > hours_since_last_slot("backup_nightly"):
+        log.warning("catch-up: newest dump %s, before its last slot; taking one now",
+                    "missing" if age is None else f"{age:.0f}h old")
+        results.append(job_backup())
+    else:
+        log.info("catch-up: newest dump %.0fh old, after its last slot", age)
+
+    verified = _age_hours(last_backup_verified())
+    weekly = hours_since_last_weekly_slot(6, cfg.backup_hour, 30)
+    if verified is None or verified > weekly:
+        log.warning("catch-up: last restore check %s; verifying the newest dump now",
+                    "never recorded" if verified is None else f"{verified:.0f}h ago")
+        results.append(job_backup_verify())
+    return results
 
 
 def ensure_buyer_list() -> None:
@@ -412,7 +492,7 @@ def job_catch_up() -> JobResult:
     wait_for_database()
     close_interrupted_runs()
     ensure_buyer_list()
-    results = catch_up()
+    results = catch_up_backups() + catch_up()
     if not results:
         return JobResult("catch_up", "success", 0.0, "nothing was stale")
     worst = min(results, key=lambda r: ("failed", "partial", "success").index(r.status))
@@ -503,7 +583,7 @@ def main(argv: list[str] | None = None) -> int:
         close_interrupted_runs()
         ensure_buyer_list()
         start_backfill_thread()
-        results = catch_up()
+        results = catch_up_backups() + catch_up()
     else:
         # Loud rather than silent: a catch-up that could not run is a gap that
         # is still open, and the next scheduled slot may be a day away.
