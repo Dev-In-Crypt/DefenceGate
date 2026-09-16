@@ -544,7 +544,7 @@ def describe_schedule() -> list[str]:
         f"placsp_daily   {cfg.placsp_hour:02d}:{cfg.placsp_minute:02d} UTC  "
         f"(datasets 1 and 2)",
         f"ezamowienia    {cfg.ezam_hour:02d}:{cfg.ezam_minute:02d} UTC  "
-        f"(targeted defence queries, not a full scan)",
+        f"(every notice, one publication day at a time)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         f"backup_nightly {cfg.backup_hour:02d}:00 UTC  "
         f"(keep {cfg.backup_keep_days} days)",
