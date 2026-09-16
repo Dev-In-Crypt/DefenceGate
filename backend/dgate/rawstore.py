@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import shutil
 from abc import ABC, abstractmethod
 from datetime import date
 from pathlib import Path
@@ -96,13 +97,41 @@ class RawStore(ABC):
         """
 
     @abstractmethod
-    def listing(self, prefix: str = "") -> Iterator[tuple[str, float]]:
+    def listing(self, prefix: str = "", suffix: str = ".json") -> Iterator[tuple[str, float]]:
         """Every key under a prefix with the time it was written.
 
         Needed because a notice can now have several payloads in one day, and a
         rebuild has to replay them in the order they were observed or it will
         number the versions wrongly. Key order cannot carry that: the part that
         distinguishes them is a content hash, which sorts arbitrarily.
+
+        `suffix` exists because the bucket now holds more than payloads: the
+        nightly dumps are shipped here too, and a replay that swept them in
+        would try to parse a 100 MB gzip as a notice.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def put_file(self, key: str, path: Path, content_type: str = "application/octet-stream") -> str:
+        """Upload a file by streaming it, without reading it into memory.
+
+        `put()` serialises a payload that is already in memory, which is right
+        for a notice and wrong for a database dump: a dump is a hundred times
+        the size of this process's usual footprint.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def fetch(self, key: str, dest: Path) -> Path:
+        """Download one object to a local path, streaming it likewise."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def size(self, key: str) -> int | None:
+        """Bytes stored under a key, or None if it is not there.
+
+        An upload that returns without error is not evidence; a size that
+        matches the local file is.
         """
         raise NotImplementedError
 
@@ -184,12 +213,31 @@ class FileRawStore(RawStore):
         for key, _ in self.listing(prefix):
             yield key
 
-    def listing(self, prefix: str = "") -> Iterator[tuple[str, float]]:
+    def listing(self, prefix: str = "", suffix: str = ".json") -> Iterator[tuple[str, float]]:
         base = Path(os.path.normpath(self.root / prefix)) if prefix else self.root
         if not base.exists():
             return
-        for path in sorted(base.rglob("*.json")):
+        for path in sorted(base.rglob(f"*{suffix}")):
             yield path.relative_to(self.root).as_posix(), path.stat().st_mtime
+
+    def put_file(self, key: str, path: Path,
+                 content_type: str = "application/octet-stream") -> str:
+        target = self._path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        return key
+
+    def fetch(self, key: str, dest: Path) -> Path:
+        source = self._path(key)
+        if not source.is_file():
+            raise FileNotFoundError(key)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, dest)
+        return dest
+
+    def size(self, key: str) -> int | None:
+        path = self._path(key)
+        return path.stat().st_size if path.is_file() else None
 
 
 class S3RawStore(RawStore):
@@ -274,12 +322,31 @@ class S3RawStore(RawStore):
         for key, _ in self.listing(prefix):
             yield key
 
-    def listing(self, prefix: str = "") -> Iterator[tuple[str, float]]:
+    def listing(self, prefix: str = "", suffix: str = ".json") -> Iterator[tuple[str, float]]:
         paginator = self.client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
             for obj in page.get("Contents", []):
-                if obj["Key"].endswith(".json"):
+                if obj["Key"].endswith(suffix):
                     yield obj["Key"], obj["LastModified"].timestamp()
+
+    def put_file(self, key: str, path: Path,
+                 content_type: str = "application/octet-stream") -> str:
+        self.client.upload_file(str(path), self.bucket, key,
+                                ExtraArgs={"ContentType": content_type})
+        return key
+
+    def fetch(self, key: str, dest: Path) -> Path:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        self.client.download_file(self.bucket, key, str(dest))
+        return dest
+
+    def size(self, key: str) -> int | None:
+        from botocore.exceptions import ClientError
+
+        try:
+            return int(self.client.head_object(Bucket=self.bucket, Key=key)["ContentLength"])
+        except ClientError:
+            return None
 
 
 def build_store(backend: str | None = None) -> RawStore:

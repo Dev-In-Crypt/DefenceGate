@@ -14,10 +14,17 @@ change, and no amount of replaying tells you that after the fact.
 
 So both exist, and neither is redundant.
 
-    python -m dgate.ops.backup                    write a dump
+A dump on the same host as the database is the weakest of the three: one disk
+takes both. So every dump is also shipped to the object store, under its own
+prefix, and the weekly restore check reads the shipped copy rather than the
+local one -- proving the copy that would actually be used in a disaster.
+
+    python -m dgate.ops.backup                    write a dump, ship it, prune
     python -m dgate.ops.backup --list             what is on disk
-    python -m dgate.ops.backup --verify           restore the newest into a
-                                                  scratch database and count
+    python -m dgate.ops.backup --list-offsite     what is in the object store
+    python -m dgate.ops.backup --verify           restore the newest shipped
+                                                  dump into a scratch database
+                                                  and count
 """
 
 from __future__ import annotations
@@ -32,6 +39,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 from ..config import settings
@@ -39,6 +47,9 @@ from ..config import settings
 log = logging.getLogger("backup")
 
 STAMP = "%Y%m%dT%H%M%SZ"
+# The dumps share the payload bucket but not its namespace: a replay enumerates
+# the store, and a 100 MB gzip has no business showing up in that walk.
+OFFSITE_PREFIX = "backups/"
 
 
 @dataclass
@@ -147,6 +158,92 @@ def prune(keep_days: int = 30, directory: Path | None = None) -> list[Path]:
     return removed
 
 
+def offsite_key(name: str) -> str:
+    return f"{OFFSITE_PREFIX}{name}"
+
+
+def ship(backup: Backup | None = None, store: Any = None) -> str:
+    """Copy one dump to the object store and prove it arrived whole.
+
+    Returns the key. A short write is the failure this guards against: object
+    storage accepts a truncated upload as a perfectly good object, and the size
+    check is the only thing between that and a backup that is discovered to be
+    useless on the day it is needed.
+    """
+    from ..rawstore import build_store
+
+    backup = backup or newest()
+    if backup is None:
+        raise RuntimeError("no backup to ship")
+    store = store or build_store()
+    key = offsite_key(backup.path.name)
+    store.put_file(key, backup.path, content_type="application/gzip")
+    stored = store.size(key)
+    if stored != backup.bytes:
+        raise RuntimeError(
+            f"shipped {backup.path.name} is {stored} bytes in the store, "
+            f"{backup.bytes} on disk; the copy is not the dump")
+    log.info("shipped %s (%.1f MB) to %s", backup.path.name, backup.megabytes, key)
+    return key
+
+
+def offsite_listing(store: Any = None) -> list[tuple[str, datetime]]:
+    """Shipped dumps, oldest first, read from the store itself.
+
+    Deliberately not from a local index: the case this exists for is the host
+    being gone, and an index on the lost host answers nothing.
+    """
+    from ..rawstore import build_store
+
+    store = store or build_store()
+    out: list[tuple[str, datetime]] = []
+    for key, _ in store.listing(OFFSITE_PREFIX, suffix=".sql.gz"):
+        name = key.rsplit("/", 1)[-1]
+        try:
+            stamp = datetime.strptime(name[len("dgate-"):-len(".sql.gz")], STAMP)
+        except ValueError:
+            continue
+        out.append((key, stamp.replace(tzinfo=timezone.utc)))
+    return sorted(out, key=lambda pair: pair[1])
+
+
+def prune_offsite(keep_days: int = 30, store: Any = None) -> list[str]:
+    """Same retention as on disk, and the same refusal to delete the last one."""
+    from ..rawstore import build_store
+
+    store = store or build_store()
+    shipped = offsite_listing(store)
+    if not shipped:
+        return []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=keep_days)
+    removed = []
+    for key, taken_at in shipped[:-1]:
+        if taken_at < cutoff:
+            store.delete(key)
+            removed.append(key)
+            log.info("pruned %s from the store", key)
+    return removed
+
+
+def newest(directory: Path | None = None) -> Backup | None:
+    found = listing(directory)
+    return found[-1] if found else None
+
+
+def fetch_offsite(dest_dir: Path, store: Any = None) -> Backup:
+    """Bring the newest shipped dump back to disk, as a restore would."""
+    from ..rawstore import build_store
+
+    store = store or build_store()
+    shipped = offsite_listing(store)
+    if not shipped:
+        raise RuntimeError("no shipped backup to fetch")
+    key, taken_at = shipped[-1]
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    path = store.fetch(key, dest_dir / key.rsplit("/", 1)[-1])
+    return Backup(path, taken_at, path.stat().st_size)
+
+
 def verify(backup: Backup | None = None, dsn: str | None = None) -> dict[str, int]:
     """Restore the newest dump into a scratch database and count what arrived.
 
@@ -207,14 +304,23 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(prog="dgate-backup")
     parser.add_argument("--list", action="store_true")
+    parser.add_argument("--list-offsite", action="store_true",
+                        help="what has been shipped to the object store")
     parser.add_argument("--verify", action="store_true",
                         help="restore the newest dump into a scratch database")
+    parser.add_argument("--no-ship", action="store_true",
+                        help="write the dump but leave it on this host")
     parser.add_argument("--keep-days", type=int, default=30)
     args = parser.parse_args(argv)
 
     if args.list:
         for backup in listing():
             print(f"{backup.path.name}  {backup.megabytes:8.1f} MB  {backup.taken_at:%Y-%m-%d %H:%M}Z")
+        return 0
+
+    if args.list_offsite:
+        for key, taken_at in offsite_listing():
+            print(f"{key}  {taken_at:%Y-%m-%d %H:%M}Z")
         return 0
 
     if args.verify:
@@ -224,6 +330,9 @@ def main(argv: list[str] | None = None) -> int:
 
     result = create()
     prune(args.keep_days)
+    if not args.no_ship:
+        ship(result)
+        prune_offsite(args.keep_days)
     print(f"{result.path} ({result.megabytes:.1f} MB)")
     return 0
 

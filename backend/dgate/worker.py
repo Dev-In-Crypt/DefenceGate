@@ -134,20 +134,27 @@ def job_seed_buyers() -> JobResult:
 
 
 def job_backup() -> JobResult:
-    """Nightly dump, pruned to the retention window.
+    """Nightly dump, shipped off the host, pruned to the retention window.
 
     A dump is not the primary safety net; the raw payload store is, because the
     database is derived from it. What a dump adds is speed, and the observation
     timeline, which a replay cannot reconstruct: it can rebuild what a notice
     said, never when we first saw it say so.
+
+    It is shipped because until 16 September 2026 the dumps sat on the same
+    disk as the database they protected, which makes them a copy, not a backup.
+    Shipping is part of the job rather than a job of its own so that a dump that
+    never left the host fails the night it happens, loudly.
     """
     def _run() -> None:
-        from .ops.backup import create, prune
+        from .ops.backup import create, prune, prune_offsite, ship
 
         result = create()
         removed = prune(settings().backup_keep_days)
-        log.info("backup %s (%.1f MB), pruned %s old dumps",
-                 result.path.name, result.megabytes, len(removed))
+        key = ship(result)
+        removed_offsite = prune_offsite(settings().backup_keep_days)
+        log.info("backup %s (%.1f MB) shipped to %s; pruned %s local and %s shipped dumps",
+                 result.path.name, result.megabytes, key, len(removed), len(removed_offsite))
 
     return run_job("backup_nightly", _run)
 
@@ -159,9 +166,21 @@ def job_backup_verify() -> JobResult:
     and it is the one whose failure should worry an operator most.
     """
     def _run() -> None:
-        from .ops.backup import verify
+        import tempfile
+        from pathlib import Path
 
-        counts = verify()
+        from .ops.backup import fetch_offsite, verify
+
+        # Verify the shipped copy, not the local one. They are the same bytes
+        # right up until the day they are not, and the shipped copy is the one
+        # a disaster would reach for: checking the other proves nothing about
+        # it. Fetched to a temporary directory so the check cannot quietly
+        # become the thing that fills the disk.
+        with tempfile.TemporaryDirectory(prefix="dgate-verify-") as tmp:
+            shipped = fetch_offsite(Path(tmp))
+            log.info("verifying the shipped copy %s (%.1f MB)",
+                     shipped.path.name, shipped.megabytes)
+            counts = verify(shipped)
         if not counts.get("opportunity_version"):
             raise RuntimeError(f"restored database has no archive rows: {counts}")
         log.info("backup verified: %s", counts)
@@ -317,6 +336,7 @@ def catch_up_backups() -> list[JobResult]:
         results.append(job_backup())
     else:
         log.info("catch-up: newest dump %.0fh old, after its last slot", age)
+        results.extend(catch_up_shipping())
 
     verified = _age_hours(last_backup_verified())
     weekly = hours_since_last_weekly_slot(6, cfg.backup_hour, 30)
@@ -325,6 +345,31 @@ def catch_up_backups() -> list[JobResult]:
                     "never recorded" if verified is None else f"{verified:.0f}h ago")
         results.append(job_backup_verify())
     return results
+
+
+def catch_up_shipping() -> list[JobResult]:
+    """Ship the newest dump if it is still only on this host.
+
+    Its own step because the dump and the copy fail separately: object storage
+    can be unreachable for an hour while pg_dump works perfectly, and the result
+    is a dump that looks done and protects nothing.
+    """
+    from .ops.backup import newest, offsite_key, ship
+
+    def _run() -> None:
+        from .rawstore import build_store
+
+        dump = newest()
+        if dump is None:
+            return
+        store = build_store()
+        if store.size(offsite_key(dump.path.name)) == dump.bytes:
+            log.info("catch-up: newest dump is already in the store")
+            return
+        log.warning("catch-up: newest dump has not been shipped; shipping now")
+        ship(dump, store)
+
+    return [run_job("backup_ship", _run)]
 
 
 def ensure_buyer_list() -> None:

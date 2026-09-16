@@ -142,3 +142,77 @@ def test_the_dsn_is_repointed_by_parsing_not_by_replacing():
 def test_a_missing_tool_says_what_to_install():
     with pytest.raises(RuntimeError, match="PostgreSQL client tools"):
         backup._require("definitely-not-a-real-binary")
+
+
+# ------------------------------------------- shipping a dump off the host
+
+def _dump(directory: Path, days_ago: int, body: bytes = b"not really a dump") -> backup.Backup:
+    taken = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    path = directory / f"dgate-{taken.strftime(backup.STAMP)}.sql.gz"
+    path.write_bytes(body)
+    return backup.Backup(path, taken, len(body))
+
+
+def test_a_dump_is_copied_into_the_store_under_its_own_prefix(tmp_path):
+    """Its own prefix because a replay enumerates the store: a 100 MB gzip
+    landing in that walk would be read as a notice."""
+    store = FileRawStore(tmp_path / "store")
+    dump = _dump(tmp_path, 0)
+    key = backup.ship(dump, store)
+    assert key == f"backups/{dump.path.name}"
+    assert store.size(key) == dump.bytes
+    assert list(store.list()) == []      # the payload replay sees nothing new
+
+
+def test_a_short_upload_is_an_error_not_a_backup(tmp_path):
+    """Object storage accepts a truncated upload as a perfectly good object.
+    The size check is all that stands between that and a backup discovered to
+    be useless on the day it is needed."""
+    class _Truncating(FileRawStore):
+        def put_file(self, key, path, content_type="application/octet-stream"):
+            target = self._path(key)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(path.read_bytes()[:3])
+            return key
+
+    with pytest.raises(RuntimeError, match="not the dump"):
+        backup.ship(_dump(tmp_path, 0), _Truncating(tmp_path / "store"))
+
+
+def test_shipped_dumps_are_listed_oldest_first_and_strangers_ignored(tmp_path):
+    store = FileRawStore(tmp_path / "store")
+    for days in (10, 1, 5):
+        backup.ship(_dump(tmp_path, days), store)
+    store.put_file("backups/notes.sql.gz", _dump(tmp_path, 0).path)
+    store.put_file("backups/dgate-nonsense.sql.gz", _dump(tmp_path, 0).path)
+    listed = backup.offsite_listing(store)
+    assert [taken.date() for _, taken in listed] == sorted(taken.date() for _, taken in listed)
+    assert len(listed) == 3
+
+
+def test_shipped_dumps_are_pruned_on_the_same_window_as_local_ones(tmp_path):
+    store = FileRawStore(tmp_path / "store")
+    old = backup.ship(_dump(tmp_path, 40), store)
+    recent = backup.ship(_dump(tmp_path, 3), store)
+    removed = backup.prune_offsite(keep_days=30, store=store)
+    assert removed == [old]
+    assert store.size(recent) is not None
+
+
+def test_pruning_never_empties_the_store(tmp_path):
+    """A year of downtime must not end with nothing off the host."""
+    store = FileRawStore(tmp_path / "store")
+    ancient = backup.ship(_dump(tmp_path, 400), store)
+    assert backup.prune_offsite(keep_days=30, store=store) == []
+    assert store.size(ancient) is not None
+
+
+def test_the_newest_shipped_dump_can_be_brought_back(tmp_path):
+    """What the weekly check restores: the copy a disaster would reach for."""
+    store = FileRawStore(tmp_path / "store")
+    backup.ship(_dump(tmp_path, 4, b"older dump"), store)
+    newest = _dump(tmp_path, 0, b"the newest dump")
+    backup.ship(newest, store)
+    fetched = backup.fetch_offsite(tmp_path / "restore", store)
+    assert fetched.path.read_bytes() == b"the newest dump"
+    assert fetched.path.name == newest.path.name

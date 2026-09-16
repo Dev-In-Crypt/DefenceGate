@@ -8,6 +8,8 @@ too wide and a start-up loop hammers a public portal.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from dgate import config, worker
@@ -254,3 +256,42 @@ def test_the_weekly_slot_is_the_most_recent_sunday(monkeypatch, now, expected):
 
     monkeypatch.setattr(worker, "_now", lambda: datetime.fromisoformat(now))
     assert worker.hours_since_last_weekly_slot(6, 2, 30) == pytest.approx(expected, abs=0.01)
+
+
+# ------------------------------------ a dump that never left the host
+
+def _ship_catch_up(monkeypatch, tmp_path, stored: int | None):
+    """Run the shipping catch-up against a store that holds `stored` bytes."""
+    from dgate.ops import backup as bk
+
+    dump = bk.Backup(tmp_path / "dgate-20260916T020000Z.sql.gz",
+                     datetime.now(timezone.utc), 17)
+    dump.path.write_bytes(b"not really a dump")
+    shipped: list[str] = []
+
+    class _Store:
+        def size(self, key):
+            return stored
+
+    monkeypatch.setattr(bk, "newest", lambda directory=None: dump)
+    monkeypatch.setattr(bk, "ship", lambda d, s=None: shipped.append(d.path.name))
+    monkeypatch.setattr(worker, "run_job", lambda name, fn, **kw: fn() or (name, None))
+    monkeypatch.setattr("dgate.rawstore.build_store", lambda backend=None: _Store())
+    worker.catch_up_shipping()
+    return shipped
+
+
+def test_a_dump_that_never_reached_the_store_is_shipped_on_start(monkeypatch, tmp_path):
+    """pg_dump can succeed the same night object storage is unreachable, and
+    the result looks like a backup while protecting nothing."""
+    assert _ship_catch_up(monkeypatch, tmp_path, stored=None) == \
+        ["dgate-20260916T020000Z.sql.gz"]
+
+
+def test_a_dump_shipped_short_is_shipped_again(monkeypatch, tmp_path):
+    assert _ship_catch_up(monkeypatch, tmp_path, stored=3) == \
+        ["dgate-20260916T020000Z.sql.gz"]
+
+
+def test_a_dump_already_in_the_store_is_not_shipped_twice(monkeypatch, tmp_path):
+    assert _ship_catch_up(monkeypatch, tmp_path, stored=17) == []
