@@ -17,7 +17,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -138,6 +138,66 @@ def run_ted(days: int = 2) -> None:
                           status="failed", error=str(exc))
             raise
     log.info("ted done: %s fetched, %s new, %s changed", fetched, new, changed)
+
+
+def run_ted_history(start: date, end: date, *, resume: bool = True,
+                    max_days: int | None = None) -> int:
+    """Load every TED notice published between two dates, one day at a time.
+
+    The daily job collects defence notices; this collects everything, because
+    the classifier will change and refetching a decade will not be an option.
+    Only notices carrying a defence signal become opportunities -- the rest are
+    landed, indexed in `raw_ingest`, and wait there for a better question.
+
+    Resumable by construction: a day is marked done only after its records are
+    committed, so an interrupted run loses at most the day it was in, and
+    re-running skips what is already marked. Returns the number of days loaded.
+    """
+    cfg = settings()
+    days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    loaded = 0
+    with (db.connect(cfg.dsn) as conn,
+          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+        src_id = db.source_id(conn, "ted")
+        done = db.backfill_days_done(conn, "ted") if resume else set()
+        pending = [day for day in days if day not in done]
+        log.info("ted history: %s days to load, %s already done",
+                 len(pending), len(days) - len(pending))
+        for day in pending:
+            if max_days is not None and loaded >= max_days:
+                break
+            fetched = new = 0
+            try:
+                for notice in ted.search(ted.day_query(day)):
+                    fetched += 1
+                    _checkpoint(conn, f"ted {day}", fetched, new, 0, every=500,
+                                writer=writer)
+                    clean = strip_personal_data(notice)
+                    h = ted.content_hash(clean)
+                    try:
+                        opp = from_ted(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed notice: %s", exc)
+                        continue
+                    key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, opp.native_id, h, key)
+                    opp = _finalise(conn, opp, src_id)
+                    if not opp.is_defence:
+                        continue
+                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    new += action == "new"
+                writer.drain()
+                conn.commit()
+            except Exception:
+                # Same rule as the daily runs: roll the uncommitted index rows
+                # back rather than record keys whose payloads never landed. The
+                # day stays unmarked, so resuming asks for it again.
+                conn.rollback()
+                raise
+            db.mark_backfill_day(conn, "ted", day, fetched)
+            loaded += 1
+            log.info("ted history %s: %s notices, %s defence", day, fetched, new)
+    return loaded
 
 
 def run_ezamowienia(days: int = 2) -> None:
@@ -591,6 +651,17 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--no-resume", action="store_true",
                    help="re-read rows already landed instead of skipping them")
 
+    h = sub.add_parser("ted-history",
+                       help="one-off historical load of every TED notice since 2017")
+    h.add_argument("--from", dest="start", type=date.fromisoformat, required=True,
+                   help="first publication day, YYYY-MM-DD (the API starts at 2017)")
+    h.add_argument("--to", dest="end", type=date.fromisoformat, default=None,
+                   help="last publication day; defaults to yesterday")
+    h.add_argument("--max-days", type=int, default=None,
+                   help="stop after this many days; for a rehearsal")
+    h.add_argument("--no-resume", action="store_true",
+                   help="reload days already marked done")
+
     sub.add_parser("seed-buyers", help="seed the defence buyer list")
 
     a = p.parse_args(argv)
@@ -606,6 +677,9 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "atlas-pl":
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
                            resume=not a.no_resume)
+    elif a.cmd == "ted-history":
+        run_ted_history(a.start, a.end or date.today() - timedelta(days=1),
+                        resume=not a.no_resume, max_days=a.max_days)
     elif a.cmd == "seed-buyers":
         seed_buyers()
     return 0

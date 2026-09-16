@@ -30,10 +30,11 @@ def test_years_parse_from_the_environment(env):
     assert env(DGATE_ATLAS_BACKFILL_YEARS="2024, 2025").atlas_backfill_years == [2024, 2025]
 
 
-def test_no_years_configured_means_no_backfill(env):
+def test_no_years_configured_means_no_backfill(env, monkeypatch):
+    monkeypatch.delenv("DGATE_TED_HISTORY_FROM", raising=False)
     env(DGATE_ATLAS_BACKFILL_YEARS="")
     assert worker.pending_backfill_years() == []
-    assert worker.start_backfill_thread() is None
+    assert worker.start_backfill_thread() == []
 
 
 def test_a_year_with_its_marker_is_finished(env):
@@ -80,3 +81,47 @@ def test_the_backfill_uses_its_own_wider_writer_pool(env, monkeypatch):
     monkeypatch.setattr(worker, "run_job", lambda name, fn, **kw: fn())
     worker.job_atlas_backfill(attempts=1, pause=0)
     assert seen["workers"] == 64
+
+
+# --------------------------------------------- the TED history load
+
+def test_the_history_is_off_until_a_start_date_is_given(env, monkeypatch):
+    """Seven million notices over several days is a decision, not something a
+    container inherits by starting."""
+    monkeypatch.delenv("DGATE_TED_HISTORY_FROM", raising=False)
+    env()
+    assert worker.ted_history_window() is None
+
+
+def test_the_history_ends_yesterday_unless_told_otherwise(env, monkeypatch):
+    """Today is the daily job's business; the history stops where it begins."""
+    from datetime import date, timedelta
+
+    monkeypatch.delenv("DGATE_TED_HISTORY_TO", raising=False)
+    env(DGATE_TED_HISTORY_FROM="2017-01-01")
+    start, end = worker.ted_history_window()
+    assert start == date(2017, 1, 1)
+    assert end == date.today() - timedelta(days=1)
+
+
+def test_a_window_that_ends_before_it_starts_is_no_window(env):
+    env(DGATE_TED_HISTORY_FROM="2020-01-01", DGATE_TED_HISTORY_TO="2019-01-01")
+    assert worker.ted_history_window() is None
+
+
+def test_the_history_runs_beside_the_catch_up_not_before_it(env, monkeypatch):
+    """A decade of history must not hold up three missed days of collection."""
+    env(DGATE_ATLAS_BACKFILL_YEARS="", DGATE_TED_HISTORY_FROM="2017-01-01")
+    started: list[str] = []
+
+    class _Thread:
+        def __init__(self, target=None, name=None, daemon=None):
+            self.name = name
+
+        def start(self):
+            started.append(self.name)
+
+    monkeypatch.setattr(worker.threading, "Thread", _Thread)
+    threads = worker.start_backfill_thread()
+    assert started == ["ted-history"]
+    assert len(threads) == 1

@@ -216,3 +216,31 @@ def test_the_newest_shipped_dump_can_be_brought_back(tmp_path):
     fetched = backup.fetch_offsite(tmp_path / "restore", store)
     assert fetched.path.read_bytes() == b"the newest dump"
     assert fetched.path.name == newest.path.name
+
+
+def test_the_host_keeps_fewer_dumps_than_the_store(monkeypatch):
+    """One 40 GB disk holds both the database and the dumps of it. At the size
+    the archive reaches with the TED history, thirty dumps on the host would
+    fill it; thirty in the store cost pennies."""
+    from dgate import config
+
+    config.reset_cache()
+    try:
+        settings = config.settings()
+        assert settings.backup_keep_days_local == 7
+        assert settings.backup_keep_days == 30
+        assert settings.backup_keep_days_local < settings.backup_keep_days
+    finally:
+        config.reset_cache()
+
+
+def test_local_retention_can_be_shortened_without_touching_the_store(monkeypatch):
+    from dgate import config
+
+    monkeypatch.setenv("DGATE_BACKUP_KEEP_DAYS_LOCAL", "2")
+    config.reset_cache()
+    try:
+        assert config.settings().backup_keep_days_local == 2
+        assert config.settings().backup_keep_days == 30
+    finally:
+        config.reset_cache()

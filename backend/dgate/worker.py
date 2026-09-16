@@ -22,7 +22,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Sequence
 
 from . import db
@@ -149,12 +149,15 @@ def job_backup() -> JobResult:
     def _run() -> None:
         from .ops.backup import create, prune, prune_offsite, ship
 
+        cfg = settings()
         result = create()
-        removed = prune(settings().backup_keep_days)
+        removed = prune(cfg.backup_keep_days_local)
         key = ship(result)
-        removed_offsite = prune_offsite(settings().backup_keep_days)
-        log.info("backup %s (%.1f MB) shipped to %s; pruned %s local and %s shipped dumps",
-                 result.path.name, result.megabytes, key, len(removed), len(removed_offsite))
+        removed_offsite = prune_offsite(cfg.backup_keep_days)
+        log.info("backup %s (%.1f MB) shipped to %s; pruned %s local (keep %sd) "
+                 "and %s shipped (keep %sd)", result.path.name, result.megabytes, key,
+                 len(removed), cfg.backup_keep_days_local,
+                 len(removed_offsite), cfg.backup_keep_days)
 
     return run_job("backup_nightly", _run)
 
@@ -433,20 +436,72 @@ def job_atlas_backfill(attempts: int = 6, pause: float = 120.0) -> JobResult:
     return run_job("atlas_backfill", _run, sources=["pl_atlas"])
 
 
-def start_backfill_thread() -> threading.Thread | None:
-    """Resume an unfinished backfill alongside, not before, the catch-up.
+def ted_history_window() -> tuple[date, date] | None:
+    """The configured span of the TED history load, or None if unset.
 
-    A thread, so that three days of missed daily collection are not held up
-    behind two hours of history, and history is not held up behind them.
+    Unset is the default on purpose: a load of seven million notices over
+    several days is a decision, not something a container inherits by starting.
     """
-    years = pending_backfill_years()
-    if not years:
+    cfg = settings()
+    if not cfg.ted_history_from:
         return None
-    log.info("atlas backfill still to finish for %s; resuming in the background", years)
-    thread = threading.Thread(target=job_atlas_backfill, name="atlas-backfill",
-                              daemon=True)
-    thread.start()
-    return thread
+    start = date.fromisoformat(cfg.ted_history_from)
+    end = (date.fromisoformat(cfg.ted_history_to) if cfg.ted_history_to
+           else _now().date() - timedelta(days=1))
+    return (start, end) if start <= end else None
+
+
+def job_ted_history(attempts: int = 8, pause: float = 120.0) -> JobResult:
+    """Finish whatever part of the TED history is still missing.
+
+    Owned by the worker for the same reason the Polish backfill is: a load
+    measured in days cannot live in a shell someone has to keep open. Each
+    attempt resumes from the day markers, so a retry costs the failed day and
+    nothing else.
+    """
+    from .pipeline import run_ted_history
+
+    window = ted_history_window()
+
+    def _run() -> None:
+        if window is None:
+            return
+        start, end = window
+        for attempt in range(1, attempts + 1):
+            try:
+                loaded = run_ted_history(start, end)
+                log.info("ted history: %s days loaded this pass", loaded)
+                return
+            except Exception as exc:  # noqa: BLE001 - retried, then reported
+                if attempt == attempts:
+                    raise
+                log.warning("ted history attempt %s of %s failed (%s); retrying in %.0fs",
+                            attempt, attempts, exc, pause)
+                time.sleep(pause)
+
+    return run_job("ted_history", _run)
+
+
+def start_backfill_thread() -> list[threading.Thread]:
+    """Resume unfinished history loads alongside, not before, the catch-up.
+
+    Threads, so that three days of missed daily collection are not held up
+    behind a decade of history, and the history is not held up behind them.
+    """
+    threads = []
+    years = pending_backfill_years()
+    if years:
+        log.info("atlas backfill still to finish for %s; resuming in the background", years)
+        threads.append(threading.Thread(target=job_atlas_backfill, name="atlas-backfill",
+                                        daemon=True))
+    window = ted_history_window()
+    if window is not None:
+        log.info("ted history configured for %s to %s; resuming in the background", *window)
+        threads.append(threading.Thread(target=job_ted_history, name="ted-history",
+                                        daemon=True))
+    for thread in threads:
+        thread.start()
+    return threads
 
 
 def wait_for_database(timeout: float = 180.0, interval: float = 3.0) -> bool:
@@ -552,6 +607,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
     "backup": job_backup,
+    "ted-history": job_ted_history,
     "backup-verify": job_backup_verify,
     "catch-up": job_catch_up,
     "atlas-backfill": job_atlas_backfill,

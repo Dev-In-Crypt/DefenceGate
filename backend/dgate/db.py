@@ -422,6 +422,32 @@ def upsert_opportunity(
     return opp_id, "changed"
 
 
+def mark_backfill_day(conn: psycopg.Connection, source_code: str, day: date,
+                      notices: int) -> None:
+    """Record that one publication day was loaded in full.
+
+    Written after the day's last record is committed, never before: a marker
+    that runs ahead of the data turns an interrupted day into a permanent hole,
+    and the whole point of the marker is that resuming is safe.
+    """
+    conn.execute(
+        """INSERT INTO backfill_day (source_code, day, notices)
+           VALUES (%s, %s, %s)
+           ON CONFLICT (source_code, day)
+           DO UPDATE SET notices = EXCLUDED.notices,
+                         finished_at = clock_timestamp()""",
+        (source_code, day, notices),
+    )
+    conn.commit()
+
+
+def backfill_days_done(conn: psycopg.Connection, source_code: str) -> set[date]:
+    rows = conn.execute(
+        "SELECT day FROM backfill_day WHERE source_code = %s", (source_code,)
+    ).fetchall()
+    return {row["day"] for row in rows}
+
+
 def record_raw(
     conn: psycopg.Connection, src_id: int, native_id: str | None,
     content_hash: str, storage_key: str, content_type: str = "application/json",

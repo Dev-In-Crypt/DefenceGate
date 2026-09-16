@@ -155,6 +155,14 @@ class Settings:
     # Year files the worker should finish loading, e.g. "2024,2025". Empty means
     # the worker never starts a backfill on its own. A year is finished once its
     # `.done` marker exists, so leaving this set costs nothing afterwards.
+    # The TED history load. A start date rather than a flag, because "ten years"
+    # is not a fact about the source: the Search API answers from 2017 and
+    # returns nothing for 2016, so how far back to reach is a measured choice
+    # that belongs in configuration, not in code.
+    ted_history_from: str = field(
+        default_factory=lambda: _env("DGATE_TED_HISTORY_FROM", ""))
+    ted_history_to: str = field(
+        default_factory=lambda: _env("DGATE_TED_HISTORY_TO", ""))
     atlas_backfill_years: list[int] = field(
         default_factory=lambda: _env_int_list("DGATE_ATLAS_BACKFILL_YEARS"))
     # The backfill writes far more than a daily run and is bound by R2 latency,
@@ -192,6 +200,14 @@ class Settings:
     backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
     backup_keep_days: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))
+    # Kept on the host for days, in the store for a month. The two differ
+    # because they are limited by different things: the store is paid for by
+    # the gigabyte and a month of it costs pennies, while the host has one 40 GB
+    # disk that also holds the database the dumps are of. At the size the
+    # archive reaches with the TED history, thirty dumps on the host would be
+    # thirty gigabytes and the database would run out of room first.
+    backup_keep_days_local: int = field(
+        default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS_LOCAL", 7))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
     placsp_pages: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_PAGES", 20))
     # Past this age of its newest entry a PLACSP live feed counts as stopped:

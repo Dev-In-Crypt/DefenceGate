@@ -10,6 +10,12 @@ Licence:   Commission Decision 2011/833/EU. Notices freely reusable, including
 Retention note: TED keeps notices on the website for ten years, then moves them
 to a non-public internal archive. Anything we ingest today outlives the source.
 
+History note: the Search API answers from 2017 onwards. Measured on 16 September
+2026, the first week of June returned 9,497 notices in 2017 and 18,769 in 2025,
+while the same week of 2015 and 2016 returned nothing at all. So "ten years of
+history" is 2017 to now, about seven million notices -- and the 2016 half-year
+that is already gone from the API is the answer to why the archive exists.
+
 Personal data note: notices carry contact person names, emails and phone
 numbers, and award notices can name natural persons as contractors. Those
 fields are dropped in normalise.py and never reach the serving layer.
@@ -103,6 +109,23 @@ def defence_query(since: date, until: date | None = None) -> str:
         ]
     )
     return f"({window}) AND ({signals})"
+
+
+def day_query(day: date) -> str:
+    """Every notice published on one day, whatever it is for.
+
+    The daily job asks the defence question in the query because it runs every
+    morning and the answer is small. The history does not: it lands all seven
+    million notices since 2017 and lets classification decide afterwards, the
+    same rule the Polish and Spanish collections follow. A signal we learn to
+    read next year is then a reclassification, not a refetch of a decade.
+
+    A day is also the unit that fits: the API refuses paging past 15,000
+    results in one query (page 60 works, page 80 is rejected), and the busiest
+    day measured is 3,647.
+    """
+    stamp = day.strftime("%Y%m%d")
+    return f"publication-date>={stamp} AND publication-date<={stamp}"
 
 
 def _post(client: httpx.Client, payload: dict[str, Any]) -> dict[str, Any]:

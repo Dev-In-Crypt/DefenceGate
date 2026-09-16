@@ -105,4 +105,4 @@ def test_schedule_is_described_for_operators():
 def test_every_job_is_reachable_from_the_cli():
     assert set(worker.JOBS) == {"ted", "ezamowienia", "placsp", "seed-buyers",
                                 "health", "backup", "backup-verify", "catch-up",
-                                "atlas-backfill"}
+                                "atlas-backfill", "ted-history"}
