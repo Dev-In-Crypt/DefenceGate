@@ -17,15 +17,18 @@ never served, and never indexed.
 
 from __future__ import annotations
 
+import gzip
+import io
 import json
 import logging
 import os
 import re
 import shutil
+import threading
 from abc import ABC, abstractmethod
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator
 
 from .config import settings
 
@@ -67,6 +70,48 @@ def storage_key(source_code: str, native_id: str, when: date | None = None,
     return f"{prefix}.json"
 
 
+# ---------------------------------------------------------------- bundles
+#
+# One object per notice is the clearest shape and, past a few million notices,
+# the expensive one: object storage bills for writes, not bytes. Loading the TED
+# history that way cost 4.5 dollars per million notices in write operations and
+# nothing worth measuring in storage. A day of one source, written as one
+# gzipped file of JSON lines, is a single write instead of thousands, and
+# compresses about ten to one.
+#
+# The key of a bundled payload carries where it is: `<bundle key>#<line>`. That
+# keeps `raw_ingest.storage_key` a single self-describing string, so the two
+# shapes can live in one store and one index -- which they must, because the
+# archive already holds five million objects written one at a time and rewriting
+# them is a decision of its own.
+
+# Parts, numbered from zero, because one day of one source is not guaranteed to
+# stay small: a busy TED day is 3,600 notices and 40 MB held in memory before
+# the write, and a source that changes its habits must not turn that into a
+# number nobody chose.
+BUNDLE_PART = "bundle-{part:04d}.jsonl.gz"
+
+
+def bundle_key(source_code: str, day: date, part: int = 0) -> str:
+    return (f"{source_code}/{day.year:04d}/{day.month:02d}/{day.day:02d}/"
+            + BUNDLE_PART.format(part=part))
+
+
+def record_key(bundle: str, line: int) -> str:
+    return f"{bundle}#{line}"
+
+
+def split_record_key(key: str) -> tuple[str, int | None]:
+    """Split `bundle#line` into its parts. A plain key keeps its `None`."""
+    bundle, sep, line = key.partition("#")
+    if not sep:
+        return key, None
+    try:
+        return bundle, int(line)
+    except ValueError:
+        return key, None
+
+
 class RawStore(ABC):
     """Write-once storage.
 
@@ -81,8 +126,50 @@ class RawStore(ABC):
         """Store a payload under ``key`` and return the key."""
 
     @abstractmethod
+    def _read(self, key: str) -> bytes:
+        """Read one object's bytes. The only read subclasses have to implement."""
+        raise NotImplementedError
+
     def get(self, key: str) -> Any:
-        """Read a payload back, for replay and audit."""
+        """Read a payload back, for replay and audit.
+
+        Handles both shapes of key: a plain object, and one line of a bundle.
+        The last bundle read is kept, because replay walks keys in order and a
+        day's three thousand notices live in one file -- without it, each of
+        them would fetch and decompress the same megabytes again.
+        """
+        bundle, line = split_record_key(key)
+        if line is None:
+            return json.loads(self._read(bundle).decode("utf-8"))
+        return json.loads(self._bundle_lines(bundle)[line])
+
+    def _bundle_lines(self, key: str) -> list[str]:
+        with self._bundle_lock:
+            if self._bundle_cache is not None and self._bundle_cache[0] == key:
+                return self._bundle_cache[1]
+        raw = gzip.decompress(self._read(key)).decode("utf-8")
+        lines = raw.splitlines()
+        with self._bundle_lock:
+            self._bundle_cache = (key, lines)
+        return lines
+
+    def put_records(self, key: str, payloads: Iterable[Any]) -> int:
+        """Write many payloads as one gzipped object of JSON lines.
+
+        One write instead of thousands. Returns how many lines were written, so
+        the caller can check the count it recorded against the count it stored.
+        """
+        buffer = io.BytesIO()
+        written = 0
+        # mtime=0: the same payloads must produce the same bytes, or a rewritten
+        # bundle looks changed to anything comparing objects.
+        with gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as out:
+            for payload in payloads:
+                out.write(self.serialise(payload))
+                out.write(b"\n")
+                written += 1
+        self.put(key, buffer.getvalue(), content_type="application/gzip")
+        return written
 
     @abstractmethod
     def exists(self, key: str) -> bool:
@@ -147,6 +234,15 @@ class RawStore(ABC):
         """
         raise NotImplementedError
 
+    _bundle_cache: tuple[str, list[str]] | None = None
+
+    @property
+    def _bundle_lock(self) -> threading.Lock:
+        lock = self.__dict__.get("_bundle_lock_instance")
+        if lock is None:
+            lock = self.__dict__["_bundle_lock_instance"] = threading.Lock()
+        return lock
+
     @staticmethod
     def serialise(payload: Any) -> bytes:
         # sort_keys so that an identical payload produces identical bytes:
@@ -195,9 +291,8 @@ class FileRawStore(RawStore):
         path.write_bytes(self.serialise(payload))
         return key
 
-    def get(self, key: str) -> Any:
-        raw = self._path(key).read_bytes()
-        return json.loads(raw.decode("utf-8"))
+    def _read(self, key: str) -> bytes:
+        return self._path(key).read_bytes()
 
     def exists(self, key: str) -> bool:
         return self._path(key).is_file()
@@ -296,9 +391,9 @@ class S3RawStore(RawStore):
                                Body=self.serialise(payload), ContentType=content_type)
         return key
 
-    def get(self, key: str) -> Any:
+    def _read(self, key: str) -> bytes:
         obj = self.client.get_object(Bucket=self.bucket, Key=key)
-        return json.loads(obj["Body"].read().decode("utf-8"))
+        return obj["Body"].read()
 
     def exists(self, key: str) -> bool:
         from botocore.exceptions import ClientError

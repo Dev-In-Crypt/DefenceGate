@@ -19,9 +19,9 @@ import logging
 import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Iterator
 
-from . import db
+from . import db, rawstore
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import Opportunity, from_atlas_pl, from_ezamowienia, from_ted, strip_personal_data
@@ -140,6 +140,12 @@ def run_ted(days: int = 2) -> None:
     log.info("ted done: %s fetched, %s new, %s changed", fetched, new, changed)
 
 
+# A day of TED is 3,600 notices and about 40 MB held in memory before the write.
+# Ten thousand is the point past which that stops being obviously safe, and a
+# source that changes its habits must not turn it into a number nobody chose.
+BUNDLE_CHUNK = 10_000
+
+
 def run_ted_history(start: date, end: date, *, resume: bool = True,
                     max_days: int | None = None) -> int:
     """Load every TED notice published between two dates, one day at a time.
@@ -149,15 +155,23 @@ def run_ted_history(start: date, end: date, *, resume: bool = True,
     Only notices carrying a defence signal become opportunities -- the rest are
     landed, indexed in `raw_ingest`, and wait there for a better question.
 
-    Resumable by construction: a day is marked done only after its records are
-    committed, so an interrupted run loses at most the day it was in, and
+    A day is stored as one gzipped file of JSON lines, not as thousands of
+    objects. Object storage bills for writes: the first 4.8 million notices of
+    this load cost about 22 dollars in write operations and pennies in storage,
+    and a day written whole is one write instead of three thousand. Each record
+    is still addressed individually -- `raw_ingest.storage_key` holds
+    `<bundle>#<line>` -- so replay reads a single payload exactly as before.
+
+    Resumable by construction: the bundle is written before any `raw_ingest`
+    row that points into it is committed, and the day is marked done only after
+    those rows commit. An interrupted run loses at most the day it was in, and
     re-running skips what is already marked. Returns the number of days loaded.
     """
     cfg = settings()
+    store = build_store()
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     loaded = 0
-    with (db.connect(cfg.dsn) as conn,
-          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+    with db.connect(cfg.dsn) as conn:
         src_id = db.source_id(conn, "ted")
         done = db.backfill_days_done(conn, "ted") if resume else set()
         pending = [day for day in days if day not in done]
@@ -168,36 +182,52 @@ def run_ted_history(start: date, end: date, *, resume: bool = True,
                 break
             fetched = new = 0
             try:
-                for notice in ted.search(ted.day_query(day)):
-                    fetched += 1
-                    _checkpoint(conn, f"ted {day}", fetched, new, 0, every=500,
-                                writer=writer)
-                    clean = strip_personal_data(notice)
-                    h = ted.content_hash(clean)
-                    try:
-                        opp = from_ted(clean)
-                    except ValueError as exc:
-                        log.warning("skipping malformed notice: %s", exc)
-                        continue
-                    key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, opp.native_id, h, key)
-                    opp = _finalise(conn, opp, src_id)
-                    if not opp.is_defence:
-                        continue
-                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                    new += action == "new"
-                writer.drain()
-                conn.commit()
+                for part, chunk in enumerate(_in_chunks(ted.search(ted.day_query(day)),
+                                                        BUNDLE_CHUNK)):
+                    cleaned = [strip_personal_data(notice) for notice in chunk]
+                    key = rawstore.bundle_key("ted", day, part)
+                    stored = store.put_records(key, cleaned)
+                    if stored != len(cleaned):
+                        raise RuntimeError(
+                            f"bundle {key} holds {stored} records, not {len(cleaned)}")
+                    for line, clean in enumerate(cleaned):
+                        fetched += 1
+                        h = ted.content_hash(clean)
+                        try:
+                            opp = from_ted(clean)
+                        except ValueError as exc:
+                            log.warning("skipping malformed notice: %s", exc)
+                            continue
+                        db.record_raw(conn, src_id, opp.native_id, h,
+                                      rawstore.record_key(key, line))
+                        opp = _finalise(conn, opp, src_id)
+                        if not opp.is_defence:
+                            continue
+                        _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                        new += action == "new"
+                    conn.commit()
             except Exception:
                 # Same rule as the daily runs: roll the uncommitted index rows
                 # back rather than record keys whose payloads never landed. The
-                # day stays unmarked, so resuming asks for it again.
+                # day stays unmarked, so resuming asks for it again, and the
+                # bundle it rewrites is byte-for-byte the same object.
                 conn.rollback()
                 raise
             db.mark_backfill_day(conn, "ted", day, fetched)
             loaded += 1
             log.info("ted history %s: %s notices, %s defence", day, fetched, new)
     return loaded
+
+
+def _in_chunks(items: Iterable[Any], size: int) -> Iterator[list[Any]]:
+    """Group a stream into lists of at most `size`, yielding at least one."""
+    chunk: list[Any] = []
+    for item in items:
+        chunk.append(item)
+        if len(chunk) >= size:
+            yield chunk
+            chunk = []
+    yield chunk      # the last, possibly empty: an empty day is still a day
 
 
 def run_ezamowienia(days: int = 2) -> None:
