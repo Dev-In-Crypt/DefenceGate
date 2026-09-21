@@ -125,3 +125,18 @@ def test_the_history_runs_beside_the_catch_up_not_before_it(env, monkeypatch):
     threads = worker.start_backfill_thread()
     assert started == ["ted-history"]
     assert len(threads) == 1
+
+
+def test_a_configured_history_keeps_extending_every_day(env, monkeypatch):
+    """Caught up is not finished: every day there is a new yesterday, and a
+    history that only advances on restart is complete to an accident."""
+    env(DGATE_ATLAS_BACKFILL_YEARS="", DGATE_TED_HISTORY_FROM="2017-01-01")
+    ids = {job.id for job in worker.build_scheduler().get_jobs()}
+    assert "ted_history_daily" in ids
+
+
+def test_no_history_configured_schedules_none(env, monkeypatch):
+    monkeypatch.delenv("DGATE_TED_HISTORY_FROM", raising=False)
+    env(DGATE_ATLAS_BACKFILL_YEARS="")
+    ids = {job.id for job in worker.build_scheduler().get_jobs()}
+    assert "ted_history_daily" not in ids

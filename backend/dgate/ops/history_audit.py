@@ -55,6 +55,7 @@ class Month:
     def __str__(self) -> str:
         verdict = "ok" if self.complete else f"MISSING {self.missing}"
         return (f"{self.first:%Y-%m}  loaded {self.loaded:>7} over {self.days_loaded:>2} days"
+                f"{'' if self.last.day >= 28 else f' (to {self.last:%d})'}"
                 f"  api {self.reported if self.reported is not None else '-':>7}  {verdict}")
 
 
@@ -95,10 +96,31 @@ def reported_total(first: date, last: date, client: Any = None) -> int | None:
     return data.get("totalNoticeCount") or data.get("total")
 
 
+def last_loaded_day(conn: Any) -> date | None:
+    row = conn.execute(
+        "SELECT max(day) AS last FROM backfill_day WHERE source_code = %s",
+        (SOURCE_CODE,),
+    ).fetchone()
+    return row["last"] if row else None
+
+
 def audit(conn: Any, start: date | None = None, end: date | None = None,
           client: Any = None) -> Iterator[Month]:
+    """Compare each loaded month with the source's count for the same window.
+
+    The same window, not the whole month: the month the load ends in is only
+    loaded up to its last day, and comparing it with everything TED has
+    published since reports the days after the load as missing. Found on 21
+    September 2026, when September came back 3,833 short -- exactly the notices
+    of the 19th to the 21st, which the load never asked for. The window is cut
+    at the last loaded day overall, never per month, so a day missing from the
+    middle of a month still shows.
+    """
+    horizon = last_loaded_day(conn)
     for first, loaded, days in loaded_months(conn, start, end):
         last = first.replace(day=calendar.monthrange(first.year, first.month)[1])
+        if horizon is not None and last > horizon:
+            last = horizon
         yield Month(first, last, loaded, days, reported_total(first, last, client))
 
 

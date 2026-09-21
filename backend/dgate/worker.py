@@ -634,6 +634,15 @@ def build_scheduler():
                   id="backup_nightly", max_instances=1, misfire_grace_time=7200)
     sched.add_job(job_backup_verify, CronTrigger(day_of_week="sun", hour=cfg.backup_hour, minute=30),
                   id="backup_verify", max_instances=1, misfire_grace_time=7200)
+    if ted_history_window() is not None:
+        # The history does not end when it has caught up: every day it ended
+        # yesterday, there is a new yesterday. The daily TED job asks only the
+        # defence question; this keeps the full collection going behind it, one
+        # bundle a day -- one write, whatever the day holds. Running it daily
+        # rather than only at start-up is what stops "complete to 18 September"
+        # quietly becoming "complete to whenever the worker last restarted".
+        sched.add_job(job_ted_history, CronTrigger(hour=cfg.ted_hour + 1, minute=cfg.ted_minute),
+                      id="ted_history_daily", max_instances=1, misfire_grace_time=7200)
     return sched
 
 
@@ -647,6 +656,9 @@ def describe_schedule() -> list[str]:
         f"ezamowienia    {cfg.ezam_hour:02d}:{cfg.ezam_minute:02d} UTC  "
         f"(every notice, one publication day at a time)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
+        *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
+           f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]
+          if ted_history_window() is not None else []),
         f"backup_nightly {cfg.backup_hour:02d}:00 UTC  "
         f"(keep {cfg.backup_keep_days} days)",
         f"backup_verify  Sun {cfg.backup_hour:02d}:30 UTC  "

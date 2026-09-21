@@ -60,12 +60,13 @@ def test_a_month_the_source_cannot_count_is_not_called_a_mismatch(conn, monkeypa
 
 def test_the_audit_asks_the_source_once_per_month_over_the_whole_month(conn, monkeypatch):
     """One request per month, whatever the month holds: the count is free, the
-    walk is not."""
+    walk is not. Every month but the one the load ends in is asked for whole;
+    that one only as far as the load reached."""
     _load(conn, {"2019-06-03": 5, "2019-06-28": 5, "2019-07-01": 5})
     seen = _reported({"2019-06": 10, "2019-07": 5}, monkeypatch)
     list(audit.audit(conn))
     assert seen == [(date(2019, 6, 1), date(2019, 6, 30)),
-                    (date(2019, 7, 1), date(2019, 7, 31))]
+                    (date(2019, 7, 1), date(2019, 7, 1))]
 
 
 def test_forgetting_a_month_makes_the_loader_ask_for_its_days_again(conn, monkeypatch):
@@ -82,3 +83,24 @@ def test_a_range_limits_what_is_checked(conn, monkeypatch):
     _reported({"2019-06": 5, "2019-07": 5, "2019-08": 5}, monkeypatch)
     months = list(audit.audit(conn, date(2019, 7, 1), date(2019, 7, 31)))
     assert [f"{m.first:%Y-%m}" for m in months] == ["2019-07"]
+
+
+def test_the_month_the_load_ends_in_is_compared_only_as_far_as_it_was_loaded(conn, monkeypatch):
+    """September 2026 came back 3,833 short: exactly the notices TED published
+    after the load's last day. Those were never asked for, so they are not
+    missing."""
+    _load(conn, {"2026-09-01": 100, "2026-09-18": 50})
+    seen = _reported({"2026-09": 150}, monkeypatch)
+    month = next(iter(audit.audit(conn)))
+    assert seen == [(date(2026, 9, 1), date(2026, 9, 18))]
+    assert month.complete
+
+
+def test_a_day_missing_from_the_middle_of_a_month_still_shows(conn, monkeypatch):
+    """The window is cut at the last day loaded overall, never per month, or a
+    hole in the middle of an old month would trim itself out of sight."""
+    _load(conn, {"2019-06-03": 100, "2019-06-10": 100, "2019-07-01": 5})
+    seen = _reported({"2019-06": 300, "2019-07": 5}, monkeypatch)
+    months = list(audit.audit(conn))
+    assert seen[0] == (date(2019, 6, 1), date(2019, 6, 30))
+    assert not months[0].complete and months[0].missing == 100
