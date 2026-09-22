@@ -129,3 +129,19 @@ def test_already_compacted_rows_are_not_touched_again(conn, store):
     first = _keys(conn)
     assert cr.compact("ted", chunk=10, store=store).chunks == 0
     assert _keys(conn) == first
+
+
+def test_an_object_still_referenced_from_outside_the_chunk_is_not_deleted(conn, store):
+    """Rows are repointed by id, one statement per chunk. A row pointing at the
+    same object from outside the chunk is not repointed with it -- and the
+    object it points at must then survive."""
+    originals = _land(conn, store, 3)
+    src = db.source_id(conn, "ted")
+    h = conn.execute("SELECT content_hash FROM raw_ingest ORDER BY id LIMIT 1").fetchone()
+    db.record_raw(conn, src, "000000-2024", h["content_hash"], originals[0])
+    conn.commit()
+
+    with pytest.raises(RuntimeError, match="still referenced"):
+        cr.compact("ted", chunk=2, store=store)
+    assert store.exists(originals[0])
+    assert all(store.exists(k) for k in originals)

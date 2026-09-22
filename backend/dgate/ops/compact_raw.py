@@ -168,9 +168,23 @@ def compact_chunk(conn: Any, store: RawStore, source: str, rows: list[dict[str, 
             raise RuntimeError(f"{bundle}#{line} does not match {key}; stopping")
 
     # 3. repoint and journal, in one transaction: committed together or not at all.
-    for line, key in enumerate(order):
-        conn.execute("UPDATE raw_ingest SET storage_key = %s WHERE storage_key = %s",
-                     (record_key(bundle, line), key))
+    #
+    # By row id, in one statement. Repointing by key -- one UPDATE per key,
+    # WHERE storage_key = $1 -- ran at a fifth of a second each on 22 September
+    # 2026: the planner cannot prove a parameter satisfies the partial index's
+    # NOT LIKE predicate, so every one was a scan of nine million rows, and 4.8
+    # million of them would have taken eleven days. A row pointing at the same
+    # key from outside this chunk is still caught: step 4 refuses to delete an
+    # object anything references.
+    line_of = {key: line for line, key in enumerate(order)}
+    ids = [row["id"] for row in rows if row["storage_key"] in line_of]
+    new_keys = [record_key(bundle, line_of[row["storage_key"]])
+                for row in rows if row["storage_key"] in line_of]
+    conn.execute(
+        """UPDATE raw_ingest r SET storage_key = u.new_key
+             FROM unnest(%s::bigint[], %s::text[]) AS u(id, new_key)
+            WHERE r.id = u.id""",
+        (ids, new_keys))
     conn.execute(
         """INSERT INTO compaction_pending (storage_key, bundle)
            SELECT k, %s FROM unnest(%s::text[]) AS k
