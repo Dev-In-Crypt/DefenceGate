@@ -89,7 +89,8 @@ def storage_key(source_code: str, native_id: str, when: date | None = None,
 # stay small: a busy TED day is 3,600 notices and 40 MB held in memory before
 # the write, and a source that changes its habits must not turn that into a
 # number nobody chose.
-BUNDLE_PART = "bundle-{part:04d}.jsonl.gz"
+BUNDLE_EXTENSION = ".jsonl.gz"
+BUNDLE_PART = "bundle-{part:04d}" + BUNDLE_EXTENSION
 
 
 def bundle_key(source_code: str, day: date, part: int = 0) -> str:
@@ -174,6 +175,17 @@ class RawStore(ABC):
     @abstractmethod
     def exists(self, key: str) -> bool:
         ...
+
+    def delete_many(self, keys: list[str]) -> int:
+        """Delete objects that compaction has copied into a verified bundle.
+
+        The one sanctioned way ingested payloads leave the store: after their
+        bytes are in a bundle that has been read back and checked record by
+        record, and after every index row that pointed at them points into the
+        bundle instead. Backends override this to batch; deletes are free on R2,
+        but a million round trips are not free in time.
+        """
+        return sum(1 for key in keys if self.delete(key))
 
     @abstractmethod
     def delete(self, key: str) -> bool:
@@ -412,6 +424,19 @@ class S3RawStore(RawStore):
             return True
         except ClientError:
             return False
+
+    def delete_many(self, keys: list[str]) -> int:
+        deleted = 0
+        for start in range(0, len(keys), 1000):   # the API's limit per request
+            batch = keys[start:start + 1000]
+            response = self.client.delete_objects(
+                Bucket=self.bucket,
+                Delete={"Objects": [{"Key": k} for k in batch], "Quiet": True})
+            errors = response.get("Errors") or []
+            if errors:
+                raise RuntimeError(f"{len(errors)} objects not deleted, first: {errors[0]}")
+            deleted += len(batch)
+        return deleted
 
     def list(self, prefix: str = "") -> Iterator[str]:
         for key, _ in self.listing(prefix):

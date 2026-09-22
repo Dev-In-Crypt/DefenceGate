@@ -244,3 +244,32 @@ def test_local_retention_can_be_shortened_without_touching_the_store(monkeypatch
         assert config.settings().backup_keep_days == 30
     finally:
         config.reset_cache()
+
+
+# -------------------------------- the disaster path has to see bundles
+
+def test_replay_from_the_store_finds_payloads_written_as_bundles(tmp_path):
+    """The database gone, the store the only copy: a replay that enumerated only
+    one-object-per-notice keys would rebuild none of the 2.09 million notices of
+    the TED history written as bundles, and say nothing about it."""
+    from dgate.rawstore import bundle_key, record_key
+
+    store = FileRawStore(tmp_path)
+    store.put(storage_key("ted", "plain", date(2026, 9, 10)), {"n": "plain"})
+    bundle = bundle_key("ted", date(2024, 4, 17))
+    store.put_records(bundle, [{"n": 0}, {"n": 1}, {"n": 2}])
+
+    keys = list(rp.keys_from_store(store, "ted"))
+    assert record_key(bundle, 0) in keys and record_key(bundle, 2) in keys
+    assert len(keys) == 4
+    assert [store.get(k)["n"] for k in keys if "#" in k] == [0, 1, 2]
+
+
+def test_a_date_filter_applies_to_bundles_as_to_plain_objects(tmp_path):
+    from dgate.rawstore import bundle_key
+
+    store = FileRawStore(tmp_path)
+    store.put_records(bundle_key("ted", date(2024, 4, 17)), [{"n": 0}])
+    store.put_records(bundle_key("ted", date(2024, 4, 18)), [{"n": 1}])
+    keys = list(rp.keys_from_store(store, "ted", since=date(2024, 4, 18)))
+    assert keys == [f"{bundle_key('ted', date(2024, 4, 18))}#0"]

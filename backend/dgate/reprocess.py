@@ -33,7 +33,7 @@ from typing import Any, Iterable, Iterator
 from . import db
 from .config import settings
 from .normalise import from_atlas_pl, from_ezamowienia, from_ted, strip_personal_data
-from .rawstore import RawStore, build_store
+from .rawstore import BUNDLE_EXTENSION, RawStore, build_store, record_key
 from .sources.ted import content_hash
 
 log = logging.getLogger("reprocess")
@@ -96,14 +96,29 @@ def keys_from_store(
     cannot supply it, because what separates those payloads is a content hash.
     """
     found = []
-    for key, written in store.listing(source or ""):
+
+    def wanted(key: str) -> bool:
         day = _day_of(key)
         if since and (day is None or day < since):
-            continue
+            return False
         if until and (day is None or day > until):
+            return False
+        return True
+
+    for key, written in store.listing(source or ""):
+        if wanted(key):
+            found.append((written, 0, key))
+    # Bundles hold a day's payloads as lines of one object, so each is opened to
+    # learn how many records it carries. Without this the disaster path -- the
+    # database gone, the store the only copy -- would rebuild everything written
+    # one object at a time and silently nothing written as a bundle: on 22
+    # September 2026 that was 2.09 million notices of the TED history.
+    for key, written in store.listing(source or "", suffix=BUNDLE_EXTENSION):
+        if not wanted(key):
             continue
-        found.append((written, key))
-    for _, key in sorted(found):
+        for line in range(len(store._bundle_lines(key))):
+            found.append((written, line, record_key(key, line)))
+    for _, _, key in sorted(found):
         yield key
 
 

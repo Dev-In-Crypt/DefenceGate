@@ -15,7 +15,7 @@ import pytest
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
-TABLES = """backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
+TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
             raw_ingest, ingest_run"""
 
