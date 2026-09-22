@@ -213,3 +213,118 @@ def test_reading_a_second_line_does_not_fetch_the_bundle_again(tmp_path):
     store._read = counted
     assert [store.get(record_key(key, i))["n"] for i in range(3)] == [0, 1, 2]
     assert reads == [key]
+
+
+# ------------------------------------------ the daily runs write bundles
+
+def test_a_run_lands_its_payloads_as_one_object_per_drain(tmp_path):
+    """An ordinary day was 25,000 one-object writes, mostly Spain re-reading
+    pages it read the day before. A drain is a checkpoint: one object each."""
+    from dgate.rawstore import BundleWriter
+
+    store = FileRawStore(tmp_path)
+    writer = BundleWriter(store, "es_placsp", day=date(2026, 9, 22), tag="t1")
+    keys = [writer.put("ignored.json", {"n": i}) for i in range(3)]
+    assert writer.drain() == 3
+    more = [writer.put("ignored.json", {"n": i}) for i in range(3, 5)]
+    writer.drain()
+
+    objects = sorted(p.name for p in (tmp_path / "es_placsp" / "2026" / "09" / "22").iterdir())
+    assert objects == ["run-t1-0000.jsonl.gz", "run-t1-0001.jsonl.gz"]
+    assert [store.get(k)["n"] for k in keys + more] == [0, 1, 2, 3, 4]
+
+
+def test_two_runs_on_one_day_never_write_over_each_other(tmp_path):
+    from dgate.rawstore import BundleWriter
+
+    store = FileRawStore(tmp_path)
+    a = BundleWriter(store, "ted", day=date(2026, 9, 22))
+    b = BundleWriter(store, "ted", day=date(2026, 9, 22))
+    ka, kb = a.put("x", {"run": "a"}), b.put("x", {"run": "b"})
+    a.drain()
+    b.drain()
+    assert ka != kb
+    assert (store.get(ka), store.get(kb)) == ({"run": "a"}, {"run": "b"})
+
+
+def test_the_payload_stored_is_the_one_put_not_what_it_became(tmp_path):
+    from dgate.rawstore import BundleWriter
+
+    store = FileRawStore(tmp_path)
+    writer = BundleWriter(store, "ted", day=date(2026, 9, 22), tag="t")
+    payload = {"v": 1}
+    key = writer.put("x", payload)
+    payload["v"] = 2
+    writer.drain()
+    assert store.get(key) == {"v": 1}
+
+
+def test_a_failed_run_writes_nothing_it_had_not_drained(tmp_path):
+    """The rows pointing at undrained lines are rolled back by the caller;
+    the lines must not survive them."""
+    from dgate.rawstore import BundleWriter
+
+    store = FileRawStore(tmp_path)
+    with pytest.raises(ValueError):
+        with BundleWriter(store, "ted", day=date(2026, 9, 22), tag="t") as writer:
+            writer.put("x", {"n": 1})
+            raise ValueError("the run failed")
+    assert not (tmp_path / "ted").exists()
+
+
+# -------------------------------------------------------------- the fuse
+
+def test_the_store_refuses_to_write_past_the_daily_limit(monkeypatch):
+    """No cap exists on the storage side; 4.9 million writes in two days cost
+    $22 before anyone was told. The limit is ours."""
+    from dgate import rawstore
+
+    monkeypatch.setenv("DGATE_STORE_WRITE_LIMIT", "3")
+    config.reset_cache()
+    monkeypatch.setattr(rawstore, "_writes", {})
+    try:
+        day = date(2026, 9, 22)
+        for _ in range(3):
+            rawstore.charge_write(today=day)
+        with pytest.raises(rawstore.StoreWriteLimit, match="limit 3"):
+            rawstore.charge_write(today=day)
+        rawstore.charge_write(today=date(2026, 9, 23))      # a new day starts afresh
+        assert rawstore.writes_today(date(2026, 9, 23)) == 1
+    finally:
+        config.reset_cache()
+
+
+def test_the_fuse_can_be_switched_off(monkeypatch):
+    from dgate import rawstore
+
+    monkeypatch.setenv("DGATE_STORE_WRITE_LIMIT", "0")
+    config.reset_cache()
+    monkeypatch.setattr(rawstore, "_writes", {})
+    try:
+        for _ in range(50):
+            rawstore.charge_write(today=date(2026, 9, 22))
+    finally:
+        config.reset_cache()
+
+
+def test_every_s3_write_path_is_charged(monkeypatch, tmp_path):
+    """A write path that skipped the fuse would be the one the next incident
+    takes."""
+    from dgate import rawstore
+
+    charged = []
+    monkeypatch.setattr(rawstore, "charge_write", lambda n=1, **kw: charged.append(n))
+
+    class _Client:
+        def put_object(self, **kw):
+            pass
+
+        def upload_file(self, *a, **kw):
+            pass
+
+    store = rawstore.S3RawStore("b", client=_Client())
+    store.put("k.json", {"x": 1})
+    store.put_records("k.jsonl.gz", [{"x": 1}, {"x": 2}])
+    (tmp_path / "f").write_bytes(b"x")
+    store.put_file("f", tmp_path / "f")
+    assert len(charged) == 3

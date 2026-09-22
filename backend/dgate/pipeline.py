@@ -25,7 +25,7 @@ from . import db, rawstore
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import Opportunity, from_atlas_pl, from_ezamowienia, from_ted, strip_personal_data
-from .rawstore import BufferedWriter, build_store, storage_key
+from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
 from .sources import ezamowienia, placsp, ted
 
 log = logging.getLogger("pipeline")
@@ -100,7 +100,7 @@ def run_ted(days: int = 2) -> None:
     """Daily incremental pull. Overlaps by design so a missed run self-heals."""
     cfg = settings()
     with (db.connect(cfg.dsn) as conn,
-          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+          BundleWriter(build_store(), "ted") as writer):
         src_id = db.source_id(conn, "ted")
         run_id = db.start_run(conn, "ted", settings().floor("ted"))
         fetched = new = changed = 0
@@ -241,7 +241,7 @@ def run_ezamowienia(days: int = 2) -> None:
     code = ezamowienia.SOURCE_CODE
     cfg = settings()
     with (db.connect(cfg.dsn) as conn,
-          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+          BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         fetched = new = changed = 0
@@ -289,7 +289,7 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
     code = dataset.source_code
     cfg = settings()
     with (db.connect(cfg.dsn) as conn,
-          BufferedWriter(build_store(), cfg.raw_write_workers) as writer):
+          BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         fetched = new = changed = 0

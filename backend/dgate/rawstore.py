@@ -113,6 +113,48 @@ def split_record_key(key: str) -> tuple[str, int | None]:
         return key, None
 
 
+# ------------------------------------------------------------- the fuse
+#
+# Object storage has no spending cap: Cloudflare's budget alerts say afterwards
+# what was spent, they do not stop it. On 16 and 17 September 2026 a load wrote
+# 4.9 million objects in two days and cost 22 dollars before anyone was told.
+# So the store counts its own writes per day and refuses past a limit. Every
+# path that writes goes through here; a run that trips it fails, and a failed
+# run alerts.
+#
+# Per process, deliberately simple: the incident was one long-running process,
+# and the ordinary day needs about a hundred and fifty writes against the
+# default of twenty thousand.
+
+class StoreWriteLimit(RuntimeError):
+    """Raised instead of writing past the configured daily limit."""
+
+
+_writes_lock = threading.Lock()
+_writes: dict[date, int] = {}
+
+
+def charge_write(n: int = 1, *, today: date | None = None) -> None:
+    limit = settings().store_write_limit
+    if limit <= 0:
+        return
+    day = today or date.today()
+    with _writes_lock:
+        done = _writes.get(day, 0)
+        if done + n > limit:
+            raise StoreWriteLimit(
+                f"object store write limit reached: {done} writes today, limit {limit} "
+                f"(DGATE_STORE_WRITE_LIMIT); refusing rather than spending")
+        if day not in _writes:
+            _writes.clear()          # a new day: yesterday's count no longer matters
+        _writes[day] = done + n
+
+
+def writes_today(today: date | None = None) -> int:
+    with _writes_lock:
+        return _writes.get(today or date.today(), 0)
+
+
 class RawStore(ABC):
     """Write-once storage.
 
@@ -399,6 +441,7 @@ class S3RawStore(RawStore):
             return True
 
     def put(self, key: str, payload: Any, content_type: str = "application/json") -> str:
+        charge_write()
         self.client.put_object(Bucket=self.bucket, Key=key,
                                Body=self.serialise(payload), ContentType=content_type)
         return key
@@ -451,6 +494,7 @@ class S3RawStore(RawStore):
 
     def put_file(self, key: str, path: Path,
                  content_type: str = "application/octet-stream") -> str:
+        charge_write()
         self.client.upload_file(str(path), self.bucket, key,
                                 ExtraArgs={"ContentType": content_type})
         return key
@@ -478,6 +522,77 @@ def build_store(backend: str | None = None) -> RawStore:
     if backend == "s3":
         return S3RawStore(bucket=cfg.s3_bucket, **cfg.s3_settings())
     raise ValueError(f"unknown raw storage backend: {backend!r}")
+
+
+class BundleWriter:
+    """Collect a run's payloads and land them as bundles, one per checkpoint.
+
+    A drop-in for BufferedWriter where it matters for cost: the same `put()`
+    that returns a key at once and the same `drain()` that must return before
+    anything pointing at those keys is committed. The difference is what a
+    drain writes. BufferedWriter wrote one object per payload -- about 25,000
+    writes on an ordinary day, most of them Spain re-reading pages it had read
+    the day before, and enough to leave the free tier after a couple of
+    restarts. This writes one object per checkpoint: a hundred or so a day.
+
+    Each run gets its own name, so two runs on one day, or a retry, can never
+    write over each other's bundles.
+    """
+
+    def __init__(self, store: RawStore, source_code: str, *, day: date | None = None,
+                 tag: str | None = None) -> None:
+        import uuid
+        from datetime import datetime, timezone
+
+        self._store = store
+        self._day = day or date.today()
+        self._tag = tag or (datetime.now(timezone.utc).strftime("%H%M%S")
+                            + "-" + uuid.uuid4().hex[:6])
+        self._source = source_code
+        self._part = 0
+        self._buffer: list[bytes] = []
+
+    def _current(self) -> str:
+        d = self._day
+        return (f"{self._source}/{d.year:04d}/{d.month:02d}/{d.day:02d}/"
+                f"run-{self._tag}-{self._part:04d}{BUNDLE_EXTENSION}")
+
+    def put(self, key: str, payload: Any,
+            content_type: str = "application/json") -> str:
+        """Queue a payload; return where it will be once drained.
+
+        `key` is the one-object key a BufferedWriter would have used. It is
+        ignored: the address is a line of this run's current bundle.
+        """
+        # Serialise now, for the reason BufferedWriter does: the caller may
+        # mutate the payload after this returns.
+        self._buffer.append(self._store.serialise(payload))
+        return record_key(self._current(), len(self._buffer) - 1)
+
+    def drain(self) -> int:
+        """Write the pending bundle, then start a new one. Returns records written."""
+        if not self._buffer:
+            return 0
+        pending, self._buffer = self._buffer, []
+        key = self._current()
+        # Already serialised: `serialise` passes bytes through unchanged.
+        stored = self._store.put_records(key, pending)
+        if stored != len(pending):
+            raise RuntimeError(f"bundle {key} holds {stored} records, not {len(pending)}")
+        self._part += 1
+        return stored
+
+    def close(self) -> None:
+        self.drain()
+
+    def __enter__(self) -> "BundleWriter":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if exc_type is None:
+            self.close()
+        # On failure the pending lines are dropped with the rows that pointed
+        # at them, which the caller rolls back: neither half survives alone.
 
 
 class BufferedWriter:

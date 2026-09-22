@@ -206,6 +206,11 @@ class Settings:
     # disk that also holds the database the dumps are of. At the size the
     # archive reaches with the TED history, thirty dumps on the host would be
     # thirty gigabytes and the database would run out of room first.
+    # Writes the object store will make in one day before it refuses. Object
+    # storage bills per write and has no cap of its own; see rawstore's fuse.
+    # An ordinary day needs about 150; 0 turns the fuse off.
+    store_write_limit: int = field(
+        default_factory=lambda: _env_int("DGATE_STORE_WRITE_LIMIT", 20000))
     backup_keep_days_local: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS_LOCAL", 7))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
