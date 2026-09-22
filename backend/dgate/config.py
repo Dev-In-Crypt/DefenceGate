@@ -79,6 +79,21 @@ _PLACSP_AGG_FLOORS = dict.fromkeys(range(7), 50)
 #   Wed-Sat    two weekdays           ~5,500        2,000
 #   Sunday     Fri, Sat               ~2,900        1,000
 _EZAM_FLOORS = {0: 40, 1: 1000, 2: 2000, 3: 2000, 4: 2000, 5: 2000, 6: 1000}   # Monday = 0
+# France. Measured per publication day over three weeks to 21 September 2026,
+# minimum of each weekday: Mon 171, Tue 271, Wed 361, Thu 383, Fri 393, Sat 106,
+# Sun 283. BOAMP publishes seven days a week, and Saturday is a fifth of a
+# Friday, so a flat number would either never fire or fire every Monday. Each
+# floor is about 40% of the two preceding days the run covers:
+#
+#   run day    window covers      measured min   floor
+#   Monday     Sat, Sun           389            150
+#   Tuesday    Sun, Mon           454            180
+#   Wednesday  Mon, Tue           442            175
+#   Thursday   Tue, Wed           632            250
+#   Friday     Wed, Thu           744            290
+#   Saturday   Thu, Fri           776            310
+#   Sunday     Fri, Sat           499            200
+_BOAMP_FLOORS = {0: 150, 1: 180, 2: 175, 3: 250, 4: 290, 5: 310, 6: 200}   # Monday = 0
 
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
@@ -108,6 +123,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "es_placsp": _weekday_floors("DGATE_FLOOR_ES_PLACSP", _PLACSP_FLOORS),
         "es_placsp_agg": _weekday_floors("DGATE_FLOOR_ES_PLACSP_AGG", _PLACSP_AGG_FLOORS),
         "pl_ezam": _weekday_floors("DGATE_FLOOR_PL_EZAM", _EZAM_FLOORS),
+        "fr_boamp": _weekday_floors("DGATE_FLOOR_FR_BOAMP", _BOAMP_FLOORS),
         # pl_atlas has no floor on purpose. A floor answers "did today's feed
         # arrive?"; this source is a one-off historical load with no daily
         # rhythm, and a resumed run legitimately reads almost nothing because
@@ -196,6 +212,8 @@ class Settings:
     placsp_minute: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_MINUTE", 30))
     ezam_hour: int = field(default_factory=lambda: _env_int("DGATE_EZAM_HOUR", 6))
     ezam_minute: int = field(default_factory=lambda: _env_int("DGATE_EZAM_MINUTE", 45))
+    boamp_hour: int = field(default_factory=lambda: _env_int("DGATE_BOAMP_HOUR", 5))
+    boamp_minute: int = field(default_factory=lambda: _env_int("DGATE_BOAMP_MINUTE", 45))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
     backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
     backup_keep_days: int = field(

@@ -14,12 +14,13 @@ Two hard rules enforced here.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone, tzinfo
-from typing import Any
+from typing import Any, Iterator
 from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
@@ -456,13 +457,191 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
     )
 
 
+# BOAMP hides its personal data one level down, inside the `donnees` string:
+# `adresseMailContact`, `telContact`, `nomContact` in the simplified French
+# form, a whole `cac:Contact` node with name, telephone and e-mail in eForms,
+# and `IDENTITE.TEL` in notices from before 2018. A flat key filter cannot see
+# any of it, so the body is walked.
+_FR_CONTACT_KEY = re.compile(
+    r"contact|mail|courriel|telephone|telecopie|^tel$|^fax$|^mel$", re.IGNORECASE)
+
+
+def _scrub_contacts(node: Any) -> Any:
+    """Drop every contact-bearing key, at any depth, keeping the rest intact."""
+    if isinstance(node, dict):
+        return {k: _scrub_contacts(v) for k, v in node.items()
+                if not _FR_CONTACT_KEY.search(str(k))}
+    if isinstance(node, list):
+        return [_scrub_contacts(v) for v in node]
+    return node
+
+
+# Contact details are not only in contact fields. Measured on 22 September 2026
+# across three sources: 300 recent TED payloads carried 6 e-mail addresses
+# inside free text, and a week of French notices carried hundreds -- in
+# "additional information", in the appeal-procedure paragraph, in notes. A
+# named field can be dropped by name; an address typed into a sentence has to
+# be found. So every string is swept, whatever source it came from.
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+EMAIL_PLACEHOLDER = "[email removed]"
+
+
+def _redact_emails(node: Any) -> Any:
+    if isinstance(node, str):
+        return _EMAIL.sub(EMAIL_PLACEHOLDER, node) if "@" in node else node
+    if isinstance(node, dict):
+        return {k: _redact_emails(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_redact_emails(v) for v in node]
+    return node
+
+
 def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     """Remove personal-data fields before a payload is persisted or served.
 
     The raw archive keeps the original for reprocessing and audit, under
     restricted access. Everything downstream of this call is clean.
+
+    Two passes, because personal data arrives two ways: named fields, which are
+    dropped by name, and addresses written into prose, which are found and
+    replaced. Telephone numbers in prose are deliberately *not* swept: French
+    notices put SIRET numbers, contract references and amounts in the same
+    sentences, and a pattern loose enough to catch the phone numbers corrupts
+    those. They stay, and stay known: docs/RUNBOOK.md records it.
     """
-    return {k: v for k, v in notice.items() if k not in PERSONAL_DATA_FIELDS}
+    clean = {k: v for k, v in notice.items() if k not in PERSONAL_DATA_FIELDS}
+    if "donnees" in clean and "idweb" in clean:
+        body = clean["donnees"]
+        if isinstance(body, str) and body.strip():
+            try:
+                parsed = json.loads(body)
+            except ValueError:
+                # Unparsable: it cannot be scrubbed, so it is not kept. The
+                # record's own columns still describe the notice.
+                clean["donnees"] = None
+                return clean
+            clean["donnees"] = json.dumps(_scrub_contacts(parsed), ensure_ascii=False)
+        elif isinstance(body, dict):
+            clean["donnees"] = _scrub_contacts(body)
+    return _redact_emails(clean)
+
+
+# --------------------------------------------------------- BOAMP mapping
+
+_FR_TZ = "Europe/Paris"
+
+# Which regimes are the defence and security directive. `perimetre` states it;
+# DIRECTIVE-81 is Directive 2009/81/EC and CMP-2006-DEFENSE its French
+# predecessor. Recorded as the CELEX reference every other source uses.
+_FR_DEFENCE_PERIMETERS = {"DIRECTIVE-81", "CMP-2006-DEFENSE"}
+
+# An awarded notice says so in `nature`: ATTRIBUTION for the award itself,
+# ANNULATION for a cancellation. Anything else is the notice of an open
+# procedure until its deadline says otherwise.
+_FR_STATUS = {
+    "ATTRIBUTION": "awarded",
+    "RESULTAT": "awarded",
+    "ANNULATION": "cancelled",
+    "RECTIFICATIF": "open",
+    "APPEL_OFFRE": "open",
+}
+
+
+def _fr_walk(node: Any, key_part: str) -> Iterator[Any]:
+    """Every value whose key contains `key_part`, at any depth."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if key_part.lower() in str(k).lower():
+                yield v
+            yield from _fr_walk(v, key_part)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _fr_walk(v, key_part)
+
+
+def _fr_cpv(body: dict[str, Any]) -> list[str]:
+    """CPV codes from either notice shape.
+
+    eForms puts them in `cbc:ItemClassificationCode` as `{"#text": "35700000"}`;
+    the simplified French form uses `codeCPV.objetPrincipal.classPrincipale`
+    and one per lot. Notices from before 2018 carry none at all, and none is
+    what this returns for them -- an empty list, never a guess.
+    """
+    codes: list[str] = []
+    for value in _fr_walk(body, "ItemClassificationCode"):
+        text = value.get("#text") if isinstance(value, dict) else value
+        if isinstance(text, str) and text.strip().isdigit():
+            codes.append(text.strip()[:8])
+    for value in _fr_walk(body, "codeCPV"):
+        if isinstance(value, dict):
+            for inner in _fr_walk(value, "class"):
+                if isinstance(inner, str) and inner.strip().isdigit():
+                    codes.append(inner.strip()[:8])
+    seen: set[str] = set()
+    return [c for c in codes if not (c in seen or seen.add(c))]
+
+
+def _fr_value(body: dict[str, Any]) -> tuple[float | None, str | None]:
+    """The estimated contract value, when the notice states one."""
+    for value in _fr_walk(body, "EstimatedOverallContractAmount"):
+        if isinstance(value, dict):
+            text, currency = value.get("#text"), value.get("@currencyID")
+        else:
+            text, currency = value, None
+        try:
+            return float(str(text)), (currency or "EUR")
+        except (TypeError, ValueError):
+            continue
+    return None, None
+
+
+def _fr_description(body: dict[str, Any]) -> str | None:
+    for value in _fr_walk(body, "description"):
+        if isinstance(value, str) and len(value.strip()) > 10:
+            return value.strip()
+        if isinstance(value, dict) and isinstance(value.get("#text"), str):
+            return value["#text"].strip()
+    return None
+
+
+def from_boamp(record: dict[str, Any]) -> Opportunity:
+    """Map one BOAMP record onto the unified schema.
+
+    Two levels: the record's own columns carry the administrative shell, and
+    `donnees` carries the notice. Everything that can be read from the columns
+    is, because they are the same for all three notice shapes the dataset holds.
+    """
+    from .sources import boamp
+
+    native_id = record.get("idweb") or record.get("id")
+    if not native_id:
+        raise ValueError("notice has no identifier")
+
+    body = boamp.notice_body(record)
+    perimetre = str(record.get("perimetre") or "")
+    nature = str(record.get("nature") or "")
+    amount, currency = _fr_value(body)
+
+    return Opportunity(
+        source_code=boamp.SOURCE_CODE,
+        native_id=str(native_id),
+        buyer_name_raw=str(record.get("nomacheteur") or "").strip() or "UNKNOWN",
+        title_original=str(record.get("objet") or "").strip(),
+        country="FR",
+        original_language="FR",
+        procedure_type=(record.get("procedure_libelle") or record.get("nature_libelle")),
+        legal_basis=("32009L0081" if perimetre in _FR_DEFENCE_PERIMETERS else None),
+        value_amount=amount,
+        value_currency=currency,
+        published_at=_parse_date(record.get("dateparution")),
+        deadline_at=parse_iso_datetime(record.get("datelimitereponse"),
+                                       default_tz=ZoneInfo(_FR_TZ)),
+        cpv_codes=_fr_cpv(body),
+        source_url=boamp.notice_url(record),
+        status=_FR_STATUS.get(nature, "open"),
+        status_native=f"{perimetre}/{nature}" if perimetre or nature else None,
+        description=_fr_description(body),
+    )
 
 
 # --------------------------------------------------- e-Zamowienia mapping

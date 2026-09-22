@@ -28,7 +28,7 @@ from typing import Callable, Sequence
 from . import db
 from .config import settings
 from .ops.notify import notify, ping
-from .pipeline import run_ezamowienia, run_placsp_live, run_ted, seed_buyers
+from .pipeline import run_boamp, run_ezamowienia, run_placsp_live, run_ted, seed_buyers
 
 log = logging.getLogger("worker")
 
@@ -129,6 +129,11 @@ def job_ezamowienia(days: int | None = None) -> JobResult:
                    sources=[ezam_source()])
 
 
+def job_boamp(days: int | None = None) -> JobResult:
+    window = days or settings().ingest_days
+    return run_job("boamp_daily", lambda: run_boamp(days=window), sources=["fr_boamp"])
+
+
 def job_seed_buyers() -> JobResult:
     return run_job("seed_buyers", seed_buyers)
 
@@ -226,6 +231,7 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
         "ted_daily": (job_ted, ("ted",)),
         "placsp_daily": (job_placsp, ("es_placsp", "es_placsp_agg")),
         "ezamowienia_daily": (job_ezamowienia, (ezam_source(),)),
+        "boamp_daily": (job_boamp, ("fr_boamp",)),
     }
 
 
@@ -603,6 +609,7 @@ def job_catch_up() -> JobResult:
 JOBS: dict[str, Callable[[], JobResult]] = {
     "ted": job_ted,
     "ezamowienia": job_ezamowienia,
+    "boamp": job_boamp,
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
@@ -628,6 +635,8 @@ def build_scheduler():
                   id="placsp_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_ezamowienia, CronTrigger(hour=cfg.ezam_hour, minute=cfg.ezam_minute),
                   id="ezamowienia_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_boamp, CronTrigger(hour=cfg.boamp_hour, minute=cfg.boamp_minute),
+                  id="boamp_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
@@ -654,6 +663,8 @@ def describe_schedule() -> list[str]:
         f"placsp_daily   {cfg.placsp_hour:02d}:{cfg.placsp_minute:02d} UTC  "
         f"(datasets 1 and 2)",
         f"ezamowienia    {cfg.ezam_hour:02d}:{cfg.ezam_minute:02d} UTC  "
+        f"(every notice, one publication day at a time)",
+        f"boamp_daily    {cfg.boamp_hour:02d}:{cfg.boamp_minute:02d} UTC  "
         f"(every notice, one publication day at a time)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "

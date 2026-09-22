@@ -24,9 +24,16 @@ from typing import Any, Iterable, Iterator
 from . import db, rawstore
 from .classify import classify, detects_subcontracting
 from .config import settings
-from .normalise import Opportunity, from_atlas_pl, from_ezamowienia, from_ted, strip_personal_data
+from .normalise import (
+    Opportunity,
+    from_atlas_pl,
+    from_boamp,
+    from_ezamowienia,
+    from_ted,
+    strip_personal_data,
+)
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
-from .sources import ezamowienia, placsp, ted
+from .sources import boamp, ezamowienia, placsp, ted
 
 log = logging.getLogger("pipeline")
 
@@ -144,6 +151,50 @@ def run_ted(days: int = 2) -> None:
 # Ten thousand is the point past which that stops being obviously safe, and a
 # source that changes its habits must not turn it into a number nobody chose.
 BUNDLE_CHUNK = 10_000
+
+
+def run_boamp(days: int = 2) -> None:
+    """Daily pull of the French bulletin, every notice of each day.
+
+    Same shape as Poland: land everything, classify afterwards. France states
+    the procurement regime in `perimetre`, so the legal-basis signal comes from
+    the source rather than from an inference.
+    """
+    code = boamp.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        fetched = new = changed = 0
+        try:
+            for record in boamp.fetch_window(days_back=days):
+                fetched += 1
+                _checkpoint(conn, code, fetched, new, changed, every=100,
+                            writer=writer, run_id=run_id)
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                try:
+                    opp = from_boamp(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed notice: %s", exc)
+                    continue
+                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                db.record_raw(conn, src_id, opp.native_id, h, key)
+                opp = _finalise(conn, opp, src_id)
+                if not opp.is_defence:
+                    continue
+                _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
 
 
 def run_ted_history(start: date, end: date, *, resume: bool = True,
@@ -670,6 +721,9 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("ezamowienia", help="ingest the Polish bulletin (BZP)")
     e.add_argument("--days", type=int, default=2)
 
+    f = sub.add_parser("boamp", help="ingest the French bulletin (BOAMP)")
+    f.add_argument("--days", type=int, default=2)
+
     b = sub.add_parser("atlas-pl",
                        help="one-off Polish historical backfill (Atlas Przetargow)")
     b.add_argument("--year", type=int, required=True,
@@ -704,6 +758,8 @@ def main(argv: list[str] | None = None) -> int:
             run_placsp_live(max_pages=a.pages)
     elif a.cmd == "ezamowienia":
         run_ezamowienia(days=a.days)
+    elif a.cmd == "boamp":
+        run_boamp(days=a.days)
     elif a.cmd == "atlas-pl":
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
                            resume=not a.no_resume)
