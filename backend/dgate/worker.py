@@ -272,6 +272,7 @@ def hours_since_last_slot(name: str) -> float:
         "ted_daily": (cfg.ted_hour, cfg.ted_minute),
         "placsp_daily": (cfg.placsp_hour, cfg.placsp_minute),
         "ezamowienia_daily": (cfg.ezam_hour, cfg.ezam_minute),
+        "boamp_daily": (cfg.boamp_hour, cfg.boamp_minute),
         "backup_nightly": (cfg.backup_hour, 0),
     }[name]
     now = _now()

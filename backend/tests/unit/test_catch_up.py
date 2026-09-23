@@ -295,3 +295,12 @@ def test_a_dump_shipped_short_is_shipped_again(monkeypatch, tmp_path):
 
 def test_a_dump_already_in_the_store_is_not_shipped_twice(monkeypatch, tmp_path):
     assert _ship_catch_up(monkeypatch, tmp_path, stored=17) == []
+
+
+def test_every_daily_job_has_a_slot_it_can_be_measured_against(fresh_settings):
+    """Adding a source means adding it in two places: the job list and the
+    schedule the catch-up measures against. Missing the second crashed the
+    worker on start and it restarted 44 times before anyone looked -- the whole
+    crash was one KeyError on 'boamp_daily' on 23 September 2026."""
+    for name in worker.daily_jobs():
+        assert worker.hours_since_last_slot(name) >= 0, name
