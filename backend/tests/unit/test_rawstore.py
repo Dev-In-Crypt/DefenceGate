@@ -328,3 +328,30 @@ def test_every_s3_write_path_is_charged(monkeypatch, tmp_path):
     (tmp_path / "f").write_bytes(b"x")
     store.put_file("f", tmp_path / "f")
     assert len(charged) == 3
+
+
+def test_a_payload_containing_a_unicode_line_separator_does_not_shift_the_index(tmp_path):
+    """U+2028 is a line boundary to str.splitlines() and an ordinary character
+    to json.dumps: a bundle holding one reported 5,001 lines for 5,000 records,
+    and every record after it would have been addressed one line off."""
+    from dgate.rawstore import BundleWriter
+
+    store = FileRawStore(tmp_path)
+    writer = BundleWriter(store, "fr_boamp", day=date(2026, 9, 17), tag="t")
+    keys = [writer.put("x", {"n": 0}),
+            writer.put("x", {"n": 1, "text": "ligne\u2028suivante"}),
+            writer.put("x", {"n": 2})]
+    assert writer.drain() == 3
+    assert [store.get(k)["n"] for k in keys] == [0, 1, 2]
+    assert store.get(keys[1])["text"] == "ligne\u2028suivante"
+
+
+def test_every_separator_python_treats_as_a_line_break_is_survived(tmp_path):
+    from dgate.rawstore import BundleWriter
+
+    store = FileRawStore(tmp_path)
+    writer = BundleWriter(store, "ted", day=date(2026, 9, 17), tag="t")
+    odd = "\u2028\u2029\x0b\x0c\x85\x1c\x1d\x1e"
+    keys = [writer.put("x", {"i": i, "t": odd}) for i in range(4)]
+    writer.drain()
+    assert [store.get(k)["i"] for k in keys] == [0, 1, 2, 3]

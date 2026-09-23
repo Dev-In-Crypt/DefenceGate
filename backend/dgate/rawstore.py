@@ -90,6 +90,8 @@ def storage_key(source_code: str, native_id: str, when: date | None = None,
 # the write, and a source that changes its habits must not turn that into a
 # number nobody chose.
 BUNDLE_EXTENSION = ".jsonl.gz"
+# One record per line, and this is the only thing that ends a record.
+RECORD_SEPARATOR = chr(10)
 BUNDLE_PART = "bundle-{part:04d}" + BUNDLE_EXTENSION
 
 
@@ -191,7 +193,17 @@ class RawStore(ABC):
             if self._bundle_cache is not None and self._bundle_cache[0] == key:
                 return self._bundle_cache[1]
         raw = gzip.decompress(self._read(key)).decode("utf-8")
-        lines = raw.splitlines()
+        # Split on the record separator itself, never with splitlines().
+        # Python counts more than the newline as a line boundary -- U+2028,
+        # U+2029, the vertical tab, the form feed, the next-line control --
+        # while json.dumps(ensure_ascii=False) leaves every one of them in
+        # the text of a notice. A French notice carrying U+2028 made a
+        # 5,000-record bundle report 5,001 lines on 23 September 2026;
+        # compaction's line-count check caught it, and every record after
+        # it would otherwise have been addressed one line off.
+        lines = raw.split(RECORD_SEPARATOR)
+        if lines and lines[-1] == "":
+            lines.pop()          # the separator written after the last record
         with self._bundle_lock:
             self._bundle_cache = (key, lines)
         return lines
@@ -209,7 +221,7 @@ class RawStore(ABC):
         with gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as out:
             for payload in payloads:
                 out.write(self.serialise(payload))
-                out.write(b"\n")
+                out.write(RECORD_SEPARATOR.encode("utf-8"))
                 written += 1
         self.put(key, buffer.getvalue(), content_type="application/gzip")
         return written
