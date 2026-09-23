@@ -237,3 +237,19 @@ def test_redaction_reaches_every_source_not_only_france():
 def test_text_without_an_address_is_left_exactly_as_it_was():
     record = {"notice-identifier": ["1"], "notice-title": {"eng": "Supply of 35 helmets @ 2 units"}}
     assert strip_personal_data(record) == record
+
+
+def test_an_address_after_an_escaped_newline_does_not_break_the_body():
+    """Redaction has to happen on what the body decodes to, never on the JSON
+    text: matching an address together with the `n` of a preceding \n escape
+    left a dangling backslash, and the archive entry no longer parsed."""
+    record = {**FN_SIMPLE, "donnees": json.dumps({"FNSimple": {"initial": {
+        "informComplementaire": {
+            "autres": "Mairie\nRoquebrune\n04.92.10.48.81\nrestauration@mairie.fr"}}}})}
+    clean = strip_personal_data(record)
+    body = json.loads(clean["donnees"])            # must still be readable JSON
+    text = body["FNSimple"]["initial"]["informComplementaire"]["autres"]
+    assert "restauration@mairie.fr" not in text
+    assert "[email removed]" in text
+    assert "Roquebrune" in text and text.count("\n") == 3
+    assert fr.notice_body(clean) != {}

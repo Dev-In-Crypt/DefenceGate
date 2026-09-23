@@ -508,22 +508,35 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     notices put SIRET numbers, contract references and amounts in the same
     sentences, and a pattern loose enough to catch the phone numbers corrupts
     those. They stay, and stay known: docs/RUNBOOK.md records it.
+
+    The French body is handled apart from the rest. It arrives as a JSON string,
+    and redaction must happen on what that string decodes to, never on the
+    string itself: on 23 September 2026 an address preceded by an escaped
+    newline was matched together with the escape's `n`, which left a dangling
+    backslash and an archive entry that no longer parsed.
     """
     clean = {k: v for k, v in notice.items() if k not in PERSONAL_DATA_FIELDS}
-    if "donnees" in clean and "idweb" in clean:
-        body = clean["donnees"]
-        if isinstance(body, str) and body.strip():
-            try:
-                parsed = json.loads(body)
-            except ValueError:
-                # Unparsable: it cannot be scrubbed, so it is not kept. The
-                # record's own columns still describe the notice.
-                clean["donnees"] = None
-                return clean
-            clean["donnees"] = json.dumps(_scrub_contacts(parsed), ensure_ascii=False)
-        elif isinstance(body, dict):
-            clean["donnees"] = _scrub_contacts(body)
-    return _redact_emails(clean)
+    body = clean.pop("donnees", None) if "idweb" in clean else None
+    clean = _redact_emails(clean)
+    if body is None:
+        return clean
+
+    parsed: Any = body
+    if isinstance(body, str):
+        if not body.strip():
+            clean["donnees"] = body
+            return clean
+        try:
+            parsed = json.loads(body)
+        except ValueError:
+            # Unparsable: it cannot be scrubbed, so it is not kept. The
+            # record's own columns still describe the notice.
+            clean["donnees"] = None
+            return clean
+    scrubbed = _redact_emails(_scrub_contacts(parsed))
+    clean["donnees"] = (json.dumps(scrubbed, ensure_ascii=False)
+                        if isinstance(body, str) else scrubbed)
+    return clean
 
 
 # --------------------------------------------------------- BOAMP mapping
