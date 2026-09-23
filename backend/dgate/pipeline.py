@@ -197,19 +197,36 @@ def run_boamp(days: int = 2) -> None:
     log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
 
 
-def run_ted_history(start: date, end: date, *, resume: bool = True,
-                    max_days: int | None = None) -> int:
-    """Load every TED notice published between two dates, one day at a time.
+# What a historical load needs to know about a source: how to ask it for one
+# publication day, and how to turn a record into an Opportunity. Everything else
+# -- bundles, day markers, checkpoints, the rollback rule -- is the same whoever
+# publishes, so it lives once.
+HISTORY_SOURCES: dict[str, tuple[Any, Any]] = {}
 
-    The daily job collects defence notices; this collects everything, because
+
+def _history_source(code: str) -> tuple[Any, Any]:
+    if not HISTORY_SOURCES:
+        HISTORY_SOURCES["ted"] = (
+            lambda day: ted.search(ted.day_query(day)), from_ted)
+        HISTORY_SOURCES[boamp.SOURCE_CODE] = (
+            lambda day: boamp.search(boamp.day_query(day)), from_boamp)
+    if code not in HISTORY_SOURCES:
+        raise ValueError(f"no historical load defined for {code!r}")
+    return HISTORY_SOURCES[code]
+
+
+def run_history(source_code: str, start: date, end: date, *, resume: bool = True,
+                max_days: int | None = None) -> int:
+    """Load every notice a source published between two dates, one day at a time.
+
+    The daily jobs collect defence notices; this collects everything, because
     the classifier will change and refetching a decade will not be an option.
     Only notices carrying a defence signal become opportunities -- the rest are
     landed, indexed in `raw_ingest`, and wait there for a better question.
 
     A day is stored as one gzipped file of JSON lines, not as thousands of
-    objects. Object storage bills for writes: the first 4.8 million notices of
-    this load cost about 22 dollars in write operations and pennies in storage,
-    and a day written whole is one write instead of three thousand. Each record
+    objects: object storage bills for writes, and the first 4.8 million notices
+    of the TED history cost about 22 dollars written one at a time. Each record
     is still addressed individually -- `raw_ingest.storage_key` holds
     `<bundle>#<line>` -- so replay reads a single payload exactly as before.
 
@@ -218,25 +235,25 @@ def run_ted_history(start: date, end: date, *, resume: bool = True,
     those rows commit. An interrupted run loses at most the day it was in, and
     re-running skips what is already marked. Returns the number of days loaded.
     """
+    fetch_day, mapper = _history_source(source_code)
     cfg = settings()
     store = build_store()
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     loaded = 0
     with db.connect(cfg.dsn) as conn:
-        src_id = db.source_id(conn, "ted")
-        done = db.backfill_days_done(conn, "ted") if resume else set()
+        src_id = db.source_id(conn, source_code)
+        done = db.backfill_days_done(conn, source_code) if resume else set()
         pending = [day for day in days if day not in done]
-        log.info("ted history: %s days to load, %s already done",
-                 len(pending), len(days) - len(pending))
+        log.info("%s history: %s days to load, %s already done",
+                 source_code, len(pending), len(days) - len(pending))
         for day in pending:
             if max_days is not None and loaded >= max_days:
                 break
             fetched = new = 0
             try:
-                for part, chunk in enumerate(_in_chunks(ted.search(ted.day_query(day)),
-                                                        BUNDLE_CHUNK)):
+                for part, chunk in enumerate(_in_chunks(fetch_day(day), BUNDLE_CHUNK)):
                     cleaned = [strip_personal_data(notice) for notice in chunk]
-                    key = rawstore.bundle_key("ted", day, part)
+                    key = rawstore.bundle_key(source_code, day, part)
                     stored = store.put_records(key, cleaned)
                     if stored != len(cleaned):
                         raise RuntimeError(
@@ -245,7 +262,7 @@ def run_ted_history(start: date, end: date, *, resume: bool = True,
                         fetched += 1
                         h = ted.content_hash(clean)
                         try:
-                            opp = from_ted(clean)
+                            opp = mapper(clean)
                         except ValueError as exc:
                             log.warning("skipping malformed notice: %s", exc)
                             continue
@@ -264,10 +281,15 @@ def run_ted_history(start: date, end: date, *, resume: bool = True,
                 # bundle it rewrites is byte-for-byte the same object.
                 conn.rollback()
                 raise
-            db.mark_backfill_day(conn, "ted", day, fetched)
+            db.mark_backfill_day(conn, source_code, day, fetched)
             loaded += 1
-            log.info("ted history %s: %s notices, %s defence", day, fetched, new)
+            log.info("%s history %s: %s notices, %s defence", source_code, day, fetched, new)
     return loaded
+
+
+def run_ted_history(start: date, end: date, *, resume: bool = True,
+                    max_days: int | None = None) -> int:
+    return run_history("ted", start, end, resume=resume, max_days=max_days)
 
 
 def _in_chunks(items: Iterable[Any], size: int) -> Iterator[list[Any]]:
@@ -735,8 +757,9 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--no-resume", action="store_true",
                    help="re-read rows already landed instead of skipping them")
 
-    h = sub.add_parser("ted-history",
-                       help="one-off historical load of every TED notice since 2017")
+    h = sub.add_parser("history",
+                       help="one-off historical load of every notice of a source")
+    h.add_argument("--source", default="ted", help="ted or fr_boamp")
     h.add_argument("--from", dest="start", type=date.fromisoformat, required=True,
                    help="first publication day, YYYY-MM-DD (the API starts at 2017)")
     h.add_argument("--to", dest="end", type=date.fromisoformat, default=None,
@@ -763,9 +786,9 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "atlas-pl":
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
                            resume=not a.no_resume)
-    elif a.cmd == "ted-history":
-        run_ted_history(a.start, a.end or date.today() - timedelta(days=1),
-                        resume=not a.no_resume, max_days=a.max_days)
+    elif a.cmd == "history":
+        run_history(a.source, a.start, a.end or date.today() - timedelta(days=1),
+                    resume=not a.no_resume, max_days=a.max_days)
     elif a.cmd == "seed-buyers":
         seed_buyers()
     return 0

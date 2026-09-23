@@ -98,3 +98,39 @@ def test_the_date_of_publication_is_read_from_the_record(conn, fs_store, monkeyp
     pipeline.run_boamp(days=2)
     row = conn.execute("SELECT published_at FROM opportunity").fetchone()
     assert row["published_at"] == date(2026, 9, 19)
+
+
+# ------------------------------------------------- the historical load
+
+def test_a_french_day_of_history_lands_as_one_bundle_and_is_marked_done(
+        conn, fs_store, monkeypatch):
+    """France publishes 1.7 million notices since March 2015, and the loader
+    that walks them is the same one TED uses -- only the query and the mapper
+    differ."""
+    from datetime import date as _date
+
+    from dgate import db
+
+    days = {_date(2026, 9, 18): [_record("26-h1", perimetre="DIRECTIVE-81"),
+                                 _record("26-h2", perimetre="DIRECTIVE-24")],
+            _date(2026, 9, 19): [_record("26-h3", perimetre="CMP-2006-DEFENSE")]}
+    monkeypatch.setattr(boamp, "search",
+                        lambda params, **kw: iter(days.get(
+                            _date.fromisoformat(params["where"][-11:-1]), [])))
+    loaded = pipeline.run_history("fr_boamp", _date(2026, 9, 18), _date(2026, 9, 19))
+
+    assert loaded == 2
+    assert db.backfill_days_done(conn, "fr_boamp") == {_date(2026, 9, 18), _date(2026, 9, 19)}
+    assert conn.execute("SELECT count(*) n FROM raw_ingest").fetchone()["n"] == 3
+    keys = [r["storage_key"] for r in conn.execute(
+        "SELECT storage_key FROM raw_ingest ORDER BY id").fetchall()]
+    assert keys[0].startswith("fr_boamp/2026/09/18/bundle-0000") and "#0" in keys[0]
+    assert conn.execute("SELECT count(*) n FROM opportunity").fetchone()["n"] == 2
+    assert conn.execute("SELECT count(*) n FROM ingest_run").fetchone()["n"] == 0
+
+
+def test_a_source_without_a_historical_load_is_refused(conn, fs_store):
+    """Refused, not attempted with a guessed query: PLACSP has no date filter
+    at all, and pretending otherwise would record empty days as complete."""
+    with pytest.raises(ValueError, match="no historical load"):
+        pipeline.run_history("es_placsp", date(2026, 9, 1), date(2026, 9, 1))
