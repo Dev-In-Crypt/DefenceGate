@@ -53,7 +53,17 @@ SEARCH_URL = ("https://boamp-datadila.opendatasoft.com/api/explore/v2.1/"
               "catalog/datasets/boamp/records")
 PAGE_SIZE = 100          # 1000 is rejected with InvalidRESTParameterError
 MAX_OFFSET = 10_000      # the API's hard cap on offset + limit
-REQUEST_PAUSE = 0.2
+
+# The edge in front of this API limits by rate, not only by daily quota. The
+# historical load stopped on 23 September 2026 at its 2,087th publication day
+# with HTTP 429 that did not clear inside the default four-attempt, 14-second
+# ladder, and a burst of thirty requests from one address is answered with 403.
+# A decade of days is a one-off walk, so it goes slower and waits far longer:
+# one request a second, and up to four minutes of patience before a page is
+# called lost. Neither costs anything a historical load cannot afford.
+REQUEST_PAUSE = 1.0
+PAGE_ATTEMPTS = 8
+PAGE_MAX_DELAY = 128.0
 
 # The regimes that are the defence and security directive, or its French
 # predecessor. Recorded as CELEX 32009L0081 like every other source's legal
@@ -81,7 +91,8 @@ def _page(client: httpx.Client, params: dict[str, Any], offset: int) -> dict[str
         response.raise_for_status()
         return response
 
-    payload = request_with_retry(send, what=f"{SOURCE_CODE} offset {offset}").json()
+    payload = request_with_retry(send, attempts=PAGE_ATTEMPTS, max_delay=PAGE_MAX_DELAY,
+                                 what=f"{SOURCE_CODE} offset {offset}").json()
     if not isinstance(payload, dict) or "results" not in payload:
         raise ValueError(f"expected a record page, got {type(payload).__name__}")
     return payload

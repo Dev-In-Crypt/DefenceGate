@@ -32,11 +32,40 @@ def _use_system_trust_store() -> bool:
 SYSTEM_TRUST_STORE = _use_system_trust_store()
 
 
+def retry_after(response) -> float | None:
+    """How long the far end asked us to wait, if it said so.
+
+    `Retry-After` carries either a number of seconds or an HTTP date. A rate
+    limiter that states its window is telling us exactly what our own guess is
+    trying to estimate, so it wins over the backoff ladder.
+    """
+    raw = (response.headers.get("retry-after") or "").strip()
+    if not raw:
+        return None
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        pass
+    from email.utils import parsedate_to_datetime
+
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError):
+        return None
+    if when is None:
+        return None
+    from datetime import datetime, timezone
+
+    now = datetime.now(when.tzinfo or timezone.utc)
+    return max(0.0, (when - now).total_seconds())
+
+
 def request_with_retry(
     send,
     *,
     attempts: int = 4,
     base_delay: float = 2.0,
+    max_delay: float = 60.0,
     what: str = "request",
 ):
     """Call `send()` again when the far end is briefly unwell.
@@ -45,6 +74,11 @@ def request_with_retry(
     forty pages is long enough to meet one. Abandoning the run then costs a
     whole day of collection for a fault that clears in seconds, and a day of
     the archive cannot be collected twice.
+
+    The ladder doubles and is capped at `max_delay`, so a caller that wants to
+    sit out a rate-limit window asks for more attempts rather than for one
+    unbounded sleep. `Retry-After` overrides the guess when the response
+    carries it.
 
     Only transient conditions are retried. A 400 means the query is wrong and
     retrying it just asks the same wrong question more times.
@@ -58,6 +92,7 @@ def request_with_retry(
     last: Exception | None = None
 
     for attempt in range(1, attempts + 1):
+        asked: float | None = None
         try:
             return send()
         except _httpx.HTTPStatusError as exc:
@@ -65,13 +100,16 @@ def request_with_retry(
                 raise
             last = exc
             detail = f"HTTP {exc.response.status_code}"
+            asked = retry_after(exc.response)
         except (_httpx.TransportError, _httpx.TimeoutException) as exc:
             last = exc
             detail = type(exc).__name__
 
         if attempt == attempts:
             break
-        delay = base_delay * (2 ** (attempt - 1))
+        delay = min(max_delay, base_delay * (2 ** (attempt - 1)))
+        if asked is not None:
+            delay = min(max_delay, asked)
         log.warning("%s failed (%s), attempt %s of %s, retrying in %.0fs",
                     what, detail, attempt, attempts, delay)
         _time.sleep(delay)
