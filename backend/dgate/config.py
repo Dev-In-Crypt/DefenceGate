@@ -95,6 +95,14 @@ _EZAM_FLOORS = {0: 40, 1: 1000, 2: 2000, 3: 2000, 4: 2000, 5: 2000, 6: 1000}   #
 #   Sunday     Fri, Sat           499            200
 _BOAMP_FLOORS = {0: 150, 1: 180, 2: 175, 3: 250, 4: 290, 5: 310, 6: 200}   # Monday = 0
 
+# Grants. Not a daily feed: the in-scope set of calls is a standing population
+# that the portal republishes whole, measured at 150 on 24 September 2026 (40
+# defence, 110 dual-use). The floor asks one question -- did the whole reference
+# data document arrive and did the scope filter still match it? -- so it is well
+# below the population and flat across the week. Around the turn of a year the
+# open set is at its smallest, which is what 50 leaves room for.
+_EU_PORTAL_FLOORS = {day: 50 for day in range(7)}
+
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
     """Per-weekday floors, overridable with one env var per source.
@@ -124,6 +132,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "es_placsp_agg": _weekday_floors("DGATE_FLOOR_ES_PLACSP_AGG", _PLACSP_AGG_FLOORS),
         "pl_ezam": _weekday_floors("DGATE_FLOOR_PL_EZAM", _EZAM_FLOORS),
         "fr_boamp": _weekday_floors("DGATE_FLOOR_FR_BOAMP", _BOAMP_FLOORS),
+        "eu_portal": _weekday_floors("DGATE_FLOOR_EU_PORTAL", _EU_PORTAL_FLOORS),
         # pl_atlas has no floor on purpose. A floor answers "did today's feed
         # arrive?"; this source is a one-off historical load with no daily
         # rhythm, and a resumed run legitimately reads almost nothing because
@@ -214,6 +223,11 @@ class Settings:
     ezam_minute: int = field(default_factory=lambda: _env_int("DGATE_EZAM_MINUTE", 45))
     boamp_hour: int = field(default_factory=lambda: _env_int("DGATE_BOAMP_HOUR", 5))
     boamp_minute: int = field(default_factory=lambda: _env_int("DGATE_BOAMP_MINUTE", 45))
+    # The reference data document is 124 MiB and is rebuilt by the Commission
+    # overnight; 04:20 is before the tender runs so a deadline that moved is
+    # known by the time the morning health report is written.
+    eu_portal_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_PORTAL_HOUR", 4))
+    eu_portal_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_PORTAL_MINUTE", 20))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
     backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
     backup_keep_days: int = field(

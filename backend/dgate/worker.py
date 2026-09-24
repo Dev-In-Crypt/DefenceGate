@@ -28,7 +28,14 @@ from typing import Callable, Sequence
 from . import db
 from .config import settings
 from .ops.notify import notify, ping
-from .pipeline import run_boamp, run_ezamowienia, run_placsp_live, run_ted, seed_buyers
+from .pipeline import (
+    run_boamp,
+    run_eu_portal,
+    run_ezamowienia,
+    run_placsp_live,
+    run_ted,
+    seed_buyers,
+)
 
 log = logging.getLogger("worker")
 
@@ -134,6 +141,13 @@ def job_boamp(days: int | None = None) -> JobResult:
     return run_job("boamp_daily", lambda: run_boamp(days=window), sources=["fr_boamp"])
 
 
+def job_eu_portal() -> JobResult:
+    """The grant calendar. No window argument: the portal republishes the whole
+    in-scope population every night, so a missed run is made good by the next
+    one rather than by asking for more days."""
+    return run_job("eu_portal_daily", run_eu_portal, sources=["eu_portal"])
+
+
 def job_seed_buyers() -> JobResult:
     return run_job("seed_buyers", seed_buyers)
 
@@ -232,6 +246,7 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
         "placsp_daily": (job_placsp, ("es_placsp", "es_placsp_agg")),
         "ezamowienia_daily": (job_ezamowienia, (ezam_source(),)),
         "boamp_daily": (job_boamp, ("fr_boamp",)),
+        "eu_portal_daily": (job_eu_portal, ("eu_portal",)),
     }
 
 
@@ -273,6 +288,7 @@ def hours_since_last_slot(name: str) -> float:
         "placsp_daily": (cfg.placsp_hour, cfg.placsp_minute),
         "ezamowienia_daily": (cfg.ezam_hour, cfg.ezam_minute),
         "boamp_daily": (cfg.boamp_hour, cfg.boamp_minute),
+        "eu_portal_daily": (cfg.eu_portal_hour, cfg.eu_portal_minute),
         "backup_nightly": (cfg.backup_hour, 0),
     }[name]
     now = _now()
@@ -611,6 +627,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "ted": job_ted,
     "ezamowienia": job_ezamowienia,
     "boamp": job_boamp,
+    "calls": job_eu_portal,
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
@@ -638,6 +655,9 @@ def build_scheduler():
                   id="ezamowienia_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_boamp, CronTrigger(hour=cfg.boamp_hour, minute=cfg.boamp_minute),
                   id="boamp_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_eu_portal,
+                  CronTrigger(hour=cfg.eu_portal_hour, minute=cfg.eu_portal_minute),
+                  id="eu_portal_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
@@ -667,6 +687,8 @@ def describe_schedule() -> list[str]:
         f"(every notice, one publication day at a time)",
         f"boamp_daily    {cfg.boamp_hour:02d}:{cfg.boamp_minute:02d} UTC  "
         f"(every notice, one publication day at a time)",
+        f"eu_portal      {cfg.eu_portal_hour:02d}:{cfg.eu_portal_minute:02d} UTC  "
+        f"(grant calls: open, forthcoming, and closed this year)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
            f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]

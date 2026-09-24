@@ -28,12 +28,13 @@ from .normalise import (
     Opportunity,
     from_atlas_pl,
     from_boamp,
+    from_eu_call,
     from_ezamowienia,
     from_ted,
     strip_personal_data,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
-from .sources import boamp, ezamowienia, placsp, ted
+from .sources import boamp, eu_portal, ezamowienia, placsp, ted
 
 log = logging.getLogger("pipeline")
 
@@ -195,6 +196,64 @@ def run_boamp(days: int = 2) -> None:
                           status="failed", error=str(exc))
             raise
     log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
+
+
+def run_eu_portal() -> None:
+    """Daily pull of the EU grant calendar: every call and topic in scope.
+
+    Grants are the layer this product is for, so this is the run that matters
+    most, and it is the cheapest one in the system: one request, no key, no
+    paging. The whole in-scope population arrives at once -- about 150 topics --
+    which is why it is a standing set that gets refreshed rather than a window
+    that gets walked.
+
+    Only a call whose payload has never been seen before is landed in the raw
+    store. The portal republishes the same document every night, so landing
+    everything would write the same 150 payloads 365 times a year and pay for
+    each write; the hash already in `raw_ingest` says which ones are genuinely
+    new. Every call is still upserted, because `last_seen_at` is how a
+    withdrawn call becomes visible as one that stopped being confirmed.
+    """
+    code = eu_portal.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        known = {row["content_hash"] for row in conn.execute(
+            "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
+        fetched = new = changed = landed = 0
+        try:
+            for record in eu_portal.fetch_calls():
+                fetched += 1
+                _checkpoint(conn, code, fetched, new, changed, every=100,
+                            writer=writer, run_id=run_id)
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                try:
+                    call = from_eu_call(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed call: %s", exc)
+                    continue
+                if h not in known:
+                    key = _store_raw(code, call.native_id, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, call.native_id, h, key)
+                    known.add(h)
+                    landed += 1
+                _, action, fields_ = db.upsert_call(conn, call, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+                if action == "changed":
+                    log.info("call %s changed: %s", call.topic_code or call.native_id, fields_)
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s calls in scope, %s new, %s changed, %s payloads landed",
+             code, fetched, new, changed, landed)
 
 
 # What a historical load needs to know about a source: how to ask it for one
@@ -746,6 +805,8 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("boamp", help="ingest the French bulletin (BOAMP)")
     f.add_argument("--days", type=int, default=2)
 
+    sub.add_parser("calls", help="refresh the EU grant calendar (calls for proposals)")
+
     b = sub.add_parser("atlas-pl",
                        help="one-off Polish historical backfill (Atlas Przetargow)")
     b.add_argument("--year", type=int, required=True,
@@ -783,6 +844,8 @@ def main(argv: list[str] | None = None) -> int:
         run_ezamowienia(days=a.days)
     elif a.cmd == "boamp":
         run_boamp(days=a.days)
+    elif a.cmd == "calls":
+        run_eu_portal()
     elif a.cmd == "atlas-pl":
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
                            resume=not a.no_resume)

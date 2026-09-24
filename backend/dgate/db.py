@@ -16,6 +16,7 @@ import logging
 from contextlib import contextmanager
 from dataclasses import asdict, fields
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Iterator
 
 import psycopg
@@ -38,6 +39,10 @@ VERSIONED_FIELDS = [
 def _jsonable(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
+    # A money column comes back from Postgres as Decimal and goes in as float.
+    # Comparing the two as they are makes an unchanged amount look changed.
+    if isinstance(value, Decimal):
+        return float(value)
     if isinstance(value, (list, tuple)):
         return [_jsonable(v) for v in value]
     if isinstance(value, dict):
@@ -458,3 +463,90 @@ def record_raw(
            VALUES (%s, %s, %s, %s, %s)""",
         (src_id, native_id, content_hash, storage_key, content_type),
     )
+
+
+# ------------------------------------------------------------------ grants
+
+# Columns of `call` that carry the facts. Compared to decide whether a call
+# materially changed, and `deadline_at` is the one the product exists to notice:
+# an extension of four days is the difference between a consortium that applies
+# and one that does not.
+CALL_FIELDS = [
+    "topic_code", "call_identifier", "title", "budget", "opens_at", "deadline_at",
+    "min_consortium_size", "min_member_states", "eligibility_text", "status",
+    "type_of_action", "regime", "source_url",
+]
+
+
+def programme_id(conn: psycopg.Connection, code: str, name: str | None = None) -> int:
+    """The id of a funding programme, inserting it if the portal names a new one.
+
+    Inserted rather than refused: a programme that appears mid-year -- EDIP's
+    first calls will -- must not stop the night's run, and a row named after its
+    own code is visible to whoever reads the table. The seeded programmes carry
+    their regulation; one created here does not, and that is the signal that it
+    needs a look.
+    """
+    row = conn.execute("SELECT id FROM programme WHERE code = %s", (code,)).fetchone()
+    if row:
+        return int(row["id"])
+    log.warning("programme %s is not seeded; inserting it unverified", code)
+    return int(conn.execute(
+        "INSERT INTO programme (code, name) VALUES (%s, %s) RETURNING id",
+        (code, name or code),
+    ).fetchone()["id"])
+
+
+def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
+                src_id: int) -> tuple[int, str, list[str]]:
+    """Insert, update or touch one call. Returns (id, action, changed fields).
+
+    A call is a living row, not an archive: the payload behind every state it was
+    ever seen in is already in the raw store, indexed by content hash, so the
+    serving row holds the current truth and `last_seen_at` says when it was last
+    confirmed. A call that vanishes from the portal keeps its row and stops being
+    touched, which is how a withdrawn call stays visible instead of silently
+    disappearing.
+    """
+    prog_id = programme_id(conn, call.programme_code)
+    existing = conn.execute(
+        """SELECT id, content_hash FROM call
+            WHERE programme_id = %s AND native_id = %s""",
+        (prog_id, call.native_id),
+    ).fetchone()
+
+    values: dict[str, Any] = {f: getattr(call, f) for f in CALL_FIELDS}
+    values["eligibility_parsed"] = (Jsonb(call.eligibility_parsed)
+                                   if call.eligibility_parsed is not None else None)
+    values["conditions_raw"] = (Jsonb(call.conditions_raw)
+                                if call.conditions_raw is not None else None)
+
+    if not existing:
+        fields_ = ["programme_id", "native_id", "source_id", "content_hash", *values]
+        row_values = [prog_id, call.native_id, src_id, content_hash, *values.values()]
+        placeholders = ", ".join(["%s"] * len(fields_))
+        call_id = conn.execute(
+            f"INSERT INTO call ({', '.join(fields_)}) VALUES ({placeholders}) RETURNING id",
+            row_values,
+        ).fetchone()["id"]
+        return int(call_id), "new", []
+
+    call_id = int(existing["id"])
+    if existing["content_hash"] == content_hash:
+        conn.execute("UPDATE call SET last_seen_at = now() WHERE id = %s", (call_id,))
+        return call_id, "unchanged", []
+
+    before = conn.execute(
+        f"SELECT {', '.join(CALL_FIELDS)} FROM call WHERE id = %s", (call_id,)
+    ).fetchone()
+    changed = [f for f in CALL_FIELDS if _jsonable(before.get(f)) != _jsonable(getattr(call, f))]
+    assignments = ", ".join(f"{f} = %s" for f in values)
+    conn.execute(
+        f"UPDATE call SET {assignments}, content_hash = %s, source_id = %s, "
+        f"last_seen_at = now() WHERE id = %s",
+        [*values.values(), content_hash, src_id, call_id],
+    )
+    if "deadline_at" in changed:
+        log.warning("call %s deadline moved: %s -> %s", call.topic_code or call.native_id,
+                    before.get("deadline_at"), call.deadline_at)
+    return call_id, ("changed" if changed else "unchanged"), changed

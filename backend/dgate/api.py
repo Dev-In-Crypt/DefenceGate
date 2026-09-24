@@ -47,6 +47,7 @@ ATTRIBUTION = {
     "ted": "Source: TED (Tenders Electronic Daily), © European Union",
     "es_placsp": "Source: Plataforma de Contratación del Sector Público, "
                  "Ministerio de Hacienda, Spain",
+    "eu_portal": "Source: European Commission, Funding and Tenders Portal",
 }
 
 
@@ -294,6 +295,113 @@ def get_versions(opp_id: int, conn=Depends(get_conn)):
             for r in rows
         ],
     }
+
+
+class CallOut(BaseModel):
+    id: int
+    programme: str
+    native_id: str
+    topic_code: str | None
+    call_identifier: str | None
+    title: str
+    # Why the call is in this database: published under a defence programme, or
+    # a civil programme whose subject the agreed scope treats as dual-use.
+    regime: str
+    status: str | None
+    type_of_action: str | None = None
+    budget: float | None
+    opens_at: date | None
+    deadline_at: datetime | None
+    # Days from now to the deadline. A negative number means it has passed; the
+    # portal keeps a call `open` on the day it closes, and a supplier deciding
+    # whether to start writing needs the number, not the date arithmetic.
+    days_left: int | None
+    source_url: str | None
+    first_seen_at: datetime
+    last_seen_at: datetime
+    attribution: str
+
+
+CALL_SELECT = """
+    SELECT c.id, p.code AS programme, c.native_id, c.topic_code, c.call_identifier,
+           c.title, c.regime, c.status, c.type_of_action, c.budget, c.opens_at, c.deadline_at,
+           c.source_url, c.first_seen_at, c.last_seen_at
+      FROM call c JOIN programme p ON p.id = c.programme_id
+"""
+
+
+def _call_to_out(r: dict[str, Any]) -> CallOut:
+    deadline = r.get("deadline_at")
+    days_left = None
+    if deadline is not None:
+        days_left = (deadline - datetime.now(timezone.utc)).days
+    return CallOut(
+        id=r["id"],
+        programme=r["programme"],
+        native_id=r["native_id"],
+        topic_code=r.get("topic_code"),
+        call_identifier=r.get("call_identifier"),
+        title=r["title"],
+        regime=r["regime"],
+        status=r.get("status"),
+        type_of_action=r.get("type_of_action"),
+        budget=float(r["budget"]) if r.get("budget") is not None else None,
+        opens_at=r.get("opens_at"),
+        deadline_at=deadline,
+        days_left=days_left,
+        source_url=r.get("source_url"),
+        first_seen_at=r["first_seen_at"],
+        last_seen_at=r["last_seen_at"],
+        attribution=ATTRIBUTION["eu_portal"],
+    )
+
+
+@app.get("/v1/calls", response_model=list[CallOut])
+def list_calls(
+    programme: str | None = Query(None, description="comma-separated codes, e.g. EDF,HORIZON"),
+    regime: str = Query("all", pattern="^(defence|dual_use|all)$",
+                        description="defence: funded by a defence programme or "
+                                    "carrying the STEP defence seal (default view "
+                                    "for a defence supplier); dual_use: civil "
+                                    "programmes in scope; all: both"),
+    status: str = Query("open", pattern="^(open|forthcoming|closed|evaluated|all)$"),
+    deadline_before: date | None = None,
+    deadline_after: date | None = None,
+    limit: int = Query(50, le=200),
+    offset: int = 0,
+    conn=Depends(get_conn),
+):
+    """Grant calls, soonest deadline first.
+
+    Sorted by deadline ascending and not by publication date, which is the one
+    difference from the opportunities endpoint that matters: a call is useful
+    while it is open, and what an applicant needs first is the one closing next.
+    """
+    where: list[str] = []
+    params: list[Any] = []
+    if status != "all":
+        where.append("c.status = %s")
+        params.append(status)
+    if regime != "all":
+        where.append("c.regime = %s")
+        params.append(regime)
+    if programme:
+        codes = [c.strip().upper() for c in programme.split(",") if c.strip()]
+        where.append("p.code = ANY(%s)")
+        params.append(codes)
+    if deadline_after:
+        where.append("c.deadline_at >= %s")
+        params.append(deadline_after)
+    if deadline_before:
+        where.append("c.deadline_at <= %s")
+        params.append(deadline_before)
+
+    sql = (CALL_SELECT
+           + (" WHERE " + " AND ".join(where) if where else "")
+           + " ORDER BY c.deadline_at ASC NULLS LAST, c.id"
+           + " LIMIT %s OFFSET %s")
+    rows = conn.execute(sql, params + [limit, offset]).fetchall()
+    return [_call_to_out(r) for r in rows]
 
 
 @app.get("/v1/organisations/resolve")

@@ -841,3 +841,90 @@ def _pl_status(notice_type: str | None) -> str:
     from .sources.ezamowienia import map_status
 
     return map_status(notice_type)
+
+
+# ------------------------------------------------------- grants: EU portal
+
+@dataclass
+class Call:
+    """A call for proposals, or one topic inside one. Mirrors the `call` table.
+
+    Separate from `Opportunity` and not a variant of it, because what a supplier
+    needs to know is different: not who is buying and for how much, but what the
+    consortium has to look like, when the stage closes, and which regulation
+    decides eligibility. Nothing here is a buyer, and a grant has no award.
+    """
+
+    programme_code: str
+    native_id: str
+    title: str
+    topic_code: str | None = None
+    call_identifier: str | None = None
+    budget: float | None = None
+    opens_at: date | None = None
+    deadline_at: datetime | None = None
+    min_consortium_size: int | None = None
+    min_member_states: int | None = None
+    eligibility_text: str | None = None
+    eligibility_parsed: dict[str, Any] | None = None
+    conditions_raw: dict[str, Any] | None = None
+    status: str | None = None
+    regime: str = "defence"
+    source_url: str | None = None
+    type_of_action: str | None = None
+    cpv_codes: list[str] = field(default_factory=list)
+
+
+# The portal's status vocabulary, mapped to the one the `call` table declares.
+_CALL_STATUS = {
+    "Open": "open",
+    "Forthcoming": "forthcoming",
+    "Closed": "closed",
+    "Evaluated": "evaluated",
+}
+
+
+def from_eu_call(record: dict[str, Any]) -> Call:
+    """Map one reference-data topic to a Call.
+
+    The numeric `ccm2Id` is the identity, not the topic code: the code is a
+    human label that a correction can change, and it is the key the archive
+    would then split a call across. The code is kept as a column because it is
+    what an applicant quotes and what the portal's own URL is built from.
+    """
+    from .sources import eu_portal as portal
+
+    native_id = record.get("ccm2Id")
+    if native_id in (None, ""):
+        raise ValueError("call has no ccm2Id")
+    programme = portal.programme_code(record)
+    if not programme:
+        raise ValueError(f"call {native_id} names no framework programme")
+    title = (record.get("title") or "").strip()
+    if not title:
+        raise ValueError(f"call {native_id} has no title")
+
+    actions = record.get("actions") or []
+    type_of_action = None
+    for action in actions:
+        for kind in action.get("types") or []:
+            type_of_action = kind.get("typeOfAction")
+            if type_of_action:
+                break
+        if type_of_action:
+            break
+
+    return Call(
+        programme_code=programme,
+        native_id=str(native_id),
+        title=title,
+        topic_code=record.get("identifier"),
+        call_identifier=record.get("callIdentifier"),
+        opens_at=portal.opens_at(record),
+        deadline_at=portal.deadline(record),
+        status=_CALL_STATUS.get(portal.status_name(record) or ""),
+        regime=portal.regime(record) or "defence",
+        source_url=portal.topic_url(record),
+        type_of_action=type_of_action,
+        cpv_codes=[str(c) for c in (record.get("additionalCpvs") or []) if c],
+    )

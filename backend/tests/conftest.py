@@ -17,7 +17,10 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
 TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
-            raw_ingest, ingest_run"""
+            call, raw_ingest, ingest_run"""
+# `programme` is deliberately not truncated: it is reference data the migration
+# seeds once, and a test that started with no programmes would be testing a
+# database that cannot exist.
 
 
 @pytest.fixture(scope="session")
