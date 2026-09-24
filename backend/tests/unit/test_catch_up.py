@@ -297,6 +297,22 @@ def test_a_dump_already_in_the_store_is_not_shipped_twice(monkeypatch, tmp_path)
     assert _ship_catch_up(monkeypatch, tmp_path, stored=17) == []
 
 
+def test_every_daily_job_takes_the_window_the_catch_up_passes(fresh_settings):
+    """The catch-up calls each job as `job(days=n)`. A job written without that
+    parameter raises TypeError from inside the catch-up, before the scheduler
+    starts, so the worker never gets as far as running anything -- and the
+    traceback names the argument, not the design decision behind it. The grant
+    job legitimately has no use for a window; it still has to accept one, and
+    that is checked here rather than discovered on a production start, as it was
+    on 24 September 2026."""
+    import inspect
+
+    for name, (job, _) in worker.daily_jobs().items():
+        signature = inspect.signature(job)
+        assert "days" in signature.parameters, name
+        signature.bind(days=3)          # callable the way the catch-up calls it
+
+
 def test_every_daily_job_has_a_slot_it_can_be_measured_against(fresh_settings):
     """Adding a source means adding it in two places: the job list and the
     schedule the catch-up measures against. Missing the second crashed the

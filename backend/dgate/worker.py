@@ -141,10 +141,17 @@ def job_boamp(days: int | None = None) -> JobResult:
     return run_job("boamp_daily", lambda: run_boamp(days=window), sources=["fr_boamp"])
 
 
-def job_eu_portal() -> JobResult:
-    """The grant calendar. No window argument: the portal republishes the whole
-    in-scope population every night, so a missed run is made good by the next
-    one rather than by asking for more days."""
+def job_eu_portal(days: int | None = None) -> JobResult:
+    """The grant calendar.
+
+    `days` is accepted and ignored. The catch-up hands every daily job the
+    number of days it has to reach back over, and this source has nothing to
+    reach back over: the portal republishes the whole in-scope population every
+    night, so one run covers any gap. Accepting the argument is not politeness
+    -- a job that refuses it raises TypeError inside the catch-up and takes the
+    worker's start-up down with it, which is exactly what happened here on
+    24 September 2026, the first start after this job existed.
+    """
     return run_job("eu_portal_daily", run_eu_portal, sources=["eu_portal"])
 
 
