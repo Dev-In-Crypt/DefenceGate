@@ -310,6 +310,17 @@ class CallOut(BaseModel):
     status: str | None
     type_of_action: str | None = None
     budget: float | None
+    # Whose budget that is: `topic` when the portal states a figure for this
+    # topic alone, `call` when the same figure is the pot several sibling topics
+    # compete for -- all eleven topics of the 2026 EDF development call carry
+    # EUR 422 million between them. Null when no figure was published.
+    budget_scope: str | None = None
+    # How many members the call requires, and from how many countries. Null when
+    # the programme states them in a PDF instead of in the conditions text --
+    # every EDF topic does -- because a number read from the regulation rather
+    # than from this call would be a guess wearing a fact's clothes.
+    min_consortium_size: int | None = None
+    min_member_states: int | None = None
     opens_at: date | None
     deadline_at: datetime | None
     # Days from now to the deadline. A negative number means it has passed; the
@@ -324,7 +335,8 @@ class CallOut(BaseModel):
 
 CALL_SELECT = """
     SELECT c.id, p.code AS programme, c.native_id, c.topic_code, c.call_identifier,
-           c.title, c.regime, c.status, c.type_of_action, c.budget, c.opens_at, c.deadline_at,
+           c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope,
+           c.min_consortium_size, c.min_member_states, c.opens_at, c.deadline_at,
            c.source_url, c.first_seen_at, c.last_seen_at
       FROM call c JOIN programme p ON p.id = c.programme_id
 """
@@ -346,6 +358,9 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         status=r.get("status"),
         type_of_action=r.get("type_of_action"),
         budget=float(r["budget"]) if r.get("budget") is not None else None,
+        budget_scope=r.get("budget_scope"),
+        min_consortium_size=r.get("min_consortium_size"),
+        min_member_states=r.get("min_member_states"),
         opens_at=r.get("opens_at"),
         deadline_at=deadline,
         days_left=days_left,
@@ -402,6 +417,30 @@ def list_calls(
            + " LIMIT %s OFFSET %s")
     rows = conn.execute(sql, params + [limit, offset]).fetchall()
     return [_call_to_out(r) for r in rows]
+
+
+class CallDetailOut(CallOut):
+    # The conditions as the portal words them, and the budget line behind the
+    # total: "two grants of EUR 3 million" and "EUR 110 million across an
+    # unknown number of grants" are different propositions to a small supplier.
+    eligibility_text: str | None = None
+    conditions: dict[str, Any] | None = None
+    details_seen_at: datetime | None = None
+
+
+@app.get("/v1/calls/{call_id}", response_model=CallDetailOut)
+def get_call(call_id: int, conn=Depends(get_conn)):
+    row = conn.execute(
+        CALL_SELECT.replace("c.first_seen_at",
+                            "c.eligibility_text, c.conditions_raw, c.details_seen_at, "
+                            "c.first_seen_at")
+        + " WHERE c.id = %s", (call_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="no such call")
+    base = _call_to_out(row)
+    return CallDetailOut(**base.model_dump(), eligibility_text=row.get("eligibility_text"),
+                         conditions=row.get("conditions_raw"),
+                         details_seen_at=row.get("details_seen_at"))
 
 
 @app.get("/v1/organisations/resolve")

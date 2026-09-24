@@ -34,6 +34,7 @@ from .pipeline import (
     run_ezamowienia,
     run_placsp_live,
     run_ted,
+    run_topic_details,
     seed_buyers,
 )
 
@@ -153,6 +154,18 @@ def job_eu_portal(days: int | None = None) -> JobResult:
     24 September 2026, the first start after this job existed.
     """
     return run_job("eu_portal_daily", run_eu_portal, sources=["eu_portal"])
+
+
+def job_eu_topics() -> JobResult:
+    """The topic pages behind the calls.
+
+    Scheduled, but deliberately not in `daily_jobs()` and so not in the
+    catch-up: the step reads whatever lacks details, so a night it did not run
+    is covered by the next one without anyone computing a window. Adding it to
+    the catch-up would also measure it against `eu_portal`'s last success, which
+    the calendar job has already written -- it would look fresh whatever it did.
+    """
+    return run_job("eu_topics_daily", run_topic_details, sources=["eu_portal"])
 
 
 def job_seed_buyers() -> JobResult:
@@ -635,6 +648,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "ezamowienia": job_ezamowienia,
     "boamp": job_boamp,
     "calls": job_eu_portal,
+    "topics": job_eu_topics,
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
@@ -665,6 +679,9 @@ def build_scheduler():
     sched.add_job(job_eu_portal,
                   CronTrigger(hour=cfg.eu_portal_hour, minute=cfg.eu_portal_minute),
                   id="eu_portal_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_eu_topics,
+                  CronTrigger(hour=cfg.eu_topics_hour, minute=cfg.eu_topics_minute),
+                  id="eu_topics_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
@@ -696,6 +713,8 @@ def describe_schedule() -> list[str]:
         f"(every notice, one publication day at a time)",
         f"eu_portal      {cfg.eu_portal_hour:02d}:{cfg.eu_portal_minute:02d} UTC  "
         f"(grant calls: open, forthcoming, and closed this year)",
+        f"eu_topics      {cfg.eu_topics_hour:02d}:{cfg.eu_topics_minute:02d} UTC  "
+        f"(topic pages: budget, conditions, consortium rules)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
            f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]

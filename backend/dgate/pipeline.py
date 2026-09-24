@@ -17,9 +17,12 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
+
+import httpx
 
 from . import db, rawstore
 from .classify import classify, detects_subcontracting
@@ -254,6 +257,75 @@ def run_eu_portal() -> None:
             raise
     log.info("%s done: %s calls in scope, %s new, %s changed, %s payloads landed",
              code, fetched, new, changed, landed)
+
+
+def run_topic_details(limit: int | None = None, refresh_after_days: int = 7) -> None:
+    """Read the topic page of every call that needs one.
+
+    The calendar says a call exists. This says whether it is worth applying to:
+    the budget, the conditions of participation, the submission links, and --
+    for the programmes that state it in words rather than in a PDF -- how many
+    members the consortium needs and from how many countries.
+
+    Self-healing rather than caught up. The step processes whatever lacks
+    details, so a missed night is covered by the next one without anybody
+    working out how far back to reach; that is why it has a schedule slot and no
+    entry in the catch-up.
+
+    One request a second, and only a document whose hash is new is landed. A
+    closed call is read once and never again.
+    """
+    code = eu_portal.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code, tag="topics") as writer):
+        src_id = db.source_id(conn, code)
+        pending = db.calls_needing_details(conn, src_id,
+                                           refresh_after_days=refresh_after_days,
+                                           limit=limit)
+        log.info("%s: %s topic pages to read", code, len(pending))
+        if not pending:
+            return
+        run_id = db.start_run(conn, code, None)
+        fetched = changed = failed = 0
+        client = httpx.Client(headers={"User-Agent": eu_portal.USER_AGENT,
+                                       "Accept": "application/json"},
+                              follow_redirects=True)
+        try:
+            for row in pending:
+                identifier = row["topic_code"]
+                try:
+                    details = eu_portal.fetch_topic_details(identifier, client=client)
+                except Exception as exc:
+                    # One topic page is not the run. A 404 on a withdrawn topic,
+                    # or one malformed document, must not cost the other 149.
+                    log.warning("%s: topic %s could not be read: %s", code, identifier, exc)
+                    failed += 1
+                    continue
+                fetched += 1
+                clean = strip_personal_data(details)
+                h = ted.content_hash(clean)
+                if h != row["details_hash"]:
+                    key = _store_raw(code, identifier, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, identifier, h, key)
+                fields = eu_portal.detail_fields(clean, identifier)
+                changed += db.update_call_details(conn, row["id"], fields, h) == "changed"
+                _checkpoint(conn, code, fetched, 0, changed, every=25,
+                            writer=writer, run_id=run_id)
+                time.sleep(eu_portal.DETAIL_PAUSE)
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=0, changed=changed,
+                          status="partial" if failed and not fetched else "success",
+                          error=f"{failed} topic pages unreadable" if failed else None)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=0, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+        finally:
+            client.close()
+    log.info("%s topics done: %s read, %s updated, %s unreadable", code, fetched,
+             changed, failed)
 
 
 # What a historical load needs to know about a source: how to ask it for one
@@ -807,6 +879,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("calls", help="refresh the EU grant calendar (calls for proposals)")
 
+    td = sub.add_parser("topics", help="read the topic page of every call that needs one")
+    td.add_argument("--limit", type=int, default=None, help="stop after this many pages")
+    td.add_argument("--refresh-after-days", type=int, default=7,
+                    help="re-read an open call's page after this many days")
+
     b = sub.add_parser("atlas-pl",
                        help="one-off Polish historical backfill (Atlas Przetargow)")
     b.add_argument("--year", type=int, required=True,
@@ -846,6 +923,8 @@ def main(argv: list[str] | None = None) -> int:
         run_boamp(days=a.days)
     elif a.cmd == "calls":
         run_eu_portal()
+    elif a.cmd == "topics":
+        run_topic_details(limit=a.limit, refresh_after_days=a.refresh_after_days)
     elif a.cmd == "atlas-pl":
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
                            resume=not a.no_resume)

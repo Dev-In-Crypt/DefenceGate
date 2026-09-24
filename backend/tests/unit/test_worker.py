@@ -98,6 +98,7 @@ def test_schedule_is_described_for_operators():
     assert any("ted_daily" in line for line in lines)
     assert any("placsp_daily" in line for line in lines)
     assert any("eu_portal" in line for line in lines)
+    assert any("eu_topics" in line for line in lines)
     assert any("health_report" in line for line in lines)
     assert any("backup_nightly" in line for line in lines)
     assert any("backup_verify" in line for line in lines)
@@ -106,4 +107,5 @@ def test_schedule_is_described_for_operators():
 def test_every_job_is_reachable_from_the_cli():
     assert set(worker.JOBS) == {"ted", "ezamowienia", "placsp", "seed-buyers",
                                 "health", "backup", "backup-verify", "catch-up",
-                                "atlas-backfill", "ted-history", "boamp", "calls"}
+                                "atlas-backfill", "ted-history", "boamp", "calls",
+                                "topics"}

@@ -32,8 +32,10 @@ separate task; a row with a null budget is honest, an invented one is not.
 
 from __future__ import annotations
 
+import html
 import json
 import logging
+import re
 from datetime import UTC, date, datetime
 from typing import Any, Iterator
 
@@ -219,3 +221,175 @@ def topic_url(record: dict[str, Any]) -> str | None:
         return None
     return ("https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/"
             f"opportunities/topic-details/{identifier.lower()}")
+
+
+# ----------------------------------------------------------- topic details
+
+# The calendar says a call exists; this says whether it is worth applying to.
+# One document per topic, same host, same absence of a key:
+#   GET .../data/topicDetails/edf-2026-ra-sens-msdt.json
+# The identifier must be lower case -- the portal answers 404 to the very code
+# it publishes everywhere else in upper case.
+TOPIC_URL = ("https://ec.europa.eu/info/funding-tenders/opportunities/data/"
+             "topicDetails/{identifier}.json")
+
+# One request a second. These are 20 to 50 KiB documents from a public
+# administration endpoint and there are about 150 of them; there is nothing to
+# be gained by asking faster, and the French portal already showed what a burst
+# from one address is answered with.
+DETAIL_PAUSE = 1.0
+
+_NUMBER_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                 "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+# What counts as a member of a consortium. Deliberately a closed list: "at least
+# three letters of support" and "at least two pages" are the same sentence shape
+# and neither is a consortium rule.
+_MEMBER_NOUNS = ("entities", "organisations", "organizations", "participants",
+                 "applicants", "beneficiaries", "partners", "legal entities")
+
+_AT_LEAST = r"at least\s+(\d+|" + "|".join(_NUMBER_WORDS) + r")\s+"
+_CONSORTIUM_SIZE = re.compile(
+    _AT_LEAST + r"(?:\w+\s+){0,3}?(?:" + "|".join(_MEMBER_NOUNS) + r")\b",
+    re.IGNORECASE)
+_MEMBER_STATES = re.compile(
+    _AT_LEAST + r"(?:different\s+)?(?:EU\s+)?[Mm]ember [Ss]tates", re.IGNORECASE)
+
+
+def _count(word: str) -> int | None:
+    word = word.strip().lower()
+    if word.isdigit():
+        return int(word)
+    return _NUMBER_WORDS.get(word)
+
+
+def conditions_text(details: dict[str, Any]) -> str | None:
+    """The conditions block as readable text rather than as markup."""
+    raw = details.get("conditions")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    text = html.unescape(re.sub(r"<[^>]+>", " ", raw))
+    text = re.sub(r"\s+", " ", text).strip(' "\'>')
+    return text or None
+
+
+def consortium_rule(text: str | None) -> tuple[int | None, int | None]:
+    """How many members, and from how many countries, the call requires.
+
+    Read from the conditions text and only when the text states it in the
+    standard form -- "at least 3 organisations from at least 3 different EU
+    Member States". Horizon topics state it; EDF topics say "described in
+    section 6 of the call document" and point at a PDF, so for those the answer
+    is None and stays None. A default of three, which is what the EDF regulation
+    requires in general, would be a rule read from the regulation and presented
+    as a fact about this call.
+    """
+    if not text:
+        return None, None
+    size = _CONSORTIUM_SIZE.search(text)
+    states = _MEMBER_STATES.search(text)
+    return (_count(size.group(1)) if size else None,
+            _count(states.group(1)) if states else None)
+
+
+def _year_total(action: dict[str, Any]) -> float:
+    total = 0.0
+    for amount in (action.get("budgetYearMap") or {}).values():
+        try:
+            total += float(amount)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+def topic_budget(details: dict[str, Any],
+                 identifier: str) -> tuple[float | None, dict[str, Any], int]:
+    """This topic's budget line, and how many topics share that figure.
+
+    The budget map is keyed by call and each key lists every topic in that call,
+    so the topic's own line is found by its identifier -- taking the first line
+    would hand over a sibling's money.
+
+    The third value is what stops the figure being read as more than it is. The
+    portal repeats one amount across sibling topics when they compete for a
+    single pot: measured on 24 September 2026, all eleven topics of the 2026 EDF
+    development call carry `422000000`, which is the call's budget and not any
+    topic's. Reported as a topic budget, that tells a twenty-person supplier
+    there is EUR 422 million behind the one topic it was reading. So the count
+    travels with the number, and `detail_fields` turns it into a scope.
+    """
+    overview = details.get("budgetOverviewJSONItem") or {}
+    by_call = overview.get("budgetTopicActionMap") or {}
+    for actions in by_call.values():
+        for action in actions or []:
+            if not str(action.get("action") or "").startswith(identifier):
+                continue
+            total = _year_total(action)
+            sharing = sum(1 for other in actions or []
+                          if _year_total(other) == total) if total else 0
+            return (total or None), action, sharing
+    return None, {}, 0
+
+
+def fetch_topic_details(identifier: str, *,
+                        client: httpx.Client | None = None) -> dict[str, Any]:
+    """The detail document of one topic. Raises if it is not one."""
+    owns = client is None
+    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+                                            "Accept": "application/json"},
+                                   follow_redirects=True)
+    try:
+        def send() -> httpx.Response:
+            response = client.get(TOPIC_URL.format(identifier=identifier.lower()),
+                                  timeout=120.0)
+            response.raise_for_status()
+            return response
+
+        payload = request_with_retry(send, attempts=5,
+                                     what=f"{SOURCE_CODE} topic {identifier}").json()
+    finally:
+        if owns:
+            client.close()
+    details = payload.get("TopicDetails") if isinstance(payload, dict) else None
+    if not isinstance(details, dict):
+        raise ValueError(f"{identifier}: no TopicDetails in the document; the shape changed")
+    return details
+
+
+def detail_fields(details: dict[str, Any], identifier: str) -> dict[str, Any]:
+    """Everything the detail document adds to a call, as the call's own columns.
+
+    `conditions_raw` keeps the budget line verbatim -- expected number of grants,
+    minimum and maximum contribution, the year the money sits in -- because
+    "EUR 110 million across an unknown number of grants" and "two grants of
+    EUR 3 million" are different propositions to a twenty-person supplier, and
+    the difference is in that line rather than in the total.
+    """
+    text = conditions_text(details)
+    budget, line, sharing = topic_budget(details, identifier)
+    size, states = consortium_rule(text)
+    return {
+        "budget": budget,
+        # Whose budget the number is. `topic` when the portal states a figure for
+        # this topic alone, `call` when the same figure is repeated across sibling
+        # topics competing for one pot. Served alongside the amount, because the
+        # amount alone is misleading in the second case and there is no way to
+        # split a shared pot honestly.
+        "budget_scope": None if budget is None else ("topic" if sharing <= 1 else "call"),
+        "eligibility_text": text,
+        "min_consortium_size": size,
+        "min_member_states": states,
+        "conditions_raw": {
+            "budget_line": line or None,
+            "topics_sharing_budget": sharing or None,
+            "expected_grants": line.get("expectedGrants") or None,
+            "min_contribution": line.get("minContribution") or None,
+            "max_contribution": line.get("maxContribution") or None,
+            "deadline_model": line.get("deadlineModel"),
+            "mga": [m.get("abbreviation") for m in (details.get("topicMGAs") or [])],
+            "tags": details.get("tags") or [],
+            "for_smes": bool(details.get("sme")),
+            "submission_urls": [link.get("url") for link in (details.get("links") or [])
+                                if link.get("url")],
+        },
+    }

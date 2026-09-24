@@ -550,3 +550,56 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
         log.warning("call %s deadline moved: %s -> %s", call.topic_code or call.native_id,
                     before.get("deadline_at"), call.deadline_at)
     return call_id, ("changed" if changed else "unchanged"), changed
+
+
+# Columns the topic detail document fills. Separate from CALL_FIELDS because
+# they arrive from a different document, at a different time, under their own
+# hash: a calendar entry that has not changed can still have its budget
+# corrected the next morning.
+CALL_DETAIL_FIELDS = ["budget", "budget_scope", "eligibility_text", "conditions_raw",
+                      "min_consortium_size", "min_member_states"]
+
+
+def calls_needing_details(conn: psycopg.Connection, src_id: int, *,
+                          refresh_after_days: int = 7,
+                          limit: int | None = None) -> list[dict[str, Any]]:
+    """Calls whose detail document should be read now.
+
+    Never read: always. Read before, and still open or forthcoming: after the
+    refresh window, because budgets are corrected and deadlines are extended
+    while a call is live. Closed and already read: never again -- it cannot
+    change any more, and re-reading it every night would be 150 requests a day
+    for nothing.
+    """
+    rows = conn.execute(
+        """SELECT c.id, c.topic_code, c.status, c.details_hash
+             FROM call c
+            WHERE c.source_id = %s AND c.topic_code IS NOT NULL
+              AND (c.details_seen_at IS NULL
+                   OR (c.status IN ('open', 'forthcoming')
+                       AND c.details_seen_at < now() - make_interval(days => %s)))
+         ORDER BY c.details_seen_at NULLS FIRST, c.deadline_at NULLS LAST
+            LIMIT %s""",
+        (src_id, refresh_after_days, limit),
+    ).fetchall()
+    return list(rows)
+
+
+def update_call_details(conn: psycopg.Connection, call_id: int,
+                        fields: dict[str, Any], details_hash: str) -> str:
+    """Apply a topic's detail document to its call. Returns the action taken."""
+    if conn.execute("SELECT details_hash FROM call WHERE id = %s",
+                    (call_id,)).fetchone()["details_hash"] == details_hash:
+        conn.execute("UPDATE call SET details_seen_at = now() WHERE id = %s", (call_id,))
+        return "unchanged"
+
+    values: dict[str, Any] = {name: fields.get(name) for name in CALL_DETAIL_FIELDS}
+    if values.get("conditions_raw") is not None:
+        values["conditions_raw"] = Jsonb(values["conditions_raw"])
+    assignments = ", ".join(f"{name} = %s" for name in values)
+    conn.execute(
+        f"UPDATE call SET {assignments}, details_hash = %s, details_seen_at = now() "
+        f"WHERE id = %s",
+        [*values.values(), details_hash, call_id],
+    )
+    return "changed"

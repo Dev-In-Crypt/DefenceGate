@@ -228,6 +228,10 @@ class Settings:
     # known by the time the morning health report is written.
     eu_portal_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_PORTAL_HOUR", 4))
     eu_portal_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_PORTAL_MINUTE", 20))
+    # Fifteen minutes after the calendar, so the topics it added are read the
+    # same morning rather than the next one.
+    eu_topics_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_HOUR", 4))
+    eu_topics_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_MINUTE", 35))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
     backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
     backup_keep_days: int = field(
