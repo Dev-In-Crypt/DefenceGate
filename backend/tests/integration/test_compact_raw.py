@@ -144,17 +144,33 @@ def test_already_compacted_rows_are_not_touched_again(conn, store):
     assert _keys(conn) == first
 
 
-def test_an_object_still_referenced_from_outside_the_chunk_is_not_deleted(conn, store):
-    """Rows are repointed by id, one statement per chunk. A row pointing at the
-    same object from outside the chunk is not repointed with it -- and the
-    object it points at must then survive."""
+def test_a_duplicate_row_outside_the_chunk_is_repointed_with_it(conn, store):
+    """A key carries its payload's content hash, so the same payload landed twice
+    shares one key -- the first Polish chunk was 5,000 rows over 4,611 keys.
+    Repointing only this chunk's ids leaves the sibling pointing at the original,
+    which then cannot be deleted and stops the run. Both rows move, and both
+    still read their payload."""
     originals = _land(conn, store, 3)
     src = db.source_id(conn, "ted")
-    h = conn.execute("SELECT content_hash FROM raw_ingest ORDER BY id LIMIT 1").fetchone()
-    db.record_raw(conn, src, "000000-2024", h["content_hash"], originals[0])
+    first = conn.execute(
+        "SELECT content_hash FROM raw_ingest ORDER BY id LIMIT 1").fetchone()
+    db.record_raw(conn, src, "000000-2024", first["content_hash"], originals[0])
     conn.commit()
 
-    with pytest.raises(RuntimeError, match="still referenced"):
-        cr.compact("ted", chunk=2, store=store)
-    assert store.exists(originals[0])
-    assert all(store.exists(k) for k in originals)
+    cr.compact("ted", chunk=2, store=store)
+
+    keys = [r["storage_key"] for r in conn.execute(
+        "SELECT storage_key FROM raw_ingest WHERE storage_key LIKE %s ORDER BY id",
+        (originals[0].rsplit("/", 1)[0] + "%",)).fetchall()]
+    assert all("#" in k for k in keys), keys
+    assert not store.exists(originals[0])
+    assert all(store.get(k) is not None for k in keys)
+
+
+def test_an_object_a_later_chunk_still_points_at_is_not_deleted(conn, store):
+    """The safety property the repointing must not cost: step 4 deletes only what
+    nothing references any more."""
+    originals = _land(conn, store, 4)
+    cr.compact("ted", chunk=2, max_chunks=1, store=store)
+    assert not store.exists(originals[0]) and not store.exists(originals[1])
+    assert store.exists(originals[2]) and store.exists(originals[3])

@@ -180,13 +180,24 @@ def compact_chunk(conn: Any, store: RawStore, source: str, rows: list[dict[str, 
     # WHERE storage_key = $1 -- ran at a fifth of a second each on 22 September
     # 2026: the planner cannot prove a parameter satisfies the partial index's
     # NOT LIKE predicate, so every one was a scan of nine million rows, and 4.8
-    # million of them would have taken eleven days. A row pointing at the same
-    # key from outside this chunk is still caught: step 4 refuses to delete an
-    # object anything references.
+    # million of them would have taken eleven days.
+    #
+    # Every row pointing at these keys, not only the ones in this chunk. A key
+    # carries the payload's content hash, so the same payload landed twice shares
+    # one key, and TED has few such duplicates while Poland and Spain have many:
+    # the first Polish chunk was 5,000 rows over 4,611 keys. A sibling row left
+    # pointing at the original keeps it referenced, step 4 refuses to delete it,
+    # and the run stops -- which is what happened on 28 September 2026 with 122
+    # such objects. The literal NOT LIKE is what keeps this query on the partial
+    # index; as a parameter it could not be.
     line_of = {key: line for line, key in enumerate(order)}
-    ids = [row["id"] for row in rows if row["storage_key"] in line_of]
-    new_keys = [record_key(bundle, line_of[row["storage_key"]])
-                for row in rows if row["storage_key"] in line_of]
+    pointing = conn.execute(
+        """SELECT id, storage_key FROM raw_ingest
+            WHERE storage_key NOT LIKE '%%#%%' AND storage_key = ANY(%s)""",
+        (order,),
+    ).fetchall()
+    ids = [row["id"] for row in pointing]
+    new_keys = [record_key(bundle, line_of[row["storage_key"]]) for row in pointing]
     conn.execute(
         """UPDATE raw_ingest r SET storage_key = u.new_key
              FROM unnest(%s::bigint[], %s::text[]) AS u(id, new_key)
