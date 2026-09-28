@@ -59,7 +59,14 @@ def hasher(source: str) -> Callable[[Any], str]:
     if not _HASHERS:
         from ..sources import ted
 
-        _HASHERS["ted"] = ted.content_hash
+        # Every source landed its payloads under the same hash function: the
+        # Polish connector's `content_hash` calls this one, and the pipeline
+        # calls it directly for Spain, the Polish bulletin and every historical
+        # load. So one entry per source rather than one function per source --
+        # and the registry stays explicit, because compaction deletes originals
+        # and a source nobody checked must still be refused.
+        for code in ("ted", "pl_atlas", "pl_ezam", "es_placsp", "es_placsp_agg"):
+            _HASHERS[code] = ted.content_hash
     if source not in _HASHERS:
         raise ValueError(f"no content hash known for {source!r}; refusing to compact it")
     return _HASHERS[source]

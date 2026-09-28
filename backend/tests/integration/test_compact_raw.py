@@ -112,8 +112,21 @@ def test_a_compacted_bundle_never_overwrites_an_existing_one(conn, store):
 
 
 def test_a_source_whose_hash_is_unknown_is_refused_before_anything_is_touched(conn, store):
+    """A source added tomorrow may hash its payloads differently. Compaction
+    deletes originals, so an unregistered source is refused rather than assumed."""
     with pytest.raises(ValueError, match="refusing"):
-        cr.compact("es_placsp", store=store)
+        cr.compact("nato_diana", store=store)
+
+
+def test_the_sources_that_are_registered_all_hash_the_same_way(conn, store):
+    """The registry claims Spain and Poland hash as TED does. They do -- the
+    Polish connector's own function calls TED's, and the pipeline calls TED's
+    directly for the others -- and this is what keeps that claim checked."""
+    from dgate.sources import ted
+
+    payload = {"b": 2, "a": [1, "x"]}
+    for code in ("pl_atlas", "pl_ezam", "es_placsp", "es_placsp_agg"):
+        assert cr.hasher(code)(payload) == ted.content_hash(payload), code
 
 
 def test_a_dry_run_reads_and_verifies_and_changes_nothing(conn, store):
