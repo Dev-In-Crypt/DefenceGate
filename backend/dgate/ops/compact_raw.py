@@ -96,15 +96,40 @@ def compact_bundle_key(first_key: str, first_id: int) -> str:
     return f"{prefix}/compact-{first_id:010d}{BUNDLE_EXTENSION}"
 
 
-def next_chunk(conn: Any, source: str, after_id: int, size: int) -> list[dict[str, Any]]:
+def ambiguous_keys(conn: Any, source: str) -> list[str]:
+    """Keys the index records under more than one content hash.
+
+    Spain's early keys carried no content hash -- `es_placsp/2026/09/10/2026_12.json`
+    -- so a second version of a notice overwrote the first at the same key, and the
+    index kept both rows with their different hashes. Exactly one of them can still
+    be verified against the object; the other payload is already gone.
+
+    Compaction cannot verify such a key, so it leaves it alone: the object stays
+    as it is, both rows keep pointing at it, and nothing is deleted on a guess.
+    Measured on 29 September 2026: 7,591 keys, all Spanish, of 2.06 million.
+    """
+    rows = conn.execute(
+        """SELECT r.storage_key
+             FROM raw_ingest r JOIN source s ON s.id = r.source_id
+            WHERE s.code = %s AND r.storage_key NOT LIKE '%%#%%'
+         GROUP BY r.storage_key
+           HAVING count(DISTINCT r.content_hash) > 1""",
+        (source,),
+    ).fetchall()
+    return [row["storage_key"] for row in rows]
+
+
+def next_chunk(conn: Any, source: str, after_id: int, size: int,
+               skip: list[str] | None = None) -> list[dict[str, Any]]:
     """The next rows still pointing at one-object-per-notice keys, in id order."""
     return conn.execute(
         """SELECT r.id, r.storage_key, r.content_hash
              FROM raw_ingest r JOIN source s ON s.id = r.source_id
             WHERE s.code = %s AND r.id > %s AND r.storage_key NOT LIKE '%%#%%'
+              AND r.storage_key <> ALL(%s)
          ORDER BY r.id
             LIMIT %s""",
-        (source, after_id, size),
+        (source, after_id, skip or [], size),
     ).fetchall()
 
 
@@ -232,9 +257,13 @@ def compact(source: str, *, chunk: int = DEFAULT_CHUNK, max_chunks: int | None =
     with db.connect(settings().dsn) as conn:
         if not dry_run:
             drain_pending(conn, store)
+        skip = ambiguous_keys(conn, source)
+        if skip:
+            log.warning("%s: leaving %s keys alone; each is recorded under more than "
+                        "one content hash and cannot be verified", source, len(skip))
         after = 0
         while max_chunks is None or progress.chunks < max_chunks:
-            rows = next_chunk(conn, source, after, chunk)
+            rows = next_chunk(conn, source, after, chunk, skip)
             if not rows:
                 break
             bundle, deleted = compact_chunk(conn, store, source, rows, workers=workers,

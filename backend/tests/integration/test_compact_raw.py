@@ -174,3 +174,20 @@ def test_an_object_a_later_chunk_still_points_at_is_not_deleted(conn, store):
     cr.compact("ted", chunk=2, max_chunks=1, store=store)
     assert not store.exists(originals[0]) and not store.exists(originals[1])
     assert store.exists(originals[2]) and store.exists(originals[3])
+
+
+def test_a_key_recorded_under_two_hashes_is_left_alone(conn, store):
+    """Spain's early keys carried no content hash, so a second version of a notice
+    overwrote the first at the same key and the index kept both rows. One of the two
+    payloads is already gone; compaction cannot tell which row it is looking at, so
+    it skips the key instead of stopping the run or deleting on a guess."""
+    originals = _land(conn, store, 3)
+    src = db.source_id(conn, "ted")
+    db.record_raw(conn, src, "000000-2024", "a" * 64, originals[1])
+    conn.commit()
+
+    progress = cr.compact("ted", chunk=10, store=store)
+
+    assert store.exists(originals[1])                       # the ambiguous one survives
+    assert not store.exists(originals[0]) and not store.exists(originals[2])
+    assert progress.objects == 2
