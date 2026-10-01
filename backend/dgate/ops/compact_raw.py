@@ -149,6 +149,31 @@ def drain_pending(conn: Any, store: RawStore) -> int:
     return len(safe)
 
 
+def _patient_get(store: RawStore, key: str, attempts: int = 6) -> Any:
+    """Read one payload, waiting out the store's own rate limiting.
+
+    A historical load lands a whole source under a handful of day prefixes, so a
+    chunk of five thousand reads hits one prefix, and R2 answers
+    `ServiceUnavailable: Reduce your rate of simultaneous reads on the same
+    object`. boto's ten retries are immediate and all ten failed; seconds of
+    waiting is what clears it. It stopped the Polish run twice -- at 40 workers
+    and again at 12 -- after half a million objects each time, which is why this
+    is here and not more parallelism.
+    """
+    import time
+
+    for attempt in range(attempts):
+        try:
+            return store.get(key)
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            delay = 2 ** attempt
+            log.warning("%s unreadable, waiting %ss (attempt %s of %s)",
+                        key, delay, attempt + 1, attempts)
+            time.sleep(delay)
+
+
 def _still_referenced(conn: Any, keys: list[str]) -> set[str]:
     rows = conn.execute(
         """SELECT DISTINCT storage_key FROM raw_ingest
@@ -159,7 +184,7 @@ def _still_referenced(conn: Any, keys: list[str]) -> set[str]:
 
 
 def compact_chunk(conn: Any, store: RawStore, source: str, rows: list[dict[str, Any]], *,
-                  workers: int = 32, dry_run: bool = False, delete: bool = True) -> tuple[str, int]:
+                  workers: int = 8, dry_run: bool = False, delete: bool = True) -> tuple[str, int]:
     """Steps 1 to 4 for one chunk. Returns the bundle key and originals deleted."""
     hash_of = hasher(source)
 
@@ -179,7 +204,7 @@ def compact_chunk(conn: Any, store: RawStore, source: str, rows: list[dict[str, 
 
     # 1. read and verify every original.
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        payloads = list(pool.map(store.get, order))
+        payloads = list(pool.map(lambda key: _patient_get(store, key), order))
     for key, payload in zip(order, payloads, strict=True):
         if hash_of(payload) != expected[key]:
             raise RuntimeError(f"{key} no longer matches the hash it was landed with; stopping")
@@ -249,7 +274,7 @@ def compact_chunk(conn: Any, store: RawStore, source: str, rows: list[dict[str, 
 
 
 def compact(source: str, *, chunk: int = DEFAULT_CHUNK, max_chunks: int | None = None,
-            workers: int = 32, dry_run: bool = False, delete: bool = True,
+            workers: int = 8, dry_run: bool = False, delete: bool = True,
             store: RawStore | None = None) -> Progress:
     hasher(source)                                   # refuse early, before touching anything
     store = store or build_store()
@@ -286,7 +311,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source", required=True)
     parser.add_argument("--chunk", type=int, default=DEFAULT_CHUNK)
     parser.add_argument("--max-chunks", type=int, default=None)
-    parser.add_argument("--workers", type=int, default=32)
+    parser.add_argument("--workers", type=int, default=8,
+                        help="parallel reads; the store throttles a hot prefix above ~12")
     parser.add_argument("--dry-run", action="store_true",
                         help="read and verify, write and delete nothing")
     parser.add_argument("--keep-originals", action="store_true",

@@ -191,3 +191,24 @@ def test_a_key_recorded_under_two_hashes_is_left_alone(conn, store):
     assert store.exists(originals[1])                       # the ambiguous one survives
     assert not store.exists(originals[0]) and not store.exists(originals[2])
     assert progress.objects == 2
+
+
+def test_a_read_the_store_throttles_is_waited_out_not_abandoned(conn, store, monkeypatch):
+    """R2 answers a chunk of reads on one day prefix with ServiceUnavailable. Half a
+    million objects in, that ended the run twice. The read waits and tries again."""
+    originals = _land(conn, store, 3)
+    real_get = store.get
+    failures = {"left": 2}
+
+    def flaky(key):
+        if failures["left"] and not key.endswith(".gz") and "#" not in key:
+            failures["left"] -= 1
+            raise RuntimeError("ServiceUnavailable: Reduce your rate of simultaneous reads")
+        return real_get(key)
+
+    monkeypatch.setattr(store, "get", flaky)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+    cr.compact("ted", chunk=10, store=store)
+    assert failures["left"] == 0
+    assert all(not store.exists(k) for k in originals)
