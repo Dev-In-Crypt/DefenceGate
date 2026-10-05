@@ -85,3 +85,62 @@ def test_a_notice_carrying_a_unicode_line_separator_is_addressed_correctly(conn,
     assert report.misplaced == 0
     rows = conn.execute("SELECT storage_key FROM raw_ingest ORDER BY id").fetchall()
     assert [store.get(r["storage_key"])["notice-identifier"][0] for r in rows] == ["0", "1", "2"]
+
+
+
+def _payloads(n: int, tag: str = "") -> list[dict]:
+    return [{"notice-identifier": [f"{tag}{i}"]} for i in range(n)]
+
+
+def test_the_audit_reads_the_index_once_not_once_per_bundle(conn, store, monkeypatch):
+    """One query per bundle was a sequential scan of the whole table each time, and
+    with two audits running they saturated the host for hours. The audit hands
+    every bundle its rows from a single ordered pass."""
+    seen: list[int] = []
+    real = bundle_audit.audit_bundle
+
+    def spy(conn_, store_, source, bundle, **kw):
+        assert kw["rows"] is not None, "the bundle's rows must come from the single pass"
+        seen.append(len(kw["rows"]))
+        return real(conn_, store_, source, bundle, **kw)
+
+    monkeypatch.setattr(bundle_audit, "audit_bundle", spy)
+    _land_bundle(conn, store, _payloads(3, "a"), day=date(2026, 10, 5))
+    _land_bundle(conn, store, _payloads(5, "b"), day=date(2026, 10, 6))
+    report = bundle_audit.audit("ted", store=store)
+    assert (report.bundles, report.rows, report.misplaced) == (2, 8, 0)
+    assert sorted(seen) == [3, 5]
+
+
+def test_a_limit_stops_the_stream_after_that_many_bundles(conn, store):
+    for day in (5, 6, 7):
+        _land_bundle(conn, store, _payloads(2, f"d{day}"), day=date(2026, 10, day))
+    assert bundle_audit.audit("ted", store=store, limit=2).bundles == 2
+
+
+def test_rows_of_one_bundle_stay_together_whatever_the_database_locale(conn, store):
+    """Bundles named so that a locale-aware sort would interleave them: punctuation
+    is ignored at the first comparison under en_US, so `bundle-0000.jsonl.gz#1`
+    could land between the rows of `bundle0000.jsonl.gz#...`. Byte order cannot."""
+    src = db.source_id(conn, "ted")
+    for name in ("a/bundle-0000.jsonl.gz", "a/bundle0000.jsonl.gz", "a/bundle-0000x.jsonl.gz"):
+        store.put_records(name, _payloads(3, name))
+        for line, payload in enumerate(_payloads(3, name)):
+            db.record_raw(conn, src, f"{name}{line}", ted.content_hash(payload),
+                          record_key(name, line))
+    conn.commit()
+    groups = {bundle: len(rows) for bundle, rows in bundle_audit.rows_by_bundle("ted")}
+    assert groups == {"a/bundle-0000.jsonl.gz": 3, "a/bundle0000.jsonl.gz": 3,
+                      "a/bundle-0000x.jsonl.gz": 3}
+
+
+def test_repair_works_while_the_index_is_being_streamed(conn, store):
+    """The stream holds a named cursor, which a commit closes. Repair commits, so
+    it must be on a different connection from the stream."""
+    key = _land_bundle(conn, store, _payloads(5))
+    conn.execute("UPDATE raw_ingest SET storage_key = %s WHERE storage_key = %s",
+                 (record_key(key, 4), record_key(key, 1)))
+    conn.commit()
+    report = bundle_audit.audit("ted", store=store, repair=True)
+    assert (report.misplaced, report.repaired) == (1, 1)
+    assert bundle_audit.audit("ted", store=store).misplaced == 0

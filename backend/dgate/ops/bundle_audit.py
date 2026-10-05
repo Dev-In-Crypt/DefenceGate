@@ -23,7 +23,7 @@ import argparse
 import logging
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from .. import db
 from ..config import settings
@@ -62,15 +62,65 @@ def bundles_of(conn: Any, source: str) -> list[str]:
     return [row["bundle"] for row in rows]
 
 
+def rows_by_bundle(source: str, limit: int | None = None) -> Iterator[tuple[str, list[dict[str, Any]]]]:
+    """Every bundled index row of a source, handed out one bundle at a time.
+
+    One pass over the index instead of one query per bundle. The per-bundle query
+    -- `storage_key LIKE '<bundle>#%'` -- has no index to use: the partial one
+    covers only the plain keys, and a parameterised LIKE cannot use a pattern
+    index anyway. Each of those queries was a sequential scan of nine million
+    rows, and with two audits running at once they held both cores of the host
+    for hours; the same audit had looked fast only because it ran alone.
+
+    Ordered with COLLATE "C", on purpose. Under the database's own locale
+    punctuation is ignored at the first comparison, so keys of different bundles
+    can interleave; byte order is what guarantees every row of a bundle is
+    contiguous, which is all the grouping relies on.
+
+    Opens its own connection: a named cursor is closed by a commit, and the
+    repair mode commits on the connection that is doing the repairing.
+    """
+    with db.connect(settings().dsn) as conn:
+        with conn.cursor(name="bundle_audit") as cursor:
+            cursor.itersize = 20_000
+            cursor.execute(
+                """SELECT r.id, r.storage_key, r.content_hash
+                     FROM raw_ingest r JOIN source s ON s.id = r.source_id
+                    WHERE s.code = %s AND r.storage_key LIKE '%%#%%'
+                 ORDER BY r.storage_key COLLATE "C" """,
+                (source,))
+            current: str | None = None
+            batch: list[dict[str, Any]] = []
+            seen = 0
+            for row in cursor:
+                bundle = row["storage_key"].partition("#")[0]
+                if bundle != current:
+                    if batch:
+                        yield current, batch  # type: ignore[misc]
+                        seen += 1
+                        if limit is not None and seen >= limit:
+                            return
+                    current, batch = bundle, []
+                batch.append(row)
+            if batch and (limit is None or seen < limit):
+                yield current, batch  # type: ignore[misc]
+
+
 def audit_bundle(conn: Any, store: RawStore, source: str, bundle: str, *,
-                 repair: bool = False) -> tuple[int, int, int, list[str]]:
-    """Check every row pointing into one bundle. Returns counts and unresolved keys."""
+                 repair: bool = False,
+                 rows: list[dict[str, Any]] | None = None) -> tuple[int, int, int, list[str]]:
+    """Check every row pointing into one bundle. Returns counts and unresolved keys.
+
+    `rows` are the bundle's index rows when the caller already has them; without
+    them the bundle is looked up, which is right for one bundle and wrong for all.
+    """
     hash_of = hasher(source)
-    rows = conn.execute(
-        """SELECT id, storage_key, content_hash FROM raw_ingest
-            WHERE storage_key LIKE %s ORDER BY id""",
-        (bundle + "#%",),
-    ).fetchall()
+    if rows is None:
+        rows = conn.execute(
+            """SELECT id, storage_key, content_hash FROM raw_ingest
+                WHERE storage_key LIKE %s ORDER BY id""",
+            (bundle + "#%",),
+        ).fetchall()
     if not rows:
         return 0, 0, 0, []
 
@@ -107,9 +157,9 @@ def audit(source: str, *, repair: bool = False, store: RawStore | None = None,
     store = store or build_store()
     report = Report()
     with db.connect(settings().dsn) as conn:
-        for bundle in bundles_of(conn, source)[:limit]:
+        for bundle, bundle_rows in rows_by_bundle(source, limit):
             rows, misplaced, repaired, unresolved = audit_bundle(
-                conn, store, source, bundle, repair=repair)
+                conn, store, source, bundle, repair=repair, rows=bundle_rows)
             report.bundles += 1
             report.rows += rows
             report.misplaced += misplaced
