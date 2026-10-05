@@ -13,3 +13,9 @@ reports/*.stderr
 reports/*.stderr.txt
 .mypy_cache/
 .verify/
+# Private keys and host files for the Storage Box. They are mounted into the
+# worker container and must never reach the repository, whoever runs git add.
+infra/secrets/
+*_ed25519
+*_rsa
+*.pem
