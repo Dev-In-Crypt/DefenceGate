@@ -73,6 +73,15 @@ services:
       DGATE_S3_REGION: ${DGATE_S3_REGION:-auto}
       DGATE_S3_ACCESS_KEY: ${DGATE_S3_ACCESS_KEY:-}
       DGATE_S3_SECRET_KEY: ${DGATE_S3_SECRET_KEY:-}
+      # The `sftp` backend: a Hetzner Storage Box sub-account whose home is
+      # this project's directory. The key and the host fingerprint are mounted
+      # below, read-only; only their paths are settings.
+      DGATE_SFTP_HOST: ${DGATE_SFTP_HOST:-}
+      DGATE_SFTP_PORT: ${DGATE_SFTP_PORT:-23}
+      DGATE_SFTP_USER: ${DGATE_SFTP_USER:-}
+      DGATE_SFTP_ROOT: ${DGATE_SFTP_ROOT:-store}
+      DGATE_SFTP_KEY_FILE: /run/secrets/box_key
+      DGATE_SFTP_KNOWN_HOSTS: /run/secrets/known_hosts
       DGATE_BACKUP_DIR: /backups
       DGATE_BACKUP_KEEP_DAYS: ${DGATE_BACKUP_KEEP_DAYS:-30}
       DGATE_BACKUP_KEEP_DAYS_LOCAL: ${DGATE_BACKUP_KEEP_DAYS_LOCAL:-7}
@@ -102,6 +111,10 @@ services:
       - raw:/raw
       - backups:/backups
       - atlas:/data/atlas
+      # Not in the repository: infra/secrets/ is gitignored. The key is owned by
+      # the container's uid (10001) and readable by nobody else.
+      - ./secrets/storagebox_ed25519:/run/secrets/box_key:ro
+      - ./secrets/known_hosts:/run/secrets/known_hosts:ro
     depends_on:
       postgres:
         condition: service_healthy
