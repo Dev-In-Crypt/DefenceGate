@@ -125,7 +125,7 @@ def test_the_sources_that_are_registered_all_hash_the_same_way(conn, store):
     from dgate.sources import ted
 
     payload = {"b": 2, "a": [1, "x"]}
-    for code in ("pl_atlas", "pl_ezam", "es_placsp", "es_placsp_agg"):
+    for code in ("pl_atlas", "pl_ezam", "es_placsp", "es_placsp_agg", "fr_boamp", "eu_portal"):
         assert cr.hasher(code)(payload) == ted.content_hash(payload), code
 
 
