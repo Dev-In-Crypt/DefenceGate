@@ -22,13 +22,18 @@ import io
 import json
 import logging
 import os
+import posixpath
+import queue
 import re
 import shutil
+import stat as stat_module
 import threading
+import time
+import uuid
 from abc import ABC, abstractmethod
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any, Callable, Iterable, Iterator
 
 from .config import settings
 
@@ -525,6 +530,307 @@ class S3RawStore(RawStore):
             return None
 
 
+class SftpRawStore(RawStore):
+    """A directory on an SSH host: a Hetzner Storage Box.
+
+    Why a store of its own and not the filesystem store on a mount. The box
+    speaks SSH and nothing else -- SMB and WebDAV are off, and S3 was never on
+    offer -- so the choices were a FUSE mount, which needs `sshfs` installed on
+    the production host and wedges every container reading it when the link
+    drops, or a client inside the process, which needs nothing on the host and
+    can say what it is doing when the network misbehaves. This is the second.
+
+    Three properties it has to keep that a plain `open()` would not:
+
+    * **A write is whole or absent.** Bytes go to a `.part-` name, are checked
+      against the length that was meant, and only then renamed into place. A
+      connection that dies mid-write leaves a stray `.part-` file, never a
+      truncated bundle under a key the index will trust.
+    * **A dropped connection is retried on a new one.** SFTP sessions die
+      silently when idle or when the box restarts; the pooled connection is
+      discarded and the operation repeated, with a pause that grows.
+    * **The box is shared and its connection limit is small.** Hetzner caps
+      simultaneous sessions per box, and a second project writes to the same
+      box, so the pool is a handful of connections however many threads ask.
+
+    `root` is relative to the login directory. With a Hetzner sub-account the
+    login directory *is* the project's directory, which is what keeps this
+    project out of the other one's files: the key cannot name a path above it.
+    """
+
+    ATTEMPTS = 4
+
+    def __init__(self, root: str, connect: Callable[[], Any], connections: int = 4) -> None:
+        cleaned = posixpath.normpath(root.strip().strip("/")) if root.strip("/ ") else ""
+        if cleaned.startswith(".."):
+            raise ValueError(f"sftp root escapes the login directory: {root!r}")
+        self.root = "" if cleaned == "." else cleaned
+        self._connect = connect
+        self._pool: queue.LifoQueue[Any] = queue.LifoQueue()
+        self._slots = threading.BoundedSemaphore(connections)
+        self._made: set[str] = set()
+        self._made_lock = threading.Lock()
+
+    # ------------------------------------------------------------ plumbing
+
+    @staticmethod
+    def _is_transport(exc: BaseException) -> bool:
+        """A failure of the connection, as opposed to of the request.
+
+        A missing file, a refused path and an existing directory are answers
+        from a healthy server and must reach the caller; repeating them on a new
+        connection only repeats the answer. Everything else -- EOF, a reset, a
+        timeout, paramiko's own SSHException -- says the session is gone.
+        """
+        if isinstance(exc, (FileNotFoundError, PermissionError, FileExistsError,
+                            IsADirectoryError, NotADirectoryError)):
+            return False
+        return isinstance(exc, (EOFError, OSError)) or \
+            type(exc).__module__.startswith("paramiko")
+
+    @staticmethod
+    def _close(sftp: Any) -> None:
+        for closer in (getattr(sftp, "close", None),
+                       getattr(getattr(sftp, "_ssh", None), "close", None)):
+            try:
+                if closer:
+                    closer()
+            except Exception:
+                pass
+
+    def _do(self, operation: Callable[[Any], Any]) -> Any:
+        last: BaseException | None = None
+        for attempt in range(self.ATTEMPTS):
+            self._slots.acquire()
+            sftp = None
+            try:
+                try:
+                    sftp = self._pool.get_nowait()
+                except queue.Empty:
+                    sftp = self._connect()
+                result = operation(sftp)
+                self._pool.put(sftp)
+                return result
+            except Exception as exc:
+                if not self._is_transport(exc):
+                    if sftp is not None:
+                        self._pool.put(sftp)
+                    raise
+                last = exc
+                if sftp is not None:
+                    self._close(sftp)
+                log.warning("sftp: %s: %s (attempt %s of %s)",
+                            type(exc).__name__, exc, attempt + 1, self.ATTEMPTS)
+            finally:
+                self._slots.release()
+            if attempt < self.ATTEMPTS - 1:
+                time.sleep(min(2 ** attempt, 20))
+        assert last is not None
+        raise last
+
+    def _path(self, key: str) -> str:
+        """Full path for a key, refusing any key that would leave the root.
+
+        Textual, for the reason FileRawStore's is: it must give the same answer
+        whether or not the directory exists yet.
+        """
+        path = posixpath.normpath(posixpath.join(self.root, key))
+        if self.root:
+            inside = path.startswith(self.root + "/")
+        else:
+            inside = not (path.startswith("/") or path.startswith(".."))
+        if not inside:
+            raise ValueError(f"key escapes the store root: {key}")
+        return path
+
+    def _mkdirs(self, sftp: Any, directory: str) -> None:
+        built = ""
+        for part in [p for p in directory.split("/") if p]:
+            built = f"{built}/{part}" if built else part
+            with self._made_lock:
+                if built in self._made:
+                    continue
+            try:
+                sftp.stat(built)
+            except FileNotFoundError:
+                try:
+                    sftp.mkdir(built)
+                except OSError:
+                    sftp.stat(built)        # another writer made it first
+            with self._made_lock:
+                self._made.add(built)
+
+    def _replace(self, sftp: Any, part: str, path: str) -> None:
+        """Move a finished `.part-` file over its final name."""
+        try:
+            sftp.posix_rename(part, path)
+            return
+        except OSError:
+            pass                            # no posix-rename here, or the target exists
+        try:
+            sftp.remove(path)
+        except FileNotFoundError:
+            pass
+        sftp.rename(part, path)
+
+    @staticmethod
+    def _part(path: str) -> str:
+        return f"{path}.part-{uuid.uuid4().hex[:8]}"
+
+    # -------------------------------------------------------------- the API
+
+    def put(self, key: str, payload: Any, content_type: str = "application/json") -> str:
+        path, data = self._path(key), self.serialise(payload)
+
+        def write(sftp: Any) -> None:
+            self._mkdirs(sftp, posixpath.dirname(path))
+            part = self._part(path)
+            try:
+                with sftp.open(part, "wb") as handle:
+                    handle.set_pipelined(True)
+                    handle.write(data)
+                if sftp.stat(part).st_size != len(data):
+                    raise EOFError(f"{part} holds fewer bytes than were written")
+                self._replace(sftp, part, path)
+            except BaseException:
+                try:
+                    sftp.remove(part)
+                except Exception:
+                    pass
+                raise
+
+        self._do(write)
+        return key
+
+    def _read(self, key: str) -> bytes:
+        path = self._path(key)
+
+        def read(sftp: Any) -> bytes:
+            with sftp.open(path, "rb") as handle:
+                handle.prefetch()
+                return handle.read()
+
+        return self._do(read)
+
+    def exists(self, key: str) -> bool:
+        return self.size(key) is not None
+
+    def size(self, key: str) -> int | None:
+        path = self._path(key)
+
+        def stat(sftp: Any) -> int | None:
+            try:
+                attrs = sftp.stat(path)
+            except FileNotFoundError:
+                return None
+            return attrs.st_size if stat_module.S_ISREG(attrs.st_mode) else None
+
+        return self._do(stat)
+
+    def delete(self, key: str) -> bool:
+        path = self._path(key)
+
+        def remove(sftp: Any) -> bool:
+            try:
+                sftp.remove(path)
+            except FileNotFoundError:
+                return False
+            return True
+
+        return self._do(remove)
+
+    def list(self, prefix: str = "") -> Iterator[str]:
+        for key, _ in self.listing(prefix):
+            yield key
+
+    def listing(self, prefix: str = "", suffix: str = ".json") -> Iterator[tuple[str, float]]:
+        base = self._path(prefix) if prefix else self.root
+        strip = len(self.root) + 1 if self.root else 0
+
+        def walk(sftp: Any) -> list[tuple[str, float]]:
+            found: list[tuple[str, float]] = []
+            stack = [base]
+            while stack:
+                directory = stack.pop()
+                try:
+                    entries = sftp.listdir_attr(directory or ".")
+                except FileNotFoundError:
+                    continue
+                for entry in entries:
+                    full = f"{directory}/{entry.filename}" if directory else entry.filename
+                    if stat_module.S_ISDIR(entry.st_mode):
+                        stack.append(full)
+                    elif full.endswith(suffix):
+                        found.append((full[strip:], float(entry.st_mtime)))
+            return sorted(found)
+
+        yield from self._do(walk)
+
+    def put_file(self, key: str, path: Path,
+                 content_type: str = "application/octet-stream") -> str:
+        target, local = self._path(key), Path(path)
+
+        def upload(sftp: Any) -> None:
+            self._mkdirs(sftp, posixpath.dirname(target))
+            part = self._part(target)
+            try:
+                sftp.put(str(local), part, confirm=True)     # confirm: size must match
+                self._replace(sftp, part, target)
+            except BaseException:
+                try:
+                    sftp.remove(part)
+                except Exception:
+                    pass
+                raise
+
+        self._do(upload)
+        return key
+
+    def fetch(self, key: str, dest: Path) -> Path:
+        source = self._path(key)
+        dest = Path(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        part = dest.with_name(dest.name + ".part")
+
+        def download(sftp: Any) -> None:
+            sftp.get(source, str(part))
+
+        try:
+            self._do(download)
+            os.replace(part, dest)
+        finally:
+            part.unlink(missing_ok=True)
+        return dest
+
+
+def sftp_connector(host: str, port: int, user: str, key_file: str,
+                   known_hosts: str) -> Callable[[], Any]:
+    """A function that opens one authenticated SFTP session.
+
+    The host key is checked against `known_hosts` and an unknown host is
+    refused, not trusted on first use: this connection carries the whole
+    archive, and the first connection is exactly when a man in the middle would
+    have to act.
+    """
+    def connect() -> Any:
+        import paramiko
+
+        client = paramiko.SSHClient()
+        client.load_host_keys(known_hosts)
+        client.set_missing_host_key_policy(paramiko.RejectPolicy())
+        client.connect(host, port=port, username=user,
+                       key_filename=key_file, look_for_keys=False, allow_agent=False,
+                       timeout=30, banner_timeout=30, auth_timeout=30)
+        transport = client.get_transport()
+        if transport is not None:
+            transport.set_keepalive(30)
+        sftp = client.open_sftp()
+        sftp._ssh = client          # keeps the SSH session alive as long as the SFTP one
+        return sftp
+
+    return connect
+
+
 def build_store(backend: str | None = None) -> RawStore:
     """Construct the configured store. Unknown backend fails loudly."""
     cfg = settings()
@@ -533,6 +839,21 @@ def build_store(backend: str | None = None) -> RawStore:
         return FileRawStore(cfg.raw_dir)
     if backend == "s3":
         return S3RawStore(bucket=cfg.s3_bucket, **cfg.s3_settings())
+    if backend == "sftp":
+        missing = [name for name, value in (
+            ("DGATE_SFTP_HOST", cfg.sftp_host), ("DGATE_SFTP_USER", cfg.sftp_user),
+            ("DGATE_SFTP_KEY_FILE", cfg.sftp_key_file),
+            ("DGATE_SFTP_KNOWN_HOSTS", cfg.sftp_known_hosts)) if not value]
+        if missing:
+            # Loud, and before anything is written: a store pointed at nothing
+            # that fell back to the container's own disk would keep reporting
+            # success, which is the failure that hides itself.
+            raise ValueError(f"the sftp backend needs {', '.join(missing)}")
+        return SftpRawStore(
+            cfg.sftp_root,
+            sftp_connector(cfg.sftp_host, cfg.sftp_port, cfg.sftp_user,
+                           cfg.sftp_key_file, cfg.sftp_known_hosts),
+            connections=cfg.sftp_connections)
     raise ValueError(f"unknown raw storage backend: {backend!r}")
 
 

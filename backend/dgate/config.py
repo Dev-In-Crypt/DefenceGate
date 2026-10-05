@@ -165,6 +165,22 @@ class Settings:
         default_factory=lambda: os.environ.get("DGATE_S3_ACCESS_KEY") or None)
     s3_secret_key: str | None = field(
         default_factory=lambda: os.environ.get("DGATE_S3_SECRET_KEY") or None)
+    # The `sftp` backend: a directory on an SSH host, in practice a Hetzner
+    # Storage Box. `sftp_root` is relative to the login directory, so with a
+    # sub-account whose home is the project's directory it is just `store`.
+    # The key file is a path, never the key: it is mounted into the container
+    # and does not live in the environment or in the repository.
+    sftp_host: str | None = field(default_factory=lambda: os.environ.get("DGATE_SFTP_HOST") or None)
+    sftp_port: int = field(default_factory=lambda: _env_int("DGATE_SFTP_PORT", 23))
+    sftp_user: str | None = field(default_factory=lambda: os.environ.get("DGATE_SFTP_USER") or None)
+    sftp_key_file: str | None = field(
+        default_factory=lambda: os.environ.get("DGATE_SFTP_KEY_FILE") or None)
+    sftp_known_hosts: str | None = field(
+        default_factory=lambda: os.environ.get("DGATE_SFTP_KNOWN_HOSTS") or None)
+    sftp_root: str = field(default_factory=lambda: _env("DGATE_SFTP_ROOT", "store"))
+    # Hetzner caps simultaneous sessions per box and a second project shares it,
+    # so this stays small however many threads write.
+    sftp_connections: int = field(default_factory=lambda: _env_int("DGATE_SFTP_CONNECTIONS", 4))
     # How many raw payloads are written at once. One payload is one HTTPS round
     # trip -- 530 ms against R2 from this deployment -- so sequential writes cap
     # ingestion at under two records a second, and a daily PLACSP run cannot
