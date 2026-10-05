@@ -42,8 +42,13 @@ def check() -> str:
         raise RuntimeError(f"read back something else: {got!r}")
 
     deleted = store.delete(key)
-    where = settings().s3_endpoint or settings().s3_bucket \
-        if settings().raw_backend == "s3" else str(settings().raw_dir)
+    cfg = settings()
+    if cfg.raw_backend == "s3":
+        where = cfg.s3_endpoint or cfg.s3_bucket
+    elif cfg.raw_backend == "sftp":
+        where = f"{cfg.sftp_user}@{cfg.sftp_host}:{cfg.sftp_port}/{cfg.sftp_root}"
+    else:
+        where = str(cfg.raw_dir)
     return (f"{settings().raw_backend} store at {where}: "
             f"wrote, read and {'deleted' if deleted else 'could not delete'} {key}")
 
