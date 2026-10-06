@@ -33,6 +33,7 @@ from .pipeline import (
     run_boamp,
     run_eu_portal,
     run_ezamowienia,
+    run_ncbr,
     run_placsp_live,
     run_ted,
     run_topic_details,
@@ -166,6 +167,13 @@ def job_bdns(days: int | None = None) -> JobResult:
     return run_job("bdns_daily", lambda: run_bdns(days=window), sources=["es_bdns"])
 
 
+def job_ncbr(days: int | None = None) -> JobResult:
+    """The Polish competitions. `days` is accepted and ignored: the API returns the whole
+    list every time, so one run covers any gap -- and a job that refuses the argument the
+    catch-up passes takes the worker's start-up down with it."""
+    return run_job("ncbr_daily", run_ncbr, sources=["pl_ncbr"])
+
+
 def job_eu_topics() -> JobResult:
     """The topic pages behind the calls.
 
@@ -278,6 +286,7 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
         "boamp_daily": (job_boamp, ("fr_boamp",)),
         "eu_portal_daily": (job_eu_portal, ("eu_portal",)),
         "bdns_daily": (job_bdns, ("es_bdns",)),
+        "ncbr_daily": (job_ncbr, ("pl_ncbr",)),
     }
 
 
@@ -321,6 +330,7 @@ def hours_since_last_slot(name: str) -> float:
         "boamp_daily": (cfg.boamp_hour, cfg.boamp_minute),
         "eu_portal_daily": (cfg.eu_portal_hour, cfg.eu_portal_minute),
         "bdns_daily": (cfg.bdns_hour, cfg.bdns_minute),
+        "ncbr_daily": (cfg.ncbr_hour, cfg.ncbr_minute),
         "backup_nightly": (cfg.backup_hour, 0),
     }[name]
     now = _now()
@@ -661,6 +671,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "boamp": job_boamp,
     "calls": job_eu_portal,
     "bdns": job_bdns,
+    "ncbr": job_ncbr,
     "topics": job_eu_topics,
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
@@ -697,6 +708,8 @@ def build_scheduler():
                   id="eu_topics_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_bdns, CronTrigger(hour=cfg.bdns_hour, minute=cfg.bdns_minute),
                   id="bdns_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_ncbr, CronTrigger(hour=cfg.ncbr_hour, minute=cfg.ncbr_minute),
+                  id="ncbr_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
@@ -732,6 +745,8 @@ def describe_schedule() -> list[str]:
         f"(topic pages: budget, conditions, consortium rules)",
         f"bdns_daily     {cfg.bdns_hour:02d}:{cfg.bdns_minute:02d} UTC  "
         f"(Spanish subsidy calls, central government)",
+        f"ncbr_daily     {cfg.ncbr_hour:02d}:{cfg.ncbr_minute:02d} UTC  "
+        f"(Polish NCBR competitions, the whole list)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
            f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]

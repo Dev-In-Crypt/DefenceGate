@@ -34,11 +34,12 @@ from .normalise import (
     from_boamp,
     from_eu_call,
     from_ezamowienia,
+    from_ncbr,
     from_ted,
     strip_personal_data,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
-from .sources import bdns, boamp, eu_portal, ezamowienia, placsp, ted
+from .sources import bdns, boamp, eu_portal, ezamowienia, ncbr, placsp, ted
 
 log = logging.getLogger("pipeline")
 
@@ -257,6 +258,60 @@ def run_eu_portal() -> None:
                           status="failed", error=str(exc))
             raise
     log.info("%s done: %s calls in scope, %s new, %s changed, %s payloads landed",
+             code, fetched, new, changed, landed)
+
+
+def run_ncbr() -> None:
+    """Daily pull of the Polish research agency's competitions, the whole list.
+
+    A standing list, not a window: the API returns every competition NCBR has listed and
+    the pull is judged by whether all of them arrived, which `ncbr.fetch_all` proves or
+    refuses. Every record is landed (once per distinct content), and only a competition
+    the publisher has tagged for defence or security, that a company may apply to, and
+    that is open or closed this year, becomes a call.
+
+    The description is landed and never served: it is CC BY-SA text.
+    """
+    code = ncbr.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        known = {row["content_hash"] for row in conn.execute(
+            "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
+        fetched = new = changed = landed = 0
+        try:
+            for record in ncbr.fetch_all():
+                fetched += 1
+                _checkpoint(conn, code, fetched, new, changed, every=100,
+                            writer=writer, run_id=run_id)
+                path = record.get("path") or ""
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                if path and h not in known:
+                    key = _store_raw(code, path, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, path, h, key)
+                    known.add(h)
+                    landed += 1
+                if not ncbr.in_scope(clean):
+                    continue
+                try:
+                    call = from_ncbr(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed competition: %s", exc)
+                    continue
+                _, action, _ = db.upsert_call(conn, call, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s competitions listed, %s new, %s changed, %s payloads landed",
              code, fetched, new, changed, landed)
 
 
@@ -967,6 +1022,8 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("calls", help="refresh the EU grant calendar (calls for proposals)")
 
+    sub.add_parser("ncbr", help="refresh the Polish NCBR competitions")
+
     bd = sub.add_parser("bdns", help="refresh the Spanish subsidy calls (BDNS, central government)")
     bd.add_argument("--days", type=int, default=14)
     bd.add_argument("--since", type=date.fromisoformat, default=None,
@@ -1016,6 +1073,8 @@ def main(argv: list[str] | None = None) -> int:
         run_boamp(days=a.days)
     elif a.cmd == "calls":
         run_eu_portal()
+    elif a.cmd == "ncbr":
+        run_ncbr()
     elif a.cmd == "bdns":
         run_bdns(days=a.days, since=a.since)
     elif a.cmd == "topics":

@@ -880,6 +880,10 @@ class Call:
     # Whose budget `budget` is: `call` when it is the pot the call competes for.
     # None from a source that does not say; the EU topic page sets it later.
     budget_scope: str | None = None
+    # ISO 4217 of `budget`. EU programme budgets and the Spanish register are in
+    # euro; Polish competitions state theirs in zloty or euro, and a sum without its
+    # currency is not a sum.
+    currency: str | None = None
 
 
 # The portal's status vocabulary, mapped to the one the `call` table declares.
@@ -965,6 +969,7 @@ def from_bdns(detail: dict[str, Any], *, today: date | None = None) -> Call:
         topic_code=str(number),
         budget=float(budget) if budget not in (None, "") else None,
         budget_scope="call" if budget not in (None, "") else None,
+        currency="EUR" if budget not in (None, "") else None,
         opens_at=bdns.opens_at(detail),
         deadline_at=bdns.deadline(detail),
         eligibility_text=bdns.eligibility_text(detail) or None,
@@ -975,4 +980,48 @@ def from_bdns(detail: dict[str, Any], *, today: date | None = None) -> Call:
         type_of_action=detail.get("tipoConvocatoria"),
         country="ES",
         issuer=" / ".join(p for p in (organ.get("nivel2"), organ.get("nivel3")) if p) or None,
+    )
+
+
+# ------------------------------------------------------- grants: Poland (NCBR)
+
+def from_ncbr(record: dict[str, Any], *, today: date | None = None) -> Call:
+    """Map one NCBR competition to a Call.
+
+    The identity is the page path, because the API carries no numeric id. A competition
+    renamed upstream would therefore appear as a new one, which is noted in the source
+    documentation and has not happened in the 364 seen.
+    """
+    from .sources import ncbr
+
+    path = record.get("path")
+    name = " ".join(str(record.get("name") or "").split())
+    if not path:
+        raise ValueError("competition has no path")
+    if not name:
+        raise ValueError(f"competition {path} has no name")
+    amount, currency = ncbr.parse_budget(record.get("budget"))
+    chosen = ncbr.regime(record)
+    if chosen is None:
+        raise ValueError(f"competition {path} carries no defence tag")
+
+    return Call(
+        programme_code="PL-NCBR",
+        native_id=path,
+        title=name[:500],
+        topic_code=name[:200],
+        budget=amount,
+        budget_scope="call" if amount is not None else None,
+        currency=currency,
+        opens_at=ncbr.opens_at(record),
+        deadline_at=ncbr.deadline(record),
+        eligibility_text=ncbr.eligibility_text(record) or None,
+        conditions_raw=ncbr.conditions(record),
+        status=ncbr.status(record, now=datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+                           if today else None),
+        regime=chosen,
+        source_url=ncbr.call_url(record),
+        type_of_action=", ".join(ncbr.programme_types(record)) or None,
+        country="PL",
+        issuer="Narodowe Centrum Badan i Rozwoju (NCBR)",
     )

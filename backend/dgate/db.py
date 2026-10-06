@@ -475,6 +475,7 @@ CALL_FIELDS = [
     "topic_code", "call_identifier", "title", "budget", "opens_at", "deadline_at",
     "min_consortium_size", "min_member_states", "eligibility_text", "status",
     "type_of_action", "regime", "source_url", "country", "issuer", "budget_scope",
+    "currency",
 ]
 
 # Fields a source may simply not supply. The EU calendar knows no budget, no
@@ -485,7 +486,7 @@ CALL_FIELDS = [
 # deadline moved, the calendar's None overwrote the budget the topic page had
 # supplied, and the page was not read again until it changed itself.
 OPTIONAL_CALL_FIELDS = {"budget", "min_consortium_size", "min_member_states",
-                        "eligibility_text", "country", "issuer", "budget_scope",
+                        "eligibility_text", "country", "issuer", "budget_scope", "currency",
                         "conditions_raw", "eligibility_parsed"}
 
 
@@ -570,7 +571,7 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
 # they arrive from a different document, at a different time, under their own
 # hash: a calendar entry that has not changed can still have its budget
 # corrected the next morning.
-CALL_DETAIL_FIELDS = ["budget", "budget_scope", "eligibility_text", "conditions_raw",
+CALL_DETAIL_FIELDS = ["budget", "budget_scope", "currency", "eligibility_text", "conditions_raw",
                       "min_consortium_size", "min_member_states"]
 
 

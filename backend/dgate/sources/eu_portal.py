@@ -370,6 +370,7 @@ def detail_fields(details: dict[str, Any], identifier: str) -> dict[str, Any]:
     size, states = consortium_rule(text)
     return {
         "budget": budget,
+        "currency": "EUR" if budget is not None else None,
         # Whose budget the number is. `topic` when the portal states a figure for
         # this topic alone, `call` when the same figure is repeated across sibling
         # topics competing for one pot. Served alongside the amount, because the

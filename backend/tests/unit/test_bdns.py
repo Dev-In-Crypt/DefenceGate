@@ -217,7 +217,7 @@ def test_a_call_maps_completely():
     assert call.country == "ES"
     assert call.issuer == ("MINISTERIO DE CIENCIA, INNOVACIÓN Y UNIVERSIDADES / "
                            "CENTRO PARA EL DESARROLLO TECNOLÓGICO Y LA INNOVACIÓN E.P.E.")
-    assert (call.budget, call.budget_scope) == (5_000_000.0, "call")
+    assert (call.budget, call.budget_scope, call.currency) == (5_000_000.0, "call", "EUR")
     assert call.status == "open" and call.regime == "dual_use"
     assert call.opens_at == date(2026, 6, 18)
     assert call.source_url.endswith("/convocatorias/912587")

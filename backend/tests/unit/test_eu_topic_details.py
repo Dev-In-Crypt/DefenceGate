@@ -155,6 +155,7 @@ def test_only_a_consortium_sentence_is_read_as_one(text, expected):
 def test_the_detail_fields_are_what_the_call_columns_need():
     fields = portal.detail_fields(CL3_DETAILS, "HORIZON-CL3-2026-01-DRS-01")
     assert fields["budget"] == 6_000_000.0
+    assert fields["currency"] == "EUR"
     assert (fields["min_consortium_size"], fields["min_member_states"]) == (3, 3)
     assert "at least 3 organisations" in fields["eligibility_text"]
     conditions = fields["conditions_raw"]

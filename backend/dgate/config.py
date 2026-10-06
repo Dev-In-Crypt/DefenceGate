@@ -111,6 +111,12 @@ _EU_PORTAL_FLOORS = {day: 50 for day in range(7)}
 # always contains ten of them.
 _BDNS_FLOORS = {day: 15 for day in range(7)}
 
+# Poland, NCBR. Not a feed but a standing list: the API returns every competition it
+# has ever listed, 364 on 6 October 2026, and the count only grows. The floor asks
+# whether the whole list arrived; 300 leaves room for the portal pruning its oldest
+# entries and nowhere near enough to hide a walk that stopped at the second page.
+_NCBR_FLOORS = {day: 300 for day in range(7)}
+
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
     """Per-weekday floors, overridable with one env var per source.
@@ -142,6 +148,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "fr_boamp": _weekday_floors("DGATE_FLOOR_FR_BOAMP", _BOAMP_FLOORS),
         "eu_portal": _weekday_floors("DGATE_FLOOR_EU_PORTAL", _EU_PORTAL_FLOORS),
         "es_bdns": _weekday_floors("DGATE_FLOOR_ES_BDNS", _BDNS_FLOORS),
+        "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
         # pl_atlas has no floor on purpose. A floor answers "did today's feed
         # arrive?"; this source is a one-off historical load with no daily
         # rhythm, and a resumed run legitimately reads almost nothing because
@@ -258,6 +265,9 @@ class Settings:
     # Spain's register, after the EU grant jobs and before the French tender run.
     bdns_hour: int = field(default_factory=lambda: _env_int("DGATE_BDNS_HOUR", 5))
     bdns_minute: int = field(default_factory=lambda: _env_int("DGATE_BDNS_MINUTE", 5))
+    # Poland's competitions, after the Spanish register and before the French tenders.
+    ncbr_hour: int = field(default_factory=lambda: _env_int("DGATE_NCBR_HOUR", 5))
+    ncbr_minute: int = field(default_factory=lambda: _env_int("DGATE_NCBR_MINUTE", 25))
     eu_topics_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_HOUR", 4))
     eu_topics_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_MINUTE", 35))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))

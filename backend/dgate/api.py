@@ -48,6 +48,7 @@ ATTRIBUTION = {
     "es_placsp": "Source: Plataforma de Contratación del Sector Público, "
                  "Ministerio de Hacienda, Spain",
     "eu_portal": "Source: European Commission, Funding and Tenders Portal",
+    "pl_ncbr": "Zrodlo: Narodowe Centrum Badan i Rozwoju (NCBR), gov.pl",
     "es_bdns": "Fuente: Base de Datos Nacional de Subvenciones (BDNS), Intervencion General de la Administracion del Estado, Ministerio de Hacienda",
 }
 
@@ -316,6 +317,9 @@ class CallOut(BaseModel):
     # compete for -- all eleven topics of the 2026 EDF development call carry
     # EUR 422 million between them. Null when no figure was published.
     budget_scope: str | None = None
+    # ISO 4217 of `budget`: euro for the EU programmes and Spain, zloty or euro for
+    # Poland. Never converted: a rate is a judgement the product should not make.
+    currency: str | None = None
     # How many members the call requires, and from how many countries. Null when
     # the programme states them in a PDF instead of in the conditions text --
     # every EDF topic does -- because a number read from the regulation rather
@@ -341,7 +345,7 @@ class CallOut(BaseModel):
 
 CALL_SELECT = """
     SELECT c.id, p.code AS programme, c.native_id, c.topic_code, c.call_identifier,
-           c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope,
+           c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope, c.currency,
            c.min_consortium_size, c.min_member_states, c.opens_at, c.deadline_at,
            c.source_url, c.country, c.issuer, c.first_seen_at, c.last_seen_at,
            s.code AS source_code
@@ -367,6 +371,7 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         type_of_action=r.get("type_of_action"),
         budget=float(r["budget"]) if r.get("budget") is not None else None,
         budget_scope=r.get("budget_scope"),
+        currency=r.get("currency"),
         min_consortium_size=r.get("min_consortium_size"),
         min_member_states=r.get("min_member_states"),
         opens_at=r.get("opens_at"),

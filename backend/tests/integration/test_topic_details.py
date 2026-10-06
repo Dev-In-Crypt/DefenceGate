@@ -78,11 +78,12 @@ def test_the_details_reach_the_call_that_needed_them(conn, fs_store, monkeypatch
     pipeline.run_topic_details()
 
     row = conn.execute(
-        """SELECT budget, budget_scope, min_consortium_size, min_member_states,
+        """SELECT budget, budget_scope, currency, min_consortium_size, min_member_states,
                   eligibility_text, conditions_raw, details_hash, details_seen_at
              FROM call""").fetchone()
     assert float(row["budget"]) == 30_000_000.0
     assert row["budget_scope"] == "topic"
+    assert row["currency"] == "EUR"          # a budget without its currency is not a sum
     assert (row["min_consortium_size"], row["min_member_states"]) == (3, 2)
     assert "at least 3 organisations" in row["eligibility_text"]
     assert row["conditions_raw"]["expected_grants"] == 2
