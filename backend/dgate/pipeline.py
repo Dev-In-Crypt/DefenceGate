@@ -30,6 +30,7 @@ from .config import settings
 from .normalise import (
     Opportunity,
     from_atlas_pl,
+    from_bdns,
     from_boamp,
     from_eu_call,
     from_ezamowienia,
@@ -37,7 +38,7 @@ from .normalise import (
     strip_personal_data,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
-from .sources import boamp, eu_portal, ezamowienia, placsp, ted
+from .sources import bdns, boamp, eu_portal, ezamowienia, placsp, ted
 
 log = logging.getLogger("pipeline")
 
@@ -257,6 +258,93 @@ def run_eu_portal() -> None:
             raise
     log.info("%s done: %s calls in scope, %s new, %s changed, %s payloads landed",
              code, fetched, new, changed, landed)
+
+
+def run_bdns(days: int = 14, since: date | None = None) -> None:
+    """Daily pull of the Spanish subsidy register, central government only.
+
+    Search is walked in full, because it is cheap and a classifier that changes
+    must be able to look at calls that were once passed over; the detail record --
+    one request each, a second apart -- is fetched only for the calls that could
+    matter, plus every call already held that can still change. A call is kept
+    only if `bdns.in_scope` says a supplier could answer it.
+
+    Calls only. Awards name the people who received them, and the register restricts
+    reuse of that to control and research.
+    """
+    code = bdns.SOURCE_CODE
+    cfg = settings()
+    start = since or bdns.window_start(days)
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        known = {row["content_hash"] for row in conn.execute(
+            "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
+        fetched = new = changed = landed = failed = 0
+        client = bdns._client()
+        try:
+            rows = list(bdns.search_central(start, client=client))
+            fetched = len(rows)
+            wanted: dict[str, None] = {}
+            for row in rows:
+                number = str(row.get("numeroConvocatoria") or "")
+                clean = strip_personal_data(row)
+                h = ted.content_hash(clean)
+                if number and h not in known:
+                    key = _store_raw(code, number, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, number, h, key)
+                    known.add(h)
+                    landed += 1
+                if number and bdns.is_candidate(row):
+                    wanted[number] = None
+            for held in conn.execute(
+                    """SELECT c.native_id FROM call c JOIN source s ON s.id = c.source_id
+                        WHERE s.code = %s AND c.status IN ('open', 'forthcoming')""",
+                    (code,)).fetchall():
+                wanted[held["native_id"]] = None
+            log.info("%s: %s calls scanned since %s, %s details to read", code, fetched,
+                     start, len(wanted))
+            for done, number in enumerate(wanted, 1):
+                try:
+                    detail = bdns.fetch_detail(number, client=client)
+                except Exception as exc:
+                    # One call that cannot be read is not the run.
+                    log.warning("%s: call %s could not be read: %s", code, number, exc)
+                    failed += 1
+                    continue
+                clean = strip_personal_data(detail)
+                h = ted.content_hash(clean)
+                if h not in known:
+                    key = _store_raw(code, number, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, number, h, key)
+                    known.add(h)
+                    landed += 1
+                if bdns.in_scope(clean):
+                    try:
+                        call = from_bdns(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed call: %s", exc)
+                        continue
+                    _, action, _ = db.upsert_call(conn, call, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
+                _checkpoint(conn, code, done, new, changed, every=25,
+                            writer=writer, run_id=run_id)
+                time.sleep(bdns.REQUEST_PAUSE)
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="partial" if failed and not new and not changed else "success",
+                          error=f"{failed} calls unreadable" if failed else None)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+        finally:
+            client.close()
+    log.info("%s done: %s scanned, %s new, %s changed, %s payloads landed, %s unreadable",
+             code, fetched, new, changed, landed, failed)
 
 
 def run_topic_details(limit: int | None = None, refresh_after_days: int = 7) -> None:
@@ -879,6 +967,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("calls", help="refresh the EU grant calendar (calls for proposals)")
 
+    bd = sub.add_parser("bdns", help="refresh the Spanish subsidy calls (BDNS, central government)")
+    bd.add_argument("--days", type=int, default=14)
+    bd.add_argument("--since", type=date.fromisoformat, default=None,
+                    help="first registration day, YYYY-MM-DD; for the initial load")
+
     td = sub.add_parser("topics", help="read the topic page of every call that needs one")
     td.add_argument("--limit", type=int, default=None, help="stop after this many pages")
     td.add_argument("--refresh-after-days", type=int, default=7,
@@ -923,6 +1016,8 @@ def main(argv: list[str] | None = None) -> int:
         run_boamp(days=a.days)
     elif a.cmd == "calls":
         run_eu_portal()
+    elif a.cmd == "bdns":
+        run_bdns(days=a.days, since=a.since)
     elif a.cmd == "topics":
         run_topic_details(limit=a.limit, refresh_after_days=a.refresh_after_days)
     elif a.cmd == "atlas-pl":

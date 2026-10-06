@@ -474,7 +474,7 @@ def record_raw(
 CALL_FIELDS = [
     "topic_code", "call_identifier", "title", "budget", "opens_at", "deadline_at",
     "min_consortium_size", "min_member_states", "eligibility_text", "status",
-    "type_of_action", "regime", "source_url", "country", "issuer",
+    "type_of_action", "regime", "source_url", "country", "issuer", "budget_scope",
 ]
 
 # Fields a source may simply not supply. The EU calendar knows no budget, no
@@ -485,7 +485,7 @@ CALL_FIELDS = [
 # deadline moved, the calendar's None overwrote the budget the topic page had
 # supplied, and the page was not read again until it changed itself.
 OPTIONAL_CALL_FIELDS = {"budget", "min_consortium_size", "min_member_states",
-                        "eligibility_text", "country", "issuer",
+                        "eligibility_text", "country", "issuer", "budget_scope",
                         "conditions_raw", "eligibility_parsed"}
 
 

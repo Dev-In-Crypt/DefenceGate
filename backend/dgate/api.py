@@ -48,6 +48,7 @@ ATTRIBUTION = {
     "es_placsp": "Source: Plataforma de Contratación del Sector Público, "
                  "Ministerio de Hacienda, Spain",
     "eu_portal": "Source: European Commission, Funding and Tenders Portal",
+    "es_bdns": "Fuente: Base de Datos Nacional de Subvenciones (BDNS), Intervencion General de la Administracion del Estado, Ministerio de Hacienda",
 }
 
 
@@ -328,6 +329,11 @@ class CallOut(BaseModel):
     # whether to start writing needs the number, not the date arithmetic.
     days_left: int | None
     source_url: str | None
+    # National sources only: the ISO-2 country of the issuing body and the body
+    # itself as the source names it. An EU programme call has neither -- it is
+    # open to every member state.
+    country: str | None = None
+    issuer: str | None = None
     first_seen_at: datetime
     last_seen_at: datetime
     attribution: str
@@ -337,8 +343,10 @@ CALL_SELECT = """
     SELECT c.id, p.code AS programme, c.native_id, c.topic_code, c.call_identifier,
            c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope,
            c.min_consortium_size, c.min_member_states, c.opens_at, c.deadline_at,
-           c.source_url, c.first_seen_at, c.last_seen_at
+           c.source_url, c.country, c.issuer, c.first_seen_at, c.last_seen_at,
+           s.code AS source_code
       FROM call c JOIN programme p ON p.id = c.programme_id
+      LEFT JOIN source s ON s.id = c.source_id
 """
 
 
@@ -365,9 +373,11 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         deadline_at=deadline,
         days_left=days_left,
         source_url=r.get("source_url"),
+        country=r.get("country"),
+        issuer=r.get("issuer"),
         first_seen_at=r["first_seen_at"],
         last_seen_at=r["last_seen_at"],
-        attribution=ATTRIBUTION["eu_portal"],
+        attribution=ATTRIBUTION.get(r.get("source_code") or "", ATTRIBUTION["eu_portal"]),
     )
 
 
@@ -382,6 +392,8 @@ def list_calls(
     status: str = Query("open", pattern="^(open|forthcoming|closed|evaluated|all)$"),
     deadline_before: date | None = None,
     deadline_after: date | None = None,
+    country: str | None = Query(None, description="comma-separated ISO-2 of the issuing body; "
+                                                 "national grants only, EU programmes have none"),
     limit: int = Query(50, le=200),
     offset: int = 0,
     conn=Depends(get_conn),
@@ -404,6 +416,9 @@ def list_calls(
         codes = [c.strip().upper() for c in programme.split(",") if c.strip()]
         where.append("p.code = ANY(%s)")
         params.append(codes)
+    if country:
+        where.append("c.country = ANY(%s)")
+        params.append([c.strip().upper() for c in country.split(",") if c.strip()])
     if deadline_after:
         where.append("c.deadline_at >= %s")
         params.append(deadline_after)

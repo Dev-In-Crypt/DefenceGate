@@ -29,6 +29,7 @@ from . import db
 from .config import settings
 from .ops.notify import notify, ping
 from .pipeline import (
+    run_bdns,
     run_boamp,
     run_eu_portal,
     run_ezamowienia,
@@ -156,6 +157,15 @@ def job_eu_portal(days: int | None = None) -> JobResult:
     return run_job("eu_portal_daily", run_eu_portal, sources=["eu_portal"])
 
 
+def job_bdns(days: int | None = None) -> JobResult:
+    """The Spanish subsidy calls. The window is at least a fortnight whatever the
+    catch-up asks for: registrations are scanned in full and the cost of a wider
+    window is a few pages of search, while a narrower one would miss a call that
+    was registered late."""
+    window = max(days or 0, 14)
+    return run_job("bdns_daily", lambda: run_bdns(days=window), sources=["es_bdns"])
+
+
 def job_eu_topics() -> JobResult:
     """The topic pages behind the calls.
 
@@ -267,6 +277,7 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
         "ezamowienia_daily": (job_ezamowienia, (ezam_source(),)),
         "boamp_daily": (job_boamp, ("fr_boamp",)),
         "eu_portal_daily": (job_eu_portal, ("eu_portal",)),
+        "bdns_daily": (job_bdns, ("es_bdns",)),
     }
 
 
@@ -309,6 +320,7 @@ def hours_since_last_slot(name: str) -> float:
         "ezamowienia_daily": (cfg.ezam_hour, cfg.ezam_minute),
         "boamp_daily": (cfg.boamp_hour, cfg.boamp_minute),
         "eu_portal_daily": (cfg.eu_portal_hour, cfg.eu_portal_minute),
+        "bdns_daily": (cfg.bdns_hour, cfg.bdns_minute),
         "backup_nightly": (cfg.backup_hour, 0),
     }[name]
     now = _now()
@@ -648,6 +660,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "ezamowienia": job_ezamowienia,
     "boamp": job_boamp,
     "calls": job_eu_portal,
+    "bdns": job_bdns,
     "topics": job_eu_topics,
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
@@ -682,6 +695,8 @@ def build_scheduler():
     sched.add_job(job_eu_topics,
                   CronTrigger(hour=cfg.eu_topics_hour, minute=cfg.eu_topics_minute),
                   id="eu_topics_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_bdns, CronTrigger(hour=cfg.bdns_hour, minute=cfg.bdns_minute),
+                  id="bdns_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
@@ -715,6 +730,8 @@ def describe_schedule() -> list[str]:
         f"(grant calls: open, forthcoming, and closed this year)",
         f"eu_topics      {cfg.eu_topics_hour:02d}:{cfg.eu_topics_minute:02d} UTC  "
         f"(topic pages: budget, conditions, consortium rules)",
+        f"bdns_daily     {cfg.bdns_hour:02d}:{cfg.bdns_minute:02d} UTC  "
+        f"(Spanish subsidy calls, central government)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
            f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]

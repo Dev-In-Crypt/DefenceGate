@@ -877,6 +877,9 @@ class Call:
     # call is open to every member state -- and leaves both None.
     country: str | None = None
     issuer: str | None = None
+    # Whose budget `budget` is: `call` when it is the pot the call competes for.
+    # None from a source that does not say; the EU topic page sets it later.
+    budget_scope: str | None = None
 
 
 # The portal's status vocabulary, mapped to the one the `call` table declares.
@@ -931,4 +934,45 @@ def from_eu_call(record: dict[str, Any]) -> Call:
         source_url=portal.topic_url(record),
         type_of_action=type_of_action,
         cpv_codes=[str(c) for c in (record.get("additionalCpvs") or []) if c],
+    )
+
+
+# ------------------------------------------------------ grants: Spain (BDNS)
+
+def from_bdns(detail: dict[str, Any], *, today: date | None = None) -> Call:
+    """Map one BDNS call, in its detail form, to a Call.
+
+    A Spanish call title is a legal citation -- "Resolucion de 11 de junio de 2026
+    de la Direccion General del CDTI, por la que se aprueba..." -- so the title is
+    that, truncated, and the issuing body is carried separately, because it is the
+    first thing anybody asks about a call that names no programme.
+    """
+    from .sources import bdns
+
+    number = detail.get("codigoBDNS") or detail.get("numeroConvocatoria")
+    if not number:
+        raise ValueError("call has no BDNS code")
+    title = " ".join((detail.get("descripcion") or "").split())
+    if not title:
+        raise ValueError(f"call {number} has no description")
+    organ = detail.get("organo") or {}
+    budget = detail.get("presupuestoTotal")
+
+    return Call(
+        programme_code="ES-BDNS",
+        native_id=str(number),
+        title=title[:500],
+        topic_code=str(number),
+        budget=float(budget) if budget not in (None, "") else None,
+        budget_scope="call" if budget not in (None, "") else None,
+        opens_at=bdns.opens_at(detail),
+        deadline_at=bdns.deadline(detail),
+        eligibility_text=bdns.eligibility_text(detail) or None,
+        conditions_raw=bdns.conditions(detail),
+        status=bdns.status(detail, today=today),
+        regime=bdns.regime(detail),
+        source_url=bdns.call_url(number),
+        type_of_action=detail.get("tipoConvocatoria"),
+        country="ES",
+        issuer=" / ".join(p for p in (organ.get("nivel2"), organ.get("nivel3")) if p) or None,
     )
