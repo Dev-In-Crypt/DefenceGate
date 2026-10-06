@@ -229,3 +229,33 @@ def test_the_conditions_are_served_on_the_single_call(conn, fs_store, monkeypatc
         assert one["conditions"]["expected_grants"] == 2
         assert one["details_seen_at"] is not None
         assert client.get("/v1/calls/999999").status_code == 404
+
+
+def test_a_moved_deadline_does_not_wipe_what_the_topic_page_supplied(conn, fs_store, monkeypatch):
+    """The calendar does not know the budget, the conditions or the consortium rule,
+    so the Call it produces carries None for all of them. The update used to write
+    those Nones over what the topic page had filled in -- on exactly the event this
+    table exists to catch, a deadline that moves -- and the page is not read again
+    until it changes itself, so the budget stayed NULL for good."""
+    _calendar(monkeypatch, [_calendar_topic(1, "EDF-2026-RA-SENS-MSDT")])
+    pipeline.run_eu_portal()
+    monkeypatch.setattr(portal, "fetch_topic_details",
+                        lambda ident, client=None: _details(ident, states=True))
+    pipeline.run_topic_details()
+    before = conn.execute(
+        """SELECT budget, eligibility_text, conditions_raw, min_consortium_size,
+                  min_member_states FROM call""").fetchone()
+    assert before["budget"] is not None and before["conditions_raw"] is not None
+
+    moved = _calendar_topic(1, "EDF-2026-RA-SENS-MSDT")
+    moved["actions"][0]["deadlineDates"] = ["1790985600000"]          # four days later
+    _calendar(monkeypatch, [moved])
+    pipeline.run_eu_portal()
+
+    after = conn.execute(
+        """SELECT budget, eligibility_text, conditions_raw, min_consortium_size,
+                  min_member_states, deadline_at FROM call""").fetchone()
+    assert after["deadline_at"].day != 29                              # the move was applied
+    for column in ("budget", "eligibility_text", "conditions_raw",
+                   "min_consortium_size", "min_member_states"):
+        assert after[column] == before[column], column

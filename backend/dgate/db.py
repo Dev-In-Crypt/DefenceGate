@@ -474,8 +474,19 @@ def record_raw(
 CALL_FIELDS = [
     "topic_code", "call_identifier", "title", "budget", "opens_at", "deadline_at",
     "min_consortium_size", "min_member_states", "eligibility_text", "status",
-    "type_of_action", "regime", "source_url",
+    "type_of_action", "regime", "source_url", "country", "issuer",
 ]
+
+# Fields a source may simply not supply. The EU calendar knows no budget, no
+# conditions and no consortium rule -- the topic page does -- and a national
+# source may not know a country or an issuer. A Call carrying None for one of
+# these means "this document does not say", not "there is none", so an update
+# never writes it over what is already there. Writing it did exactly that: when a
+# deadline moved, the calendar's None overwrote the budget the topic page had
+# supplied, and the page was not read again until it changed itself.
+OPTIONAL_CALL_FIELDS = {"budget", "min_consortium_size", "min_member_states",
+                        "eligibility_text", "country", "issuer",
+                        "conditions_raw", "eligibility_parsed"}
 
 
 def programme_id(conn: psycopg.Connection, code: str, name: str | None = None) -> int:
@@ -539,12 +550,15 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
     before = conn.execute(
         f"SELECT {', '.join(CALL_FIELDS)} FROM call WHERE id = %s", (call_id,)
     ).fetchone()
-    changed = [f for f in CALL_FIELDS if _jsonable(before.get(f)) != _jsonable(getattr(call, f))]
-    assignments = ", ".join(f"{f} = %s" for f in values)
+    supplied = {name: value for name, value in values.items()
+                if not (name in OPTIONAL_CALL_FIELDS and value is None)}
+    changed = [f for f in CALL_FIELDS
+               if f in supplied and _jsonable(before.get(f)) != _jsonable(getattr(call, f))]
+    assignments = ", ".join(f"{f} = %s" for f in supplied)
     conn.execute(
         f"UPDATE call SET {assignments}, content_hash = %s, source_id = %s, "
         f"last_seen_at = now() WHERE id = %s",
-        [*values.values(), content_hash, src_id, call_id],
+        [*supplied.values(), content_hash, src_id, call_id],
     )
     if "deadline_at" in changed:
         log.warning("call %s deadline moved: %s -> %s", call.topic_code or call.native_id,

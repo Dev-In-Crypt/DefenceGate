@@ -873,6 +873,10 @@ class Call:
     source_url: str | None = None
     type_of_action: str | None = None
     cpv_codes: list[str] = field(default_factory=list)
+    # National sources: whose money this is. An EU programme has neither -- the
+    # call is open to every member state -- and leaves both None.
+    country: str | None = None
+    issuer: str | None = None
 
 
 # The portal's status vocabulary, mapped to the one the `call` table declares.
