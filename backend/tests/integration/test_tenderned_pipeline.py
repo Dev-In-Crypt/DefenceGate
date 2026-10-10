@@ -138,3 +138,38 @@ def test_a_dutch_day_of_history_lands_as_one_bundle_and_is_marked_done(
         "SELECT storage_key FROM raw_ingest ORDER BY id").fetchall()]
     assert keys[0].startswith("nl_tenderned/2026/01/05/bundle-0000") and "#0" in keys[0]
     assert conn.execute("SELECT count(*) n FROM opportunity").fetchone()["n"] == 2
+
+
+def test_a_detail_page_that_fails_one_night_does_not_strip_an_archived_notice(
+        conn, fs_store, monkeypatch):
+    """Night one lands the notice with its CPV codes. Night two the detail page is
+    unreadable. A thin copy would append a version with the codes emptied, and on
+    night three the full record's hash would match the older version and be skipped,
+    so the loss would be permanent."""
+    _feed(monkeypatch, [_record("1", cpv="35700000")])
+    pipeline.run_tenderned(days=2)
+    _feed(monkeypatch, [_record("1", detail=False)])
+    pipeline.run_tenderned(days=2)
+    _feed(monkeypatch, [_record("1", cpv="35700000")])
+    pipeline.run_tenderned(days=2)
+
+    row = conn.execute("SELECT cpv_codes FROM opportunity").fetchone()
+    assert row["cpv_codes"] == ["35700000"]
+    assert conn.execute("SELECT count(*) n FROM opportunity_version").fetchone()["n"] == 1
+    # The unreadable page of an already archived notice is not a thin record, so the run
+    # is not reported as one (the floor, not the page, is what makes a test run partial).
+    runs = conn.execute(
+        """SELECT r.error_message FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE s.code = 'nl_tenderned' ORDER BY r.id""").fetchall()
+    assert all("detail page" not in (r["error_message"] or "") for r in runs)
+
+
+def test_a_history_day_with_a_thin_notice_says_so(conn, fs_store, monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setattr(tenderned, "fetch_day",
+                        lambda day, **kw: iter([_record("20"), _record("21", detail=False)]))
+    with caplog.at_level(logging.WARNING, logger="pipeline"):
+        pipeline.run_history("nl_tenderned", date(2026, 1, 5), date(2026, 1, 5))
+    assert "1 of 2 notices landed without their detail page" in caplog.text
+    assert db.backfill_days_done(conn, "nl_tenderned") == {date(2026, 1, 5)}

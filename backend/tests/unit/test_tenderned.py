@@ -196,3 +196,25 @@ def test_a_directive_notice_is_defence_with_the_legal_basis_alone():
     assert classify(legal_basis=opp.legal_basis, cpv_codes=opp.cpv_codes,
                     buyer_is_defence=False, security_clearance_text=None,
                     nda_required=False).is_defence
+
+
+def test_a_day_that_is_still_growing_today_is_left_for_tomorrow():
+    """Today is still being published: the count moves between two pages. A short
+    list for today is not a hole, and aborting the whole run for it would flap nightly."""
+    client = _Client([{"publicatieId": "1"}], total=2)
+    got = list(nl.fetch_window(days_back=0, client=client, today=date(2026, 10, 10)))
+    assert got == []
+
+
+def test_a_short_day_that_is_not_today_is_still_an_error():
+    client = _Client([{"publicatieId": "1"}], total=2)
+    with pytest.raises(RuntimeError, match="not complete"):
+        list(nl.fetch_window(days_back=1, client=client, today=date(2026, 10, 10)))
+
+
+def test_a_field_that_arrives_as_a_string_is_not_a_crash():
+    record = {**UNIVERSITY_LIST, "procedure": "Openbaar", "typePublicatie": "AAO",
+              "publicatiecode": "EF16", "detail": {"juridischKaderCode": "DEF",
+                                                   "cpvCodes": "34000000-7"}}
+    opp = from_tenderned(record)
+    assert (opp.legal_basis, opp.cpv_codes, opp.status) == (None, [], "unknown")

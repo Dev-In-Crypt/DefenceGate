@@ -147,3 +147,35 @@ def test_the_landed_payload_carries_no_contact_person(conn, fs_store, monkeypatc
     key = conn.execute("SELECT storage_key FROM raw_ingest").fetchone()["storage_key"]
     landed = json.dumps(build_store().get(key), ensure_ascii=False)
     assert "per.persson@vinnova.se" not in landed and "KontaktLista" not in landed
+
+
+def test_a_call_whose_deadline_passes_closes_though_its_payload_did_not_change(
+        conn, fs_store, monkeypatch):
+    """The register states dates, not a status, so the status is worked out against
+    today. The payload of a round is byte-identical the night after its deadline, the
+    hash is the same, and the stored status used to stay `open` for good."""
+    _register(monkeypatch, [OPEN])
+    pipeline.run_vinnova()
+    assert conn.execute("SELECT status FROM call").fetchone()["status"] == "open"
+
+    monkeypatch.setattr(vinnova, "status", lambda record, now=None: "closed")
+    pipeline.run_vinnova()
+    assert conn.execute("SELECT status FROM call").fetchone()["status"] == "closed"
+    last = conn.execute(
+        """SELECT records_changed FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE s.code = 'se_vinnova' ORDER BY r.id DESC LIMIT 1""").fetchone()
+    assert last["records_changed"] == 1
+
+
+def test_a_register_in_which_no_round_matches_a_programme_is_a_failed_run(
+        conn, fs_store, monkeypatch):
+    """Every round fetched and none recognised is a renamed programme or a broken
+    join, not a quiet night. It must not end as `success` with nothing new."""
+    unjoined = [{**OTHER, "program": None, "utlysning": None}]
+    _register(monkeypatch, unjoined)
+    with pytest.raises(RuntimeError, match="none of 1 rounds belongs to a defence programme"):
+        pipeline.run_vinnova()
+    run = conn.execute(
+        """SELECT r.status FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE s.code = 'se_vinnova'""").fetchone()
+    assert run["status"] == "failed"

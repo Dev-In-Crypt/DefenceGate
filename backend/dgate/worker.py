@@ -765,7 +765,7 @@ def describe_schedule() -> list[str]:
         f"(every notice, one publication day at a time)",
         f"vinnova_daily  {cfg.vinnova_hour:02d}:{cfg.vinnova_minute:02d} UTC  "
         f"(Swedish defence-programme calls, the whole register)",
-        f"tenderned     {cfg.tenderned_hour:02d}:{cfg.tenderned_minute:02d} UTC  "
+        f"tenderned_daily {cfg.tenderned_hour:02d}:{cfg.tenderned_minute:02d} UTC  "
         f"(every publication and its detail page, one day at a time)",
         f"eu_portal      {cfg.eu_portal_hour:02d}:{cfg.eu_portal_minute:02d} UTC  "
         f"(grant calls: open, forthcoming, and closed this year)",

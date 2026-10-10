@@ -168,9 +168,20 @@ def fetch_window(days_back: int = 2, *, client: httpx.Client | None = None,
         for offset in range(days_back, -1, -1):
             day = today - timedelta(days=offset)
             count = 0
-            for record in fetch_day(day, client=client):
-                count += 1
-                yield record
+            try:
+                for record in fetch_day(day, client=client):
+                    count += 1
+                    yield record
+            except RuntimeError as exc:
+                # Today is still being published: the count the API states moves between
+                # two pages, and a list that is a few rows short of it is not a hole. The
+                # window of the next run contains this day as yesterday, and a short
+                # yesterday is still an error.
+                if offset != 0:
+                    raise
+                log.warning("%s: %s is still changing, left for tomorrow: %s",
+                            SOURCE_CODE, day, exc)
+                continue
             log.info("%s: %s publications on %s", SOURCE_CODE, count, day)
     finally:
         if owns:

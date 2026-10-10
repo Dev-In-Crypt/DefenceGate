@@ -223,3 +223,23 @@ def test_contact_persons_are_removed_before_landing():
     clean = strip_personal_data(OPEN)
     assert "KontaktLista" not in clean
     assert "per.persson@vinnova.se" not in json.dumps(clean)
+
+
+@pytest.mark.parametrize("text,amount", [
+    ("Budgeten för utlysningen är 5 mkr.", 5_000_000.0),
+    ("Den totala budgeten är 5 Mkr", 5_000_000.0),
+    ("Utlysningens budget är 10 MSEK", 10_000_000.0),
+    ("Budget: 2 mnkr", 2_000_000.0),
+    ("Den totala budgeten är 1,5 miljoner kronor", 1_500_000.0),
+])
+def test_the_short_units_are_read(text, amount):
+    """`mkr`, `msek` and `mnkr` are the unit and the currency at once. The first pattern
+    required a currency word after them, which none of them has, so all three were dead."""
+    assert se.parse_total_budget(text) == amount
+
+
+def test_a_budget_stated_as_projects_times_a_ceiling_is_not_read_as_the_sum():
+    """"30 projects at 2 million each" -- the 2 million is a ceiling per project. The
+    digit before it is what stops the pattern."""
+    assert se.parse_total_budget(
+        "Utlysningens budget är 30 projekt à 2 miljoner kronor.") is None

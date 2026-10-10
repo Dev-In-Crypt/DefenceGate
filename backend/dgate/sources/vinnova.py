@@ -74,9 +74,13 @@ _CIVIL_DEFENCE = re.compile(r"civilt f[oö]rsvar|totalf[oö]rsvar|civil defen[cs
 # defence programme. It is listed by name: nothing else in the register is added by it.
 _AERONAUTICS = re.compile(r"flygtekniska forskningsprogram|national aeronautic", re.I)
 
+# A digit may not sit between "budget" and the sum: "budget ... 30 projekt a 2 miljoner
+# kronor" is a ceiling per project and must not be read as the call's budget. The unit
+# is itself the currency in "5 mkr" and "10 MSEK"; "miljoner" is followed by "kronor".
 _MONEY = re.compile(
-    r"budget\w*[^.\n]{0,80}?(?P<num>\d[\d\s ]*(?:[.,]\d+)?)\s*"
-    r"(?P<unit>miljoner|miljon|miljarder|mnkr|msek|mkr)?\s*(?:kronor|kr|sek)\b", re.I)
+    r"budget\w*[^.\d\n]{0,80}?(?P<num>\d[\d\s\u00a0]*(?:[.,]\d+)?)\s*"
+    r"(?:(?P<unit>miljoner|miljon|miljarder|mnkr|msek|mkr)\b\s*(?:kronor|kr|sek)?"
+    r"|(?:kronor|kr|sek)\b)", re.I)
 _UNITS = {"miljoner": 1e6, "miljon": 1e6, "mnkr": 1e6, "msek": 1e6, "mkr": 1e6, "miljarder": 1e9}
 
 

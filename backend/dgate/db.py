@@ -522,7 +522,7 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
     """
     prog_id = programme_id(conn, call.programme_code)
     existing = conn.execute(
-        """SELECT id, content_hash FROM call
+        """SELECT id, content_hash, status FROM call
             WHERE programme_id = %s AND native_id = %s""",
         (prog_id, call.native_id),
     ).fetchone()
@@ -545,8 +545,15 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
 
     call_id = int(existing["id"])
     if existing["content_hash"] == content_hash:
-        conn.execute("UPDATE call SET last_seen_at = now() WHERE id = %s", (call_id,))
-        return call_id, "unchanged", []
+        # The status is not always in the payload. Spain's and Sweden's registers state
+        # dates, and the status is worked out from them against today; an unchanged
+        # payload on the night after a deadline is therefore a call that has closed.
+        # Left alone here, a call stayed `open` for good, because nothing in the payload
+        # ever moved to make the hash differ.
+        moved = call.status is not None and call.status != existing["status"]
+        conn.execute("UPDATE call SET last_seen_at = now(), status = COALESCE(%s, status) "
+                     "WHERE id = %s", (call.status, call_id))
+        return (call_id, "changed", ["status"]) if moved else (call_id, "unchanged", [])
 
     before = conn.execute(
         f"SELECT {', '.join(CALL_FIELDS)} FROM call WHERE id = %s", (call_id,)

@@ -220,8 +220,9 @@ def run_tenderned(days: int = 2) -> None:
 
     Same shape as France: land everything, classify afterwards. The defence
     directive is stated by the form, so the legal-basis signal comes from the
-    source. A publication whose detail page could not be read is still landed,
-    and makes the run `partial` -- thinner than the rest, and said so.
+    source. A publication seen for the first time whose detail page could not be
+    read is still landed, and makes the run `partial` -- thinner than the rest, and
+    said so. One already archived is left as it is: see below.
     """
     code = tenderned.SOURCE_CODE
     cfg = settings()
@@ -233,9 +234,22 @@ def run_tenderned(days: int = 2) -> None:
         try:
             for record in tenderned.fetch_window(days_back=days):
                 fetched += 1
-                thin += "detailError" in record
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
+                if "detailError" in record:
+                    # A notice already archived keeps what it has. Landing a thin copy
+                    # of it would append a version with its CPV codes emptied, and when
+                    # the page came back the full record's hash would match that older
+                    # version and be skipped, so the loss would be permanent. One seen
+                    # for the first time is landed thin and counted, once: from the
+                    # next night it is known and the page is tried again.
+                    pid = str(record.get("publicatieId") or "")
+                    if conn.execute("SELECT 1 FROM raw_ingest WHERE source_id = %s "
+                                    "AND native_id = %s LIMIT 1", (src_id, pid)).fetchone():
+                        log.info("%s: detail page of %s unreadable tonight; kept as archived",
+                                 code, pid)
+                        continue
+                    thin += 1
                 clean = strip_personal_data(record)
                 h = ted.content_hash(clean)
                 try:
@@ -391,7 +405,7 @@ def run_vinnova() -> None:
         run_id = db.start_run(conn, code, settings().floor(code))
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
-        fetched = new = changed = landed = 0
+        fetched = new = changed = landed = matched = 0
         try:
             for record in vinnova.fetch_all():
                 fetched += 1
@@ -399,6 +413,11 @@ def run_vinnova() -> None:
                             writer=writer, run_id=run_id)
                 dnr = record.get("Diarienummer") or ""
                 clean = strip_personal_data(record)
+                if vinnova.regime(clean) is not None:
+                    matched += 1
+                    if int(clean.get("Publik") or 0) == 1 and vinnova.deadline(clean) is None:
+                        log.warning("%s: round %s of a defence programme has no closing "
+                                    "date and is not kept", code, dnr)
                 h = ted.content_hash(clean)
                 if dnr and h not in known:
                     key = _store_raw(code, dnr, clean, writer, content_hash=h)
@@ -415,6 +434,13 @@ def run_vinnova() -> None:
                 _, action, _ = db.upsert_call(conn, call, h, src_id)
                 new += action == "new"
                 changed += action == "changed"
+            if not matched:
+                # 3,800 rounds fetched and none in a defence programme is not a quiet
+                # night: the programme titles or the join to them changed, and every
+                # call already stored would go on being touched while nothing new came.
+                raise RuntimeError(
+                    f"{code}: none of {fetched} rounds belongs to a defence programme; "
+                    f"the programme titles or the call/programme join changed")
             writer.drain()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
         except Exception as exc:
@@ -636,7 +662,7 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
         for day in pending:
             if max_days is not None and loaded >= max_days:
                 break
-            fetched = new = 0
+            fetched = new = thin = 0
             try:
                 for part, chunk in enumerate(_in_chunks(fetch_day(day), BUNDLE_CHUNK)):
                     cleaned = [strip_personal_data(notice) for notice in chunk]
@@ -647,6 +673,7 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
                             f"bundle {key} holds {stored} records, not {len(cleaned)}")
                     for line, clean in enumerate(cleaned):
                         fetched += 1
+                        thin += "detailError" in clean
                         h = ted.content_hash(clean)
                         try:
                             opp = mapper(clean)
@@ -668,6 +695,13 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
                 # bundle it rewrites is byte-for-byte the same object.
                 conn.rollback()
                 raise
+            if thin:
+                # Marked done all the same, so a backfill is not stalled for ever by one
+                # withdrawn page; the payloads carry `detailError`, which is how they are
+                # found again.
+                log.warning("%s history %s: %s of %s notices landed without their detail "
+                            "page (see `detailError` in the raw payload)",
+                            source_code, day, thin, fetched)
             db.mark_backfill_day(conn, source_code, day, fetched)
             loaded += 1
             log.info("%s history %s: %s notices, %s defence", source_code, day, fetched, new)

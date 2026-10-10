@@ -720,7 +720,8 @@ _NL_STATUS = {
 
 def _nl_cpv(detail: dict[str, Any]) -> list[str]:
     codes: list[str] = []
-    for entry in detail.get("cpvCodes") or []:
+    listed = detail.get("cpvCodes")
+    for entry in listed if isinstance(listed, list) else []:
         code = str(entry.get("code") if isinstance(entry, dict) else entry or "")[:8]
         if code.isdigit() and code not in codes:
             codes.append(code)
@@ -740,10 +741,13 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
     native_id = record.get("publicatieId")
     if not native_id:
         raise ValueError("publication has no identifier")
-    detail = record.get("detail") if isinstance(record.get("detail"), dict) else {}
-    form = record.get("publicatiecode") or {}
-    kind = (record.get("typePublicatie") or {}).get("code") or ""
-    framework = (detail.get("juridischKaderCode") or {}).get("code")
+    def _dict(value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {}
+
+    detail = _dict(record.get("detail"))
+    form = _dict(record.get("publicatiecode"))
+    kind = _dict(record.get("typePublicatie")).get("code") or ""
+    framework = _dict(detail.get("juridischKaderCode")).get("code")
     defence = "defensierichtlijn" in str(form.get("omschrijving") or "").lower() \
         or framework == "DEF"
     description = record.get("opdrachtBeschrijving") or detail.get("opdrachtBeschrijving")
@@ -755,7 +759,7 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
         title_original=str(record.get("aanbestedingNaam") or "").strip(),
         country="NL",
         original_language="NL",
-        procedure_type=(record.get("procedure") or {}).get("omschrijving"),
+        procedure_type=_dict(record.get("procedure")).get("omschrijving"),
         legal_basis="32009L0081" if defence else None,
         published_at=_parse_date(record.get("publicatieDatum")),
         deadline_at=parse_iso_datetime(record.get("sluitingsDatum"),
