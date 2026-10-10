@@ -134,3 +134,21 @@ def test_a_source_without_a_historical_load_is_refused(conn, fs_store):
     at all, and pretending otherwise would record empty days as complete."""
     with pytest.raises(ValueError, match="no historical load"):
         pipeline.run_history("es_placsp", date(2026, 9, 1), date(2026, 9, 1))
+
+
+def test_the_attribution_the_source_row_states_reaches_the_api(conn, fs_store, monkeypatch):
+    """The credit line was a map in the API with four sources missing, so the French
+    bulletin (Licence Ouverte) was served with none. It is the source row's own now."""
+    from fastapi.testclient import TestClient
+
+    from dgate import api
+
+    record = {**_record("26-1", perimetre="DIRECTIVE-81"),
+              "datelimitereponse": "2030-01-01T12:00:00+00:00"}
+    monkeypatch.setattr(boamp, "fetch_window", lambda days_back=2: iter([record]))
+    pipeline.run_boamp(days=2)
+    conn.commit()
+    with TestClient(api.app) as client:
+        served = client.get("/v1/opportunities?scope=all").json()
+    assert [o["native_id"] for o in served] == ["26-1"]
+    assert served[0]["attribution"].startswith("Source: BOAMP")

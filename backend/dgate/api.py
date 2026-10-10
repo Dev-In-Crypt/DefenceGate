@@ -55,6 +55,19 @@ ATTRIBUTION = {
 }
 
 
+def _attribution(row: dict[str, Any], default: str = "") -> str:
+    """The credit line the source's own row states, so that adding a source cannot
+    leave it unattributed. The map above is the fallback for a row that carries none.
+
+    It used to be the map alone, and four sources were served with an empty line: the
+    Polish bulletin, the Polish tenders dataset (CC BY 4.0, where attribution is a
+    condition of the licence), the regional Spanish platforms and the French bulletin
+    (Licence Ouverte).
+    """
+    return (row.get("source_attribution")
+            or ATTRIBUTION.get(row.get("source_code") or "", default))
+
+
 def get_conn():
     with db.connect(settings().dsn) as conn:
         yield conn
@@ -135,7 +148,7 @@ def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
         security_clearance_required=bool(r.get("security_clearance_required")),
         source_url=r.get("source_url"),
         version=r.get("current_version") or 1,
-        attribution=ATTRIBUTION.get(r["source_code"], ""),
+        attribution=_attribution(r),
         scope="core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
         status=effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at")),
         status_native=r.get("status_native"),
@@ -192,7 +205,8 @@ SCOPE_SQL = {
 
 
 BASE_SELECT = """
-    SELECT o.*, s.code AS source_code, org.confidence AS org_confidence
+    SELECT o.*, s.code AS source_code, s.attribution AS source_attribution,
+           org.confidence AS org_confidence
       FROM opportunity o
       JOIN source s ON s.id = o.source_id
       LEFT JOIN organisation org ON org.id = o.buyer_org_id
@@ -350,7 +364,7 @@ CALL_SELECT = """
            c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope, c.currency,
            c.min_consortium_size, c.min_member_states, c.opens_at, c.deadline_at,
            c.source_url, c.country, c.issuer, c.first_seen_at, c.last_seen_at,
-           s.code AS source_code
+           s.code AS source_code, s.attribution AS source_attribution
       FROM call c JOIN programme p ON p.id = c.programme_id
       LEFT JOIN source s ON s.id = c.source_id
 """
@@ -384,7 +398,7 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         issuer=r.get("issuer"),
         first_seen_at=r["first_seen_at"],
         last_seen_at=r["last_seen_at"],
-        attribution=ATTRIBUTION.get(r.get("source_code") or "", ATTRIBUTION["eu_portal"]),
+        attribution=_attribution(r, default=ATTRIBUTION["eu_portal"]),
     )
 
 

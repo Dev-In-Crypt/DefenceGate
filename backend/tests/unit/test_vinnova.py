@@ -23,6 +23,7 @@ PROGRAMMES = [
      "TitelEngelska": "National Civil Defence Innovation Programme"},
     {"Diarienummer": "2023-00088", "Titel": "Nationella flygtekniska forskningsprogrammet",
      "TitelEngelska": "National Aeronautic Research Programme"},
+    {"Diarienummer": "2022-00100", "Titel": "6G", "TitelEngelska": "6G"},
 ]
 CALLS = [
     {"Diarienummer": "2024-01511", "DiarienummerProgram": "2024-01502",
@@ -31,6 +32,8 @@ CALLS = [
      "Titel": "Skyddsrum", "TitelEngelska": "x"},
     {"Diarienummer": "2023-00898", "DiarienummerProgram": "2023-00088",
      "Titel": "NFFP8", "TitelEngelska": "NFFP8"},
+    {"Diarienummer": "2025-00111", "DiarienummerProgram": "2022-00100",
+     "Titel": "6G-utlysning", "TitelEngelska": "6G call"},
 ]
 OPEN_ROUND = {
     "Diarienummer": "2026-01503", "DiarienummerUtlysning": "2024-01511",
@@ -62,8 +65,12 @@ AERO_ROUND = {**OPEN_ROUND, "Diarienummer": "2025-04680", "DiarienummerUtlysning
               "Titel": "Stärkt svensk flygteknisk forskning",
               "Oppningsdatum": "2026-01-13T00:00:00", "Stangningsdatum": "2026-03-17T14:00:00"}
 
-JOINED = se.join([OPEN_ROUND, INVITED_ROUND, CIVIL_DEFENCE_ROUND, AERO_ROUND], CALLS, PROGRAMMES)
-OPEN, INVITED, CIVIL, AERO = JOINED
+SIXG_ROUND = {**OPEN_ROUND, "Diarienummer": "2026-00900", "DiarienummerUtlysning": "2025-00111",
+              "Titel": "Rymdsektorn med AI och edge learning"}
+
+JOINED = se.join([OPEN_ROUND, INVITED_ROUND, CIVIL_DEFENCE_ROUND, AERO_ROUND, SIXG_ROUND],
+                 CALLS, PROGRAMMES)
+OPEN, INVITED, CIVIL, AERO, SIXG = JOINED
 TODAY = date(2026, 10, 10)
 
 
@@ -115,10 +122,11 @@ def test_an_empty_register_is_an_error_not_a_register_with_no_calls(monkeypatch)
 
 # ------------------------------------------------------------------ scope
 
-def test_the_publishers_two_defence_programmes_are_named_and_nothing_else_is():
+def test_the_defence_programmes_and_nffp_are_named_and_nothing_else_is():
     assert se.regime(OPEN) == "defence"
     assert se.regime(CIVIL) == "dual_use"
-    assert se.regime(AERO) is None            # mentions defence capability; does not name it
+    assert se.regime(AERO) == "dual_use"      # NFFP, by the owner's decision
+    assert se.regime(SIXG) is None            # a space round inside a civil programme
 
 
 def test_an_invited_only_round_is_not_one_a_supplier_can_answer():
@@ -208,7 +216,7 @@ def test_an_untranslated_title_falls_back_to_the_swedish_one():
 
 def test_a_round_outside_the_defence_programmes_is_refused():
     with pytest.raises(ValueError, match="not in a defence programme"):
-        from_vinnova(AERO, today=TODAY)
+        from_vinnova(SIXG, today=TODAY)
 
 
 def test_contact_persons_are_removed_before_landing():

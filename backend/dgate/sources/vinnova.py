@@ -17,7 +17,8 @@ close in 2026 or later and 46 are open.
 
 Four properties decided the design.
 
-1. **The publisher names its defence programmes, and there are two.** "Innovationsprogram-
+1. **The publisher names its defence programmes, and there are two** (and the
+   aeronautics programme NFFP is added to them, as dual use, by the owner's decision). "Innovationsprogram-
    met for civil-militara synergier" is run jointly with the Armed Forces and funds
    "needs-driven defence innovation"; "Nationellt innovationsprogram for civilt forsvar"
    is the civil half of total defence. In 2026 they hold seven rounds, five of them
@@ -67,6 +68,11 @@ REQUEST_PAUSE = 1.0
 _DEFENCE = re.compile(r"civil-milit|milit[aä]r|military", re.I)
 _CIVIL_DEFENCE = re.compile(r"civilt f[oö]rsvar|totalf[oö]rsvar|civil defen[cs]e|total defen[cs]e",
                             re.I)
+# NFFP, the national aeronautics research programme, added by the owner's decision on
+# 10 October 2026. Its calls name "defence capability" among the outcomes they expect
+# and are open to companies; the programme is aeronautics, so it is dual use and not a
+# defence programme. It is listed by name: nothing else in the register is added by it.
+_AERONAUTICS = re.compile(r"flygtekniska forskningsprogram|national aeronautic", re.I)
 
 _MONEY = re.compile(
     r"budget\w*[^.\n]{0,80}?(?P<num>\d[\d\s ]*(?:[.,]\d+)?)\s*"
@@ -146,12 +152,12 @@ def programme_title(record: dict[str, Any]) -> str:
 
 
 def regime(record: dict[str, Any]) -> str | None:
-    """`defence` for the civil-military programme, `dual_use` for civil defence, None
-    for everything else Vinnova funds."""
+    """`defence` for the civil-military programme, `dual_use` for civil defence and for
+    the aeronautics programme, None for everything else Vinnova funds."""
     title = programme_title(record)
     if _DEFENCE.search(title):
         return "defence"
-    if _CIVIL_DEFENCE.search(title):
+    if _CIVIL_DEFENCE.search(title) or _AERONAUTICS.search(title):
         return "dual_use"
     return None
 

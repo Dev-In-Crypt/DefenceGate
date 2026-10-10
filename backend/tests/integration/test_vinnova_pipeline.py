@@ -44,7 +44,7 @@ OPEN = _round("2026-01503", "Stärkt ekosystem för civil-militär innovationssa
               text="Den totala budgeten för utlysningen är 12 miljoner kronor.")
 INVITED = _round("2025-00979", "Extra omgång", publik=0)
 CIVIL = _round("2026-00496", "Test och evaluering", programme="civilt försvar")
-AERO = _round("2025-04680", "Flygteknisk forskning", programme="flygtekniska forskningsprogram")
+OTHER = _round("2025-04680", "Rymdsektorn", programme="sjätte generationens mobilnät")
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def _register(monkeypatch, records):
 
 
 def test_only_the_defence_programmes_public_rounds_become_calls(conn, fs_store, monkeypatch):
-    _register(monkeypatch, [OPEN, INVITED, CIVIL, AERO])
+    _register(monkeypatch, [OPEN, INVITED, CIVIL, OTHER])
     pipeline.run_vinnova()
 
     rows = conn.execute(
@@ -79,7 +79,7 @@ def test_only_the_defence_programmes_public_rounds_become_calls(conn, fs_store, 
 
 
 def test_everything_in_the_register_is_landed_even_what_is_not_kept(conn, fs_store, monkeypatch):
-    _register(monkeypatch, [OPEN, INVITED, CIVIL, AERO])
+    _register(monkeypatch, [OPEN, INVITED, CIVIL, OTHER])
     pipeline.run_vinnova()
     landed = conn.execute(
         "SELECT count(*) n FROM raw_ingest r JOIN source s ON s.id = r.source_id "
@@ -88,7 +88,7 @@ def test_everything_in_the_register_is_landed_even_what_is_not_kept(conn, fs_sto
 
 
 def test_a_second_night_lands_nothing_new_and_changes_nothing(conn, fs_store, monkeypatch):
-    _register(monkeypatch, [OPEN, INVITED, CIVIL, AERO])
+    _register(monkeypatch, [OPEN, INVITED, CIVIL, OTHER])
     pipeline.run_vinnova()
     pipeline.run_vinnova()
     assert conn.execute("SELECT count(*) n FROM raw_ingest").fetchone()["n"] == 4
