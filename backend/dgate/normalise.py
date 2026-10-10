@@ -38,6 +38,9 @@ PERSONAL_DATA_FIELDS = {
     # notice. Pseudonymous is still personal: it singles out an individual
     # across every notice they ever filed.
     "userId",
+    # Vinnova (Sweden). Named contact persons with telephone and address on every
+    # call and round.
+    "KontaktLista",
     # Atlas Przetargow (Poland, historical). Contractor identity, which is a
     # natural person on roughly a quarter of 2024 rows. The publisher already
     # pseudonymises those -- '[Osoba fizyczna]' for the name, a stable SHA-256
@@ -654,6 +657,50 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         status=_FR_STATUS.get(nature, "open"),
         status_native=f"{perimetre}/{nature}" if perimetre or nature else None,
         description=_fr_description(body),
+    )
+
+
+def from_vinnova(record: dict[str, Any], *, today: date | None = None) -> Call:
+    """Map one Vinnova application round to a Call.
+
+    The round is the unit because it carries the dates; its call and programme are
+    named in the payload. The title is the agency's English one where it wrote one.
+    """
+    from .sources import vinnova
+
+    native_id = record.get("Diarienummer")
+    if not native_id:
+        raise ValueError("round has no diarienummer")
+    if not record.get("Titel"):
+        raise ValueError(f"round {native_id} has no title")
+    chosen = vinnova.regime(record)
+    if chosen is None:
+        raise ValueError(f"round {native_id} is not in a defence programme")
+    text = vinnova.eligibility_text(record)
+    # Read from the Swedish original: the English text is a translation, and the pattern
+    # is the agency's Swedish wording ("totala budgeten for utlysningen ar ...").
+    amount = vinnova.parse_total_budget(" ".join(t["sv"] for t in vinnova.web_texts(record)))
+    now = (datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+           if today else None)
+
+    return Call(
+        programme_code="SE-VINNOVA",
+        native_id=str(native_id),
+        title=vinnova.title(record)[:500],
+        topic_code=str(native_id),
+        call_identifier=(record.get("utlysning") or {}).get("Diarienummer"),
+        budget=amount,
+        budget_scope="call" if amount is not None else None,
+        currency="SEK" if amount is not None else None,
+        opens_at=vinnova.opens_at(record),
+        deadline_at=vinnova.deadline(record),
+        eligibility_text=text or None,
+        conditions_raw=vinnova.conditions(record),
+        status=vinnova.status(record, now=now),
+        regime=chosen,
+        source_url=vinnova.apply_url(record),
+        country="SE",
+        issuer="Vinnova",
     )
 
 

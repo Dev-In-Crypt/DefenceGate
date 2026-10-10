@@ -66,7 +66,7 @@ def hasher(source: str) -> Callable[[Any], str]:
         # and the registry stays explicit, because compaction deletes originals
         # and a source nobody checked must still be refused.
         for code in ("ted", "pl_atlas", "pl_ezam", "es_placsp", "es_placsp_agg",
-                     "fr_boamp", "eu_portal", "nl_tenderned"):
+                     "fr_boamp", "eu_portal", "nl_tenderned", "se_vinnova"):
             _HASHERS[code] = ted.content_hash
     if source not in _HASHERS:
         raise ValueError(f"no content hash known for {source!r}; refusing to compact it")

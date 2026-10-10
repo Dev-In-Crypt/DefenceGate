@@ -110,6 +110,12 @@ _BOAMP_FLOORS = {0: 150, 1: 180, 2: 175, 3: 250, 4: 290, 5: 310, 6: 200}   # Mon
 #   Sunday     Fri, Sat            90         35
 _TENDERNED_FLOORS = {0: 25, 1: 25, 2: 30, 3: 55, 4: 70, 5: 65, 6: 35}   # Monday = 0
 
+# Sweden. Not a daily feed: the whole register of application rounds is fetched every
+# night and the question is whether all of it arrived. 3,840 rounds on 10 October 2026,
+# growing; the floor is under 80% of that so a shortfall is loud and ordinary growth
+# is not.
+_VINNOVA_FLOORS = {d: 3000 for d in range(7)}
+
 # Grants. Not a daily feed: the in-scope set of calls is a standing population
 # that the portal republishes whole, measured at 150 on 24 September 2026 (40
 # defence, 110 dual-use). The floor asks one question -- did the whole reference
@@ -165,6 +171,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "eu_portal": _weekday_floors("DGATE_FLOOR_EU_PORTAL", _EU_PORTAL_FLOORS),
         "es_bdns": _weekday_floors("DGATE_FLOOR_ES_BDNS", _BDNS_FLOORS),
         "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
+        "se_vinnova": _weekday_floors("DGATE_FLOOR_SE_VINNOVA", _VINNOVA_FLOORS),
         # pl_atlas has no floor on purpose. A floor answers "did today's feed
         # arrive?"; this source is a one-off historical load with no daily
         # rhythm, and a resumed run legitimately reads almost nothing because
@@ -287,6 +294,9 @@ class Settings:
     # Poland's competitions, after the Spanish register and before the French tenders.
     ncbr_hour: int = field(default_factory=lambda: _env_int("DGATE_NCBR_HOUR", 5))
     ncbr_minute: int = field(default_factory=lambda: _env_int("DGATE_NCBR_MINUTE", 25))
+    # Sweden's agency, straight after Poland's competitions.
+    vinnova_hour: int = field(default_factory=lambda: _env_int("DGATE_VINNOVA_HOUR", 5))
+    vinnova_minute: int = field(default_factory=lambda: _env_int("DGATE_VINNOVA_MINUTE", 30))
     eu_topics_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_HOUR", 4))
     eu_topics_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_MINUTE", 35))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))

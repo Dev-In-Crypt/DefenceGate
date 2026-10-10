@@ -50,6 +50,8 @@ ATTRIBUTION = {
     "eu_portal": "Source: European Commission, Funding and Tenders Portal",
     "pl_ncbr": "Zrodlo: Narodowe Centrum Badan i Rozwoju (NCBR), gov.pl",
     "es_bdns": "Fuente: Base de Datos Nacional de Subvenciones (BDNS), Intervencion General de la Administracion del Estado, Ministerio de Hacienda",
+    "se_vinnova": "Källa: Vinnova, öppna data (Public Domain Mark)",
+    "nl_tenderned": "Bron: TenderNed (PIANOo), Nederland",
 }
 
 

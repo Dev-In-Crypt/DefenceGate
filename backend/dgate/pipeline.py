@@ -37,10 +37,21 @@ from .normalise import (
     from_ncbr,
     from_ted,
     from_tenderned,
+    from_vinnova,
     strip_personal_data,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
-from .sources import bdns, boamp, eu_portal, ezamowienia, ncbr, placsp, ted, tenderned
+from .sources import (
+    bdns,
+    boamp,
+    eu_portal,
+    ezamowienia,
+    ncbr,
+    placsp,
+    ted,
+    tenderned,
+    vinnova,
+)
 
 log = logging.getLogger("pipeline")
 
@@ -362,6 +373,56 @@ def run_ncbr() -> None:
                           status="failed", error=str(exc))
             raise
     log.info("%s done: %s competitions listed, %s new, %s changed, %s payloads landed",
+             code, fetched, new, changed, landed)
+
+
+def run_vinnova() -> None:
+    """Daily pull of Sweden's innovation agency, the whole register.
+
+    A standing set like Poland's: three small lists, joined, fetched whole every night.
+    Every round is landed once per distinct content, and only a round of the publisher's
+    defence programmes that a supplier may answer becomes a call.
+    """
+    code = vinnova.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        known = {row["content_hash"] for row in conn.execute(
+            "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
+        fetched = new = changed = landed = 0
+        try:
+            for record in vinnova.fetch_all():
+                fetched += 1
+                _checkpoint(conn, code, fetched, new, changed, every=200,
+                            writer=writer, run_id=run_id)
+                dnr = record.get("Diarienummer") or ""
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                if dnr and h not in known:
+                    key = _store_raw(code, dnr, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, dnr, h, key)
+                    known.add(h)
+                    landed += 1
+                if not vinnova.in_scope(clean):
+                    continue
+                try:
+                    call = from_vinnova(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed round: %s", exc)
+                    continue
+                _, action, _ = db.upsert_call(conn, call, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s rounds listed, %s new, %s changed, %s payloads landed",
              code, fetched, new, changed, landed)
 
 
@@ -1080,6 +1141,8 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("ncbr", help="refresh the Polish NCBR competitions")
 
+    sub.add_parser("vinnova", help="refresh the Swedish Vinnova defence-programme calls")
+
     bd = sub.add_parser("bdns", help="refresh the Spanish subsidy calls (BDNS, central government)")
     bd.add_argument("--days", type=int, default=14)
     bd.add_argument("--since", type=date.fromisoformat, default=None,
@@ -1133,6 +1196,8 @@ def main(argv: list[str] | None = None) -> int:
         run_eu_portal()
     elif a.cmd == "ncbr":
         run_ncbr()
+    elif a.cmd == "vinnova":
+        run_vinnova()
     elif a.cmd == "bdns":
         run_bdns(days=a.days, since=a.since)
     elif a.cmd == "topics":
