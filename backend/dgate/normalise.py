@@ -657,6 +657,70 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
     )
 
 
+# -------------------------------------------------------- TenderNed mapping
+
+_NL_TZ = "Europe/Amsterdam"
+
+# The publication type decides the lifecycle. A rectification (REC) and a
+# market consultation (MAC) belong to a procedure that is still being run; a
+# modification notice (AAW) amends a contract that was already awarded.
+_NL_STATUS = {
+    "AAO": "open", "VAK": "open", "MAC": "open", "REC": "open",
+    "AGO": "awarded", "AAW": "awarded",
+    "VBE": "cancelled",
+}
+
+
+def _nl_cpv(detail: dict[str, Any]) -> list[str]:
+    codes: list[str] = []
+    for entry in detail.get("cpvCodes") or []:
+        code = str(entry.get("code") if isinstance(entry, dict) else entry or "")[:8]
+        if code.isdigit() and code not in codes:
+            codes.append(code)
+    return codes
+
+
+def from_tenderned(record: dict[str, Any]) -> Opportunity:
+    """Map one TenderNed publication, list row plus its `detail`, onto the schema.
+
+    The directive is read from the form (`publicatiecode`: "defensierichtlijn")
+    and from the detail's legal framework (`DEF`), whichever is present. Value is
+    left empty: neither level carries one, and the description's "circa EUR ..."
+    is prose, not a field.
+    """
+    from .sources import tenderned
+
+    native_id = record.get("publicatieId")
+    if not native_id:
+        raise ValueError("publication has no identifier")
+    detail = record.get("detail") if isinstance(record.get("detail"), dict) else {}
+    form = record.get("publicatiecode") or {}
+    kind = (record.get("typePublicatie") or {}).get("code") or ""
+    framework = (detail.get("juridischKaderCode") or {}).get("code")
+    defence = "defensierichtlijn" in str(form.get("omschrijving") or "").lower() \
+        or framework == "DEF"
+    description = record.get("opdrachtBeschrijving") or detail.get("opdrachtBeschrijving")
+
+    return Opportunity(
+        source_code=tenderned.SOURCE_CODE,
+        native_id=str(native_id),
+        buyer_name_raw=str(record.get("opdrachtgeverNaam") or "").strip() or "UNKNOWN",
+        title_original=str(record.get("aanbestedingNaam") or "").strip(),
+        country="NL",
+        original_language="NL",
+        procedure_type=(record.get("procedure") or {}).get("omschrijving"),
+        legal_basis="32009L0081" if defence else None,
+        published_at=_parse_date(record.get("publicatieDatum")),
+        deadline_at=parse_iso_datetime(record.get("sluitingsDatum"),
+                                       default_tz=ZoneInfo(_NL_TZ)),
+        cpv_codes=_nl_cpv(detail),
+        source_url=tenderned.notice_url(record),
+        status=_NL_STATUS.get(kind, "unknown"),
+        status_native=f"{kind}/{form.get('code')}" if kind or form.get("code") else None,
+        description=str(description).strip() if description else None,
+    )
+
+
 # --------------------------------------------------- e-Zamowienia mapping
 
 _PL_TZ = "Europe/Warsaw"

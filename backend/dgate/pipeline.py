@@ -36,10 +36,11 @@ from .normalise import (
     from_ezamowienia,
     from_ncbr,
     from_ted,
+    from_tenderned,
     strip_personal_data,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
-from .sources import bdns, boamp, eu_portal, ezamowienia, ncbr, placsp, ted
+from .sources import bdns, boamp, eu_portal, ezamowienia, ncbr, placsp, ted, tenderned
 
 log = logging.getLogger("pipeline")
 
@@ -201,6 +202,55 @@ def run_boamp(days: int = 2) -> None:
                           status="failed", error=str(exc))
             raise
     log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
+
+
+def run_tenderned(days: int = 2) -> None:
+    """Daily pull of the Dutch platform, every publication of each day.
+
+    Same shape as France: land everything, classify afterwards. The defence
+    directive is stated by the form, so the legal-basis signal comes from the
+    source. A publication whose detail page could not be read is still landed,
+    and makes the run `partial` -- thinner than the rest, and said so.
+    """
+    code = tenderned.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        fetched = new = changed = thin = 0
+        try:
+            for record in tenderned.fetch_window(days_back=days):
+                fetched += 1
+                thin += "detailError" in record
+                _checkpoint(conn, code, fetched, new, changed, every=100,
+                            writer=writer, run_id=run_id)
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                try:
+                    opp = from_tenderned(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed publication: %s", exc)
+                    continue
+                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                db.record_raw(conn, src_id, opp.native_id, h, key)
+                opp = _finalise(conn, opp, src_id)
+                if not opp.is_defence:
+                    continue
+                _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="partial" if thin else "success",
+                          error=f"{thin} publications without their detail page" if thin else None)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s fetched, %s new, %s changed, %s thin", code, fetched, new,
+             changed, thin)
 
 
 def run_eu_portal() -> None:
@@ -484,6 +534,8 @@ def _history_source(code: str) -> tuple[Any, Any]:
             lambda day: ted.search(ted.day_query(day)), from_ted)
         HISTORY_SOURCES[boamp.SOURCE_CODE] = (
             lambda day: boamp.search(boamp.day_query(day)), from_boamp)
+        HISTORY_SOURCES[tenderned.SOURCE_CODE] = (
+            lambda day: tenderned.fetch_day(day), from_tenderned)
     if code not in HISTORY_SOURCES:
         raise ValueError(f"no historical load defined for {code!r}")
     return HISTORY_SOURCES[code]
@@ -778,6 +830,7 @@ DEFENCE_BUYERS = [
     ("DE", "Bundeswehr"),
     ("NL", "Ministerie van Defensie"),
     ("NL", "Defensie Materieel Organisatie"),
+    ("NL", "Ministerie van Defensie, Commando Materieel en IT, Afdeling Inkoop IT"),
     ("PL", "Agencja Uzbrojenia"),
     ("PL", "Ministerstwo Obrony Narodowej"),
     ("PT", "Ministerio da Defesa Nacional"),
@@ -1020,6 +1073,9 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("boamp", help="ingest the French bulletin (BOAMP)")
     f.add_argument("--days", type=int, default=2)
 
+    nl = sub.add_parser("tenderned", help="ingest the Dutch platform (TenderNed)")
+    nl.add_argument("--days", type=int, default=2)
+
     sub.add_parser("calls", help="refresh the EU grant calendar (calls for proposals)")
 
     sub.add_parser("ncbr", help="refresh the Polish NCBR competitions")
@@ -1047,7 +1103,7 @@ def main(argv: list[str] | None = None) -> int:
 
     h = sub.add_parser("history",
                        help="one-off historical load of every notice of a source")
-    h.add_argument("--source", default="ted", help="ted or fr_boamp")
+    h.add_argument("--source", default="ted", help="ted, fr_boamp or nl_tenderned")
     h.add_argument("--from", dest="start", type=date.fromisoformat, required=True,
                    help="first publication day, YYYY-MM-DD (the API starts at 2017)")
     h.add_argument("--to", dest="end", type=date.fromisoformat, default=None,
@@ -1071,6 +1127,8 @@ def main(argv: list[str] | None = None) -> int:
         run_ezamowienia(days=a.days)
     elif a.cmd == "boamp":
         run_boamp(days=a.days)
+    elif a.cmd == "tenderned":
+        run_tenderned(days=a.days)
     elif a.cmd == "calls":
         run_eu_portal()
     elif a.cmd == "ncbr":

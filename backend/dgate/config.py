@@ -95,6 +95,21 @@ _EZAM_FLOORS = {0: 40, 1: 1000, 2: 2000, 3: 2000, 4: 2000, 5: 2000, 6: 1000}   #
 #   Sunday     Fri, Sat           499            200
 _BOAMP_FLOORS = {0: 150, 1: 180, 2: 175, 3: 250, 4: 290, 5: 310, 6: 200}   # Monday = 0
 
+# The Netherlands. Measured per publication day over 2026 to 10 October (283
+# days): Mon p10 21, Tue 56, Wed 85, Thu 90, Fri 74, Sat 16, Sun 47. The run
+# reads the two days before it, so each floor is about 40% of the two
+# preceding days' tenth-percentile sum:
+#
+#   run day    window covers      p10 sum    floor
+#   Monday     Sat, Sun             63         25
+#   Tuesday    Sun, Mon             68         25
+#   Wednesday  Mon, Tue            77         30
+#   Thursday   Tue, Wed           141         55
+#   Friday     Wed, Thu           175         70
+#   Saturday   Thu, Fri           164         65
+#   Sunday     Fri, Sat            90         35
+_TENDERNED_FLOORS = {0: 25, 1: 25, 2: 30, 3: 55, 4: 70, 5: 65, 6: 35}   # Monday = 0
+
 # Grants. Not a daily feed: the in-scope set of calls is a standing population
 # that the portal republishes whole, measured at 150 on 24 September 2026 (40
 # defence, 110 dual-use). The floor asks one question -- did the whole reference
@@ -146,6 +161,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "es_placsp_agg": _weekday_floors("DGATE_FLOOR_ES_PLACSP_AGG", _PLACSP_AGG_FLOORS),
         "pl_ezam": _weekday_floors("DGATE_FLOOR_PL_EZAM", _EZAM_FLOORS),
         "fr_boamp": _weekday_floors("DGATE_FLOOR_FR_BOAMP", _BOAMP_FLOORS),
+        "nl_tenderned": _weekday_floors("DGATE_FLOOR_NL_TENDERNED", _TENDERNED_FLOORS),
         "eu_portal": _weekday_floors("DGATE_FLOOR_EU_PORTAL", _EU_PORTAL_FLOORS),
         "es_bdns": _weekday_floors("DGATE_FLOOR_ES_BDNS", _BDNS_FLOORS),
         "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
@@ -255,6 +271,9 @@ class Settings:
     ezam_minute: int = field(default_factory=lambda: _env_int("DGATE_EZAM_MINUTE", 45))
     boamp_hour: int = field(default_factory=lambda: _env_int("DGATE_BOAMP_HOUR", 5))
     boamp_minute: int = field(default_factory=lambda: _env_int("DGATE_BOAMP_MINUTE", 45))
+    # The Dutch platform, ten minutes after the French bulletin and before TED.
+    tenderned_hour: int = field(default_factory=lambda: _env_int("DGATE_TENDERNED_HOUR", 5))
+    tenderned_minute: int = field(default_factory=lambda: _env_int("DGATE_TENDERNED_MINUTE", 55))
     # The reference data document is 124 MiB and is rebuilt by the Commission
     # overnight; 04:20 is before the tender runs so a deadline that moved is
     # known by the time the morning health report is written.
