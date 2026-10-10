@@ -116,6 +116,11 @@ _TENDERNED_FLOORS = {0: 25, 1: 25, 2: 30, 3: 55, 4: 70, 5: 65, 6: 35}   # Monday
 # is not.
 _VINNOVA_FLOORS = {d: 3000 for d in range(7)}
 
+# France's defence innovation agency. About 37 pages on 10 October 2026 (17 current, 19
+# closed, RAPID); the floor is under two thirds of that, so a list that came back
+# half empty is loud and a few calls closing are not.
+_AID_FLOORS = {d: 20 for d in range(7)}
+
 # Grants. Not a daily feed: the in-scope set of calls is a standing population
 # that the portal republishes whole, measured at 150 on 24 September 2026 (40
 # defence, 110 dual-use). The floor asks one question -- did the whole reference
@@ -172,6 +177,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "es_bdns": _weekday_floors("DGATE_FLOOR_ES_BDNS", _BDNS_FLOORS),
         "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
         "se_vinnova": _weekday_floors("DGATE_FLOOR_SE_VINNOVA", _VINNOVA_FLOORS),
+        "fr_aid": _weekday_floors("DGATE_FLOOR_FR_AID", _AID_FLOORS),
         # pl_atlas has no floor on purpose. A floor answers "did today's feed
         # arrive?"; this source is a one-off historical load with no daily
         # rhythm, and a resumed run legitimately reads almost nothing because
@@ -297,6 +303,9 @@ class Settings:
     # Sweden's agency, straight after Poland's competitions.
     vinnova_hour: int = field(default_factory=lambda: _env_int("DGATE_VINNOVA_HOUR", 5))
     vinnova_minute: int = field(default_factory=lambda: _env_int("DGATE_VINNOVA_MINUTE", 30))
+    # France's agency pages, after Sweden's register and before the French bulletin.
+    aid_hour: int = field(default_factory=lambda: _env_int("DGATE_AID_HOUR", 5))
+    aid_minute: int = field(default_factory=lambda: _env_int("DGATE_AID_MINUTE", 35))
     eu_topics_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_HOUR", 4))
     eu_topics_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_MINUTE", 35))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))

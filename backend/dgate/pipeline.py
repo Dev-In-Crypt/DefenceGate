@@ -29,6 +29,7 @@ from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import (
     Opportunity,
+    from_aid,
     from_atlas_pl,
     from_bdns,
     from_boamp,
@@ -42,6 +43,7 @@ from .normalise import (
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
 from .sources import (
+    aid,
     bdns,
     boamp,
     eu_portal,
@@ -387,6 +389,57 @@ def run_ncbr() -> None:
                           status="failed", error=str(exc))
             raise
     log.info("%s done: %s competitions listed, %s new, %s changed, %s payloads landed",
+             code, fetched, new, changed, landed)
+
+
+def run_aid() -> None:
+    """Daily pull of the French defence innovation agency's call pages.
+
+    No API: both lists and every page under them are read, about forty requests at one
+    a second. Every page is landed once per distinct content; each one becomes a call,
+    because everything the agency lists is its own. A page that could not be read is
+    left out and says so in the run, rather than the run being a success.
+    """
+    code = aid.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        known = {row["content_hash"] for row in conn.execute(
+            "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
+        fetched = new = changed = landed = 0
+        try:
+            for record in aid.fetch_all():
+                fetched += 1
+                _checkpoint(conn, code, fetched, new, changed, every=20,
+                            writer=writer, run_id=run_id)
+                slug = record.get("slug") or ""
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                if slug and h not in known:
+                    key = _store_raw(code, slug, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, slug, h, key)
+                    known.add(h)
+                    landed += 1
+                if not aid.in_scope(clean):
+                    continue
+                try:
+                    call = from_aid(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed page: %s", exc)
+                    continue
+                _, action, _ = db.upsert_call(conn, call, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s pages, %s new, %s changed, %s payloads landed",
              code, fetched, new, changed, landed)
 
 
@@ -1177,6 +1230,8 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("vinnova", help="refresh the Swedish Vinnova defence-programme calls")
 
+    sub.add_parser("aid", help="refresh the French defence innovation agency call pages")
+
     bd = sub.add_parser("bdns", help="refresh the Spanish subsidy calls (BDNS, central government)")
     bd.add_argument("--days", type=int, default=14)
     bd.add_argument("--since", type=date.fromisoformat, default=None,
@@ -1232,6 +1287,8 @@ def main(argv: list[str] | None = None) -> int:
         run_ncbr()
     elif a.cmd == "vinnova":
         run_vinnova()
+    elif a.cmd == "aid":
+        run_aid()
     elif a.cmd == "bdns":
         run_bdns(days=a.days, since=a.since)
     elif a.cmd == "topics":

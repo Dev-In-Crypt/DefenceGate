@@ -29,6 +29,7 @@ from . import db
 from .config import settings
 from .ops.notify import notify, ping
 from .pipeline import (
+    run_aid,
     run_bdns,
     run_boamp,
     run_eu_portal,
@@ -150,6 +151,12 @@ def job_tenderned(days: int | None = None) -> JobResult:
     window = days or settings().ingest_days
     return run_job("tenderned_daily", lambda: run_tenderned(days=window),
                    sources=["nl_tenderned"])
+
+
+def job_aid(days: int | None = None) -> JobResult:
+    """France's defence innovation agency. `days` is accepted and ignored: both lists
+    are read whole."""
+    return run_job("aid_daily", run_aid, sources=["fr_aid"])
 
 
 def job_vinnova(days: int | None = None) -> JobResult:
@@ -299,6 +306,7 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
         "boamp_daily": (job_boamp, ("fr_boamp",)),
         "tenderned_daily": (job_tenderned, ("nl_tenderned",)),
         "vinnova_daily": (job_vinnova, ("se_vinnova",)),
+        "aid_daily": (job_aid, ("fr_aid",)),
         "eu_portal_daily": (job_eu_portal, ("eu_portal",)),
         "bdns_daily": (job_bdns, ("es_bdns",)),
         "ncbr_daily": (job_ncbr, ("pl_ncbr",)),
@@ -345,6 +353,7 @@ def hours_since_last_slot(name: str) -> float:
         "boamp_daily": (cfg.boamp_hour, cfg.boamp_minute),
         "tenderned_daily": (cfg.tenderned_hour, cfg.tenderned_minute),
         "vinnova_daily": (cfg.vinnova_hour, cfg.vinnova_minute),
+        "aid_daily": (cfg.aid_hour, cfg.aid_minute),
         "eu_portal_daily": (cfg.eu_portal_hour, cfg.eu_portal_minute),
         "bdns_daily": (cfg.bdns_hour, cfg.bdns_minute),
         "ncbr_daily": (cfg.ncbr_hour, cfg.ncbr_minute),
@@ -688,6 +697,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "boamp": job_boamp,
     "tenderned": job_tenderned,
     "vinnova": job_vinnova,
+    "aid": job_aid,
     "calls": job_eu_portal,
     "bdns": job_bdns,
     "ncbr": job_ncbr,
@@ -734,6 +744,8 @@ def build_scheduler():
                   id="ncbr_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_vinnova, CronTrigger(hour=cfg.vinnova_hour, minute=cfg.vinnova_minute),
                   id="vinnova_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_aid, CronTrigger(hour=cfg.aid_hour, minute=cfg.aid_minute),
+                  id="aid_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
@@ -763,6 +775,8 @@ def describe_schedule() -> list[str]:
         f"(every notice, one publication day at a time)",
         f"boamp_daily    {cfg.boamp_hour:02d}:{cfg.boamp_minute:02d} UTC  "
         f"(every notice, one publication day at a time)",
+        f"aid_daily      {cfg.aid_hour:02d}:{cfg.aid_minute:02d} UTC  "
+        f"(French defence innovation agency call pages)",
         f"vinnova_daily  {cfg.vinnova_hour:02d}:{cfg.vinnova_minute:02d} UTC  "
         f"(Swedish defence-programme calls, the whole register)",
         f"tenderned_daily {cfg.tenderned_hour:02d}:{cfg.tenderned_minute:02d} UTC  "

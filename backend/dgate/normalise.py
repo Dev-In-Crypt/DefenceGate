@@ -660,6 +660,50 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
     )
 
 
+def from_aid(record: dict[str, Any], *, today: date | None = None) -> Call:
+    """Map one page of the Agence de l'innovation de defense to a Call.
+
+    The identity is the page's slug and not its path, because a call moves from the
+    "en cours" list to the "clotures" one and its path moves with it. Every call the
+    agency publishes is a defence call, so the regime needs no signal.
+    """
+    from .sources import aid
+
+    slug = record.get("slug")
+    title = " ".join(str(record.get("title") or "").split())
+    if not slug:
+        raise ValueError("page has no slug")
+    if not title:
+        raise ValueError(f"page {slug} has no title")
+    published = date.fromisoformat(record["published"]) if record.get("published") else None
+    text = record.get("text") or ""
+    ends = aid.deadlines(text, published)
+    now = (datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+           if today else None)
+
+    return Call(
+        programme_code="FR-AID",
+        native_id=str(slug),
+        title=title[:500],
+        opens_at=aid.opening(text),
+        deadline_at=ends[-1] if ends else None,
+        conditions_raw={
+            "list": record.get("list"),
+            "summary": record.get("summary"),
+            "published": record.get("published"),
+            "modified": record.get("modified"),
+            "deadlines": [d.isoformat() for d in ends],
+            "max_aid_eur_per_project": aid.max_aid_eur(text),
+        },
+        status=aid.status(record, now=now),
+        regime="defence",
+        source_url=record.get("url"),
+        type_of_action=aid.kind_of(title),
+        country="FR",
+        issuer="Agence de l'innovation de defense (AID)",
+    )
+
+
 def from_vinnova(record: dict[str, Any], *, today: date | None = None) -> Call:
     """Map one Vinnova application round to a Call.
 
