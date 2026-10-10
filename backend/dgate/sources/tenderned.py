@@ -54,7 +54,10 @@ SOURCE_CODE = "nl_tenderned"
 LIST_URL = "https://www.tenderned.nl/papi/tenderned-rs-tns/v2/publicaties"
 PAGE_SIZE = 100          # 500 is rejected with HTTP 400
 MAX_PAGES = 100          # page 100 and beyond is rejected: 10,000 rows per query
-REQUEST_PAUSE = 0.15     # a pause per detail request; the site is a public one
+# One request a second, the rule every national source here keeps. The endpoint
+# is the portal's own and its terms for automated use are not written down, so
+# this errs slow: a daily run is about 300 detail requests, five minutes.
+REQUEST_PAUSE = 1.0
 
 # Counters of days to the deadline. Derived, so not source data; see (4) above.
 VOLATILE_FIELDS = ("aantalDagenTotSluitingsDatum", "numberOfDaysBeforeAanmeldenInschrijven",
