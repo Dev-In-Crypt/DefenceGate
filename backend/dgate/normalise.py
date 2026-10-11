@@ -704,6 +704,50 @@ def from_aid(record: dict[str, Any], *, today: date | None = None) -> Call:
     )
 
 
+def from_matine(record: dict[str, Any], *, today: date | None = None) -> Call:
+    """Map one MATINE yearly call page to a Call.
+
+    The page named `maararahahaku-2027` is the call that closes in June 2026 and funds
+    2027; its title says which. Facts only: the deadline, the stated total, the decision
+    date, and a link. The Finnish text is not served.
+    """
+    from .sources import matine
+
+    slug = record.get("slug")
+    year = record.get("year")
+    if not slug or not year:
+        raise ValueError("page has no slug or year")
+    text = record.get("text") or ""
+    amount = matine.total_budget(text)
+    projects = matine.project_range(text)
+    decided = matine.decision_date(text)
+    now = (datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+           if today else None)
+
+    return Call(
+        programme_code="FI-MATINE",
+        native_id=str(slug),
+        title=f"MATINE määrärahahaku {year} (research funding call)",
+        topic_code=f"MATINE-{year}",
+        budget=amount,
+        budget_scope="call" if amount is not None else None,
+        currency="EUR" if amount is not None else None,
+        deadline_at=matine.deadline(text),
+        conditions_raw={
+            "funding_year": int(year),
+            "projects": list(projects) if projects else None,
+            "decision_date": decided.isoformat() if decided else None,
+            "page_title": record.get("title"),
+        },
+        status=matine.status(record, now=now),
+        regime="defence",
+        source_url=record.get("url"),
+        type_of_action="research grant",
+        country="FI",
+        issuer="Puolustusministeriö (MATINE)",
+    )
+
+
 def from_vinnova(record: dict[str, Any], *, today: date | None = None) -> Call:
     """Map one Vinnova application round to a Call.
 

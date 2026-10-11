@@ -35,6 +35,7 @@ from .normalise import (
     from_boamp,
     from_eu_call,
     from_ezamowienia,
+    from_matine,
     from_ncbr,
     from_ted,
     from_tenderned,
@@ -48,6 +49,7 @@ from .sources import (
     boamp,
     eu_portal,
     ezamowienia,
+    matine,
     ncbr,
     placsp,
     ted,
@@ -389,6 +391,53 @@ def run_ncbr() -> None:
                           status="failed", error=str(exc))
             raise
     log.info("%s done: %s competitions listed, %s new, %s changed, %s payloads landed",
+             code, fetched, new, changed, landed)
+
+
+def run_matine() -> None:
+    """Daily pull of the Finnish defence ministry's research funding call pages.
+
+    One call a year, so one or two pages; read whole, landed once per distinct content,
+    and every one in scope becomes a call. An unreadable landing page fails the run.
+    """
+    code = matine.SOURCE_CODE
+    cfg = settings()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        known = {row["content_hash"] for row in conn.execute(
+            "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
+        fetched = new = changed = landed = 0
+        try:
+            for record in matine.fetch_all():
+                fetched += 1
+                slug = record.get("slug") or ""
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                if slug and h not in known:
+                    key = _store_raw(code, slug, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, slug, h, key)
+                    known.add(h)
+                    landed += 1
+                if not matine.in_scope(clean):
+                    continue
+                try:
+                    call = from_matine(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed page: %s", exc)
+                    continue
+                _, action, _ = db.upsert_call(conn, call, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+            writer.drain()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+    log.info("%s done: %s pages, %s new, %s changed, %s payloads landed",
              code, fetched, new, changed, landed)
 
 
@@ -1232,6 +1281,8 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("aid", help="refresh the French defence innovation agency call pages")
 
+    sub.add_parser("matine", help="refresh the Finnish MATINE research funding call")
+
     bd = sub.add_parser("bdns", help="refresh the Spanish subsidy calls (BDNS, central government)")
     bd.add_argument("--days", type=int, default=14)
     bd.add_argument("--since", type=date.fromisoformat, default=None,
@@ -1289,6 +1340,8 @@ def main(argv: list[str] | None = None) -> int:
         run_vinnova()
     elif a.cmd == "aid":
         run_aid()
+    elif a.cmd == "matine":
+        run_matine()
     elif a.cmd == "bdns":
         run_bdns(days=a.days, since=a.since)
     elif a.cmd == "topics":

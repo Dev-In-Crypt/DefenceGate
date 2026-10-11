@@ -121,6 +121,10 @@ _VINNOVA_FLOORS = {d: 3000 for d in range(7)}
 # half empty is loud and a few calls closing are not.
 _AID_FLOORS = {d: 20 for d in range(7)}
 
+# Finland's defence ministry research call. One page a year, sometimes two while the
+# new year's is posted before the old one is taken down; the floor is one.
+_MATINE_FLOORS = {d: 1 for d in range(7)}
+
 # Grants. Not a daily feed: the in-scope set of calls is a standing population
 # that the portal republishes whole, measured at 150 on 24 September 2026 (40
 # defence, 110 dual-use). The floor asks one question -- did the whole reference
@@ -178,6 +182,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
         "se_vinnova": _weekday_floors("DGATE_FLOOR_SE_VINNOVA", _VINNOVA_FLOORS),
         "fr_aid": _weekday_floors("DGATE_FLOOR_FR_AID", _AID_FLOORS),
+        "fi_matine": _weekday_floors("DGATE_FLOOR_FI_MATINE", _MATINE_FLOORS),
         # pl_atlas has no floor on purpose. A floor answers "did today's feed
         # arrive?"; this source is a one-off historical load with no daily
         # rhythm, and a resumed run legitimately reads almost nothing because
@@ -306,6 +311,9 @@ class Settings:
     # France's agency pages, after Sweden's register and before the French bulletin.
     aid_hour: int = field(default_factory=lambda: _env_int("DGATE_AID_HOUR", 5))
     aid_minute: int = field(default_factory=lambda: _env_int("DGATE_AID_MINUTE", 35))
+    # Finland's ministry page, after France's agency pages.
+    matine_hour: int = field(default_factory=lambda: _env_int("DGATE_MATINE_HOUR", 5))
+    matine_minute: int = field(default_factory=lambda: _env_int("DGATE_MATINE_MINUTE", 40))
     eu_topics_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_HOUR", 4))
     eu_topics_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_MINUTE", 35))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
