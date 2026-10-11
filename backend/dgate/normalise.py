@@ -1096,6 +1096,9 @@ class Call:
     call_identifier: str | None = None
     budget: float | None = None
     opens_at: date | None = None
+    # The source's own date for the call, where it states one: the day BDNS received
+    # it. Served so a reader can see how current the register's record is.
+    published_at: date | None = None
     deadline_at: datetime | None = None
     min_consortium_size: int | None = None
     min_member_states: int | None = None
@@ -1182,8 +1185,10 @@ def from_bdns(detail: dict[str, Any], *, today: date | None = None) -> Call:
 
     A Spanish call title is a legal citation -- "Resolucion de 11 de junio de 2026
     de la Direccion General del CDTI, por la que se aprueba..." -- so the title is
-    that, truncated, and the issuing body is carried separately, because it is the
-    first thing anybody asks about a call that names no programme.
+    that, whole: the register's notice forbids distorting the sense of the
+    information, and a citation cut in the middle says something else. The issuing
+    body is carried separately, because it is the first thing anybody asks about a
+    call that names no programme.
     """
     from .sources import bdns
 
@@ -1199,12 +1204,13 @@ def from_bdns(detail: dict[str, Any], *, today: date | None = None) -> Call:
     return Call(
         programme_code="ES-BDNS",
         native_id=str(number),
-        title=title[:500],
+        title=title,
         topic_code=str(number),
         budget=float(budget) if budget not in (None, "") else None,
         budget_scope="call" if budget not in (None, "") else None,
         currency="EUR" if budget not in (None, "") else None,
         opens_at=bdns.opens_at(detail),
+        published_at=bdns.received_at(detail),
         deadline_at=bdns.deadline(detail),
         eligibility_text=bdns.eligibility_text(detail) or None,
         conditions_raw=bdns.conditions(detail),

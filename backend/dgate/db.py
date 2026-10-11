@@ -511,7 +511,7 @@ def record_raw(
 # an extension of four days is the difference between a consortium that applies
 # and one that does not.
 CALL_FIELDS = [
-    "topic_code", "call_identifier", "title", "budget", "opens_at", "deadline_at",
+    "topic_code", "call_identifier", "title", "budget", "opens_at", "published_at", "deadline_at",
     "min_consortium_size", "min_member_states", "eligibility_text", "status",
     "type_of_action", "regime", "source_url", "country", "issuer", "budget_scope",
     "currency",
@@ -524,7 +524,7 @@ CALL_FIELDS = [
 # never writes it over what is already there. Writing it did exactly that: when a
 # deadline moved, the calendar's None overwrote the budget the topic page had
 # supplied, and the page was not read again until it changed itself.
-OPTIONAL_CALL_FIELDS = {"budget", "min_consortium_size", "min_member_states",
+OPTIONAL_CALL_FIELDS = {"published_at", "budget", "min_consortium_size", "min_member_states",
                         "eligibility_text", "country", "issuer", "budget_scope", "currency",
                         "conditions_raw", "eligibility_parsed"}
 
@@ -590,8 +590,11 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
         # Left alone here, a call stayed `open` for good, because nothing in the payload
         # ever moved to make the hash differ.
         moved = call.status is not None and call.status != existing["status"]
-        conn.execute("UPDATE call SET last_seen_at = now(), status = COALESCE(%s, status) "
-                     "WHERE id = %s", (call.status, call_id))
+        # A column added after the call was first read is filled from the same
+        # payload the next time it is seen, rather than waiting for the call to change.
+        conn.execute("UPDATE call SET last_seen_at = now(), status = COALESCE(%s, status), "
+                     "published_at = COALESCE(published_at, %s) WHERE id = %s",
+                     (call.status, call.published_at, call_id))
         return (call_id, "changed", ["status"]) if moved else (call_id, "unchanged", [])
 
     before = conn.execute(

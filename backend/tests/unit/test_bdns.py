@@ -229,6 +229,19 @@ def test_the_title_is_the_legal_citation_with_its_whitespace_collapsed():
     assert "  " not in title and title.startswith("Resolución de 11 de junio")
 
 
+def test_a_long_citation_is_kept_whole_not_cut_to_a_length():
+    """The register's notice forbids distorting the sense of what it publishes; a
+    legal citation cut mid-clause says something else."""
+    long_description = "Resolución por la que se aprueban las bases " + "y se convoca " * 80
+    title = from_bdns({**CDTI, "descripcion": long_description}).title
+    assert len(title) > 500 and title == " ".join(long_description.split())
+
+
+def test_the_day_the_register_received_the_call_is_its_published_date():
+    assert from_bdns(CDTI).published_at == date(2026, 6, 12)
+    assert from_bdns({**CDTI, "fechaRecepcion": None}).published_at is None
+
+
 def test_who_may_apply_is_stated_as_a_sentence():
     text = from_bdns(CDTI).eligibility_text
     assert "Beneficiarios: GRAN EMPRESA; PYME" in text

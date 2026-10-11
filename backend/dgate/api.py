@@ -49,7 +49,8 @@ ATTRIBUTION = {
                  "Ministerio de Hacienda, Spain",
     "eu_portal": "Source: European Commission, Funding and Tenders Portal",
     "pl_ncbr": "Zrodlo: Narodowe Centrum Badan i Rozwoju (NCBR), gov.pl",
-    "es_bdns": "Fuente: Base de Datos Nacional de Subvenciones (BDNS), Intervencion General de la Administracion del Estado, Ministerio de Hacienda",
+    "es_bdns": "Origen de los datos: Intervención General de la Administración del Estado "
+               "(Base de Datos Nacional de Subvenciones, Ministerio de Hacienda)",
     "se_vinnova": "Källa: Vinnova, öppna data (Public Domain Mark)",
     "nl_tenderned": "Bron: TenderNed (PIANOo), Nederland",
 }
@@ -391,6 +392,9 @@ class CallOut(BaseModel):
     min_consortium_size: int | None = None
     min_member_states: int | None = None
     opens_at: date | None
+    # The day the source itself dates the call, where it does (BDNS: received by the
+    # register). Not the day we saw it: that is `first_seen_at`.
+    published_at: date | None = None
     deadline_at: datetime | None
     # Days from now to the deadline. A negative number means it has passed; the
     # portal keeps a call `open` on the day it closes, and a supplier deciding
@@ -410,7 +414,7 @@ class CallOut(BaseModel):
 CALL_SELECT = """
     SELECT c.id, p.code AS programme, c.native_id, c.topic_code, c.call_identifier,
            c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope, c.currency,
-           c.min_consortium_size, c.min_member_states, c.opens_at, c.deadline_at,
+           c.min_consortium_size, c.min_member_states, c.opens_at, c.published_at, c.deadline_at,
            c.source_url, c.country, c.issuer, c.first_seen_at, c.last_seen_at,
            s.code AS source_code, s.attribution AS source_attribution
       FROM call c JOIN programme p ON p.id = c.programme_id
@@ -439,6 +443,7 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         min_consortium_size=r.get("min_consortium_size"),
         min_member_states=r.get("min_member_states"),
         opens_at=r.get("opens_at"),
+        published_at=r.get("published_at"),
         deadline_at=deadline,
         days_left=days_left,
         source_url=r.get("source_url"),

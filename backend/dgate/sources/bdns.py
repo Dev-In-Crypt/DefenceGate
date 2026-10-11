@@ -220,6 +220,12 @@ def opens_at(detail: dict[str, Any]) -> date | None:
     return _day(detail.get("fechaInicioSolicitud"))
 
 
+def received_at(detail: dict[str, Any]) -> date | None:
+    """The day the register received the call. It is the one date of its own the
+    record carries; there is no "last modified" field, and none is invented."""
+    return _day(detail.get("fechaRecepcion"))
+
+
 def deadline(detail: dict[str, Any]) -> datetime | None:
     """The last day to apply, as the end of that day in Madrid.
 

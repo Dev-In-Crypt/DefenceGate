@@ -169,5 +169,19 @@ def test_the_country_and_the_source_attribution_reach_the_api(conn, fs_store, mo
         assert [c["native_id"] for c in spanish] == ["912587"]
         assert spanish[0]["country"] == "ES"
         assert "CENTRO PARA EL DESARROLLO" in spanish[0]["issuer"]
-        assert spanish[0]["attribution"].startswith("Fuente: Base de Datos Nacional de Subvenciones")
+        assert spanish[0]["attribution"].startswith(
+            "Origen de los datos: Intervención General de la Administración del Estado")
+        assert spanish[0]["published_at"] == "2026-09-30"
         assert client.get("/v1/calls?country=PL&status=all").json() == []
+
+
+def test_a_call_read_before_the_date_was_kept_gets_it_on_the_next_sighting(
+        conn, fs_store, monkeypatch):
+    """The payload has not changed, so the hash matches and nothing is rewritten; the
+    column added later is filled all the same."""
+    _register(monkeypatch, [CDTI])
+    pipeline.run_bdns(days=14)
+    conn.execute("UPDATE call SET published_at = NULL")
+    conn.commit()
+    pipeline.run_bdns(days=14)
+    assert conn.execute("SELECT published_at FROM call").fetchone()["published_at"]         == date(2026, 9, 30)
