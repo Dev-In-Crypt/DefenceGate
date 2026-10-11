@@ -79,6 +79,11 @@ class Opportunity:
     # mistake stays diagnosable from the serving row.
     status: str = "open"
     status_native: str | None = None
+    # The TED publication number this national notice was forwarded under, when
+    # the source states it ("696956-2026", leading zeros stripped). It is a
+    # link, not a version-worthy fact: not part of VERSIONED_FIELDS, and left
+    # out of the payload while empty so existing content hashes do not move.
+    ted_ref: str | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
@@ -93,6 +98,29 @@ class Opportunity:
 
 
 # --------------------------------------------------------------- helpers
+
+_TED_NUMBER = re.compile(r"(?<![\d-])(\d{1,8})-(20[12]\d)(?![\d-])")
+_TED_NOTICE_URL = re.compile(r"ted\.europa\.eu/[A-Za-z-]+/notice/(?:-/detail/)?(\d{1,8}-20[12]\d)")
+
+
+def canonical_ted_ref(value: Any) -> str | None:
+    """A TED publication number in the one spelling TED's own rows use.
+
+    "00696956-2026" and "696956-2026" are the same notice; the source and the
+    portal disagree on padding, so the number is compared without it. Anything
+    that is not exactly a number and a year is not a reference.
+    """
+    if not isinstance(value, str):
+        return None
+    m = _TED_NUMBER.fullmatch(value.strip())
+    return f"{int(m.group(1))}-{m.group(2)}" if m else None
+
+
+def ted_ref_from_url(value: Any) -> str | None:
+    """The publication number inside a link to a TED notice, if it is one."""
+    m = _TED_NOTICE_URL.search(value) if isinstance(value, str) else None
+    return canonical_ted_ref(m.group(1)) if m else None
+
 
 def _first(value: Any) -> Any:
     """TED returns many fields as lists even when there is one value."""
@@ -856,6 +884,7 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
         source_url=tenderned.notice_url(record),
         status=_NL_STATUS.get(kind, "unknown"),
         status_native=f"{kind}/{form.get('code')}" if kind or form.get("code") else None,
+        ted_ref=canonical_ted_ref(detail.get("pbNummerTed")),
         description=str(description).strip() if description else None,
     )
 
@@ -987,6 +1016,7 @@ def from_atlas_pl(record: dict[str, Any]) -> Opportunity:
         source_url=url,
         status=_atlas_status(notice_type),
         status_native=notice_type,
+        ted_ref=canonical_ted_ref(g("ted_number")) or ted_ref_from_url(url),
     )
 
 
@@ -1037,6 +1067,7 @@ def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
         notice_version=version,
         status=_pl_status(notice_type),
         status_native=notice_type,
+        ted_ref=ted_ref_from_url(g("pdfUrl")),
     )
 
 

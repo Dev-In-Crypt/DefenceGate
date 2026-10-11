@@ -114,9 +114,43 @@ class OpportunityOut(BaseModel):
     # source's own code is kept alongside, so the mapping stays checkable.
     status: str | None = None
     status_native: str | None = None
+    # The same notice as another source published it: a national notice and the
+    # TED notice it was forwarded as. Joined on the publication number the
+    # national source itself states; nothing is matched by name or title.
+    same_notice: list[dict[str, Any]] = []
 
 
-def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
+def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """For a page of rows, the same notice in the other sources, by TED number."""
+    if not ids:
+        return {}
+    rows = conn.execute(
+        """
+        SELECT a.id AS row_id, b.id, bs.code AS source, b.native_id, b.source_url
+          FROM opportunity a
+          JOIN opportunity b ON b.id <> a.id AND b.is_defence AND (
+                (b.source_id = (SELECT id FROM source WHERE code = 'ted')
+                   AND b.native_id = a.ted_ref)
+             OR (a.source_id = (SELECT id FROM source WHERE code = 'ted')
+                   AND b.ted_ref = a.native_id)
+             OR (a.ted_ref IS NOT NULL AND b.ted_ref = a.ted_ref))
+          JOIN source bs ON bs.id = b.source_id
+         WHERE a.id = ANY(%s)
+         ORDER BY a.id, bs.code, b.native_id
+        """,
+        (ids,),
+    ).fetchall()
+    out: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        out.setdefault(r["row_id"], []).append({
+            "id": r["id"], "source": r["source"],
+            "native_id": r["native_id"], "url": r["source_url"],
+        })
+    return out
+
+
+def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = None
+                ) -> OpportunityOut:
     return OpportunityOut(
         id=r["id"],
         source=r["source_code"],
@@ -152,6 +186,7 @@ def _row_to_out(r: dict[str, Any]) -> OpportunityOut:
         scope="core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
         status=effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at")),
         status_native=r.get("status_native"),
+        same_notice=same_notice or [],
     )
 
 
@@ -225,6 +260,9 @@ def list_opportunities(
     scope: str = Query("core", pattern="^(core|supply|all)$",
                        description="core: the notice itself is defence (default); "
                                    "supply: only the buyer is a defence body; all: both"),
+    collapse: bool = Query(True, description="show a national notice once: hide it when "
+                                             "the TED notice it was forwarded as is also "
+                                             "in this result (see `same_notice`)"),
     limit: int = Query(50, le=200),
     offset: int = 0,
     conn=Depends(get_conn),
@@ -256,11 +294,21 @@ def list_opportunities(
         where.append("o.subcontracting_signal = %s")
         params.append(subcontracting)
 
-    sql = (BASE_SELECT + " WHERE " + " AND ".join(where)
-           + " ORDER BY o.published_at DESC NULLS LAST, o.id DESC"
-           + " LIMIT %s OFFSET %s")
+    matched = BASE_SELECT + " WHERE " + " AND ".join(where)
+    # The twin is dropped only when it is in the same result, so a filter that
+    # keeps the national row and not its TED notice (another CPV, another
+    # status) never makes the notice vanish.
+    if collapse:
+        sql = (f"WITH matched AS ({matched}) SELECT m.* FROM matched m"
+               " WHERE NOT (m.ted_ref IS NOT NULL AND EXISTS ("
+               "   SELECT 1 FROM matched t"
+               "    WHERE t.source_code = 'ted' AND t.native_id = m.ted_ref))")
+    else:
+        sql = f"SELECT m.* FROM ({matched}) m WHERE TRUE"
+    sql += " ORDER BY m.published_at DESC NULLS LAST, m.id DESC LIMIT %s OFFSET %s"
     rows = conn.execute(sql, params + [limit, offset]).fetchall()
-    return [_row_to_out(r) for r in rows]
+    twins = _twins(conn, [r["id"] for r in rows])
+    return [_row_to_out(r, twins.get(r["id"])) for r in rows]
 
 
 @app.get("/v1/opportunities/{opp_id}", response_model=OpportunityOut)
@@ -268,7 +316,7 @@ def get_opportunity(opp_id: int, conn=Depends(get_conn)):
     row = conn.execute(BASE_SELECT + " WHERE o.id = %s", (opp_id,)).fetchone()
     if not row:
         raise HTTPException(404, "not found")
-    return _row_to_out(row)
+    return _row_to_out(row, _twins(conn, [opp_id]).get(opp_id))
 
 
 @app.get("/v1/opportunities/{opp_id}/versions")

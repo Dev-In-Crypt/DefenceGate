@@ -51,7 +51,12 @@ def _jsonable(value: Any) -> Any:
 
 
 def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
-    return {k: _jsonable(v) for k, v in asdict(opp).items()}
+    payload = {k: _jsonable(v) for k, v in asdict(opp).items()}
+    # PLACSP hashes this payload, so a field added later must not move the hash
+    # of every record that does not have it: an empty link is simply absent.
+    if payload.get("ted_ref") is None:
+        payload.pop("ted_ref", None)
+    return payload
 
 
 # Fields that come back out of a payload as strings and have to become dates
@@ -278,6 +283,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         security_clearance_required=opp.security_clearance_required,
         source_url=opp.source_url, buyer_org_id=opp.buyer_org_id,
         status=opp.status, status_native=opp.status_native,
+        ted_ref=opp.ted_ref,
     )
 
 
