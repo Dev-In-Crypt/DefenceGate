@@ -35,7 +35,7 @@ import httpx
 
 from .. import db
 from ..config import settings
-from ..db import CALL_FIELDS, OPTIONAL_CALL_FIELDS
+from ..db import CALL_FIELDS, LOCAL_KEY_SOURCES, OPTIONAL_CALL_FIELDS, _buyer_key
 from ..normalise import (
     Call,
     Opportunity,
@@ -190,17 +190,33 @@ def check_source(conn, store, code: str, n: int, seed: str,
     rows = conn.execute(
         "SELECT * FROM opportunity WHERE source_id = %s AND is_defence "
         "ORDER BY md5(native_id || %s) LIMIT %s", (src_id, seed, n)).fetchall()
-    ids = [r["native_id"] for r in rows]
-    raws = {r["native_id"]: r for r in conn.execute(
-        "SELECT DISTINCT ON (native_id) native_id, storage_key, content_hash FROM raw_ingest "
-        "WHERE source_id = %s AND native_id = ANY(%s) ORDER BY native_id, id DESC",
-        (src_id, ids))}
+    # A row disambiguated by its buyer (`2582/2026#3f9a1c07`) is landed under the
+    # plain number, so the raw lookup strips the suffix.
+    ids = [r["native_id"].split("#")[0] for r in rows]
+    landed: dict[str, list[dict]] = {}
+    for r in conn.execute(
+            "SELECT native_id, storage_key, content_hash FROM raw_ingest "
+            "WHERE source_id = %s AND native_id = ANY(%s) ORDER BY native_id, id DESC",
+            (src_id, ids)):
+        landed.setdefault(r["native_id"], []).append(r)
+
+    def latest_raw(row: dict) -> dict | None:
+        """The newest payload landed for this row. Where a number is shared by
+        several buyers, the newest of *this* buyer's."""
+        candidates = landed.get(row["native_id"].split("#")[0], [])
+        if code not in LOCAL_KEY_SOURCES:
+            return candidates[0] if candidates else None
+        want = _buyer_key(row["buyer_name_raw"])
+        for candidate in candidates:
+            if _buyer_key(store.get(candidate["storage_key"]).get("buyer_name_raw")) == want:
+                return candidate
+        return None
 
     out: list[Verdict] = []
     for row in rows:
         nid = row["native_id"]
         verdict = Verdict(code, nid, row["published_at"], "no live")
-        raw = raws.get(nid)
+        raw = latest_raw(row)
         if raw is None:
             verdict.verdict, verdict.detail = "MISMATCH", {"error": "no raw payload landed"}
             out.append(verdict)

@@ -12,9 +12,10 @@ Everything else in this file is plumbing.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from contextlib import contextmanager
-from dataclasses import asdict, fields
+from dataclasses import asdict, fields, replace
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Iterator
@@ -34,6 +35,25 @@ VERSIONED_FIELDS = [
     "legal_basis", "value_amount", "value_currency", "published_at",
     "deadline_at", "cpv_codes", "source_url", "status",
 ]
+
+
+# Sources whose identifier is a file number the buyer itself assigns, so it is
+# unique only within that buyer. In the Catalan feed, `2582/2026` is both a
+# police-vest supply of the Ajuntament del Prat and the park works of the
+# Ajuntament de la Garriga; under (source, native_id) alone, two defence notices
+# like that would be one row with one history. Found by the spot check of
+# 11 October 2026.
+LOCAL_KEY_SOURCES = {"es_placsp", "es_placsp_agg"}
+
+
+def _buyer_key(name: str | None) -> str:
+    return normalise_org_name(name or "")
+
+
+def _disambiguated_id(opp: Opportunity) -> str:
+    """The number, made unique by who filed it: `2582/2026#3f9a1c07`."""
+    token = hashlib.sha1(_buyer_key(opp.buyer_name_raw).encode("utf-8")).hexdigest()[:8]
+    return f"{opp.native_id}#{token}"
 
 
 def _jsonable(value: Any) -> Any:
@@ -357,14 +377,27 @@ def upsert_opportunity(
     content already archived at an earlier version -- or "stale" for content
     older than the current version by the source's own date.
     """
-    payload = opportunity_payload(opp)
-
     existing = conn.execute(
-        """SELECT id, current_version FROM opportunity
+        """SELECT id, current_version, buyer_name_raw FROM opportunity
             WHERE source_id = %s AND native_id = %s""",
         (src_id, opp.native_id),
     ).fetchone()
 
+    # A different body filing a notice under a number that is already held is a
+    # different notice. The first holder keeps the plain number, so nothing already
+    # stored moves, and arrival order decides, which a replay reproduces. Buyer
+    # names do not change between versions of one notice: across every source, no
+    # archived notice has ever had its buyer differ between versions.
+    if (existing and opp.source_code in LOCAL_KEY_SOURCES
+            and _buyer_key(existing["buyer_name_raw"]) != _buyer_key(opp.buyer_name_raw)):
+        opp = replace(opp, native_id=_disambiguated_id(opp))
+        existing = conn.execute(
+            """SELECT id, current_version, buyer_name_raw FROM opportunity
+                WHERE source_id = %s AND native_id = %s""",
+            (src_id, opp.native_id),
+        ).fetchone()
+
+    payload = opportunity_payload(opp)
     cols = _serving_columns(opp)
 
     if not existing:
