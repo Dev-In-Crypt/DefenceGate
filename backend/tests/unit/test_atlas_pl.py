@@ -96,8 +96,10 @@ def test_award_notices_are_not_left_looking_open():
 
 
 def test_an_unknown_notice_type_stays_open():
-    """Wrongly open is visible and gets corrected; wrongly closed never does."""
-    assert from_atlas_pl(row(notice_type="SomethingNew")).status == "open"
+    """Until 12 October 2026: wrongly open is visible and gets corrected. That rule showed
+    ~400 update, intention and VEAT notices of 2025 as open with no deadline, so an unknown
+    type is now `unknown`, never open (decision of the data quality plan)."""
+    assert from_atlas_pl(row(notice_type="SomethingNew")).status == "unknown"
 
 
 # -------------------------------------------------------------------- value

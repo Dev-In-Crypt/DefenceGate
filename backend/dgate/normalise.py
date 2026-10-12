@@ -1612,28 +1612,42 @@ def _pl_cpv(raw: Any) -> list[str]:
 # can-standard 36,764. The `*-standard` forms are the eForms names on rows that
 # came from TED; the CamelCase ones are the BZP bulletin's own.
 _ATLAS_CLOSED_TYPES = {
-    "TenderResultNotice", "ContractPerformingNotice", "can-standard",
+    "TenderResultNotice", "ContractPerformingNotice", "can-standard", "can-social", "can-desg",
+    "can-modif", "can-tran", "veat", "compl", "AgreementUpdateNotice", "AgreementIntentionNotice",
+    "NoticeOfIntentionToConcludeAContract",
 }
 _ATLAS_OPEN_TYPES = {
-    "ContractNotice", "NoticeUpdateNotice", "cn-standard", "pin-standard",
+    "ContractNotice", "cn-standard", "cn-social", "cn-desg", "SmallContractNotice",
+    "CompetitionNotice", "qu-sy", "subco",
+}
+# Prior information and plan notices announce a purchase; they are not calls.
+_ATLAS_PLANNED_TYPES = {
+    "pin-standard", "pin-only", "pin-buyer", "pin-rtl", "pin-tran", "pin-cfc-standard",
+    "pin-cfc-social", "pmc", "PriorInformationNotice", "TenderPlanNotice",
 }
 
 
 def _atlas_status(notice_type: str | None, procedure_result: Any = None) -> str:
-    """Live call, or a record of one that has already been decided.
+    """Live call, a record of one already decided, a planning notice, or unknown.
 
-    Anything unrecognised is `open`, matching the rest of the pipeline: a
-    notice wrongly left open is visible and gets corrected, one wrongly closed
-    is invisible and never does.
+    Since 12 October 2026 an unrecognised type is `unknown`, never `open`: the
+    notices of 2025 left open by the old rule (NoticeUpdateNotice, agreement
+    updates, intentions, VEAT) were the ones a reader met as "open, no deadline".
+    A `NoticeUpdateNotice` restates a notice that is listed itself, so it is not
+    a second opportunity.
 
-    A result notice whose parts were all annulled (`uniewaznienie`, 17,973 rows
-    of 2024) is `cancelled`, not awarded.
+    A result notice whose parts were all annulled (`uniewaznienie`) is
+    `cancelled`, not awarded.
     """
     if notice_type in _ATLAS_CLOSED_TYPES:
         from .sources.ezamowienia import result_status
 
         return result_status(procedure_result) or "awarded"
-    return "open"
+    if notice_type in _ATLAS_PLANNED_TYPES:
+        return "forthcoming"
+    if notice_type in _ATLAS_OPEN_TYPES:
+        return "open"
+    return "unknown"
 
 
 # ISO 4217 codes accepted for an Atlas value. An allowlist rather than a shape

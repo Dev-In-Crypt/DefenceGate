@@ -389,3 +389,17 @@ def test_a_ted_row_closed_without_a_contractor_is_closed():
 def test_the_procedure_columns_do_not_change_what_is_open():
     assert from_atlas_pl(atlas_row(notice_type="ContractNotice",
                                    procedure_result="uniewaznienie")).status == "open"
+
+
+@pytest.mark.parametrize("notice_type, status", [
+    ("ContractNotice", "open"), ("cn-standard", "open"), ("SmallContractNotice", "open"),
+    ("TenderResultNotice", "awarded"), ("can-standard", "awarded"), ("veat", "awarded"),
+    ("can-modif", "awarded"), ("AgreementUpdateNotice", "awarded"),
+    ("AgreementIntentionNotice", "awarded"),
+    ("pin-rtl", "forthcoming"), ("pin-only", "forthcoming"),
+    ("NoticeUpdateNotice", "unknown"), ("SomethingNew", "unknown"), (None, "unknown"),
+])
+def test_atlas_status_is_never_open_for_what_is_not_a_call(notice_type, status):
+    from dgate.normalise import _atlas_status
+
+    assert _atlas_status(notice_type) == status
