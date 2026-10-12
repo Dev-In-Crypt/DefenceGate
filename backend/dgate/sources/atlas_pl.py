@@ -79,6 +79,12 @@ COLUMNS = [
     "id",
     "source",
     "notice_type",
+    # The procedure and the outcome of a result notice. Not in the first load
+    # (they were mapped from `notice_type` alone), so rows landed before
+    # 12 October 2026 lack them: `pipeline.run_atlas_backfill(refresh_known=True)`
+    # lands them again for the rows that are opportunities.
+    "tender_type",
+    "procedure_result",
     "title",
     "buyer",
     "buyer_nip",

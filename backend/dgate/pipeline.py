@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
+import httpx
 import psycopg
 
 from . import db, rawstore
@@ -871,6 +872,12 @@ def _history_source(code: str) -> tuple[Any, Any]:
             lambda day: boamp.search(boamp.day_query(day)), from_boamp)
         HISTORY_SOURCES[tenderned.SOURCE_CODE] = (
             lambda day: tenderned.fetch_day(day), from_tenderned)
+        # Poland: a weekday is about 270 pages at one request a second, so a
+        # month is more than an hour and the whole of 2026 is most of a day. A
+        # page that keeps failing raises, the day stays unmarked, and the next
+        # run starts at that day.
+        HISTORY_SOURCES[ezamowienia.SOURCE_CODE] = (
+            lambda day: ezamowienia.fetch_day(day), from_ezamowienia)
     if code not in HISTORY_SOURCES:
         raise ValueError(f"no historical load defined for {code!r}")
     return HISTORY_SOURCES[code]
@@ -994,46 +1001,152 @@ def _in_chunks(items: Iterable[Any], size: int) -> Iterator[list[Any]]:
     yield chunk      # the last, possibly empty: an empty day is still a day
 
 
-def run_ezamowienia(days: int = 2) -> None:
+def ezam_refresh_targets(conn, src_id: int, limit: int,
+                         min_age_hours: float = ezamowienia.REFRESH_MIN_AGE_HOURS,
+                         ) -> list[tuple[str, str]]:
+    """The notices whose current state should be asked for again: (native id,
+    notice number), the least recently read first.
+
+    A notice is a target while it can still change in a way that matters: its
+    deadline has not passed (or passed within three days, for a late extension),
+    or it is `open` without a deadline and was published in the last 120 days.
+    "Last read" is the newest `raw_ingest` row for the identifier, which every
+    read writes, whichever job made it; nothing new is stored for it.
+
+    The notice number is the identifier plus the revision the archived version
+    carries (`2026/BZP 00448576` + 1 -> `2026/BZP 00448576/01`); a notice
+    republished from TED has no revision and its number is the identifier.
+    """
+    rows = conn.execute(
+        """WITH reads AS (
+               SELECT native_id, max(fetched_at) AS last_read_at
+                 FROM raw_ingest
+                WHERE source_id = %(src)s AND fetched_at > now() - interval '60 days'
+                GROUP BY native_id)
+           SELECT o.native_id, v.payload->>'notice_version' AS revision
+             FROM opportunity o
+             JOIN opportunity_version v
+               ON v.opportunity_id = o.id AND v.version = o.current_version
+             LEFT JOIN reads r ON r.native_id = o.native_id
+            WHERE o.source_id = %(src)s
+              AND (o.deadline_at > now() - interval '3 days'
+                   OR (o.status = 'open' AND o.deadline_at IS NULL
+                       AND o.published_at > current_date - 120))
+              AND (r.last_read_at IS NULL
+                   OR r.last_read_at < now() - interval '1 hour' * %(age)s)
+            ORDER BY r.last_read_at NULLS FIRST, o.deadline_at NULLS LAST
+            LIMIT %(limit)s""",
+        {"src": src_id, "age": min_age_hours, "limit": limit}).fetchall()
+    return [(r["native_id"],
+             r["native_id"] + (f"/{int(r['revision']):02d}"
+                               if (r["revision"] or "").isdigit() else ""))
+            for r in rows]
+
+
+def run_ezamowienia(days: int | None = 2, *,
+                    refresh_limit: int = ezamowienia.REFRESH_LIMIT) -> None:
     """Daily incremental pull of the Polish bulletin.
 
     Same ordering rule as every other source: land the raw record, normalise,
     classify, archive. The connector already narrows to defence angles, so most
     of what arrives here survives classification; the rest is dropped exactly as
     it is for TED.
+
+    Then up to `refresh_limit` notices that are still open are asked for by
+    number, least recently read first, one request a second. The publication-day
+    window cannot see a change made in place (a deadline moved keeps the notice
+    number and the publication date): on 12 October 2026, 296 of 311 open
+    notices had not been read for over three days and one deadline was a day
+    out. With about 300 open and 200 a day, each is re-read within two days.
+    `days=None` skips the window (a re-read only); `refresh_limit=0` skips the
+    re-read.
     """
     code = ezamowienia.SOURCE_CODE
     cfg = settings()
     with (db.connect(cfg.dsn) as conn,
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
-        run_id = db.start_run(conn, code, settings().floor(code))
+        # The floors describe a publication window; a re-read alone has none.
+        run_id = db.start_run(conn, code, settings().floor(code) if days is not None else None)
         q = Quarantine(code)
-        fetched = new = changed = 0
+        fetched = new = changed = refreshed = 0
+        problems: list[str] = []
+
+        def ingest(record: dict[str, Any]) -> None:
+            nonlocal new, changed
+            with q.guard(conn, record):
+                clean = strip_personal_data(record)
+                h = ted.content_hash(clean)
+                try:
+                    opp = from_ezamowienia(clean)
+                except ValueError as exc:
+                    log.warning("skipping malformed notice: %s", exc)
+                    return
+                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                db.record_raw(conn, src_id, opp.native_id, h, key)
+                opp = _finalise(conn, opp, src_id)
+                if not opp.is_defence:
+                    return
+                _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                new += action == "new"
+                changed += action == "changed"
+
         try:
-            for record in ezamowienia.fetch_window(days_back=days):
-                fetched += 1
-                _checkpoint(conn, code, fetched, new, changed, every=100,
-                            writer=writer, run_id=run_id)
-                with q.guard(conn, record):
-                    clean = strip_personal_data(record)
-                    h = ted.content_hash(clean)
-                    try:
-                        opp = from_ezamowienia(clean)
-                    except ValueError as exc:
-                        log.warning("skipping malformed notice: %s", exc)
-                        continue
-                    key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, opp.native_id, h, key)
-                    opp = _finalise(conn, opp, src_id)
-                    if not opp.is_defence:
-                        continue
-                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                    new += action == "new"
-                    changed += action == "changed"
+            if days is not None:
+                unread: list[date] = []
+                for record in ezamowienia.fetch_window(days_back=days, failed=unread):
+                    fetched += 1
+                    _checkpoint(conn, code, fetched, new, changed, every=100,
+                                writer=writer, run_id=run_id)
+                    ingest(record)
+                if unread:
+                    # Said by day, so the owner can load exactly those days with
+                    # `history --source pl_ezam --from D --to D`. The run is
+                    # `partial`, so catch-up widens the next window over them.
+                    problems.append("publication days not read to their end: "
+                                    + ", ".join(d.isoformat() for d in unread))
+            if refresh_limit > 0:
+                targets = ezam_refresh_targets(conn, src_id, refresh_limit)
+                log.info("%s: %s open notices to re-read", code, len(targets))
+                refreshed, unreadable, missing, in_a_row = 0, 0, 0, 0
+                client = new_client(headers={"User-Agent": ezamowienia.USER_AGENT,
+                                             "Accept": "application/json"},
+                                    follow_redirects=True)
+                try:
+                    for i, (_, number) in enumerate(targets):
+                        if i:
+                            time.sleep(ezamowienia.REFRESH_PAUSE)
+                        try:
+                            record = ezamowienia.fetch_notice(number, client=client)
+                            in_a_row = 0
+                        except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+                            unreadable += 1
+                            in_a_row += 1
+                            log.warning("%s: re-read of %s failed: %s", code, number, exc)
+                            if in_a_row >= 3:
+                                # The source is unwell. What is left is the
+                                # oldest-read set again tomorrow.
+                                problems.append("re-read stopped after 3 failures in a row")
+                                break
+                            continue
+                        if record is None:
+                            missing += 1
+                            continue
+                        refreshed += 1
+                        _checkpoint(conn, f"{code}-reread", fetched + refreshed, new, changed,
+                                    every=50, writer=writer, run_id=run_id)
+                        ingest(record)
+                finally:
+                    client.close()
+                log.info("%s: re-read %s, %s unreadable, %s not found", code, refreshed,
+                         unreadable, missing)
+                if unreadable:
+                    problems.append(f"{unreadable} open notices could not be re-read")
             writer.drain()
+            status, error = q.merge("partial" if problems else "success",
+                                    "; ".join(problems) or None)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          **q.outcome())
+                          status=status, error=error)
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the
@@ -1418,8 +1531,15 @@ def atlas_done_marker(year: int) -> Path:
 
 def run_atlas_backfill(year: int, *, path: Path | None = None,
                        limit: int | None = None, resume: bool = True,
-                       workers: int | None = None) -> None:
+                       workers: int | None = None, refresh_known: bool = False) -> None:
     """One-off historical load of the Polish bulletin from Atlas Przetargow.
+
+    `refresh_known=True` is the second pass of 12 October 2026: it lands the
+    current column set again (`tender_type`, `procedure_result`) for the rows
+    that are already opportunities, and only lands -- no opportunity is written
+    here, so a corrected mapping reaches the archive through one replay
+    (`python -m dgate.reprocess --source pl_atlas`) that can mark the new versions
+    as remapped, not as amendments made by the publisher.
 
     Run once per year file, then never again: this is the part of the archive a
     competitor starting after us cannot obtain, and the dataset is immutable
@@ -1450,7 +1570,12 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
     with (db.connect(cfg.dsn) as conn,
           BufferedWriter(build_store(), workers or cfg.raw_write_workers) as writer):
         src_id = db.source_id(conn, code)
-        seen = already_ingested(conn, code) if resume else set()
+        known: set[str] = set()
+        if refresh_known:
+            known = {r["native_id"] for r in conn.execute(
+                "SELECT native_id FROM opportunity WHERE source_id = %s", (src_id,)).fetchall()}
+            log.info("atlas %s: refreshing the %s rows that are opportunities", year, len(known))
+        seen = already_ingested(conn, code) if resume and not refresh_known else set()
         if seen:
             log.info("atlas %s: %s identifiers already landed, skipping those",
                      year, len(seen))
@@ -1461,7 +1586,7 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
                 if limit is not None and fetched >= limit:
                     break
                 native_id = str(record.get("id") or "")
-                if native_id in seen:
+                if native_id in seen or (refresh_known and native_id not in known):
                     skipped += 1
                     continue
                 fetched += 1
@@ -1476,6 +1601,8 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
                     continue
                 key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
+                if refresh_known:
+                    continue
                 opp = _finalise(conn, opp, src_id)
                 if not opp.is_defence:
                     continue
@@ -1497,7 +1624,7 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
             raise
     log.info("atlas %s done: %s rows read, %s already had, %s new, %s changed",
              year, fetched, skipped, new, changed)
-    if limit is None:
+    if limit is None and not refresh_known:
         atlas_done_marker(year).write_text(
             "completed " + datetime.now(timezone.utc).isoformat(timespec="seconds"),
             encoding="utf-8")
@@ -1628,6 +1755,10 @@ def main(argv: list[str] | None = None) -> int:
 
     e = sub.add_parser("ezamowienia", help="ingest the Polish bulletin (BZP)")
     e.add_argument("--days", type=int, default=2)
+    e.add_argument("--refresh-limit", type=int, default=ezamowienia.REFRESH_LIMIT,
+                   help="open notices to re-read by number after the window; 0 for none")
+    e.add_argument("--refresh-only", action="store_true",
+                   help="skip the publication-day window and only re-read open notices")
 
     f = sub.add_parser("boamp", help="ingest the French bulletin (BOAMP)")
     f.add_argument("--days", type=int, default=2)
@@ -1665,10 +1796,14 @@ def main(argv: list[str] | None = None) -> int:
                    help="stop after this many rows; for a rehearsal")
     b.add_argument("--no-resume", action="store_true",
                    help="re-read rows already landed instead of skipping them")
+    b.add_argument("--refresh-known", action="store_true",
+                   help="only land again the rows that are opportunities, with the "
+                        "current column set; writes no opportunity (replay afterwards)")
 
     h = sub.add_parser("history",
                        help="one-off historical load of every notice of a source")
-    h.add_argument("--source", default="ted", help="ted, fr_boamp or nl_tenderned")
+    h.add_argument("--source", default="ted",
+                   help="ted, fr_boamp, nl_tenderned or pl_ezam")
     h.add_argument("--from", dest="start", type=date.fromisoformat, required=True,
                    help="first publication day, YYYY-MM-DD (the API starts at 2017)")
     h.add_argument("--to", dest="end", type=date.fromisoformat, default=None,
@@ -1703,7 +1838,7 @@ def main(argv: list[str] | None = None) -> int:
         if summary["failed"] or summary["stopped"]:
             raise SystemExit(1)
     elif a.cmd == "ezamowienia":
-        run_ezamowienia(days=a.days)
+        run_ezamowienia(days=None if a.refresh_only else a.days, refresh_limit=a.refresh_limit)
     elif a.cmd == "boamp":
         run_boamp(days=a.days)
     elif a.cmd == "tenderned":
@@ -1724,7 +1859,7 @@ def main(argv: list[str] | None = None) -> int:
         run_topic_details(limit=a.limit, refresh_after_days=a.refresh_after_days)
     elif a.cmd == "atlas-pl":
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
-                           resume=not a.no_resume)
+                           resume=not a.no_resume, refresh_known=a.refresh_known)
     elif a.cmd == "history":
         try:
             run_history(a.source, a.start, a.end or date.today() - timedelta(days=1),
