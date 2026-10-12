@@ -21,6 +21,13 @@ const PRINCIPLES = [
   { icon: ShieldCheck, title: 'Commercial information only', body: 'We keep dates, buyers, values and codes. We do not collect technical specifications, and we do not keep the contact persons a source lists.' },
 ];
 
+const RESOURCES = [
+  { label: 'Deadline calendar', href: '/calendar', body: 'Upcoming tender and funding deadlines, also as a calendar feed.' },
+  { label: 'CPV finder', href: '/cpv', body: 'Find the procurement codes that describe your products.' },
+  { label: 'Glossary', href: '/glossary', body: 'Plain-English explanations of procurement and funding terms.' },
+  { label: 'Source status', href: '/data', body: 'What each source last delivered, and how complete it was.' },
+];
+
 export default function AboutPage() {
   return (
     <ContentPage
@@ -51,6 +58,17 @@ export default function AboutPage() {
       <Callout title="What we are not">
         <p className="m-0">An official publisher, a bidding platform, a contracting authority or an adviser. We do not submit bids or applications for anyone, and nothing here is legal, export-control or eligibility advice.</p>
       </Callout>
+
+      <ContentSection title="Resources">
+        <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2">
+          {RESOURCES.map((r) => (
+            <li key={r.href} className="flex min-w-0 flex-col gap-0.5">
+              <Link href={r.href} className="inline-flex min-h-11 items-center text-body font-semibold">{r.label}</Link>
+              <span className="text-small text-ink-muted">{r.body}</span>
+            </li>
+          ))}
+        </ul>
+      </ContentSection>
 
       <ContentSection title="Get in touch">
         <p className="m-0 text-body text-ink-muted">

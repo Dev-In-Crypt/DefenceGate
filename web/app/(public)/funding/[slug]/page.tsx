@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Bell, Plus } from 'lucide-react';
 import { getCall, getRelatedCalls } from '@/lib/api';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
 import { formatDateUtc, formatMoney, openingPhrase } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
-import { PROGRAMMES, REGIMES } from '@/lib/taxonomy';
+import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs, ComingSoon, JsonLd } from '@/components/dg/feedback';
 import { Tag, StatusPill } from '@/components/dg/tag';
@@ -21,7 +21,7 @@ import { FollowButton, SaveButton } from '@/components/account/save-button';
 export const revalidate = 3600;
 type Props = { params: Promise<{ slug: string }> };
 
-const ROW = 'grid gap-1 py-3 sm:grid-cols-[200px_1fr] sm:gap-4';
+const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const call = await getCall((await params).slug);
@@ -65,7 +65,7 @@ export default async function CallDetailPage({ params }: Props) {
   const closed = d.state === 'closed';
   const upcoming = call.status === 'forthcoming';
   const opens = upcoming ? call.openingDate : null;
-  const nonEnglish = call.titleLanguage !== 'en';
+  const nonEnglish = isNonEnglish(call.titleLanguage);
   const programme = PROGRAMMES[call.programme];
   const sourceUrl = safeHttpUrl(call.source.url);
   const hasScope = Boolean(call.actionType) || call.scope.length > 0;
@@ -88,7 +88,7 @@ export default async function CallDetailPage({ params }: Props) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? call.titleLanguage : undefined}
-                className={cn('m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{call.title}</h1>
+                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{call.title}</h1>
               {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
             </div>
             {call.originalTitle && (
@@ -178,8 +178,8 @@ export default async function CallDetailPage({ params }: Props) {
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
             <SaveButton kind="call" refId={call.id} />
             <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />
-            <ComingSoon feature="Alerts for similar calls" />
-            <ComingSoon feature="Opportunity pack" />
+            <Button href="/alerts" variant="secondary" icon={Bell} fullWidth>Get alerts</Button>
+            <Button href="/pack" variant="text" className="self-start">Opportunity pack</Button>
             {sourceUrl && (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {call.source.sourceName}</Button>
             )}

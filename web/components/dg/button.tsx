@@ -14,7 +14,8 @@ export const buttonVariants = cva(
       variant: {
         primary: 'border-primary bg-primary text-on-primary hover:border-primary-hover hover:bg-primary-hover active:border-primary-press active:bg-primary-press',
         secondary: 'border-ink bg-surface text-ink hover:bg-surface-inset',
-        text: 'bg-transparent px-1 text-link hover:underline',
+        // A link-style button may carry a long source name: it wraps instead of widening the page.
+        text: 'whitespace-normal bg-transparent px-1 text-left text-link hover:underline',
       },
       fullWidth: { true: 'w-full' },
     },

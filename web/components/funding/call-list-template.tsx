@@ -10,6 +10,7 @@ import { Breadcrumbs, EmptyState } from '../dg/feedback';
 import { CallCard } from '../dg/cards';
 import { Pagination } from '../dg/pagination';
 import { Button } from '../dg/button';
+import { ResultTools } from '../dg/download-link';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
 import { SortSelect } from './filter-panel';
@@ -25,12 +26,14 @@ export interface EntryChip { label: string; href: string }
 
 /** Shared template for /funding and every /funding/* list sub-page. */
 export function CallListTemplate({
-  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch,
+  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch, exportHref,
 }: {
   title: string; intro: string; basePath: string; crumbs: Crumb[]; filters: CallFilters;
   result: Paginated<Call>; view: ListView; health: Health; chips?: EntryChip[]; hide?: FilterGroup[];
   /** Rendered under the filters (the save-search island). */
   saveSearch?: React.ReactNode;
+  /** The CSV of the current result; shown under the filters when there are results. */
+  exportHref?: string;
 }) {
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
@@ -62,6 +65,7 @@ export function CallListTemplate({
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} />
           {saveSearch}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" />}
         </div>
 
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
@@ -97,6 +101,8 @@ export function CallListTemplate({
             <Pagination page={result.page} total={result.total} pageSize={result.pageSize}
               hrefFor={(p) => `${basePath}${toQuery({ ...filters, page: p })}`} />
           )}
+          {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="lg:hidden" />}
         </section>
       </div>
     </>

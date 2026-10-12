@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, Printer } from 'lucide-react';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug } from '@/lib/api';
 import { getTenderDeadline } from '@/lib/deadline';
 import { formatDateUtc, formatMoney } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
-import { cpvLabel, legalBasisLabel, TENDER_SCOPES } from '@/lib/taxonomy';
+import { tenderStatusView, valueKindLabel } from '@/lib/tender-status';
+import { cpvLabel, isNonEnglish, legalBasisLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
 import { Tag } from '@/components/dg/tag';
@@ -16,14 +17,14 @@ import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/d
 import { SourceBadge } from '@/components/dg/source-badge';
 import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
-import { TenderCard, TenderStatusPills } from '@/components/dg/cards';
+import { AnomalyNote, TenderCard, TenderStatusPills } from '@/components/dg/cards';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ slug: string }> };
 
 const RELATED_LIMIT = 3;
-const ROW = 'grid gap-1 py-3 sm:grid-cols-[200px_1fr] sm:gap-4';
+const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tender = await getTender((await params).slug);
@@ -78,7 +79,7 @@ export default async function TenderDetailPage({ params }: Props) {
 
   const d = getTenderDeadline(tender);
   const closed = d.state === 'closed';
-  const nonEnglish = tender.titleLanguage !== null && tender.titleLanguage !== 'en';
+  const nonEnglish = isNonEnglish(tender.titleLanguage);
   const sourceUrl = safeHttpUrl(tender.source.url);
   const legal = tender.legalBasis ? legalBasisLabel(tender.legalBasis) : null;
   // The main code first, then the rest, each once.
@@ -101,7 +102,7 @@ export default async function TenderDetailPage({ params }: Props) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined}
-                className={cn('m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{tender.title}</h1>
+                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{tender.title}</h1>
               {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
             </div>
             {tender.originalTitle && (
@@ -125,7 +126,12 @@ export default async function TenderDetailPage({ params }: Props) {
           <DeadlineBadge info={d} size="lg" className="w-full lg:hidden" />
 
           <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
-            <FactCell label="Estimated value"><AmountDisplay money={tender.estimatedValue} size="lg" /></FactCell>
+            <FactCell label="Estimated value">
+              <AmountDisplay money={tender.estimatedValue} size="lg" />
+              {tender.estimatedValue && valueKindLabel(tender.valueKind) && (
+                <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
+              )}
+            </FactCell>
             <FactCell label="Notice ID">{tender.noticeId}</FactCell>
             <FactCell label="Published">
               {tender.publishedAt
@@ -146,8 +152,10 @@ export default async function TenderDetailPage({ params }: Props) {
             </FactCell>
             <FactCell label="Security clearance"><span className="font-sans">{tender.securityClearance ? 'Mentioned in the notice' : 'Not indicated'}</span></FactCell>
             <FactCell label="Subcontracting"><span className="font-sans">{tender.subcontracting ? 'Mentioned in the notice' : 'Not indicated'}</span></FactCell>
-            {tender.statusNative && <FactCell label="Status at the source"><span className="font-sans">{sentence(tender.statusNative)}</span></FactCell>}
+            {tender.statusNative && <FactCell label="Status at the source"><span className="font-sans">{tenderStatusView(tender).label}</span></FactCell>}
+            {typeof tender.lotCount === 'number' && tender.lotCount > 0 && <FactCell label="Lots">{tender.lotCount}</FactCell>}
           </dl>
+          <AnomalyNote tender={tender} />
 
           {cpvCodes.length > 0 && (
             <Panel title="CPV codes">
@@ -211,6 +219,7 @@ export default async function TenderDetailPage({ params }: Props) {
             {sourceUrl && (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {tender.source.sourceName}</Button>
             )}
+            <Button href={`/tenders/${tender.slug}/evidence`} variant="text" icon={Printer} className="self-start">Print evidence</Button>
           </div>
         </aside>
       </div>

@@ -20,7 +20,7 @@ export const MAX_PAGE = 1000;
 export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
-  scope: 'scope', hasOpen: 'hasOpen',
+  scope: 'scope', hasOpen: 'hasOpen', cpv: 'cpv',
 } as const;
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
@@ -122,6 +122,15 @@ const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'published-desc'];
 const BUYER_SORTS: BuyerSort[] = ['tenders', 'name'];
 const COUNTRY_CODES: string[] = BUYER_COUNTRY_CODES;
 
+/** CPV prefixes: digits only, 2 to 8 long (a trailing check digit, as in 35120000-1, is dropped), at most 20. */
+function cpvList(v: string | string[] | undefined): string[] | undefined {
+  if (!v) return undefined;
+  const raw = (Array.isArray(v) ? v : [v]).flatMap((s) => s.split(/[,\s]+/));
+  const out = raw.map((s) => /^(\d{8})-\d$/.exec(s)?.[1] ?? s).filter((s) => /^\d{2,8}$/.test(s));
+  const unique = [...new Set(out)].slice(0, 20);
+  return unique.length ? unique : undefined;
+}
+
 function pageOf(v: string | undefined): number {
   const n = num(v);
   return n && n >= 1 ? Math.min(Math.floor(n), MAX_PAGE) : 1;
@@ -137,6 +146,7 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES),
     status: oneOf(first(sp[PARAM.status]), TENDER_STATUSES) ?? DEFAULT_TENDER_STATUS,
     scope: oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE,
+    cpv: cpvList(sp[PARAM.cpv]),
     deadlineFrom: from && DATE_RE.test(from) ? from : undefined,
     deadlineTo: to && DATE_RE.test(to) ? to : undefined,
     valueMin: num(first(sp[PARAM.min])),
@@ -155,6 +165,7 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
   if (f.status && f.status !== DEFAULT_TENDER_STATUS) p.set(PARAM.status, f.status);
   if (f.scope && f.scope !== DEFAULT_TENDER_SCOPE) p.set(PARAM.scope, f.scope);
+  if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
   if (f.buyer) p.set('buyer', f.buyer);
   if (f.deadlineFrom) p.set(PARAM.from, f.deadlineFrom);
   if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
@@ -169,7 +180,7 @@ export function toTenderQuery(f: TenderFilters): string {
 
 export function activeTenderFilterCount(f: TenderFilters): number {
   return [
-    f.q, f.country?.length,
+    f.q, f.country?.length, f.cpv?.length,
     f.status !== DEFAULT_TENDER_STATUS ? f.status : undefined,
     f.scope !== DEFAULT_TENDER_SCOPE ? f.scope : undefined,
     f.deadlineFrom, f.deadlineTo, f.valueMin, f.valueMax,

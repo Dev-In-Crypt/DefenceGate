@@ -60,6 +60,16 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
   }
+
+  /* Paper is light: the dark theme prints with the light tokens, whatever the screen shows. */
+  @media print {
+    :root, [data-theme="dark"] {
+      --bg: #FFFFFF; --surface: #FFFFFF; --surface-inset: #F4F1EA; --line: #BDB8AC;
+      --ink: #12372A; --ink-muted: #3F4842; --primary: #12372A; --on-primary: #FFFFFF;
+      --link: #1F5A3F; color-scheme: light;
+    }
+    a { text-decoration: underline; }
+  }
 }
 
 /* Design-system type classes, kept for parity with the DS (tokens/typography.css). */

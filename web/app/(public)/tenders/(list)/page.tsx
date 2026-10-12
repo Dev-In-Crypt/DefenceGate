@@ -46,6 +46,7 @@ export default async function TendersPage({ searchParams }: Props) {
       meta={`${tenderSources} tender sources · Last update ${formatDateTimeUtc(health.generatedAt)}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" />}
       filterExtra={<SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
+      exportHref={`/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? DEFAULT_TENDER_SORT, options: SORT_OPTIONS }}
       clearHref="/tenders"

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
 import { dayParts, formatMonthUtc, openingPhrase } from '@/lib/format';
-import { PROGRAMMES } from '@/lib/taxonomy';
+import { PROGRAMMES, isNonEnglish } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import type { Call } from '@/lib/types';
 import { StatusPill, Tag } from '../dg/tag';
@@ -18,7 +18,7 @@ interface Group { key: string; heading: string; items: Call[] }
 function Row({ c }: { c: Call }) {
   const d = getCallDeadline(c);
   const upcoming = c.status === 'forthcoming';
-  const nonEnglish = c.titleLanguage !== 'en';
+  const nonEnglish = isNonEnglish(c.titleLanguage);
   // A call that has not opened yet is not under time pressure: neutral date block and no countdown.
   const tone = upcoming ? 'normal' : d.state;
   const p = d.iso ? dayParts(d.iso) : null;

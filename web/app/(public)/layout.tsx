@@ -11,13 +11,13 @@ export default async function PublicLayout({ children }: { children: React.React
   const { open } = await getAccountStatus();
   return (
     <>
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-surface focus:px-5 focus:py-3 focus:font-bold">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-surface focus:px-5 focus:py-3 focus:font-bold print:hidden">
         Skip to content
       </a>
-      <div className="page pt-4">
+      <div className="page pt-4 print:hidden">
         <HeaderBar accountsOpen={open} />
       </div>
-      <main id="main" className="page flex flex-col gap-8 py-8">
+      <main id="main" className="page flex flex-col gap-8 py-8 print:gap-4 print:py-0">
         <AccountsOpenProvider open={open}>{children}</AccountsOpenProvider>
       </main>
       <Footer />

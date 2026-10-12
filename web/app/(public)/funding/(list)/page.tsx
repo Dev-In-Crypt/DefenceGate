@@ -55,6 +55,7 @@ export default async function FundingHubPage({ searchParams }: Props) {
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
       filters={filters} result={result} view={view} health={health} chips={CHIPS}
       saveSearch={<SaveSearch kind="call" filters={filtersFromQuery(toQuery({ ...filters, page: 1 }))} />}
+      exportHref={`/funding/export.csv${toQuery({ ...filters, page: 1 })}`}
     />
   );
 }

@@ -2,6 +2,7 @@ import type { Crumb } from '@/lib/seo';
 import { Breadcrumbs, EmptyState } from './feedback';
 import { Pagination } from './pagination';
 import { Button } from './button';
+import { ResultTools } from './download-link';
 import { SortSelect } from '../funding/filter-panel';
 
 /**
@@ -9,11 +10,13 @@ import { SortSelect } from '../funding/filter-panel';
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, filterBar, filterExtra, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, children,
+  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, children,
 }: {
   crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
   /** Rendered under the filters (the save-search island). */
   filterExtra?: React.ReactNode;
+  /** The CSV of the current result; shown under the filters when there are results. */
+  exportHref?: string;
   noun: string; page: number; pageSize: number; total: number;
   sort: { value: string; options: { value: string; label: string }[] };
   clearHref: string; emptyTitle: string; emptyText: string; hrefFor: (page: number) => string;
@@ -31,7 +34,12 @@ export function ListPage({
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        {filterExtra ? <div className="flex min-w-0 flex-col gap-4">{filterBar}{filterExtra}</div> : filterBar}
+        {filterExtra || (exportHref && total > 0) ? (
+          <div className="flex min-w-0 flex-col gap-4">
+            {filterBar}{filterExtra}
+            {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" />}
+          </div>
+        ) : filterBar}
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <h2 id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
@@ -46,6 +54,8 @@ export function ListPage({
           )}
           <Pagination page={page} total={total} pageSize={pageSize} hrefFor={hrefFor} />
           {footnote && <p className="m-0 text-small text-ink-muted">{footnote}</p>}
+          {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" />}
         </section>
       </div>
     </>

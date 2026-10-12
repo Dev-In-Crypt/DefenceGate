@@ -11,7 +11,7 @@ export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
 export type DeadlineState = 'normal' | 'soon' | 'urgent' | 'closed' | 'none';
 /** UI status pill values. 'upcoming' = a forthcoming call ("Opens soon"). */
-export type StatusKind = 'open' | 'upcoming' | 'soon' | 'closed' | 'amended';
+export type StatusKind = 'open' | 'upcoming' | 'soon' | 'closed' | 'amended' | 'unknown';
 
 /** ISO 8601 timestamp, always UTC (e.g. "2026-11-26T16:00:00Z"). */
 export type IsoDateTime = string;
@@ -155,8 +155,17 @@ export interface Tender {
   estimatedValue: Money | null;
   /** As of now: a passed deadline is closed. */
   status: TenderStatus;
-  /** The source's own word: open, awarded, cancelled, unknown. */
+  /** The effective status: open, expired, awarded, cancelled, forthcoming, unknown. Read through lib/tender-status.ts. */
   statusNative: string | null;
+  /** The source gives the deadline as a date only. Absent on API builds that do not send it. */
+  deadlineIsDate?: boolean;
+  /** Things that look wrong in the source (e.g. 'deadline-before-publication'). Unknown codes are ignored. */
+  anomalies?: string[];
+  /** The buyer's name as resolved to one organisation record; `buyerName` is as published. */
+  buyerCanonicalName?: string | null;
+  /** What the estimated value is, as the API words it. Shown as given. */
+  valueKind?: string | null;
+  lotCount?: number | null;
   /** More than one version observed. */
   amended: boolean;
   versionCount: number;
@@ -176,6 +185,8 @@ export interface TenderFilters {
   country?: string[];
   status?: TenderStatusFilter;
   scope?: TenderScopeFilter;
+  /** CPV code prefixes (2 to 8 digits), at most 20. */
+  cpv?: string[];
   /** Organisation id. Set by code (the buyer page), never read from the URL. */
   buyer?: string;
   /** YYYY-MM-DD, inclusive, UTC */

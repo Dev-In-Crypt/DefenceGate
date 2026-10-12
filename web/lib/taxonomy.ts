@@ -65,6 +65,15 @@ export const LANGUAGES: Record<string, string> = {
   nl: 'Dutch', cs: 'Czech', ro: 'Romanian', pt: 'Portuguese', uk: 'Ukrainian',
 };
 
+/** Language codes arrive as `en`, `ES` or `Pl`: look them up in lower case. Unknown codes are shown as sent. */
+export function languageName(code: string): string {
+  return LANGUAGES[code.toLowerCase()] ?? code;
+}
+/** A title language that is not English gets a label. A missing language is not labelled. */
+export function isNonEnglish(code: string | null | undefined): boolean {
+  return Boolean(code) && code!.toLowerCase() !== 'en';
+}
+
 export function programmeBySlug(slug: string): ProgrammeCode | undefined {
   return PROGRAMME_CODES.find((c) => PROGRAMMES[c].slug === slug);
 }
