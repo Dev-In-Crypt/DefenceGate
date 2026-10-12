@@ -710,3 +710,7 @@ def health(conn=Depends(get_conn)):
 from .funding import router as _funding_router  # noqa: E402
 
 app.include_router(_funding_router)
+
+from .tenders import router as _tenders_router  # noqa: E402
+
+app.include_router(_tenders_router)

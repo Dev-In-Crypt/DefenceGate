@@ -53,7 +53,8 @@ def is_internal(peer: str) -> bool:
 
 # What a request costs, in tokens. The archive and the entity-resolution oracle
 # are the two things worth scraping, and the slug list is the whole catalogue.
-HEAVY_PATHS = {"/v1/organisations/resolve": 5, "/v1/funding/slugs": 20}
+HEAVY_PATHS = {"/v1/organisations/resolve": 5, "/v1/funding/slugs": 20,
+               "/v1/tenders/slugs": 20, "/v1/buyers/slugs": 20}
 
 
 def request_cost(path: str, params: dict[str, str]) -> int:
