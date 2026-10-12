@@ -6,10 +6,11 @@ export const revalidate = 3600;
 
 /**
  * Only routes that exist and are indexable. Filtered /funding, /tenders and /buyers views are noindex and not listed.
- * /alerts, /pack, /pricing, /about, /privacy, /terms and /imprint are skeletons with `robots: noindex` until their
- * text is written: a noindex page does not belong in a sitemap. Add them here when their noindex is removed.
+ * /alerts, /pack, /pricing and /imprint carry `robots: noindex` until they say something worth finding (alerts and the
+ * pack are not open, pricing is not announced, the imprint waits for the provider's details): a noindex page does not
+ * belong in a sitemap. Add them here when their noindex is removed.
  */
-const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/data'];
+const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/data', '/methodology', '/about', '/terms', '/privacy'];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Funding slugs are required (as before). The tender and buyer lists degrade to empty if their endpoints are

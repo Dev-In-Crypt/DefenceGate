@@ -9,8 +9,9 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
     { label: 'Tenders', href: '/tenders' }, { label: 'Buyers', href: '/buyers' },
   ] },
   { title: 'Data', links: [
-    { label: 'Source status', href: '/data' }, { label: 'Get alerts', href: '/alerts' },
-    { label: 'Opportunity pack', href: '/pack' }, { label: 'Pricing', href: '/pricing' },
+    { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
+    { label: 'Alerts', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
+    { label: 'Pricing', href: '/pricing' },
   ] },
   { title: 'About and legal', links: [
     { label: 'About', href: '/about' }, { label: 'Privacy', href: '/privacy' },
@@ -37,7 +38,10 @@ export async function Footer() {
             </nav>
           ))}
         </div>
-        <div className="flex flex-wrap justify-between gap-2 border-t border-line pt-4 font-mono text-mono text-ink-muted">
+        <p className="m-0 max-w-[90ch] border-t border-line pt-4 text-small text-ink-muted">
+          DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
+        </p>
+        <div className="flex flex-wrap justify-between gap-2 font-mono text-mono text-ink-muted">
           <span>{health.sources.length} sources · Last update {formatDateTimeUtc(health.generatedAt)}</span>
           <span>All dates in UTC</span>
         </div>

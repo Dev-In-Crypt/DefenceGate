@@ -3,8 +3,9 @@
 Endpoint:  GET https://data.vinnova.se/api/{program,utlysningar,ansokningsomgangar}/<date>
 Auth:      none
 Operator:  Vinnova, Sweden's innovation agency
-Licence:   Public Domain Mark. The agency's open-data page says the data "may be used
-           freely without fees or other restrictions".
+Licence:   CC0. The agency's open-data page says the data may be used freely without
+           fees or other restrictions (checked 12 October 2026; it was a Public Domain Mark
+           in the 2017 API document).
 
 The structure is the agency's own: a **programme** has one or more **calls**
 (utlysningar), and a call has one or more **application rounds**

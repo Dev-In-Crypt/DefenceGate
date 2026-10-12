@@ -95,7 +95,7 @@ ATTRIBUTION = {
     "pl_ncbr": "Zrodlo: Narodowe Centrum Badan i Rozwoju (NCBR), gov.pl",
     "es_bdns": "Origen de los datos: Intervención General de la Administración del Estado "
                "(Base de Datos Nacional de Subvenciones, Ministerio de Hacienda)",
-    "se_vinnova": "Källa: Vinnova, öppna data (Public Domain Mark)",
+    "se_vinnova": "Källa: Vinnova, öppna data (CC0)",
     "nl_tenderned": "Bron: TenderNed (PIANOo), Nederland",
 }
 

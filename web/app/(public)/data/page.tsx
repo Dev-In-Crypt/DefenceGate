@@ -87,7 +87,7 @@ export default async function DataPage() {
 
       <ContentSection title="What is and is not covered">
         <p className="m-0 text-body text-ink-muted">
-          This is a draft description. We cover the sources listed above and nothing else. A source that is not listed is not collected, and a listed source may publish more than we have collected.
+          We cover the sources listed above and nothing else. A source that is not listed is not collected, and a listed source may publish more than we have collected.
         </p>
         <p className="m-0 text-body text-ink-muted">
           Coverage compares what a run fetched with the minimum we expected from that source. It is not a share of everything the source publishes. Where we have set no minimum, coverage is not measured.
