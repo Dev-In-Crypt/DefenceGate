@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { CalendarDays, ChevronLeft, ChevronRight, Download, List } from 'lucide-react';
 import { now } from '@/lib/deadline';
 import { formatMonthUtc } from '@/lib/format';
 import {
-  calendarQuery, dayOf, filterEntries, loadCalendar, monthOf, parseCalendarParams, shiftMonth, type CalendarParams, type KindFilter,
+  calendarQuery, dayOf, filterEntries, loadCalendar, monthOf, pageOf, parseCalendarParams, resolveMonth, shiftMonth,
+  type CalendarParams, type KindFilter,
 } from '@/lib/calendar';
 import type { SearchParams } from '@/lib/filters';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
@@ -14,12 +16,15 @@ import { Breadcrumbs, EmptyState, ErrorState } from '@/components/dg/feedback';
 import { Choice, Fieldset } from '@/components/dg/form';
 import { Button } from '@/components/dg/button';
 import { Icon } from '@/components/dg/icon';
+import { FilterNotices } from '@/components/dg/filter-notices';
+import { Pagination } from '@/components/dg/pagination';
 import { FilterPanel } from '@/components/funding/filter-panel';
 import { Agenda, MonthGrid } from '@/components/calendar/calendar-views';
 
 export const revalidate = 3600;
 
-const LIST_CAP = 150;
+/** Entries per page of the list view; the month view lists a month's entries up to MONTH_CAP. */
+const LIST_PAGE = 100;
 const MONTH_CAP = 300;
 const MONTHS_AHEAD = 24;
 const KINDS: { value: KindFilter; label: string }[] = [
@@ -38,7 +43,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     description: 'Upcoming deadlines of open defence tenders and funding calls in one calendar, in UTC, each linked to its record. Also as an iCalendar feed.',
     path: '/calendar',
     // Filtered and month views share the canonical page and stay out of the index.
-    noindex: p.kind !== 'all' || p.countries.length > 0 || p.view !== 'list' || p.month !== null,
+    noindex: p.kind !== 'all' || p.countries.length > 0 || p.view !== 'list' || p.month !== null || p.page > 1,
   });
 }
 
@@ -49,16 +54,26 @@ export default async function CalendarPage({ searchParams }: Props) {
   const today = ref.toISOString().slice(0, 10);
   const current = monthOf(ref);
   const last = shiftMonth(current, MONTHS_AHEAD);
-  // A month outside the window the data covers is clamped to it.
-  const month = !p.month || p.month < current ? current : p.month > last ? last : p.month;
+  // A month outside the window the data covers is clamped to it, and the page says so.
+  const { month, clamped } = resolveMonth(p.month, current, last);
 
   const countries = [...new Set([...data.entries.map((e) => e.country), ...p.countries].filter((c): c is string => Boolean(c)))].sort();
   const entries = filterEntries(data.entries, p);
   const inMonth = entries.filter((e) => dayOf(e.deadline).startsWith(month));
-  const shown = p.view === 'month' ? inMonth.slice(0, MONTH_CAP) : entries.slice(0, LIST_CAP);
+  const paged = pageOf(entries, p.page, LIST_PAGE);
+  if (p.view === 'list' && p.page > paged.pages) redirect(`/calendar${calendarQuery({ ...p, page: paged.pages })}`);
+  const shown = p.view === 'month' ? inMonth.slice(0, MONTH_CAP) : paged.items;
   const total = p.view === 'month' ? inMonth.length : entries.length;
+  const firstShown = (paged.page - 1) * LIST_PAGE + 1;
+  const Count = total === 0 ? 'p' : 'h2';
+  const notices = [
+    ...(p.badMonth ? [`Ignored filter: month=${p.badMonth} (use YYYY-MM)`] : []),
+    ...(p.view === 'month' && clamped && p.month
+      ? [`The calendar covers ${formatMonthUtc(`${current}-01T00:00:00Z`)} to ${formatMonthUtc(`${last}-01T00:00:00Z`)}. ${formatMonthUtc(`${p.month}-01T00:00:00Z`)} is outside it, so ${formatMonthUtc(`${month}-01T00:00:00Z`)} is shown.`]
+      : []),
+  ];
 
-  const href = (over: Partial<CalendarParams>) => `/calendar${calendarQuery({ ...p, month: p.view === 'month' ? month : null, ...over })}`;
+  const href = (over: Partial<CalendarParams>) => `/calendar${calendarQuery({ ...p, page: 1, month: p.view === 'month' ? month : null, ...over })}`;
   const feed = `/calendar.ics${calendarQuery({ kind: p.kind, countries: p.countries })}`;
   const bothDown = !data.tendersOk && !data.callsOk;
 
@@ -110,9 +125,10 @@ export default async function CalendarPage({ searchParams }: Props) {
 
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
+            {/* An empty result has one heading, the empty state's. */}
+            <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {total === 0 ? 'No deadlines' : p.view === 'month' ? `${total} ${total === 1 ? 'deadline' : 'deadlines'} in ${formatMonthUtc(`${month}-01T00:00:00Z`)}` : `${total} upcoming ${total === 1 ? 'deadline' : 'deadlines'}`}
-            </h2>
+            </Count>
             <div role="group" aria-label="View" className="flex rounded-pill bg-surface p-1">
               {(['list', 'month'] as const).map((v) => (
                 <Link key={v} href={href({ view: v, month: v === 'month' ? month : null })} aria-current={p.view === v ? 'true' : undefined}
@@ -140,6 +156,7 @@ export default async function CalendarPage({ searchParams }: Props) {
             <ErrorState retryHref="/calendar">The tender and funding services did not answer. Try again in a few minutes.</ErrorState>
           ) : (
             <>
+              <FilterNotices notices={notices} />
               {(!data.tendersOk || !data.callsOk) && (
                 <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
                   {!data.tendersOk ? 'Tenders could not be loaded just now; only funding calls are listed.' : 'Funding calls could not be loaded just now; only tenders are listed.'}
@@ -154,10 +171,18 @@ export default async function CalendarPage({ searchParams }: Props) {
               ) : (
                 <Agenda entries={shown} />
               )}
-              {total > shown.length && (
+              {p.view === 'month' && total > shown.length && (
                 <p className="m-0 text-small text-ink-muted">
-                  Showing the first {shown.length} of {total}. {p.view === 'month' ? 'Narrow the filters to see the rest.' : 'Use the month view or the filters to see later deadlines.'}
+                  Showing the first {shown.length} of {total}. Narrow the filters to see the rest.
                 </p>
+              )}
+              {p.view === 'list' && total > LIST_PAGE && (
+                <>
+                  <p className="m-0 text-small text-ink-muted">
+                    Showing {firstShown}–{firstShown + shown.length - 1} of {total} deadlines.
+                  </p>
+                  <Pagination page={paged.page} total={total} pageSize={LIST_PAGE} hrefFor={(n) => href({ page: n })} />
+                </>
               )}
             </>
           )}

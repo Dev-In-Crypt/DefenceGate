@@ -77,8 +77,10 @@ export interface DeadlineInfo {
   /** "in 46 days" | "Today" | "Closed"; "" when there is no deadline. */
   countdown: string;
   label: string;
-  /** The source states a date, not a time of day (tenders only). */
+  /** The source states a date, not a time of day. */
   dateOnly?: boolean;
+  /** An open call past its latest cut-off that takes submissions continuously or in several cut-offs. */
+  rolling?: boolean;
 }
 
 /** Single entry point for all deadline presentation. */
@@ -93,9 +95,31 @@ export function getDeadline(deadline: IsoDateTime | null, ref: Date = now()): De
   };
 }
 
-/** Same as getDeadline, but a call the API reports as closed is shown closed even without a date. */
-export function getCallDeadline(call: Pick<Call, 'status' | 'deadline'>, ref: Date = now()): DeadlineInfo {
-  const info = getDeadline(call.deadline, ref);
+/**
+ * Deadline of a call. A source that gives a day and no time (`deadlineIsDate`, or a stamp at exactly 00:00 UTC on an
+ * API that does not say) is shown as that date, with no time of day, on every page: a call is open to the end of
+ * that day. An open call past its stored deadline is "Open: rolling submission" when the API says it takes
+ * submissions continuously or in several cut-offs (`rolling`); otherwise it is closed. A call the API reports as
+ * closed is shown closed even without a date.
+ */
+export function getCallDeadline(
+  call: Pick<Call, 'status' | 'deadline'> & Partial<Pick<Call, 'deadlineIsDate' | 'rolling'>>,
+  ref: Date = now(),
+): DeadlineInfo {
+  const { deadline } = call;
+  let info = getDeadline(deadline, ref);
+  if (deadline !== null) {
+    const d = new Date(deadline);
+    const midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+    if (call.deadlineIsDate ?? midnight) {
+      // A stamp at 00:00 UTC is the start of the day it names; the call is open until that day ends.
+      const basis = midnight ? new Date(d.getTime() + DAY_MS - 1000).toISOString() : deadline;
+      info = { ...getDeadline(basis, ref), iso: deadline, utc: formatDateLabelledUtc(deadline), dateOnly: true };
+    }
+  }
+  if (call.status === 'open' && call.rolling === true && info.state === 'closed') {
+    return { ...info, state: 'normal', countdown: '', label: 'Open: rolling submission', rolling: true };
+  }
   if (call.status !== 'closed' || info.state === 'closed') return info;
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
 }

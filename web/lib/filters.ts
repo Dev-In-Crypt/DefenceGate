@@ -28,6 +28,13 @@ const SORTS: CallSort[] = ['deadline-asc', 'deadline-desc', 'budget-desc'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY_RE = /^[A-Za-z]{3}$/;
 
+/** A real calendar day written YYYY-MM-DD: "2026-02-31" and "2026-13-01" are not days, and the API refuses them. */
+export function isDay(v: string): boolean {
+  if (!DATE_RE.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
@@ -64,8 +71,8 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     regime: list<Regime>(sp[PARAM.regime], REGIME_CODES),
     country: list<CountryCode>(sp[PARAM.country], Object.keys(COUNTRIES) as CountryCode[]),
     status: oneOf(first(sp[PARAM.status]), STATUSES) ?? DEFAULT_STATUS,
-    deadlineFrom: from && DATE_RE.test(from) ? from : undefined,
-    deadlineTo: to && DATE_RE.test(to) ? to : undefined,
+    deadlineFrom: from && isDay(from) ? from : undefined,
+    deadlineTo: to && isDay(to) ? to : undefined,
     budgetMin: num(first(sp[PARAM.min])),
     budgetMax: num(first(sp[PARAM.max])),
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
@@ -114,11 +121,15 @@ export const BUYER_PAGE_SIZE = 20;
 export const DEFAULT_TENDER_STATUS: TenderStatusFilter = 'open';
 export const DEFAULT_TENDER_SCOPE: TenderScopeFilter = 'core';
 export const DEFAULT_TENDER_SORT: TenderSort = 'deadline-asc';
+/** Soonest deadline first, except on a closed list: its soonest is years old, so the newest deadline leads. */
+export function defaultTenderSort(status: TenderStatusFilter | undefined): TenderSort {
+  return status === 'closed' ? 'deadline-desc' : DEFAULT_TENDER_SORT;
+}
 export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
 
 const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'all'];
 const TENDER_SCOPES: TenderScopeFilter[] = ['core', 'supply', 'all'];
-const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'published-desc'];
+const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'deadline-desc', 'published-desc'];
 const BUYER_SORTS: BuyerSort[] = ['tenders', 'name'];
 const COUNTRY_CODES: string[] = BUYER_COUNTRY_CODES;
 
@@ -141,18 +152,19 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
   const from = first(sp[PARAM.from]);
   const to = first(sp[PARAM.to]);
   const currency = first(sp[PARAM.currency]);
+  const status = oneOf(first(sp[PARAM.status]), TENDER_STATUSES) ?? DEFAULT_TENDER_STATUS;
   return {
     q: searchText(first(sp[PARAM.q])),
     country: list<string>(sp[PARAM.country], COUNTRY_CODES),
-    status: oneOf(first(sp[PARAM.status]), TENDER_STATUSES) ?? DEFAULT_TENDER_STATUS,
+    status,
     scope: oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE,
     cpv: cpvList(sp[PARAM.cpv]),
-    deadlineFrom: from && DATE_RE.test(from) ? from : undefined,
-    deadlineTo: to && DATE_RE.test(to) ? to : undefined,
+    deadlineFrom: from && isDay(from) ? from : undefined,
+    deadlineTo: to && isDay(to) ? to : undefined,
     valueMin: num(first(sp[PARAM.min])),
     valueMax: num(first(sp[PARAM.max])),
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
-    sort: oneOf(first(sp[PARAM.sort]), TENDER_SORTS) ?? DEFAULT_TENDER_SORT,
+    sort: oneOf(first(sp[PARAM.sort]), TENDER_SORTS) ?? defaultTenderSort(status),
     page: pageOf(first(sp[PARAM.page])),
     pageSize: TENDER_PAGE_SIZE,
   };
@@ -172,7 +184,7 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.valueMin !== undefined) p.set(PARAM.min, String(f.valueMin));
   if (f.valueMax !== undefined) p.set(PARAM.max, String(f.valueMax));
   if (f.currency && f.currency !== DEFAULT_CURRENCY) p.set(PARAM.currency, f.currency);
-  if (f.sort && f.sort !== DEFAULT_TENDER_SORT) p.set(PARAM.sort, f.sort);
+  if (f.sort && f.sort !== defaultTenderSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   const s = p.toString();
   return s ? `?${s}` : '';
@@ -211,4 +223,74 @@ export function toBuyerQuery(f: BuyerFilters): string {
 
 export function activeBuyerFilterCount(f: BuyerFilters): number {
   return [f.q, f.country?.length, f.hasOpen ? 1 : undefined].filter((v) => v !== undefined && v !== 0 && v !== '').length;
+}
+
+/* ---- What a list page was asked for and did not use ---- */
+
+export type ListKind = 'tenders' | 'funding' | 'buyers';
+
+/**
+ * Notices for the parameters of a list URL that are present but not usable, and for ranges that cannot match.
+ * The parsers above drop such a value silently; the page shows these above the results so a mistyped link does
+ * not read as "there are no results". Empty values (a form submitted with a blank field) are not mentioned.
+ */
+export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
+  const out: string[] = [];
+  const bad = (key: string, value: string, why: string) => out.push(`Ignored filter: ${key}=${value.slice(0, 40)} (${why})`);
+  const one = (key: string) => (first(sp[key]) ?? '').trim();
+  const many = (key: string) => (Array.isArray(sp[key]) ? (sp[key] as string[]) : [sp[key] ?? '']).flatMap((v) => v.split(/[,\s]+/)).map((v) => v.trim()).filter(Boolean);
+  const choice = (key: string, allowed: readonly string[]) => {
+    const v = one(key);
+    if (v && !allowed.includes(v)) bad(key, v, `use ${allowed.join(', ')}`);
+  };
+  const codes = (key: string, allowed: readonly string[], what: string) => {
+    for (const v of many(key)) if (!allowed.includes(v.toUpperCase()) && !allowed.includes(v)) bad(key, v, `not a known ${what}`);
+  };
+  const day = (key: string) => {
+    const v = one(key);
+    if (v && !isDay(v)) bad(key, v, 'not a date; use YYYY-MM-DD');
+    return v && isDay(v) ? v : null;
+  };
+  const amount = (key: string) => {
+    const v = one(key);
+    if (v && num(v) === undefined) bad(key, v, 'not an amount; use digits only');
+    return v ? num(v) : undefined;
+  };
+
+  if (kind === 'buyers') {
+    choice(PARAM.sort, BUYER_SORTS);
+    const open = one(PARAM.hasOpen);
+    if (open && open !== 'true') bad(PARAM.hasOpen, open, 'use true');
+    codes(PARAM.country, COUNTRY_CODES, 'country code');
+  } else {
+    choice(PARAM.status, kind === 'tenders' ? TENDER_STATUSES : STATUSES);
+    choice(PARAM.sort, kind === 'tenders' ? TENDER_SORTS : SORTS);
+    if (kind === 'tenders') {
+      choice(PARAM.scope, TENDER_SCOPES);
+      for (const v of many(PARAM.cpv)) {
+        if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
+      }
+      codes(PARAM.country, COUNTRY_CODES, 'country code');
+    } else {
+      codes(PARAM.country, Object.keys(COUNTRIES), 'funder country');
+      codes(PARAM.programme, PROGRAMME_CODES, 'programme');
+      codes(PARAM.regime, REGIME_CODES, 'regime');
+    }
+    const from = day(PARAM.from);
+    const to = day(PARAM.to);
+    const min = amount(PARAM.min);
+    const max = amount(PARAM.max);
+    const cur = one(PARAM.currency);
+    if (cur && !CURRENCY_RE.test(cur)) bad(PARAM.currency, cur, 'use a three-letter code such as EUR');
+    if (from && to && from > to) out.push(`The date range is inverted: ${from} is after ${to}, so nothing can match. Swap the two dates.`);
+    if (min !== undefined && max !== undefined && min > max) out.push(`The ${kind === 'tenders' ? 'value' : 'budget'} range is inverted: the minimum is above the maximum, so nothing can match.`);
+  }
+  const page = one(PARAM.page);
+  if (page && num(page) === undefined) bad(PARAM.page, page, 'not a page number');
+  return out;
+}
+
+/** The last page that has results (1 when there are none). A page past it is redirected here. */
+export function lastPage(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
 }

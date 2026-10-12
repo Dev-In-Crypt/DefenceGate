@@ -162,10 +162,11 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   if ((f.sort ?? 'deadline-asc') === 'published-desc') {
     items = items.sort((a, b) => time(b.publishedAt ?? '1970-01-01T00:00:00Z') - time(a.publishedAt ?? '1970-01-01T00:00:00Z'));
   } else {
+    const newestFirst = f.sort === 'deadline-desc';
     items = items.sort((a, b) => {
       if ((a.deadline === null) !== (b.deadline === null)) return a.deadline === null ? 1 : -1;
       if (a.deadline === null || b.deadline === null) return 0;
-      return time(a.deadline) - time(b.deadline);
+      return newestFirst ? time(b.deadline) - time(a.deadline) : time(a.deadline) - time(b.deadline);
     });
   }
   const pageSize = f.pageSize ?? TENDER_PAGE_SIZE;

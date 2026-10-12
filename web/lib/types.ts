@@ -68,6 +68,10 @@ export interface Call {
   openingDate: IsoDateTime | null;
   /** null: no stated deadline (a standing call). Never "closed". */
   deadline: IsoDateTime | null;
+  /** The source gave a day, not a time of day: print the date only. Absent on API builds that do not send it. */
+  deadlineIsDate?: boolean;
+  /** Continuous or several cut-offs: `deadline` is the latest cut-off and an open call past it is still open. */
+  rolling?: boolean;
   budget: Money | null;
   /** 'call': the pot several topics share. */
   budgetScope: 'call' | 'topic' | null;
@@ -166,6 +170,12 @@ export interface Tender {
   /** What the estimated value is, as the API words it. Shown as given. */
   valueKind?: string | null;
   lotCount?: number | null;
+  /** The API's own name for the lot count. */
+  lots?: number | null;
+  /** What kind of body the buyer is: defence, security, fire_rescue, health, education, municipal, other. */
+  buyerClass?: string | null;
+  /** Classified as dual-use rather than defence. */
+  dualUse?: boolean;
   /** More than one version observed. */
   amended: boolean;
   versionCount: number;
@@ -179,7 +189,7 @@ export interface Tender {
 
 export type TenderStatusFilter = 'open' | 'closed' | 'all';
 export type TenderScopeFilter = 'core' | 'supply' | 'all';
-export type TenderSort = 'deadline-asc' | 'published-desc';
+export type TenderSort = 'deadline-asc' | 'deadline-desc' | 'published-desc';
 export interface TenderFilters {
   q?: string;
   country?: string[];
@@ -209,7 +219,10 @@ export interface FieldChange {
   after: string | null;
 }
 export interface TenderVersion {
+  /** The archive's own row number: it has gaps. Show `sequence`. */
   version: number;
+  /** 1 for the notice as first seen, then one per listed change. Absent on API builds that do not send it. */
+  sequence?: number;
   /** When we first saw this version. */
   detectedAt: IsoDateTime;
   changes: FieldChange[];

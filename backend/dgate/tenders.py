@@ -22,6 +22,8 @@ Decisions that shape it:
 
 from __future__ import annotations
 
+import ast
+import json
 import re
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
@@ -102,6 +104,9 @@ class FieldChange(BaseModel):
 
 class TenderVersion(BaseModel):
     version: int
+    # 1 for the notice as first seen, then one per listed change: the number a reader
+    # counts by. `version` is the archive's own row number and has gaps (v11 of 2 listed).
+    sequence: int = 0
     detectedAt: datetime
     changes: list[FieldChange]
 
@@ -320,6 +325,18 @@ def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # -------------------------------------------------------------- endpoints
 
+def tender_order(sort: str | None, status: str, eff: str) -> str:
+    """The ORDER BY of a tenders list. With no sort asked for, open and all notices run
+    soonest deadline first (open ones before the rest); closed ones run the other way,
+    newest deadline first, then newest publication: the soonest of a closed list is a
+    notice from years ago. A sort that was asked for is always honoured."""
+    if sort == "published-desc":
+        return "o.published_at DESC NULLS LAST, o.id DESC"
+    if sort == "deadline-desc" or (sort is None and status == "closed"):
+        return "o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST, o.id DESC"
+    return f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
+
+
 @router.get("/v1/tenders", response_model=TenderPage)
 def list_tenders(
     q: str | None = Query(None, max_length=100),
@@ -333,7 +350,7 @@ def list_tenders(
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
     currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
-    sort: str = Query("deadline-asc", pattern="^(deadline-asc|published-desc)$"),
+    sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=100),
     conn=Depends(get_conn),
@@ -417,10 +434,7 @@ def list_tenders(
               + " AND " + not_rectified + " AND " + not_republished)
     args = params + params + params
 
-    if sort == "published-desc":
-        order = "o.published_at DESC NULLS LAST, o.id DESC"
-    else:
-        order = f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
+    order = tender_order(sort, status, eff)
     # The total rides on the same pass (a window count), so the table is read once.
     rows = conn.execute(
         f"{TENDER_SELECT.replace(TENDER_COLUMNS, TENDER_COLUMNS + ', count(*) OVER () AS total_rows', 1)}"
@@ -505,6 +519,108 @@ def _show(field: str, value: Any) -> str | None:
     return redact_emails(text)[:300]
 
 
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+STATUS_WORDS = {
+    "open": "Open", "closed": "Closed", "awarded": "Awarded", "cancelled": "Cancelled",
+    "canceled": "Cancelled", "forthcoming": "Planned", "planned": "Planned",
+    "expired": "Closed", "evaluated": "Under evaluation", "unknown": "Status unknown",
+}
+
+LEGAL_BASIS_WORDS = {
+    "32009L0081": "Directive 2009/81/EC (defence and security procurement)",
+    "32014L0024": "Directive 2014/24/EU (public procurement)",
+    "32014L0025": "Directive 2014/25/EU (utilities procurement)",
+    "32014L0023": "Directive 2014/23/EU (concessions)",
+}
+
+
+def _day_text(day: date) -> str:
+    return f"{day.day} {_MONTHS[day.month - 1]} {day.year}"
+
+
+def _when(value: Any) -> str | None:
+    """A date as "10 Sep 2026", a moment as "10 Sep 2026, 14:05 UTC" (converted, not
+    relabelled). A moment at exactly 00:00 UTC is how a source that states only a day
+    arrives, so it reads as the day. None when the value is not a date at all."""
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        return _day_text(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+            try:
+                return _day_text(date.fromisoformat(text))
+            except ValueError:
+                return None
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00").replace(" UTC", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    parsed = parsed.astimezone(timezone.utc)
+    if parsed.hour == 0 and parsed.minute == 0:
+        return _day_text(parsed.date())
+    return f"{_day_text(parsed.date())}, {parsed:%H:%M} UTC"
+
+
+def _plain(value: Any) -> Any:
+    """A value the archive stored as the text of a Python or JSON list or mapping
+    ("['35200000', '35810000']") read back as the list or mapping it was."""
+    if isinstance(value, str) and value.strip()[:1] in ("[", "{"):
+        for load in (json.loads, ast.literal_eval):
+            try:
+                return load(value)
+            except (ValueError, SyntaxError):
+                continue
+    return value
+
+
+def _number_text(amount: Any) -> str | None:
+    try:
+        number = float(amount)
+    except (TypeError, ValueError):
+        return None
+    return f"{number:,.0f}" if number.is_integer() else f"{number:,.2f}"
+
+
+def _human(field: str, value: Any, currency: Any = None) -> str | None:
+    """What one side of a changed line says, for a person: dates as dates, a status as
+    a word, an amount with its currency, a list as a comma list; never the repr of a
+    Python or JSON value. `_show` stays the comparison key (it is what the archive
+    guards against re-orderings with)."""
+    value = _plain(value)
+    if value in (None, "", [], {}):
+        return None
+    if isinstance(value, dict):
+        amount, code = _number_text(value.get("amount")), value.get("currency")
+        if amount is not None and code:
+            return f"{code} {amount}"
+        return redact_emails("; ".join(f"{k}: {v}" for k, v in value.items()))[:300]
+    if isinstance(value, (list, tuple, set)):
+        return redact_emails(", ".join(str(v).strip() for v in value if str(v).strip()))[:300] or None
+    if field in ("deadline_at", "published_at"):
+        shown = _when(value)
+        if shown:
+            return shown
+    elif field == "status":
+        word = str(value).strip().lower()
+        return STATUS_WORDS.get(word) or word.replace("_", " ").replace("-", " ").capitalize()
+    elif field == "procedure_type":
+        return procedure_label(str(value))
+    elif field == "value_amount":
+        amount = _number_text(value)
+        if amount is not None:
+            return f"{currency} {amount}" if currency else amount
+    elif field == "legal_basis":
+        return LEGAL_BASIS_WORDS.get(str(value).strip().upper()) or _show(field, value)
+    return _show(field, value)
+
+
 # The versions a reader should not see as amendments, and what they leave behind.
 # `reread` and `out_of_order` recorded content that was not a state of the notice, so
 # they are skipped without moving the baseline. `remapped` is a real state (a corrected
@@ -559,12 +675,21 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 shown_before, shown_after = _show(field, before), _show(field, after)
                 if shown_before == shown_after:
                     continue
+                # An amount is read with the currency of the version it belongs to.
+                old_code = previous.get("value_currency") or payload.get("value_currency")
+                new_code = payload.get("value_currency") or old_code
+                human_before = _human(field, before, old_code)
+                human_after = _human(field, after, new_code)
+                if human_before == human_after:       # two spellings of one word
+                    continue
                 changes.append({"field": field, "label": FIELD_LABELS[field],
-                                "before": shown_before, "after": shown_after})
+                                "before": human_before, "after": human_after})
             if any(c["field"] != "published_at" for c in changes):
                 out.append({"version": r["version"], "detectedAt": r["observed_at"],
                             "changes": changes})
         previous = payload
+    for number, entry in enumerate(out, 1):
+        entry["sequence"] = number
     return out
 
 

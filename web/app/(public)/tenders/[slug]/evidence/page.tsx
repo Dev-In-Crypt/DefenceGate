@@ -9,6 +9,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
 import { TENDER_SCOPES, countryName, cpvLabel, isNonEnglish, languageName, legalBasisLabel } from '@/lib/taxonomy';
+import { basisChips } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
 import { Button } from '@/components/dg/button';
@@ -60,7 +61,8 @@ export default async function TenderEvidencePage({ params }: Props) {
   const legal = tender.legalBasis ? legalBasisLabel(tender.legalBasis) : null;
   const cpvCodes = [...new Set([...(tender.cpv ? [tender.cpv] : []), ...(tender.cpvCodes ?? [])])];
   const shown = versions[0] ?? null;
-  const versionNo = shown?.version ?? tender.versionCount;
+  // The number a reader counts by (1 = first seen), not the archive's own row number, which has gaps.
+  const versionNo = shown ? (shown.sequence ?? versions.length) : tender.versionCount;
   const pagePath = `/tenders/${tender.slug}`;
   const valueKind = valueKindLabel(tender.valueKind);
   const lang = (code: string | null) => (code ? languageName(code) : null);
@@ -111,7 +113,10 @@ export default async function TenderEvidencePage({ params }: Props) {
           <Row label="Buyer country">
             {tender.country ? <><Mono>{tender.country}</Mono> {countryName(tender.country)}</> : <NotStated />}
           </Row>
-          <Row label="Classification">{TENDER_SCOPES[tender.scope]?.label ?? tender.scope}</Row>
+          <Row label="Classification">
+            {basisChips(tender).join('; ') || (TENDER_SCOPES[tender.scope]?.label ?? tender.scope)}
+            <span className="text-ink-muted"> · classified automatically, not by the publisher</span>
+          </Row>
           <Row label="CPV codes">
             {cpvCodes.length === 0 ? <NotStated /> : (
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
@@ -148,7 +153,7 @@ export default async function TenderEvidencePage({ params }: Props) {
               ? <><Mono>{formatMoney(tender.estimatedValue)}</Mono>{valueKind && <span className="text-ink-muted"> · {valueKind}</span>}</>
               : <NotStated />}
           </Row>
-          {typeof tender.lotCount === 'number' && tender.lotCount > 0 && <Row label="Lots"><Mono>{tender.lotCount}</Mono></Row>}
+          {typeof (tender.lots ?? tender.lotCount) === 'number' && (tender.lots ?? tender.lotCount ?? 0) > 0 && <Row label="Lots"><Mono>{tender.lots ?? tender.lotCount}</Mono></Row>}
           <Row label="Status shown">{status.label}{tender.statusNative ? <span className="text-ink-muted"> · source status word: {tender.statusNative}</span> : null}</Row>
           <Row label="Security clearance">{tender.securityClearance ? 'Mentioned in the notice' : 'Not indicated'}</Row>
           <Row label="Subcontracting">{tender.subcontracting ? 'Mentioned in the notice' : 'Not indicated'}</Row>

@@ -5,6 +5,7 @@ import { FilterPanel } from '../funding/filter-panel';
 import { BUYER_COUNTRIES, CURRENCIES, TENDER_SCOPES } from '@/lib/taxonomy';
 import {
   DEFAULT_CURRENCY, DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, MAX_QUERY_LENGTH, PARAM, activeBuyerFilterCount, activeTenderFilterCount,
+  defaultTenderSort,
 } from '@/lib/filters';
 import type { BuyerFilters, TenderFilters, TenderScopeFilter, TenderStatusFilter } from '@/lib/types';
 
@@ -69,7 +70,8 @@ export function TenderFilterBar({ filters, basePath }: { filters: TenderFilters;
           <Select name={PARAM.max} aria-label="Maximum value" placeholder="No maximum" options={withCurrent(filters.valueMax)} defaultValue={filters.valueMax?.toString() ?? ''} />
           <p className="m-0 text-small text-ink-muted">A value range selects notices stated in that one currency. Nothing is converted.</p>
         </Fieldset>
-        {filters.sort && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
+        {/* Only a sort that was asked for travels with the form: the default follows the status (a closed list runs newest first). */}
+        {filters.sort && filters.sort !== defaultTenderSort(filters.status) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit">Apply filters</Button>
           <Link href={basePath} className="inline-flex min-h-11 items-center text-small font-bold">Clear all</Link>

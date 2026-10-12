@@ -5,7 +5,6 @@
  */
 import { getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
 import { getCallDeadline, getTenderDeadline, now } from './deadline';
-import { formatDateLabelledUtc, formatDateTimeUtc } from './format';
 import { anomalyNotes, tenderStatusView } from './tender-status';
 import type { SearchParams } from './filters';
 
@@ -49,7 +48,6 @@ const TENDER_PAGE = 100;
 const TENDER_PAGES = 5;
 const CALL_PAGE = 500;
 
-const isMidnight = (iso: string) => /T00:00:00(\.0+)?(Z|\+00:00)$/.test(iso);
 const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
 async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total: number; held: number }> {
@@ -84,11 +82,11 @@ async function loadCalls(ref: Date): Promise<CalendarEntry[]> {
   const entries: CalendarEntry[] = [];
   for (const c of r.items) {
     const d = getCallDeadline(c, ref);
-    if (c.status !== 'open' || !c.deadline || !d.iso || d.state === 'closed' || !isCallSlug(c.slug)) continue;
-    const dateOnly = isMidnight(c.deadline);
+    // A rolling call past its last cut-off is open but has no coming deadline to put on a calendar.
+    if (c.status !== 'open' || !c.deadline || !d.iso || d.state === 'closed' || d.rolling || !isCallSlug(c.slug)) continue;
     entries.push({
       key: `funding-${c.id}`, kind: 'funding', id: c.id, title: c.title, href: `/funding/${c.slug}`,
-      deadline: c.deadline, dateOnly, when: dateOnly ? formatDateLabelledUtc(c.deadline) : formatDateTimeUtc(c.deadline),
+      deadline: c.deadline, dateOnly: d.dateOnly === true, when: d.utc,
       who: c.issuer ?? c.programmeName, country: c.funderCountry, sourceName: c.source.sourceName, note: null,
     });
   }
@@ -110,18 +108,27 @@ export async function loadCalendar(ref: Date = now()): Promise<CalendarData> {
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 const MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
-export interface CalendarParams { kind: KindFilter; countries: string[]; view: CalendarView; month: string | null }
+export interface CalendarParams {
+  kind: KindFilter; countries: string[]; view: CalendarView; month: string | null;
+  /** 1-based page of the list view. */
+  page: number;
+  /** A `month` that is not YYYY-MM, as sent: it is ignored and the page says so. */
+  badMonth: string | null;
+}
 
 export function parseCalendarParams(sp: SearchParams): CalendarParams {
   const kind = first(sp.kind);
   const raw = (Array.isArray(sp.country) ? sp.country : [sp.country ?? '']).flatMap((s) => s.split(','));
   const countries = [...new Set(raw.map((s) => s.trim().toUpperCase()).filter((s) => /^[A-Z]{2}$/.test(s)))].slice(0, 20);
   const month = first(sp.month);
+  const page = Math.floor(Number(first(sp.page)));
   return {
     kind: kind === 'tenders' || kind === 'funding' ? kind : 'all',
     countries,
     view: first(sp.view) === 'month' ? 'month' : 'list',
     month: month && MONTH_RE.test(month) ? month : null,
+    page: Number.isFinite(page) && page >= 1 ? Math.min(page, 1000) : 1,
+    badMonth: month && !MONTH_RE.test(month) ? month.slice(0, 20) : null,
   };
 }
 
@@ -135,12 +142,13 @@ export function filterEntries(entries: CalendarEntry[], f: Pick<CalendarParams, 
 }
 
 /** Query string of a calendar link; defaults are left out. */
-export function calendarQuery(p: Partial<CalendarParams>): string {
+export function calendarQuery(p: Partial<Omit<CalendarParams, 'badMonth'>>): string {
   const q = new URLSearchParams();
   if (p.kind && p.kind !== 'all') q.set('kind', p.kind);
   if (p.countries?.length) q.set('country', p.countries.join(','));
   if (p.view === 'month') q.set('view', 'month');
   if (p.month) q.set('month', p.month);
+  if (p.page && p.page > 1) q.set('page', String(p.page));
   const s = q.toString();
   return s ? `?${s}` : '';
 }
@@ -181,3 +189,5 @@ export function groupByDay(entries: CalendarEntry[]): { day: string; items: Cale
 }
 
 export { dayOf };
+
+export { pageOf, resolveMonth, truncateTitle } from './calendar-view';

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Bell, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug } from '@/lib/api';
 import { getTenderDeadline } from '@/lib/deadline';
+import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
-import { tenderStatusView, valueKindLabel } from '@/lib/tender-status';
+import { sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
 import { cpvLabel, isNonEnglish, legalBasisLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
@@ -17,6 +18,8 @@ import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/d
 import { SourceBadge } from '@/components/dg/source-badge';
 import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
+import { AlertsLine } from '@/components/dg/alerts-line';
+import { BasisChips } from '@/components/dg/basis-chips';
 import { AnomalyNote, TenderCard, TenderStatusPills } from '@/components/dg/cards';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
@@ -32,13 +35,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const d = getTenderDeadline(tender);
   // Structured fields only: buyer, deadline, value, source.
   const description = [
-    `${tender.buyerName}.`,
+    `${displayName(tender.buyerName, 'title')}.`,
     d.iso ? `Deadline ${d.utc}.` : 'No deadline stated.',
     `Estimated value ${tender.estimatedValue ? formatMoney(tender.estimatedValue) : 'not stated'}.`,
     `Source: ${tender.source.sourceName}.`,
   ].join(' ');
   return buildMetadata({
-    title: `${tender.title} (${tender.noticeId})`,
+    title: `${displayName(tender.title)} (${tender.noticeId})`,
     description,
     path: `/tenders/${tender.slug}`,
     // The sitemap lists core-scope notices only; a notice that only supplies a defence buyer is not promoted.
@@ -84,12 +87,17 @@ export default async function TenderDetailPage({ params }: Props) {
   const legal = tender.legalBasis ? legalBasisLabel(tender.legalBasis) : null;
   // The main code first, then the rest, each once.
   const cpvCodes = [...new Set([...(tender.cpv ? [tender.cpv] : []), ...tender.cpvCodes])];
+  // Capitals are shown in sentence or title case; the stored title and buyer are untouched.
+  const title = displayName(tender.title);
+  const buyer = displayName(tender.buyerName, 'title');
+  const sourceStatus = sourceStatusWord(tender);
+  const lots = tender.lots ?? tender.lotCount;
 
   return (
     <>
       <Breadcrumbs items={[
         { label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' },
-        { label: tender.title, href: `/tenders/${tender.slug}` },
+        { label: title, href: `/tenders/${tender.slug}` },
       ]} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -97,26 +105,26 @@ export default async function TenderDetailPage({ params }: Props) {
           <header className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-              <Tag>{TENDER_SCOPES[tender.scope].label}</Tag>
               <TenderStatusPills tender={tender} />
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined}
-                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{tender.title}</h1>
+                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{title}</h1>
               {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
             </div>
             {tender.originalTitle && (
               <p className="m-0 text-body text-ink-muted">
-                <span lang={tender.originalLanguage ?? undefined}>{tender.originalTitle}</span>
+                <span lang={tender.originalLanguage ?? undefined}>{displayName(tender.originalTitle)}</span>
                 {' · '}<LangLabel kind="title" code={tender.originalLanguage} />
               </p>
             )}
             <p className="m-0 text-body">
               <span className="text-ink-muted">Buyer: </span>
               {tender.buyerSlug
-                ? <Link href={`/buyers/${tender.buyerSlug}`} className="font-semibold">{tender.buyerName}</Link>
-                : <span className="font-semibold">{tender.buyerName}</span>}
+                ? <Link href={`/buyers/${tender.buyerSlug}`} className="font-semibold">{buyer}</Link>
+                : <span className="font-semibold">{buyer}</span>}
             </p>
+            <BasisChips tender={tender} />
             {tender.scope === 'supply' && (
               <p className="m-0 text-small text-ink-muted">{TENDER_SCOPES.supply.hint}</p>
             )}
@@ -152,8 +160,9 @@ export default async function TenderDetailPage({ params }: Props) {
             </FactCell>
             <FactCell label="Security clearance"><span className="font-sans">{tender.securityClearance ? 'Mentioned in the notice' : 'Not indicated'}</span></FactCell>
             <FactCell label="Subcontracting"><span className="font-sans">{tender.subcontracting ? 'Mentioned in the notice' : 'Not indicated'}</span></FactCell>
-            {tender.statusNative && <FactCell label="Status at the source"><span className="font-sans">{tenderStatusView(tender).label}</span></FactCell>}
-            {typeof tender.lotCount === 'number' && tender.lotCount > 0 && <FactCell label="Lots">{tender.lotCount}</FactCell>}
+            {/* Only a word the source itself gives (awarded, cancelled, planned); "Closing soon" is ours and is not shown here. */}
+            {sourceStatus && <FactCell label="Status at the source"><span className="font-sans">{sourceStatus}</span></FactCell>}
+            {typeof lots === 'number' && lots > 0 && <FactCell label="Lots">{lots}</FactCell>}
           </dl>
           <AnomalyNote tender={tender} />
 
@@ -214,12 +223,11 @@ export default async function TenderDetailPage({ params }: Props) {
             <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" />
             <SaveButton kind="tender" refId={tender.id} />
             {tender.buyerId && <FollowButton kind="buyer" refId={tender.buyerId} label="Follow this buyer" />}
-            <Button href="/alerts" variant="secondary" icon={Bell} fullWidth>Get alerts</Button>
-            <Button href="/pack" variant="text" className="self-start">Opportunity pack</Button>
             {sourceUrl && (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {tender.source.sourceName}</Button>
             )}
             <Button href={`/tenders/${tender.slug}/evidence`} variant="text" icon={Printer} className="self-start">Print evidence</Button>
+            <AlertsLine what="this notice" />
           </div>
         </aside>
       </div>
@@ -228,7 +236,7 @@ export default async function TenderDetailPage({ params }: Props) {
         <section aria-labelledby="related" className="flex flex-col gap-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="related" className="m-0 text-h2">More from this buyer</h2>
-            <Link href={`/buyers/${tender.buyerSlug}`} className="inline-flex min-h-11 items-center text-small font-bold">All tenders from {tender.buyerName}</Link>
+            <Link href={`/buyers/${tender.buyerSlug}`} className="inline-flex min-h-11 items-center text-small font-bold">All tenders from {buyer}</Link>
           </div>
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
             {related.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" /></li>)}

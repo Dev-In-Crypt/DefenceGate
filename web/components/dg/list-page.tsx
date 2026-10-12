@@ -3,6 +3,7 @@ import { Breadcrumbs, EmptyState } from './feedback';
 import { Pagination } from './pagination';
 import { Button } from './button';
 import { ResultTools } from './download-link';
+import { FilterNotices } from './filter-notices';
 import { SortSelect } from '../funding/filter-panel';
 
 /**
@@ -10,7 +11,7 @@ import { SortSelect } from '../funding/filter-panel';
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, children,
+  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], children,
 }: {
   crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
   /** Rendered under the filters (the save-search island). */
@@ -20,10 +21,15 @@ export function ListPage({
   noun: string; page: number; pageSize: number; total: number;
   sort: { value: string; options: { value: string; label: string }[] };
   clearHref: string; emptyTitle: string; emptyText: string; hrefFor: (page: number) => string;
-  footnote?: string; children: React.ReactNode;
+  footnote?: string;
+  /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
+  notices?: string[];
+  children: React.ReactNode;
 }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
+  // An empty result has one heading, the empty state's: the count line is then a paragraph, not a second h2.
+  const Count = total === 0 ? 'p' : 'h2';
   return (
     <>
       <Breadcrumbs items={crumbs} />
@@ -42,11 +48,12 @@ export function ListPage({
         ) : filterBar}
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
+            <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {total === 0 ? `No ${noun}` : `Showing ${from}–${to} of ${total} ${noun}`}
-            </h2>
+            </Count>
             <SortSelect value={sort.value} options={sort.options} />
           </div>
+          <FilterNotices notices={notices} />
           {total === 0 ? (
             <EmptyState title={emptyTitle} action={<Button variant="secondary" href={clearHref}>Clear filters</Button>}>{emptyText}</EmptyState>
           ) : (

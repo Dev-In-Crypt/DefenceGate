@@ -33,7 +33,7 @@ export async function Footer() {
           </div>
           {COLUMNS.map((col) => (
             <nav key={col.title} aria-label={col.title} className="flex flex-col gap-1">
-              <h2 className="m-0 text-label text-ink-muted">{col.title}</h2>
+              <p className="m-0 text-label text-ink-muted">{col.title}</p>
               {col.links.map(({ label, href }) => (
                 <Link key={label} href={href} className="inline-flex min-h-11 items-center text-small font-semibold text-ink md:min-h-8">{label}</Link>
               ))}

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getAccountStatus, getCurrentUser } from '@/lib/account';
+import { buildMetadata } from '@/lib/seo';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { ContentPage } from '@/components/dg/content-page';
@@ -8,7 +9,12 @@ import { SignInForm } from '@/components/account/signin-form';
 
 // Reads the session cookie, so never cached; and nothing here is for a search engine.
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Sign in', robots: { index: false, follow: false } };
+export const metadata: Metadata = buildMetadata({
+  title: 'Sign in',
+  description: 'Sign in to DefenceGate with your e-mail address and a one-time link, to save searches, follow buyers and keep a shortlist. No password.',
+  path: '/signin',
+  noindex: true,
+});
 
 export default async function SignInPage() {
   const [status, user] = await Promise.all([getAccountStatus(), getCurrentUser()]);

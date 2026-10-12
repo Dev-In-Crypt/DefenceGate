@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound, permanentRedirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { getBuyer, getTenders, isBuyerSlug } from '@/lib/api';
+import { displayName } from '@/lib/display-name';
 import { formatDateUtc } from '@/lib/format';
-import { MAX_PAGE, TENDER_PAGE_SIZE, type SearchParams } from '@/lib/filters';
+import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, type SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
 import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
 import { Tag } from '@/components/dg/tag';
@@ -28,9 +29,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const buyer = await getBuyer(slug);
   if (!buyer) return { title: 'Buyer not found', robots: { index: false } };
+  const name = displayName(buyer.name, 'title');
   return buildMetadata({
-    title: buyer.name,
-    description: `${buyer.name}: ${buyer.tenderCount} defence tenders in the archive, ${buyer.openCount} open now.`,
+    title: name,
+    description: `${name}: ${buyer.tenderCount} defence tenders in the archive, ${buyer.openCount} open now.`,
     path: `/buyers/${buyer.slug}`,
     noindex: pageOf(sp) > 1 || buyer.tenderCount === 0,
   });
@@ -52,16 +54,23 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
     getTenders({ buyer: buyer.id, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 }),
   ]);
 
+  // A page past the last one is the last one, not an empty list.
+  if (page > 1 && earlier.items.length === 0 && earlier.total > 0) {
+    const last = lastPage(earlier.total, earlier.pageSize);
+    redirect(last > 1 ? `/buyers/${buyer.slug}?page=${last}` : `/buyers/${buyer.slug}`);
+  }
+  const name = displayName(buyer.name, 'title');
+
   return (
     <>
       <Breadcrumbs items={[
         { label: 'Home', href: '/' }, { label: 'Buyers', href: '/buyers' },
-        { label: buyer.name, href: `/buyers/${buyer.slug}` },
+        { label: name, href: `/buyers/${buyer.slug}` },
       ]} />
 
       <header className="flex flex-col gap-4">
         {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
-        <h1 className="m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{buyer.name}</h1>
+        <h1 className="m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{name}</h1>
         <FollowButton kind="buyer" refId={buyer.id} label="Follow this buyer" />
         <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
           <FactCell label="Country">

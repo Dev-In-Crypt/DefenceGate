@@ -2,9 +2,9 @@ import { cn } from '@/lib/utils';
 import type { RunStatus, StatusKind } from '@/lib/types';
 
 /** Non-interactive label. `programme` = pine fill + mono; `neutral` = inset fill. */
-export function Tag({ kind = 'neutral', children }: { kind?: 'programme' | 'neutral'; children: React.ReactNode }) {
+export function Tag({ kind = 'neutral', wrap = false, children }: { kind?: 'programme' | 'neutral'; wrap?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill px-2.5 py-[5px] text-label',
+    <span className={cn('inline-flex items-center gap-1.5 rounded-pill px-2.5 py-[5px] text-label', wrap ? 'whitespace-normal' : 'whitespace-nowrap',
       kind === 'programme' ? 'bg-primary font-mono font-medium text-on-primary' : 'bg-surface-inset font-sans font-bold text-ink')}>
       {children}
     </span>
@@ -28,16 +28,23 @@ export function StatusPill({ status, children }: { status: StatusKind; children?
   return <span className={cn('inline-flex items-center whitespace-nowrap rounded-pill border border-transparent px-3 py-1.5 font-sans text-label', p.cls)}>{children ?? p.label}</span>;
 }
 
-const RUN_PILL: Record<RunStatus, { cls: string; label: string }> = {
+/** What a source's last run looks like once its age is read: see lib/source-status.ts. */
+export type RunPillKind = RunStatus | 'stale' | 'one-off';
+
+const RUN_PILL: Record<RunPillKind, { cls: string; label: string }> = {
   ok: { cls: 'border-transparent bg-open-bg text-open-fg', label: 'OK' },
   // A short run is not time pressure and not an error: neutral fill with a hairline.
   partial: { cls: 'border-line bg-surface-inset text-ink', label: 'Partial' },
   failed: { cls: 'border-alert bg-surface-inset text-alert', label: 'Failed' },
   never: { cls: 'border-transparent bg-closed-bg text-closed-fg', label: 'Never run' },
+  // The last run was fine but is old: neither the green of OK nor an error.
+  stale: { cls: 'border-line bg-surface-inset text-ink', label: 'Stale' },
+  // A load made once on purpose: it is not expected to run again.
+  'one-off': { cls: 'border-line bg-surface-inset text-ink', label: 'One-off load' },
 };
 
 /** Result of a source's last collection run. Always text-labelled. Not interactive. */
-export function RunStatusPill({ status }: { status: RunStatus }) {
+export function RunStatusPill({ status }: { status: RunPillKind }) {
   const p = RUN_PILL[status];
   return <span className={cn('inline-flex items-center whitespace-nowrap rounded-pill border px-3 py-1.5 font-sans text-label', p.cls)}>{p.label}</span>;
 }

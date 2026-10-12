@@ -106,6 +106,13 @@ def anomalies(deadline: datetime | None, published: date | datetime | None,
     return out
 
 
+def is_rolling(cond: dict[str, Any] | None) -> bool:
+    """The call's own `deadline_model` is one of ROLLING_MODELS (the SQL above, in
+    Python): continuous, rolling or several cut-offs."""
+    model = str((cond or {}).get("deadline_model") or "").strip().lower()
+    return model in {m.strip("' ") for m in ROLLING_MODELS.strip("()").split(",")}
+
+
 def _is_utc_midnight(value: Any) -> bool:
     """A deadline stored before `deadline_precision` existed: the EU portal's date-only
     stamps are exactly 00:00:00 UTC, which no real closing time is."""
@@ -131,6 +138,9 @@ class FundingCall(BaseModel):
     openingDate: datetime | None
     deadline: datetime | None
     deadlineIsDate: bool = False
+    # The call takes submissions continuously or in several cut-offs: `deadline` is the
+    # latest cut-off, and an open call past it is open, not closed.
+    rolling: bool = False
     anomalies: list[str] = []
     budget: Budget | None
     budgetScope: str | None
@@ -323,6 +333,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         # that day, so the instant is never shown as if the source had stated it.
         "deadlineIsDate": bool(r.get("deadline_at")) and (
             r.get("deadline_precision") == "date" or _is_utc_midnight(r.get("deadline_at"))),
+        "rolling": is_rolling(cond),
         "anomalies": anomalies(r.get("deadline_at"), r.get("published_at")),
         "budget": ({"amount": float(r["budget"]), "currency": r["currency"] or "EUR"}
                    if r.get("budget") is not None else None),

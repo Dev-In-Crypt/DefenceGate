@@ -43,6 +43,20 @@ export function anomalyNotes(t: Pick<Tender, 'anomalies'>): string[] {
   return [...new Set(codes)].map((c) => ANOMALY_TEXT[c]).filter((s): s is string => Boolean(s));
 }
 
+/**
+ * The status word the source itself gives, when it gives one. `statusNative` is the API's effective status: "open"
+ * and "expired" are read from the deadline (ours, not the source's), so they are not shown as "at the source".
+ * Awarded, cancelled and planned are the source's own words.
+ */
+export function sourceStatusWord(t: Pick<Tender, 'statusNative'>): string | null {
+  switch ((t.statusNative ?? '').trim().toLowerCase()) {
+    case 'awarded': return 'Awarded';
+    case 'cancelled': case 'canceled': return 'Cancelled';
+    case 'forthcoming': return 'Planned';
+    default: return null;
+  }
+}
+
 /** "Estimated value" qualifiers the API may send, as words. Anything else is shown as sent. */
 export function valueKindLabel(kind: string | null | undefined): string | null {
   const k = (kind ?? '').trim();

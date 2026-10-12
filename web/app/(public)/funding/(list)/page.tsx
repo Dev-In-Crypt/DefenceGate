@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { getCalls, getHealth } from '@/lib/api';
 import { filtersFromQuery } from '@/lib/account-format';
-import { activeFilterCount, parseCallFilters, parseView, toQuery, type SearchParams } from '@/lib/filters';
+import { activeFilterCount, ignoredFilters, lastPage, parseCallFilters, parseView, toQuery, type SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
 import { CallListTemplate, type EntryChip } from '@/components/funding/call-list-template';
 import { SaveSearch } from '@/components/account/save-search';
@@ -47,6 +48,9 @@ export default async function FundingHubPage({ searchParams }: Props) {
     getCalls(view === 'calendar' ? { ...filters, page: 1, pageSize: CALENDAR_LIMIT } : filters),
     getHealth(),
   ]);
+  // A page past the end is the last page, not an empty list.
+  const last = lastPage(result.total, result.pageSize);
+  if (view === 'list' && result.total > 0 && (filters.page ?? 1) > last) redirect(`/funding${toQuery({ ...filters, page: last })}`);
   return (
     <CallListTemplate
       title="Funding calls"
@@ -54,6 +58,7 @@ export default async function FundingHubPage({ searchParams }: Props) {
       basePath="/funding"
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
       filters={filters} result={result} view={view} health={health} chips={CHIPS}
+      notices={ignoredFilters(sp, 'funding')}
       saveSearch={<SaveSearch kind="call" filters={filtersFromQuery(toQuery({ ...filters, page: 1 }))} />}
       exportHref={`/funding/export.csv${toQuery({ ...filters, page: 1 })}`}
     />

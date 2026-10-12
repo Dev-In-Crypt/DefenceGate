@@ -11,6 +11,7 @@ import { CallCard } from '../dg/cards';
 import { Pagination } from '../dg/pagination';
 import { Button } from '../dg/button';
 import { ResultTools } from '../dg/download-link';
+import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
 import { SortSelect } from './filter-panel';
@@ -26,7 +27,7 @@ export interface EntryChip { label: string; href: string }
 
 /** Shared template for /funding and every /funding/* list sub-page. */
 export function CallListTemplate({
-  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch, exportHref,
+  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch, exportHref, notices = [],
 }: {
   title: string; intro: string; basePath: string; crumbs: Crumb[]; filters: CallFilters;
   result: Paginated<Call>; view: ListView; health: Health; chips?: EntryChip[]; hide?: FilterGroup[];
@@ -34,7 +35,11 @@ export function CallListTemplate({
   saveSearch?: React.ReactNode;
   /** The CSV of the current result; shown under the filters when there are results. */
   exportHref?: string;
+  /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
+  notices?: string[];
 }) {
+  // An empty result has one heading, the empty state's: the count line is then a paragraph, not a second h2.
+  const Count = result.total === 0 ? 'p' : 'h2';
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
   const viewHref = (v: ListView) => `${basePath}${toQuery({ ...filters, page: 1 }, { [PARAM.view]: v === 'calendar' ? v : undefined })}`;
@@ -70,9 +75,9 @@ export function CallListTemplate({
 
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h2 id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
+            <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} calls` : `Showing ${from}–${to} of ${result.total} calls`}
-            </h2>
+            </Count>
             {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={SORT_OPTIONS} />}
             <div role="group" aria-label="View" className="flex rounded-pill bg-surface p-1">
               {(['list', 'calendar'] as const).map((v) => (
@@ -85,6 +90,7 @@ export function CallListTemplate({
             </div>
           </div>
 
+          <FilterNotices notices={notices} />
           {result.total === 0 ? (
             <EmptyState title="No calls match these filters" action={<Button variant="secondary" href={basePath}>Clear filters</Button>}>
               Try a wider deadline range or fewer programmes. Closed calls are hidden unless you choose Closed or All.

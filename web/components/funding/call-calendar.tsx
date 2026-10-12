@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
+import { displayName } from '@/lib/display-name';
 import { dayParts, formatMonthUtc, openingPhrase } from '@/lib/format';
 import { PROGRAMMES, isNonEnglish } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
@@ -37,10 +38,10 @@ function Row({ c }: { c: Call }) {
       )}
       <div className="flex min-w-0 flex-col gap-1">
         <Link href={`/funding/${c.slug}`} lang={nonEnglish ? c.titleLanguage : undefined}
-          className="text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">{c.title}</Link>
+          className="text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">{displayName(c.title)}</Link>
         <div className="flex flex-wrap items-center gap-2">
           <Tag kind="programme">{PROGRAMMES[c.programme].label}</Tag>
-          <span className="font-mono text-mono text-ink-muted">{d.utc || 'No fixed deadline'}</span>
+          <span className="font-mono text-mono text-ink-muted">{d.rolling ? `Rolling submission, last cut-off ${d.utc}` : d.utc || 'No fixed deadline'}</span>
           {nonEnglish && <LangLabel kind="language" code={c.titleLanguage} />}
         </div>
       </div>

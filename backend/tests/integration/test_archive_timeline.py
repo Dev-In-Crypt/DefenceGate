@@ -144,7 +144,8 @@ def test_a_deadline_extension_is_listed_in_utc_with_its_label(client, conn):
     versions = client.get(f"/v1/tenders/{opp_id}/versions").json()
     assert [v["version"] for v in versions] == [2, 1]
     lines = {c["field"]: (c["before"], c["after"]) for c in versions[0]["changes"]}
-    assert lines["deadline_at"] == ("2026-09-17 21:59 UTC", "2026-10-09 21:59 UTC")
+    assert lines["deadline_at"] == ("17 Sep 2026, 21:59 UTC", "9 Oct 2026, 21:59 UTC")
+    assert [v["sequence"] for v in versions] == [2, 1]
 
 
 def test_a_line_that_reads_the_same_before_and_after_is_not_served(client, conn):

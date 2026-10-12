@@ -14,7 +14,7 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', className }: 
       <a href={csvHref} download className={cn(buttonVariants({ variant: 'secondary', fullWidth: true }))}>
         <Icon icon={Download} size="button" />Download CSV
       </a>
-      <p className="m-0 text-small text-ink-muted">The public fields of this result, up to 2,000 rows, with source, licence and attribution on every row.</p>
+      <p className="m-0 text-small text-ink-muted">The public fields of this result, up to 2,000 rows (1,000 when the status is All), with source, licence and attribution on every row.</p>
       <Link href={calendarHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
         <Icon icon={CalendarDays} size="inline" />Deadline calendar
       </Link>

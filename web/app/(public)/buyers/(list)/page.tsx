@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { getBuyers } from '@/lib/api';
-import { activeBuyerFilterCount, DEFAULT_BUYER_SORT, parseBuyerFilters, toBuyerQuery, type SearchParams } from '@/lib/filters';
+import {
+  activeBuyerFilterCount, DEFAULT_BUYER_SORT, ignoredFilters, lastPage, parseBuyerFilters, toBuyerQuery, type SearchParams,
+} from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { BuyerCard } from '@/components/dg/cards';
 import { ListPage } from '@/components/dg/list-page';
@@ -30,8 +33,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function BuyersPage({ searchParams }: Props) {
-  const filters = parseBuyerFilters(await searchParams);
+  const sp = await searchParams;
+  const filters = parseBuyerFilters(sp);
   const result = await getBuyers(filters);
+  // A page past the end is the last page, not an empty list.
+  const last = lastPage(result.total, result.pageSize);
+  if (result.total > 0 && (filters.page ?? 1) > last) redirect(`/buyers${toBuyerQuery({ ...filters, page: last })}`);
   return (
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Buyers', href: '/buyers' }]}
@@ -41,6 +48,7 @@ export default async function BuyersPage({ searchParams }: Props) {
       noun="buyers" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? DEFAULT_BUYER_SORT, options: SORT_OPTIONS }}
       clearHref="/buyers"
+      notices={ignoredFilters(sp, 'buyers')}
       emptyTitle="No buyers match these filters"
       emptyText="Try a shorter name or fewer countries. Only buyers with at least one defence notice in our archive are listed."
       hrefFor={(p) => `/buyers${toBuyerQuery({ ...filters, page: p })}`}

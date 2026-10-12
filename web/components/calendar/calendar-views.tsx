@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { dayOf, groupByDay, monthWeeks, type CalendarEntry } from '@/lib/calendar';
+import { dayOf, groupByDay, monthWeeks, truncateTitle, type CalendarEntry } from '@/lib/calendar';
+import { displayName } from '@/lib/display-name';
 import { dayParts, formatDateUtc } from '@/lib/format';
 import { Icon } from '../dg/icon';
 import { Tag } from '../dg/tag';
@@ -25,9 +26,9 @@ function EntryRow({ e }: { e: CalendarEntry }) {
       </div>
       <Link href={e.href}
         className="break-words text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
-        {e.title}
+        {displayName(e.title)}
       </Link>
-      <span className="break-words text-small text-ink-muted">{e.who} · {e.sourceName}</span>
+      <span className="break-words text-small text-ink-muted">{displayName(e.who, 'title')} · {e.sourceName}</span>
       {e.note && (
         <p className="m-0 flex items-start gap-1.5 text-small text-ink-muted">
           <Icon icon={TriangleAlert} size="inline" className="mt-0.5 shrink-0" /><span>{e.note}</span>
@@ -81,9 +82,10 @@ export function MonthGrid({ month, label, entries, today }: { month: string; lab
                     <div className="flex flex-col gap-1">
                       <span className="font-mono text-mono-strong tabular-nums">{Number(day.slice(8))}</span>
                       {items.slice(0, CELL_ENTRIES).map((e) => (
-                        <Link key={e.key} href={e.href} title={e.title}
-                          className="block truncate rounded-sm text-[12px] font-semibold leading-4 text-ink">
-                          <span className="sr-only">{e.kind === 'tender' ? 'Tender: ' : 'Funding call: '}</span>{e.title}
+                        <Link key={e.key} href={e.href} title={displayName(e.title)}
+                          aria-label={`${e.kind === 'tender' ? 'Tender' : 'Funding call'}: ${displayName(e.title)}`}
+                          className="block break-words rounded-sm text-[12px] font-semibold leading-4 text-ink">
+                          {truncateTitle(displayName(e.title))}
                         </Link>
                       ))}
                       {items.length > CELL_ENTRIES && (

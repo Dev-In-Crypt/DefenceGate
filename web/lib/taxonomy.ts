@@ -60,14 +60,21 @@ export const PROGRAMME_CODES = Object.keys(PROGRAMMES) as ProgrammeCode[];
 export const REGIMES: Record<Regime, string> = { defence: 'Defence', 'dual-use': 'Dual-use' };
 export const REGIME_CODES = Object.keys(REGIMES) as Regime[];
 
+/**
+ * The 24 official languages of the EU, then the others the sources write in (NO, IS, UK, TR, RU, AR).
+ * Looked up in lower case; a code not listed is shown as sent, in capitals.
+ */
 export const LANGUAGES: Record<string, string> = {
-  en: 'English', pl: 'Polish', sv: 'Swedish', fr: 'French', es: 'Spanish', fi: 'Finnish', de: 'German', it: 'Italian',
-  nl: 'Dutch', cs: 'Czech', ro: 'Romanian', pt: 'Portuguese', uk: 'Ukrainian',
+  bg: 'Bulgarian', hr: 'Croatian', cs: 'Czech', da: 'Danish', nl: 'Dutch', en: 'English', et: 'Estonian', fi: 'Finnish',
+  fr: 'French', de: 'German', el: 'Greek', hu: 'Hungarian', ga: 'Irish', it: 'Italian', lv: 'Latvian', lt: 'Lithuanian',
+  mt: 'Maltese', pl: 'Polish', pt: 'Portuguese', ro: 'Romanian', sk: 'Slovak', sl: 'Slovenian', es: 'Spanish', sv: 'Swedish',
+  no: 'Norwegian', nb: 'Norwegian', nn: 'Norwegian', is: 'Icelandic', uk: 'Ukrainian', tr: 'Turkish', ru: 'Russian', ar: 'Arabic',
 };
 
-/** Language codes arrive as `en`, `ES` or `Pl`: look them up in lower case. Unknown codes are shown as sent. */
+/** Language codes arrive as `en`, `ES` or `Pl`: look them up in lower case. An unknown code is shown in capitals. */
 export function languageName(code: string): string {
-  return LANGUAGES[code.toLowerCase()] ?? code;
+  const c = code.trim().toLowerCase();
+  return LANGUAGES[c] ?? c.toUpperCase();
 }
 /** A title language that is not English gets a label. A missing language is not labelled. */
 export function isNonEnglish(code: string | null | undefined): boolean {

@@ -69,6 +69,14 @@ def test_open_is_as_of_now_so_a_passed_deadline_is_closed(client, conn):
     assert lapsed["status"] == "closed" and lapsed["statusNative"] == "expired"
 
 
+def test_a_closed_list_runs_newest_deadline_first_by_default(client, conn):
+    for n, days in enumerate((90, 10, 45)):
+        _put(conn, f"C-{n}", deadline=PAST - timedelta(days=days))
+    assert _ids(client, status="closed") == ["C-1", "C-2", "C-0"]
+    assert _ids(client, status="closed", sort="deadline-asc") == ["C-0", "C-2", "C-1"]
+    assert _ids(client, status="closed", sort="deadline-desc") == ["C-1", "C-2", "C-0"]
+
+
 def test_core_is_the_default_and_supply_is_only_the_buyer(client, conn):
     _put(conn, "CORE")
     _put(conn, "SUPPLY", sig_cpv=False, sig_buyer=True, cpv=("15000000",))

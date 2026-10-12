@@ -71,6 +71,17 @@ def test_an_open_call_whose_deadline_has_passed_is_closed_when_served(client, co
     assert _ids(client, status="closed") == ["lapsed"]
 
 
+def test_a_rolling_call_past_its_cut_off_is_open_and_says_it_is_rolling(client, conn):
+    """HORIZON-EIC-2026-STEP style: the stored deadline is the latest cut-off, the
+    portal still says Open. The site words it as rolling submission, not as closed."""
+    _put(conn, "rolling", status="open", days=-2, conditions={"deadline_model": "multiple cut-off"})
+    _put(conn, "single", status="open", days=20, conditions={"deadline_model": "single-stage"})
+    by_id = {c["topicId"]: c for c in client.get(
+        "/v1/funding", params={"status": "all"}).json()["items"]}
+    assert by_id["HORIZON-rolling"]["status"] == "open" and by_id["HORIZON-rolling"]["rolling"] is True
+    assert by_id["HORIZON-single"]["rolling"] is False
+
+
 def test_closing_soon_is_open_with_a_deadline_within_thirty_days(client, conn):
     _put(conn, "soon", days=5)
     _put(conn, "far", days=90)

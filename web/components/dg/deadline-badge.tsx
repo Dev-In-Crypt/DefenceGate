@@ -49,9 +49,24 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className 
     );
   }
 
+  if (d.rolling) {
+    // Open past its last cut-off: the call takes submissions continuously or in several cut-offs.
+    return (
+      <div className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
+        <span className={cn('text-label', t.label)}>Submission</span>
+        <span className={cn('font-sans font-extrabold', lg ? 'text-h2' : 'text-[20px] leading-[26px] tracking-[-0.5px]', t.count)}>{d.label}</span>
+        <span className={cn('font-mono tabular-nums', lg ? 'text-mono-strong' : 'text-[12px] leading-4', t.date)}>
+          Last cut-off <time dateTime={d.iso ?? undefined}>{d.utc}</time>
+        </span>
+      </div>
+    );
+  }
+
+  // A closed deadline reads "Deadline / Closed / 27 Jul 2026": the word "Closed" is said once.
+  const heading = d.state === 'closed' ? 'Deadline' : d.label;
   return (
     <div className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
-      <span className={cn('text-label', t.label)}>{d.label}</span>
+      <span className={cn('text-label', t.label)}>{heading}</span>
       <span className={cn('font-sans font-extrabold', lg ? 'text-h1' : 'text-[24px] leading-[30px] tracking-[-0.5px]', t.count)}>
         <time dateTime={d.iso ?? undefined}>{d.countdown}</time>
       </span>

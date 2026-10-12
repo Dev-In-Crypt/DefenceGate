@@ -4,18 +4,21 @@
  */
 import { ApiError, getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
 import { getCallDeadline } from './deadline';
-import { parseCallFilters, parseTenderFilters, type SearchParams } from './filters';
+import { parseCallFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
+import {
+  EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate, TtlCache, exportCap,
+} from './export-cache';
 import { safeHttpUrl } from './safe-url';
 import { absoluteUrl } from './seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
 import type { Call, Paginated, Tender } from './types';
 import { isMidnight, isoUtc, toCsv, type Cell } from './csv';
 
-/** The most rows one download holds. */
+/** The most rows one download holds (`status=all` holds at most 1,000: see export-cache.ts). */
 export const EXPORT_CAP = 2000;
 const TENDER_PAGE = 100;
 const CALL_PAGE = 500;
-const PARALLEL = 2;
+const PARALLEL = 4;
 const RETRIES = 4;
 
 
@@ -77,30 +80,44 @@ async function withRetry<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Page 1, then the rest a couple at a time, up to EXPORT_CAP rows. A page that cannot be had fails the export. */
-async function collect<T>(fetchOne: (page: number) => Promise<Paginated<T>>): Promise<{ items: T[]; total: number }> {
+/** Page 1, then the rest four at a time, up to `cap` rows. A page that cannot be had fails the export. */
+async function collect<T>(fetchOne: (page: number) => Promise<Paginated<T>>, cap: number): Promise<{ items: T[]; total: number }> {
   const fetchPage = (page: number) => withRetry(() => fetchOne(page));
   const first = await fetchPage(1);
   const items = [...first.items];
   const size = Math.max(1, first.pageSize || first.items.length || 1);
-  const pages = Math.ceil(Math.min(first.total, EXPORT_CAP) / size);
+  const pages = Math.ceil(Math.min(first.total, cap) / size);
   for (let p = 2; p <= pages; p += PARALLEL) {
     const batch = Array.from({ length: Math.min(PARALLEL, pages - p + 1) }, (_, i) => fetchPage(p + i));
     for (const r of await Promise.all(batch)) items.push(...r.items);
   }
-  return { items: items.slice(0, EXPORT_CAP), total: first.total };
+  return { items: items.slice(0, cap), total: first.total };
 }
+
+interface Built { body: string; total: number; rows: number; cap: number }
+
+/**
+ * A built export is kept for ten minutes (30 at most, by normalised query: the parsed filters with defaults left
+ * out), identical requests in flight share one build, and a seventh uncached build at once is refused.
+ */
+const runner = new ExportRunner<Built>(new TtlCache(EXPORT_CACHE_TTL_MS, EXPORT_CACHE_MAX), new Gate(EXPORT_MAX_RUNNING));
+
+const busy = () => new Response('Too many exports are running at the moment. Try again in a few seconds.', {
+  status: 429,
+  headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'retry-after': String(EXPORT_RETRY_AFTER_SECONDS) },
+});
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
-function csvResponse(body: string, name: string, total: number, rows: number): Response {
-  return new Response(body, {
+function csvResponse(b: Built, name: string): Response {
+  return new Response(b.body, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
       'content-disposition': `attachment; filename="${name}-${stamp()}.csv"`,
       'cache-control': 'public, max-age=300',
-      'x-total-matching': String(total),
-      'x-rows': String(rows),
+      'x-total-matching': String(b.total),
+      'x-rows': String(b.rows),
+      'x-row-cap': String(b.cap),
     },
   });
 }
@@ -110,10 +127,15 @@ const unavailable = () => new Response('The data service is not available. Try a
 });
 
 export async function tendersCsvResponse(url: URL): Promise<Response> {
-  const filters = { ...parseTenderFilters(searchParamsOf(url)), pageSize: TENDER_PAGE };
+  const parsed = parseTenderFilters(searchParamsOf(url));
+  const filters = { ...parsed, pageSize: TENDER_PAGE };
+  const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
-    const { items, total } = await collect((page) => getTenders({ ...filters, page }));
-    return csvResponse(toCsv(TENDER_HEADER, items.map(tenderRow)), 'defencegate-tenders', total, items.length);
+    const r = await runner.get(`tenders${toTenderQuery({ ...parsed, page: 1 })}`, async () => {
+      const { items, total } = await collect((page) => getTenders({ ...filters, page }), cap);
+      return { body: toCsv(TENDER_HEADER, items.map(tenderRow)), total, rows: items.length, cap };
+    });
+    return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
   } catch (err) {
     console.error('tenders csv export failed:', err instanceof Error ? err.message : String(err));
     return unavailable();
@@ -121,10 +143,15 @@ export async function tendersCsvResponse(url: URL): Promise<Response> {
 }
 
 export async function callsCsvResponse(url: URL): Promise<Response> {
-  const filters = { ...parseCallFilters(searchParamsOf(url)), pageSize: CALL_PAGE };
+  const parsed = parseCallFilters(searchParamsOf(url));
+  const filters = { ...parsed, pageSize: CALL_PAGE };
+  const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
-    const { items, total } = await collect((page) => getCalls({ ...filters, page }));
-    return csvResponse(toCsv(CALL_HEADER, items.map(callRow)), 'defencegate-funding', total, items.length);
+    const r = await runner.get(`funding${toQuery({ ...parsed, page: 1 })}`, async () => {
+      const { items, total } = await collect((page) => getCalls({ ...filters, page }), cap);
+      return { body: toCsv(CALL_HEADER, items.map(callRow)), total, rows: items.length, cap };
+    });
+    return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-funding');
   } catch (err) {
     console.error('funding csv export failed:', err instanceof Error ? err.message : String(err));
     return unavailable();

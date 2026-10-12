@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { Bell, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { getCall, getRelatedCalls } from '@/lib/api';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
+import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, openingPhrase } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
-import { Breadcrumbs, ComingSoon, JsonLd } from '@/components/dg/feedback';
+import { Breadcrumbs, JsonLd } from '@/components/dg/feedback';
+import { AlertsLine } from '@/components/dg/alerts-line';
 import { Tag, StatusPill } from '@/components/dg/tag';
 import { DeadlineBadge } from '@/components/dg/deadline-badge';
 import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/dg/data-display';
@@ -31,12 +33,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = [
     `${call.programmeName}.`,
     call.status === 'forthcoming' && call.openingDate ? `${openingPhrase(call.openingDate).lead} ${openingPhrase(call.openingDate).date}.` : null,
-    d.iso ? `Deadline ${d.utc}.` : 'No fixed deadline.',
+    d.rolling ? `Open: rolling submission, last cut-off ${d.utc}.` : d.iso ? `Deadline ${d.utc}.` : 'No fixed deadline.',
     `Budget ${call.budget ? formatMoney(call.budget) : 'not stated'}.`,
     `Source: ${call.source.sourceName}.`,
   ].filter(Boolean).join(' ');
   return buildMetadata({
-    title: `${call.title} (${call.topicId})`,
+    title: `${displayName(call.title)} (${call.topicId})`,
     description,
     path: `/funding/${call.slug}`,
     noindex: !meetsMinimumContent(call),
@@ -75,7 +77,7 @@ export default async function CallDetailPage({ params }: Props) {
       <JsonLd data={callJsonLd(call)} />
       <Breadcrumbs items={[
         { label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' },
-        { label: call.title, href: `/funding/${call.slug}` },
+        { label: displayName(call.title), href: `/funding/${call.slug}` },
       ]} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -88,12 +90,12 @@ export default async function CallDetailPage({ params }: Props) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? call.titleLanguage : undefined}
-                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{call.title}</h1>
+                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{displayName(call.title)}</h1>
               {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
             </div>
             {call.originalTitle && (
               <p className="m-0 text-body text-ink-muted">
-                <span lang={call.originalLanguage ?? undefined}>{call.originalTitle}</span>
+                <span lang={call.originalLanguage ?? undefined}>{displayName(call.originalTitle)}</span>
                 {' · '}<LangLabel kind="title" code={call.originalLanguage} />
               </p>
             )}
@@ -154,7 +156,6 @@ export default async function CallDetailPage({ params }: Props) {
             ) : (
               <p className="m-0 text-body text-ink-muted">The source does not publish structured eligibility for this call.</p>
             )}
-            <ComingSoon feature="Check if your company qualifies" />
           </Panel>
 
           {call.conditionsText && (
@@ -178,11 +179,10 @@ export default async function CallDetailPage({ params }: Props) {
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
             <SaveButton kind="call" refId={call.id} />
             <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />
-            <Button href="/alerts" variant="secondary" icon={Bell} fullWidth>Get alerts</Button>
-            <Button href="/pack" variant="text" className="self-start">Opportunity pack</Button>
             {sourceUrl && (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {call.source.sourceName}</Button>
             )}
+            <AlertsLine what="this call" />
           </div>
         </aside>
       </div>

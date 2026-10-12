@@ -55,7 +55,7 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
         </div>
       </div>
       {open && (
-        <nav id="mobile-nav" aria-label="Main" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
+        <nav id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
           {[...MAIN_NAV, cta].map((n) => <NavLink key={n.href} {...n} active={isActive(n.href)} onClick={() => setOpen(false)} />)}
         </nav>
       )}

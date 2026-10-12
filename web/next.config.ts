@@ -74,6 +74,15 @@ export default function config(phase: string): NextConfig {
             { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
           ],
         },
+        {
+          // HTML pages. An ISR page otherwise answers `s-maxage=3600, stale-while-revalidate=31536000`: a cache
+          // would serve a year-old copy while it refetches in the background. This makes every page revalidate.
+          // Not for: /_next/* (hashed assets keep Next's own `immutable`), brand files and anything with a
+          // dot (the CSV, calendar and sitemap routes set their own), the API-like routes, and the signed-in
+          // and sign-in pages, which are private to the visitor and must not be marked public.
+          source: '/((?!_next/|api/|brand/|auth/|app(?:/|$)|admin(?:/|$)|signin|.*\\..*).*)',
+          headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
+        },
       ];
     },
   };

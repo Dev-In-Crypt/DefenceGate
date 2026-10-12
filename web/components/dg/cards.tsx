@@ -4,12 +4,14 @@ import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, openingPhrase } from '@/lib/format';
 import { anomalyNotes, tenderStatusView } from '@/lib/tender-status';
-import { PROGRAMMES, REGIMES, TENDER_SCOPES, isNonEnglish } from '@/lib/taxonomy';
+import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
+import { displayName } from '@/lib/display-name';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
 import { AmountDisplay, CountryLabel, FactCell, LangLabel } from './data-display';
 import { Icon } from './icon';
 import { SourceBadge } from './source-badge';
+import { BasisChips } from './basis-chips';
 
 const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted sm:p-6';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
@@ -33,12 +35,12 @@ export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLev
       </div>
       <div className="flex flex-col gap-1">
         <H lang={nonEnglish ? call.titleLanguage : undefined} className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
-          <Link href={`/funding/${call.slug}`} className={TITLE_LINK}>{call.title}</Link>
+          <Link href={`/funding/${call.slug}`} className={TITLE_LINK}>{displayName(call.title)}</Link>
         </H>
         {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
         {call.originalTitle && (
           <span className="text-small text-ink-muted">
-            <span lang={call.originalLanguage ?? undefined}>{call.originalTitle}</span>
+            <span lang={call.originalLanguage ?? undefined}>{displayName(call.originalTitle)}</span>
             {' · '}<LangLabel kind="title" code={call.originalLanguage} />
           </span>
         )}
@@ -50,8 +52,13 @@ export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLev
         </p>
       )}
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-        <FactCell label={soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
-          {d.iso ? (
+        <FactCell label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
+          {d.rolling && d.iso ? (
+            <>
+              <span className="font-sans">Open: rolling submission</span>
+              <div className="font-sans text-small font-normal text-ink-muted">Last cut-off <time dateTime={d.iso}>{d.utc}</time></div>
+            </>
+          ) : d.iso ? (
             <>
               <time dateTime={d.iso}>{d.utc}</time>
               {/* No countdown before the call opens, and none without a deadline. */}
@@ -110,26 +117,26 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
       <div className="flex flex-wrap items-center gap-2">
         {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
         {tender.country && <Tag>{tender.country}</Tag>}
-        <Tag>{TENDER_SCOPES[tender.scope].label}</Tag>
         <span className="ml-auto flex flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
       </div>
       <div className="flex flex-col gap-1">
         <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
-          <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{tender.title}</Link>
+          <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</Link>
         </H>
         {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
         {tender.originalTitle && (
           <span className="text-small text-ink-muted">
-            <span lang={tender.originalLanguage ?? undefined}>{tender.originalTitle}</span>
+            <span lang={tender.originalLanguage ?? undefined}>{displayName(tender.originalTitle)}</span>
             {' · '}<LangLabel kind="title" code={tender.originalLanguage} />
           </span>
         )}
         {tender.buyerSlug ? (
-          <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 self-start text-small font-semibold">{tender.buyerName}</Link>
+          <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 self-start text-small font-semibold">{displayName(tender.buyerName, 'title')}</Link>
         ) : (
-          <span className="text-small font-semibold">{tender.buyerName}</span>
+          <span className="text-small font-semibold">{displayName(tender.buyerName, 'title')}</span>
         )}
       </div>
+      <BasisChips tender={tender} lifted />
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
         <FactCell label={soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
           {d.iso ? (
@@ -160,7 +167,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
       <div className="flex flex-col gap-2">
         {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
         <H className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
-          <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{buyer.name}</Link>
+          <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</Link>
         </H>
         {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
       </div>

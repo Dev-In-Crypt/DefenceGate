@@ -15,7 +15,7 @@ import pytest
 
 from dgate.db import changed_fields, same_value
 from dgate.funding import anomalies
-from dgate.tenders import NOT_AN_AMENDMENT, _show, procedure_label, timeline
+from dgate.tenders import NOT_AN_AMENDMENT, _human, _show, procedure_label, tender_order, timeline
 
 AT = datetime(2026, 10, 1, tzinfo=timezone.utc)
 
@@ -83,8 +83,9 @@ def test_notice_2844_lists_its_cancellation_and_its_deadline_extension():
     out = timeline(rows)
     assert [v["version"] for v in out] == [1, 2, 3]
     third = {c["field"]: (c["before"], c["after"]) for c in out[2]["changes"]}
-    assert third["deadline_at"] == ("2026-09-17 21:59 UTC", "2026-10-09 21:59 UTC")
-    assert third["status"] == ("cancelled", "open")
+    # Said for a person (QA 12 October 2026): the dates and the status as words.
+    assert third["deadline_at"] == ("17 Sep 2026, 21:59 UTC", "9 Oct 2026, 21:59 UTC")
+    assert third["status"] == ("Cancelled", "Open")
 
 
 def test_a_version_that_only_moved_the_publication_date_is_not_an_amendment():
@@ -112,7 +113,7 @@ def test_a_real_change_next_to_a_date_move_keeps_both_lines():
     ]
     out = timeline(rows)
     assert [(c["field"], c["before"], c["after"]) for c in out[1]["changes"]] == [
-        ("published_at", "2026-08-24", "2026-08-26"), ("value_amount", "100", "250")]
+        ("published_at", "24 Aug 2026", "26 Aug 2026"), ("value_amount", "100", "250")]
 
 
 def test_a_listed_line_that_reads_the_same_before_and_after_is_dropped():
@@ -135,7 +136,7 @@ def test_a_remapped_version_is_neither_listed_nor_an_amendment_but_is_the_baseli
     ]
     out = timeline(rows)
     assert [v["version"] for v in out] == [1, 3]
-    assert (out[1]["changes"][0]["before"], out[1]["changes"][0]["after"]) == ("awarded", "cancelled")
+    assert (out[1]["changes"][0]["before"], out[1]["changes"][0]["after"]) == ("Awarded", "Cancelled")
 
 
 def test_reread_and_out_of_order_versions_are_skipped_without_moving_the_baseline():
@@ -147,7 +148,7 @@ def test_reread_and_out_of_order_versions_are_skipped_without_moving_the_baselin
     ]
     out = timeline(rows)
     assert [v["version"] for v in out] == [1, 4]
-    assert out[1]["changes"][0]["before"] == "open"
+    assert out[1]["changes"][0]["before"] == "Open"
 
 
 def test_remapped_counts_as_not_an_amendment_everywhere_the_constant_is_used():
@@ -202,3 +203,81 @@ def test_a_deadline_more_than_three_years_out_is_flagged():
 
 def test_no_deadline_has_no_anomaly():
     assert anomalies(None, datetime(2026, 10, 2).date(), now=NOW) == []
+
+
+# ------------------------------------------------- the sequence a reader counts by
+
+def test_a_version_carries_its_sequence_and_keeps_the_archive_number():
+    """The header said "v11" and the footer "2 versions observed": the archive's row
+    number has gaps (reread, remapped, feed-stamp versions are not listed). The reader
+    counts 1, 2 and the archive number stays beside it."""
+    rows = [
+        _row(1, [], status="open"),
+        _row(4, ["status"], ["reread"], status="awarded"),
+        _row(7, ["published_at"], status="open", published_at="2026-08-26"),
+        _row(11, ["status"], status="awarded"),
+    ]
+    out = timeline(rows)
+    assert [(v["sequence"], v["version"]) for v in out] == [(1, 1), (2, 11)]
+
+
+# ---------------------------------------------- values said the way a person reads
+
+@pytest.mark.parametrize("field,value,shown", [
+    ("deadline_at", "2026-09-10", "10 Sep 2026"),
+    ("deadline_at", "2026-09-10T14:05:00Z", "10 Sep 2026, 14:05 UTC"),
+    ("deadline_at", "2026-09-10T16:05:00+02:00", "10 Sep 2026, 14:05 UTC"),
+    ("deadline_at", "2026-09-10T00:00:00+00:00", "10 Sep 2026"),
+    ("published_at", "2026-08-24", "24 Aug 2026"),
+    ("status", "open", "Open"),
+    ("status", "awarded", "Awarded"),
+    ("status", "forthcoming", "Planned"),
+    ("procedure_type", "restricted", "Restricted procedure"),
+    ("cpv_codes", ["35200000", "35810000"], "35200000, 35810000"),
+    ("cpv_codes", "['35200000', '35810000']", "35200000, 35810000"),
+    ("cpv_codes", '["35200000"]', "35200000"),
+    ("legal_basis", "32009L0081", "Directive 2009/81/EC (defence and security procurement)"),
+])
+def test_a_change_is_said_in_words_a_person_reads(field, value, shown):
+    assert _human(field, value) == shown
+
+
+def test_an_amount_carries_its_currency_and_thousands():
+    assert _human("value_amount", 1000000.0, "EUR") == "EUR 1,000,000"
+    assert _human("value_amount", 12345.5, "PLN") == "PLN 12,345.50"
+    assert _human("value_amount", 250.0) == "250"
+
+
+def test_a_stored_mapping_is_never_printed_as_a_python_repr():
+    assert _human("value_amount", "{'amount': 5000, 'currency': 'EUR'}") == "EUR 5,000"
+    assert _human("title_original", "{'a': 1}") == "a: 1"
+
+
+def test_an_amount_change_names_the_currency_of_its_own_version():
+    rows = [
+        _row(1, [], value_amount=100000.0, value_currency="EUR"),
+        _row(2, ["value_amount", "value_currency"], value_amount=450000.0, value_currency="PLN"),
+    ]
+    out = timeline(rows)
+    lines = {c["field"]: (c["before"], c["after"]) for c in out[1]["changes"]}
+    assert lines["value_amount"] == ("EUR 100,000", "PLN 450,000")
+
+
+def test_two_spellings_of_one_status_word_are_not_a_change():
+    rows = [_row(1, [], status="closed"), _row(2, ["status"], status="expired")]
+    # `closed` and `expired` are both "Closed" to a reader: no line, so no amendment
+    assert [v["sequence"] for v in timeline(rows)] == [1]
+
+
+# ----------------------------------------------------- the order of a closed list
+
+def test_a_closed_list_runs_newest_deadline_first_unless_a_sort_was_asked_for():
+    eff = "EFF"
+    closed = tender_order(None, "closed", eff)
+    assert closed.startswith("o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST")
+    assert tender_order("deadline-desc", "open", eff) == closed
+    # an explicit ascending sort on a closed list is honoured, and open stays soonest-first
+    assert "o.deadline_at ASC" in tender_order("deadline-asc", "closed", eff)
+    assert "o.deadline_at ASC" in tender_order(None, "open", eff)
+    assert "o.deadline_at ASC" in tender_order(None, "all", eff)
+    assert tender_order("published-desc", "closed", eff).startswith("o.published_at DESC")

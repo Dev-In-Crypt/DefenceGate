@@ -1,13 +1,24 @@
+import { formatChangeValue } from '@/lib/change-format';
 import { formatDateUtc } from '@/lib/format';
 import type { FieldChange, TenderVersion } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-/** One field-level change as a sentence. Also used by the account dashboard. */
+/** One field-level change as a sentence. Also used by the account dashboard. Values are said for a person. */
 export function describeChange(c: FieldChange): React.ReactNode {
   const v = (s: string) => <span className="break-words font-mono text-mono-strong tabular-nums">{s}</span>;
-  if (c.before && c.after) return <>{c.label} changed from {v(c.before)} to {v(c.after)}</>;
-  if (c.after) return <>{c.label} added: {v(c.after)}</>;
-  return <>{c.label} removed{c.before ? <>: {v(c.before)}</> : null}</>;
+  const before = formatChangeValue(c.field, c.before);
+  const after = formatChangeValue(c.field, c.after);
+  if (before && after) return <>{c.label} changed from {v(before)} to {v(after)}</>;
+  if (after) return <>{c.label} added: {v(after)}</>;
+  return <>{c.label} removed{before ? <>: {v(before)}</> : null}</>;
+}
+
+/**
+ * The number a reader counts by: the API's `sequence` (1 = first seen), or, from a build that does not send it,
+ * the place in the list. The archive's own row number (`version`) has gaps and is not shown.
+ */
+export function sequenceOf(versions: TenderVersion[], index: number): number {
+  return versions[index].sequence ?? versions.length - index;
 }
 
 /** Newest first. Each version lists field-level changes; first entry is filled. */
@@ -16,6 +27,7 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
     <ol className="m-0 flex list-none flex-col p-0">
       {versions.map((ver, i) => {
         const last = i === versions.length - 1;
+        const seq = sequenceOf(versions, i);
         return (
           <li key={ver.version} className="grid grid-cols-[16px_1fr] gap-x-4">
             <div className="relative flex justify-center">
@@ -24,7 +36,7 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
             </div>
             <div className={cn('flex min-w-0 flex-col gap-0.5', !last && 'pb-5')}>
               <span className="font-mono text-mono text-ink-muted">
-                Detected <time dateTime={ver.detectedAt}>{formatDateUtc(ver.detectedAt)}</time> · v{ver.version}
+                Version {seq} · Detected <time dateTime={ver.detectedAt}>{formatDateUtc(ver.detectedAt)}</time>
               </span>
               {ver.changes.length === 0 ? (
                 <span className="text-body">First observed by DefenceGate</span>
