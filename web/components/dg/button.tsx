@@ -4,6 +4,7 @@ import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { safeHttpUrl } from '@/lib/safe-url';
 import { Icon } from './icon';
 
 export const buttonVariants = cva(
@@ -37,11 +38,16 @@ export function Button(props: AsButton | AsLink) {
   );
   if ('href' in props && props.href) {
     const { href, external } = props;
-    return external ? (
-      <a href={href} className={cls} target="_blank" rel="noopener noreferrer" aria-label={props['aria-label']}>{content}</a>
-    ) : (
-      <Link href={href} className={cls} aria-label={props['aria-label']}>{content}</Link>
-    );
+    if (external) {
+      // External hrefs are source-supplied: only http(s) becomes a link, otherwise the label stays as plain text.
+      const safe = safeHttpUrl(href);
+      return safe ? (
+        <a href={safe} className={cls} target="_blank" rel="noopener noreferrer" aria-label={props['aria-label']}>{content}</a>
+      ) : (
+        <span className={cn('inline-flex min-h-11 items-center gap-2 font-sans text-small font-bold text-ink-muted', className)}>{content}</span>
+      );
+    }
+    return <Link href={href} className={cls} aria-label={props['aria-label']}>{content}</Link>;
   }
   const { asChild, variant: _v, fullWidth: _f, icon: _i, iconRight: _r, children: _c, className: _cn, type = 'button', ...rest } = props as AsButton;
   if (asChild) return <Slot className={cls} {...rest}>{children}</Slot>;

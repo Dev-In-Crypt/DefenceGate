@@ -96,6 +96,33 @@ def apply(conn, migration: Migration) -> None:
         raise
 
 
+def set_role_passwords(conn) -> list[str]:
+    """Give the service roles of migration 0024 a login, from the environment.
+
+    The passwords are never in SQL or in the repository: the operator sets
+    DGATE_API_PASSWORD and DGATE_WORKER_PASSWORD, and this runs after every
+    migrate so a rotated value takes effect on the next deploy. A role whose
+    variable is unset is left as it was.
+    """
+    import os
+
+    from psycopg import sql
+
+    done: list[str] = []
+    for role, variable in (("dgate_api", "DGATE_API_PASSWORD"),
+                           ("dgate_worker", "DGATE_WORKER_PASSWORD")):
+        password = os.environ.get(variable)
+        if not password:
+            continue
+        exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,)).fetchone()
+        if not exists:
+            continue
+        conn.execute(sql.SQL("ALTER ROLE {} LOGIN PASSWORD {}").format(
+            sql.Identifier(role), sql.Literal(password)))
+        done.append(role)
+    return done
+
+
 def migrate(dsn: str | None = None, directory: Path | None = None) -> list[Migration]:
     """Apply everything pending. Returns what was applied."""
     from . import db
@@ -104,6 +131,8 @@ def migrate(dsn: str | None = None, directory: Path | None = None) -> list[Migra
         todo = pending(conn, directory)
         for migration in todo:
             apply(conn, migration)
+        for role in set_role_passwords(conn):
+            log.info("login set for role %s", role)
     if not todo:
         log.info("database is up to date")
     return todo

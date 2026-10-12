@@ -16,14 +16,14 @@ app/
   layout.tsx              fonts (next/font Manrope + DM Mono), theme pre-paint script, base metadata
   globals.css             DefenceGate tokens as CSS variables (light :root, dark [data-theme="dark"])
   icon.svg                favicon (from brand/favicon.svg)
-  robots.ts / sitemap.ts  sitemap reads lib/api
+  robots.ts / sitemap.ts  sitemap lists /, /funding and real call slugs only
   (public)/               server-rendered, indexable
     layout.tsx            HeaderBar + Footer, skip link
-    actions.ts            server action: waitlist + company profile intake
+    actions.ts            server action: waitlist intake is closed; validates, stores and sends nothing
     page.tsx              /  landing
-    funding/page.tsx      /funding hub  (+ loading.tsx, error.tsx)
-    funding/[slug]/       call detail  (+ loading.tsx, error.tsx, not-found.tsx)
-    styleguide/page.tsx   /styleguide (noindex)
+    funding/(list)/       /funding hub: page.tsx, loading.tsx, error.tsx (own route group so its loading boundary does not wrap [slug])
+    funding/[slug]/       call detail  (+ error.tsx, not-found.tsx; no loading.tsx on purpose: it would stream a 200 before notFound()/permanentRedirect run)
+    styleguide/page.tsx   /styleguide (noindex; 404 in production)
   (app)/app/layout.tsx    P3, robots noindex
   (admin)/admin/layout.tsx P4, robots noindex
 components/
@@ -71,7 +71,7 @@ All reads go through `lib/api.ts`. Set `DG_API_URL=https://api.defencegate.eu` a
 - Filtered/paginated `/funding?…` URLs are shareable but `noindex,follow` with canonical `/funding`.
 - `meetsMinimumContent(entity)` returns false for thin calls (no source URL or title, or none of structured eligibility, a deadline, an opening date) and lists with fewer than 3 items; pages then render `noindex`.
 - JSON-LD: Organization + FAQPage (landing), MonetaryGrant (call detail), BreadcrumbList (every Breadcrumbs).
-- `robots.ts` disallows `/app`, `/admin`, `/v1`, `/styleguide`; `(app)` and `(admin)` layouts set `robots: noindex`.
+- `robots.ts` disallows `/app`, `/admin`, `/v1`; `(app)` and `(admin)` layouts set `robots: noindex`. `/styleguide` is noindex and returns 404 in production.
 
 ## Components
 
@@ -81,8 +81,15 @@ Added with the same tokens: `Footer`, `TenderCard`, `AmountDisplay`, `CountryLab
 
 ## States
 
-Each list/detail route has loaded (page), loading (`loading.tsx` skeletons), empty (`EmptyState` in the template / `not-found.tsx`) and error (`error.tsx` → `ErrorState` with retry).
+Each list route has loaded (page), loading (`loading.tsx` skeletons), empty (`EmptyState` in the template) and error (`error.tsx` → `ErrorState` with retry). The call detail route has no `loading.tsx` so unknown slugs return a real 404 and non-canonical slugs a real permanent redirect; it keeps `not-found.tsx` and `error.tsx`.
 
 ## Rules enforced in code
 
 UTC everywhere (`lib/format.ts` appends "UTC"); amounts always `CUR 1,234` (`formatMoney`) and never converted or compared across currencies; a null deadline is "No fixed deadline", never "Closed"; a forthcoming call is "Opens soon", never "Open"; every card and detail shows `SourceBadge` with retrieved time and licence; a non-English heading carries `lang` and a "Original language, X" label, and the other-language title sits beneath it with its own `lang`; deadline colours only from `lib/deadline.ts` states; `--alert` only in `ErrorState` and field errors; no personal contact data in types or mocks.
+
+## Security headers and production build
+
+- `next.config.ts` sets CSP, Referrer-Policy, X-Content-Type-Options, Permissions-Policy, X-Frame-Options and HSTS on every route. `script-src` has `'unsafe-inline'` (nonces do not work with ISR pages); the reasoning is in the comment there.
+- A production build fails unless `NEXT_PUBLIC_SITE_URL` starts with `https://`. `DG_ALLOW_INSECURE_SITE_URL=1` allows it to be unset (local previews only).
+- Source-supplied URLs only become links through `lib/safe-url.ts` (`http:` / `https:` only).
+- Pages that do not exist yet (tenders, buyers, data, pricing, alerts, pack, legal) are not linked; the footer marks them "Coming soon".

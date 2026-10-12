@@ -25,23 +25,67 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+import psycopg
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from . import db
 from .config import settings
-from .normalise import normalise_org_name
+from .hardening import RateLimit, SecurityHeaders
+from .normalise import http_url, normalise_org_name, redact_emails
 
 # A source whose last successful run is older than this is reported stale.
 # Every connector in Phase 1 runs daily, so a day and a half allows one missed
 # run without crying wolf, and catches two.
 STALE_AFTER_HOURS = 36
 
+# The interactive documentation and the OpenAPI document describe every
+# parameter to anyone who asks; they are for development (DGATE_DOCS=1).
+_docs = settings().docs_enabled
 app = FastAPI(
     title="EU Defence Access Portal API",
     version="0.1.0",
     description="Defence and dual-use procurement opportunities across the EU.",
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
 )
+app.add_middleware(SecurityHeaders)
+app.add_middleware(RateLimit)
+
+# Largest values a request may carry, and how many items a list parameter may
+# have. Chosen well above anything the frontend sends; a request beyond them is
+# refused with 422 rather than turned into a query. One request with a thousand
+# CPV prefixes took the database for 50 to 100 seconds (12 October 2026).
+MAX_OFFSET = 10_000
+MAX_LIST_ITEMS = 20
+MAX_PREFIX_LENGTH = 8
+MAX_BIGINT = 9_223_372_036_854_775_807
+
+
+@app.exception_handler(psycopg.errors.DataError)
+def _bad_value(_: Request, __: psycopg.errors.DataError) -> JSONResponse:
+    # A value the database cannot store (a NUL character, a number out of range).
+    return JSONResponse({"detail": "invalid value in request"}, status_code=422)
+
+
+@app.exception_handler(psycopg.errors.QueryCanceled)
+def _too_slow(_: Request, __: psycopg.errors.QueryCanceled) -> JSONResponse:
+    return JSONResponse({"detail": "the query took too long; narrow the request"},
+                        status_code=503, headers={"Retry-After": "5"})
+
+
+def _split(value: str | None, name: str, *, upper: bool = False,
+           max_length: int = 64) -> list[str]:
+    """A comma-separated list parameter, bounded."""
+    items = [i.strip() for i in (value or "").split(",") if i.strip()]
+    if len(items) > MAX_LIST_ITEMS:
+        raise HTTPException(422, f"{name}: at most {MAX_LIST_ITEMS} values")
+    for item in items:
+        if len(item) > max_length or "\x00" in item:
+            raise HTTPException(422, f"{name}: value too long")
+    return [i.upper() for i in items] if upper else items
 
 ATTRIBUTION = {
     "ted": "Source: TED (Tenders Electronic Daily), © European Union",
@@ -70,7 +114,9 @@ def _attribution(row: dict[str, Any], default: str = "") -> str:
 
 
 def get_conn():
-    with db.connect(settings().dsn) as conn:
+    # The API's own, read-only role when one is configured (migration 0024).
+    cfg = settings()
+    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
         yield conn
 
 
@@ -145,7 +191,7 @@ def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
     for r in rows:
         out.setdefault(r["row_id"], []).append({
             "id": r["id"], "source": r["source"],
-            "native_id": r["native_id"], "url": r["source_url"],
+            "native_id": r["native_id"], "url": http_url(r["source_url"]),
         })
     return out
 
@@ -158,14 +204,14 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         native_id=r["native_id"],
         buyer={
             "organisation_id": r.get("buyer_org_id"),
-            "name": r["buyer_name_raw"],
+            "name": redact_emails(r["buyer_name_raw"]),
             "resolution_confidence": float(r["org_confidence"])
             if r.get("org_confidence") is not None else None,
         },
         country=r.get("country"),
-        title_original=r["title_original"],
-        title_en=r.get("title_en"),
-        summary_en=r.get("summary_en"),
+        title_original=redact_emails(r["title_original"]),
+        title_en=redact_emails(r.get("title_en")),
+        summary_en=redact_emails(r.get("summary_en")),
         original_language=r.get("original_language"),
         value=Money(amount=float(r["value_amount"]) if r.get("value_amount") else None,
                     currency=r.get("value_currency")),
@@ -181,7 +227,7 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         ),
         subcontracting_signal=bool(r.get("subcontracting_signal")),
         security_clearance_required=bool(r.get("security_clearance_required")),
-        source_url=r.get("source_url"),
+        source_url=http_url(r.get("source_url")),
         version=r.get("current_version") or 1,
         attribution=_attribution(r),
         scope="core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
@@ -255,28 +301,28 @@ def list_opportunities(
     cpv: str | None = Query(None, description="comma-separated CPV prefixes"),
     deadline_after: date | None = None,
     deadline_before: date | None = None,
-    value_min: float | None = None,
+    value_min: float | None = Query(None, ge=0, le=1e13),
     subcontracting: bool | None = None,
-    status: str = "open",
+    status: str = Query("open", max_length=20),
     scope: str = Query("core", pattern="^(core|supply|all)$",
                        description="core: the notice itself is defence (default); "
                                    "supply: only the buyer is a defence body; all: both"),
     collapse: bool = Query(True, description="show a national notice once: hide it when "
                                              "the TED notice it was forwarded as is also "
                                              "in this result (see `same_notice`)"),
-    limit: int = Query(50, le=200),
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     conn=Depends(get_conn),
 ):
     where = ["o.is_defence = TRUE", f"{EFFECTIVE_STATUS_SQL} = %s", SCOPE_SQL[scope]]
     params: list[Any] = [status]
 
     if country:
-        codes = [c.strip().upper() for c in country.split(",") if c.strip()]
+        codes = _split(country, "country", upper=True, max_length=2)
         where.append("o.country = ANY(%s)")
         params.append(codes)
     if cpv:
-        prefixes = [c.strip() for c in cpv.split(",") if c.strip()]
+        prefixes = _split(cpv, "cpv", max_length=MAX_PREFIX_LENGTH)
         clauses = []
         for p in prefixes:
             clauses.append("EXISTS (SELECT 1 FROM unnest(o.cpv_codes) c WHERE c LIKE %s)")
@@ -313,15 +359,36 @@ def list_opportunities(
 
 
 @app.get("/v1/opportunities/{opp_id}", response_model=OpportunityOut)
-def get_opportunity(opp_id: int, conn=Depends(get_conn)):
+def get_opportunity(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
     row = conn.execute(BASE_SELECT + " WHERE o.id = %s", (opp_id,)).fetchone()
     if not row:
         raise HTTPException(404, "not found")
     return _row_to_out(row, _twins(conn, [opp_id]).get(opp_id))
 
 
+# What a version's snapshot may show. An allow-list, because the stored payload
+# is the whole record: it also holds the notice's full text, which is not part of
+# the product and has carried personal data (e-mail addresses in 108 versions
+# observed before the sweep of 22 September 2026). A field added to the record
+# later is not served until someone decides it should be.
+SNAPSHOT_FIELDS = (
+    "source_code", "native_id", "buyer_name_raw", "title_original", "title_en",
+    "summary_en", "country", "original_language", "procedure_type", "legal_basis",
+    "value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
+    "source_url", "notice_version", "status", "status_native", "ted_ref",
+)
+
+
+def public_snapshot(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """A stored version payload as it may be served: allow-listed and redacted."""
+    kept = {k: v for k, v in (payload or {}).items() if k in SNAPSHOT_FIELDS}
+    if "source_url" in kept:
+        kept["source_url"] = http_url(kept["source_url"])
+    return redact_emails(kept)
+
+
 @app.get("/v1/opportunities/{opp_id}/versions")
-def get_versions(opp_id: int, conn=Depends(get_conn)):
+def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
     """The archive: full observation timeline for one notice.
 
     Deadline extensions, value revisions and scope amendments, each with the
@@ -353,11 +420,11 @@ def get_versions(opp_id: int, conn=Depends(get_conn)):
                 "valid_from": r["valid_from"],
                 "valid_to": r["valid_to"],
                 "changed_fields": r["changed_fields"] or [],
-                "snapshot": r["payload"],
+                "snapshot": public_snapshot(r["payload"]),
                 # A version the archive recorded wrongly is annotated, never
                 # removed: see migration 0006. Clients should not present a
                 # `reread` or `out_of_order` version as a real amendment.
-                "notes": r["notes"],
+                "notes": redact_emails(r["notes"]),
             }
             for r in rows
         ],
@@ -433,7 +500,7 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         native_id=r["native_id"],
         topic_code=r.get("topic_code"),
         call_identifier=r.get("call_identifier"),
-        title=r["title"],
+        title=redact_emails(r["title"]),
         regime=r["regime"],
         status=r.get("status"),
         type_of_action=r.get("type_of_action"),
@@ -446,9 +513,9 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         published_at=r.get("published_at"),
         deadline_at=deadline,
         days_left=days_left,
-        source_url=r.get("source_url"),
+        source_url=http_url(r.get("source_url")),
         country=r.get("country"),
-        issuer=r.get("issuer"),
+        issuer=redact_emails(r.get("issuer")),
         first_seen_at=r["first_seen_at"],
         last_seen_at=r["last_seen_at"],
         attribution=_attribution(r, default=ATTRIBUTION["eu_portal"]),
@@ -468,8 +535,8 @@ def list_calls(
     deadline_after: date | None = None,
     country: str | None = Query(None, description="comma-separated ISO-2 of the issuing body; "
                                                  "national grants only, EU programmes have none"),
-    limit: int = Query(50, le=200),
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, le=MAX_OFFSET),
     conn=Depends(get_conn),
 ):
     """Grant calls, soonest deadline first.
@@ -487,12 +554,12 @@ def list_calls(
         where.append("c.regime = %s")
         params.append(regime)
     if programme:
-        codes = [c.strip().upper() for c in programme.split(",") if c.strip()]
+        codes = _split(programme, "programme", upper=True)
         where.append("p.code = ANY(%s)")
         params.append(codes)
     if country:
         where.append("c.country = ANY(%s)")
-        params.append([c.strip().upper() for c in country.split(",") if c.strip()])
+        params.append(_split(country, "country", upper=True, max_length=2))
     if deadline_after:
         where.append("c.deadline_at >= %s")
         params.append(deadline_after)
@@ -518,7 +585,7 @@ class CallDetailOut(CallOut):
 
 
 @app.get("/v1/calls/{call_id}", response_model=CallDetailOut)
-def get_call(call_id: int, conn=Depends(get_conn)):
+def get_call(call_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
     row = conn.execute(
         CALL_SELECT.replace("c.first_seen_at",
                             "c.eligibility_text, c.conditions_raw, c.details_seen_at, "
@@ -533,7 +600,9 @@ def get_call(call_id: int, conn=Depends(get_conn)):
 
 
 @app.get("/v1/organisations/resolve")
-def resolve(name: str, country: str, conn=Depends(get_conn)):
+def resolve(name: str = Query(min_length=1, max_length=200),
+            country: str = Query(min_length=2, max_length=2),
+            conn=Depends(get_conn)):
     """Entity resolution as a service.
 
     Returns a match with its confidence and the method that produced it, or a
@@ -603,7 +672,10 @@ def health(conn=Depends(get_conn)):
     sources: list[dict[str, Any]] = []
     unhealthy: list[str] = []
     for r in rows:
-        item = dict(r)
+        # Only what a reader of the coverage needs. The run's error text is a
+        # `str(exception)` and has held an object-store URL; it stays in the table.
+        item = {"code": r["code"], "active": r["active"], "status": r["status"],
+                "finished_at": r["finished_at"], "records_fetched": r["records_fetched"]}
         if r["status"] is None:
             item["status"] = "never_run"
             item["health"] = "unhealthy"

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { ArrowRight, Bell } from 'lucide-react';
 import { getCalls, now } from '@/lib/api';
 import { getDeadline, SOON_DAYS, URGENT_DAYS } from '@/lib/deadline';
@@ -74,6 +75,8 @@ function TokenPanel({ theme }: { theme: 'light' | 'dark' }) {
 }
 
 export default async function StyleguidePage() {
+  // Internal design reference: development and review only, never served in production.
+  if (process.env.NODE_ENV === 'production') notFound();
   const ref = now();
   const { items } = await getCalls({ status: 'all', pageSize: 100 });
   const byState = (s: DeadlineState) => items.find((c) => getDeadline(c.deadline, ref).state === s) as Call;
@@ -205,7 +208,7 @@ export default async function StyleguidePage() {
       </Section>
 
       <Section id="nav" title="Navigation">
-        <Specimen label="Breadcrumbs"><Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }, { label: 'EDF', href: '/funding/programme/edf' }]} /></Specimen>
+        <Specimen label="Breadcrumbs"><Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }, { label: 'EDF', href: '/funding?programme=EDF' }]} /></Specimen>
         <Specimen label="Pagination"><Pagination page={3} total={96} pageSize={10} hrefFor={(p) => `/funding?page=${p}`} /></Specimen>
       </Section>
 

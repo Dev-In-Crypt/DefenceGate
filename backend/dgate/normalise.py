@@ -93,8 +93,64 @@ class Opportunity:
     security_clearance_required: bool = False
     nda_required: bool = False
     subcontracting_signal: bool = False
-    # description kept in memory for enrichment, not persisted verbatim
+    # The notice's own text. It is persisted: opportunity_payload() serialises the
+    # whole dataclass, so every archived version carries it. The API never serves it
+    # (api.py whitelists the snapshot), and e-mail addresses in it are redacted.
     description: str | None = None
+
+    def __post_init__(self) -> None:
+        self.source_url = http_url(self.source_url)
+
+
+# ------------------------------------------------- the boundary's bounds
+#
+# Everything a source sends is untrusted, and a single record must not be able to
+# stop a night's collection or the process. Measured on 12 October 2026: a JSON
+# nesting of 1,200 raised RecursionError out of strip_personal_data, a NUL
+# character is refused by Postgres in text and in jsonb, and the e-mail pattern
+# was quadratic on a long run of address characters. Each source then failed
+# every night for as long as the record stayed in its window.
+MAX_DEPTH = 40
+MAX_STRING = 100_000
+MAX_ITEMS = 10_000
+
+
+def _bound(node: Any, depth: int = 0) -> Any:
+    """A copy of a payload that cannot hurt what is downstream: no NUL characters,
+    strings and collections of a sane size, nothing nested beyond MAX_DEPTH."""
+    if isinstance(node, str):
+        return node.replace("\x00", "")[:MAX_STRING]
+    if isinstance(node, dict):
+        if depth >= MAX_DEPTH:
+            return None
+        return {(k.replace("\x00", "")[:MAX_STRING] if isinstance(k, str) else k):
+                _bound(v, depth + 1) for k, v in list(node.items())[:MAX_ITEMS]}
+    if isinstance(node, (list, tuple)):
+        if depth >= MAX_DEPTH:
+            return None
+        return [_bound(v, depth + 1) for v in list(node)[:MAX_ITEMS]]
+    return node
+
+
+def http_url(value: Any) -> str | None:
+    """The value if it is an absolute http(s) link, else None.
+
+    A source supplies links that end up in `<a href>` under our attribution, and
+    `javascript:`, `data:` and the like must never get that far. Control
+    characters and whitespace inside are refused too.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or any(ord(ch) < 32 or ch.isspace() for ch in text):
+        return None
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(text)
+    except ValueError:
+        return None
+    return text if parts.scheme in ("http", "https") and parts.netloc else None
 
 
 # --------------------------------------------------------------- helpers
@@ -513,7 +569,9 @@ def _scrub_contacts(node: Any) -> Any:
 # "additional information", in the appeal-procedure paragraph, in notes. A
 # named field can be dropped by name; an address typed into a sentence has to
 # be found. So every string is swept, whatever source it came from.
-_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+# Bounded on purpose: with open-ended quantifiers a long run of address
+# characters followed by an "@" cost a quadratic scan, and `re` holds the GIL.
+_EMAIL = re.compile(r"[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,24}")
 EMAIL_PLACEHOLDER = "[email removed]"
 
 
@@ -525,6 +583,28 @@ def _redact_emails(node: Any) -> Any:
     if isinstance(node, list):
         return [_redact_emails(v) for v in node]
     return node
+
+
+def redact_emails(node: Any) -> Any:
+    """Public name of the redaction used at the boundary, for serving as well."""
+    return _redact_emails(node)
+
+
+def scrub_opportunity(opp: "Opportunity") -> "Opportunity":
+    """Redact addresses and drop NUL characters in every text field of a record.
+
+    For sources whose connector parses while fetching (PLACSP): their record is
+    built before there is a raw payload to pass through strip_personal_data, so it
+    has to be swept at this point or the "one boundary" has a hole in it.
+    """
+    from dataclasses import fields as _fields
+
+    for f in _fields(opp):
+        value = getattr(opp, f.name)
+        if isinstance(value, str):
+            setattr(opp, f.name, _redact_emails(value.replace("\x00", "")[:MAX_STRING]))
+    opp.source_url = http_url(opp.source_url)
+    return opp
 
 
 def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
@@ -548,7 +628,7 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     """
     clean = {k: v for k, v in notice.items() if k not in PERSONAL_DATA_FIELDS}
     body = clean.pop("donnees", None) if "idweb" in clean else None
-    clean = _redact_emails(clean)
+    clean = _redact_emails(_bound(clean))
     if body is None:
         return clean
 
@@ -559,12 +639,12 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
             return clean
         try:
             parsed = json.loads(body)
-        except ValueError:
+        except (ValueError, RecursionError):
             # Unparsable: it cannot be scrubbed, so it is not kept. The
             # record's own columns still describe the notice.
             clean["donnees"] = None
             return clean
-    scrubbed = _redact_emails(_scrub_contacts(parsed))
+    scrubbed = _redact_emails(_scrub_contacts(_bound(parsed)))
     clean["donnees"] = (json.dumps(scrubbed, ensure_ascii=False)
                         if isinstance(body, str) else scrubbed)
     return clean
@@ -1121,6 +1201,9 @@ class Call:
     # euro; Polish competitions state theirs in zloty or euro, and a sum without its
     # currency is not a sum.
     currency: str | None = None
+
+    def __post_init__(self) -> None:
+        self.source_url = http_url(self.source_url)
 
 
 # The portal's status vocabulary, mapped to the one the `call` table declares.

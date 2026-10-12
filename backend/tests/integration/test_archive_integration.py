@@ -492,7 +492,9 @@ def test_the_archive_can_be_rebuilt_from_raw_storage_alone(seeded, tmp_path, mon
         before = seeded.execute(
             "SELECT native_id, value_amount FROM opportunity ORDER BY native_id").fetchall()
 
-        # The disaster: serving layer and index both gone.
+        # The disaster: serving layer and index both gone. A deliberate wipe says so
+        # to the archive's TRUNCATE guard (migration 0024).
+        seeded.execute("SET LOCAL dgate.allow_truncate = 'on'")
         seeded.execute("""TRUNCATE opportunity_version, opportunity_capability,
                           opportunity, raw_ingest RESTART IDENTITY CASCADE""")
         seeded.commit()

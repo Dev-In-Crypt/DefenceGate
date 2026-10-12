@@ -9,6 +9,9 @@ export const DEFAULT_SORT: CallSort = 'deadline-asc';
 export const DEFAULT_STATUS: CallStatusFilter = 'open';
 /** Budget filter and budget sort refer to this currency unless the URL says otherwise. Nothing is converted. */
 export const DEFAULT_CURRENCY = 'EUR';
+/** Caps on what a visitor can put in the URL; they bound the request sent to the API. */
+export const MAX_QUERY_LENGTH = 100;
+export const MAX_PAGE = 1000;
 
 /** URL keys — short and stable so shared links survive. */
 export const PARAM = {
@@ -28,7 +31,14 @@ function list<T extends string>(v: string | string[] | undefined, allowed: reado
   if (!v) return undefined;
   const raw = (Array.isArray(v) ? v : [v]).flatMap((s) => s.split(','));
   const out = raw.map((s) => s.trim()).filter((s): s is T => (allowed as readonly string[]).includes(s));
-  return out.length ? out : undefined;
+  const unique = [...new Set(out)];
+  return unique.length ? unique : undefined;
+}
+/** Trimmed and truncated to MAX_QUERY_LENGTH characters (code points, so a pair is never split). */
+function searchText(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  const s = Array.from(v.trim().slice(0, MAX_QUERY_LENGTH * 2)).slice(0, MAX_QUERY_LENGTH).join('').trim();
+  return s || undefined;
 }
 function num(v: string | undefined): number | undefined {
   if (!v) return undefined;
@@ -45,7 +55,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
   const page = num(first(sp[PARAM.page]));
   const currency = first(sp[PARAM.currency]);
   return {
-    q: first(sp[PARAM.q])?.trim() || undefined,
+    q: searchText(first(sp[PARAM.q])),
     programme: list<ProgrammeCode>(sp[PARAM.programme], PROGRAMME_CODES),
     regime: list<Regime>(sp[PARAM.regime], REGIME_CODES),
     country: list<CountryCode>(sp[PARAM.country], Object.keys(COUNTRIES) as CountryCode[]),
@@ -56,7 +66,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     budgetMax: num(first(sp[PARAM.max])),
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
     sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? DEFAULT_SORT,
-    page: page && page >= 1 ? Math.floor(page) : 1,
+    page: page && page >= 1 ? Math.min(Math.floor(page), MAX_PAGE) : 1,
     pageSize: DEFAULT_PAGE_SIZE,
   };
 }

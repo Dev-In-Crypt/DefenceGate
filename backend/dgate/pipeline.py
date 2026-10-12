@@ -40,6 +40,7 @@ from .normalise import (
     from_ted,
     from_tenderned,
     from_vinnova,
+    scrub_opportunity,
     strip_personal_data,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
@@ -894,6 +895,9 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                 fetched += 1
                 _checkpoint(conn, label, fetched, new, changed, writer=writer,
                             run_id=run_id)
+                # This connector parses while fetching, so there is no raw payload to
+                # pass through strip_personal_data: sweep the record itself.
+                opp = scrub_opportunity(opp)
                 payload = db.opportunity_payload(opp)
                 h = ted.content_hash(payload)
                 key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
@@ -1253,6 +1257,10 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # httpx logs every request URL at INFO, and a Telegram bot token and a
+    # healthchecks ping key sit in the URL path.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     p = argparse.ArgumentParser(prog="dgate")
     sub = p.add_subparsers(dest="cmd", required=True)
 

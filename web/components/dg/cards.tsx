@@ -84,7 +84,8 @@ export function TenderCard({ tender }: { tender: Opportunity }) {
       </div>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
-          <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{tender.title}</Link>
+          {/* No tender detail page yet: the title is text, not a link to a route that does not exist. */}
+          {tender.title}
         </h2>
         {tender.originalTitle && <span lang={tender.originalLanguage} className="text-small text-ink-muted">{tender.originalTitle}</span>}
         <span className="text-small font-semibold">{tender.buyerName}</span>

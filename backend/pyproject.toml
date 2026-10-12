@@ -20,6 +20,9 @@ dependencies = [
     # failure domain from the database, or it protects against a bad parser
     # and nothing else.
     "boto3>=1.34",
+    # Encrypted backups (dgate.ops.backup): AES-GCM with an RSA-wrapped key. It was
+    # only present as paramiko's dependency; the backup path must not rest on that.
+    "cryptography>=42",
     # SFTP client for the Hetzner Storage Box store. Pure Python: nothing to install
     # on the host, and it can say what it is doing when the network misbehaves.
     "paramiko>=3.4",

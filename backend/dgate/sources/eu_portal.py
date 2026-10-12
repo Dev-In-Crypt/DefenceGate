@@ -338,6 +338,10 @@ def fetch_topic_details(identifier: str, *,
     client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
                                             "Accept": "application/json"},
                                    follow_redirects=True)
+    # The identifier comes from the source's own data and is put into a URL: only
+    # what a topic code looks like is allowed through.
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,120}", identifier or ""):
+        raise ValueError(f"not a topic identifier: {identifier!r}")
     try:
         def send() -> httpx.Response:
             response = client.get(TOPIC_URL.format(identifier=identifier.lower()),

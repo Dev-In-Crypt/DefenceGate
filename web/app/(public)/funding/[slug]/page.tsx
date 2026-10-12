@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { Bell, FileText, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { getCall, getRelatedCalls } from '@/lib/api';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
 import { formatDateUtc, formatMoney, openingPhrase } from '@/lib/format';
+import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
 import { PROGRAMMES, REGIMES } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
@@ -65,7 +66,7 @@ export default async function CallDetailPage({ params }: Props) {
   const opens = upcoming ? call.openingDate : null;
   const nonEnglish = call.titleLanguage !== 'en';
   const programme = PROGRAMMES[call.programme];
-  const alertsHref = `/alerts/subscribe?programme=${call.programme}&country=${call.funderCountry}`;
+  const sourceUrl = safeHttpUrl(call.source.url);
   const hasScope = Boolean(call.actionType) || call.scope.length > 0;
 
   return (
@@ -73,7 +74,6 @@ export default async function CallDetailPage({ params }: Props) {
       <JsonLd data={callJsonLd(call)} />
       <Breadcrumbs items={[
         { label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' },
-        { label: programme.label, href: `/funding/programme/${programme.slug}` },
         { label: call.title, href: `/funding/${call.slug}` },
       ]} />
 
@@ -175,10 +175,10 @@ export default async function CallDetailPage({ params }: Props) {
         <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
           <div className="flex flex-col gap-4 rounded-lg bg-surface p-6">
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
-            <Button href={alertsHref} icon={Bell} fullWidth>Get alerts for similar calls</Button>
-            <Button href={`/pack?call=${call.slug}`} variant="secondary" icon={FileText} fullWidth>Request an opportunity pack</Button>
-            {call.source.url && (
-              <Button href={call.source.url} external variant="text" className="self-start">View original at {call.source.sourceName}</Button>
+            <ComingSoon feature="Alerts for similar calls" />
+            <ComingSoon feature="Opportunity pack" />
+            {sourceUrl && (
+              <Button href={sourceUrl} external variant="text" className="self-start">View original at {call.source.sourceName}</Button>
             )}
           </div>
         </aside>

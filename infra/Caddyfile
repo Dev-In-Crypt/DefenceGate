@@ -4,17 +4,36 @@
 {$DGATE_DOMAIN:localhost} {
 	encode zstd gzip
 
+	# No includeSubDomains until the domain is verified and every subdomain is ours.
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 		-Server
 	}
 
-	# The frontend is not built yet (plan milestone M1). Until it exists,
-	# everything goes to the API.
-	reverse_proxy api:8000
+	# This API takes GET requests with short query strings and nothing else.
+	request_body {
+		max_size 4KB
+	}
+
+	# Only what the product serves reaches the API. /docs, /openapi.json and any
+	# route added later and forgotten are a 404 here, whatever the application
+	# does. The frontend is routed here when the domain goes live (docs/design).
+	@public path /v1/funding /v1/funding/* /v1/opportunities /v1/opportunities/* /v1/calls /v1/calls/* /v1/sources /v1/health /v1/organisations/resolve
+	handle @public {
+		reverse_proxy api:8000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 20s
+			}
+		}
+	}
+	handle {
+		respond "Not found" 404
+	}
 
 	log {
 		output stdout

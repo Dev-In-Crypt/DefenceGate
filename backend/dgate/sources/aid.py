@@ -47,7 +47,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import MAX_HTML_CHARS, USER_AGENT, html_to_text_markup, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -139,13 +139,13 @@ def list_pages(client: httpx.Client) -> list[tuple[str, str]]:
 
 
 def _main(page: str) -> str:
+    page = page[:MAX_HTML_CHARS]
     match = re.search(r"<main.*?</main>", page, re.S)
     return match.group(0) if match else page
 
 
 def _text(markup: str) -> str:
-    markup = re.sub(r"<(script|style|nav|header|footer)[^>]*>.*?</\1>", " ", markup, flags=re.S)
-    plain = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", markup))).strip()
+    plain = re.sub(r"\s+", " ", html.unescape(html_to_text_markup(markup))).strip()
     cut = plain.find(END_OF_PAGE)
     return plain[:cut].strip() if cut > 0 else plain
 

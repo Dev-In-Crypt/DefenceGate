@@ -80,7 +80,7 @@ AREA_LABELS = {
 }
 
 _MONEY = re.compile(
-    r"(?P<num>\d[\d\s .,]*\d|\d)\s*(?P<cur>z[lł]|PLN|z[lł]otych|euro|EUR|€)\b", re.I)
+    r"(?P<num>\d[\d\s .,]{0,30}\d|\d)\s*(?P<cur>z[lł]|PLN|z[lł]otych|euro|EUR|€)\b", re.I)
 
 
 def _client() -> httpx.Client:
@@ -231,7 +231,7 @@ def parse_budget(text: Any) -> tuple[float | None, str | None]:
     a currency follows it directly, so a percentage is never taken for money. Polish
     separates thousands with a space and decimals with a comma.
     """
-    match = _MONEY.search(str(text or ""))
+    match = _MONEY.search(str(text or "")[:2000])
     if not match:
         return None, None
     raw = re.sub(r"[\s ]", "", match.group("num"))

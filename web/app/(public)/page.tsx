@@ -46,7 +46,7 @@ function Counter({ label, value, mono = true }: { label: string; value: string; 
 }
 
 export default async function LandingPage() {
-  const [stats, closing] = await Promise.all([getSiteStats(), getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE })]);
+  const [stats, closing] = await Promise.all([getSiteStats(), getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true })]);
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
@@ -96,7 +96,7 @@ export default async function LandingPage() {
       <section aria-labelledby="closing" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="closing" className="m-0 text-h2">Closing soon</h2>
-          <Link href="/funding/closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
+          <Link href="/funding?status=closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
         </div>
         {closing.items.length === 0 ? (
           <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
@@ -110,7 +110,7 @@ export default async function LandingPage() {
       <section id="waitlist" aria-labelledby="waitlist-h" className="grid scroll-mt-4 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-3">
           <h2 id="waitlist-h" className="m-0 text-h2">Join the waitlist</h2>
-          <p className="m-0 text-body text-ink-muted">Tell us a little about your company. We use it to show you calls that fit, and nothing else.</p>
+          <p className="m-0 text-body text-ink-muted">Sign-ups are not open yet. The form checks your answers, but nothing is stored or sent.</p>
         </div>
         <WaitlistForm />
       </section>

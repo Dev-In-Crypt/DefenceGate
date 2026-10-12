@@ -15,6 +15,10 @@ import pytest
 
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 
+# The suite makes hundreds of API calls from one address; the limiter has its own
+# tests, which switch it back on.
+os.environ.setdefault("DGATE_RATE_LIMIT", "0")
+
 TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
             call, raw_ingest, ingest_run"""
@@ -55,6 +59,9 @@ def conn(schema: str, monkeypatch: pytest.MonkeyPatch):
     config.reset_cache()
 
     with psycopg.connect(schema, row_factory=dict_row) as c:
+        # The archive refuses TRUNCATE (migration 0024); a test that starts from
+        # empty tables says so out loud, for this transaction only.
+        c.execute("SET LOCAL dgate.allow_truncate = 'on'")
         c.execute(f"TRUNCATE {TABLES} RESTART IDENTITY CASCADE")
         c.commit()
         yield c

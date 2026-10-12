@@ -3,7 +3,7 @@ import { Button } from '../dg/button';
 import { Choice, Fieldset, Select, TextInput } from '../dg/form';
 import { FilterPanel } from './filter-panel';
 import { COUNTRIES, CURRENCIES, FUNDER_COUNTRIES, PROGRAMMES, PROGRAMME_CODES, REGIMES, REGIME_CODES } from '@/lib/taxonomy';
-import { DEFAULT_CURRENCY, PARAM, activeFilterCount } from '@/lib/filters';
+import { DEFAULT_CURRENCY, MAX_QUERY_LENGTH, PARAM, activeFilterCount } from '@/lib/filters';
 import type { CallFilters, CallStatusFilter, CountryCode } from '@/lib/types';
 
 export type FilterGroup = 'status' | 'programme' | 'regime' | 'country';
@@ -18,7 +18,7 @@ const BUDGET_PRESETS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000
 
 /**
  * URL-synced filter form (GET). Works without JS; FilterPanel enhances it.
- * `hide` removes groups fixed by a sub-page (e.g. /funding/country/pl hides country).
+ * `hide` removes groups fixed by a sub-page (e.g. a sub-page fixed to one country hides country).
  * `countries` is the list of funder countries with coverage (see fundersWithCoverage); default is all.
  */
 export function FilterBar({ filters, basePath, hide = [], view, countries = FUNDER_COUNTRIES }: {
@@ -32,7 +32,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   return (
     <FilterPanel activeCount={activeFilterCount(filters)}>
       <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className="flex flex-col gap-6 rounded-lg bg-surface p-5">
-        <TextInput search name={PARAM.q} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} />
+        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} />
         {show('status') && (
           <Fieldset legend="Status">
             {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? 'open') === o.value} />)}

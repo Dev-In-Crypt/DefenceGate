@@ -13,6 +13,11 @@ name: dgate
 
 services:
   postgres:
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     # Kept in step with the client tools in the backend image: pg_dump 17 emits
     # SET transaction_timeout, which a 16 server rejects on restore, so a
     # mismatched pair produces backups that cannot be restored.
@@ -31,22 +36,54 @@ services:
       retries: 20
 
   migrate:
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     build:
       context: ../backend
     command: ["python", "-m", "dgate.migrate"]
     environment:
+      # The owner role. It runs migrations and nothing else; no running service
+      # connects as it (docs/SECURITY_REVIEW_2026-10-12.md).
       DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+      # Logins for the least-privilege roles of migration 0024, applied after every
+      # migrate, so rotating a value is a redeploy.
+      DGATE_API_PASSWORD: ${DGATE_API_PASSWORD:?set DGATE_API_PASSWORD in infra/.env}
+      DGATE_WORKER_PASSWORD: ${DGATE_WORKER_PASSWORD:?set DGATE_WORKER_PASSWORD in infra/.env}
     depends_on:
       postgres:
         condition: service_healthy
     restart: "no"
 
   api:
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     build:
       context: ../backend
-    command: ["uvicorn", "dgate.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    # --proxy-headers so the address the limiter sees is the client's, not Caddy's;
+    # trusted from any peer because nothing but Caddy can reach this port (it is
+    # `expose`d to the compose network, never published).
+    command: ["uvicorn", "dgate.api:app", "--host", "0.0.0.0", "--port", "8000",
+              "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header"]
     environment:
-      DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+      # The API reads and nothing else: a role with SELECT, a 5 s statement budget
+      # and 30 connections (migration 0024). Its own password, not the owner's.
+      DGATE_DSN: postgresql://dgate_api:${DGATE_API_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+    mem_limit: 512m
+    pids_limit: 256
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/v1/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -57,11 +94,21 @@ services:
       - "8000"
 
   worker:
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     build:
       context: ../backend
     command: ["python", "-m", "dgate.worker"]
+    mem_limit: 2g
+    pids_limit: 512
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
-      DGATE_DSN: postgresql://${POSTGRES_USER:-dgate}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+      # Rows in, rows out; no DDL, no TRUNCATE, not a superuser (migration 0024).
+      DGATE_DSN: postgresql://dgate_worker:${DGATE_WORKER_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
       DGATE_RAW_DIR: /raw
       # The raw store is the thing the archive can be rebuilt from, so the
@@ -83,6 +130,9 @@ services:
       DGATE_SFTP_KEY_FILE: /run/secrets/box_key
       DGATE_SFTP_KNOWN_HOSTS: /run/secrets/known_hosts
       DGATE_BACKUP_DIR: /backups
+      DGATE_BACKUP_PUBLIC_KEY: /run/secrets/backup_public.pem
+      # Makes a missing key a loud failure rather than a plaintext dump.
+      DGATE_ENV: production
       DGATE_BACKUP_KEEP_DAYS: ${DGATE_BACKUP_KEEP_DAYS:-30}
       DGATE_BACKUP_KEEP_DAYS_LOCAL: ${DGATE_BACKUP_KEEP_DAYS_LOCAL:-7}
       # Where the Atlas Przetargow year files land for the one-off Polish
@@ -115,6 +165,10 @@ services:
       # the container's uid (10001) and readable by nobody else.
       - ./secrets/storagebox_ed25519:/run/secrets/box_key:ro
       - ./secrets/known_hosts:/run/secrets/known_hosts:ro
+      # The PUBLIC half of the backup key. The private half is never on this host
+      # or on the Storage Box: it is how a dump becomes unreadable to anyone who
+      # reaches either one (infra/secrets/ is gitignored).
+      - ./secrets/backup-public.pem:/run/secrets/backup_public.pem:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -123,6 +177,11 @@ services:
     restart: unless-stopped
 
   caddy:
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     image: caddy:2
     restart: unless-stopped
     ports:

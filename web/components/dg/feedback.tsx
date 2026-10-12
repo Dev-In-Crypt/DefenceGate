@@ -70,8 +70,8 @@ export function CallCardSkeleton() {
   );
 }
 
-/** Plan gate. Content is never rendered behind the lock. */
-export function LockedFeature({ feature, plan = 'Pro', href = '/pricing' }: { feature: string; plan?: string; href?: string }) {
+/** Plan gate. Content is never rendered behind the lock. Without `href` (no plans page yet) the action is plain text. */
+export function LockedFeature({ feature, plan = 'Pro', href }: { feature: string; plan?: string; href?: string }) {
   return (
     <div className="flex flex-col items-start gap-4 rounded-lg border-strong border-dashed border-line bg-surface p-6">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Lock} /></span>
@@ -79,7 +79,7 @@ export function LockedFeature({ feature, plan = 'Pro', href = '/pricing' }: { fe
         <h2 className="m-0 text-h3">{feature}</h2>
         <p className="m-0 text-body text-ink-muted">Available on the {plan} plan.</p>
       </div>
-      <Button href={href}>See plans</Button>
+      {href ? <Button href={href}>See plans</Button> : <span className="font-mono text-mono text-ink-muted">Plans: coming soon</span>}
     </div>
   );
 }

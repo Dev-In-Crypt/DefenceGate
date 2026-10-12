@@ -10,9 +10,11 @@ Two backends: the local filesystem for development, S3-compatible object
 storage (Cloudflare R2) for production. Both take and return the same key, so
 `raw_ingest.storage_key` means the same thing everywhere.
 
-Access note: raw payloads still contain the personal-data fields that
-`strip_personal_data()` removes downstream. This store is therefore private,
-never served, and never indexed.
+Access note: payloads are passed through `strip_personal_data()` before they
+are landed, so contact fields and addresses in prose are gone from everything
+landed since 22-23 September 2026. Payloads landed in the days before that sweep
+still carry e-mail addresses (about 100 TED notices), and this store is
+therefore private, never served, and never indexed.
 """
 
 from __future__ import annotations
@@ -162,6 +164,21 @@ def writes_today(today: date | None = None) -> int:
         return _writes.get(today or date.today(), 0)
 
 
+MAX_BUNDLE_BYTES = 512 * 1024 * 1024
+
+
+def _gunzip(data: bytes, limit: int = MAX_BUNDLE_BYTES) -> bytes:
+    """gzip.decompress with a ceiling: a bundle that expands past it is refused
+    rather than allocated (a few kilobytes can inflate to gigabytes)."""
+    import zlib
+
+    inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    out = inflater.decompress(data, limit + 1)
+    if len(out) > limit:
+        raise ValueError(f"bundle expands beyond {limit} bytes")
+    return out
+
+
 class RawStore(ABC):
     """Write-once storage.
 
@@ -197,7 +214,7 @@ class RawStore(ABC):
         with self._bundle_lock:
             if self._bundle_cache is not None and self._bundle_cache[0] == key:
                 return self._bundle_cache[1]
-        raw = gzip.decompress(self._read(key)).decode("utf-8")
+        raw = _gunzip(self._read(key)).decode("utf-8")
         # Split on the record separator itself, never with splitlines().
         # Python counts more than the newline as a line boundary -- U+2028,
         # U+2029, the vertical tab, the form feed, the next-line control --

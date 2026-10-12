@@ -23,13 +23,18 @@ from pydantic import BaseModel
 
 from . import db
 from .config import settings
+from .normalise import http_url, redact_emails
 
 router = APIRouter()
 
 
 def get_conn():
-    with db.connect(settings().dsn) as conn:
+    cfg = settings()
+    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
         yield conn
+
+
+MAX_LIST_ITEMS = 20
 
 CLOSING_SOON_DAYS = 30
 
@@ -267,13 +272,13 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "programmeName": r["programme_name"],
         "callId": r.get("call_identifier"),
         "topicId": r.get("topic_code") or r["native_id"],
-        "title": heading,
+        "title": redact_emails(heading),
         "titleLanguage": lang,
-        "originalTitle": original,
+        "originalTitle": redact_emails(original),
         "originalLanguage": original_lang,
         "regime": "dual-use" if r["regime"] == "dual_use" else r["regime"],
         "funderCountry": r.get("country") or "EU",
-        "issuer": r.get("issuer"),
+        "issuer": redact_emails(r.get("issuer")),
         "status": status,
         "openingDate": _day(r.get("opens_at")),
         "deadline": r.get("deadline_at"),
@@ -283,14 +288,14 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "actionType": r.get("type_of_action"),
         "fundingRate": None,
         "scope": scope_keywords(prog, cond),
-        "eligibility": eligibility_rows(prog, cond, r),
+        "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
         "publishedAt": _day(r.get("published_at")),
         "firstSeenAt": r["first_seen_at"],
         "lastSeenAt": r["last_seen_at"],
         "source": {
             "sourceId": r["source_code"],
             "sourceName": r["source_name"],
-            "url": r.get("source_url"),
+            "url": http_url(r.get("source_url")),
             "retrievedAt": r["last_seen_at"],
             "licence": r["source_licence"] or "",
             "attribution": _attribution(r),
@@ -298,7 +303,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
     }
     if detail:
         text = r.get("eligibility_text") if r["source_code"] in SOURCE_TEXT_SOURCES else None
-        out["conditionsText"] = text.strip() if text and text.strip() else None
+        out["conditionsText"] = redact_emails(text.strip()) if text and text.strip() else None
     return out
 
 
@@ -319,25 +324,28 @@ def _like(text: str) -> str:
 
 
 def _csv(value: str | None) -> list[str]:
-    return [v.strip() for v in (value or "").split(",") if v.strip()]
+    items = [v.strip() for v in (value or "").split(",") if v.strip()]
+    if len(items) > MAX_LIST_ITEMS or any(len(i) > 32 or "\x00" in i for i in items):
+        raise HTTPException(422, "too many or too long values in a list parameter")
+    return items
 
 
 # --------------------------------------------------------------- endpoints
 
 @router.get("/v1/funding", response_model=FundingPage)
 def list_funding(
-    q: str | None = None,
-    programme: str | None = None,
-    regime: str | None = None,
-    country: str | None = None,
+    q: str | None = Query(None, max_length=100),
+    programme: str | None = Query(None, max_length=200),
+    regime: str | None = Query(None, max_length=100),
+    country: str | None = Query(None, max_length=200),
     status: str = Query("open", pattern="^(open|forthcoming|closing-soon|closed|all)$"),
     from_: date | None = Query(None, alias="from"),
     to: date | None = None,
-    min_: float | None = Query(None, alias="min", ge=0),
-    max_: float | None = Query(None, alias="max", ge=0),
-    currency: str = Query("EUR", min_length=3, max_length=3),
+    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
+    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
+    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
     sort: str = Query("deadline-asc", pattern="^(deadline-asc|deadline-desc|budget-desc)$"),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
 ):
@@ -350,8 +358,8 @@ def list_funding(
         where.append(f"{EFFECTIVE_STATUS} = %s")
         params.append(status)
 
-    if q and q.strip():
-        like = _like(q.strip())
+    if q and q.replace("\x00", "").strip():
+        like = _like(q.replace("\x00", "").strip())
         where.append("(c.title ILIKE %s OR c.topic_code ILIKE %s OR c.call_identifier ILIKE %s "
                      "OR c.issuer ILIKE %s OR c.conditions_raw->>'title_sv' ILIKE %s)")
         params += [like] * 5
@@ -430,7 +438,7 @@ def funding_slugs(conn=Depends(get_conn)):
 
 @router.get("/v1/funding/{slug}", response_model=FundingCallDetail)
 def get_funding(slug: str, conn=Depends(get_conn)):
-    m = re.match(r"^(\d+)(?:-|$)", slug)
+    m = re.match(r"^([0-9]{1,9})(?:-|$)", slug, re.ASCII)
     if not m:
         raise HTTPException(404, "no such call")
     row = conn.execute(SELECT + " WHERE c.id = %s", (int(m.group(1)),)).fetchone()

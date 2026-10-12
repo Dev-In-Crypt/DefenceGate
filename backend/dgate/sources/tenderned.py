@@ -113,6 +113,9 @@ def fetch_day_list(day: date, *, client: httpx.Client) -> list[dict[str, Any]]:
 
 
 def fetch_detail(publication_id: str, *, client: httpx.Client) -> dict[str, Any]:
+    if not str(publication_id).isascii() or not str(publication_id).isdigit() \
+            or len(str(publication_id)) > 12:
+        raise ValueError(f"not a publication id: {publication_id!r}")
     payload = _get(client, f"{LIST_URL}/{publication_id}", f"{SOURCE_CODE} {publication_id}")
     if not isinstance(payload, dict) or "publicatieId" not in payload:
         raise ValueError(f"expected a publication, got {type(payload).__name__}")

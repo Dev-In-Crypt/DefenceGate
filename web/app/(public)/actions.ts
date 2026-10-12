@@ -1,23 +1,20 @@
 'use server';
 
+import { validateIntake, type IntakeErrors } from '@/lib/intake';
+
 export interface WaitlistState {
-  status: 'idle' | 'success' | 'error';
-  errors?: Partial<Record<'email' | 'country' | 'staff' | 'consent', string>>;
+  /** `closed`: input was valid but sign-ups are not open. Nothing is stored or sent. */
+  status: 'idle' | 'closed' | 'error';
+  errors?: IntakeErrors;
+  message?: string;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Waitlist + company profile intake. Replace the TODO with the real API call (POST /v1/waitlist). */
+/**
+ * Waitlist intake is closed until a privacy page and a backend exist.
+ * The input is still validated strictly, then dropped: this action stores nothing and sends nothing.
+ */
 export async function joinWaitlist(_prev: WaitlistState, form: FormData): Promise<WaitlistState> {
-  const email = String(form.get('email') ?? '').trim();
-  const country = String(form.get('country') ?? '');
-  const staff = String(form.get('staff') ?? '');
-  const errors: WaitlistState['errors'] = {};
-  if (!EMAIL_RE.test(email)) errors.email = 'Enter a work email address, for example name@company.pl';
-  if (!country) errors.country = 'Choose the country your company is based in';
-  if (!staff) errors.staff = 'Choose a staff size';
-  if (form.get('consent') !== 'on') errors.consent = 'Please confirm to continue';
-  if (Object.keys(errors).length) return { status: 'error', errors };
-  // TODO: POST to the API. Store company profile only; never display it publicly.
-  return { status: 'success' };
+  const errors = validateIntake(form);
+  if (Object.keys(errors).length > 0) return { status: 'error', errors };
+  return { status: 'closed', message: 'Sign-ups are not open yet. Nothing you entered was stored or sent.' };
 }

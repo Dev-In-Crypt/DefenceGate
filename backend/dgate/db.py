@@ -16,7 +16,7 @@ import hashlib
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict, fields, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Iterator
 
@@ -377,6 +377,14 @@ def upsert_opportunity(
     content already archived at an earlier version -- or "stale" for content
     older than the current version by the source's own date.
     """
+    # A date of publication in the future is a typo or a hostile value, and the
+    # "stale" rule below would then treat every genuine later version as history
+    # arriving late and drop it. It is not a fact about the notice, so it is not kept.
+    if opp.published_at and opp.published_at > date.today() + timedelta(days=1):
+        log.warning("%s %s: publication date %s is in the future; ignored",
+                    opp.source_code, opp.native_id, opp.published_at)
+        opp = replace(opp, published_at=None)
+
     existing = conn.execute(
         """SELECT id, current_version, buyer_name_raw FROM opportunity
             WHERE source_id = %s AND native_id = %s""",

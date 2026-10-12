@@ -6,6 +6,17 @@ normalise.py, so that a new source cannot quietly invent its own schema.
 """
 
 import logging
+import re
+
+# The largest response body any connector will accept. The biggest real one is the
+# EU portal's reference data, 124 MiB; a source sending more than this is not
+# sending what we asked for, and the worker has 3.8 GB on a shared host.
+MAX_BODY_BYTES = 256 * 1024 * 1024
+
+
+class ResponseTooLarge(RuntimeError):
+    """A response body larger than MAX_BODY_BYTES."""
+
 
 # Identify the client honestly. These are public administration and NATO agency
 # endpoints; anonymous scraping traffic is how access gets withdrawn.
@@ -94,7 +105,12 @@ def request_with_retry(
     for attempt in range(1, attempts + 1):
         asked: float | None = None
         try:
-            return send()
+            response = send()
+            body = getattr(response, "content", None)
+            if isinstance(body, (bytes, bytearray)) and len(body) > MAX_BODY_BYTES:
+                raise ResponseTooLarge(
+                    f"{what}: response body of {len(body)} bytes exceeds {MAX_BODY_BYTES}")
+            return response
         except _httpx.HTTPStatusError as exc:
             if exc.response.status_code not in transient_status:
                 raise
@@ -116,3 +132,43 @@ def request_with_retry(
 
     assert last is not None
     raise last
+
+
+MAX_HTML_CHARS = 2_000_000
+_BLOCK_OPEN = re.compile(r"<(script|style|nav|header|footer)[^<>]{0,2000}>")
+_ANY_TAG = re.compile(r"<[^<>]{1,2000}>")
+
+
+def html_to_text_markup(markup: str) -> str:
+    """Remove script, style, nav, header and footer blocks and every tag, in time
+    linear in the page.
+
+    The expressions this replaces (`<(nav)[^>]*>.*?</nav>` and `<[^>]+>`) rescan to
+    the end of the page for every opening tag that is never closed, so a page of
+    a few hundred thousand unclosed tags held the worker for minutes: `re` does
+    not release the GIL. Found by the security review of 12 October 2026.
+    """
+    markup = markup[:MAX_HTML_CHARS]
+    out: list[str] = []
+    pos = 0
+    no_close: set[str] = set()      # once a tag has no closer after here, none later has
+    while True:
+        m = _BLOCK_OPEN.search(markup, pos)
+        if not m:
+            out.append(markup[pos:])
+            break
+        tag = m.group(1)
+        if tag in no_close:
+            out.append(markup[pos:m.end()])
+            pos = m.end()
+            continue
+        close = markup.find(f"</{tag}>", m.end())
+        if close == -1:
+            no_close.add(tag)
+            out.append(markup[pos:m.end()])
+            pos = m.end()
+            continue
+        out.append(markup[pos:m.start()])
+        out.append(" ")
+        pos = close + len(tag) + 3
+    return _ANY_TAG.sub(" ", "".join(out))

@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import type { Call } from './types';
 import { PROGRAMMES, COUNTRIES } from './taxonomy';
+import { safeHttpUrl } from './safe-url';
 
 export const SITE = {
   name: 'DefenceGate',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://defencegate.eu',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://defencegate.eu',
   tagline: 'Your way into European defence supply chains.',
 } as const;
 
@@ -18,7 +19,7 @@ export const MIN_LIST_ITEMS = 3;
 export function meetsMinimumContent(entity: Call | { items: unknown[] }): boolean {
   if ('items' in entity) return entity.items.length >= MIN_LIST_ITEMS;
   return Boolean(
-    entity.source.url && entity.title &&
+    safeHttpUrl(entity.source.url) && entity.title &&
     (entity.eligibility.length >= 1 || entity.deadline !== null || entity.openingDate !== null),
   );
 }
@@ -49,12 +50,13 @@ export function breadcrumbJsonLd(items: Crumb[]) {
 }
 
 export function callJsonLd(call: Call) {
+  const basedOn = safeHttpUrl(call.source.url);
   return {
     '@context': 'https://schema.org', '@type': 'MonetaryGrant',
     name: call.title, inLanguage: call.titleLanguage, identifier: call.topicId, url: absoluteUrl(`/funding/${call.slug}`),
     funder: { '@type': 'Organization', name: call.programme === 'NATIONAL' ? (call.issuer ?? `${COUNTRIES[call.funderCountry]} national programme`) : PROGRAMMES[call.programme].name },
     ...(call.budget ? { amount: { '@type': 'MonetaryAmount', currency: call.budget.currency, value: call.budget.amount } } : {}),
-    ...(call.source.url ? { isBasedOn: call.source.url } : {}),
+    ...(basedOn ? { isBasedOn: basedOn } : {}),
     sdDatePublished: call.source.retrievedAt,
   };
 }

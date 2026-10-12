@@ -267,8 +267,18 @@ def job_backup_verify() -> JobResult:
             log.info("verifying the shipped copy %s (%.1f MB)",
                      shipped.path.name, shipped.megabytes)
             counts = verify(shipped)
-        if not counts.get("opportunity_version"):
-            raise RuntimeError(f"restored database has no archive rows: {counts}")
+        if "opportunity_version" in counts:
+            # A full restore ran (a machine that holds the private key).
+            if not counts["opportunity_version"]:
+                raise RuntimeError(f"restored database has no archive rows: {counts}")
+        elif not (counts.get("manifest") == 1 and counts.get("frames")):
+            raise RuntimeError(f"shipped backup failed its integrity check: {counts}")
+        else:
+            # The host cannot decrypt (the private key is not here, by design): what
+            # was proved is the manifest hash and the structure of every frame. The
+            # restore drill is run from the owner's machine; see docs/RUNBOOK.md.
+            log.warning("backup structure verified, not restored (no private key here): %s",
+                        counts)
         log.info("backup verified: %s", counts)
         # Only a restore that produced archive rows counts. Recorded so a
         # machine that is off on Sunday nights still gets its weekly check.
@@ -818,6 +828,9 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    # See pipeline.main: request URLs can carry the alerting token.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(prog="dgate-worker")
     parser.add_argument("--once", choices=sorted(JOBS), help="run one job now and exit")
     parser.add_argument("--list", action="store_true", help="print the schedule and exit")

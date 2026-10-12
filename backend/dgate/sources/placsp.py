@@ -306,6 +306,18 @@ def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
 
 # --------------------------------------------------------------- fetching
 
+# Limits on what a monthly archive may hold. A real month is a few hundred members
+# of at most a few megabytes.
+MAX_ARCHIVE_MEMBERS = 5000
+MAX_MEMBER_BYTES = 200 * 1024 * 1024
+
+
+def _same_site(candidate: str, reference: str) -> bool:
+    from urllib.parse import urlsplit
+
+    a, b = urlsplit(candidate), urlsplit(reference)
+    return a.scheme == "https" and bool(a.hostname) and a.hostname == b.hostname
+
 def fetch_live(
     dataset: Dataset = MAIN, *, client: httpx.Client | None = None, max_pages: int = 50,
     observe: dict | None = None,
@@ -337,6 +349,11 @@ def fetch_live(
             log.info("%s page %s: %s entries", dataset.source_code, page + 1, len(opps))
             walked.extend(zip(stamps, opps, strict=True))
             if not next_url:
+                break
+            # A feed is allowed to say where its next page is, not to send the
+            # worker somewhere else: the link must stay on the dataset's own host.
+            if not _same_site(next_url, dataset.live_feed):
+                log.warning("%s: refusing a next link to another host", dataset.source_code)
                 break
             url = next_url
     finally:
@@ -398,7 +415,12 @@ def fetch_archive(
         walked: list[tuple[str, Opportunity]] = []
         with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
             names = [n for n in zf.namelist() if n.endswith(".atom")]
+            if len(names) > MAX_ARCHIVE_MEMBERS:
+                raise RuntimeError(f"{dataset.source_code}: archive has {len(names)} members")
             for name in names:
+                if zf.getinfo(name).file_size > MAX_MEMBER_BYTES:
+                    log.warning("PLACSP archive member %s is too large; skipped", name)
+                    continue
                 try:
                     stamps: list[str] = []
                     opps, _ = parse_feed(zf.read(name), dataset.source_code, stamps=stamps)

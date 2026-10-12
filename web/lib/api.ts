@@ -14,21 +14,33 @@ const API_BASE = process.env.DG_API_URL;
 /** Data is collected daily; an hour of ISR keeps countdowns fresh. */
 export const REVALIDATE_SECONDS = 3600;
 const RELATED_LIMIT = 3;
-/** A call slug is "<id>-<words>"; anything else cannot be a call (e.g. /funding/open). */
-const SLUG_RE = /^\d+(-|$)/;
+/** A call slug is "<id>-<words>"; anything else cannot be a call and never reaches the API. */
+const CALL_SLUG_RE = /^[0-9]{1,9}(-[a-z0-9-]{0,80})?$/;
+export function isCallSlug(slug: string): boolean {
+  return CALL_SLUG_RE.test(slug);
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-async function http<T>(path: string): Promise<T | null> {
-  const res = await fetch(`${API_BASE}${path}`, { next: { revalidate: REVALIDATE_SECONDS }, headers: { accept: 'application/json' } });
+/**
+ * `revalidate`: shared fetch cache (ISR). `no-store`: used for list requests shaped by visitor input,
+ * so arbitrary query strings cannot fill the cache.
+ */
+type CacheMode = 'revalidate' | 'no-store';
+
+async function http<T>(path: string, mode: CacheMode = 'revalidate'): Promise<T | null> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { accept: 'application/json' },
+    ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: REVALIDATE_SECONDS } }),
+  });
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
   return (await res.json()) as T;
 }
-async function httpOrThrow<T>(path: string): Promise<T> {
-  const r = await http<T>(path);
+async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate'): Promise<T> {
+  const r = await http<T>(path, mode);
   if (r === null) throw new ApiError(404, `GET ${path} returned 404`);
   return r;
 }
@@ -40,14 +52,22 @@ function fundingQuery(f: CallFilters): string {
   return `?${p.toString()}`;
 }
 
-export async function getCalls(filters: CallFilters = {}): Promise<Paginated<Call>> {
-  if (API_BASE) return httpOrThrow<Paginated<Call>>(`/v1/funding${fundingQuery(filters)}`);
+/**
+ * Only the unfiltered list (default filters, page 1) is cached. Any q or other filter goes to the API uncached.
+ * `cacheable` is for fixed queries written in our own code (e.g. the landing page's closing-soon sample),
+ * never for ones built from the URL.
+ */
+export async function getCalls(filters: CallFilters = {}, opts: { cacheable?: boolean } = {}): Promise<Paginated<Call>> {
+  if (API_BASE) {
+    const shared = opts.cacheable === true || toQuery(filters) === '';
+    return httpOrThrow<Paginated<Call>>(`/v1/funding${fundingQuery(filters)}`, shared ? 'revalidate' : 'no-store');
+  }
   return callsMock.queryCalls(filters);
 }
 
 /** `slug` is "<id>-<words>"; the API looks up the leading id only. Callers redirect when the returned slug differs. */
 export async function getCall(slug: string): Promise<Call | null> {
-  if (!SLUG_RE.test(slug)) return null;
+  if (!isCallSlug(slug)) return null;
   if (API_BASE) return http<Call>(`/v1/funding/${encodeURIComponent(slug)}`);
   return callsMock.findCall(slug);
 }

@@ -196,6 +196,15 @@ class Settings:
     # --- database -------------------------------------------------------
     dsn: str = field(default_factory=lambda: _env(
         "DGATE_DSN", "postgresql://dgate:dgate@localhost:5432/dgate"))
+    # The public API's own connection, a role that can only read (migration 0024).
+    # Unset means it uses `dsn`, so a rollout can move the API first.
+    api_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_API_DSN") or None)
+    # The per-address request limiter. On unless DGATE_RATE_LIMIT=0 (the test suite
+    # makes hundreds of requests from one "address" and says so in conftest).
+    rate_limit: bool = field(default_factory=lambda: os.environ.get("DGATE_RATE_LIMIT") != "0")
+    # Interactive API docs and the OpenAPI document are off unless asked for: they
+    # describe every parameter to anyone, which is wanted in development only.
+    docs_enabled: bool = field(default_factory=lambda: os.environ.get("DGATE_DOCS") == "1")
     # Separate DSN for tests. Unset means integration tests skip themselves
     # rather than silently pointing at a real database.
     test_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_TEST_DSN"))
