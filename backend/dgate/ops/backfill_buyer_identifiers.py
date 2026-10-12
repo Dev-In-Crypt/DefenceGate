@@ -83,9 +83,10 @@ class Group:
     country: str
     identifier: str
     survivor: Org
-    absorbed: list[Org] = field(default_factory=list)
+    absorbed: list[Org] = field(default_factory=list)    # merged into the survivor
+    held_for_review: list[Org] = field(default_factory=list)   # candidates, not merged
     held_by_survivor: bool = False      # the survivor already carries the identifier
-    review: str | None = None           # why it is not merged
+    review: str | None = None           # why the whole group is held
 
     @property
     def notices_moved(self) -> int:
@@ -128,16 +129,18 @@ def build_groups(orgs: dict[int, Org], idents: dict[int, collections.Counter],
         ranked_orgs = sorted((orgs[i] for i in ids),
                              key=lambda o: (o.id != holder, -o.notices, o.id))
         survivor, rest = ranked_orgs[0], ranked_orgs[1:]
-        g = Group(country, ident, survivor, rest,
-                  held_by_survivor=survivor.national_reg_no == ident)
         compatible = [o for o in rest if db.names_compatible(survivor.name, o.name)]
+        g = Group(country, ident, survivor, compatible,
+                  held_for_review=[o for o in rest if o not in compatible],
+                  held_by_survivor=survivor.national_reg_no == ident)
         if len(ids) > max_group:
             g.review = f"{len(ids)} organisations share it, over the limit of {max_group}"
-        elif len(compatible) != len(rest):
-            g.review = (f"{len(rest) - len(compatible)} name(s) share no word with "
+            g.held_for_review, g.absorbed = rest, []
+        elif g.held_for_review:
+            g.review = (f"{len(g.held_for_review)} name(s) share no word with "
                         f"{survivor.name!r}")
         groups.append(g)
-    groups.sort(key=lambda g: -(len(g.absorbed) + 1))
+    groups.sort(key=lambda g: -(len(g.absorbed) + len(g.held_for_review) + 1))
     return groups, singles, stats
 
 
@@ -299,8 +302,8 @@ def run(conn, store: RawStore, *, max_bundles: int | None = None, rounds: int = 
                                            bool(info["is_defence_buyer"]))
     groups, singles, stats = build_groups(orgs, idents, holders, max_group)
 
-    merge = [g for g in groups if g.review is None]
-    review = [g for g in groups if g.review]
+    merge = [g for g in groups if g.absorbed]
+    review = [g for g in groups if g.held_for_review]
     out("")
     out(f"notices read: {sampled}, without a usable identifier: {no_identifier}")
     out(f"organisations with an identifier: {stats['orgs_with_identifier']} "
@@ -308,15 +311,16 @@ def run(conn, store: RawStore, *, max_bundles: int | None = None, rounds: int = 
     out(f"identifiers shared by two or more organisations: {len(groups)}")
     out(f"  merge: {len(merge)} groups, {sum(len(g.absorbed) for g in merge)} organisation rows "
         f"become aliases, {sum(g.notices_moved for g in merge)} notices re-pointed")
-    out(f"  review (written as merge candidates, not merged): {len(review)} groups")
+    out(f"  held for review (written as merge candidates, not merged): "
+        f"{sum(len(g.held_for_review) for g in review)} rows in {len(review)} groups")
     out(f"identifiers attached to a single organisation: {len(singles)}")
     out("")
     out(f"top {min(top, len(groups))} groups by size:")
     for g in groups[:top]:
-        tail = f"  [REVIEW: {g.review}]" if g.review else ""
+        tail = f"  [{len(g.held_for_review)} held: {g.review}]" if g.review else ""
         absorbed = ", ".join(o.name[:38] for o in g.absorbed[:3])
-        out(f"  {len(g.absorbed) + 1:>4} orgs  {g.country} {g.identifier:<18} "
-            f"{g.notices_moved:>5} notices  keep {g.survivor.name[:44]!r}; "
+        out(f"  {len(g.absorbed) + len(g.held_for_review) + 1:>4} orgs  {g.country} "
+            f"{g.identifier:<18} {g.notices_moved:>5} notices  keep {g.survivor.name[:44]!r}; "
             f"absorbs {absorbed}{' ...' if len(g.absorbed) > 3 else ''}{tail}")
 
     result = {"merged_groups": 0, "merged_orgs": 0, "attached": 0, "candidates": 0}
@@ -340,7 +344,7 @@ def run(conn, store: RawStore, *, max_bundles: int | None = None, rounds: int = 
                 result["merged_orgs"] += 1
         result["merged_groups"] += 1
     for g in review:
-        for o in g.absorbed:
+        for o in g.held_for_review:
             db.add_merge_candidate(
                 conn, g.survivor.id, o.id, method=METHOD, confidence=CONFIDENCE,
                 evidence=f"identifier {g.identifier} in {g.country}; not merged: {g.review}",

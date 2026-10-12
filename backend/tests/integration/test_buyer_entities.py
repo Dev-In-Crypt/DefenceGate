@@ -241,6 +241,24 @@ def test_a_group_whose_names_share_nothing_is_written_as_a_candidate(conn, tmp_p
     assert _count(conn, "SELECT count(*) n FROM organisation WHERE merged_into IS NOT NULL") == 0
 
 
+def test_the_compatible_names_of_a_group_merge_and_only_the_rest_wait(conn, tmp_path):
+    store = FileRawStore(tmp_path / "raw")
+    bundle = bundle_key("ted", date(2026, 9, 3))
+    names = ["Ministerstvo obrany", "Ceska republika - Ministerstvo obrany",
+             "Krajska nemocnice Liberec"]
+    store.put_records(bundle, [_bundled_notice(n, s, "12345678") for n, s in enumerate(names)])
+    src = db.source_id(conn, "ted")
+    for n, name in enumerate(names):
+        _ingest(conn, native_id=f"{n}-2026", buyer=name, country="CZ", legal="32009L0081")
+        db.record_raw(conn, src, f"{n}-2026", f"h{n}", record_key(bundle, n))
+    conn.commit()
+    done = backfill.run(conn, store, apply=True, out=lambda *_: None)
+    assert (done["merged_orgs"], done["candidates"]) == (1, 1)
+    merged = conn.execute("SELECT canonical_name FROM organisation "
+                          "WHERE merged_into IS NOT NULL").fetchall()
+    assert len(merged) == 1 and "ministerstvo obrany" in merged[0]["canonical_name"]
+
+
 def test_a_notice_with_two_buyers_gives_no_identifier():
     two = {"buyer-name": {"ces": ["A", "B"]}, "buyer-identifier": ["12345678", "87654321"]}
     assert backfill.notice_identifier(two, "CZ") is None
