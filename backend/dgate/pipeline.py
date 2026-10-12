@@ -4,6 +4,7 @@ Usage:
     python -m dgate.pipeline ted --days 2
     python -m dgate.pipeline placsp --live
     python -m dgate.pipeline placsp --backfill 2012 2025
+    python -m dgate.pipeline placsp-backfill --from 2026-08 [--to 2026-10]
     python -m dgate.pipeline seed-buyers
 
 Ordering rule enforced throughout: land the raw payload first, normalise
@@ -1049,15 +1050,35 @@ def run_ezamowienia(days: int = 2) -> None:
 
 def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                    dataset: placsp.Dataset = placsp.MAIN,
-                   stale_reason=None) -> None:
+                   stale_reason=None, *, replay: bool = False) -> tuple[int, int, int]:
     """Ingest one PLACSP stream. `stale_reason()`, if given, is asked once the
-    stream is exhausted; a non-empty answer records the run as partial."""
+    stream is exhausted; a non-empty answer records the run as partial.
+
+    A live walk hands in, as `stale_reason.seen`, the dict its generator reads and
+    writes (see `placsp.fetch_live`): the newest entry the previous complete run saw
+    goes in before the walk starts, and what this walk saw is kept on the run after.
+
+    `replay` re-reads archives to correct what is already held. It is not a
+    collection run, so it writes no `ingest_run` row -- catch-up would take it for
+    today's collection -- and it lands a raw payload only for the records it
+    archives, because re-landing a month of non-defence entries would spend the
+    object store's daily write allowance on records no row depends on.
+
+    Returns (fetched, new, changed).
+    """
     code = dataset.source_code
     cfg = settings()
+    seen: dict | None = getattr(stale_reason, "seen", None)
     with (db.connect(cfg.dsn) as conn,
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
-        run_id = db.start_run(conn, code, settings().floor(code))
+        run_id = None if replay else db.start_run(conn, code, settings().floor(code))
+        if seen is not None:
+            row = conn.execute(
+                """SELECT newest_entry_at FROM ingest_run
+                    WHERE source_id = %s AND newest_entry_at IS NOT NULL
+                    ORDER BY started_at DESC LIMIT 1""", (src_id,)).fetchone()
+            seen["until"] = row["newest_entry_at"] if row else None
         q = Quarantine(label)
         fetched = new = changed = 0
         try:
@@ -1071,20 +1092,37 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                     opp = scrub_opportunity(opp)
                     payload = db.opportunity_payload(opp)
                     h = ted.content_hash(payload)
+                    if replay:
+                        opp = _finalise(conn, opp, src_id)
+                        if not opp.is_defence:
+                            continue
                     key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key,
                                   content_type="application/atom+xml")
-                    opp = _finalise(conn, opp, src_id)
-                    if not opp.is_defence:
-                        continue
+                    if not replay:
+                        opp = _finalise(conn, opp, src_id)
+                        if not opp.is_defence:
+                            continue
                     _, action = db.upsert_opportunity(conn, opp, h, src_id)
                     new += action == "new"
                     changed += action == "changed"
             writer.drain()
             stale = stale_reason() if stale_reason else None
             status, error = q.merge("partial" if stale else "success", stale)
+            if run_id is None:
+                log.info("%s replay done: %s fetched, %s new, %s changed%s", label, fetched,
+                         new, changed, f" ({status}: {error})" if error else "")
+                return fetched, new, changed
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
                           status=status, error=error)
+            if (seen is not None and seen.get("newest") is not None
+                    and not seen.get("capped") and not seen.get("refused")):
+                # Only a walk that reached the previous one's newest entry says where
+                # the next must reach back to; one that did not leaves the older
+                # mark standing, and the gap stays the next run's to close. Committed
+                # with the connection, which does it on a clean exit.
+                conn.execute("UPDATE ingest_run SET newest_entry_at = %s WHERE id = %s",
+                             (seen["newest"], run_id))
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the
@@ -1093,10 +1131,12 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
             # those identifiers as landed. Found on 13 September 2026 as a key the
             # index listed and R2 did not have.
             conn.rollback()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          status="failed", error=str(exc))
+            if run_id is not None:
+                db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                              status="failed", error=str(exc))
             raise
     log.info("%s done: %s fetched, %s new, %s changed", label, fetched, new, changed)
+    return fetched, new, changed
 
 
 def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = (),
@@ -1116,12 +1156,17 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
     month's archive, which the publisher rebuilds daily through the previous
     day, is ingested to cover the gap. Early in a month the previous month's
     archive is read too, since the current one may not yet hold the days before.
+
+    `max_pages` is how far the walk goes at least. Past it the walk goes on until
+    a page's oldest entry is no newer than the newest one the previous complete
+    run saw, up to `placsp_max_pages`; a walk that hits that cap, or is sent off
+    the feed's own directory, ends the run `partial` and says what to run.
     """
     cfg = settings()
     now = now or datetime.now(timezone.utc)
     limit = timedelta(hours=cfg.placsp_stale_hours)
     for ds in (datasets or (placsp.MAIN, placsp.AGGREGATED)):
-        seen: dict = {}
+        seen: dict = {"hard_cap": max(max_pages, cfg.placsp_max_pages)}
 
         def staleness(seen=seen) -> str | None:
             newest = seen.get("newest")
@@ -1130,13 +1175,33 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
             return (f"live feed stale: newest entry {newest.isoformat() if newest else 'none'}, "
                     f"older than {cfg.placsp_stale_hours}h")
 
+        def gap(seen=seen) -> str | None:
+            until = seen.get("until")
+            if seen.get("capped"):
+                since = f"{until:%Y-%m}" if until else "YYYY-MM"
+                return (f"live walk stopped at its cap of {seen.get('pages')} pages before the "
+                        f"previous run's newest entry ({until.isoformat() if until else 'none'}); "
+                        f"entries in between are unread: run `placsp-backfill --from {since}`")
+            if seen.get("refused"):
+                return f"live walk left the feed's directory at {seen['refused']}"
+            return None
+
+        def verdict(seen=seen) -> str | None:
+            return "; ".join(r for r in (staleness(), gap()) if r) or None
+
+        # The walk reads and writes this dict; `_ingest_placsp` finds it here.
+        verdict.seen = seen
+
         _ingest_placsp(placsp.fetch_live(ds, max_pages=max_pages, observe=seen),
-                       f"{ds.source_code}-live", ds, stale_reason=staleness)
+                       f"{ds.source_code}-live", ds, stale_reason=verdict)
+        from .ops.notify import notify
+
+        if gap():
+            log.warning("%s %s", ds.source_code, gap())
+            notify(f"[dgate] {ds.source_code} {gap()}")
         reason = staleness()
         if not reason:
             continue
-
-        from .ops.notify import notify
 
         months = [(now.year, now.month)]
         if now.day <= 3:
@@ -1182,6 +1247,114 @@ def run_placsp_backfill(start: int, end: int,
                                f"{ds.source_code}-{url[-8:-4]}", ds)
             except Exception as exc:
                 log.error("backfill failed for %s: %s", url, exc)
+
+
+# The marker `backfill_day` keeps for a replayed month, kept apart from the source's
+# own code so that nothing reads it as a day of collection.
+REPLAY_MARK = "-replay"
+
+
+def _in_live_window(now: datetime, cfg) -> bool:
+    """True from ten minutes before the daily PLACSP slot to two hours after it."""
+    slot = now.replace(hour=cfg.placsp_hour, minute=cfg.placsp_minute, second=0, microsecond=0)
+    return slot - timedelta(minutes=10) <= now <= slot + timedelta(hours=2)
+
+
+def _live_walk_running(conn) -> bool:
+    return conn.execute(
+        """SELECT 1 FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE s.code IN ('es_placsp', 'es_placsp_agg') AND r.status = 'running'
+            LIMIT 1""").fetchone() is not None
+
+
+def run_placsp_replay(start: tuple[int, int], end: tuple[int, int] | None = None,
+                      datasets: Iterable[placsp.Dataset] = (), *, resume: bool = True,
+                      pause: float = 1.0, now: datetime | None = None,
+                      sleep=None) -> dict[str, list[str]]:
+    """Re-read the publisher's archives for a range of months and archive what they say.
+
+    Raw storage holds PLACSP's normalised record, not the entry, so a correction to
+    how an entry is read (value, publication date, legal basis, procedure) can reach
+    the rows already held only by reading the entries again. The archives are the
+    only place older entries can be had from, and each month is one file.
+
+    Goes through `upsert_opportunity` like any other run, so a notice whose
+    corrected record differs from the held one gets a new version naming the fields
+    that moved, and one the archive no longer improves is left alone. Oldest month
+    first, so versions of one notice arrive in the order they happened.
+
+    Safe to repeat and to interrupt: a month is marked done in `backfill_day` only
+    once it has been committed, and `resume` skips marked months (the current month
+    is never marked, as it is still being written). One request every `pause`
+    seconds at most, a 429 ends the run, and the run refuses to start or continue
+    inside the daily live walk's window, or while a live run is in progress.
+    Archives from a year before the current one are the annual file, read once.
+
+    Returns the units done, skipped and failed, by name.
+    """
+    import time
+
+    import httpx
+
+    sleep = sleep or time.sleep
+    cfg = settings()
+    clock = (lambda: now) if now else (lambda: datetime.now(timezone.utc))
+    now = clock()
+    end = end or (now.year, now.month)
+    units: list[tuple[int, int | None]] = []
+    year, month = start
+    while (year, month) <= end:
+        if year < now.year:
+            if (year, None) not in units:
+                units.append((year, None))     # the annual file covers every month
+        else:
+            units.append((year, month))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+    result: dict[str, list[str]] = {"done": [], "skipped": [], "failed": [], "stopped": []}
+    for ds in (datasets or (placsp.MAIN, placsp.AGGREGATED)):
+        mark = f"{ds.source_code}{REPLAY_MARK}"
+        with db.connect(cfg.dsn) as conn:
+            done = db.backfill_days_done(conn, mark) if resume else set()
+        for year, month in units:
+            name = f"{ds.source_code}-{year}" + (f"{month:02d}" if month else "")
+            day = date(year, month or 1, 1)
+            if day in done:
+                result["skipped"].append(name)
+                continue
+            with db.connect(cfg.dsn) as conn:
+                running = _live_walk_running(conn)
+            if running or _in_live_window(clock(), cfg):
+                log.warning("%s: stopping before %s, the daily live walk is due or running; "
+                            "run the same command again to resume", ds.source_code, name)
+                result["stopped"].append(name)
+                return result
+            sleep(pause)
+            url = (ds.monthly_archive_url(year, month) if month
+                   else ds.annual_archive_url(year))
+            since = datetime(year, month or 1, 1, tzinfo=timezone.utc)
+            try:
+                fetched, new, changed = _ingest_placsp(
+                    placsp.fetch_archive(url, ds, since=since), f"{name}-replay", ds,
+                    replay=True)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    log.error("%s: rate limited at %s; stopping", ds.source_code, name)
+                    result["stopped"].append(name)
+                    return result
+                log.error("replay of %s failed: %s", url, exc)
+                result["failed"].append(name)
+                continue
+            except Exception as exc:  # noqa: BLE001 -- one month must not end the range
+                log.error("replay of %s failed: %s", url, exc)
+                result["failed"].append(name)
+                continue
+            if (year, month or 12) < (now.year, now.month):
+                with db.connect(cfg.dsn) as conn:
+                    db.mark_backfill_day(conn, mark, day, fetched)
+            log.info("%s replayed: %s entries, %s new, %s changed", name, fetched, new, changed)
+            result["done"].append(name)
+    return result
 
 
 # Seed list for the buyer signal. Expand per country as coverage grows; this is
@@ -1441,6 +1614,18 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--pages", type=int, default=20)
     s.add_argument("--backfill", nargs=2, type=int, metavar=("START", "END"))
 
+    rp = sub.add_parser(
+        "placsp-backfill",
+        help="re-read PLACSP monthly archives and archive corrected records (resumable)")
+    rp.add_argument("--from", dest="start", required=True, metavar="YYYY-MM",
+                    help="first month to re-read")
+    rp.add_argument("--to", dest="end", default=None, metavar="YYYY-MM",
+                    help="last month; defaults to the current month")
+    rp.add_argument("--dataset", action="append", choices=["es_placsp", "es_placsp_agg"],
+                    help="one dataset only; repeat for both (the default)")
+    rp.add_argument("--no-resume", action="store_true",
+                    help="re-read months already marked done")
+
     e = sub.add_parser("ezamowienia", help="ingest the Polish bulletin (BZP)")
     e.add_argument("--days", type=int, default=2)
 
@@ -1503,6 +1688,20 @@ def main(argv: list[str] | None = None) -> int:
             run_placsp_backfill(*a.backfill)
         else:
             run_placsp_live(max_pages=a.pages)
+    elif a.cmd == "placsp-backfill":
+        def _month(text: str) -> tuple[int, int]:
+            year, month = (int(part) for part in text.split("-"))
+            if not 1 <= month <= 12:
+                raise SystemExit(f"not a month: {text}")
+            return year, month
+
+        summary = run_placsp_replay(
+            _month(a.start), _month(a.end) if a.end else None,
+            [placsp.DATASETS[code] for code in (a.dataset or [])],
+            resume=not a.no_resume)
+        print(summary)
+        if summary["failed"] or summary["stopped"]:
+            raise SystemExit(1)
     elif a.cmd == "ezamowienia":
         run_ezamowienia(days=a.days)
     elif a.cmd == "boamp":

@@ -89,6 +89,12 @@ class Opportunity:
     # is a separate notice that repeats the whole of its parent. A link like
     # ted_ref: not in VERSIONED_FIELDS and left out of the payload while empty.
     related_native_id: str | None = None
+    # When the source last changed this record, where the source states it as an
+    # instant (the Atom `updated` time of a PLACSP entry). It orders versions of
+    # one notice -- db.upsert_opportunity reads it to tell history arriving late
+    # from a change -- and is not a date the notice has: not versioned, not
+    # served, and left out of the payload while empty so no hash moves.
+    source_updated_at: datetime | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
