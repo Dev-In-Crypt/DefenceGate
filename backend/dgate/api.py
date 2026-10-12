@@ -681,6 +681,10 @@ def health(conn=Depends(get_conn)):
             item["health"] = "unhealthy"
         elif r["status"] != "success":
             item["health"] = "unhealthy"
+        elif r["code"] not in settings().floors:
+            # A source with no daily rhythm (the one-off historical load) is not
+            # late for not having run today; a floor is what says "daily".
+            item["health"] = "healthy"
         elif r["finished_at"] is None or (now - r["finished_at"]) > stale_after:
             # A connector that succeeded once a month ago is not healthy today.
             item["health"] = "stale"

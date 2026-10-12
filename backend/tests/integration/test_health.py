@@ -170,3 +170,15 @@ def test_expired_calls_are_not_served_as_open(client, conn):
     expired = client.get("/v1/opportunities?status=expired").json()
     assert [o["native_id"] for o in expired] == ["DEAD-CALL"]
     assert expired[0]["status"] == "expired"
+
+
+def test_a_one_off_source_with_no_daily_floor_is_not_stale_for_being_old(client, conn):
+    """pl_atlas is a historical load: it ran once, in September, and has no floor.
+    Reporting it stale forever kept the public view permanently degraded."""
+    run_id = db.start_run(conn, "pl_atlas", None)
+    db.finish_run(conn, run_id, fetched=10, new=10, changed=0)
+    conn.execute("UPDATE ingest_run SET finished_at = now() - interval '40 days', "
+                 "started_at = now() - interval '40 days' WHERE id = %s", (run_id,))
+    conn.commit()
+    atlas = next(s for s in client.get("/v1/health").json()["sources"] if s["code"] == "pl_atlas")
+    assert atlas["health"] == "healthy"
