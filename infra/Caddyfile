@@ -55,3 +55,10 @@
 		format console
 	}
 }
+
+# www is only a way in: send it to the one host the site and its certificate use.
+# Needs a DNS record for www (CNAME to the apex, DNS only) before Caddy is reloaded,
+# or the certificate request for it fails and is retried.
+www.{$DGATE_DOMAIN} {
+	redir https://{$DGATE_DOMAIN}{uri} permanent
+}
