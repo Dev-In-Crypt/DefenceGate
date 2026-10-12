@@ -59,6 +59,72 @@ def map_status(code: str | None) -> str:
         return "open"
     return STATUS_MAP.get(code.strip().upper(), "unknown")
 
+
+# CODICE SyndicationTenderingProcessCode (list 2.07) -> the procedure's Spanish name.
+# Only codes that were checked are here. The publisher's syndication specification
+# (v1.3, 11/02/2020, section 4.12) gives the names and its own example pairs code 3 with
+# "Negociado sin publicidad"; the pairing of the other codes is the table published with
+# the BquantFinance/licitaciones-espana dataset, checked against 975 live entries of
+# 12 October 2026: 9 = every such entry is below the harmonised threshold, has a deadline
+# and no request to participate; 4 and 13 = the only entries with a call notice and a
+# request-to-participate period besides the restricted ones (13 is Aena's, under the
+# utilities directive, 4 the army's, under the defence directive); 3 = 20 of 21 entries
+# have no call notice at all; 100 = all six are a state railway company's own rules, 999 =
+# buyers outside the usual kinds. The list file itself sits on a host this project does
+# not fetch (robots.txt Disallow). Codes 5-8 and 10-12 are in the same published table
+# but were seen once or not at all, so they stay as the bare code until verified.
+PROCEDURE_NAMES = {
+    "1": "Abierto",
+    "2": "Restringido",
+    "3": "Negociado sin publicidad",
+    "4": "Negociado con publicidad",
+    "9": "Abierto simplificado",
+    "13": "Licitación con negociación",
+    "100": "Normas internas",
+    "999": "Otros",
+}
+
+
+def map_procedure(code: str | None) -> str | None:
+    """The procedure's name for a verified code, else the code as the source gave it."""
+    code = (code or "").strip()
+    return PROCEDURE_NAMES.get(code, code) or None
+
+
+# `ProcurementLegislationDocumentReference/ID` is the directive a harmonised contract
+# falls under (specification section 4.41: 2014/24/UE, 2014/23/UE, 2014/25/UE,
+# 2009/81/CE; "N/A" otherwise). It becomes the CELEX number every other source uses, so
+# the defence-directive signal reads the same for Spain as for TED.
+_DIRECTIVES = {
+    "2009/81": "32009L0081",
+    "2014/23": "32014L0023",
+    "2014/24": "32014L0024",
+    "2014/25": "32014L0025",
+}
+_DIRECTIVE = re.compile(r"(20\d{2})\s*/\s*(\d{1,3})")
+
+# `ProcurementNationalLegislationCode` (list 2.08) is the national regime. It is not in
+# the specification; read off 975 live entries: 3 on every ordinary contract (LCSP), 2 on
+# the army economic directorate's notice that cites 2009/81. 0 and 1 were seen but their
+# meaning was not verified, so they stay a code.
+_NATIONAL_LAW = {
+    "3": "Ley 9/2017 (LCSP)",
+    "2": "Ley 24/2011 (defensa y seguridad)",
+}
+
+
+def map_legal_basis(directive: str | None, national_code: str | None) -> str | None:
+    """CELEX number when the notice names a directive, else the national regime."""
+    m = _DIRECTIVE.search(directive or "")
+    if m:
+        celex = _DIRECTIVES.get(f"{m.group(1)}/{int(m.group(2)):02d}")
+        if celex:
+            return celex
+    code = (national_code or "").strip()
+    if not code:
+        return None
+    return _NATIONAL_LAW.get(code, f"ES legislation code {code}")
+
 log = logging.getLogger(__name__)
 
 BASE = "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643"
@@ -201,6 +267,92 @@ def _float(raw: str | None) -> float | None:
         return None
 
 
+def _findall(el: ET.Element | None, path: str) -> list[ET.Element]:
+    """Every matching element, from the first namespace set that has any."""
+    if el is None:
+        return []
+    for ns in NAMESPACE_SETS:
+        found = el.findall(path, ns)
+        if found:
+            return found
+    return []
+
+
+def _amount(project: ET.Element | None) -> tuple[float | None, str | None]:
+    """The contract's value and its currency.
+
+    `EstimatedOverallContractAmount` is the portal's "valor estimado": the whole
+    contract without VAT, options and extensions included. `TotalAmount` is the
+    budget for the tender's year with VAT, and `TaxExclusiveAmount` the same
+    without it; one real 5-year contract carries 35,470.55 against 8,583.87. Those two
+    are the fallback, in the order the connector always used, for the entries that
+    do not carry the estimate.
+    """
+    budget = _find(project, "cac:BudgetAmount")
+    found: list[tuple[float | None, str | None]] = []
+    for name in ("EstimatedOverallContractAmount", "TotalAmount", "TaxExclusiveAmount"):
+        el = _find(budget, f"cbc:{name}")
+        value = _float(el.text) if el is not None else None
+        found.append((value, (el.get("currencyID") or "EUR") if el is not None else None))
+    estimate = found[0]
+    if estimate[0]:
+        return estimate
+    for value, currency in found[1:]:
+        if value is not None:
+            return value, currency
+    return estimate
+
+
+# A call for tenders is what a supplier reads as "published". Prior information
+# comes before it; any other notice (award, formalisation, modification) is the
+# last resort, for the entries that carry only the notices that followed a call
+# published before the feed began.
+_CALL_NOTICES = ("DOC_CN",)
+_PRIOR_NOTICES = ("DOC_PIN", "DOC_PIN_RTL")
+
+
+def _publication_date(cfs: ET.Element) -> date | None:
+    """When the portal first published the notice.
+
+    Each `ValidNoticeInfo` is one notice type with one `AdditionalPublicationStatus`
+    per medium (the buyer profile hosted on PLACSP, DOUE, BOE), and the date is the
+    `IssueDate` of its document reference (specification section 4.39). An amended
+    notice keeps adding dates, so the earliest date of the call notice is the
+    publication, and the portal's own medium wins over a gazette's date, which can be
+    a day either side. The Atom `updated` time is when the entry last changed, not
+    this, and is kept apart in `source_updated_at`.
+    """
+    rows: list[tuple[str, bool, date]] = []   # (notice type, portal's own medium, date)
+    for info in _findall(cfs, "cac-place-ext:ValidNoticeInfo"):
+        kind = (_text(info, "cbc-place-ext:NoticeTypeCode") or "").upper()
+        issued = _parse_date(_text(info, "cbc-place-ext:NoticeIssueDate"))
+        if issued:
+            rows.append((kind, True, issued))
+        for status in _findall(info, "cac-place-ext:AdditionalPublicationStatus"):
+            medium = (_text(status, "cbc-place-ext:PublicationMediaName") or "").lower()
+            for ref in _findall(status, "cac-place-ext:AdditionalPublicationDocumentReference"):
+                issued = _parse_date(_text(ref, "cbc:IssueDate")
+                                     or _text(ref, "cbc-place-ext:IssueDate"))
+                if issued:
+                    rows.append((kind, "perfil" in medium, issued))
+    for kinds in (_CALL_NOTICES, _PRIOR_NOTICES, None):
+        pool = [(own, d) for kind, own, d in rows if kinds is None or kind in kinds]
+        if pool:
+            return min([d for own, d in pool if own] or [d for _, d in pool])
+    return None
+
+
+def _instant(stamp: str | None) -> datetime | None:
+    """An `atom:updated` stamp as an aware instant, None when it is not one."""
+    if not stamp:
+        return None
+    try:
+        value = datetime.fromisoformat(stamp.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
 # ---------------------------------------------------------------- parsing
 
 def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunity | None:
@@ -238,9 +390,7 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
     cpv = [re.sub(r"\D", "", c)[:8] for c in cpv if re.search(r"\d", c)]
     cpv = [c for c in cpv if len(c) == 8]
 
-    amount = _float(_text(project, "cac:BudgetAmount/cbc:TotalAmount"))
-    if amount is None:
-        amount = _float(_text(project, "cac:BudgetAmount/cbc:TaxExclusiveAmount"))
+    amount, currency = _amount(project)
 
     tender_period = _find(cfs, ".//cac:TenderSubmissionDeadlinePeriod")
     deadline = _parse_datetime(
@@ -248,7 +398,9 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
         _text(tender_period, "cbc:EndTime"),
     )
 
-    published = _parse_date(_text(entry, "atom:updated"))
+    # Not the Atom `updated` time: that moves with every amendment, and a notice
+    # amended after its deadline then read as published after it (1,607 rows).
+    published = _publication_date(cfs)
 
     link_el = _find(entry, "atom:link[@rel='alternate']")
     if link_el is None:
@@ -264,10 +416,14 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
         title_original=title,
         country="ES",
         original_language="ES",
-        procedure_type=_text(cfs, ".//cac:TenderingProcess/cbc:ProcedureCode"),
+        procedure_type=map_procedure(_text(cfs, ".//cac:TenderingProcess/cbc:ProcedureCode")),
+        legal_basis=map_legal_basis(
+            _text(cfs, "cac:TenderingTerms/cac:ProcurementLegislationDocumentReference/cbc:ID"),
+            _text(cfs, "cac:TenderingTerms/cbc:ProcurementNationalLegislationCode")),
         value_amount=amount,
-        value_currency="EUR" if amount is not None else None,
+        value_currency=currency if amount is not None else None,
         published_at=published,
+        source_updated_at=_instant(_text(entry, "atom:updated")),
         deadline_at=deadline,
         cpv_codes=cpv,
         source_url=url,
@@ -318,6 +474,40 @@ def _same_site(candidate: str, reference: str) -> bool:
     a, b = urlsplit(candidate), urlsplit(reference)
     return a.scheme == "https" and bool(a.hostname) and a.hostname == b.hostname
 
+
+# The feeds name themselves, and every next link, under the publisher's portal host,
+# `contrataciondelestado.es`, whose robots.txt is `Disallow: /`. The same files are
+# served under the syndication host the connector is configured with.
+_PORTAL_HOST = "contrataciondelestado.es"
+
+
+def _own_page(next_url: str, dataset: Dataset) -> str | None:
+    """The address of a feed's next page on the dataset's own host, or None.
+
+    A feed is allowed to say where its next page is, not to send the worker
+    somewhere else. Links under the publisher's portal name are read from the
+    syndication host instead, the path unchanged, so the walk never touches the
+    portal host; any other host, or a path outside the dataset's own directory,
+    is refused. Before this, the same-host check refused every link the live feed
+    carries, so a run read its first page and stopped, with its floor still met.
+    """
+    from urllib.parse import urlsplit, urlunsplit
+
+    link, own = urlsplit(next_url), urlsplit(dataset.live_feed)
+    if link.scheme != "https" or link.hostname not in (own.hostname, _PORTAL_HOST):
+        return None
+    if not link.path.startswith(own.path.rsplit("/", 1)[0] + "/"):
+        return None
+    page = urlunsplit(("https", own.netloc, link.path, link.query, ""))
+    return page if _same_site(page, dataset.live_feed) else None
+
+
+def _oldest(stamps: list[str]) -> datetime | None:
+    """The oldest stamp that is one; a page with none says nothing about its age."""
+    parsed = [_instant(s) for s in stamps]
+    return min((p for p in parsed if p is not None), default=None)
+
+
 def fetch_live(
     dataset: Dataset = MAIN, *, client: httpx.Client | None = None, max_pages: int = 50,
     observe: dict | None = None,
@@ -328,37 +518,64 @@ def fetch_live(
     incremental runs a handful of pages is enough; the backfill uses the
     archives instead.
 
-    Pass `observe` to learn the newest entry's timestamp as `observe["newest"]`,
-    set before the first record is handed on.
+    `observe` is both ways. In: `observe["until"]`, the newest entry the previous
+    complete run saw, and `observe["hard_cap"]`, the most pages the walk may take.
+    With `until` the walk goes past `max_pages` until a page's oldest entry is no
+    newer than it, because a provider that froze for days and then published a
+    burst (8,272 entries on 9 October 2026, 17 pages) left the oldest of them beyond
+    a fixed page count, unread and unnoticed. Out: `observe["newest"]`, the newest
+    entry's timestamp, set before the first record is handed on; `["entries"]`;
+    `["pages"]`; `["capped"]`, True when the hard cap ended a walk that had not
+    yet reached `until`; and `["refused"]`, the link a walk stopped at because it
+    left the feed's own directory. Both are gaps the caller has to report.
     """
     owns = client is None
     client = client or new_client(headers={"User-Agent": USER_AGENT},
                                     timeout=60.0, follow_redirects=True)
     walked: list[tuple[str, Opportunity]] = []
+    until = (observe or {}).get("until")
+    limit = max(max_pages, (observe or {}).get("hard_cap") or 0)
+    pages = 0
+    capped = False
+    refused: str | None = None
     try:
         url = dataset.live_feed
-        for page in range(max_pages):
+        while True:
             def fetch(target: str = url) -> httpx.Response:
                 response = client.get(target)
                 response.raise_for_status()
                 return response
 
-            r = request_with_retry(fetch, what=f"{dataset.source_code} page {page + 1}")
+            r = request_with_retry(fetch, what=f"{dataset.source_code} page {pages + 1}")
             stamps: list[str] = []
             opps, next_url = parse_feed(r.content, dataset.source_code, stamps=stamps)
-            log.info("%s page %s: %s entries", dataset.source_code, page + 1, len(opps))
+            pages += 1
+            log.info("%s page %s: %s entries", dataset.source_code, pages, len(opps))
             walked.extend(zip(stamps, opps, strict=True))
             if not next_url:
                 break
-            # A feed is allowed to say where its next page is, not to send the
-            # worker somewhere else: the link must stay on the dataset's own host.
-            if not _same_site(next_url, dataset.live_feed):
-                log.warning("%s: refusing a next link to another host", dataset.source_code)
+            oldest = _oldest(stamps)
+            if pages >= max_pages and (until is None or (oldest is not None and oldest <= until)):
                 break
-            url = next_url
+            if pages >= limit:
+                capped = until is not None
+                log.warning("%s: walk stopped at the cap of %s pages without reaching %s",
+                            dataset.source_code, limit, until)
+                break
+            page_url = _own_page(next_url, dataset)
+            if page_url is None:
+                refused = next_url[:120]
+                log.warning("%s: refusing a next link outside the feed's own directory: %s",
+                            dataset.source_code, refused)
+                break
+            url = page_url
     finally:
         if owns:
             client.close()
+    if observe is not None:
+        observe["pages"] = pages
+        observe["capped"] = capped
+        observe["refused"] = refused
 
     # The chain is served newest first, and one tender appears once per
     # modification. Handed on in that order, a run archived a notice's award

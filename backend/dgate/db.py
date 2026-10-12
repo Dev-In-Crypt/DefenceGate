@@ -76,13 +76,15 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     # of every record that does not have it: an empty link is simply absent.
     if payload.get("ted_ref") is None:
         payload.pop("ted_ref", None)
+    if payload.get("source_updated_at") is None:
+        payload.pop("source_updated_at", None)
     return payload
 
 
 # Fields that come back out of a payload as strings and have to become dates
 # and datetimes again. Everything else round-trips as itself.
 _DATE_FIELDS = {"published_at"}
-_DATETIME_FIELDS = {"deadline_at"}
+_DATETIME_FIELDS = {"deadline_at", "source_updated_at"}
 
 
 def opportunity_from_payload(payload: dict[str, Any]) -> Opportunity:
@@ -459,8 +461,13 @@ def upsert_opportunity(
     # cannot insert it in the past either, so it is recorded as stale and not
     # archived. Day granularity is all every source provides here; two versions
     # published the same day fall through to arrival order.
-    incoming_date = payload.get("published_at")
-    current_date = prev.get("published_at")
+    #
+    # PLACSP states when an entry last changed as an instant, and that is what orders
+    # its versions: its `published_at` is the notice's publication, the same on every
+    # amendment. A version archived before `source_updated_at` existed has none and
+    # carried the same stamp as `published_at`, so that stands in for it.
+    incoming_date = payload.get("source_updated_at") or payload.get("published_at")
+    current_date = prev.get("source_updated_at") or prev.get("published_at")
     if incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
         return opp_id, "stale"
     changed = [f for f in VERSIONED_FIELDS if prev.get(f) != payload.get(f)]
