@@ -43,6 +43,48 @@ def _use_system_trust_store() -> bool:
 SYSTEM_TRUST_STORE = _use_system_trust_store()
 
 
+def _cap_body(response) -> None:
+    """Refuse a response body larger than MAX_BODY_BYTES *while it is read*.
+
+    httpx runs response hooks after the headers and before the body is read, so a
+    declared length is refused without downloading anything, and a body that does not
+    declare one (chunked, or compressed) is counted as it is decoded and cut off the
+    moment it passes the ceiling. `request_with_retry` only looked after the whole body
+    was already in memory, which is the thing this exists to prevent.
+
+    Not for streamed downloads (`client.stream`): the body is consumed here. No
+    connector uses one through a client; the Atlas file is fetched by its own
+    `httpx.stream` and is deliberately large.
+    """
+    declared = response.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        response.close()
+        raise ResponseTooLarge(
+            f"{response.request.url.host}: declared body of {declared} bytes exceeds "
+            f"{MAX_BODY_BYTES}")
+    total = 0
+    parts: list[bytes] = []
+    for chunk in response.iter_bytes():
+        total += len(chunk)
+        if total > MAX_BODY_BYTES:
+            response.close()
+            raise ResponseTooLarge(
+                f"{response.request.url.host}: body passed {MAX_BODY_BYTES} bytes")
+        parts.append(chunk)
+    # What `Response.read()` would have stored; it returns this instead of reading.
+    response._content = b"".join(parts)
+
+
+def new_client(**kwargs):
+    """The one way a connector makes an HTTP client: the same as `httpx.Client`, with
+    the body ceiling applied to every response."""
+    import httpx
+
+    hooks = kwargs.pop("event_hooks", None) or {}
+    hooks = {**hooks, "response": [_cap_body, *hooks.get("response", [])]}
+    return httpx.Client(event_hooks=hooks, **kwargs)
+
+
 def retry_after(response) -> float | None:
     """How long the far end asked us to wait, if it said so.
 

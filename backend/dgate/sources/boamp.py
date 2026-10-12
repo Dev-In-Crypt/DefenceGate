@@ -44,7 +44,7 @@ from typing import Any, Iterator
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def search(params: dict[str, Any], *, client: httpx.Client | None = None,
            max_offset: int = MAX_OFFSET) -> Iterator[dict[str, Any]]:
     """Yield raw records for one query, following offsets until they run out."""
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+    client = client or new_client(headers={"User-Agent": USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
     try:
@@ -137,7 +137,7 @@ def fetch_window(days_back: int = 2, *, client: httpx.Client | None = None,
     """
     today = today or date.today()
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+    client = client or new_client(headers={"User-Agent": USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
     seen: set[str] = set()

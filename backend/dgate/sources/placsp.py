@@ -35,7 +35,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from ..normalise import Opportunity, tz_from_offset
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 SPAIN_TZ = ZoneInfo("Europe/Madrid")
 
@@ -332,7 +332,7 @@ def fetch_live(
     set before the first record is handed on.
     """
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT},
+    client = client or new_client(headers={"User-Agent": USER_AGENT},
                                     timeout=60.0, follow_redirects=True)
     walked: list[tuple[str, Opportunity]] = []
     try:
@@ -403,7 +403,7 @@ def fetch_archive(
     is more robust than trusting the chain inside a downloaded archive.
     """
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT},
+    client = client or new_client(headers={"User-Agent": USER_AGENT},
                                     timeout=300.0, follow_redirects=True)
     try:
         def fetch() -> httpx.Response:

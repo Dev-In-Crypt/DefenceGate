@@ -41,7 +41,7 @@ from typing import Any, Iterator
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -190,7 +190,7 @@ def parse_snapshot(document: Any, *, today: date | None = None) -> list[dict[str
 
 def fetch_snapshot(*, client: httpx.Client | None = None) -> Any:
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+    client = client or new_client(headers={"User-Agent": USER_AGENT,
                                             "Accept": "application/json"},
                                    follow_redirects=True)
     try:
@@ -335,7 +335,7 @@ def fetch_topic_details(identifier: str, *,
                         client: httpx.Client | None = None) -> dict[str, Any]:
     """The detail document of one topic. Raises if it is not one."""
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+    client = client or new_client(headers={"User-Agent": USER_AGENT,
                                             "Accept": "application/json"},
                                    follow_redirects=True)
     # The identifier comes from the source's own data and is put into a URL: only

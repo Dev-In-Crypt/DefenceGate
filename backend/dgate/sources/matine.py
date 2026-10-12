@@ -41,7 +41,13 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import MAX_HTML_CHARS, USER_AGENT, html_to_text_markup, request_with_retry
+from . import (
+    MAX_HTML_CHARS,
+    USER_AGENT,
+    html_to_text_markup,
+    new_client,
+    request_with_retry,
+)
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +69,7 @@ _PROJECTS = re.compile(r"(?P<lo>\d+)\s*-\s*(?P<hi>\d+)\s+tutkimushanketta", re.I
 
 
 def _client() -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT}, follow_redirects=True)
+    return new_client(headers={"User-Agent": USER_AGENT}, follow_redirects=True)
 
 
 # ---------------------------------------------------------------- fetching

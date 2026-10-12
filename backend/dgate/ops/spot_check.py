@@ -62,6 +62,7 @@ from ..sources import (
     ezamowienia,
     matine,
     ncbr,
+    new_client,
     ted,
     tenderned,
     vinnova,
@@ -355,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.WARNING)
 
     store = build_store()
-    client = httpx.Client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    client = new_client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
                           follow_redirects=True, timeout=90.0)
     worst = 0
     with db.connect(settings().dsn) as conn:

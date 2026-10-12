@@ -51,7 +51,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def search_params(since: date, page: int) -> dict[str, Any]:
 
 
 def _client() -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    return new_client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
                         follow_redirects=True)
 
 

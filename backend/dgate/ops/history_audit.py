@@ -29,6 +29,7 @@ from typing import Any, Iterator
 
 from .. import db
 from ..config import settings
+from ..sources import new_client
 
 log = logging.getLogger("history-audit")
 
@@ -85,11 +86,10 @@ def reported_total(first: date, last: date, client: Any = None) -> int | None:
     payload = {"query": query, "fields": ["publication-number"],
                "page": 1, "limit": 1, "scope": "ALL"}
     if client is None:
-        import httpx
 
         from ..sources import USER_AGENT
 
-        with httpx.Client(headers={"User-Agent": USER_AGENT}) as owned:
+        with new_client(headers={"User-Agent": USER_AGENT}) as owned:
             data = ted._post(owned, payload)
     else:
         data = ted._post(client, payload)

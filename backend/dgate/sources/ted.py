@@ -32,7 +32,7 @@ from typing import Any, Iterator
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -157,7 +157,7 @@ def search(
     """
     fields = fields or TED_FIELDS
     owns_client = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT})
+    client = client or new_client(headers={"User-Agent": USER_AGENT})
     try:
         page = 1
         seen = 0

@@ -41,7 +41,7 @@ from typing import Any, Iterable, Iterator
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -169,7 +169,7 @@ def search(
 ) -> Iterator[dict[str, Any]]:
     """Yield raw records for one query, following pages until the list empties."""
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+    client = client or new_client(headers={"User-Agent": USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
     try:
@@ -223,7 +223,7 @@ def fetch_window(
     """
     today = today or date.today()
     owns = client is None
-    client = client or httpx.Client(headers={"User-Agent": USER_AGENT,
+    client = client or new_client(headers={"User-Agent": USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
     seen: set[str] = set()

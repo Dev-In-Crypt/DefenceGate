@@ -47,7 +47,13 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import MAX_HTML_CHARS, USER_AGENT, html_to_text_markup, request_with_retry
+from . import (
+    MAX_HTML_CHARS,
+    USER_AGENT,
+    html_to_text_markup,
+    new_client,
+    request_with_retry,
+)
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +111,7 @@ _MAX_AID = re.compile(r"(?:inf[ée]rieure?|[ée]gale?|maximum|jusqu.[àa])[^.]{0
 
 
 def _client() -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT}, follow_redirects=True)
+    return new_client(headers={"User-Agent": USER_AGENT}, follow_redirects=True)
 
 
 # ---------------------------------------------------------------- fetching

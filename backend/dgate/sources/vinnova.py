@@ -54,7 +54,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from . import USER_AGENT, request_with_retry
+from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ _UNITS = {"miljoner": 1e6, "miljon": 1e6, "mnkr": 1e6, "msek": 1e6, "mkr": 1e6, 
 
 
 def _client() -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+    return new_client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
                         follow_redirects=True)
 
 

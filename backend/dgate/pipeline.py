@@ -23,7 +23,6 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-import httpx
 import psycopg
 
 from . import db, rawstore
@@ -54,6 +53,7 @@ from .sources import (
     ezamowienia,
     matine,
     ncbr,
+    new_client,
     placsp,
     ted,
     tenderned,
@@ -792,7 +792,7 @@ def run_topic_details(limit: int | None = None, refresh_after_days: int = 7) -> 
             return
         run_id = db.start_run(conn, code, None)
         fetched = changed = failed = 0
-        client = httpx.Client(headers={"User-Agent": eu_portal.USER_AGENT,
+        client = new_client(headers={"User-Agent": eu_portal.USER_AGENT,
                                        "Accept": "application/json"},
                               follow_redirects=True)
         try:
