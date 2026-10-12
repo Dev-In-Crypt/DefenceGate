@@ -215,7 +215,8 @@ def eligibility_rows(programme_code: str, cond: dict[str, Any], row: dict[str, A
         add("Programme", cond.get("programme"))
         add("Decision expected", _iso_day(cond.get("decision_expected")))
         start_a, start_b = _iso_day(cond.get("project_start_earliest")), _iso_day(cond.get("project_start_latest"))
-        add("Project start", f"{start_a} to {start_b}" if start_a and start_b else start_a or start_b)
+        both = start_a and start_b and start_a != start_b
+        add("Project start", f"{start_a} to {start_b}" if both else start_a or start_b)
         add("Project ends at the latest", _iso_day(cond.get("project_end_latest")))
     elif programme_code == "FR-AID":
         if cond.get("max_aid_eur_per_project"):

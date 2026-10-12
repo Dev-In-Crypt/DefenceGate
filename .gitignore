@@ -19,3 +19,10 @@ infra/secrets/
 *_ed25519
 *_rsa
 *.pem
+
+# Frontend (web/): dependencies and build output; the design archive stays out of git
+web/node_modules/
+web/.next/
+web/.env.local
+web/*.tsbuildinfo
+*.zip

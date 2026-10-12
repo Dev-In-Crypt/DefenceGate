@@ -183,3 +183,11 @@ def test_sources_report_a_floor_relative_coverage_and_never_a_made_up_one(client
     by_id = {s["id"]: s for s in body["sources"]}
     assert by_id["eu_portal"]["type"] == "grants" and by_id["ted"]["type"] == "tenders"
     assert by_id["eu_portal"]["status"] == "never" and by_id["eu_portal"]["coverage"] is None
+
+
+def test_a_project_start_that_is_one_day_is_not_written_as_a_range(client, conn):
+    _put(conn, "v", programme="SE-VINNOVA", source="se_vinnova", country="SE",
+         conditions={"project_start_earliest": "2026-11-20T00:00:00",
+                     "project_start_latest": "2026-11-20T00:00:00"})
+    rows = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]["eligibility"]
+    assert {"label": "Project start", "value": "2026-11-20"} in rows

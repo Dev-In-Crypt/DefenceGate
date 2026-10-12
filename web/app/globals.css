@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * DefenceGate design tokens — same names as the design system (tokens/*.css).
+ * Light on :root, dark on [data-theme="dark"]. Never use raw hex in components.
+ */
+@layer base {
+  :root {
+    --bg: #F4F1EA; --surface: #FFFFFF; --surface-inset: #F4F1EA; --line: #DDD8CC;
+    --ink: #12372A; --ink-muted: #56605A; --primary: #12372A; --on-primary: #F4F1EA;
+    --accent: #C4581F; --accent-text: #A8481A; --urgent: #A8481A; --on-urgent: #FFFFFF;
+    --link: #2F6B4F; --open-bg: #DCE6DE; --open-fg: #1F5A3F; --soon-bg: #F7E1D3; --soon-fg: #8E3A12;
+    --closed-bg: #E7E4DC; --closed-fg: #4A524D; --alert: #A12F2F;
+    --primary-hover: #1C4A39; --primary-press: #0C2A20;
+
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+    --space-6: 28px; --space-8: 48px; --space-10: 64px;
+    --radius-md: 14px; --radius-lg: 20px; --radius-pill: 999px;
+    --duration: 120ms; --ease: ease; --transition: 120ms ease;
+    --content-max: 1200px;
+
+    /* next/font injects --font-manrope / --font-dm-mono on <html> */
+    --font-sans: var(--font-manrope), system-ui, sans-serif;
+    --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+
+    /* shadcn/ui roles → DG tokens. NOTE: shadcn's "accent" (hover fill) is NOT mapped;
+       DG --accent is copper and reserved for logo + time pressure. Use bg-surface-inset. */
+    --background: var(--bg); --foreground: var(--ink);
+    --card: var(--surface); --card-foreground: var(--ink);
+    --popover: var(--surface); --popover-foreground: var(--ink);
+    --primary-foreground: var(--on-primary);
+    --secondary: var(--surface-inset); --secondary-foreground: var(--ink);
+    --muted: var(--surface-inset); --muted-foreground: var(--ink-muted);
+    --destructive: var(--alert); --destructive-foreground: var(--on-urgent);
+    --border: var(--line); --input: var(--line); --ring: var(--accent-text);
+    --radius: var(--radius-md);
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0F1D17; --surface: #17291F; --surface-inset: #1F3328; --line: #2C4237;
+    --ink: #EEF1EA; --ink-muted: #A5B1A9; --primary: #DCE6DE; --on-primary: #0F1D17;
+    --accent: #E07A3A; --accent-text: #F09A62; --urgent: #E07A3A; --on-urgent: #0F1D17;
+    --link: #8FC4A6; --open-bg: #1F3A2C; --open-fg: #A8D5BB; --soon-bg: #3D2416; --soon-fg: #F5B48C;
+    --closed-bg: #26332C; --closed-fg: #B9C2BC; --alert: #F08A8A;
+    --primary-hover: #C9D8CD; --primary-press: #B8CABD;
+    color-scheme: dark;
+  }
+
+  body { @apply bg-bg font-sans text-ink antialiased; margin: 0; }
+  a { color: var(--link); text-underline-offset: 2px; }
+  a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+  ::placeholder { color: var(--ink-muted); opacity: 1; }
+  .font-mono, .tabular { font-variant-numeric: tabular-nums; }
+  h1, h2, h3 { text-wrap: pretty; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+}
+
+/* Design-system type classes, kept for parity with the DS (tokens/typography.css). */
+@layer components {
+  .display { @apply font-sans text-display; }
+  .h1 { @apply font-sans text-h1; }
+  .h2 { @apply font-sans text-h2; }
+  .h3 { @apply font-sans text-h3; }
+  .body { @apply font-sans text-body; }
+  .body-strong { @apply font-sans text-body font-semibold; }
+  .small { @apply font-sans text-small; }
+  .label { @apply font-sans text-label; }
+  .mono { @apply font-mono text-mono tabular-nums; }
+  .mono-strong { @apply font-mono text-mono-strong tabular-nums; }
+  .figure { @apply font-mono text-figure tabular-nums; }
+  .page { @apply mx-auto w-full max-w-content px-4 md:px-6; }
+}
