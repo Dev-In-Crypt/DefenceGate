@@ -25,10 +25,12 @@ export interface EntryChip { label: string; href: string }
 
 /** Shared template for /funding and every /funding/* list sub-page. */
 export function CallListTemplate({
-  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide,
+  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch,
 }: {
   title: string; intro: string; basePath: string; crumbs: Crumb[]; filters: CallFilters;
   result: Paginated<Call>; view: ListView; health: Health; chips?: EntryChip[]; hide?: FilterGroup[];
+  /** Rendered under the filters (the save-search island). */
+  saveSearch?: React.ReactNode;
 }) {
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
@@ -56,8 +58,11 @@ export function CallListTemplate({
       )}
 
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
-          countries={fundersWithCoverage(health.sources, filters.country)} />
+        <div className="flex min-w-0 flex-col gap-4">
+          <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
+            countries={fundersWithCoverage(health.sources, filters.country)} />
+          {saveSearch}
+        </div>
 
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">

@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { getHealth, getTenders } from '@/lib/api';
+import { filtersFromQuery } from '@/lib/account-format';
 import { activeTenderFilterCount, DEFAULT_TENDER_SORT, parseTenderFilters, toTenderQuery, type SearchParams } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
 import { ListPage } from '@/components/dg/list-page';
 import { TenderFilterBar } from '@/components/tenders/filter-bars';
+import { SaveSearch } from '@/components/account/save-search';
 
 export const revalidate = 3600;
 
@@ -43,6 +45,7 @@ export default async function TendersPage({ searchParams }: Props) {
       intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and every change we observe is kept in its version history."
       meta={`${tenderSources} tender sources · Last update ${formatDateTimeUtc(health.generatedAt)}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" />}
+      filterExtra={<SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? DEFAULT_TENDER_SORT, options: SORT_OPTIONS }}
       clearHref="/tenders"

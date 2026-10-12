@@ -19,6 +19,8 @@ export const MAIN_NAV = [
   { label: 'Pricing', href: '/pricing' },
 ] as const;
 const ALERTS = { label: 'Get alerts', href: '/alerts' } as const;
+/** Replaces "Get alerts" once the API says accounts are open (layout reads /v1/account/status, 60 s cache). */
+const SIGN_IN = { label: 'Sign in', href: '/signin' } as const;
 
 function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {
   return (
@@ -31,8 +33,9 @@ function NavLink({ href, label, active, onClick }: { href: string; label: string
 }
 
 /** Pill header bar (not fixed). Collapses to a menu button below md. */
-export function HeaderBar() {
+export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) {
   const pathname = usePathname();
+  const cta = accountsOpen ? SIGN_IN : ALERTS;
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   return (
@@ -44,7 +47,7 @@ export function HeaderBar() {
         </nav>
         <div className="ml-auto flex items-center gap-2 md:ml-0">
           <ThemeToggle />
-          <Button href={ALERTS.href} className="hidden lg:inline-flex">{ALERTS.label}</Button>
+          <Button href={cta.href} className="hidden lg:inline-flex">{cta.label}</Button>
           <button type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)}
             className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink md:hidden">
             <Icon icon={open ? X : Menu} />
@@ -53,7 +56,7 @@ export function HeaderBar() {
       </div>
       {open && (
         <nav id="mobile-nav" aria-label="Main" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
-          {[...MAIN_NAV, ALERTS].map((n) => <NavLink key={n.href} {...n} active={isActive(n.href)} onClick={() => setOpen(false)} />)}
+          {[...MAIN_NAV, cta].map((n) => <NavLink key={n.href} {...n} active={isActive(n.href)} onClick={() => setOpen(false)} />)}
         </nav>
       )}
     </header>

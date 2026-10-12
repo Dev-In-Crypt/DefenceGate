@@ -2,7 +2,8 @@ import { formatDateUtc } from '@/lib/format';
 import type { FieldChange, TenderVersion } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-function describe(c: FieldChange): React.ReactNode {
+/** One field-level change as a sentence. Also used by the account dashboard. */
+export function describeChange(c: FieldChange): React.ReactNode {
   const v = (s: string) => <span className="break-words font-mono text-mono-strong tabular-nums">{s}</span>;
   if (c.before && c.after) return <>{c.label} changed from {v(c.before)} to {v(c.after)}</>;
   if (c.after) return <>{c.label} added: {v(c.after)}</>;
@@ -29,7 +30,7 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
                 <span className="text-body">First observed by DefenceGate</span>
               ) : (
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">
-                  {ver.changes.map((c, n) => <li key={`${c.field}-${n}`} className="min-w-0 text-body">{describe(c)}</li>)}
+                  {ver.changes.map((c, n) => <li key={`${c.field}-${n}`} className="min-w-0 text-body">{describeChange(c)}</li>)}
                 </ul>
               )}
             </div>

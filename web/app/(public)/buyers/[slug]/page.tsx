@@ -10,6 +10,7 @@ import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { TenderCard } from '@/components/dg/cards';
 import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
+import { FollowButton } from '@/components/account/save-button';
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
@@ -61,6 +62,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
       <header className="flex flex-col gap-4">
         {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
         <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{buyer.name}</h1>
+        <FollowButton kind="buyer" refId={buyer.id} label="Follow this buyer" />
         <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
           <FactCell label="Country">
             {buyer.country ? <CountryLabel code={buyer.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}

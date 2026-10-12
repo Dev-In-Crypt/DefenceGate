@@ -258,3 +258,116 @@ export interface SiteStats {
   sources: number;
   lastUpdate: IsoDateTime;
 }
+
+/* ---- Accounts: docs/design/ACCOUNT_CONTRACT.md (binding). The browser never calls these; lib/account.ts does. ---- */
+
+export type Role = 'supplier' | 'prime' | 'consultant' | 'grant_writer' | 'other';
+export type Track = 'tenders' | 'funding';
+/** core: defence only; all: include dual-use and supply notices. */
+export type ProfileScope = 'core' | 'all';
+export type Cadence = 'instant' | 'daily' | 'weekly' | 'off';
+
+/** Free-text profile fields do not exist on purpose (data minimisation). */
+export interface Profile {
+  role: Role | null;
+  tracks: Track[];
+  /** ISO 3166-1 alpha-2, at most 20. */
+  countries: string[];
+  scope: ProfileScope;
+  cadence: Cadence;
+}
+
+/** GET /v1/account/me */
+export interface Me {
+  id: string;
+  email: string;
+  createdAt: IsoDateTime;
+  profile: Profile;
+  onboarded: boolean;
+  lastVisitAt: IsoDateTime | null;
+}
+
+/** GET /v1/account/sessions */
+export interface AccountSession {
+  id: string;
+  createdAt: IsoDateTime;
+  lastSeenAt: IsoDateTime;
+  current: boolean;
+}
+
+export type SearchKind = 'tender' | 'call';
+/** The query parameters of GET /v1/tenders or GET /v1/funding: the site's own URL keys. */
+export type SearchFilters = Record<string, string | number | boolean | string[]>;
+export interface SavedSearch {
+  id: string;
+  /** 1..80 characters. */
+  name: string;
+  kind: SearchKind;
+  filters: SearchFilters;
+  cadence: Cadence;
+  createdAt: IsoDateTime;
+  matchCount: number;
+  /** Matches published since the account's lastVisitAt. */
+  newCount: number;
+  lastMatchAt: IsoDateTime | null;
+}
+
+export type ShortlistStatus = 'watching' | 'evaluating' | 'bidding' | 'submitted' | 'dropped';
+export type ShortlistKind = 'tender' | 'call';
+export interface ShortlistItem {
+  kind: ShortlistKind;
+  /** Tender id or funding call id. */
+  ref: string;
+  status: ShortlistStatus;
+  /** At most 500 characters. */
+  note: string;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+  /** The public object; null when it no longer exists. */
+  item: Tender | Call | null;
+}
+
+export type FollowKind = 'buyer' | 'programme';
+export interface Follow {
+  kind: FollowKind;
+  /** Buyer id, or the programme code as in Call.programme. */
+  ref: string;
+  createdAt: IsoDateTime;
+  item: Buyer | { code: string; name: string; openCount: number } | null;
+}
+
+/** POST /v1/account/state */
+export interface StateKey { type: 'shortlist' | 'follow'; kind: string; ref: string }
+export interface StateItem extends StateKey { saved: boolean; status?: ShortlistStatus }
+
+/** GET /v1/account/dashboard */
+export interface DashboardMatch {
+  search: { id: string; name: string; kind: SearchKind };
+  newCount: number;
+  totalCount: number;
+  /** Up to 5, newest first. */
+  items: (Tender | Call)[];
+}
+export interface DashboardClosing { kind: SearchKind; item: Tender | Call; source: 'shortlist' | 'search' }
+export interface DashboardChange { kind: SearchKind; item: Tender | Call; observedAt: IsoDateTime; changes: FieldChange[] }
+export interface DashboardFollowing { kind: FollowKind; ref: string; name: string; openCount: number; latestAt: IsoDateTime | null }
+export interface DashboardPulse {
+  asOf: IsoDateTime;
+  tendersPublished30d: number;
+  tendersPublishedPrev30d: number;
+  openTenders: number;
+  closingWithin14d: number;
+  /** Share (0..1) of notices with an amendment in the last 30 days. */
+  amendedShare30d: number;
+  /** Publication to deadline, notices published in the last 90 days. */
+  medianWindowDays: number | null;
+}
+export interface Dashboard {
+  lastVisitAt: IsoDateTime | null;
+  matches: DashboardMatch[];
+  closingSoon: DashboardClosing[];
+  changes: DashboardChange[];
+  following: DashboardFollowing[];
+  shortlist: { counts: Partial<Record<ShortlistStatus, number>>; items: ShortlistItem[] };
+  pulse: DashboardPulse | null;
+}

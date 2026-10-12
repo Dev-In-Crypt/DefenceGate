@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { getCalls, getHealth } from '@/lib/api';
-import { activeFilterCount, parseCallFilters, parseView, type SearchParams } from '@/lib/filters';
+import { filtersFromQuery } from '@/lib/account-format';
+import { activeFilterCount, parseCallFilters, parseView, toQuery, type SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
 import { CallListTemplate, type EntryChip } from '@/components/funding/call-list-template';
+import { SaveSearch } from '@/components/account/save-search';
 
 export const revalidate = 3600;
 const CALENDAR_LIMIT = 500;
@@ -52,6 +54,7 @@ export default async function FundingHubPage({ searchParams }: Props) {
       basePath="/funding"
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
       filters={filters} result={result} view={view} health={health} chips={CHIPS}
+      saveSearch={<SaveSearch kind="call" filters={filtersFromQuery(toQuery({ ...filters, page: 1 }))} />}
     />
   );
 }

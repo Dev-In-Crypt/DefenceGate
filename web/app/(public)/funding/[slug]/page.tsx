@@ -16,6 +16,7 @@ import { SourceBadge } from '@/components/dg/source-badge';
 import { Button } from '@/components/dg/button';
 import { CallCard } from '@/components/dg/cards';
 import { Icon } from '@/components/dg/icon';
+import { FollowButton, SaveButton } from '@/components/account/save-button';
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ slug: string }> };
@@ -175,6 +176,8 @@ export default async function CallDetailPage({ params }: Props) {
         <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
           <div className="flex flex-col gap-4 rounded-lg bg-surface p-6">
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
+            <SaveButton kind="call" refId={call.id} />
+            <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />
             <ComingSoon feature="Alerts for similar calls" />
             <ComingSoon feature="Opportunity pack" />
             {sourceUrl && (

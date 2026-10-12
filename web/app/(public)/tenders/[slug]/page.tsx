@@ -17,6 +17,7 @@ import { SourceBadge } from '@/components/dg/source-badge';
 import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
 import { TenderCard, TenderStatusPills } from '@/components/dg/cards';
+import { FollowButton, SaveButton } from '@/components/account/save-button';
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ slug: string }> };
@@ -203,6 +204,8 @@ export default async function TenderDetailPage({ params }: Props) {
         <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
           <div className="flex flex-col gap-4 rounded-lg bg-surface p-6">
             <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" />
+            <SaveButton kind="tender" refId={tender.id} />
+            {tender.buyerId && <FollowButton kind="buyer" refId={tender.buyerId} label="Follow this buyer" />}
             <Button href="/alerts" variant="secondary" icon={Bell} fullWidth>Get alerts</Button>
             <Button href="/pack" variant="text" className="self-start">Opportunity pack</Button>
             {sourceUrl && (
