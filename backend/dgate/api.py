@@ -627,3 +627,10 @@ def health(conn=Depends(get_conn)):
         "stale_after_hours": STALE_AFTER_HOURS,
         "sources": sources,
     }
+
+
+# The funding hub's own view of the calls; see docs/design/API_CONTRACT.md. Included
+# last because it reads `_attribution` from this module.
+from .funding import router as _funding_router  # noqa: E402
+
+app.include_router(_funding_router)
