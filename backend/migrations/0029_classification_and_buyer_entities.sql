@@ -39,6 +39,12 @@ ALTER TABLE organisation_alias ADD COLUMN IF NOT EXISTS prev_organisation_id BIG
 
 CREATE INDEX IF NOT EXISTS organisation_merged_into
     ON organisation (merged_into) WHERE merged_into IS NOT NULL;
+-- The exact-name stage of resolution and the seeding of the buyer lists both ask
+-- "this country, this normalised name"; on 281,000 organisations that was a scan
+-- per question, and the derived list asks about two thousand names at every worker
+-- start.
+CREATE INDEX IF NOT EXISTS organisation_country_name
+    ON organisation (country, lower(canonical_name));
 CREATE INDEX IF NOT EXISTS opp_linked_defence
     ON opportunity (id) WHERE sig_linked_defence;
 
