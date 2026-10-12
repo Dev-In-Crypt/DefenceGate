@@ -94,10 +94,11 @@ credentials.
 
 **The same notice is stored twice.** 412 of Defensie's 435 publications in 2026 are also
 in TED, and each becomes its own `opportunity` row, because no source is linked to
-another. The same is true of France and Spain against TED. The eForms notice UUID
-(`referentieNummer` on the detail page) may be the key that joins them; that is a guess
-and has not been checked against a TED payload. Until a cross-source link exists, counts
-across sources double-count the above-threshold notices.
+another. The same is true of France and Spain against TED. `detail.pbNummerTed` links
+437 of 463 to the TED notice. `referentieNummer` is a UUID on 380 of the 442 records that
+have one, and none of them equals a TED `procedure-identifier` (checked 12 October 2026
+against the 19,264 TED procedure identifiers held), so it is not read as one: it is the
+notice's own identifier, not the procedure's.
 
 **Not measured.** Whether `publicatieDatum` can be earlier than the day a notice appears
 in the list (a publication lag would leave a gap outside the three-day window), and

@@ -1,0 +1,22 @@
+-- How a national notice was tied to the TED notice it is the same procurement as.
+--
+-- `ted_ref` (migration 0022) is the link the serving layer collapses on: a national
+-- row is shown under its TED twin and not beside it. Until now only the sources that
+-- state a TED publication number (TenderNed, the Polish bulletin, Atlas) carried one,
+-- so the same Spanish frigate-engine tender was listed twice, once from PLACSP and
+-- once from TED. `dgate.ops.link_twins` fills `ted_ref` for the others and records
+-- here how it knew:
+--
+--   stated_ted_ref  the source itself names the TED number (set when the row was read)
+--   doue_ref        the source names a DOUE publication number that equals a TED row
+--   procedure_id    both rows carry the same eForms procedure identifier (BT-04):
+--                   PLACSP's <cbc:UUID schemeName="TED">, BOAMP's `contractfolderid`,
+--                   TED's `procedure-identifier`
+--   heuristic       no identifier on either side; same buyer, deadline instant, value,
+--                   currency, publication within 14 days and a shared CPV class, and
+--                   exactly one candidate on each side
+--
+-- Both columns describe a link, not a version-worthy fact: not in VERSIONED_FIELDS,
+-- no archive row written for them. NULL while the row has no TED twin.
+ALTER TABLE opportunity ADD COLUMN IF NOT EXISTS twin_method     TEXT;
+ALTER TABLE opportunity ADD COLUMN IF NOT EXISTS twin_confidence REAL;
