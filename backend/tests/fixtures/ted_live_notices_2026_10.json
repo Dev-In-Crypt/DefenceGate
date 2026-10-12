@@ -1,0 +1,897 @@
+[
+ {
+  "deadline-receipt-request": [
+   "2019-04-08T14:00:00+02:00"
+  ],
+  "notice-type": "cn-standard",
+  "publication-number": "99378-2019",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2019-02-25Z",
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "DEU"
+  ],
+  "procedure-type": "4",
+  "official-language": [
+   "DEU"
+  ],
+  "classification-cpv": [
+   "35410000"
+  ],
+  "contract-nature": [
+   "supplies"
+  ],
+  "publication-date": "2019-03-01+01:00",
+  "buyer-name": {
+   "deu": [
+    "Bundesamt für Ausrüstung, Informationstechnik und Nutzung der Bundeswehr"
+   ]
+  },
+  "notice-title": {
+   "deu": "Deutschland-Koblenz: Gepanzerte Militärfahrzeuge",
+   "eng": "Germany-Coblenz: Armoured military vehicles"
+  }
+ },
+ {
+  "deadline-receipt-request": [
+   "2019-04-08T17:00:00+02:00"
+  ],
+  "notice-type": "cn-standard",
+  "publication-number": "99379-2019",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2019-02-25Z",
+  "total-value-cur": [
+   "EUR",
+   "EUR"
+  ],
+  "main-activity": [
+   "defence",
+   "health"
+  ],
+  "total-value": 959790,
+  "buyer-country": [
+   "FRA"
+  ],
+  "procedure-type": "4",
+  "official-language": [
+   "FRA"
+  ],
+  "classification-cpv": [
+   "19520000"
+  ],
+  "contract-nature": [
+   "supplies"
+  ],
+  "publication-date": "2019-03-01+01:00",
+  "buyer-name": {
+   "fra": [
+    "EMA/DCSSA/DAPS-SSA"
+   ]
+  },
+  "notice-title": {
+   "fra": "France-Fleury-les-Aubrais: Produits en plastique",
+   "eng": "France-Fleury-les-Aubrais: Plastic products"
+  }
+ },
+ {
+  "deadline-receipt-request": [
+   "2019-03-29T10:00:00+01:00"
+  ],
+  "notice-type": "cn-standard",
+  "publication-number": "99381-2019",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2019-02-26Z",
+  "main-activity": [
+   "electricity"
+  ],
+  "buyer-country": [
+   "POL"
+  ],
+  "procedure-type": "restricted",
+  "official-language": [
+   "POL"
+  ],
+  "classification-cpv": [
+   "73100000"
+  ],
+  "contract-nature": [
+   "supplies"
+  ],
+  "publication-date": "2019-03-01+01:00",
+  "buyer-name": {
+   "pol": [
+    "Tauron Wytwarzanie S.A."
+   ]
+  },
+  "notice-title": {
+   "pol": "Polska-Jaworzno: Usługi badawcze i eksperymentalno-rozwojowe",
+   "eng": "Poland-Jaworzno: Research and experimental development services"
+  },
+  "buyer-identifier": [
+   "REGON: 276854946"
+  ]
+ },
+ {
+  "deadline-receipt-request": [
+   "2024-01-30T13:00:00+01:00"
+  ],
+  "notice-type": "corr",
+  "publication-number": "1268-2024",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2023-12-27Z",
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "ITA"
+  ],
+  "procedure-type": "restricted",
+  "official-language": [
+   "ITA"
+  ],
+  "classification-cpv": [
+   "71300000"
+  ],
+  "contract-nature": [
+   "services"
+  ],
+  "publication-date": "2024-01-02+01:00",
+  "buyer-name": {
+   "ita": [
+    "Ministero della Difesa - Segretariato Generale della Difesa/DNA - Direzione degli Armamenti Aeronautici e per l'Aeronavigabilità"
+   ]
+  },
+  "notice-title": {
+   "ita": "Italia-Roma: Servizi di ingegneria",
+   "eng": "Italy-Rome: Engineering services"
+  }
+ },
+ {
+  "notice-identifier": "10d1a122-46ad-4d8e-bb08-0441d6b7b923",
+  "notice-type": "corr",
+  "publication-number": "17143-2024",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2023-12-21+02:00",
+  "procedure-identifier": "17e941a2-350e-49ac-8323-c879f31d5005",
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "ROU"
+  ],
+  "description-lot": {
+   "ron": [
+    "Vedetă de intervenție pentru scafandri- 2 cpl"
+   ]
+  },
+  "procedure-type": "comp-tend",
+  "official-language": [
+   "RON"
+  ],
+  "classification-cpv": [
+   "34513350",
+   "34513350"
+  ],
+  "notice-subtype": "18",
+  "contract-nature": [
+   "supplies",
+   "supplies"
+  ],
+  "publication-date": "2024-01-10Z",
+  "buyer-name": {
+   "ron": [
+    "Compania Nationala Romtehnica S.A."
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "ron": "România – Nave-suport pentru scufundări – Vedetă de intervenție pentru scafandri",
+   "eng": "Romania – Dive-support vessels – Vedetă de intervenție pentru scafandri"
+  },
+  "buyer-identifier": [
+   "RO 472771"
+  ],
+  "description-proc": {
+   "ron": "Vedetă de intervenție pentru scafandri"
+  }
+ },
+ {
+  "notice-type": "cn-standard",
+  "publication-number": "93334-2024",
+  "csecurity-clearance-description-lot": {
+   "ces": [
+    "důvěrná"
+   ]
+  },
+  "procedure-identifier": "c3c8137c-d92b-4f7f-8175-36decaf1451d",
+  "total-value": 86776859.5,
+  "official-language": [
+   "CES"
+  ],
+  "notice-subtype": "18",
+  "publication-date": "2024-02-14Z",
+  "estimated-value-proc": "86776859.5",
+  "deadline-receipt-request-date-lot": [
+   "2024-03-22+01:00"
+  ],
+  "notice-identifier": "1fd0f2b3-af14-49f9-bd92-d6576a0f799d",
+  "deadline-receipt-request": [
+   "2024-03-22T08:00:00+01:00"
+  ],
+  "estimated-value-lot": [
+   "86776859.5"
+  ],
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2024-02-13+01:00",
+  "estimated-value-cur-lot": [
+   "CZK"
+  ],
+  "total-value-cur": [
+   "CZK"
+  ],
+  "estimated-value-cur-proc": "CZK",
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "CZE"
+  ],
+  "deadline-receipt-request-time-lot": [
+   "08:00:00+01:00"
+  ],
+  "description-lot": {
+   "ces": [
+    "Předmětem Veřejné zakázky je poskytování služeb komplexního pozáručního servisu sítě hlasových služeb SHS, včetně jejich dálkového dohledu. Předmět Veřejné zakázky, obchodní a jiné smluvní podmínky jsou blíže popsány v závazném návrhu smlouvy, která bude součástí výzvy k podání nabídek pouze pro vyz"
+   ]
+  },
+  "procedure-type": "restricted",
+  "classification-cpv": [
+   "50334400",
+   "50334400"
+  ],
+  "contract-nature": [
+   "services",
+   "services"
+  ],
+  "buyer-name": {
+   "ces": [
+    "Ministerstvo obrany"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "ces": "Česko – Údržba komunikačních systémů – Pozáruční servis telefonních ústředen, dohledových systémů a systémů napájecích zdrojů",
+   "eng": "Czechia – Communications system maintenance services – Pozáruční servis telefonních ústředen, dohledových systémů a systémů napájecích zdrojů"
+  },
+  "buyer-identifier": [
+   "60162694"
+  ],
+  "description-proc": {
+   "ces": "Poskytování služeb komplexního pozáručního servisu sítě hlasových služeb SHS, včetně jejich dálkového dohledu. Předmět Veřejné zakázky, obchodní a jiné smluvní podmínky jsou blíže popsány v závazném návrhu smlouvy, která bude součástí výzvy k podání nabídek pouze pro vyzvané Dodavatele."
+  }
+ },
+ {
+  "notice-identifier": "499ae29b-40f6-4316-a26f-05c7081fac13",
+  "notice-type": "pin-only",
+  "publication-number": "533575-2026",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-07-30Z",
+  "total-value-cur": [
+   "EUR"
+  ],
+  "estimated-value-cur-proc": "EUR",
+  "total-value": 0,
+  "buyer-country": [
+   "NLD"
+  ],
+  "official-language": [
+   "NLD"
+  ],
+  "classification-cpv": [
+   "35300000",
+   "35331000",
+   "35340000",
+   "35300000",
+   "35331000",
+   "35340000"
+  ],
+  "notice-subtype": "6",
+  "contract-nature": [
+   "supplies",
+   "supplies"
+  ],
+  "publication-date": "2026-08-03+02:00",
+  "buyer-name": {
+   "nld": [
+    "Ministerie van Defensie"
+   ]
+  },
+  "estimated-value-proc": "0",
+  "notice-version": 1,
+  "notice-title": {
+   "nld": "Nederland – Wapens, munitie en bijbehorende onderdelen – RFI Injector Kit Ammo",
+   "eng": "Netherlands – Weapons, ammunition and associated parts – RFI Injector Kit Ammo"
+  },
+  "buyer-identifier": [
+   "27370985"
+  ],
+  "description-proc": {
+   "nld": "The Material and IT Command (COMMIT) hereby invites you to participate in the market consultation for the provision of information that can be used to acquire two types of cartridges to disrupt improvised explosive devices with the disruptor systems used within the Dutch Defence Forces."
+  }
+ },
+ {
+  "notice-type": "can-standard",
+  "publication-number": "534116-2026",
+  "result-value-notice": "7943005.16",
+  "procedure-identifier": "b68d55bb-dc27-421a-afab-c59ed479cc99",
+  "total-value": 7943005.16,
+  "official-language": [
+   "POL"
+  ],
+  "notice-subtype": "31",
+  "winner-selection-status": [
+   "selec-w"
+  ],
+  "publication-date": "2026-08-03+02:00",
+  "notice-identifier": "0610113b-b05f-4a38-9c68-f7618abe19cf",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-07-31Z",
+  "total-value-cur": [
+   "PLN"
+  ],
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "POL"
+  ],
+  "description-lot": {
+   "pol": [
+    "1. Przedmiotem zamówienia jest dostawa technicznych środków materiałowych, sprawdzianów i narzędzi specjalnych do broni strzeleckiej zgodnie z \"Opisem przedmiotu zamówienia\" oraz \"Projektowanymi postanowienia Umowy\", które stanowić będą załącznik do Specyfikacji Warunków Zamówienia (SWZ), wykonanych"
+   ]
+  },
+  "procedure-type": "restricted",
+  "classification-cpv": [
+   "35300000",
+   "35341000",
+   "35300000",
+   "35341000"
+  ],
+  "contract-nature": [
+   "supplies",
+   "supplies"
+  ],
+  "buyer-name": {
+   "pol": [
+    "1 REGIONALNA BAZA LOGISTYCZNA"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "pol": "Polska – Broń, amunicja i podobne elementy – Dostawa technicznych środków materiałowych, sprawdzianów i narzędzi specjalnych do broni strzeleckiej",
+   "eng": "Poland – Weapons, ammunition and associated parts – Dostawa technicznych środków materiałowych, sprawdzianów i narzędzi specjalnych do broni strzeleckiej"
+  },
+  "result-value-cur-notice": "PLN",
+  "description-proc": {
+   "pol": "1. Przedmiotem zamówienia jest dostawa technicznych środków materiałowych, sprawdzianów i narzędzi specjalnych do broni strzeleckiej zgodnie z \"Opisem przedmiotu zamówienia\" oraz \"Projektowanymi postanowienia Umowy\", które stanowić będą załącznik do Specyfikacji Warunków Zamówienia (SWZ), wykonanych"
+  }
+ },
+ {
+  "notice-identifier": "96c6afaf-8ed3-463a-acf9-5d6b03f2bc22",
+  "notice-type": "can-standard",
+  "publication-number": "534883-2026",
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-07-31+03:00",
+  "procedure-identifier": "df69086f-b21d-4972-93d9-fed505b32437",
+  "main-activity": [
+   "pub-os"
+  ],
+  "buyer-country": [
+   "EST"
+  ],
+  "description-lot": {
+   "est": [
+    "Ujuva piiritaristu lahendus 3 / Kõrvaldamise alused ja kvalifitseerimistingimused: Vaata hanke alusdokumentidest"
+   ]
+  },
+  "procedure-type": "restricted",
+  "official-language": [
+   "EST"
+  ],
+  "classification-cpv": [
+   "34515000",
+   "34515000"
+  ],
+  "notice-subtype": "31",
+  "winner-selection-status": [
+   "clos-nw"
+  ],
+  "contract-nature": [
+   "supplies",
+   "supplies"
+  ],
+  "publication-date": "2026-08-03+02:00",
+  "buyer-name": {
+   "est": [
+    "Politsei- ja Piirivalveamet"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "est": "Eesti – Ujuvkonstruktsioonid – Ujuva piiritaristu soetamine",
+   "eng": "Estonia – Floating structures – Ujuva piiritaristu soetamine"
+  },
+  "buyer-identifier": [
+   "70008747"
+  ],
+  "description-proc": {
+   "est": "Ujuva piiritaristu soetamine / Kõrvaldamise alused ja kvalifitseerimistingimused: Vaata hanke alusdokumentidest"
+  }
+ },
+ {
+  "notice-type": "can-standard",
+  "publication-number": "535203-2026",
+  "procedure-identifier": "69b61609-c7c7-44df-b1e2-5e95cc54797e",
+  "total-value": 300000000,
+  "official-language": [
+   "NLD"
+  ],
+  "notice-subtype": "31",
+  "winner-selection-status": [
+   "selec-w"
+  ],
+  "publication-date": "2026-08-03+02:00",
+  "estimated-value-proc": "300000000",
+  "notice-identifier": "792e2026-b6e6-4b7d-8d00-08de9a6711ff",
+  "estimated-value-lot": [
+   "300000000"
+  ],
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-07-01Z",
+  "estimated-value-cur-lot": [
+   "EUR"
+  ],
+  "total-value-cur": [
+   "EUR"
+  ],
+  "estimated-value-cur-proc": "EUR",
+  "buyer-country": [
+   "NLD"
+  ],
+  "description-lot": {
+   "nld": [
+    "De Opdracht omvat Applicatiediensten, bestaande uit alle Diensten voor het (door)ontwikkelen en beheer van applicaties voor de Politie waarmee veiligheids- doelstellingen worden gerealiseerd. Applicatiediensten kunnen worden ingezet op alle platformen en of communicatiekanalen die in gebruik zijn bi"
+   ]
+  },
+  "procedure-type": "restricted",
+  "classification-cpv": [
+   "72212517",
+   "72212500",
+   "72222300",
+   "72260000",
+   "72212517",
+   "72212500",
+   "72222300",
+   "72260000"
+  ],
+  "contract-nature": [
+   "services",
+   "services"
+  ],
+  "buyer-name": {
+   "nld": [
+    "Politie"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "nld": "Nederland – Diensten voor ontwikkeling van IT-software – Europese Aanbesteding Applicatiediensten",
+   "eng": "Netherlands – IT software development services – Europese Aanbesteding Applicatiediensten"
+  },
+  "buyer-identifier": [
+   "57096317"
+  ],
+  "description-proc": {
+   "nld": "De Opdracht omvat Applicatiediensten, bestaande uit alle Diensten voor het (door)ontwikkelen en beheer van applicaties voor de Politie waarmee veiligheids- doelstellingen worden gerealiseerd. Applicatiediensten kunnen worden ingezet op alle platformen en of communicatiekanalen die in gebruik zijn bi"
+  }
+ },
+ {
+  "notice-type": "can-standard",
+  "publication-number": "536788-2026",
+  "result-value-notice": "1982953.6",
+  "procedure-identifier": "85608a27-5265-44cc-b765-fb663eaac777",
+  "total-value": 1982953.6,
+  "official-language": [
+   "CES"
+  ],
+  "notice-subtype": "31",
+  "winner-selection-status": [
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w",
+   "selec-w"
+  ],
+  "publication-date": "2026-08-03+02:00",
+  "estimated-value-proc": "77800000",
+  "notice-identifier": "c3abbce9-7138-45e4-95c3-1e4fd0b827ad",
+  "estimated-value-lot": [
+   "78800000"
+  ],
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-07-30+02:00",
+  "estimated-value-cur-lot": [
+   "CZK"
+  ],
+  "total-value-cur": [
+   "CZK"
+  ],
+  "estimated-value-cur-proc": "CZK",
+  "main-activity": [
+   "gen-pub"
+  ],
+  "buyer-country": [
+   "CZE"
+  ],
+  "description-lot": {
+   "ces": [
+    "Předmětem plnění je závazek dodavatele provádět dílo, které spočívá v zajištění pravidelného servisu bezpečnostních a slaboproudých technologií a zařízení včetně příslušné komunikační infrastruktury v areálu Pražského hradu a zámku Lány. Bližší a podrobná specifikace předmětu plnění je uvedena v Zad"
+   ]
+  },
+  "procedure-type": "restricted",
+  "classification-cpv": [
+   "50610000",
+   "50610000"
+  ],
+  "contract-nature": [
+   "services",
+   "services"
+  ],
+  "buyer-name": {
+   "ces": [
+    "Správa Pražského hradu"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "ces": "Česko – Opravy a údržba bezpečnostního zařízení – Servis bezpečnostních a slaboproudých technologií a zařízení včetně příslušné komunikační infrastruktury v areálu Pražského hradu a zámku Lány",
+   "eng": "Czechia – Repair and maintenance services of security equipment – Servis bezpečnostních a slaboproudých technologií a zařízení včetně příslušné komunikační infrastruktury v areálu Pražského hradu a zámku Lány"
+  },
+  "result-value-cur-notice": "CZK",
+  "buyer-identifier": [
+   "49366076"
+  ],
+  "description-proc": {
+   "ces": "Předmětem plnění je závazek dodavatele provádět dílo, které spočívá v zajištění pravidelného servisu bezpečnostních a slaboproudých technologií a zařízení včetně příslušné komunikační infrastruktury v areálu Pražského hradu a zámku Lány. Bližší a podrobná specifikace předmětu plnění je uvedena v Zad"
+  }
+ },
+ {
+  "notice-type": "can-standard",
+  "publication-number": "536819-2026",
+  "result-value-notice": "212988",
+  "procedure-identifier": "414b27c8-61d4-4189-b9a7-1fce9ada6b21",
+  "total-value": 212988,
+  "official-language": [
+   "HRV"
+  ],
+  "notice-subtype": "31",
+  "winner-selection-status": [
+   "selec-w",
+   "open-nw",
+   "open-nw"
+  ],
+  "publication-date": "2026-08-03+02:00",
+  "estimated-value-proc": "520736",
+  "notice-identifier": "2143cb5a-7da8-44d4-b937-bc7d613b564c",
+  "estimated-value-lot": [
+   "213600",
+   "225920",
+   "81216"
+  ],
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-07-31+02:00",
+  "estimated-value-cur-lot": [
+   "EUR"
+  ],
+  "total-value-cur": [
+   "EUR"
+  ],
+  "estimated-value-cur-proc": "EUR",
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "HRV"
+  ],
+  "description-lot": {
+   "hrv": [
+    "Oprema namijenjena za uspostavu satelitskih linkova na satelitskom sustavu VSAT. Isporuka uključuje uređaj za analizu frekvencijskog spektra.",
+    "Oprema uključuje dipol antenu i antenski stup, a neophodna je radi ostvarivanja uvjeta kratkovalnih radio komunikacija ta za kompletiranje razmjestivih mrežnih i pristupnih komunikacijskih čvorova.",
+    "Taktičke naglavne MTK potrebne su radi zaštite sluha pripadnika pri provedbi borbenih i obučnih zadaća."
+   ]
+  },
+  "procedure-type": "neg-w-call",
+  "classification-cpv": [
+   "32570000",
+   "32570000",
+   "32570000",
+   "32570000"
+  ],
+  "contract-nature": [
+   "supplies",
+   "supplies",
+   "supplies",
+   "supplies"
+  ],
+  "buyer-name": {
+   "hrv": [
+    "REPUBLIKA HRVATSKA MINISTARSTVO OBRANE"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "hrv": "Hrvatska – Komunikacijska oprema – Oprema za RF analizu i taktičke komunikacije",
+   "eng": "Croatia – Communications equipment – Oprema za RF analizu i taktičke komunikacije"
+  },
+  "result-value-cur-notice": "EUR",
+  "buyer-identifier": [
+   "66486182714"
+  ],
+  "description-proc": {
+   "hrv": "Predmet ove nabave je OPREMA ZA RF ANALIZU I TAKTIČKE KOMUNIKACIJE (Ručni analizator spektra, Dipol antena i antenski stup, Taktička naglavna MTK dvostruka) te ostala pripadajuća oprema."
+  }
+ },
+ {
+  "notice-type": "cn-standard",
+  "publication-number": "537885-2026",
+  "procedure-identifier": "baccd071-416f-4b6b-ada4-3cdcd14d7ac0",
+  "total-value": 30893400,
+  "official-language": [
+   "SPA"
+  ],
+  "notice-subtype": "18",
+  "publication-date": "2026-08-04+02:00",
+  "estimated-value-proc": "30893400",
+  "deadline-receipt-request-date-lot": [
+   "2026-09-03+02:00",
+   "2026-09-03+02:00"
+  ],
+  "notice-identifier": "63a7e9f3-7731-4319-9956-b83bec1826d0",
+  "deadline-receipt-request": [
+   "2026-09-03T12:00:00+02:00",
+   "2026-09-03T12:00:00+02:00"
+  ],
+  "estimated-value-lot": [
+   "5050000",
+   "18194500"
+  ],
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-08-03+02:00",
+  "estimated-value-cur-lot": [
+   "EUR"
+  ],
+  "total-value-cur": [
+   "EUR"
+  ],
+  "estimated-value-cur-proc": "EUR",
+  "main-activity": [
+   "defence"
+  ],
+  "buyer-country": [
+   "ESP"
+  ],
+  "deadline-receipt-request-time-lot": [
+   "12:00:00+02:00",
+   "12:00:00+02:00"
+  ],
+  "description-lot": {
+   "spa": [
+    "Manipulador telescópico fijo - Lote 1",
+    "Manipulador telescópico de alta movilidad - Lote 2"
+   ]
+  },
+  "procedure-type": "neg-w-call",
+  "classification-cpv": [
+   "34144710",
+   "42415000",
+   "34144710",
+   "34144710",
+   "42415000",
+   "42415000"
+  ],
+  "contract-nature": [
+   "supplies",
+   "supplies",
+   "supplies"
+  ],
+  "buyer-name": {
+   "spa": [
+    "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "spa": "España – Cargadoras sobre ruedas – Adquisición de manipuladores telescópicos y accesorios",
+   "eng": "Spain – Wheeled loaders – Adquisición de manipuladores telescópicos y accesorios"
+  },
+  "buyer-identifier": [
+   "10000140000201",
+   "S2800811H"
+  ],
+  "description-proc": {
+   "spa": "Adquisición de manipuladores telescópicos y accesorios"
+  }
+ },
+ {
+  "notice-type": "cn-standard",
+  "publication-number": "554343-2026",
+  "procedure-identifier": "6042905a-c3c9-4be7-86ca-454f18e91ef3",
+  "official-language": [
+   "POL"
+  ],
+  "notice-subtype": "18",
+  "publication-date": "2026-08-11+02:00",
+  "deadline-receipt-request-date-lot": [
+   "2026-09-10+02:00",
+   "2026-09-10+02:00"
+  ],
+  "notice-identifier": "09970740-3337-4b20-9adb-955febd77bf5",
+  "deadline-receipt-request": [
+   "2026-09-10T09:00:00+02:00",
+   "2026-09-10T09:00:00+02:00"
+  ],
+  "estimated-value-lot": [
+   "24623514",
+   "50654246"
+  ],
+  "legal-basis": [
+   "32009L0081"
+  ],
+  "dispatch-date": "2026-08-10Z",
+  "estimated-value-cur-lot": [
+   "PLN"
+  ],
+  "buyer-country": [
+   "POL"
+  ],
+  "deadline-receipt-request-time-lot": [
+   "09:00:00+02:00",
+   "09:00:00+02:00"
+  ],
+  "description-lot": {
+   "pol": [
+    "Usługa ochrony fizycznej osób i mienia oraz monitoringu realizowana przez specjalistyczne uzbrojone formacje ochronne, zwane dalej SUFO, w całodobowym systemie zmianowym, polegająca na bezpośredniej ochronie fizycznej, stałym dozorze sygnałów przesyłanych, gromadzonych i przetwarzanych w elektronicz",
+    "Usługa ochrony fizycznej osób i mienia oraz monitoringu realizowana przez specjalistyczne uzbrojone formacje ochronne, zwane dalej SUFO, w całodobowym systemie zmianowym, polegająca na bezpośredniej ochronie fizycznej, stałym dozorze sygnałów przesyłanych, gromadzonych i przetwarzanych w elektronicz"
+   ]
+  },
+  "procedure-type": "restricted",
+  "classification-cpv": [
+   "79710000",
+   "79710000",
+   "79710000"
+  ],
+  "contract-nature": [
+   "services",
+   "services",
+   "services"
+  ],
+  "buyer-name": {
+   "pol": [
+    "24 Wojskowy Oddział Gospodarczy"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "pol": "Polska – Usługi ochroniarskie – Usługi w zakresie ochrony osób i mienia oraz monitoringu świadczone przez specjalistyczne uzbrojone formacje ochronne (SUFO) na terenie administrowanym przez 24 WOG w latach 2026-2029",
+   "eng": "Poland – Security services – Usługi w zakresie ochrony osób i mienia oraz monitoringu świadczone przez specjalistyczne uzbrojone formacje ochronne (SUFO) na terenie administrowanym przez 24 WOG w latach 2026-2029"
+  },
+  "buyer-identifier": [
+   "280602118"
+  ],
+  "description-proc": {
+   "pol": "Usługi w zakresie ochrony osób i mienia oraz monitoringu świadczone przez specjalistyczne uzbrojone formacje ochronne (SUFO) na terenie administrowanym przez 24 WOG w latach 2026-2029"
+  }
+ },
+ {
+  "notice-identifier": "979a59bc-f43c-4f0b-8572-14806c7a6559",
+  "notice-type": "veat",
+  "publication-number": "573801-2026",
+  "legal-basis": [
+   "32014L0024"
+  ],
+  "dispatch-date": "2026-08-17+02:00",
+  "total-value-cur": [
+   "EUR"
+  ],
+  "procedure-identifier": "e73355cd-1b80-4ce0-aa4c-4f885628c1f6",
+  "main-activity": [
+   "pub-os"
+  ],
+  "total-value": 3088264.46,
+  "buyer-country": [
+   "NLD"
+  ],
+  "description-lot": {
+   "nld": [
+    "Aanschaf en onderhoud redgereedschap Zie raming van de opdracht"
+   ]
+  },
+  "procedure-type": "neg-wo-call",
+  "official-language": [
+   "NLD"
+  ],
+  "classification-cpv": [
+   "35000000",
+   "35000000"
+  ],
+  "notice-subtype": "25",
+  "contract-nature": [
+   "supplies",
+   "supplies"
+  ],
+  "publication-date": "2026-08-19+02:00",
+  "buyer-name": {
+   "nld": [
+    "Veiligheidsregio Rotterdam-Rijnmond"
+   ]
+  },
+  "notice-version": 1,
+  "notice-title": {
+   "nld": "Nederland – Uitrusting voor veiligheid, brandweer, politie en leger – Aanschaf en onderhoud redgereedschap",
+   "eng": "Netherlands – Security, fire-fighting, police and defence equipment – Aanschaf en onderhoud redgereedschap"
+  },
+  "buyer-identifier": [
+   "161886824"
+  ],
+  "description-proc": {
+   "nld": "Motivering aankondiging vrijwillige transparantie vooraf inzake aanschaf en onderhoud redgereedschap De huidige raamovereenkomst voor de aanschaf van redgereedschap met Holmatro Rescue Equipment BV (hierna: Holmatro) eindigt 31-12-2026. Middels deze publicatie wenst de Veiligheidsregio Rotterdam-Rij"
+  }
+ }
+]

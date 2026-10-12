@@ -60,6 +60,7 @@ class Opportunity:
     native_id: str
     buyer_name_raw: str
     title_original: str
+    buyer_identifier: str | None = None
     country: str | None = None
     original_language: str | None = None
     title_en: str | None = None
@@ -84,6 +85,15 @@ class Opportunity:
     # link, not a version-worthy fact: not part of VERSIONED_FIELDS, and left
     # out of the payload while empty so existing content hashes do not move.
     ted_ref: str | None = None
+    # TED facts that are attributes, not version-worthy changes (migration 0030):
+    # the numeric/eForms subtype, the procedure a notice belongs to (its
+    # re-publications and corrigenda share it), how many lots it lists, and which
+    # of TED's value fields value_amount was taken from (total, estimated,
+    # lot_sum, first_lot). Left out of the payload while empty, like ted_ref.
+    notice_subtype: str | None = None
+    procedure_identifier: str | None = None
+    lot_count: int | None = None
+    value_kind: str | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
@@ -357,6 +367,37 @@ def _lang2(value: Any) -> str | None:
     return _LANG3_TO_2.get(s, s[:2].upper() if s else None)
 
 
+# ISO 3166-1 alpha-3 to alpha-2, all 249 officially assigned codes, plus the two
+# TED uses outside the standard: XKX (Kosovo, user-assigned XK) and EUR (the EU
+# institutions, reserved EU). Truncating an unknown code to its first two letters
+# was the previous fallback, and it silently turned BLR into BL, SRB into SR, TUR
+# into TU and GRL into Greece (79 rows visibly wrong on 12 October 2026).
+_ISO3_PAIRS = (
+    """AFG AF ALA AX ALB AL DZA DZ ASM AS AND AD AGO AO AIA AI ATA AQ ATG AG ARG AR ARM AM
+    ABW AW AUS AU AUT AT AZE AZ BHS BS BHR BH BGD BD BRB BB BLR BY BEL BE BLZ BZ BEN BJ
+    BMU BM BTN BT BOL BO BES BQ BIH BA BWA BW BVT BV BRA BR IOT IO BRN BN BGR BG BFA BF
+    BDI BI CPV CV KHM KH CMR CM CAN CA CYM KY CAF CF TCD TD CHL CL CHN CN CXR CX CCK CC
+    COL CO COM KM COG CG COD CD COK CK CRI CR CIV CI HRV HR CUB CU CUW CW CYP CY CZE CZ
+    DNK DK DJI DJ DMA DM DOM DO ECU EC EGY EG SLV SV GNQ GQ ERI ER EST EE SWZ SZ ETH ET
+    FLK FK FRO FO FJI FJ FIN FI FRA FR GUF GF PYF PF ATF TF GAB GA GMB GM GEO GE DEU DE
+    GHA GH GIB GI GRC GR GRL GL GRD GD GLP GP GUM GU GTM GT GGY GG GIN GN GNB GW GUY GY
+    HTI HT HMD HM VAT VA HND HN HKG HK HUN HU ISL IS IND IN IDN ID IRN IR IRQ IQ IRL IE
+    IMN IM ISR IL ITA IT JAM JM JPN JP JEY JE JOR JO KAZ KZ KEN KE KIR KI PRK KP KOR KR
+    KWT KW KGZ KG LAO LA LVA LV LBN LB LSO LS LBR LR LBY LY LIE LI LTU LT LUX LU MAC MO
+    MDG MG MWI MW MYS MY MDV MV MLI ML MLT MT MHL MH MTQ MQ MRT MR MUS MU MYT YT MEX MX
+    FSM FM MDA MD MCO MC MNG MN MNE ME MSR MS MAR MA MOZ MZ MMR MM NAM NA NRU NR NPL NP
+    NLD NL NCL NC NZL NZ NIC NI NER NE NGA NG NIU NU NFK NF MKD MK MNP MP NOR NO OMN OM
+    PAK PK PLW PW PSE PS PAN PA PNG PG PRY PY PER PE PHL PH PCN PN POL PL PRT PT PRI PR
+    QAT QA REU RE ROU RO RUS RU RWA RW BLM BL SHN SH KNA KN LCA LC MAF MF SPM PM VCT VC
+    WSM WS SMR SM STP ST SAU SA SEN SN SRB RS SYC SC SLE SL SGP SG SXM SX SVK SK SVN SI
+    SLB SB SOM SO ZAF ZA SGS GS SSD SS ESP ES LKA LK SDN SD SUR SR SJM SJ SWE SE CHE CH
+    SYR SY TWN TW TJK TJ TZA TZ THA TH TLS TL TGO TG TKL TK TON TO TTO TT TUN TN TUR TR
+    TKM TM TCA TC TUV TV UGA UG UKR UA ARE AE GBR GB USA US UMI UM URY UY UZB UZ VUT VU
+    VEN VE VNM VN VGB VG VIR VI WLF WF ESH EH YEM YE ZMB ZM ZWE ZW XKX XK EUR EU""".split())
+_ISO3_TO_2 = dict(zip(_ISO3_PAIRS[::2], _ISO3_PAIRS[1::2], strict=True))
+_UNKNOWN_COUNTRY_LOGGED: set[str] = set()
+
+
 def _country2(value: Any) -> str | None:
     raw = _first(value)
     if not raw:
@@ -364,15 +405,12 @@ def _country2(value: Any) -> str | None:
     s = str(raw).strip().upper()
     if len(s) == 2:
         return s
-    iso3 = {
-        "ESP": "ES", "DEU": "DE", "FRA": "FR", "NLD": "NL", "POL": "PL",
-        "PRT": "PT", "ROU": "RO", "CZE": "CZ", "LTU": "LT", "LVA": "LV",
-        "EST": "EE", "ITA": "IT", "BEL": "BE", "SWE": "SE", "DNK": "DK",
-        "FIN": "FI", "AUT": "AT", "GRC": "GR", "BGR": "BG", "HRV": "HR",
-        "HUN": "HU", "IRL": "IE", "LUX": "LU", "MLT": "MT", "SVK": "SK",
-        "SVN": "SI", "CYP": "CY", "NOR": "NO", "UKR": "UA",
-    }
-    return iso3.get(s, s[:2])
+    got = _ISO3_TO_2.get(s)
+    if (got is None and s not in _UNKNOWN_COUNTRY_LOGGED
+            and len(_UNKNOWN_COUNTRY_LOGGED) < 100):
+        _UNKNOWN_COUNTRY_LOGGED.add(s[:16])
+        log.warning("country code %r is not in the ISO 3166-1 alpha-3 table; left empty", s)
+    return got
 
 
 # ---------------------------------------------------------- name handling
@@ -466,6 +504,163 @@ def _in_language(value: Any, lang3: str | None) -> str | None:
     return None
 
 
+# What a TED notice type means for the lifecycle. The value is `status`; the type
+# itself is kept in status_native. Anything not listed is `unknown`, never `open`:
+# a notice type we have not read is not something a supplier can act on.
+#   contract notices and calls for competition   open (the deadline decides, and
+#                                                effective_status turns a passed
+#                                                one into expired)
+#   award, modification and ex-ante notices      awarded (or cancelled, below)
+#   prior information, market consultation       forthcoming
+#   corrigendum                                  open when it states a deadline
+TED_RESULT_TYPES = frozenset(
+    {"can-standard", "can-social", "can-desg", "can-tran", "can-modif", "veat", "compl"})
+TED_STATUS_BY_TYPE: dict[str, str] = {
+    **dict.fromkeys(("cn-standard", "cn-social", "cn-desg", "pin-cfc-standard",
+                     "pin-cfc-social", "subco", "qu-sy", "corr"), "open"),
+    **dict.fromkeys(TED_RESULT_TYPES, "awarded"),
+    **dict.fromkeys(("pin-only", "pin-buyer", "pin-rtl", "pin-tran", "pmc"), "forthcoming"),
+}
+
+
+def ted_notice_type(notice: dict[str, Any]) -> str | None:
+    raw = _first(notice.get("notice-type"))
+    return str(raw).strip().lower() if raw else None
+
+
+def ted_status(notice_type: str | None, has_deadline: bool,
+               lot_results: list[str] | None = None) -> str:
+    """The lifecycle status of a TED notice, from its type and what it states.
+
+    A result notice whose every lot is `clos-nw` (closed, no winner) awarded
+    nothing and is `cancelled`; any lot with a winner, or a notice that does not
+    say per lot (anything before eForms), is `awarded`.
+    """
+    status = TED_STATUS_BY_TYPE.get(notice_type or "")
+    if status is None:
+        return "unknown"
+    if notice_type == "corr":
+        return "open" if has_deadline else "unknown"
+    if (notice_type in TED_RESULT_TYPES and lot_results
+            and all(r == "clos-nw" for r in lot_results)):
+        return "cancelled"
+    return status
+
+
+def _each(value: Any) -> list[Any]:
+    """TED sends a scalar or a list for the same field; always a list here."""
+    if isinstance(value, (list, tuple)):
+        return [v for v in value if v not in (None, "")]
+    return [] if value in (None, "") else [value]
+
+
+def _ted_deadline(g) -> datetime | None:
+    """The tender deadline, to the minute and in the notice's own time zone.
+
+    `deadline-receipt-request` (TED's union of BT-131, BT-1311 and BT-630) is a
+    full ISO datetime per lot. Lots of one notice carry the same one in all but
+    a rare case; the latest is taken, because a notice is still one a supplier can
+    act on while any lot is. Where it is absent -- a payload fetched before it was
+    requested -- the lot-level date and time fields are read, the request-to-
+    participate time included: dropping it applied 23:59 to a deadline stated as
+    08:00. `deadline-date-lot` is BT-13 (additional information) and is never read.
+    """
+    stamps = [t for t in (parse_iso_datetime(v) for v in _each(g("deadline-receipt-request")))
+              if t is not None]
+    if stamps:
+        return max(stamps)
+    return (_parse_datetime(g("deadline-receipt-tender-date-lot"),
+                            g("deadline-receipt-tender-time-lot"))
+            or _parse_datetime(g("deadline-receipt-request-date-lot"),
+                               g("deadline-receipt-request-time-lot")))
+
+
+def _lot_count(g) -> int | None:
+    """How many lots the notice lists, from the per-lot lists TED returns.
+
+    `description-lot` is a block per language each holding one entry per lot, and
+    the per-lot deadline, winner and value lists agree with it. The longest wins,
+    so a lot with no description or no value is still counted.
+    """
+    sizes = []
+    desc = g("description-lot")
+    if isinstance(desc, dict):
+        sizes += [len(v) if isinstance(v, list) else 1 for v in desc.values()]
+    for key in ("deadline-receipt-request", "winner-selection-status", "estimated-value-lot"):
+        v = g(key)
+        if isinstance(v, list):
+            sizes.append(len(v))
+    return max(sizes) if sizes and max(sizes) > 0 else None
+
+
+def _ted_value(g, notice_type: str | None, lots: int | None
+               ) -> tuple[float | None, str | None, str | None]:
+    """(amount, currency, kind): which of TED's several values is the notice's.
+
+    `kind` records the choice, so a figure can be told from an approximation:
+      total      TED's own notice total (`total-value`; for a result notice the
+                 awarded value, `result-value-notice` failing that)
+      estimated  the procedure's estimated value
+      lot_sum    every lot has a value, all in one currency: their sum
+      first_lot  none of the above, so the first lot's value, which may be one of
+                 several and is flagged as such rather than shown as the total
+    """
+    def pair(amount: str, currency: str) -> tuple[float | None, str | None]:
+        got = _parse_amount(g(amount))
+        cur = _first(g(currency))
+        return got, (str(cur) if cur else None)
+
+    if notice_type in TED_RESULT_TYPES:
+        for amount, cur in (("total-value", "total-value-cur"),
+                            ("result-value-notice", "result-value-cur-notice")):
+            got, c = pair(amount, cur)
+            if got is not None:
+                return got, c, "total"
+    got, c = pair("estimated-value-proc", "estimated-value-cur-proc")
+    if got is not None:
+        return got, c, "estimated"
+    # Before the lots: a legacy notice states only this, and it is the figure TED
+    # itself calls the notice's total.
+    got, c = pair("total-value", "total-value-cur")
+    if got is not None:
+        return got, c, "total"
+
+    amounts = [a for a in (_parse_amount(v) for v in _each(g("estimated-value-lot")))
+               if a is not None]
+    if not amounts:
+        return None, None, None
+    currencies = {str(c).strip().upper() for c in _each(g("estimated-value-cur-lot"))}
+    # TED lists each distinct currency once, not one per lot.
+    if len(currencies) == 1 and len(amounts) == (lots or len(amounts)):
+        return round(sum(amounts), 2), next(iter(currencies)), "lot_sum"
+    first_cur = _first(g("estimated-value-cur-lot"))
+    return amounts[0], (str(first_cur) if first_cur else None), "first_lot"
+
+
+def _ted_buyer_identifier(value: Any) -> str | None:
+    """The buyer's registration number as TED states it, or nothing.
+
+    An organisation identifier, never a person: it must carry a digit (a name does
+    not), must not be a telephone number or an address -- one German buyer filed
+    its switchboard as `+49...` -- and is dropped, not cut, when it is too long to
+    be an identifier at all.
+    """
+    raw = _first(value)
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if (not text or len(text) > 64 or text.startswith("+") or "@" in text
+            or not any(ch.isdigit() for ch in text)):
+        return None
+    return text
+
+
+def _ted_text(value: Any, limit: int = 64) -> str | None:
+    raw = _first(value)
+    text = str(raw).strip()[:limit] if raw is not None else ""
+    return text or None
+
+
 def from_ted(notice: dict[str, Any]) -> Opportunity:
     """Map one raw TED notice onto the unified schema.
 
@@ -483,16 +678,12 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
 
     description = _first(g("description-lot")) or _first(g("description-proc"))
 
-    value = _parse_amount(g("estimated-value-lot"))
-    currency = _first(g("estimated-value-cur-lot"))
-    if value is None:
-        value = _parse_amount(g("estimated-value-proc"))
-        currency = currency or _first(g("estimated-value-cur-proc"))
-
-    deadline = _parse_datetime(
-        g("deadline-receipt-tender-date-lot"),
-        g("deadline-receipt-tender-time-lot"),
-    ) or _parse_datetime(g("deadline-receipt-request-date-lot"))
+    notice_type = ted_notice_type(notice)
+    lots = _lot_count(g)
+    value, currency, value_kind = _ted_value(g, notice_type, lots)
+    deadline = _ted_deadline(g)
+    lot_results = [str(r).strip().lower() for r in _each(g("winner-selection-status"))]
+    status = ted_status(notice_type, deadline is not None, lot_results)
 
     # `links` is a nested dict of format and language variants
     # ({"xml": {"MUL": ...}, "pdf": {"BUL": ..., "SPA": ...}}), so picking the
@@ -527,14 +718,26 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
         buyer_name_raw=str(_first(g("buyer-name")) or "").strip() or "UNKNOWN",
         title_original=title_original,
         title_en=title_en,
+        buyer_identifier=_ted_buyer_identifier(g("buyer-identifier")),
         country=_country2(g("buyer-country")),
         original_language=_lang2(g("official-language")),
-        procedure_type=_first(g("notice-subtype")),
+        # The procedure as TED names it (open, restricted, neg-w-call, ...). The
+        # subtype -- "16", "29", "E4" -- used to sit here and the API hides digits,
+        # so 101,603 notices showed no procedure. It has its own column now.
+        procedure_type=_ted_text(g("procedure-type")),
+        notice_subtype=_ted_text(g("notice-subtype")),
+        procedure_identifier=_ted_text(g("procedure-identifier")),
+        lot_count=lots,
+        value_kind=value_kind,
         legal_basis=_first(g("legal-basis")),
         value_amount=value,
         value_currency=(str(currency)[:3].upper() if currency else None),
-        published_at=_parse_date(g("dispatch-date")),
+        # The publication date, which is what TED shows and what "new since"
+        # means. dispatch-date is when the buyer sent it, one to six days earlier.
+        published_at=_parse_date(g("publication-date")) or _parse_date(g("dispatch-date")),
         deadline_at=deadline,
+        status=status,
+        status_native=notice_type,
         cpv_codes=_clean_cpv(g("classification-cpv")),
         source_url=str(url),
         notice_version=version,
