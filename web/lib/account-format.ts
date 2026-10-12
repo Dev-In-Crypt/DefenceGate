@@ -36,7 +36,7 @@ export function followHref(kind: FollowKind, ref: string, slug?: string | null):
 
 /** The query keys the public list pages read. Anything else in a stored filter is dropped from the link. */
 export const FILTER_KEYS: Record<SearchKind, readonly string[]> = {
-  tender: ['q', 'country', 'status', 'scope', 'from', 'to', 'min', 'max', 'currency', 'sort'],
+  tender: ['q', 'country', 'cpv', 'status', 'scope', 'from', 'to', 'min', 'max', 'currency', 'sort'],
   call: ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort'],
 };
 
@@ -80,6 +80,8 @@ export function describeFilters(kind: SearchKind, filters: SearchFilters): strin
   if (kind === 'call' && regime.length) out.push(regime.map((c) => REGIMES[c as keyof typeof REGIMES] ?? c).join(', '));
   const country = codes(text(filters.country));
   if (country.length) out.push(`${kind === 'tender' ? 'Buyer' : 'Funder'} country: ${country.map(countryName).join(', ')}`);
+  const cpv = codes(text(filters.cpv));
+  if (kind === 'tender' && cpv.length) out.push(`CPV ${cpv.slice(0, 5).join(', ')}${cpv.length > 5 ? ' …' : ''}`);
   const from = text(filters.from);
   const to = text(filters.to);
   if (from) out.push(`Deadline from ${from}`);

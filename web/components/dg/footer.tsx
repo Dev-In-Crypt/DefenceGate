@@ -7,9 +7,11 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   { title: 'Directory', links: [
     { label: 'Funding calls', href: '/funding' }, { label: 'Closing soon', href: '/funding?status=closing-soon' },
     { label: 'Tenders', href: '/tenders' }, { label: 'Buyers', href: '/buyers' },
+    { label: 'Deadline calendar', href: '/calendar' },
   ] },
   { title: 'Data', links: [
     { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
+    { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
     { label: 'Alerts', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
     { label: 'Pricing', href: '/pricing' },
   ] },
@@ -22,7 +24,7 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
 export async function Footer() {
   const health = await getHealth();
   return (
-    <footer className="page pb-8">
+    <footer className="page pb-8 print:hidden">
       <div className="flex flex-col gap-8 rounded-lg bg-surface p-6">
         <div className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="flex flex-col gap-3">

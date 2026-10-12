@@ -1,15 +1,18 @@
 import Link from 'next/link';
+import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, openingPhrase } from '@/lib/format';
-import { PROGRAMMES, REGIMES, TENDER_SCOPES } from '@/lib/taxonomy';
+import { anomalyNotes, tenderStatusView } from '@/lib/tender-status';
+import { PROGRAMMES, REGIMES, TENDER_SCOPES, isNonEnglish } from '@/lib/taxonomy';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
 import { AmountDisplay, CountryLabel, FactCell, LangLabel } from './data-display';
+import { Icon } from './icon';
 import { SourceBadge } from './source-badge';
 
 const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted sm:p-6';
-const TITLE_LINK = 'text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
+const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 
 /** Whole card is one link (stretched title). "View original" sits above it. */
 export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLevel?: 'h2' | 'h3' }) {
@@ -18,7 +21,7 @@ export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLev
   const upcoming = call.status === 'forthcoming';
   // A call that has not opened yet is not under time pressure, whatever its deadline.
   const soon = !upcoming && (d.state === 'soon' || d.state === 'urgent');
-  const nonEnglish = call.titleLanguage !== 'en';
+  const nonEnglish = isNonEnglish(call.titleLanguage);
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
@@ -68,17 +71,30 @@ export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLev
   );
 }
 
-/** Status pills of a tender: Amended (when it changed), then Awarded / Cancelled / Closed / Closing soon / Open. */
+/**
+ * Status pills of a tender: Amended (when it changed), then the effective status in words
+ * (Open, Closing soon, Closed, Awarded, Cancelled, Planned, Status unknown). See lib/tender-status.ts.
+ */
 export function TenderStatusPills({ tender }: { tender: Tender }) {
-  const d = getTenderDeadline(tender);
-  const native = tender.statusNative;
-  // The source's own word wins over a bare "Closed".
-  const label = tender.status === 'closed' ? (native === 'awarded' ? 'Awarded' : native === 'cancelled' ? 'Cancelled' : undefined) : undefined;
+  const s = tenderStatusView(tender);
   return (
     <>
       {tender.amended && <StatusPill status="amended" />}
-      <StatusPill status={callStatusKind(tender.status, d.state)}>{label}</StatusPill>
+      <StatusPill status={s.kind}>{s.label}</StatusPill>
     </>
+  );
+}
+
+/** What looks wrong in the source's own dates, in words. Renders nothing without a known anomaly. */
+export function AnomalyNote({ tender, className }: { tender: Pick<Tender, 'anomalies'>; className?: string }) {
+  const notes = anomalyNotes(tender);
+  if (notes.length === 0) return null;
+  return (
+    <div className={cn('flex flex-col gap-0.5 text-small text-ink-muted', className)}>
+      {notes.map((n) => (
+        <p key={n} className="m-0 flex items-start gap-1.5"><Icon icon={TriangleAlert} size="inline" className="mt-0.5 shrink-0" /><span>{n}</span></p>
+      ))}
+    </div>
   );
 }
 
@@ -87,7 +103,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
   const d = getTenderDeadline(tender);
   const closed = d.state === 'closed';
   const soon = d.state === 'soon' || d.state === 'urgent';
-  const nonEnglish = tender.titleLanguage !== null && tender.titleLanguage !== 'en';
+  const nonEnglish = isNonEnglish(tender.titleLanguage);
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
@@ -130,6 +146,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
         <FactCell label="Estimated value" tone={closed ? 'closed' : 'default'}><AmountDisplay money={tender.estimatedValue} /></FactCell>
         <FactCell label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</FactCell>
       </dl>
+      <AnomalyNote tender={tender} />
       <SourceBadge source={tender.source} variant="inline" />
     </article>
   );

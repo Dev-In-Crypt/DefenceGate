@@ -88,6 +88,15 @@ Design system: `HeaderBar`, `Button` (primary, secondary, text), `Tag` (programm
 
 Added with the same tokens: `Footer`, `TenderCard`, `BuyerCard`, `TenderStatusPills`, `RunStatusPill`, `ListPage`, `ContentPage`, `ContentSection`, `PendingSections`, `Placeholder`, `DraftNotice`, `AmountDisplay`, `CountryLabel`, `FactCell`, `FilterBar` (GET form, URL-synced, works without JS), `FilterPanel`, `SortSelect`, `CallCalendar`, `CallListTemplate`, `Pagination`, `EmptyState`, `ErrorState`, `Skeleton`, `CallCardSkeleton`, `LockedFeature`, `ComingSoon`, `Breadcrumbs`, `JsonLd`, `ThemeToggle`, `WaitlistForm`.
 
+## Tools and reference pages
+
+- `/calendar` (month and list) and `/calendar.ics`: open tenders and funding calls with a deadline, built in `lib/calendar.ts` from `getTenders` / `getCalls` only; the feed is `lib/ics.ts` (RFC 5545, at most 500 events, UID `<kind>-<id>@defencegatehub.com`, cached an hour).
+- `/tenders/export.csv`, `/funding/export.csv`: the public fields of the current list result (same query keys as the pages), at most 2,000 rows, formula-safe cells (`lib/csv.ts`, `lib/export.ts`).
+- `/tenders/<slug>/evidence`: printable record with source, licence, retrieval time, version shown and the full version timeline; `noindex`. Print CSS hides the header and footer (`print:hidden`).
+- `/cpv`: selection of the official CPV 2008 vocabulary in `lib/data/cpv.json` (source and licence in the file's `_source` and `_licence`). `/glossary`: entries in `lib/glossary.ts`.
+- Tender status words come from `lib/tender-status.ts`: only an effective `open` reads "Open"; `expired` is "Closed"; `awarded`, `cancelled`, `forthcoming` ("Planned") and `unknown` ("Status unknown") have their own pills.
+- `lib/export.check.ts` is a self-check of the CSV and calendar-file helpers; the command to run it is in its header.
+
 ## States
 
 Each list route has loaded (page), loading (`loading.tsx` skeletons), empty (`EmptyState` in the template) and error (`error.tsx` → `ErrorState` with retry). The call detail route has no `loading.tsx` so unknown slugs return a real 404 and non-canonical slugs a real permanent redirect; it keeps `not-found.tsx` and `error.tsx`.

@@ -1,5 +1,5 @@
 import type { Call, CallStatus, DeadlineState, IsoDateTime, StatusKind, Tender } from './types';
-import { formatDateTimeUtc } from './format';
+import { formatDateLabelledUtc, formatDateTimeUtc } from './format';
 
 /** Thresholds from the design system's deadline states. */
 export const SOON_DAYS = 30;
@@ -77,6 +77,8 @@ export interface DeadlineInfo {
   /** "in 46 days" | "Today" | "Closed"; "" when there is no deadline. */
   countdown: string;
   label: string;
+  /** The source states a date, not a time of day (tenders only). */
+  dateOnly?: boolean;
 }
 
 /** Single entry point for all deadline presentation. */
@@ -98,17 +100,34 @@ export function getCallDeadline(call: Pick<Call, 'status' | 'deadline'>, ref: Da
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
 }
 
+/** A planned notice, or one of unknown status, is not under time pressure: "Closing soon" is for open ones. */
+const calm = (i: DeadlineInfo): DeadlineInfo =>
+  i.state === 'soon' || i.state === 'urgent' ? { ...i, state: 'normal', label: stateLabel('normal') } : i;
+
 /**
- * Deadline of a tender. TED gives a date only, which arrives as 00:00 UTC: it is shown as a date and the
- * notice stays open until the end of that UTC day. A tender the API reports as closed is shown closed.
+ * Deadline of a tender. A source that gives a date only (`deadlineIsDate`, or a time of exactly 00:00 UTC on an
+ * API that does not say) is shown as a date: the notice stays open until the end of that UTC day. A tender the
+ * API reports as closed is shown closed, except one that is planned or of unknown status: those are not
+ * "closed", so their date carries no "Closed" countdown.
  */
-export function getTenderDeadline(tender: Pick<Tender, 'status' | 'deadline'>, ref: Date = now()): DeadlineInfo {
+export function getTenderDeadline(
+  tender: Pick<Tender, 'status' | 'deadline'> & Partial<Pick<Tender, 'statusNative' | 'deadlineIsDate'>>,
+  ref: Date = now(),
+): DeadlineInfo {
   const { deadline } = tender;
-  if (deadline === null) return getCallDeadline(tender, ref);
+  const notClosed = tender.statusNative === 'forthcoming' || tender.statusNative === 'unknown';
+  if (deadline === null) return notClosed ? getDeadline(null, ref) : getCallDeadline(tender, ref);
   const d = new Date(deadline);
-  const dateOnly = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
-  if (!dateOnly) return getCallDeadline(tender, ref);
-  const info = { ...getDeadline(new Date(d.getTime() + DAY_MS - 1000).toISOString(), ref), iso: deadline, utc: formatDateTimeUtc(deadline) };
+  const inferred = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  const dateOnly = tender.deadlineIsDate ?? inferred;
+  if (!dateOnly) return notClosed ? calm(getDeadline(deadline, ref)) : getCallDeadline(tender, ref);
+  const info: DeadlineInfo = {
+    ...getDeadline(new Date(d.getTime() + DAY_MS - 1000).toISOString(), ref),
+    iso: deadline,
+    utc: tender.deadlineIsDate ? formatDateLabelledUtc(deadline) : formatDateTimeUtc(deadline),
+    dateOnly: true,
+  };
+  if (notClosed) return calm(info);
   if (tender.status !== 'closed' || info.state === 'closed') return info;
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
 }

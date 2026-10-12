@@ -47,6 +47,8 @@ export function TenderFilterBar({ filters, basePath }: { filters: TenderFilters;
     <FilterPanel activeCount={activeTenderFilterCount(filters)}>
       <form method="get" action={basePath} role="search" aria-label="Filter tenders" className={FORM}>
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or notice number" defaultValue={filters.q ?? ''} />
+        <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
+          hint="Starts with the digits you enter. Separate several with commas." />
         <Fieldset legend="Status">
           {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? DEFAULT_TENDER_STATUS) === o.value} />)}
         </Fieldset>

@@ -18,6 +18,8 @@ const PILL: Record<StatusKind, { cls: string; label: string }> = {
   soon: { cls: 'bg-soon-bg text-soon-fg', label: 'Closing soon' },
   closed: { cls: 'bg-closed-bg text-closed-fg', label: 'Closed' },
   amended: { cls: 'bg-primary text-on-primary', label: 'Amended' },
+  // Neither open nor closed: the source does not say. Neutral fill with a hairline, never the green of "Open".
+  unknown: { cls: 'border-line bg-surface-inset text-ink', label: 'Status unknown' },
 };
 
 /** Always text-labelled, never colour alone. Not interactive. */

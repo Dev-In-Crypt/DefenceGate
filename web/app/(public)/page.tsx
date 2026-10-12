@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, ShieldCheck } from 'lucide-react';
+import { getAccountStatus } from '@/lib/account';
 import { getCalls, getSiteStats, getTenders } from '@/lib/api';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
@@ -65,8 +66,13 @@ function Counter({ label, value, sub }: { label: string; value: string; sub?: st
   );
 }
 
+const ACCOUNT_ANSWER_OPEN = 'Not to browse. An account, opened with a one-time link sent to your e-mail, lets you save searches, follow buyers and programmes and keep a shortlist.';
+
 export default async function LandingPage() {
   const today = new Date().toISOString().slice(0, 10);
+  // Cached for a minute; any failure reads as "not open", which keeps the earlier wording.
+  const { open: accountsOpen } = await getAccountStatus();
+  const faq = FAQ.map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
   const [stats, current, dated, closingCalls] = await Promise.all([
     getSiteStats(),
     // Current: not past its deadline, and with no deadline only if published within the last year.
@@ -79,7 +85,7 @@ export default async function LandingPage() {
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
-      <JsonLd data={faqJsonLd(FAQ)} />
+      <JsonLd data={faqJsonLd(faq)} />
 
       <section aria-labelledby="hero" className="grid items-end gap-6 rounded-lg bg-surface p-6 md:p-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-5">
@@ -147,11 +153,13 @@ export default async function LandingPage() {
 
       <section aria-labelledby="next" className="flex flex-col items-start gap-4 rounded-lg bg-surface p-6 md:p-8">
         <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Clock} /></span>
-        <h2 id="next" className="m-0 text-h2">Alerts and a personal workspace are being prepared</h2>
+        <h2 id="next" className="m-0 text-h2">{accountsOpen ? 'Save searches and keep a shortlist' : 'Alerts and a personal workspace are being prepared'}</h2>
         <p className="m-0 max-w-[62ch] text-body text-ink-muted">
-          Saved searches, alerts when a notice you follow changes, and a shortlist for your own bids. They are not open yet. Browsing stays free.
+          {accountsOpen
+            ? 'Sign in with your e-mail to save a search, follow buyers and programmes, and keep a shortlist for your own bids. Browsing stays free.'
+            : 'Saved searches, alerts when a notice you follow changes, and a shortlist for your own bids. They are not open yet. Browsing stays free.'}
         </p>
-        <Button href="/alerts" variant="secondary">What is planned</Button>
+        <Button href={accountsOpen ? '/signin' : '/alerts'} variant="secondary">{accountsOpen ? 'Sign in' : 'What is planned'}</Button>
       </section>
 
       <Callout title="Please note">
@@ -160,7 +168,7 @@ export default async function LandingPage() {
 
       <section aria-labelledby="faq" className="flex flex-col gap-4">
         <h2 id="faq" className="m-0 text-h2">Questions</h2>
-        <Faq items={FAQ} />
+        <Faq items={faq} />
       </section>
     </>
   );

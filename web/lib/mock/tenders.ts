@@ -116,7 +116,7 @@ function toTender(r: RawTender, index: number, ref: Date): Tender {
     buyerName: b ? b.name : (r.buyerName ?? 'Unknown buyer'), country: b ? b.country : (r.country ?? null),
     cpv: r.cpvCodes[0] ?? null, cpvCodes: r.cpvCodes, procedure: r.procedure ?? null, legalBasis: r.legalBasis ?? null,
     scope: r.scope ?? 'core', deadline: r.deadline, publishedAt: r.publishedAt, estimatedValue: value,
-    status: isClosed(r, ref) ? 'closed' : 'open', statusNative: r.native ?? (isClosed(r, ref) ? 'unknown' : 'open'),
+    status: isClosed(r, ref) ? 'closed' : 'open', statusNative: r.native ?? (isClosed(r, ref) ? 'expired' : 'open'),
     amended: (versions?.length ?? 1) > 1, versionCount: versions?.length ?? 1,
     securityClearance: r.security ?? false, subcontracting: r.subcontracting ?? false,
     sameNotice: r.sameNotice ?? [],
@@ -142,6 +142,7 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
     if (status !== 'all' && t.status !== status) return false;
     if (scope !== 'all' && t.scope !== scope) return false;
     if (f.buyer && t.buyerId !== f.buyer) return false;
+    if (f.cpv?.length && !t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) return false;
     if (f.country && (!t.country || !f.country.includes(t.country))) return false;
     if (f.deadlineFrom || f.deadlineTo) {
       if (t.deadline === null) return false;

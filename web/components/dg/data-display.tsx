@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/format';
-import { LANGUAGES, countryName } from '@/lib/taxonomy';
+import { countryName, languageName } from '@/lib/taxonomy';
 import type { Money } from '@/lib/types';
 
 /** "EUR 25,000,000" in DM Mono. Missing amounts say so instead of showing 0. */
@@ -26,7 +26,7 @@ export function CountryLabel({ code, className }: { code: string; className?: st
 
 /** Small mono label for a title's language: "Original language, Polish" or "Original title, Swedish". */
 export function LangLabel({ kind, code, className }: { kind: 'language' | 'title'; code: string | null | undefined; className?: string }) {
-  const name = code ? (LANGUAGES[code] ?? code) : null;
+  const name = code ? languageName(code) : null;
   return (
     <span className={cn('font-mono text-mono text-ink-muted', className)}>
       {kind === 'language' ? 'Original language' : 'Original title'}{name ? `, ${name}` : ''}
