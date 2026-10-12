@@ -29,7 +29,7 @@ const SPACES = [1, 2, 3, 4, 5, 6, 8, 10];
 const RADIUS_CLASS = { md: 'rounded-md', lg: 'rounded-lg', pill: 'rounded-pill' } as const;
 const STATUSES: StatusKind[] = ['open', 'upcoming', 'soon', 'closed', 'amended'];
 
-const DEMO_SOURCE = { sourceId: 'eu-ted', sourceName: 'TED', url: 'https://ted.europa.eu', retrievedAt: '2026-10-11T06:20:00Z', licence: 'CC BY 4.0', attribution: '© European Union, TED' };
+const DEMO_SOURCE = { sourceId: 'eu-ted', sourceName: 'TED', url: 'https://ted.europa.eu', retrievedAt: '2026-10-11T06:20:00Z', licence: 'Commission Decision 2011/833/EU', attribution: '© European Union, TED' };
 const DEMO_TENDER: Opportunity = {
   id: 'demo', slug: 'demo', noticeId: '2026/S 188-561204', title: 'Framework agreement for machined aluminium housings', originalTitle: 'Raamovereenkomst voor gefreesde aluminium behuizingen', originalLanguage: 'nl',
   buyerId: 'b1', buyerName: 'Fictional Logistics Agency', country: 'NL', cpv: '44316400', cpvDivision: '44', procedure: 'Restricted', deadline: '2026-11-26T11:00:00Z', publishedAt: '2026-09-28T00:00:00Z',

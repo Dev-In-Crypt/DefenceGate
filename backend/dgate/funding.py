@@ -302,7 +302,11 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         },
     }
     if detail:
-        text = r.get("eligibility_text") if r["source_code"] in SOURCE_TEXT_SOURCES else None
+        # The source's own words are served only where it is on the list AND its
+        # licence row says commercial reuse is allowed. NULL is "unknown", which is
+        # not a yes: setting the flag withdraws the text without a deploy.
+        may_serve = r["source_code"] in SOURCE_TEXT_SOURCES and r.get("source_commercial_ok") is True
+        text = r.get("eligibility_text") if may_serve else None
         out["conditionsText"] = redact_emails(text.strip()) if text and text.strip() else None
     return out
 
@@ -311,7 +315,7 @@ SELECT = f"""
     SELECT c.*, {EFFECTIVE_STATUS} AS effective_status,
            p.code AS programme_code, p.name AS programme_name,
            s.code AS source_code, s.name AS source_name, s.licence AS source_licence,
-           s.attribution AS source_attribution
+           s.attribution AS source_attribution, s.commercial_ok AS source_commercial_ok
       FROM call c
       JOIN programme p ON p.id = c.programme_id
       LEFT JOIN source s ON s.id = c.source_id

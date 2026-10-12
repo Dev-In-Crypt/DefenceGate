@@ -18,11 +18,13 @@ import argparse
 import logging
 import sys
 import time
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 import httpx
+import psycopg
 
 from . import db, rawstore
 from .classify import classify, detects_subcontracting
@@ -103,6 +105,95 @@ def _checkpoint(conn, label: str, fetched: int, new: int, changed: int,
         log.info("%s: %s fetched, %s new, %s changed", label, fetched, new, changed)
 
 
+# What one badly shaped record can raise. Connection and server failures
+# (OperationalError, InterfaceError, anything not listed) are not here on purpose:
+# those are the run's, and they still fail it.
+RECORD_ERRORS = (ValueError, TypeError, KeyError, AttributeError, IndexError,
+                 psycopg.DataError, psycopg.IntegrityError)
+MAX_QUARANTINED = 50
+_ID_KEYS = ("native_id", "publication-number", "notice-identifier", "idweb", "id", "slug",
+            "Diarienummer", "publicatieId", "bzpNumber", "noticeNumber", "objectId",
+            "ccm2Id", "path", "numeroConvocatoria")
+
+
+def _record_id(record: Any) -> str:
+    if isinstance(record, dict):
+        for key in _ID_KEYS:
+            if record.get(key):
+                value = record[key]
+                return str(value[0] if isinstance(value, list) and value else value)[:60]
+        return "?"
+    return str(getattr(record, "native_id", None) or "?")[:60]
+
+
+class Quarantine:
+    """Keep one poisoned record from failing its whole source every night.
+
+    Until this existed, any exception on one notice rolled the run back, and because
+    the record stays inside the fetch window the next run failed on it again: one
+    bad notice silenced a source for as long as it was in range. `guard` runs one
+    record inside a savepoint -- an explicit one: `conn.transaction()` would commit
+    for real whenever the connection is idle, which is right after a checkpoint, and
+    commit is `_checkpoint`'s to do once the writer has drained.
+
+    A record that raises is rolled back alone, noted, and the run ends `partial`
+    naming it, so it is loud but not blocking. More than MAX_QUARANTINED of them is
+    not a poisoned record but a source that changed its shape, and that still fails
+    the run.
+
+    Only for the daily runs, whose window overlaps the last one and so tries the
+    record again tomorrow. `run_history` marks a day done, which would turn a
+    quarantined record into a permanent hole, and the Atlas load is a one-off file:
+    both keep failing loudly instead.
+    """
+
+    def __init__(self, label: str, limit: int = MAX_QUARANTINED) -> None:
+        self.label = label
+        self.limit = limit
+        self.items: list[tuple[str, str, str]] = []
+
+    @contextmanager
+    def guard(self, conn, record: Any) -> Iterator[None]:
+        conn.execute("SAVEPOINT dgate_record")
+        try:
+            yield
+        except RECORD_ERRORS as exc:
+            conn.execute("ROLLBACK TO SAVEPOINT dgate_record")
+            conn.execute("RELEASE SAVEPOINT dgate_record")
+            item = (_record_id(record), type(exc).__name__, str(exc)[:200])
+            self.items.append(item)
+            log.warning("%s: record %s quarantined (%s: %s)", self.label, *item)
+            if len(self.items) > self.limit:
+                raise RuntimeError(
+                    f"{self.label}: more than {self.limit} records could not be processed "
+                    f"(last: {item[0]} {item[1]}); the source's shape has probably "
+                    f"changed") from exc
+        else:
+            conn.execute("RELEASE SAVEPOINT dgate_record")
+
+    def note(self) -> str | None:
+        if not self.items:
+            return None
+        shown = ", ".join(f"{i} ({t})" for i, t, _ in self.items[:10])
+        more = f" and {len(self.items) - 10} more" if len(self.items) > 10 else ""
+        return f"{len(self.items)} records quarantined: {shown}{more}"
+
+    def merge(self, status: str, error: str | None) -> tuple[str, str | None]:
+        """Fold the quarantine into a run's own status and message."""
+        if not self.items:
+            return status, error
+        note = self.note()
+        return ("partial" if status == "success" else status,
+                "; ".join(part for part in (error, note) if part))
+
+    def outcome(self) -> dict[str, str]:
+        """`finish_run` keyword arguments for a run with nothing else to say."""
+        if not self.items:
+            return {}
+        status, error = self.merge("success", None)
+        return {"status": status, "error": error}
+
+
 def _finalise(conn, opp: Opportunity, src_id: int) -> Opportunity:
     """Resolve the buyer, run the classifier, attach the signals."""
     org_id = db.resolve_organisation(conn, opp.buyer_name_raw, opp.country,
@@ -133,29 +224,32 @@ def run_ted(days: int = 2) -> None:
           BundleWriter(build_store(), "ted") as writer):
         src_id = db.source_id(conn, "ted")
         run_id = db.start_run(conn, "ted", settings().floor("ted"))
+        q = Quarantine("ted")
         fetched = new = changed = 0
         try:
             for notice in ted.fetch_window(days_back=days):
                 fetched += 1
                 _checkpoint(conn, "ted", fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
-                clean = strip_personal_data(notice)
-                h = ted.content_hash(clean)
-                try:
-                    opp = from_ted(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed notice: %s", exc)
-                    continue
-                key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
-                db.record_raw(conn, src_id, opp.native_id, h, key)
-                opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
-                    continue
-                _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, notice):
+                    clean = strip_personal_data(notice)
+                    h = ted.content_hash(clean)
+                    try:
+                        opp = from_ted(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed notice: %s", exc)
+                        continue
+                    key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, opp.native_id, h, key)
+                    opp = _finalise(conn, opp, src_id)
+                    if not opp.is_defence:
+                        continue
+                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the
@@ -189,29 +283,32 @@ def run_boamp(days: int = 2) -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         fetched = new = changed = 0
         try:
             for record in boamp.fetch_window(days_back=days):
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                try:
-                    opp = from_boamp(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed notice: %s", exc)
-                    continue
-                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
-                db.record_raw(conn, src_id, opp.native_id, h, key)
-                opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
-                    continue
-                _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, record):
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    try:
+                        opp = from_boamp(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed notice: %s", exc)
+                        continue
+                    key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, opp.native_id, h, key)
+                    opp = _finalise(conn, opp, src_id)
+                    if not opp.is_defence:
+                        continue
+                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -235,45 +332,49 @@ def run_tenderned(days: int = 2) -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         fetched = new = changed = thin = 0
         try:
             for record in tenderned.fetch_window(days_back=days):
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
-                if "detailError" in record:
-                    # A notice already archived keeps what it has. Landing a thin copy
-                    # of it would append a version with its CPV codes emptied, and when
-                    # the page came back the full record's hash would match that older
-                    # version and be skipped, so the loss would be permanent. One seen
-                    # for the first time is landed thin and counted, once: from the
-                    # next night it is known and the page is tried again.
-                    pid = str(record.get("publicatieId") or "")
-                    if conn.execute("SELECT 1 FROM raw_ingest WHERE source_id = %s "
-                                    "AND native_id = %s LIMIT 1", (src_id, pid)).fetchone():
-                        log.info("%s: detail page of %s unreadable tonight; kept as archived",
-                                 code, pid)
+                with q.guard(conn, record):
+                    if "detailError" in record:
+                        # A notice already archived keeps what it has. Landing a thin copy
+                        # of it would append a version with its CPV codes emptied, and when
+                        # the page came back the full record's hash would match that older
+                        # version and be skipped, so the loss would be permanent. One seen
+                        # for the first time is landed thin and counted, once: from the
+                        # next night it is known and the page is tried again.
+                        pid = str(record.get("publicatieId") or "")
+                        if conn.execute("SELECT 1 FROM raw_ingest WHERE source_id = %s "
+                                        "AND native_id = %s LIMIT 1", (src_id, pid)).fetchone():
+                            log.info("%s: detail page of %s unreadable tonight; kept as archived",
+                                     code, pid)
+                            continue
+                        thin += 1
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    try:
+                        opp = from_tenderned(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed publication: %s", exc)
                         continue
-                    thin += 1
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                try:
-                    opp = from_tenderned(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed publication: %s", exc)
-                    continue
-                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
-                db.record_raw(conn, src_id, opp.native_id, h, key)
-                opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
-                    continue
-                _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                    key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, opp.native_id, h, key)
+                    opp = _finalise(conn, opp, src_id)
+                    if not opp.is_defence:
+                        continue
+                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
+            status, error = q.merge(
+                "partial" if thin else "success",
+                f"{thin} publications without their detail page" if thin else None)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          status="partial" if thin else "success",
-                          error=f"{thin} publications without their detail page" if thin else None)
+                          status=status, error=error)
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -305,6 +406,7 @@ def run_eu_portal() -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = 0
@@ -313,25 +415,27 @@ def run_eu_portal() -> None:
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                try:
-                    call = from_eu_call(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed call: %s", exc)
-                    continue
-                if h not in known:
-                    key = _store_raw(code, call.native_id, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, call.native_id, h, key)
-                    known.add(h)
-                    landed += 1
-                _, action, fields_ = db.upsert_call(conn, call, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
-                if action == "changed":
-                    log.info("call %s changed: %s", call.topic_code or call.native_id, fields_)
+                with q.guard(conn, record):
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    try:
+                        call = from_eu_call(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed call: %s", exc)
+                        continue
+                    if h not in known:
+                        key = _store_raw(code, call.native_id, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, call.native_id, h, key)
+                        known.add(h)
+                        landed += 1
+                    _, action, fields_ = db.upsert_call(conn, call, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
+                    if action == "changed":
+                        log.info("call %s changed: %s", call.topic_code or call.native_id, fields_)
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -358,6 +462,7 @@ def run_ncbr() -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = 0
@@ -366,26 +471,28 @@ def run_ncbr() -> None:
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
-                path = record.get("path") or ""
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                if path and h not in known:
-                    key = _store_raw(code, path, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, path, h, key)
-                    known.add(h)
-                    landed += 1
-                if not ncbr.in_scope(clean):
-                    continue
-                try:
-                    call = from_ncbr(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed competition: %s", exc)
-                    continue
-                _, action, _ = db.upsert_call(conn, call, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, record):
+                    path = record.get("path") or ""
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    if path and h not in known:
+                        key = _store_raw(code, path, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, path, h, key)
+                        known.add(h)
+                        landed += 1
+                    if not ncbr.in_scope(clean):
+                        continue
+                    try:
+                        call = from_ncbr(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed competition: %s", exc)
+                        continue
+                    _, action, _ = db.upsert_call(conn, call, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -407,32 +514,35 @@ def run_matine() -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = 0
         try:
             for record in matine.fetch_all():
                 fetched += 1
-                slug = record.get("slug") or ""
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                if slug and h not in known:
-                    key = _store_raw(code, slug, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, slug, h, key)
-                    known.add(h)
-                    landed += 1
-                if not matine.in_scope(clean):
-                    continue
-                try:
-                    call = from_matine(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed page: %s", exc)
-                    continue
-                _, action, _ = db.upsert_call(conn, call, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, record):
+                    slug = record.get("slug") or ""
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    if slug and h not in known:
+                        key = _store_raw(code, slug, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, slug, h, key)
+                        known.add(h)
+                        landed += 1
+                    if not matine.in_scope(clean):
+                        continue
+                    try:
+                        call = from_matine(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed page: %s", exc)
+                        continue
+                    _, action, _ = db.upsert_call(conn, call, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -456,6 +566,7 @@ def run_aid() -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = 0
@@ -464,26 +575,28 @@ def run_aid() -> None:
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=20,
                             writer=writer, run_id=run_id)
-                slug = record.get("slug") or ""
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                if slug and h not in known:
-                    key = _store_raw(code, slug, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, slug, h, key)
-                    known.add(h)
-                    landed += 1
-                if not aid.in_scope(clean):
-                    continue
-                try:
-                    call = from_aid(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed page: %s", exc)
-                    continue
-                _, action, _ = db.upsert_call(conn, call, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, record):
+                    slug = record.get("slug") or ""
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    if slug and h not in known:
+                        key = _store_raw(code, slug, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, slug, h, key)
+                        known.add(h)
+                        landed += 1
+                    if not aid.in_scope(clean):
+                        continue
+                    try:
+                        call = from_aid(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed page: %s", exc)
+                        continue
+                    _, action, _ = db.upsert_call(conn, call, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -506,6 +619,7 @@ def run_vinnova() -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = matched = 0
@@ -514,29 +628,30 @@ def run_vinnova() -> None:
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=200,
                             writer=writer, run_id=run_id)
-                dnr = record.get("Diarienummer") or ""
-                clean = strip_personal_data(record)
-                if vinnova.regime(clean) is not None:
-                    matched += 1
-                    if int(clean.get("Publik") or 0) == 1 and vinnova.deadline(clean) is None:
-                        log.warning("%s: round %s of a defence programme has no closing "
-                                    "date and is not kept", code, dnr)
-                h = ted.content_hash(clean)
-                if dnr and h not in known:
-                    key = _store_raw(code, dnr, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, dnr, h, key)
-                    known.add(h)
-                    landed += 1
-                if not vinnova.in_scope(clean):
-                    continue
-                try:
-                    call = from_vinnova(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed round: %s", exc)
-                    continue
-                _, action, _ = db.upsert_call(conn, call, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, record):
+                    dnr = record.get("Diarienummer") or ""
+                    clean = strip_personal_data(record)
+                    if vinnova.regime(clean) is not None:
+                        matched += 1
+                        if int(clean.get("Publik") or 0) == 1 and vinnova.deadline(clean) is None:
+                            log.warning("%s: round %s of a defence programme has no closing "
+                                        "date and is not kept", code, dnr)
+                    h = ted.content_hash(clean)
+                    if dnr and h not in known:
+                        key = _store_raw(code, dnr, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, dnr, h, key)
+                        known.add(h)
+                        landed += 1
+                    if not vinnova.in_scope(clean):
+                        continue
+                    try:
+                        call = from_vinnova(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed round: %s", exc)
+                        continue
+                    _, action, _ = db.upsert_call(conn, call, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             if not matched:
                 # 3,800 rounds fetched and none in a defence programme is not a quiet
                 # night: the programme titles or the join to them changed, and every
@@ -545,7 +660,8 @@ def run_vinnova() -> None:
                     f"{code}: none of {fetched} rounds belongs to a defence programme; "
                     f"the programme titles or the call/programme join changed")
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -574,6 +690,7 @@ def run_bdns(days: int = 14, since: date | None = None) -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         known = {row["content_hash"] for row in conn.execute(
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = failed = 0
@@ -583,16 +700,17 @@ def run_bdns(days: int = 14, since: date | None = None) -> None:
             fetched = len(rows)
             wanted: dict[str, None] = {}
             for row in rows:
-                number = str(row.get("numeroConvocatoria") or "")
-                clean = strip_personal_data(row)
-                h = ted.content_hash(clean)
-                if number and h not in known:
-                    key = _store_raw(code, number, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, number, h, key)
-                    known.add(h)
-                    landed += 1
-                if number and bdns.is_candidate(row):
-                    wanted[number] = None
+                with q.guard(conn, row):
+                    number = str(row.get("numeroConvocatoria") or "")
+                    clean = strip_personal_data(row)
+                    h = ted.content_hash(clean)
+                    if number and h not in known:
+                        key = _store_raw(code, number, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, number, h, key)
+                        known.add(h)
+                        landed += 1
+                    if number and bdns.is_candidate(row):
+                        wanted[number] = None
             for held in conn.execute(
                     """SELECT c.native_id FROM call c JOIN source s ON s.id = c.source_id
                         WHERE s.code = %s AND c.status IN ('open', 'forthcoming')""",
@@ -608,29 +726,32 @@ def run_bdns(days: int = 14, since: date | None = None) -> None:
                     log.warning("%s: call %s could not be read: %s", code, number, exc)
                     failed += 1
                     continue
-                clean = strip_personal_data(detail)
-                h = ted.content_hash(clean)
-                if h not in known:
-                    key = _store_raw(code, number, clean, writer, content_hash=h)
-                    db.record_raw(conn, src_id, number, h, key)
-                    known.add(h)
-                    landed += 1
-                if bdns.in_scope(clean):
-                    try:
-                        call = from_bdns(clean)
-                    except ValueError as exc:
-                        log.warning("skipping malformed call: %s", exc)
-                        continue
-                    _, action, _ = db.upsert_call(conn, call, h, src_id)
-                    new += action == "new"
-                    changed += action == "changed"
+                with q.guard(conn, {"numeroConvocatoria": number}):
+                    clean = strip_personal_data(detail)
+                    h = ted.content_hash(clean)
+                    if h not in known:
+                        key = _store_raw(code, number, clean, writer, content_hash=h)
+                        db.record_raw(conn, src_id, number, h, key)
+                        known.add(h)
+                        landed += 1
+                    if bdns.in_scope(clean):
+                        try:
+                            call = from_bdns(clean)
+                        except ValueError as exc:
+                            log.warning("skipping malformed call: %s", exc)
+                            continue
+                        _, action, _ = db.upsert_call(conn, call, h, src_id)
+                        new += action == "new"
+                        changed += action == "changed"
                 _checkpoint(conn, code, done, new, changed, every=25,
                             writer=writer, run_id=run_id)
                 time.sleep(bdns.REQUEST_PAUSE)
             writer.drain()
+            status, error = q.merge(
+                "partial" if failed and not new and not changed else "success",
+                f"{failed} calls unreadable" if failed else None)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          status="partial" if failed and not new and not changed else "success",
-                          error=f"{failed} calls unreadable" if failed else None)
+                          status=status, error=error)
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -841,29 +962,32 @@ def run_ezamowienia(days: int = 2) -> None:
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
         fetched = new = changed = 0
         try:
             for record in ezamowienia.fetch_window(days_back=days):
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
-                clean = strip_personal_data(record)
-                h = ted.content_hash(clean)
-                try:
-                    opp = from_ezamowienia(clean)
-                except ValueError as exc:
-                    log.warning("skipping malformed notice: %s", exc)
-                    continue
-                key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
-                db.record_raw(conn, src_id, opp.native_id, h, key)
-                opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
-                    continue
-                _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, record):
+                    clean = strip_personal_data(record)
+                    h = ted.content_hash(clean)
+                    try:
+                        opp = from_ezamowienia(clean)
+                    except ValueError as exc:
+                        log.warning("skipping malformed notice: %s", exc)
+                        continue
+                    key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                    db.record_raw(conn, src_id, opp.native_id, h, key)
+                    opp = _finalise(conn, opp, src_id)
+                    if not opp.is_defence:
+                        continue
+                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          **q.outcome())
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the
@@ -889,33 +1013,33 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
           BundleWriter(build_store(), code) as writer):
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(label)
         fetched = new = changed = 0
         try:
             for opp in opps:
                 fetched += 1
                 _checkpoint(conn, label, fetched, new, changed, writer=writer,
                             run_id=run_id)
-                # This connector parses while fetching, so there is no raw payload to
-                # pass through strip_personal_data: sweep the record itself.
-                opp = scrub_opportunity(opp)
-                payload = db.opportunity_payload(opp)
-                h = ted.content_hash(payload)
-                key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
-                db.record_raw(conn, src_id, opp.native_id, h, key,
-                              content_type="application/atom+xml")
-                opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
-                    continue
-                _, action = db.upsert_opportunity(conn, opp, h, src_id)
-                new += action == "new"
-                changed += action == "changed"
+                with q.guard(conn, opp):
+                    # This connector parses while fetching, so there is no raw payload to
+                    # pass through strip_personal_data: sweep the record itself.
+                    opp = scrub_opportunity(opp)
+                    payload = db.opportunity_payload(opp)
+                    h = ted.content_hash(payload)
+                    key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
+                    db.record_raw(conn, src_id, opp.native_id, h, key,
+                                  content_type="application/atom+xml")
+                    opp = _finalise(conn, opp, src_id)
+                    if not opp.is_defence:
+                        continue
+                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    new += action == "new"
+                    changed += action == "changed"
             writer.drain()
             stale = stale_reason() if stale_reason else None
-            if stale:
-                db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                              status="partial", error=stale)
-            else:
-                db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed)
+            status, error = q.merge("partial" if stale else "success", stale)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status=status, error=error)
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the

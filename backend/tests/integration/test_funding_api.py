@@ -163,6 +163,22 @@ def test_eligibility_is_structured_rows_and_the_source_text_only_where_it_is_the
     assert detail["PL-NCBR-pl"]["conditionsText"] is None      # assembled by us, not the source's
 
 
+@pytest.mark.parametrize("flag", [None, False])
+def test_a_source_text_is_withdrawn_when_its_licence_row_stops_saying_commercial_ok(
+        client, conn, flag):
+    """`commercial_ok` is data the owner controls; it must be read, not decorative."""
+    _put(conn, "eu", eligibility_text="General conditions 1. Admissibility conditions ...")
+    slug = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]["slug"]
+    assert client.get(f"/v1/funding/{slug}").json()["conditionsText"]
+    try:
+        conn.execute("UPDATE source SET commercial_ok = %s WHERE code = 'eu_portal'", (flag,))
+        conn.commit()
+        assert client.get(f"/v1/funding/{slug}").json()["conditionsText"] is None
+    finally:
+        conn.execute("UPDATE source SET commercial_ok = TRUE WHERE code = 'eu_portal'")
+        conn.commit()
+
+
 def test_every_fact_carries_its_source_licence_and_retrieval_time(client, conn):
     _put(conn, "a")
     source = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]["source"]

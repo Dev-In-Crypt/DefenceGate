@@ -21,7 +21,7 @@
 
 	# Only what the product serves reaches the API. /docs, /openapi.json and any
 	# route added later and forgotten are a 404 here, whatever the application
-	# does. The frontend is routed here when the domain goes live (docs/design).
+	# does.
 	@public path /v1/funding /v1/funding/* /v1/opportunities /v1/opportunities/* /v1/calls /v1/calls/* /v1/sources /v1/health /v1/organisations/resolve
 	handle @public {
 		reverse_proxy api:8000 {
@@ -31,8 +31,23 @@
 			}
 		}
 	}
-	handle {
+
+	# Anything else under /v1 is not the site's: a 404 here, not a page from the
+	# frontend that happens to answer it.
+	@api_rest path /v1 /v1/*
+	handle @api_rest {
 		respond "Not found" 404
+	}
+
+	# The site (docker-compose `web` profile). Down until the domain is live: Caddy
+	# resolves web:3000 per request, so it can start first and answers 502 meanwhile.
+	handle {
+		reverse_proxy web:3000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 30s
+			}
+		}
 	}
 
 	log {

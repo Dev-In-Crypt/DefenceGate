@@ -59,6 +59,8 @@ export default function config(phase: string): NextConfig {
   return {
     reactStrictMode: true,
     poweredByHeader: false,
+    // A self-contained server.js for the runtime image (web/Dockerfile).
+    output: 'standalone',
     async headers() {
       return [
         {
