@@ -305,9 +305,9 @@ def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(ge
     if over_address or over_ip or total > LIMIT_GLOBAL:
         raise AccountError(429, "rate_limited", "too many requests, try again later",
                            {"Retry-After": "3600"})
-    if secrets.randbelow(20) == 0:
-        conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
-        conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
+    # Tiny tables, so pruned on every request: what the notice says (about a day) is then true.
+    conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
+    conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
 
     domain = canonical.rsplit("@", 1)[1]
     disposable = conn.execute(

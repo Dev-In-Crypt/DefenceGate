@@ -162,7 +162,13 @@ export async function getHealth(): Promise<Health> {
 /** Landing counters: open calls from the list total, sources from /v1/sources, last update from generatedAt. */
 export async function getSiteStats(): Promise<SiteStats> {
   const [open, health] = await Promise.all([getCalls({ status: 'open', pageSize: 1 }), getHealth()]);
-  return { openCalls: open.total, sources: health.sources.length, lastUpdate: health.generatedAt };
+  return { openCalls: open.total, sources: health.sources.length, lastUpdate: lastDataUpdate(health) };
+}
+
+/** When data last arrived: the newest source run. `generatedAt` is only when the status was rendered. */
+export function lastDataUpdate(health: { generatedAt: string; sources: { lastRunAt: string | null }[] }): string {
+  const runs = health.sources.map((s) => s.lastRunAt).filter((t): t is string => Boolean(t)).sort();
+  return runs.length > 0 ? runs[runs.length - 1] : health.generatedAt;
 }
 
 export { now };

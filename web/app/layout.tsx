@@ -10,7 +10,7 @@ const dmMono = DM_Mono({ subsets: ['latin', 'latin-ext'], weight: ['400', '500']
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: { default: `${SITE.name} · Defence funding and tenders for SMEs`, template: `%s · ${SITE.name}` },
-  description: 'EU and national defence and dual-use funding calls and tenders in one English feed, for manufacturers with 20 to 500 staff.',
+  description: 'Defence and dual-use tenders and funding calls from TED and national portals in one place, each linked to its original source.',
   icons: { icon: '/brand/favicon.svg', apple: '/brand/app-icon.svg' },
 };
 

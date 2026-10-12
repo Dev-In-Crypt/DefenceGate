@@ -13,8 +13,8 @@ export const metadata: Metadata = buildMetadata({
 });
 
 const PIPELINE = [
-  { title: 'Collect', body: 'Each source is fetched on a schedule through its public interface. The raw payload is kept before anything else is done to it.' },
-  { title: 'Normalise', body: 'Fields are mapped to one shape: title, buyer, country, dates, value, codes. Contact persons’ names, e-mail addresses and phone numbers are removed.' },
+  { title: 'Collect', body: 'Each source is fetched on a schedule through its public interface. The payload is kept, with contact fields removed, before anything else is done to it.' },
+  { title: 'Normalise', body: 'Fields are mapped to one shape: title, buyer, country, dates, value, codes. The contact fields a source publishes are dropped, and e-mail addresses are also removed from free text.' },
   { title: 'Classify and link', body: 'Each notice is checked for defence and dual-use signals and linked to the same notice on other sources where a shared reference exists.' },
 ];
 
@@ -38,7 +38,7 @@ export default function MethodologyPage() {
 
       <ContentSection title="What “defence” and “dual-use” mean here">
         <p className="m-0 text-body text-ink-muted">
-          The label is an automated indication built from separate signals. Strong signals can qualify a notice alone, weaker ones need a partner, and a civil-looking product code on its own does not qualify.
+          The label is an automated indication built from separate signals. A legal basis or a military product code can qualify a notice alone. A buyer on our defence list also qualifies it, but such notices are listed separately and are not in the default view. Security clearance and civil product codes need a partner signal.
         </p>
         <ClauseList items={[
           'The legal basis of the procedure, for example Directive 2009/81/EC on defence and security procurement.',
@@ -47,19 +47,19 @@ export default function MethodologyPage() {
           'Security clearance or confidentiality requirements stated in the notice.',
         ]} />
         <p className="m-0 text-body text-ink-muted">
-          The result is not a legal determination and not a statement about export control, eligibility or the procurement regime that applies. It can be wrong in both directions.
+          The result is not a legal determination and not a statement about export control, eligibility or the procurement regime that applies. It can be wrong in both directions. For funding calls, “dual-use” is the regime the programme or source itself assigns, not our classification.
         </p>
       </ContentSection>
 
       <ContentSection title="Linking the same notice">
         <p className="m-0 text-body text-ink-muted">
-          The same procurement is often published on TED and on a national portal. Where both carry the same TED reference we link them and show one record. We never merge two records on a similar name alone.
+          The same procurement is often published on TED and on a national portal. Where both carry the same TED reference we link them and show one record. Buyers are matched only when the name is identical after case, accent and legal-form normalisation, in the same country.
         </p>
       </ContentSection>
 
-      <ContentSection title="Translation and normalisation">
+      <ContentSection title="Titles and normalisation">
         <p className="m-0 text-body text-ink-muted">
-          Where a source publishes in another language we show the original title next to our English title. Normalised fields, translated titles and the defence label are ours and are not part of the original notice. Amounts are shown in the currency the source states and are never converted.
+          We do not machine-translate notices. Where a source publishes an English title we show it, with the original title beneath; otherwise only the original is shown. Normalised fields and the defence label are ours and are not part of the original notice. Amounts are shown in the currency recorded for the source and are never converted.
         </p>
       </ContentSection>
 
@@ -68,7 +68,7 @@ export default function MethodologyPage() {
           'Collection is scheduled, not real time. The status page shows when each source last ran.',
           'A source can fail, change format or publish late. A run that fell short is marked partial.',
           'Not every portal is covered, and below-threshold procurement is often not published centrally.',
-          'A notice that does not parse is set aside instead of being guessed. It is not shown.',
+          'A record that cannot be read is skipped and logged instead of being guessed. It is not shown.',
         ]} />
       </ContentSection>
 

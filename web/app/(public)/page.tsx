@@ -20,7 +20,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 const BENEFITS = [
-  { icon: SearchCheck, title: 'One search, many portals', body: 'Stop visiting a dozen portals in a dozen formats. Search notices from TED and national portals together, in English.' },
+  { icon: SearchCheck, title: 'One search, many portals', body: 'Stop visiting a dozen portals in a dozen formats. Search notices from TED and national portals together.' },
   { icon: GitCompare, title: 'See what changed', body: 'Deadlines move and values are corrected. Every version of a notice is kept, so you see what changed and when.' },
   { icon: Link2, title: 'Straight to the source', body: 'Each record links to its original publication. Check it there before you act: the source is the authority, not us.' },
   { icon: ShieldCheck, title: 'Know what we cover', body: 'Every source, its last run and its coverage are public. Gaps are shown, not hidden.' },
@@ -66,12 +66,16 @@ function Counter({ label, value, sub }: { label: string; value: string; sub?: st
 }
 
 export default async function LandingPage() {
-  const [stats, tenders, closingCalls, closingTenders] = await Promise.all([
+  const today = new Date().toISOString().slice(0, 10);
+  const [stats, current, dated, closingCalls] = await Promise.all([
     getSiteStats(),
-    getTenders({}, { cacheable: true }).catch(() => null),
+    // Current: not past its deadline, and with no deadline only if published within the last year.
+    getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
+    // With a stated deadline that has not passed: the ones a reader can still act on by date.
+    getTenders({ deadlineFrom: today, pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
     getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }),
-    getTenders({ pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
   ]);
+  const closingTenders = dated;
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
@@ -90,10 +94,11 @@ export default async function LandingPage() {
           <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
         </div>
         <dl aria-label="Live data" className="m-0 grid grid-cols-2 gap-3">
-          <Counter label="Open tenders" value={tenders ? formatNumber(tenders.total) : '–'} />
+          <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : '–'} />
+          <Counter label="Current notices" value={current ? formatNumber(current.total) : '–'} sub="including some without a stated deadline" />
           <Counter label="Open funding calls" value={String(stats.openCalls)} />
           <Counter label="Sources" value={String(stats.sources)} />
-          <Counter label="Last update" value={formatDateTimeUtc(stats.lastUpdate)} />
+          <div className="col-span-2"><Counter label="Last data update" value={formatDateTimeUtc(stats.lastUpdate)} /></div>
         </dl>
       </section>
 

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Logo } from './logo';
-import { getHealth } from '@/lib/api';
+import { getHealth, lastDataUpdate } from '@/lib/api';
 import { formatDateTimeUtc } from '@/lib/format';
 
 const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
@@ -27,7 +27,7 @@ export async function Footer() {
         <div className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="flex flex-col gap-3">
             <Logo href="/" />
-            <p className="m-0 max-w-[36ch] text-small text-ink-muted">Defence and dual-use funding calls and tenders, in one English feed.</p>
+            <p className="m-0 max-w-[36ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>
           </div>
           {COLUMNS.map((col) => (
             <nav key={col.title} aria-label={col.title} className="flex flex-col gap-1">
@@ -42,7 +42,7 @@ export async function Footer() {
           DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
         </p>
         <div className="flex flex-wrap justify-between gap-2 font-mono text-mono text-ink-muted">
-          <span>{health.sources.length} sources · Last update {formatDateTimeUtc(health.generatedAt)}</span>
+          <span>{health.sources.length} sources · Last update {formatDateTimeUtc(lastDataUpdate(health))}</span>
           <span>All dates in UTC</span>
         </div>
       </div>

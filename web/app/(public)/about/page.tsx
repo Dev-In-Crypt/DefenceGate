@@ -18,7 +18,7 @@ const PRINCIPLES = [
   { icon: FileSearch, title: 'Source first', body: 'Every record links to the original publication. We make notices easier to find; the source stays the authority.' },
   { icon: Eye, title: 'Gaps in the open', body: 'We publish which sources we collect, when each last ran and how complete the run was, including when it failed.' },
   { icon: Scale, title: 'Facts, not opinions', body: 'We show what notices say and what changed. We do not rate buyers, predict outcomes or advise on bids.' },
-  { icon: ShieldCheck, title: 'Commercial information only', body: 'We keep dates, buyers, values and codes. We do not collect technical specifications, and we remove contact persons’ names, e-mail addresses and phone numbers.' },
+  { icon: ShieldCheck, title: 'Commercial information only', body: 'We keep dates, buyers, values and codes. We do not collect technical specifications, and we do not keep the contact persons a source lists.' },
 ];
 
 export default function AboutPage() {

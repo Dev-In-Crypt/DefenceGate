@@ -28,7 +28,7 @@ export default function PrivacyPage() {
           'Visits are counted by page only, by our own server, with no identifier, no address and no user agent stored.',
           'The hosting server keeps ordinary access logs.',
           'A sign-in account, when it opens, uses a one-time e-mail link. There is no password and no tracking pixel in our mail.',
-          'The notices we show are public. We remove contact persons’ names, e-mail addresses and phone numbers when we collect them.',
+          'The notices we show are public. We do not keep the contact fields a source publishes, and we remove e-mail addresses from free text.',
         ]} />
       </Callout>
 
@@ -37,8 +37,8 @@ export default function PrivacyPage() {
       </Clause>
 
       <Clause n={2} title="When you visit the site">
-        <p className={P}>When your browser loads a page, the server and the reverse proxy in front of it record the technical details of the request: your IP address, the time, the address requested, the response code, the size and your browser’s user-agent and referrer text.</p>
-        <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> the log files are rotated automatically and old files are overwritten. <Placeholder>maximum retention period to be fixed by the operator</Placeholder></p>
+        <p className={P}>When your browser loads a page, the server and the reverse proxy in front of it record the technical details of the request: your IP address, the time, the address requested, the response code, the size, your browser’s headers (including user agent and referrer) and the full address requested, including any search words in it.</p>
+        <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> the log files are rotated by size and the oldest are overwritten, so how long a line lasts depends on traffic. <Placeholder>maximum retention period to be fixed by the operator</Placeholder></p>
         <p className={P}>Providing this data is technically necessary to receive the site.</p>
       </Clause>
 
@@ -61,15 +61,16 @@ export default function PrivacyPage() {
         <p className={P}><strong>Sign-in is not open yet.</strong> This section describes what applies once it opens.</p>
         <p className={P}>An account is created when you follow a sign-in link sent to your e-mail address. We then hold:</p>
         <ClauseList items={[
-          'your e-mail address;',
+          'your e-mail address, when the account was created and when you last visited;',
           'the choices you make: your role, whether you follow tenders or funding, countries, scope and alert frequency;',
-          'what you save: searches, shortlisted notices with the status and note you write, and followed buyers and programmes;',
+          'what you save: searches with the name you give them and when they were last alerted, shortlisted notices with the status and note you write, and followed buyers and programmes;',
+          'for up to a day: your e-mail address with the one-time link, and a hash of your e-mail address and of your IP address, kept only to limit how often links can be requested;',
           'a hash of your session identifier and when it was used.',
         ]} />
         <p className={P}>We do not use passwords. We do not look at what you save for any purpose other than showing it to you and sending the alerts you asked for, and we do not combine it across accounts.</p>
         <p className={P}><strong>Purpose and legal basis:</strong> to provide the account, the dashboard and the alerts (Art. 6(1)(b) GDPR, or, where the contract is with your employer, our legitimate interest in providing it to you, Art. 6(1)(f)). Security measures such as limiting sign-in requests rest on Art. 6(1)(f).</p>
         <p className={P}><strong>Mail:</strong> sign-in links and alert digests are plain text, with no tracking pixel and no link redirection. They are sent through a mail provider acting as our processor: <Placeholder>mail provider to be named when sign-in opens</Placeholder></p>
-        <p className={P}><strong>Retention:</strong> your account and what is in it until you delete it. You can download everything we hold and delete the account yourself in Settings; deletion removes it at once, and encrypted backups containing it are overwritten within 30 days. Sign-in links and rate-limit counters are deleted after a day.</p>
+        <p className={P}><strong>Retention:</strong> your account and what is in it until you delete it. You can download everything we hold and delete the account yourself in Settings; deletion removes it at once, and encrypted backups containing it are overwritten within 30 days. Sign-in links and rate-limit counters are deleted after about a day.</p>
         <p className={P}>Providing an e-mail address is necessary to have an account; without it we cannot offer one.</p>
       </Clause>
 
@@ -78,18 +79,18 @@ export default function PrivacyPage() {
       </Clause>
 
       <Clause n={7} title="Personal data in public notices">
-        <p className={P}>Public procurement notices are published by public bodies and sometimes name a contact person. Our collection removes names, e-mail addresses and phone numbers of contact persons, and the site is not designed to show them. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business.</p>
-        <p className={P}>Some older source files in our private archive, which is not accessible from the website, may still contain contact details that a publisher placed in a notice. If your personal data is shown or held and you want it removed, write to us using the contact in the imprint.</p>
+        <p className={P}>Public procurement notices are published by public bodies and sometimes name a contact person. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business.</p>
+        <p className={P}>Some older records, held in our private archive and in the history of notices in our database, may still contain contact details that a publisher placed in a notice. The website does not show them. If your personal data is shown or held and you want it removed, write to us using the contact in the imprint.</p>
         <p className={P}><strong>Legal basis:</strong> our legitimate interest in providing access to public procurement information (Art. 6(1)(f) GDPR). You may object at any time (Art. 21).</p>
       </Clause>
 
       <Clause n={8} title="Who receives data">
         <ClauseList items={[
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
-          'Cloudflare, as the provider of the domain name service only. Traffic to the site does not pass through Cloudflare.',
+          'Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.',
           'The mail provider named in section 5, once sign-in opens.',
         ]} />
-        <p className={P}>We do not sell personal data. We do not transfer personal data outside the European Economic Area as part of operating the site.</p>
+        <p className={P}>We do not sell personal data. Apart from the domain name service above, we do not transfer personal data outside the European Economic Area as part of operating the site.</p>
       </Clause>
 
       <Clause n={9} title="Your rights">

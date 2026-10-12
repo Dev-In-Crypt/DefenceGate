@@ -33,7 +33,7 @@ export default function TermsPage() {
       </Callout>
 
       <Clause n={1} title="Who provides the service and what applies">
-        <p className={P}>DefenceGate is provided by the operator named in the <Link href="/imprint" className="font-semibold">imprint</Link> (“we”, “us”). These terms govern your use of the website, any programming interface we offer and any account (“the service”).</p>
+        <p className={P}>DefenceGate is provided by the operator named in the <Link href="/imprint" className="font-semibold">imprint</Link> (“we”, “us”). These terms govern your use of the website and of any account (“the service”). No programming interface is offered for general use.</p>
         <p className={P}>By using the service you accept these terms. If you do not accept them, do not use the service.</p>
       </Clause>
 
@@ -43,13 +43,13 @@ export default function TermsPage() {
       </Clause>
 
       <Clause n={3} title="What the service is">
-        <p className={P}>The service is an information service. It collects public procurement notices and funding calls from the sources listed on the <Link href="/data" className="font-semibold">source status page</Link>, normalises and translates their fields, labels them with automated classifications, records changes between versions and links each record to its source.</p>
+        <p className={P}>The service is an information service. It collects public procurement notices and funding calls from the sources listed on the <Link href="/data" className="font-semibold">source status page</Link>, normalises their fields, shows the English title where the publisher supplies one, labels them with automated classifications, records changes between versions and links each record to its source.</p>
         <p className={P}>We are not the publisher of any notice. We are not a contracting authority, a funding body or a bidding platform, and we are not a party to any procurement or funding procedure. We do not submit bids or applications for you, and we do not endorse any buyer, bidder, programme or notice.</p>
       </Clause>
 
       <Clause n={4} title="The source is authoritative">
         <p className={P}>Each record links to its original publication. Only the original publication by the source is authoritative.</p>
-        <p className={P}>What we show is a copy that has been collected at a point in time and may have been translated, reformatted, shortened, classified or linked by us. It may differ from the original. Fields that we derive, such as the defence or dual-use label, a translated title or a normalised buyer name, are ours and not part of the original notice.</p>
+        <p className={P}>What we show is a copy that has been collected at a point in time and may have been reformatted, shortened, classified or linked by us. It may differ from the original. Fields that we derive, such as the defence or dual-use label or a normalised buyer name, are ours and not part of the original notice.</p>
         <p className={P}>You must check the original before you rely on any date, value, scope, condition or requirement.</p>
       </Clause>
 
@@ -85,7 +85,7 @@ export default function TermsPage() {
       <Clause n={11} title="Acceptable use">
         <p className={P}>You must not:</p>
         <ClauseList items={[
-          'collect data by automated means other than through an interface we publish, or exceed the rate limits we apply;',
+          'access the service by automated means (crawlers, scrapers, scripts or bulk download) except as we have agreed in writing, or exceed the rate limits we apply;',
           'circumvent a limit, access control or security measure, or probe the service for weaknesses;',
           'extract or re-use a substantial part of the service to build, feed or operate a competing or redistributed database or service, or resell or sublicense it;',
           'overload the service or disrupt its operation;',
@@ -112,7 +112,7 @@ export default function TermsPage() {
         <p className={P}>The service is provided free of charge unless we state otherwise. To the extent the law allows:</p>
         <ClauseList items={[
           'we are not liable for indirect or consequential loss, loss of profit, loss of contracts, bids or opportunities, loss of goodwill or loss of data;',
-          'our total liability to you arising from or in connection with the service is limited to EUR 100 for free use and, for paid use, to the fees you paid for the service in the twelve months before the event.',
+          'our total liability to you arising from or in connection with the service is limited to EUR 100 for free use and, if a paid tier is ever offered, for paid use to the fees you paid for the service in the twelve months before the event.',
         ]} />
         <p className={P}>Nothing in these terms limits or excludes liability for intent, gross negligence, fraud, injury to life, body or health, or any liability that cannot be limited or excluded by law.</p>
       </Clause>
@@ -127,11 +127,11 @@ export default function TermsPage() {
       </Clause>
 
       <Clause n={18} title="Suspension and end">
-        <p className={P}>We may suspend or end your access for breach of these terms, misuse, legal reasons or if we discontinue the service. You may stop using the service at any time. Terms that by their nature continue, including terms 4 to 11, 15 and 16, continue.</p>
+        <p className={P}>We may suspend or end your access (and, where accounts are offered, your account) for breach of these terms, misuse, legal reasons or if we discontinue the service. You may stop using the service at any time. Terms that by their nature continue, including terms 4 to 11, 15 and 16, continue.</p>
       </Clause>
 
       <Clause n={19} title="Changes to these terms">
-        <p className={P}>We may change these terms. The current version and its date are on this page. For a material change we will announce it on this page and, for account holders, by e-mail at least 30 days before it takes effect. If you continue to use the service after that date you accept the change; if you do not accept it, close your account before then.</p>
+        <p className={P}>We may change these terms. The current version and its date are on this page. For a material change we will announce it on this page and, where accounts are offered, to account holders by e-mail at least 30 days before it takes effect. If you continue to use the service after that date you accept the change; if you do not accept it, stop using the service and, where you have an account, close it before then.</p>
       </Clause>
 
       <Clause n={20} title="Governing law and courts">

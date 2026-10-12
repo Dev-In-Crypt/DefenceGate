@@ -50,7 +50,7 @@ export default async function FundingHubPage({ searchParams }: Props) {
   return (
     <CallListTemplate
       title="Funding calls"
-      intro="EU and national funding for defence and dual-use projects, in English. Every deadline is in UTC and every call links to its source."
+      intro="EU and national funding for defence and dual-use projects. Every deadline is in UTC and every call links to its source."
       basePath="/funding"
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
       filters={filters} result={result} view={view} health={health} chips={CHIPS}
