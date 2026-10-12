@@ -1,0 +1,13 @@
+country,name,identifier,reason,confidence,reviewed
+LU,direction de la defense,,defence_word,0.70,false
+LU,maee - direction de la defense,,defence_word,0.70,false
+LU,maee _ direction de la defense,,defence_word,0.70,false
+LU,maee de la defense de la cooperation et du commerce exterieur - direction de la defense,,defence_word,0.70,false
+LU,maee de la defense de la cooperation et du commerce exterieur-direction de la defense,,defence_word,0.70,false
+LU,maee direction de la defense,,defence_word,0.70,false
+LU,maee-direction de la defense,,defence_word,0.70,false
+LU,maee_direction de la defense,,defence_word,0.70,false
+LU,ministere des affaires etrangeres et europeennes de la defense de la cooperation et du commerce exterieur,,defence_word,0.70,false
+LU,ministere des affaires etrangeres et europeennes de la defense de la cooperation et du commerce exterieur - direction de la cooperation au developpement et de l action humanitaire,,defence_word,0.70,false
+LU,ministere des affaires etrangeres et europeennes de la defense de la cooperation et du commerce exterieur-direction de la defense,,defence_word,0.70,false
+LU,ministeres des affaires etrangeres et europeennes de la defense de la cooperation et du commerce exterieur,,defence_word,0.70,false

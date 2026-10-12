@@ -1,0 +1,13 @@
+country,name,identifier,reason,confidence,reviewed
+HU,honved egyuttes muveszeti nonprofit kft,,armed_forces,0.95,false
+HU,honvedelmi miniszterium,,ministry,0.95,false
+HU,honvedelmi miniszterium elektronikai logisztikai es vagyonkezelo zrt,,ministry,0.95,false
+HU,honvedelmi miniszterium vedelemgazdasagi hivatal,,ministry,0.95,false
+HU,honvedelmi miniszterium vedelemgazdasagi hivatal hm vgh,,ministry,0.95,false
+HU,magyar honvedseg logisztikai tamogato parancsnoksag,,armed_forces,0.95,false
+HU,magyar honvedseg parancsnoksaga,,armed_forces,0.95,false
+HU,magyar honvedseg tartalekkepzo es tamogato parancsnoksag,,armed_forces,0.95,false
+HU,vedelmi beszerzesi ugynokseg zartkoruen mukodo reszvenytarsasag,,armed_forces,0.95,false
+HU,vedelmi beszerzesi ugynokseg zrt,,armed_forces,0.95,false
+HU,vedelmi innovacios kutatointezet nonprofit zrt,,armed_forces,0.95,false
+HU,nemzeti vedelmi szolgalat,,defence_word,0.70,false

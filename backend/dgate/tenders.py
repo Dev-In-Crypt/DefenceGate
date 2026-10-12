@@ -41,7 +41,7 @@ BUYER_SLUG_LIMIT = 2000
 # A version the archive recorded wrongly is annotated, never removed (migration 0006).
 NOT_AN_AMENDMENT = "('reread', 'out_of_order')"
 
-CORE = "(o.sig_legal_basis OR o.sig_cpv)"
+CORE = "(o.sig_legal_basis OR (o.sig_cpv_military AND NOT o.dual_use))"   # api.CORE_SQL
 
 
 class Tender(BaseModel):
@@ -61,6 +61,8 @@ class Tender(BaseModel):
     procedure: str | None
     legalBasis: str | None
     scope: str
+    buyerClass: str | None = None
+    dualUse: bool = False
     deadline: datetime | None
     publishedAt: datetime | None
     estimatedValue: Budget | None
@@ -157,7 +159,8 @@ TENDER_COLUMNS = (
     "o.id, o.native_id, o.buyer_org_id, o.buyer_name_raw, o.country, o.title_original, "
     "o.title_en, o.original_language, o.procedure_type, o.legal_basis, o.value_amount, "
     "o.value_currency, o.published_at, o.deadline_at, o.cpv_codes, o.sig_legal_basis, "
-    "o.sig_cpv, o.security_clearance_required, o.subcontracting_signal, o.source_url, "
+    "o.sig_cpv, o.sig_cpv_military, o.dual_use, o.buyer_class, "
+    "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
     "o.status, o.ted_ref"
 )
 
@@ -238,7 +241,9 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "cpvCodes": cpv,
         "procedure": procedure_label(r.get("procedure_type")),
         "legalBasis": r.get("legal_basis"),
-        "scope": "core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
+        "scope": api.row_scope(r),
+        "buyerClass": r.get("buyer_class"),
+        "dualUse": bool(r.get("dual_use")),
         "deadline": r.get("deadline_at"),
         "publishedAt": _day(r.get("published_at")),
         "estimatedValue": ({"amount": float(amount), "currency": r.get("value_currency") or "EUR"}

@@ -1,0 +1,70 @@
+country,name,identifier,reason,confidence,reviewed
+CH,armasuisse,,procurement_agency,0.95,false
+CH,armasuisse achat et cooperation,,procurement_agency,0.95,false
+CH,armasuisse achat et cooperations cc omc,,procurement_agency,0.95,false
+CH,armasuisse achat et cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse achats & cooperations cc omc,,procurement_agency,0.95,false
+CH,armasuisse achats & cooperations cc omc guisanplatz 1 3003 bern schweiz,,procurement_agency,0.95,false
+CH,armasuisse achats & cooperations cc omc guisanplatz 1 3003 berne schweiz courriel wto armasuisse ch,,procurement_agency,0.95,false
+CH,armasuisse achats cooperations cc omc,,procurement_agency,0.95,false
+CH,armasuisse achats e cooperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperation,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperation cc omc,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperations,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperations cc omc,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperations cc omo,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperations ccomc,,procurement_agency,0.95,false
+CH,armasuisse achats et cooperations ccwto,,procurement_agency,0.95,false
+CH,armasuisse achats et coperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse achts et cooperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse cc wto,,procurement_agency,0.95,false
+CH,armasuisse cc wto guisanplatz 1 3003 bern schweiz,,procurement_agency,0.95,false
+CH,armasuisse ccwto,,procurement_agency,0.95,false
+CH,armasuisse ccwto ressources et support,,procurement_agency,0.95,false
+CH,armasuisse centre de competence achats cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse centre de competence achats et cooperations,,procurement_agency,0.95,false
+CH,armasuisse centre de competences achats cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse centre de competences achats et cooperations,,procurement_agency,0.95,false
+CH,armasuisse centre de competences achats et cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse ddps centre d achats et cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse ddps centre de competences achats et cooperaations cc wto,,procurement_agency,0.95,false
+CH,armasuisse ddps centre de competences achats et cooperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse ddps centre de competences achats et cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse domaine de competence achats et cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse domaine de competences ressources et support cc omc,,procurement_agency,0.95,false
+CH,armasuisse einkauf & kooperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse einkauf & kooperationen cc wto,,procurement_agency,0.95,false
+CH,armasuisse einkauf und kooperationen,,procurement_agency,0.95,false
+CH,armasuisse einkauf und kooperationen cc wto,,procurement_agency,0.95,false
+CH,armasuisse einkauf und kooperationen cc wto guisanplatz 1 3003 bern schweiz,,procurement_agency,0.95,false
+CH,armasuisse einkauf und kooperationen cc wto guisanplatz 1 3003 bern schweiz e-mail wto armasuisse ch,,procurement_agency,0.95,false
+CH,armasuisse geschaftsbereich ressourcen und support cc wto,,procurement_agency,0.95,false
+CH,armasuisse immobilien,,procurement_agency,0.95,false
+CH,armasuisse immobilier,,procurement_agency,0.95,false
+CH,armasuisse immobilier le management de projets de constructions centre,,procurement_agency,0.95,false
+CH,armasuisse kompetenzbereich einkauf und kooperationen cc wto,,procurement_agency,0.95,false
+CH,armasuisse lmmobilier,,procurement_agency,0.95,false
+CH,armasuisse purchase and cooperation cc wto,,procurement_agency,0.95,false
+CH,armasuisse purchase and cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse purchase cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse purchasing and cooperations,,procurement_agency,0.95,false
+CH,armasuisse purchasing and cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse purchasing and cooperations cc wto guisanplatz 1 3003 berne switzerland,,procurement_agency,0.95,false
+CH,armasuisse purchasing and cooperations competence sector cc wto guisanplatz 1 3003 bern schweiz,,procurement_agency,0.95,false
+CH,armasuisse purchasing and cooperative cc wto,,procurement_agency,0.95,false
+CH,armasuisse purchasing cooperations cc wto,,procurement_agency,0.95,false
+CH,armasuisse ressourcen et support cc wto,,procurement_agency,0.95,false
+CH,armasuisse ressourcen und support,,procurement_agency,0.95,false
+CH,armasuisse ressourcen und support cc wto,,procurement_agency,0.95,false
+CH,armasuisse ressourcen und support rsw cc wto,,procurement_agency,0.95,false
+CH,armasuisse ressources et assistance cc omc,,procurement_agency,0.95,false
+CH,armasuisse ressources et support cc wto,,procurement_agency,0.95,false
+CH,armasuisse ressources und support cc wto,,procurement_agency,0.95,false
+CH,armasuisse vbs kompetenzbereich einkauf und kooperation cc wto,,procurement_agency,0.95,false
+CH,bundesamt fur rustung armasuisse,,procurement_agency,0.95,false
+CH,dienststelle fur zivile sicherheit und militar,,defence_word,0.70,false
+CH,dienststelle fur zivile sicherheit und militar kantonales amt fur feuerwesen,,defence_word,0.70,false
+CH,service de defense contre l incendie et de secours broye-vully,,defence_word,0.70,false
+CH,service de la securite civile et militaire dienststelle fur zivile sicherheit und militar,,defence_word,0.70,false

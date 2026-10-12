@@ -1,0 +1,3 @@
+country,name,identifier,reason,confidence,reviewed
+HR,ministarstvo obrane republike hrvatske,,ministry,0.95,false
+HR,republika hrvatska ministarstvo obrane,,ministry,0.95,false

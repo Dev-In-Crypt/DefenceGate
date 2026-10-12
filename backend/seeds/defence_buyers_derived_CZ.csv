@@ -1,0 +1,99 @@
+country,name,identifier,reason,confidence,reviewed
+CZ,ceska republika - ministerstvo obrany,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany odbor nemovite infrastruktury sekce majetkova,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany odbor nemovite infrastruktury sekce pravni a investicni,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany odbor nemovite infrastruktury sekce pravni a majetkova,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce ekonomicka a majetkova,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce ekonomicka a majetkova mo,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce majetkova,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce majetkova mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce nakladani s majetkem,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce nakladani s majetkem ministerstva obrany,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce nakladani s majetkem mo,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce nakladani s majetkem mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce nakladani s majetkem odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce nakladani s majetkem odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce pravni a investicni,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce pravni a investicni ministerstva obrany,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce pravni a investicni mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce pravni a investicni odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce pravni a majetkova,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce pravni a majetkova mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce vyzborjovani a akvizic - odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce vyzbrojovani a akvizic,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce vyzbrojovani a akvizic mo,,ministry,0.95,false
+CZ,ceska republika - ministerstvo obrany sekce vyzbrojovani a akvizic odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika -ministerstvo obrany,,ministry,0.95,false
+CZ,ceska republika -ministerstvo obrany sekce nakladani s majetkem,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany odbor nemovite infrastruktury sekce pravni a investicni,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce ekonomicka a majetkova,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce ekonomicka a majetkova mo,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce majetkova odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce nakladani s majetkem,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce nakladani s majetkem mo,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce nakladani s majetkem mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce nakladani s majetkem odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce pravni a investicni,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce pravni a investicni mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce pravni a investicni odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce pravni a investicni odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce pravni a majetkova odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce vyzbojovani a akvizic mo,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce vyzborjovani a akvizic odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce vyzbrojovani a akvizic,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce vyzbrojovani a akvizic mo,,ministry,0.95,false
+CZ,ceska republika ministerstvo obrany sekce vyzbrojovani a akvizic odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika- ministerstvo obrany,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce majetkova mo,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce majetkova odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce nakladani s majetkem,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce nakladani s majetkem mo,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce nakladani s majetkem odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce pravni a investicni odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce pravni a majetkova odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce vyzbojovani a akvizic mo,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce vyzbrojovani a akvizic,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce vyzbrojovani a akvizic mo,,ministry,0.95,false
+CZ,ceska republika-ministerstvo obrany sekce vyzbrojovani a akvizic odbor nabyvani moviteho majetku,,ministry,0.95,false
+CZ,lom praha,,procurement_agency,0.95,false
+CZ,lom praha s p,,procurement_agency,0.95,false
+CZ,ministerstvo obrany,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce ekonomicka a majetkova mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce nakladani s majetkem,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce nakladani s majetkem mo,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce nakladani s majetkem mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce nakladani s majetkem odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce pravni a investicni mo,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce pravni a majetkova mo,,ministry,0.95,false
+CZ,ministerstvo obrany - ceska republika sekce pravni a majewtkova mo,,ministry,0.95,false
+CZ,ministerstvo obrany - vojensky historicky ustav,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce ekonomicka a majetkkova mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce ekonomicka a majetkova,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce ekonomicka a majetkova mo,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce ekonomicka a majetkova mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce nakladani s majetkem,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce nakladani s majetkem mo,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce nakladani s majetkem mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce pravni a investicni mo,,ministry,0.95,false
+CZ,ministerstvo obrany ceska republika sekce vyzbrojovani a akvizic,,ministry,0.95,false
+CZ,ministerstvo obrany ceske republiky,,ministry,0.95,false
+CZ,ministerstvo obrany cr,,ministry,0.95,false
+CZ,ministerstvo obrany cr - vojensky historicky ustav,,ministry,0.95,false
+CZ,ministerstvo obrany sekce pravni a majetkova odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,ministerstvo obrany-ceska republika sekce ekonommicka a majetkova mo odbor nemovite infrastruktury,,ministry,0.95,false
+CZ,vop cz s p,,procurement_agency,0.95,false
+CZ,vojenska lazenska a rekreacni zarizeni,,military_unit,0.85,false
+CZ,vojenska lazenska a rekreacni zarizeni prispevkova organizace,,military_unit,0.85,false
+CZ,vojenska pojistovna ceske republiky,,military_unit,0.85,false
+CZ,vojenske lesy a statky cr s p,,military_unit,0.85,false
+CZ,vojensky technicky ustav s p,,military_unit,0.85,false
+CZ,vojensky technicky ustav s p odstepny zavod vtul a pvo,,military_unit,0.85,false
+CZ,vojensky technicky ustav s p odstepny zavod vtulapvo,,military_unit,0.85,false
+CZ,vojensky technicky ustav s p odstepny zavod vtupv,,military_unit,0.85,false
+CZ,vojensky technicky ustav s p odstepny zavod vtupv vyskov,,military_unit,0.85,false
+CZ,vojensky technicky ustav s p odstepny zavod vtuvm,,military_unit,0.85,false
+CZ,vojensky vyzkumny ustav s p,,military_unit,0.85,false

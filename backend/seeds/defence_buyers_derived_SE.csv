@@ -1,0 +1,21 @@
+country,name,identifier,reason,confidence,reviewed
+SE,fmv,,procurement_agency,0.95,false
+SE,fmv - forsvarets materielverk,,procurement_agency,0.95,false
+SE,fmv defence materiel administration,,procurement_agency,0.95,false
+SE,fmv forsvarets materielverk,,procurement_agency,0.95,false
+SE,fmv forsvarets materielverk swedish defence materiel administration,,procurement_agency,0.95,false
+SE,forsvaretes materielverk,,armed_forces,0.95,false
+SE,forsvarets materiallverk,,armed_forces,0.95,false
+SE,forsvarets materialverk,,armed_forces,0.95,false
+SE,forsvarets materielverk,,armed_forces,0.95,false
+SE,forsvarets materielverk fmv,,armed_forces,0.95,false
+SE,forsvarets materielverkl,,armed_forces,0.95,false
+SE,forsvarets radioanstallt,,armed_forces,0.95,false
+SE,forsvarets radioanstalt,,armed_forces,0.95,false
+SE,forsvarets radioanstalt fra,,armed_forces,0.95,false
+SE,forsvarets radionastalt,,armed_forces,0.95,false
+SE,forsvarsmakten,,armed_forces,0.95,false
+SE,forsvarsmakten swedish armed forces,,armed_forces,0.95,false
+SE,swedish defence material administration,,ministry,0.95,false
+SE,swedish defence materiel administration,,ministry,0.95,false
+SE,the swedish armed forces,,armed_forces,0.95,false

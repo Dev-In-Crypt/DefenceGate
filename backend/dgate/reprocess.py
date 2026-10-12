@@ -27,7 +27,7 @@ import argparse
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Iterable, Iterator
 
 from . import db
@@ -376,6 +376,192 @@ def reclassify_buyers(workers: int = 64, dsn: str | None = None) -> dict[str, Re
     return results
 
 
+def _core(legal_basis: bool, military: bool, dual_use: bool) -> bool:
+    return bool(legal_basis or (military and not dual_use))
+
+
+def reclassify_serving(conn, *, source: str | None = None, dry_run: bool = True,
+                       batch: int = 5000) -> dict[str, int]:
+    """Re-run the classifier over the serving rows, reading no raw payload.
+
+    Everything the classifier needs is on the row -- legal basis, CPV codes, the
+    buyer and whether it is listed, the clearance flag -- so this takes seconds
+    where a replay takes hours. It is how the rules of 12 October 2026 reach the
+    notices already held: the military CPV as its own column, the buyer class,
+    the dual-use demotion, and the end of "clearance plus civil CPV".
+
+    A notice that stops qualifying keeps its row and its history: only the derived
+    columns move, `refresh_classification` style, and no version is written.
+    `dry_run` (the default) changes nothing and returns the same counts.
+    """
+    from .buyer_vocab import buyer_class_of
+    from .classify import classify
+
+    counts: dict[str, int] = {
+        "scanned": 0, "changed": 0, "defence_to_not": 0, "not_to_defence": 0,
+        "demoted_to_dual_use": 0, "restored_from_dual_use": 0,
+        "core_before": 0, "core_after": 0, "supply_after": 0,
+    }
+    by_class: dict[str, int] = {}
+    where, params = "o.id > %s", [0]
+    if source:
+        where += " AND o.source_id = (SELECT id FROM source WHERE code = %s)"
+        params.append(source)
+    while True:
+        rows = conn.execute(
+            f"""SELECT o.id, o.legal_basis, o.cpv_codes, o.country, o.buyer_name_raw,
+                       o.is_defence, o.sig_legal_basis, o.sig_cpv, o.sig_buyer,
+                       o.sig_clearance, o.sig_cpv_military, o.sig_cpv_adjacent,
+                       o.sig_linked_defence, o.dual_use, o.buyer_class,
+                       COALESCE(org.is_defence_buyer, FALSE) AS listed
+                  FROM opportunity o
+                  LEFT JOIN organisation org ON org.id = o.buyer_org_id
+                 WHERE {where} ORDER BY o.id LIMIT %s""",
+            params + [batch],
+        ).fetchall()
+        if not rows:
+            break
+        params[0] = rows[-1]["id"]
+        for r in rows:
+            counts["scanned"] += 1
+            cls = buyer_class_of(r["buyer_name_raw"], r["country"])
+            sig = classify(
+                legal_basis=r["legal_basis"], cpv_codes=r["cpv_codes"],
+                buyer_is_defence=bool(r["listed"]),
+                security_clearance_text="present" if r["sig_clearance"] else None,
+                buyer_class=cls, linked_defence=bool(r["sig_linked_defence"]))
+            new = (sig.is_defence, sig.legal_basis, sig.cpv, sig.buyer, sig.military_cpv,
+                   sig.cpv_adjacent, sig.dual_use, cls)
+            old = (r["is_defence"], bool(r["sig_legal_basis"]), bool(r["sig_cpv"]),
+                   bool(r["sig_buyer"]), bool(r["sig_cpv_military"]),
+                   bool(r["sig_cpv_adjacent"]), bool(r["dual_use"]), r["buyer_class"])
+            counts["core_before"] += r["is_defence"] and _core(
+                r["sig_legal_basis"], r["sig_cpv"], False)       # the rule it replaces
+            if sig.is_defence:
+                counts["core_after"] += _core(sig.legal_basis, sig.military_cpv, sig.dual_use)
+                counts["supply_after"] += (
+                    (sig.buyer or sig.linked_defence)
+                    and not _core(sig.legal_basis, sig.military_cpv, sig.dual_use))
+                by_class[cls] = by_class.get(cls, 0) + 1
+            if new == old:
+                continue
+            counts["changed"] += 1
+            counts["defence_to_not"] += bool(old[0] and not new[0])
+            counts["not_to_defence"] += bool(new[0] and not old[0])
+            counts["demoted_to_dual_use"] += bool(new[6] and not old[6])
+            counts["restored_from_dual_use"] += bool(old[6] and not new[6])
+            if not dry_run:
+                conn.execute(
+                    """UPDATE opportunity
+                          SET is_defence = %s, sig_legal_basis = %s, sig_cpv = %s,
+                              sig_buyer = %s, sig_cpv_military = %s, sig_cpv_adjacent = %s,
+                              dual_use = %s, buyer_class = %s
+                        WHERE id = %s""",
+                    (*new, r["id"]))
+        if not dry_run:
+            conn.commit()
+    counts.update({f"class_{k}": v for k, v in sorted(by_class.items())})
+    return counts
+
+
+def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
+                    linked_only: bool) -> list[tuple[str, str]]:
+    """(storage_key, native_id) of the newest raw payload of each TED notice that is
+    not in `opportunity`, for a window of landing days or for the linked ones."""
+    where, params = ["r.source_id = %s"], [src_id]
+    if linked_only:
+        where.append("""r.native_id IN (SELECT ted_ref FROM opportunity
+                                          WHERE is_defence AND ted_ref IS NOT NULL)""")
+    else:
+        if since:
+            where.append("r.storage_key >= %s")
+            params.append(f"ted/{since:%Y/%m/%d}/")
+        if until:
+            nxt = until + timedelta(days=1)
+            where.append("r.storage_key < %s")
+            params.append(f"ted/{nxt:%Y/%m/%d}/")
+    rows = conn.execute(
+        f"""SELECT DISTINCT ON (r.native_id) r.storage_key, r.native_id
+              FROM raw_ingest r
+             WHERE {' AND '.join(where)}
+               AND NOT EXISTS (SELECT 1 FROM opportunity o
+                                WHERE o.source_id = r.source_id AND o.native_id = r.native_id)
+             ORDER BY r.native_id, r.id DESC""",
+        params,
+    ).fetchall()
+    # Key order, so a bundle is fetched once and not once per notice.
+    return sorted((r["storage_key"], r["native_id"]) for r in rows)
+
+
+def requalify_ted(conn, store: RawStore, *, since: date | None = None,
+                  until: date | None = None, linked_only: bool = False,
+                  dry_run: bool = True, workers: int = 1, batch: int = 200,
+                  outage_attempts: int = 8, outage_pause: float = 15.0) -> dict[str, int]:
+    """Insert the raw TED notices that the current rules qualify and `opportunity` lacks.
+
+    The daily job lands every TED notice and keeps only the ones that qualify at
+    the time, so a rule that widens -- a longer buyer list, a military CPV outside
+    division 35, a notice that a national defence notice says it was forwarded as
+    -- leaves qualifying notices only in the raw store. This reads exactly those:
+    the newest payload of each notice of the window that has no `opportunity` row,
+    through the same normaliser and classifier as a live run.
+
+    One month at a time is the intended grain (`since`/`until` are landing days).
+    `linked_only` ignores the window and takes the notices a national defence
+    notice points at. `dry_run` (the default) does everything except keep it: the
+    work is rolled back, so the counts are what a real run would produce.
+    """
+    from .pipeline import _finalise
+
+    src_id = db.source_id(conn, "ted")
+    candidates = _ted_candidates(conn, src_id, since, until, linked_only)
+    counts: dict[str, int] = {
+        "candidates": len(candidates), "unreadable": 0, "qualified": 0, "inserted": 0,
+        "by_legal_basis": 0, "by_military_cpv": 0, "by_buyer": 0, "by_linked": 0,
+        "by_dual_use": 0, "not_qualified": 0,
+    }
+    linked_refs: set[str] = set()
+    if linked_only:
+        linked_refs = {native_id for _, native_id in candidates}
+
+    for start in range(0, len(candidates), batch):
+        chunk = candidates[start:start + batch]
+        payloads = _read_batch(store, [k for k, _ in chunk], workers,
+                               outage_attempts, outage_pause)
+        for (key, native_id), payload in zip(chunk, payloads, strict=True):
+            if isinstance(payload, Exception):
+                counts["unreadable"] += 1
+                continue
+            try:
+                clean = strip_personal_data(payload)
+                opp = from_ted(clean)
+                digest = content_hash(clean)
+            except Exception as exc:  # noqa: BLE001 - one bad payload must not stop a month
+                log.error("cannot normalise %s: %s", key, exc)
+                counts["unreadable"] += 1
+                continue
+            opp = _finalise(conn, opp, src_id, linked_defence=native_id in linked_refs)
+            if not opp.is_defence:
+                counts["not_qualified"] += 1
+                continue
+            counts["qualified"] += 1
+            counts["by_legal_basis"] += opp.sig_legal_basis
+            counts["by_military_cpv"] += opp.sig_cpv_military
+            counts["by_buyer"] += opp.sig_buyer
+            counts["by_linked"] += opp.sig_linked_defence
+            counts["by_dual_use"] += opp.dual_use
+            db.upsert_opportunity(conn, opp, digest, src_id)
+            counts["inserted"] += 1
+        if not dry_run:
+            conn.commit()
+        log.info("requalify: %s", counts)
+    if dry_run:
+        conn.rollback()
+    else:
+        conn.commit()
+    return counts
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(prog="dgate-reprocess")
@@ -391,7 +577,46 @@ def main(argv: list[str] | None = None) -> int:
                         help="payloads read from storage at once")
     parser.add_argument("--reclassify-buyers", action="store_true",
                         help="re-run classification wherever the buyer list can change it")
+    parser.add_argument("--reclassify-serving", action="store_true",
+                        help="re-run the classifier over the serving rows (no raw reads); "
+                             "dry run unless --yes")
+    parser.add_argument("--requalify-ted", action="store_true",
+                        help="insert raw TED notices the current rules qualify and "
+                             "opportunity lacks; one window at a time; dry run unless --yes")
+    parser.add_argument("--month", help="landing month for --requalify-ted, YYYY-MM")
+    parser.add_argument("--linked", action="store_true",
+                        help="for --requalify-ted: the TED notices a national defence "
+                             "notice points at, whatever their month")
+    parser.add_argument("--yes", action="store_true",
+                        help="write; the modes above only report without it")
     args = parser.parse_args(argv)
+
+    if args.reclassify_serving:
+        with db.connect(settings().dsn) as conn:
+            counts = reclassify_serving(conn, source=args.source, dry_run=not args.yes)
+        print(("applied" if args.yes else "dry run, nothing written") + ":")
+        for k, v in counts.items():
+            print(f"  {k}: {v}")
+        return 0
+
+    if args.requalify_ted:
+        since = until = None
+        if args.month:
+            since = date.fromisoformat(args.month + "-01")
+            until = (since.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        elif not args.linked:
+            since, until = args.since, args.until
+        if not args.linked and since is None and until is None:
+            parser.error("--requalify-ted needs --month, --from/--to, or --linked")
+        with db.connect(settings().dsn) as conn:
+            counts = requalify_ted(conn, build_store(), since=since, until=until,
+                                   linked_only=args.linked, dry_run=not args.yes,
+                                   workers=max(args.workers, 1))
+        print(("applied" if args.yes else "dry run, nothing written")
+              + f" ({since or ''}..{until or ''}{' linked' if args.linked else ''}):")
+        for k, v in counts.items():
+            print(f"  {k}: {v}")
+        return 0 if counts["unreadable"] == 0 else 1
 
     if args.reclassify_buyers:
         results = reclassify_buyers(workers=max(args.workers, 1))
