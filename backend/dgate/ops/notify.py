@@ -56,13 +56,18 @@ def notify(text: str, *, timeout: float = 10.0) -> bool:
     if not (cfg.telegram_token and cfg.telegram_chat_id):
         return False
     try:
-        httpx.post(
+        response = httpx.post(
             f"https://api.telegram.org/bot{cfg.telegram_token}/sendMessage",
             json={"chat_id": cfg.telegram_chat_id, "text": text[:4000],
                   "disable_web_page_preview": True},
             timeout=timeout,
         )
-        return True
     except Exception as exc:  # noqa: BLE001
-        log.error("telegram notify failed: %s", exc)
+        log.error("telegram notify failed: %s", type(exc).__name__)
         return False
+    if response.status_code != 200:
+        # A wrong token or a chat the bot may not write to is an answer, not an
+        # exception, and used to read as "sent". Status only: the URL has the token.
+        log.error("telegram notify refused: HTTP %s", response.status_code)
+        return False
+    return True
