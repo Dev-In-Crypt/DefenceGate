@@ -100,7 +100,7 @@ def set_role_passwords(conn) -> list[str]:
     """Give the service roles of migration 0024 a login, from the environment.
 
     The passwords are never in SQL or in the repository: the operator sets
-    DGATE_API_PASSWORD and DGATE_WORKER_PASSWORD, and this runs after every
+    DGATE_API_PASSWORD, DGATE_WORKER_PASSWORD and DGATE_APP_PASSWORD, and this runs after every
     migrate so a rotated value takes effect on the next deploy. A role whose
     variable is unset is left as it was.
     """
@@ -110,7 +110,8 @@ def set_role_passwords(conn) -> list[str]:
 
     done: list[str] = []
     for role, variable in (("dgate_api", "DGATE_API_PASSWORD"),
-                           ("dgate_worker", "DGATE_WORKER_PASSWORD")):
+                           ("dgate_worker", "DGATE_WORKER_PASSWORD"),
+                           ("dgate_app", "DGATE_APP_PASSWORD")):
         password = os.environ.get(variable)
         if not password:
             continue

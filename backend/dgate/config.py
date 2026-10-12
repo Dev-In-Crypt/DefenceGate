@@ -199,6 +199,9 @@ class Settings:
     # The public API's own connection, a role that can only read (migration 0024).
     # Unset means it uses `dsn`, so a rollout can move the API first.
     api_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_API_DSN") or None)
+    # The account endpoints' own role (migration 0027): it alone may read and write the
+    # app_* tables. Unset means `dsn`, as for the API role.
+    app_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_APP_DSN") or None)
     # The per-address request limiter. On unless DGATE_RATE_LIMIT=0 (the test suite
     # makes hundreds of requests from one "address" and says so in conftest).
     rate_limit: bool = field(default_factory=lambda: os.environ.get("DGATE_RATE_LIMIT") != "0")
@@ -276,6 +279,21 @@ class Settings:
     user_agent: str = field(default_factory=lambda: _env(
         "DGATE_USER_AGENT",
         "dgate/0.1 (+https://github.com/Dev-In-Crypt/DefenceGate)"))
+
+    # --- mail (sign-in links, alert digests) ----------------------------
+    # Accounts are "open" only when mail can actually be delivered: without a relay a
+    # sign-in link would be issued and never arrive. The password is read from the
+    # environment, never from a file in the repository.
+    smtp_host: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_HOST") or None)
+    smtp_port: int = field(default_factory=lambda: _env_int("DGATE_SMTP_PORT", 587))
+    smtp_user: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_USER") or None)
+    smtp_password: str | None = field(
+        default_factory=lambda: os.environ.get("DGATE_SMTP_PASSWORD") or None)
+    smtp_from: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_FROM") or None)
+    # starttls (587), ssl (465) or none (a local relay only).
+    smtp_security: str = field(default_factory=lambda: _env("DGATE_SMTP_SECURITY", "starttls"))
+    # The public address links in mail point at.
+    site_url: str = field(default_factory=lambda: _env("DGATE_SITE_URL", "https://defencegatehub.com"))
 
     # --- alerting -------------------------------------------------------
     # All optional. Unconfigured means log-only: an alerting backend must

@@ -714,3 +714,13 @@ app.include_router(_funding_router)
 from .tenders import router as _tenders_router  # noqa: E402
 
 app.include_router(_tenders_router)
+
+# Accounts: reached only by the site's own server over the internal network, never routed
+# by Caddy (docs/design/ACCOUNT_CONTRACT.md).
+from .accounts import AccountError, account_error_handler  # noqa: E402
+from .accounts import internal_router as _internal_router  # noqa: E402
+from .accounts import router as _account_router  # noqa: E402
+
+app.include_router(_account_router)
+app.include_router(_internal_router)
+app.add_exception_handler(AccountError, account_error_handler)

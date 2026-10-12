@@ -110,4 +110,5 @@ def test_every_job_is_reachable_from_the_cli():
     assert set(worker.JOBS) == {"ted", "ezamowienia", "placsp", "seed-buyers",
                                 "health", "backup", "backup-verify", "catch-up",
                                 "atlas-backfill", "ted-history", "boamp", "calls",
-                                "topics", "bdns", "ncbr", "tenderned", "vinnova", "aid", "matine"}
+                                "topics", "bdns", "ncbr", "tenderned", "vinnova", "aid", "matine",
+                                "alerts"}

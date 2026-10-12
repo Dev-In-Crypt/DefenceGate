@@ -53,6 +53,8 @@ services:
       # migrate, so rotating a value is a redeploy.
       DGATE_API_PASSWORD: ${DGATE_API_PASSWORD:?set DGATE_API_PASSWORD in infra/.env}
       DGATE_WORKER_PASSWORD: ${DGATE_WORKER_PASSWORD:?set DGATE_WORKER_PASSWORD in infra/.env}
+      # The accounts role of migration 0027: the only one that may touch app_* tables.
+      DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD:?set DGATE_APP_PASSWORD in infra/.env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,6 +77,19 @@ services:
       # The API reads and nothing else: a role with SELECT, a 5 s statement budget
       # and 30 connections (migration 0024). Its own password, not the owner's.
       DGATE_DSN: postgresql://dgate_api:${DGATE_API_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+      # Accounts, reached only from the site's own server (docs/design/ACCOUNT_CONTRACT.md):
+      # its own role, which can write app_* tables and nothing else.
+      DGATE_APP_DSN: postgresql://dgate_app:${DGATE_APP_PASSWORD:?set DGATE_APP_PASSWORD in infra/.env}@postgres:5432/${POSTGRES_DB:-dgate}
+      # Mail for sign-in links. Without a relay sign-in stays closed; nothing is faked.
+      DGATE_SMTP_HOST: ${DGATE_SMTP_HOST:-}
+      DGATE_SMTP_PORT: ${DGATE_SMTP_PORT:-587}
+      DGATE_SMTP_USER: ${DGATE_SMTP_USER:-}
+      DGATE_SMTP_PASSWORD: ${DGATE_SMTP_PASSWORD:-}
+      DGATE_SMTP_FROM: ${DGATE_SMTP_FROM:-}
+      DGATE_SMTP_SECURITY: ${DGATE_SMTP_SECURITY:-starttls}
+      DGATE_SITE_URL: https://${DGATE_DOMAIN:-localhost}
+      DGATE_TELEGRAM_TOKEN: ${DGATE_TELEGRAM_TOKEN:-}
+      DGATE_TELEGRAM_CHAT_ID: ${DGATE_TELEGRAM_CHAT_ID:-}
     mem_limit: 512m
     pids_limit: 256
     cap_drop: [ALL]
@@ -110,6 +125,14 @@ services:
     environment:
       # Rows in, rows out; no DDL, no TRUNCATE, not a superuser (migration 0024).
       DGATE_DSN: postgresql://dgate_worker:${DGATE_WORKER_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
+      # Alert digests are mailed from here; without a relay the job does nothing.
+      DGATE_SMTP_HOST: ${DGATE_SMTP_HOST:-}
+      DGATE_SMTP_PORT: ${DGATE_SMTP_PORT:-587}
+      DGATE_SMTP_USER: ${DGATE_SMTP_USER:-}
+      DGATE_SMTP_PASSWORD: ${DGATE_SMTP_PASSWORD:-}
+      DGATE_SMTP_FROM: ${DGATE_SMTP_FROM:-}
+      DGATE_SMTP_SECURITY: ${DGATE_SMTP_SECURITY:-starttls}
+      DGATE_SITE_URL: https://${DGATE_DOMAIN:-localhost}
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
       DGATE_RAW_DIR: /raw
       # The raw store is the thing the archive can be rebuilt from, so the

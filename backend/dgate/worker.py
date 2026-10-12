@@ -305,6 +305,17 @@ def job_health_report() -> JobResult:
     return run_job("health_report", _report)
 
 
+def job_alerts() -> JobResult:
+    """Mail each account what is new for its saved searches. A no-op without a mail relay."""
+    from .ops.digest import run_digests
+
+    def _run() -> None:
+        with db.connect(settings().dsn) as conn:
+            log.info("alerts: %s", run_digests(conn))
+
+    return run_job("alerts", _run)
+
+
 def ezam_source() -> str:
     from .sources.ezamowienia import SOURCE_CODE
 
@@ -724,6 +735,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "placsp": job_placsp,
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
+    "alerts": job_alerts,
     "backup": job_backup,
     "ted-history": job_ted_history,
     "backup-verify": job_backup_verify,
@@ -769,6 +781,8 @@ def build_scheduler():
                   id="matine_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_health_report, CronTrigger(hour=cfg.health_hour, minute=0),
                   id="health_report", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_alerts, CronTrigger(minute=20),
+                  id="alerts_hourly", max_instances=1, misfire_grace_time=1800)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
                   id="backup_nightly", max_instances=1, misfire_grace_time=7200)
     sched.add_job(job_backup_verify, CronTrigger(day_of_week="sun", hour=cfg.backup_hour, minute=30),
@@ -813,6 +827,7 @@ def describe_schedule() -> list[str]:
         f"ncbr_daily     {cfg.ncbr_hour:02d}:{cfg.ncbr_minute:02d} UTC  "
         f"(Polish NCBR competitions, the whole list)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
+        "alerts_hourly  :20 UTC  (digests of saved searches; nothing without a mail relay)",
         *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
            f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]
           if ted_history_window() is not None else []),

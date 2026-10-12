@@ -21,7 +21,8 @@ os.environ.setdefault("DGATE_RATE_LIMIT", "0")
 
 TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
-            call, raw_ingest, ingest_run"""
+            call, raw_ingest, ingest_run,
+            app_user, app_login_token, app_auth_event, app_hit_daily"""
 # `programme` is deliberately not truncated: it is reference data the migration
 # seeds once, and a test that started with no programmes would be testing a
 # database that cannot exist.
