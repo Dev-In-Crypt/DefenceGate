@@ -5,7 +5,7 @@ import { safeHttpUrl } from './safe-url';
 
 export const SITE = {
   name: 'DefenceGate',
-  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://defencegate.eu',
+  url: process.env.NEXT_PUBLIC_SITE_URL || 'https://defencegatehub.com',
   tagline: 'Your way into European defence supply chains.',
 } as const;
 
