@@ -1009,15 +1009,20 @@ _ATLAS_OPEN_TYPES = {
 }
 
 
-def _atlas_status(notice_type: str | None) -> str:
+def _atlas_status(notice_type: str | None, procedure_result: Any = None) -> str:
     """Live call, or a record of one that has already been decided.
 
     Anything unrecognised is `open`, matching the rest of the pipeline: a
     notice wrongly left open is visible and gets corrected, one wrongly closed
     is invisible and never does.
+
+    A result notice whose parts were all annulled (`uniewaznienie`, 17,973 rows
+    of 2024) is `cancelled`, not awarded.
     """
     if notice_type in _ATLAS_CLOSED_TYPES:
-        return "awarded"
+        from .sources.ezamowienia import result_status
+
+        return result_status(procedure_result) or "awarded"
     return "open"
 
 
@@ -1086,7 +1091,10 @@ def from_atlas_pl(record: dict[str, Any]) -> Opportunity:
         title_original=str(_first(g("title")) or "").strip(),
         country=_country2(g("organization_country")) or "PL",
         original_language="PL",
-        procedure_type=notice_type,
+        # The procedure (`tender_type`, a BZP code), not the notice type. Null on
+        # every TED row of the dataset (98,114 in 2024): those are shown with the
+        # TED twin's procedure through `ted_ref`, never copied here.
+        procedure_type=_procedure_label(g("tender_type")),
         legal_basis=None,
         value_amount=value,
         value_currency=currency,
@@ -1094,7 +1102,7 @@ def from_atlas_pl(record: dict[str, Any]) -> Opportunity:
         deadline_at=deadline,
         cpv_codes=_clean_cpv(g("cpv_code")),
         source_url=url,
-        status=_atlas_status(notice_type),
+        status=_atlas_status(notice_type, _first(g("procedure_result"))),
         status_native=notice_type,
         ted_ref=canonical_ted_ref(g("ted_number")) or ted_ref_from_url(url),
     )
@@ -1115,25 +1123,45 @@ def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
     version = None
     notice_number = str(_first(g("noticeNumber")) or "")
     if "/" in notice_number:
-        tail = notice_number.rsplit("/", 1)[-1].strip()
+        parts = [p.strip() for p in notice_number.split("/")]
+        # A plan notice is numbered `<plan>/<revision>/P`: the revision is the
+        # one before the letter.
+        tail = parts[-2] if parts[-1].upper() == "P" and len(parts) >= 3 else parts[-1]
         if tail.isdigit():
             version = int(tail)
 
+    # A record republished from TED has `noticeType = null` and names its TED
+    # form in `noticeTypeTed`; both are kept, the BZP one first.
     notice_type = _first(g("noticeType"))
+    native_type = notice_type or _first(g("noticeTypeTed"))
     object_id = _first(g("objectId")) or _first(g("moIdentifier"))
     url = (f"https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/{object_id}"
            if object_id else None)
 
     deadline = parse_iso_datetime(g("submittingOffersDate"), default_tz=ZoneInfo(_PL_TZ))
 
+    buyer = str(_first(g("organizationName")) or "").strip() or "UNKNOWN"
+    title = str(_first(g("orderObject")) or "").strip()
+    title_en = None
+    if not title and notice_type == "TenderPlanNotice":
+        # The listing of a plan notice names no subject and no CPV (35 of 35
+        # checked on 12 October 2026); the plan itself is a separate document.
+        # A clearly labelled line rather than an empty title: it says what the
+        # notice is and who published it, and claims nothing else.
+        title = title_en = f"Procurement plan notice (planned purchases, subject not stated): {buyer}"
+
     return Opportunity(
         source_code="pl_ezam",
         native_id=str(native_id),
-        buyer_name_raw=str(_first(g("organizationName")) or "").strip() or "UNKNOWN",
-        title_original=str(_first(g("orderObject")) or "").strip(),
+        buyer_name_raw=buyer,
+        title_original=title,
+        title_en=title_en,
         country=_country2(g("organizationCountry")) or "PL",
         original_language="PL",
-        procedure_type=notice_type,
+        # The procedure, not the notice type: `tenderType` is the procedure
+        # (see sources/ezamowienia.procedure_label). The notice type is kept in
+        # status_native.
+        procedure_type=_procedure_label(g("tenderType")),
         legal_basis=("32009L0081" if notice_type in _PL_DEFENCE_NOTICE_TYPES else None),
         # The board listing carries no contract value. It is on the notice
         # document, which is a separate fetch, so the field stays honestly empty
@@ -1145,16 +1173,35 @@ def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
         cpv_codes=_pl_cpv(g("cpvCode")),
         source_url=url,
         notice_version=version,
-        status=_pl_status(notice_type),
-        status_native=notice_type,
-        ted_ref=ted_ref_from_url(g("pdfUrl")),
+        status=_pl_status({"noticeType": notice_type,
+                           "noticeTypeTed": _first(g("noticeTypeTed")),
+                           "procedureResult": _first(g("procedureResult"))}),
+        status_native=native_type,
+        ted_ref=ted_ref_from_url(g("pdfUrl")) or _ted_ref_from_oj_number(notice_number),
     )
 
 
-def _pl_status(notice_type: str | None) -> str:
-    from .sources.ezamowienia import map_status
+_OJ_NUMBER = re.compile(r"^(20[12]\d)/S \d{1,3}-(\d{1,8})$")
 
-    return map_status(notice_type)
+
+def _ted_ref_from_oj_number(value: str) -> str | None:
+    """`2026/S 173-618851` (how the bulletin numbers a notice it republished from
+    TED: year, OJ S issue, publication number) is TED notice `618851-2026`.
+    The link is also in `pdfUrl`; this covers a record that lacks it."""
+    m = _OJ_NUMBER.match(value.strip())
+    return canonical_ted_ref(f"{m.group(2)}-{m.group(1)}") if m else None
+
+
+def _pl_status(record: dict[str, Any]) -> str:
+    from .sources.ezamowienia import record_status
+
+    return record_status(record)
+
+
+def _procedure_label(tender_type: Any) -> str | None:
+    from .sources.ezamowienia import procedure_label
+
+    return procedure_label(tender_type)
 
 
 # ------------------------------------------------------- grants: EU portal

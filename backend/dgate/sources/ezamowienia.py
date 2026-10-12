@@ -89,26 +89,157 @@ DEFENCE_BUYER_TAX_IDS: tuple[str, ...] = (
 )
 
 # Lifecycle. BZP expresses the state of a procedure through the notice type
-# rather than a status field, so the mapping lives here.
+# rather than a status field, so the mapping lives here. Decision of 12 October
+# 2026 (docs/DATA_QUALITY_PLAN): a call that can be acted on is `open`, a prior
+# information or planning notice is `forthcoming`, award, modification and
+# intention-to-conclude notices (TED's can-*, veat) are `awarded`.
 NOTICE_TYPE_STATUS = {
     "ContractNotice": "open",
     "ContractNoticeForContractsInTheFieldOfDefenceAndSecurityEU": "open",
-    "PriorInformationNoticeForContractsInTheFieldOfDefenceAndSecurityEU": "open",
-    "NoticeOfIntentionToConcludeAContract": "open",
+    # A call for offers below the thresholds. Both live records had a future
+    # deadline, which is what makes it a call and not a record of one.
+    "SmallContractNotice": "open",
     "CompetitionNotice": "open",
+    # Was `open`: a prior information notice is not a call for competition.
+    "PriorInformationNoticeForContractsInTheFieldOfDefenceAndSecurityEU": "forthcoming",
+    # The procurement plan of a buyer: what it intends to buy, not a tender.
+    "TenderPlanNotice": "forthcoming",
+    # "Intention to conclude a contract" is published before a direct award: the
+    # equivalent of TED's veat, which the decision maps to `awarded`. Was `open`.
+    "NoticeOfIntentionToConcludeAContract": "awarded",
+    "AgreementIntentionNotice": "awarded",
     "TenderResultNotice": "awarded",
     "ContractAwardNotice": "awarded",
     "ContractAwardNoticeForContractsInTheFieldOfDefenceAndSecurityEU": "awarded",
     "ContractPerformingNotice": "awarded",
     "AgreementUpdateNotice": "awarded",
+    # Deliberately `unknown`. A change notice carries no deadline of its own and
+    # restates a notice that is listed in its own right (the re-read keeps that
+    # one current); giving the copy the original's status would list the same
+    # procurement twice as open.
+    "NoticeUpdateNotice": "unknown",
+}
+
+# The notices the bulletin republishes from TED carry `noticeType = null` and
+# the TED form in `noticeTypeTed` instead (`eforms-16`, or the TED type name on
+# older forms). Subtype -> TED `notice-type`, established on 12 October 2026 by
+# joining 3,906 such records to their TED twins (`pdfUrl` -> publication number)
+# and reading the twin's `notice-subtype` and `notice-type`; every pair below was
+# seen, none is from memory. A subtype not listed stays unmapped: `unknown`.
+TED_SUBTYPE_TYPE = {
+    "1": "pin-buyer", "7": "pin-rtl", "8": "pin-rtl", "15": "qu-sy",
+    "16": "cn-standard", "17": "cn-standard", "18": "cn-standard", "E3": "cn-standard",
+    "20": "cn-social", "21": "cn-social",
+    "25": "veat", "26": "veat", "27": "veat",
+    "29": "can-standard", "30": "can-standard", "31": "can-standard", "E4": "can-standard",
+    "33": "can-social", "34": "can-social", "36": "can-desg",
+    "38": "can-modif", "39": "can-modif",
+    "T01": "pin-tran",
+}
+
+# TED notice-type -> lifecycle, the decision's rule: cn-* open, pin-* forthcoming,
+# can-* and veat awarded. `qu-sy` (a qualification system) is none of those.
+TED_TYPE_STATUS = {
+    "cn-standard": "open", "cn-social": "open", "cn-desg": "open",
+    "pin-only": "forthcoming", "pin-buyer": "forthcoming", "pin-rtl": "forthcoming",
+    "pin-tran": "forthcoming", "pin-cfc-standard": "forthcoming",
+    "pin-cfc-social": "forthcoming",
+    "can-standard": "awarded", "can-social": "awarded", "can-desg": "awarded",
+    "can-modif": "awarded", "veat": "awarded",
 }
 
 
+def ted_notice_type(value: str | None) -> str | None:
+    """The TED `notice-type` named by a `noticeTypeTed` value, if it names one."""
+    text = (value or "").strip()
+    if text.lower().startswith("eforms-"):
+        return TED_SUBTYPE_TYPE.get(text[len("eforms-"):].upper())
+    return text.lower() if text.lower() in TED_TYPE_STATUS else None
+
+
 def map_status(notice_type: str | None) -> str:
-    """Normalised lifecycle. An unknown type is `unknown`, never a fake `open`."""
+    """Normalised lifecycle. An unknown type is `unknown`, never a fake `open`.
+
+    Takes a BZP notice type (`ContractNotice`) or a TED form (`eforms-16`,
+    `can-standard`), whichever the record carries.
+    """
     if not notice_type:
         return "unknown"
-    return NOTICE_TYPE_STATUS.get(notice_type.strip(), "unknown")
+    text = str(notice_type).strip()
+    if text in NOTICE_TYPE_STATUS:
+        return NOTICE_TYPE_STATUS[text]
+    return TED_TYPE_STATUS.get(ted_notice_type(text) or "", "unknown")
+
+
+# `procedureResult` is the outcome of a result notice, one `;`-separated entry
+# per part (lot): `zawarcieUmowy` (contract concluded), `uniewaznienie` (the
+# procedure was annulled), `nieRozstrzygnieto` (not decided). On notices
+# republished from TED it holds the word `Unijna`, which is not an outcome.
+_RESULT_AWARDED = "zawarcieumowy"
+_RESULT_CANCELLED = {"uniewaznienie"}
+_RESULT_UNDECIDED = {"nierozstrzygnieto", "zamknięte bez wyboru wykonawcy"}
+
+
+def result_status(procedure_result: str | None) -> str | None:
+    """What a result notice says about the procedure, or None when it says
+    nothing that changes `awarded`.
+
+    One part with a contract is enough for `awarded`; a notice whose parts were
+    all annulled is `cancelled`, which the old mapping showed as awarded; parts
+    that were all annulled or undecided are `closed`.
+    """
+    parts = {p.strip().lower() for p in str(procedure_result or "").split(";") if p.strip()}
+    if not parts or _RESULT_AWARDED in parts:
+        return None
+    if parts <= _RESULT_CANCELLED:
+        return "cancelled"
+    if parts <= _RESULT_CANCELLED | _RESULT_UNDECIDED:
+        return "closed"
+    return None
+
+
+def record_status(record: dict[str, Any]) -> str:
+    """Lifecycle of one board record: its BZP type, else its TED form, with an
+    annulled result notice shown as `cancelled` rather than `awarded`."""
+    status = map_status(record.get("noticeType") or record.get("noticeTypeTed"))
+    if status == "awarded":
+        return result_status(record.get("procedureResult")) or status
+    return status
+
+
+# `tenderType` is a word on the notices republished from TED (the eForms
+# `procedure-type` code list, seen: open, restricted, neg-w-call, neg-wo-call,
+# comp-dial, oth-single, oth-mult, comp-tend) and a dotted number on a notice
+# filed in the bulletin itself (1.1.1, 1.1.2, 2.1, 1.4.1.7 ...). The numbers are
+# the bulletin's own form sections; the only place that explains them is a glossary
+# endpoint whose use is not documented (`/glossary` answers 500 without a
+# parameter nobody publishes), so they are kept as stated and labelled as codes.
+PROCEDURE_WORDS = {
+    "open": "Open procedure",
+    "restricted": "Restricted procedure",
+    "neg-w-call": "Negotiated procedure with a call for competition",
+    "neg-wo-call": "Negotiated procedure without a call for competition",
+    "comp-dial": "Competitive dialogue",
+    "innovation": "Innovation partnership",
+    "oth-single": "Other single-stage procedure",
+    "oth-mult": "Other multi-stage procedure",
+    "comp-tend": "Competitive tendering",
+}
+
+
+def procedure_label(tender_type: Any) -> str | None:
+    """The procedure as a reader can use it: a verified word, a BZP code stated
+    as one ("BZP 1.1.1"), or nothing. Never the notice type, which names the
+    document and not the procedure."""
+    text = str(tender_type).strip() if tender_type not in (None, "") else ""
+    if not text:
+        return None
+    word = PROCEDURE_WORDS.get(text.lower())
+    if word:
+        return word
+    if all(ch.isdigit() or ch == "." for ch in text):
+        return f"BZP {text}"
+    return text
 
 
 def notice_url(record: dict[str, Any]) -> str | None:
@@ -151,13 +282,14 @@ def defence_queries(
 
 # ----------------------------------------------------------------- fetching
 
-def _page(client: httpx.Client, params: dict[str, Any], page: int) -> list[dict[str, Any]]:
+def _page(client: httpx.Client, params: dict[str, Any], page: int,
+          attempts: int = 4) -> list[dict[str, Any]]:
     def send() -> httpx.Response:
         response = client.get(SEARCH_URL, params={**params, "PageNumber": page}, timeout=90.0)
         response.raise_for_status()
         return response
 
-    response = request_with_retry(send, what=f"{SOURCE_CODE} page {page}")
+    response = request_with_retry(send, what=f"{SOURCE_CODE} page {page}", attempts=attempts)
     payload = response.json()
     if not isinstance(payload, list):
         raise ValueError(f"expected a list of notices, got {type(payload).__name__}")
@@ -165,22 +297,27 @@ def _page(client: httpx.Client, params: dict[str, Any], page: int) -> list[dict[
 
 
 def search(
-    params: dict[str, Any], *, client: httpx.Client | None = None, max_pages: int = MAX_PAGES
+    params: dict[str, Any], *, client: httpx.Client | None = None, max_pages: int = MAX_PAGES,
+    pause: float = REQUEST_PAUSE, attempts: int = 4,
 ) -> Iterator[dict[str, Any]]:
-    """Yield raw records for one query, following pages until the list empties."""
+    """Yield raw records for one query, following pages until the list empties.
+
+    A page that still fails after `attempts` tries raises: a walk that stops
+    quietly would be recorded as a smaller day.
+    """
     owns = client is None
     client = client or new_client(headers={"User-Agent": USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
     try:
         for page in range(1, max_pages + 1):
-            records = _page(client, params, page)
+            records = _page(client, params, page, attempts)
             if not records:
                 return
             yield from records
             if len(records) < PAGE_SIZE:
                 return
-            time.sleep(REQUEST_PAUSE)
+            time.sleep(pause)
         raise RuntimeError(
             f"{SOURCE_CODE}: query still returning full pages after {max_pages} pages; "
             f"the result was cut short, not complete ({params})")
@@ -213,6 +350,7 @@ def fetch_window(
     client: httpx.Client | None = None,
     max_pages: int = MAX_PAGES,
     today: date | None = None,
+    failed: list[date] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Every notice published from `days_back` days ago to today, deduplicated.
 
@@ -220,6 +358,12 @@ def fetch_window(
     filter, so a day is the smallest window that can be asked for; a day is
     also small enough to walk whole, and walking it whole is the only way to
     know it was complete. A notice repeated at a day boundary is yielded once.
+
+    A day that cannot be walked to its end raises, which ends the window. With
+    `failed` given, the day is appended to it instead and the remaining days are
+    still walked: on 7 October 2026 a 503 on page 301 of the 6th ended the run
+    and the 7th was never read. The caller must treat a non-empty list as a
+    window that is not complete.
     """
     today = today or date.today()
     owns = client is None
@@ -231,14 +375,79 @@ def fetch_window(
         for offset in range(days_back, -1, -1):
             day = today - timedelta(days=offset)
             count = 0
-            for record in search(day_query(day), client=client, max_pages=max_pages):
-                key = str(record.get("noticeNumber") or record.get("objectId") or "")
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                count += 1
-                yield record
+            try:
+                for record in search(day_query(day), client=client, max_pages=max_pages):
+                    key = str(record.get("noticeNumber") or record.get("objectId") or "")
+                    if not key or key in seen:
+                        continue
+                    seen.add(key)
+                    count += 1
+                    yield record
+            except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+                if failed is None:
+                    raise
+                failed.append(day)
+                log.error("%s: %s could not be read to its end after %s notices: %s",
+                          SOURCE_CODE, day, count, exc)
+                continue
             log.info("%s: %s notices published %s", SOURCE_CODE, count, day)
     finally:
         if owns:
             client.close()
+
+
+# ------------------------------------------------- history and re-reads
+
+# A historical load asks for one day at a time at one request a second (the
+# owner's rule for every backfill), and sits out a rate limit rather than
+# giving up on the first 429: six tries wait about a minute in total, after
+# which the load stops and resumes from the day marker.
+HISTORY_PAUSE = 1.0
+HISTORY_ATTEMPTS = 6
+
+# The re-read of open notices: at most this many per run, at one request a
+# second, and nothing read within the last REFRESH_MIN_AGE_HOURS. About 300 are
+# open at any time (311 on 12 October 2026), so 200 a day reaches each of them
+# at least every second day, inside the three-day bound.
+REFRESH_PAUSE = 1.0
+REFRESH_LIMIT = 200
+REFRESH_MIN_AGE_HOURS = 20.0
+
+
+def fetch_day(
+    day: date, *, client: httpx.Client | None = None, max_pages: int = MAX_PAGES,
+    pause: float = HISTORY_PAUSE, attempts: int = HISTORY_ATTEMPTS,
+) -> Iterator[dict[str, Any]]:
+    """Every notice published on one day, each once, paced for a backfill.
+
+    The caller marks the day done only after this generator is exhausted, so a
+    503 on page 301 propagates as an exception and the day is asked for again
+    from page 1: there is no way to finish a day short.
+    """
+    seen: set[str] = set()
+    for record in search(day_query(day), client=client, max_pages=max_pages,
+                         pause=pause, attempts=attempts):
+        key = str(record.get("noticeNumber") or record.get("objectId") or "")
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        yield record
+
+
+def fetch_notice(
+    notice_number: str, *, client: httpx.Client | None = None,
+) -> dict[str, Any] | None:
+    """One notice by its number, as the board serves it now, or None.
+
+    `noticeNumber` is an exact filter (measured on 12 October 2026: one record
+    for `2026/BZP 00448576/01`; `BzpNumber` is ignored and returns the whole
+    board). The same query `ops/spot_check` uses to compare a stored notice with
+    the live one. A change made in place -- a deadline moved -- keeps the notice
+    number and its publication date, so no publication-day window ever sees it.
+    """
+    for record in search({"noticeNumber": notice_number, "PageSize": PAGE_SIZE},
+                         client=client, max_pages=1):
+        if str(record.get("noticeNumber") or "").strip() == notice_number:
+            return record
+    return None
