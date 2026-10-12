@@ -15,6 +15,7 @@ process (it does). Behind more than one worker it would need a shared store.
 
 from __future__ import annotations
 
+import ipaddress
 import math
 import threading
 import time
@@ -34,6 +35,21 @@ REFILL_PER_SECOND = 2.0
 # `docker exec`. Everything arriving through the proxy carries the client's own
 # address (uvicorn is started with --proxy-headers).
 LOCAL_PEERS = {"127.0.0.1", "::1", "localhost"}
+
+# The site's own server rendering reaches the API from inside the compose network, with
+# no client address of its own: all of it would share one bucket, so a single busy
+# minute of visitors would be refused as if they were one abusive client. Peers on a
+# private address (never anyone from the internet: Caddy puts the visitor's address in
+# front) get a bucket sized for the whole site instead.
+INTERNAL_FACTOR = 20.0
+
+
+def is_internal(peer: str) -> bool:
+    try:
+        return ipaddress.ip_address(peer).is_private
+    except ValueError:
+        return False
+
 
 # What a request costs, in tokens. The archive and the entity-resolution oracle
 # are the two things worth scraping, and the slug list is the whole catalogue.
@@ -86,6 +102,7 @@ class RateLimit(BaseHTTPMiddleware):
     def __init__(self, app: Any, buckets: TokenBuckets | None = None) -> None:
         super().__init__(app)
         self.buckets = buckets or TokenBuckets()
+        self.internal = TokenBuckets(CAPACITY * INTERNAL_FACTOR, REFILL_PER_SECOND * INTERNAL_FACTOR)
 
     async def dispatch(self, request: Request, call_next):
         from .config import settings
@@ -94,7 +111,8 @@ class RateLimit(BaseHTTPMiddleware):
         if peer in LOCAL_PEERS or not settings().rate_limit:
             return await call_next(request)
         cost = request_cost(request.url.path, dict(request.query_params))
-        allowed, wait = self.buckets.take(peer, cost)
+        buckets = self.internal if is_internal(peer) else self.buckets
+        allowed, wait = buckets.take(peer, cost)
         if not allowed:
             return JSONResponse({"detail": "rate limit exceeded"}, status_code=429,
                                 headers={"Retry-After": str(max(1, math.ceil(wait)))})

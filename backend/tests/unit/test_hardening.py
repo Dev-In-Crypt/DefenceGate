@@ -12,7 +12,7 @@ import pytest
 
 from dgate import rawstore
 from dgate.api import SNAPSHOT_FIELDS, public_snapshot
-from dgate.hardening import TokenBuckets, request_cost
+from dgate.hardening import TokenBuckets, is_internal, request_cost
 from dgate.normalise import (
     EMAIL_PLACEHOLDER,
     MAX_DEPTH,
@@ -220,3 +220,11 @@ def test_an_identifier_from_a_source_is_checked_before_it_is_put_into_a_url():
         tenderned.fetch_detail("../../admin", client=None)       # never reaches the network
     with pytest.raises(ValueError):
         eu_portal.fetch_topic_details("x/../../y", client=None)     # never reaches the network
+
+
+@pytest.mark.parametrize("peer, internal", [
+    ("172.18.0.5", True), ("10.1.2.3", True), ("192.168.0.9", True),
+    ("94.73.46.176", False), ("2606:4700::1111", False), ("testclient", False), ("", False),
+])
+def test_only_a_private_peer_is_the_sites_own_server_and_gets_the_larger_bucket(peer, internal):
+    assert is_internal(peer) is internal
