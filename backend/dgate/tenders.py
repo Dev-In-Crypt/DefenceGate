@@ -342,9 +342,13 @@ def list_tenders(
     # row and not its TED twin never makes the notice vanish. Only rows that carry a TED
     # reference are tested, and that column is rare and indexed.
     twin_where = [re.sub(r"\bo\.", "t.", clause) for clause in where]
-    not_collapsed = ("NOT (o.ted_ref IS NOT NULL AND EXISTS (SELECT 1 FROM opportunity t "
-                     "JOIN source ts ON ts.id = t.source_id WHERE ts.code = 'ted' "
-                     "AND t.native_id = o.ted_ref AND " + " AND ".join(twin_where) + "))")
+    # Written as a plain NOT EXISTS on (source, number) so the planner makes it an
+    # anti-join and can still scan in parallel: with the `ted_ref IS NOT NULL AND` guard
+    # and a join to `source` it was a restricted subplan and cost 0.7 s a page. A row
+    # with no ted_ref matches nothing, so it is kept, as it should be.
+    not_collapsed = ("NOT EXISTS (SELECT 1 FROM opportunity t "
+                     "WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted') "
+                     "AND t.native_id = o.ted_ref AND " + " AND ".join(twin_where) + ")")
     clause = " WHERE " + " AND ".join(where) + " AND " + not_collapsed
     args = params + params
 
