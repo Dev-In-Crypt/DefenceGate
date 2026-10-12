@@ -44,7 +44,7 @@ from typing import Any, Iterator
 
 import httpx
 
-from . import USER_AGENT, new_client, request_with_retry
+from . import USER_AGENT, RateLimited, new_client, request_with_retry, retry_after
 
 log = logging.getLogger(__name__)
 
@@ -64,6 +64,31 @@ MAX_OFFSET = 10_000      # the API's hard cap on offset + limit
 REQUEST_PAUSE = 1.0
 PAGE_ATTEMPTS = 8
 PAGE_MAX_DELAY = 128.0
+
+# What a refusal for rate becomes: HTTP 429, and the 403 this edge answers a
+# burst with. After PAGE_ATTEMPTS the page raises `RateLimited` (carrying the
+# far end's Retry-After), and the historical load stops cleanly on it.
+RATE_LIMIT_STATUSES = (429, 403)
+
+# One request a second, enforced where requests are made rather than between the
+# pages of one query: the history asks for a day at a time with a client per day,
+# and a pause only between a day's own pages let the first page of the next day
+# follow the last of the previous one immediately. Request hook, so a request
+# retried by the ladder is paced like any other.
+_last_request = 0.0
+
+
+def _pace(_request: httpx.Request | None = None) -> None:
+    global _last_request
+    wait = _last_request + REQUEST_PAUSE - time.monotonic()
+    if wait > 0:
+        time.sleep(wait)
+    _last_request = time.monotonic()
+
+
+def _new_client(**kwargs: Any) -> httpx.Client:
+    return new_client(headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+                      follow_redirects=True, event_hooks={"request": [_pace]}, **kwargs)
 
 # The regimes that are the defence and security directive, or its French
 # predecessor. Recorded as CELEX 32009L0081 like every other source's legal
@@ -91,8 +116,15 @@ def _page(client: httpx.Client, params: dict[str, Any], offset: int) -> dict[str
         response.raise_for_status()
         return response
 
-    payload = request_with_retry(send, attempts=PAGE_ATTEMPTS, max_delay=PAGE_MAX_DELAY,
-                                 what=f"{SOURCE_CODE} offset {offset}").json()
+    try:
+        payload = request_with_retry(send, attempts=PAGE_ATTEMPTS, max_delay=PAGE_MAX_DELAY,
+                                     what=f"{SOURCE_CODE} offset {offset}").json()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in RATE_LIMIT_STATUSES:
+            raise RateLimited(
+                f"{SOURCE_CODE}: HTTP {exc.response.status_code} at offset {offset} "
+                f"after {PAGE_ATTEMPTS} attempts", retry_after(exc.response)) from exc
+        raise
     if not isinstance(payload, dict) or "results" not in payload:
         raise ValueError(f"expected a record page, got {type(payload).__name__}")
     return payload
@@ -102,9 +134,7 @@ def search(params: dict[str, Any], *, client: httpx.Client | None = None,
            max_offset: int = MAX_OFFSET) -> Iterator[dict[str, Any]]:
     """Yield raw records for one query, following offsets until they run out."""
     owns = client is None
-    client = client or new_client(headers={"User-Agent": USER_AGENT,
-                                             "Accept": "application/json"},
-                                    follow_redirects=True)
+    client = client or _new_client()
     try:
         offset = 0
         while offset < max_offset:
@@ -119,7 +149,6 @@ def search(params: dict[str, Any], *, client: httpx.Client | None = None,
                 return
             if len(records) < params.get("limit", PAGE_SIZE):
                 return
-            time.sleep(REQUEST_PAUSE)
         raise RuntimeError(
             f"{SOURCE_CODE}: query reached the API's {max_offset} result cap; "
             f"the result was cut short, not complete ({params})")
@@ -137,9 +166,7 @@ def fetch_window(days_back: int = 2, *, client: httpx.Client | None = None,
     """
     today = today or date.today()
     owns = client is None
-    client = client or new_client(headers={"User-Agent": USER_AGENT,
-                                             "Accept": "application/json"},
-                                    follow_redirects=True)
+    client = client or _new_client()
     seen: set[str] = set()
     try:
         for offset in range(days_back, -1, -1):

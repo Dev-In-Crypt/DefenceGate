@@ -1,0 +1,1063 @@
+{
+ "single_cpv_fnf": {
+  "idweb": "18-752",
+  "id": "18_752",
+  "objet": "Acquisition et le maintien en condition opérationnelle d'appareils respiratoires isolants au profit des bâtiments et uni",
+  "nomacheteur": "MARINE/DCSSF/ DSSFBrest",
+  "dateparution": "2018-01-06",
+  "datelimitereponse": "2018-02-13T15:00:00+00:00",
+  "perimetre": "DIRECTIVE-81",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "35111100"
+    }
+   }
+  }
+ },
+ "cpv_list": {
+  "idweb": "20-365",
+  "id": "20_365",
+  "objet": "Fourniture d'Organes, d'Accessoires et Equipements (OAE) neufs ou d'occasion pour les hélicoptères Dauphin / Panther de ",
+  "nomacheteur": "MINDEF/AIR/SIAé",
+  "dateparution": "2020-01-05",
+  "datelimitereponse": "2020-02-06T13:00:00+00:00",
+  "perimetre": "DIRECTIVE-81",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": [
+     {
+      "PRINCIPAL": "34730000"
+     },
+     {
+      "PRINCIPAL": "35640000"
+     },
+     {
+      "PRINCIPAL": "35600000"
+     }
+    ]
+   }
+  }
+ },
+ "cpv_supplementary": {
+  "idweb": "15-37761",
+  "id": "15_37761",
+  "objet": "fourniture d'ensemble, sous-ensembles et pièces détachées ainsi que le maintien en condition opérationnelle (mco) des ma",
+  "nomacheteur": "MINDEF/EMA/DCSCA/CESCOF/Antenne Navale",
+  "dateparution": "2015-03-17",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "INTENTION_CONCLURE",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis d'intention de conclure",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "37412240",
+     "SUPPLEMENTAIRE": [
+      "AB25",
+      "BA08",
+      "FB01"
+     ]
+    }
+   },
+   "ATTRIBUTION": {
+    "DECISION": {
+     "RENSEIGNEMENT": {
+      "MONTANT": {
+       "@DEVISE": "EUR",
+       "#text": "1000000"
+      }
+     }
+    }
+   }
+  }
+ },
+ "cpv_lots": {
+  "idweb": "17-146",
+  "id": "17_146",
+  "objet": "Réalisation exploitation et maintenance d'infrastructures de recharge de véhicules electriques et prestations associées",
+  "nomacheteur": "SYDER",
+  "dateparution": "2017-01-06",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "PRE-INFORMATION",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure NC",
+  "nature_libelle": "Avis informatif",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "63712600"
+    },
+    "LOTS": {
+     "LOT": {
+      "CPV": [
+       {
+        "PRINCIPAL": "63712600"
+       },
+       {
+        "PRINCIPAL": "31610000"
+       },
+       {
+        "PRINCIPAL": "45233293"
+       },
+       {
+        "PRINCIPAL": "50100000"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ "cpv_fns_list_award": {
+  "idweb": "19-1114",
+  "id": "19_1114",
+  "objet": "Approvisionnement de saisines d'amarrage pour le maintien en condition opérationnelle des Eléments de la Force Maritime.",
+  "nomacheteur": "Marine/DCSSF/DSSF Toulon",
+  "dateparution": "2019-01-06",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "ATTRIBUTION",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "18-49782"
+  ],
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Résultat de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": [
+     {
+      "PRINCIPAL": "35520000"
+     },
+     {
+      "PRINCIPAL": "44541000"
+     }
+    ]
+   },
+   "ATTRIBUTION": {
+    "DECISION": {
+     "RENSEIGNEMENT": {
+      "MONTANT": {
+       "@DEVISE": "EUR",
+       "#text": "2399432.22"
+      }
+     }
+    }
+   }
+  }
+ },
+ "award_total_and_decision": {
+  "idweb": "18-822",
+  "id": "18_822",
+  "objet": "maintenance de calculateurs, serveurs et périphériques informatiques pour le service industriel de l'aéronautique (siaé)",
+  "nomacheteur": "MINDEF/AIR/SIAé",
+  "dateparution": "2018-01-06",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "ATTRIBUTION",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "17-64443"
+  ],
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Restreinte",
+  "nature_libelle": "Résultat de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "50312000"
+    }
+   },
+   "ATTRIBUTION": {
+    "VALEUR_TOTALE": {
+     "@DEVISE": "EUR",
+     "#text": "1150000"
+    },
+    "DECISION": {
+     "RENSEIGNEMENT": {
+      "MONTANT": {
+       "@DEVISE": "EUR",
+       "#text": "1150000"
+      }
+     }
+    }
+   }
+  }
+ },
+ "award_decision_only": {
+  "idweb": "15-26978",
+  "id": "15_26978",
+  "objet": "prestation de prévention incendie et d'interventions sur sinistres sur le site de la pyrotechnie principale et le site d",
+  "nomacheteur": "MINDEF / EMA / DC SCA / PFAF SE",
+  "dateparution": "2015-03-02",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "ATTRIBUTION",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "14-151024"
+  ],
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Résultat de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "75251110"
+    }
+   },
+   "ATTRIBUTION": {
+    "DECISION": {
+     "RENSEIGNEMENT": {
+      "MONTANT": {
+       "@DEVISE": "EUR",
+       "#text": "514419.96"
+      }
+     }
+    }
+   }
+  }
+ },
+ "award_estimate_only": {
+  "idweb": "16-9",
+  "id": "16_9",
+  "objet": "maintenance préventive et curative sorbonne \" bas débit\" type Waldner sur le site de Saint Jérôme bâtiment TPR, à Marsei",
+  "nomacheteur": "Université d'Aix-Marseille",
+  "dateparution": "2016-01-07",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "INTENTION_CONCLURE",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis d'intention de conclure",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "50324200"
+    }
+   },
+   "ATTRIBUTION": {
+    "DECISION": {
+     "RENSEIGNEMENT": {
+      "ESTIMATION_INITIALE": {
+       "@DEVISE": "EUR",
+       "#text": "120000"
+      }
+     }
+    }
+   }
+  }
+ },
+ "framework_min_max": {
+  "idweb": "15-20431",
+  "id": "15_20431",
+  "objet": "maintien en condition opérationnelle des véhicules et matériels de lutte contre l'incendie, à Versailles",
+  "nomacheteur": "MINDEF/TERRE/SIMMT",
+  "dateparution": "2015-03-02",
+  "datelimitereponse": "2015-04-09T11:00:00+00:00",
+  "perimetre": "DIRECTIVE-81",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "34144210"
+    },
+    "ACCORD_CADRE": {
+     "VALEUR_MIN": {
+      "@DEVISE": "EUR",
+      "#text": "8200000"
+     },
+     "VALEUR_MAX": {
+      "@DEVISE": "EUR",
+      "#text": "16400000"
+     }
+    }
+   }
+  }
+ },
+ "framework_value_and_features": {
+  "idweb": "19-110914",
+  "id": "19_110914",
+  "objet": "acquisition de prestations de maintenance mobile pour les wagons du Service Militaire des Chemins de Fer (SMCF).",
+  "nomacheteur": "MINARM/TERRE/SIMMT",
+  "dateparution": "2020-01-06",
+  "datelimitereponse": "2020-02-11T11:00:00+00:00",
+  "perimetre": "CMP-2006-DEFENSE",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "FNS",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Adaptée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "50224000"
+    },
+    "ACCORD_CADRE": {
+     "VALEUR": {
+      "@DEVISE": "EUR",
+      "#text": "440000"
+     }
+    },
+    "CARACTERISTIQUES": {
+     "VALEUR": {
+      "@DEVISE": "EUR",
+      "#text": "440000"
+     }
+    }
+   }
+  }
+ },
+ "features_value": {
+  "idweb": "19-686",
+  "id": "19_686",
+  "objet": "Maintenance et réalisation de prestations sur bancs tournants et machines d'essais de chute.Préalablement à la remise de",
+  "nomacheteur": "MINARM/DGA/DO/S2A",
+  "dateparution": "2019-01-05",
+  "datelimitereponse": "2019-02-05T15:00:00+00:00",
+  "perimetre": "DIRECTIVE-81",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "50800000"
+    },
+    "CARACTERISTIQUES": {
+     "VALEUR": {
+      "@DEVISE": "EUR",
+      "#text": "1120000"
+     }
+    }
+   }
+  }
+ },
+ "lots_with_values": {
+  "idweb": "19-1051",
+  "id": "19_1051",
+  "objet": "Fourniture de filtres séparateurs et coalesceurs qualifiés par le service des essences des armées (SEA) de dimensions no",
+  "nomacheteur": "DELPIA",
+  "dateparution": "2019-01-04",
+  "datelimitereponse": "2019-02-26T15:00:00+00:00",
+  "perimetre": "CMP-2006-DEFENSE",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "FNS",
+  "annonce_lie": null,
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Adaptée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "42912100"
+    },
+    "ACCORD_CADRE": {
+     "VALEUR": {
+      "@DEVISE": "EUR",
+      "#text": "280000"
+     }
+    },
+    "CARACTERISTIQUES": {
+     "VALEUR": {
+      "@DEVISE": "EUR",
+      "#text": "280000"
+     }
+    },
+    "LOTS": {
+     "LOT": [
+      {
+       "CPV": {
+        "PRINCIPAL": "42912100"
+       },
+       "VALEUR": {
+        "@DEVISE": "EUR",
+        "#text": "120000"
+       }
+      },
+      {
+       "CPV": {
+        "PRINCIPAL": "42912100"
+       },
+       "VALEUR": {
+        "@DEVISE": "EUR",
+        "#text": "160000"
+       }
+      }
+     ]
+    }
+   }
+  }
+ },
+ "rectificatif_one_link": {
+  "idweb": "16-55447",
+  "id": "16_55447",
+  "objet": "Remplacement des variateurs du banc d'essai REPIQUET 500",
+  "nomacheteur": "MINDEF/DGA/DT/SCAT Toulouse",
+  "dateparution": "2016-04-21",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "AUTRE",
+  "etat": "RECTIFICATIF",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "16-45339"
+  ],
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure NC",
+  "nature_libelle": "Autre",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "38500000"
+    }
+   },
+   "RECTIF": {
+    "ANNONCE_ANTERIEUR": {
+     "REFERENCE": {
+      "IDWEB": "16-45339"
+     }
+    }
+   }
+  }
+ },
+ "rectificatif_cpv_list": {
+  "idweb": "17-1426",
+  "id": "17_1426",
+  "objet": "Fourniture d'embarcations seules ou équipées et accessoires nécessaires aux Eléments de Force Maritime (EFM) et aux Elém",
+  "nomacheteur": "Marine/DCSSF/DSSF Toulon",
+  "dateparution": "2017-01-06",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-81",
+  "nature": "APPEL_OFFRE",
+  "etat": "RECTIFICATIF",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "16-180878"
+  ],
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Négociée",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": [
+     {
+      "PRINCIPAL": "35520000"
+     },
+     {
+      "PRINCIPAL": "34522300"
+     },
+     {
+      "PRINCIPAL": "35500000"
+     },
+     {
+      "PRINCIPAL": "35521100"
+     }
+    ]
+   },
+   "RECTIF": {
+    "ANNONCE_ANTERIEUR": {
+     "REFERENCE": {
+      "IDWEB": "16-180878"
+     }
+    }
+   }
+  }
+ },
+ "award_without_value": {
+  "idweb": "15-36879",
+  "id": "15_36879",
+  "objet": "fourniture d'un système d'analyse de vapeurs chimiques en ligne pour DGA maîtrise NRBC, à Vert-le-Petit",
+  "nomacheteur": "MINDEF/DGA/DT/SCAT",
+  "dateparution": "2015-03-17",
+  "datelimitereponse": null,
+  "perimetre": "CMP-2006-DEFENSE",
+  "nature": "ATTRIBUTION",
+  "etat": "INITIAL",
+  "famille": "FNS",
+  "annonce_lie": [
+   "14-118236",
+   "14-161510"
+  ],
+  "source_schema": "Boamp_v230.xsd",
+  "procedure_libelle": "Procédure Adaptée",
+  "nature_libelle": "Résultat de marché",
+  "donnees": {
+   "OBJET": {
+    "CPV": {
+     "PRINCIPAL": "38430000"
+    }
+   }
+  }
+ },
+ "eforms_cn_procedure_and_lot": {
+  "idweb": "26-96289",
+  "id": "26_96289",
+  "objet": "Assurances « Flotte de véhicules et risques annexes » pour les besoins de la CMA Bretagne.",
+  "nomacheteur": "Chambre de Métiers et de l’Artisanat de Région Bretagne",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": "2026-10-12T15:00:00+00:00",
+  "perimetre": "DIRECTIVE-24",
+  "nature": "APPEL_OFFRE",
+  "etat": "RECTIFICATIF",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "EFORMS": {
+    "ContractNotice": {
+     "cac:ProcurementProject": {
+      "cac:RequestedTenderTotal": {
+       "cbc:EstimatedOverallContractAmount": {
+        "@currencyID": "EUR",
+        "#text": "255000.00"
+       }
+      },
+      "cac:MainCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "66510000"
+       }
+      }
+     },
+     "cac:ProcurementProjectLot": {
+      "cac:ProcurementProject": {
+       "cac:RequestedTenderTotal": {
+        "cbc:EstimatedOverallContractAmount": {
+         "@currencyID": "EUR",
+         "#text": "255000.00"
+        }
+       },
+       "cac:MainCommodityClassification": {
+        "cbc:ItemClassificationCode": {
+         "@listName": "cpv",
+         "#text": "66510000"
+        }
+       },
+       "cac:AdditionalCommodityClassification": {
+        "cbc:ItemClassificationCode": {
+         "@listName": "cpv",
+         "#text": "66514110"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "eforms_award_total": {
+  "idweb": "26-96295",
+  "id": "26_96295",
+  "objet": "Avis d'attribution : Fourniture et distribution d'effets d'habillement au profit de la DGDDI",
+  "nomacheteur": "DGDDI Bureau des achats FIN2",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-24",
+  "nature": "ATTRIBUTION",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": null,
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Résultat de marché",
+  "donnees": {
+   "EFORMS": {
+    "ContractAwardNotice": {
+     "ext:UBLExtensions": {
+      "ext:UBLExtension": {
+       "ext:ExtensionContent": {
+        "efext:EformsExtension": {
+         "efac:NoticeResult": {
+          "cbc:TotalAmount": {
+           "@currencyID": "EUR",
+           "#text": "57500000"
+          },
+          "efbc:OverallMaximumFrameworkContractsAmount": {
+           "@currencyID": "EUR",
+           "#text": "57500000"
+          },
+          "efac:LotTender": {
+           "cac:LegalMonetaryTotal": {
+            "cbc:PayableAmount": {
+             "@currencyID": "EUR",
+             "#text": "30528516"
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "cac:ProcurementProject": {
+      "cac:RequestedTenderTotal": {
+       "ext:UBLExtensions": {
+        "ext:UBLExtension": {
+         "ext:ExtensionContent": {
+          "efext:EformsExtension": {
+           "efbc:FrameworkMaximumAmount": {
+            "@currencyID": "EUR",
+            "#text": "57500000"
+           }
+          }
+         }
+        }
+       },
+       "cbc:EstimatedOverallContractAmount": {
+        "@currencyID": "EUR",
+        "#text": "31220833"
+       }
+      },
+      "cac:MainCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "18100000"
+       }
+      },
+      "cac:AdditionalCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "48000000"
+       }
+      }
+     },
+     "cac:ProcurementProjectLot": {
+      "cac:ProcurementProject": {
+       "cac:RequestedTenderTotal": {
+        "ext:UBLExtensions": {
+         "ext:UBLExtension": {
+          "ext:ExtensionContent": {
+           "efext:EformsExtension": {
+            "efbc:FrameworkMaximumAmount": {
+             "@currencyID": "EUR",
+             "#text": "57500000"
+            }
+           }
+          }
+         }
+        },
+        "cbc:EstimatedOverallContractAmount": {
+         "@currencyID": "EUR",
+         "#text": "28591666.67"
+        }
+       },
+       "cac:MainCommodityClassification": {
+        "cbc:ItemClassificationCode": {
+         "@listName": "cpv",
+         "#text": "18100000"
+        }
+       },
+       "cac:AdditionalCommodityClassification": [
+        {
+         "cbc:ItemClassificationCode": {
+          "@listName": "cpv",
+          "#text": "48000000"
+         }
+        },
+        {
+         "cbc:ItemClassificationCode": {
+          "@listName": "cpv",
+          "#text": "63100000"
+         }
+        }
+       ]
+      }
+     }
+    }
+   }
+  }
+ },
+ "eforms_award_framework_only": {
+  "idweb": "26-91579",
+  "id": "26_91579",
+  "objet": "ACQUISITION DE PISTOLETS A IMPULSION ELECTRIQUE POUR LA POLICE MUNICIPALE DE LA VILLE DE BEZIERS",
+  "nomacheteur": "Mairie de BEZIERS",
+  "dateparution": "2026-09-24",
+  "datelimitereponse": null,
+  "perimetre": "DIRECTIVE-24",
+  "nature": "ATTRIBUTION",
+  "etat": "INITIAL",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "26-53714"
+  ],
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Résultat de marché",
+  "donnees": {
+   "EFORMS": {
+    "ContractAwardNotice": {
+     "ext:UBLExtensions": {
+      "ext:UBLExtension": {
+       "ext:ExtensionContent": {
+        "efext:EformsExtension": {
+         "efac:NoticeResult": {
+          "efbc:OverallMaximumFrameworkContractsAmount": {
+           "@currencyID": "EUR",
+           "#text": "1000000"
+          },
+          "efac:LotTender": {
+           "cac:LegalMonetaryTotal": {
+            "cbc:PayableAmount": {
+             "@currencyID": "EUR",
+             "#text": "1000000"
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "cac:ProcurementProject": {
+      "cac:MainCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "35300000"
+       }
+      },
+      "cac:AdditionalCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "35300000"
+       }
+      }
+     },
+     "cac:ProcurementProjectLot": {
+      "cac:ProcurementProject": {
+       "cac:MainCommodityClassification": {
+        "cbc:ItemClassificationCode": {
+         "@listName": "cpv",
+         "#text": "35300000"
+        }
+       },
+       "cac:AdditionalCommodityClassification": {
+        "cbc:ItemClassificationCode": {
+         "@listName": "cpv",
+         "#text": "35300000"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "eforms_rectificatif": {
+  "idweb": "26-96308",
+  "id": "26_96308",
+  "objet": "Élaboration et mise en oeuvre du plan de gestion des sédiments du littoral coutançais et étude de faisabilité pour l'ada",
+  "nomacheteur": "Communauté communes Coutances mer et bocage",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": "2026-10-26T11:00:00+00:00",
+  "perimetre": "DIRECTIVE-24",
+  "nature": "APPEL_OFFRE",
+  "etat": "RECTIFICATIF",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "26-89826"
+  ],
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "EFORMS": {
+    "ContractNotice": {
+     "cac:ProcurementProject": {
+      "cac:MainCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "71313000"
+       }
+      },
+      "cac:AdditionalCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "71313000"
+       }
+      }
+     },
+     "cac:ProcurementProjectLot": [
+      {
+       "cac:ProcurementProject": {
+        "cac:MainCommodityClassification": {
+         "cbc:ItemClassificationCode": {
+          "@listName": "cpv",
+          "#text": "71313000"
+         }
+        },
+        "cac:AdditionalCommodityClassification": {
+         "cbc:ItemClassificationCode": {
+          "@listName": "cpv",
+          "#text": "71313000"
+         }
+        }
+       }
+      },
+      {
+       "cac:ProcurementProject": {
+        "cac:MainCommodityClassification": {
+         "cbc:ItemClassificationCode": {
+          "@listName": "cpv",
+          "#text": "71313000"
+         }
+        },
+        "cac:AdditionalCommodityClassification": {
+         "cbc:ItemClassificationCode": {
+          "@listName": "cpv",
+          "#text": "71241000"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ },
+ "eforms_rectificatif_two_links": {
+  "idweb": "26-96324",
+  "id": "26_96324",
+  "objet": "FOUILLES D’ARCHEOLOGIE PREVENTIVE- PROJET CAMPUS ARTISTIQUE PHASE 1 - CONSERVATOIRE NATIONAL SUPERIEUR DE MUSIQUE ET DE ",
+  "nomacheteur": "COMUE LYON SAINT-ETIENNE",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": "2026-10-01T11:00:00+00:00",
+  "perimetre": "DIRECTIVE-24",
+  "nature": "APPEL_OFFRE",
+  "etat": "RECTIFICATIF",
+  "famille": "JOUE",
+  "annonce_lie": [
+   "26-81629",
+   "26-86747"
+  ],
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "EFORMS": {
+    "ContractNotice": {
+     "cac:ProcurementProject": {
+      "cac:MainCommodityClassification": {
+       "cbc:ItemClassificationCode": {
+        "@listName": "cpv",
+        "#text": "71351914"
+       }
+      }
+     },
+     "cac:ProcurementProjectLot": {
+      "cac:ProcurementProject": {
+       "cac:MainCommodityClassification": {
+        "cbc:ItemClassificationCode": {
+         "@listName": "cpv",
+         "#text": "71351914"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "fnsimple_point_estimate": {
+  "idweb": "26-96737",
+  "id": "26_96737",
+  "objet": "Accord-cadre d'entretien des espaces verts, du patrimoine arboré et des terrains de sport gazonnés",
+  "nomacheteur": "COMMUNE DE BELLEVILLE SUR LOIRE",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": "2026-11-13T12:00:00+00:00",
+  "perimetre": "FNSimple",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "FNS",
+  "annonce_lie": null,
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "FNSimple": {
+    "initial": {
+     "natureMarche": {
+      "codeCPV": {
+       "objetPrincipal": {
+        "classPrincipale": "77310000"
+       }
+      },
+      "valeurEstimee": {
+       "@devise": "EUR",
+       "valeur": "600000.0"
+      }
+     }
+    }
+   }
+  }
+ },
+ "fnsimple_range": {
+  "idweb": "26-96750",
+  "id": "26_96750",
+  "objet": "Réalisation d'un panorama de presse pour l'ARS Grand-Est",
+  "nomacheteur": "ARS Grand-Est",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": "2026-11-04T12:00:00+00:00",
+  "perimetre": "FNSimple",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "FNS",
+  "annonce_lie": null,
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "FNSimple": {
+    "initial": {
+     "natureMarche": {
+      "codeCPV": {
+       "objetPrincipal": {
+        "classPrincipale": "79131000"
+       }
+      },
+      "valeurEstimee": {
+       "@devise": "EUR",
+       "fourchette": {
+        "valeurBasse": "1",
+        "valeurHaute": "140000"
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "fnsimple_lot_zero": {
+  "idweb": "26-96802",
+  "id": "26_96802",
+  "objet": "MARCHE DE COORDINATION EN MATIERE DE SECURITE ET DE PROTECTION DE LA SANTE POUR L'OPERATION BUS BORDS DE MARNE, ENTRE LE",
+  "nomacheteur": "Ile de France Mobilités",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": "2026-10-21T12:00:00+00:00",
+  "perimetre": "FNSimple",
+  "nature": "APPEL_OFFRE",
+  "etat": "INITIAL",
+  "famille": "FNS",
+  "annonce_lie": null,
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure Ouverte",
+  "nature_libelle": "Avis de marché",
+  "donnees": {
+   "FNSimple": {
+    "initial": {
+     "natureMarche": {
+      "codeCPV": {
+       "objetPrincipal": {
+        "classPrincipale": "71300000"
+       }
+      }
+     },
+     "lots": {
+      "lot": [
+       {
+        "codeCPV": {
+         "objetPrincipal": {
+          "classPrincipale": "71300000"
+         }
+        },
+        "estimationValeur": {
+         "@devise": "EUR",
+         "valeur": "0"
+        }
+       },
+       {
+        "codeCPV": {
+         "objetPrincipal": {
+          "classPrincipale": "71300000"
+         }
+        },
+        "estimationValeur": {
+         "@devise": "EUR",
+         "valeur": "0.00"
+        }
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ "fnsimple_rectificatif": {
+  "idweb": "26-96731",
+  "id": "26_96731",
+  "objet": "Conception et suivi de réalisation d'une signalétique et de mobiliers pour le Domaine départemental de Sceaux",
+  "nomacheteur": "Département des Hauts-de-Seine",
+  "dateparution": "2026-10-07",
+  "datelimitereponse": null,
+  "perimetre": "FNSimple",
+  "nature": "RECTIFICATIF",
+  "etat": "RECTIFICATIF",
+  "famille": "FNS",
+  "annonce_lie": [
+   "26-92923"
+  ],
+  "source_schema": "3.2.5",
+  "procedure_libelle": "Procédure NC",
+  "nature_libelle": "Rectificatif",
+  "donnees": {
+   "FNSimple": {
+    "rectificatif": {
+     "natureMarche": {
+      "codeCPV": {
+       "objetPrincipal": {
+        "classPrincipale": "79822500"
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}
