@@ -337,16 +337,23 @@ def list_tenders(
                      "AND t.native_id = o.ted_ref AND " + " AND ".join(twin_where) + "))")
     clause = " WHERE " + " AND ".join(where) + " AND " + not_collapsed
     args = params + params
-    total = conn.execute(
-        f"SELECT count(*) AS n FROM opportunity o{clause}", args).fetchone()["n"]
 
     if sort == "published-desc":
         order = "o.published_at DESC NULLS LAST, o.id DESC"
     else:
         order = f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
+    # The total rides on the same pass (a window count), so the table is read once.
     rows = conn.execute(
-        f"{TENDER_SELECT}{clause} ORDER BY {order} LIMIT %s OFFSET %s",
+        f"{TENDER_SELECT.replace('SELECT o.*,', 'SELECT o.*, count(*) OVER () AS total_rows,', 1)}"
+        f"{clause} ORDER BY {order} LIMIT %s OFFSET %s",
         args + [pageSize, (page - 1) * pageSize]).fetchall()
+    if rows:
+        total = rows[0]["total_rows"]
+    elif page == 1:
+        total = 0
+    else:                       # a page past the end still reports how many there are
+        total = conn.execute(
+            f"SELECT count(*) AS n FROM opportunity o{clause}", args).fetchone()["n"]
     return {"items": _present(conn, rows), "total": total, "page": page, "pageSize": pageSize}
 
 
@@ -472,10 +479,10 @@ def list_buyers(
     params: list[Any] = []
     text = (q or "").replace("\x00", "").strip()
     if text:
-        where.append("(org.canonical_name ILIKE %s OR EXISTS (SELECT 1 FROM organisation_alias al "
-                     "WHERE al.organisation_id = org.id AND al.raw_name ILIKE %s))")
-        like = _like(text)
-        params += [like, like]
+        # The normalised name (accents folded, lower case): the 281,000 aliases are
+        # not searched, which made a name search take seconds.
+        where.append("org.canonical_name ILIKE %s")
+        params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
     if countries:
         where.append("org.country = ANY(%s)")
@@ -484,13 +491,18 @@ def list_buyers(
         where.append("a.open_n > 0")
     base = ("FROM organisation org JOIN (" + agg + ") a ON a.org_id = org.id"
             + ((" WHERE " + " AND ".join(where)) if where else ""))
-    total = conn.execute(f"SELECT count(*) AS n {base}", params).fetchone()["n"]
     order = "org.canonical_name, org.id" if sort == "name" else "a.n DESC, org.id"
     rows = conn.execute(
         f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
-                   a.n, a.open_n, a.last_published {base}
+                   a.n, a.open_n, a.last_published, count(*) OVER () AS total_rows {base}
              ORDER BY {order} LIMIT %s OFFSET %s""",
         params + [pageSize, (page - 1) * pageSize]).fetchall()
+    if rows:
+        total = rows[0]["total_rows"]
+    elif page == 1:
+        total = 0
+    else:
+        total = conn.execute(f"SELECT count(*) AS n {base}", params).fetchone()["n"]
     names = _buyer_names(conn, [r["id"] for r in rows])
     return {"items": [_buyer(r, names) for r in rows], "total": total,
             "page": page, "pageSize": pageSize}
