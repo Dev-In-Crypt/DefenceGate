@@ -73,6 +73,9 @@ jobs:
         run: docker build -t dgate-backend:ci backend
 
       - name: Compose config is valid
-        run: docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml config --quiet
+        run: docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml --profile web config --quiet
         env:
+          # Placeholders: `config` only needs the required variables to have a value.
           POSTGRES_PASSWORD: ci-only-not-a-secret
+          DGATE_API_PASSWORD: ci-only-not-a-secret
+          DGATE_WORKER_PASSWORD: ci-only-not-a-secret
