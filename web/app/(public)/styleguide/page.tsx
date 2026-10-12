@@ -4,7 +4,7 @@ import { ArrowRight, Bell } from 'lucide-react';
 import { getCalls, now } from '@/lib/api';
 import { getDeadline, SOON_DAYS, URGENT_DAYS } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
-import type { Call, DeadlineState, Opportunity, OpportunityVersion, StatusKind } from '@/lib/types';
+import type { Call, DeadlineState, StatusKind, Tender, TenderVersion } from '@/lib/types';
 import { Logo, LogoMark } from '@/components/dg/logo';
 import { Button } from '@/components/dg/button';
 import { Tag, StatusPill } from '@/components/dg/tag';
@@ -30,12 +30,15 @@ const RADIUS_CLASS = { md: 'rounded-md', lg: 'rounded-lg', pill: 'rounded-pill' 
 const STATUSES: StatusKind[] = ['open', 'upcoming', 'soon', 'closed', 'amended'];
 
 const DEMO_SOURCE = { sourceId: 'eu-ted', sourceName: 'TED', url: 'https://ted.europa.eu', retrievedAt: '2026-10-11T06:20:00Z', licence: 'Commission Decision 2011/833/EU', attribution: '© European Union, TED' };
-const DEMO_TENDER: Opportunity = {
-  id: 'demo', slug: 'demo', noticeId: '2026/S 188-561204', title: 'Framework agreement for machined aluminium housings', originalTitle: 'Raamovereenkomst voor gefreesde aluminium behuizingen', originalLanguage: 'nl',
-  buyerId: 'b1', buyerName: 'Fictional Logistics Agency', country: 'NL', cpv: '44316400', cpvDivision: '44', procedure: 'Restricted', deadline: '2026-11-26T11:00:00Z', publishedAt: '2026-09-28T00:00:00Z',
-  estimatedValue: { amount: 3_400_000, currency: 'EUR' }, status: 'open', amended: true, versionCount: 3, source: DEMO_SOURCE,
+const DEMO_TENDER: Tender = {
+  id: 'demo', slug: 'demo', noticeId: '561204-2026', title: 'Framework agreement for machined aluminium housings', titleLanguage: 'en',
+  originalTitle: 'Raamovereenkomst voor gefreesde aluminium behuizingen', originalLanguage: 'nl',
+  buyerId: 'b1', buyerSlug: 'b1-fictional-logistics-agency', buyerName: 'Fictional Logistics Agency', country: 'NL', cpv: '44316400', cpvCodes: ['44316400'],
+  procedure: 'Restricted procedure', legalBasis: '32009L0081', scope: 'core', deadline: '2026-11-26T11:00:00Z', publishedAt: '2026-09-28T00:00:00Z',
+  estimatedValue: { amount: 3_400_000, currency: 'EUR' }, status: 'open', statusNative: 'open', amended: true, versionCount: 3,
+  securityClearance: false, subcontracting: true, sameNotice: [], source: DEMO_SOURCE,
 };
-const DEMO_VERSIONS: OpportunityVersion[] = [
+const DEMO_VERSIONS: TenderVersion[] = [
   { version: 3, detectedAt: '2026-11-03T06:20:00Z', changes: [{ field: 'deadline', label: 'Deadline', before: '12 Nov 2026', after: '26 Nov 2026' }] },
   { version: 2, detectedAt: '2026-10-08T06:20:00Z', changes: [{ field: 'lots', label: 'Lots', before: '2', after: '3' }] },
   { version: 1, detectedAt: '2026-09-28T06:20:00Z', changes: [] },

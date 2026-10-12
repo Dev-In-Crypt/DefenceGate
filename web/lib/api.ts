@@ -1,24 +1,26 @@
 /**
  * The only data-access module. Pages and components never import lib/mock directly.
  * Set DG_API_URL to talk to the real API; leave it unset to serve mock data.
- * Funding endpoints and shapes: docs/design/API_CONTRACT.md.
+ * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
-import type { Call, CallFilters, Health, Opportunity, OpportunityFilters, OpportunityVersion, Paginated, SiteStats } from './types';
-import { DEFAULT_PAGE_SIZE, toQuery } from './filters';
+import type { Buyer, BuyerFilters, Call, CallFilters, Health, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
+import { BUYER_PAGE_SIZE, DEFAULT_PAGE_SIZE, TENDER_PAGE_SIZE, toBuyerQuery, toQuery, toTenderQuery } from './filters';
 import { now } from './deadline';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
-import * as oppMock from './mock/opportunities';
+import * as tenderMock from './mock/tenders';
 
 const API_BASE = process.env.DG_API_URL;
 /** Data is collected daily; an hour of ISR keeps countdowns fresh. */
 export const REVALIDATE_SECONDS = 3600;
 const RELATED_LIMIT = 3;
-/** A call slug is "<id>-<words>"; anything else cannot be a call and never reaches the API. */
+/** A call, tender or buyer slug is "<id>-<words>"; anything else cannot be one and never reaches the API. */
 const CALL_SLUG_RE = /^[0-9]{1,9}(-[a-z0-9-]{0,80})?$/;
 export function isCallSlug(slug: string): boolean {
   return CALL_SLUG_RE.test(slug);
 }
+export const isTenderSlug = isCallSlug;
+export const isBuyerSlug = isCallSlug;
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -86,19 +88,69 @@ export async function getAllCallSlugs(): Promise<{ slug: string; updatedAt: stri
   return callsMock.allCalls().map((c) => ({ slug: c.slug, updatedAt: c.lastSeenAt }));
 }
 
-export async function getOpportunities(filters: OpportunityFilters = {}): Promise<Paginated<Opportunity>> {
-  if (API_BASE) return httpOrThrow(`/v1/opportunities?${new URLSearchParams(Object.entries(filters).map(([k, v]) => [k, String(v)]))}`);
-  return oppMock.queryOpportunities(filters);
+/** Query for /v1/tenders: the site's URL keys (defaults omitted) plus pageSize. */
+function tendersQuery(f: TenderFilters): string {
+  const p = new URLSearchParams(toTenderQuery(f));
+  p.set('pageSize', String(f.pageSize ?? TENDER_PAGE_SIZE));
+  return `?${p.toString()}`;
 }
 
-export async function getOpportunity(id: string): Promise<Opportunity | null> {
-  if (API_BASE) return http(`/v1/opportunities/${encodeURIComponent(id)}`);
-  return oppMock.opportunities.find((o) => o.id === id || o.slug === id) ?? null;
+/**
+ * Same rule as getCalls: only the unfiltered list (default filters, page 1) is cached. Anything built from
+ * visitor input goes to the API uncached. `cacheable` is for queries fixed in our own code (a buyer's id comes
+ * from the API, not from the URL).
+ */
+export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?: boolean } = {}): Promise<Paginated<Tender>> {
+  if (API_BASE) {
+    const shared = opts.cacheable === true || toTenderQuery(filters) === '';
+    return httpOrThrow<Paginated<Tender>>(`/v1/tenders${tendersQuery(filters)}`, shared ? 'revalidate' : 'no-store');
+  }
+  return tenderMock.queryTenders(filters);
 }
 
-export async function getOpportunityVersions(id: string): Promise<OpportunityVersion[]> {
-  if (API_BASE) return (await http<OpportunityVersion[]>(`/v1/opportunities/${encodeURIComponent(id)}/versions`)) ?? [];
-  return oppMock.versions[id] ?? [];
+/** `slug` is "<id>-<words>"; the API looks up the leading id only. Callers redirect when the returned slug differs. */
+export async function getTender(slug: string): Promise<Tender | null> {
+  if (!isTenderSlug(slug)) return null;
+  if (API_BASE) return http<Tender>(`/v1/tenders/${encodeURIComponent(slug)}`);
+  return tenderMock.findTender(slug);
+}
+
+/** The archive of one notice, newest first. */
+export async function getTenderVersions(slug: string): Promise<TenderVersion[]> {
+  if (!isTenderSlug(slug)) return [];
+  if (API_BASE) return (await http<TenderVersion[]>(`/v1/tenders/${encodeURIComponent(slug)}/versions`)) ?? [];
+  return tenderMock.tenderVersions(slug) ?? [];
+}
+
+/** Slugs for the sitemap (open and last 12 months, core scope, at most 5,000). */
+export async function getAllTenderSlugs(): Promise<{ slug: string; updatedAt: string }[]> {
+  if (API_BASE) return httpOrThrow<{ slug: string; updatedAt: string }[]>('/v1/tenders/slugs');
+  return tenderMock.allTenders().filter((t) => t.scope === 'core').map((t) => ({ slug: t.slug, updatedAt: t.source.retrievedAt }));
+}
+
+function buyersQuery(f: BuyerFilters): string {
+  const p = new URLSearchParams(toBuyerQuery(f));
+  p.set('pageSize', String(f.pageSize ?? BUYER_PAGE_SIZE));
+  return `?${p.toString()}`;
+}
+
+export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<Buyer>> {
+  if (API_BASE) {
+    return httpOrThrow<Paginated<Buyer>>(`/v1/buyers${buyersQuery(filters)}`, toBuyerQuery(filters) === '' ? 'revalidate' : 'no-store');
+  }
+  return tenderMock.queryBuyers(filters);
+}
+
+export async function getBuyer(slug: string): Promise<Buyer | null> {
+  if (!isBuyerSlug(slug)) return null;
+  if (API_BASE) return http<Buyer>(`/v1/buyers/${encodeURIComponent(slug)}`);
+  return tenderMock.findBuyer(slug);
+}
+
+/** Slugs for the sitemap (buyers with an open tender, at most 2,000). */
+export async function getAllBuyerSlugs(): Promise<{ slug: string; updatedAt: string }[]> {
+  if (API_BASE) return httpOrThrow<{ slug: string; updatedAt: string }[]>('/v1/buyers/slugs');
+  return tenderMock.allBuyers().filter((b) => b.openCount > 0).map((b) => ({ slug: b.slug, updatedAt: b.lastPublishedAt ?? new Date().toISOString() }));
 }
 
 /** Source list with run status: GET /v1/sources (the design's Health). */

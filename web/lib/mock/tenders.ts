@@ -1,0 +1,220 @@
+import { sourceById } from './sources';
+import { now } from '../deadline';
+import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE } from '../filters';
+import type {
+  Buyer, BuyerFilters, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope, TenderVersion,
+} from '../types';
+
+/**
+ * Mock tenders and buyers for local builds and previews (DG_API_URL unset). All names are invented
+ * ("Demo ..."); nothing here is a real notice. Shapes follow docs/design/API_CONTRACT.md.
+ */
+
+interface RawBuyer { name: string; country: CountryCode; words: string; defence: boolean }
+const RAW_BUYERS: RawBuyer[] = [
+  { name: 'Demo Armaments Agency', country: 'PL', words: 'demo-armaments-agency', defence: true },
+  { name: 'Demo Defence Materiel Administration', country: 'SE', words: 'demo-defence-materiel-administration', defence: true },
+  { name: 'Demo Logistics and Support Command', country: 'ES', words: 'demo-logistics-and-support-command', defence: true },
+  { name: 'Demo Defence Materiel Organisation', country: 'NL', words: 'demo-defence-materiel-organisation', defence: true },
+  { name: 'Demo Ministry Procurement Office', country: 'FR', words: 'demo-ministry-procurement-office', defence: true },
+  { name: 'Demo Regional Fire and Rescue Service', country: 'PL', words: 'demo-regional-fire-and-rescue-service', defence: false },
+];
+
+interface RawTender {
+  words: string; noticeId: string; sourceId: string; retrievedAt: string;
+  title: string; titleLanguage?: string | null; originalTitle?: string; originalLanguage?: string;
+  /** 1-based index into RAW_BUYERS; 0 = a buyer we could not resolve. */
+  buyer: number; buyerName?: string; country?: CountryCode;
+  cpvCodes: string[]; procedure?: string; legalBasis?: string; scope?: TenderScope;
+  deadline: string | null; publishedAt: string | null; value?: [number, string];
+  native?: string; security?: boolean; subcontracting?: boolean;
+  sameNotice?: { source: string; url: string | null }[];
+}
+
+const RAW: RawTender[] = [
+  { words: 'framework-agreement-machined-aluminium-housings', noticeId: '561204-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Framework agreement for machined aluminium housings', originalTitle: 'Raamovereenkomst voor gefreesde aluminium behuizingen', originalLanguage: 'nl',
+    buyer: 4, cpvCodes: ['44316400', '35800000'], procedure: 'Restricted procedure', legalBasis: '32009L0081',
+    deadline: '2026-11-26T00:00:00Z', publishedAt: '2026-09-28T00:00:00Z', value: [3_400_000, 'EUR'], subcontracting: true,
+    sameNotice: [{ source: 'nl-tenderned', url: 'https://www.tenderned.nl' }] },
+  { words: 'workshop-consumables-supply', noticeId: '588310-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Supply of workshop consumables', buyer: 1, cpvCodes: ['44510000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: '2026-11-04T00:00:00Z', publishedAt: '2026-10-05T00:00:00Z', value: [850_000, 'EUR'],
+    sameNotice: [{ source: 'pl-ezam', url: 'https://ezamowienia.gov.pl' }] },
+  { words: 'dostawa-materialow-eksploatacyjnych-warsztatow', noticeId: '2026/BZP 00412345', sourceId: 'pl-ezam', retrievedAt: '2026-10-11T06:35:00Z',
+    title: 'Dostawa materiałów eksploatacyjnych dla warsztatów', titleLanguage: 'pl', buyer: 1, cpvCodes: ['44510000'],
+    procedure: 'Przetarg nieograniczony', legalBasis: '32009L0081', deadline: '2026-10-30T09:00:00Z', publishedAt: '2026-10-02T00:00:00Z', value: [2_100_000, 'PLN'] },
+  { words: 'vehicle-fleet-maintenance-services', noticeId: '601778-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Maintenance services for a vehicle fleet', buyer: 3, cpvCodes: ['50110000', '34300000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: '2026-12-10T00:00:00Z', publishedAt: '2026-10-08T00:00:00Z', value: [6_200_000, 'EUR'], security: true, subcontracting: true },
+  { words: 'uniform-textiles-framework', noticeId: '540221-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-10T06:20:00Z',
+    title: 'Uniform textiles framework', buyer: 5, cpvCodes: ['18100000'], procedure: 'Negotiated procedure', legalBasis: '32009L0081',
+    deadline: '2026-10-20T00:00:00Z', publishedAt: '2026-08-30T00:00:00Z', value: [1_150_000, 'EUR'] },
+  { words: 'software-maintenance-and-support', noticeId: '577902-2026', sourceId: 'es-placsp', retrievedAt: '2026-10-11T06:58:00Z',
+    title: 'Software maintenance and support', originalTitle: 'Mantenimiento y soporte de software', originalLanguage: 'es',
+    buyer: 3, cpvCodes: ['72267000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: null, publishedAt: '2026-10-01T00:00:00Z', security: true },
+  { words: 'packaging-and-logistics-services', noticeId: '498440-2026', sourceId: 'eu-ted', retrievedAt: '2026-09-20T06:20:00Z',
+    title: 'Packaging and logistics services', buyer: 2, cpvCodes: ['63100000', '60000000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: '2026-09-15T00:00:00Z', publishedAt: '2026-07-22T00:00:00Z', value: [4_750_000, 'EUR'], native: 'awarded' },
+  { words: 'printing-of-training-materials', noticeId: '471003-2026', sourceId: 'eu-ted', retrievedAt: '2026-09-02T06:20:00Z',
+    title: 'Printing of training materials', buyer: 5, cpvCodes: ['22000000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: '2026-08-31T00:00:00Z', publishedAt: '2026-07-10T00:00:00Z', native: 'cancelled' },
+  { words: 'laboratory-consumables-supply', noticeId: '605113-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Laboratory consumables', buyer: 2, cpvCodes: ['33790000'], procedure: 'Open procedure', legalBasis: '32014L0024',
+    deadline: '2026-11-18T00:00:00Z', publishedAt: '2026-10-09T00:00:00Z', value: [420_000, 'SEK'], scope: 'supply' },
+  { words: 'station-cleaning-services', noticeId: '598871-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Cleaning services for the regional fire and rescue stations', buyer: 6, cpvCodes: ['90910000'], procedure: 'Open procedure', legalBasis: '32014L0024',
+    deadline: '2026-11-12T00:00:00Z', publishedAt: '2026-10-07T00:00:00Z', value: [310_000, 'PLN'], scope: 'supply' },
+  { words: 'fuel-supply-framework', noticeId: '583664-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Fuel supply framework', buyer: 0, buyerName: 'Demo Joint Procurement Cell (not yet matched to a buyer)', country: 'IT',
+    cpvCodes: ['09100000'], procedure: 'Restricted procedure', legalBasis: '32009L0081',
+    deadline: '2026-12-01T00:00:00Z', publishedAt: '2026-10-03T00:00:00Z', value: [12_000_000, 'EUR'] },
+  { words: 'road-transport-services-framework', noticeId: '592450-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Road transport services framework', titleLanguage: null, buyer: 4, cpvCodes: ['60100000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: '2026-11-30T00:00:00Z', publishedAt: '2026-10-06T00:00:00Z', value: [2_900_000, 'EUR'] },
+  { words: 'warehouse-racking-supply-and-installation', noticeId: '608821-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
+    title: 'Warehouse racking: supply and installation', buyer: 1, cpvCodes: ['39150000', '45223000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: '2026-11-09T00:00:00Z', publishedAt: '2026-10-10T00:00:00Z', value: [1_800_000, 'EUR'], subcontracting: true },
+];
+
+/** Two to three observed versions on the notices that were amended (newest first). */
+const RAW_VERSIONS: Record<string, TenderVersion[]> = {
+  'framework-agreement-machined-aluminium-housings': [
+    { version: 3, detectedAt: '2026-10-10T06:20:00Z', changes: [{ field: 'deadline', label: 'Deadline', before: '12 Nov 2026', after: '26 Nov 2026' }] },
+    { version: 2, detectedAt: '2026-10-05T06:20:00Z', changes: [{ field: 'estimated_value', label: 'Estimated value', before: 'EUR 3,100,000', after: 'EUR 3,400,000' }] },
+    { version: 1, detectedAt: '2026-09-28T06:20:00Z', changes: [] },
+  ],
+  'uniform-textiles-framework': [
+    { version: 2, detectedAt: '2026-10-02T06:20:00Z', changes: [{ field: 'deadline', label: 'Deadline', before: '12 Oct 2026', after: '20 Oct 2026' }, { field: 'procedure', label: 'Procedure', before: null, after: 'Negotiated procedure' }] },
+    { version: 1, detectedAt: '2026-08-30T06:20:00Z', changes: [] },
+  ],
+  'fuel-supply-framework': [
+    { version: 2, detectedAt: '2026-10-09T06:20:00Z', changes: [{ field: 'title', label: 'Title', before: 'Fuel supply', after: 'Fuel supply framework' }] },
+    { version: 1, detectedAt: '2026-10-03T06:20:00Z', changes: [] },
+  ],
+};
+
+const buyerId = (i: number) => String(i + 1);
+
+function isClosed(r: RawTender, ref: Date): boolean {
+  if (r.native === 'awarded' || r.native === 'cancelled') return true;
+  return r.deadline !== null && new Date(r.deadline).getTime() <= ref.getTime();
+}
+
+function toTender(r: RawTender, index: number, ref: Date): Tender {
+  const src = sourceById(r.sourceId);
+  const id = String(index + 1);
+  const b = r.buyer > 0 ? RAW_BUYERS[r.buyer - 1] : null;
+  const versions = RAW_VERSIONS[r.words];
+  const value: Money | null = r.value ? { amount: r.value[0], currency: r.value[1] } : null;
+  return {
+    id, slug: `${id}-${r.words}`, noticeId: r.noticeId,
+    title: r.title, titleLanguage: r.titleLanguage === undefined ? 'en' : r.titleLanguage,
+    originalTitle: r.originalTitle ?? null, originalLanguage: r.originalLanguage ?? null,
+    buyerId: b ? buyerId(r.buyer - 1) : null, buyerSlug: b ? `${buyerId(r.buyer - 1)}-${b.words}` : null,
+    buyerName: b ? b.name : (r.buyerName ?? 'Unknown buyer'), country: b ? b.country : (r.country ?? null),
+    cpv: r.cpvCodes[0] ?? null, cpvCodes: r.cpvCodes, procedure: r.procedure ?? null, legalBasis: r.legalBasis ?? null,
+    scope: r.scope ?? 'core', deadline: r.deadline, publishedAt: r.publishedAt, estimatedValue: value,
+    status: isClosed(r, ref) ? 'closed' : 'open', statusNative: r.native ?? (isClosed(r, ref) ? 'unknown' : 'open'),
+    amended: (versions?.length ?? 1) > 1, versionCount: versions?.length ?? 1,
+    securityClearance: r.security ?? false, subcontracting: r.subcontracting ?? false,
+    sameNotice: r.sameNotice ?? [],
+    source: {
+      sourceId: src.id, sourceName: src.name, url: src.url ? `${src.url}/${r.noticeId.replace(/\W+/g, '-').toLowerCase()}` : null,
+      retrievedAt: r.retrievedAt, licence: src.licence, attribution: src.attribution,
+    },
+  };
+}
+
+export function allTenders(ref: Date = now()): Tender[] {
+  return RAW.map((r, i) => toTender(r, i, ref));
+}
+
+const time = (iso: string) => new Date(iso).getTime();
+
+export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Tender> {
+  const q = f.q?.toLowerCase();
+  const status = f.status ?? 'open';
+  const scope = f.scope ?? 'core';
+  const currency = f.currency ?? 'EUR';
+  let items = allTenders(ref).filter((t) => {
+    if (status !== 'all' && t.status !== status) return false;
+    if (scope !== 'all' && t.scope !== scope) return false;
+    if (f.buyer && t.buyerId !== f.buyer) return false;
+    if (f.country && (!t.country || !f.country.includes(t.country))) return false;
+    if (f.deadlineFrom || f.deadlineTo) {
+      if (t.deadline === null) return false;
+      if (f.deadlineFrom && time(t.deadline) < time(`${f.deadlineFrom}T00:00:00Z`)) return false;
+      if (f.deadlineTo && time(t.deadline) > time(`${f.deadlineTo}T23:59:59Z`)) return false;
+    }
+    if (f.valueMin !== undefined || f.valueMax !== undefined) {
+      // A range selects the one currency: values in another currency are never compared with it.
+      const v = t.estimatedValue;
+      if (!v || v.currency !== currency) return false;
+      if (f.valueMin !== undefined && v.amount < f.valueMin) return false;
+      if (f.valueMax !== undefined && v.amount > f.valueMax) return false;
+    }
+    if (q && ![t.title, t.originalTitle, t.buyerName, t.noticeId].some((s) => s?.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  if ((f.sort ?? 'deadline-asc') === 'published-desc') {
+    items = items.sort((a, b) => time(b.publishedAt ?? '1970-01-01T00:00:00Z') - time(a.publishedAt ?? '1970-01-01T00:00:00Z'));
+  } else {
+    items = items.sort((a, b) => {
+      if ((a.deadline === null) !== (b.deadline === null)) return a.deadline === null ? 1 : -1;
+      if (a.deadline === null || b.deadline === null) return 0;
+      return time(a.deadline) - time(b.deadline);
+    });
+  }
+  const pageSize = f.pageSize ?? TENDER_PAGE_SIZE;
+  const page = f.page ?? 1;
+  return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+}
+
+/** Like the API: only the leading integer of "<id>-<words>" is looked up. */
+export function findTender(slug: string, ref: Date = now()): Tender | null {
+  const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
+  return id ? (allTenders(ref).find((t) => t.id === id) ?? null) : null;
+}
+
+export function tenderVersions(slug: string): TenderVersion[] | null {
+  const t = findTender(slug);
+  if (!t) return null;
+  const raw = RAW[Number(t.id) - 1];
+  return RAW_VERSIONS[raw.words] ?? [{ version: 1, detectedAt: t.source.retrievedAt, changes: [] }];
+}
+
+export function allBuyers(ref: Date = now()): Buyer[] {
+  const tenders = allTenders(ref).filter((t) => t.scope === 'core');
+  return RAW_BUYERS.map((b, i) => {
+    const mine = tenders.filter((t) => t.buyerId === buyerId(i));
+    const published = mine.flatMap((t) => (t.publishedAt ? [t.publishedAt] : [])).sort();
+    return {
+      id: buyerId(i), slug: `${buyerId(i)}-${b.words}`, name: b.name, country: b.country,
+      tenderCount: mine.length, openCount: mine.filter((t) => t.status === 'open').length,
+      lastPublishedAt: published.at(-1) ?? null, isDefenceBuyer: b.defence,
+    };
+  });
+}
+
+export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer> {
+  const q = f.q?.toLowerCase();
+  // Only buyers with at least one core-scope notice are listed.
+  let items = allBuyers(ref).filter((b) => {
+    if (b.tenderCount === 0) return false;
+    if (f.hasOpen && b.openCount === 0) return false;
+    if (f.country && (!b.country || !f.country.includes(b.country))) return false;
+    if (q && !b.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  items = items.sort((a, b) => ((f.sort ?? 'tenders') === 'name' ? a.name.localeCompare(b.name) : b.tenderCount - a.tenderCount || a.name.localeCompare(b.name)));
+  const pageSize = f.pageSize ?? BUYER_PAGE_SIZE;
+  const page = f.page ?? 1;
+  return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+}
+
+export function findBuyer(slug: string, ref: Date = now()): Buyer | null {
+  const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
+  return id ? (allBuyers(ref).find((b) => b.id === id) ?? null) : null;
+}

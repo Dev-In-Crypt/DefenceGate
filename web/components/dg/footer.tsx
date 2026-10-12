@@ -3,13 +3,19 @@ import { Logo } from './logo';
 import { getHealth } from '@/lib/api';
 import { formatDateTimeUtc } from '@/lib/format';
 
-/** A link without `href` is a page that does not exist yet: it renders as text marked "Coming soon". */
-interface FooterLink { label: string; href?: string }
-
-const COLUMNS: { title: string; links: FooterLink[] }[] = [
-  { title: 'Directory', links: [{ label: 'Funding calls', href: '/funding' }, { label: 'Closing soon', href: '/funding?status=closing-soon' }, { label: 'Tenders' }, { label: 'Buyers' }] },
-  { title: 'Data', links: [{ label: 'Source status' }, { label: 'Get alerts' }, { label: 'Opportunity pack' }, { label: 'Pricing' }] },
-  { title: 'Legal', links: [{ label: 'Privacy' }, { label: 'Terms' }, { label: 'Imprint' }] },
+const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
+  { title: 'Directory', links: [
+    { label: 'Funding calls', href: '/funding' }, { label: 'Closing soon', href: '/funding?status=closing-soon' },
+    { label: 'Tenders', href: '/tenders' }, { label: 'Buyers', href: '/buyers' },
+  ] },
+  { title: 'Data', links: [
+    { label: 'Source status', href: '/data' }, { label: 'Get alerts', href: '/alerts' },
+    { label: 'Opportunity pack', href: '/pack' }, { label: 'Pricing', href: '/pricing' },
+  ] },
+  { title: 'About and legal', links: [
+    { label: 'About', href: '/about' }, { label: 'Privacy', href: '/privacy' },
+    { label: 'Terms', href: '/terms' }, { label: 'Imprint', href: '/imprint' },
+  ] },
 ];
 
 export async function Footer() {
@@ -25,12 +31,8 @@ export async function Footer() {
           {COLUMNS.map((col) => (
             <nav key={col.title} aria-label={col.title} className="flex flex-col gap-1">
               <h2 className="m-0 text-label text-ink-muted">{col.title}</h2>
-              {col.links.map(({ label, href }) => href ? (
+              {col.links.map(({ label, href }) => (
                 <Link key={label} href={href} className="inline-flex min-h-11 items-center text-small font-semibold text-ink md:min-h-8">{label}</Link>
-              ) : (
-                <span key={label} className="inline-flex min-h-11 flex-wrap items-center gap-x-2 text-small font-semibold text-ink-muted md:min-h-8">
-                  {label}<span className="font-mono text-mono font-normal">Coming soon</span>
-                </span>
               ))}
             </nav>
           ))}

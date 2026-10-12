@@ -1,5 +1,5 @@
-// Domain types. The funding types follow docs/design/API_CONTRACT.md (/v1/funding, /v1/sources),
-// which is authoritative. Tender types (Opportunity*) are P2 and still modelled on the design.
+// Domain types. They follow docs/design/API_CONTRACT.md (/v1/funding, /v1/tenders, /v1/buyers, /v1/sources),
+// which is authoritative.
 
 /** Funder countries we collect. 'EU' = an EU programme. */
 export type CountryCode = 'EU' | 'PL' | 'SE' | 'FR' | 'ES' | 'FI' | 'DE' | 'IT' | 'NL';
@@ -118,55 +118,116 @@ export interface Paginated<T> {
   pageSize: number;
 }
 
-/** GET /v1/opportunities, GET /v1/opportunities/{id} (tenders) */
-export interface Opportunity {
+/** GET /v1/tenders (list), GET /v1/tenders/{slug} (detail). Contract: docs/design/API_CONTRACT.md. */
+export type TenderStatus = 'open' | 'closed';
+/** core: the notice itself is defence; supply: only the buyer is a defence body. */
+export type TenderScope = 'core' | 'supply';
+export interface Tender {
+  /** Numeric id as a string. */
   id: string;
+  /** "<id>-<words>"; only the leading integer is looked up by the API. */
   slug: string;
+  /** The source's own notice number, e.g. "123456-2026". */
   noticeId: string;
+  /** English where the source gives one, otherwise the source language. */
   title: string;
-  originalTitle?: string;
-  originalLanguage?: string;
-  buyerId: string;
+  /** ISO 639-1 of `title`. */
+  titleLanguage: string | null;
+  /** The other language, when both exist. */
+  originalTitle: string | null;
+  originalLanguage: string | null;
+  buyerId: string | null;
+  buyerSlug: string | null;
   buyerName: string;
-  country: CountryCode;
-  cpv: string;
-  cpvDivision: string;
-  procedure: string;
-  deadline: IsoDateTime;
-  publishedAt: IsoDateTime;
+  /** ISO-2 of the buyer. */
+  country: string | null;
+  /** The main CPV code. */
+  cpv: string | null;
+  cpvCodes: string[];
+  /** As the source states it. */
+  procedure: string | null;
+  /** e.g. "32009L0081" (Directive 2009/81/EC). */
+  legalBasis: string | null;
+  scope: TenderScope;
+  /** null: none stated. A date-only deadline arrives as 00:00 UTC. */
+  deadline: IsoDateTime | null;
+  publishedAt: IsoDateTime | null;
   estimatedValue: Money | null;
-  status: CallStatus;
+  /** As of now: a passed deadline is closed. */
+  status: TenderStatus;
+  /** The source's own word: open, awarded, cancelled, unknown. */
+  statusNative: string | null;
+  /** More than one version observed. */
   amended: boolean;
   versionCount: number;
+  securityClearance: boolean;
+  subcontracting: boolean;
+  /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). */
+  sameNotice: { source: string; url: string | null }[];
+  /** retrievedAt = when we last observed the notice. */
   source: SourceAttribution;
 }
 
-export interface OpportunityFilters {
+export type TenderStatusFilter = 'open' | 'closed' | 'all';
+export type TenderScopeFilter = 'core' | 'supply' | 'all';
+export type TenderSort = 'deadline-asc' | 'published-desc';
+export interface TenderFilters {
   q?: string;
-  country?: CountryCode[];
-  cpv?: string[];
+  country?: string[];
+  status?: TenderStatusFilter;
+  scope?: TenderScopeFilter;
+  /** Organisation id. Set by code (the buyer page), never read from the URL. */
+  buyer?: string;
+  /** YYYY-MM-DD, inclusive, UTC */
   deadlineFrom?: string;
   deadlineTo?: string;
+  /** Estimated value in `currency` (never converted). */
   valueMin?: number;
   valueMax?: number;
-  scope?: Regime[];
-  status?: CallStatusFilter;
-  amended?: boolean;
+  currency?: CurrencyCode;
+  sort?: TenderSort;
   page?: number;
   pageSize?: number;
 }
 
-/** GET /v1/opportunities/{id}/versions */
+/** GET /v1/tenders/{slug}/versions, newest first. */
 export interface FieldChange {
   field: string;
   label: string;
   before: string | null;
   after: string | null;
 }
-export interface OpportunityVersion {
+export interface TenderVersion {
   version: number;
+  /** When we first saw this version. */
   detectedAt: IsoDateTime;
   changes: FieldChange[];
+}
+
+/** GET /v1/buyers (list), GET /v1/buyers/{slug} (detail). */
+export interface Buyer {
+  id: string;
+  /** "<id>-<words>" */
+  slug: string;
+  name: string;
+  country: string | null;
+  /** Core-scope notices. */
+  tenderCount: number;
+  /** Of those, open now. */
+  openCount: number;
+  lastPublishedAt: IsoDateTime | null;
+  /** On the curated list of defence bodies. */
+  isDefenceBuyer: boolean;
+}
+
+export type BuyerSort = 'tenders' | 'name';
+export interface BuyerFilters {
+  q?: string;
+  country?: string[];
+  hasOpen?: boolean;
+  sort?: BuyerSort;
+  page?: number;
+  pageSize?: number;
 }
 
 /** GET /v1/sources */
@@ -175,7 +236,7 @@ export type SourceType = 'grants' | 'tenders';
 export interface SourceHealth {
   id: string;
   name: string;
-  country: CountryCode | null;
+  country: string | null;
   type: SourceType;
   url: string | null;
   lastRunAt: IsoDateTime | null;

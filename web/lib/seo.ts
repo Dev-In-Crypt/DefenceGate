@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import type { Call } from './types';
+import type { Call, Tender } from './types';
 import { PROGRAMMES, COUNTRIES } from './taxonomy';
 import { safeHttpUrl } from './safe-url';
 
@@ -22,6 +22,11 @@ export function meetsMinimumContent(entity: Call | { items: unknown[] }): boolea
     safeHttpUrl(entity.source.url) && entity.title &&
     (entity.eligibility.length >= 1 || entity.deadline !== null || entity.openingDate !== null),
   );
+}
+
+/** A tender needs a source URL, a title and one of: a deadline, a publication date, a stated value. */
+export function tenderMeetsMinimumContent(t: Tender): boolean {
+  return Boolean(safeHttpUrl(t.source.url) && t.title && (t.deadline !== null || t.publishedAt !== null || t.estimatedValue !== null));
 }
 
 export function absoluteUrl(path: string): string {

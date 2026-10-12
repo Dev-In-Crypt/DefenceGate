@@ -7,7 +7,7 @@ cp .env.example .env.local   # leave DG_API_URL empty to use mock data
 npm install && npm run dev
 ```
 
-Status: **styleguide, landing, /funding hub and /funding/[slug] are built.** Everything else is scaffolded (types, API functions, route-group layouts, sitemap/robots) and lands in later passes (P1 rest → P2 → P3 → P4).
+Status: **styleguide, landing, /funding, /funding/[slug], /tenders, /tenders/[slug], /buyers, /buyers/[slug], /data (source status) and the text pages (/alerts, /pack, /pricing, /privacy, /terms, /imprint, /about) are built.** The text pages are skeletons: `robots: noindex` and a visible "Draft — text pending" notice until the text exists. `(app)` and `(admin)` are scaffolds (P3, P4).
 
 ## Folder structure
 
@@ -16,29 +16,34 @@ app/
   layout.tsx              fonts (next/font Manrope + DM Mono), theme pre-paint script, base metadata
   globals.css             DefenceGate tokens as CSS variables (light :root, dark [data-theme="dark"])
   icon.svg                favicon (from brand/favicon.svg)
-  robots.ts / sitemap.ts  sitemap lists /, /funding and real call slugs only
+  robots.ts / sitemap.ts  sitemap lists the indexable static pages and the real call, tender and buyer slugs
   (public)/               server-rendered, indexable
     layout.tsx            HeaderBar + Footer, skip link
     actions.ts            server action: waitlist intake is closed; validates, stores and sends nothing
     page.tsx              /  landing
     funding/(list)/       /funding hub: page.tsx, loading.tsx, error.tsx (own route group so its loading boundary does not wrap [slug])
     funding/[slug]/       call detail  (+ error.tsx, not-found.tsx; no loading.tsx on purpose: it would stream a 200 before notFound()/permanentRedirect run)
+    tenders/(list)/       /tenders list; tenders/[slug]/ tender detail with version history (same structure as funding)
+    buyers/(list)/        /buyers directory; buyers/[slug]/ buyer with its open and earlier tenders
+    data/                 /data source status (getHealth)
+    alerts pack pricing privacy terms imprint about   text-page skeletons on components/dg/content-page.tsx
     styleguide/page.tsx   /styleguide (noindex; 404 in production)
   (app)/app/layout.tsx    P3, robots noindex
   (admin)/admin/layout.tsx P4, robots noindex
 components/
   dg/                     shared design-system components (see list)
   funding/                FilterBar, FilterPanel, SortSelect, CallCalendar, CallListTemplate
+  tenders/                TenderFilterBar, BuyerFilterBar (reuse FilterPanel and SortSelect)
   landing/                WaitlistForm
 lib/
   types.ts                all domain types; funding types follow docs/design/API_CONTRACT.md
   api.ts                  the ONLY data-access module
-  mock/                   calls.json, sources.json (+ typed adapters), opportunities.ts (P2)
+  mock/                   calls.json, sources.json (+ typed adapters), tenders.ts (tenders, versions and buyers; all names invented)
   deadline.ts             days left, state (normal/soon/urgent/closed/none), UTC string, countdown; null deadline = "No fixed deadline"
   format.ts               UTC dates, ISO-coded amounts
   filters.ts              URL ⇄ CallFilters (parse, serialise, active count)
   seo.ts                  buildMetadata, meetsMinimumContent, JSON-LD builders
-  taxonomy.ts             countries, programmes, regimes, languages
+  taxonomy.ts             countries, programmes, regimes, languages, tender scopes, legal bases, CPV names
 public/brand/             mark.svg, mark-reversed.svg, mark-small.svg, favicon.svg, app-icon.svg
 ```
 
@@ -59,9 +64,13 @@ All reads go through `lib/api.ts`. Set `DG_API_URL=https://api.defencegate.eu` a
 | `getCalls(filters)` | `GET /v1/funding` (query keys as the site URL, plus `pageSize` and `currency`) |
 | `getCall(slug)` | `GET /v1/funding/{slug}` (leading id looked up; the page redirects to the canonical slug) |
 | `getAllCallSlugs()` | `GET /v1/funding/slugs` |
-| `getOpportunities(filters)` | `GET /v1/opportunities` |
-| `getOpportunity(id)` | `GET /v1/opportunities/{id}` |
-| `getOpportunityVersions(id)` | `GET /v1/opportunities/{id}/versions` |
+| `getTenders(filters)` | `GET /v1/tenders` (cached only for the unfiltered default list) |
+| `getTender(slug)` | `GET /v1/tenders/{slug}` (the page redirects to the canonical slug) |
+| `getTenderVersions(slug)` | `GET /v1/tenders/{slug}/versions` |
+| `getAllTenderSlugs()` | `GET /v1/tenders/slugs` |
+| `getBuyers(filters)` | `GET /v1/buyers` |
+| `getBuyer(slug)` | `GET /v1/buyers/{slug}` |
+| `getAllBuyerSlugs()` | `GET /v1/buyers/slugs` |
 | `getHealth()` | `GET /v1/sources` |
 | `getSiteStats()`, `getRelatedCalls()` | composed from the above |
 
@@ -77,7 +86,7 @@ All reads go through `lib/api.ts`. Set `DG_API_URL=https://api.defencegate.eu` a
 
 Design system: `HeaderBar`, `Button` (primary, secondary, text), `Tag` (programme, neutral), `StatusPill` (open, soon, closed, amended), `DeadlineBadge` (md, lg), `CallCard`, `SourceBadge` (inline, full), `VersionTimeline`, `Logo` / `LogoMark` / `Wordmark`, `Icon`, `TextInput`, `Select`, `Textarea`, `Choice` (checkbox/radio), `Fieldset`.
 
-Added with the same tokens: `Footer`, `TenderCard`, `AmountDisplay`, `CountryLabel`, `FactCell`, `FilterBar` (GET form, URL-synced, works without JS), `FilterPanel`, `SortSelect`, `CallCalendar`, `CallListTemplate`, `Pagination`, `EmptyState`, `ErrorState`, `Skeleton`, `CallCardSkeleton`, `LockedFeature`, `ComingSoon`, `Breadcrumbs`, `JsonLd`, `ThemeToggle`, `WaitlistForm`.
+Added with the same tokens: `Footer`, `TenderCard`, `BuyerCard`, `TenderStatusPills`, `RunStatusPill`, `ListPage`, `ContentPage`, `ContentSection`, `PendingSections`, `Placeholder`, `DraftNotice`, `AmountDisplay`, `CountryLabel`, `FactCell`, `FilterBar` (GET form, URL-synced, works without JS), `FilterPanel`, `SortSelect`, `CallCalendar`, `CallListTemplate`, `Pagination`, `EmptyState`, `ErrorState`, `Skeleton`, `CallCardSkeleton`, `LockedFeature`, `ComingSoon`, `Breadcrumbs`, `JsonLd`, `ThemeToggle`, `WaitlistForm`.
 
 ## States
 
@@ -92,4 +101,4 @@ UTC everywhere (`lib/format.ts` appends "UTC"); amounts always `CUR 1,234` (`for
 - `next.config.ts` sets CSP, Referrer-Policy, X-Content-Type-Options, Permissions-Policy, X-Frame-Options and HSTS on every route. `script-src` has `'unsafe-inline'` (nonces do not work with ISR pages); the reasoning is in the comment there.
 - A production build fails unless `NEXT_PUBLIC_SITE_URL` starts with `https://`. `DG_ALLOW_INSECURE_SITE_URL=1` allows it to be unset (local previews only).
 - Source-supplied URLs only become links through `lib/safe-url.ts` (`http:` / `https:` only).
-- Pages that do not exist yet (tenders, buyers, data, pricing, alerts, pack, legal) are not linked; the footer marks them "Coming soon".
+- Every header and footer link points to a page that exists. A link to a page that does not exist yet must not be added.

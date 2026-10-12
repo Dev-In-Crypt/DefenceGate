@@ -1,4 +1,4 @@
-import type { Call, CallStatus, DeadlineState, IsoDateTime, StatusKind } from './types';
+import type { Call, CallStatus, DeadlineState, IsoDateTime, StatusKind, Tender } from './types';
 import { formatDateTimeUtc } from './format';
 
 /** Thresholds from the design system's deadline states. */
@@ -95,5 +95,20 @@ export function getDeadline(deadline: IsoDateTime | null, ref: Date = now()): De
 export function getCallDeadline(call: Pick<Call, 'status' | 'deadline'>, ref: Date = now()): DeadlineInfo {
   const info = getDeadline(call.deadline, ref);
   if (call.status !== 'closed' || info.state === 'closed') return info;
+  return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
+}
+
+/**
+ * Deadline of a tender. TED gives a date only, which arrives as 00:00 UTC: it is shown as a date and the
+ * notice stays open until the end of that UTC day. A tender the API reports as closed is shown closed.
+ */
+export function getTenderDeadline(tender: Pick<Tender, 'status' | 'deadline'>, ref: Date = now()): DeadlineInfo {
+  const { deadline } = tender;
+  if (deadline === null) return getCallDeadline(tender, ref);
+  const d = new Date(deadline);
+  const dateOnly = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+  if (!dateOnly) return getCallDeadline(tender, ref);
+  const info = { ...getDeadline(new Date(d.getTime() + DAY_MS - 1000).toISOString(), ref), iso: deadline, utc: formatDateTimeUtc(deadline) };
+  if (tender.status !== 'closed' || info.state === 'closed') return info;
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
 }

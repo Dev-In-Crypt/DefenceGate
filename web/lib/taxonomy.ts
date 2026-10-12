@@ -15,8 +15,23 @@ const COUNTRY_NAMES: Record<string, string> = { ...AUDIENCE_NAMES, ...COUNTRIES 
 
 /** Name for any country code we show, funder or audience. Falls back to the code. */
 export function countryName(code: string): string {
-  return COUNTRY_NAMES[code] ?? code;
+  return COUNTRY_NAMES[code] ?? BUYER_COUNTRIES[code] ?? code;
 }
+
+/**
+ * Countries a tender buyer can be in: any ISO-2 the sources carry, not only funder
+ * countries. Ordered by how much we hold (12 October 2026); a code outside the list is
+ * still shown, as the code.
+ */
+export const BUYER_COUNTRIES: Record<string, string> = {
+  DE: 'Germany', PL: 'Poland', FR: 'France', CZ: 'Czechia', ES: 'Spain', RO: 'Romania',
+  IT: 'Italy', GB: 'United Kingdom', FI: 'Finland', NL: 'Netherlands', DK: 'Denmark',
+  SE: 'Sweden', NO: 'Norway', BG: 'Bulgaria', SI: 'Slovenia', BE: 'Belgium', LT: 'Lithuania',
+  LV: 'Latvia', GR: 'Greece', EE: 'Estonia', HR: 'Croatia', HU: 'Hungary', PT: 'Portugal',
+  SK: 'Slovakia', IE: 'Ireland', AT: 'Austria', CY: 'Cyprus', CH: 'Switzerland', MT: 'Malta',
+  LU: 'Luxembourg', IS: 'Iceland',
+};
+export const BUYER_COUNTRY_CODES: string[] = Object.keys(BUYER_COUNTRIES);
 
 /** Every funder country the API can return. The filter narrows this to those with coverage. */
 export const FUNDER_COUNTRIES: CountryCode[] = ['EU', 'PL', 'SE', 'FR', 'ES', 'FI', 'DE', 'IT', 'NL'];
@@ -52,4 +67,89 @@ export const LANGUAGES: Record<string, string> = {
 
 export function programmeBySlug(slug: string): ProgrammeCode | undefined {
   return PROGRAMME_CODES.find((c) => PROGRAMMES[c].slug === slug);
+}
+
+/** How a tender's scope is named. `supply` is "supplies to a defence buyer", never "defence notice". */
+export const TENDER_SCOPES: Record<'core' | 'supply', { label: string; hint: string }> = {
+  core: { label: 'Defence notice', hint: 'The notice itself is defence.' },
+  supply: { label: 'Supplies to a defence buyer', hint: 'Only the buyer is a defence body; the notice itself is not marked as defence.' },
+};
+
+/** Legal bases we can name. Anything else is shown as the source gives it. */
+const LEGAL_BASES: Record<string, string> = {
+  '32009L0081': 'Directive 2009/81/EC (defence and security procurement)',
+  '32014L0024': 'Directive 2014/24/EU (public procurement)',
+  '32014L0025': 'Directive 2014/25/EU (utilities procurement)',
+  '32014L0023': 'Directive 2014/23/EU (concessions)',
+};
+export function legalBasisLabel(code: string): string | null {
+  return LEGAL_BASES[code] ?? null;
+}
+
+/**
+ * CPV (Common Procurement Vocabulary) names for the codes we meet most: the whole of division 35 and the
+ * division level of the rest. Codes outside this table are shown as a bare code, never guessed.
+ */
+const CPV_LABELS: Record<string, string> = {
+  '03': 'Agricultural, farming, fishing, forestry and related products',
+  '09': 'Petroleum products, fuel, electricity and other sources of energy',
+  '14': 'Mining, basic metals and related products',
+  '15': 'Food, beverages, tobacco and related products',
+  '18': 'Clothing, footwear, luggage articles and accessories',
+  '19': 'Leather and textile fabrics, plastic and rubber materials',
+  '22': 'Printed matter and related products',
+  '24': 'Chemical products',
+  '30': 'Office and computing machinery, equipment and supplies',
+  '31': 'Electrical machinery, apparatus, equipment and consumables',
+  '32': 'Radio, television, communication, telecommunication and related equipment',
+  '33': 'Medical equipments, pharmaceuticals and personal care products',
+  '34': 'Transport equipment and auxiliary products to transportation',
+  '35': 'Security, fire-fighting, police and defence equipment',
+  '38': 'Laboratory, optical and precision equipments',
+  '39': 'Furniture, furnishings, domestic appliances and cleaning products',
+  '42': 'Industrial machinery',
+  '43': 'Machinery for mining, quarrying, construction equipment',
+  '44': 'Construction structures and materials',
+  '45': 'Construction work',
+  '48': 'Software package and information systems',
+  '50': 'Repair and maintenance services',
+  '51': 'Installation services',
+  '55': 'Hotel, restaurant and retail trade services',
+  '60': 'Transport services',
+  '63': 'Supporting and auxiliary transport services',
+  '64': 'Postal and telecommunications services',
+  '65': 'Public utilities',
+  '66': 'Financial and insurance services',
+  '70': 'Real estate services',
+  '71': 'Architectural, construction, engineering and inspection services',
+  '72': 'IT services: consulting, software development, Internet and support',
+  '73': 'Research and development services and related consultancy services',
+  '75': 'Administration, defence and social security services',
+  '79': 'Business services: law, marketing, consulting, recruitment, printing and security',
+  '80': 'Education and training services',
+  '85': 'Health and social work services',
+  '90': 'Sewage, refuse, cleaning and environmental services',
+  '98': 'Other community, social and personal services',
+  '351': 'Emergency and security equipment',
+  '352': 'Police equipment',
+  '353': 'Weapons, ammunition and associated parts',
+  '354': 'Military vehicles and associated parts',
+  '355': 'Warships and associated parts',
+  '356': 'Military aircraft, missiles and spacecraft',
+  '357': 'Military electronic systems',
+  '358': 'Individual and support equipment',
+};
+
+/**
+ * Name for a CPV code: the 3-digit group where we know it, else the 2-digit division, else null.
+ * `exact` is false when the name is that of the enclosing group or division, not of the code itself.
+ */
+export function cpvLabel(code: string): { label: string; exact: boolean } | null {
+  const digits = /^\d{8}/.exec(code)?.[0];
+  if (!digits) return null;
+  const group = CPV_LABELS[digits.slice(0, 3)];
+  if (group) return { label: group, exact: digits.slice(3) === '00000' };
+  const division = CPV_LABELS[digits.slice(0, 2)];
+  if (division) return { label: division, exact: digits.slice(2) === '000000' };
+  return null;
 }
