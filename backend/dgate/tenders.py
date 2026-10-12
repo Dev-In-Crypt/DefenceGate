@@ -153,9 +153,7 @@ def procedure_label(value: str | None) -> str | None:
 
 TENDER_SELECT = """
     SELECT o.*, s.code AS source_code, s.name AS source_name, s.licence AS source_licence,
-           s.attribution AS source_attribution,
-           (SELECT max(v.observed_at) FROM opportunity_version v
-             WHERE v.opportunity_id = o.id) AS observed_at
+           s.attribution AS source_attribution
       FROM opportunity o
       JOIN source s ON s.id = o.source_id
 """
@@ -176,6 +174,17 @@ def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
     return {r["buyer_org_id"]: redact_emails(r["buyer_name_raw"]) for r in rows}
 
 
+def _observed(conn, ids: list[int]) -> dict[int, datetime]:
+    """When each notice was last observed: its newest version's observation time.
+    Read for the page only, never inside the filtered query."""
+    if not ids:
+        return {}
+    rows = conn.execute(
+        "SELECT opportunity_id, max(observed_at) AS seen FROM opportunity_version "
+        "WHERE opportunity_id = ANY(%s) GROUP BY opportunity_id", (ids,)).fetchall()
+    return {r["opportunity_id"]: r["seen"] for r in rows}
+
+
 def _version_counts(conn, ids: list[int]) -> dict[int, int]:
     if not ids:
         return {}
@@ -191,7 +200,7 @@ def _version_counts(conn, ids: list[int]) -> dict[int, int]:
 
 
 def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int],
-              twins: list[dict[str, Any]]) -> dict[str, Any]:
+              twins: list[dict[str, Any]], observed: datetime | None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -235,7 +244,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
             "sourceId": r["source_code"],
             "sourceName": r["source_name"],
             "url": http_url(r.get("source_url")),
-            "retrievedAt": r.get("observed_at") or datetime.now(timezone.utc),
+            "retrievedAt": observed or datetime.now(timezone.utc),
             "licence": r["source_licence"] or "",
             "attribution": api._attribution(r),
         },
@@ -247,7 +256,9 @@ def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
     versions = _version_counts(conn, ids)
     twins = _api()._twins(conn, ids)
-    return [to_tender(r, names, versions, twins.get(r["id"], [])) for r in rows]
+    seen = _observed(conn, ids)
+    return [to_tender(r, names, versions, twins.get(r["id"], []), seen.get(r["id"]))
+            for r in rows]
 
 
 # -------------------------------------------------------------- endpoints
@@ -316,24 +327,26 @@ def list_tenders(
             where.append("o.value_amount <= %s")
             params.append(max_)
 
-    matched = f"{TENDER_SELECT} WHERE " + " AND ".join(where)
-    # The twin is dropped only when it is in the same result, so a filter that keeps the
-    # national row and not its TED notice never makes the notice vanish.
-    kept = ("SELECT m.* FROM matched m WHERE NOT (m.ted_ref IS NOT NULL AND EXISTS ("
-            "SELECT 1 FROM matched t WHERE t.source_code = 'ted' AND t.native_id = m.ted_ref))")
+    # A national notice is shown once: it is dropped when the TED notice it was forwarded
+    # as would itself be in this result (same filters), so a filter that keeps the national
+    # row and not its TED twin never makes the notice vanish. Only rows that carry a TED
+    # reference are tested, and that column is rare and indexed.
+    twin_where = [re.sub(r"\bo\.", "t.", clause) for clause in where]
+    not_collapsed = ("NOT (o.ted_ref IS NOT NULL AND EXISTS (SELECT 1 FROM opportunity t "
+                     "JOIN source ts ON ts.id = t.source_id WHERE ts.code = 'ted' "
+                     "AND t.native_id = o.ted_ref AND " + " AND ".join(twin_where) + "))")
+    clause = " WHERE " + " AND ".join(where) + " AND " + not_collapsed
+    args = params + params
     total = conn.execute(
-        f"WITH matched AS ({matched}), kept AS ({kept}) SELECT count(*) AS n FROM kept",
-        params).fetchone()["n"]
+        f"SELECT count(*) AS n FROM opportunity o{clause}", args).fetchone()["n"]
 
-    # `o` again, so the status expression (written against `o`) can order the page.
     if sort == "published-desc":
         order = "o.published_at DESC NULLS LAST, o.id DESC"
     else:
         order = f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
     rows = conn.execute(
-        f"WITH matched AS ({matched}), kept AS ({kept}) "
-        f"SELECT o.* FROM kept o ORDER BY {order} LIMIT %s OFFSET %s",
-        params + [pageSize, (page - 1) * pageSize]).fetchall()
+        f"{TENDER_SELECT}{clause} ORDER BY {order} LIMIT %s OFFSET %s",
+        args + [pageSize, (page - 1) * pageSize]).fetchall()
     return {"items": _present(conn, rows), "total": total, "page": page, "pageSize": pageSize}
 
 
