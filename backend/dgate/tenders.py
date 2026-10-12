@@ -151,9 +151,19 @@ def procedure_label(value: str | None) -> str | None:
 
 # ---------------------------------------------------------------- mapping
 
-TENDER_SELECT = """
-    SELECT o.*, s.code AS source_code, s.name AS source_name, s.licence AS source_licence,
-           s.attribution AS source_attribution
+# The columns a tender needs and no more: `o.*` carries the search vector, and carrying
+# it through the window count and the sort made the default page take over a second.
+TENDER_COLUMNS = (
+    "o.id, o.native_id, o.buyer_org_id, o.buyer_name_raw, o.country, o.title_original, "
+    "o.title_en, o.original_language, o.procedure_type, o.legal_basis, o.value_amount, "
+    "o.value_currency, o.published_at, o.deadline_at, o.cpv_codes, o.sig_legal_basis, "
+    "o.sig_cpv, o.security_clearance_required, o.subcontracting_signal, o.source_url, "
+    "o.status, o.ted_ref"
+)
+
+TENDER_SELECT = f"""
+    SELECT {TENDER_COLUMNS}, s.code AS source_code, s.name AS source_name,
+           s.licence AS source_licence, s.attribution AS source_attribution
       FROM opportunity o
       JOIN source s ON s.id = o.source_id
 """
@@ -344,7 +354,7 @@ def list_tenders(
         order = f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
     # The total rides on the same pass (a window count), so the table is read once.
     rows = conn.execute(
-        f"{TENDER_SELECT.replace('SELECT o.*,', 'SELECT o.*, count(*) OVER () AS total_rows,', 1)}"
+        f"{TENDER_SELECT.replace(TENDER_COLUMNS, TENDER_COLUMNS + ', count(*) OVER () AS total_rows', 1)}"
         f"{clause} ORDER BY {order} LIMIT %s OFFSET %s",
         args + [pageSize, (page - 1) * pageSize]).fetchall()
     if rows:
