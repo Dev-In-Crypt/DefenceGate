@@ -613,6 +613,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         ted_ref=opp.ted_ref, related_native_id=opp.related_native_id,
         notice_subtype=opp.notice_subtype, procedure_identifier=opp.procedure_identifier,
         lot_count=opp.lot_count, value_kind=opp.value_kind,
+        buyer_identifier=opp.buyer_identifier,
     )
 
 

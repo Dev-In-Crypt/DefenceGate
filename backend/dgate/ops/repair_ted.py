@@ -72,7 +72,7 @@ REMAPPED = (
 # Columns of the serving row that are attributes, not versioned facts. A change
 # here writes no version; `append_version` sets them whenever it writes one.
 DIRECT_COLUMNS = ("status_native", "notice_subtype", "procedure_identifier", "lot_count",
-                  "value_kind")
+                  "value_kind", "buyer_identifier")
 
 # What the serving row holds that a version payload may not: derived signals and
 # links. Carried over unchanged, so a repair never reclassifies.

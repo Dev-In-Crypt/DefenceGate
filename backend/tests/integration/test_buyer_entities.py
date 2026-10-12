@@ -409,7 +409,10 @@ def _raw_ted(i, name, cpv, country="ROU", legal="32014L0024"):
     return {"publication-number": f"{i}-2026", "notice-identifier": f"id-{i}",
             "notice-title": {"eng": f"Notice {i}"}, "buyer-name": {"ron": [name]},
             "buyer-country": [country], "classification-cpv": cpv, "legal-basis": [legal],
-            "dispatch-date": "2026-09-01Z", "official-language": ["RON"]}
+            "dispatch-date": "2026-09-01Z", "official-language": ["RON"],
+            # a notice type is part of every real TED notice; without it the status is
+            # `unknown` (never open) and the legacy listing, which shows open ones, omits it
+            "notice-type": "cn-standard"}
 
 
 def test_requalifying_raw_ted_notices_inserts_what_the_new_rules_qualify(conn, tmp_path,

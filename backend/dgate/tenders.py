@@ -74,6 +74,7 @@ class Tender(BaseModel):
     publishedAt: datetime | None
     estimatedValue: Budget | None
     lots: int | None = None
+    valueKind: str | None = None
     anomalies: list[str] = []
     status: str
     statusNative: str | None
@@ -192,7 +193,7 @@ TENDER_COLUMNS = (
     "o.value_currency, o.published_at, o.deadline_at, o.cpv_codes, o.sig_legal_basis, "
     "o.sig_cpv, o.sig_cpv_military, o.dual_use, o.buyer_class, "
     "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
-    "o.status, o.ted_ref, o.lot_count"
+    "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype"
 )
 
 TENDER_SELECT = f"""
@@ -285,6 +286,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "estimatedValue": ({"amount": float(amount), "currency": r.get("value_currency") or "EUR"}
                            if amount else None),
         "lots": r.get("lot_count"),
+        "valueKind": r.get("value_kind"),
         "anomalies": anomalies(r.get("deadline_at"), r.get("published_at")),
         "status": "open" if eff == "open" else "closed",
         "statusNative": eff,
@@ -392,8 +394,26 @@ def list_tenders(
     not_collapsed = ("NOT EXISTS (SELECT 1 FROM opportunity t "
                      "WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted') "
                      "AND t.native_id = o.ted_ref AND " + " AND ".join(twin_where) + ")")
-    clause = " WHERE " + " AND ".join(where) + " AND " + not_collapsed
-    args = params + params
+    # A BOAMP rectificatif repeats its parent notice and is shown under it, not beside it:
+    # dropped when the notice it corrects is held. One that corrects a notice we do not
+    # hold stays visible. (`related_native_id` is null for every other row: no match.)
+    not_rectified = ("NOT EXISTS (SELECT 1 FROM opportunity p "
+                     "WHERE p.source_id = o.source_id AND p.native_id = o.related_native_id)")
+    # A TED re-publication or corrigendum carries a new publication number but the same
+    # procedure identifier: only the newest of the same status that matches these filters
+    # is shown. (Award notices of a procedure have another status, so they are not hidden
+    # by the call for competition, and the reverse.)
+    rep_where = [re.sub(r"\bo\.", "r.", clause_) for clause_ in where]
+    not_republished = ("NOT EXISTS (SELECT 1 FROM opportunity r "
+                       "WHERE o.procedure_identifier IS NOT NULL "
+                       "AND r.procedure_identifier = o.procedure_identifier "
+                       "AND r.source_id = o.source_id AND r.status = o.status AND r.id <> o.id "
+                       "AND (coalesce(r.published_at, 'epoch'::date), r.id) "
+                       "> (coalesce(o.published_at, 'epoch'::date), o.id) AND "
+                       + " AND ".join(rep_where) + ")")
+    clause = (" WHERE " + " AND ".join(where) + " AND " + not_collapsed
+              + " AND " + not_rectified + " AND " + not_republished)
+    args = params + params + params
 
     if sort == "published-desc":
         order = "o.published_at DESC NULLS LAST, o.id DESC"
