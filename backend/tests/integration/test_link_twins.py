@@ -225,7 +225,7 @@ def test_boamp_procedure_identifiers_are_read_from_the_landed_payloads(conn, fs_
     conn.execute("UPDATE opportunity SET procedure_identifier = NULL")
     conn.commit()
     link = link_twins.fill_from_raw
-    assert link(conn, build_store(), write=False) == {"fr_boamp": 1, "nl_tenderned": 0}
+    assert link(conn, build_store(), write=False) == {"fr_boamp": 1}
     assert conn.execute("SELECT procedure_identifier FROM opportunity"
                         ).fetchone()["procedure_identifier"] is None
     link(conn, build_store(), write=True)

@@ -21,7 +21,7 @@ and a second run finds nothing left to do.
     python -m dgate.ops.link_twins                          # dry run: counts per method
     python -m dgate.ops.link_twins --yes                    # write
     python -m dgate.ops.link_twins --source fr_boamp --limit 500 --yes
-    python -m dgate.ops.link_twins --fill-raw --yes         # BOAMP/TenderNed procedure ids from the store
+    python -m dgate.ops.link_twins --fill-raw --yes         # BOAMP procedure ids from the store
     python -m dgate.ops.link_twins --fill-placsp 2026-08 2026-10 --yes   # PLACSP ids from monthly archives
 """
 
@@ -49,7 +49,8 @@ CONFIDENCE = {"stated_ted_ref": 1.0, "procedure_id": 0.98, "heuristic": 0.9}
 # Sources whose stored raw payload is the record as the source sent it, so the mapper can
 # read the procedure identifier again. PLACSP's raw payload is the mapped record, which
 # has no CODICE left in it: its identifier comes from the archives (`--fill-placsp`).
-RAW_FILL_SOURCES = ("fr_boamp", "nl_tenderned")
+# TenderNed states a TED number and its own UUID is not a procedure identifier.
+RAW_FILL_SOURCES = ("fr_boamp",)
 
 # The same identifier spelled with braces or capitals compares equal.
 _NORM = "lower(btrim({col}, '{{}} '))"
@@ -213,7 +214,7 @@ def run(conn, *, write: bool = False, methods: tuple[str, ...] = METHODS,
 # ----------------------------------------------------- procedure identifiers
 
 def fill_from_raw(conn, store, *, write: bool = False, source: str | None = None) -> dict[str, int]:
-    """Read BOAMP's and TenderNed's procedure identifier from the landed payloads.
+    """Read BOAMP's procedure identifier from the landed payloads.
 
     Same replay as `link_ted`: nothing is fetched, no version is written.
     """
@@ -294,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--method", action="append", choices=METHODS,
                         help="only this method (repeatable); default all, strongest first")
     parser.add_argument("--fill-raw", action="store_true",
-                        help="first read BOAMP/TenderNed procedure identifiers from the raw store")
+                        help="first read BOAMP procedure identifiers from the raw store")
     parser.add_argument("--fill-placsp", nargs=2, type=_month, metavar=("FROM", "TO"),
                         help="first read PLACSP procedure identifiers from monthly archives")
     args = parser.parse_args(argv)
