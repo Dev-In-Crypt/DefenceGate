@@ -342,6 +342,25 @@ def _publication_date(cfs: ET.Element) -> date | None:
     return None
 
 
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def _procedure_uuid(cfs: ET.Element) -> str | None:
+    """The eForms procedure identifier (BT-04) of an entry that was also sent to TED.
+
+    It is `<cbc:UUID schemeName="TED">` directly under the folder status: the same value
+    TED publishes as `procedure-identifier`, which is what ties this notice to its TED
+    twin. 571 of 1,915 live entries and 134 of the 770 defence notices of October 2026
+    carry it; below-threshold ones do not. The DOUE publication entry has only an issue
+    date, no number, so there is nothing else to read.
+    """
+    for child in cfs:
+        if child.tag.endswith("}UUID") and child.get("schemeName") == "TED":
+            value = (child.text or "").strip().strip("{}").strip().lower()
+            return value if _UUID.fullmatch(value) else None
+    return None
+
+
 def _instant(stamp: str | None) -> datetime | None:
     """An `atom:updated` stamp as an aware instant, None when it is not one."""
     if not stamp:
@@ -430,6 +449,7 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
         description=_text(project, "cbc:Description"),
         status=map_status(status_native),
         status_native=status_native,
+        procedure_identifier=_procedure_uuid(cfs),
     )
 
 

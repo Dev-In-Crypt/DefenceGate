@@ -124,8 +124,14 @@ A BOAMP record states **no TED publication number of its own**, so `ted_ref` sta
 empty. The JOUE numbers it contains (`PUBLICATION_JOUE`: year and notice number under
 `ANNONCE_ANTERIEUR` and `PUBLICATION_ANTERIEURE`) are those of previous notices.
 eForms records carry `cbc:ContractFolderID`, the procedure identifier (BT-04) that TED
-publishes too, repeated in the record's `contractfolderid` column: the available join
-key, not stored by this change.
+publishes too, repeated in the record's `contractfolderid` column. It is read by
+`from_boamp` into `procedure_identifier` (lower case, braces stripped, only if it is a
+UUID) and `dgate.ops.link_twins` joins it to TED's `procedure-identifier`, setting
+`ted_ref` and `twin_method = 'procedure_id'`. Legacy records have no such column, so
+only the eForms-shaped notices (8 of 4,185 on 12 October 2026, more from now on) link
+this way; the rest can only be tied by the strict heuristic of `link_twins` (same buyer,
+deadline instant, value and currency, publication within 14 days, a shared 5-digit CPV
+class, one candidate on each side: 68 BOAMP notices, nearly all 2017-2020).
 
 ### History resume
 

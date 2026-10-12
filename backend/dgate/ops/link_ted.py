@@ -33,7 +33,7 @@ MAPPERS: dict[str, Callable[[dict], Opportunity]] = {
 }
 
 
-LINK_COLUMNS = ("ted_ref", "related_native_id")
+LINK_COLUMNS = ("ted_ref", "related_native_id", "procedure_identifier")
 
 
 def backfill(conn, store: RawStore, source: str, *, dry_run: bool = False,
@@ -41,7 +41,9 @@ def backfill(conn, store: RawStore, source: str, *, dry_run: bool = False,
     """Returns (records read, links set).
 
     `column` is the link to fill: `ted_ref`, or `related_native_id` -- the notice
-    a BOAMP rectificatif corrects, which the mapper reads from the same payloads.
+    a BOAMP rectificatif corrects, or `procedure_identifier` -- the eForms procedure
+    BOAMP and TenderNed state (`link_twins` joins it to TED), which the mapper reads
+    from the same payloads.
     """
     if column not in LINK_COLUMNS:
         raise ValueError(f"not a link column: {column!r}")

@@ -1262,6 +1262,21 @@ def _fr_corrected_notice(record: dict[str, Any], body: dict[str, Any],
     return named.pop() if len(named) == 1 else None
 
 
+def _fr_procedure_id(record: dict[str, Any]) -> str | None:
+    """The eForms procedure identifier (BT-04) of a BOAMP notice, as TED spells it.
+
+    The record's `contractfolderid` column repeats `cbc:ContractFolderID`, which an
+    eForms notice sets to the procedure's UUID: the same value TED publishes as
+    `procedure-identifier`, so it ties this notice to its TED twin. Legacy notices
+    have no such column. Anything that is not a UUID is not an identifier.
+    """
+    value = record.get("contractfolderid")
+    if isinstance(value, list):
+        value = next((v for v in value if isinstance(v, str) and v.strip()), None)
+    text = value.strip().strip("{}").strip().lower() if isinstance(value, str) else ""
+    return text if _ID_UUID.fullmatch(text) else None
+
+
 def from_boamp(record: dict[str, Any]) -> Opportunity:
     """Map one BOAMP record onto the unified schema.
 
@@ -1299,6 +1314,7 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         status=_FR_STATUS.get(nature, "open"),
         status_native=f"{perimetre}/{nature}" if perimetre or nature else None,
         related_native_id=_fr_corrected_notice(record, body, str(native_id)),
+        procedure_identifier=_fr_procedure_id(record),
         description=_fr_description(body),
     )
 
