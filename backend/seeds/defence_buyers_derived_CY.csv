@@ -1,0 +1,7 @@
+country,name,identifier,reason,confidence,reviewed
+CY,ministry of defence,,ministry,0.95,false
+CY,ministry of defence c and c c and c,,ministry,0.95,false
+CY,ministry of defence c&c c&c,,ministry,0.95,false
+CY,ministry of defence c&c other,,ministry,0.95,false
+CY,υπουργειο αμυνας,,ministry,0.95,false
+CY,υπουργειο αμυνας 1071,,ministry,0.95,false

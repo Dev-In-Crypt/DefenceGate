@@ -102,7 +102,9 @@ def _opp(conn, native_id, *, cpv, buyer, legal=False):
                       title_original=native_id, country="PL",
                       # Recent: a 2024 call with no deadline now counts as expired.
                       published_at=date.today(),
-                      is_defence=True, sig_cpv=cpv, sig_buyer=buyer, sig_legal_basis=legal)
+                      is_defence=True, sig_cpv=cpv, sig_buyer=buyer, sig_legal_basis=legal,
+                      # `core` reads the military CPV column since 12 October 2026.
+                      sig_cpv_military=cpv)
     src = db.source_id(conn, "pl_atlas")
     db.upsert_opportunity(conn, opp, content_hash(db.opportunity_payload(opp)), src)
     conn.commit()
@@ -161,7 +163,7 @@ def test_expired_calls_are_not_served_as_open(client, conn):
         opp = Opportunity(source_code="pl_atlas", native_id=native_id, buyer_name_raw="B",
                           title_original=native_id, country="PL",
                           published_at=date.today() - timedelta(days=30), deadline_at=deadline,
-                          status="open", is_defence=True, sig_cpv=True)
+                          status="open", is_defence=True, sig_cpv=True, sig_cpv_military=True)
         db.upsert_opportunity(conn, opp, content_hash(db.opportunity_payload(opp)), src)
     conn.commit()
 

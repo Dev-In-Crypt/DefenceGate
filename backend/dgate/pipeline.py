@@ -28,6 +28,7 @@ import httpx
 import psycopg
 
 from . import db, rawstore
+from .buyer_vocab import buyer_class_of
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import (
@@ -221,23 +222,37 @@ class Quarantine:
         return {"status": status, "error": error}
 
 
-def _finalise(conn, opp: Opportunity, src_id: int) -> Opportunity:
+def _finalise(conn, opp: Opportunity, src_id: int, *, linked_defence: bool = False) -> Opportunity:
     """Resolve the buyer, run the classifier, attach the signals."""
     org_id = db.resolve_organisation(conn, opp.buyer_name_raw, opp.country,
-                                     src_id=src_id)
+                                     src_id=src_id, identifier=opp.buyer_identifier)
     opp.buyer_org_id = org_id
+    if opp.source_code == "ted" and not linked_defence:
+        # A national defence notice that says it was forwarded to TED under this
+        # number makes the TED notice the same procurement: defence too.
+        linked_defence = conn.execute(
+            "SELECT 1 FROM opportunity WHERE ted_ref = %s AND is_defence LIMIT 1",
+            (opp.native_id,)).fetchone() is not None
+    buyer_class = buyer_class_of(opp.buyer_name_raw, opp.country)
     sig = classify(
         legal_basis=opp.legal_basis,
         cpv_codes=opp.cpv_codes,
         buyer_is_defence=db.is_defence_buyer(conn, org_id),
         security_clearance_text="present" if opp.security_clearance_required else None,
         nda_required=opp.nda_required,
+        buyer_class=buyer_class,
+        linked_defence=linked_defence,
     )
     opp.is_defence = sig.is_defence
     opp.sig_legal_basis = sig.legal_basis
     opp.sig_cpv = sig.cpv
     opp.sig_buyer = sig.buyer
     opp.sig_clearance = sig.clearance
+    opp.sig_cpv_military = sig.military_cpv
+    opp.sig_cpv_adjacent = sig.cpv_adjacent
+    opp.sig_linked_defence = sig.linked_defence
+    opp.dual_use = sig.dual_use
+    opp.buyer_class = buyer_class
     opp.subcontracting_signal = detects_subcontracting(
         opp.description, opp.title_original
     )
@@ -1679,6 +1694,103 @@ def load_seed_rows(path: Path | None = None) -> dict[tuple[str, str], list[tuple
     return groups
 
 
+# Buyers proposed by a rule over names (dgate/buyer_vocab.py, written by
+# `python -m dgate.ops.derive_buyers --derived-dir`), one file per country. A row is
+# loaded as a buyer signal when its confidence reaches the floor, or when a person
+# has set `reviewed` to true; `reviewed` set to `rejected` keeps it out for good.
+#
+# 0.80 because that is where the rule labels change character. At 0.85 and above a
+# name begins with the ministry, the armed force, a procurement agency or a
+# military unit; read in a 40-name sample, all 40 were defence bodies. The 0.70
+# rows are a defence word somewhere in the name ("Cercle national des armees",
+# a tender title typed into the buyer field), and in a 40-name sample about one in
+# seven was not a procurement body.
+DERIVED_GLOB = "defence_buyers_derived_*.csv"
+DERIVED_MIN_CONFIDENCE = 0.80
+
+
+def load_derived_rows(directory: Path | None = None,
+                      min_confidence: float = DERIVED_MIN_CONFIDENCE) -> list[dict[str, Any]]:
+    """The derived buyer rows that count as a signal, as dicts."""
+    import csv
+
+    directory = directory or SEEDS_FILE.parent
+    out: list[dict[str, Any]] = []
+    for path in sorted(directory.glob(DERIVED_GLOB)):
+        with path.open(encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                status = (row.get("reviewed") or "").strip().lower()
+                if status in ("rejected", "no", "reject"):
+                    continue
+                try:
+                    confidence = float(row.get("confidence") or 0)
+                except ValueError:
+                    continue
+                if status in ("true", "yes", "1") or confidence >= min_confidence:
+                    out.append({"country": row["country"].strip(), "name": row["name"].strip(),
+                                "identifier": (row.get("identifier") or "").strip() or None,
+                                "reason": row.get("reason") or "", "confidence": confidence})
+    return out
+
+
+def seed_derived_buyers(conn, directory: Path | None = None) -> int:
+    """Flag the organisations the derived list names. Returns how many were flagged.
+
+    Creates the organisation when none holds the name, as the seed list does, so
+    the signal is there when the first notice from that body arrives.
+    """
+    from .normalise import normalise_identifier, normalise_org_name
+
+    flagged = 0
+    for row in load_derived_rows(directory):
+        country, norm = row["country"], normalise_org_name(row["name"])
+        if not country or not norm:
+            continue
+        found = conn.execute(
+            """SELECT id FROM organisation
+                WHERE country = %s AND lower(canonical_name) = %s
+                ORDER BY (merged_into IS NOT NULL), id LIMIT 1""",
+            (country, norm)).fetchone()
+        if found:
+            org_id = db._live(conn, found["id"])
+            conn.execute(
+                """UPDATE organisation
+                      SET is_defence_buyer = TRUE,
+                          defence_buyer_source = COALESCE(defence_buyer_source, 'derived_rule'),
+                          defence_buyer_reason = COALESCE(defence_buyer_reason, %s),
+                          defence_buyer_confidence = COALESCE(defence_buyer_confidence, %s)
+                    WHERE id = %s""",
+                (row["reason"][:120], round(row["confidence"], 2), org_id))
+        else:
+            org_id = conn.execute(
+                """INSERT INTO organisation
+                     (canonical_name, country, org_role, is_defence_buyer, confidence,
+                      review_status, defence_buyer_source, defence_buyer_reason,
+                      defence_buyer_confidence)
+                   VALUES (%s, %s, 'buyer', TRUE, %s, 'rule_derived', 'derived_rule', %s, %s)
+                   RETURNING id""",
+                (norm, country, round(row["confidence"], 2), row["reason"][:120],
+                 round(row["confidence"], 2))).fetchone()["id"]
+            conn.execute(
+                """INSERT INTO organisation_alias
+                     (organisation_id, raw_name, normalised_name, country_hint,
+                      match_method, confidence)
+                   VALUES (%s, %s, %s, %s, 'derived_rule', %s)
+                   ON CONFLICT DO NOTHING""",
+                (org_id, row["name"], norm, country, round(row["confidence"], 2)))
+        ident = normalise_identifier(row["identifier"], country)
+        if ident:
+            conn.execute(
+                """UPDATE organisation SET national_reg_no = %s, identifier_method = 'derived_list',
+                          identifier_confidence = %s
+                    WHERE id = %s AND national_reg_no IS NULL
+                      AND NOT EXISTS (SELECT 1 FROM organisation o2
+                                       WHERE o2.country = %s AND o2.national_reg_no = %s)""",
+                (ident, round(row["confidence"], 2), org_id, country, ident))
+        flagged += 1
+    return flagged
+
+
 def seed_buyers(path: Path | None = None) -> int:
     """Mark the defence buyers, idempotently. Returns organisations seeded.
 
@@ -1702,11 +1814,11 @@ def seed_buyers(path: Path | None = None) -> int:
             row = conn.execute(
                 """SELECT id FROM organisation
                     WHERE country = %s AND lower(canonical_name) = %s
-                    ORDER BY id LIMIT 1""",
+                    ORDER BY (merged_into IS NOT NULL), id LIMIT 1""",
                 (country, norm),
             ).fetchone()
             if row:
-                org_id = row["id"]
+                org_id = db._live(conn, row["id"])
                 conn.execute(
                     "UPDATE organisation SET is_defence_buyer = TRUE WHERE id = %s",
                     (org_id,),
@@ -1740,7 +1852,8 @@ def seed_buyers(path: Path | None = None) -> int:
                           AND NOT is_defence_buyer""",
                     (country, raw_norm),
                 )
-    log.info("seeded %s defence buyers", len(groups))
+        derived = seed_derived_buyers(conn)
+    log.info("seeded %s defence buyers, %s from the derived list", len(groups), derived)
     return len(groups)
 
 

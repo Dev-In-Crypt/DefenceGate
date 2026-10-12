@@ -157,6 +157,11 @@ class OpportunityOut(BaseModel):
     # signal, `supply` when only the buyer does -- the armed forces buying
     # anything. See SCOPE_SQL.
     scope: str
+    # What kind of body the buyer is (defence, security, municipal, health, education,
+    # fire_rescue, other), and whether a military CPV was demoted because that body
+    # buys for itself. Additive: `scope` keeps its two values.
+    buyer_class: str | None = None
+    dual_use: bool = False
     # As of now: an open call whose deadline has passed is `expired`. The
     # source's own code is kept alongside, so the mapping stays checkable.
     status: str | None = None
@@ -230,7 +235,9 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         source_url=http_url(r.get("source_url")),
         version=r.get("current_version") or 1,
         attribution=_attribution(r),
-        scope="core" if (r.get("sig_legal_basis") or r.get("sig_cpv")) else "supply",
+        scope=row_scope(r),
+        buyer_class=r.get("buyer_class"),
+        dual_use=bool(r.get("dual_use")),
         status=effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at")),
         status_native=r.get("status_native"),
         same_notice=same_notice or [],
@@ -279,11 +286,25 @@ def effective_status(status: str | None, deadline_at: datetime | None,
     return "open"
 
 
+# `core` is the notice itself saying defence: the 2009/81/EC legal basis, or a
+# military CPV that its buyer's own needs do not explain. A civil security CPV
+# (fire extinguishers, groups 351 and 352) no longer makes `core` on its own or
+# with a clearance flag; the columns stay and corroborate. A military CPV bought
+# by a municipality, a hospital, a school or a fire brigade is `dual_use` and
+# leaves `core`; it is still reachable through `all`.
+CORE_SQL = "(o.sig_legal_basis OR (o.sig_cpv_military AND NOT o.dual_use))"
 SCOPE_SQL = {
-    "core": "(o.sig_legal_basis OR o.sig_cpv)",
-    "supply": "(o.sig_buyer AND NOT o.sig_legal_basis AND NOT o.sig_cpv)",
+    "core": CORE_SQL,
+    "supply": f"((o.sig_buyer OR o.sig_linked_defence) AND NOT {CORE_SQL})",
     "all": "TRUE",
 }
+
+
+def row_scope(r: dict[str, Any]) -> str:
+    """The Python twin of SCOPE_SQL for a row already fetched: `core` or `supply`."""
+    if r.get("sig_legal_basis") or (r.get("sig_cpv_military") and not r.get("dual_use")):
+        return "core"
+    return "supply"
 
 
 BASE_SELECT = """

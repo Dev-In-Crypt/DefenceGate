@@ -24,7 +24,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .normalise import Opportunity, normalise_org_name
+from .normalise import Opportunity, normalise_identifier, normalise_org_name
 
 log = logging.getLogger(__name__)
 
@@ -113,8 +113,26 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+# Migration 0029's derived fields are absent from a payload while empty, so the hash
+# taken before classification (PLACSP hashes the payload) does not move for a record
+# that has none. `buyer_identifier` is handled where the TED mapper's own fields are.
+_EMPTY_WHILE_UNSET = ("sig_linked_defence", "dual_use", "buyer_class")
+# Pure functions of `cpv_codes`, re-derived whenever an Opportunity is built
+# (Opportunity.__post_init__): never in a payload, so no hash moves for them.
+_NEVER_IN_PAYLOAD = ("sig_cpv_military", "sig_cpv_adjacent")
+
+
+def _drop_classification_keys(payload: dict[str, Any]) -> None:
+    for key in _EMPTY_WHILE_UNSET:
+        if not payload.get(key):
+            payload.pop(key, None)
+    for key in _NEVER_IN_PAYLOAD:
+        payload.pop(key, None)
+
+
 def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     payload = {k: _jsonable(v) for k, v in asdict(opp).items()}
+    _drop_classification_keys(payload)
     # PLACSP hashes this payload, so a field added later must not move the hash
     # of every record that does not have it: an empty link is simply absent.
     if payload.get("ted_ref") is None:
@@ -278,22 +296,155 @@ def close_interrupted_runs(conn: psycopg.Connection) -> list[int]:
 
 # ------------------------------------------------------ organisations
 
+#: how sure each way of reaching an organisation is. Stored on the alias, so a
+#: later look at one can say how it was decided.
+CONF_EXACT_NAME = 0.95
+CONF_IDENTIFIER = 0.97          # the buyer's own registration number, as the notice states it
+CONF_IDENTIFIER_ATTACHED = 0.90  # a number attached to a body we already knew by name
+TRIGRAM_CANDIDATE_MIN = 0.90
+
+
+def _live(conn: psycopg.Connection, org_id: int) -> int:
+    """The organisation a row stands for now: follows `merged_into` to its end."""
+    for _ in range(8):
+        row = conn.execute("SELECT merged_into FROM organisation WHERE id = %s",
+                           (org_id,)).fetchone()
+        if not row or row["merged_into"] is None:
+            return org_id
+        org_id = row["merged_into"]
+    return org_id
+
+
+def _tokens(norm: str) -> set[str]:
+    return {t for t in norm.replace("-", " ").split() if len(t) >= 4}
+
+
+def names_compatible(a: str, b: str) -> bool:
+    """Whether two normalised names could be the same body: they share a word.
+
+    The guard on trusting an identifier. A notice that carries the number of a
+    central purchasing body under the name of one of its members would otherwise
+    be filed under the purchasing body. A pair with nothing in common is left to
+    the name stages; the same body under two languages is merely not merged here.
+    """
+    ta, tb = _tokens(a), _tokens(b)
+    return not ta or not tb or bool(ta & tb)
+
+
+def add_merge_candidate(conn: psycopg.Connection, a: int, b: int, *, method: str,
+                        confidence: float, evidence: str, detected_by: str) -> None:
+    """Record that two organisations may be one. Never merges anything."""
+    if a == b:
+        return
+    conn.execute(
+        """INSERT INTO organisation_merge_candidate
+             (organisation_id, candidate_org_id, match_method, confidence, evidence, detected_by)
+           VALUES (LEAST(%s::bigint, %s::bigint), GREATEST(%s::bigint, %s::bigint), %s, %s, %s, %s)
+           ON CONFLICT (organisation_id, candidate_org_id, match_method) DO NOTHING""",
+        (a, b, a, b, method, round(confidence, 2), evidence[:500], detected_by),
+    )
+
+
+def _note_similar_names(conn: psycopg.Connection, org_id: int, norm: str, country: str) -> None:
+    """A new organisation whose name is nearly one already held: a candidate pair.
+
+    Trigram similarity of 0.90 or more within one country, found through the
+    index on `canonical_name`. It only proposes: two municipalities named
+    "Szkola Podstawowa nr 1" and "Szkola Podstawowa nr 2" are 0.9 apart and not
+    one body, which is why a person decides.
+    """
+    conn.execute("SELECT set_config('pg_trgm.similarity_threshold', %s, false)",
+                 (str(TRIGRAM_CANDIDATE_MIN),))
+    rows = conn.execute(
+        """SELECT id, canonical_name, similarity(canonical_name, %s) AS sim
+             FROM organisation
+            WHERE country = %s AND id <> %s AND merged_into IS NULL AND canonical_name %% %s
+            ORDER BY sim DESC LIMIT 5""",
+        (norm, country, org_id, norm),
+    ).fetchall()
+    for r in rows:
+        add_merge_candidate(
+            conn, org_id, r["id"], method="trigram", confidence=float(r["sim"]),
+            evidence=f"{norm!r} and {r['canonical_name']!r} in {country}",
+            detected_by="resolve_organisation")
+
+
+def _record_alias(conn: psycopg.Connection, org_id: int, raw_name: str, norm: str,
+                  src_id: int | None, country: str, method: str, confidence: float) -> bool:
+    row = conn.execute(
+        """INSERT INTO organisation_alias
+             (organisation_id, raw_name, normalised_name, source_id,
+              country_hint, match_method, confidence)
+           VALUES (%s, %s, %s, %s, %s, %s, %s)
+           ON CONFLICT (normalised_name, country_hint, source_id) DO NOTHING
+           RETURNING id""",
+        (org_id, raw_name, norm, src_id, country, method, confidence),
+    ).fetchone()
+    return row is not None
+
+
 def resolve_organisation(
     conn: psycopg.Connection, raw_name: str, country: str | None,
-    *, src_id: int | None = None,
+    *, src_id: int | None = None, identifier: str | None = None,
 ) -> int | None:
-    """Cascade stage 0 and 2: alias lookup, then exact normalised match.
+    """The resolution cascade: identifier, alias, exact normalised name.
 
-    Fuzzy, embedding and LLM stages are deliberately absent from Phase 1. They
-    belong here later, behind the same interface, once there is enough data to
-    measure precision against a labelled set. Guessing early would poison the
-    alias table, and a poisoned alias table is worse than none.
+    Stage 0, identifier first: when the notice states the buyer's registration
+    or tax number and an organisation already carries it, that organisation is
+    the buyer, whatever the name says -- provided the name shares a word with
+    what we hold (`names_compatible`). A number met for the first time is
+    attached to the organisation the name resolves to, if that has none, with
+    method `identifier` and its confidence stored; if that organisation already
+    carries a different number it is a different body with the same name, and
+    gets an organisation of its own.
+
+    Fuzzy, embedding and LLM stages are deliberately absent. Names that are
+    nearly equal are written to `organisation_merge_candidate` and wait for a
+    person: a poisoned alias table is worse than none.
     """
     if not raw_name or not country:
         return None
     norm = normalise_org_name(raw_name)
     if not norm:
         return None
+    ident = normalise_identifier(identifier, country)
+
+    if ident:
+        row = conn.execute(
+            """SELECT id, canonical_name FROM organisation
+                WHERE country = %s AND national_reg_no = %s""",
+            (country, ident),
+        ).fetchone()
+        if row and names_compatible(norm, row["canonical_name"]):
+            org_id = _live(conn, row["id"])
+            if not _record_alias(conn, org_id, raw_name, norm, src_id, country,
+                                 "identifier", CONF_IDENTIFIER):
+                other = conn.execute(
+                    """SELECT organisation_id FROM organisation_alias
+                        WHERE normalised_name = %s AND country_hint = %s
+                          AND source_id IS NOT DISTINCT FROM %s""",
+                    (norm, country, src_id),
+                ).fetchone()
+                if other and other["organisation_id"] != org_id:
+                    add_merge_candidate(
+                        conn, org_id, other["organisation_id"], method="identifier",
+                        confidence=CONF_IDENTIFIER,
+                        evidence=f"{norm!r} is filed under another organisation but "
+                                 f"carries identifier {ident} in {country}",
+                        detected_by="resolve_organisation")
+            return org_id
+        if row:
+            # The number belongs to a body whose name shares nothing with this one:
+            # not trusted here. The name stages decide, without the number, and the
+            # pair is noted for a person.
+            org_id = resolve_organisation(conn, raw_name, country, src_id=src_id)
+            if org_id is not None:
+                add_merge_candidate(
+                    conn, org_id, row["id"], method="identifier_name_mismatch", confidence=0.50,
+                    evidence=f"{norm!r} states identifier {ident} in {country}, held by "
+                             f"{row['canonical_name']!r}",
+                    detected_by="resolve_organisation")
+            return org_id
 
     row = conn.execute(
         """SELECT organisation_id FROM organisation_alias
@@ -302,31 +453,134 @@ def resolve_organisation(
         (norm, country),
     ).fetchone()
     if row:
-        return row["organisation_id"]
+        org_id = _live(conn, row["organisation_id"])
+        return _attach_identifier(conn, org_id, raw_name, norm, src_id, country, ident)
 
     row = conn.execute(
         """SELECT id FROM organisation
-            WHERE country = %s AND lower(canonical_name) = %s LIMIT 1""",
+            WHERE country = %s AND lower(canonical_name) = %s AND merged_into IS NULL
+            ORDER BY id LIMIT 1""",
         (country, norm),
     ).fetchone()
+    created = False
     if row:
         org_id = row["id"]
     else:
-        org_id = conn.execute(
-            """INSERT INTO organisation (canonical_name, country, confidence, review_status)
-               VALUES (%s, %s, 0.95, 'auto') RETURNING id""",
-            (norm, country),
-        ).fetchone()["id"]
+        org_id = _new_organisation(conn, norm, country, ident)
+        created = True
 
+    _record_alias(conn, org_id, raw_name, norm, src_id, country, "exact_name", CONF_EXACT_NAME)
+    if created:
+        _note_similar_names(conn, org_id, norm, country)
+        return org_id
+    return _attach_identifier(conn, org_id, raw_name, norm, src_id, country, ident)
+
+
+def _new_organisation(conn: psycopg.Connection, norm: str, country: str,
+                      ident: str | None) -> int:
+    return conn.execute(
+        """INSERT INTO organisation
+             (canonical_name, country, confidence, review_status, national_reg_no,
+              identifier_method, identifier_confidence)
+           VALUES (%s, %s, 0.95, 'auto', %s, %s, %s) RETURNING id""",
+        (norm, country, ident, "identifier" if ident else None,
+         CONF_IDENTIFIER_ATTACHED if ident else None),
+    ).fetchone()["id"]
+
+
+def _attach_identifier(conn: psycopg.Connection, org_id: int, raw_name: str, norm: str,
+                       src_id: int | None, country: str, ident: str | None) -> int:
+    """Give the organisation the notice's identifier, or split off a namesake."""
+    if not ident:
+        return org_id
+    cur = conn.execute(
+        "SELECT national_reg_no FROM organisation WHERE id = %s", (org_id,)
+    ).fetchone()
+    if cur is None or cur["national_reg_no"] == ident:
+        return org_id
+    if cur["national_reg_no"] is None:
+        conn.execute(
+            """UPDATE organisation
+                  SET national_reg_no = %s, identifier_method = 'identifier',
+                      identifier_confidence = %s
+                WHERE id = %s AND national_reg_no IS NULL""",
+            (ident, CONF_IDENTIFIER_ATTACHED, org_id),
+        )
+        return org_id
+    # Same name, a different registered number: another body. It is reachable by
+    # its number; the name keeps pointing at the first one.
+    other = _new_organisation(conn, norm, country, ident)
+    add_merge_candidate(
+        conn, org_id, other, method="same_name_different_identifier", confidence=0.50,
+        evidence=f"{norm!r} in {country} carries {cur['national_reg_no']} and {ident}",
+        detected_by="resolve_organisation")
+    return other
+
+
+def merge_organisations(
+    conn: psycopg.Connection, keep: int, absorbed: int, *,
+    method: str, confidence: float, evidence: str, detected_by: str,
+) -> dict[str, int]:
+    """Make `absorbed` an alias of `keep`. Nothing is deleted.
+
+    The absorbed row stays, marked `merged_into` with the method and confidence;
+    its aliases and the serving rows that point at it are re-pointed at `keep`
+    (the alias remembers where it came from in `prev_organisation_id`). Version
+    payloads are history and are not touched: they keep the id they were
+    archived with, which is how a merge is undone.
+
+    Returns what moved.
+    """
+    if keep == absorbed:
+        raise ValueError("an organisation cannot be merged into itself")
+    rows = {r["id"]: r for r in conn.execute(
+        """SELECT id, country, national_reg_no, is_defence_buyer, merged_into
+             FROM organisation WHERE id = ANY(%s) FOR UPDATE""",
+        ([keep, absorbed],)).fetchall()}
+    k, a = rows.get(keep), rows.get(absorbed)
+    if k is None or a is None:
+        raise ValueError("unknown organisation")
+    if k["merged_into"] is not None or a["merged_into"] is not None:
+        raise ValueError("an organisation that is already merged cannot be merged again")
+    if k["country"] != a["country"]:
+        raise ValueError("organisations of different countries are never merged")
+    if (k["national_reg_no"] and a["national_reg_no"]
+            and k["national_reg_no"] != a["national_reg_no"]):
+        raise ValueError("two different registered numbers: not the same body")
+
+    aliases = conn.execute(
+        """UPDATE organisation_alias
+              SET prev_organisation_id = COALESCE(prev_organisation_id, organisation_id),
+                  organisation_id = %s
+            WHERE organisation_id = %s RETURNING 1""",
+        (keep, absorbed)).fetchall()
+    notices = conn.execute(
+        "UPDATE opportunity SET buyer_org_id = %s WHERE buyer_org_id = %s RETURNING 1",
+        (keep, absorbed)).fetchall()
+    if a["national_reg_no"] and not k["national_reg_no"]:
+        conn.execute("UPDATE organisation SET national_reg_no = NULL WHERE id = %s", (absorbed,))
+        conn.execute(
+            """UPDATE organisation SET national_reg_no = %s, identifier_method = %s,
+                      identifier_confidence = %s WHERE id = %s""",
+            (a["national_reg_no"], method, confidence, keep))
+    if a["is_defence_buyer"] and not k["is_defence_buyer"]:
+        conn.execute("UPDATE organisation SET is_defence_buyer = TRUE WHERE id = %s", (keep,))
     conn.execute(
-        """INSERT INTO organisation_alias
-             (organisation_id, raw_name, normalised_name, source_id,
-              country_hint, match_method, confidence)
-           VALUES (%s, %s, %s, %s, %s, 'exact_name', 0.95)
-           ON CONFLICT (normalised_name, country_hint, source_id) DO NOTHING""",
-        (org_id, raw_name, norm, src_id, country),
-    )
-    return org_id
+        """UPDATE organisation
+              SET merged_into = %s, merge_method = %s, merge_confidence = %s, merged_at = now()
+            WHERE id = %s""",
+        (keep, method, round(confidence, 2), absorbed))
+    conn.execute(
+        """INSERT INTO organisation_merge_candidate
+             (organisation_id, candidate_org_id, match_method, confidence, evidence,
+              status, detected_by, decided_at)
+           VALUES (LEAST(%s::bigint, %s::bigint), GREATEST(%s::bigint, %s::bigint),
+                   %s, %s, %s, 'merged', %s, now())
+           ON CONFLICT (organisation_id, candidate_org_id, match_method)
+           DO UPDATE SET status = 'merged', decided_at = now()""",
+        (keep, absorbed, keep, absorbed, method, round(confidence, 2), evidence[:500],
+         detected_by))
+    return {"aliases": len(aliases), "notices": len(notices)}
 
 
 def is_defence_buyer(conn: psycopg.Connection, org_id: int | None) -> bool:
@@ -362,6 +616,16 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
     )
 
 
+def _classification_columns(opp: Opportunity) -> dict[str, Any]:
+    """The serving columns migration 0029 added for the classification, kept apart
+    from `_serving_columns` and merged where that is used."""
+    return dict(
+        sig_cpv_military=opp.sig_cpv_military, sig_cpv_adjacent=opp.sig_cpv_adjacent,
+        sig_linked_defence=opp.sig_linked_defence, dual_use=opp.dual_use,
+        buyer_class=opp.buyer_class,
+    )
+
+
 def refresh_classification(conn: psycopg.Connection, opp_id: int, opp: Opportunity) -> None:
     """Update the derived signals on the serving row, without a version.
 
@@ -373,10 +637,14 @@ def refresh_classification(conn: psycopg.Connection, opp_id: int, opp: Opportuni
     conn.execute(
         """UPDATE opportunity
               SET is_defence = %s, sig_legal_basis = %s, sig_cpv = %s, sig_buyer = %s,
-                  sig_clearance = %s, buyer_org_id = %s
+                  sig_clearance = %s, buyer_org_id = %s,
+                  sig_cpv_military = %s, sig_cpv_adjacent = %s,
+                  sig_linked_defence = sig_linked_defence OR %s,
+                  dual_use = %s, buyer_class = %s
             WHERE id = %s""",
         (opp.is_defence, opp.sig_legal_basis, opp.sig_cpv, opp.sig_buyer,
-         opp.sig_clearance, opp.buyer_org_id, opp_id),
+         opp.sig_clearance, opp.buyer_org_id, opp.sig_cpv_military, opp.sig_cpv_adjacent,
+         opp.sig_linked_defence, opp.dual_use, opp.buyer_class, opp_id),
     )
 
 
@@ -390,7 +658,7 @@ def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
     two cannot disagree about how a version is written.
     """
     payload = opportunity_payload(opp)
-    cols = _serving_columns(opp)
+    cols = {**_serving_columns(opp), **_classification_columns(opp)}
     version = after + 1
     # One instant closes the old version and opens the new one, so the two
     # intervals meet exactly. Taken from the database's own clock rather than
@@ -482,7 +750,7 @@ def upsert_opportunity(
         ).fetchone()
 
     payload = opportunity_payload(opp)
-    cols = _serving_columns(opp)
+    cols = {**_serving_columns(opp), **_classification_columns(opp)}
 
     if not existing:
         fields = ["source_id", "native_id"] + list(cols)

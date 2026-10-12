@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .buyer_vocab import DEMOTING_CLASSES
+
 # --------------------------------------------------------------------- CPV
 
 # Division 35: Security, fire-fighting, police and defence equipment.
@@ -47,6 +49,18 @@ CPV_CIVIL_EXCEPTIONS = {
     "35811200",   # police uniforms
     "35821000",   # flags
 }
+
+# Military-specific codes outside division 35. Each was read against the CPV list
+# (CPV 2008, Regulation 213/2008) on 12 October 2026: 45216200 construction work
+# for military buildings and installations; 50640000 repair and maintenance of
+# warships; 75220000 defence services; 75221000 military defence services. Exact
+# codes, not prefixes: 75222000 is civil defence services, and the parent
+# division is not military. Counted as military CPVs, kept apart as a signal.
+CPV_MILITARY_ADJACENT = {"45216200", "50640000", "75220000", "75221000"}
+
+# The same rule in SQL, for the serving rows that predate the column
+# (migration 0029); tests/unit/test_buyer_classes.py keeps the two in step.
+MILITARY_CPV_SQL_REGEX = "^35[3-8]"
 
 # Divisions outside 35 that carry dual-use work. Never sufficient alone.
 CPV_DUAL_USE_DIVISIONS = {
@@ -82,61 +96,90 @@ class DefenceSignals:
 
     legal_basis: bool = False
     cpv_military: bool = False
+    cpv_adjacent: bool = False
     cpv_civil_security: bool = False
     cpv_dual_use: bool = False
     buyer: bool = False
     clearance: bool = False
+    # The TED notice a national defence notice was forwarded as. Set by the
+    # caller, from the link the national source states.
+    linked_defence: bool = False
+    # What kind of body the buyer is (dgate/buyer_vocab.py); None = not asked.
+    buyer_class: str | None = None
     matched_cpv: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
 
     @property
+    def military_cpv(self) -> bool:
+        """A division-35 military group, or one of the added military codes."""
+        return self.cpv_military or self.cpv_adjacent
+
+    @property
     def cpv(self) -> bool:
-        return self.cpv_military or self.cpv_civil_security
+        return self.military_cpv or self.cpv_civil_security
+
+    @property
+    def dual_use(self) -> bool:
+        """A military CPV that only its buyer's own needs explain.
+
+        A municipality buying a military-CPV item (protective clothing, a flag
+        mast, a lifeboat) is not a defence lead. Demoted unless the legal basis
+        or a listed defence buyer agrees. The signal columns stay as they were;
+        this is a label on top of them, and the notice stays in the table.
+        """
+        return (self.military_cpv and not self.legal_basis and not self.buyer
+                and self.buyer_class in DEMOTING_CLASSES)
 
     @property
     def is_defence(self) -> bool:
         """Verdict.
 
         Strong signals stand alone: the defence directive as legal basis, and
-        an unambiguously military CPV group.
+        an unambiguously military CPV group. A military CPV demoted to
+        dual-use still counts here -- it is labelled, not dropped -- and
+        leaves the `core` scope instead (api.SCOPE_SQL).
 
-        The clearance field is deliberately NOT a strong signal, despite being
-        documented as one. Checked against live TED notices, BT-732 mostly
-        carries something else entirely: the Russia sanctions declaration under
-        Regulation (EU) 2022/576, which appears on ordinary contracts, and
-        criminal-record checks for staff. One live sample flagged a cleaning
-        contract (CPV 90911100) as defence on the strength of "extended police
-        clearance certificates for the cleaning staff". So clearance
-        corroborates; it never decides alone.
+        The clearance field is deliberately NOT a signal that decides, despite
+        being documented as one. Checked against live TED notices, BT-732
+        mostly carries something else entirely: the Russia sanctions
+        declaration under Regulation (EU) 2022/576, which appears on ordinary
+        contracts, and criminal-record checks for staff. One live sample
+        flagged a cleaning contract (CPV 90911100) as defence on the strength
+        of "extended police clearance certificates for the cleaning staff".
+        Until 12 October 2026 clearance plus a civil security CPV qualified;
+        316 such rows were read and none was relevant (fire engines, guard
+        services). So clearance corroborates; it never decides.
         """
-        if self.legal_basis or self.cpv_military:
+        if self.legal_basis or self.military_cpv:
             return True
         if self.buyer:
             # A defence ministry buying anything is worth surfacing to a
             # supplier trying to get into that ministry's supply chain.
             return True
-        if self.clearance and self.cpv:
-            # Corroboration has to be specific. Pairing the clearance field
-            # with a dual-use division is not enough: engineering services
-            # (CPV 71) carrying the sanctions declaration would qualify, and
-            # that is a false positive, not a lead.
+        if self.linked_defence:
             return True
         return False
 
     @property
     def confidence(self) -> float:
-        if self.legal_basis and self.cpv_military:
+        if self.legal_basis and self.military_cpv:
             return 1.00
-        if self.legal_basis or self.cpv_military:
+        if self.legal_basis:
+            return 0.90
+        if self.military_cpv and not self.dual_use:
             return 0.90
         if self.buyer and self.cpv:
             return 0.80
-        if self.clearance and self.cpv:
-            return 0.70
+        if self.dual_use:
+            return 0.45
         if self.buyer:
+            return 0.60
+        if self.linked_defence:
             return 0.60
         if self.cpv_civil_security:
             return 0.40
+        if self.clearance and self.cpv:
+            return 0.35
         if self.clearance:
             # Recorded, but on its own it is as likely to be a sanctions clause
             # as a security requirement.
@@ -151,6 +194,8 @@ def classify(
     buyer_is_defence: bool,
     security_clearance_text: str | None = None,
     nda_required: bool = False,
+    buyer_class: str | None = None,
+    linked_defence: bool = False,
 ) -> DefenceSignals:
     """Classify one notice.
 
@@ -160,8 +205,10 @@ def classify(
       security_clearance_text BT-732-Lot
       nda_required            BT-801-Lot
       buyer_is_defence        from our curated defence buyer list
+      buyer_class             from the buyer's name (buyer_vocab.buyer_class_of)
+      linked_defence          a defence notice of another source points at this one
     """
-    sig = DefenceSignals()
+    sig = DefenceSignals(buyer_class=buyer_class, linked_defence=linked_defence)
     codes = [c.strip() for c in (cpv_codes or []) if c and c.strip()]
 
     if legal_basis and _LEGAL_BASIS_DEFENCE.search(legal_basis):
@@ -170,7 +217,10 @@ def classify(
 
     for code in codes:
         div, grp = cpv_division(code), cpv_group(code)
-        if div == CPV_DEFENCE_DIVISION:
+        if code in CPV_MILITARY_ADJACENT:
+            sig.matched_cpv.append(code)
+            sig.cpv_adjacent = True
+        elif div == CPV_DEFENCE_DIVISION:
             sig.matched_cpv.append(code)
             if code in CPV_CIVIL_EXCEPTIONS:
                 sig.cpv_civil_security = True
@@ -184,14 +234,19 @@ def classify(
         elif div in CPV_DUAL_USE_DIVISIONS:
             sig.cpv_dual_use = True
 
-    if sig.cpv_military:
+    if sig.military_cpv:
         sig.reasons.append(f"military CPV: {', '.join(sorted(set(sig.matched_cpv)))}")
+        if sig.dual_use:
+            sig.reasons.append(f"demoted to dual-use: buyer is a {sig.buyer_class} body")
     elif sig.cpv_civil_security:
         sig.reasons.append(f"security CPV: {', '.join(sorted(set(sig.matched_cpv)))}")
 
     if buyer_is_defence:
         sig.buyer = True
         sig.reasons.append("buyer is on the defence buyer list")
+
+    if linked_defence:
+        sig.reasons.append("same procurement as a defence notice of another source")
 
     # BT-732 presence is itself the signal. We do not parse or store the
     # clearance description: it can name systems and programmes and is not

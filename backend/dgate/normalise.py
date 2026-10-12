@@ -111,6 +111,15 @@ class Opportunity:
     sig_cpv: bool = False
     sig_buyer: bool = False
     sig_clearance: bool = False
+    # Migration 0029: the military CPV on its own (sig_cpv also counts the civil
+    # security groups), the added military codes outside division 35, a link to a
+    # defence notice of another source, and the demotion of a military CPV that
+    # a municipality, hospital, school or fire brigade bought. All derived.
+    sig_cpv_military: bool = False
+    sig_cpv_adjacent: bool = False
+    sig_linked_defence: bool = False
+    dual_use: bool = False
+    buyer_class: str | None = None
     security_clearance_required: bool = False
     nda_required: bool = False
     subcontracting_signal: bool = False
@@ -121,6 +130,15 @@ class Opportunity:
 
     def __post_init__(self) -> None:
         self.source_url = http_url(self.source_url)
+        if self.cpv_codes and not (self.sig_cpv_military or self.sig_cpv_adjacent):
+            # The military CPV is a pure function of the codes, so it is never left
+            # unset: a record built by hand, or re-read from a payload written
+            # before migration 0029, carries the same answer the classifier gives.
+            from .classify import classify
+
+            sig = classify(legal_basis=None, cpv_codes=self.cpv_codes, buyer_is_defence=False)
+            self.sig_cpv_military = sig.military_cpv
+            self.sig_cpv_adjacent = sig.cpv_adjacent
 
 
 # ------------------------------------------------- the boundary's bounds
@@ -461,7 +479,7 @@ _TRANSLITERATE = str.maketrans({
 })
 
 
-def normalise_org_name(raw: str, *, strip_noise: bool = False) -> str:
+def normalise_org_name(raw: str, *, strip_noise: bool = False, fold_state: bool = False) -> str:
     """Canonical form for entity resolution.
 
     Fold accents (by decomposition, then by explicit transliteration for letters
@@ -491,6 +509,123 @@ def normalise_org_name(raw: str, *, strip_noise: bool = False) -> str:
     if strip_noise:
         s = " ".join(t for t in s.split() if t not in _NOISE_TOKENS)
 
+    if fold_state:
+        s = _fold_state(s)
+
+    return s
+
+
+# ----------------------------------------------- state prefixes and word order
+#
+# The same body is written "Ministerstvo obrany", "Ceska republika - Ministerstvo
+# obrany" and "Ministerstvo obrany - Ceska republika"; the German federal
+# government names itself "Bundesrepublik Deutschland, vertreten durch das ...";
+# a Romanian unit is "Ministerul Apararii - U.M. 02192" and "Unitatea militara
+# 02192". Nothing in the stored form folds these, and the stored form must not
+# move: names already stored were normalised without folding (migration 0007 had
+# to rewrite them once, and a second rewrite would orphan every alias). So the
+# fold is opt-in, and its only users are the places that compare names without
+# deciding anything -- merge candidates. It is never the key an organisation is
+# looked up by.
+_STATE_PREFIXES = re.compile(
+    r"^(?:"
+    r"ceska republika|skarb panstwa|republika slovenija|republika hrvatska|republique francaise"
+    r"|etat francais"
+    r"|estado portugues|lietuvos respublikos|latvijas republikas"
+    r"|(?:republik osterreich(?: bund)?|bund(?= (?:republik|vertreten)))"
+    r"(?: vertreten durch(?: (?:das|den|die|der|dem))?)?"
+    r"|republica portugueza|romania|statul roman|slovenska republika"
+    r"|bundesrepublik deutschland(?: (?:end|diese )?vertreten durch(?: (?:das|den|die|der|dem))?"
+    r"| vert(?:r)?(?: d)? durch(?: (?:das|den|die|der|dem))?| vertr d d)?"
+    r"|federal republic of germany(?: represented by(?: the)?)?"
+    r"|(?:the )?(?:government of (?:the )?)?(?:republic|kingdom|state) of [a-z ]{2,40}?"
+    r"(?: represented by(?: the)?| (?=ministry|department|office))"
+    r")\s*-*\s*"
+)
+_STATE_SUFFIXES = re.compile(
+    r"\s*-*\s*(?:ceska republika|ceske republiky|cr|slovenskej republiky|sr|republic of poland"
+    r"|of the republic of [a-z ]{2,40}|of republic of [a-z ]{2,40})$"
+)
+_RO_UNIT = re.compile(
+    r"^(?:ministerul apararii(?: nationale)?\s*-*\s*)?(?:unitatea militara|u m|um)\s*(\d{3,5})\b.*$")
+
+
+def _fold_state(s: str) -> str:
+    for _ in range(3):                     # "skarb panstwa - ceska republika - ..."
+        t = _STATE_PREFIXES.sub("", s, count=1)
+        t = _STATE_SUFFIXES.sub("", t, count=1)
+        if t == s or not t:
+            break
+        s = t
+    s = re.sub(r"-+", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+_TOKEN_STOP = {"of", "the", "de", "des", "du", "der", "die", "das", "und", "and", "et", "la", "le",
+               "el", "del", "di", "da", "van", "von", "for", "fur", "pour", "para", "w", "we", "i"}
+
+
+def token_sort_key(name: str) -> str:
+    """A name as a sorted bag of its words, for word-order variants.
+
+    "Defence Ministry" and "Ministry of Defence" have the same key. Only ever used
+    to *find* pairs worth a person's look; two names with one key are not one body.
+    """
+    return " ".join(sorted(t for t in re.split(r"[\s-]+", name) if t and t not in _TOKEN_STOP))
+
+
+def candidate_key(raw: str) -> str:
+    """The key under which two spellings are worth a person's look.
+
+    Folded of state prefixes, a Romanian military unit reduced to its number (the
+    ministry in front of it and the city behind it are decoration), word order
+    ignored. Two names with one key are a *candidate* pair, never one body.
+    """
+    s = normalise_org_name(raw, fold_state=True)
+    m = _RO_UNIT.search(s)
+    if m:
+        return f"unitatea militara {m.group(1)}"
+    return token_sort_key(s)
+
+
+# Words that mean "this value is not an identifier", seen in the buyer-identifier
+# field of TED notices: placeholders, UUIDs, the eForms internal label (ORG-0001)
+# and an organisation name typed into the field.
+_ID_JUNK = re.compile(r"^(?:ORG\d+|N/?A|NONE|TBD|COM|NULL|UNKNOWN|NOTAPPLICABLE|NIL|X+|0+)$")
+_ID_SCHEME = re.compile(
+    r"\b(?:REGON|NIP|KRS|VAT|UID|ICO|IČO|DIC|DIČ|SIRET|SIREN|CIF|NIF|NIPC|CUI|CVR|ORGNR|ORG\.?NR|BTW|KVK|"
+    r"PIC|ID|NO|NR|NUMBER|REG|REGISTRATION|NATIONAL|TAX|CODE|NUMERO|NUMMER|IDENTIFICATION)\b\.?:?"
+)
+_ID_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
+
+
+def normalise_identifier(raw: Any, country: str | None = None) -> str | None:
+    """The comparable form of a buyer's registration or tax number, or None.
+
+    "REGON 170939001", "DE 139 601 469" and "DE139601469" are one number written
+    three ways, and "COM", "n/a", "ORG-0001" and a UUID are not numbers at all.
+    Stored with the country, because the same digits are different bodies in
+    different registers. Deliberately strict: an identifier that is wrongly
+    accepted merges two bodies, one that is wrongly refused only leaves the
+    name-based resolution where it was.
+    """
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if (not text or len(text) > 60 or "://" in text or ";" in text or "," in text
+            or _ID_UUID.search(text)):
+        return None
+    s = unicodedata.normalize("NFKD", text)
+    s = "".join(c for c in s if not unicodedata.combining(c)).upper()
+    s = _ID_SCHEME.sub(" ", s)
+    s = re.sub(r"[^A-Z0-9]", "", s)
+    cc = (country or "").upper()
+    if cc and s.startswith(cc) and len(s) > len(cc) + 4 and s[len(cc)].isdigit():
+        s = s[len(cc):]                    # DE139601469 -> 139601469
+    if _ID_JUNK.match(s) or len(s) < 6 or sum(ch.isdigit() for ch in s) < 5:
+        return None
+    if len(set(s)) <= 2:
+        return None
     return s
 
 

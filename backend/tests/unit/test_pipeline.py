@@ -115,7 +115,12 @@ def test_clearance_alone_is_not_enough():
 
 
 def test_clearance_plus_defence_cpv_is_enough():
-    sig = classify(legal_basis=None, cpv_codes=["35110000"], buyer_is_defence=False,
+    """Changed on purpose on 12 October 2026 (data-quality finding F8): the CPV here
+    was the civil 35110000, and clearance plus a civil security CPV no longer
+    qualifies -- 316 such rows were read and none was relevant. It is still enough
+    with a military CPV, which is what the name says; the civil case is pinned in
+    tests/unit/test_buyer_classes.py."""
+    sig = classify(legal_basis=None, cpv_codes=["35330000"], buyer_is_defence=False,
                    security_clearance_text="NATO SECRET facility clearance required")
     assert sig.is_defence and sig.clearance
 

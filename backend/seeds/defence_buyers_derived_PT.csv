@@ -1,0 +1,73 @@
+country,name,identifier,reason,confidence,reviewed
+PT,direcao geral de recursos da defesa nacional,,procurement_agency,0.95,false
+PT,direcao-geral de armamento e patrimonio da defesa nacional,,procurement_agency,0.95,false
+PT,direcao-geral de recursos da defesa nacional,,procurement_agency,0.95,false
+PT,estado -- maior do exercito -- direcao de aquisicoes -- comando da logistica,,armed_forces,0.95,false
+PT,estado maior da forca aerea,,armed_forces,0.95,false
+PT,estado maior do exercito,,armed_forces,0.95,false
+PT,estado maior do exercito direcao de aquisicoes comando da logistica,,armed_forces,0.95,false
+PT,estado maior general das forcas armadas,,armed_forces,0.95,false
+PT,estado portugues - ministerio da defesa nacional - exercito portugues,,ministry,0.95,false
+PT,estado portugues -- ministerio da defesa nacional -- exercito portugues,,ministry,0.95,false
+PT,estado portugues ministerio da defesa nacional exercito portugues,,ministry,0.95,false
+PT,estado- maior do exercito,,armed_forces,0.95,false
+PT,estado-maior da forca aerea,,armed_forces,0.95,false
+PT,estado-maior do exercito,,armed_forces,0.95,false
+PT,estado-maior do exercito direcao de aquisicoes comando da logistica,,armed_forces,0.95,false
+PT,estado-maior do exercito direccao de aquisicoes comando da logistica,,armed_forces,0.95,false
+PT,estado-maior do exercito reparticao de concursos e contratos da,,armed_forces,0.95,false
+PT,estado-maior general das forcas armadas,,armed_forces,0.95,false
+PT,estado-maior-general da forcas armadas,,armed_forces,0.95,false
+PT,estado-maior-general das forcas armadas,,armed_forces,0.95,false
+PT,estado-maior-general das forcas armadas emgfa,,armed_forces,0.95,false
+PT,estado-maior-general das forcas armadas portuguesas,,armed_forces,0.95,false
+PT,estado-maior-general das forcas armardas,,armed_forces,0.95,false
+PT,forca aerea,,armed_forces,0.95,false
+PT,forca aerea clafa direcao de comunicacoes e sistemas de informacao,,armed_forces,0.95,false
+PT,forca aerea direcao de abastecimento e transportes,,armed_forces,0.95,false
+PT,forca aerea direcao de manutencao de sistemas de armas,,armed_forces,0.95,false
+PT,forca aerea portuguesa,,armed_forces,0.95,false
+PT,marinha - comando naval,,armed_forces,0.95,false
+PT,marinha - direcao de infraestruturas,,armed_forces,0.95,false
+PT,marinha - direcao de tecnologias de informacao e comunicacoes,,armed_forces,0.95,false
+PT,marinha - instituto hidrografico,,armed_forces,0.95,false
+PT,marinha - superintendencia do pessoal,,armed_forces,0.95,false
+PT,marinha defesa nacional instituto hidrografico,,armed_forces,0.95,false
+PT,marinha direcao de abastecimento,,armed_forces,0.95,false
+PT,marinha direcao de tecnologias de informacao e comunicacoes,,armed_forces,0.95,false
+PT,marinha ditic,,armed_forces,0.95,false
+PT,marinha portuguesa,,armed_forces,0.95,false
+PT,marinha superintendencia do pessoal,,armed_forces,0.95,false
+PT,ministerio da defesa nacional,,ministry,0.95,false
+PT,ministerio da defesa nacional - estado-maior-general das forcas armadas - direcao de financas,,ministry,0.95,false
+PT,ministerio da defesa nacional - exercito portugues - cmd da logistica,,ministry,0.95,false
+PT,ministerio da defesa nacional - exercito portugues - comando da logistica,,ministry,0.95,false
+PT,ministerio da defesa nacional - exercito portugues - comando logistica,,ministry,0.95,false
+PT,ministerio da defesa nacional - fap - clafa - dmsa,,ministry,0.95,false
+PT,ministerio da defesa nacional - forca aerea - dat,,ministry,0.95,false
+PT,ministerio da defesa nacional - marinha,,ministry,0.95,false
+PT,ministerio da defesa nacional - marinha - direcao de abastecimento,,ministry,0.95,false
+PT,ministerio da defesa nacional - marinha direcao de abastecimento,,ministry,0.95,false
+PT,ministerio da defesa nacional - marinha direcao de navios,,ministry,0.95,false
+PT,ministerio da defesa nacional -- forca aerea -- dat,,ministry,0.95,false
+PT,ministerio da defesa nacional -- marinha -- direcao de abastecimento,,ministry,0.95,false
+PT,ministerio da defesa nacional comando da logistica da forca aerea,,ministry,0.95,false
+PT,ministerio da defesa nacional estado maior general das forcas armadas direcao de financas,,ministry,0.95,false
+PT,ministerio da defesa nacional estado-maior da forca aerea,,ministry,0.95,false
+PT,ministerio da defesa nacional estado-maior-general das forcas armadas direcao de financas,,ministry,0.95,false
+PT,ministerio da defesa nacional exercito portugues cmd da logistica,,ministry,0.95,false
+PT,ministerio da defesa nacional exercito portugues comando da logistica,,ministry,0.95,false
+PT,ministerio da defesa nacional exercito portugues comando logistica,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea academia,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea academia da forca aerea,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea clafa dmsa,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea dat,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea direcao de abastecimento e,,ministry,0.95,false
+PT,ministerio da defesa nacional forca aerea direcao de abastecimento e transportes,,ministry,0.95,false
+PT,ministerio da defesa nacional marinha,,ministry,0.95,false
+PT,ministerio da defesa nacional marinha comissao cultural de marinha,,ministry,0.95,false
+PT,ministerio da defesa nacional marinha direcao de abastecimento,,ministry,0.95,false
+PT,chefe do estado maior general das forcas armadas,,defence_word,0.70,false
+PT,instituto de acao social das forcas armadas i p,,defence_word,0.70,false
+PT,instituto de acao social das forcas armadas ip,,defence_word,0.70,false

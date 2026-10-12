@@ -1,0 +1,44 @@
+country,name,identifier,reason,confidence,reviewed
+NO,forsvaret,,armed_forces,0.95,false
+NO,forsvaret v forsvarets logistikkorganisasjon,,armed_forces,0.95,false
+NO,forsvaret v forsvarets logistikkorganisasjon avd for strategiske anskaffelser,,armed_forces,0.95,false
+NO,forsvaret v forsvarets logistikkorganisasjon ndlo,,armed_forces,0.95,false
+NO,forsvaret v forsvarets logistikkorganisasjon the norwegian armed forces c o the norwegian defence logistics organisation,,armed_forces,0.95,false
+NO,forsvaret v norwegian defence logistics organization,,armed_forces,0.95,false
+NO,forsvarets forskningsinstitutt,,armed_forces,0.95,false
+NO,forsvarets logistikkorganisasjon,,armed_forces,0.95,false
+NO,forsvarets logistikkorganisasjon flo,,armed_forces,0.95,false
+NO,forsvarets logistikkorganisasjon flo the norwegian defence logistics organisation ndlo,,armed_forces,0.95,false
+NO,forsvarets v forsvarets logistikkorganisasjon,,armed_forces,0.95,false
+NO,forsvarsdepartementet,,ministry,0.95,false
+NO,forsvarsmateriell,,procurement_agency,0.95,false
+NO,forsvarsmateriell defense equipment,,procurement_agency,0.95,false
+NO,forsvarsmateriell divisjon for luftkapasiteter,,procurement_agency,0.95,false
+NO,forsvarsmateriell fma,,procurement_agency,0.95,false
+NO,forsvarsmateriell ikt-kapasiteter,,procurement_agency,0.95,false
+NO,forsvarsmateriell maritime kapasiteter,,procurement_agency,0.95,false
+NO,forsvarsmateriell norwegian defence materiel agency,,procurement_agency,0.95,false
+NO,forsvarsmateriell the norwegian defence material agency,,procurement_agency,0.95,false
+NO,forsvarsmateriell the norwegian defence materiel agency,,procurement_agency,0.95,false
+NO,norwegian defence logistics organasation ndlo,,procurement_agency,0.95,false
+NO,norwegian defence logistics organisation,,procurement_agency,0.95,false
+NO,norwegian defence logistics organisation ndlo,,procurement_agency,0.95,false
+NO,norwegian defence logistics organization,,procurement_agency,0.95,false
+NO,norwegian defence logistics orginasation ndlo,,procurement_agency,0.95,false
+NO,norwegian defence material agency,,ministry,0.95,false
+NO,norwegian defence materiel agency,,procurement_agency,0.95,false
+NO,norwegian defence materiel agency naval systems,,procurement_agency,0.95,false
+NO,norwegian defence materiel agency ndma,,procurement_agency,0.95,false
+NO,norwegian defence materiel organisation,,procurement_agency,0.95,false
+NO,norwegian defence research establishment,,procurement_agency,0.95,false
+NO,norwegian defense material agency,,ministry,0.95,false
+NO,norwegian defense materiel agency,,procurement_agency,0.95,false
+NO,the norwegian armed forces,,armed_forces,0.95,false
+NO,the norwegian armed forces c o the norwegian defence logistics organisation,,armed_forces,0.95,false
+NO,the norwegian defence logistics organisation,,procurement_agency,0.95,false
+NO,the norwegian defence logistics organisation ndlo,,procurement_agency,0.95,false
+NO,the norwegian defence logistics organisation norwegian abbreviation flo,,procurement_agency,0.95,false
+NO,the norwegian defence materiel agency,,procurement_agency,0.95,false
+NO,the norwegian defence materiel agency ndma,,procurement_agency,0.95,false
+NO,the norwegian defence materiel agency norwegian abbreviation ndma,,procurement_agency,0.95,false
+NO,los-programmet i forsvaret,,defence_word,0.70,false

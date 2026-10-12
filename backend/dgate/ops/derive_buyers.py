@@ -29,6 +29,22 @@ naval port commands, and state defence-industry plants, which buy components
 and are exactly where a tier-2 supplier wants in.
 
     python -m dgate.ops.derive_buyers --out seeds/defence_buyers.csv
+
+Every other country (12 October 2026). Poland and Spain have written rules and a
+national feed; the other countries have neither, only the names TED has shown us.
+For those the names of the organisations we hold are read against a per-language
+vocabulary (dgate/buyer_vocab.py) -- ministries of defence, armed forces,
+procurement agencies, military units -- with explicit exclusions for military
+hospitals, property agencies, civil protection, police and the rest, and one file
+per country is written for a person to review:
+
+    python -m dgate.ops.derive_buyers --derived-dir seeds/        # reads the database
+    python -m dgate.ops.derive_buyers --derived-dir seeds/ --names-file names.tsv
+
+`names.tsv` is `country<TAB>name<TAB>identifier<TAB>notices`, so a list can be
+derived from a read-only export without a database connection. The files are
+loaded as a buyer signal by `pipeline.seed_buyers` for rows at or above
+`DERIVED_MIN_CONFIDENCE`, or marked `reviewed`.
 """
 
 from __future__ import annotations
@@ -244,15 +260,119 @@ def write_csv(rows: list[SeedRow], out: Path) -> None:
             w.writerow([r.country, r.canonical_name, r.raw_name, r.category, r.seen])
 
 
+# Countries with their own rules above; the vocabulary does not second-guess them.
+OWN_RULES = {"PL", "ES"}
+DERIVED_COLUMNS = ["country", "name", "identifier", "reason", "confidence", "reviewed"]
+
+
+@dataclass
+class Proposal:
+    country: str
+    name: str
+    identifier: str
+    reason: str
+    confidence: float
+    notices: int = 0
+
+
+def vocabulary_proposals(rows: Iterable[tuple[str, str, str, int]]) -> list[Proposal]:
+    """Defence bodies among (country, name, identifier, notices) rows.
+
+    One proposal per organisation; the strongest rule that matches names it. A
+    name an exclusion kept out is not proposed at all.
+    """
+    from ..buyer_vocab import defence_body
+
+    out: list[Proposal] = []
+    for country, name, identifier, notices in rows:
+        if not country or country.upper() in OWN_RULES or not name:
+            continue
+        body = defence_body(name, country)
+        if body.label:
+            out.append(Proposal(country.upper(), name, identifier or "", body.label,
+                                body.confidence, notices))
+    out.sort(key=lambda p: (p.country, -p.confidence, p.name))
+    return out
+
+
+def write_derived(proposals: list[Proposal], directory: Path) -> dict[str, int]:
+    """One reviewable file per country. A file that exists keeps its human
+    decisions: a row already marked reviewed or rejected is carried over as it was."""
+    by_country: dict[str, list[Proposal]] = collections.defaultdict(list)
+    for p in proposals:
+        by_country[p.country].append(p)
+    directory.mkdir(parents=True, exist_ok=True)
+    written: dict[str, int] = {}
+    for country, items in sorted(by_country.items()):
+        path = directory / f"defence_buyers_derived_{country}.csv"
+        decided: dict[str, str] = {}
+        if path.exists():
+            with path.open(encoding="utf-8", newline="") as fh:
+                for row in csv.DictReader(fh):
+                    if (row.get("reviewed") or "").strip().lower() not in ("", "false"):
+                        decided[row["name"]] = row["reviewed"]
+        with path.open("w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(DERIVED_COLUMNS)
+            for p in items:
+                w.writerow([p.country, p.name, p.identifier, p.reason, f"{p.confidence:.2f}",
+                            decided.get(p.name, "false")])
+        written[country] = len(items)
+    return written
+
+
+def read_names_file(path: Path) -> list[tuple[str, str, str, int]]:
+    rows = []
+    with path.open(encoding="utf-8", newline="") as fh:
+        for rec in csv.reader(fh, delimiter=chr(9)):
+            if len(rec) < 2:
+                continue
+            rows.append((rec[0].strip(), rec[1].strip(),
+                         rec[2].strip() if len(rec) > 2 else "",
+                         int(rec[3]) if len(rec) > 3 and rec[3].strip().isdigit() else 0))
+    return rows
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     p = argparse.ArgumentParser(prog="derive-buyers")
-    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--out", type=Path, default=None,
+                   help="the Poland and Spain seed file (needs the Atlas files and a database)")
     p.add_argument("--atlas-dir", type=Path, default=None)
+    p.add_argument("--derived-dir", type=Path, default=None,
+                   help="write one defence_buyers_derived_<CC>.csv per other country here")
+    p.add_argument("--names-file", type=Path, default=None,
+                   help="country<TAB>name<TAB>identifier<TAB>notices, instead of the database")
     a = p.parse_args(argv)
+    if a.out is None and a.derived_dir is None:
+        p.error("give --out, --derived-dir, or both")
 
     from .. import db
     from ..config import settings
+
+    if a.derived_dir is not None:
+        if a.names_file is not None:
+            names = read_names_file(a.names_file)
+        else:
+            with db.connect(settings().dsn) as conn:
+                names = [(r["country"], r["canonical_name"], r["national_reg_no"] or "", r["n"])
+                         for r in conn.execute(
+                             """SELECT g.country, g.canonical_name, g.national_reg_no,
+                                       count(o.id) AS n
+                                  FROM organisation g
+                                  LEFT JOIN opportunity o ON o.buyer_org_id = g.id
+                                 WHERE g.merged_into IS NULL
+                                 GROUP BY g.id""").fetchall()]
+        proposals = vocabulary_proposals(names)
+        written = write_derived(proposals, a.derived_dir)
+        by_conf = collections.Counter(round(p.confidence, 2) for p in proposals)
+        print(f"derived: {len(proposals)} proposals in {len(written)} countries "
+              f"({len(names)} organisations read); by confidence: {dict(sorted(by_conf.items()))}")
+        for country, n in written.items():
+            print(f"  {country}: {n}")
+        if a.out is None:
+            return 0
+
     from ..sources import atlas_pl
 
     atlas_dir = a.atlas_dir or Path(settings().atlas_dir)
