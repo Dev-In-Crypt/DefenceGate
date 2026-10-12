@@ -11,7 +11,7 @@ name: dgate
 services:
   postgres:
     ports:
-      - "15432:5432"
+      - "127.0.0.1:15432:5432"
     environment:
       POSTGRES_PASSWORD: dgate
 
