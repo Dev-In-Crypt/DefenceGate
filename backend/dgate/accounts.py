@@ -984,11 +984,14 @@ def dashboard(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
             """SELECT v.opportunity_id, max(v.observed_at) AS seen
                  FROM opportunity_version v
                 WHERE v.version > 1 AND v.observed_at > %s
+                  AND NOT EXISTS (SELECT 1 FROM opportunity_version_note n
+                                   WHERE n.opportunity_version_id = v.id
+                                     AND n.kind = ANY(%s))
                   AND (v.opportunity_id = ANY(%s)
                        OR v.opportunity_id IN (SELECT id FROM opportunity
                                                 WHERE buyer_org_id = ANY(%s) AND is_defence))
                 GROUP BY v.opportunity_id ORDER BY seen DESC LIMIT 10""",
-            (since, watched, buyers)).fetchall()]
+            (since, list(db.NOT_AMENDMENT_NOTES), watched, buyers)).fetchall()]
         items = _tenders_by_id(conn, ids)
         for oid in ids:
             item = items.get(str(oid))

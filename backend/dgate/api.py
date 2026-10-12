@@ -412,7 +412,12 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
     return {
         "opportunity_id": opp_id,
         "version_count": len(rows),
-        "amended": len(rows) > 1,
+        # Not `len(rows) > 1`: a version that only re-read old content, arrived out
+        # of order or is one of our own re-mappings is not an amendment.
+        "amended": any(
+            r["version"] > 1
+            and not any(n["kind"] in db.NOT_AMENDMENT_NOTES for n in (r["notes"] or []))
+            for r in rows),
         "versions": [
             {
                 "version": r["version"],

@@ -19,6 +19,30 @@ that is already gone from the API is the answer to why the archive exists.
 Personal data note: notices carry contact person names, emails and phone
 numbers, and award notices can name natural persons as contractors. Those
 fields are dropped in normalise.py and never reach the serving layer.
+
+Field semantics, checked against the live API on 12 October 2026 (the raw payload
+holds exactly what is requested, so a field added here reaches only notices
+fetched afterwards -- `python -m dgate.ops.repair_ted --refetch` brings the
+stored ones in line):
+
+  notice-type              cn-standard, can-standard, pin-only, veat, corr, ...;
+                           the same vocabulary for legacy notices
+  publication-date         what TED shows; dispatch-date is 1 to 6 days earlier
+  deadline-receipt-request the tender deadline, a full datetime with offset, one
+                           per lot; set for every contract notice, never for
+                           award, ex-ante or prior-information notices.
+                           `deadline-date-lot` is BT-13, not a deadline
+  total-value              the notice's total; for a result notice the awarded
+                           value (`result-value-notice` is the same figure)
+  estimated-value-lot      one string per lot that has a value; its currency list
+                           is de-duplicated, one entry per distinct currency
+  winner-selection-status  per lot, result notices of eForms only: selec-w,
+                           clos-nw (closed, no winner), open-nw
+  procedure-type           open, restricted, neg-w-call, neg-wo-call, ...;
+                           a number on some legacy notices
+  procedure-identifier     shared by a procedure's contract notice, corrigenda,
+                           re-publications and award notice
+  publication-number IN (a b c ...)   a hundred numbers answer in one request
 """
 
 from __future__ import annotations
@@ -54,14 +78,28 @@ TED_FIELDS = [
     "buyer-country",
     "official-language",
     "dispatch-date",
+    # What TED shows as the publication date: one to six days after dispatch.
+    "publication-date",
     "deadline-receipt-tender-date-lot",
     "deadline-receipt-tender-time-lot",
     "deadline-receipt-request-date-lot",
+    "deadline-receipt-request-time-lot",
+    # The tender deadline as a full datetime with offset, one per lot: the union of
+    # BT-131, BT-1311 and BT-630, set for every contract notice in every era.
+    # `deadline-date-lot` is BT-13 (additional information) and is not a deadline.
+    "deadline-receipt-request",
     "classification-cpv",
     "estimated-value-lot",
     "estimated-value-cur-lot",
     "estimated-value-proc",
     "estimated-value-cur-proc",
+    "total-value",
+    "total-value-cur",
+    "result-value-notice",
+    "result-value-cur-notice",
+    "winner-selection-status",
+    "procedure-type",
+    "procedure-identifier",
     "legal-basis",
     "contract-nature",
     "description-lot",
@@ -189,10 +227,56 @@ def search(
             client.close()
 
 
-def fetch_window(days_back: int = 1, **kw) -> Iterator[dict[str, Any]]:
+def _number(notice: dict[str, Any]) -> str:
+    value = notice.get("publication-number") or notice.get("notice-identifier")
+    if isinstance(value, list):
+        value = value[0] if value else ""
+    return str(value or "")
+
+
+class DailyPull:
+    """The daily window: the defence query over the whole window, then every notice
+    of today and of yesterday.
+
+    The defence query cannot express the buyer-list signal, so a notice that only a
+    listed buyer makes defence waited for the full-day job of the next morning, and
+    a day of them were absent from the list meanwhile. Whole days close that: they
+    land everything and classification decides, the rule the history load follows.
+    A notice both queries return is yielded once.
+
+    `defence_fetched` counts what the defence query returned. It is what the
+    coverage floor was measured against, so it is what the floor is applied to:
+    counted over whole days it would be met by any answer at all.
+    """
+
+    def __init__(self, days_back: int = 1, *, today: date | None = None,
+                 whole_days: int = 2, **kw: Any) -> None:
+        self.days_back = days_back
+        self.today = today
+        self.whole_days = whole_days
+        self.kw = kw
+        self.defence_fetched = 0
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
+        today = self.today or date.today()
+        seen: set[str] = set()
+        for notice in search(defence_query(today - timedelta(days=self.days_back), today),
+                             **self.kw):
+            self.defence_fetched += 1
+            seen.add(_number(notice))
+            yield notice
+        for back in range(self.whole_days):
+            for notice in search(day_query(today - timedelta(days=back)), **self.kw):
+                number = _number(notice)
+                if number and number in seen:
+                    continue
+                seen.add(number)
+                yield notice
+
+
+def fetch_window(days_back: int = 1, **kw) -> DailyPull:
     """Daily incremental pull. Overlaps by design to survive a missed run."""
-    since = date.today() - timedelta(days=days_back)
-    yield from search(defence_query(since), **kw)
+    return DailyPull(days_back, **kw)
 
 
 def content_hash(notice: dict[str, Any]) -> str:

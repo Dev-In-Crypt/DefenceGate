@@ -31,6 +31,7 @@ from . import db, rawstore
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import (
+    TED_STATUS_BY_TYPE,
     Opportunity,
     from_aid,
     from_atlas_pl,
@@ -45,6 +46,7 @@ from .normalise import (
     from_vinnova,
     scrub_opportunity,
     strip_personal_data,
+    ted_notice_type,
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
 from .sources import (
@@ -243,7 +245,11 @@ def _finalise(conn, opp: Opportunity, src_id: int) -> Opportunity:
 
 
 def run_ted(days: int = 2) -> None:
-    """Daily incremental pull. Overlaps by design so a missed run self-heals."""
+    """Daily incremental pull. Overlaps by design so a missed run self-heals.
+
+    The window is the defence query over `days` plus every notice of today and
+    yesterday (`ted.DailyPull`), so a buyer-list-only notice is not a day late.
+    """
     cfg = settings()
     with (db.connect(cfg.dsn) as conn,
           BundleWriter(build_store(), "ted") as writer):
@@ -251,8 +257,10 @@ def run_ted(days: int = 2) -> None:
         run_id = db.start_run(conn, "ted", settings().floor("ted"))
         q = Quarantine("ted")
         fetched = new = changed = 0
+        unmapped: dict[str, int] = {}
+        stream = ted.fetch_window(days_back=days)
         try:
-            for notice in ted.fetch_window(days_back=days):
+            for notice in stream:
                 fetched += 1
                 _checkpoint(conn, "ted", fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
@@ -264,6 +272,9 @@ def run_ted(days: int = 2) -> None:
                     except ValueError as exc:
                         log.warning("skipping malformed notice: %s", exc)
                         continue
+                    if ted_notice_type(clean) not in TED_STATUS_BY_TYPE:
+                        kind = ted_notice_type(clean) or "(none)"
+                        unmapped[kind] = unmapped.get(kind, 0) + 1
                     key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key)
                     opp = _finalise(conn, opp, src_id)
@@ -273,8 +284,20 @@ def run_ted(days: int = 2) -> None:
                     new += action == "new"
                     changed += action == "changed"
             writer.drain()
-            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          **q.outcome())
+            # The floor is for what the defence query returned; whole days are
+            # extra and say nothing about whether that query worked.
+            floor_count = getattr(stream, "defence_fetched", fetched)
+            status, error = "success", None
+            if unmapped:
+                # A type we do not map is stored `unknown` and never served as open.
+                # It is loud rather than silent: the next one is a new rule to read.
+                status = "partial"
+                error = "unmapped TED notice types: " + ", ".join(
+                    f"{k} ({n})" for k, n in sorted(unmapped.items()))
+                log.warning("ted: %s", error)
+            status, error = q.merge(status, error)
+            db.finish_run(conn, run_id, fetched=floor_count, new=new, changed=changed,
+                          status=status, error=error)
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the

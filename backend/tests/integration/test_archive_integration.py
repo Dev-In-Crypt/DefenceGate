@@ -21,6 +21,9 @@ pytestmark = pytest.mark.integration
 
 NOTICE = {
     "notice-identifier": ["00512345-2026"],
+    # A contract notice with a deadline. Until 12 October 2026 the mapper set no
+    # status and this fixture had no type; a notice without one is now `unknown`.
+    "notice-type": "cn-standard",
     "notice-title": {"spa": "Suministro de equipos de comunicaciones tacticas"},
     "buyer-name": {"spa": ["Ministerio de Defensa"]},
     "buyer-country": ["ESP"],
@@ -321,6 +324,7 @@ def test_classified_as_defence_with_separate_signals(seeded):
 
 
 def test_status_defaults_to_open_and_is_persisted(seeded):
+    """A contract notice is stored open (from its notice type: see test_repair_ted)."""
     oid, _ = ingest(seeded, NOTICE)
     row = seeded.execute("SELECT status FROM opportunity WHERE id=%s", (oid,)).fetchone()
     assert row["status"] == "open"

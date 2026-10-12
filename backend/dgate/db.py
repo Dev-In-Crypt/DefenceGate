@@ -36,6 +36,11 @@ VERSIONED_FIELDS = [
     "deadline_at", "cpv_codes", "source_url", "status",
 ]
 
+# Version note kinds that say "this version is not something the source did":
+# re-read content, history arriving late, and our own bulk re-mapping. A client
+# that counts amendments or reports "changes since your last visit" skips them.
+NOT_AMENDMENT_NOTES = ("reread", "out_of_order", "remapped")
+
 
 # Sources whose identifier is a file number the buyer itself assigns, so it is
 # unique only within that buyer. In the Catalan feed, `2582/2026` is both a
@@ -118,6 +123,12 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
         payload.pop("related_native_id", None)
     if payload.get("source_updated_at") is None:
         payload.pop("source_updated_at", None)
+    # Same rule for the attributes only some sources set (TED's, migration 0030,
+    # and the buyer's registration number): absent while empty, so no hash moves.
+    for name in ("buyer_identifier", "notice_subtype", "procedure_identifier",
+                 "lot_count", "value_kind"):
+        if payload.get(name) is None:
+            payload.pop(name, None)
     return payload
 
 
@@ -346,6 +357,8 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         source_url=opp.source_url, buyer_org_id=opp.buyer_org_id,
         status=opp.status, status_native=opp.status_native,
         ted_ref=opp.ted_ref, related_native_id=opp.related_native_id,
+        notice_subtype=opp.notice_subtype, procedure_identifier=opp.procedure_identifier,
+        lot_count=opp.lot_count, value_kind=opp.value_kind,
     )
 
 
