@@ -270,3 +270,14 @@ def test_the_migration_adds_both_columns(conn):
         "WHERE table_name = 'opportunity' AND column_name LIKE 'twin_%'")}
     assert cols == {"twin_method": "text", "twin_confidence": "real"}
     assert link_ted.LINK_COLUMNS[-1] == "procedure_identifier"
+
+
+def test_the_command_is_a_dry_run_unless_told_to_write(conn, caplog):
+    caplog.set_level("INFO", logger="link_twins")
+    put(conn, "ted", "661706-2026", procedure=PROCEDURE)
+    put(conn, "es_placsp", "2026/AR40U/00002845E", procedure=PROCEDURE)
+    assert link_twins.main([]) == 0
+    assert row(conn, "es_placsp", "2026/AR40U/00002845E")["ted_ref"] is None
+    assert any("would be linked" in m for m in caplog.messages)
+    assert link_twins.main(["--yes", "--method", "procedure_id"]) == 0
+    assert row(conn, "es_placsp", "2026/AR40U/00002845E")["ted_ref"] == "661706-2026"
