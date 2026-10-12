@@ -173,7 +173,9 @@ def procedure_label(value: str | None) -> str | None:
     as `ContractNotice` is split into words; anything else keeps the source's casing
     ("Procédure NC" is not "Procédure nc")."""
     text = (value or "").strip()
-    if not text or text.isdigit():
+    # A bare number, a one or two character legacy code ("V", "4") and a BZP form code
+    # ("BZP 1.1.1") are source codes, not words a reader knows; they stay in the data.
+    if not text or text.isdigit() or len(text) <= 2 or re.fullmatch(r"BZP [0-9.]+", text):
         return None
     known = TED_PROCEDURES.get(text.lower())
     if known:
