@@ -111,12 +111,15 @@ def _apply(conn, opp_id: int, version: int, raw_hash: str, change: Change, sourc
 
 
 def run(source: str, *, write: bool = False, limit: int | None = None, batch: int = 200,
-        workers: int = 1, dsn: str | None = None) -> Result:
+        workers: int = 1, epoch: int = 1, dsn: str | None = None) -> Result:
     from ..reprocess import _read_batch
 
     if source not in MAPPERS:
         raise SystemExit(f"no mapper for {source}; choose one of {', '.join(MAPPERS)}")
     result = Result()
+    # A mapper that changed again after a first pass is a second epoch: its markers are
+    # separate rows, so nothing is deleted or reset to run it again.
+    marker = source if epoch == 1 else f"{source}#{epoch}"
     with db.connect(dsn or settings().dsn) as conn:
         src_id = db.source_id(conn, source)
         numbers = [r["native_id"] for r in conn.execute(
@@ -124,7 +127,7 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
                 WHERE o.source_id = %s
                   AND NOT EXISTS (SELECT 1 FROM remap_marker m
                                    WHERE m.source_code = %s AND m.native_id = o.native_id)
-                ORDER BY o.id LIMIT %s""", (src_id, source, limit)).fetchall()]
+                ORDER BY o.id LIMIT %s""", (src_id, marker, limit)).fetchall()]
         log.info("remap %s: %s notices to do%s", source, len(numbers),
                  "" if write else " (dry run: nothing is written)")
         store = build_store()
@@ -155,7 +158,7 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
                         """INSERT INTO remap_marker (source_code, native_id, version) VALUES (%s, %s, %s)
                            ON CONFLICT (source_code, native_id) DO UPDATE
                               SET done_at = clock_timestamp(), version = EXCLUDED.version""",
-                        (source, number, version))
+                        (marker, number, version))
             if write:
                 conn.commit()
             else:
@@ -172,8 +175,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--limit", type=int)
     p.add_argument("--batch", type=int, default=200)
     p.add_argument("--workers", type=int, default=1)
+    p.add_argument("--epoch", type=int, default=1,
+                   help="run again after the mapper changed again (separate markers)")
     a = p.parse_args(argv)
-    result = run(a.source, write=a.yes, limit=a.limit, batch=a.batch, workers=a.workers)
+    result = run(a.source, write=a.yes, limit=a.limit, batch=a.batch, workers=a.workers,
+                 epoch=a.epoch)
     print(result)
     return 0 if result.failed == 0 else 1
 

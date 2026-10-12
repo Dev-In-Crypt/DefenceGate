@@ -91,3 +91,12 @@ def test_a_fact_the_mapper_no_longer_states_is_not_erased(conn, fs_store):
 def test_an_unknown_source_is_refused():
     with pytest.raises(SystemExit):
         remap_source.run("es_placsp")
+
+
+def test_a_second_epoch_runs_again_without_resetting_anything(conn, fs_store):
+    oid = seed(conn, "ted_can_29", status="unknown", status_native=None)
+    remap_source.run("pl_ezam", write=True)
+    assert remap_source.run("pl_ezam", write=True).examined == 0
+    again = remap_source.run("pl_ezam", write=True, epoch=2)
+    assert again.examined == 1 and again.versions == 0       # same mapping: nothing to write
+    assert len(versions(conn, oid)) == 2
