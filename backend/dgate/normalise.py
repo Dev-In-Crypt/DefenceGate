@@ -794,7 +794,9 @@ def from_aid(record: dict[str, Any], *, today: date | None = None) -> Call:
         native_id=str(slug),
         title=title[:500],
         opens_at=aid.opening(text),
+        published_at=published,
         deadline_at=ends[-1] if ends else None,
+        deadline_precision="date" if ends and aid.is_end_of_day(ends[-1]) else None,
         conditions_raw={
             "list": record.get("list"),
             "summary": record.get("summary"),
@@ -1201,6 +1203,10 @@ class Call:
     # euro; Polish competitions state theirs in zloty or euro, and a sum without its
     # currency is not a sum.
     currency: str | None = None
+    # `date` when the source states the closing day and no time. The deadline is then
+    # the end of that day in the source's own time zone, and the site prints the date
+    # only; a time the source never stated is not claimed. None: a time was stated.
+    deadline_precision: str | None = None
 
     def __post_init__(self) -> None:
         self.source_url = http_url(self.source_url)
@@ -1252,7 +1258,9 @@ def from_eu_call(record: dict[str, Any]) -> Call:
         topic_code=record.get("identifier"),
         call_identifier=record.get("callIdentifier"),
         opens_at=portal.opens_at(record),
-        deadline_at=portal.deadline(record),
+        published_at=portal.published_at(record),
+        deadline_at=portal.closing(record),
+        deadline_precision="date" if portal.closing_is_date(record) else None,
         status=_CALL_STATUS.get(portal.status_name(record) or ""),
         regime=portal.regime(record) or "defence",
         source_url=portal.topic_url(record),
@@ -1295,6 +1303,7 @@ def from_bdns(detail: dict[str, Any], *, today: date | None = None) -> Call:
         opens_at=bdns.opens_at(detail),
         published_at=bdns.received_at(detail),
         deadline_at=bdns.deadline(detail),
+        deadline_precision="date" if bdns.deadline(detail) else None,
         eligibility_text=bdns.eligibility_text(detail) or None,
         conditions_raw=bdns.conditions(detail),
         status=bdns.status(detail, today=today),
@@ -1332,12 +1341,16 @@ def from_ncbr(record: dict[str, Any], *, today: date | None = None) -> Call:
         programme_code="PL-NCBR",
         native_id=path,
         title=name[:500],
-        topic_code=name[:200],
+        # The register carries no code of its own: the name is a title, and the
+        # reference some titles begin with is not a field. Null rather than the name.
+        topic_code=None,
         budget=amount,
         budget_scope="call" if amount is not None else None,
         currency=currency,
         opens_at=ncbr.opens_at(record),
+        published_at=ncbr.published_at(record),
         deadline_at=ncbr.deadline(record),
+        deadline_precision="date" if ncbr.deadline_is_date(record) else None,
         eligibility_text=ncbr.eligibility_text(record) or None,
         conditions_raw=ncbr.conditions(record),
         status=ncbr.status(record, now=datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)

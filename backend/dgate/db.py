@@ -16,7 +16,7 @@ import hashlib
 import logging
 from contextlib import contextmanager
 from dataclasses import asdict, fields, replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Iterator
 
@@ -54,6 +54,44 @@ def _disambiguated_id(opp: Opportunity) -> str:
     """The number, made unique by who filed it: `2582/2026#3f9a1c07`."""
     token = hashlib.sha1(_buyer_key(opp.buyer_name_raw).encode("utf-8")).hexdigest()[:8]
     return f"{opp.native_id}#{token}"
+
+
+def _instant(value: Any) -> datetime | None:
+    """A stored ISO deadline as an instant, so +02:00 and Z spellings of one moment match."""
+    if not isinstance(value, str) or len(value) <= 10:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def same_value(field: str, before: Any, after: Any) -> bool:
+    """Whether two stored values of a field say the same thing.
+
+    Not byte equality: a CPV list is a set (the sources re-order it between
+    publications, and all 19 CPV "changes" in the archive on 12 October 2026 were
+    re-orderings), a deadline is an instant (the same moment written with another
+    UTC offset is not a change), and None, "" and [] are all "not stated". A change
+    whose two sides would render identically is not a change.
+    """
+    if before == after:
+        return True
+    empty = (None, "", [])
+    if before in empty and after in empty:
+        return True
+    if isinstance(before, list) and isinstance(after, list):
+        return {str(v) for v in before} == {str(v) for v in after}
+    if field == "deadline_at":
+        a, b = _instant(before), _instant(after)
+        return a is not None and a == b
+    return False
+
+
+def changed_fields(previous: dict[str, Any], payload: dict[str, Any]) -> list[str]:
+    """The versioned fields whose value differs by `same_value`."""
+    return [f for f in VERSIONED_FIELDS if not same_value(f, previous.get(f), payload.get(f))]
 
 
 def _jsonable(value: Any) -> Any:
@@ -368,6 +406,27 @@ def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
     return version
 
 
+def annotate_versions(conn: psycopg.Connection, version_ids: list[int],
+                      kind: str, note: str) -> int:
+    """Attach one note of one kind to each of the given versions; returns how many
+    were annotated now.
+
+    The archive cannot be edited, so a version it should not have counted is
+    annotated and the readers skip it (migration 0006, 0028). `remapped` is for a
+    bulk correction that re-derives status, value or dates from the payload a
+    notice already had: the publisher amended nothing, so the corrected version
+    must not read as an amendment. Idempotent: one note per version and kind.
+    """
+    if not version_ids:
+        return 0
+    return conn.execute(
+        """INSERT INTO opportunity_version_note (opportunity_version_id, kind, note)
+           SELECT v, %s, %s FROM unnest(%s::bigint[]) AS v
+           ON CONFLICT (opportunity_version_id, kind) DO NOTHING""",
+        (kind, note, list(version_ids)),
+    ).rowcount
+
+
 def upsert_opportunity(
     conn: psycopg.Connection, opp: Opportunity, raw_hash: str, src_id: int,
 ) -> tuple[int, str]:
@@ -463,9 +522,10 @@ def upsert_opportunity(
     current_date = prev.get("published_at")
     if incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
         return opp_id, "stale"
-    changed = [f for f in VERSIONED_FIELDS if prev.get(f) != payload.get(f)]
+    changed = changed_fields(prev, payload)
     if not changed:
-        # Hash moved but nothing we track did: a cosmetic upstream edit.
+        # Hash moved but nothing we track did: a cosmetic upstream edit, or a list
+        # re-ordered, or a deadline written with another UTC offset.
         return opp_id, "unchanged"
 
     version = append_version(conn, opp_id, opp, raw_hash, changed,
@@ -522,7 +582,7 @@ CALL_FIELDS = [
     "topic_code", "call_identifier", "title", "budget", "opens_at", "published_at", "deadline_at",
     "min_consortium_size", "min_member_states", "eligibility_text", "status",
     "type_of_action", "regime", "source_url", "country", "issuer", "budget_scope",
-    "currency",
+    "currency", "deadline_precision",
 ]
 
 # Fields a source may simply not supply. The EU calendar knows no budget, no
@@ -569,7 +629,7 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
     """
     prog_id = programme_id(conn, call.programme_code)
     existing = conn.execute(
-        """SELECT id, content_hash, status FROM call
+        """SELECT id, content_hash, status, deadline_at, deadline_precision FROM call
             WHERE programme_id = %s AND native_id = %s""",
         (prog_id, call.native_id),
     ).fetchone()
@@ -603,7 +663,21 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
         conn.execute("UPDATE call SET last_seen_at = now(), status = COALESCE(%s, status), "
                      "published_at = COALESCE(published_at, %s) WHERE id = %s",
                      (call.status, call.published_at, call_id))
-        return (call_id, "changed", ["status"]) if moved else (call_id, "unchanged", [])
+        # The deadline is derived from the payload alone, so with the payload unchanged a
+        # different one is a correction of our reading (a date-only deadline now stored
+        # as the end of its day), never a move by the source. Refreshed here for the
+        # same reason as the column above: waiting for the payload to change would
+        # leave a corrected mapping unapplied until the source happened to edit the call.
+        derived = ["deadline_at"] if (
+            call.deadline_at is not None and call.deadline_at != existing["deadline_at"]) else []
+        if call.deadline_at is not None and (
+                derived or call.deadline_precision != existing["deadline_precision"]):
+            conn.execute(
+                "UPDATE call SET deadline_at = %s, deadline_precision = %s WHERE id = %s",
+                (call.deadline_at, call.deadline_precision, call_id))
+        if moved:
+            derived.insert(0, "status")
+        return (call_id, "changed", derived) if derived else (call_id, "unchanged", [])
 
     before = conn.execute(
         f"SELECT {', '.join(CALL_FIELDS)} FROM call WHERE id = %s", (call_id,)

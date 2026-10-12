@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -53,8 +53,17 @@ LANGUAGE_BY_COUNTRY = {"ES": "es", "PL": "pl", "FR": "fr", "SE": "sv", "FI": "fi
 # connectors assemble it from structured fields, which are already in the rows.
 SOURCE_TEXT_SOURCES = {"eu_portal", "se_vinnova"}
 
-EFFECTIVE_STATUS = """(CASE
-    WHEN c.status = 'open' AND c.deadline_at < now() THEN 'closed'
+# A call whose source still says `open` after its stated deadline is not closed when it
+# takes submissions continuously or in several cut-offs: the deadline held is a cut-off,
+# not the end. The portal's own word `Open` decides, and the status turns `closed` the
+# night the source says so (HORIZON-EIC-2026-STEP was served closed on 8 October 2026
+# while the portal showed it open).
+ROLLING_MODELS = "('continuous', 'rolling', 'multiple cut-off')"
+
+EFFECTIVE_STATUS = f"""(CASE
+    WHEN c.status = 'open' AND c.deadline_at < now()
+         AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '')
+             NOT IN {ROLLING_MODELS} THEN 'closed'
     WHEN c.status = 'evaluated' OR c.status IS NULL THEN 'closed'
     ELSE c.status END)"""
 
@@ -78,6 +87,32 @@ class SourceAttribution(BaseModel):
     attribution: str
 
 
+# Stated by the source and not contradicted by anything else we hold, so the site says
+# "source-stated, please verify" rather than hiding the row. Computed, never stored.
+DEADLINE_HORIZON_DAYS = 3 * 365
+
+
+def anomalies(deadline: datetime | None, published: date | datetime | None,
+              *, now: datetime | None = None) -> list[str]:
+    out: list[str] = []
+    if deadline is None:
+        return out
+    if published is not None:
+        day = published.date() if isinstance(published, datetime) else published
+        if deadline.astimezone(timezone.utc).date() < day:
+            out.append("deadline-before-publication")
+    if deadline > (now or datetime.now(timezone.utc)) + timedelta(days=DEADLINE_HORIZON_DAYS):
+        out.append("deadline-more-than-3y")
+    return out
+
+
+def _is_utc_midnight(value: Any) -> bool:
+    """A deadline stored before `deadline_precision` existed: the EU portal's date-only
+    stamps are exactly 00:00:00 UTC, which no real closing time is."""
+    return (isinstance(value, datetime) and value.tzinfo is not None
+            and value.astimezone(timezone.utc).time() == time(0, 0))
+
+
 class FundingCall(BaseModel):
     id: str
     slug: str
@@ -95,6 +130,8 @@ class FundingCall(BaseModel):
     status: str
     openingDate: datetime | None
     deadline: datetime | None
+    deadlineIsDate: bool = False
+    anomalies: list[str] = []
     budget: Budget | None
     budgetScope: str | None
     actionType: str | None
@@ -282,6 +319,11 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "status": status,
         "openingDate": _day(r.get("opens_at")),
         "deadline": r.get("deadline_at"),
+        # The source gave a day and no time: print the date only. Stored as the end of
+        # that day, so the instant is never shown as if the source had stated it.
+        "deadlineIsDate": bool(r.get("deadline_at")) and (
+            r.get("deadline_precision") == "date" or _is_utc_midnight(r.get("deadline_at"))),
+        "anomalies": anomalies(r.get("deadline_at"), r.get("published_at")),
         "budget": ({"amount": float(r["budget"]), "currency": r["currency"] or "EUR"}
                    if r.get("budget") is not None else None),
         "budgetScope": r.get("budget_scope"),
@@ -357,7 +399,8 @@ def list_funding(
     params: list[Any] = []
 
     if status == "closing-soon":
-        where.append(f"{EFFECTIVE_STATUS} = 'open' AND c.deadline_at <= now() + interval '{CLOSING_SOON_DAYS} days'")
+        where.append(f"{EFFECTIVE_STATUS} = 'open' AND c.deadline_at >= now() "
+                     f"AND c.deadline_at <= now() + interval '{CLOSING_SOON_DAYS} days'")
     elif status != "all":
         where.append(f"{EFFECTIVE_STATUS} = %s")
         params.append(status)
@@ -414,7 +457,10 @@ def list_funding(
     total = conn.execute(
         f"SELECT count(*) AS n FROM ({SELECT}{clause}) c", params).fetchone()["n"]
 
-    closed_last = f"({EFFECTIVE_STATUS} = 'closed') ASC"
+    # An open call held open past its cut-off (continuous, several cut-offs) sorts after
+    # the ones with a deadline still to come, not first because its date is oldest.
+    closed_last = (f"({EFFECTIVE_STATUS} = 'closed') ASC, "
+                   f"({EFFECTIVE_STATUS} = 'open' AND c.deadline_at < now()) ASC")
     if sort == "budget-desc":
         order = (f"{closed_last}, (c.currency = %s AND c.budget IS NOT NULL) DESC, "
                  "CASE WHEN c.currency = %s THEN c.budget END DESC NULLS LAST, "

@@ -255,6 +255,13 @@ def deadlines(text: str, published: date | None = None) -> list[datetime]:
     return sorted(set(found))
 
 
+def is_end_of_day(moment: datetime) -> bool:
+    """A date with no hour is stored as 23:59 Paris; so is an explicit "a minuit". Both
+    say "that day", and the site prints the date only."""
+    local = moment.astimezone(PARIS)
+    return (local.hour, local.minute) == (23, 59)
+
+
 def opening(text: str) -> date | None:
     match = _OPENING.search(text)
     moment = _moment(match, None) if match else None

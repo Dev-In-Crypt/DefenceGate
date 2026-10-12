@@ -146,7 +146,10 @@ def test_a_call_maps_completely():
     assert call.regime == "defence"
     assert call.type_of_action == "EDF-RA EDF Research Actions"
     assert call.opens_at == date(2026, 2, 11)
-    assert call.deadline_at == datetime(2026, 9, 29, tzinfo=timezone.utc)
+    # Corrected on purpose (data-quality plan F18): the portal states the day at 00:00Z
+    # and no time, so the call closes at the end of that day in Brussels, not at its start.
+    assert call.deadline_at == datetime(2026, 9, 29, 21, 59, 59, tzinfo=timezone.utc)
+    assert call.deadline_precision == "date"
     assert call.source_url.endswith("edf-2026-ra-sens-msdt")
     assert call.budget is None                          # the feed carries none
 

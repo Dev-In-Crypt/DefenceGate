@@ -43,6 +43,7 @@ import logging
 import re
 import time
 from datetime import UTC, date, datetime
+from datetime import time as dtime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -201,8 +202,40 @@ def opens_at(record: dict[str, Any]) -> date | None:
     return start.astimezone(WARSAW).date() if start else None
 
 
+def deadline_is_date(record: dict[str, Any]) -> bool:
+    """The register wrote the closing day and no hour: `...T00:00:00`, which 15 of 68
+    competitions carry (the rest say 12:00 to 17:00)."""
+    value = record.get("applicationsEndDate")
+    return bool(value) and str(value)[10:19] in ("", "T00:00:00") and _moment(value) is not None
+
+
 def deadline(record: dict[str, Any]) -> datetime | None:
-    return _moment(record.get("applicationsEndDate"))
+    """The closing moment in UTC.
+
+    A date with no hour closes at the end of that day in Warsaw. Read as 00:00 it was
+    24 hours early: the competition was served closed throughout its last day.
+    """
+    value = record.get("applicationsEndDate")
+    if deadline_is_date(record):
+        day = datetime.fromisoformat(str(value)[:10]).date()
+        return datetime.combine(day, dtime(23, 59, 59), tzinfo=WARSAW).astimezone(UTC)
+    return _moment(value)
+
+
+def published_at(record: dict[str, Any]) -> date | None:
+    """The day the competition was announced, else the page's publish date.
+
+    `announcementDate` is the competition's own date. `publishDate` is the page's last
+    edit (PERUN 1/2023 shows 17 June 2026), so it is the fallback and not the first
+    choice.
+    """
+    for key in ("announcementDate", "publishDate"):
+        raw = str(record.get(key) or "")[:10]
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            continue
+    return None
 
 
 def status(record: dict[str, Any], *, now: datetime | None = None) -> str:

@@ -423,7 +423,7 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
                 "snapshot": public_snapshot(r["payload"]),
                 # A version the archive recorded wrongly is annotated, never
                 # removed: see migration 0006. Clients should not present a
-                # `reread` or `out_of_order` version as a real amendment.
+                # `reread`, `out_of_order` or `remapped` version as a real amendment.
                 "notes": redact_emails(r["notes"]),
             }
             for r in rows

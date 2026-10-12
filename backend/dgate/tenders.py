@@ -11,10 +11,13 @@ Decisions that shape it:
     with, which a source rarely corrects)
   - a national notice whose TED twin is in the same result is shown once
   - amounts are never converted; a value range selects one currency
-  - a buyer is named the way its notices name it (the commonest spelling), not by the
-    normalised key the entity resolver uses
-  - versions the archive annotated as `reread` or `out_of_order` are not amendments and
-    are neither counted nor listed
+  - a tender names its buyer the way the notice itself does (`buyerName`); the buyers
+    catalogue, and `buyerCanonicalName` beside it, use the organisation's commonest
+    spelling rather than the normalised key the entity resolver uses
+  - versions the archive annotated as `reread`, `out_of_order` or `remapped` are not
+    amendments and are neither counted nor listed; neither is a version that moved only
+    the publication date (the PLACSP feed stamp: 76% of the amendments on 12 October
+    2026), nor one whose changes read the same before and after
 """
 
 from __future__ import annotations
@@ -26,7 +29,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from .funding import Budget, SourceAttribution, _like, get_conn, make_slug
+from .db import same_value
+from .funding import Budget, SourceAttribution, _like, anomalies, get_conn, make_slug
 from .normalise import http_url, redact_emails
 
 router = APIRouter()
@@ -39,7 +43,9 @@ TENDER_SLUG_LIMIT = 5000
 BUYER_SLUG_LIMIT = 2000
 
 # A version the archive recorded wrongly is annotated, never removed (migration 0006).
-NOT_AN_AMENDMENT = "('reread', 'out_of_order')"
+# `remapped` (migration 0028): appended by a bulk re-derivation from the same source
+# payload; the publisher amended nothing.
+NOT_AN_AMENDMENT = "('reread', 'out_of_order', 'remapped')"
 
 CORE = "(o.sig_legal_basis OR o.sig_cpv)"
 
@@ -55,6 +61,7 @@ class Tender(BaseModel):
     buyerId: str | None
     buyerSlug: str | None
     buyerName: str
+    buyerCanonicalName: str | None = None
     country: str | None
     cpv: str | None
     cpvCodes: list[str]
@@ -64,6 +71,8 @@ class Tender(BaseModel):
     deadline: datetime | None
     publishedAt: datetime | None
     estimatedValue: Budget | None
+    lots: int | None = None
+    anomalies: list[str] = []
     status: str
     statusNative: str | None
     amended: bool
@@ -138,15 +147,37 @@ def _day(value: Any) -> datetime | None:
 
 _CAMEL = re.compile(r"(?<=[a-z])(?=[A-Z])")
 
+# TED's procedure-type codes (eForms codelist `procurement-procedure-type`), said in
+# English. These are the notice's own words in the Publications Office's vocabulary, not
+# a translation of someone's text.
+TED_PROCEDURES = {
+    "open": "Open procedure",
+    "restricted": "Restricted procedure",
+    "neg-w-call": "Negotiated procedure with prior call for competition",
+    "neg-wo-call": "Negotiated procedure without prior call for competition",
+    "comp-dial": "Competitive dialogue",
+    "innovation": "Innovation partnership",
+    "oth-single": "Other single-stage procedure",
+    "oth-mult": "Other multi-stage procedure",
+    "comp-tend": "Competitive tendering",
+}
+
 
 def procedure_label(value: str | None) -> str | None:
-    """The procedure as the source states it, readable. A bare code (TED sends `16`,
-    `29`) names nothing a reader knows and would be a guess to translate, so it is
-    left out; a word such as `ContractNotice` is split into words."""
+    """The procedure as the source states it, readable. A bare number (the numeric
+    TED subtype, `16`, `29`) names nothing a reader knows and would be a guess to
+    translate, so it is left out; a TED procedure-type code is spelled out; a word such
+    as `ContractNotice` is split into words; anything else keeps the source's casing
+    ("Procédure NC" is not "Procédure nc")."""
     text = (value or "").strip()
     if not text or text.isdigit():
         return None
-    return _CAMEL.sub(" ", text).replace("_", " ").capitalize()
+    known = TED_PROCEDURES.get(text.lower())
+    if known:
+        return known
+    if "_" in text or _CAMEL.search(text):
+        return _CAMEL.sub(" ", text).replace("_", " ").capitalize()
+    return text[0].upper() + text[1:]
 
 
 # ---------------------------------------------------------------- mapping
@@ -158,7 +189,7 @@ TENDER_COLUMNS = (
     "o.title_en, o.original_language, o.procedure_type, o.legal_basis, o.value_amount, "
     "o.value_currency, o.published_at, o.deadline_at, o.cpv_codes, o.sig_legal_basis, "
     "o.sig_cpv, o.security_clearance_required, o.subcontracting_signal, o.source_url, "
-    "o.status, o.ted_ref"
+    "o.status, o.ted_ref, o.lot_count"
 )
 
 TENDER_SELECT = f"""
@@ -196,17 +227,16 @@ def _observed(conn, ids: list[int]) -> dict[int, datetime]:
 
 
 def _version_counts(conn, ids: list[int]) -> dict[int, int]:
+    """How many real versions each notice has: the first, and each later one that
+    changed something a reader can see (see `timeline`)."""
     if not ids:
         return {}
-    rows = conn.execute(
-        f"""SELECT v.opportunity_id, count(*) AS n
-              FROM opportunity_version v
-             WHERE v.opportunity_id = ANY(%s)
-               AND NOT EXISTS (SELECT 1 FROM opportunity_version_note n
-                                WHERE n.opportunity_version_id = v.id
-                                  AND n.kind IN {NOT_AN_AMENDMENT})
-             GROUP BY v.opportunity_id""", (ids,)).fetchall()
-    return {r["opportunity_id"]: r["n"] for r in rows}
+    rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = ANY(%s)"),
+                        (ids,)).fetchall()
+    by_notice: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_notice.setdefault(r["opportunity_id"], []).append(r)
+    return {oid: len(timeline(group)) for oid, group in by_notice.items()}
 
 
 def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int],
@@ -218,7 +248,12 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     other = original if title_en and original and original.strip() != title_en.strip() else None
     eff = api.effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at"))
     org_id = r.get("buyer_org_id")
-    buyer_name = names.get(org_id) or redact_emails(r["buyer_name_raw"])
+    # The notice's own spelling is what the notice says; the organisation's commonest
+    # spelling is what the organisation is called. 15,937 TED rows were being shown
+    # under the second, which merges a sub-unit into its parent.
+    own_name = redact_emails(r["buyer_name_raw"])
+    org_name = names.get(org_id) or own_name
+    buyer_name = own_name or org_name
     n_versions = versions.get(r["id"], 1) or 1
     cpv = r.get("cpv_codes") or []
     amount = r.get("value_amount")
@@ -231,8 +266,9 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "originalTitle": other,
         "originalLanguage": r.get("original_language") if other else None,
         "buyerId": str(org_id) if org_id else None,
-        "buyerSlug": make_slug(org_id, buyer_name) if org_id else None,
+        "buyerSlug": make_slug(org_id, org_name) if org_id else None,
         "buyerName": buyer_name,
+        "buyerCanonicalName": org_name if org_id else None,
         "country": r.get("country"),
         "cpv": cpv[0] if cpv else None,
         "cpvCodes": cpv,
@@ -243,6 +279,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "publishedAt": _day(r.get("published_at")),
         "estimatedValue": ({"amount": float(amount), "currency": r.get("value_currency") or "EUR"}
                            if amount else None),
+        "lots": r.get("lot_count"),
+        "anomalies": anomalies(r.get("deadline_at"), r.get("published_at")),
         "status": "open" if eff == "open" else "closed",
         "statusNative": eff,
         "amended": n_versions > 1,
@@ -415,15 +453,92 @@ FIELD_LABELS = {
 }
 
 
+def _utc_text(text: str) -> str | None:
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
 def _show(field: str, value: Any) -> str | None:
     if value in (None, "", []):
         return None
     if isinstance(value, list):
         return ", ".join(str(v) for v in value)
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)                      # 1000000.0 and 1000000 read the same
     text = str(value)
     if field == "deadline_at" and len(text) > 10:
-        text = text.replace("T", " ")[:16] + " UTC"
+        # Stored with the source's own offset (86 of 89 deadline changes carry +01 or
+        # +02); printed as UTC it has to be converted, not relabelled.
+        text = _utc_text(text) or text
     return redact_emails(text)[:300]
+
+
+# The versions a reader should not see as amendments, and what they leave behind.
+# `reread` and `out_of_order` recorded content that was not a state of the notice, so
+# they are skipped without moving the baseline. `remapped` is a real state (a corrected
+# reading of the same payload) that nobody amended: not listed, but it is the baseline
+# the next change is measured from.
+SKIPPED_KINDS = {"reread", "out_of_order"}
+REMAPPED_KIND = "remapped"
+
+# Only the allow-listed fields of each payload: the description and the rest are never
+# needed to draw a timeline, and a notice with sixty versions carries sixty copies.
+PAYLOAD_SUBSET = "jsonb_build_object(" + ", ".join(
+    f"'{k}', v.payload->'{k}'" for k in FIELD_LABELS) + ")"
+TIMELINE_SQL = """
+    SELECT v.opportunity_id, v.version, v.observed_at, v.changed_fields,
+           """ + PAYLOAD_SUBSET + """ AS payload,
+           COALESCE((SELECT array_agg(n.kind) FROM opportunity_version_note n
+                      WHERE n.opportunity_version_id = v.id), '{{}}') AS kinds
+      FROM opportunity_version v
+     WHERE {where}
+     ORDER BY v.opportunity_id, v.version"""
+
+
+def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The amendments of one notice, oldest first, from its version rows in order.
+
+    The first version is the notice as first seen. A later version is listed only if it
+    changed something a reader can see, and the archive being append-only, the noise
+    is filtered here and not there:
+
+      - a line whose two sides render the same is dropped (66 on 12 October 2026: CPV
+        re-ordered, the same deadline written with another UTC offset)
+      - a version left with no line, or only the publication date, is not an amendment:
+        1,292 of 1,693 were the PLACSP feed stamp moving
+    """
+    out: list[dict[str, Any]] = []
+    previous: dict[str, Any] | None = None
+    for r in rows:
+        kinds = set(r.get("kinds") or [])
+        if kinds & SKIPPED_KINDS:
+            continue
+        payload = r["payload"] or {}
+        if previous is None:
+            out.append({"version": r["version"], "detectedAt": r["observed_at"], "changes": []})
+        elif REMAPPED_KIND not in kinds:
+            changes = []
+            for field in r["changed_fields"] or []:
+                if field not in FIELD_LABELS:
+                    continue
+                before, after = previous.get(field), payload.get(field)
+                if same_value(field, before, after):
+                    continue
+                shown_before, shown_after = _show(field, before), _show(field, after)
+                if shown_before == shown_after:
+                    continue
+                changes.append({"field": field, "label": FIELD_LABELS[field],
+                                "before": shown_before, "after": shown_after})
+            if any(c["field"] != "published_at" for c in changes):
+                out.append({"version": r["version"], "detectedAt": r["observed_at"],
+                            "changes": changes})
+        previous = payload
+    return out
 
 
 @router.get("/v1/tenders/{slug}/versions", response_model=list[TenderVersion])
@@ -432,27 +547,9 @@ def tender_versions(slug: str, conn=Depends(get_conn)):
     if not conn.execute("SELECT 1 FROM opportunity WHERE id = %s AND is_defence",
                         (tender_id,)).fetchone():
         raise HTTPException(404, "no such tender")
-    rows = conn.execute(
-        f"""SELECT v.version, v.observed_at, v.changed_fields, v.payload
-              FROM opportunity_version v
-             WHERE v.opportunity_id = %s
-               AND NOT EXISTS (SELECT 1 FROM opportunity_version_note n
-                                WHERE n.opportunity_version_id = v.id
-                                  AND n.kind IN {NOT_AN_AMENDMENT})
-             ORDER BY v.version""", (tender_id,)).fetchall()
-    out: list[dict[str, Any]] = []
-    previous: dict[str, Any] = {}
-    for r in rows:
-        payload = r["payload"] or {}
-        changes = []
-        for field in (r["changed_fields"] or []):
-            if field in FIELD_LABELS:
-                changes.append({"field": field, "label": FIELD_LABELS[field],
-                                "before": _show(field, previous.get(field)),
-                                "after": _show(field, payload.get(field))})
-        out.append({"version": r["version"], "detectedAt": r["observed_at"], "changes": changes})
-        previous = payload
-    return list(reversed(out))
+    rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = %s"),
+                        (tender_id,)).fetchall()
+    return list(reversed(timeline(rows)))
 
 
 # ----------------------------------------------------------------- buyers

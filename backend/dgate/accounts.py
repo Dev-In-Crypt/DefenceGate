@@ -882,6 +882,7 @@ def pulse(conn) -> dict[str, Any]:
                    count(*) FILTER (WHERE EXISTS (
                         SELECT 1 FROM opportunity_version v
                          WHERE v.opportunity_id = o.id AND v.version > 1
+                           AND v.changed_fields <> ARRAY['published_at']
                            AND NOT EXISTS (SELECT 1 FROM opportunity_version_note nn
                                             WHERE nn.opportunity_version_id = v.id
                                               AND nn.kind IN {NOT_AN_AMENDMENT}))) AS amended

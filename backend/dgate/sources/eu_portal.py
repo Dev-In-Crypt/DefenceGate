@@ -36,8 +36,9 @@ import html
 import json
 import logging
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -73,7 +74,22 @@ DUAL_USE_PROGRAMMES = {"DIGITAL"}
 # exactly why it is read as a defence signal rather than a programme name.
 STEP_DEFENCE_TAG = "STEP-Defence"
 
+# The Connecting Europe Facility carries a military-mobility envelope ("Adaptation of
+# the TEN-T to civilian-defence dual use"): works and studies that make transport
+# corridors usable by armed forces. The programme is civil, so neither the programme
+# nor the subject tags above reach it; its topics say so in their code, tags and
+# programme division (CEF-T-2026-MILMOB-WORKS, ccm2Id 51468068).
+CEF_PREFIX = "CEF"
+MILITARY_MOBILITY_MARKERS = ("MILMOB", "MILITARY MOBILITY")
+
 OPEN_STATUSES = {"Open", "Forthcoming"}
+
+# The reference data states a deadline as a date at 00:00 UTC (155 of 155 on
+# 12 October 2026), whatever time the call document sets. Read as an instant that is
+# the START of the closing day, and a call is served closed for the whole of it.
+BRUSSELS = ZoneInfo("Europe/Brussels")
+DAY_MS = 86_400_000
+MULTIPLE_CUT_OFF = "multiple cut-off"
 
 
 def _one(value: Any) -> dict[str, Any]:
@@ -102,13 +118,7 @@ def _epoch_day(value: Any) -> date | None:
         return None
 
 
-def deadline(record: dict[str, Any]) -> datetime | None:
-    """The earliest deadline of the topic's actions.
-
-    A topic can have several deadlines -- a two-stage call has one per stage --
-    and the one that matters to somebody deciding whether to apply is the next
-    one. Later stages stay in the payload.
-    """
+def _stamps(record: dict[str, Any]) -> list[int]:
     stamps: list[int] = []
     for action in record.get("actions") or []:
         for value in action.get("deadlineDates") or []:
@@ -116,9 +126,76 @@ def deadline(record: dict[str, Any]) -> datetime | None:
                 stamps.append(int(value))
             except (TypeError, ValueError):
                 continue
+    return stamps
+
+
+def deadline(record: dict[str, Any]) -> datetime | None:
+    """The earliest deadline of the topic's actions.
+
+    A topic can have several deadlines -- a two-stage call has one per stage --
+    and the one that matters to somebody deciding whether to apply is the next
+    one. Later stages stay in the payload.
+    """
+    stamps = _stamps(record)
     if not stamps:
         return None
     return datetime.fromtimestamp(min(stamps) / 1000, UTC)
+
+
+def _closing_stamp(record: dict[str, Any], now: datetime | None = None) -> int | None:
+    stamps = _stamps(record)
+    if not stamps:
+        return None
+    model = str(_one(record.get("deadlineModel")).get("abbreviation") or "").lower()
+    if model != MULTIPLE_CUT_OFF:
+        return min(stamps)
+    # Each cut-off of a multiple cut-off call is a chance to apply, and the call stays
+    # open between them: the deadline that matters is the next one still to come.
+    now_ms = int((now or datetime.now(UTC)).timestamp() * 1000)
+    upcoming = [s for s in stamps if s + DAY_MS > now_ms]
+    return min(upcoming) if upcoming else max(stamps)
+
+
+def closing_is_date(record: dict[str, Any], *, now: datetime | None = None) -> bool:
+    """Whether the deadline the portal states is a day and no time."""
+    stamp = _closing_stamp(record, now)
+    return stamp is not None and stamp % DAY_MS == 0
+
+
+def closing(record: dict[str, Any], *, now: datetime | None = None) -> datetime | None:
+    """The deadline as the product stores it.
+
+    A day stated without a time closes at the end of that day in Brussels, where the
+    portal's own clock is, so the call is open through its last day. Nothing is
+    claimed about the hour: `closing_is_date` says the source gave none, and the site
+    prints the date only. A stamp that does carry a time is kept as the instant.
+    """
+    stamp = _closing_stamp(record, now)
+    if stamp is None:
+        return None
+    if stamp % DAY_MS:
+        return datetime.fromtimestamp(stamp / 1000, UTC)
+    day = datetime.fromtimestamp(stamp / 1000, UTC).date()
+    return datetime.combine(day, time(23, 59, 59), tzinfo=BRUSSELS).astimezone(UTC)
+
+
+def published_at(record: dict[str, Any]) -> date | None:
+    """The day the portal published the topic (`publicationDateLong`)."""
+    return _epoch_day(record.get("publicationDateLong"))
+
+
+def _military_mobility(record: dict[str, Any]) -> bool:
+    if not (programme_code(record) or "").upper().startswith(CEF_PREFIX):
+        return False
+    identifier = (record.get("identifier") or "").upper()
+    tags = " ".join(str(t) for t in record.get("tags") or []).upper()
+    divisions = record.get("programmeDivision")
+    if isinstance(divisions, dict):
+        divisions = [divisions]
+    division = " ".join(str(d.get("description") or "")
+                        for d in divisions or [] if isinstance(d, dict)).upper()
+    return any(m in identifier or m in tags or m in division
+               for m in MILITARY_MOBILITY_MARKERS)
 
 
 def opens_at(record: dict[str, Any]) -> date | None:
@@ -148,6 +225,8 @@ def regime(record: dict[str, Any]) -> str | None:
     if division_code(record).startswith(DUAL_USE_DIVISIONS):
         return "dual_use"
     if programme_code(record) in DUAL_USE_PROGRAMMES:
+        return "dual_use"
+    if _military_mobility(record):
         return "dual_use"
     return None
 
