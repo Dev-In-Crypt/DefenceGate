@@ -84,6 +84,11 @@ class Opportunity:
     # link, not a version-worthy fact: not part of VERSIONED_FIELDS, and left
     # out of the payload while empty so existing content hashes do not move.
     ted_ref: str | None = None
+    # The native_id, within the same source, of the notice this one corrects.
+    # Set for BOAMP rectificatifs (the record's `annonce_lie`): a rectificatif
+    # is a separate notice that repeats the whole of its parent. A link like
+    # ted_ref: not in VERSIONED_FIELDS and left out of the payload while empty.
+    related_native_id: str | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
@@ -683,13 +688,40 @@ def _fr_walk(node: Any, key_part: str) -> Iterator[Any]:
             yield from _fr_walk(v, key_part)
 
 
+def _fr_legacy_cpv(node: Any, out: list[str]) -> None:
+    """CPV blocks of the BOAMP schemas (Boamp_v230.xsd, Boamp_v240.xsd).
+
+    A `CPV` key holds `PRINCIPAL` and, when present, `SUPPLEMENTAIRE`: a single
+    block (`OBJET.CPV`), a list of them, and one per lot (`OBJET.LOTS.LOT[].CPV`).
+    `SUPPLEMENTAIRE` mixes the eight-digit CPV codes with the four-character
+    supplementary vocabulary (`AB25`), which is not a CPV code and is left out.
+    A rectificatif's block says `INIT` (what is corrected) and `LIRE` (what it
+    now reads): only the second is the notice's CPV.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "CPV":
+                for block in value if isinstance(value, list) else [value]:
+                    if isinstance(block, dict) and "LIRE" in block:
+                        block = block["LIRE"]
+                    out.extend(_clean_cpv(block))
+            else:
+                _fr_legacy_cpv(value, out)
+    elif isinstance(node, list):
+        for item in node:
+            _fr_legacy_cpv(item, out)
+
+
 def _fr_cpv(body: dict[str, Any]) -> list[str]:
-    """CPV codes from either notice shape.
+    """CPV codes from every notice shape the dataset holds, deduplicated, in order.
 
     eForms puts them in `cbc:ItemClassificationCode` as `{"#text": "35700000"}`;
     the simplified French form uses `codeCPV.objetPrincipal.classPrincipale`
-    and one per lot. Notices from before 2018 carry none at all, and none is
-    what this returns for them -- an empty list, never a guess.
+    and one per lot; the schemas of 2015 to 2022 use `OBJET.CPV.PRINCIPAL`
+    (`_fr_legacy_cpv`). Until 12 October 2026 only the first two were read, so
+    4,175 of 4,185 stored rows, every one of 2015-2020, had no CPV although
+    150 of 150 sampled legacy notices carry one. A notice that states none
+    still gets an empty list, never a guess.
     """
     codes: list[str] = []
     for value in _fr_walk(body, "ItemClassificationCode"):
@@ -701,21 +733,153 @@ def _fr_cpv(body: dict[str, Any]) -> list[str]:
             for inner in _fr_walk(value, "class"):
                 if isinstance(inner, str) and inner.strip().isdigit():
                     codes.append(inner.strip()[:8])
+    _fr_legacy_cpv(body, codes)
     seen: set[str] = set()
     return [c for c in codes if not (c in seen or seen.add(c))]
 
 
+def _fr_nodes(node: Any, path: tuple[str, ...]) -> list[Any]:
+    """Every value at an exact key path, a list level being transparent.
+
+    `*` matches any one key. Exact paths rather than the substring walk above,
+    because a value's meaning is given by where it sits: the same element name
+    is the notice's value at the top and one lot's value inside a lot.
+    """
+    nodes = [node]
+    for key in path:
+        found: list[Any] = []
+        for current in nodes:
+            for item in current if isinstance(current, list) else [current]:
+                if not isinstance(item, dict):
+                    continue
+                for k, v in item.items():
+                    if key == "*" or k == key:
+                        found.extend(v if isinstance(v, list) else [v])
+        nodes = found
+    return nodes
+
+
+def _fr_amount(raw: Any) -> float | None:
+    """A positive, plausible amount from `12500`, `"12 500,50"` or `"12500.00"`.
+
+    Zero is "not stated", not a value: the simplified form writes `0.00` for a
+    lot whose estimate the buyer left blank (102 of 102 sampled zeros). Anything
+    the NUMERIC(16,2) column could not hold is dropped rather than failing the
+    notice.
+    """
+    if isinstance(raw, bool) or raw is None:
+        return None
+    text = str(raw).replace("\xa0", "").replace(" ", "")
+    if re.fullmatch(r"\d+,\d{1,2}", text):
+        text = text.replace(",", ".")
+    if not re.fullmatch(r"\d+(\.\d+)?", text):
+        return None
+    amount = float(text)
+    return amount if 0 < amount < 10 ** 14 else None
+
+
+def _fr_money(node: Any, inner: tuple[str, ...] = ()) -> tuple[float, str] | None:
+    """(amount, currency) from the two element shapes the notices use.
+
+    `{"#text": "7000000", "@currencyID": "EUR"}` (BOAMP legacy, eForms: the
+    currency is an attribute of the amount) and the simplified form's
+    `{"@devise": "EUR", "valeur": "55150"}` (`inner` names the amount inside).
+
+    The currency is the one the notice states and is never converted. Only when
+    a French notice states none is it taken to be EUR; the legacy schema makes
+    `DEVISE` mandatory, so this is a default for malformed input, not a habit.
+    A stated currency that is not a three-letter code is not guessed at: the
+    value is dropped.
+    """
+    if isinstance(node, (str, int, float)) and not inner:
+        node = {"#text": node}          # an amount written without attributes
+    if not isinstance(node, dict):
+        return None
+    raw: Any = node
+    for key in inner or ("#text",):
+        raw = raw.get(key) if isinstance(raw, dict) else None
+    amount = _fr_amount(raw)
+    if amount is None:
+        return None
+    stated = node.get("@DEVISE") or node.get("@devise") or node.get("@currencyID")
+    if stated is None or str(stated).strip() == "":
+        return amount, "EUR"
+    code = str(stated).strip().upper()
+    return (amount, code) if re.fullmatch(r"[A-Z]{3}", code) else None
+
+
+# Where a BOAMP notice states a value, in the order they are tried. A rule is
+# (parents, leaf, exactly_one_parent, inner): the leaf is looked for under every
+# node at `parents`, and `exactly_one_parent` makes the rule apply only when the
+# notice has a single such node -- a notice of several lots whose lots state their
+# own amounts has no single value, and the first lot is not the notice.
+#
+# The meaning of each, from Boamp_v230.xsd and Boamp_v240.xsd (DILA, echanges.dila.gouv.fr/
+# schemabook/boamp) and 4,185 stored legacy notices plus 4,000 of October 2026:
+#
+#   awarded      ATTRIBUTION.VALEUR_TOTALE      total final value of the award(s)
+#                efac:NoticeResult TotalAmount  eForms BT-161, value of all contracts
+#                DECISION.RENSEIGNEMENT.MONTANT final value of the one award
+#   estimated    CARACTERISTIQUES.VALEUR_TOTALE "Valeur totale estimee" (XSD)
+#                CARACTERISTIQUES.VALEUR        estimated value, one amount
+#                ACCORD_CADRE.VALEUR            estimated value of a framework
+#                EstimatedOverallContractAmount eForms BT-27, at procedure level, or in
+#                                               the only lot
+#                natureMarche.valeurEstimee     simplified form, one amount
+#   initial      DECISION...ESTIMATION_INITIALE the estimate an award was made against
+#   ceiling      VALEUR_MAX, FrameworkMaximum*, valeurHaute: the most the contract or
+#                framework can reach. Used last, and only the top of a range, never
+#                the bottom (VALEUR_MIN alone is not a value).
+#
+# An awarded amount comes before an estimate: an award notice repeats the whole
+# notice, so both are present, and the award is the fact. Nothing is summed and
+# nothing is converted.
+#
+# VAT. No BOAMP schema carries a tax marker (searched in both XSDs). The standard
+# forms (JOUE, eForms) define their values as excluding VAT; for the national
+# forms (FNS, FNSimple) the documentation found says nothing. The amount is kept
+# as the notice states it and the basis is not asserted.
+_FR_EXT = ("ext:UBLExtensions", "ext:UBLExtension", "ext:ExtensionContent",
+           "efext:EformsExtension")
+_FR_VALUE_RULES: tuple[tuple[tuple[str, ...], tuple[str, ...], bool, tuple[str, ...]], ...] = (
+    # awarded
+    (("ATTRIBUTION",), ("VALEUR_TOTALE",), False, ()),
+    (("EFORMS", "*", *_FR_EXT, "efac:NoticeResult"), ("cbc:TotalAmount",), False, ()),
+    (("ATTRIBUTION", "DECISION", "RENSEIGNEMENT"), ("MONTANT",), True, ()),
+    # estimated
+    (("OBJET", "CARACTERISTIQUES"), ("VALEUR_TOTALE",), False, ()),
+    (("OBJET", "CARACTERISTIQUES"), ("VALEUR",), False, ()),
+    (("OBJET", "ACCORD_CADRE"), ("VALEUR",), False, ()),
+    (("EFORMS", "*", "cac:ProcurementProject", "cac:RequestedTenderTotal"),
+     ("cbc:EstimatedOverallContractAmount",), False, ()),
+    (("EFORMS", "*", "cac:ProcurementProjectLot"),
+     ("cac:ProcurementProject", "cac:RequestedTenderTotal",
+      "cbc:EstimatedOverallContractAmount"), True, ()),
+    (("FNSimple", "*", "natureMarche"), ("valeurEstimee",), False, ("valeur",)),
+    # the estimate an award was made against
+    (("ATTRIBUTION", "DECISION"), ("RENSEIGNEMENT", "ESTIMATION_INITIALE"), True, ()),
+    # ceilings
+    (("OBJET", "ACCORD_CADRE"), ("VALEUR_MAX",), False, ()),
+    (("OBJET", "CARACTERISTIQUES"), ("VALEUR_MAX",), False, ()),
+    (("EFORMS", "*", *_FR_EXT, "efac:NoticeResult"),
+     ("efbc:OverallMaximumFrameworkContractsAmount",), False, ()),
+    (("EFORMS", "*", "cac:ProcurementProject", "cac:RequestedTenderTotal", *_FR_EXT),
+     ("efbc:FrameworkMaximumAmount",), False, ()),
+    (("FNSimple", "*", "natureMarche"), ("valeurEstimee",), False, ("fourchette", "valeurHaute")),
+)
+
+
 def _fr_value(body: dict[str, Any]) -> tuple[float | None, str | None]:
-    """The estimated contract value, when the notice states one."""
-    for value in _fr_walk(body, "EstimatedOverallContractAmount"):
-        if isinstance(value, dict):
-            text, currency = value.get("#text"), value.get("@currencyID")
-        else:
-            text, currency = value, None
-        try:
-            return float(str(text)), (currency or "EUR")
-        except (TypeError, ValueError):
+    """The contract value a BOAMP notice states, by the precedence above, or none."""
+    for parents, leaf, one_parent, inner in _FR_VALUE_RULES:
+        nodes = _fr_nodes(body, parents)
+        if one_parent and len(nodes) != 1:
             continue
+        for node in nodes:
+            for value in _fr_nodes(node, leaf):
+                got = _fr_money(value, inner)
+                if got:
+                    return got
     return None, None
 
 
@@ -726,6 +890,32 @@ def _fr_description(body: dict[str, Any]) -> str | None:
         if isinstance(value, dict) and isinstance(value.get("#text"), str):
             return value["#text"].strip()
     return None
+
+
+def _fr_corrected_notice(record: dict[str, Any], body: dict[str, Any],
+                        native_id: str) -> str | None:
+    """The `idweb` of the notice a rectificatif corrects, or None.
+
+    A rectificatif (`etat` RECTIFICATIF) is a notice of its own that repeats the
+    whole of its parent. The legacy notice names the one it corrects itself, in
+    `RECTIF.ANNONCE_ANTERIEUR.REFERENCE.IDWEB`. The record's `annonce_lie` lists
+    that notice and, once it has been corrected before, the earlier rectificatifs,
+    and not with the corrected notice first: in 3 of 198 stored rectificatifs it is
+    second. So `annonce_lie` is used on its own only when it has one entry. A
+    2026 rectificatif with several entries and no reference of its own (31 of 335
+    sampled) stays unlinked: the immediate parent is not stated, and a guess
+    would hide an award correction behind the tender it belongs to.
+    """
+    if str(record.get("etat") or "").upper() != "RECTIFICATIF":
+        return None
+    named = {str(v).strip() for v in _fr_nodes(
+        body, ("RECTIF", "ANNONCE_ANTERIEUR", "REFERENCE", "IDWEB")) if v}
+    if not named:
+        listed = record.get("annonce_lie")
+        named = {str(v).strip() for v in (listed if isinstance(listed, list) else [])
+                 if v and str(v).strip()}
+    named.discard(native_id)
+    return named.pop() if len(named) == 1 else None
 
 
 def from_boamp(record: dict[str, Any]) -> Opportunity:
@@ -764,6 +954,7 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         source_url=boamp.notice_url(record),
         status=_FR_STATUS.get(nature, "open"),
         status_native=f"{perimetre}/{nature}" if perimetre or nature else None,
+        related_native_id=_fr_corrected_notice(record, body, str(native_id)),
         description=_fr_description(body),
     )
 
@@ -904,14 +1095,65 @@ def from_vinnova(record: dict[str, Any], *, today: date | None = None) -> Call:
 
 _NL_TZ = "Europe/Amsterdam"
 
-# The publication type decides the lifecycle. A rectification (REC) and a
-# market consultation (MAC) belong to a procedure that is still being run; a
-# modification notice (AAW) amends a contract that was already awarded.
+# The publication type decides the lifecycle. Checked on 12 October 2026 against
+# the 22,092 publications landed so far (these seven types are all there are)
+# and their `detail.formType`:
+#
+# - VAK is a prior-information notice (forms EF04-EF08, EFE2) or one used as a
+#   call for competition (EF10-EF14). Neither is a tender that can be answered:
+#   `forthcoming`. Mapped `open` they were 62 of the 107 effective-open Dutch
+#   rows (finding F13).
+# - MAC is a voluntary preliminary market consultation (EFE1). It carries no
+#   `sluitingsDatum` (0 of 1,326), only a consultation date, and is not a
+#   procedure yet: `forthcoming`.
+# - REC rectifies a notice of any family and inherits that notice's formType, so
+#   an award correction (EF29, EF30) is not an open tender. The formType decides
+#   (_NL_RECTIFIED_STATUS); without it (no detail page) the lifecycle is
+#   `unknown`, never `open`.
+# - AGO is an award notice (a voluntary ex-ante transparency notice, formType
+#   `dir-awa-pre`, is an award too), AAW a contract modification, VBE an early
+#   termination.
 _NL_STATUS = {
-    "AAO": "open", "VAK": "open", "MAC": "open", "REC": "open",
+    "AAO": "open", "VAK": "forthcoming", "MAC": "forthcoming",
     "AGO": "awarded", "AAW": "awarded",
     "VBE": "cancelled",
 }
+
+# `detail.formType` of a rectification, to the lifecycle of the notice it corrects.
+_NL_RECTIFIED_STATUS = {
+    "competition": "open", "planning": "forthcoming", "consultation": "forthcoming",
+    "result": "awarded", "dir-awa-pre": "awarded", "cont-modif": "awarded",
+}
+
+# The directive a Dutch form is written for, by the words of its description:
+# "Aankondiging van een opdracht - algemene richtlijn, standaardregeling".
+_NL_DIRECTIVES = (
+    ("algemene richtlijn", "32014L0024"),
+    ("sectorale richtlijn", "32014L0025"),
+    ("concessierichtlijn", "32014L0023"),
+)
+
+
+def _nl_legal_basis(framework: Any, form_text: str, european: bool) -> str | None:
+    """The CELEX act a publication stands on, when the source states it unambiguously.
+
+    `juridischKaderCode` names a Dutch instrument, not a directive. DEF, the
+    defence and security act, is Directive 2009/81/EC. NAW, the Aanbestedingswet
+    2012, carries the general, utilities and concessions directives *and* the
+    national below-threshold regime, so on its own it says nothing; with a form
+    written for one directive and a European (not national-only) publication it
+    does. ARW2012 (the works regulation) and AND2012 ("Anders") name no directive
+    and stay empty, as does every national-only publication. Measured on 22,092
+    publications: NAW 19,175, ARW2012 2,325, AND2012 429, DEF 162.
+    """
+    text = form_text.lower()
+    if "defensierichtlijn" in text or framework == "DEF":
+        return "32009L0081"
+    if framework == "NAW" and european:
+        for words, celex in _NL_DIRECTIVES:
+            if words in text:
+                return celex
+    return None
 
 
 def _nl_cpv(detail: dict[str, Any]) -> list[str]:
@@ -928,9 +1170,11 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
     """Map one TenderNed publication, list row plus its `detail`, onto the schema.
 
     The directive is read from the form (`publicatiecode`: "defensierichtlijn")
-    and from the detail's legal framework (`DEF`), whichever is present. Value is
-    left empty: neither level carries one, and the description's "circa EUR ..."
-    is prose, not a field.
+    and from the detail's legal framework (`DEF`), whichever is present, and for
+    the other directives from the framework and the form together
+    (`_nl_legal_basis`). Value is left empty: neither level carries one, and the
+    description's "circa EUR ..." is prose, not a field. The lifecycle follows
+    the publication type, and a rectification's follows what it corrects.
     """
     from .sources import tenderned
 
@@ -944,9 +1188,13 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
     form = _dict(record.get("publicatiecode"))
     kind = _dict(record.get("typePublicatie")).get("code") or ""
     framework = _dict(detail.get("juridischKaderCode")).get("code")
-    defence = "defensierichtlijn" in str(form.get("omschrijving") or "").lower() \
-        or framework == "DEF"
-    description = record.get("opdrachtBeschrijving") or detail.get("opdrachtBeschrijving")
+    european = (_dict(detail.get("nationaalOfEuropeesCode")).get("code") == "EU"
+                or record.get("europees") is True)
+    legal_basis = _nl_legal_basis(framework, str(form.get("omschrijving") or ""), european)
+    status = _NL_STATUS.get(kind, "unknown")
+    if kind == "REC":
+        status = _NL_RECTIFIED_STATUS.get(detail.get("formType"), "unknown")
+    description =record.get("opdrachtBeschrijving") or detail.get("opdrachtBeschrijving")
 
     return Opportunity(
         source_code=tenderned.SOURCE_CODE,
@@ -956,13 +1204,13 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
         country="NL",
         original_language="NL",
         procedure_type=_dict(record.get("procedure")).get("omschrijving"),
-        legal_basis="32009L0081" if defence else None,
+        legal_basis=legal_basis,
         published_at=_parse_date(record.get("publicatieDatum")),
         deadline_at=parse_iso_datetime(record.get("sluitingsDatum"),
                                        default_tz=ZoneInfo(_NL_TZ)),
         cpv_codes=_nl_cpv(detail),
         source_url=tenderned.notice_url(record),
-        status=_NL_STATUS.get(kind, "unknown"),
+        status=status,
         status_native=f"{kind}/{form.get('code')}" if kind or form.get("code") else None,
         ted_ref=canonical_ted_ref(detail.get("pbNummerTed")),
         description=str(description).strip() if description else None,

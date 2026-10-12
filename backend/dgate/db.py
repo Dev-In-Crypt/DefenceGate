@@ -76,6 +76,8 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     # of every record that does not have it: an empty link is simply absent.
     if payload.get("ted_ref") is None:
         payload.pop("ted_ref", None)
+    if payload.get("related_native_id") is None:
+        payload.pop("related_native_id", None)
     return payload
 
 
@@ -303,7 +305,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         security_clearance_required=opp.security_clearance_required,
         source_url=opp.source_url, buyer_org_id=opp.buyer_org_id,
         status=opp.status, status_native=opp.status_native,
-        ted_ref=opp.ted_ref,
+        ted_ref=opp.ted_ref, related_native_id=opp.related_native_id,
     )
 
 
@@ -498,6 +500,56 @@ def backfill_days_done(conn: psycopg.Connection, source_code: str) -> set[date]:
         "SELECT day FROM backfill_day WHERE source_code = %s", (source_code,)
     ).fetchall()
     return {row["day"] for row in rows}
+
+
+# How long a historical load stays away after the source refused it for rate
+# without saying for how long. The edge's window is minutes, and asking again
+# at once is what turned one 429 into a stopped history.
+BACKFILL_COOLDOWN_SECONDS = 15 * 60
+
+
+def record_backfill_stop(conn: psycopg.Connection, source_code: str, day: date | None,
+                         reason: str, retry_after: float | None = None) -> datetime:
+    """Remember that a source stopped a historical load, and until when.
+
+    Which days finished is `backfill_day`'s; this is why the run ended and when
+    the next may begin, so a rerun does not walk straight back into the limit.
+    The later of the cooldown and the source's own Retry-After. One row per
+    source, overwritten by the latest stop. Returns the time it may resume.
+    """
+    wait = max(BACKFILL_COOLDOWN_SECONDS, retry_after or 0.0)
+    row = conn.execute(
+        """INSERT INTO backfill_stop (source_code, day, reason, stopped_at, resume_after)
+           VALUES (%s, %s, %s, clock_timestamp(),
+                   clock_timestamp() + make_interval(secs => %s))
+           ON CONFLICT (source_code) DO UPDATE
+              SET day = EXCLUDED.day, reason = EXCLUDED.reason,
+                  stopped_at = EXCLUDED.stopped_at, resume_after = EXCLUDED.resume_after
+        RETURNING resume_after""",
+        (source_code, day, reason[:500], wait),
+    ).fetchone()
+    conn.commit()
+    return row["resume_after"]
+
+
+def backfill_resume_after(conn: psycopg.Connection, source_code: str) -> datetime | None:
+    """When a stopped historical load may start again, if that is still ahead."""
+    row = conn.execute(
+        "SELECT resume_after FROM backfill_stop "
+        "WHERE source_code = %s AND resume_after > clock_timestamp()", (source_code,)
+    ).fetchone()
+    return row["resume_after"] if row else None
+
+
+def note_backfill_finished(conn: psycopg.Connection, source_code: str) -> None:
+    """A load that ran to its end lifts an earlier stop's hold. The row stays."""
+    conn.execute(
+        """UPDATE backfill_stop
+              SET reason = 'resumed and finished: ' || reason, resume_after = clock_timestamp()
+            WHERE source_code = %s AND reason NOT LIKE 'resumed and finished%%'""",
+        (source_code,),
+    )
+    conn.commit()
 
 
 def record_raw(

@@ -18,6 +18,20 @@ class ResponseTooLarge(RuntimeError):
     """A response body larger than MAX_BODY_BYTES."""
 
 
+class RateLimited(RuntimeError):
+    """The source refused us for rate (HTTP 429, or the 403 its edge answers a burst
+    with) and the retry ladder did not clear it.
+
+    A historical load that meets this stops cleanly and records when it may
+    resume; it does not keep asking, and it does not crash. `retry_after` is the
+    far end's own statement of its window in seconds, when it made one.
+    """
+
+    def __init__(self, message: str, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 # Identify the client honestly. These are public administration and NATO agency
 # endpoints; anonymous scraping traffic is how access gets withdrawn.
 USER_AGENT = "dgate/0.1 (+https://github.com/Dev-In-Crypt/DefenceGate)"

@@ -46,6 +46,7 @@ from .normalise import (
 )
 from .rawstore import BufferedWriter, BundleWriter, build_store, storage_key
 from .sources import (
+    RateLimited,
     aid,
     bdns,
     boamp,
@@ -61,6 +62,28 @@ from .sources import (
 )
 
 log = logging.getLogger("pipeline")
+
+# The exit status of a historical load the source stopped (EX_TEMPFAIL): not a
+# success, and not a crash. A wrapper that re-runs the same command until it
+# exits 0 does the right thing, because the command resumes where it stopped.
+EXIT_STOPPED = 75
+
+
+class HistoryStopped(RuntimeError):
+    """A historical load was stopped by the source's rate limit, cleanly.
+
+    Every day before `day` is marked done, `day` is not, and `resume_after` is
+    when the source may be asked again (recorded in `backfill_stop`). Rerunning
+    the same command continues from `day`.
+    """
+
+    def __init__(self, source_code: str, day: date | None, resume_after: datetime,
+                 loaded: int) -> None:
+        where = f"stopped at {day} after {loaded} days" if day else "is on hold"
+        super().__init__(
+            f"{source_code} history {where}; may resume after {resume_after.isoformat()}")
+        self.source_code, self.day = source_code, day
+        self.resume_after, self.loaded = resume_after, loaded
 
 
 
@@ -871,6 +894,15 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
     row that points into it is committed, and the day is marked done only after
     those rows commit. An interrupted run loses at most the day it was in, and
     re-running skips what is already marked. Returns the number of days loaded.
+
+    A source that refuses for rate (`RateLimited`: HTTP 429, or the 403 a burst
+    is answered with, still there after the connector's whole retry ladder) ends
+    the run cleanly instead of crashing it: the day in progress is rolled back
+    and left unmarked, `backfill_stop` records why and until when, and
+    `HistoryStopped` is raised for the caller to turn into a non-zero exit. The
+    French history stopped this way on 23 September 2026 and was never resumed.
+    The next run refuses to start before `resume_after`, so a rerun loop cannot
+    keep a rate limiter open.
     """
     fetch_day, mapper = _history_source(source_code)
     cfg = settings()
@@ -879,6 +911,9 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
     loaded = 0
     with db.connect(cfg.dsn) as conn:
         src_id = db.source_id(conn, source_code)
+        held = db.backfill_resume_after(conn, source_code)
+        if held is not None:
+            raise HistoryStopped(source_code, None, held, 0)
         done = db.backfill_days_done(conn, source_code) if resume else set()
         pending = [day for day in days if day not in done]
         log.info("%s history: %s days to load, %s already done",
@@ -912,6 +947,14 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
                         _, action = db.upsert_opportunity(conn, opp, h, src_id)
                         new += action == "new"
                     conn.commit()
+            except RateLimited as exc:
+                conn.rollback()
+                resume_after = db.record_backfill_stop(
+                    conn, source_code, day, str(exc), exc.retry_after)
+                log.error("%s history stopped by the source at %s (%s days loaded): %s; "
+                          "rerun the same command after %s", source_code, day, loaded,
+                          exc, resume_after.isoformat())
+                raise HistoryStopped(source_code, day, resume_after, loaded) from exc
             except Exception:
                 # Same rule as the daily runs: roll the uncommitted index rows
                 # back rather than record keys whose payloads never landed. The
@@ -929,6 +972,8 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
             db.mark_backfill_day(conn, source_code, day, fetched)
             loaded += 1
             log.info("%s history %s: %s notices, %s defence", source_code, day, fetched, new)
+        if max_days is None or loaded < max_days:
+            db.note_backfill_finished(conn, source_code)
     return loaded
 
 
@@ -1482,8 +1527,13 @@ def main(argv: list[str] | None = None) -> int:
         run_atlas_backfill(a.year, path=a.file, limit=a.limit,
                            resume=not a.no_resume)
     elif a.cmd == "history":
-        run_history(a.source, a.start, a.end or date.today() - timedelta(days=1),
-                    resume=not a.no_resume, max_days=a.max_days)
+        try:
+            run_history(a.source, a.start, a.end or date.today() - timedelta(days=1),
+                        resume=not a.no_resume, max_days=a.max_days)
+        except HistoryStopped as stop:
+            # Already logged and recorded. Not a success: the exit status says so.
+            log.error("%s", stop)
+            return EXIT_STOPPED
     elif a.cmd == "seed-buyers":
         seed_buyers()
     return 0
