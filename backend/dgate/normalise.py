@@ -669,6 +669,13 @@ TED_STATUS_BY_TYPE: dict[str, str] = {
 }
 
 
+# Notice types that are not a step of a procurement (information notices of the buyer): they
+# carry no deadline and are never a call or an award, so their status is `unknown` on purpose.
+# Listing them here is what keeps the daily coverage check from alerting about a type that is
+# known and deliberately unmapped.
+TED_INFORMATION_TYPES = frozenset({"brin-only", "brin-ecs"})
+
+
 def ted_notice_type(notice: dict[str, Any]) -> str | None:
     raw = _first(notice.get("notice-type"))
     return str(raw).strip().lower() if raw else None

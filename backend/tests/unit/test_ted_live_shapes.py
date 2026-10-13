@@ -437,3 +437,13 @@ def test_a_corrected_status_is_a_versioned_change_and_an_unchanged_payload_is_no
     assert [f for f in db.VERSIONED_FIELDS if old.get(f) != new.get(f)] == ["status"]
     again = db.opportunity_payload(from_ted(raw))
     assert [f for f in db.VERSIONED_FIELDS if new.get(f) != again.get(f)] == []
+
+
+def test_information_notice_types_are_known_and_unknown_status():
+    """`brin-ecs` raised a coverage alert on 13 October 2026: an information notice of the
+    buyer is not a call or an award, so it is deliberately `unknown` and is not a surprise."""
+    from dgate.normalise import TED_INFORMATION_TYPES, TED_STATUS_BY_TYPE, ted_status
+
+    for kind in ("brin-only", "brin-ecs"):
+        assert kind in TED_INFORMATION_TYPES and kind not in TED_STATUS_BY_TYPE
+        assert ted_status(kind, False) == "unknown"

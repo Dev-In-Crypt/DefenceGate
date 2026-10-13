@@ -32,6 +32,7 @@ from .buyer_vocab import buyer_class_of
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import (
+    TED_INFORMATION_TYPES,
     TED_STATUS_BY_TYPE,
     Opportunity,
     from_aid,
@@ -287,7 +288,8 @@ def run_ted(days: int = 2) -> None:
                     except ValueError as exc:
                         log.warning("skipping malformed notice: %s", exc)
                         continue
-                    if ted_notice_type(clean) not in TED_STATUS_BY_TYPE:
+                    if (ted_notice_type(clean) not in TED_STATUS_BY_TYPE
+                            and ted_notice_type(clean) not in TED_INFORMATION_TYPES):
                         kind = ted_notice_type(clean) or "(none)"
                         unmapped[kind] = unmapped.get(kind, 0) + 1
                     key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
