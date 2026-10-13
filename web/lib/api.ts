@@ -3,11 +3,12 @@
  * Set DG_API_URL to talk to the real API; leave it unset to serve mock data.
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
-import type { Buyer, BuyerFilters, Call, CallFilters, Health, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, Health, MarketStats, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, DEFAULT_PAGE_SIZE, TENDER_PAGE_SIZE, toBuyerQuery, toQuery, toTenderQuery } from './filters';
 import { now } from './deadline';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
+import * as statsMock from './mock/stats';
 import * as tenderMock from './mock/tenders';
 
 const API_BASE = process.env.DG_API_URL;
@@ -145,6 +146,28 @@ export async function getBuyer(slug: string): Promise<Buyer | null> {
   if (!isBuyerSlug(slug)) return null;
   if (API_BASE) return http<Buyer>(`/v1/buyers/${encodeURIComponent(slug)}`);
   return tenderMock.findBuyer(slug);
+}
+
+/**
+ * The market overview: counts of core-scope notices (GET /v1/stats/market, cached an hour on the API). null only
+ * when the endpoint does not exist yet (a site built before the API was updated). Any other failure throws, so a
+ * page already built keeps being served and the next visit retries: a page that rendered "not available" would be
+ * kept for an hour.
+ */
+export async function getMarketStats(): Promise<MarketStats | null> {
+  if (!API_BASE) return statsMock.marketStats();
+  return http<MarketStats>('/v1/stats/market');
+}
+
+/** A buyer's own figures (GET /v1/buyers/{slug}/profile). null when there are none or the API cannot answer. */
+export async function getBuyerProfile(buyer: Buyer): Promise<BuyerProfile | null> {
+  if (!isBuyerSlug(buyer.slug)) return null;
+  if (!API_BASE) return statsMock.buyerProfile(buyer);
+  try {
+    return await http<BuyerProfile>(`/v1/buyers/${encodeURIComponent(buyer.slug)}/profile`);
+  } catch {
+    return null;
+  }
 }
 
 /** Slugs for the sitemap (buyers with an open tender, at most 2,000). */

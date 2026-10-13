@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import { displayName, upperShare } from './display-name';
 import { basisChips } from './tender-basis';
 import { formatChangeValue } from './change-format';
-import { minimumMet, sourceFreshness } from './source-status';
+import { heldSpan, minimumMet, sourceFreshness } from './source-status';
+import { barLayout, daysText, monthLabel, niceMax, percentText, shareOf } from './market';
+import { cpvGroupTitle } from './cpv';
 import { defaultTenderSort, ignoredFilters, isDay, lastPage, parseTenderFilters, toTenderQuery } from './filters';
 import { LANGUAGES, languageName } from './taxonomy';
 import { getCallDeadline } from './deadline';
@@ -165,6 +167,48 @@ for (let i = 0; i < 6; i++) assert.equal(gate.enter(), true);
 assert.equal(gate.enter(), false);
 gate.leave();
 assert.equal(gate.enter(), true);
+
+// ---- Market overview: counts of notices, drawn and said ----
+assert.equal(monthLabel('2026-10'), 'Oct 2026');
+assert.equal(monthLabel('2023-01'), 'Jan 2023');
+assert.equal(monthLabel('2026-13'), '2026-13');                    // not a month: left as it came
+assert.equal(niceMax(0), 1);
+assert.equal(niceMax(-5), 1);
+assert.equal(niceMax(7), 10);
+assert.equal(niceMax(10), 10);
+assert.equal(niceMax(11), 20);
+assert.equal(niceMax(230), 500);
+assert.equal(niceMax(501), 1000);
+assert.equal(percentText(null), 'Not measured');                  // not measured is never 0%
+assert.equal(percentText(0), '0%');
+assert.equal(percentText(0.0002), 'Under 0.1%');
+assert.equal(percentText(0.0074), '0.7%');
+assert.equal(percentText(0.123), '12%');
+assert.equal(shareOf(1, 0), 0);
+assert.equal(shareOf(5, 4), 1);
+assert.equal(daysText(null), 'Not measured');
+assert.equal(daysText(1), '1 day');
+assert.equal(daysText(35), '35 days');
+{
+  const { max, bars } = barLayout([0, 50, 100, 230], 100, 200, 0);
+  assert.equal(max, 500);
+  assert.equal(bars.length, 4);
+  assert.equal(bars[0].h, 0);                                         // an empty month has no bar, not a sliver
+  assert.equal(bars[3].h, 92);                                        // 230 / 500 of the box
+  assert.equal(bars[3].y, 200 - 92);
+  assert.equal(bars[3].x, 75);                                        // four bars side by side in 100
+  const empty = barLayout([], 100, 200);
+  assert.equal(empty.bars.length, 0);
+  assert.equal(empty.max, 1);
+}
+assert.equal(heldSpan('2020-11-03', '2026-10-12'), '3 Nov 2020 to 12 Oct 2026');
+assert.equal(heldSpan('2026-01-06', '2026-01-06'), '6 Jan 2026');   // one day is one date
+assert.equal(heldSpan(null, null), null);                           // a source that dates nothing says so elsewhere
+assert.equal(heldSpan(undefined, '2026-10-12'), '12 Oct 2026');
+assert.equal(heldSpan('not a date', null), null);
+assert.equal(cpvGroupTitle('351'), 'Emergency and security equipment');
+assert.equal(cpvGroupTitle('999'), null);                            // a group we do not hold: the code is shown alone
+assert.equal(cpvGroupTitle('35'), null);
 
 async function runnerChecks(): Promise<void> {
   const runner = new ExportRunner<string>(new TtlCache(600_000, 30), new Gate(2));

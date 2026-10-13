@@ -44,3 +44,19 @@ export function minimumMet(coverage: number | null): string {
   if (coverage >= 1) return 'Yes';
   return `No: ${Math.min(99, Math.floor(coverage * 100))}% of the minimum`;
 }
+
+/**
+ * "3 Nov 2020 to 12 Oct 2026": the span of publication dates we hold for a source, so that a gap (a bulletin
+ * that starts in 2020) is visible. Dates arrive as YYYY-MM-DD. null when the source gives no publication date.
+ */
+export function heldSpan(from: string | null | undefined, to: string | null | undefined): string | null {
+  const say = (iso: string | null | undefined): string | null => {
+    const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
+    if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) return null;
+    return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
+  };
+  const a = say(from);
+  const b = say(to);
+  if (a && b) return a === b ? a : `${a} to ${b}`;
+  return a ?? b;
+}

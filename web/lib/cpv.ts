@@ -27,6 +27,11 @@ export interface CpvRow {
 export interface CpvGroup { id: string; title: string | null; rows: CpvRow[] }
 export interface CpvSection { id: string; title: string; intro: string; groups: CpvGroup[] }
 
+/** The vocabulary's title of a 3-digit group (`351` is the title of 35100000), or null when we do not hold it. */
+export function cpvGroupTitle(group: string): string | null {
+  return /^\d{3}$/.test(group) ? (CODES[`${group}00000`] ?? null) : null;
+}
+
 /** `35121700` -> `351217`; `35000000` -> `35`. A 2- to 8-digit prefix is what the /tenders filter takes. */
 export function cpvPrefix(code: string): string {
   return code.replace(/0+$/, '').padEnd(2, '0').slice(0, 8);

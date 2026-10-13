@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { getBuyer, getTenders, isBuyerSlug } from '@/lib/api';
+import { getBuyer, getBuyerProfile, getTenders, isBuyerSlug } from '@/lib/api';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, type SearchParams } from '@/lib/filters';
@@ -12,6 +12,7 @@ import { TenderCard } from '@/components/dg/cards';
 import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
 import { FollowButton } from '@/components/account/save-button';
+import { BuyerProfileSection } from '@/components/market/buyer-profile';
 
 export const revalidate = 3600;
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
@@ -47,11 +48,13 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
 
   const page = pageOf(sp);
   // Two fixed queries on the id the API gave us: open tenders first, then the history. No ordering across them is assumed.
-  const [open, earlier] = await Promise.all([
+  const [open, earlier, profile] = await Promise.all([
     page === 1 && buyer.openCount > 0
       ? getTenders({ buyer: buyer.id, status: 'open', pageSize: OPEN_LIMIT }, { cacheable: true })
       : Promise.resolve(null),
     getTenders({ buyer: buyer.id, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 }),
+    // The profile is an extra: a buyer page still renders when the API cannot answer it.
+    page === 1 && buyer.tenderCount > 0 ? getBuyerProfile(buyer) : Promise.resolve(null),
   ]);
 
   // A page past the last one is the last one, not an empty list.
@@ -86,6 +89,8 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
         </dl>
         <p className="m-0 max-w-[62ch] text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
       </header>
+
+      {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
 
       {page === 1 && (
         <section aria-labelledby="open-tenders" className="flex flex-col gap-4">

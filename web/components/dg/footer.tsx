@@ -11,7 +11,7 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   ] },
   { title: 'Data', links: [
     { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
-    { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
+    { label: 'Market overview', href: '/market' }, { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
     { label: 'Alerts', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
     { label: 'Pricing', href: '/pricing' },
   ] },

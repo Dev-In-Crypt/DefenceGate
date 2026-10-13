@@ -42,7 +42,7 @@
 	# Only what the product serves reaches the API. /docs, /openapi.json and any
 	# route added later and forgotten are a 404 here, whatever the application
 	# does.
-	@public path /v1/funding /v1/funding/* /v1/opportunities /v1/opportunities/* /v1/calls /v1/calls/* /v1/tenders /v1/tenders/* /v1/buyers /v1/buyers/* /v1/sources /v1/health /v1/organisations/resolve
+	@public path /v1/funding /v1/funding/* /v1/opportunities /v1/opportunities/* /v1/calls /v1/calls/* /v1/tenders /v1/tenders/* /v1/buyers /v1/buyers/* /v1/stats/market /v1/sources /v1/health /v1/organisations/resolve
 	handle @public {
 		reverse_proxy api:8000 {
 			transport http {

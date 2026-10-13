@@ -244,6 +244,41 @@ export interface Buyer {
   isDefenceBuyer: boolean;
 }
 
+/** GET /v1/stats/market: counts of core-scope notices published. Never spend, never market size. */
+export interface MarketMonth { month: string; count: number; ted: number; partial: boolean }
+export interface MarketStats {
+  asOf: IsoDateTime;
+  scope: 'core';
+  unit: 'notices published';
+  /** The 12-month window of every figure but `months`, as dates. */
+  windowFrom: string;
+  windowTo: string;
+  /** Sources that contributed core notices in the window. */
+  sourceCount: number;
+  /** 36 calendar months, oldest first; the last may be incomplete. */
+  months: MarketMonth[];
+  countries: { total: number; items: { country: string; count: number }[]; other: number };
+  sources: { id: string; name: string; count: number }[];
+  amendments: { notices: number; amended: number; share: number | null };
+  responseWindow: { notices: number; median: number | null; p25: number | null; p75: number | null };
+  cpvGroups: { group: string; count: number }[];
+  basis: Record<string, string>;
+}
+
+/** GET /v1/buyers/{slug}/profile: the buyer's own core-scope notices, counted. */
+export interface BuyerProfile {
+  buyerId: string;
+  asOf: IsoDateTime;
+  tenderCount: number;
+  openNow: number;
+  perYear: { year: number; count: number }[];
+  cpvGroups: { group: string; count: number }[];
+  responseWindow: { notices: number; median: number | null; p25: number | null; p75: number | null };
+  amendments: { notices: number; amended: number; share: number | null };
+  sources: { id: string; name: string; count: number }[];
+  basis: Record<string, string>;
+}
+
 export type BuyerSort = 'tenders' | 'name';
 export interface BuyerFilters {
   q?: string;
@@ -271,6 +306,10 @@ export interface SourceHealth {
   coverage: number | null;
   licence: string;
   attribution: string;
+  /** What we hold of this source: the span of publication dates and how many records. Absent from an older API. */
+  heldFrom?: string | null;
+  heldTo?: string | null;
+  heldCount?: number | null;
 }
 export interface Health {
   generatedAt: IsoDateTime;

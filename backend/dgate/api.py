@@ -746,6 +746,11 @@ from .tenders import router as _tenders_router  # noqa: E402
 
 app.include_router(_tenders_router)
 
+# Market overview and the buyer profile: cached counts of notices (stats.py).
+from .stats import router as _stats_router  # noqa: E402
+
+app.include_router(_stats_router)
+
 # Accounts: reached only by the site's own server over the internal network, never routed
 # by Caddy (docs/design/ACCOUNT_CONTRACT.md).
 from .accounts import AccountError, account_error_handler  # noqa: E402

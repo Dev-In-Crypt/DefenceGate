@@ -4,7 +4,7 @@ import { now } from '@/lib/deadline';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata } from '@/lib/seo';
-import { minimumMet, sourceFreshness, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
+import { heldSpan, minimumMet, sourceFreshness, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
 import type { SourceHealth, SourceType } from '@/lib/types';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
@@ -28,6 +28,9 @@ const GROUPS: { type: SourceType; title: string }[] = [
 function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
   const url = safeHttpUrl(s.url);
   const fresh = sourceFreshness(s, asOf);
+  const held = typeof s.heldCount === 'number';
+  const span = heldSpan(s.heldFrom, s.heldTo);
+  const noun = s.type === 'grants' ? 'Calls' : 'Notices';
   return (
     <article className="flex min-w-0 flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -43,6 +46,14 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
         <FactCell label="Records in last run">{s.lastRunAt ? formatNumber(s.records) : <span className="font-sans">None</span>}</FactCell>
         <FactCell label="Met expected minimum"><span className="font-sans">{minimumMet(s.coverage)}</span></FactCell>
       </dl>
+      {held && (
+        <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+          <FactCell label="Publication dates held">
+            {span ? <span>{span}</span> : <span className="font-sans">Not stated by the source</span>}
+          </FactCell>
+          <FactCell label={`${noun} held`}>{formatNumber(s.heldCount ?? 0)}</FactCell>
+        </dl>
+      )}
       <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-md bg-surface-inset p-4 font-mono text-[12px] leading-[18px]">
         <dt className="text-ink-muted">Licence</dt><dd className="m-0 break-words text-ink">{s.licence}</dd>
         <dt className="text-ink-muted">Attribution</dt><dd className="m-0 break-words text-ink">{s.attribution}</dd>
@@ -101,6 +112,7 @@ export default async function DataPage() {
           We cover the sources listed above and nothing else. A source that is not listed is not collected, and a listed source may publish more than we have collected.
         </p>
         <p className="m-0 text-body text-ink-muted">
+          Publication dates held are the earliest and latest date the source gives for what we hold, so a source that starts late shows it; they are not the span of everything the source has published.
           Where we have set no minimum, it is not measured. Amounts are shown in the currency the source states and are never converted. All times are UTC.
         </p>
       </ContentSection>

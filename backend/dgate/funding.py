@@ -177,6 +177,11 @@ class SourceHealth(BaseModel):
     coverage: float | None
     licence: str
     attribution: str
+    # What we hold of this source: how many records, and the span of their publication
+    # dates (stats.source_spans). Null where the source gives no publication date.
+    heldFrom: date | None = None
+    heldTo: date | None = None
+    heldCount: int | None = None
 
 
 class Health(BaseModel):
@@ -511,7 +516,9 @@ def get_funding(slug: str, conn=Depends(get_conn)):
 @router.get("/v1/sources", response_model=Health)
 def list_sources(conn=Depends(get_conn)):
     from .api import _attribution  # api includes this router, so import it late
+    from .stats import cached_source_spans
 
+    spans = cached_source_spans(conn)
     rows = conn.execute(
         """SELECT DISTINCT ON (s.code)
                   s.code, s.name, s.country, s.kind, s.base_url, s.licence, s.attribution,
@@ -533,6 +540,9 @@ def list_sources(conn=Depends(get_conn)):
             "coverage": min(1.0, fetched / floor) if floor else None,
             "licence": r["licence"] or "", "attribution": _attribution(
                 {"source_attribution": r["attribution"], "source_code": r["code"]}),
+            # A source with nothing held reads 0; no entry at all means the read was skipped.
+            **(spans.get(r["code"], {"heldFrom": None, "heldTo": None, "heldCount": 0})
+               if spans else {}),
         })
     return {"generatedAt": datetime.now(timezone.utc), "sources": sources}
 

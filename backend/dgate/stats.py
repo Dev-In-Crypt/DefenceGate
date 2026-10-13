@@ -1,0 +1,482 @@
+"""Market overview, buyer profile and the span of what each source holds.
+
+Everything here is a count of notices published. Never spend, never market size, never a
+row per company: the market figures are over all core-scope notices, the profile is the
+buyer's own core-scope notices and says so. The scope is the one the tenders list uses
+(`tenders.CORE`: the 2009/81/EC legal basis, or a military CPV a buyer's own needs do not
+explain).
+
+Decisions that shape it:
+
+  - every aggregate is cached in this process for an hour (`CACHE_SECONDS`) and computed
+    under one lock, so a cold cache runs each query once and not once per visitor; a cache
+    hit does not open a database connection
+  - each aggregate is a query of its own, over indexed columns: the 36-month series reads
+    `opp_core_published` (migration 0038), a buyer's figures read `opp_buyer_org`
+  - "amended" is the timeline's own rule (`tenders.timeline`), not an SQL approximation:
+    SQL only narrows to the notices that have a version which could count, and the
+    timeline decides. On 13 October 2026 that was 69 candidates among 9,741 notices
+  - a median is the middle observed number of days (`percentile_disc`), so it is a whole
+    number of days that some notice actually had
+  - a deadline before the publication date, or more than three years after it, is a
+    data fault (`funding.anomalies`) and is left out of the response window, as the
+    notice page flags it
+  - a CPV group is the first three digits of a code; a notice with codes in several groups
+    counts once in each. The vocabulary's titles live in the site (`web/lib/data/cpv.json`),
+    not here: the API answers with the code
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from contextlib import ExitStack, contextmanager
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
+
+import psycopg
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from . import db
+from .config import settings
+from .tenders import CORE, FIELD_LABELS, TIMELINE_SQL, _api, _id_of, timeline
+
+router = APIRouter()
+
+CACHE_SECONDS = 3600
+RETRY_SECONDS = 60           # how long a failed source-span read is not tried again
+MAX_CACHED = 1000
+MONTHS = 36
+WINDOW_DAYS = 365
+TOP_COUNTRIES = 15
+TOP_CPV_MARKET = 12
+TOP_CPV_BUYER = 5
+BUYER_YEARS = 6
+RESPONSE_HORIZON_DAYS = 3 * 365      # funding.DEADLINE_HORIZON_DAYS
+TIMELINE_CHUNK = 500
+
+# Exactly the predicate of the partial index `opp_core_published` (migration 0038), so
+# the planner can use it.
+CORE_NOTICES = f"o.is_defence AND {CORE}"
+
+# A version that changed only the publication date is not an amendment (tenders.timeline);
+# nor is one annotated with a `db.NOT_AMENDMENT_NOTES` kind.
+CHANGING_FIELDS = [f for f in FIELD_LABELS if f != "published_at"]
+
+
+# ------------------------------------------------------------------ cache
+
+_cache: dict[Any, tuple[float, Any]] = {}
+_lock = threading.Lock()
+_ABSENT = object()
+
+
+def reset_cache() -> None:
+    _cache.clear()
+
+
+def _get(key: Any) -> Any:
+    hit = _cache.get(key)
+    return hit[1] if hit and hit[0] > time.monotonic() else _ABSENT
+
+
+def _put(key: Any, value: Any, ttl: float = CACHE_SECONDS) -> None:
+    if key not in _cache and len(_cache) >= MAX_CACHED:
+        del _cache[min(_cache, key=lambda k: _cache[k][0])]
+    _cache[key] = (time.monotonic() + ttl, value)
+
+
+def cached(key: Any, compute):
+    """`compute()` once an hour per key. A None result is not stored: it is "no such
+    buyer", and arbitrary ids must not fill the cache. A computation that raises is not
+    stored either, and the figures cached before it stay, so a retry only redoes what
+    failed. ponytail: one lock for every key, so a buyer profile waits while a market
+    figure is being computed (seconds, once an hour); per-key locks if that ever shows."""
+    value = _get(key)
+    if value is not _ABSENT:
+        return value
+    with _lock:
+        value = _get(key)
+        if value is not _ABSENT:
+            return value
+        value = compute()
+        if value is not None:
+            _put(key, value)
+        return value
+
+
+@contextmanager
+def _connection():
+    """The API's own role, opened only when something has to be computed."""
+    cfg = settings()
+    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
+        yield conn
+
+
+class _Lazy:
+    """The connection, opened the first time a query needs it (a request the cache can
+    answer opens none) and closed when the request ends."""
+
+    def __init__(self) -> None:
+        self._stack = ExitStack()
+        self._conn: Any = None
+
+    def __call__(self) -> Any:
+        if self._conn is None:
+            self._conn = self._stack.enter_context(_connection())
+        return self._conn
+
+    def __enter__(self) -> "_Lazy":
+        return self
+
+    def __exit__(self, *exc: Any) -> Any:
+        return self._stack.__exit__(*exc)
+
+
+# ----------------------------------------------------------- pure helpers
+
+def month_starts(today: date, n: int = MONTHS) -> list[date]:
+    """The first day of each of the `n` months ending with the one `today` is in."""
+    out: list[date] = []
+    year, month = today.year, today.month
+    for _ in range(n):
+        out.append(date(year, month, 1))
+        year, month = (year - 1, 12) if month == 1 else (year, month - 1)
+    return out[::-1]
+
+
+def _scope(since: date, today: date) -> tuple[str, list[Any]]:
+    """Core-scope notices published from `since` to `today` (a date in the future is
+    not a publication)."""
+    return f"{CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s", [since, today]
+
+
+def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
+    return f"{CORE_NOTICES} AND o.buyer_org_id = %s", [org_id]
+
+
+# ------------------------------------------------------------ aggregates
+# Each takes a connection and a (where, params) scope over `opportunity o` and returns
+# plain data. The same helpers serve the market and a buyer.
+
+def notices_per_month(conn, today: date, months: int = MONTHS) -> list[dict[str, Any]]:
+    """Notices published per calendar month, all sources and TED alone, zero-filled.
+    The month `today` is in is incomplete and says so."""
+    starts = month_starts(today, months)
+    rows = conn.execute(
+        f"""SELECT date_trunc('month', o.published_at)::date AS month, count(*) AS n,
+                   count(*) FILTER (
+                       WHERE o.source_id = (SELECT id FROM source WHERE code = 'ted')) AS ted
+              FROM opportunity o
+             WHERE {CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s
+             GROUP BY 1""", (starts[0], today)).fetchall()
+    found = {r["month"]: r for r in rows}
+    return [{"month": f"{d:%Y-%m}", "count": found[d]["n"] if d in found else 0,
+             "ted": found[d]["ted"] if d in found else 0, "partial": d == starts[-1]}
+            for d in starts]
+
+
+def notices_per_country(conn, where: str, params: list[Any], top: int = TOP_COUNTRIES
+                        ) -> dict[str, Any]:
+    """The `top` countries by notices, the rest as one figure. A notice with no country
+    is in `other`, never dropped."""
+    rows = conn.execute(
+        f"SELECT o.country, count(*) AS n FROM opportunity o WHERE {where} GROUP BY o.country",
+        params).fetchall()
+    total = sum(r["n"] for r in rows)
+    ranked = sorted(((r["country"], r["n"]) for r in rows if r["country"]),
+                    key=lambda x: (-x[1], x[0]))
+    items = [{"country": c, "count": n} for c, n in ranked[:top]]
+    return {"total": total, "items": items, "other": total - sum(i["count"] for i in items)}
+
+
+def notices_per_source(conn, where: str, params: list[Any]) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        f"""SELECT s.code AS id, s.name, count(*) AS n
+              FROM opportunity o JOIN source s ON s.id = o.source_id
+             WHERE {where} GROUP BY s.code, s.name ORDER BY n DESC, s.code""", params).fetchall()
+    return [{"id": r["id"], "name": r["name"], "count": r["n"]} for r in rows]
+
+
+def response_window(conn, where: str, params: list[Any]) -> dict[str, Any]:
+    """Days from publication to the stated deadline: quartiles over the notices that
+    state one within `RESPONSE_HORIZON_DAYS` and not before publication."""
+    row = conn.execute(
+        f"""SELECT count(*) AS n,
+                   percentile_disc(ARRAY[0.25, 0.5, 0.75]) WITHIN GROUP (ORDER BY d) AS q
+              FROM (SELECT (o.deadline_at AT TIME ZONE 'UTC')::date - o.published_at AS d
+                      FROM opportunity o
+                     WHERE {where} AND o.deadline_at IS NOT NULL
+                       AND o.published_at IS NOT NULL) t
+             WHERE d BETWEEN 0 AND %s""", params + [RESPONSE_HORIZON_DAYS]).fetchone()
+    q = row["q"] or [None, None, None]
+    return {"notices": row["n"], "median": q[1], "p25": q[0], "p75": q[2]}
+
+
+def cpv_groups(conn, where: str, params: list[Any], top: int) -> list[dict[str, Any]]:
+    """The 3-digit CPV groups with most notices; a notice counts once per group."""
+    rows = conn.execute(
+        "SELECT g, count(*) AS n FROM (SELECT DISTINCT o.id, left(c, 3) AS g "
+        f"FROM opportunity o, unnest(o.cpv_codes) AS c WHERE {where} AND c ~ '^[0-9]{{3}}') t "
+        "GROUP BY g ORDER BY n DESC, g LIMIT %s", params + [top]).fetchall()
+    return [{"group": r["g"], "count": r["n"]} for r in rows]
+
+
+def amendment_share(conn, where: str, params: list[Any]) -> dict[str, Any]:
+    """How many of the scope's notices have an amendment, as the tender page's timeline
+    counts one. SQL names the notices with a version that could count (changed a listed
+    field other than the publication date, not a re-read, out-of-order or remapped
+    version); `timeline` decides."""
+    total = conn.execute(f"SELECT count(*) AS n FROM opportunity o WHERE {where}",
+                         params).fetchone()["n"]
+    ids = [r["opportunity_id"] for r in conn.execute(
+        f"""SELECT DISTINCT v.opportunity_id
+              FROM opportunity o JOIN opportunity_version v ON v.opportunity_id = o.id
+             WHERE {where} AND v.changed_fields && %s::text[]
+               AND NOT EXISTS (SELECT 1 FROM opportunity_version_note n
+                                WHERE n.opportunity_version_id = v.id AND n.kind = ANY(%s))""",
+        params + [CHANGING_FIELDS, list(db.NOT_AMENDMENT_NOTES)]).fetchall()]
+    amended = 0
+    for i in range(0, len(ids), TIMELINE_CHUNK):
+        rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = ANY(%s)"),
+                            (ids[i:i + TIMELINE_CHUNK],)).fetchall()
+        by_notice: dict[int, list[dict[str, Any]]] = {}
+        for r in rows:
+            by_notice.setdefault(r["opportunity_id"], []).append(r)
+        amended += sum(1 for group in by_notice.values() if len(timeline(group)) > 1)
+    return {"notices": total, "amended": amended,
+            "share": round(amended / total, 4) if total else None}
+
+
+# ---------------------------------------------------------------- market
+
+BASIS = {
+    "months": "Counts of notices published per month, not contract value. Only notices that "
+              "state the defence directive or carry a military CPV code are counted. The "
+              "latest month is not complete. Source coverage differs by country: see source "
+              "status.",
+    "countries": "Counts of notices published in the last 12 months, by the buyer's country. "
+                 "Source coverage differs by country: see source status.",
+    "sources": "Counts of notices published in the last 12 months, by the source we collected "
+               "them from.",
+    "amendments": "Share of the notices published in the last 12 months that have an amendment "
+                  "in the archive: a later version that changed something other than the "
+                  "publication date.",
+    "responseWindow": "Days from publication to the stated deadline, for notices published in "
+                      "the last 12 months that state one. Award notices state none; a "
+                      "deadline before publication or more than three years away is left out.",
+    "cpvGroups": "Notices published in the last 12 months with at least one code in the "
+                 "3-digit CPV group; a notice with codes in several groups counts once in "
+                 "each. Counts of notices, not contract value.",
+}
+
+
+def market(get_conn, today: date | None = None) -> dict[str, Any]:
+    """Each figure is cached on its own for the hour. The API role has a 5 s budget and a
+    cold cache can spend it on one query (a 36-month scan took 11.7 s on a busy server on
+    13 October 2026, before migration 0038): the request then fails with a 503, and the
+    next one redoes only what is not cached, on pages the failed one already warmed."""
+    today = today or datetime.now(timezone.utc).date()
+    since = today - timedelta(days=WINDOW_DAYS)
+    where, params = _scope(since, today)
+    sections = {
+        "months": lambda c: notices_per_month(c, today),
+        "countries": lambda c: notices_per_country(c, where, params),
+        "sources": lambda c: notices_per_source(c, where, params),
+        "amendments": lambda c: amendment_share(c, where, params),
+        "responseWindow": lambda c: response_window(c, where, params),
+        "cpvGroups": lambda c: cpv_groups(c, where, params, TOP_CPV_MARKET),
+    }
+    got: dict[str, dict[str, Any]] = {}
+    for name, fn in sections.items():
+        got[name] = cached(
+            ("market", name, today),
+            lambda fn=fn: {"at": datetime.now(timezone.utc), "data": fn(get_conn())})
+    return {
+        "asOf": min(part["at"] for part in got.values()),     # the oldest figure on the page
+        "scope": "core",
+        "unit": "notices published",
+        "windowFrom": since,
+        "windowTo": today,
+        "sourceCount": len(got["sources"]["data"]),
+        **{name: part["data"] for name, part in got.items()},
+        "basis": dict(BASIS),
+    }
+
+
+class MonthCount(BaseModel):
+    month: str
+    count: int
+    ted: int
+    partial: bool
+
+
+class CountryCount(BaseModel):
+    country: str
+    count: int
+
+
+class Countries(BaseModel):
+    total: int
+    items: list[CountryCount]
+    other: int
+
+
+class SourceCount(BaseModel):
+    id: str
+    name: str
+    count: int
+
+
+class CpvGroupCount(BaseModel):
+    group: str
+    count: int
+
+
+class Amendments(BaseModel):
+    notices: int
+    amended: int
+    share: float | None
+
+
+class ResponseWindow(BaseModel):
+    notices: int
+    median: int | None
+    p25: int | None
+    p75: int | None
+
+
+class MarketStats(BaseModel):
+    asOf: datetime
+    scope: str
+    unit: str
+    windowFrom: date
+    windowTo: date
+    sourceCount: int
+    months: list[MonthCount]
+    countries: Countries
+    sources: list[SourceCount]
+    amendments: Amendments
+    responseWindow: ResponseWindow
+    cpvGroups: list[CpvGroupCount]
+    basis: dict[str, str]
+
+
+@router.get("/v1/stats/market", response_model=MarketStats)
+def market_stats():
+    with _Lazy() as get_conn:
+        return market(get_conn)
+
+
+# ----------------------------------------------------------- buyer profile
+
+PROFILE_BASIS = {
+    "perYear": "Counts of this buyer's notices by year of publication, not contract value.",
+    "cpvGroups": "This buyer's notices, all years, with at least one code in the 3-digit "
+                 "CPV group; a notice counts once in each group it has.",
+    "responseWindow": "Days from publication to the stated deadline over this buyer's "
+                      "notices that state one. Award notices state none.",
+    "amendments": "Share of this buyer's notices with an amendment in the archive: a later "
+                  "version that changed something other than the publication date.",
+    "sources": "Counts of this buyer's notices by the source we collected them from.",
+}
+
+
+def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any] | None:
+    """The buyer's own core-scope notices, or None when it has none (the buyer page's
+    404). `openNow` is as of now, with the status rule the tender list uses."""
+    today = today or datetime.now(timezone.utc).date()
+    where, params = _buyer_scope(org_id)
+    head = conn.execute(
+        f"""SELECT count(*) AS n, count(*) FILTER (WHERE {_api().EFFECTIVE_STATUS_SQL} = 'open')
+                   AS open_n
+              FROM opportunity o WHERE {where}""", params).fetchone()
+    if not head["n"]:
+        return None
+    first_year = today.year - BUYER_YEARS + 1
+    rows = conn.execute(
+        f"""SELECT extract(year FROM o.published_at)::int AS y, count(*) AS n
+              FROM opportunity o WHERE {where} AND o.published_at >= %s AND o.published_at <= %s
+             GROUP BY 1""", params + [date(first_year, 1, 1), today]).fetchall()
+    by_year = {r["y"]: r["n"] for r in rows}
+    return {
+        "buyerId": str(org_id),
+        "asOf": datetime.now(timezone.utc),
+        "scope": "core",
+        "unit": "notices published",
+        "tenderCount": head["n"],
+        "openNow": head["open_n"],
+        "perYear": [{"year": y, "count": by_year.get(y, 0)}
+                    for y in range(first_year, today.year + 1)],
+        "cpvGroups": cpv_groups(conn, where, params, TOP_CPV_BUYER),
+        "responseWindow": response_window(conn, where, params),
+        "amendments": amendment_share(conn, where, params),
+        "sources": notices_per_source(conn, where, params),
+        "basis": dict(PROFILE_BASIS),
+    }
+
+
+class YearCount(BaseModel):
+    year: int
+    count: int
+
+
+class BuyerProfile(BaseModel):
+    buyerId: str
+    asOf: datetime
+    scope: str
+    unit: str
+    tenderCount: int
+    openNow: int
+    perYear: list[YearCount]
+    cpvGroups: list[CpvGroupCount]
+    responseWindow: ResponseWindow
+    amendments: Amendments
+    sources: list[SourceCount]
+    basis: dict[str, str]
+
+
+@router.get("/v1/buyers/{slug}/profile", response_model=BuyerProfile)
+def get_buyer_profile(slug: str):
+    org_id = _id_of(slug, "buyer")
+
+    def build():
+        with _connection() as conn:
+            return buyer_profile(conn, org_id)
+    found = cached(("buyer", org_id), build)
+    if found is None:
+        raise HTTPException(404, "no such buyer")
+    return found
+
+
+# ----------------------------------------------------------- source spans
+
+def source_spans(conn) -> dict[str, dict[str, Any]]:
+    """For each source, how many notices (or calls) we hold and the span of their
+    publication dates, so that a gap ("BOAMP from 2015, nothing before") is visible.
+    A grant source's span is blank where the source gives no publication date."""
+    out: dict[str, dict[str, Any]] = {}
+    for table, extra in (("opportunity", "WHERE o.is_defence"), ("call", "")):
+        alias = table[0]
+        rows = conn.execute(
+            f"""SELECT s.code, count(*) AS n, min({alias}.published_at) AS first,
+                       max({alias}.published_at) AS last
+                  FROM {table} {alias} JOIN source s ON s.id = {alias}.source_id
+                  {extra} GROUP BY s.code""").fetchall()
+        for r in rows:
+            out[r["code"]] = {"heldFrom": r["first"], "heldTo": r["last"], "heldCount": r["n"]}
+    return out
+
+
+def cached_source_spans(conn) -> dict[str, dict[str, Any]]:
+    """For `/v1/sources`, which every page's footer reads: a read that does not finish in
+    the API role's budget must not take the footer down with it. It answers with no spans,
+    and is not tried again for `RETRY_SECONDS`."""
+    try:
+        return cached("source-spans", lambda: source_spans(conn))
+    except psycopg.errors.QueryCanceled:
+        conn.rollback()
+        with _lock:
+            _put("source-spans", {}, RETRY_SECONDS)
+        return {}
