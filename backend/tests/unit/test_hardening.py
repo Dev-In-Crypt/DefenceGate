@@ -9,6 +9,8 @@ import zlib
 from datetime import date
 
 import pytest
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 from dgate import rawstore
 from dgate.api import SNAPSHOT_FIELDS, public_snapshot
@@ -228,3 +230,73 @@ def test_an_identifier_from_a_source_is_checked_before_it_is_put_into_a_url():
 ])
 def test_only_a_private_peer_is_the_sites_own_server_and_gets_the_larger_bucket(peer, internal):
     assert is_internal(peer) is internal
+
+
+# ----------------------------------------- the counter and the body limit (review H1, M1)
+
+
+class _Probe(BaseModel):
+    text: str = ""
+
+
+def _probe_app():
+    app = FastAPI()
+
+    @app.post("/v1/account/echo")
+    def echo(body: _Probe) -> dict:
+        return {"n": len(body.text)}
+
+    @app.post("/v1/other/echo")
+    def other(body: _Probe) -> dict:
+        return {"n": len(body.text)}
+
+    @app.post("/v1/internal/hit")
+    def hit() -> dict:
+        return {"ok": True}
+
+    @app.get("/v1/funding")
+    def funding() -> dict:
+        return {"ok": True}
+
+    return app
+
+
+def _chunks(size: int, parts: int = 4):
+    """A request body with no Content-Length: httpx sends a generator as chunked."""
+    for _ in range(parts):
+        yield b" " * (size // parts)
+
+
+def test_a_body_with_no_content_length_is_counted_on_the_bytes_that_arrive():
+    from fastapi.testclient import TestClient
+
+    from dgate.hardening import BODY_MAX, BodyLimit
+
+    client = TestClient(BodyLimit(_probe_app()))
+    big = client.post("/v1/account/echo", content=_chunks(BODY_MAX * 2),
+                      headers={"content-type": "application/json"})
+    assert big.status_code == 413 and big.json()["error"] == "too_large"
+    fits = client.post("/v1/account/echo", json={"text": "x" * 100})
+    assert fits.status_code == 200 and fits.json() == {"n": 100}
+    declared = client.post("/v1/account/echo", content=b'{"text": "' + b"x" * BODY_MAX + b'"}',
+                           headers={"content-type": "application/json"})
+    assert declared.status_code == 413
+    other = client.post("/v1/other/echo", json={"text": "x" * (BODY_MAX * 2)})      # not an account route
+    assert other.status_code == 200
+
+
+def test_the_visit_counter_is_not_charged_to_the_shared_internal_bucket(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from dgate import config
+    from dgate.hardening import RateLimit, TokenBuckets
+
+    monkeypatch.setenv("DGATE_RATE_LIMIT", "1")
+    config.reset_cache()
+    limiter = RateLimit(_probe_app())
+    limiter.internal = TokenBuckets(capacity=3, refill=0.0)
+    client = TestClient(limiter, client=("172.18.0.5", 5000))      # the site's server: a private peer
+    assert [client.post("/v1/internal/hit").status_code for _ in range(50)] == [200] * 50
+    assert [client.get("/v1/funding").status_code for _ in range(5)] == [200, 200, 200, 429, 429]
+    monkeypatch.undo()
+    config.reset_cache()

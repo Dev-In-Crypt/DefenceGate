@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { authVerify, BIND_COOKIE, isTokenShaped, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '@/lib/account';
+import { authVerify, BIND_COOKIE, clearCookie, isTokenShaped, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, setCookie } from '@/lib/account';
 
 export interface ConfirmState {
   /** `invalid` covers every refusal (wrong, used, expired, other browser): one message, no detail. */
@@ -25,8 +25,8 @@ export async function confirmSignIn(_prev: ConfirmState, form: FormData): Promis
   // Life of the cookie follows the session's own expiry, never longer than the contract's 30 days.
   const left = Math.floor((Date.parse(r.data.expiresAt) - Date.now()) / 1000);
   const maxAge = Number.isFinite(left) && left > 0 ? Math.min(left, SESSION_MAX_AGE_SECONDS) : SESSION_MAX_AGE_SECONDS;
-  jar.set(SESSION_COOKIE, r.data.session, { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge });
-  jar.delete({ name: BIND_COOKIE, path: '/auth' });
+  await setCookie(SESSION_COOKIE, r.data.session, maxAge);
+  await clearCookie(BIND_COOKIE);
 
   redirect(r.data.isNew ? '/app/welcome' : '/app');
 }

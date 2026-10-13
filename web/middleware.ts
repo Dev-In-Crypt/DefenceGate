@@ -1,10 +1,15 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
+import { clientIp, FLUSH_MS, HitBuffer, IpLimiter, referrerHost, routeKey } from './lib/hits';
 
 /**
  * Visit counter. One aggregate row per day, page, referrer host and device class, written by the
  * site's own server: no cookie, no script in the page, no address, no user agent and no
  * identifier ever leaves this function. The page is counted, not the visitor (`/tenders/12-x`
  * becomes `/tenders/[slug]`), and the call is fire-and-forget: it can never slow or break a page.
+ *
+ * Page views are summed in memory and sent to the API in one batch every FLUSH_MS (lib/hits.ts), not one
+ * request per view, and one address is counted at most 120 times a minute. The batch is sent by whichever
+ * request finds it due, so a quiet site flushes on its next visit; a restart loses at most the last window.
  *
  * Not counted: anything that is not a plain page view (prefetches and data fetches, assets), and
  * clients that announce themselves as automated.
@@ -15,6 +20,26 @@ export const config = {
 
 const AUTOMATED = /bot|crawl|spider|slurp|curl|wget|python|headless|monitor|preview|fetch|scan|check/i;
 const MOBILE = /mobi|android|iphone|ipad/i;
+
+const buffer = new HitBuffer();
+const limiter = new IpLimiter();
+let lastFlush = Date.now();
+
+function flush(api: string, event: NextFetchEvent): void {
+  const hits = buffer.drain();
+  if (hits.length === 0) return;
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  const secret = process.env.DG_INTERNAL_SECRET;
+  if (secret) headers['x-dg-internal'] = secret;
+  event.waitUntil(
+    fetch(`${api}/v1/internal/hits`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ hits }),
+      signal: AbortSignal.timeout(3000),
+    }).catch(() => undefined),
+  );
+}
 
 export function middleware(request: NextRequest, event: NextFetchEvent) {
   const api = process.env.DG_API_URL;
@@ -28,18 +53,15 @@ export function middleware(request: NextRequest, event: NextFetchEvent) {
     request.headers.get('purpose') === null;
 
   if (api && isPageView && agent !== '' && !AUTOMATED.test(agent)) {
-    event.waitUntil(
-      fetch(`${api}/v1/internal/hit`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          route: request.nextUrl.pathname,
-          referrer: request.headers.get('referer') ?? '',
-          mobile: MOBILE.test(agent),
-        }),
-        signal: AbortSignal.timeout(1500),
-      }).catch(() => undefined),
-    );
+    const now = Date.now();
+    if (limiter.allow(clientIp(request.headers.get('x-forwarded-for')), now)) {
+      const own = (request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? '').split(':')[0];
+      buffer.add(routeKey(request.nextUrl.pathname), referrerHost(request.headers.get('referer'), own), MOBILE.test(agent));
+    }
+    if (now - lastFlush >= FLUSH_MS) {
+      lastFlush = now;
+      flush(api, event);
+    }
   }
   return NextResponse.next();
 }

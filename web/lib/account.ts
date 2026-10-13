@@ -2,7 +2,9 @@ import 'server-only';
 /**
  * The only module that talks to the account API (docs/design/ACCOUNT_CONTRACT.md).
  * The site is a backend for frontend: the browser never calls /v1/account/*. Everything here runs on the
- * server, with the session read from the `dg_session` cookie and forwarded as X-DG-Session.
+ * server, with the session read from the `__Host-dg_session` cookie and forwarded as X-DG-Session. Every call
+ * also carries `X-DG-Internal` (DG_INTERNAL_SECRET, never sent to a browser) when it is configured: the API
+ * then refuses anything that does not come from this server.
  *
  * Nothing in this file logs. Tokens, binders, session ids and e-mail addresses never reach a log line.
  * No call throws: wrappers return an AccountResult so a failed call renders as an error state.
@@ -17,9 +19,28 @@ import type {
 } from './types';
 
 const API_BASE = process.env.DG_API_URL;
+const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
 
-export const SESSION_COOKIE = 'dg_session';
-export const BIND_COOKIE = 'dg_bind';
+/**
+ * `__Host-` cookies: the browser accepts them only with `Secure`, `Path=/` and no `Domain`, so a sibling
+ * subdomain or a plain-http response cannot set or shadow them (review of 13 October 2026, M5).
+ */
+export const SESSION_COOKIE = '__Host-dg_session';
+export const BIND_COOKIE = '__Host-dg_bind';
+const COOKIE_BASE = { httpOnly: true, secure: true, sameSite: 'lax', path: '/' } as const;
+
+/** Set one of the two cookies with the attributes the `__Host-` prefix requires. */
+export async function setCookie(name: string, value: string, maxAge: number): Promise<void> {
+  (await cookies()).set(name, value, { ...COOKIE_BASE, maxAge });
+}
+
+/**
+ * Remove a cookie. `cookies().delete()` writes a Set-Cookie without `Secure`, which a browser refuses for a
+ * `__Host-` name, so the cookie would stay: it is overwritten with an expired, empty, Secure one instead.
+ */
+export async function clearCookie(name: string): Promise<void> {
+  (await cookies()).set(name, '', { ...COOKIE_BASE, maxAge: 0, expires: new Date(0) });
+}
 /** Upper bound of a session cookie's life: the contract's 30 days. */
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 export const BIND_MAX_AGE_SECONDS = 15 * 60;
@@ -70,6 +91,7 @@ export async function readSession(): Promise<string | null> {
 export async function accountFetch(path: string, init: AccountInit = {}): Promise<Response> {
   if (!API_BASE) throw new Error('account API is not configured');
   const h: Record<string, string> = { accept: 'application/json' };
+  if (INTERNAL_SECRET) h['x-dg-internal'] = INTERNAL_SECRET;
   if (init.session !== false) {
     const session = await readSession();
     if (!session) return new Response(null, { status: 401 });
@@ -190,7 +212,7 @@ export async function getAccountStatus(): Promise<{ open: boolean }> {
   if (!API_BASE) return { open: false };
   try {
     const res = await fetch(`${API_BASE}/v1/account/status`, {
-      headers: { accept: 'application/json' },
+      headers: INTERNAL_SECRET ? { accept: 'application/json', 'x-dg-internal': INTERNAL_SECRET } : { accept: 'application/json' },
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(5_000),
     });

@@ -5,15 +5,14 @@
  * before it runs, and the API accepts no cookie at all (the session is forwarded as a header by lib/account).
  * Each action ends in a redirect to a dynamic page with `?n=<code>`, so the forms work without JavaScript.
  */
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
-  authLogout, BIND_COOKIE, CADENCES, deleteFollow, deleteMe, deleteSearch, deleteShortlist, revokeOtherSessions, revokeSession,
-  ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, updateMe, updateSearch, putShortlist, type AccountResult,
+  authLogout, BIND_COOKIE, CADENCES, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist, revokeOtherSessions,
+  revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, updateMe, updateSearch, putShortlist, type AccountResult,
 } from '@/lib/account';
+import { followRef, isUuid, numericRef } from '@/lib/refs';
 import type { Cadence, FollowKind, Profile, ProfileScope, Role, ShortlistKind, ShortlistStatus, Track } from '@/lib/types';
 
-const ID_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 const COUNTRY_RE = /^[A-Z]{2}$/;
 const MAX_COUNTRIES = 20;
 const NOTE_MAX = 500;
@@ -33,9 +32,13 @@ function back(path: string, r: AccountResult<unknown>, ok: string = 'saved'): ne
 }
 
 export async function signOut(): Promise<void> {
-  // Best effort: the cookie goes either way, and the API session expires on its own.
-  await authLogout();
-  (await cookies()).delete(SESSION_COOKIE);
+  // Best effort on the API side (its session expires on its own); the cookie goes either way, also if the
+  // call throws, which is why it is a `finally`.
+  try {
+    await authLogout();
+  } finally {
+    await clearCookie(SESSION_COOKIE);
+  }
   redirect('/');
 }
 
@@ -72,13 +75,13 @@ export async function saveSettings(form: FormData): Promise<void> {
 export async function setSearchCadence(form: FormData): Promise<void> {
   const id = field(form, 'id', 64);
   const cadence = pick(field(form, 'cadence', 8), CADENCES);
-  if (!ID_RE.test(id) || !cadence) redirect('/app/searches?n=invalid');
+  if (!isUuid(id) || !cadence) redirect('/app/searches?n=invalid');
   back('/app/searches', await updateSearch(id, { cadence }));
 }
 
 export async function removeSearch(form: FormData): Promise<void> {
   const id = field(form, 'id', 64);
-  if (!ID_RE.test(id)) redirect('/app/searches?n=invalid');
+  if (!isUuid(id)) redirect('/app/searches?n=invalid');
   const r = await deleteSearch(id);
   back('/app/searches', r.ok || r.status === 404 ? { ok: true, data: undefined } : r, 'removed');
 }
@@ -87,25 +90,25 @@ export async function removeSearch(form: FormData): Promise<void> {
 
 export async function saveShortlistItem(form: FormData): Promise<void> {
   const kind = pick(field(form, 'kind', 8), ['tender', 'call'] as const);
-  const ref = field(form, 'ref', 64);
+  const ref = numericRef(field(form, 'ref', 64));
   const status = pick(field(form, 'status', 16), SHORTLIST_STATUSES);
-  if (!kind || !ID_RE.test(ref) || !status) redirect('/app/shortlist?n=invalid');
+  if (!kind || ref === null || !status) redirect('/app/shortlist?n=invalid');
   const note = field(form, 'note', NOTE_MAX * 2).trim().slice(0, NOTE_MAX);
   back('/app/shortlist', await putShortlist(kind as ShortlistKind, ref, status as ShortlistStatus, note));
 }
 
 export async function removeShortlistItem(form: FormData): Promise<void> {
   const kind = pick(field(form, 'kind', 8), ['tender', 'call'] as const);
-  const ref = field(form, 'ref', 64);
-  if (!kind || !ID_RE.test(ref)) redirect('/app/shortlist?n=invalid');
+  const ref = numericRef(field(form, 'ref', 64));
+  if (!kind || ref === null) redirect('/app/shortlist?n=invalid');
   const r = await deleteShortlist(kind as ShortlistKind, ref);
   back('/app/shortlist', r.ok || r.status === 404 ? { ok: true, data: undefined } : r, 'removed');
 }
 
 export async function unfollow(form: FormData): Promise<void> {
   const kind = pick(field(form, 'kind', 12), ['buyer', 'programme'] as const);
-  const ref = field(form, 'ref', 64);
-  if (!kind || !ID_RE.test(ref)) redirect('/app/following?n=invalid');
+  const ref = kind ? followRef(kind, field(form, 'ref', 64)) : null;
+  if (!kind || ref === null) redirect('/app/following?n=invalid');
   const r = await deleteFollow(kind as FollowKind, ref);
   back('/app/following', r.ok || r.status === 404 ? { ok: true, data: undefined } : r, 'removed');
 }
@@ -114,7 +117,7 @@ export async function unfollow(form: FormData): Promise<void> {
 
 export async function endSession(form: FormData): Promise<void> {
   const id = field(form, 'id', 64);
-  if (!ID_RE.test(id)) redirect('/app/settings?n=invalid');
+  if (!isUuid(id)) redirect('/app/settings?n=invalid');
   back('/app/settings', await revokeSession(id), 'revoked');
 }
 
@@ -128,9 +131,8 @@ export async function deleteAccount(form: FormData): Promise<void> {
   if (!typed) redirect('/app/settings?n=confirm');
   const r = await deleteMe(typed);
   if (r.ok) {
-    const jar = await cookies();
-    jar.delete(SESSION_COOKIE);
-    jar.delete({ name: BIND_COOKIE, path: '/auth' });
+    await clearCookie(SESSION_COOKIE);
+    await clearCookie(BIND_COOKIE);
     redirect('/');
   }
   if (r.status === 401) redirect('/auth/expired');

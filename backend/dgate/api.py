@@ -32,7 +32,7 @@ from pydantic import BaseModel
 
 from . import db
 from .config import settings
-from .hardening import RateLimit, SecurityHeaders
+from .hardening import BodyLimit, RateLimit, SecurityHeaders
 from .normalise import http_url, normalise_org_name, redact_emails
 
 # A source whose last successful run is older than this is reported stale.
@@ -51,6 +51,7 @@ app = FastAPI(
     redoc_url="/redoc" if _docs else None,
     openapi_url="/openapi.json" if _docs else None,
 )
+app.add_middleware(BodyLimit)         # innermost: its 413 still gets the security headers
 app.add_middleware(SecurityHeaders)
 app.add_middleware(RateLimit)
 

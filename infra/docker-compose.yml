@@ -80,6 +80,12 @@ services:
       # Accounts, reached only from the site's own server (docs/design/ACCOUNT_CONTRACT.md):
       # its own role, which can write app_* tables and nothing else.
       DGATE_APP_DSN: postgresql://dgate_app:${DGATE_APP_PASSWORD:?set DGATE_APP_PASSWORD in infra/.env}@postgres:5432/${POSTGRES_DB:-dgate}
+      # Shared with the site's server (`web`, DG_INTERNAL_SECRET): once it is set the account and
+      # visit-counter routes refuse a call that does not carry it in `X-DG-Internal`. Unset means
+      # the network boundary is the only control (infra/.env.example says how to make one).
+      DGATE_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:-}
+      # Only the key of the sign-in throttle counters when DGATE_INTERNAL_SECRET is unset.
+      DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD}
       # Mail for sign-in links. Without a relay sign-in stays closed; nothing is faked.
       DGATE_SMTP_HOST: ${DGATE_SMTP_HOST:-}
       DGATE_SMTP_PORT: ${DGATE_SMTP_PORT:-587}
@@ -215,6 +221,9 @@ services:
     image: dgate-web:local
     environment:
       DG_API_URL: http://api:8000
+      # The same value as the API's DGATE_INTERNAL_SECRET. Server-side only: it is read by the
+      # account module and the middleware and never reaches a browser.
+      DG_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:-}
     mem_limit: 512m
     pids_limit: 256
     cap_drop: [ALL]

@@ -43,7 +43,7 @@ export default function PrivacyPage() {
       </Clause>
 
       <Clause n={3} title="Visit statistics">
-        <p className={P}>We count page views to see which parts of the service are used. Our own server adds one to a daily counter for the page (for example <span className="font-mono">/tenders/[slug]</span>, not the individual notice), the host of the site you came from (for example <span className="font-mono">www.google.com</span>, never the full address or your search words) and whether the device is a phone or not.</p>
+        <p className={P}>We count page views to see which parts of the service are used. Our own server adds one to a daily counter for the page (for example <span className="font-mono">/tenders/[slug]</span>, not the individual notice), the site you came from, only when it is one of a short list of well-known ones such as search engines (for example <span className="font-mono">google.com</span>) and otherwise just “other” (never the full address or your search words), and whether the device is a phone or not.</p>
         <p className={P}>No cookie is set, no script runs in your browser, and no IP address, user agent or identifier is stored with the count, so it cannot be traced to a person. Requests that announce themselves as automated are not counted. <strong>Legal basis:</strong> our legitimate interest in knowing how the service is used (Art. 6(1)(f) GDPR); since no personal data is stored you have nothing to opt out of.</p>
       </Clause>
 
@@ -51,8 +51,8 @@ export default function PrivacyPage() {
         <p className={P}>While you browse, the site sets no cookies. These are the only items it ever stores in your browser:</p>
         <ClauseList items={[
           <><span className="font-mono">dg-theme</span> (local storage, your device only): your light or dark choice. Kept until you clear your browser data.</>,
-          <><span className="font-mono">dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it. Expires after 15 minutes.</>,
-          <><span className="font-mono">dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
+          <><span className="font-mono">__Host-dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it. Expires after 15 minutes.</>,
+          <><span className="font-mono">__Host-dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
         ]} />
         <p className={P}>The two cookies are strictly necessary to provide the sign-in you asked for, so no consent banner is shown. They are never used for tracking.</p>
       </Clause>
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           'your e-mail address, when the account was created and when you last visited;',
           'the choices you make: your role, whether you follow tenders or funding, countries, scope and alert frequency;',
           'what you save: searches with the name you give them and when they were last alerted, shortlisted notices with the status and note you write, and followed buyers and programmes;',
-          'for up to a day: your e-mail address with the one-time link, and a hash of your e-mail address and of your IP address, kept only to limit how often links can be requested;',
+          'for up to a day: your e-mail address with the one-time link, and a keyed hash (HMAC) of your e-mail address and of your IP address, kept only to limit how often links can be requested;',
           'a hash of your session identifier and when it was used.',
         ]} />
         <p className={P}>We do not use passwords. We do not look at what you save for any purpose other than showing it to you and sending the alerts you asked for, and we do not combine it across accounts.</p>

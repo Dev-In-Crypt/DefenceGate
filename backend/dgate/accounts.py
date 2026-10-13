@@ -8,7 +8,8 @@ internal network, with the session in `X-DG-Session`. Consequences that are deli
 
   - these routes are not in the Caddy allow-list, and a request that carries an `Origin` or
     an `X-Forwarded-For` header (a browser, or something that came through the proxy) is
-    refused here as well;
+    refused here as well; once `DGATE_INTERNAL_SECRET` is set the site must also send it
+    in `X-DG-Internal`, so the network boundary is not the only control;
   - there is no cookie on this side at all, so there is nothing to forge cross-site (A6);
   - every query on a user-owned table is scoped by the authenticated owner id in SQL (O1);
     a row owned by someone else is a 404, never a 403 and never the row.
@@ -24,10 +25,13 @@ import hmac
 import ipaddress
 import json
 import logging
+import math
 import re
 import secrets
 import threading
 import time
+from collections import OrderedDict
+from concurrent.futures import Future
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -38,6 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import db
 from .config import settings
+from .hardening import BODY_MAX, TokenBuckets
 from .ops import mailer
 from .ops.notify import notify
 
@@ -54,7 +59,11 @@ MAX_SEARCHES = 10
 MAX_SHORTLIST = 500
 MAX_FOLLOWS = 100
 MAX_COUNTRIES = 20
-MAX_BODY = 16 * 1024
+MAX_BODY = BODY_MAX
+MAX_SESSIONS = 10              # per account; signing in beyond it ends the oldest
+USER_RATE = 30                 # requests a minute per account on searches and the dashboard
+MAX_HITS_PER_BATCH = 200       # of the visit counter
+MAX_HIT_COUNT = 10_000         # one key's count in one batch
 NOTE_MAX = 500
 SEARCH_RESULTS = 100           # how many newest matches are read to count the new ones
 
@@ -121,6 +130,14 @@ def _hash(value: str) -> bytes:
     return hashlib.sha256(value.encode("utf-8")).digest()
 
 
+def _event_key(kind: str, value: str) -> bytes:
+    """Key of a throttle counter: HMAC-SHA256 under a key only the server holds. A plain hash
+    of an address or an IP can be reversed by trying candidates; this cannot without the key."""
+    cfg = settings()
+    key = (cfg.internal_secret or cfg.app_password).encode("utf-8")
+    return hmac.new(key, f"{kind}\x00{value}".encode("utf-8"), hashlib.sha256).digest()
+
+
 def _secret() -> str:
     return secrets.token_urlsafe(32)      # 256 bits, 43 URL-safe characters
 
@@ -142,8 +159,17 @@ def get_conn():
 def internal_only(request: Request) -> None:
     """A6, defence in depth: the site's server calls this over the compose network and adds
     neither header. A browser sends `Origin` on a cross-site write; a request that came
-    through the proxy carries `X-Forwarded-For`. Either means it is not the site."""
-    if request.headers.get("origin") or request.headers.get("x-forwarded-for"):
+    through the proxy carries `X-Forwarded-For`. Either means it is not the site, and so does
+    an empty one: presence is tested, not truthiness. With DGATE_INTERNAL_SECRET set the
+    site's own header `X-DG-Internal` must match it as well (a second control, not the
+    network alone). The size check is a first look at a declared length; BodyLimit counts
+    the bytes that really arrive."""
+    secret = settings().internal_secret
+    if secret:
+        given = request.headers.get("x-dg-internal")
+        if given is None or not hmac.compare_digest(given.encode("utf-8"), secret.encode("utf-8")):
+            raise AccountError(403, "forbidden", "not available from here")
+    if request.headers.get("origin") is not None or request.headers.get("x-forwarded-for") is not None:
         raise AccountError(403, "forbidden", "not available from here")
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > MAX_BODY:
@@ -176,6 +202,19 @@ def current(request: Request, conn=Depends(get_conn),
                  "WHERE id_hash = %s AND last_seen_at < now() - interval '1 minute'",
                  (row["id_hash"],))
     return row
+
+
+_user_buckets = TokenBuckets(capacity=USER_RATE, refill=USER_RATE / 60)
+
+
+def throttled(user: dict[str, Any] = Depends(current)) -> dict[str, Any]:
+    """`current`, plus a per-account bucket (30 a minute) for the calls that run a search:
+    one account cannot spend the database, whatever the global limits say."""
+    allowed, wait = _user_buckets.take(str(user["id"]), 1)
+    if not allowed:
+        raise AccountError(429, "rate_limited", "too many requests, try again shortly",
+                           {"Retry-After": str(max(1, math.ceil(wait)))})
+    return user
 
 
 # ------------------------------------------------------------------ models
@@ -239,6 +278,14 @@ class Hit(_Body):
     mobile: bool = False
 
 
+class HitCount(Hit):
+    count: int = Field(1, ge=1, le=MAX_HIT_COUNT)
+
+
+class HitBatch(_Body):
+    hits: list[HitCount] = Field(max_length=MAX_HITS_PER_BATCH)
+
+
 # ------------------------------------------------------------------ status
 @router.get("/status")
 def status() -> JSONResponse:
@@ -250,15 +297,13 @@ _last_global_page = 0.0
 _page_lock = threading.Lock()
 
 
-def _count_event(conn, kind: str, key: str) -> int:
-    """Record an attempt and return how many there were in the last hour. Committed at
-    once: the attempt that gets refused must still count."""
-    conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)", (kind, _hash(key)))
-    n = conn.execute(
+def _recent(conn, kind: str, key: str) -> int:
+    """How many accepted requests this key has in the last hour. Read only: a request that
+    is refused must leave nothing behind, or an attacker could fill the table and keep a
+    victim's counter hot with requests that were never served."""
+    return conn.execute(
         "SELECT count(*) AS n FROM app_auth_event WHERE kind = %s AND key_hash = %s "
-        "AND at > now() - interval '1 hour'", (kind, _hash(key))).fetchone()["n"]
-    conn.commit()
-    return n
+        "AND at > now() - interval '1 hour'", (kind, _event_key(kind, key))).fetchone()["n"]
 
 
 def _page_operator(message: str) -> None:
@@ -294,20 +339,29 @@ def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(ge
     if not _BINDER.match(body.binder):
         raise AccountError(422, "invalid_request", "invalid request")
 
-    # A3. The response below is the same for an address we know, one we do not and a
-    # disposable one: only volume is ever refused, and volume says nothing about the address.
-    ip = _client_ip(x_dg_client_ip)
-    over_address = _count_event(conn, "addr", canonical) > LIMIT_PER_ADDRESS
-    over_ip = _count_event(conn, "ip", ip) > LIMIT_PER_IP
-    total = _count_event(conn, "all", "all")
-    if total > LIMIT_GLOBAL:
-        _page_operator(f"Sign-in link requests are over {LIMIT_GLOBAL} an hour: possible abuse.")
-    if over_address or over_ip or total > LIMIT_GLOBAL:
-        raise AccountError(429, "rate_limited", "too many requests, try again later",
-                           {"Retry-After": "3600"})
-    # Tiny tables, so pruned on every request: what the notice says (about a day) is then true.
+    # Tiny tables, so pruned at the start of every request that gets this far (an index on
+    # `at`): what the notice says (about a day) is then true. Committed at once, so a
+    # request refused below does not undo it.
     conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
     conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
+    conn.commit()
+
+    # A3. Counts are read first and written only for a request that is accepted. The per-IP
+    # and global limits are 429. The per-address limit is the same 202 and nothing is sent or
+    # stored: a 429 there would tell a stranger which address is being mailed, and refusing
+    # visibly would let anyone lock a person out of signing in by asking for their address.
+    ip = _client_ip(x_dg_client_ip)
+    total = _recent(conn, "all", "all")
+    if total >= LIMIT_GLOBAL:
+        _page_operator(f"Sign-in link requests are over {LIMIT_GLOBAL} an hour: possible abuse.")
+    if total >= LIMIT_GLOBAL or _recent(conn, "ip", ip) >= LIMIT_PER_IP:
+        raise AccountError(429, "rate_limited", "too many requests, try again later",
+                           {"Retry-After": "3600"})
+    if _recent(conn, "addr", canonical) >= LIMIT_PER_ADDRESS:
+        return {"ok": True}
+    for kind, value in (("addr", canonical), ("ip", ip), ("all", "all")):
+        conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)",
+                     (kind, _event_key(kind, value)))
 
     domain = canonical.rsplit("@", 1)[1]
     disposable = conn.execute(
@@ -348,6 +402,12 @@ def auth_verify(body: Verify, conn=Depends(get_conn)) -> dict[str, Any]:
         is_new = False
     raw = _secret()                        # A5: a fresh session id at every sign-in
     conn.execute("DELETE FROM app_session WHERE user_id = %s AND expires_at <= now()", (user_id,))
+    # At most MAX_SESSIONS per account: the oldest beyond the cap go (the account's own
+    # session rows; a person who signs in on many devices ends the one they used least recently).
+    conn.execute(
+        "DELETE FROM app_session WHERE user_id = %s AND id_hash IN ("
+        "  SELECT id_hash FROM app_session WHERE user_id = %s "
+        "   ORDER BY created_at DESC OFFSET %s)", (user_id, user_id, MAX_SESSIONS - 1))
     expires = conn.execute(
         "INSERT INTO app_session (id_hash, user_id, expires_at) VALUES (%s, %s, now() + %s::interval) "
         "RETURNING expires_at", (_hash(raw), user_id, SESSION_ABSOLUTE)).fetchone()["expires_at"]
@@ -545,28 +605,60 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
     return base
 
 
-_cache: dict[tuple, tuple[float, Any]] = {}
-_cache_lock = threading.Lock()
 CACHE_SECONDS = 120
+CACHE_ENTRIES = 200            # an LRU: the least recently used entry goes first
+CACHED_ITEMS = 20              # items kept per cached search; the rest of the 100 are only dated
+SINGLE_FLIGHT_WAIT = 15.0      # seconds a follower waits for the one computing its key
+_cache: OrderedDict[tuple, tuple[float, Any]] = OrderedDict()
+_cache_lock = threading.Lock()
+_inflight: dict[tuple, Future] = {}
 
 
-def _cached(key: tuple, compute):
+def _cached(key: tuple, compute, ttl: float = CACHE_SECONDS):
+    """LRU cache with single flight: concurrent callers of one key share one compute (the
+    first computes, the others wait for its result or its error)."""
     now = time.monotonic()
     with _cache_lock:
         hit = _cache.get(key)
-        if hit and now - hit[0] < CACHE_SECONDS:
+        if hit and now - hit[0] < ttl:
+            _cache.move_to_end(key)
             return hit[1]
-    value = compute()
+        flight = _inflight.get(key)
+        leader = flight is None
+        if leader:
+            flight = _inflight[key] = Future()
+    if not leader:
+        try:
+            return flight.result(timeout=SINGLE_FLIGHT_WAIT)
+        except TimeoutError:
+            return compute()                 # the leader is stuck: do not wait on it forever
+    try:
+        value = compute()
+    except BaseException as exc:
+        with _cache_lock:
+            _inflight.pop(key, None)
+        flight.set_exception(exc)
+        raise
     with _cache_lock:
-        if len(_cache) > 500:
-            _cache.clear()
-        _cache[key] = (now, value)
+        _cache[key] = (time.monotonic(), value)
+        _cache.move_to_end(key)
+        while len(_cache) > CACHE_ENTRIES:
+            _cache.popitem(last=False)
+        _inflight.pop(key, None)
+    flight.set_result(value)
     return value
 
 
-def run_search(conn, kind: str, filters: dict[str, str]) -> dict[str, Any]:
+def _stamp(kind: str, item: dict[str, Any]):
+    return item.get("publishedAt") if kind == "tender" else item.get("firstSeenAt")
+
+
+def run_search(conn, kind: str, filters: dict[str, str], *, full: bool = False) -> dict[str, Any]:
     """The newest SEARCH_RESULTS matches (tenders by publication, calls by deadline) and
-    the total. Called with the same function the public endpoint is."""
+    the total, through the same function the public endpoint is. What is cached is what the
+    dashboard needs: the total, the first CACHED_ITEMS items, and the date each of all the
+    matches was published or first seen (so "new since your last visit" still counts among
+    the whole SEARCH_RESULTS). `full=True` is for the digest: every item, not cached."""
     from .funding import list_funding
     from .tenders import list_tenders
 
@@ -579,18 +671,29 @@ def run_search(conn, kind: str, filters: dict[str, str]) -> dict[str, Any]:
                 page = list_funding(sort="deadline-asc", pageSize=SEARCH_RESULTS, conn=conn, **kwargs)
         except HTTPException as exc:
             raise AccountError(422, "invalid_filters", str(exc.detail)) from None
-        return {"total": page["total"], "items": page["items"]}
+        items = page["items"]
+        return {"total": page["total"], "items": items if full else items[:CACHED_ITEMS],
+                "stamps": [_stamp(kind, i) for i in items]}
 
+    if full:
+        return compute()
     return _cached((kind, json.dumps(filters, sort_keys=True)), compute)
 
 
-def _is_new(kind: str, item: dict[str, Any], since: datetime) -> bool:
-    stamp = item.get("publishedAt") if kind == "tender" else item.get("firstSeenAt")
+def _stamp_is_new(stamp: Any, since: datetime) -> bool:
     if stamp is None:
         return False
     if isinstance(stamp, datetime):
         return stamp >= since
     return datetime.combine(stamp, datetime.min.time(), tzinfo=timezone.utc) >= since
+
+
+def _is_new(kind: str, item: dict[str, Any], since: datetime) -> bool:
+    return _stamp_is_new(_stamp(kind, item), since)
+
+
+def _new_count(result: dict[str, Any], since: datetime) -> int:
+    return sum(1 for stamp in result["stamps"] if _stamp_is_new(stamp, since))
 
 
 def _since(user: dict[str, Any]) -> datetime:
@@ -607,7 +710,7 @@ def _search_out(conn, r: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]
     result = run_search(conn, r["kind"], r["filters"])
     since = _since(user)
     out["matchCount"] = result["total"]
-    out["newCount"] = sum(1 for i in result["items"] if _is_new(r["kind"], i, since))
+    out["newCount"] = _new_count(result, since)
     out["lastMatchAt"] = None
     return out
 
@@ -623,14 +726,14 @@ def _owned_search(conn, search_id: str, user) -> dict[str, Any]:
 
 
 @router.get("/searches")
-def list_searches(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
+def list_searches(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
     rows = conn.execute("SELECT * FROM app_saved_search WHERE owner_id = %s "
                         "ORDER BY created_at DESC LIMIT %s", (user["id"], MAX_SEARCHES)).fetchall()
     return {"items": [_search_out(conn, r, user) for r in rows]}
 
 
 @router.post("/searches", status_code=201)
-def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
+def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
     n = conn.execute("SELECT count(*) AS n FROM app_saved_search WHERE owner_id = %s",
                      (user["id"],)).fetchone()["n"]
     if n >= MAX_SEARCHES:
@@ -646,7 +749,7 @@ def create_search(body: SearchIn, conn=Depends(get_conn), user=Depends(current))
 
 @router.patch("/searches/{search_id}")
 def patch_search(search_id: str, body: SearchPatch, conn=Depends(get_conn),
-                 user=Depends(current)) -> dict[str, Any]:
+                 user=Depends(throttled)) -> dict[str, Any]:
     row = _owned_search(conn, search_id, user)
     name = body.name.strip() if body.name is not None else row["name"]
     cadence = body.cadence if body.cadence is not None else row["cadence"]
@@ -737,16 +840,27 @@ def _hydrate_shortlist(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 # ------------------------------------------------------------------ shortlist
-def _check_ref(conn, kind: str, ref: str) -> None:
+def _norm_ref(ref: str) -> str | None:
+    """The stored form of a numeric reference: digits only, no leading zeros, so `007` and `7`
+    are one item and a row can be found again by the id the page shows."""
+    if not _DIGITS.fullmatch(ref) or int(ref) > 9_223_372_036_854_775_807:
+        return None
+    return str(int(ref))
+
+
+def _check_ref(conn, kind: str, ref: str) -> str:
+    """The normalised reference of an existing item, or 404."""
     if kind not in ("tender", "call"):
         raise AccountError(404, "not_found", "unknown kind")
-    if not _DIGITS.match(ref) or int(ref) > 9_223_372_036_854_775_807:
+    norm = _norm_ref(ref)
+    if norm is None:
         raise AccountError(404, "not_found", "no such item")
-    found = (conn.execute("SELECT 1 FROM opportunity WHERE id = %s AND is_defence", (int(ref),)).fetchone()
+    found = (conn.execute("SELECT 1 FROM opportunity WHERE id = %s AND is_defence", (int(norm),)).fetchone()
              if kind == "tender"
-             else conn.execute("SELECT 1 FROM call WHERE id = %s", (int(ref),)).fetchone())
+             else conn.execute("SELECT 1 FROM call WHERE id = %s", (int(norm),)).fetchone())
     if not found:
         raise AccountError(404, "not_found", "no such item")
+    return norm
 
 
 @router.get("/shortlist")
@@ -759,7 +873,7 @@ def get_shortlist(conn=Depends(get_conn), user=Depends(current)) -> dict[str, An
 @router.put("/shortlist/{kind}/{ref}")
 def put_shortlist(kind: str, ref: str, body: ShortlistIn, conn=Depends(get_conn),
                   user=Depends(current)) -> dict[str, Any]:
-    _check_ref(conn, kind, ref)
+    ref = _check_ref(conn, kind, ref)
     exists = conn.execute("SELECT 1 FROM app_shortlist WHERE owner_id = %s AND kind = %s AND ref = %s",
                           (user["id"], kind, ref)).fetchone()
     if not exists:
@@ -778,6 +892,7 @@ def put_shortlist(kind: str, ref: str, body: ShortlistIn, conn=Depends(get_conn)
 
 @router.delete("/shortlist/{kind}/{ref}", status_code=204)
 def delete_shortlist(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current)) -> Response:
+    ref = _norm_ref(ref) or ""
     gone = conn.execute("DELETE FROM app_shortlist WHERE owner_id = %s AND kind = %s AND ref = %s "
                         "RETURNING 1", (user["id"], kind, ref)).fetchone()
     if not gone:
@@ -786,16 +901,19 @@ def delete_shortlist(kind: str, ref: str, conn=Depends(get_conn), user=Depends(c
 
 
 # ------------------------------------------------------------------ follows
-def _check_follow(conn, kind: str, ref: str) -> None:
+def _check_follow(conn, kind: str, ref: str) -> str:
+    """The normalised reference of an existing buyer or programme, or 404."""
     if kind == "buyer":
-        if not _DIGITS.match(ref) or not conn.execute(
-                "SELECT 1 FROM organisation WHERE id = %s", (int(ref),)).fetchone():
+        norm = _norm_ref(ref)
+        if norm is None or not conn.execute(
+                "SELECT 1 FROM organisation WHERE id = %s", (int(norm),)).fetchone():
             raise AccountError(404, "not_found", "no such buyer")
-    elif kind == "programme":
+        return norm
+    if kind == "programme":
         if ref not in _programmes(conn):
             raise AccountError(404, "not_found", "no such programme")
-    else:
-        raise AccountError(404, "not_found", "unknown kind")
+        return ref
+    raise AccountError(404, "not_found", "unknown kind")
 
 
 def _hydrate_follows(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -817,7 +935,7 @@ def get_follows(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]
 
 @router.put("/follows/{kind}/{ref}")
 def put_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
-    _check_follow(conn, kind, ref)
+    ref = _check_follow(conn, kind, ref)
     exists = conn.execute("SELECT 1 FROM app_follow WHERE owner_id = %s AND kind = %s AND ref = %s",
                           (user["id"], kind, ref)).fetchone()
     if not exists:
@@ -834,6 +952,8 @@ def put_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current
 
 @router.delete("/follows/{kind}/{ref}", status_code=204)
 def delete_follow(kind: str, ref: str, conn=Depends(get_conn), user=Depends(current)) -> Response:
+    if kind != "programme":
+        ref = _norm_ref(ref) or ""
     gone = conn.execute("DELETE FROM app_follow WHERE owner_id = %s AND kind = %s AND ref = %s "
                         "RETURNING 1", (user["id"], kind, ref)).fetchone()
     if not gone:
@@ -847,9 +967,10 @@ def state(body: StateIn, conn=Depends(get_conn), user=Depends(current)) -> dict[
     for key in body.keys:
         table = "app_shortlist" if key.type == "shortlist" else "app_follow"
         extra = ", status" if key.type == "shortlist" else ""
+        ref = key.ref if key.kind == "programme" else (_norm_ref(key.ref) or "")
         row = conn.execute(
             f"SELECT 1 AS saved{extra} FROM {table} WHERE owner_id = %s AND kind = %s AND ref = %s",
-            (user["id"], key.kind, key.ref)).fetchone()
+            (user["id"], key.kind, ref)).fetchone()
         entry: dict[str, Any] = {"type": key.type, "kind": key.kind, "ref": key.ref, "saved": row is not None}
         if row and key.type == "shortlist":
             entry["status"] = row["status"]
@@ -904,15 +1025,7 @@ def pulse(conn) -> dict[str, Any]:
             if window["median_days"] is not None else None,
         }
 
-    now = time.monotonic()
-    with _cache_lock:
-        hit = _cache.get(("pulse",))
-        if hit and now - hit[0] < PULSE_SECONDS:
-            return hit[1]
-    value = compute()
-    with _cache_lock:
-        _cache[("pulse",)] = (now, value)
-    return value
+    return _cached(("pulse",), compute, PULSE_SECONDS)
 
 
 def _deadline(item: dict[str, Any]) -> datetime | None:
@@ -923,7 +1036,7 @@ def _deadline(item: dict[str, Any]) -> datetime | None:
 
 
 @router.get("/dashboard")
-def dashboard(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
+def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]:
     from .tenders import tender_versions
 
     now = datetime.now(timezone.utc)
@@ -938,7 +1051,7 @@ def dashboard(conn=Depends(get_conn), user=Depends(current)) -> dict[str, Any]:
         res = run_search(conn, s["kind"], s["filters"])
         fresh = [i for i in res["items"] if _is_new(s["kind"], i, since)]
         matches.append({"search": {"id": str(s["id"]), "name": s["name"], "kind": s["kind"]},
-                        "newCount": len(fresh), "totalCount": res["total"],
+                        "newCount": _new_count(res, since), "totalCount": res["total"],
                         "items": (fresh or res["items"])[:5]})
         searched_items += [(s["kind"], i) for i in res["items"]]
 
@@ -1045,25 +1158,72 @@ def route_key(path: str) -> str:
     return "/" + head if head else "/"
 
 
+# The referrer is kept only when it is one of these, as the name on the right; everything
+# else is `other`, and none is `""`. A free-text host would let anyone with a request grow the
+# table without bound; this way it holds at most routes x names x devices rows a day.
+_REFERRER_BY_LABEL = {
+    "google": "google.com", "bing": "bing.com", "duckduckgo": "duckduckgo.com",
+    "ecosia": "ecosia.org", "yahoo": "yahoo.com", "yandex": "yandex.com", "baidu": "baidu.com",
+    "linkedin": "linkedin.com", "facebook": "facebook.com", "reddit": "reddit.com",
+    "github": "github.com", "wikipedia": "wikipedia.org",
+}
+_REFERRER_EXACT = {"x.com": "x.com", "twitter.com": "x.com", "t.co": "x.com", "lnkd.in": "linkedin.com",
+                   "news.ycombinator.com": "news.ycombinator.com"}
+_HOST = re.compile(r"^[a-z0-9.-]{1,80}$")
+
+
 def referrer_host(value: str) -> str:
+    """The referrer reduced to `""` (direct, or our own site), a name from the allow-list,
+    or `other`. Takes a URL or, as the site's counter sends it, a bare host."""
     try:
-        host = (urlsplit(value).hostname or "").lower()
+        text = (value or "").strip()
+        host = (urlsplit(text if "//" in text else "//" + text).hostname or "").lower().strip(".")
     except ValueError:
         return ""
     own = (urlsplit(settings().site_url).hostname or "").lower()
-    if not host or host == own or host == f"www.{own}" or len(host) > 80:
+    if not host or host == own or host == f"www.{own}" or not _HOST.fullmatch(host):
         return ""
-    return host
+    labels = host.split(".")
+    if len(labels) >= 2:
+        label = labels[-3] if len(labels) >= 3 and labels[-2] in ("co", "com", "org", "net") else labels[-2]
+        if label in _REFERRER_BY_LABEL:
+            return _REFERRER_BY_LABEL[label]
+    for domain, name in _REFERRER_EXACT.items():
+        if host == domain or host.endswith("." + domain):
+            return name
+    return "other"
+
+
+def _count_hits(conn, hits: list[tuple[str, str, bool, int]]) -> None:
+    """Add counts to today's rows in one statement. Keys are merged first: a row cannot be
+    touched twice by one INSERT ... ON CONFLICT."""
+    merged: dict[tuple[str, str, str], int] = {}
+    for route, referrer, mobile, count in hits:
+        if not route.startswith("/"):
+            continue
+        key = (route_key(route), referrer_host(referrer), "mobile" if mobile else "desktop")
+        merged[key] = merged.get(key, 0) + count
+    if not merged:
+        return
+    keys = list(merged)
+    conn.execute(
+        """INSERT INTO app_hit_daily (day, route, referrer, device, hits)
+           SELECT (now() AT TIME ZONE 'UTC')::date, t.route, t.referrer, t.device, t.n
+             FROM unnest(%s::text[], %s::text[], %s::text[], %s::int[]) AS t(route, referrer, device, n)
+           ON CONFLICT (day, route, referrer, device)
+           DO UPDATE SET hits = app_hit_daily.hits + EXCLUDED.hits""",
+        ([k[0] for k in keys], [k[1] for k in keys], [k[2] for k in keys], [merged[k] for k in keys]))
 
 
 @internal_router.post("/v1/internal/hit", status_code=204)
 def hit(body: Hit, conn=Depends(get_conn)) -> Response:
-    if not body.route.startswith("/"):
-        return Response(status_code=204)
-    device = "mobile" if body.mobile else "desktop"
-    conn.execute(
-        """INSERT INTO app_hit_daily (day, route, referrer, device, hits)
-           VALUES ((now() AT TIME ZONE 'UTC')::date, %s, %s, %s, 1)
-           ON CONFLICT (day, route, referrer, device) DO UPDATE SET hits = app_hit_daily.hits + 1""",
-        (route_key(body.route), referrer_host(body.referrer), device))
+    _count_hits(conn, [(body.route, body.referrer, body.mobile, 1)])
+    return Response(status_code=204)
+
+
+@internal_router.post("/v1/internal/hits", status_code=204)
+def hits(body: HitBatch, conn=Depends(get_conn)) -> Response:
+    """The site's counter sends what it has gathered every few seconds, already summed per
+    page, referrer host and device class."""
+    _count_hits(conn, [(h.route, h.referrer, h.mobile, h.count) for h in body.hits])
     return Response(status_code=204)

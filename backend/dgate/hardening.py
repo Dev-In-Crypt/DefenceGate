@@ -44,6 +44,10 @@ LOCAL_PEERS = {"127.0.0.1", "::1", "localhost"}
 INTERNAL_FACTOR = 20.0
 
 
+# The visit counter's calls (`/v1/internal/hit` and `/v1/internal/hits`) are not charged.
+UNCHARGED_PREFIX = "/v1/internal/hit"
+
+
 def is_internal(peer: str) -> bool:
     try:
         return ipaddress.ip_address(peer).is_private
@@ -111,6 +115,11 @@ class RateLimit(BaseHTTPMiddleware):
         peer = request.client.host if request.client else "unknown"
         if peer in LOCAL_PEERS or not settings().rate_limit:
             return await call_next(request)
+        if request.url.path.startswith(UNCHARGED_PREFIX):
+            # The site's own visit counter: it is aggregated and flushed by the site every
+            # few seconds, and charging it to the one bucket every page render shares let
+            # the counter's traffic starve the pages (review of 12 October 2026, H1).
+            return await call_next(request)
         cost = request_cost(request.url.path, dict(request.query_params))
         buckets = self.internal if is_internal(peer) else self.buckets
         allowed, wait = buckets.take(peer, cost)
@@ -118,6 +127,64 @@ class RateLimit(BaseHTTPMiddleware):
             return JSONResponse({"detail": "rate limit exceeded"}, status_code=429,
                                 headers={"Retry-After": str(max(1, math.ceil(wait)))})
         return await call_next(request)
+
+
+# The account API and the counter take small JSON bodies. 16 KiB, counted on the bytes that
+# actually arrive: a chunked body has no Content-Length to look at.
+BODY_MAX = 16 * 1024
+BODY_LIMITED_PREFIXES = ("/v1/account", "/v1/internal")
+
+
+class _TooLarge(Exception):
+    pass
+
+
+class BodyLimit:
+    """Refuses a request body over BODY_MAX with 413 on the account and counter routes. Reads
+    at most BODY_MAX + 1 bytes of it: a declared length over the limit is refused without
+    reading, and one that is absent or false is counted as the chunks arrive. FastAPI turns
+    any error raised while it parses a body into a 400, so the 413 is sent from here at the
+    moment the limit is crossed and whatever the application then says is dropped."""
+
+    def __init__(self, app: Any, limit: int = BODY_MAX) -> None:
+        self.app, self.limit = app, limit
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http" or not scope["path"].startswith(BODY_LIMITED_PREFIXES):
+            await self.app(scope, receive, send)
+            return
+        declared = dict(scope["headers"]).get(b"content-length", b"")
+        if declared.isdigit() and int(declared) > self.limit:
+            await self._refuse(scope, receive, send)
+            return
+        seen = 0
+        refused = False
+
+        async def limited():
+            nonlocal seen, refused
+            message = await receive()
+            if message["type"] == "http.request" and not refused:
+                seen += len(message.get("body", b""))
+                if seen > self.limit:
+                    refused = True
+                    await self._refuse(scope, receive, send)
+                    raise _TooLarge
+            return message
+
+        async def guarded(message) -> None:
+            if not refused:
+                await send(message)
+
+        try:
+            await self.app(scope, limited, guarded)
+        except _TooLarge:
+            pass
+
+    @staticmethod
+    async def _refuse(scope, receive, send) -> None:
+        response = JSONResponse({"error": "too_large", "message": "request body too large"},
+                                status_code=413)
+        await response(scope, receive, send)
 
 
 class SecurityHeaders(BaseHTTPMiddleware):

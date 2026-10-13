@@ -63,7 +63,7 @@ def run_digests(conn) -> dict[str, int]:
         for s in searches:
             since = s["last_alerted_at"] or s["created_at"]
             try:
-                found = run_search(conn, s["kind"], s["filters"])
+                found = run_search(conn, s["kind"], s["filters"], full=True)
             except Exception as exc:  # noqa: BLE001 - one broken search must not stop the others
                 log.warning("digest: search %s skipped: %s", s["id"], type(exc).__name__)
                 continue
