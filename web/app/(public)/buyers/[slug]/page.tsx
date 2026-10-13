@@ -105,7 +105,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
               )}
             </>
           ) : (
-            <EmptyState title="No open tenders" action={<Button variant="secondary" href="/tenders">Browse all open tenders</Button>}>
+            <EmptyState title="No open tenders" action={<Button variant="secondary" href="/tenders">Browse current tenders</Button>}>
               This buyer has no open defence tender in our archive at the moment.
             </EmptyState>
           )}

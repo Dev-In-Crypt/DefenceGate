@@ -182,7 +182,7 @@ export default async function CallDetailPage({ params }: Props) {
             {sourceUrl && (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {call.source.sourceName}</Button>
             )}
-            <AlertsLine what="this call" />
+            <AlertsLine />
           </div>
         </aside>
       </div>

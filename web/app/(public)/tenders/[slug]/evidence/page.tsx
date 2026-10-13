@@ -9,7 +9,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
 import { TENDER_SCOPES, countryName, cpvLabel, isNonEnglish, languageName, legalBasisLabel } from '@/lib/taxonomy';
-import { basisChips } from '@/lib/tender-basis';
+import { basisChips, clearanceView, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
 import { Button } from '@/components/dg/button';
@@ -43,7 +43,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 const Mono = ({ children }: { children: React.ReactNode }) => <span className="font-mono text-mono-strong tabular-nums">{children}</span>;
-const NotStated = () => <span className="text-ink-muted">Not stated</span>;
+const NotStated = () => <span className="text-ink-muted">Not available</span>;
 
 export default async function TenderEvidencePage({ params }: Props) {
   const { slug } = await params;
@@ -67,6 +67,8 @@ export default async function TenderEvidencePage({ params }: Props) {
   const valueKind = valueKindLabel(tender.valueKind);
   const lang = (code: string | null) => (code ? languageName(code) : null);
   const generated = new Date().toISOString();
+  const clearance = clearanceView(tender);
+  const subcontracting = subcontractingView(tender);
 
   return (
     <>
@@ -154,9 +156,9 @@ export default async function TenderEvidencePage({ params }: Props) {
               : <NotStated />}
           </Row>
           {typeof (tender.lots ?? tender.lotCount) === 'number' && (tender.lots ?? tender.lotCount ?? 0) > 0 && <Row label="Lots"><Mono>{tender.lots ?? tender.lotCount}</Mono></Row>}
-          <Row label="Status shown">{status.label}{tender.statusNative ? <span className="text-ink-muted"> · source status word: {tender.statusNative}</span> : null}</Row>
-          <Row label="Security clearance">{tender.securityClearance ? 'Mentioned in the notice' : 'Not indicated'}</Row>
-          <Row label="Subcontracting">{tender.subcontracting ? 'Mentioned in the notice' : 'Not indicated'}</Row>
+          <Row label="Status shown">{status.label}{tender.statusNative ? <span className="text-ink-muted"> · status word: {tender.statusNative}</span> : null}</Row>
+          <Row label="Security clearance">{clearance.text}{clearance.hint && <span className="text-ink-muted"> · {clearance.hint}</span>}</Row>
+          <Row label="Subcontracting">{subcontracting.text}</Row>
         </dl>
       </section>
 
@@ -167,7 +169,7 @@ export default async function TenderEvidencePage({ params }: Props) {
           <Row label="Original notice">
             {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="break-all font-mono text-mono">{sourceUrl}</a> : <NotStated />}
           </Row>
-          <Row label="Retrieved by us"><Mono>{formatStamp(tender.source.retrievedAt)}</Mono></Row>
+          <Row label="Last changed in our archive"><Mono>{formatStamp(tender.source.retrievedAt)}</Mono></Row>
           <Row label="Licence">{tender.source.licence}</Row>
           <Row label="Attribution">{tender.source.attribution}</Row>
           {tender.sameNotice.length > 0 && (
@@ -196,7 +198,7 @@ export default async function TenderEvidencePage({ params }: Props) {
           {' '}{versions.length > 1 ? `${versions.length} versions have been observed.` : versions.length === 1 ? 'One version has been observed.' : 'The version history could not be read when this page was generated.'}
         </p>
         <p className="m-0 text-small text-ink-muted">
-          Every change we observe is stored as a new version; earlier versions are not overwritten. A version is dated by when we observed it, which is not necessarily when the source made the change.
+          We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes; earlier versions are not overwritten. History starts when we first saw the notice (our archive began in September 2026). A version is dated by when we observed it, which is not necessarily when the source made the change.
         </p>
         {versions.length > 0 && <VersionTimeline versions={versions} />}
       </section>

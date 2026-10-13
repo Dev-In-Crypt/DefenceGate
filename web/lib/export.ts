@@ -24,7 +24,7 @@ const RETRIES = 4;
 
 export const TENDER_HEADER = [
   'id', 'notice_id', 'title', 'buyer', 'country', 'cpv', 'procedure', 'published', 'deadline_utc', 'value', 'currency',
-  'value_kind', 'status', 'notes', 'source_name', 'source_url', 'licence', 'attribution', 'retrieved_at_utc', 'page_url',
+  'value_kind', 'status', 'notes', 'source_name', 'source_url', 'licence', 'attribution', 'archive_changed_at_utc', 'page_url',
 ];
 
 export function tenderRow(t: Tender): Cell[] {

@@ -5,9 +5,9 @@
  */
 import assert from 'node:assert/strict';
 import { displayName, upperShare } from './display-name';
-import { basisChips } from './tender-basis';
+import { basisChips, clearanceView, subcontractingView } from './tender-basis';
 import { formatChangeValue } from './change-format';
-import { heldSpan, minimumMet, sourceFreshness } from './source-status';
+import { heldSpan, listUpdatedAt, minimumMet, sourceFreshness } from './source-status';
 import { barLayout, daysText, monthLabel, niceMax, percentText, shareOf } from './market';
 import { cpvGroupTitle } from './cpv';
 import { defaultTenderSort, ignoredFilters, isDay, lastPage, parseTenderFilters, toTenderQuery } from './filters';
@@ -44,10 +44,30 @@ assert.deepEqual(basisChips({ legalBasis: '2009/81/EC', scope: 'core' }), ['Defe
 assert.deepEqual(basisChips({ legalBasis: '32014L0024', scope: 'core', buyerClass: 'fire_rescue' }), ['Military product code (CPV)', 'Fire and rescue body']);
 assert.deepEqual(
   basisChips({ scope: 'supply', buyerClass: 'defence', dualUse: true, securityClearance: true }),
-  ['Supplies to a defence buyer', 'Defence body', 'Dual-use / security', 'Security clearance mentioned'],
+  ['Supplies to a defence buyer', 'Defence body', 'Dual-use / security', 'Security-clearance field present'],
 );
 assert.deepEqual(basisChips({ scope: 'core', buyerClass: 'other' }), ['Military product code (CPV)']);
 assert.ok(!basisChips({ scope: 'core', legalBasis: '32009L0081', buyerClass: 'security' }).some((c) => /Defence notice/.test(c)));
+
+// ---- A signal we never read is not "not found" ----
+const tedNew = { source: { sourceId: 'ted' }, publishedAt: '2026-09-01T00:00:00Z' };
+assert.equal(clearanceView({ ...tedNew, securityClearance: false }).text, 'Not detected');
+assert.equal(subcontractingView({ ...tedNew, subcontracting: false }).text, 'Not detected');
+assert.equal(clearanceView({ source: { sourceId: 'fr_boamp' }, publishedAt: '2026-09-01T00:00:00Z', securityClearance: false }).text, 'Not read from this source');
+assert.equal(clearanceView({ source: { sourceId: 'ted' }, publishedAt: '2021-05-01T00:00:00Z', securityClearance: false }).text, 'Not read from this source');
+assert.equal(subcontractingView({ source: { sourceId: 'pl_ezam' }, publishedAt: null, subcontracting: false }).text, 'Not read from this source');
+assert.equal(clearanceView({ ...tedNew, securityClearance: true }).text, 'Field present in the notice');
+assert.ok(clearanceView({ ...tedNew, securityClearance: true }).hint);
+assert.equal(subcontractingView({ ...tedNew, subcontracting: true }).text, 'Mentioned in the notice');
+
+// ---- The data time of a list is shown only when the API sends it ----
+assert.equal(listUpdatedAt({ meta: { updatedAt: '2026-10-13T15:16:44Z' } }), '2026-10-13T15:16:44Z');
+assert.equal(listUpdatedAt({}), null);
+assert.equal(listUpdatedAt({ meta: null }), null);
+assert.equal(listUpdatedAt({ meta: { updatedAt: 'not a date' } }), null);
+assert.equal(listUpdatedAt({ meta: { updatedAt: '' } }), null);
+assert.equal(listUpdatedAt({ meta: 'x' }), null);
+assert.equal(listUpdatedAt(null), null);
 
 // ---- Version history values, said for a person ----
 assert.equal(formatChangeValue('deadline_at', '2026-09-10'), '10 Sep 2026');

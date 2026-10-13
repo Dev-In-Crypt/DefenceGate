@@ -154,7 +154,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
         <FactCell label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</FactCell>
       </dl>
       <AnomalyNote tender={tender} />
-      <SourceBadge source={tender.source} variant="inline" />
+      <SourceBadge source={tender.source} variant="inline" retrievedLabel="Last changed in our archive" />
     </article>
   );
 }

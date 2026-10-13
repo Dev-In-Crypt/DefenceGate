@@ -44,7 +44,7 @@ export async function Footer() {
           DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
         </p>
         <div className="flex flex-wrap justify-between gap-2 font-mono text-mono text-ink-muted">
-          <span>{health.sources.length} sources · Last update {formatDateTimeUtc(lastDataUpdate(health))}</span>
+          <span>{health.sources.length} sources · Last collection run {formatDateTimeUtc(lastDataUpdate(health))}</span>
           <span>All dates in UTC</span>
         </div>
       </div>

@@ -46,7 +46,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'dual-use', term: 'Dual-use',
-    body: 'Goods, software or technology that can serve both civil and military purposes. In EU export law the word has a specific legal meaning, set by Regulation (EU) 2021/821. On a funding call here, “dual-use” is the regime the programme or source itself assigns; it is not an export-control classification.',
+    body: 'Goods, software or technology that can serve both civil and military purposes. In EU export law the word has a specific legal meaning, set by Regulation (EU) 2021/821. On a funding call here, “dual-use” is a label DefenceGate gives to calls under civil programmes or areas it treats as dual-use; the label is ours, not the programme’s, and it is not an export-control classification.',
     source: 'EUR-Lex',
   },
   {
@@ -62,8 +62,8 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'edip', term: 'EDIP', full: 'European Defence Industry Programme',
-    body: 'An EU programme that supports the European defence industry. Its calls appear in our funding list under EDIP; read the programme’s own documents for its scope and rules.',
-    see: { label: 'EDIP calls', href: '/funding?programme=EDIP' },
+    body: 'An EU programme that supports the European defence industry. Its calls are listed with the EDF calls in our funding list; their identifiers begin EDF-EDIP. Read the programme’s own documents for its scope and rules.',
+    see: { label: 'EDF and EDIP calls', href: '/funding?programme=EDF' },
   },
   {
     id: 'eforms', term: 'eForms',
@@ -80,7 +80,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'nda', term: 'NDA', full: 'Non-disclosure agreement',
-    body: 'A contract in which a party promises not to share certain information. A buyer may ask suppliers to sign one before releasing the tender documents. We only flag that a notice mentions such a confidentiality requirement.',
+    body: 'A contract in which a party promises not to share certain information. A buyer may ask suppliers to sign one before releasing the tender documents. Some TED notices carry a security-clearance or confidentiality field, which we show as present or not detected; it also holds other declarations, so read the notice.',
   },
   {
     id: 'negotiated-procedure', term: 'Negotiated procedure',
@@ -89,12 +89,12 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'notice-amendment', term: 'Notice amendment and corrigendum',
-    body: 'A buyer can correct or change a published notice, for example to move a deadline or fix a value. On TED this is done with a corrigendum or a change notice; a national portal may change the notice in place. DefenceGate keeps every version it observes, so the record shows what changed and when we saw it.',
+    body: 'A buyer can correct or change a published notice, for example to move a deadline or fix a value. On TED this is done with a corrigendum or a change notice; a national portal may change the notice in place. DefenceGate keeps each version it observes in which the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changed, so the record shows what changed and when we saw it.',
     see: { label: 'How versions are kept', href: '/methodology' },
   },
   {
     id: 'notice-status', term: 'Notice status',
-    body: 'Open means the notice is still taking bids. Closed means its deadline has passed, Awarded and Cancelled are the source’s own words, and Planned means it is announced but not yet open. Status unknown means the source does not say, so check the original.',
+    body: 'Open means the notice is still taking bids; a notice with no deadline counts as open for a year after publication. Closed means its deadline has passed, or that a notice without a deadline was published over a year ago. Awarded, Cancelled and Planned are read from the type of notice the source published. Status unknown means the source does not say, so check the original.',
   },
   {
     id: 'prior-information-notice', term: 'Prior information notice', full: 'PIN',
@@ -112,7 +112,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'security-clearance', term: 'Security clearance',
-    body: 'An official decision that a company or a person may handle classified information up to a stated level. It is issued by a national security authority. A notice that requires one says so in its conditions; DefenceGate only flags that the notice mentions it.',
+    body: 'An official decision that a company or a person may handle classified information up to a stated level. It is issued by a national security authority. A notice that requires one says so in its conditions. For TED notices from 2024 on DefenceGate shows whether the notice has a security-clearance field; that field also carries sanctions declarations and criminal-record certificates, so its presence does not mean clearance is required, and for other notices the field is not read.',
   },
   {
     id: 'source-status', term: 'Source status',

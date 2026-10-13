@@ -6,6 +6,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata } from '@/lib/seo';
 import { heldSpan, minimumMet, sourceFreshness, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
 import type { SourceHealth, SourceType } from '@/lib/types';
+import { ClauseList } from '@/components/dg/blocks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { EmptyState } from '@/components/dg/feedback';
@@ -77,13 +78,13 @@ export default async function DataPage() {
     >
       <p className="m-0 max-w-[860px] text-body text-ink-muted">
         <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was within the last {STALE_AFTER_DAYS} days.
-        It does not mean the source is fully collected. A run older than that is shown as stale, a load made once as a one-off load, and a source that failed or has never run as such.
+        Sources are collected once a day, so an older run means missed runs. It does not mean the source is fully collected. A run older than that is shown as stale, a load made once as a one-off load, and a source that failed or has never run as such.
       </p>
 
       <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg bg-surface p-4 lg:grid-cols-3">
         <FactCell label="Sources">{health.sources.length}</FactCell>
-        <FactCell label="OK and current">{count('ok')}</FactCell>
-        <FactCell label="Stale (last run over 3 days ago)">{count('stale')}</FactCell>
+        <FactCell label={`OK (run in the last ${STALE_AFTER_DAYS} days)`}>{count('ok')}</FactCell>
+        <FactCell label={`Stale (last run over ${STALE_AFTER_DAYS} days ago)`}>{count('stale')}</FactCell>
         <FactCell label="One-off loads">{count('one-off')}</FactCell>
         <FactCell label="Partial, failed or never run">{count('partial', 'failed', 'never')}</FactCell>
         <FactCell label="Status as of"><time dateTime={health.generatedAt}>{formatDateTimeUtc(health.generatedAt)}</time></FactCell>
@@ -106,6 +107,19 @@ export default async function DataPage() {
           );
         })
       )}
+
+      <ContentSection title="Known gaps">
+        <p className="m-0 text-body text-ink-muted">As of 13 October 2026. The span of publication dates in a card above shows where a source starts; it does not show holes inside it.</p>
+        <ClauseList items={[
+          'National tender portals are collected for four countries only: Spain (PLACSP), France (BOAMP), the Netherlands (TenderNed) and Poland (e-Zamówienia). For every other country, Germany, Italy and the Nordic and Baltic countries among them, we hold only what TED carries.',
+          'TED: notices published before 2025 have not been re-checked with the current classification rules, so older ones may be mislabelled or missing.',
+          'Spain (PLACSP): the earlier history is being loaded from the portal’s monthly archives, and most of what we hold is from August 2026 on.',
+          'Poland (e-Zamówienia): the history is being loaded and has holes. January to April and September to October 2026 are held, May to August 2026 are not yet, and nothing before January 2026 is held.',
+          'Poland (Atlas): a one-off research dataset covering January 2024 to December 2025, not a live portal.',
+          'The Netherlands (TenderNed): notices from January 2026 on.',
+          'Germany: federal funding announcements are not collected automatically. They can be added by hand, so a German call may be missing.',
+        ]} />
+      </ContentSection>
 
       <ContentSection title="What is and is not covered">
         <p className="m-0 text-body text-ink-muted">

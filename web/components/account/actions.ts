@@ -100,5 +100,5 @@ export async function saveSearch(kind: SearchKind, name: string, filters: Search
   if (!title) return { ok: false, mode: 'ready', message: 'Give the search a name.' };
   const r = await createSearch({ name: title, kind, filters: clean });
   if (r.ok) return { ok: true, mode: 'ready' };
-  return failed(r, 'Could not save this search. You may have reached the limit of 25 saved searches.');
+  return failed(r, 'Could not save this search. You may have reached the limit of 10 saved searches.');
 }

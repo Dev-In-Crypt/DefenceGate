@@ -120,6 +120,8 @@ export interface Paginated<T> {
   total: number;
   page: number;
   pageSize: number;
+  /** Sent by newer API builds on /v1/tenders and /v1/funding. `updatedAt` is when the data behind the list last changed. */
+  meta?: { updatedAt?: string | null } | null;
 }
 
 /** GET /v1/tenders (list), GET /v1/tenders/{slug} (detail). Contract: docs/design/API_CONTRACT.md. */
@@ -183,7 +185,7 @@ export interface Tender {
   subcontracting: boolean;
   /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). */
   sameNotice: { source: string; url: string | null }[];
-  /** retrievedAt = when we last observed the notice. */
+  /** retrievedAt = when the archive's record of the notice last changed (the newest version's observation time), not the time of our last fetch. */
   source: SourceAttribution;
 }
 

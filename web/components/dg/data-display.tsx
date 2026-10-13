@@ -5,7 +5,7 @@ import type { Money } from '@/lib/types';
 
 /** "EUR 25,000,000" in DM Mono. Missing amounts say so instead of showing 0. */
 export function AmountDisplay({ money, size = 'md', className }: { money: Money | null; size?: 'md' | 'lg'; className?: string }) {
-  if (!money) return <span className={cn('font-sans text-body text-ink-muted', className)}>Not stated</span>;
+  if (!money) return <span className={cn('font-sans text-body text-ink-muted', className)}>Not available</span>;
   return (
     <data value={`${money.amount} ${money.currency}`} className={cn('font-mono tabular-nums', size === 'lg' ? 'text-figure' : 'text-mono-strong', className)}>
       {formatMoney(money)}

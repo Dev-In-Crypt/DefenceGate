@@ -3,6 +3,7 @@ import { CalendarDays, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTimeUtc } from '@/lib/format';
 import { PARAM, toQuery } from '@/lib/filters';
+import { listUpdatedAt } from '@/lib/source-status';
 import { fundersWithCoverage } from '@/lib/taxonomy';
 import type { CallFilters, Health, ListView, Paginated, Call } from '@/lib/types';
 import type { Crumb } from '@/lib/seo';
@@ -40,6 +41,8 @@ export function CallListTemplate({
 }) {
   // An empty result has one heading, the empty state's: the count line is then a paragraph, not a second h2.
   const Count = result.total === 0 ? 'p' : 'h2';
+  // The time of the data (`meta.updatedAt`), never the render time; left out when the API does not send it.
+  const updated = listUpdatedAt(result);
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
   const viewHref = (v: ListView) => `${basePath}${toQuery({ ...filters, page: 1 }, { [PARAM.view]: v === 'calendar' ? v : undefined })}`;
@@ -50,7 +53,7 @@ export function CallListTemplate({
       <header className="flex flex-col gap-3">
         <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{title}</h1>
         <p className="m-0 max-w-[62ch] text-body text-ink-muted">{intro}</p>
-        <p className="m-0 font-mono text-mono text-ink-muted">{health.sources.length} sources · Last update {formatDateTimeUtc(health.generatedAt)}</p>
+        <p className="m-0 font-mono text-mono text-ink-muted">{health.sources.length} sources{updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}</p>
       </header>
 
       {chips.length > 0 && (

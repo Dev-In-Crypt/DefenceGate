@@ -10,6 +10,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
 import { sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
 import { cpvLabel, isNonEnglish, legalBasisLabel, TENDER_SCOPES } from '@/lib/taxonomy';
+import { clearanceView, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
 import { Tag } from '@/components/dg/tag';
@@ -92,6 +93,8 @@ export default async function TenderDetailPage({ params }: Props) {
   const buyer = displayName(tender.buyerName, 'title');
   const sourceStatus = sourceStatusWord(tender);
   const lots = tender.lots ?? tender.lotCount;
+  const clearance = clearanceView(tender);
+  const subcontracting = subcontractingView(tender);
 
   return (
     <>
@@ -144,24 +147,27 @@ export default async function TenderDetailPage({ params }: Props) {
             <FactCell label="Published">
               {tender.publishedAt
                 ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
-                : <span className="font-sans">Not stated</span>}
+                : <span className="font-sans">Not available</span>}
             </FactCell>
-            <FactCell label="Procedure"><span className="font-sans">{tender.procedure ?? 'Not stated'}</span></FactCell>
+            <FactCell label="Procedure"><span className="font-sans">{tender.procedure ?? 'Not available'}</span></FactCell>
             <FactCell label="Legal basis">
               {tender.legalBasis ? (
                 <>
                   {tender.legalBasis}
                   {legal && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{legal}</div>}
                 </>
-              ) : <span className="font-sans">Not stated</span>}
+              ) : <span className="font-sans">Not available</span>}
             </FactCell>
             <FactCell label="Buyer country">
-              {tender.country ? <CountryLabel code={tender.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}
+              {tender.country ? <CountryLabel code={tender.country} className="font-sans" /> : <span className="font-sans">Not available</span>}
             </FactCell>
-            <FactCell label="Security clearance"><span className="font-sans">{tender.securityClearance ? 'Mentioned in the notice' : 'Not indicated'}</span></FactCell>
-            <FactCell label="Subcontracting"><span className="font-sans">{tender.subcontracting ? 'Mentioned in the notice' : 'Not indicated'}</span></FactCell>
-            {/* Only a word the source itself gives (awarded, cancelled, planned); "Closing soon" is ours and is not shown here. */}
-            {sourceStatus && <FactCell label="Status at the source"><span className="font-sans">{sourceStatus}</span></FactCell>}
+            <FactCell label="Security clearance">
+              <span className="font-sans">{clearance.text}</span>
+              {clearance.hint && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{clearance.hint}</div>}
+            </FactCell>
+            <FactCell label="Subcontracting"><span className="font-sans">{subcontracting.text}</span></FactCell>
+            {/* Awarded, cancelled and planned are read from the type of notice (TED) or the source's own status; "Closing soon" is ours and is not shown here. */}
+            {sourceStatus && <FactCell label="Status read from the notice"><span className="font-sans">{sourceStatus}</span></FactCell>}
             {typeof lots === 'number' && lots > 0 && <FactCell label="Lots">{lots}</FactCell>}
           </dl>
           <AnomalyNote tender={tender} />
@@ -205,7 +211,7 @@ export default async function TenderDetailPage({ params }: Props) {
 
           <Panel title="Version history">
             <p className="m-0 text-small text-ink-muted">
-              Every change we observe is stored as a new version. Earlier versions are never overwritten or deleted.
+              We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. Earlier versions are never overwritten or deleted. History starts when we first saw the notice; our archive began in September 2026.
               {' '}{versions.length > 1 ? `${versions.length} versions observed.` : 'One version observed so far.'}
             </p>
             {versions.length > 0
@@ -214,7 +220,7 @@ export default async function TenderDetailPage({ params }: Props) {
           </Panel>
 
           <Panel title="Source and attribution">
-            <SourceBadge source={tender.source} version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
+            <SourceBadge source={tender.source} retrievedLabel="Last changed in our archive" version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
           </Panel>
         </div>
 
@@ -227,7 +233,7 @@ export default async function TenderDetailPage({ params }: Props) {
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {tender.source.sourceName}</Button>
             )}
             <Button href={`/tenders/${tender.slug}/evidence`} variant="text" icon={Printer} className="self-start">Print evidence</Button>
-            <AlertsLine what="this notice" />
+            <AlertsLine />
           </div>
         </aside>
       </div>

@@ -114,7 +114,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg bg-surface p-5">
             <h2 id="feed-heading" className="m-0 text-body font-bold">Calendar feed</h2>
             <p className="m-0 text-small text-ink-muted">
-              Add this address to your calendar app to follow the deadlines above. Up to 500 events, in UTC, refreshed hourly.
+              Add this address to your calendar app to follow the deadlines above. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.
             </p>
             <code className="break-all rounded-md bg-surface-inset px-3 py-2 font-mono text-mono">{absoluteUrl(feed)}</code>
             <a href={feed} download className="inline-flex min-h-11 items-center gap-2 text-small font-bold">

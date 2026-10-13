@@ -35,7 +35,9 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
         </FactCell>
         <FactCell label="With an amendment">
           <span>{percentText(a.share)}</span>
-          <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} notices</span>
+          <span className="block font-sans text-small font-normal text-ink-muted">
+            {formatNumber(a.amended)} of {formatNumber(a.notices)} notices, counted from when we first saw each one (September 2026 at the earliest).
+          </span>
         </FactCell>
       </dl>
 
