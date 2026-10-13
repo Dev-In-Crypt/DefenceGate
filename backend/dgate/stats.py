@@ -45,6 +45,7 @@ from .tenders import CORE, FIELD_LABELS, TIMELINE_SQL, _api, _id_of, timeline
 router = APIRouter()
 
 CACHE_SECONDS = 3600
+LAST_RUN_SECONDS = 300       # `meta.updatedAt` of the lists: a run that ends is shown within 5 minutes
 RETRY_SECONDS = 60           # how long a failed source-span read is not tried again
 MAX_CACHED = 1000
 MONTHS = 36
@@ -87,8 +88,8 @@ def _put(key: Any, value: Any, ttl: float = CACHE_SECONDS) -> None:
     _cache[key] = (time.monotonic() + ttl, value)
 
 
-def cached(key: Any, compute):
-    """`compute()` once an hour per key. A None result is not stored: it is "no such
+def cached(key: Any, compute, ttl: float = CACHE_SECONDS):
+    """`compute()` once an hour (or `ttl`) per key. A None result is not stored: it is "no such
     buyer", and arbitrary ids must not fill the cache. A computation that raises is not
     stored either, and the figures cached before it stay, so a retry only redoes what
     failed. ponytail: one lock for every key, so a buyer profile waits while a market
@@ -102,7 +103,7 @@ def cached(key: Any, compute):
             return value
         value = compute()
         if value is not None:
-            _put(key, value)
+            _put(key, value, ttl)
         return value
 
 
@@ -480,3 +481,28 @@ def cached_source_spans(conn) -> dict[str, dict[str, Any]]:
         with _lock:
             _put("source-spans", {}, RETRY_SECONDS)
         return {}
+
+
+# ---------------------------------------------------------- last collection
+
+def last_run_finished(conn, kind: str) -> datetime | None:
+    """When the newest successful or partial collection run of an active source of this
+    kind (`tender` or `grant`) finished: what a list means by "updated". A failed run
+    added nothing, so it does not count. `ingest_run` is a few hundred rows."""
+    return conn.execute(
+        """SELECT max(r.finished_at) AS t
+             FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE s.kind = %s AND s.active AND r.status IN ('success', 'partial')""",
+        (kind,)).fetchone()["t"]
+
+
+def cached_last_run(conn, kind: str) -> datetime | None:
+    """`last_run_finished`, cached for `LAST_RUN_SECONDS`; None (not cached) when there is
+    no such run yet, or when the read does not finish in the API role's budget: a list
+    must not fail for want of its timestamp."""
+    try:
+        return cached(("last-run", kind), lambda: last_run_finished(conn, kind),
+                      LAST_RUN_SECONDS)
+    except psycopg.errors.QueryCanceled:
+        conn.rollback()
+        return None

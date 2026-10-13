@@ -16,7 +16,8 @@ import { isMidnight, isoUtc, toCsv, type Cell } from './csv';
 
 /** The most rows one download holds (`status=all` holds at most 1,000: see export-cache.ts). */
 export const EXPORT_CAP = 2000;
-const TENDER_PAGE = 100;
+/** The API evaluates the whole filtered set once per page, so fewer, larger pages (its limit is 250). */
+const TENDER_PAGE = 250;
 const CALL_PAGE = 500;
 const PARALLEL = 4;
 const RETRIES = 4;
@@ -81,7 +82,7 @@ async function withRetry<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /** Page 1, then the rest four at a time, up to `cap` rows. A page that cannot be had fails the export. */
-async function collect<T>(fetchOne: (page: number) => Promise<Paginated<T>>, cap: number): Promise<{ items: T[]; total: number }> {
+async function collect<T extends { id: string }>(fetchOne: (page: number) => Promise<Paginated<T>>, cap: number): Promise<{ items: T[]; total: number }> {
   const fetchPage = (page: number) => withRetry(() => fetchOne(page));
   const first = await fetchPage(1);
   const items = [...first.items];
@@ -91,7 +92,11 @@ async function collect<T>(fetchOne: (page: number) => Promise<Paginated<T>>, cap
     const batch = Array.from({ length: Math.min(PARALLEL, pages - p + 1) }, (_, i) => fetchPage(p + i));
     for (const r of await Promise.all(batch)) items.push(...r.items);
   }
-  return { items: items.slice(0, cap), total: first.total };
+  // The pages are read a moment apart: a notice that arrives between two reads shifts the boundary
+  // and would appear on both. Each row is listed once.
+  const seen = new Set<string>();
+  const once = items.filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)));
+  return { items: once.slice(0, cap), total: first.total };
 }
 
 interface Built { body: string; total: number; rows: number; cap: number }
@@ -132,7 +137,7 @@ export async function tendersCsvResponse(url: URL): Promise<Response> {
   const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
     const r = await runner.get(`tenders${toTenderQuery({ ...parsed, page: 1 })}`, async () => {
-      const { items, total } = await collect((page) => getTenders({ ...filters, page }), cap);
+      const { items, total } = await collect((page) => getTenders({ ...filters, page }, { fresh: true }), cap);
       return { body: toCsv(TENDER_HEADER, items.map(tenderRow)), total, rows: items.length, cap };
     });
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
@@ -148,7 +153,7 @@ export async function callsCsvResponse(url: URL): Promise<Response> {
   const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
     const r = await runner.get(`funding${toQuery({ ...parsed, page: 1 })}`, async () => {
-      const { items, total } = await collect((page) => getCalls({ ...filters, page }), cap);
+      const { items, total } = await collect((page) => getCalls({ ...filters, page }, { fresh: true }), cap);
       return { body: toCsv(CALL_HEADER, items.map(callRow)), total, rows: items.length, cap };
     });
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-funding');

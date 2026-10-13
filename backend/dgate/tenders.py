@@ -15,6 +15,11 @@ Decisions that shape it:
     hides). The buyer aggregate (`tenderCount`, `openCount`) counts every core notice of
     the buyer, collapsed or not, so it can exceed what `/v1/tenders?buyer=` lists
   - amounts are never converted; a value range selects one currency
+  - a notice with no deadline of its own is not served open when its procedure is over
+    (its TED twin's deadline has passed, an award follows it, a rectificatif replaces
+    it: `api.SUPERSEDED_SQL`); `deadlineKnown` says whether the deadline is stated at all
+  - a national notice that states no value borrows the value of its TED twin at read
+    time, and says so (`valueFrom: "ted_twin"`); the stored row is never changed
   - a tender names its buyer the way the notice itself does (`buyerName`); the buyers
     catalogue, and `buyerCanonicalName` beside it, use the organisation's commonest
     spelling rather than the normalised key the entity resolver uses
@@ -36,13 +41,29 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .db import same_value
-from .funding import Budget, SourceAttribution, _like, anomalies, get_conn, make_slug
+from .funding import (
+    Budget,
+    ListMeta,
+    SourceAttribution,
+    _like,
+    anomalies,
+    get_conn,
+    make_slug,
+    serves_meta,
+)
 from .normalise import http_url, redact_emails
 
 router = APIRouter()
 
 SLUG_RE = re.compile(r"^([0-9]{1,9})(?:-|$)", re.ASCII)
 MAX_BIGINT = 9_223_372_036_854_775_807
+# A value of 1 or less is how a notice says "not known" (0.01, 1.00, 0, -1: 5,771 TED rows
+# on 13 October 2026), never a price. It is not shown, not borrowed from, and not matched
+# by a value range.
+PLACEHOLDER_VALUE_MAX = 1
+# Each page of the list evaluates the whole filtered set once (the total rides on it), so a
+# 2,000-row export in pages of 100 was 20 passes over up to 200,000 notices; 250 makes it 8.
+MAX_PAGE_SIZE = 250
 MAX_LIST_ITEMS = 20
 SLUG_WINDOW_DAYS = 365
 TENDER_SLUG_LIMIT = 5000
@@ -77,8 +98,16 @@ class Tender(BaseModel):
     buyerClass: str | None = None
     dualUse: bool = False
     deadline: datetime | None
+    # False when the notice states no deadline: `status` is then a judgement (see
+    # `api.SUPERSEDED_SQL`, `api.OPEN_WITHOUT_DEADLINE_DAYS`) and the site says "deadline
+    # not stated" rather than showing nothing.
+    deadlineKnown: bool = True
     publishedAt: datetime | None
     estimatedValue: Budget | None
+    # `ted_twin` when `estimatedValue` is the value of the TED notice this one is the same
+    # procurement as and the notice itself states none; null when it is the notice's own.
+    # `valueKind` then describes the twin's figure.
+    valueFrom: str | None = None
     lots: int | None = None
     valueKind: str | None = None
     anomalies: list[str] = []
@@ -97,6 +126,7 @@ class TenderPage(BaseModel):
     total: int
     page: int
     pageSize: int
+    meta: ListMeta = ListMeta()
 
 
 class FieldChange(BaseModel):
@@ -255,13 +285,16 @@ def _version_counts(conn, ids: list[int]) -> dict[int, int]:
 
 
 def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int],
-              twins: list[dict[str, Any]], observed: datetime | None) -> dict[str, Any]:
+              twins: list[dict[str, Any]], observed: datetime | None, *,
+              superseded: bool = False, twin_value: dict[str, Any] | None = None
+              ) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
     heading = title_en or original
     other = original if title_en and original and original.strip() != title_en.strip() else None
-    eff = api.effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at"))
+    eff = api.effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at"),
+                               superseded=superseded)
     org_id = r.get("buyer_org_id")
     # The notice's own spelling is what the notice says; the organisation's commonest
     # spelling is what the organisation is called. 15,937 TED rows were being shown
@@ -272,6 +305,13 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     n_versions = versions.get(r["id"], 1) or 1
     cpv = r.get("cpv_codes") or []
     amount = r.get("value_amount")
+    value_from, value_kind = None, r.get("value_kind")
+    currency = r.get("value_currency")
+    if not amount or amount <= PLACEHOLDER_VALUE_MAX:
+        amount, value_kind = None, None
+        if twin_value:                      # the notice's own value always wins
+            amount, currency = twin_value["amount"], twin_value["currency"]
+            value_from, value_kind = "ted_twin", twin_value["kind"]
     return {
         "id": str(r["id"]),
         "slug": make_slug(r["id"], heading),
@@ -293,11 +333,13 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "buyerClass": r.get("buyer_class"),
         "dualUse": bool(r.get("dual_use")),
         "deadline": r.get("deadline_at"),
+        "deadlineKnown": r.get("deadline_at") is not None,
         "publishedAt": _day(r.get("published_at")),
-        "estimatedValue": ({"amount": float(amount), "currency": r.get("value_currency") or "EUR"}
+        "estimatedValue": ({"amount": float(amount), "currency": currency or "EUR"}
                            if amount else None),
+        "valueFrom": value_from,
         "lots": r.get("lot_count"),
-        "valueKind": r.get("value_kind"),
+        "valueKind": value_kind,
         "anomalies": anomalies(r.get("deadline_at"), r.get("published_at")),
         "status": "open" if eff == "open" else "closed",
         "statusNative": eff,
@@ -305,7 +347,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "versionCount": n_versions,
         "securityClearance": bool(r.get("security_clearance_required")),
         "subcontracting": bool(r.get("subcontracting_signal")),
-        "sameNotice": [{"source": t["source"], "url": t.get("url")} for t in twins],
+        "sameNotice": [{"source": t["source"], "url": t.get("url"), "id": str(t["id"]),
+                        "noticeId": t["native_id"]} for t in twins],
         "source": {
             "sourceId": r["source_code"],
             "sourceName": r["source_name"],
@@ -317,13 +360,57 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     }
 
 
+def _superseded(conn, rows: list[dict[str, Any]]) -> set[int]:
+    """Of a page's stored-open notices that state no deadline, the ones whose procedure is
+    over (`api.SUPERSEDED_SQL`): what the list's own status filter already knows in SQL."""
+    ids = [r["id"] for r in rows if r.get("status") == "open" and r.get("deadline_at") is None]
+    if not ids:
+        return set()
+    got = conn.execute(
+        f"SELECT o.id FROM opportunity o WHERE o.id = ANY(%s) AND {_api().SUPERSEDED_SQL}",
+        (ids,)).fetchall()
+    return {r["id"] for r in got}
+
+
+def _twin_values(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    """For a page's notices that state no value but name a TED twin, the twin's value.
+
+    Only where the figure says the same thing about the same procurement:
+      - not `first_lot` (the first of several lots: one part, not the notice)
+      - not a placeholder (`PLACEHOLDER_VALUE_MAX`) and with its currency
+      - a link made by procedure identifier or by the heuristic ties the row to the newest
+        TED notice of the procedure, which may be another stage of it: the twin must then
+        have the row's own status (the rule `list_tenders` collapses by), or the value of
+        a call would be shown on its award
+    A stated TED number is the same notice and needs no such check."""
+    ids = [r["id"] for r in rows
+           if r.get("ted_ref") and not (r.get("value_amount")
+                                        and r["value_amount"] > PLACEHOLDER_VALUE_MAX)]
+    if not ids:
+        return {}
+    got = conn.execute(
+        """SELECT o.id AS row_id, t.value_amount, t.value_currency, t.value_kind
+             FROM opportunity o
+             JOIN opportunity t ON t.source_id = (SELECT id FROM source WHERE code = 'ted')
+                               AND t.native_id = o.ted_ref
+            WHERE o.id = ANY(%s) AND t.value_amount > %s AND t.value_currency IS NOT NULL
+              AND t.value_kind IS DISTINCT FROM 'first_lot'
+              AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic')
+                   OR t.status = o.status)""", (ids, PLACEHOLDER_VALUE_MAX)).fetchall()
+    return {r["row_id"]: {"amount": r["value_amount"], "currency": r["value_currency"],
+                          "kind": r["value_kind"]} for r in got}
+
+
 def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids = [r["id"] for r in rows]
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
     versions = _version_counts(conn, ids)
     twins = _api()._twins(conn, ids)
     seen = _observed(conn, ids)
-    return [to_tender(r, names, versions, twins.get(r["id"], []), seen.get(r["id"]))
+    over = _superseded(conn, rows)
+    borrowed = _twin_values(conn, rows)
+    return [to_tender(r, names, versions, twins.get(r["id"], []), seen.get(r["id"]),
+                      superseded=r["id"] in over, twin_value=borrowed.get(r["id"]))
             for r in rows]
 
 
@@ -356,8 +443,9 @@ def list_tenders(
     currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
     sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
     page: int = Query(1, ge=1, le=1000),
-    pageSize: int = Query(20, ge=1, le=100),
+    pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
     conn=Depends(get_conn),
+    with_meta=Depends(serves_meta),
 ):
     api = _api()
     eff = api.EFFECTIVE_STATUS_SQL
@@ -398,8 +486,9 @@ def list_tenders(
         where.append("o.deadline_at <= %s")
         params.append(datetime.combine(to, time.max, tzinfo=timezone.utc))
     if min_ is not None or max_ is not None:
-        where.append("o.value_currency = %s AND o.value_amount IS NOT NULL")
-        params.append(currency.upper())
+        # A placeholder (0, 0.01, 1) is "not stated" and must not match "up to EUR 100,000".
+        where.append("o.value_currency = %s AND o.value_amount > %s")
+        params += [currency.upper(), PLACEHOLDER_VALUE_MAX]
         if min_ is not None:
             where.append("o.value_amount >= %s")
             params.append(min_)
@@ -433,7 +522,8 @@ def list_tenders(
     # other row: no match.)
     rect_where = [re.sub(r"\bo\.", "c.", clause_) for clause_ in where]
     not_rectified = ("NOT EXISTS (SELECT 1 FROM opportunity c "
-                     "WHERE o.related_native_id IS NULL AND c.source_id = o.source_id "
+                     "WHERE o.related_native_id IS NULL AND c.related_native_id IS NOT NULL "
+                     "AND c.source_id = o.source_id "
                      "AND c.related_native_id = o.native_id AND c.id <> o.id AND "
                      + " AND ".join(rect_where) + ")")
     # A TED re-publication or corrigendum carries a new publication number but the same
@@ -465,7 +555,10 @@ def list_tenders(
     else:                       # a page past the end still reports how many there are
         total = conn.execute(
             f"SELECT count(*) AS n FROM opportunity o{clause}", args).fetchone()["n"]
-    return {"items": _present(conn, rows), "total": total, "page": page, "pageSize": pageSize}
+    from .stats import cached_last_run  # stats imports this module
+
+    return {"items": _present(conn, rows), "total": total, "page": page, "pageSize": pageSize,
+            "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None}}
 
 
 @router.get("/v1/tenders/slugs")

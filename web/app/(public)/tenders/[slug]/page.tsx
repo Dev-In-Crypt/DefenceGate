@@ -77,7 +77,10 @@ export default async function TenderDetailPage({ params }: Props) {
       ? getTenders({ buyer: tender.buyerId, status: 'open', pageSize: RELATED_LIMIT + 1 }, { cacheable: true }).then((r) => r.items).catch(() => [])
       : Promise.resolve([]),
   ]);
-  const related = sameBuyer.filter((t) => t.id !== tender.id).slice(0, RELATED_LIMIT);
+  // Not this notice, and not its twin in another source (the API collapses twins within a list; a list
+  // fetched before the link was made, or kept by the cache, may still carry both).
+  const twinIds = new Set((tender.sameNotice ?? []).map((s) => s.id).filter(Boolean));
+  const related = sameBuyer.filter((t) => t.id !== tender.id && !twinIds.has(t.id)).slice(0, RELATED_LIMIT);
   const sourceNames = new Map(health.sources.map((s) => [s.id, s.name]));
 
   const d = getTenderDeadline(tender);

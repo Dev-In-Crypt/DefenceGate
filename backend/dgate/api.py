@@ -239,7 +239,8 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         scope=row_scope(r),
         buyer_class=r.get("buyer_class"),
         dual_use=bool(r.get("dual_use")),
-        status=effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at")),
+        status=r["eff_status"] if "eff_status" in r else effective_status(
+            r.get("status"), r.get("deadline_at"), r.get("published_at")),
         status_native=r.get("status_native"),
         same_notice=same_notice or [],
     )
@@ -265,22 +266,46 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
 # stored value is versioned history and stays as it is; what is served is the
 # status as of now.
 OPEN_WITHOUT_DEADLINE_DAYS = 365
+
+# A notice that states no deadline is only "open" by the rule above, which is a guess:
+# 110 of the 129 French notices served open on 13 October 2026 had no deadline and a TED
+# twin whose deadline had passed. So a notice with no deadline of its own is not served
+# open when the rest of its procedure says it is over:
+#   - the TED notice it was forwarded as (`ted_ref`) is awarded, cancelled, closed, or open
+#     with a passed deadline
+#   - another notice of the same procedure is an award or a cancellation published on or
+#     after it
+#   - a rectificatif names it (`related_native_id`): the newer notice stands for it, and
+#     it is listed itself when it is open
+# A notice that states its own deadline is never judged by its twin: the two sources may
+# differ for a reason (an extension) and the national portal is the one that is read.
+# The rule is the database function of migration 0041, not subqueries written here: in
+# the status expression they made the tenders list 40 times slower.
+SUPERSEDED_SQL = ("dgate_superseded(o.id, o.source_id, o.native_id, o.ted_ref, "
+                  "o.procedure_identifier, o.published_at)")
+
 EFFECTIVE_STATUS_SQL = f"""(CASE
     WHEN o.status = 'open' AND (
          o.deadline_at < now()
       OR (o.deadline_at IS NULL
-          AND o.published_at < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')))
+          AND (o.published_at < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')
+               OR {SUPERSEDED_SQL})))
     THEN 'expired' ELSE o.status END)"""
 
 
 def effective_status(status: str | None, deadline_at: datetime | None,
-                     published_at: date | None, now: datetime | None = None) -> str | None:
-    """The Python twin of EFFECTIVE_STATUS_SQL, for a row already fetched."""
+                     published_at: date | None, now: datetime | None = None,
+                     superseded: bool = False) -> str | None:
+    """The Python twin of EFFECTIVE_STATUS_SQL, for a row already fetched. `superseded`
+    is SUPERSEDED_SQL for that row (it needs the other rows, so the caller asks the
+    database); it only counts for a notice with no deadline of its own."""
     if status != "open":
         return status
     now = now or datetime.now(timezone.utc)
     if deadline_at is not None:
         return "expired" if deadline_at < now else "open"
+    if superseded:
+        return "expired"
     if published_at is not None and published_at < (now - timedelta(
             days=OPEN_WITHOUT_DEADLINE_DAYS)).date():
         return "expired"
@@ -308,9 +333,9 @@ def row_scope(r: dict[str, Any]) -> str:
     return "supply"
 
 
-BASE_SELECT = """
+BASE_SELECT = f"""
     SELECT o.*, s.code AS source_code, s.attribution AS source_attribution,
-           org.confidence AS org_confidence
+           org.confidence AS org_confidence, {EFFECTIVE_STATUS_SQL} AS eff_status
       FROM opportunity o
       JOIN source s ON s.id = o.source_id
       LEFT JOIN organisation org ON org.id = o.buyer_org_id

@@ -158,11 +158,25 @@ class FundingCallDetail(FundingCall):
     conditionsText: str | None = None
 
 
+def serves_meta() -> bool:
+    """A dependency that is True for an HTTP request. The account code calls the list
+    functions directly, as a role that may not read `ingest_run`; it gets the Depends
+    object instead, which is not True, and the lists then skip `meta`."""
+    return True
+
+
+class ListMeta(BaseModel):
+    # When the newest successful or partial collection run of the list's sources finished
+    # (UTC): the freshness of the data, not of the response. Null before any run.
+    updatedAt: datetime | None = None
+
+
 class FundingPage(BaseModel):
     items: list[FundingCall]
     total: int
     page: int
     pageSize: int
+    meta: ListMeta = ListMeta()
 
 
 class SourceHealth(BaseModel):
@@ -410,6 +424,7 @@ def list_funding(
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
+    with_meta=Depends(serves_meta),
 ):
     where: list[str] = []
     params: list[Any] = []
@@ -492,8 +507,11 @@ def list_funding(
     rows = conn.execute(
         f"{SELECT}{clause} ORDER BY {order} LIMIT %s OFFSET %s",
         params + order_params + [pageSize, (page - 1) * pageSize]).fetchall()
+    from .stats import cached_last_run  # stats imports tenders, which imports this module
+
     return {"items": [to_call(r) for r in rows], "total": total,
-            "page": page, "pageSize": pageSize}
+            "page": page, "pageSize": pageSize,
+            "meta": {"updatedAt": cached_last_run(conn, "grant") if with_meta is True else None}}
 
 
 @router.get("/v1/funding/slugs")

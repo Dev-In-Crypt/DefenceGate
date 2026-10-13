@@ -120,6 +120,8 @@ export interface Paginated<T> {
   total: number;
   page: number;
   pageSize: number;
+  /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. */
+  meta?: { updatedAt: IsoDateTime | null };
 }
 
 /** GET /v1/tenders (list), GET /v1/tenders/{slug} (detail). Contract: docs/design/API_CONTRACT.md. */
@@ -169,6 +171,10 @@ export interface Tender {
   buyerCanonicalName?: string | null;
   /** What the estimated value is, as the API words it. Shown as given. */
   valueKind?: string | null;
+  /** 'ted_twin': the notice states no value and `estimatedValue` is its TED twin's (say so). Absent or null: its own. */
+  valueFrom?: string | null;
+  /** false: the notice states no deadline, so `status` is a judgement ("deadline not stated"). Absent on older API builds. */
+  deadlineKnown?: boolean;
   lotCount?: number | null;
   /** The API's own name for the lot count. */
   lots?: number | null;
@@ -181,8 +187,8 @@ export interface Tender {
   versionCount: number;
   securityClearance: boolean;
   subcontracting: boolean;
-  /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). */
-  sameNotice: { source: string; url: string | null }[];
+  /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). `id` and `noticeId` are the other notice's. */
+  sameNotice: { source: string; url: string | null; id?: string; noticeId?: string }[];
   /** retrievedAt = when we last observed the notice. */
   source: SourceAttribution;
 }

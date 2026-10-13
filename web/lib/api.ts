@@ -60,9 +60,10 @@ function fundingQuery(f: CallFilters): string {
  * `cacheable` is for fixed queries written in our own code (e.g. the landing page's closing-soon sample),
  * never for ones built from the URL.
  */
-export async function getCalls(filters: CallFilters = {}, opts: { cacheable?: boolean } = {}): Promise<Paginated<Call>> {
+export async function getCalls(filters: CallFilters = {}, opts: { cacheable?: boolean; fresh?: boolean } = {}): Promise<Paginated<Call>> {
   if (API_BASE) {
-    const shared = opts.cacheable === true || toQuery(filters) === '';
+    // `fresh`: a CSV export reads every page live, so page 1 is not an hour older than page 2.
+    const shared = opts.fresh !== true && (opts.cacheable === true || toQuery(filters) === '');
     return httpOrThrow<Paginated<Call>>(`/v1/funding${fundingQuery(filters)}`, shared ? 'revalidate' : 'no-store');
   }
   return callsMock.queryCalls(filters);
@@ -101,9 +102,10 @@ function tendersQuery(f: TenderFilters): string {
  * visitor input goes to the API uncached. `cacheable` is for queries fixed in our own code (a buyer's id comes
  * from the API, not from the URL).
  */
-export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?: boolean } = {}): Promise<Paginated<Tender>> {
+export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?: boolean; fresh?: boolean } = {}): Promise<Paginated<Tender>> {
   if (API_BASE) {
-    const shared = opts.cacheable === true || toTenderQuery(filters) === '';
+    // `fresh`: a CSV export reads every page live, so page 1 is not an hour older than page 2.
+    const shared = opts.fresh !== true && (opts.cacheable === true || toTenderQuery(filters) === '');
     return httpOrThrow<Paginated<Tender>>(`/v1/tenders${tendersQuery(filters)}`, shared ? 'revalidate' : 'no-store');
   }
   return tenderMock.queryTenders(filters);

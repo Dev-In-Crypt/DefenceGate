@@ -203,7 +203,7 @@ def test_buyers_are_listed_by_notice_count_and_can_be_narrowed(client, conn):
 
 
 @pytest.mark.parametrize("query", [
-    "page=0", "page=1001", "pageSize=0", "pageSize=101", "status=nope", "scope=nope",
+    "page=0", "page=1001", "pageSize=0", "pageSize=251", "status=nope", "scope=nope",
     "currency=EURO", "sort=nope", "buyer=0", "min=-1", "q=" + "x" * 101,
 ])
 def test_a_request_outside_the_limits_is_a_422(client, query):
