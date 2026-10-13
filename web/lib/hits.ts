@@ -20,7 +20,7 @@ const LIMITER_MAX_ENTRIES = 10_000;
 const MAX_COUNT = 10_000;
 
 /** Same list as backend/dgate/accounts.py: a page is counted, a record is not, an unknown path is /other. */
-const KNOWN_ROUTES = new Set(['', 'funding', 'tenders', 'buyers', 'data', 'methodology', 'about', 'terms',
+const KNOWN_ROUTES = new Set(['', 'funding', 'tenders', 'buyers', 'data', 'market', 'calendar', 'cpv', 'glossary', 'methodology', 'about', 'terms',
   'privacy', 'imprint', 'pricing', 'alerts', 'pack', 'signin', 'app']);
 const DETAIL_ROUTES = new Set(['funding', 'tenders', 'buyers']);
 

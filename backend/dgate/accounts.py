@@ -1141,7 +1141,8 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
 
 
 # ------------------------------------------------------------------ visit counter
-_KNOWN_ROUTES = {"", "funding", "tenders", "buyers", "data", "methodology", "about", "terms",
+_KNOWN_ROUTES = {"", "funding", "tenders", "buyers", "data", "market", "calendar", "cpv", "glossary",
+                 "methodology", "about", "terms",
                  "privacy", "imprint", "pricing", "alerts", "pack", "signin", "app"}
 _DETAIL_ROUTES = {"funding", "tenders", "buyers"}
 
