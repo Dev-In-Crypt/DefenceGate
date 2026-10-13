@@ -150,7 +150,7 @@ def job_boamp(days: int | None = None) -> JobResult:
 
 def job_tenderned(days: int | None = None) -> JobResult:
     window = days or settings().ingest_days
-    return run_job("tenderned_daily", lambda: run_tenderned(days=window),
+    return run_job("tenderned_daily", lambda: run_tenderned(days=window, reread=True),
                    sources=["nl_tenderned"])
 
 

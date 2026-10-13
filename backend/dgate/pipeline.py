@@ -16,6 +16,7 @@ refetching anything.
 from __future__ import annotations
 
 import argparse
+import itertools
 import logging
 import sys
 import time
@@ -382,8 +383,57 @@ def run_boamp(days: int = 2) -> None:
     log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
 
 
-def run_tenderned(days: int = 2) -> None:
+# A European TenderNed notice gets its TED number after it is published: 443697 was read
+# on the day, states `pbNummerTed` now, and was never read again, so its twin was served
+# as a second tender. Notices of the last REREAD_DAYS days that are under a European
+# directive and hold no TED number are read again, at most REREAD_LIMIT a night.
+TENDERNED_REREAD_DAYS = 14
+TENDERNED_REREAD_LIMIT = 60
+
+
+def _tenderned_unlinked(conn, src_id: int, store, *, days_back: int,
+                        pause: float = tenderned.REQUEST_PAUSE) -> Iterator[dict[str, Any]]:
+    """Stored notices still waiting for their TED number, with a fresh detail page.
+
+    Only the detail is requested (the list row is what was landed, minus the volatile
+    counters), one request each, at the connector's own pace. A notice whose page cannot
+    be read is skipped for tonight, not landed thin.
+    """
+    ids = [r["native_id"] for r in conn.execute(
+        """SELECT native_id FROM opportunity
+            WHERE source_id = %s AND ted_ref IS NULL AND legal_basis IS NOT NULL
+              AND published_at >= current_date - %s AND published_at < current_date - %s
+            ORDER BY published_at DESC LIMIT %s""",
+        (src_id, TENDERNED_REREAD_DAYS, days_back, TENDERNED_REREAD_LIMIT)).fetchall()]
+    if not ids:
+        return
+    client = tenderned._client()
+    try:
+        for pid in ids:
+            held = conn.execute(
+                "SELECT storage_key FROM raw_ingest WHERE source_id = %s AND native_id = %s "
+                "ORDER BY fetched_at DESC LIMIT 1", (src_id, pid)).fetchone()
+            if held is None:
+                continue
+            try:
+                detail = tenderned.fetch_detail(pid, client=client)
+                listed = {k: v for k, v in store.get(held["storage_key"]).items()
+                          if k not in ("detail", "detailError")}
+            except Exception as exc:  # noqa: BLE001 - tonight's other notices must still run
+                log.warning("nl_tenderned: no re-read of %s: %s", pid, exc)
+                continue
+            yield tenderned.merge_detail(listed, detail)
+            time.sleep(pause)
+    finally:
+        client.close()
+
+
+def run_tenderned(days: int = 2, *, reread: bool = False) -> None:
     """Daily pull of the Dutch platform, every publication of each day.
+
+    `reread` adds the notices still waiting for their TED number (`_tenderned_unlinked`):
+    the scheduled run and the command line ask for it; a test of the window does not, as
+    it would then make requests.
 
     Same shape as France: land everything, classify afterwards. The defence
     directive is stated by the form, so the legal-basis signal comes from the
@@ -400,7 +450,10 @@ def run_tenderned(days: int = 2) -> None:
         q = Quarantine(code)
         fetched = new = changed = thin = 0
         try:
-            for record in tenderned.fetch_window(days_back=days):
+            window = tenderned.fetch_window(days_back=days)
+            waiting = (_tenderned_unlinked(conn, src_id, build_store(), days_back=days)
+                       if reread else iter(()))
+            for record in itertools.chain(window, waiting):
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=100,
                             writer=writer, run_id=run_id)
@@ -1980,7 +2033,7 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "boamp":
         run_boamp(days=a.days)
     elif a.cmd == "tenderned":
-        run_tenderned(days=a.days)
+        run_tenderned(days=a.days, reread=True)
     elif a.cmd == "calls":
         run_eu_portal()
     elif a.cmd == "ncbr":

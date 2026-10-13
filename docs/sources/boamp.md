@@ -163,3 +163,23 @@ and retries), honours `Retry-After`, and after the ladder raises `RateLimited` (
 or the 403 a burst gets); the history then rolls the day back, records the stop in
 `backfill_stop` with `resume_after` (the later of 15 minutes and the source's own
 window), and exits 75. A rerun refuses to start before `resume_after`.
+
+### Deadline and lots (13 October 2026)
+
+`datelimitereponse` is DILA's own reading of the deadline and is not trusted over the notice:
+
+- It is empty for 2,049 of 6,386 call notices, all eForms ones whose deadline sits in the
+  body at `cac:TenderingProcess / cac:ParticipationRequestReceptionPeriod` (restricted and
+  negotiated procedures) or `cac:TenderSubmissionDeadlinePeriod` (open ones), as
+  `cbc:EndDate` and `cbc:EndTime`, once per lot.
+- Where it is present it is the wall time labelled UTC for the `HH:MM:SS.000+02:00`
+  spelling of the time: 12 of 30 notices with a TED twin differed from TED by exactly the
+  offset, and 49 of 60 twins agree with the body read as stated (28 with the column).
+- So an eForms notice's deadline is the latest `EndDate` + `EndTime` of its offers periods,
+  the time's own offset first (TED's own reading), then the date's, then Europe/Paris; the
+  column is the fallback, and the only source for FNSimple, MAPA and the legacy schemas
+  (whose body has a naive local `dateReceptionOffres` / `receptionOffres`, and whose column
+  carries the same wall time labelled UTC: not corrected, nothing independent to check it
+  against).
+- `lot_count` is the number of `cac:ProcurementProjectLot` (not `Part`), `OBJET.LOTS.LOT`,
+  `lots.lot`; a notice that lists none is not counted as one.

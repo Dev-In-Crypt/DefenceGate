@@ -133,10 +133,14 @@ def test_the_procedure_is_the_tender_type_not_the_notice_type():
 
 
 def test_a_bulletin_code_without_a_verified_meaning_is_kept_and_labelled_as_a_code():
+    """Until 13 October 2026 every numeric code was in this case; the publisher's own client
+    names most of them (tests/unit/test_wp1_polish_procedure.py). Those it does not stay
+    labelled codes: 1.2 (art. 297, an unsure translation), 2.9, anything new."""
     o = mapped("bzp_contract_1_1_2")
     assert CASES["bzp_contract_1_1_2"]["tenderType"] == "1.1.2"
-    assert o.procedure_type == "BZP 1.1.2"
-    assert ez.procedure_label("2.1") == "BZP 2.1"
+    assert o.procedure_type == "Basic procedure (art. 275 pt 2)"
+    assert ez.procedure_label("1.2") == "BZP 1.2"
+    assert ez.procedure_label("2.9") == "BZP 2.9"
 
 
 def test_no_tender_type_is_no_procedure():
@@ -343,7 +347,7 @@ def test_atlas_reads_the_procedure_columns():
 
 def test_atlas_shows_the_procedure_not_the_notice_type():
     o = from_atlas_pl(atlas_row())
-    assert o.procedure_type == "BZP 1.1.1"
+    assert o.procedure_type == "Basic procedure (art. 275 pt 1)"
     assert o.status_native == "ContractNotice"
 
 

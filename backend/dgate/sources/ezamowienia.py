@@ -136,6 +136,10 @@ TED_SUBTYPE_TYPE = {
     "33": "can-social", "34": "can-social", "36": "can-desg",
     "38": "can-modif", "39": "can-modif",
     "T01": "pin-tran",
+    # Added on 13 October 2026 from the same join on the 1,899 records with a TED twin that
+    # state a subtype the table lacked: 4 -> pin-only (27 of 27 twins), 9 -> pin-rtl (2 of 2),
+    # E5 -> compl (1 of 1), E6 -> can-modif (2 of 2). 32 rows were `unknown`.
+    "4": "pin-only", "9": "pin-rtl", "E5": "compl", "E6": "can-modif",
 }
 
 # TED notice-type -> lifecycle, the decision's rule: cn-* open, pin-* forthcoming,
@@ -149,7 +153,7 @@ TED_TYPE_STATUS = {
     "pin-tran": "forthcoming", "pin-cfc-standard": "forthcoming",
     "pin-cfc-social": "forthcoming",
     "can-standard": "awarded", "can-social": "awarded", "can-desg": "awarded",
-    "can-modif": "awarded", "veat": "awarded",
+    "can-modif": "awarded", "veat": "awarded", "compl": "awarded",
 }
 
 
@@ -238,10 +242,60 @@ PROCEDURE_WORDS = {
 }
 
 
+# The bulletin's numeric `tenderType` codes, named. The publisher's own client
+# (`/mo-client-board/main-es2015.*.js`, read on 13 October 2026) holds the dictionary the
+# codes come from: every entry is a `SelectOption(<dictionary key>, <code>)`, and the key
+# names the procedure and the article of the Public Procurement Law (PZP) it rests on --
+# `BELOW_EU.BASIC_ORDER_BASED_ON_275_1` is 1.1.1, `ABOVE_EU.OPEN_TENDER_132` is 2.1,
+# `ABOVE_EU.NEGOTIATED_WITHOUT_ANNOUNCEMENT_208_209_1_1` is 2.6.1. The names below are
+# those keys, in the vocabulary TED's codes already have here (`PROCEDURE_WORDS`) where
+# the procedure is the same one. A code or a prefix not listed (1.2 "partner order",
+# art. 297, whose English name is not certain; 2.9; anything new) stays a labelled code.
+# Longest prefix wins; the dotted structure is the publisher's own.
+BZP_PROCEDURE_NAMES = {
+    "1.1.1": "Basic procedure (art. 275 pt 1)",
+    "1.1.2": "Basic procedure (art. 275 pt 2)",
+    "1.1.3": "Basic procedure (art. 275 pt 3)",
+    "1.3": "Negotiated procedure without publication",
+    "1.4": "Free-hand award (direct award)",
+    "2.1": "Open procedure",
+    "2.2": "Restricted procedure",
+    "2.3": "Negotiated procedure with a call for competition",
+    "2.4": "Competitive dialogue",
+    "2.5": "Innovation partnership",
+    "2.6": "Negotiated procedure without a call for competition",
+    "2.7": "Free-hand award (direct award)",
+    "2.8.1": "Open procedure (utilities)",
+    "2.8.2": "Restricted procedure (utilities)",
+    "2.8.3": "Negotiated procedure with a call for competition (utilities)",
+    "2.8.4": "Competitive dialogue (utilities)",
+    "2.8.5": "Innovation partnership (utilities)",
+    "2.8.6": "Negotiated procedure without a call for competition (utilities)",
+    "2.8.7": "Free-hand award (direct award, utilities)",
+    "2.10": "Free-hand award (direct award, defence and security)",
+    "2.11": "Free-hand award (direct award, defence and security)",
+    "2.12": "Free-hand award (direct award, defence and security)",
+    "11": "Framework agreement (below EU thresholds)",
+    "12": "Framework agreement (above EU thresholds)",
+    "20.1": "Dynamic purchasing system",
+}
+
+
+def bzp_procedure_name(code: str) -> str | None:
+    """The name of a numeric bulletin code, by the longest listed prefix on a dot boundary."""
+    parts = code.split(".")
+    for n in range(len(parts), 0, -1):
+        name = BZP_PROCEDURE_NAMES.get(".".join(parts[:n]))
+        if name:
+            return name
+    return None
+
+
 def procedure_label(tender_type: Any) -> str | None:
-    """The procedure as a reader can use it: a verified word, a BZP code stated
-    as one ("BZP 1.1.1"), or nothing. Never the notice type, which names the
-    document and not the procedure."""
+    """The procedure as a reader can use it: a verified word, a numeric bulletin code
+    named by the publisher's own dictionary (`BZP_PROCEDURE_NAMES`), a code nobody
+    has named stated as one ("BZP 1.2"), or nothing. Never the notice type, which
+    names the document and not the procedure."""
     text = str(tender_type).strip() if tender_type not in (None, "") else ""
     if not text:
         return None
@@ -249,7 +303,7 @@ def procedure_label(tender_type: Any) -> str | None:
     if word:
         return word
     if all(ch.isdigit() or ch == "." for ch in text):
-        return f"BZP {text}"
+        return bzp_procedure_name(text) or f"BZP {text}"
     return text
 
 

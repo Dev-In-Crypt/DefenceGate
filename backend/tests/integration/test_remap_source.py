@@ -89,8 +89,9 @@ def test_a_fact_the_mapper_no_longer_states_is_not_erased(conn, fs_store):
 
 
 def test_an_unknown_source_is_refused():
+    # es_placsp was the example until 13 October 2026, when it gained a mapper of its own.
     with pytest.raises(SystemExit):
-        remap_source.run("es_placsp")
+        remap_source.run("ted")
 
 
 def test_a_second_epoch_runs_again_without_resetting_anything(conn, fs_store):

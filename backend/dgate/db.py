@@ -859,7 +859,20 @@ def upsert_opportunity(
     changed = changed_fields(prev, payload)
     if not changed:
         # Hash moved but nothing we track did: a cosmetic upstream edit, or a list
-        # re-ordered, or a deadline written with another UTC offset.
+        # re-ordered, or a deadline written with another UTC offset. An attribute or a link
+        # the record states now and the row does not hold (the lot count of a PLACSP entry,
+        # the TED number TenderNed attaches a few days after publishing) changes the hash
+        # and no versioned field. It is not a fact the notice changed, so it is written
+        # without a version, and a link already held is never replaced.
+        conn.execute(
+            """UPDATE opportunity
+                  SET lot_count = COALESCE(%s, lot_count),
+                      ted_ref = COALESCE(ted_ref, %s),
+                      related_native_id = COALESCE(related_native_id, %s),
+                      procedure_identifier = COALESCE(procedure_identifier, %s)
+                WHERE id = %s""",
+            (opp.lot_count, opp.ted_ref, opp.related_native_id, opp.procedure_identifier,
+             opp_id))
         return opp_id, "unchanged"
 
     version = append_version(conn, opp_id, opp, raw_hash, changed,
