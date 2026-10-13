@@ -34,7 +34,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from ..normalise import Opportunity, tz_from_offset
+from ..normalise import PLACEHOLDER_AMOUNT_MAX, Opportunity, tz_from_offset
 from . import USER_AGENT, new_client, request_with_retry
 
 SPAIN_TZ = ZoneInfo("Europe/Madrid")
@@ -294,19 +294,20 @@ def _amount(project: ET.Element | None) -> tuple[float | None, str | None]:
         el = _find(budget, f"cbc:{name}")
         value = _float(el.text) if el is not None else None
         found.append((value, (el.get("currencyID") or "EUR") if el is not None else None))
-    estimate = found[0]
-    if estimate[0]:
-        return estimate
-    for value, currency in found[1:]:
-        if value is not None:
+    # A budget of 0.00 states nothing (45 stored entries): the next figure is used, and
+    # when there is none the entry has no value, not a value of zero.
+    for value, currency in found:
+        if value is not None and value > PLACEHOLDER_AMOUNT_MAX:
             return value, currency
-    return estimate
+    return None, None
 
 
 # A call for tenders is what a supplier reads as "published". Prior information
-# comes before it; any other notice (award, formalisation, modification) is the
-# last resort, for the entries that carry only the notices that followed a call
-# published before the feed began.
+# comes before it. Any other notice (award, formalisation, modification) is not the
+# tender's publication: an entry that carries only those is a call published before the
+# feed began, and the date of its award is not when it was published (288 of 1,349 entries
+# read again on 13 October 2026 were "published" after their deadline). Its publication
+# date is not stated, and is left empty.
 _CALL_NOTICES = ("DOC_CN",)
 _PRIOR_NOTICES = ("DOC_PIN", "DOC_PIN_RTL")
 
@@ -335,11 +336,26 @@ def _publication_date(cfs: ET.Element) -> date | None:
                                      or _text(ref, "cbc-place-ext:IssueDate"))
                 if issued:
                     rows.append((kind, "perfil" in medium, issued))
-    for kinds in (_CALL_NOTICES, _PRIOR_NOTICES, None):
-        pool = [(own, d) for kind, own, d in rows if kinds is None or kind in kinds]
+    for kinds in (_CALL_NOTICES, _PRIOR_NOTICES):
+        pool = [(own, d) for kind, own, d in rows if kind in kinds]
         if pool:
             return min([d for own, d in pool if own] or [d for _, d in pool])
     return None
+
+
+# `cac:TenderResult/cbc:ResultCode` of a folder in `ADJ` or `RES`. Read off the live feed of
+# 13 October 2026 (350 entries, 683 results): 8 and 9 (the best offer, the formalised
+# contract) all name a winning party; 3 never does and states "se declara desierto" /
+# "inexistencia de ofertas" (87 of 87), and 4 is the withdrawal of the buyer, in every case
+# with a DESISTIMIENTO notice and no winning party (3 of 3). A folder whose every result is
+# one of those awarded nothing, which TED states as `clos-nw` and the mapper maps to
+# `cancelled`. A folder with any other result, or none, stays awarded.
+_NO_AWARD_RESULT_CODES = frozenset({"3", "4"})
+
+
+def _no_winner(cfs: ET.Element) -> bool:
+    codes = [(_text(t, "cbc:ResultCode") or "") for t in _findall(cfs, "cac:TenderResult")]
+    return bool(codes) and all(c in _NO_AWARD_RESULT_CODES for c in codes)
 
 
 _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
@@ -427,6 +443,11 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
     url = link_el.get("href") if link_el is not None else None
 
     status_native = _text(cfs, "cbc-place-ext:ContractFolderStatusCode")
+    status = map_status(status_native)
+    if status == "awarded" and _no_winner(cfs):
+        status = "cancelled"
+    # A folder that lists no lot is a single contract and says nothing: None, not 1.
+    lots = len(_findall(cfs, "cac:ProcurementProjectLot")) or None
 
     return Opportunity(
         source_code=source_code,
@@ -447,9 +468,10 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
         cpv_codes=cpv,
         source_url=url,
         description=_text(project, "cbc:Description"),
-        status=map_status(status_native),
+        status=status,
         status_native=status_native,
         procedure_identifier=_procedure_uuid(cfs),
+        lot_count=lots,
     )
 
 

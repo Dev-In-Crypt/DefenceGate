@@ -12,6 +12,12 @@ stored in line, by adding:
   - an update of the non-versioned attribute columns (status_native, notice_subtype,
     procedure_identifier, lot_count, value_kind) where they differ, with no version.
 
+A value TED states as a placeholder (0, 0.01, 1, -1) or implausibly (above ten billion) is
+not the notice's value: the mapper returns none with `value_kind` not_stated / implausible,
+and this tool clears the stored amount and currency (a new version annotated `remapped`;
+the earlier versions keep the figure TED stated). Select those notices with
+`--numbers-file` (see docs/RUNBOOK.md), and run them as a new `--epoch`.
+
 Nothing is deleted and the archive trigger is never switched off.
 
 Two modes, because they answer different questions:
@@ -58,7 +64,7 @@ import httpx
 
 from .. import db
 from ..config import settings
-from ..normalise import Opportunity, from_ted, strip_personal_data
+from ..normalise import UNSERVED_VALUE_KINDS, Opportunity, from_ted, strip_personal_data
 from ..rawstore import BundleWriter, build_store, storage_key
 from ..sources import USER_AGENT, new_client, ted
 
@@ -101,6 +107,18 @@ PRESERVE = (
     "value_amount", "value_currency", "value_kind", "published_at", "deadline_at", "country",
     "lot_count", "notice_subtype", "procedure_identifier", "buyer_identifier",
 )
+
+
+# The value fields move together. A mapper that says the notice's only amounts are
+# placeholders or implausible (`value_kind` not_stated / implausible) returns no amount, and
+# that "nothing" is deliberate: it clears what is stored instead of being preserved.
+VALUE_FIELDS = ("value_amount", "value_currency", "value_kind")
+
+
+def _keeps_stored(new: Opportunity, name: str) -> bool:
+    if name not in PRESERVE or getattr(new, name) is not None:
+        return False
+    return not (name in VALUE_FIELDS and new.value_kind in UNSERVED_VALUE_KINDS)
 
 
 def raw_fields(payload: dict[str, Any], notice_type: str | None) -> list[str]:
@@ -156,7 +174,7 @@ def plan_change(current_payload: dict[str, Any], serving: dict[str, Any],
     base = db.opportunity_from_payload(current_payload)
     base = replace(base, **{k: serving[k] for k in CARRIED_COLUMNS if k in serving})
     candidate = replace(base, **{f: getattr(new, f) for f in fields
-                                 if not (f in PRESERVE and getattr(new, f) is None)})
+                                 if not _keeps_stored(new, f)})
     payload = db.opportunity_payload(candidate)
     current = {f: current_payload.get(f) for f in db.VERSIONED_FIELDS}
     changed = [f for f in db.VERSIONED_FIELDS if current[f] != payload.get(f)]

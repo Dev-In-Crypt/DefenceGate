@@ -9,14 +9,28 @@ Nothing is deleted and the archive trigger is never switched off.
 
 Sources and what the corrections are (see docs/DATA_QUALITY_PLAN_2026-10-12.md):
 
-    fr_boamp      CPV codes, award and estimated values, rectificatif link
+    fr_boamp      CPV codes, award and estimated values, rectificatif link; from epoch 3
+                  the deadline of an eForms notice (read from the body, not DILA's column)
+                  and the lot count
     nl_tenderned  status of prior-information notices, legal basis
     pl_ezam       status (noticeTypeTed fallback), procedure, plan-notice titles, TED link
-    pl_atlas      procedure, status of annulled results
+    pl_atlas      procedure, status of annulled results; from epoch 3 the deadline read as
+                  UTC (the dataset states UTC without saying so) -- run with `--latest-raw`,
+                  because the columns the mapper needs (`tender_type`, `procedure_result`)
+                  were landed on 12 October by `atlas-pl --refresh-known`, which writes no
+                  version, so the current version's own payload does not have them
+    es_placsp,    from the STORED payload, which is the record the connector parsed (the
+    es_placsp_agg Atom entry itself is not kept): the procedure named for the codes that
+                  were verified, a prior notice no longer `open`, and a publication date
+                  that is after the notice's own deadline cleared. What needs the entry
+                  (value, lots, publication date, no-winner outcome) is the replay's:
+                  `pipeline placsp-backfill`.
 
 Facts are never erased: when the mapper now returns nothing for a value, a date, a CPV
 list or a link the row already holds, the stored value is kept. Status and procedure,
-which were wrong rather than missing, are replaced.
+which were wrong rather than missing, are replaced. The one exception is a field a mapper
+names in `CLEARS`: a value it knows to be wrong (a publication date after the notice's own
+deadline) is cleared, as a new version annotated `remapped`.
 
 Idempotent: a notice that already equals its mapped state writes nothing, and each
 notice done is recorded in `remap_marker`.
@@ -37,6 +51,7 @@ from typing import Any
 from .. import db
 from ..config import settings
 from ..normalise import (
+    PLACEHOLDER_AMOUNT_MAX,
     Opportunity,
     from_atlas_pl,
     from_boamp,
@@ -45,39 +60,88 @@ from ..normalise import (
     strip_personal_data,
 )
 from ..rawstore import build_store
+from ..sources import placsp
 from .repair_ted import CARRIED_COLUMNS, Change, Result, _chunks, _raw_keys, _state
 
 log = logging.getLogger("remap_source")
+
+
+def from_placsp_stored(payload: dict[str, Any]) -> Opportunity:
+    """The record the PLACSP connector landed, brought up to the current tables.
+
+    The raw store holds the parsed record (`db.opportunity_payload`), not the Atom entry, so
+    only what is a function of the stored fields can be redone here: the procedure's name for
+    a verified code (`map_procedure` leaves a code it does not know as it is), and a prior
+    notice (`PRE`) that the first mapper filed as `open`. The status is moved only from
+    `open`: a `cancelled` the entry's own results gave it is never put back to `awarded`.
+    """
+    opp = db.opportunity_from_payload(payload)
+    status = opp.status
+    if opp.status_native and status == "open":
+        status = placsp.map_status(opp.status_native)
+    amount, currency = opp.value_amount, opp.value_currency
+    if amount is not None and amount <= PLACEHOLDER_AMOUNT_MAX:
+        amount, currency = None, None          # 0.00, which the mapper no longer offers
+    return replace(opp, procedure_type=placsp.map_procedure(opp.procedure_type),
+                   status=status, value_amount=amount, value_currency=currency)
+
+
+def placsp_stored_clears(payload: dict[str, Any], new: Opportunity) -> set[str]:
+    """A publication date after the notice's own deadline, in a record the current mapper
+    read (it states `source_updated_at`): the date of an award notice, which the mapper no
+    longer offers as the tender's publication. A record without the stamp was read by the
+    first mapper, whose date is the feed's and which the replay corrects with the right
+    one; it is left for that."""
+    if (payload.get("source_updated_at") and new.published_at and new.deadline_at
+            and new.published_at > new.deadline_at.date()):
+        return {"published_at"}
+    return set()
+
 
 MAPPERS = {
     "fr_boamp": from_boamp,
     "nl_tenderned": from_tenderned,
     "pl_ezam": from_ezamowienia,
     "pl_atlas": from_atlas_pl,
+    "es_placsp": from_placsp_stored,
+    "es_placsp_agg": from_placsp_stored,
+}
+
+# Per source, the fields a mapper knows to be wrong and says so: cleared although a fact is
+# otherwise never replaced by an absent one.
+CLEARS = {
+    "es_placsp": placsp_stored_clears,
+    "es_placsp_agg": placsp_stored_clears,
 }
 
 # Everything a mapper may move on a stored row.
 FIELDS = (
     "status", "status_native", "procedure_type", "legal_basis", "title_original", "title_en",
     "value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
-    "ted_ref", "related_native_id", "country",
+    "ted_ref", "related_native_id", "country", "lot_count",
 )
 
 # Facts: a mapper that now yields nothing does not erase what is stored.
 PRESERVE = ("value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
-            "ted_ref", "related_native_id", "title_en", "legal_basis", "country")
+            "ted_ref", "related_native_id", "title_en", "legal_basis", "country", "lot_count")
 
 # Columns that are not versioned: updated in place when they differ.
-DIRECT = ("status_native", "ted_ref", "related_native_id", "title_en")
+DIRECT = ("status_native", "ted_ref", "related_native_id", "title_en", "lot_count")
 
 
-def plan(current_payload: dict[str, Any], serving: dict[str, Any], new: Opportunity) -> Change:
+def plan(current_payload: dict[str, Any], serving: dict[str, Any], new: Opportunity,
+         clear: frozenset[str] | set[str] = frozenset()) -> Change:
     base = db.opportunity_from_payload(current_payload)
     base = replace(base, **{k: serving[k] for k in CARRIED_COLUMNS if k in serving})
+    # A stored amount of one or less that the mapper no longer offers was a placeholder, not
+    # a fact the source lost: it is cleared, whichever source it is.
+    held = base.value_amount
+    if held is not None and held <= PLACEHOLDER_AMOUNT_MAX and new.value_amount is None:
+        clear = {*clear, "value_amount", "value_currency"}
     moves: dict[str, Any] = {}
     for f in FIELDS:
-        value = getattr(new, f)
-        if value is None and f in PRESERVE:
+        value = None if f in clear else getattr(new, f)
+        if value is None and f in PRESERVE and f not in clear:
             continue
         if f == "cpv_codes" and not value:
             continue
@@ -91,6 +155,19 @@ def plan(current_payload: dict[str, Any], serving: dict[str, Any], new: Opportun
     transitions = [f"{f}:{current[f]}>{payload.get(f)}" for f in ("status", "procedure_type")
                    if f in changed]
     return Change(candidate, changed, direct, transitions)
+
+
+def _latest_raw(conn, src_id: int, numbers: list[str]) -> dict[str, tuple[str, str]]:
+    """native_id -> (storage key, content hash) of the newest payload landed for it, which is
+    the current version's own unless a refresh landed a newer one without writing a version."""
+    found: dict[str, tuple[str, str]] = {}
+    for chunk in _chunks(numbers, 2000):
+        for r in conn.execute(
+                """SELECT DISTINCT ON (native_id) native_id, storage_key, content_hash
+                     FROM raw_ingest WHERE source_id = %s AND native_id = ANY(%s)
+                    ORDER BY native_id, fetched_at DESC""", (src_id, chunk)).fetchall():
+            found[r["native_id"]] = (r["storage_key"], r["content_hash"])
+    return found
 
 
 def _apply(conn, opp_id: int, version: int, raw_hash: str, change: Change, source: str) -> int | None:
@@ -111,7 +188,8 @@ def _apply(conn, opp_id: int, version: int, raw_hash: str, change: Change, sourc
 
 
 def run(source: str, *, write: bool = False, limit: int | None = None, batch: int = 200,
-        workers: int = 1, epoch: int = 1, dsn: str | None = None) -> Result:
+        workers: int = 1, epoch: int = 1, latest_raw: bool = False,
+        dsn: str | None = None) -> Result:
     from ..reprocess import _read_batch
 
     if source not in MAPPERS:
@@ -131,7 +209,16 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
         log.info("remap %s: %s notices to do%s", source, len(numbers),
                  "" if write else " (dry run: nothing is written)")
         store = build_store()
-        keys = _raw_keys(conn, src_id, numbers)
+        # `latest_raw`: the newest landed payload instead of the one the current version
+        # came from. The new version, if one is due, is then recorded against that payload's
+        # hash, so the archive still says which raw object it was read from.
+        hashes: dict[str, str] = {}
+        if latest_raw:
+            landed = _latest_raw(conn, src_id, numbers)
+            keys = {n: key for n, (key, _) in landed.items()}
+            hashes = {n: digest for n, (_, digest) in landed.items()}
+        else:
+            keys = _raw_keys(conn, src_id, numbers)
         result.no_raw = sum(1 for n in numbers if n not in keys)
         ordered = sorted(keys, key=lambda n: keys[n])
         mapper = MAPPERS[source]
@@ -146,14 +233,18 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
                     continue
                 row = state[number]
                 try:
-                    change = plan(row["v_payload"], row, mapper(strip_personal_data(payload)))
+                    clean = strip_personal_data(payload)
+                    new = mapper(clean)
+                    clears = CLEARS[source](clean, new) if source in CLEARS else set()
+                    change = plan(row["v_payload"], row, new, clears)
                 except Exception as exc:  # noqa: BLE001 - one notice must not stop the run
                     log.error("cannot re-map %s: %s", number, exc)
                     result.failed += 1
                     continue
                 result.count(change)
                 if write:
-                    version = _apply(conn, row["id"], row["v_version"], row["v_hash"], change, source)
+                    version = _apply(conn, row["id"], row["v_version"],
+                                     hashes.get(number, row["v_hash"]), change, source)
                     conn.execute(
                         """INSERT INTO remap_marker (source_code, native_id, version) VALUES (%s, %s, %s)
                            ON CONFLICT (source_code, native_id) DO UPDATE
@@ -177,9 +268,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workers", type=int, default=1)
     p.add_argument("--epoch", type=int, default=1,
                    help="run again after the mapper changed again (separate markers)")
+    p.add_argument("--latest-raw", action="store_true",
+                   help="read the newest payload landed for each notice, not the current "
+                        "version's own (pl_atlas after --refresh-known)")
     a = p.parse_args(argv)
     result = run(a.source, write=a.yes, limit=a.limit, batch=a.batch, workers=a.workers,
-                 epoch=a.epoch)
+                 epoch=a.epoch, latest_raw=a.latest_raw)
     print(result)
     return 0 if result.failed == 0 else 1
 

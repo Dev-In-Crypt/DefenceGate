@@ -125,12 +125,14 @@ def test_prior_information_is_the_date_only_when_there_is_no_call():
     assert _one(_notices(pin, cn)).published_at == date(2026, 3, 1)
 
 
-def test_an_entry_with_only_later_notices_dates_from_the_earliest_of_them():
+def test_an_entry_with_only_later_notices_has_no_publication_date():
     """The call was published before the feed existed; the entry carries the award and
-    the formalisation, and the award is the first of them."""
+    the formalisation. Until 13 October 2026 the earliest of them was taken as the
+    publication (2026-09-18 here), which put 288 of 1,349 entries after their own
+    deadline: an award is not the tender's publication, and the date is left empty."""
     o = _one(_notices(("DOC_FORM", "Perfil del contratante", ["2026-10-11"]),
                       ("DOC_CAN_ADJ", "Perfil del contratante", ["2026-09-18", "2026-09-23"])))
-    assert o.published_at == date(2026, 9, 18)
+    assert o.published_at is None
 
 
 def test_a_date_with_an_offset_is_still_a_date():
