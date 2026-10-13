@@ -99,7 +99,33 @@ const LEGAL_BASES: Record<string, string> = {
   '32014L0023': 'Directive 2014/23/EU (concessions)',
 };
 export function legalBasisLabel(code: string): string | null {
-  return LEGAL_BASES[code] ?? null;
+  const k = code.trim();
+  if (k.toLowerCase() === 'other') return 'Other legal basis (not one of the EU procurement directives)';
+  return LEGAL_BASES[k] ?? LEGAL_BASES[k.toUpperCase()] ?? null;
+}
+
+/**
+ * Procedure names the sources give in their own language, in English. Keys are lower case with accents and
+ * punctuation folded to single spaces. A name not listed here is shown exactly as the source states it.
+ */
+const PROCEDURES: Record<string, string> = {
+  'open': 'Open procedure', 'ouvert': 'Open procedure', 'procedure ouverte': 'Open procedure', 'appel d offres ouvert': 'Open procedure',
+  'abierto': 'Open procedure', 'procedimiento abierto': 'Open procedure', 'openbaar': 'Open procedure', 'openbare procedure': 'Open procedure',
+  'restricted': 'Restricted procedure', 'restreint': 'Restricted procedure', 'procedure restreinte': 'Restricted procedure',
+  'appel d offres restreint': 'Restricted procedure', 'restringido': 'Restricted procedure', 'procedimiento restringido': 'Restricted procedure',
+  'niet openbaar': 'Restricted procedure', 'niet openbare procedure': 'Restricted procedure',
+  'negociee': 'Negotiated procedure', 'negocie': 'Negotiated procedure', 'procedure negociee': 'Negotiated procedure',
+  'negociado': 'Negotiated procedure', 'procedimiento negociado': 'Negotiated procedure', 'onderhandelingsprocedure': 'Negotiated procedure',
+  'negociado con publicidad': 'Negotiated procedure with prior publication', 'procedimiento negociado con publicidad': 'Negotiated procedure with prior publication',
+  'negociado sin publicidad': 'Negotiated procedure without prior publication', 'procedimiento negociado sin publicidad': 'Negotiated procedure without prior publication',
+  'dialogue competitif': 'Competitive dialogue', 'dialogo competitivo': 'Competitive dialogue', 'concurrentiegerichte dialoog': 'Competitive dialogue',
+};
+
+/** The English name of a procedure the source gave in another language; null when it is not one we know (show it as stated). */
+export function procedureLabel(procedure: string): string | null {
+  const key = procedure.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const label = PROCEDURES[key];
+  return label && label.toLowerCase() !== procedure.trim().toLowerCase() ? label : null;
 }
 
 /**
@@ -155,6 +181,11 @@ const CPV_LABELS: Record<string, string> = {
   '357': 'Military electronic systems',
   '358': 'Individual and support equipment',
 };
+
+/** The title of a 2-digit CPV division (`45`), or null when we do not hold it. */
+export function cpvDivisionLabel(code: string): string | null {
+  return /^\d{2}/.test(code) ? (CPV_LABELS[code.slice(0, 2)] ?? null) : null;
+}
 
 /**
  * Name for a CPV code: the 3-digit group where we know it, else the 2-digit division, else null.

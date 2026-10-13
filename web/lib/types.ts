@@ -11,7 +11,7 @@ export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
 export type DeadlineState = 'normal' | 'soon' | 'urgent' | 'closed' | 'none';
 /** UI status pill values. 'upcoming' = a forthcoming call ("Opens soon"). */
-export type StatusKind = 'open' | 'upcoming' | 'soon' | 'closed' | 'amended' | 'unknown';
+export type StatusKind = 'open' | 'upcoming' | 'pending' | 'soon' | 'closed' | 'amended' | 'unknown';
 
 /** ISO 8601 timestamp, always UTC (e.g. "2026-11-26T16:00:00Z"). */
 export type IsoDateTime = string;
@@ -120,8 +120,8 @@ export interface Paginated<T> {
   total: number;
   page: number;
   pageSize: number;
-  /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. */
-  meta?: { updatedAt: IsoDateTime | null };
+  /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
+  meta?: { updatedAt?: string | null } | null;
 }
 
 /** GET /v1/tenders (list), GET /v1/tenders/{slug} (detail). Contract: docs/design/API_CONTRACT.md. */
@@ -189,7 +189,7 @@ export interface Tender {
   subcontracting: boolean;
   /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). `id` and `noticeId` are the other notice's. */
   sameNotice: { source: string; url: string | null; id?: string; noticeId?: string }[];
-  /** retrievedAt = when we last observed the notice. */
+  /** retrievedAt = when the archive's record of the notice last changed (the newest version's observation time), not the time of our last fetch. */
   source: SourceAttribution;
 }
 

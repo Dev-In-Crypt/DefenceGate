@@ -13,6 +13,7 @@ import { absoluteUrl } from './seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
 import type { Call, Paginated, Tender } from './types';
 import { isMidnight, isoUtc, toCsv, type Cell } from './csv';
+import { isPlaceholderAmount } from './format';
 
 /** The most rows one download holds (`status=all` holds at most 1,000: see export-cache.ts). */
 export const EXPORT_CAP = 2000;
@@ -25,16 +26,18 @@ const RETRIES = 4;
 
 export const TENDER_HEADER = [
   'id', 'notice_id', 'title', 'buyer', 'country', 'cpv', 'procedure', 'published', 'deadline_utc', 'value', 'currency',
-  'value_kind', 'status', 'notes', 'source_name', 'source_url', 'licence', 'attribution', 'retrieved_at_utc', 'page_url',
+  'value_kind', 'status', 'notes', 'source_name', 'source_url', 'licence', 'attribution', 'archive_changed_at_utc', 'page_url',
 ];
 
 export function tenderRow(t: Tender): Cell[] {
   const dl = t.deadline;
   const dateOnly = dl !== null && (t.deadlineIsDate ?? isMidnight(dl));
+  // A placeholder amount (0, 0.01, 1) is not a value: blank, so a sum is not poisoned.
+  const value = t.estimatedValue && !isPlaceholderAmount(t.estimatedValue.amount) ? t.estimatedValue : null;
   return [
     t.id, t.noticeId, t.title, t.buyerName, t.country, (t.cpvCodes?.length ? t.cpvCodes : t.cpv ? [t.cpv] : []).join(' '), t.procedure,
     isoUtc(t.publishedAt, t.publishedAt !== null && isMidnight(t.publishedAt)), isoUtc(dl, dateOnly),
-    t.estimatedValue?.amount, t.estimatedValue?.currency, valueKindLabel(t.valueKind),
+    value?.amount, value?.currency, value ? valueKindLabel(t.valueKind) : null,
     tenderStatusView(t).word, anomalyNotes(t).join(' | '),
     t.source.sourceName, safeHttpUrl(t.source.url) ?? '', t.source.licence, t.source.attribution, isoUtc(t.source.retrievedAt),
     isTenderSlug(t.slug) ? absoluteUrl(`/tenders/${t.slug}`) : '',
@@ -43,16 +46,17 @@ export function tenderRow(t: Tender): Cell[] {
 
 export const CALL_HEADER = [
   'id', 'title', 'funder', 'country', 'programme', 'call_id', 'topic_id', 'action_type', 'opening_date', 'deadline_utc',
-  'value', 'currency', 'status', 'source_name', 'source_url', 'licence', 'attribution', 'retrieved_at_utc', 'page_url',
+  'value', 'currency', 'budget_scope', 'status', 'source_name', 'source_url', 'licence', 'attribution', 'retrieved_at_utc', 'page_url',
 ];
 
 export function callRow(c: Call): Cell[] {
   const dl = c.deadline;
   const status = c.status === 'forthcoming' ? 'Opens soon' : getCallDeadline(c).state === 'closed' ? 'Closed' : 'Open';
+  const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? c.budget : null;
   return [
     c.id, c.title, c.issuer ?? c.programmeName, c.funderCountry, c.programmeName, c.callId, c.topicId, c.actionType,
     isoUtc(c.openingDate, c.openingDate !== null && isMidnight(c.openingDate)), isoUtc(dl, dl !== null && isMidnight(dl)),
-    c.budget?.amount, c.budget?.currency, status,
+    budget?.amount, budget?.currency, budget ? c.budgetScope : null, status,
     c.source.sourceName, safeHttpUrl(c.source.url) ?? '', c.source.licence, c.source.attribution, isoUtc(c.source.retrievedAt),
     isCallSlug(c.slug) ? absoluteUrl(`/funding/${c.slug}`) : '',
   ];

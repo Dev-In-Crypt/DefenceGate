@@ -40,12 +40,14 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
         )}
         {show('programme') && (
           <Fieldset legend="Programme">
-            {PROGRAMME_CODES.map((p) => <Choice key={p} name={PARAM.programme} value={p} label={PROGRAMMES[p].label} defaultChecked={filters.programme?.includes(p)} />)}
+            {/* EDIP calls are filed under EDF by the portal: an EDIP filter would always be empty. */}
+            {PROGRAMME_CODES.filter((p) => p !== 'EDIP').map((p) => <Choice key={p} name={PARAM.programme} value={p} label={p === 'EDF' ? 'EDF (with EDIP)' : PROGRAMMES[p].label} defaultChecked={filters.programme?.includes(p)} />)}
           </Fieldset>
         )}
         {show('regime') && (
           <Fieldset legend="Regime">
             {REGIME_CODES.map((r) => <Choice key={r} name={PARAM.regime} value={r} label={REGIMES[r]} defaultChecked={filters.regime?.includes(r)} />)}
+            <p className="m-0 text-small text-ink-muted">Dual-use is our label for calls under civil programmes we treat as dual-use. It is not the programme’s label.</p>
           </Fieldset>
         )}
         {show('country') && (

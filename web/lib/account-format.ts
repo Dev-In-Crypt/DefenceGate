@@ -16,7 +16,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   grant_writer: 'Grant writer', other: 'Other',
 };
 export const TRACK_LABEL: Record<Track, string> = { tenders: 'Tenders', funding: 'Funding calls' };
-export const CADENCE_LABEL: Record<Cadence, string> = { instant: 'Instant', daily: 'Daily digest', weekly: 'Weekly summary', off: 'Off' };
+export const CADENCE_LABEL: Record<Cadence, string> = { instant: 'Within the hour', daily: 'Daily digest', weekly: 'Weekly summary', off: 'Off' };
 export const KIND_LABEL: Record<SearchKind, string> = { tender: 'Tenders', call: 'Funding calls' };
 
 /** Public detail pages look up the leading id only, so an id alone is a working link (it redirects to the full slug). */

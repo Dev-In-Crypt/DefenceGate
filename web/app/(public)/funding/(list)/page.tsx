@@ -14,8 +14,8 @@ const CALENDAR_LIMIT = 500;
 const CHIPS: EntryChip[] = [
   { label: 'Open now', href: '/funding?status=open' },
   { label: 'Closing soon', href: '/funding?status=closing-soon' },
-  { label: 'EDF', href: '/funding?programme=EDF' },
-  { label: 'EDIP', href: '/funding?programme=EDIP' },
+  // EDIP calls (identifiers EDF-EDIP-...) are filed under EDF by the portal, so there is one chip for both.
+  { label: 'EDF and EDIP', href: '/funding?programme=EDF' },
   { label: 'Horizon Europe', href: '/funding?programme=HORIZON' },
   { label: 'Digital Europe', href: '/funding?programme=DIGITAL' },
   { label: 'National', href: '/funding?programme=NATIONAL' },
@@ -34,7 +34,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // Filtered views are shareable but canonicalise to /funding and stay out of the index.
   return buildMetadata({
     title: 'Defence and dual-use funding calls',
-    description: 'Open EU and national funding calls for defence and dual-use projects: EDF, EDIP, Horizon Europe, Digital Europe and national programmes. Deadlines in UTC, sourced daily.',
+    description: 'Open EU and national funding calls for defence and dual-use projects: EDF (including its EDIP calls), Horizon Europe, Digital Europe and national programmes. Deadlines in UTC, collected daily.',
     path: '/funding',
     noindex: activeFilterCount(f) > 0 || (f.page ?? 1) > 1,
   });

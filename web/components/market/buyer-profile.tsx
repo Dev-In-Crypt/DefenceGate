@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { cpvGroupTitle } from '@/lib/cpv';
+import { cpvGroupName } from '@/lib/cpv';
 import { formatNumber } from '@/lib/format';
 import { daysText, percentText } from '@/lib/market';
 import type { BuyerProfile } from '@/lib/types';
@@ -35,7 +35,9 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
         </FactCell>
         <FactCell label="With an amendment">
           <span>{percentText(a.share)}</span>
-          <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} notices</span>
+          <span className="block font-sans text-small font-normal text-ink-muted">
+            {formatNumber(a.amended)} of {formatNumber(a.notices)} notices, counted from when we first saw each one (September 2026 at the earliest).
+          </span>
         </FactCell>
       </dl>
 
@@ -62,7 +64,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
                 labelHeader="CPV group"
                 rows={profile.cpvGroups.map((g) => ({
                   key: g.group,
-                  label: <span><span className="font-mono tabular-nums">{g.group}</span> <span>{cpvGroupTitle(g.group) ?? 'Group'}</span></span>,
+                  label: <span><span className="font-mono tabular-nums">{g.group}</span> <span>{cpvGroupName(g.group) ?? 'Group'}</span></span>,
                   count: g.count,
                 }))}
               />

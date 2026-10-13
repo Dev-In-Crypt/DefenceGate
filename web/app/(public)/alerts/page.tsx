@@ -11,15 +11,15 @@ export const revalidate = 60;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Alerts and saved searches',
-  description: 'Save a search, follow buyers and programmes, and get an alert when a notice you follow changes.',
+  description: 'Save a search, follow buyers and programmes, and get an e-mail when new notices match. Changes to the notices you follow show on your dashboard.',
   path: '/alerts',
 });
 
 const FEATURES = [
-  { icon: Bookmark, title: 'Saved searches', body: 'Save a search by country, buyer, product code or keyword and come back to it with one click.' },
-  { icon: GitCompare, title: 'Change alerts', body: 'Be told when a notice you follow changes: a moved deadline, a corrected value, a new status.' },
-  { icon: Clock, title: 'Your cadence', body: 'Choose instant, a daily digest or a weekly summary, and pause an alert whenever you like.' },
-  { icon: BellRing, title: 'Closing soon', body: 'Your dashboard lists the deadlines of the notices you shortlisted for the next 14 days.' },
+  { icon: Bookmark, title: 'Saved searches', body: 'Save a search by country, buyer, product code or keyword and come back to it with one click. Alert e-mails list the new notices and calls that match it.' },
+  { icon: GitCompare, title: 'Changes on your dashboard', body: 'Your dashboard shows what changed since your last visit in the notices you shortlisted and in those of buyers you follow: a moved deadline, a corrected value, a new status. Funding calls have no change history yet.' },
+  { icon: Clock, title: 'Your cadence', body: 'Choose within the hour, a daily digest or a weekly summary, and pause an alert whenever you like.' },
+  { icon: BellRing, title: 'Closing soon', body: 'Your dashboard lists the deadlines of the notices you shortlisted, and of your saved-search matches, for the next 14 days.' },
 ];
 
 export default async function AlertsPage() {

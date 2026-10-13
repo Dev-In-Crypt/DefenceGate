@@ -6,6 +6,7 @@ import {
   activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
+import { listUpdatedAt } from '@/lib/source-status';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
 import { ListPage } from '@/components/dg/list-page';
@@ -46,12 +47,14 @@ export default async function TendersPage({ searchParams }: Props) {
   const last = lastPage(result.total, result.pageSize);
   if (result.total > 0 && (filters.page ?? 1) > last) redirect(`/tenders${toTenderQuery({ ...filters, page: last })}`);
   const tenderSources = health.sources.filter((s) => s.type === 'tenders').length;
+  // The time of the data (`meta.updatedAt`), never the render time; the line is left out when the API does not send it.
+  const updated = listUpdatedAt(result);
   return (
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' }]}
       title="Tenders"
-      intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and every change we observe is kept in its version history."
-      meta={`${tenderSources} tender sources · Last update ${formatDateTimeUtc(health.generatedAt)}`}
+      intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and changes to dates, values and status are kept in its version history."
+      meta={`${tenderSources} tender sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" />}
       filterExtra={<SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
       exportHref={`/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}

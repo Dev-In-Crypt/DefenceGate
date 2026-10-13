@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import Link from 'next/link';
 import { CircleAlert, MailCheck } from 'lucide-react';
 import { requestSignIn, type SignInState } from '@/app/(public)/signin/actions';
 import { Button } from '../dg/button';
@@ -42,6 +43,10 @@ export function SignInForm() {
       {message && state.status !== 'invalid' && (
         <p role="alert" className="m-0 flex items-center gap-1 text-small text-alert"><Icon icon={CircleAlert} size="inline" />{message}</p>
       )}
+      <p className="m-0 text-small text-ink-muted">
+        By signing in you confirm that you act for a trade, business or profession and accept the <Link href="/terms" className="font-semibold">terms of use</Link>.
+        How we handle your e-mail address is in the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
+      </p>
       <div><Button type="submit" disabled={pending}>{pending ? 'Sending' : 'Send sign-in link'}</Button></div>
     </form>
   );

@@ -5,7 +5,8 @@
  *
  * A string with fewer than 60% of its letters in upper case is left alone. In a shouting string these
  * stay as they are: codes with digits ("S2A", "A400M"), anything with a slash ("MINARM/DGA/DO/S2A"),
- * initialisms ("O.O."), known acronyms and legal forms, and Roman numerals.
+ * identifiers with digits or underscores ("2024-ESID-TLN-0046"), initialisms ("O.O."), known acronyms and
+ * legal forms, and Roman numerals.
  * Pure and import-free so lib/ui.check.ts can run it on its own.
  */
 
@@ -94,8 +95,9 @@ export function displayName(text: string, kind: NameKind = 'sentence'): string {
     const [, head, body, tail] = core;
     let shown = body;
     if (body && LETTER.test(body)) {
-      // A code ("S2A", "F-35", "A400M") or anything with a slash is left exactly as published.
-      const code = (/\d/.test(body) && letterCount(body) <= 4) || body.includes('/');
+      // A code ("S2A", "F-35", "2024-ESID-TLN-0046"), a file-like name ("AMOA_MAYOTTE") or anything with a slash is
+      // left exactly as published: a token with a digit is an identifier, not a shouted word.
+      const code = /\d/.test(body) || body.includes('/') || body.includes('_');
       if (!code) {
         shown = body.split('-').map((part, i) => word(part, first && i === 0, i === 0 ? prev : '', kind)).join('-');
       }

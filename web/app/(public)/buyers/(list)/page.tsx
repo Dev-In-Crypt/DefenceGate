@@ -43,7 +43,7 @@ export default async function BuyersPage({ searchParams }: Props) {
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Buyers', href: '/buyers' }]}
       title="Buyers"
-      intro="The bodies that publish defence and dual-use tenders. Open a buyer to see everything it has published, open notices first."
+      intro="The bodies that publish defence and dual-use tenders. Open a buyer to see its notices in our archive, open ones first."
       filterBar={<BuyerFilterBar filters={filters} basePath="/buyers" />}
       noun="buyers" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? DEFAULT_BUYER_SORT, options: SORT_OPTIONS }}

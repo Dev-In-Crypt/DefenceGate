@@ -19,16 +19,16 @@ export default function PrivacyPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.1, published 12 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.2, published 13 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
           'Browsing needs no account and sets no cookie.',
           'No advertising, no third-party trackers, no analytics script and no analytics cookie.',
-          'Visits are counted by page only, by our own server, with no identifier, no address and no user agent stored.',
+          'Visits are counted by our own server, by page, by the kind of site you came from and by phone or computer, with no identifier, no address and no user agent stored.',
           'The hosting server keeps ordinary access logs.',
           'A sign-in account, when it opens, uses a one-time e-mail link. There is no password and no tracking pixel in our mail.',
-          'The notices we show are public. We do not keep the contact fields a source publishes, and we remove e-mail addresses from free text.',
+          'The notices we show are public. We do not keep the contact fields a source publishes, and we remove e-mail addresses from free text. A small number of older records in our private archive still contain them; they are not shown (section 7).',
         ]} />
       </Callout>
 
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
 
       <Clause n={3} title="Visit statistics">
         <p className={P}>We count page views to see which parts of the service are used. Our own server adds one to a daily counter for the page (for example <span className="font-mono">/tenders/[slug]</span>, not the individual notice), the site you came from, only when it is one of a short list of well-known ones such as search engines (for example <span className="font-mono">google.com</span>) and otherwise just “other” (never the full address or your search words), and whether the device is a phone or not.</p>
-        <p className={P}>No cookie is set, no script runs in your browser, and no IP address, user agent or identifier is stored with the count, so it cannot be traced to a person. Requests that announce themselves as automated are not counted. <strong>Legal basis:</strong> our legitimate interest in knowing how the service is used (Art. 6(1)(f) GDPR); since no personal data is stored you have nothing to opt out of.</p>
+        <p className={P}>No cookie is set, no script runs in your browser, and no IP address, user agent or identifier is stored with the count, so it cannot be traced to a person. Requests that announce themselves as automated are not counted. <strong>Legal basis:</strong> our legitimate interest in knowing how the service is used (Art. 6(1)(f) GDPR); since no personal data is stored you have nothing to opt out of. To stop one address from inflating the count, the server keeps the address in memory for at most a minute and counts a limited number of views from it; it is never written to disk or stored with the count.</p>
       </Clause>
 
       <Clause n={4} title="Cookies and local storage">

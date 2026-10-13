@@ -30,7 +30,7 @@ export default async function FollowingPage({ searchParams }: Props) {
   const follows = dataOrNull(result);
   return (
     <>
-      <AppHeader title="Following" lead="Buyers and programmes you follow. Changes to their notices appear on your dashboard." />
+      <AppHeader title="Following" lead="Buyers and programmes you follow. Changes to the notices of the buyers you follow appear on your dashboard; the calls of a programme are counted, not tracked for changes." />
       <Notice code={n} />
       {follows === null ? <LoadFailed href="/app/following" /> : follows.length === 0 ? (
         <NextStep links={[{ label: 'Browse buyers', href: '/buyers' }, { label: 'Browse funding calls', href: '/funding' }]}>

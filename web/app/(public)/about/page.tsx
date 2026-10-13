@@ -16,16 +16,16 @@ export const metadata: Metadata = buildMetadata({
 
 const PRINCIPLES = [
   { icon: FileSearch, title: 'Source first', body: 'Every record links to the original publication. We make notices easier to find; the source stays the authority.' },
-  { icon: Eye, title: 'Gaps in the open', body: 'We publish which sources we collect, when each last ran and how complete the run was, including when it failed.' },
+  { icon: Eye, title: 'Gaps in the open', body: 'We publish which sources we collect, when each last ran, whether the run met the minimum we expect and which gaps we know of, including when a run failed.' },
   { icon: Scale, title: 'Facts, not opinions', body: 'We show what notices say and what changed. We do not rate buyers, predict outcomes or advise on bids.' },
-  { icon: ShieldCheck, title: 'Commercial information only', body: 'We keep dates, buyers, values and codes. We do not collect technical specifications, and we do not keep the contact persons a source lists.' },
+  { icon: ShieldCheck, title: 'Commercial information only', body: 'We show dates, buyers, values and codes. We do not display, summarise or extract technical specifications. We do not keep the contact fields a source publishes; a few older records in our private archive still contain them and are never shown.' },
 ];
 
 const RESOURCES = [
   { label: 'Deadline calendar', href: '/calendar', body: 'Upcoming tender and funding deadlines, also as a calendar feed.' },
   { label: 'CPV finder', href: '/cpv', body: 'Find the procurement codes that describe your products.' },
   { label: 'Glossary', href: '/glossary', body: 'Plain-English explanations of procurement and funding terms.' },
-  { label: 'Source status', href: '/data', body: 'What each source last delivered, and how complete it was.' },
+  { label: 'Source status', href: '/data', body: 'When each source last ran, whether that run met the minimum we expect, and the known gaps.' },
 ];
 
 export default function AboutPage() {
@@ -40,7 +40,7 @@ export default function AboutPage() {
           A supplier who wants to work for European defence buyers has to watch TED, national portals and funding programmes, each with its own layout, language and search. Deadlines move. Values are corrected. Notices appear on one portal and again on another.
         </p>
         <p className="m-0 text-body text-ink-muted">
-          DefenceGate collects those public notices, puts them side by side, links the same notice across sources and keeps every version, so the people who bid, advise and write grant applications spend their time on the work and not on the searching.
+          DefenceGate collects those public notices, puts them side by side, links the same notice across sources where it can and keeps a version history of the changes it observes, so the people who bid, advise and write grant applications spend their time on the work and not on the searching.
         </p>
       </ContentSection>
 

@@ -46,7 +46,7 @@ export function anomalyNotes(t: Pick<Tender, 'anomalies'>): string[] {
 /**
  * The status word the source itself gives, when it gives one. `statusNative` is the API's effective status: "open"
  * and "expired" are read from the deadline (ours, not the source's), so they are not shown as "at the source".
- * Awarded, cancelled and planned are the source's own words.
+ * Awarded, cancelled and planned are read from the type of notice the source published (TED) or its own status.
  */
 export function sourceStatusWord(t: Pick<Tender, 'statusNative'>): string | null {
   switch ((t.statusNative ?? '').trim().toLowerCase()) {

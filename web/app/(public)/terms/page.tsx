@@ -19,7 +19,7 @@ export default function TermsPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Terms of use', href: '/terms' }]}
       title="Terms of use"
-      lead="Version 1.0, published 12 October 2026. The short version comes first; the numbered terms below are the binding text."
+      lead="Version 1.1, published 13 October 2026. The short version comes first; the numbered terms below are the binding text."
     >
       <Callout title="In short">
         <ClauseList items={[
@@ -33,7 +33,7 @@ export default function TermsPage() {
       </Callout>
 
       <Clause n={1} title="Who provides the service and what applies">
-        <p className={P}>DefenceGate is provided by the operator named in the <Link href="/imprint" className="font-semibold">imprint</Link> (“we”, “us”). These terms govern your use of the website and of any account (“the service”). No programming interface is offered for general use.</p>
+        <p className={P}>DefenceGate is provided by the operator named in the <Link href="/imprint" className="font-semibold">imprint</Link> (“we”, “us”). These terms govern your use of the website and of any account (“the service”). The data endpoints that serve this site are not a supported programming interface and may change or be withdrawn without notice; term 11 applies to automated use.</p>
         <p className={P}>By using the service you accept these terms. If you do not accept them, do not use the service.</p>
       </Clause>
 
@@ -43,7 +43,7 @@ export default function TermsPage() {
       </Clause>
 
       <Clause n={3} title="What the service is">
-        <p className={P}>The service is an information service. It collects public procurement notices and funding calls from the sources listed on the <Link href="/data" className="font-semibold">source status page</Link>, normalises their fields, shows the English title where the publisher supplies one, labels them with automated classifications, records changes between versions and links each record to its source.</p>
+        <p className={P}>The service is an information service. It collects public procurement notices and funding calls from the sources listed on the <Link href="/data" className="font-semibold">source status page</Link>, normalises their fields, shows the title in English where the source supplies one (TED composes its English title; the part written by the buyer stays in the buyer’s language), labels them with automated classifications, records changes between versions and links each record to its source.</p>
         <p className={P}>We are not the publisher of any notice. We are not a contracting authority, a funding body or a bidding platform, and we are not a party to any procurement or funding procedure. We do not submit bids or applications for you, and we do not endorse any buyer, bidder, programme or notice.</p>
       </Clause>
 
@@ -85,7 +85,7 @@ export default function TermsPage() {
       <Clause n={11} title="Acceptable use">
         <p className={P}>You must not:</p>
         <ClauseList items={[
-          'access the service by automated means (crawlers, scrapers, scripts or bulk download) except as we have agreed in writing, or exceed the rate limits we apply;',
+          'access the service by automated means (crawlers, scrapers, scripts or bulk download) except the CSV export and the calendar feed the site offers, used within their limits, or as we have agreed in writing, or exceed the rate limits we apply;',
           'circumvent a limit, access control or security measure, or probe the service for weaknesses;',
           'extract or re-use a substantial part of the service to build, feed or operate a competing or redistributed database or service, or resell or sublicense it;',
           'overload the service or disrupt its operation;',

@@ -38,6 +38,17 @@ export function sourceFreshness(
   return { kind: s.status, note: null };
 }
 
+/**
+ * The data time of a list (`meta.updatedAt`), or null when the API does not send it or it is not a date. Callers
+ * hide the "data updated" line on null: the render time of a page is never shown as the time of the data.
+ */
+export function listUpdatedAt(page: { meta?: unknown } | null | undefined): string | null {
+  const meta = page?.meta;
+  if (typeof meta !== 'object' || meta === null) return null;
+  const t = (meta as { updatedAt?: unknown }).updatedAt;
+  return typeof t === 'string' && t !== '' && !Number.isNaN(new Date(t).getTime()) ? t : null;
+}
+
 /** The "Met expected minimum" cell: a run is compared with the minimum we set for that source, not with the source. */
 export function minimumMet(coverage: number | null): string {
   if (coverage === null) return 'Not measured';
