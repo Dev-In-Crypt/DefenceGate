@@ -28,7 +28,7 @@ import httpx
 import psycopg
 
 from . import db, rawstore
-from .buyer_vocab import buyer_class_of
+from .buyer_vocab import effective_buyer_class
 from .classify import classify, detects_subcontracting
 from .config import settings
 from .normalise import (
@@ -234,11 +234,12 @@ def _finalise(conn, opp: Opportunity, src_id: int, *, linked_defence: bool = Fal
         linked_defence = conn.execute(
             "SELECT 1 FROM opportunity WHERE ted_ref = %s AND is_defence LIMIT 1",
             (opp.native_id,)).fetchone() is not None
-    buyer_class = buyer_class_of(opp.buyer_name_raw, opp.country)
+    listed = db.is_defence_buyer(conn, org_id)
+    buyer_class = effective_buyer_class(opp.buyer_name_raw, opp.country, listed)
     sig = classify(
         legal_basis=opp.legal_basis,
         cpv_codes=opp.cpv_codes,
-        buyer_is_defence=db.is_defence_buyer(conn, org_id),
+        buyer_is_defence=listed,
         security_clearance_text="present" if opp.security_clearance_required else None,
         nda_required=opp.nda_required,
         buyer_class=buyer_class,

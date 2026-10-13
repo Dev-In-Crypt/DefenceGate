@@ -1,287 +1,287 @@
 country,name,identifier,reason,confidence,reviewed
-RO,baza de aprovizionare gospodarire si reparatii,,procurement_agency,0.95,false
-RO,compania nationala romtehnica,,procurement_agency,0.95,false
-RO,ministerul apararii - centrul de studii si proiectare constructii militare,,ministry,0.95,false
-RO,ministerul apararii - u m 01512 sibiu,,ministry,0.95,false
-RO,ministerul apararii - u m 02000,,ministry,0.95,false
-RO,ministerul apararii - u m 02036,,ministry,0.95,false
-RO,ministerul apararii - u m 02049 constanta,,ministry,0.95,false
-RO,ministerul apararii - u m 02175 constanta,,ministry,0.95,false
-RO,ministerul apararii - u m 02192,,ministry,0.95,false
-RO,ministerul apararii - u m 02460,,ministry,0.95,false
-RO,ministerul apararii - u m 02512,,ministry,0.95,false
-RO,ministerul apararii - u m 02517 craiova,,ministry,0.95,false
-RO,ministerul apararii - um 02605 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 01434,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 01495 cincu,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 01556 mangalia,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 01616 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 01895 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02133,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02146,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02154 constanta,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02214,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02216 cluj-napoca,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02238 chitila,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02296 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02415,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02415 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02417 focsani,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02444 sibiu,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02464 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02472 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02477 brasov,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02480 campulung moldovenesc,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02489 galati,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02497 pitesti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02499 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02502,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02512 c,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02523,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02542 focsani,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02547 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02550 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02560,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02574,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 02583 bucuresti,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara 0541 sinca veche,,ministry,0.95,false
-RO,ministerul apararii - unitatea militara nr 02558 timisoara,,ministry,0.95,false
-RO,ministerul apararii centrul de studii si proiectare constructii militare,,ministry,0.95,false
-RO,ministerul apararii nationale,,ministry,0.95,false
-RO,ministerul apararii nationale - u m 02022 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale - u m 02145 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale - u m 02275 baltatesti,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 01020,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 01026 bucuresti,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 01145,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 01495 cincu,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 01836,,ministry,0.95,false
+RO,baza de aprovizionare gospodarire si reparatii,,procurement_agency,0.95,false
+RO,compania nationala romtehnica,472771,procurement_agency,0.95,false
+RO,ministerul apararii - centrul de studii si proiectare constructii militare,12859080,ministry,0.95,false
+RO,ministerul apararii - u m 01512 sibiu,4241117,ministry,0.95,false
+RO,ministerul apararii - u m 02000,,ministry,0.95,false
+RO,ministerul apararii - u m 02036,14783824,ministry,0.95,false
+RO,ministerul apararii - u m 02049 constanta,4515514,ministry,0.95,false
+RO,ministerul apararii - u m 02175 constanta,4301383,ministry,0.95,false
+RO,ministerul apararii - u m 02192,,ministry,0.95,false
+RO,ministerul apararii - u m 02460,4406096,ministry,0.95,false
+RO,ministerul apararii - u m 02512,4316090,ministry,0.95,false
+RO,ministerul apararii - u m 02517 craiova,4332487,ministry,0.95,false
+RO,ministerul apararii - um 02605 bucuresti,4221110,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 01434,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 01495 cincu,4523231,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 01556 mangalia,22365032,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 01616 bucuresti,16663549,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 01895 bucuresti,4433996,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02133,R13749875,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02146,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02154 constanta,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02214,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02216 cluj-napoca,15051428,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02238 chitila,9435289,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02296 bucuresti,4221101,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02415,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02415 bucuresti,4183318,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02417 focsani,4297584,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02444 sibiu,4240847,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02464 bucuresti,4364675,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02472 bucuresti,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02477 brasov,4384265,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02480 campulung moldovenesc,4327294,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02489 galati,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02497 pitesti,4318016,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02499 bucuresti,5129783,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02502,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02512 c,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02523,4183253,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02542 focsani,4297711,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02547 bucuresti,4192804,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02550 bucuresti,4283716,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02560,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02574,4193125,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 02583 bucuresti,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara 0541 sinca veche,,ministry,0.95,false
+RO,ministerul apararii - unitatea militara nr 02558 timisoara,4269134,ministry,0.95,false
+RO,ministerul apararii centrul de studii si proiectare constructii militare,,ministry,0.95,false
+RO,ministerul apararii nationale,,ministry,0.95,false
+RO,ministerul apararii nationale - u m 02022 constanta,14810074,ministry,0.95,false
+RO,ministerul apararii nationale - u m 02145 constanta,4304630,ministry,0.95,false
+RO,ministerul apararii nationale - u m 02275 baltatesti,,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 01020,4349187,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 01026 bucuresti,,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 01145,27741219,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 01495 cincu,,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 01836,27036839,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 01836 otopeni prin compania nationala romtehnica,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 01915 cristian,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02068,,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 01915 cristian,41289292,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02068,4301340,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 02150 bucuresti prin c n romtehnica,,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 02150 bucuresti prin compania nationala romtehnica,,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 02267,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02311 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02401 alba iulia,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02456 bucuresti,,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02311 constanta,48253059,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02401 alba iulia,4331449,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02456 bucuresti,,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 02494,,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 02512,,ministry,0.95,false
 RO,ministerul apararii nationale - unitatea militara 02550 bucuresti prin compania nationala romtehnica,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02630 bucuresti,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02638,,ministry,0.95,false
-RO,ministerul apararii nationale - unitatea militara 02648,,ministry,0.95,false
-RO,ministerul apararii nationale prin unitatea militara 01606,,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02630 bucuresti,12071099,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02638,4265965,ministry,0.95,false
+RO,ministerul apararii nationale - unitatea militara 02648,,ministry,0.95,false
+RO,ministerul apararii nationale prin unitatea militara 01606,4307033,ministry,0.95,false
 RO,ministerul apararii nationale u m 02022 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale u m 02145 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale u m 02275 baltatesti,,ministry,0.95,false
-RO,ministerul apararii nationale u m 02550 bucuresti prin compania nationala romtehnica,,ministry,0.95,false
-RO,ministerul apararii nationale um 02022 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale um 02145 constanta,,ministry,0.95,false
-RO,ministerul apararii nationale um 02275 baltatesti,,ministry,0.95,false
+RO,ministerul apararii nationale u m 02145 constanta,,ministry,0.95,false
+RO,ministerul apararii nationale u m 02275 baltatesti,,ministry,0.95,false
+RO,ministerul apararii nationale u m 02550 bucuresti prin compania nationala romtehnica,,ministry,0.95,false
+RO,ministerul apararii nationale um 02022 constanta,,ministry,0.95,false
+RO,ministerul apararii nationale um 02145 constanta,,ministry,0.95,false
+RO,ministerul apararii nationale um 02275 baltatesti,6247787,ministry,0.95,false
 RO,ministerul apararii nationale um 02550 bucuresti prin compania nationala romtehnica,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 01020,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 01026 bucuresti,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 01145,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 0183,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 01836,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02267,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02296 bucuresti,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02494,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02512 z,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02534 iasi,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02547 bucuresti,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 01020,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 01026 bucuresti,4193184,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 01145,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 0183,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 01836,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02267,12489092,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02296 bucuresti,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02494,R5253314,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02512 z,6591933,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02534 iasi,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02547 bucuresti,,ministry,0.95,false
 RO,ministerul apararii nationale unitatea militara 02550 bucuresti prin c n romtehnica,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02574,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02583 bucuresti,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02630 bucuresti,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02638,,ministry,0.95,false
-RO,ministerul apararii nationale unitatea militara 02648,,ministry,0.95,false
-RO,ministerul apararii u m 01512 sibiu,,ministry,0.95,false
-RO,ministerul apararii u m 02000,,ministry,0.95,false
-RO,ministerul apararii u m 02003,,ministry,0.95,false
-RO,ministerul apararii u m 02022,,ministry,0.95,false
-RO,ministerul apararii u m 02036,,ministry,0.95,false
-RO,ministerul apararii u m 02046 constanta,,ministry,0.95,false
-RO,ministerul apararii u m 02125 constanta,,ministry,0.95,false
-RO,ministerul apararii u m 02145 constanta,,ministry,0.95,false
-RO,ministerul apararii u m 02175 constanta,,ministry,0.95,false
-RO,ministerul apararii u m 02192,,ministry,0.95,false
-RO,ministerul apararii u m 02275 baltatesti,,ministry,0.95,false
-RO,ministerul apararii u m 02412 bucuresti,,ministry,0.95,false
-RO,ministerul apararii u m 02460,,ministry,0.95,false
-RO,ministerul apararii u m 02512,,ministry,0.95,false
-RO,ministerul apararii u m 02517 craiova,,ministry,0.95,false
-RO,ministerul apararii u m 02534 iasi,,ministry,0.95,false
-RO,ministerul apararii u m 02605 bucuresti,,ministry,0.95,false
-RO,ministerul apararii um 01512 sibiu,,ministry,0.95,false
-RO,ministerul apararii um 01932 brasov,,ministry,0.95,false
-RO,ministerul apararii um 02000,,ministry,0.95,false
-RO,ministerul apararii um 02003,,ministry,0.95,false
-RO,ministerul apararii um 02036,,ministry,0.95,false
-RO,ministerul apararii um 02046 constanta,,ministry,0.95,false
-RO,ministerul apararii um 02125 constanta,,ministry,0.95,false
-RO,ministerul apararii um 02145 constanta,,ministry,0.95,false
-RO,ministerul apararii um 02175 constanta,,ministry,0.95,false
-RO,ministerul apararii um 02192,,ministry,0.95,false
-RO,ministerul apararii um 02275 baltatesti,,ministry,0.95,false
-RO,ministerul apararii um 02412 bucuresti,,ministry,0.95,false
-RO,ministerul apararii um 02460,,ministry,0.95,false
-RO,ministerul apararii um 02512,,ministry,0.95,false
-RO,ministerul apararii um 02517 craiova,,ministry,0.95,false
-RO,ministerul apararii um 02534 iasi,,ministry,0.95,false
-RO,ministerul apararii um 02605 bucuresti,,ministry,0.95,false
-RO,ministerul apararii um02003,,ministry,0.95,false
-RO,ministerul apararii unitartea militara 02464 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 01020,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 01145,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 01158,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 01434,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 01662 craiova,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 01829,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02033 iasi,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02154 constanta,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02213,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02216 cluj-napoca,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02238 chitila,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02574,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02583 bucuresti,4192715,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02630 bucuresti,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02638,,ministry,0.95,false
+RO,ministerul apararii nationale unitatea militara 02648,4265868,ministry,0.95,false
+RO,ministerul apararii u m 01512 sibiu,,ministry,0.95,false
+RO,ministerul apararii u m 02000,,ministry,0.95,false
+RO,ministerul apararii u m 02003,,ministry,0.95,false
+RO,ministerul apararii u m 02022,,ministry,0.95,false
+RO,ministerul apararii u m 02036,,ministry,0.95,false
+RO,ministerul apararii u m 02046 constanta,18649249,ministry,0.95,false
+RO,ministerul apararii u m 02125 constanta,,ministry,0.95,false
+RO,ministerul apararii u m 02145 constanta,,ministry,0.95,false
+RO,ministerul apararii u m 02175 constanta,,ministry,0.95,false
+RO,ministerul apararii u m 02192,,ministry,0.95,false
+RO,ministerul apararii u m 02275 baltatesti,,ministry,0.95,false
+RO,ministerul apararii u m 02412 bucuresti,,ministry,0.95,false
+RO,ministerul apararii u m 02460,,ministry,0.95,false
+RO,ministerul apararii u m 02512,,ministry,0.95,false
+RO,ministerul apararii u m 02517 craiova,,ministry,0.95,false
+RO,ministerul apararii u m 02534 iasi,,ministry,0.95,false
+RO,ministerul apararii u m 02605 bucuresti,,ministry,0.95,false
+RO,ministerul apararii um 01512 sibiu,,ministry,0.95,false
+RO,ministerul apararii um 01932 brasov,4443256,ministry,0.95,false
+RO,ministerul apararii um 02000,16020314,ministry,0.95,false
+RO,ministerul apararii um 02003,,ministry,0.95,false
+RO,ministerul apararii um 02036,,ministry,0.95,false
+RO,ministerul apararii um 02046 constanta,,ministry,0.95,false
+RO,ministerul apararii um 02125 constanta,10924181,ministry,0.95,false
+RO,ministerul apararii um 02145 constanta,,ministry,0.95,false
+RO,ministerul apararii um 02175 constanta,,ministry,0.95,false
+RO,ministerul apararii um 02192,,ministry,0.95,false
+RO,ministerul apararii um 02275 baltatesti,,ministry,0.95,false
+RO,ministerul apararii um 02412 bucuresti,4283287,ministry,0.95,false
+RO,ministerul apararii um 02460,,ministry,0.95,false
+RO,ministerul apararii um 02512,,ministry,0.95,false
+RO,ministerul apararii um 02517 craiova,,ministry,0.95,false
+RO,ministerul apararii um 02534 iasi,4540054,ministry,0.95,false
+RO,ministerul apararii um 02605 bucuresti,,ministry,0.95,false
+RO,ministerul apararii um02003,4304673,ministry,0.95,false
+RO,ministerul apararii unitartea militara 02464 bucuresti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 01020,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 01145,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 01158,14740360,ministry,0.95,false
+RO,ministerul apararii unitatea militara 01434,4270783,ministry,0.95,false
+RO,ministerul apararii unitatea militara 01662 craiova,4332371,ministry,0.95,false
+RO,ministerul apararii unitatea militara 01829,4266987,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02033 iasi,14593609,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02154 constanta,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02213,4331236,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02216 cluj-napoca,2018S118267561,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02238 chitila,,ministry,0.95,false
 RO,ministerul apararii unitatea militara 02296 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02415 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02417 focsani,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02444 sibiu,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02464 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02464 s,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02472 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02480 campulung moldovenesc,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02489 galati,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02497 pitesti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02512 c,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02523,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02542 focsani,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02547 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02550,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02550 bucuresti,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02558 timisoara,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02560,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02415 bucuresti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02417 focsani,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02444 sibiu,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02464 bucuresti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02464 s,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02472 bucuresti,4221039,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02480 campulung moldovenesc,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02489 galati,3346980,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02497 pitesti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02512 c,4193044,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02523,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02542 focsani,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02547 bucuresti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02550,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02550 bucuresti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02558 timisoara,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02560,11906647,ministry,0.95,false
 RO,ministerul apararii unitatea militara 02574,,ministry,0.95,false
-RO,ministerul apararii unitatea militara 02583 bucuresti,,ministry,0.95,false
+RO,ministerul apararii unitatea militara 02583 bucuresti,,ministry,0.95,false
 RO,ministerul apararii unitatea militara 02648,,ministry,0.95,false
-RO,ministerul apararii unitatea militara nr 01483 zalau,,ministry,0.95,false
-RO,ministerul apararii unitatea militara nr 02154 constanta,,ministry,0.95,false
-RO,ministerul apararii unitatea militara nr 02558 timisoara,,ministry,0.95,false
-RO,ministerul apararii-unitatea militara 01232 oradea,,ministry,0.95,false
-RO,ministerul apararii-unitatea militara 01829,,ministry,0.95,false
+RO,ministerul apararii unitatea militara nr 01483 zalau,17455910,ministry,0.95,false
+RO,ministerul apararii unitatea militara nr 02154 constanta,7249751,ministry,0.95,false
+RO,ministerul apararii unitatea militara nr 02558 timisoara,,ministry,0.95,false
+RO,ministerul apararii-unitatea militara 01232 oradea,4411254,ministry,0.95,false
+RO,ministerul apararii-unitatea militara 01829,,ministry,0.95,false
 RO,military unit 02550 bucharest,,military_unit,0.85,false
-RO,u m 01119 brasov,,military_unit,0.85,false
-RO,u m 01335 bucuresti,,military_unit,0.85,false
-RO,u m 0172 dragalina,,military_unit,0.85,false
-RO,u m 01837 mihail kogalniceanu,,military_unit,0.85,false
-RO,u m 01983 bacau,,military_unit,0.85,false
-RO,u m 02031 bucuresti,,military_unit,0.85,false
-RO,u m 02032 cluj-napoca,,military_unit,0.85,false
-RO,u m 02150 bucuresti,,military_unit,0.85,false
-RO,u m 02482,,military_unit,0.85,false
-RO,u m 02499 bucuresti,,military_unit,0.85,false
-RO,u m 02544 b1,,military_unit,0.85,false
-RO,u m 02600 - bucuresti,,military_unit,0.85,false
-RO,u m 0296 bucuresti,,military_unit,0.85,false
-RO,u m 0333 bucuresti,,military_unit,0.85,false
-RO,u m 0437 arad,,military_unit,0.85,false
-RO,u m 0451 deva,,military_unit,0.85,false
-RO,u m 0490,,military_unit,0.85,false
-RO,u m 0502 bucuresti,,military_unit,0.85,false
-RO,u m 0510 bucuresti,,military_unit,0.85,false
-RO,u m 0514,,military_unit,0.85,false
-RO,u m 0514 depozitul 209 rezerve proprii mizil,,military_unit,0.85,false
-RO,u m 0543 tecuci,,military_unit,0.85,false
-RO,u m 0854 falticeni,,military_unit,0.85,false
-RO,u m 0929 bucuresti,,military_unit,0.85,false
-RO,um 01119 brasov,,military_unit,0.85,false
-RO,um 01335 bucuresti,,military_unit,0.85,false
-RO,um 0149f,,military_unit,0.85,false
-RO,um 0172 dragalina,,military_unit,0.85,false
-RO,um 02031 bucuresti,,military_unit,0.85,false
-RO,um 02032 cluj-napoca,,military_unit,0.85,false
-RO,um 02150 bucuresti,,military_unit,0.85,false
-RO,um 02210 bucuresti,,military_unit,0.85,false
-RO,um 02499 bucuresti,,military_unit,0.85,false
-RO,um 02544 b1,,military_unit,0.85,false
-RO,um 0296 bucuresti,,military_unit,0.85,false
-RO,um 0466 bucuresti,,military_unit,0.85,false
-RO,um 0502 bucuresti,,military_unit,0.85,false
-RO,um 0510 bucuresti,,military_unit,0.85,false
+RO,u m 01119 brasov,,military_unit,0.85,false
+RO,u m 01335 bucuresti,24936747,military_unit,0.85,false
+RO,u m 0172 dragalina,,military_unit,0.85,false
+RO,u m 01837 mihail kogalniceanu,41412130,military_unit,0.85,false
+RO,u m 01983 bacau,4353080,military_unit,0.85,false
+RO,u m 02031 bucuresti,,military_unit,0.85,false
+RO,u m 02032 cluj-napoca,,military_unit,0.85,false
+RO,u m 02150 bucuresti,,military_unit,0.85,false
+RO,u m 02482,,military_unit,0.85,false
+RO,u m 02499 bucuresti,,military_unit,0.85,false
+RO,u m 02544 b1,,military_unit,0.85,false
+RO,u m 02600 - bucuresti,13630920,military_unit,0.85,false
+RO,u m 0296 bucuresti,,military_unit,0.85,false
+RO,u m 0333 bucuresti,8295969,military_unit,0.85,false
+RO,u m 0437 arad,3861854,military_unit,0.85,false
+RO,u m 0451 deva,4634493,military_unit,0.85,false
+RO,u m 0490,,military_unit,0.85,false
+RO,u m 0502 bucuresti,,military_unit,0.85,false
+RO,u m 0510 bucuresti,,military_unit,0.85,false
+RO,u m 0514,12868070,military_unit,0.85,false
+RO,u m 0514 depozitul 209 rezerve proprii mizil,,military_unit,0.85,false
+RO,u m 0543 tecuci,18233238,military_unit,0.85,false
+RO,u m 0854 falticeni,4244679,military_unit,0.85,false
+RO,u m 0929 bucuresti,,military_unit,0.85,false
+RO,um 01119 brasov,13844907,military_unit,0.85,false
+RO,um 01335 bucuresti,,military_unit,0.85,false
+RO,um 0149f,,military_unit,0.85,false
+RO,um 0172 dragalina,8526893,military_unit,0.85,false
+RO,um 02031 bucuresti,14601582,military_unit,0.85,false
+RO,um 02032 cluj-napoca,14619075,military_unit,0.85,false
+RO,um 02150 bucuresti,4301243,military_unit,0.85,false
+RO,um 02210 bucuresti,,military_unit,0.85,false
+RO,um 02499 bucuresti,,military_unit,0.85,false
+RO,um 02544 b1,,military_unit,0.85,false
+RO,um 0296 bucuresti,14381010,military_unit,0.85,false
+RO,um 0466 bucuresti,4204208,military_unit,0.85,false
+RO,um 0502 bucuresti,4204283,military_unit,0.85,false
+RO,um 0510 bucuresti,11353288,military_unit,0.85,false
 RO,um 0854 falticeni,,military_unit,0.85,false
-RO,um 0894 bucuresti,,military_unit,0.85,false
-RO,um 0929 bucuresti,,military_unit,0.85,false
-RO,um02154 constanta,,military_unit,0.85,false
-RO,unitatea militara 01011 tg mures,,military_unit,0.85,false
-RO,unitatea militara 01013 targu carbunesti,,military_unit,0.85,false
-RO,unitatea militara 01016 targu mures,,military_unit,0.85,false
-RO,unitatea militara 01110 iasi,,military_unit,0.85,false
-RO,unitatea militara 01144,,military_unit,0.85,false
-RO,unitatea militara 01151,,military_unit,0.85,false
-RO,unitatea militara 01178,,military_unit,0.85,false
-RO,unitatea militara 01221 timisoara,,military_unit,0.85,false
-RO,unitatea militara 01227 constanta,,military_unit,0.85,false
-RO,unitatea militara 01333,,military_unit,0.85,false
-RO,unitatea militara 01357 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 01369 cluj-napoca,,military_unit,0.85,false
-RO,unitatea militara 01394 bucov,,military_unit,0.85,false
-RO,unitatea militara 01454 buzau,,military_unit,0.85,false
-RO,unitatea militara 01541 budieni,,military_unit,0.85,false
-RO,unitatea militara 01557,,military_unit,0.85,false
-RO,unitatea militara 01557 sibiu,,military_unit,0.85,false
-RO,unitatea militara 01558 targoviste,,military_unit,0.85,false
-RO,unitatea militara 01575 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 01704,,military_unit,0.85,false
-RO,unitatea militara 01714,,military_unit,0.85,false
-RO,unitatea militara 01714 pitesti,,military_unit,0.85,false
-RO,unitatea militara 01751 rasnov,,military_unit,0.85,false
-RO,unitatea militara 01764,,military_unit,0.85,false
-RO,unitatea militara 01769 bacau,,military_unit,0.85,false
-RO,unitatea militara 01812,,military_unit,0.85,false
-RO,unitatea militara 01838,,military_unit,0.85,false
-RO,unitatea militara 01871,,military_unit,0.85,false
-RO,unitatea militara 01961,,military_unit,0.85,false
-RO,unitatea militara 01961 otopeni,,military_unit,0.85,false
-RO,unitatea militara 02043 braila,,military_unit,0.85,false
-RO,unitatea militara 02119,,military_unit,0.85,false
-RO,unitatea militara 02132,,military_unit,0.85,false
-RO,unitatea militara 02133,,military_unit,0.85,false
-RO,unitatea militara 02146 mangalia,,military_unit,0.85,false
-RO,unitatea militara 02210 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02213,,military_unit,0.85,false
-RO,unitatea militara 02301,,military_unit,0.85,false
-RO,unitatea militara 02310 sibiu,,military_unit,0.85,false
-RO,unitatea militara 02379 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02384,,military_unit,0.85,false
-RO,unitatea militara 02433 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02456,,military_unit,0.85,false
-RO,unitatea militara 02456 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02487,,military_unit,0.85,false
-RO,unitatea militara 02494,,military_unit,0.85,false
-RO,unitatea militara 0251 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02523 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02532 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02543 iasi,,military_unit,0.85,false
-RO,unitatea militara 02550 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02571,,military_unit,0.85,false
-RO,unitatea militara 02571 jegalia,,military_unit,0.85,false
-RO,unitatea militara 02601,,military_unit,0.85,false
-RO,unitatea militara 02606 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 02655,,military_unit,0.85,false
-RO,unitatea militara 0391 brasov,,military_unit,0.85,false
-RO,unitatea militara 0418 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 0461 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 0465 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 0520,,military_unit,0.85,false
-RO,unitatea militara 0521 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 0659 deva,,military_unit,0.85,false
-RO,unitatea militara 0805 timisoara,,military_unit,0.85,false
-RO,unitatea militara 0908 iasi,,military_unit,0.85,false
-RO,unitatea militara 0929 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 0930,,military_unit,0.85,false
-RO,unitatea militara 0991 bucuresti,,military_unit,0.85,false
-RO,unitatea militara 0999 bucuresti,,military_unit,0.85,false
-RO,colegiul national militar dimitrie cantemir breaza -unitatea militara02525 breaza,,defence_word,0.70,false
-RO,colegiul national militar dimitrie cantemir breaza unitatea militara 02525 breaza,,defence_word,0.70,false
-RO,unitatea militar 01333,,defence_word,0.70,false
+RO,um 0894 bucuresti,,military_unit,0.85,false
+RO,um 0929 bucuresti,13624359,military_unit,0.85,false
+RO,um02154 constanta,,military_unit,0.85,false
+RO,unitatea militara 01011 tg mures,,military_unit,0.85,false
+RO,unitatea militara 01013 targu carbunesti,4351934,military_unit,0.85,false
+RO,unitatea militara 01016 targu mures,32537534,military_unit,0.85,false
+RO,unitatea militara 01110 iasi,4701452,military_unit,0.85,false
+RO,unitatea militara 01144,27367077,military_unit,0.85,false
+RO,unitatea militara 01151,50138884,military_unit,0.85,false
+RO,unitatea militara 01178,4332339,military_unit,0.85,false
+RO,unitatea militara 01221 timisoara,26382613,military_unit,0.85,false
+RO,unitatea militara 01227 constanta,4300655,military_unit,0.85,false
+RO,unitatea militara 01333,14101463,military_unit,0.85,false
+RO,unitatea militara 01357 bucuresti,4265884,military_unit,0.85,false
+RO,unitatea militara 01369 cluj-napoca,4779052,military_unit,0.85,false
+RO,unitatea militara 01394 bucov,5051862,military_unit,0.85,false
+RO,unitatea militara 01454 buzau,14324414,military_unit,0.85,false
+RO,unitatea militara 01541 budieni,15042080,military_unit,0.85,false
+RO,unitatea militara 01557,,military_unit,0.85,false
+RO,unitatea militara 01557 sibiu,25666684,military_unit,0.85,false
+RO,unitatea militara 01558 targoviste,25563379,military_unit,0.85,false
+RO,unitatea militara 01575 bucuresti,10768686,military_unit,0.85,false
+RO,unitatea militara 01704,4283546,military_unit,0.85,false
+RO,unitatea militara 01714,4317975,military_unit,0.85,false
+RO,unitatea militara 01714 pitesti,,military_unit,0.85,false
+RO,unitatea militara 01751 rasnov,4443337,military_unit,0.85,false
+RO,unitatea militara 01764,27124086,military_unit,0.85,false
+RO,unitatea militara 01769 bacau,,military_unit,0.85,false
+RO,unitatea militara 01812,24352365,military_unit,0.85,false
+RO,unitatea militara 01838,4299631,military_unit,0.85,false
+RO,unitatea militara 01871,4550040,military_unit,0.85,false
+RO,unitatea militara 01961,10405150,military_unit,0.85,false
+RO,unitatea militara 01961 otopeni,,military_unit,0.85,false
+RO,unitatea militara 02043 braila,4342944,military_unit,0.85,false
+RO,unitatea militara 02119,,military_unit,0.85,false
+RO,unitatea militara 02132,R14236177,military_unit,0.85,false
+RO,unitatea militara 02133,,military_unit,0.85,false
+RO,unitatea militara 02146 mangalia,13749883,military_unit,0.85,false
+RO,unitatea militara 02210 bucuresti,4193176,military_unit,0.85,false
+RO,unitatea militara 02213,,military_unit,0.85,false
+RO,unitatea militara 02301,4267281,military_unit,0.85,false
+RO,unitatea militara 02310 sibiu,42617070,military_unit,0.85,false
+RO,unitatea militara 02379 bucuresti,12362004,military_unit,0.85,false
+RO,unitatea militara 02384,13683878,military_unit,0.85,false
+RO,unitatea militara 02433 bucuresti,4382566,military_unit,0.85,false
+RO,unitatea militara 02456,31971658,military_unit,0.85,false
+RO,unitatea militara 02456 bucuresti,,military_unit,0.85,false
+RO,unitatea militara 02487,12020362,military_unit,0.85,false
+RO,unitatea militara 02494,,military_unit,0.85,false
+RO,unitatea militara 0251 bucuresti,4192782,military_unit,0.85,false
+RO,unitatea militara 02523 bucuresti,,military_unit,0.85,false
+RO,unitatea militara 02532 bucuresti,4266812,military_unit,0.85,false
+RO,unitatea militara 02543 iasi,24944464,military_unit,0.85,false
+RO,unitatea militara 02550 bucuresti,,military_unit,0.85,false
+RO,unitatea militara 02571,24250748,military_unit,0.85,false
+RO,unitatea militara 02571 jegalia,,military_unit,0.85,false
+RO,unitatea militara 02601,25974870,military_unit,0.85,false
+RO,unitatea militara 02606 bucuresti,24916030,military_unit,0.85,false
+RO,unitatea militara 02655,39754190,military_unit,0.85,false
+RO,unitatea militara 0391 brasov,4317533,military_unit,0.85,false
+RO,unitatea militara 0418 bucuresti,4204267,military_unit,0.85,false
+RO,unitatea militara 0461 bucuresti,4204224,military_unit,0.85,false
+RO,unitatea militara 0465 bucuresti,14539766,military_unit,0.85,false
+RO,unitatea militara 0520,4358096,military_unit,0.85,false
+RO,unitatea militara 0521 bucuresti,8372077,military_unit,0.85,false
+RO,unitatea militara 0659 deva,,military_unit,0.85,false
+RO,unitatea militara 0805 timisoara,34560827,military_unit,0.85,false
+RO,unitatea militara 0908 iasi,4701533,military_unit,0.85,false
+RO,unitatea militara 0929 bucuresti,,military_unit,0.85,false
+RO,unitatea militara 0930,18252132,military_unit,0.85,false
+RO,unitatea militara 0991 bucuresti,24189404,military_unit,0.85,false
+RO,unitatea militara 0999 bucuresti,,military_unit,0.85,false
+RO,colegiul national militar dimitrie cantemir breaza -unitatea militara02525 breaza,,defence_word,0.70,false
+RO,colegiul national militar dimitrie cantemir breaza unitatea militara 02525 breaza,2843353,defence_word,0.70,false
+RO,unitatea militar 01333,,defence_word,0.70,false

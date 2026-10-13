@@ -1,111 +1,111 @@
 country,name,identifier,reason,confidence,reviewed
-BE,defense - mrmp-c s - direction generale material resources - division marches publics - section cis - sous-section services,,procurement_agency,0.95,false
-BE,defense direction generale material resources division marches publics support systems section sous-section corporate support systems mrmp-s ad1,,procurement_agency,0.95,false
-BE,defense direction generale material resources division marches publics support systems section sous-section corporate support systems mrmp-s ad2,,procurement_agency,0.95,false
-BE,defense mrmp-c s direction generale material resources division marches publics section cis sous-section services,,procurement_agency,0.95,false
-BE,direction generale material resources division marches publics support systems section sous-section corporate support systems mrmp-s ad1,,procurement_agency,0.95,false
-BE,direction generale material resources project management team shape-ncia,,procurement_agency,0.95,false
-BE,european defence agency,,procurement_agency,0.95,false
-BE,european defence agency eda,,procurement_agency,0.95,false
-BE,european defence agency eda eda ceo csd 3 procurement and contract unit,,procurement_agency,0.95,false
-BE,la defense - mrmp-c s - direction generale material resources - division marches publics - section cis - sous-section services,,procurement_agency,0.95,false
-BE,la defense mrmp-c s direction generale material resources division marches publics section cis sous-section services,,procurement_agency,0.95,false
-BE,ministere de la defense,,ministry,0.95,false
-BE,ministry of defense,,ministry,0.95,false
-BE,mrmp s p direction generale material resources division marches publics section support systems sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-a a - direction generale material resources - division marches publics - section aeronautical systems - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-a a - direction generale material resources - division marches publics - section aviation systems - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-a a - direction generale material resources division marches publics section aviation systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-a a direction generale material resources division des marches publics section aviation systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-a a direction generale material resources division marches publics section aviation systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-a p - direction generale material resources - division marches publics - section aviation systems - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-a p direction generale material resources division marches publics section aeronautical systems sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-a p direction generale material resources division marches publics section aviation systems sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-a s - direction generale material resources - division marches publics - section aviation systems - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-a s direction generale material resources division marches publics section aviation systems sous-section services,,procurement_agency,0.95,false
-BE,mrmp-c a - direction generale material resources - division marches publics - section cis - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-c a - direction generale material resources division marches publics section cis sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-c a direction generale material resources division marches publics section cis sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-c a direction generale material ressources division marches publics section cis sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-c p - direction generale material resources - division marches publics - section cis - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-c p direction generale material resources division marches publics section cis - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-c p direction generale material resources division marches publics section cis sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-c s - direction generale material resources - division marches publics - section cis - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-c s direction generale material resources division marches publics section cis sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i a - direction generale material resources - division marches publics - section infrastructure - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-i a direction generale material resources - division marches publics - section infrastructure - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-i a direction generale material resources division des marches publics section infrastructure sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-i a direction generale material resources division marches publics section infrastructure - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-i a direction generale material resources division marches publics section infrastructure sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-i a direction generale material ressources division marches publics section infrastructure sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-i p - direction generale material resources - division marches publics - section infrastructure - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-i p direction generale material resources - division marches publics - section infrastructure - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-i p direction generale material resources - division marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-i p direction generale material resources division des marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-i p direction generale material resources division marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-i p direction generale materiel ressources division marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-i s - direction generale material resources - division marches publics - section infrastructure - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction general material resources division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction generale material resources - division marches publics - section infrastructure - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction generale material resources - division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction generale material resources division marches publics - section infrastructure sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction generale material resources division marches publics section infrastructure - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction generale material resources division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
-BE,mrmp-i s direction generale material ressources division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
+BE,defense - mrmp-c s - direction generale material resources - division marches publics - section cis - sous-section services,,procurement_agency,0.95,false
+BE,defense direction generale material resources division marches publics support systems section sous-section corporate support systems mrmp-s ad1,,procurement_agency,0.95,false
+BE,defense direction generale material resources division marches publics support systems section sous-section corporate support systems mrmp-s ad2,,procurement_agency,0.95,false
+BE,defense mrmp-c s direction generale material resources division marches publics section cis sous-section services,,procurement_agency,0.95,false
+BE,direction generale material resources division marches publics support systems section sous-section corporate support systems mrmp-s ad1,,procurement_agency,0.95,false
+BE,direction generale material resources project management team shape-ncia,,procurement_agency,0.95,false
+BE,european defence agency,,procurement_agency,0.95,false
+BE,european defence agency eda,,procurement_agency,0.95,false
+BE,european defence agency eda eda ceo csd 3 procurement and contract unit,,procurement_agency,0.95,false
+BE,la defense - mrmp-c s - direction generale material resources - division marches publics - section cis - sous-section services,,procurement_agency,0.95,false
+BE,la defense mrmp-c s direction generale material resources division marches publics section cis sous-section services,,procurement_agency,0.95,false
+BE,ministere de la defense,03083575555623,ministry,0.95,false
+BE,ministry of defense,03083575556416,ministry,0.95,false
+BE,mrmp s p direction generale material resources division marches publics section support systems sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-a a - direction generale material resources - division marches publics - section aeronautical systems - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-a a - direction generale material resources - division marches publics - section aviation systems - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-a a - direction generale material resources division marches publics section aviation systems sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-a a direction generale material resources division des marches publics section aviation systems sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-a a direction generale material resources division marches publics section aviation systems sous-section acquisition,030835755531,procurement_agency,0.95,false
+BE,mrmp-a p - direction generale material resources - division marches publics - section aviation systems - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-a p direction generale material resources division marches publics section aeronautical systems sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-a p direction generale material resources division marches publics section aviation systems sous-section programmes,030835755529,procurement_agency,0.95,false
+BE,mrmp-a s - direction generale material resources - division marches publics - section aviation systems - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-a s direction generale material resources division marches publics section aviation systems sous-section services,030835755530,procurement_agency,0.95,false
+BE,mrmp-c a - direction generale material resources - division marches publics - section cis - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-c a - direction generale material resources division marches publics section cis sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-c a direction generale material resources division marches publics section cis sous-section acquisition,03083575556,procurement_agency,0.95,false
+BE,mrmp-c a direction generale material ressources division marches publics section cis sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-c p - direction generale material resources - division marches publics - section cis - sous-section programmes,03083575554,procurement_agency,0.95,false
+BE,mrmp-c p direction generale material resources division marches publics section cis - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-c p direction generale material resources division marches publics section cis sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-c s - direction generale material resources - division marches publics - section cis - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-c s direction generale material resources division marches publics section cis sous-section services,03083575555,procurement_agency,0.95,false
+BE,mrmp-i a - direction generale material resources - division marches publics - section infrastructure - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-i a direction generale material resources - division marches publics - section infrastructure - sous-section acquisition,030835755516,procurement_agency,0.95,false
+BE,mrmp-i a direction generale material resources division des marches publics section infrastructure sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-i a direction generale material resources division marches publics section infrastructure - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-i a direction generale material resources division marches publics section infrastructure sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-i a direction generale material ressources division marches publics section infrastructure sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-i p - direction generale material resources - division marches publics - section infrastructure - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-i p direction generale material resources - division marches publics - section infrastructure - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-i p direction generale material resources - division marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-i p direction generale material resources division des marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-i p direction generale material resources division marches publics section infrastructure sous-section programmes,030835755514,procurement_agency,0.95,false
+BE,mrmp-i p direction generale materiel ressources division marches publics section infrastructure sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-i s - direction generale material resources - division marches publics - section infrastructure - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-i s direction general material resources division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
+BE,mrmp-i s direction generale material resources - division marches publics - section infrastructure - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-i s direction generale material resources - division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
+BE,mrmp-i s direction generale material resources division marches publics - section infrastructure sous-section services,,procurement_agency,0.95,false
+BE,mrmp-i s direction generale material resources division marches publics section infrastructure - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-i s direction generale material resources division marches publics section infrastructure sous-section services,030835755515,procurement_agency,0.95,false
+BE,mrmp-i s direction generale material ressources division marches publics section infrastructure sous-section services,,procurement_agency,0.95,false
 BE,mrmp-l a - direction generale material resources - division marches publics - section land systems - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-l a direction generale material resources division des marches publics section land systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-l a direction generale material resources division marches publics - section land systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-l a direction generale material resources division marches publics section land systems - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-l a direction generale material resources division marches publics section land systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-l direction generale material resources division marches publics section land systems,,procurement_agency,0.95,false
-BE,mrmp-l p - direction generale material resources - division marches publics - section land systems - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-l p direction generale material resources division marches publics - section land systems - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-l p direction generale material resources division marches publics section land systems - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-l p direction generale material resources division marches publics section land systems sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-l a direction generale material resources division des marches publics section land systems sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-l a direction generale material resources division marches publics - section land systems sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-l a direction generale material resources division marches publics section land systems - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-l a direction generale material resources division marches publics section land systems sous-section acquisition,030835755527,procurement_agency,0.95,false
+BE,mrmp-l direction generale material resources division marches publics section land systems,,procurement_agency,0.95,false
+BE,mrmp-l p - direction generale material resources - division marches publics - section land systems - sous-section programmes,030835755525,procurement_agency,0.95,false
+BE,mrmp-l p direction generale material resources division marches publics - section land systems - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-l p direction generale material resources division marches publics section land systems - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-l p direction generale material resources division marches publics section land systems sous-section programmes,,procurement_agency,0.95,false
 BE,mrmp-l s - direction generale material resources - division marches publics - section land systems - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-l s - direction generale material resources division marches publics section land systems sous-section services,,procurement_agency,0.95,false
-BE,mrmp-l s direction generale material resources - division marches publics - section land systems - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-l s direction generale material resources - division marches publics section land systems sous-section services,,procurement_agency,0.95,false
-BE,mrmp-l s direction generale material resources division marches publics section land systems sous-section services,,procurement_agency,0.95,false
-BE,mrmp-l s direction generale material ressources division marches publics section land systems sous-section services,,procurement_agency,0.95,false
-BE,mrmp-n a - direction generale material resources - division marches publics - section materiel navigant - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-n a - direction generale material resources - division marches publics - section naval systems - sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-n a direction generale material resources division marches publics section materiel navigant sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-n a direction generale material resources division marches publics section materiel navigant sous-section acquisition & services,,procurement_agency,0.95,false
-BE,mrmp-n a direction generale material resources division marches publics section naval systems sous-section acquisition,,procurement_agency,0.95,false
-BE,mrmp-n p - direction generale material resources - division marches publics - section materiel navigant - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-n p - direction generale material resources - division marches publics - section naval systems - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-n p direction generale material resources division marches publics section materiel navigant sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-s ad - direction generale material resources - division marches publics - section support systems - sous-section corporate support systems,,procurement_agency,0.95,false
-BE,mrmp-s ad - direction generale material resources division marches publics section support systems sous-section corporate support systems,,procurement_agency,0.95,false
-BE,mrmp-s ad direction generale material resources division marches publics section support systems - sous-section corporate support systems,,procurement_agency,0.95,false
-BE,mrmp-s ad direction generale material resources division marches publics section support systems sous-section corporate support systems,,procurement_agency,0.95,false
-BE,mrmp-s ad mrmp-s ad direction generale material resources division marches publics section support systems sous-section corporate support systems,,procurement_agency,0.95,false
-BE,mrmp-s am - direction generale material resources - division marches publics - section support systems sous-section support products,,procurement_agency,0.95,false
-BE,mrmp-s am - direction generale material resources division marches publics section support systems sous-section support products,,procurement_agency,0.95,false
-BE,mrmp-s am direction generale material resources division marches publics - section support systems sous-section support products,,procurement_agency,0.95,false
-BE,mrmp-s am direction generale material resources division marches publics section support systems sous-section support products,,procurement_agency,0.95,false
-BE,mrmp-s am direction generale material ressources division marches publics section support systems sous-section support products,,procurement_agency,0.95,false
-BE,mrmp-s at - direction generale material resources - division marches publics - section support systems - sous-section personnel support systems,,procurement_agency,0.95,false
-BE,mrmp-s at direction generale material resources division des marches publics section support systems sous-section acquisition textiles,,procurement_agency,0.95,false
-BE,mrmp-s at direction generale material resources division des marches publics section support systems sous-section personnel support systems,,procurement_agency,0.95,false
+BE,mrmp-l s - direction generale material resources division marches publics section land systems sous-section services,,procurement_agency,0.95,false
+BE,mrmp-l s direction generale material resources - division marches publics - section land systems - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-l s direction generale material resources - division marches publics section land systems sous-section services,,procurement_agency,0.95,false
+BE,mrmp-l s direction generale material resources division marches publics section land systems sous-section services,030835755526,procurement_agency,0.95,false
+BE,mrmp-l s direction generale material ressources division marches publics section land systems sous-section services,,procurement_agency,0.95,false
+BE,mrmp-n a - direction generale material resources - division marches publics - section materiel navigant - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-n a - direction generale material resources - division marches publics - section naval systems - sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-n a direction generale material resources division marches publics section materiel navigant sous-section acquisition,030835755510,procurement_agency,0.95,false
+BE,mrmp-n a direction generale material resources division marches publics section materiel navigant sous-section acquisition & services,,procurement_agency,0.95,false
+BE,mrmp-n a direction generale material resources division marches publics section naval systems sous-section acquisition,,procurement_agency,0.95,false
+BE,mrmp-n p - direction generale material resources - division marches publics - section materiel navigant - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-n p - direction generale material resources - division marches publics - section naval systems - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-n p direction generale material resources division marches publics section materiel navigant sous-section programmes,03083575558,procurement_agency,0.95,false
+BE,mrmp-s ad - direction generale material resources - division marches publics - section support systems - sous-section corporate support systems,,procurement_agency,0.95,false
+BE,mrmp-s ad - direction generale material resources division marches publics section support systems sous-section corporate support systems,,procurement_agency,0.95,false
+BE,mrmp-s ad direction generale material resources division marches publics section support systems - sous-section corporate support systems,,procurement_agency,0.95,false
+BE,mrmp-s ad direction generale material resources division marches publics section support systems sous-section corporate support systems,030835755523,procurement_agency,0.95,false
+BE,mrmp-s ad mrmp-s ad direction generale material resources division marches publics section support systems sous-section corporate support systems,,procurement_agency,0.95,false
+BE,mrmp-s am - direction generale material resources - division marches publics - section support systems sous-section support products,,procurement_agency,0.95,false
+BE,mrmp-s am - direction generale material resources division marches publics section support systems sous-section support products,,procurement_agency,0.95,false
+BE,mrmp-s am direction generale material resources division marches publics - section support systems sous-section support products,,procurement_agency,0.95,false
+BE,mrmp-s am direction generale material resources division marches publics section support systems sous-section support products,030835755522,procurement_agency,0.95,false
+BE,mrmp-s am direction generale material ressources division marches publics section support systems sous-section support products,,procurement_agency,0.95,false
+BE,mrmp-s at - direction generale material resources - division marches publics - section support systems - sous-section personnel support systems,030835755521,procurement_agency,0.95,false
+BE,mrmp-s at direction generale material resources division des marches publics section support systems sous-section acquisition textiles,,procurement_agency,0.95,false
+BE,mrmp-s at direction generale material resources division des marches publics section support systems sous-section personnel support systems,,procurement_agency,0.95,false
 BE,mrmp-s at direction generale material resources division marches publics section support systems sous section acquisition textiles,,procurement_agency,0.95,false
-BE,mrmp-s at direction generale material resources division marches publics section support systems sous-section acquisition textiles,,procurement_agency,0.95,false
+BE,mrmp-s at direction generale material resources division marches publics section support systems sous-section acquisition textiles,,procurement_agency,0.95,false
 BE,mrmp-s at direction generale material resources division marches publics section support systems sous-section personnel support systems,,procurement_agency,0.95,false
-BE,mrmp-s at direction generale material ressources division marches publics section support systems sous section acquisition textiles,,procurement_agency,0.95,false
-BE,mrmp-s p - direction generale material resources - division marches publics - section support systems - sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-s p - direction generale material resources - division marches publics - section support systems - sous-section support programs & projects,,procurement_agency,0.95,false
-BE,mrmp-s p - direction generale material resources - division marches publics - section support systems- sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-s p direction generale material resources division des marches publics section support systems sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-s p direction generale material resources division marches publics section support systems sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-s p direction generale material resources division marches publics section support systems- sous-section programmes,,procurement_agency,0.95,false
-BE,mrmp-s s - algemene directie material resources - divisie overheidsopdrachten - sectie support systems - ondersectie diensten,,procurement_agency,0.95,false
-BE,mrmp-s s - direction generale material resources - division marches publics - section support systems - sous-section services,,procurement_agency,0.95,false
-BE,mrmp-s s - direction generale material resources - division marches publics - section support systems - sous-section support services,,procurement_agency,0.95,false
-BE,mrmp-s s direction generale material resources division marches publics section support systems sous-section services,,procurement_agency,0.95,false
-BE,mrmp-sdv - service des ventes,,procurement_agency,0.95,false
-BE,mrmp-sdv service de vente,,procurement_agency,0.95,false
-BE,mrmp-sdv service des ventes,,procurement_agency,0.95,false
-BE,mrmp-sdv services de vente,,procurement_agency,0.95,false
-BE,office central d action sociale et culturelle du ministere de la defense,,defence_word,0.70,false
-BE,the permanent representation of finland to the eu embassy of finland and the mission of finland to nato,,defence_word,0.70,false
+BE,mrmp-s at direction generale material ressources division marches publics section support systems sous section acquisition textiles,,procurement_agency,0.95,false
+BE,mrmp-s p - direction generale material resources - division marches publics - section support systems - sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-s p - direction generale material resources - division marches publics - section support systems - sous-section support programs & projects,030835755519,procurement_agency,0.95,false
+BE,mrmp-s p - direction generale material resources - division marches publics - section support systems- sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-s p direction generale material resources division des marches publics section support systems sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-s p direction generale material resources division marches publics section support systems sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-s p direction generale material resources division marches publics section support systems- sous-section programmes,,procurement_agency,0.95,false
+BE,mrmp-s s - algemene directie material resources - divisie overheidsopdrachten - sectie support systems - ondersectie diensten,,procurement_agency,0.95,false
+BE,mrmp-s s - direction generale material resources - division marches publics - section support systems - sous-section services,,procurement_agency,0.95,false
+BE,mrmp-s s - direction generale material resources - division marches publics - section support systems - sous-section support services,,procurement_agency,0.95,false
+BE,mrmp-s s direction generale material resources division marches publics section support systems sous-section services,030835755520,procurement_agency,0.95,false
+BE,mrmp-sdv - service des ventes,,procurement_agency,0.95,false
+BE,mrmp-sdv service de vente,,procurement_agency,0.95,false
+BE,mrmp-sdv service des ventes,030835755535,procurement_agency,0.95,false
+BE,mrmp-sdv services de vente,,procurement_agency,0.95,false
+BE,office central d action sociale et culturelle du ministere de la defense,022296172537,defence_word,0.70,false
+BE,the permanent representation of finland to the eu embassy of finland and the mission of finland to nato,02459739,defence_word,0.70,false

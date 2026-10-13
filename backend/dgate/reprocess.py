@@ -394,7 +394,7 @@ def reclassify_serving(conn, *, source: str | None = None, dry_run: bool = True,
     columns move, `refresh_classification` style, and no version is written.
     `dry_run` (the default) changes nothing and returns the same counts.
     """
-    from .buyer_vocab import buyer_class_of
+    from .buyer_vocab import effective_buyer_class
     from .classify import classify
 
     counts: dict[str, int] = {
@@ -424,7 +424,7 @@ def reclassify_serving(conn, *, source: str | None = None, dry_run: bool = True,
         params[0] = rows[-1]["id"]
         for r in rows:
             counts["scanned"] += 1
-            cls = buyer_class_of(r["buyer_name_raw"], r["country"])
+            cls = effective_buyer_class(r["buyer_name_raw"], r["country"], bool(r["listed"]))
             sig = classify(
                 legal_basis=r["legal_basis"], cpv_codes=r["cpv_codes"],
                 buyer_is_defence=bool(r["listed"]),

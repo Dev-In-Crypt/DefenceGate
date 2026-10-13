@@ -1,377 +1,386 @@
 country,name,identifier,reason,confidence,reviewed
-IT,183 reggimento paracadutisti nembo,,armed_forces,0.95,false
-IT,2 reggimento di sostegno dell aviazione esercito orione servizio amministrativo - sezione contratti pec rgtsostaves2 postacert difesa it,,armed_forces,0.95,false
-IT,2 reggimento di sostegno dell aviazione esercito orione servizio amministrativo sezione contratti,,armed_forces,0.95,false
-IT,2 reggimento genio pontieri,,armed_forces,0.95,false
-IT,4 brigata telecomunicazioni e sistemi d a a v,,armed_forces,0.95,false
-IT,4 rgt sostegno aviazione dell esercito scorpione,,armed_forces,0.95,false
-IT,6 reggimento genio pionieri,,armed_forces,0.95,false
-IT,7 reggimento cc t a a,,armed_forces,0.95,false
-IT,aeronautica militare,,armed_forces,0.95,false
-IT,aeronautica militare - 1 reparto genio a m,,armed_forces,0.95,false
-IT,aeronautica militare - 2 reparto genio a m,,armed_forces,0.95,false
-IT,aeronautica militare - 3 reparto genio a m,,armed_forces,0.95,false
-IT,aeronautica militare - 3 reparto genio a m - ufficio affari amministrativi,,armed_forces,0.95,false
-IT,aeronautica militare - centro tecnico rifornimenti - servizio amministrativo - sezione contratti,,armed_forces,0.95,false
-IT,aeronautica militare - comando logistico - servizio di commissariato e amministrazione - reparto commissariato - direzione di commissariato,,armed_forces,0.95,false
-IT,aeronautica militare - comando logistico - servizio di commissariato ed amministrazione - reparto commissariato - direzione di commissariato,,armed_forces,0.95,false
-IT,aeronautica militare - direzione di intendenza roma,,armed_forces,0.95,false
+IT,183 reggimento paracadutisti nembo,,armed_forces,0.95,false
+IT,2 reggimento di sostegno dell aviazione esercito orione servizio amministrativo - sezione contratti pec email removed,,armed_forces,0.95,false
+IT,2 reggimento di sostegno dell aviazione esercito orione servizio amministrativo - sezione contratti pec rgtsostaves2 postacert difesa it,,armed_forces,0.95,false
+IT,2 reggimento di sostegno dell aviazione esercito orione servizio amministrativo sezione contratti,,armed_forces,0.95,false
+IT,2 reggimento genio pontieri,80011110337,armed_forces,0.95,false
+IT,4 brigata telecomunicazioni e sistemi d a a v,,armed_forces,0.95,false
+IT,4 rgt sostegno aviazione dell esercito scorpione,,armed_forces,0.95,false
+IT,6 reggimento genio pionieri,80255270581,armed_forces,0.95,false
+IT,7 reggimento cc t a a,,armed_forces,0.95,false
+IT,aeronautica militare,,armed_forces,0.95,false
+IT,aeronautica militare - 1 reparto genio a m,,armed_forces,0.95,false
+IT,aeronautica militare - 2 reparto genio a m,,armed_forces,0.95,false
+IT,aeronautica militare - 3 reparto genio a m,,armed_forces,0.95,false
+IT,aeronautica militare - 3 reparto genio a m - ufficio affari amministrativi,,armed_forces,0.95,false
+IT,aeronautica militare - centro tecnico rifornimenti - servizio amministrativo - sezione contratti,,armed_forces,0.95,false
+IT,aeronautica militare - comando logistico - servizio di commissariato e amministrazione - reparto commissariato - direzione di commissariato,,armed_forces,0.95,false
+IT,aeronautica militare - comando logistico - servizio di commissariato ed amministrazione - reparto commissariato - direzione di commissariato,,armed_forces,0.95,false
+IT,aeronautica militare - direzione di intendenza roma,,armed_forces,0.95,false
 IT,aeronautica militare - ucra,,armed_forces,0.95,false
-IT,aeronautica militare 1 reparto genio a m,,armed_forces,0.95,false
-IT,aeronautica militare 15 stormo servizio amministrativo,,armed_forces,0.95,false
-IT,aeronautica militare 2 reparto genio a m,,armed_forces,0.95,false
-IT,aeronautica militare 2 reparto genio am,,armed_forces,0.95,false
-IT,aeronautica militare 3 reparto genio a m,,armed_forces,0.95,false
-IT,aeronautica militare 3 reparto genio a m - ufficio affari amministrativi,,armed_forces,0.95,false
-IT,aeronautica militare 3 reparto genio a m ufficio affari amministrativi,,armed_forces,0.95,false
-IT,aeronautica militare 3 reparto genio am ufficio affari amministrativi,,armed_forces,0.95,false
-IT,aeronautica militare 4a brigata telecomunicazioni,,armed_forces,0.95,false
-IT,aeronautica militare 4a brigata telecomunicazioni e sistemi d a a v,,armed_forces,0.95,false
-IT,aeronautica militare 4a brigata telecomunicazioni sistemi d a a v servizio amministrativo,,armed_forces,0.95,false
-IT,aeronautica militare am 2 reparto genio am,,armed_forces,0.95,false
-IT,aeronautica militare centro contrattuale roma,,armed_forces,0.95,false
-IT,aeronautica militare centro tecnico rifornimenti servizio amministrativo sezione contratti,,armed_forces,0.95,false
-IT,aeronautica militare comando 70 stormo g c graziani aeroporto latina e comani servizio amministrativo,,armed_forces,0.95,false
-IT,aeronautica militare comando logistico servizio di commissariato e amministrazione reparto commissariato direzione di commissariato,,armed_forces,0.95,false
-IT,aeronautica militare comando logistico servizio di commissariato ed amministrazione reparto comissariato direzione di commissariato,,armed_forces,0.95,false
-IT,aeronautica militare comando logistico servizio di commissariato ed amministrazione reparto commissariato direzione di commissariato,,armed_forces,0.95,false
-IT,aeronautica militare direzione di intendenza,,armed_forces,0.95,false
-IT,aeronautica militare direzione di intendenza milano,,armed_forces,0.95,false
-IT,aeronautica militare direzione di intendenza roma,,armed_forces,0.95,false
-IT,aeronautica militare italiana - comando 6 stormo,,armed_forces,0.95,false
-IT,aeronautica militare reparto sistemi informativi automatizzati,,armed_forces,0.95,false
-IT,aeronautica militare ucra,,armed_forces,0.95,false
-IT,aeronautica militare ufficio generale centro di responsabilita amministrativa centro contrattuale,,armed_forces,0.95,false
-IT,agenzia industrie difesa,,procurement_agency,0.95,false
-IT,agenzia industrie difesa aid,,procurement_agency,0.95,false
-IT,arsenale militare marittimo,,armed_forces,0.95,false
-IT,arsenale militare marittimo augusta,,armed_forces,0.95,false
-IT,arsenale militare marittimo della spezia,,armed_forces,0.95,false
-IT,arsenale militare marittimo di augusta,,armed_forces,0.95,false
-IT,arsenale militare marittimo di la spezia,,armed_forces,0.95,false
-IT,arsenale militare marittimo di taranto,,armed_forces,0.95,false
-IT,arsenale militare marittimo la spezia,,armed_forces,0.95,false
+IT,aeronautica militare 1 reparto genio a m,,armed_forces,0.95,false
+IT,aeronautica militare 15 stormo servizio amministrativo,,armed_forces,0.95,false
+IT,aeronautica militare 2 reparto genio a m,,armed_forces,0.95,false
+IT,aeronautica militare 2 reparto genio am,,armed_forces,0.95,false
+IT,aeronautica militare 3 reparto genio a m,,armed_forces,0.95,false
+IT,aeronautica militare 3 reparto genio a m - ufficio affari amministrativi,,armed_forces,0.95,false
+IT,aeronautica militare 3 reparto genio a m ufficio affari amministrativi,,armed_forces,0.95,false
+IT,aeronautica militare 3 reparto genio am ufficio affari amministrativi,,armed_forces,0.95,false
+IT,aeronautica militare 4a brigata telecomunicazioni,,armed_forces,0.95,false
+IT,aeronautica militare 4a brigata telecomunicazioni e sistemi d a a v,80005410594,armed_forces,0.95,false
+IT,aeronautica militare 4a brigata telecomunicazioni sistemi d a a v servizio amministrativo,,armed_forces,0.95,false
+IT,aeronautica militare am 2 reparto genio am,,armed_forces,0.95,false
+IT,aeronautica militare centro contrattuale roma,,armed_forces,0.95,false
+IT,aeronautica militare centro tecnico rifornimenti servizio amministrativo sezione contratti,,armed_forces,0.95,false
+IT,aeronautica militare comando 70 stormo g c graziani aeroporto latina e comani servizio amministrativo,,armed_forces,0.95,false
+IT,aeronautica militare comando logistico servizio di commissariato e amministrazione reparto commissariato direzione di commissariato,,armed_forces,0.95,false
+IT,aeronautica militare comando logistico servizio di commissariato ed amministrazione reparto comissariato direzione di commissariato,,armed_forces,0.95,false
+IT,aeronautica militare comando logistico servizio di commissariato ed amministrazione reparto commissariato direzione di commissariato,,armed_forces,0.95,false
+IT,aeronautica militare direzione di intendenza,,armed_forces,0.95,false
+IT,aeronautica militare direzione di intendenza milano,97958960151,armed_forces,0.95,false
+IT,aeronautica militare direzione di intendenza roma,,armed_forces,0.95,false
+IT,aeronautica militare italiana - comando 6 stormo,,armed_forces,0.95,false
+IT,aeronautica militare reparto sistemi informativi automatizzati,,armed_forces,0.95,false
+IT,aeronautica militare ucra,97981460583,armed_forces,0.95,false
+IT,aeronautica militare ufficio generale centro di responsabilita amministrativa centro contrattuale,,armed_forces,0.95,false
+IT,agenzia industrie difesa,97254170588,procurement_agency,0.95,false
+IT,agenzia industrie difesa aid,,procurement_agency,0.95,false
+IT,arsenale militare marittimo,,armed_forces,0.95,false
+IT,arsenale militare marittimo augusta,,armed_forces,0.95,false
+IT,arsenale militare marittimo della spezia,80011670116,armed_forces,0.95,false
+IT,arsenale militare marittimo di augusta,,armed_forces,0.95,false
+IT,arsenale militare marittimo di la spezia,,armed_forces,0.95,false
+IT,arsenale militare marittimo di taranto,,armed_forces,0.95,false
+IT,arsenale militare marittimo la spezia,0000237467,armed_forces,0.95,false
 IT,arsenale militare marittimo taranto,,armed_forces,0.95,false
 IT,comando aviazione dell esercito,,armed_forces,0.95,false
-IT,comando aviazione dell esercito - direzione di intendenza,,armed_forces,0.95,false
-IT,comando aviazione esercito,,armed_forces,0.95,false
-IT,comando brigata aeromobile friuli,,armed_forces,0.95,false
-IT,comando brigata alpina julia,,armed_forces,0.95,false
-IT,comando brigata di cavalleria pozzuolo del friuli,,armed_forces,0.95,false
-IT,comando brigata di cavalleria pozzuolo del friuli direzione di intendenza,,armed_forces,0.95,false
-IT,comando brigata di supporto al hq nrdc ita,,armed_forces,0.95,false
-IT,comando brigata di supporto al hq nrdc-ita,,armed_forces,0.95,false
-IT,comando brigata meccanizzata aosta,,armed_forces,0.95,false
-IT,comando brigata meccanizzata aosta direzione d intendenza,,armed_forces,0.95,false
-IT,comando brigata meccanizzata granatieri di sardegna,,armed_forces,0.95,false
-IT,comando brigata par folgore,,armed_forces,0.95,false
-IT,comando brigata paracadutisti folgore,,armed_forces,0.95,false
-IT,comando brigata sassari,,armed_forces,0.95,false
-IT,comando delle forze di supporto al combattimento,,ministry,0.95,false
-IT,comando delle forze operative terrestri di supporto,,ministry,0.95,false
-IT,comando delle forze speciali del esercito,,ministry,0.95,false
+IT,comando aviazione dell esercito - direzione di intendenza,,armed_forces,0.95,false
+IT,comando aviazione esercito,90045880565,armed_forces,0.95,false
+IT,comando brigata aeromobile friuli,80070270378,armed_forces,0.95,false
+IT,comando brigata alpina julia,,armed_forces,0.95,false
+IT,comando brigata di cavalleria pozzuolo del friuli,91016300310,armed_forces,0.95,false
+IT,comando brigata di cavalleria pozzuolo del friuli direzione di intendenza,,armed_forces,0.95,false
+IT,comando brigata di supporto al hq nrdc ita,,armed_forces,0.95,false
+IT,comando brigata di supporto al hq nrdc-ita,,armed_forces,0.95,false
+IT,comando brigata meccanizzata aosta,80005080835,armed_forces,0.95,false
+IT,comando brigata meccanizzata aosta direzione d intendenza,,armed_forces,0.95,false
+IT,comando brigata meccanizzata granatieri di sardegna,,armed_forces,0.95,false
+IT,comando brigata par folgore,,armed_forces,0.95,false
+IT,comando brigata paracadutisti folgore,80004320497,armed_forces,0.95,false
+IT,comando brigata sassari,92019030904,armed_forces,0.95,false
+IT,comando delle forze di supporto al combattimento,97761520580,ministry,0.95,false
+IT,comando delle forze operative terrestri di supporto,,ministry,0.95,false
+IT,comando delle forze speciali del esercito,93079800509,ministry,0.95,false
 IT,comando delle forze speciali dell esercito,,ministry,0.95,false
-IT,comando forze operative nord,,armed_forces,0.95,false
-IT,comando forze operative nord direzione d intendenza,,armed_forces,0.95,false
-IT,comando logistico am - servizio infrastrutture - 3 reparto genio bari palese,,armed_forces,0.95,false
-IT,comando logistico dell esercito,,armed_forces,0.95,false
-IT,comando logistico dell esercito - direzione di intendenza,,armed_forces,0.95,false
-IT,comando logistico servizio infrastrutture -3 reparto genio a m di palese macchie,,armed_forces,0.95,false
-IT,comando logistico servizio infrastrutture roma - 3 reparto genio a m bari palese,,armed_forces,0.95,false
-IT,comando logistico servizio infrastrutture roma 3 reparto genio a m bari palese,,armed_forces,0.95,false
-IT,comando logistico servizio infrastrutture roma- 3 reparto genio a m bari palese,,armed_forces,0.95,false
-IT,comando logistico servizio infrastutture roma - 3 reparto genio a m bari palese,,armed_forces,0.95,false
-IT,comando logistico servizio infrastutture roma 3 reparto genio a m bari palese,,armed_forces,0.95,false
-IT,comando logistico servizio infrastutture roma- 3 reparto genio a m bari palese,,armed_forces,0.95,false
-IT,direzione armamenti aeronautici,,procurement_agency,0.95,false
-IT,direzione armamenti aeronautici e per l aeronavigabilita,,procurement_agency,0.95,false
-IT,direzione armamenti terrestri,,procurement_agency,0.95,false
-IT,direzione armamenti terrestri terrarm,,procurement_agency,0.95,false
-IT,direzione del genio militare per la marina,,ministry,0.95,false
-IT,direzione del genio militare per la marina di augusta,,ministry,0.95,false
-IT,direzione del genio militare per la marina la spezia,,ministry,0.95,false
-IT,direzione di commissariato a m,,ministry,0.95,false
-IT,direzione di commissariato a m guidonia,,ministry,0.95,false
-IT,direzione di commissariato am guidonia,,ministry,0.95,false
-IT,direzione di commissariato della marina militare - ancona,,ministry,0.95,false
-IT,direzione di commissariato della marina militare - ancona maricommi ancona,,ministry,0.95,false
-IT,direzione di commissariato m m,,ministry,0.95,false
-IT,direzione di commissariato m m ancona,,ministry,0.95,false
-IT,direzione di commissariato m m augusta,,ministry,0.95,false
-IT,direzione di commissariato m m di taranto,,ministry,0.95,false
-IT,direzione di commissariato m m la spezia,,ministry,0.95,false
-IT,direzione di commissariato m m taranto,,ministry,0.95,false
-IT,direzione di commissariato m m ufficio contratti,,ministry,0.95,false
-IT,direzione di commissariato militare marittimo,,ministry,0.95,false
-IT,direzione di commissariato militare marittimo ancona maricommi ancona,,ministry,0.95,false
-IT,direzione di commissariato militare marittimo c f 80014700738,,ministry,0.95,false
-IT,direzione di commissariato militare marittimo di taranto,,ministry,0.95,false
-IT,direzione di commissariato militare marittimo m m ancona,,ministry,0.95,false
-IT,direzione di commissariato militare marittimo roma,,ministry,0.95,false
-IT,direzione di commissariato mm,,ministry,0.95,false
-IT,direzione di commissariato mm di taranto,,ministry,0.95,false
-IT,direzione di commissariato mm la spezia,,ministry,0.95,false
-IT,marina militare - direzione di commissariato militare marittimo di ancona,,armed_forces,0.95,false
-IT,marina militare - ufficio generale del centro di responsabilita amministrativa mariugcra,,armed_forces,0.95,false
-IT,marina militare direzione di commissariato m m - taranto,,armed_forces,0.95,false
-IT,marina militare ufficio generale del centro di responsabilita amministrativa mariugcra,,armed_forces,0.95,false
-IT,marina militare ufficio generale del centro di responsabilita amministrativa mariugcra ufficio contratti presso il ministero della difesa marina,,armed_forces,0.95,false
-IT,marina militare ufficio generale del centro di responsabilitaa amministrativa mariugcra,,armed_forces,0.95,false
-IT,marina militare ufficio generale del centro di responsabilitu amministrativa mariugcra ufficio contratti presso ministero difesa marina,,armed_forces,0.95,false
-IT,marina militare- direzione di commissariato militare marittimo di ancona,,armed_forces,0.95,false
-IT,ministero della difesa,,ministry,0.95,false
-IT,ministero della difesa - 8 reparto infrastrutture,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - 1 reparto genio a m,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - 1 reparto genio a m - via caluri n 112 - 37069 villafranca di verona vr,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - 3 reparto genio a m,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - centro contrattuale roma,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - d a s a s - divisione aerea di sperimentazione aeronautica e spaziale u c a - ufficio contratti e amministrazione - aeroporto militare di pratica di mare,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - ufficio generale centro di responsabilit amministrativa,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare - ufficio generale centro di responsabilita amministrativa,,ministry,0.95,false
-IT,ministero della difesa - aeronautica militare 3 reparto genio a m - uffic io affa ri amministr ativi,,ministry,0.95,false
-IT,ministero della difesa - agenzia industrie difesa,,ministry,0.95,false
-IT,ministero della difesa - agenzia industrie difesa - direzione generale,,ministry,0.95,false
-IT,ministero della difesa - arsenale militare marittimo di augusta,,ministry,0.95,false
-IT,ministero della difesa - arsenale militare marittimo la spezia,,ministry,0.95,false
-IT,ministero della difesa - arsenale mm taranto,,ministry,0.95,false
-IT,ministero della difesa - brigata alpina taurinense- direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa - brigata bersaglieri garibaldi,,ministry,0.95,false
-IT,ministero della difesa - brigata sassari - direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa - comando aviazione dell esercito,,ministry,0.95,false
-IT,ministero della difesa - comando brigata informazioni tattiche,,ministry,0.95,false
-IT,ministero della difesa - comando forze operative sud,,ministry,0.95,false
-IT,ministero della difesa - comando genio - direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa - comando infrastrutture,,ministry,0.95,false
-IT,ministero della difesa - comando infrastrutture - ufficio realizzazione grandi infrastrutture - 3 sezione amministrativa,,ministry,0.95,false
-IT,ministero della difesa - comando logistico dell esercito - direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa - comando territoriale sud,,ministry,0.95,false
-IT,ministero della difesa - comando truppe alpine - direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa - direzione armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa - direzione di commissariato m m di taranto,,ministry,0.95,false
-IT,ministero della difesa - direzione di commissariato militare marittimo di taranto,,ministry,0.95,false
-IT,ministero della difesa - direzione di intendenza - comando per la formazione specializzazione e dottrina dell esercito,,ministry,0.95,false
-IT,ministero della difesa - direzione geenrale dei lavori,,ministry,0.95,false
-IT,ministero della difesa - direzione generale dei lavori,,ministry,0.95,false
-IT,ministero della difesa - direzione generale dei lavori - 3 reparto - 7 divisione,,ministry,0.95,false
-IT,ministero della difesa - direzione generale del commissariato e di servizi generali,,ministry,0.95,false
-IT,ministero della difesa - direzione generale di commissariato e di servizi generali,,ministry,0.95,false
+IT,comando forze operative nord,CF92034400280,armed_forces,0.95,false
+IT,comando forze operative nord direzione d intendenza,92034400280,armed_forces,0.95,false
+IT,comando logistico am - servizio infrastrutture - 3 reparto genio bari palese,,armed_forces,0.95,false
+IT,comando logistico dell esercito,80195990587,armed_forces,0.95,false
+IT,comando logistico dell esercito - direzione di intendenza,96404830588,armed_forces,0.95,false
+IT,comando logistico servizio infrastrutture -3 reparto genio a m di palese macchie,96442090583,armed_forces,0.95,false
+IT,comando logistico servizio infrastrutture roma - 3 reparto genio a m bari palese,,armed_forces,0.95,false
+IT,comando logistico servizio infrastrutture roma 3 reparto genio a m bari palese,,armed_forces,0.95,false
+IT,comando logistico servizio infrastrutture roma- 3 reparto genio a m bari palese,,armed_forces,0.95,false
+IT,comando logistico servizio infrastutture roma - 3 reparto genio a m bari palese,,armed_forces,0.95,false
+IT,comando logistico servizio infrastutture roma 3 reparto genio a m bari palese,,armed_forces,0.95,false
+IT,comando logistico servizio infrastutture roma- 3 reparto genio a m bari palese,,armed_forces,0.95,false
+IT,direzione armamenti aeronautici,,procurement_agency,0.95,false
+IT,direzione armamenti aeronautici e per l aeronavigabilita,,procurement_agency,0.95,false
+IT,direzione armamenti terrestri,CODICEAUSA0000247593CF97154840587,procurement_agency,0.95,false
+IT,direzione armamenti terrestri terrarm,,procurement_agency,0.95,false
+IT,direzione del genio militare per la marina,,ministry,0.95,false
+IT,direzione del genio militare per la marina di augusta,,ministry,0.95,false
+IT,direzione del genio militare per la marina la spezia,0000242645,ministry,0.95,false
+IT,direzione di commissariato a m,,ministry,0.95,false
+IT,direzione di commissariato a m guidonia,,ministry,0.95,false
+IT,direzione di commissariato am guidonia,,ministry,0.95,false
+IT,direzione di commissariato della marina militare - ancona,,ministry,0.95,false
+IT,direzione di commissariato della marina militare - ancona maricommi ancona,93007860427,ministry,0.95,false
+IT,direzione di commissariato m m,,ministry,0.95,false
+IT,direzione di commissariato m m ancona,,ministry,0.95,false
+IT,direzione di commissariato m m augusta,,ministry,0.95,false
+IT,direzione di commissariato m m di taranto,,ministry,0.95,false
+IT,direzione di commissariato m m la spezia,,ministry,0.95,false
+IT,direzione di commissariato m m taranto,,ministry,0.95,false
+IT,direzione di commissariato m m ufficio contratti,,ministry,0.95,false
+IT,direzione di commissariato militare marittimo,,ministry,0.95,false
+IT,direzione di commissariato militare marittimo ancona maricommi ancona,,ministry,0.95,false
+IT,direzione di commissariato militare marittimo c f 80014700738,,ministry,0.95,false
+IT,direzione di commissariato militare marittimo di taranto,,ministry,0.95,false
+IT,direzione di commissariato militare marittimo m m ancona,,ministry,0.95,false
+IT,direzione di commissariato militare marittimo roma,,ministry,0.95,false
+IT,direzione di commissariato mm,,ministry,0.95,false
+IT,direzione di commissariato mm di taranto,,ministry,0.95,false
+IT,direzione di commissariato mm la spezia,80012490118,ministry,0.95,false
+IT,marina militare - direzione di commissariato militare marittimo di ancona,,armed_forces,0.95,false
+IT,marina militare - ufficio generale del centro di responsabilita amministrativa mariugcra,97447760584,armed_forces,0.95,false
+IT,marina militare direzione di commissariato m m - taranto,,armed_forces,0.95,false
+IT,marina militare ufficio generale del centro di responsabilita amministrativa mariugcra,,armed_forces,0.95,false
+IT,marina militare ufficio generale del centro di responsabilita amministrativa mariugcra ufficio contratti presso il ministero della difesa marina,,armed_forces,0.95,false
+IT,marina militare ufficio generale del centro di responsabilitaa amministrativa mariugcra,,armed_forces,0.95,false
+IT,marina militare ufficio generale del centro di responsabilitu amministrativa mariugcra ufficio contratti presso ministero difesa marina,,armed_forces,0.95,false
+IT,marina militare- direzione di commissariato militare marittimo di ancona,,armed_forces,0.95,false
+IT,ministero della difesa,,ministry,0.95,false
+IT,ministero della difesa - 8 reparto infrastrutture,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - 1 reparto genio a m,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - 1 reparto genio a m - via caluri n 112 - 37069 villafranca di verona vr,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - 3 reparto genio a m,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - centro contrattuale roma,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - d a s a s - divisione aerea di sperimentazione aeronautica e spaziale u c a - ufficio contratti e amministrazione - aeroporto militare di pratica di mare,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - ufficio generale centro di responsabilit amministrativa,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare - ufficio generale centro di responsabilita amministrativa,,ministry,0.95,false
+IT,ministero della difesa - aeronautica militare 3 reparto genio a m - uffic io affa ri amministr ativi,,ministry,0.95,false
+IT,ministero della difesa - agenzia industrie difesa,,ministry,0.95,false
+IT,ministero della difesa - agenzia industrie difesa - direzione generale,07281771001,ministry,0.95,false
+IT,ministero della difesa - arsenale militare marittimo di augusta,,ministry,0.95,false
+IT,ministero della difesa - arsenale militare marittimo la spezia,,ministry,0.95,false
+IT,ministero della difesa - arsenale mm taranto,,ministry,0.95,false
+IT,ministero della difesa - brigata alpina taurinense- direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa - brigata bersaglieri garibaldi,80007190939,ministry,0.95,false
+IT,ministero della difesa - brigata sassari - direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa - comando aviazione dell esercito,,ministry,0.95,false
+IT,ministero della difesa - comando brigata informazioni tattiche,90047940581,ministry,0.95,false
+IT,ministero della difesa - comando forze operative sud,,ministry,0.95,false
+IT,ministero della difesa - comando genio - direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa - comando infrastrutture,,ministry,0.95,false
+IT,ministero della difesa - comando infrastrutture - ufficio realizzazione grandi infrastrutture - 3 sezione amministrativa,,ministry,0.95,false
+IT,ministero della difesa - comando logistico dell esercito - direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa - comando territoriale sud,80026820631,ministry,0.95,false
+IT,ministero della difesa - comando truppe alpine - direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa - direzione armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa - direzione di commissariato m m di taranto,,ministry,0.95,false
+IT,ministero della difesa - direzione di commissariato militare marittimo di taranto,,ministry,0.95,false
+IT,ministero della difesa - direzione di intendenza - comando per la formazione specializzazione e dottrina dell esercito,CODAPPLICATIONSERVICEPROVIDER2934344,ministry,0.95,false
+IT,ministero della difesa - direzione geenrale dei lavori,,ministry,0.95,false
+IT,ministero della difesa - direzione generale dei lavori,80411120589,ministry,0.95,false
+IT,ministero della difesa - direzione generale dei lavori - 3 reparto - 7 divisione,,ministry,0.95,false
+IT,ministero della difesa - direzione generale del commissariato e di servizi generali,,ministry,0.95,false
+IT,ministero della difesa - direzione generale di commissariato e di servizi generali,97459060584,ministry,0.95,false
 IT,ministero della difesa - direzione nazionale degli armamenti - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa - direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa - direzione nazionale degli armamenti - direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
-IT,ministero della difesa - direzoine generale dei lavori - 3 reparto genio a m bari palese,,ministry,0.95,false
-IT,ministero della difesa - esercito italiano - comando truppe alpine,,ministry,0.95,false
-IT,ministero della difesa - istituto geografico militare,,ministry,0.95,false
-IT,ministero della difesa - polo di mantenimento pesante nord,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa dna - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale armamenti direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione armamenti navali,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali i reparto 2 divisione,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti terrrestri,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti- direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazionale dgli armamenti direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa - segretariato generale della difesa e direzione nazione degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa - sezione rifornimenti e mantenimento,,ministry,0.95,false
-IT,ministero della difesa - sezione rifornimenti e mantenimento - sezione amministrazione,,ministry,0.95,false
-IT,ministero della difesa - sgd dna - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa - sgd dna- direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa - sgd-dna direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa - direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa - direzione nazionale degli armamenti - direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
+IT,ministero della difesa - direzoine generale dei lavori - 3 reparto genio a m bari palese,,ministry,0.95,false
+IT,ministero della difesa - esercito italiano - comando truppe alpine,94061040211,ministry,0.95,false
+IT,ministero della difesa - istituto geografico militare,,ministry,0.95,false
+IT,ministero della difesa - polo di mantenimento pesante nord,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa dna - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale armamenti direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione armamenti navali,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali,80213470588,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali i reparto 2 divisione,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti terrrestri,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti - direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale degli armamenti- direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazionale dgli armamenti direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa - segretariato generale della difesa e direzione nazione degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa - sezione rifornimenti e mantenimento,,ministry,0.95,false
+IT,ministero della difesa - sezione rifornimenti e mantenimento - sezione amministrazione,,ministry,0.95,false
+IT,ministero della difesa - sgd dna - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa - sgd dna- direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa - sgd-dna direzione degli armamenti terrestri,,ministry,0.95,false
 IT,ministero della difesa - stato maggiore dell esercito - ufficio generale del centro di responsabilita amministrativa esercito italiano,,ministry,0.95,false
 IT,ministero della difesa - stato maggiore dell esercito -ufficio generale del centro di responsabilita amministrativa esercito italiano,,ministry,0.95,false
-IT,ministero della difesa - stato maggiore esercito - ufficio generale c r a esercito italiano,,ministry,0.95,false
-IT,ministero della difesa - ufficio generale infrastrutture marina militare,,ministry,0.95,false
-IT,ministero della difesa -direzione generale dei lavori - 3 reparto - 7 divisione,,ministry,0.95,false
+IT,ministero della difesa - stato maggiore esercito - ufficio generale c r a esercito italiano,,ministry,0.95,false
+IT,ministero della difesa - ufficio generale infrastrutture marina militare,,ministry,0.95,false
+IT,ministero della difesa -direzione generale dei lavori - 3 reparto - 7 divisione,,ministry,0.95,false
 IT,ministero della difesa -direzione nazionale degli armamenti - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa -segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa 10 reparto infrastrutture,,ministry,0.95,false
-IT,ministero della difesa 2 reparto genio a m,,ministry,0.95,false
-IT,ministero della difesa 3 reggimento di sostegno aves aquila,,ministry,0.95,false
-IT,ministero della difesa 3 reggimento di sostegno aves aquila ufficio amministrazione,,ministry,0.95,false
-IT,ministero della difesa 3 reggimento sostegno aviazione dell esercito aquila servizio amministrativo,,ministry,0.95,false
-IT,ministero della difesa 3 reggimento sostegno aviazione esercito aquila servizio amministrativo sezione contratti,,ministry,0.95,false
-IT,ministero della difesa 8 reparto infrastrutture,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare - 1 reparto tecnico comunicazioni,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare - 3 reparto genio a m,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare - 3 reparto genio a m - ufficio affari amministrativi-,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 1 reparto genio a m,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 1 reparto genio am,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 3 reparto genio,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 3 reparto genio 70128 bari palese,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 3 reparto genio a m,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 3 reparto genio a m codice gara g18-009,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 32o stormo,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare 46 brigata aerea pisa,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare centro contrattuale roma,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare comaer ufficio amministrazione servizio amm vo rinominato a decorrere dal 1 4 2017 centro contrattuale,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare comando 37 stormo servizio amministrativo trapani birgi,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare comando logistico 2 divisione u c a 5 piano stanza 1430,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare italiana comando aeroporto m de bernardi pratica di mare,,ministry,0.95,false
-IT,ministero della difesa aeronautica militare ufficio generale centro di responsabilita amministrativa,,ministry,0.95,false
-IT,ministero della difesa agenzia industrie difesa,,ministry,0.95,false
-IT,ministero della difesa agenzia industrie difesa direzione generale,,ministry,0.95,false
-IT,ministero della difesa areonautica militare - 3 reparto genio,,ministry,0.95,false
-IT,ministero della difesa arsenale militare marittimo di augusta,,ministry,0.95,false
-IT,ministero della difesa arsenale militare marittimo taranto,,ministry,0.95,false
-IT,ministero della difesa arsenale mm taranto,,ministry,0.95,false
-IT,ministero della difesa brigata bersaglieri garibaldi,,ministry,0.95,false
-IT,ministero della difesa centro di supporto e sperimentazione navale,,ministry,0.95,false
-IT,ministero della difesa centro supporto e sperimentazione navale,,ministry,0.95,false
-IT,ministero della difesa comando flottiglia sommergibili,,ministry,0.95,false
-IT,ministero della difesa comando flottiglia sommergibili taranto,,ministry,0.95,false
-IT,ministero della difesa comando logistico dell esercito - centro polifunzionale di sperimentazione,,ministry,0.95,false
-IT,ministero della difesa comando logistico dell esercito direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa comando per la formazione specializzazione e dottrina dell esercito direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa comando truppe alpine direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa direzione armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa direzione armamenti terrestri 9a divisione,,ministry,0.95,false
+IT,ministero della difesa -segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa 10 reparto infrastrutture,,ministry,0.95,false
+IT,ministero della difesa 2 reparto genio a m,,ministry,0.95,false
+IT,ministero della difesa 3 reggimento di sostegno aves aquila,,ministry,0.95,false
+IT,ministero della difesa 3 reggimento di sostegno aves aquila ufficio amministrazione,,ministry,0.95,false
+IT,ministero della difesa 3 reggimento sostegno aviazione dell esercito aquila servizio amministrativo,,ministry,0.95,false
+IT,ministero della difesa 3 reggimento sostegno aviazione esercito aquila servizio amministrativo sezione contratti,,ministry,0.95,false
+IT,ministero della difesa 8 reparto infrastrutture,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare - 1 reparto tecnico comunicazioni,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare - 3 reparto genio a m,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare - 3 reparto genio a m - ufficio affari amministrativi-,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 1 reparto genio a m,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 1 reparto genio am,97250110158,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 3 reparto genio,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 3 reparto genio 70128 bari palese,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 3 reparto genio a m,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 3 reparto genio a m codice gara g18-009,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 32o stormo,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare 46 brigata aerea pisa,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare centro contrattuale roma,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare comaer ufficio amministrazione servizio amm vo rinominato a decorrere dal 1 4 2017 centro contrattuale,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare comando 37 stormo servizio amministrativo trapani birgi,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare comando logistico 2 divisione u c a 5 piano stanza 1430,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare italiana comando aeroporto m de bernardi pratica di mare,,ministry,0.95,false
+IT,ministero della difesa aeronautica militare ufficio generale centro di responsabilita amministrativa,,ministry,0.95,false
+IT,ministero della difesa agenzia industrie difesa,,ministry,0.95,false
+IT,ministero della difesa agenzia industrie difesa direzione generale,,ministry,0.95,false
+IT,ministero della difesa areonautica militare - 3 reparto genio,,ministry,0.95,false
+IT,ministero della difesa arsenale militare marittimo di augusta,,ministry,0.95,false
+IT,ministero della difesa arsenale militare marittimo taranto,,ministry,0.95,false
+IT,ministero della difesa arsenale mm taranto,,ministry,0.95,false
+IT,ministero della difesa brigata bersaglieri garibaldi,,ministry,0.95,false
+IT,ministero della difesa centro di supporto e sperimentazione navale,,ministry,0.95,false
+IT,ministero della difesa centro supporto e sperimentazione navale,,ministry,0.95,false
+IT,ministero della difesa comando flottiglia sommergibili,,ministry,0.95,false
+IT,ministero della difesa comando flottiglia sommergibili taranto,,ministry,0.95,false
+IT,ministero della difesa comando logistico dell esercito - centro polifunzionale di sperimentazione,,ministry,0.95,false
+IT,ministero della difesa comando logistico dell esercito direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa comando per la formazione specializzazione e dottrina dell esercito direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa comando truppe alpine direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa direzione armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa direzione armamenti terrestri 9a divisione,,ministry,0.95,false
 IT,ministero della difesa direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa direzione del genio militare per la marina di la spezia,,ministry,0.95,false
-IT,ministero della difesa direzione del genio per la marina militare di augusta,,ministry,0.95,false
-IT,ministero della difesa direzione di commissariato m m,,ministry,0.95,false
-IT,ministero della difesa direzione di commissariato m m di taranto,,ministry,0.95,false
-IT,ministero della difesa direzione di commissariato m m ufficio contratti e procedure acquisitive beni e servizi sotto soglia,,ministry,0.95,false
-IT,ministero della difesa direzione di commissariato militare marittimo di taranto,,ministry,0.95,false
-IT,ministero della difesa direzione di intendenza del comando brigata alpina taurinense,,ministry,0.95,false
-IT,ministero della difesa direzione di intendenza del comando brigata di cavalleria pozzuolo del friuli,,ministry,0.95,false
-IT,ministero della difesa direzione generale dei lavori,,ministry,0.95,false
-IT,ministero della difesa direzione generale dei lavori 3 reparto 7 divisione,,ministry,0.95,false
-IT,ministero della difesa direzione generale dei lavori geniodife,,ministry,0.95,false
-IT,ministero della difesa direzione generale del commissariato e di servizi generali,,ministry,0.95,false
-IT,ministero della difesa direzione generale di commissariato e di servizi generali,,ministry,0.95,false
-IT,ministero della difesa direzione genio militare per la marina,,ministry,0.95,false
-IT,ministero della difesa direzione nazionale armamenti,,ministry,0.95,false
-IT,ministero della difesa direzione nazionale armamenti direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa direzione nazionale armamenti direzione degli armamenti aeronautici e per l aeronavigabilitya,,ministry,0.95,false
+IT,ministero della difesa direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa direzione del genio militare per la marina di la spezia,80004930113,ministry,0.95,false
+IT,ministero della difesa direzione del genio per la marina militare di augusta,,ministry,0.95,false
+IT,ministero della difesa direzione di commissariato m m,,ministry,0.95,false
+IT,ministero della difesa direzione di commissariato m m di taranto,,ministry,0.95,false
+IT,ministero della difesa direzione di commissariato m m ufficio contratti e procedure acquisitive beni e servizi sotto soglia,,ministry,0.95,false
+IT,ministero della difesa direzione di commissariato militare marittimo di taranto,,ministry,0.95,false
+IT,ministero della difesa direzione di intendenza del comando brigata alpina taurinense,APPLICATIONSERVICEPROVIDER2654878,ministry,0.95,false
+IT,ministero della difesa direzione di intendenza del comando brigata di cavalleria pozzuolo del friuli,,ministry,0.95,false
+IT,ministero della difesa direzione generale dei lavori,,ministry,0.95,false
+IT,ministero della difesa direzione generale dei lavori 3 reparto 7 divisione,8041120589,ministry,0.95,false
+IT,ministero della difesa direzione generale dei lavori geniodife,,ministry,0.95,false
+IT,ministero della difesa direzione generale del commissariato e di servizi generali,,ministry,0.95,false
+IT,ministero della difesa direzione generale di commissariato e di servizi generali,MDGCOMDE220200000139DEL17042020,ministry,0.95,false
+IT,ministero della difesa direzione genio militare per la marina,,ministry,0.95,false
+IT,ministero della difesa direzione nazionale armamenti,,ministry,0.95,false
+IT,ministero della difesa direzione nazionale armamenti direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa direzione nazionale armamenti direzione degli armamenti aeronautici e per l aeronavigabilitya,,ministry,0.95,false
 IT,ministero della difesa direzione nazionale degli armamenti - direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa direzione nazionale degli armamenti direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa direzione nazionale degli armamenti direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
-IT,ministero della difesa direzione nazionale degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa divisione aerea di sperimentazione aeronautica e spaziale pratica di mare,,ministry,0.95,false
-IT,ministero della difesa e i raggruppamento logistico centrale,,ministry,0.95,false
-IT,ministero della difesa ei raggruppamento logistico centrale,,ministry,0.95,false
-IT,ministero della difesa esercito comando militare della capitale,,ministry,0.95,false
-IT,ministero della difesa esercito italiano comando militare della capitale,,ministry,0.95,false
-IT,ministero della difesa polo di mantenimento pesante nord,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della diesa e direzione nazionale degli armamenti direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale armamenti direzione armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione armamenti terrrestri,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti navali direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti-direzione degli armamenti navali,,ministry,0.95,false
-IT,ministero della difesa segretariato generale e direzione nazionale degli armamenti direzione degli armamenti terrestri 9 divisione,,ministry,0.95,false
-IT,ministero della difesa segretario generale della difesa dna direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa sezione rifornimenti e mantenimento,,ministry,0.95,false
-IT,ministero della difesa sezione rifornimenti e mantenimento - sezione amministrazione,,ministry,0.95,false
-IT,ministero della difesa sezione rifornimenti e mantenimento sezione amministrazione,,ministry,0.95,false
-IT,ministero della difesa sezione rifornimenti e mantenimento sezione amministrazione tv,,ministry,0.95,false
-IT,ministero della difesa sezione rifornimenti e mantenimento treviso sezione amministrazio,,ministry,0.95,false
-IT,ministero della difesa sezione rifornimenti e mantenimento treviso sezione amministrazione,,ministry,0.95,false
-IT,ministero della difesa sgd dna direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,ministero della difesa sgd dna direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa sgd dna direzione informatica telematica e tecnologie avanzate,,ministry,0.95,false
-IT,ministero della difesa sgd dna direzione informatica telematica e tecnologie avanzate - teledife,,ministry,0.95,false
-IT,ministero della difesa sgd dna direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
-IT,ministero della difesa sgd dna direzione informatica telematica e tercnologie avanzate,,ministry,0.95,false
-IT,ministero della difesa sgd-dna direzione degli armamenti terrestri,,ministry,0.95,false
-IT,ministero della difesa stato maggiore dell esercito direzione di intendenza,,ministry,0.95,false
-IT,ministero della difesa stato maggiore dell esercito ufficio generale c r a esercito italiano,,ministry,0.95,false
-IT,ministero della difesa stato maggiore dell esercito ufficio generale del centro di responsabilita amministrativa esercito italiano,,ministry,0.95,false
-IT,ministero della difesa stato maggiore esercito ufficio generale c r a esercito italiano,,ministry,0.95,false
-IT,ministero della difesa stato maggiore esercito ufficio generale centro di responsabilita amministrativa cra esercito italiano,,ministry,0.95,false
-IT,ministero della difesa ufficio generale infrastrutture marina militare,,ministry,0.95,false
+IT,ministero della difesa direzione nazionale degli armamenti direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa direzione nazionale degli armamenti direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
+IT,ministero della difesa direzione nazionale degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa divisione aerea di sperimentazione aeronautica e spaziale pratica di mare,,ministry,0.95,false
+IT,ministero della difesa e i raggruppamento logistico centrale,80239630587,ministry,0.95,false
+IT,ministero della difesa ei raggruppamento logistico centrale,,ministry,0.95,false
+IT,ministero della difesa esercito comando militare della capitale,,ministry,0.95,false
+IT,ministero della difesa esercito italiano comando militare della capitale,,ministry,0.95,false
+IT,ministero della difesa polo di mantenimento pesante nord,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della diesa e direzione nazionale degli armamenti direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale armamenti direzione armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione armamenti terrrestri,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti navali direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale della difesa e direzione nazionale degli armamenti-direzione degli armamenti navali,,ministry,0.95,false
+IT,ministero della difesa segretariato generale e direzione nazionale degli armamenti direzione degli armamenti terrestri 9 divisione,,ministry,0.95,false
+IT,ministero della difesa segretario generale della difesa dna direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa sezione rifornimenti e mantenimento,,ministry,0.95,false
+IT,ministero della difesa sezione rifornimenti e mantenimento - sezione amministrazione,,ministry,0.95,false
+IT,ministero della difesa sezione rifornimenti e mantenimento sezione amministrazione,,ministry,0.95,false
+IT,ministero della difesa sezione rifornimenti e mantenimento sezione amministrazione tv,,ministry,0.95,false
+IT,ministero della difesa sezione rifornimenti e mantenimento treviso sezione amministrazio,CIG7508147EE5,ministry,0.95,false
+IT,ministero della difesa sezione rifornimenti e mantenimento treviso sezione amministrazione,,ministry,0.95,false
+IT,ministero della difesa sgd dna direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
+IT,ministero della difesa sgd dna direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa sgd dna direzione informatica telematica e tecnologie avanzate,,ministry,0.95,false
+IT,ministero della difesa sgd dna direzione informatica telematica e tecnologie avanzate - teledife,,ministry,0.95,false
+IT,ministero della difesa sgd dna direzione informatica telematica e tecnologie avanzate teledife,,ministry,0.95,false
+IT,ministero della difesa sgd dna direzione informatica telematica e tercnologie avanzate,,ministry,0.95,false
+IT,ministero della difesa sgd-dna direzione degli armamenti terrestri,,ministry,0.95,false
+IT,ministero della difesa stato maggiore dell esercito direzione di intendenza,,ministry,0.95,false
+IT,ministero della difesa stato maggiore dell esercito ufficio generale c r a esercito italiano,,ministry,0.95,false
+IT,ministero della difesa stato maggiore dell esercito ufficio generale del centro di responsabilita amministrativa esercito italiano,97175430582,ministry,0.95,false
+IT,ministero della difesa stato maggiore esercito ufficio generale c r a esercito italiano,,ministry,0.95,false
+IT,ministero della difesa stato maggiore esercito ufficio generale centro di responsabilita amministrativa cra esercito italiano,,ministry,0.95,false
+IT,ministero della difesa ufficio generale infrastrutture marina militare,,ministry,0.95,false
 IT,ministero della difesa- direzione nazionale degli armamenti-direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
 IT,ministero della difesa- segretariato generale della difesa e direzione nazionale degli armamenti-direzione degli armamenti aeronautici e per l aeronavigabilita,,ministry,0.95,false
-IT,occar-ea,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale armamenti direzione armamenti terrestri,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale armamenti direzione degli armamenti terrestri,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti terrestri,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti di r e z i o n e d e g l i armame n t i ae r o n a u t i c i e p e r l ae r o n a v i g a b i l i t,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti di r e z i o n e d e g l i armame n t i ae r o n a u t i c i e p e r l ae r o n a v i g a b i l i t a,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti direzion e d egl i armamen ti aeronau ti ci e p er l aeronavigabilit,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti aeronautici e per l aeronavigabilita,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti navali,,procurement_agency,0.95,false
-IT,segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti terrestri,,procurement_agency,0.95,false
-IT,stato maggiore dell esercito - centro di responsabilita amministrativa ei,,ministry,0.95,false
+IT,occar-ea,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale armamenti direzione armamenti terrestri,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale armamenti direzione degli armamenti terrestri,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti - direzione degli armamenti terrestri,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti di r e z i o n e d e g l i armame n t i ae r o n a u t i c i e p e r l ae r o n a v i g a b i l i t,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti di r e z i o n e d e g l i armame n t i ae r o n a u t i c i e p e r l ae r o n a v i g a b i l i t a,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti direzion e d egl i armamen ti aeronau ti ci e p er l aeronavigabilit,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti aeronautici e per l aeronavigabilita,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti navali,,procurement_agency,0.95,false
+IT,segretariato generale della difesa e direzione nazionale degli armamenti direzione degli armamenti terrestri,,procurement_agency,0.95,false
+IT,stato maggiore dell esercito - centro di responsabilita amministrativa ei,,ministry,0.95,false
 IT,stato maggiore dell esercito - ufficio generale del centro di responsabilita amministrativa e i,,ministry,0.95,false
-IT,stato maggiore dell esercito - ug cra ei,,ministry,0.95,false
+IT,stato maggiore dell esercito - ug cra ei,802419490588,ministry,0.95,false
 IT,stato maggiore dell esercito ufficio generale del centro di responsabilita amministrativa e i,,ministry,0.95,false
-IT,stato maggiore dell esercito ufficio generale del centro di responsabilita amministrativa esercito italiano,,ministry,0.95,false
-IT,stato maggiore della difesa,,ministry,0.95,false
-IT,stato maggiore della difesa - u g cra,,ministry,0.95,false
-IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - area procurement - direzione di intendenza interforze p e c stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - area procurement - ufficio contratti,,ministry,0.95,false
-IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - p e c stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa - ufficio generale di amministrazione - p e c stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa - ufficio generale di amministrazione - ufficio contratti tecnici,,ministry,0.95,false
-IT,stato maggiore della difesa - ugcra,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio amministrazione p e c stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio amministrazione pec stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio generale di amministrazione,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio generale di amministrazione direzione di intendenza interforze p e c stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio generale di amministrazione direzione di intendenza interforze pec stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio generale di amministrazione p e c stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio generale di amministrazione pec stamadifesa postacert difesa it,,ministry,0.95,false
-IT,stato maggiore della difesa ufficio generale di amministrazione ufficio contratti tecnici,,ministry,0.95,false
-IT,stato maggiore esercito - direzione di intendenza - ufficio amministrazione,,ministry,0.95,false
-IT,stato maggiore esercito - stato maggiore esercito - direzione di intendenza - ufficio amministrazione,,ministry,0.95,false
-IT,stato maggiore esercito - u g cra e i,,ministry,0.95,false
-IT,stato maggiore esercito - u g cra e i i,,ministry,0.95,false
+IT,stato maggiore dell esercito ufficio generale del centro di responsabilita amministrativa esercito italiano,,ministry,0.95,false
+IT,stato maggiore della difesa,,ministry,0.95,false
+IT,stato maggiore della difesa - u g cra,80248290589,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - area procurement - direzione di intendenza interforze p e c email removed,,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - area procurement - direzione di intendenza interforze p e c stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - area procurement - ufficio contratti,,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - p e c email removed,,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale del centro di responsabilita amministrativa - p e c stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale di amministrazione - p e c stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa - ufficio generale di amministrazione - ufficio contratti tecnici,,ministry,0.95,false
+IT,stato maggiore della difesa - ugcra,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio amministrazione p e c email removed,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio amministrazione p e c stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio amministrazione pec email removed,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio amministrazione pec stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione direzione di intendenza interforze p e c email removed,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione direzione di intendenza interforze p e c stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione direzione di intendenza interforze pec email removed,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione direzione di intendenza interforze pec stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione p e c email removed,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione p e c stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione pec email removed,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione pec stamadifesa postacert difesa it,,ministry,0.95,false
+IT,stato maggiore della difesa ufficio generale di amministrazione ufficio contratti tecnici,,ministry,0.95,false
+IT,stato maggiore esercito - direzione di intendenza - ufficio amministrazione,,ministry,0.95,false
+IT,stato maggiore esercito - stato maggiore esercito - direzione di intendenza - ufficio amministrazione,80419490588,ministry,0.95,false
+IT,stato maggiore esercito - u g cra e i,,ministry,0.95,false
+IT,stato maggiore esercito - u g cra e i i,,ministry,0.95,false
 IT,stato maggiore esercito - ufficio generale del centro di responsabilita amministrativa e i,,ministry,0.95,false
-IT,stato maggiore esercito - ufficio generale del centro responsabilita amministrativa esercito italiano,,ministry,0.95,false
-IT,stato maggiore esercito - ug cra ei direzione di intendenza,,ministry,0.95,false
-IT,stato maggiore esercito direzione di intendenza,,ministry,0.95,false
-IT,stato maggiore esercito direzione di intendenza ufficio amministrazione,,ministry,0.95,false
-IT,stato maggiore esercito stato maggiore esercito direzione di intendenza ufficio amministrazione,,ministry,0.95,false
-IT,stato maggiore esercito ufficio amministrazione,,ministry,0.95,false
-IT,stato maggiore esercito ufficio generale del centro di responsabilita amministrativa e i,,ministry,0.95,false
-IT,stato maggiore esercito ufficio generale del cra ei,,ministry,0.95,false
-IT,3 reparto genio dell aeronautica militare am,,defence_word,0.70,false
-IT,accademia militare dell esercito,,defence_word,0.70,false
-IT,ageniza industrie difesa - stabilimento chimico farmaceutico militare,,defence_word,0.70,false
-IT,areonautica militare 3o reparto genio ufficio affari amministrativi,,defence_word,0.70,false
-IT,arsenale marina militare taranto,,defence_word,0.70,false
-IT,centro nazionale amministrativo esercito,,defence_word,0.70,false
-IT,centro simulazione e validazione dell esercito ce si va,,defence_word,0.70,false
-IT,comando per la formazione specializzazione e dottrina dell esercito,,defence_word,0.70,false
-IT,comando territoriale nazionale dell esercito,,defence_word,0.70,false
-IT,direzione del genio per la marina militare,,defence_word,0.70,false
-IT,direzione del genio per la marina militare - taranto,,defence_word,0.70,false
-IT,direzione del genio per la marina militare di augusta,,defence_word,0.70,false
-IT,direzione del genio per la marina militare di taranto,,defence_word,0.70,false
-IT,direzione del genio per la marina militare taranto,,defence_word,0.70,false
-IT,direzione del genio per la marina militare taranto - marigenimil ta,,defence_word,0.70,false
-IT,direzione di intendenza - stato maggiore dell esercito,,defence_word,0.70,false
-IT,direzione di intendenza dell aeronautica militare milano,,defence_word,0.70,false
-IT,direzione di intendenza della marina militare,,defence_word,0.70,false
-IT,direzione di intendenza della marina militare - roma,,defence_word,0.70,false
-IT,direzione di intendenza della marina militare roma,,defence_word,0.70,false
-IT,direzione di intendenza marina militare di brindisi,,defence_word,0.70,false
-IT,direzione di intendenza marina militare roma,,defence_word,0.70,false
-IT,direzione di intendenza marina militare roma - marintendenza roma,,defence_word,0.70,false
-IT,direzione di intenza roma aeronautica militare,,defence_word,0.70,false
-IT,ministero difesa - aeronautica militare - ufficio generale centro di responsabilita amministrativa,,defence_word,0.70,false
-IT,ministero difesa aeronautica militare comando logistico 3 divisione ufficio contratti ed ammministrazione,,defence_word,0.70,false
-IT,ministero difesa aeronautica militare comando logistico 3a divisione ufficio contratti e amministrazione,,defence_word,0.70,false
-IT,ministero difesa aeronautica militare ufficio generale centro di responsabilita amministrativa,,defence_word,0.70,false
-IT,ministero difesa stato maggiore esercito ufficio generale c r a esercito italiano,,defence_word,0.70,false
-IT,stabilimento chimico farmaceutico militare,,defence_word,0.70,false
-IT,ufficio generale del centro di responsabilit amministrativa marina militare,,defence_word,0.70,false
+IT,stato maggiore esercito - ufficio generale del centro responsabilita amministrativa esercito italiano,,ministry,0.95,false
+IT,stato maggiore esercito - ug cra ei direzione di intendenza,,ministry,0.95,false
+IT,stato maggiore esercito direzione di intendenza,,ministry,0.95,false
+IT,stato maggiore esercito direzione di intendenza ufficio amministrazione,,ministry,0.95,false
+IT,stato maggiore esercito stato maggiore esercito direzione di intendenza ufficio amministrazione,,ministry,0.95,false
+IT,stato maggiore esercito ufficio amministrazione,,ministry,0.95,false
+IT,stato maggiore esercito ufficio generale del centro di responsabilita amministrativa e i,,ministry,0.95,false
+IT,stato maggiore esercito ufficio generale del cra ei,,ministry,0.95,false
+IT,3 reparto genio dell aeronautica militare am,,defence_word,0.70,false
+IT,accademia militare dell esercito,94005410363,defence_word,0.70,false
+IT,ageniza industrie difesa - stabilimento chimico farmaceutico militare,,defence_word,0.70,false
+IT,areonautica militare 3o reparto genio ufficio affari amministrativi,,defence_word,0.70,false
+IT,arsenale marina militare taranto,80012660736,defence_word,0.70,false
+IT,centro nazionale amministrativo esercito,,defence_word,0.70,false
+IT,centro simulazione e validazione dell esercito ce si va,,defence_word,0.70,false
+IT,comando per la formazione specializzazione e dottrina dell esercito,80093240010,defence_word,0.70,false
+IT,comando territoriale nazionale dell esercito,80244610582,defence_word,0.70,false
+IT,direzione del genio per la marina militare,,defence_word,0.70,false
+IT,direzione del genio per la marina militare - taranto,,defence_word,0.70,false
+IT,direzione del genio per la marina militare di augusta,0000246477,defence_word,0.70,false
+IT,direzione del genio per la marina militare di taranto,,defence_word,0.70,false
+IT,direzione del genio per la marina militare taranto,80002890731,defence_word,0.70,false
+IT,direzione del genio per la marina militare taranto - marigenimil ta,,defence_word,0.70,false
+IT,direzione di intendenza - stato maggiore dell esercito,,defence_word,0.70,false
+IT,direzione di intendenza dell aeronautica militare milano,,defence_word,0.70,false
+IT,direzione di intendenza della marina militare,,defence_word,0.70,false
+IT,direzione di intendenza della marina militare - roma,,defence_word,0.70,false
+IT,direzione di intendenza della marina militare roma,80234970582,defence_word,0.70,false
+IT,direzione di intendenza marina militare di brindisi,91085850740,defence_word,0.70,false
+IT,direzione di intendenza marina militare roma,,defence_word,0.70,false
+IT,direzione di intendenza marina militare roma - marintendenza roma,,defence_word,0.70,false
+IT,direzione di intenza roma aeronautica militare,97928840582,defence_word,0.70,false
+IT,ministero difesa - aeronautica militare - ufficio generale centro di responsabilita amministrativa,,defence_word,0.70,false
+IT,ministero difesa aeronautica militare comando logistico 3 divisione ufficio contratti ed ammministrazione,,defence_word,0.70,false
+IT,ministero difesa aeronautica militare comando logistico 3a divisione ufficio contratti e amministrazione,,defence_word,0.70,false
+IT,ministero difesa aeronautica militare ufficio generale centro di responsabilita amministrativa,,defence_word,0.70,false
+IT,ministero difesa stato maggiore esercito ufficio generale c r a esercito italiano,,defence_word,0.70,false
+IT,stabilimento chimico farmaceutico militare,,defence_word,0.70,false
+IT,ufficio generale del centro di responsabilit amministrativa marina militare,,defence_word,0.70,false
 IT,ufficio generale del centro di responsabilita amministrativa aeronautica militare,,defence_word,0.70,false
-IT,ufficio generale del centro di responsabilita amministrativa aeronautica militare - 6 ufficio,,defence_word,0.70,false
-IT,ufficio generale del centro di responsabilita amministrativa aeronautica militare 6 ufficio,,defence_word,0.70,false
-IT,ufficio generale del centro di responsabilita amministrativa della marina militare mariugcra,,defence_word,0.70,false
+IT,ufficio generale del centro di responsabilita amministrativa aeronautica militare - 6 ufficio,,defence_word,0.70,false
+IT,ufficio generale del centro di responsabilita amministrativa aeronautica militare 6 ufficio,,defence_word,0.70,false
+IT,ufficio generale del centro di responsabilita amministrativa della marina militare mariugcra,,defence_word,0.70,false
 IT,ufficio generale del centro di responsabilita amministrativa marina militare,,defence_word,0.70,false
-IT,ufficio generale infrastrutture marina militare mariuginfra,,defence_word,0.70,false
+IT,ufficio generale infrastrutture marina militare mariuginfra,96560150581,defence_word,0.70,false

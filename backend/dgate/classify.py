@@ -56,7 +56,38 @@ CPV_CIVIL_EXCEPTIONS = {
 # warships; 75220000 defence services; 75221000 military defence services. Exact
 # codes, not prefixes: 75222000 is civil defence services, and the parent
 # division is not military. Counted as military CPVs, kept apart as a signal.
-CPV_MILITARY_ADJACENT = {"45216200", "50640000", "75220000", "75221000"}
+#
+# Added 13 October 2026 after the verification round (classification:D9), each read
+# against the eForms SDK codelist cpv.gc (Publications Office, CPV 2008):
+#   50620000 repair and maintenance of firearms and ammunition
+#   50630000 ... of military vehicles
+#   50650000 ... of military aircrafts, missiles and spacecrafts
+#   50660000 ... of military electronic systems
+#   50840000 ... of weapons and weapon systems (50841000 weapons, 50842000 weapon systems)
+#   80630000 / 80640000 / 80650000 training and simulation in military vehicles,
+#   warships, aircrafts/missiles/spacecrafts.
+# Left out on purpose: 50600000 and 80600000 (the parents: "security AND defence
+# materials", which also covers alarms and cameras), 50610000 (security equipment:
+# a civil market), 80610000 and 80620000 (training in security equipment and in
+# firearms: police ranges) and 80660000 (military electronic systems training: not in
+# the verifier's list; add with the same reading when it is).
+CPV_ADJACENT_2026_10_12 = {"45216200", "50640000", "75220000", "75221000"}
+CPV_ADJACENT_2026_10_13 = {
+    "50620000", "50630000", "50650000", "50660000", "50840000", "50841000", "50842000",
+    "80630000", "80640000", "80650000",
+}
+CPV_MILITARY_ADJACENT = CPV_ADJACENT_2026_10_12 | CPV_ADJACENT_2026_10_13
+
+# Groups of division 35 where the code names equipment civil bodies buy as well:
+# 356 (UAV and drones, "military" aircraft codes used for survey drones), 357 (command
+# and control systems, radar: airports, meteorological and maritime authorities, road
+# works that carry 35710000) and 358 (individual equipment: protective clothing, helmets
+# and masks for a municipal works department). A notice whose military codes are all
+# in these groups, from a body the vocabulary cannot name as defence, security, health,
+# education and so on, is labelled dual-use like a municipality's (classification:D2,
+# D4 of 13 October 2026; 24 of 30 read were not defence). Never applies with the legal
+# basis, a listed buyer, or any other military group.
+CPV_AMBIGUOUS_GROUPS = {"356", "357", "358"}
 
 # The same rule in SQL, for the serving rows that predate the column
 # (migration 0029); tests/unit/test_buyer_classes.py keeps the two in step.
@@ -106,6 +137,9 @@ class DefenceSignals:
     linked_defence: bool = False
     # What kind of body the buyer is (dgate/buyer_vocab.py); None = not asked.
     buyer_class: str | None = None
+    # Every military CPV of the notice is in CPV_AMBIGUOUS_GROUPS (and none is one of
+    # the added military codes outside division 35).
+    cpv_ambiguous_only: bool = False
     matched_cpv: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
 
@@ -128,7 +162,8 @@ class DefenceSignals:
         this is a label on top of them, and the notice stays in the table.
         """
         return (self.military_cpv and not self.legal_basis and not self.buyer
-                and self.buyer_class in DEMOTING_CLASSES)
+                and (self.buyer_class in DEMOTING_CLASSES
+                     or (self.buyer_class == "other" and self.cpv_ambiguous_only)))
 
     @property
     def is_defence(self) -> bool:
@@ -215,6 +250,7 @@ def classify(
         sig.legal_basis = True
         sig.reasons.append("legal basis is Directive 2009/81/EC")
 
+    military_groups: set[str] = set()
     for code in codes:
         div, grp = cpv_division(code), cpv_group(code)
         if code in CPV_MILITARY_ADJACENT:
@@ -226,6 +262,7 @@ def classify(
                 sig.cpv_civil_security = True
             elif grp in CPV_MILITARY_GROUPS:
                 sig.cpv_military = True
+                military_groups.add(grp)
             elif grp in CPV_CIVIL_GROUPS:
                 sig.cpv_civil_security = True
             else:
@@ -234,10 +271,16 @@ def classify(
         elif div in CPV_DUAL_USE_DIVISIONS:
             sig.cpv_dual_use = True
 
+    sig.cpv_ambiguous_only = (sig.cpv_military and not sig.cpv_adjacent
+                              and military_groups <= CPV_AMBIGUOUS_GROUPS)
+
     if sig.military_cpv:
         sig.reasons.append(f"military CPV: {', '.join(sorted(set(sig.matched_cpv)))}")
         if sig.dual_use:
-            sig.reasons.append(f"demoted to dual-use: buyer is a {sig.buyer_class} body")
+            sig.reasons.append(
+                "demoted to dual-use: only CPV groups 356-358, bought by a body that is "
+                "not on the defence list" if sig.buyer_class == "other"
+                else f"demoted to dual-use: buyer is a {sig.buyer_class} body")
     elif sig.cpv_civil_security:
         sig.reasons.append(f"security CPV: {', '.join(sorted(set(sig.matched_cpv)))}")
 

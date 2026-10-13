@@ -1,21 +1,21 @@
 country,name,identifier,reason,confidence,reviewed
-FI,finnish defence forces,,armed_forces,0.95,false
-FI,finnish defence forces logistics command,,armed_forces,0.95,false
-FI,finnish defence forces logistics command fdf logcom,,armed_forces,0.95,false
-FI,finnish defence forces logistics command hq,,armed_forces,0.95,false
-FI,puolustusministerio,,ministry,0.95,false
-FI,puolustusvoimat,,armed_forces,0.95,false
-FI,puolustusvoimat logistiikkalaitoksen esikunta,,armed_forces,0.95,false
-FI,puolustusvoimat puolustustusvoimien logistiikkalaitos,,armed_forces,0.95,false
-FI,puolustusvoimat puolustusvoimien logistiikkalaitoksen esikunta,,armed_forces,0.95,false
+FI,finnish defence forces,,armed_forces,0.95,false
+FI,finnish defence forces logistics command,,armed_forces,0.95,false
+FI,finnish defence forces logistics command fdf logcom,,armed_forces,0.95,false
+FI,finnish defence forces logistics command hq,,armed_forces,0.95,false
+FI,puolustusministerio,01460105,ministry,0.95,false
+FI,puolustusvoimat,,armed_forces,0.95,false
+FI,puolustusvoimat logistiikkalaitoksen esikunta,,armed_forces,0.95,false
+FI,puolustusvoimat puolustustusvoimien logistiikkalaitos,,armed_forces,0.95,false
+FI,puolustusvoimat puolustusvoimien logistiikkalaitoksen esikunta,,armed_forces,0.95,false
 FI,puolustusvoimat puolustusvoimien logistiikkalaitos,,armed_forces,0.95,false
-FI,puolustusvoimien logistiiikkalaitos,,armed_forces,0.95,false
+FI,puolustusvoimien logistiiikkalaitos,,armed_forces,0.95,false
 FI,puolustusvoimien logistiikkalaitoksen esikunta,,armed_forces,0.95,false
 FI,puolustusvoimien logistiikkalaitoksen esikunta kaupallinen osasto hankintasektori 1,,armed_forces,0.95,false
-FI,puolustusvoimien logistiikkalaitoksen esikunta testijarjestelma,,armed_forces,0.95,false
-FI,puolustusvoimien logistiikkalaitos,,armed_forces,0.95,false
-FI,puolustusvoimien logistiikkalatios,,armed_forces,0.95,false
-FI,the finnish defence forces logistics command,,armed_forces,0.95,false
-FI,the finnish defence forces logistics command headquarters,,armed_forces,0.95,false
-FI,correction notice - finnish defence forces logistics command hq,,defence_word,0.70,false
-FI,puolustusvoimen logistiikkalaitos,,defence_word,0.70,false
+FI,puolustusvoimien logistiikkalaitoksen esikunta testijarjestelma,,armed_forces,0.95,false
+FI,puolustusvoimien logistiikkalaitos,09520299,armed_forces,0.95,false
+FI,puolustusvoimien logistiikkalatios,,armed_forces,0.95,false
+FI,the finnish defence forces logistics command,,armed_forces,0.95,false
+FI,the finnish defence forces logistics command headquarters,,armed_forces,0.95,false
+FI,correction notice - finnish defence forces logistics command hq,,defence_word,0.70,false
+FI,puolustusvoimen logistiikkalaitos,,defence_word,0.70,false

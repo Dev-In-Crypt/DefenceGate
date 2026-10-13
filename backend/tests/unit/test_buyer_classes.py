@@ -13,6 +13,7 @@ import pytest
 
 from dgate import buyer_vocab as bv
 from dgate.classify import (
+    CPV_ADJACENT_2026_10_12,
     CPV_CIVIL_EXCEPTIONS,
     CPV_MILITARY_ADJACENT,
     MILITARY_CPV_SQL_REGEX,
@@ -231,7 +232,9 @@ def test_the_sql_and_python_military_cpv_rules_agree():
     """Migration 0029 backfills the column in SQL; the classifier decides in Python."""
     sql = MIGRATION.read_text(encoding="utf-8")
     assert MILITARY_CPV_SQL_REGEX in sql
-    for code in CPV_MILITARY_ADJACENT | CPV_CIVIL_EXCEPTIONS:
+    # The codes added on 13 October 2026 are not in this migration: stored rows get them
+    # from `reprocess --reclassify-serving`, which reads cpv_codes (tests/integration).
+    for code in CPV_ADJACENT_2026_10_12 | CPV_CIVIL_EXCEPTIONS:
         assert f"'{code}'" in sql
     for n in range(35000000, 36000000, 4999):
         code = str(n)
