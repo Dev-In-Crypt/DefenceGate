@@ -1,248 +1,251 @@
 country,name,identifier,reason,confidence,reviewed
-GB,armed forces recruiting programme,,armed_forces,0.95,false
-GB,army commercial,,armed_forces,0.95,false
-GB,army commercial procure team ni,,armed_forces,0.95,false
-GB,army headquarters,,armed_forces,0.95,false
-GB,defence electronics and components agency deca,,procurement_agency,0.95,false
-GB,defence equipment & support,,procurement_agency,0.95,false
-GB,defence equipment & support - uk mod,,procurement_agency,0.95,false
-GB,defence equipment & support uk mod,,procurement_agency,0.95,false
-GB,defence equipment and support,,procurement_agency,0.95,false
-GB,defence equipment and support protected mobility vehicles programme,,procurement_agency,0.95,false
-GB,defence equipment and support support chain information services scis,,procurement_agency,0.95,false
-GB,defence equipment sales authority,,procurement_agency,0.95,false
-GB,ministry of defence,,ministry,0.95,false
-GB,ministry of defence - army headquarters,,ministry,0.95,false
-GB,ministry of defence abbey wood,,ministry,0.95,false
-GB,ministry of defence abbeywood,,ministry,0.95,false
-GB,ministry of defence agencies misc de&s mat strat,,ministry,0.95,false
-GB,ministry of defence agencies misc defence electronics and components agency deca,,ministry,0.95,false
-GB,ministry of defence agencies misc logistic support ls,,ministry,0.95,false
-GB,ministry of defence agencies misc other,,ministry,0.95,false
-GB,ministry of defence air commercial,,ministry,0.95,false
-GB,ministry of defence air support a400m project team,,ministry,0.95,false
-GB,ministry of defence air support air commodities project team ac pt,,ministry,0.95,false
-GB,ministry of defence air support air istar,,ministry,0.95,false
-GB,ministry of defence air support air platform systems project team pt,,ministry,0.95,false
-GB,ministry of defence air support air systems equipment and training,,ministry,0.95,false
-GB,ministry of defence air support aircraft commodities project team ac pt,,ministry,0.95,false
-GB,ministry of defence air support apache project team,,ministry,0.95,false
-GB,ministry of defence air support c&c,,ministry,0.95,false
-GB,ministry of defence air support c130j project team,,ministry,0.95,false
-GB,ministry of defence air support c17 command support and airborne equipment project team csae pt,,ministry,0.95,false
-GB,ministry of defence air support de&s airworthiness team dat,,ministry,0.95,false
-GB,ministry of defence air support fast air support team fast,,ministry,0.95,false
-GB,ministry of defence air support flight simulation and synthetic trainers project team fsast pt,,ministry,0.95,false
-GB,ministry of defence air support military aviation authority maa,,ministry,0.95,false
-GB,ministry of defence air support other,,ministry,0.95,false
-GB,ministry of defence air support special projects multi-air platform project team spmap pt,,ministry,0.95,false
-GB,ministry of defence air support strategic transport and air-to-air refuelling staar project team,,ministry,0.95,false
-GB,ministry of defence army headquarters,,ministry,0.95,false
-GB,ministry of defence babcock land defence,,ministry,0.95,false
-GB,ministry of defence c & c naval authority group,,ministry,0.95,false
-GB,ministry of defence c and c,,ministry,0.95,false
-GB,ministry of defence c and c c and c,,ministry,0.95,false
-GB,ministry of defence c and c military aviation authority maa,,ministry,0.95,false
-GB,ministry of defence c and c other,,ministry,0.95,false
-GB,ministry of defence c&c,,ministry,0.95,false
-GB,ministry of defence c&c air commodities project team ac pt,,ministry,0.95,false
-GB,ministry of defence c&c british forces post office bfpo team,,ministry,0.95,false
-GB,ministry of defence c&c c&c,,ministry,0.95,false
-GB,ministry of defence c&c defence marine services dms,,ministry,0.95,false
-GB,ministry of defence c&c hmnb portsmouth,,ministry,0.95,false
-GB,ministry of defence c&c hocs,,ministry,0.95,false
-GB,ministry of defence c&c logistic support ls,,ministry,0.95,false
-GB,ministry of defence c&c military aviation authority maa,,ministry,0.95,false
-GB,ministry of defence c&c naval authority group,,ministry,0.95,false
-GB,ministry of defence c&c operational support programmes osp,,ministry,0.95,false
-GB,ministry of defence c&c other,,ministry,0.95,false
-GB,ministry of defence cand c c and c,,ministry,0.95,false
-GB,ministry of defence candc candc,,ministry,0.95,false
-GB,ministry of defence ccdt,,ministry,0.95,false
-GB,ministry of defence combat air fast air support team fast,,ministry,0.95,false
-GB,ministry of defence combat air lightning team,,ministry,0.95,false
-GB,ministry of defence combat air uk mfts type airworthiness authority king air tucano vigilant viking,,ministry,0.95,false
-GB,ministry of defence combat air uk military flying training system ukmfts project team,,ministry,0.95,false
-GB,ministry of defence combat air unmanned air systems uas team,,ministry,0.95,false
-GB,ministry of defence corporate commercial,,ministry,0.95,false
-GB,ministry of defence de and s mat strat british forces post office bfpo team,,ministry,0.95,false
-GB,ministry of defence de&s defence fuel acquisition programme,,ministry,0.95,false
-GB,ministry of defence de&s helicopters commercial category procurement,,ministry,0.95,false
-GB,ministry of defence de&s istar windfarm team,,ministry,0.95,false
-GB,ministry of defence de&s mat strat,,ministry,0.95,false
-GB,ministry of defence de&s mat strat air defence & electronic warfare systems,,ministry,0.95,false
-GB,ministry of defence de&s mat strat air defence and electronic warfare systems,,ministry,0.95,false
-GB,ministry of defence de&s mat strat air istar,,ministry,0.95,false
-GB,ministry of defence de&s mat strat british forces post office bfpo team,,ministry,0.95,false
-GB,ministry of defence de&s mat strat c130j project team,,ministry,0.95,false
-GB,ministry of defence de&s mat strat commercially supported shipping css team,,ministry,0.95,false
-GB,ministry of defence de&s mat strat de&s mat strat,,ministry,0.95,false
-GB,ministry of defence de&s mat strat defence fuels group,,ministry,0.95,false
-GB,ministry of defence de&s mat strat defence standardization dstan,,ministry,0.95,false
-GB,ministry of defence de&s mat strat disposal services authority dsa,,ministry,0.95,false
-GB,ministry of defence de&s mat strat hmnb devonport,,ministry,0.95,false
-GB,ministry of defence de&s mat strat maritime equipment systems mes team,,ministry,0.95,false
-GB,ministry of defence de&s mat strat maritime spares ms,,ministry,0.95,false
-GB,ministry of defence de&s mat strat merlin project team,,ministry,0.95,false
-GB,ministry of defence de&s mat strat operational infrastructure programme oip,,ministry,0.95,false
-GB,ministry of defence de&s mat strat other,,ministry,0.95,false
-GB,ministry of defence de&s mat strat queen elizabeth class,,ministry,0.95,false
-GB,ministry of defence defence and security accelerator dasa defence science and technology laboratory dstl and defence equipment and support de&s,,ministry,0.95,false
-GB,ministry of defence defence digital base,,ministry,0.95,false
-GB,ministry of defence defence digital formerly information systems and services batcis delivery team,,ministry,0.95,false
-GB,ministry of defence defence digital strategic command hardware and services commercial sourcing team,,ministry,0.95,false
-GB,ministry of defence defence equipment & support,,ministry,0.95,false
-GB,ministry of defence defence equipment & support apache delivery team,,ministry,0.95,false
-GB,ministry of defence defence equipment and support de&s seoc,,ministry,0.95,false
-GB,ministry of defence defence equipment and support defence equipment sales authority desa,,ministry,0.95,false
-GB,ministry of defence defence fuels group,,ministry,0.95,false
-GB,ministry of defence defence nuclear organisation,,ministry,0.95,false
-GB,ministry of defence defence science and technology laboratory dstl,,ministry,0.95,false
-GB,ministry of defence dsg,,ministry,0.95,false
-GB,ministry of defence dsg armoured vehicles programmes artillery systems programme,,ministry,0.95,false
-GB,ministry of defence dsg defence electronics and components agency deca,,ministry,0.95,false
-GB,ministry of defence dsg defence support group,,ministry,0.95,false
-GB,ministry of defence dsg defence support group dsg,,ministry,0.95,false
-GB,ministry of defence dsg operational infrastructure programme oip,,ministry,0.95,false
-GB,ministry of defence dstl chemical biological radiological and nuclear delivery team cbrn dt,,ministry,0.95,false
-GB,ministry of defence dstl defence science & technology laboratory dstl,,ministry,0.95,false
-GB,ministry of defence dstl defence science and technology laboratory dstl,,ministry,0.95,false
-GB,ministry of defence dstl weapons support,,ministry,0.95,false
-GB,ministry of defence fmc strat prog weca 4-m,,ministry,0.95,false
-GB,ministry of defence for the united kingdom & northern ireland,,ministry,0.95,false
-GB,ministry of defence helicopters,,ministry,0.95,false
-GB,ministry of defence helicopters apache dt,,ministry,0.95,false
-GB,ministry of defence helicopters apache project team,,ministry,0.95,false
-GB,ministry of defence helicopters chinook project team,,ministry,0.95,false
-GB,ministry of defence helicopters lynx project team,,ministry,0.95,false
-GB,ministry of defence helicopters merlin project team,,ministry,0.95,false
-GB,ministry of defence helicopters other,,ministry,0.95,false
-GB,ministry of defence helicopters special projects multi-air platform project team spmap pt,,ministry,0.95,false
-GB,ministry of defence helicopters wildcat delivery team,,ministry,0.95,false
-GB,ministry of defence hmnb clyde,,ministry,0.95,false
-GB,ministry of defence hocs commercial london,,ministry,0.95,false
-GB,ministry of defence imoc defence equipment sales authority desa,,ministry,0.95,false
-GB,ministry of defence imoc defence fuels and food services df&fs,,ministry,0.95,false
-GB,ministry of defence imoc defence fuels group,,ministry,0.95,false
-GB,ministry of defence imoc disposal services authority dsa,,ministry,0.95,false
-GB,ministry of defence imoc other,,ministry,0.95,false
-GB,ministry of defence information systems and services batcis delivery team,,ministry,0.95,false
-GB,ministry of defence information systems and services battlefield and tactical cis dt,,ministry,0.95,false
-GB,ministry of defence information systems and services iss commercial sourcing team,,ministry,0.95,false
-GB,ministry of defence information systems and services iss development pillar,,ministry,0.95,false
-GB,ministry of defence information systems and services networks team,,ministry,0.95,false
-GB,ministry of defence information systems and services other,,ministry,0.95,false
-GB,ministry of defence istar air defence & electronic warfare systems,,ministry,0.95,false
-GB,ministry of defence istar air defence and air traffic systems adats delivery team,,ministry,0.95,false
-GB,ministry of defence istar air defence and electronic warfare systems,,ministry,0.95,false
-GB,ministry of defence istar air dominance and supression,,ministry,0.95,false
-GB,ministry of defence istar air istar,,ministry,0.95,false
-GB,ministry of defence istar chemical biological radiological and nuclear delivery team cbrn dt,,ministry,0.95,false
-GB,ministry of defence istar chemical biological radiological andnuclear delivery team cbrn dt,,ministry,0.95,false
-GB,ministry of defence istar force protection project team,,ministry,0.95,false
-GB,ministry of defence istar istar business management team,,ministry,0.95,false
-GB,ministry of defence istar joint electronic surveillance jes delivery team,,ministry,0.95,false
-GB,ministry of defence istar joint sensor and engagement networks team jsens,,ministry,0.95,false
-GB,ministry of defence istar marshall,,ministry,0.95,false
-GB,ministry of defence istar other,,ministry,0.95,false
-GB,ministry of defence istar scis,,ministry,0.95,false
-GB,ministry of defence istar situational awareness command and control sacc delivery team,,ministry,0.95,false
-GB,ministry of defence istar special project communications and force protection,,ministry,0.95,false
-GB,ministry of defence istar special projects cisr spcisr,,ministry,0.95,false
-GB,ministry of defence istar special projects communication and force protection spcfp,,ministry,0.95,false
-GB,ministry of defence jfc,,ministry,0.95,false
-GB,ministry of defence land equipment armoured vehicles programmes,,ministry,0.95,false
-GB,ministry of defence land equipment armoured vehicles programmes - artillery systems programme,,ministry,0.95,false
-GB,ministry of defence land equipment armoured vehicles programmes artillery systems programme,,ministry,0.95,false
-GB,ministry of defence land equipment armoured vehicles programmes in-service platforms,,ministry,0.95,false
-GB,ministry of defence land equipment artillery systems,,ministry,0.95,false
-GB,ministry of defence land equipment british forces post office bfpo team,,ministry,0.95,false
-GB,ministry of defence land equipment collective training transformation programme,,ministry,0.95,false
-GB,ministry of defence land equipment defence equipment sales authority desa,,ministry,0.95,false
-GB,ministry of defence land equipment defence general munitions dgm project team,,ministry,0.95,false
-GB,ministry of defence land equipment defence support group dsg,,ministry,0.95,false
-GB,ministry of defence land equipment dismounted close combat dcc,,ministry,0.95,false
-GB,ministry of defence land equipment dscom,,ministry,0.95,false
-GB,ministry of defence land equipment heavy & medium vehicles,,ministry,0.95,false
-GB,ministry of defence land equipment heavy and medium vehicles,,ministry,0.95,false
-GB,ministry of defence land equipment international guns missiles and rockets igmr project team,,ministry,0.95,false
-GB,ministry of defence land equipment land concept & assessment,,ministry,0.95,false
-GB,ministry of defence land equipment land concept and assessment,,ministry,0.95,false
-GB,ministry of defence land equipment lca -fatv,,ministry,0.95,false
-GB,ministry of defence land equipment operational infrastructure,,ministry,0.95,false
-GB,ministry of defence land equipment operational infrastructure oi,,ministry,0.95,false
-GB,ministry of defence land equipment operational infrastructure programme oip,,ministry,0.95,false
-GB,ministry of defence land equipment operational support programmes osp,,ministry,0.95,false
-GB,ministry of defence land equipment operational support vehicle programme osvp,,ministry,0.95,false
-GB,ministry of defence land equipment osp programme management office pgmo,,ministry,0.95,false
-GB,ministry of defence land equipment other,,ministry,0.95,false
-GB,ministry of defence land equipment protected mobility vehicle programme,,ministry,0.95,false
-GB,ministry of defence land equipment seoc,,ministry,0.95,false
-GB,ministry of defence land equipment soldier systems programme ssp,,ministry,0.95,false
-GB,ministry of defence land equipment soldier training and special programmes,,ministry,0.95,false
-GB,ministry of defence land equipment special projects scm spscm,,ministry,0.95,false
-GB,ministry of defence land equipment support enablers operating centre seoc,,ministry,0.95,false
-GB,ministry of defence land equipment training and simulation systems portfolio tssp,,ministry,0.95,false
-GB,ministry of defence land equipment training and simulation systems programme tssp,,ministry,0.95,false
-GB,ministry of defence land equipment uk national codification bureau uk ncb,,ministry,0.95,false
-GB,ministry of defence land equipment vehicle support,,ministry,0.95,false
-GB,ministry of defence land equipment vehicle support team,,ministry,0.95,false
-GB,ministry of defence land equipment vehicle support team armoured tracks portfolio,,ministry,0.95,false
-GB,ministry of defence land equipment weapons support,,ministry,0.95,false
-GB,ministry of defence ldoc commissioning managing organisation,,ministry,0.95,false
-GB,ministry of defence logistics delivery operating centre supply chain transformation,,ministry,0.95,false
-GB,ministry of defence merlin project team,,ministry,0.95,false
-GB,ministry of defence mod,,ministry,0.95,false
-GB,ministry of defence ships commercially supported shipping css team,,ministry,0.95,false
-GB,ministry of defence ships communications and situational awareness csa,,ministry,0.95,false
-GB,ministry of defence ships defence marine services dms,,ministry,0.95,false
-GB,ministry of defence ships marine systems support,,ministry,0.95,false
-GB,ministry of defence ships marine systems support mss,,ministry,0.95,false
-GB,ministry of defence ships maritime combat systems mcs team,,ministry,0.95,false
-GB,ministry of defence ships maritime equipment systems mes team,,ministry,0.95,false
-GB,ministry of defence ships maritime equipment transformation met team,,ministry,0.95,false
-GB,ministry of defence ships maritime platform systems mps,,ministry,0.95,false
-GB,ministry of defence ships maritime spares ms,,ministry,0.95,false
-GB,ministry of defence ships maritime systems support mss,,ministry,0.95,false
-GB,ministry of defence ships mine and hydrographic capability,,ministry,0.95,false
-GB,ministry of defence ships naval ships support,,ministry,0.95,false
-GB,ministry of defence ships other,,ministry,0.95,false
-GB,ministry of defence ships queen elizabeth class,,ministry,0.95,false
-GB,ministry of defence ships salvage and marine operations s&mo,,ministry,0.95,false
-GB,ministry of defence ships salvage and marine operations salmo,,ministry,0.95,false
-GB,ministry of defence ships underwater & electronic warfare,,ministry,0.95,false
-GB,ministry of defence ships underwater and electronic warfare,,ministry,0.95,false
-GB,ministry of defence ships warship support,,ministry,0.95,false
-GB,ministry of defence submarines delivery agency,,ministry,0.95,false
-GB,ministry of defence submarines hmnb clyde,,ministry,0.95,false
-GB,ministry of defence submarines in-service submarines ism team,,ministry,0.95,false
-GB,ministry of defence submarines maritime platform systems mps,,ministry,0.95,false
-GB,ministry of defence submarines other,,ministry,0.95,false
-GB,ministry of defence submarines submarine programmes,,ministry,0.95,false
-GB,ministry of defence support enablers operating centre seoc,,ministry,0.95,false
-GB,ministry of defence united kingdom,,ministry,0.95,false
-GB,ministry of defence weapons air to air missiles aam project team,,ministry,0.95,false
-GB,ministry of defence weapons defence general munitions dgm project team,,ministry,0.95,false
-GB,ministry of defence weapons defence marine services dms,,ministry,0.95,false
-GB,ministry of defence weapons defence munitions,,ministry,0.95,false
-GB,ministry of defence weapons defence ordnance safety group dosg,,ministry,0.95,false
-GB,ministry of defence weapons international guns missiles and rockets igmr project team,,ministry,0.95,false
-GB,ministry of defence weapons lightweight missile attack systems project team lmas pt,,ministry,0.95,false
-GB,ministry of defence weapons maritime and air weapon systems maws team,,ministry,0.95,false
-GB,ministry of defence weapons other,,ministry,0.95,false
-GB,ministry of defence weapons other defence munitions commercial,,ministry,0.95,false
-GB,ministry of defence weapons short range air defence project team shorad pt,,ministry,0.95,false
-GB,ministry of defence weapons team complex weapons,,ministry,0.95,false
-GB,ministry of defence weapons torpedoes tomahawk and harpoon tth project team,,ministry,0.95,false
-GB,navy command commercial,,armed_forces,0.95,false
-GB,the armed forces covenant fund trustee,,armed_forces,0.95,false
-GB,de&s,,defence_word,0.70,false
-GB,de&s abbey wood land equipment vdm team,,defence_word,0.70,false
-GB,de&s cast,,defence_word,0.70,false
-GB,de&s le stsp comrcl,,defence_word,0.70,false
-GB,dgm pt de&s,,defence_word,0.70,false
-GB,leidos supply for uk ministry of defence,,defence_word,0.70,false
-GB,leidos supply ltd for uk ministry of defence,,defence_word,0.70,false
-GB,leidos supply on behalf of the uk ministry of defence,,defence_word,0.70,false
-GB,naval ships support team defence equipment and support ministry of defence,,defence_word,0.70,false
-GB,vehicle support team vst defence equipment and support de&s,,defence_word,0.70,false
+GB,armed forces recruiting programme,,armed_forces,0.95,false
+GB,army commercial,,armed_forces,0.95,false
+GB,army commercial procure team ni,,armed_forces,0.95,false
+GB,army headquarters,,armed_forces,0.95,false
+GB,defence electronics and components agency deca,,procurement_agency,0.95,false
+GB,defence equipment & support,,procurement_agency,0.95,false
+GB,defence equipment & support - uk mod,,procurement_agency,0.95,false
+GB,defence equipment & support uk mod,,procurement_agency,0.95,false
+GB,defence equipment and support,,procurement_agency,0.95,false
+GB,defence equipment and support protected mobility vehicles programme,,procurement_agency,0.95,false
+GB,defence equipment and support support chain information services scis,,procurement_agency,0.95,false
+GB,defence equipment sales authority,,procurement_agency,0.95,false
+GB,ministry of defence,,ministry,0.95,false
+GB,ministry of defence - army headquarters,,ministry,0.95,false
+GB,ministry of defence abbey wood,,ministry,0.95,false
+GB,ministry of defence abbeywood,,ministry,0.95,false
+GB,ministry of defence agencies misc de&s mat strat,,ministry,0.95,false
+GB,ministry of defence agencies misc defence electronics and components agency deca,,ministry,0.95,false
+GB,ministry of defence agencies misc logistic support ls,,ministry,0.95,false
+GB,ministry of defence agencies misc other,,ministry,0.95,false
+GB,ministry of defence air commercial,,ministry,0.95,false
+GB,ministry of defence air support a400m project team,,ministry,0.95,false
+GB,ministry of defence air support air commodities project team ac pt,,ministry,0.95,false
+GB,ministry of defence air support air istar,,ministry,0.95,false
+GB,ministry of defence air support air platform systems project team pt,,ministry,0.95,false
+GB,ministry of defence air support air systems equipment and training,,ministry,0.95,false
+GB,ministry of defence air support aircraft commodities project team ac pt,,ministry,0.95,false
+GB,ministry of defence air support apache project team,,ministry,0.95,false
+GB,ministry of defence air support c&c,,ministry,0.95,false
+GB,ministry of defence air support c130j project team,,ministry,0.95,false
+GB,ministry of defence air support c17 command support and airborne equipment project team csae pt,,ministry,0.95,false
+GB,ministry of defence air support de&s airworthiness team dat,,ministry,0.95,false
+GB,ministry of defence air support fast air support team fast,,ministry,0.95,false
+GB,ministry of defence air support flight simulation and synthetic trainers project team fsast pt,,ministry,0.95,false
+GB,ministry of defence air support military aviation authority maa,,ministry,0.95,false
+GB,ministry of defence air support other,,ministry,0.95,false
+GB,ministry of defence air support special projects multi-air platform project team spmap pt,,ministry,0.95,false
+GB,ministry of defence air support strategic transport and air-to-air refuelling staar project team,,ministry,0.95,false
+GB,ministry of defence army headquarters,,ministry,0.95,false
+GB,ministry of defence babcock land defence,,ministry,0.95,false
+GB,ministry of defence c & c naval authority group,,ministry,0.95,false
+GB,ministry of defence c and c,,ministry,0.95,false
+GB,ministry of defence c and c c and c,,ministry,0.95,false
+GB,ministry of defence c and c military aviation authority maa,,ministry,0.95,false
+GB,ministry of defence c and c other,,ministry,0.95,false
+GB,ministry of defence c&c,,ministry,0.95,false
+GB,ministry of defence c&c air commodities project team ac pt,,ministry,0.95,false
+GB,ministry of defence c&c british forces post office bfpo team,,ministry,0.95,false
+GB,ministry of defence c&c c&c,,ministry,0.95,false
+GB,ministry of defence c&c defence marine services dms,,ministry,0.95,false
+GB,ministry of defence c&c hmnb portsmouth,,ministry,0.95,false
+GB,ministry of defence c&c hocs,,ministry,0.95,false
+GB,ministry of defence c&c logistic support ls,,ministry,0.95,false
+GB,ministry of defence c&c military aviation authority maa,,ministry,0.95,false
+GB,ministry of defence c&c naval authority group,,ministry,0.95,false
+GB,ministry of defence c&c operational support programmes osp,,ministry,0.95,false
+GB,ministry of defence c&c other,,ministry,0.95,false
+GB,ministry of defence cand c c and c,,ministry,0.95,false
+GB,ministry of defence candc candc,,ministry,0.95,false
+GB,ministry of defence ccdt,,ministry,0.95,false
+GB,ministry of defence combat air fast air support team fast,,ministry,0.95,false
+GB,ministry of defence combat air lightning team,,ministry,0.95,false
+GB,ministry of defence combat air uk mfts type airworthiness authority king air tucano vigilant viking,,ministry,0.95,false
+GB,ministry of defence combat air uk military flying training system ukmfts project team,,ministry,0.95,false
+GB,ministry of defence combat air unmanned air systems uas team,,ministry,0.95,false
+GB,ministry of defence corporate commercial,,ministry,0.95,false
+GB,ministry of defence de and s mat strat british forces post office bfpo team,,ministry,0.95,false
+GB,ministry of defence de&s defence fuel acquisition programme,,ministry,0.95,false
+GB,ministry of defence de&s helicopters commercial category procurement,,ministry,0.95,false
+GB,ministry of defence de&s istar windfarm team,,ministry,0.95,false
+GB,ministry of defence de&s mat strat,,ministry,0.95,false
+GB,ministry of defence de&s mat strat air defence & electronic warfare systems,,ministry,0.95,false
+GB,ministry of defence de&s mat strat air defence and electronic warfare systems,,ministry,0.95,false
+GB,ministry of defence de&s mat strat air istar,,ministry,0.95,false
+GB,ministry of defence de&s mat strat british forces post office bfpo team,,ministry,0.95,false
+GB,ministry of defence de&s mat strat c130j project team,,ministry,0.95,false
+GB,ministry of defence de&s mat strat commercially supported shipping css team,,ministry,0.95,false
+GB,ministry of defence de&s mat strat de&s mat strat,,ministry,0.95,false
+GB,ministry of defence de&s mat strat defence fuels group,,ministry,0.95,false
+GB,ministry of defence de&s mat strat defence standardization dstan,,ministry,0.95,false
+GB,ministry of defence de&s mat strat disposal services authority dsa,,ministry,0.95,false
+GB,ministry of defence de&s mat strat hmnb devonport,,ministry,0.95,false
+GB,ministry of defence de&s mat strat maritime equipment systems mes team,,ministry,0.95,false
+GB,ministry of defence de&s mat strat maritime spares ms,,ministry,0.95,false
+GB,ministry of defence de&s mat strat merlin project team,,ministry,0.95,false
+GB,ministry of defence de&s mat strat operational infrastructure programme oip,,ministry,0.95,false
+GB,ministry of defence de&s mat strat other,,ministry,0.95,false
+GB,ministry of defence de&s mat strat queen elizabeth class,,ministry,0.95,false
+GB,ministry of defence defence and security accelerator dasa defence science and technology laboratory dstl and defence equipment and support de&s,,ministry,0.95,false
+GB,ministry of defence defence digital base,,ministry,0.95,false
+GB,ministry of defence defence digital formerly information systems and services batcis delivery team,,ministry,0.95,false
+GB,ministry of defence defence digital strategic command hardware and services commercial sourcing team,,ministry,0.95,false
+GB,ministry of defence defence equipment & support,,ministry,0.95,false
+GB,ministry of defence defence equipment & support apache delivery team,,ministry,0.95,false
+GB,ministry of defence defence equipment and support de&s seoc,,ministry,0.95,false
+GB,ministry of defence defence equipment and support defence equipment sales authority desa,,ministry,0.95,false
+GB,ministry of defence defence fuels group,,ministry,0.95,false
+GB,ministry of defence defence nuclear organisation,,ministry,0.95,false
+GB,ministry of defence defence science and technology laboratory dstl,,ministry,0.95,false
+GB,ministry of defence dsg,,ministry,0.95,false
+GB,ministry of defence dsg armoured vehicles programmes artillery systems programme,,ministry,0.95,false
+GB,ministry of defence dsg defence electronics and components agency deca,,ministry,0.95,false
+GB,ministry of defence dsg defence support group,,ministry,0.95,false
+GB,ministry of defence dsg defence support group dsg,,ministry,0.95,false
+GB,ministry of defence dsg operational infrastructure programme oip,,ministry,0.95,false
+GB,ministry of defence dstl chemical biological radiological and nuclear delivery team cbrn dt,,ministry,0.95,false
+GB,ministry of defence dstl defence science & technology laboratory dstl,,ministry,0.95,false
+GB,ministry of defence dstl defence science and technology laboratory dstl,,ministry,0.95,false
+GB,ministry of defence dstl weapons support,,ministry,0.95,false
+GB,ministry of defence fmc strat prog weca 4-m,,ministry,0.95,false
+GB,ministry of defence for the united kingdom & northern ireland,,ministry,0.95,false
+GB,ministry of defence helicopters,,ministry,0.95,false
+GB,ministry of defence helicopters apache dt,,ministry,0.95,false
+GB,ministry of defence helicopters apache project team,,ministry,0.95,false
+GB,ministry of defence helicopters chinook project team,,ministry,0.95,false
+GB,ministry of defence helicopters lynx project team,,ministry,0.95,false
+GB,ministry of defence helicopters merlin project team,,ministry,0.95,false
+GB,ministry of defence helicopters other,,ministry,0.95,false
+GB,ministry of defence helicopters special projects multi-air platform project team spmap pt,,ministry,0.95,false
+GB,ministry of defence helicopters wildcat delivery team,,ministry,0.95,false
+GB,ministry of defence hmnb clyde,,ministry,0.95,false
+GB,ministry of defence hocs commercial london,,ministry,0.95,false
+GB,ministry of defence imoc defence equipment sales authority desa,,ministry,0.95,false
+GB,ministry of defence imoc defence fuels and food services df&fs,,ministry,0.95,false
+GB,ministry of defence imoc defence fuels group,,ministry,0.95,false
+GB,ministry of defence imoc disposal services authority dsa,,ministry,0.95,false
+GB,ministry of defence imoc other,,ministry,0.95,false
+GB,ministry of defence information systems and services batcis delivery team,,ministry,0.95,false
+GB,ministry of defence information systems and services battlefield and tactical cis dt,,ministry,0.95,false
+GB,ministry of defence information systems and services iss commercial sourcing team,,ministry,0.95,false
+GB,ministry of defence information systems and services iss development pillar,,ministry,0.95,false
+GB,ministry of defence information systems and services networks team,,ministry,0.95,false
+GB,ministry of defence information systems and services other,,ministry,0.95,false
+GB,ministry of defence istar air defence & electronic warfare systems,,ministry,0.95,false
+GB,ministry of defence istar air defence and air traffic systems adats delivery team,,ministry,0.95,false
+GB,ministry of defence istar air defence and electronic warfare systems,,ministry,0.95,false
+GB,ministry of defence istar air dominance and supression,,ministry,0.95,false
+GB,ministry of defence istar air istar,,ministry,0.95,false
+GB,ministry of defence istar chemical biological radiological and nuclear delivery team cbrn dt,,ministry,0.95,false
+GB,ministry of defence istar chemical biological radiological andnuclear delivery team cbrn dt,,ministry,0.95,false
+GB,ministry of defence istar force protection project team,,ministry,0.95,false
+GB,ministry of defence istar istar business management team,,ministry,0.95,false
+GB,ministry of defence istar joint electronic surveillance jes delivery team,,ministry,0.95,false
+GB,ministry of defence istar joint sensor and engagement networks team jsens,,ministry,0.95,false
+GB,ministry of defence istar marshall,,ministry,0.95,false
+GB,ministry of defence istar other,,ministry,0.95,false
+GB,ministry of defence istar scis,,ministry,0.95,false
+GB,ministry of defence istar situational awareness command and control sacc delivery team,,ministry,0.95,false
+GB,ministry of defence istar special project communications and force protection,,ministry,0.95,false
+GB,ministry of defence istar special projects cisr spcisr,,ministry,0.95,false
+GB,ministry of defence istar special projects communication and force protection spcfp,,ministry,0.95,false
+GB,ministry of defence jfc,,ministry,0.95,false
+GB,ministry of defence land equipment armoured vehicles programmes,,ministry,0.95,false
+GB,ministry of defence land equipment armoured vehicles programmes - artillery systems programme,,ministry,0.95,false
+GB,ministry of defence land equipment armoured vehicles programmes artillery systems programme,,ministry,0.95,false
+GB,ministry of defence land equipment armoured vehicles programmes in-service platforms,,ministry,0.95,false
+GB,ministry of defence land equipment artillery systems,,ministry,0.95,false
+GB,ministry of defence land equipment british forces post office bfpo team,,ministry,0.95,false
+GB,ministry of defence land equipment collective training transformation programme,,ministry,0.95,false
+GB,ministry of defence land equipment defence equipment sales authority desa,,ministry,0.95,false
+GB,ministry of defence land equipment defence general munitions dgm project team,,ministry,0.95,false
+GB,ministry of defence land equipment defence support group dsg,,ministry,0.95,false
+GB,ministry of defence land equipment dismounted close combat dcc,,ministry,0.95,false
+GB,ministry of defence land equipment dscom,,ministry,0.95,false
+GB,ministry of defence land equipment heavy & medium vehicles,,ministry,0.95,false
+GB,ministry of defence land equipment heavy and medium vehicles,,ministry,0.95,false
+GB,ministry of defence land equipment international guns missiles and rockets igmr project team,,ministry,0.95,false
+GB,ministry of defence land equipment land concept & assessment,,ministry,0.95,false
+GB,ministry of defence land equipment land concept and assessment,,ministry,0.95,false
+GB,ministry of defence land equipment lca -fatv,,ministry,0.95,false
+GB,ministry of defence land equipment operational infrastructure,,ministry,0.95,false
+GB,ministry of defence land equipment operational infrastructure oi,,ministry,0.95,false
+GB,ministry of defence land equipment operational infrastructure programme oip,,ministry,0.95,false
+GB,ministry of defence land equipment operational support programmes osp,,ministry,0.95,false
+GB,ministry of defence land equipment operational support vehicle programme osvp,,ministry,0.95,false
+GB,ministry of defence land equipment osp programme management office pgmo,,ministry,0.95,false
+GB,ministry of defence land equipment other,,ministry,0.95,false
+GB,ministry of defence land equipment protected mobility vehicle programme,,ministry,0.95,false
+GB,ministry of defence land equipment seoc,,ministry,0.95,false
+GB,ministry of defence land equipment soldier systems programme ssp,,ministry,0.95,false
+GB,ministry of defence land equipment soldier training and special programmes,,ministry,0.95,false
+GB,ministry of defence land equipment special projects scm spscm,,ministry,0.95,false
+GB,ministry of defence land equipment support enablers operating centre seoc,,ministry,0.95,false
+GB,ministry of defence land equipment training and simulation systems portfolio tssp,,ministry,0.95,false
+GB,ministry of defence land equipment training and simulation systems programme tssp,,ministry,0.95,false
+GB,ministry of defence land equipment uk national codification bureau uk ncb,,ministry,0.95,false
+GB,ministry of defence land equipment vehicle support,,ministry,0.95,false
+GB,ministry of defence land equipment vehicle support team,,ministry,0.95,false
+GB,ministry of defence land equipment vehicle support team armoured tracks portfolio,,ministry,0.95,false
+GB,ministry of defence land equipment weapons support,,ministry,0.95,false
+GB,ministry of defence ldoc commissioning managing organisation,,ministry,0.95,false
+GB,ministry of defence logistics delivery operating centre supply chain transformation,,ministry,0.95,false
+GB,ministry of defence merlin project team,,ministry,0.95,false
+GB,ministry of defence mod,,ministry,0.95,false
+GB,ministry of defence ships commercially supported shipping css team,ASH2A3203,ministry,0.95,false
+GB,ministry of defence ships communications and situational awareness csa,,ministry,0.95,false
+GB,ministry of defence ships defence marine services dms,,ministry,0.95,false
+GB,ministry of defence ships marine systems support,,ministry,0.95,false
+GB,ministry of defence ships marine systems support mss,,ministry,0.95,false
+GB,ministry of defence ships maritime combat systems mcs team,,ministry,0.95,false
+GB,ministry of defence ships maritime equipment systems mes team,,ministry,0.95,false
+GB,ministry of defence ships maritime equipment transformation met team,,ministry,0.95,false
+GB,ministry of defence ships maritime platform systems mps,,ministry,0.95,false
+GB,ministry of defence ships maritime spares ms,,ministry,0.95,false
+GB,ministry of defence ships maritime systems support mss,,ministry,0.95,false
+GB,ministry of defence ships mine and hydrographic capability,,ministry,0.95,false
+GB,ministry of defence ships naval ships support,,ministry,0.95,false
+GB,ministry of defence ships other,,ministry,0.95,false
+GB,ministry of defence ships queen elizabeth class,,ministry,0.95,false
+GB,ministry of defence ships salvage and marine operations s&mo,,ministry,0.95,false
+GB,ministry of defence ships salvage and marine operations salmo,,ministry,0.95,false
+GB,ministry of defence ships underwater & electronic warfare,,ministry,0.95,false
+GB,ministry of defence ships underwater and electronic warfare,,ministry,0.95,false
+GB,ministry of defence ships warship support,,ministry,0.95,false
+GB,ministry of defence submarines delivery agency,,ministry,0.95,false
+GB,ministry of defence submarines hmnb clyde,,ministry,0.95,false
+GB,ministry of defence submarines in-service submarines ism team,,ministry,0.95,false
+GB,ministry of defence submarines maritime platform systems mps,,ministry,0.95,false
+GB,ministry of defence submarines other,,ministry,0.95,false
+GB,ministry of defence submarines submarine programmes,,ministry,0.95,false
+GB,ministry of defence support enablers operating centre seoc,,ministry,0.95,false
+GB,ministry of defence united kingdom,,ministry,0.95,false
+GB,ministry of defence weapons air to air missiles aam project team,,ministry,0.95,false
+GB,ministry of defence weapons defence general munitions dgm project team,,ministry,0.95,false
+GB,ministry of defence weapons defence marine services dms,,ministry,0.95,false
+GB,ministry of defence weapons defence munitions,,ministry,0.95,false
+GB,ministry of defence weapons defence ordnance safety group dosg,,ministry,0.95,false
+GB,ministry of defence weapons international guns missiles and rockets igmr project team,,ministry,0.95,false
+GB,ministry of defence weapons lightweight missile attack systems project team lmas pt,,ministry,0.95,false
+GB,ministry of defence weapons maritime and air weapon systems maws team,,ministry,0.95,false
+GB,ministry of defence weapons other,,ministry,0.95,false
+GB,ministry of defence weapons other defence munitions commercial,,ministry,0.95,false
+GB,ministry of defence weapons short range air defence project team shorad pt,,ministry,0.95,false
+GB,ministry of defence weapons team complex weapons,,ministry,0.95,false
+GB,ministry of defence weapons torpedoes tomahawk and harpoon tth project team,,ministry,0.95,false
+GB,navy command commercial,,armed_forces,0.95,false
+GB,the armed forces covenant fund trustee,,armed_forces,0.95,false
+GB,leidos supply,09351724,procurement_agency,0.90,false
+GB,leidos supply for uk ministry of defence,,procurement_agency,0.90,false
+GB,leidos supply lsl,,procurement_agency,0.90,false
+GB,leidos supply ltd,,procurement_agency,0.90,false
+GB,leidos supply ltd for uk ministry of defence,,procurement_agency,0.90,false
+GB,leidos supply on behalf of the uk ministry of defence,,procurement_agency,0.90,false
+GB,de&s,,defence_word,0.70,false
+GB,de&s abbey wood land equipment vdm team,,defence_word,0.70,false
+GB,de&s cast,,defence_word,0.70,false
+GB,de&s le stsp comrcl,,defence_word,0.70,false
+GB,dgm pt de&s,,defence_word,0.70,false
+GB,naval ships support team defence equipment and support ministry of defence,,defence_word,0.70,false
+GB,vehicle support team vst defence equipment and support de&s,,defence_word,0.70,false

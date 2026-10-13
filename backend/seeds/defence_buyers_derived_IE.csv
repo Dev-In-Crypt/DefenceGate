@@ -1,14 +1,14 @@
 country,name,identifier,reason,confidence,reviewed
-IE,air corps contracts section,,armed_forces,0.95,false
-IE,defence forces,,armed_forces,0.95,false
-IE,defence forces ireland,,armed_forces,0.95,false
-IE,department of defence,,ministry,0.95,false
-IE,department of defence station road newbridge co kildare ireland,,ministry,0.95,false
-IE,irish defence forces,,armed_forces,0.95,false
-IE,irish defence forces_1144,,armed_forces,0.95,false
-IE,irish naval service,,armed_forces,0.95,false
-IE,minister for defence,,ministry,0.95,false
-IE,the defence forces,,armed_forces,0.95,false
-IE,the irish defence forces,,armed_forces,0.95,false
-IE,military archives defence forces ireland,,military_unit,0.85,false
-IE,http www military ie,,defence_word,0.70,false
+IE,air corps contracts section,,armed_forces,0.95,false
+IE,defence forces,,armed_forces,0.95,false
+IE,defence forces ireland,,armed_forces,0.95,false
+IE,department of defence,4000065N,ministry,0.95,false
+IE,department of defence station road newbridge co kildare ireland,,ministry,0.95,false
+IE,irish defence forces,0000000DU,armed_forces,0.95,false
+IE,irish defence forces_1144,6517956C,armed_forces,0.95,false
+IE,irish naval service,,armed_forces,0.95,false
+IE,minister for defence,,ministry,0.95,false
+IE,the defence forces,,armed_forces,0.95,false
+IE,the irish defence forces,,armed_forces,0.95,false
+IE,military archives defence forces ireland,,military_unit,0.85,false
+IE,http www military ie,,defence_word,0.70,false

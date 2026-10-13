@@ -1,13 +1,14 @@
 country,name,identifier,reason,confidence,reviewed
-HU,honved egyuttes muveszeti nonprofit kft,,armed_forces,0.95,false
-HU,honvedelmi miniszterium,,ministry,0.95,false
-HU,honvedelmi miniszterium elektronikai logisztikai es vagyonkezelo zrt,,ministry,0.95,false
-HU,honvedelmi miniszterium vedelemgazdasagi hivatal,,ministry,0.95,false
+HU,hm vedelemgazdasagi hivatal,,procurement_agency,0.95,false
+HU,honved egyuttes muveszeti nonprofit kft,EKRSZ33364522,armed_forces,0.95,false
+HU,honvedelmi miniszterium,15701051251,ministry,0.95,false
+HU,honvedelmi miniszterium elektronikai logisztikai es vagyonkezelo zrt,AK15679,ministry,0.95,false
+HU,honvedelmi miniszterium vedelemgazdasagi hivatal,AK03174,ministry,0.95,false
 HU,honvedelmi miniszterium vedelemgazdasagi hivatal hm vgh,,ministry,0.95,false
-HU,magyar honvedseg logisztikai tamogato parancsnoksag,,armed_forces,0.95,false
-HU,magyar honvedseg parancsnoksaga,,armed_forces,0.95,false
-HU,magyar honvedseg tartalekkepzo es tamogato parancsnoksag,,armed_forces,0.95,false
-HU,vedelmi beszerzesi ugynokseg zartkoruen mukodo reszvenytarsasag,,armed_forces,0.95,false
-HU,vedelmi beszerzesi ugynokseg zrt,,armed_forces,0.95,false
-HU,vedelmi innovacios kutatointezet nonprofit zrt,,armed_forces,0.95,false
-HU,nemzeti vedelmi szolgalat,,defence_word,0.70,false
+HU,magyar honvedseg logisztikai tamogato parancsnoksag,15845357251,armed_forces,0.95,false
+HU,magyar honvedseg parancsnoksaga,EKRSZ70039454,armed_forces,0.95,false
+HU,magyar honvedseg tartalekkepzo es tamogato parancsnoksag,EKRSZ26088224,armed_forces,0.95,false
+HU,vedelmi beszerzesi ugynokseg zartkoruen mukodo reszvenytarsasag,27084377243,armed_forces,0.95,false
+HU,vedelmi beszerzesi ugynokseg zrt,,armed_forces,0.95,false
+HU,vedelmi innovacios kutatointezet nonprofit zrt,32226997241,armed_forces,0.95,false
+HU,nemzeti vedelmi szolgalat,15722603251,defence_word,0.70,false

@@ -320,17 +320,31 @@ def _tokens(norm: str) -> set[str]:
 
 
 def names_compatible(a: str, b: str) -> bool:
-    """Whether two normalised names could be the same body: they share a word of four
-    letters or more (a name with no such word is compatible with nothing).
+    """Whether two normalised names could be the same body: they have the same words
+    (of four letters or more), or all the words of one are in the other and there are
+    at least two of them. A name with no such word is compatible with nothing.
 
     The guard on trusting an identifier. A notice that carries the number of a
     central purchasing body under the name of one of its members would otherwise
     be filed under the purchasing body. A pair with nothing in common is left to
     the name stages; the same body under two languages is merely not merged here.
+
+    One shared word was enough until 13 October 2026, and it let a ministry's own
+    registration number collapse 33 services into one organisation: "minarm sca
+    pfc-rbt", "minarm sga dcsid esid lyon" and "minarm air siae" share only the
+    ministry's abbreviation, and the Ministry's SIRET is stated by all of them
+    (correctness:D8, 552 notices on organisation 196441). A shared prefix is not
+    evidence of one body; a spelling variant contains the other spelling. A wrongly
+    refused number only leaves the name stages where they were, a wrongly accepted
+    one merges two bodies.
     """
     # Both names must have a word to share: a name with none of four letters or more
     # ("MON", "DGA") says nothing a stated number should be trusted against.
-    return bool(_tokens(a) & _tokens(b))
+    ta, tb = _tokens(a), _tokens(b)
+    if not ta or not tb:
+        return False
+    small, large = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return ta == tb or (len(small) >= 2 and small <= large)
 
 
 def add_merge_candidate(conn: psycopg.Connection, a: int, b: int, *, method: str,
@@ -385,7 +399,83 @@ def _record_alias(conn: psycopg.Connection, org_id: int, raw_name: str, norm: st
     return row is not None
 
 
+CONF_NAMESAKE_FLAG = 0.90        # a defence-buyer flag inherited from a flagged namesake
+
+
+def flagged_namesake(conn: psycopg.Connection, org_id: int, norm: str | None,
+                     country: str) -> dict[str, Any] | None:
+    """A flagged, live defence buyer of the same country that is `org_id` under another
+    row: same normalised name as the organisation's own, or as the spelling that was
+    just resolved (the alias may belong to a flagged organisation that absorbed it)."""
+    # Three indexed lookups rather than one OR: (country, lower(canonical_name)) and the
+    # alias table's (normalised_name, ...) key. An OR over them is a scan of 330,000 rows.
+    own = conn.execute("SELECT lower(canonical_name) AS n FROM organisation WHERE id = %s",
+                       (org_id,)).fetchone()
+    for name in dict.fromkeys(n for n in (own and own["n"], norm) if n):
+        row = conn.execute(
+            """SELECT id, defence_buyer_confidence FROM organisation
+                WHERE country = %s AND lower(canonical_name) = %s AND is_defence_buyer
+                  AND merged_into IS NULL AND id <> %s
+                ORDER BY id LIMIT 1""",
+            (country, name, org_id)).fetchone()
+        if row:
+            return row
+    if norm:
+        return conn.execute(
+            """SELECT f.id, f.defence_buyer_confidence
+                 FROM organisation_alias a JOIN organisation f ON f.id = a.organisation_id
+                WHERE a.normalised_name = %s AND (a.country_hint = %s OR a.country_hint IS NULL)
+                  AND f.country = %s AND f.is_defence_buyer AND f.merged_into IS NULL
+                  AND f.id <> %s
+                ORDER BY f.id LIMIT 1""",
+            (norm, country, country, org_id)).fetchone()
+    return None
+
+
+def inherit_defence_flag(conn: psycopg.Connection, org_id: int, norm: str | None,
+                         country: str) -> bool:
+    """Give an unflagged organisation the defence-buyer flag of its flagged namesake.
+
+    New notices of a defence body were landing on an unflagged duplicate: the same
+    name stated with another registration number is another organisation row, and
+    only the first one was on the list (coverage:C1 of 13 October 2026: BOAMP 57 of
+    59 notices since 21 September, 137 unflagged organisations sharing name and
+    country with a flagged one). The method and confidence are stored on the row, as
+    for the derived list; the flag is a signal and merges nothing.
+
+    Returns whether the organisation was flagged by this call.
+    """
+    row = conn.execute(
+        "SELECT is_defence_buyer FROM organisation WHERE id = %s", (org_id,)).fetchone()
+    if row is None or row["is_defence_buyer"]:
+        return False
+    found = flagged_namesake(conn, org_id, norm, country)
+    if found is None:
+        return False
+    conn.execute(
+        """UPDATE organisation
+              SET is_defence_buyer = TRUE, defence_buyer_source = 'namesake',
+                  defence_buyer_reason = %s, defence_buyer_confidence = %s
+            WHERE id = %s AND NOT is_defence_buyer""",
+        (f"same name as organisation {found['id']}", CONF_NAMESAKE_FLAG, org_id))
+    return True
+
+
 def resolve_organisation(
+    conn: psycopg.Connection, raw_name: str, country: str | None,
+    *, src_id: int | None = None, identifier: str | None = None,
+) -> int | None:
+    """The organisation a buyer name (and identifier) stands for, creating one if none
+    does. `_resolve_organisation` is the cascade; what is added here is that an
+    organisation never sits unflagged beside a flagged namesake (`inherit_defence_flag`).
+    """
+    org_id = _resolve_organisation(conn, raw_name, country, src_id=src_id, identifier=identifier)
+    if org_id is not None and country:
+        inherit_defence_flag(conn, org_id, normalise_org_name(raw_name), country)
+    return org_id
+
+
+def _resolve_organisation(
     conn: psycopg.Connection, raw_name: str, country: str | None,
     *, src_id: int | None = None, identifier: str | None = None,
 ) -> int | None:
@@ -522,8 +612,14 @@ def _attach_identifier(conn: psycopg.Connection, org_id: int, raw_name: str, nor
 def merge_organisations(
     conn: psycopg.Connection, keep: int, absorbed: int, *,
     method: str, confidence: float, evidence: str, detected_by: str,
+    allow_identifier_conflict: bool = False,
 ) -> dict[str, int]:
     """Make `absorbed` an alias of `keep`. Nothing is deleted.
+
+    `allow_identifier_conflict` is for a caller that has another proof of identity than
+    the number (`ops/buyer_cleanup`: the same normalised name as a flagged defence
+    buyer, whose notices state an establishment's or a tender's number). The absorbed
+    row keeps its own number, so a notice that states it still reaches `keep`.
 
     The absorbed row stays, marked `merged_into` with the method and confidence;
     its aliases and the serving rows that point at it are re-pointed at `keep`
@@ -547,7 +643,7 @@ def merge_organisations(
     if k["country"] != a["country"]:
         raise ValueError("organisations of different countries are never merged")
     if (k["national_reg_no"] and a["national_reg_no"]
-            and k["national_reg_no"] != a["national_reg_no"]):
+            and k["national_reg_no"] != a["national_reg_no"] and not allow_identifier_conflict):
         raise ValueError("two different registered numbers: not the same body")
 
     aliases = conn.execute(

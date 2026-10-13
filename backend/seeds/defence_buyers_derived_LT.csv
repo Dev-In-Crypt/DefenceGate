@@ -1,60 +1,60 @@
 country,name,identifier,reason,confidence,reviewed
-LT,defence materiel agency,,procurement_agency,0.95,false
-LT,defence materiel agency under mod,,procurement_agency,0.95,false
-LT,defence materiel agency under the ministry of national defence,,procurement_agency,0.95,false
-LT,defence materiel agency under the ministry of national defence of the republic of lithuania,,procurement_agency,0.95,false
-LT,defence materiel agency under the mod,,procurement_agency,0.95,false
+LT,defence materiel agency,,procurement_agency,0.95,false
+LT,defence materiel agency under mod,,procurement_agency,0.95,false
+LT,defence materiel agency under the ministry of national defence,,procurement_agency,0.95,false
+LT,defence materiel agency under the ministry of national defence of the republic of lithuania,,procurement_agency,0.95,false
+LT,defence materiel agency under the mod,,procurement_agency,0.95,false
 LT,gynybos resursu agentura prie kam,,procurement_agency,0.95,false
-LT,gynybos resursu agentura prie krasto apsaugos ministerijos,,procurement_agency,0.95,false
+LT,gynybos resursu agentura prie krasto apsaugos ministerijos,304740061,procurement_agency,0.95,false
 LT,krasto apsaugos ministerija,,ministry,0.95,false
-LT,krasto apsaugos ministerijos bendruju reikalu departamentas,,armed_forces,0.95,false
-LT,lietuvos kariuomene,,armed_forces,0.95,false
+LT,krasto apsaugos ministerijos bendruju reikalu departamentas,302526105,armed_forces,0.95,false
+LT,lietuvos kariuomene,188732677,armed_forces,0.95,false
 LT,lietuvos kariuomenes depu tarnyba,,armed_forces,0.95,false
 LT,lietuvos kariuomenes didziojo lietuvos etmono jonuso radvilos mokomasis pulkas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes generolo adolfo ramanausko kovinio rengimo centras,,armed_forces,0.95,false
-LT,lietuvos kariuomenes gynybos stabas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes juozo vitkaus inzinerijos batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes karines juru pajegos,,armed_forces,0.95,false
-LT,lietuvos kariuomenes karines juru pajegos lietuvos kariuomenes karines juru pajegos karo laivu flotile kodas 304218070,,armed_forces,0.95,false
-LT,lietuvos kariuomenes kariniu juru pajegu logistikos tarnyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes kariniu oro pajegu aviacijos baze,,armed_forces,0.95,false
-LT,lietuvos kariuomenes kariniu oro pajegu ginkluotes ir technikos remonto depas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes kariniu oro pajegu oro erdves stebejimo ir kontroles valdyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes karo kartografijos centras,,armed_forces,0.95,false
-LT,lietuvos kariuomenes karo prievoles ir komplektavimo tarnyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes kibernetines gynybos valdybos informaciniu technologiju tarnyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes kibernetines gynybos valdybos vadovybe,,armed_forces,0.95,false
-LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu dariaus ir gireno apygardos 2 oji rinktine,,armed_forces,0.95,false
-LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu didziosios kovos apygardos 8-oji rinktine,,armed_forces,0.95,false
-LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu prisikelimo apygardos 6-oji rinktine,,armed_forces,0.95,false
-LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu vycio apygardos 5-oji rinktine,,armed_forces,0.95,false
-LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu zemaiciu apygardos 3-oji rinktine,,armed_forces,0.95,false
-LT,lietuvos kariuomenes lietuvos didziojo etmono kristupo radvilos perkuno rysiu ir informaciniu sistemu batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes lietuvos didziojo kunigaikscio gedimino stabo batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes lietuvos didziojo kunigaikscio vytenio bendrosios paramos logistikos batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes logistikos valdyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes logistikos valdybos igulu aptarnavimo tarnyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes logistikos valdybos vadovybe,,armed_forces,0.95,false
-LT,lietuvos kariuomenes mechanizuotoji pestininku brigada gelezinis vilkas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes mechanizuotosios pestininku brigados gelezinis vilkas karaliaus mindaugo hb,,armed_forces,0.95,false
-LT,lietuvos kariuomenes mokymo ir doktrinu valdyba,,armed_forces,0.95,false
+LT,lietuvos kariuomenes generolo adolfo ramanausko kovinio rengimo centras,193027843,armed_forces,0.95,false
+LT,lietuvos kariuomenes gynybos stabas,301732052,armed_forces,0.95,false
+LT,lietuvos kariuomenes juozo vitkaus inzinerijos batalionas,,armed_forces,0.95,false
+LT,lietuvos kariuomenes karines juru pajegos,193097749,armed_forces,0.95,false
+LT,lietuvos kariuomenes karines juru pajegos lietuvos kariuomenes karines juru pajegos karo laivu flotile kodas 304218070,,armed_forces,0.95,false
+LT,lietuvos kariuomenes kariniu juru pajegu logistikos tarnyba,304216991,armed_forces,0.95,false
+LT,lietuvos kariuomenes kariniu oro pajegu aviacijos baze,300058177,armed_forces,0.95,false
+LT,lietuvos kariuomenes kariniu oro pajegu ginkluotes ir technikos remonto depas,300058202,armed_forces,0.95,false
+LT,lietuvos kariuomenes kariniu oro pajegu oro erdves stebejimo ir kontroles valdyba,188726432,armed_forces,0.95,false
+LT,lietuvos kariuomenes karo kartografijos centras,188770197,armed_forces,0.95,false
+LT,lietuvos kariuomenes karo prievoles ir komplektavimo tarnyba,304290155,armed_forces,0.95,false
+LT,lietuvos kariuomenes kibernetines gynybos valdybos informaciniu technologiju tarnyba,307054683,armed_forces,0.95,false
+LT,lietuvos kariuomenes kibernetines gynybos valdybos vadovybe,307053948,armed_forces,0.95,false
+LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu dariaus ir gireno apygardos 2 oji rinktine,191727170,armed_forces,0.95,false
+LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu didziosios kovos apygardos 8-oji rinktine,191688479,armed_forces,0.95,false
+LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu prisikelimo apygardos 6-oji rinktine,302679108,armed_forces,0.95,false
+LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu vycio apygardos 5-oji rinktine,191684114,armed_forces,0.95,false
+LT,lietuvos kariuomenes krasto apsaugos savanoriu pajegu zemaiciu apygardos 3-oji rinktine,191831030,armed_forces,0.95,false
+LT,lietuvos kariuomenes lietuvos didziojo etmono kristupo radvilos perkuno rysiu ir informaciniu sistemu batalionas,304980697,armed_forces,0.95,false
+LT,lietuvos kariuomenes lietuvos didziojo kunigaikscio gedimino stabo batalionas,193086724,armed_forces,0.95,false
+LT,lietuvos kariuomenes lietuvos didziojo kunigaikscio vytenio bendrosios paramos logistikos batalionas,188788238,armed_forces,0.95,false
+LT,lietuvos kariuomenes logistikos valdyba,188782160,armed_forces,0.95,false
+LT,lietuvos kariuomenes logistikos valdybos igulu aptarnavimo tarnyba,300066843,armed_forces,0.95,false
+LT,lietuvos kariuomenes logistikos valdybos vadovybe,304711191,armed_forces,0.95,false
+LT,lietuvos kariuomenes mechanizuotoji pestininku brigada gelezinis vilkas,188744989,armed_forces,0.95,false
+LT,lietuvos kariuomenes mechanizuotosios pestininku brigados gelezinis vilkas karaliaus mindaugo hb,188745176,armed_forces,0.95,false
+LT,lietuvos kariuomenes mokymo ir doktrinu valdyba,288769790,armed_forces,0.95,false
 LT,lietuvos kariuomenes mokymo ir doktrinu valdybos vadovybe,,armed_forces,0.95,false
-LT,lietuvos kariuomenes motorizuotoji pestininku brigada zemaitija,,armed_forces,0.95,false
+LT,lietuvos kariuomenes motorizuotoji pestininku brigada zemaitija,304170519,armed_forces,0.95,false
 LT,lietuvos kariuomenes pestininku brigada gelezinis vilkas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes pestininku brigados gelezinis vilkas karaliaus mindaugo husaru batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes pestininku brigados gelezinis vilkas logistikos batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes pulkininko juozo vitkaus inzinerijos batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes pulkininko juozo vitkaus inzinerijos pulkas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes sausumos pajegu vadovybe,,armed_forces,0.95,false
-LT,lietuvos kariuomenes specialiuju operaciju pajegos,,armed_forces,0.95,false
-LT,lietuvos kariuomenes specialiuju operaciju pajegu koviniu naru tarnyba,,armed_forces,0.95,false
-LT,lietuvos kariuomenes specialiuju operaciju pajegu mokymo ir kovines paramos centras,,armed_forces,0.95,false
-LT,lietuvos kariuomenes specialiuju operaciju pajegu vadovybe,,armed_forces,0.95,false
-LT,lietuvos kariuomenes specialiuju operaciju pajegu vytauto didziojo jegeriu batalionas,,armed_forces,0.95,false
-LT,lietuvos kariuomenes specialiuju operaciju pajegu ypatingos paskirties tarnyba,,armed_forces,0.95,false
+LT,lietuvos kariuomenes pestininku brigados gelezinis vilkas karaliaus mindaugo husaru batalionas,,armed_forces,0.95,false
+LT,lietuvos kariuomenes pestininku brigados gelezinis vilkas logistikos batalionas,304740969,armed_forces,0.95,false
+LT,lietuvos kariuomenes pulkininko juozo vitkaus inzinerijos batalionas,,armed_forces,0.95,false
+LT,lietuvos kariuomenes pulkininko juozo vitkaus inzinerijos pulkas,193097891,armed_forces,0.95,false
+LT,lietuvos kariuomenes sausumos pajegu vadovybe,304979638,armed_forces,0.95,false
+LT,lietuvos kariuomenes specialiuju operaciju pajegos,300088811,armed_forces,0.95,false
+LT,lietuvos kariuomenes specialiuju operaciju pajegu koviniu naru tarnyba,302339276,armed_forces,0.95,false
+LT,lietuvos kariuomenes specialiuju operaciju pajegu mokymo ir kovines paramos centras,303506408,armed_forces,0.95,false
+LT,lietuvos kariuomenes specialiuju operaciju pajegu vadovybe,305626655,armed_forces,0.95,false
+LT,lietuvos kariuomenes specialiuju operaciju pajegu vytauto didziojo jegeriu batalionas,193014059,armed_forces,0.95,false
+LT,lietuvos kariuomenes specialiuju operaciju pajegu ypatingos paskirties tarnyba,188769647,armed_forces,0.95,false
 LT,lietuvos kariuomenes ypatingosios paskirties tarnyba,,armed_forces,0.95,false
-LT,lietuvos respublikos krasto apsaugos ministerija,,ministry,0.95,false
-LT,bundeswehr verwaltungsstelle litauen bwvst litauen,,defence_word,0.70,false
-LT,divizijos generolo stasio rastikio lietuvos kariuomenes mokykla,,defence_word,0.70,false
-LT,lithuanian armed forces,,defence_word,0.70,false
-LT,lk kop oro gynybos batalionas,,defence_word,0.70,false
+LT,lietuvos respublikos krasto apsaugos ministerija,188602751,ministry,0.95,false
+LT,bundeswehr verwaltungsstelle litauen bwvst litauen,T0049329912186000,defence_word,0.70,false
+LT,divizijos generolo stasio rastikio lietuvos kariuomenes mokykla,193098274,defence_word,0.70,false
+LT,lithuanian armed forces,,defence_word,0.70,false
+LT,lk kop oro gynybos batalionas,188754563,defence_word,0.70,false

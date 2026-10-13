@@ -1,346 +1,496 @@
 country,name,identifier,reason,confidence,reviewed
-FR,arm sca pfaf rbt,,procurement_agency,0.95,false
-FR,arm sca pfaf-rbt,,procurement_agency,0.95,false
-FR,delpia,,procurement_agency,0.95,false
-FR,depafi,,procurement_agency,0.95,false
-FR,depafi sailmi sdasem bam,,procurement_agency,0.95,false
-FR,dga council of europe directorate general of administration,,procurement_agency,0.95,false
-FR,dga do s2a,,procurement_agency,0.95,false
-FR,dga domn s2a,,procurement_agency,0.95,false
-FR,dga dt scat val de reuil,,procurement_agency,0.95,false
-FR,dga dt scat val-de-reuil,,procurement_agency,0.95,false
-FR,dga essais de missiles,,procurement_agency,0.95,false
-FR,dga information stragegique,,procurement_agency,0.95,false
-FR,dga information strategique,,procurement_agency,0.95,false
-FR,dga intelligence technique economique,,procurement_agency,0.95,false
-FR,dga intelligence technique et economique,,procurement_agency,0.95,false
-FR,dga is,,procurement_agency,0.95,false
-FR,dga ite,,procurement_agency,0.95,false
+FR,arm sca pfaf rbt,,procurement_agency,0.95,false
+FR,arm sca pfaf-rbt,1300234500013,procurement_agency,0.95,false
+FR,delpia,,procurement_agency,0.95,false
+FR,depafi,186216003,procurement_agency,0.95,false
+FR,depafi sailmi,,procurement_agency,0.95,false
+FR,depafi sailmi bam,,procurement_agency,0.95,false
+FR,depafi sailmi sdasem bam,,procurement_agency,0.95,false
+FR,dga - prefecture de la guyane,,procurement_agency,0.95,false
+FR,dga amenagement et strategie territoriale,,procurement_agency,0.95,false
+FR,dga do s2a,34152000527,procurement_agency,0.95,false
+FR,dga domn s2a,,procurement_agency,0.95,false
+FR,dga dt scat val de reuil,,procurement_agency,0.95,false
+FR,dga dt scat val-de-reuil,15000035400012,procurement_agency,0.95,false
+FR,dga essais de missiles,,procurement_agency,0.95,false
+FR,dga information stragegique,,procurement_agency,0.95,false
+FR,dga information strategique,,procurement_agency,0.95,false
+FR,dga intelligence technique economique,15200042800036,procurement_agency,0.95,false
+FR,dga intelligence technique et economique,,procurement_agency,0.95,false
+FR,dga is,,procurement_agency,0.95,false
+FR,dga ite,,procurement_agency,0.95,false
 FR,dga sca,,procurement_agency,0.95,false
-FR,dga tech de france travail,,procurement_agency,0.95,false
-FR,dga techniques aeronautiques,,procurement_agency,0.95,false
-FR,direction generale de l armement,,procurement_agency,0.95,false
-FR,direction generale de l armement do service des achats de l armement,,procurement_agency,0.95,false
-FR,direction generale de l armement domn service des achats d armement,,procurement_agency,0.95,false
-FR,direction generale de l armement domn service des achats de l armement,,procurement_agency,0.95,false
-FR,dirisi,,procurement_agency,0.95,false
-FR,dirisi brest,,procurement_agency,0.95,false
-FR,dirisi cnso,,procurement_agency,0.95,false
-FR,dirisi ile de france,,procurement_agency,0.95,false
-FR,dirisi toulon,,procurement_agency,0.95,false
-FR,dirisi-cnso,,procurement_agency,0.95,false
-FR,economat des armees,,procurement_agency,0.95,false
-FR,ema dc sca gsbdd reunion - mayotte,,procurement_agency,0.95,false
-FR,ema dc sca gsbdd reunion mayotte,,procurement_agency,0.95,false
-FR,ema dc sca gsbdd reunion-mayotte,,procurement_agency,0.95,false
-FR,ema dcdirisi dirisi brest,,procurement_agency,0.95,false
-FR,ema dcssa daps ssa,,procurement_agency,0.95,false
-FR,ema dcssa daps-ssa,,procurement_agency,0.95,false
-FR,ema dcssa dapsa,,procurement_agency,0.95,false
-FR,ema sca pfc rambouillet,,procurement_agency,0.95,false
-FR,marine dcssf dsfbrest,,procurement_agency,0.95,false
-FR,marine dcssf dssf brest,,procurement_agency,0.95,false
-FR,marine dcssf dssf brest antenne ssf la reunion,,procurement_agency,0.95,false
-FR,marine dcssf dssf toulon,,procurement_agency,0.95,false
-FR,marine dcssf dssf-brest,,procurement_agency,0.95,false
-FR,marine dcssf dssfbrest,,procurement_agency,0.95,false
-FR,minarm,,ministry,0.95,false
+FR,dga techniques aeronautiques,,procurement_agency,0.95,false
+FR,dicom,,procurement_agency,0.95,false
+FR,dicom a dsl,13001415200016,procurement_agency,0.95,false
+FR,dicom adsl,,procurement_agency,0.95,false
+FR,dicom antille baf bap,,procurement_agency,0.95,false
+FR,dicom antilles,,procurement_agency,0.95,false
+FR,dicom antilles daf bap,,procurement_agency,0.95,false
+FR,dicom des fazsoi,13002909300015,procurement_agency,0.95,false
+FR,dicom faa - daf bap,,procurement_agency,0.95,false
+FR,dicom fag,130013725000028,procurement_agency,0.95,false
+FR,dicom fazsoi,11009001600046,procurement_agency,0.95,false
+FR,dicom fazsoi et gsbdd reunion-mayotte,,procurement_agency,0.95,false
+FR,dicom fazsoi reunion-mayotte,,procurement_agency,0.95,false
+FR,dicom gsbdd reunion mayotte,,procurement_agency,0.95,false
+FR,dicom gsc des fazsoi,,procurement_agency,0.95,false
+FR,dicom gsc la reunion-mayotte,,procurement_agency,0.95,false
+FR,dicom guyane,13003088500029,procurement_agency,0.95,false
+FR,dicom pour le compte de la ville de paris,,procurement_agency,0.95,false
+FR,dicom-gsbdd la reunion mayotte,,procurement_agency,0.95,false
+FR,dicom-gsbdd la reunion-mayotte,,procurement_agency,0.95,false
+FR,dicom-gsc des fazsoi,,procurement_agency,0.95,false
+FR,dicom-gsc guyane,,procurement_agency,0.95,false
+FR,dicom-gsc reunion-mayotte,,procurement_agency,0.95,false
+FR,direction generale de l armement,,procurement_agency,0.95,false
+FR,direction generale de l armement do service des achats de l armement,,procurement_agency,0.95,false
+FR,direction generale de l armement domn service des achats d armement,15200039400014,procurement_agency,0.95,false
+FR,direction generale de l armement domn service des achats de l armement,,procurement_agency,0.95,false
+FR,dirisi,,procurement_agency,0.95,false
+FR,dirisi brest,,procurement_agency,0.95,false
+FR,dirisi centre national de soutien operationnel 75 rue du parc bp 95249 45052 orleans cedex 1,,procurement_agency,0.95,false
+FR,dirisi cnso,,procurement_agency,0.95,false
+FR,dirisi ile de france,,procurement_agency,0.95,false
+FR,dirisi toulon,,procurement_agency,0.95,false
+FR,dirisi-cnso,,procurement_agency,0.95,false
+FR,economat des armees,542085907000013,procurement_agency,0.95,false
+FR,ema dc sca gsbdd reunion - mayotte,,procurement_agency,0.95,false
+FR,ema dc sca gsbdd reunion mayotte,,procurement_agency,0.95,false
+FR,ema dc sca gsbdd reunion-mayotte,,procurement_agency,0.95,false
+FR,ema dcdirisi dirisi brest,,procurement_agency,0.95,false
+FR,ema dcssa daps ssa,,procurement_agency,0.95,false
+FR,ema dcssa daps-ssa,15100002301258,procurement_agency,0.95,false
+FR,ema dcssa daps-ssa pfaf-s,,procurement_agency,0.95,false
+FR,ema dcssa dapsa,1510000230158,procurement_agency,0.95,false
+FR,ema dcssa dapsa-pfaf-s,,procurement_agency,0.95,false
+FR,ema sca pfc rambouillet,,procurement_agency,0.95,false
+FR,ema sca pfc-se dap,,procurement_agency,0.95,false
+FR,ema-dc sca-gsbdd reunion-mayotte,,procurement_agency,0.95,false
+FR,marine dcssf dsfbrest,,procurement_agency,0.95,false
+FR,marine dcssf dssf brest,,procurement_agency,0.95,false
+FR,marine dcssf dssf brest antenne ssf la reunion,,procurement_agency,0.95,false
+FR,marine dcssf dssf toulon,15000106300018,procurement_agency,0.95,false
+FR,marine dcssf dssf-brest,,procurement_agency,0.95,false
+FR,marine dcssf dssfbrest,,procurement_agency,0.95,false
+FR,minarm,11009001600053,ministry,0.95,false
+FR,minarm - pfc-se,,ministry,0.95,false
+FR,minarm - pfc-sud,,ministry,0.95,false
 FR,minarm - terre - simmt,,ministry,0.95,false
-FR,minarm air siae,,ministry,0.95,false
-FR,minarm air siae aia clermont ferrand,,ministry,0.95,false
-FR,minarm air siae ministere des armees,,ministry,0.95,false
-FR,minarm case n 51,,ministry,0.95,false
-FR,minarm dga do s2a,,ministry,0.95,false
+FR,minarm air siae,11000201100044,ministry,0.95,false
+FR,minarm air siae aia clermont ferrand,,ministry,0.95,false
+FR,minarm air siae ministere des armees,,ministry,0.95,false
+FR,minarm case n 51,,ministry,0.95,false
+FR,minarm cnd,,ministry,0.95,false
+FR,minarm dcssa dapsa pfafs,,ministry,0.95,false
+FR,minarm dga do s2a,15000027100034,ministry,0.95,false
 FR,minarm dga do s2a - ministere des armees - direction generale de l armement - direction des operations - service des achats d armement division achats sud-est site d istres,,ministry,0.95,false
-FR,minarm dga do s2a - ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-sud-est site d istres,,ministry,0.95,false
+FR,minarm dga do s2a - ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-sud-est site d istres,,ministry,0.95,false
 FR,minarm dga do s2a ministere des armees - direction generale de l armement - direction des operations - service des achats d armement,,ministry,0.95,false
-FR,minarm dga do s2a ministere des armees - direction generale de l armement - direction des operations - service des achats d armement minarm dga do s2a,,ministry,0.95,false
-FR,minarm dga do s2a ministere des armees direction generale de l armement direction des operations service des achats d armement,,ministry,0.95,false
+FR,minarm dga do s2a ministere des armees - direction generale de l armement - direction des operations - service des achats d armement minarm dga do s2a,5415200046900014,ministry,0.95,false
+FR,minarm dga do s2a ministere des armees direction generale de l armement direction des operations service des achats d armement,,ministry,0.95,false
 FR,minarm dga do s2a prod da-ams ministere des armees - direction generale de l armement - direction des operations - service des achats d armement division achats ams,,ministry,0.95,false
 FR,minarm dga do s2a prod da-nbc-ter,,ministry,0.95,false
 FR,minarm dga do s2a prod da_bs ministere des armees - direction generale de l armement - direction des operations - service des achats d armement,,ministry,0.95,false
-FR,minarm dicom antilles,,ministry,0.95,false
-FR,minarm dmae,,ministry,0.95,false
-FR,minarm dmae direction de la maintenance aeronautique,,ministry,0.95,false
-FR,minarm dmae direction de la maintenance aeronautique sous-direction achats,,ministry,0.95,false
-FR,minarm dmae ssam 33503,,ministry,0.95,false
+FR,minarm dicom antilles,13001543100013,ministry,0.95,false
+FR,minarm dmae,,ministry,0.95,false
+FR,minarm dmae direction de la maintenance aeronautique,,ministry,0.95,false
+FR,minarm dmae direction de la maintenance aeronautique sous-direction achats,,ministry,0.95,false
+FR,minarm dmae ssam 33503,,ministry,0.95,false
 FR,minarm dmae ssam33 503,,ministry,0.95,false
-FR,minarm dmae ssam33503,,ministry,0.95,false
-FR,minarm ema dcssa dapsa-pfaf-s,,ministry,0.95,false
-FR,minarm ema sca pfaf-ce bap,,ministry,0.95,false
-FR,minarm ema sca pfc paris,,ministry,0.95,false
-FR,minarm ema sca pfc se dap bha,,ministry,0.95,false
-FR,minarm ema sca pfc sud,,ministry,0.95,false
-FR,minarm ema sca pfc sud divap,,ministry,0.95,false
-FR,minarm ema sca pfc sud toulon,,ministry,0.95,false
-FR,minarm ema sca pfc-se bha,,ministry,0.95,false
-FR,minarm ema sca pfc-se dap ba,,ministry,0.95,false
-FR,minarm ema sca pfc-se dap bha,,ministry,0.95,false
-FR,minarm ema sca pfcsud divap,,ministry,0.95,false
-FR,minarm sca pfc brest,,ministry,0.95,false
-FR,minarm sca pfc paris,,ministry,0.95,false
-FR,minarm sca pfc rambouillet,,ministry,0.95,false
-FR,minarm sca pfc rbt,,ministry,0.95,false
-FR,minarm sca pfc-paris,,ministry,0.95,false
+FR,minarm dmae ssam33 503 structure specialisee d achat et de mandatement 33 503 base aerienne 106,,ministry,0.95,false
+FR,minarm dmae ssam33503,15000001800016,ministry,0.95,false
+FR,minarm ema dapsa pfaf-s,,ministry,0.95,false
+FR,minarm ema dapsa ssa,,ministry,0.95,false
+FR,minarm ema dcssa dapsa,,ministry,0.95,false
+FR,minarm ema dcssa dapsa-pfaf-s,,ministry,0.95,false
+FR,minarm ema sca pfaf-ce bap,,ministry,0.95,false
+FR,minarm ema sca pfc paris,,ministry,0.95,false
+FR,minarm ema sca pfc se dap bha,,ministry,0.95,false
+FR,minarm ema sca pfc sud,30001537300017,ministry,0.95,false
+FR,minarm ema sca pfc sud divap,13000525900010,ministry,0.95,false
+FR,minarm ema sca pfc sud toulon,,ministry,0.95,false
+FR,minarm ema sca pfc-se bha,,ministry,0.95,false
+FR,minarm ema sca pfc-se dap ba,,ministry,0.95,false
+FR,minarm ema sca pfc-se dap bap,,ministry,0.95,false
+FR,minarm ema sca pfc-se dap bha,,ministry,0.95,false
+FR,minarm ema sca pfcsud divap,,ministry,0.95,false
+FR,minarm sac pfc brest,,ministry,0.95,false
+FR,minarm sai,,ministry,0.95,false
+FR,minarm sca divap,,ministry,0.95,false
+FR,minarm sca pfc brest,,ministry,0.95,false
+FR,minarm sca pfc brest bcrm de brest cc 20 brest cedex 9,,ministry,0.95,false
+FR,minarm sca pfc paris,,ministry,0.95,false
+FR,minarm sca pfc rambouillet,,ministry,0.95,false
+FR,minarm sca pfc rbt,,ministry,0.95,false
+FR,minarm sca pfc sud divap,,ministry,0.95,false
+FR,minarm sca pfc-paris,,ministry,0.95,false
 FR,minarm sca pfc-rbt,,ministry,0.95,false
-FR,minarm sca pfc-rbt plate-forme commissariat rambouillet,,ministry,0.95,false
-FR,minarm sca pfc-se dap bha,,ministry,0.95,false
-FR,minarm sca pfc-sud,,ministry,0.95,false
-FR,minarm sca pfc_paris,,ministry,0.95,false
-FR,minarm sca pfcrbt,,ministry,0.95,false
-FR,minarm sca pfcse dap bha,,ministry,0.95,false
-FR,minarm sca plate-forme commissariat paris,,ministry,0.95,false
-FR,minarm sdpamg,,ministry,0.95,false
+FR,minarm sca pfc-rbt plate-forme commissariat rambouillet,,ministry,0.95,false
+FR,minarm sca pfc-se dap bha,,ministry,0.95,false
+FR,minarm sca pfc-sud,,ministry,0.95,false
+FR,minarm sca pfc_paris,,ministry,0.95,false
+FR,minarm sca pfcrbt,,ministry,0.95,false
+FR,minarm sca pfcse dap bha,,ministry,0.95,false
+FR,minarm sca plate-forme commissariat paris,,ministry,0.95,false
+FR,minarm sdpamg,,ministry,0.95,false
 FR,minarm seo csta ministere des armees,,ministry,0.95,false
-FR,minarm sga sdpamg,,ministry,0.95,false
-FR,minarm sga sid cetid,,ministry,0.95,false
-FR,minarm sga sid did-sds,,ministry,0.95,false
-FR,minarm sga sid sid med sd-ac,,ministry,0.95,false
-FR,minarm sga sid sid med service achat infrastructures,,ministry,0.95,false
+FR,minarm sga drh-md defense mobilite,,ministry,0.95,false
+FR,minarm sga sdpamg,,ministry,0.95,false
+FR,minarm sga sid cetid,13000190200191,ministry,0.95,false
+FR,minarm sga sid did-sds,,ministry,0.95,false
+FR,minarm sga sid med sd-ac bam,,ministry,0.95,false
+FR,minarm sga sid sid atl,,ministry,0.95,false
+FR,minarm sga sid sid med sd ac,,ministry,0.95,false
+FR,minarm sga sid sid med sd ac bam,,ministry,0.95,false
+FR,minarm sga sid sid med sd-ac,13000190200332,ministry,0.95,false
+FR,minarm sga sid sid med sdac,,ministry,0.95,false
+FR,minarm sga sid sid med service achat infrastructure,,ministry,0.95,false
+FR,minarm sga sid sid med service achat infrastructures,,ministry,0.95,false
 FR,minarm sga sid sid med service achats infrastructure,,ministry,0.95,false
+FR,minarm sga sid sid med services achats infrastructures,,ministry,0.95,false
 FR,minarm sga sid sid-med sd-ac,,ministry,0.95,false
-FR,minarm sga sid-med sd-ac,,ministry,0.95,false
-FR,minarm sga sous-direction de l agence ministerielle de gestion sdpamg,,ministry,0.95,false
-FR,minarm sga sous-direction de la prefiguration de l agence ministerielle de gestion sdpamg,,ministry,0.95,false
-FR,minarm simmt sdo ddc,,ministry,0.95,false
-FR,minarm stat,,ministry,0.95,false
-FR,minarm terre simmt,,ministry,0.95,false
+FR,minarm sga sid sid-med sous-direction achats execution budgetaire et comptabilite,,ministry,0.95,false
+FR,minarm sga sid-med sd-ac,,ministry,0.95,false
+FR,minarm sga sid-sud-est,,ministry,0.95,false
+FR,minarm sga sous direction de la prefiguration de l agence ministerielle de gestion sdpamg,,ministry,0.95,false
+FR,minarm sga sous-direction de l agence ministerielle de gestion sdpamg,,ministry,0.95,false
+FR,minarm sga sous-direction de la prefiguration de l agence ministerielle de gestion sdpamg,,ministry,0.95,false
+FR,minarm simmt sdo ddc,,ministry,0.95,false
+FR,minarm stat,15400010300015,ministry,0.95,false
+FR,minarm terre simmt,15400005300582,ministry,0.95,false
 FR,minarm terre simmt ddc,,ministry,0.95,false
-FR,minarm-ema-sda-dmae-ssam33504,,ministry,0.95,false
-FR,mindef aa siae aia bretagne,,ministry,0.95,false
-FR,mindef air siae,,ministry,0.95,false
-FR,mindef air siae aia cf,,ministry,0.95,false
-FR,mindef air siae aia de cuers pierrefeu,,ministry,0.95,false
-FR,mindef armee de l air sagf ssam 33 504,,ministry,0.95,false
-FR,mindef armee de l air sagf ssam 33504,,ministry,0.95,false
-FR,mindef armee de l air simmad ssam 33503,,ministry,0.95,false
-FR,mindef armee de l air simmad ssam33503,,ministry,0.95,false
-FR,mindef csa pfaf ouest,,ministry,0.95,false
-FR,mindef dcssf antenne nouvelle caledonie,,ministry,0.95,false
-FR,mindef dcssf antenne nouvelle-caledonie,,ministry,0.95,false
-FR,mindef dcssf antennenouvelle caledonie,,ministry,0.95,false
-FR,mindef dga,,ministry,0.95,false
-FR,mindef dga de caepe,,ministry,0.95,false
-FR,mindef dga do s2a,,ministry,0.95,false
-FR,mindef dga dt scat,,ministry,0.95,false
-FR,mindef dga dt scat cazaux,,ministry,0.95,false
-FR,mindef dga dt scat toulon,,ministry,0.95,false
-FR,mindef dga dt scat toulouse,,ministry,0.95,false
-FR,mindef ema dc sca pfaf co rennes,,ministry,0.95,false
-FR,mindef ema dc sca pfaf se,,ministry,0.95,false
-FR,mindef ema dc sca pfaf-se,,ministry,0.95,false
-FR,mindef ema dcdirisi cnso,,ministry,0.95,false
-FR,mindef ema dcsca cescof antenne navale,,ministry,0.95,false
-FR,mindef ema dcsca pfafse,,ministry,0.95,false
-FR,mindef ema dcsca pfafso gsbdd 82,,ministry,0.95,false
-FR,mindef ema dcsca sslt,,ministry,0.95,false
-FR,mindef ema sca cescof,,ministry,0.95,false
-FR,mindef ema sca cesga,,ministry,0.95,false
-FR,mindef ema sca pfaf idf,,ministry,0.95,false
-FR,mindef ema sca pfaf-ce bap,,ministry,0.95,false
-FR,mindef ema sca pfaf-idf,,ministry,0.95,false
-FR,mindef ema sca pfc sud,,ministry,0.95,false
-FR,mindef ema sea lsea,,ministry,0.95,false
-FR,mindef sca cescof,,ministry,0.95,false
-FR,mindef sca pfaf ouest,,ministry,0.95,false
-FR,mindef sca pfc brest,,ministry,0.95,false
-FR,mindef services communs bcac case 75,,ministry,0.95,false
-FR,mindef services communs bcac-case 75,,ministry,0.95,false
-FR,mindef sga,,ministry,0.95,false
-FR,mindef sga - defense mobilite,,ministry,0.95,false
-FR,mindef sga sid did cayenne,,ministry,0.95,false
-FR,mindef sga spac s - direction des achats,,ministry,0.95,false
-FR,mindef sga spac s direction des achats,,ministry,0.95,false
-FR,mindef sga spac s-direction des achats,,ministry,0.95,false
-FR,mindef sga spac sous direction des achats,,ministry,0.95,false
-FR,mindef sga spac sous-direction des achats,,ministry,0.95,false
-FR,mindef simmad,,ministry,0.95,false
-FR,mindef terre simmt,,ministry,0.95,false
-FR,ministere de la defense,,ministry,0.95,false
-FR,ministere de la defense - bcac-cg195 m,,ministry,0.95,false
-FR,ministere de la defense bcac - cg195 m,,ministry,0.95,false
-FR,ministere de la defense bcac cg195 m,,ministry,0.95,false
-FR,ministere de la defense bcac-cg 195 m,,ministry,0.95,false
-FR,ministere de la defense bcac-cg195 m,,ministry,0.95,false
-FR,ministere des armees,,ministry,0.95,false
-FR,ministere des armees - direction de la maintenance aeronautique - sdpf- ssam 330504 - detachement air 204,,ministry,0.95,false
-FR,ministere des armees - direction de la maintenance aeronautique minarm dmae,,ministry,0.95,false
+FR,minarm-ema-sda-dmae-ssam33504,,ministry,0.95,false
+FR,mindef aa siae aia bretagne,,ministry,0.95,false
+FR,mindef air siae,,ministry,0.95,false
+FR,mindef air siae aia cf,,ministry,0.95,false
+FR,mindef air siae aia de cuers pierrefeu,,ministry,0.95,false
+FR,mindef armee de l air sagf ssam 33 504,13001642100013,ministry,0.95,false
+FR,mindef armee de l air sagf ssam 33504,,ministry,0.95,false
+FR,mindef armee de l air simmad ssam 33503,,ministry,0.95,false
+FR,mindef armee de l air simmad ssam33503,,ministry,0.95,false
+FR,mindef csa pfaf ouest,,ministry,0.95,false
+FR,mindef dcssf antenne nouvelle caledonie,,ministry,0.95,false
+FR,mindef dcssf antenne nouvelle-caledonie,,ministry,0.95,false
+FR,mindef dcssf antennenouvelle caledonie,,ministry,0.95,false
+FR,mindef dga,,ministry,0.95,false
+FR,mindef dga de caepe,,ministry,0.95,false
+FR,mindef dga do s2a,15200001400141,ministry,0.95,false
+FR,mindef dga dt scat,,ministry,0.95,false
+FR,mindef dga dt scat cazaux,,ministry,0.95,false
+FR,mindef dga dt scat toulon,,ministry,0.95,false
+FR,mindef dga dt scat toulouse,,ministry,0.95,false
+FR,mindef ema dc sca pfaf co rennes,1100020110044,ministry,0.95,false
+FR,mindef ema dc sca pfaf se,,ministry,0.95,false
+FR,mindef ema dc sca pfaf-se,130015373000017,ministry,0.95,false
+FR,mindef ema dcdirisi cnso,1500079200013,ministry,0.95,false
+FR,mindef ema dcsca cescof antenne navale,,ministry,0.95,false
+FR,mindef ema dcsca pfaf-ce gsbdd grenobl,,ministry,0.95,false
+FR,mindef ema dcsca pfafse,,ministry,0.95,false
+FR,mindef ema dcsca pfafso gsbdd 82,,ministry,0.95,false
+FR,mindef ema dcsca sslt,,ministry,0.95,false
+FR,mindef ema sca cescof,,ministry,0.95,false
+FR,mindef ema sca cesga,13000889900184,ministry,0.95,false
+FR,mindef ema sca pfaf idf,,ministry,0.95,false
+FR,mindef ema sca pfaf-ce bap,13001536500013,ministry,0.95,false
+FR,mindef ema sca pfaf-idf,1300153400016,ministry,0.95,false
+FR,mindef ema sca pfc sud,,ministry,0.95,false
+FR,mindef ema sea lsea,,ministry,0.95,false
+FR,mindef sca cescof,13001542300010,ministry,0.95,false
+FR,mindef sca pfaf ouest,13001531539900012,ministry,0.95,false
+FR,mindef sca pfc brest,1300153990012,ministry,0.95,false
+FR,mindef services communs bcac case 75,,ministry,0.95,false
+FR,mindef services communs bcac-case 75,,ministry,0.95,false
+FR,mindef sga,11009001600012,ministry,0.95,false
+FR,mindef sga - defense mobilite,,ministry,0.95,false
+FR,mindef sga sid did cayenne,,ministry,0.95,false
+FR,mindef sga spac s - direction des achats,,ministry,0.95,false
+FR,mindef sga spac s direction des achats,,ministry,0.95,false
+FR,mindef sga spac s-direction des achats,1100201100044,ministry,0.95,false
+FR,mindef sga spac sous direction des achats,,ministry,0.95,false
+FR,mindef sga spac sous-direction des achats,,ministry,0.95,false
+FR,mindef simmad,,ministry,0.95,false
+FR,mindef terre simmt,,ministry,0.95,false
+FR,ministere de la defense,15000011500017,ministry,0.95,false
+FR,ministere de la defense - bcac-cg195 m,15300003900054,ministry,0.95,false
+FR,ministere de la defense bcac - cg195 m,,ministry,0.95,false
+FR,ministere de la defense bcac cg195 m,,ministry,0.95,false
+FR,ministere de la defense bcac-cg 195 m,,ministry,0.95,false
+FR,ministere de la defense bcac-cg195 m,,ministry,0.95,false
+FR,ministere des armees,,ministry,0.95,false
+FR,ministere des armees - case 51,,ministry,0.95,false
+FR,ministere des armees - did de fort de france,,ministry,0.95,false
+FR,ministere des armees - direction de la maintenance aeronautique - sdpf- ssam 330504 - detachement air 204,,ministry,0.95,false
+FR,ministere des armees - direction de la maintenance aeronautique minarm dmae,,ministry,0.95,false
 FR,ministere des armees - direction generale de l armement - direction des operations - service des achats d armement,,ministry,0.95,false
 FR,ministere des armees - direction generale de l armement direction des operations - service des achats d armement,,ministry,0.95,false
-FR,ministere des armees - service du commissariat des armees - plateforme commissariat rambouillet,,ministry,0.95,false
-FR,ministere des armees case 51,,ministry,0.95,false
-FR,ministere des armees case n 51,,ministry,0.95,false
-FR,ministere des armees centre national de soutien operationnel,,ministry,0.95,false
+FR,ministere des armees - pfc ouest,,ministry,0.95,false
+FR,ministere des armees - plate-forme commissariat ouest rennes,,ministry,0.95,false
+FR,ministere des armees - service de l energie operationnelle,,ministry,0.95,false
+FR,ministere des armees - service de l energie operationnelle seo - centre de soutien technique et administratif csta,,ministry,0.95,false
+FR,ministere des armees - service du commissariat des armees - plateforme commissariat rambouillet,,ministry,0.95,false
+FR,ministere des armees - sga sdpamg,,ministry,0.95,false
+FR,ministere des armees - sid med,,ministry,0.95,false
+FR,ministere des armees - sid nord est,,ministry,0.95,false
+FR,ministere des armees - sid nord-ouest,,ministry,0.95,false
+FR,ministere des armees - sid sud-est,,ministry,0.95,false
+FR,ministere des armees - sid-se,,ministry,0.95,false
+FR,ministere des armees base navale de toulon bnt accordcadre d assistance juridique a la maitrise d ouvrage dans le cadre du programme d infrastructure porteavions nouvelle generation pang,,ministry,0.95,false
+FR,ministere des armees case 51,,ministry,0.95,false
+FR,ministere des armees case n 51,,ministry,0.95,false
+FR,ministere des armees case n 51 - ap 205,,ministry,0.95,false
+FR,ministere des armees centre national de soutien operationnel,,ministry,0.95,false
+FR,ministere des armees dapsa pfaf-s,,ministry,0.95,false
 FR,ministere des armees dga do s2a,,ministry,0.95,false
 FR,ministere des armees dga do s2a division achats bruz,,ministry,0.95,false
 FR,ministere des armees dga do s2a division achats du sudouest sd,,ministry,0.95,false
 FR,ministere des armees dga do s2a division achats ile-de-france normandie,,ministry,0.95,false
-FR,ministere des armees dga do s2a division achats ile-de-france normandie val de reuil,,ministry,0.95,false
+FR,ministere des armees dga do s2a division achats ile-de-france normandie val de reuil,,ministry,0.95,false
 FR,ministere des armees dga do s2a division achats sud-est site d istres,,ministry,0.95,false
 FR,ministere des armees dga do s2a division achats sud-est site toulon,,ministry,0.95,false
 FR,ministere des armees dga do s2a division achats-so biscarrosse,,ministry,0.95,false
 FR,ministere des armees dga do s2a prod a l attention de ministere des armees - direction generale de l armement - direction des operations - service des achats d armement - division hmi,,ministry,0.95,false
 FR,ministere des armees dga do s2a prod da- ams balard,,ministry,0.95,false
 FR,ministere des armees dga do s2a prod da-ams balard,,ministry,0.95,false
-FR,ministere des armees dga do s2a prod da-bs,,ministry,0.95,false
+FR,ministere des armees dga do s2a prod da-bs,,ministry,0.95,false
 FR,ministere des armees dga do s2a prod da-bz,,ministry,0.95,false
 FR,ministere des armees dga do s2a prod da-c2er-and,,ministry,0.95,false
 FR,ministere des armees dga do s2a prod da-hmi,,ministry,0.95,false
-FR,ministere des armees dga do s2a prod da-ter nbc,,ministry,0.95,false
-FR,ministere des armees dicom antilles daf bap,,ministry,0.95,false
-FR,ministere des armees dicom antilles sca saf bap,,ministry,0.95,false
-FR,ministere des armees direction du commissariat d outre-mer aux antilles,,ministry,0.95,false
-FR,ministere des armees direction du commissariat des forces armees aux antilles,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations s2a prod da-se-tn,,ministry,0.95,false
+FR,ministere des armees dga do s2a prod da-ter nbc,,ministry,0.95,false
+FR,ministere des armees dicom antilles,,ministry,0.95,false
+FR,ministere des armees dicom antilles daf bap,,ministry,0.95,false
+FR,ministere des armees dicom antilles gsbdd,,ministry,0.95,false
+FR,ministere des armees dicom antilles gsbdd faa,,ministry,0.95,false
+FR,ministere des armees dicom antilles sca saf bap,,ministry,0.95,false
+FR,ministere des armees direction d infrastructure de la defense de saint-denis caserne lambert bp 50800 97476 saint-denis cedex,,ministry,0.95,false
+FR,ministere des armees direction du commissariat d outre-mer aux antilles,,ministry,0.95,false
+FR,ministere des armees direction du commissariat des forces armees aux antilles,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations s2a prod da-se-tn,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement da-bz site de bruz,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats d armement da-idfn saclay,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats d armement da-idfn saclay,15000025500011,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats bourges techniques terrestres,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats de balma,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats idfn - site de saclay,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats sud ouest,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats sud ouest,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats sud-est site d istres,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats ter minarm dga do s2a prod da nbc ter,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-ile-de-france normandie,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-sud ouest biscarrosse,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-ile-de-france normandie,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division achats-sud ouest biscarrosse,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement division d achat du sud ouest sd,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement pole production direction des operations division achats de balma,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement prod division achats-da site de bourges,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement s2a division achats ter-nbc,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats d armement site de bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats d armements division achats sud-ouest site de saint-medard-en-jalles,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats d armements division achats sud-ouest site de saint-medard-en-jalles,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats balma,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats balma,11000201100023,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats de balma,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats de bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats saint medard en jalles,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats saint medard en jalles,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats site de bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats site landes,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud ouest site de biscarrosse,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats site landes,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud ouest site de biscarrosse,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud-est site d istres,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud-est toulon,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud-est toulon,34150000493,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud-ouest biscarrosse,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats sud-ouest division achats de balma,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats-bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division sud-est,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division achats-bourges,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l armement division sud-est,29152000451,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat,24150000222,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat da-bz site de bruz,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat da-idfn site de saclay,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat da-s2a site de saclay,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat da-idfn site de saclay,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat da-s2a site de saclay,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats - bourges,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats bourges,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats bourges techniques terrestres,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats de bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats du sud-ouest sd,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats du sud-ouest st medard en jalles,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats gironde,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats idf-n site de vert le petit,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats du sud-ouest sd,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats du sud-ouest st medard en jalles,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats gironde,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats idf-n site de vert le petit,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats ile-de-france normandie,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats landes,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats s2a site de bruz,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats saint medard-en-jalles,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats so,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats landes,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats s2a site de bruz,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats saint medard-en-jalles,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats so,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-est istres,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-est site d istres,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-est site d istres,74150000271,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-est site toulon,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-ouest biscarrosse,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-ouest site de saint-medard-en-jalles,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats- sigle de la da site ou departement du service juridique et contentieux bureau des affaires generales,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats--sud-est site d istres,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-ouest biscarrosse,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats sud-ouest site de saint-medard-en-jalles,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats- sigle de la da site ou departement du service juridique et contentieux bureau des affaires generales,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats--sud-est site d istres,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-bourges,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-bz,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-bz,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-bz site de bruz,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-idfn val de reuil,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-ile-de-france normandie,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-idfn val de reuil,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-ile-de-france normandie,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-site de bourges,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-site de bruz,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat division achats-sud-est site toulon,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats de balma,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats de bruz,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats de rennes,,ministry,0.95,false
-FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats du sud-ouest,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats de balma,15000026300023,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats de bruz,,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats de rennes,15200046900014,ministry,0.95,false
+FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat pole production division achats du sud-ouest,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat prod da- idfn val de reuil,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat production division achats site de bourges,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des achats de l etat production division achats sud est toulon,,ministry,0.95,false
 FR,ministere des armees direction generale de l armement direction des operations service des de l etat division achats-sud-est site toulon,,ministry,0.95,false
-FR,ministere des armees et des anciens combattants,,ministry,0.95,false
-FR,ministere des armees et des anciens combattants case n 51,,ministry,0.95,false
-FR,ministere des armees et des anciens combattants sga drh-md defense mobilite,,ministry,0.95,false
-FR,ministere des armees secretariat general pour l administration direction des ressources humaines du ministere de la defense defense mobilite,,ministry,0.95,false
-FR,ministere des armees service de l energie operationnelle centre de soutien technique et administatif,,ministry,0.95,false
-FR,ministere des armees service de l energie operationnelle seo centre de soutien technique et administratif csta,,ministry,0.95,false
+FR,ministere des armees et anciens combattants,,ministry,0.95,false
+FR,ministere des armees et des anciens combattants,,ministry,0.95,false
+FR,ministere des armees et des anciens combattants - gsbdd de saint-dizier - chaumont - ersa marolles,,ministry,0.95,false
+FR,ministere des armees et des anciens combattants case n 51,,ministry,0.95,false
+FR,ministere des armees et des anciens combattants plate-forme commissariat est division achats publics section achats n 3 quartier d asfeld - cs 82004 - 57044 metz cedex 1,,ministry,0.95,false
+FR,ministere des armees et des anciens combattants service de l energie operationnelle,,ministry,0.95,false
+FR,ministere des armees et des anciens combattants sga drh-md defense mobilite,,ministry,0.95,false
+FR,ministere des armees plate-forme commissariat sud-est pfc-se,,ministry,0.95,false
+FR,ministere des armees sca plate forme commissariat brest division achat public,,ministry,0.95,false
+FR,ministere des armees sdpamg,,ministry,0.95,false
+FR,ministere des armees secretariat general pour l administration direction des ressources humaines du ministere de la defense defense mobilite,,ministry,0.95,false
+FR,ministere des armees service de l energie operationnelle centre de soutien technique et administatif,DAF2023001945,ministry,0.95,false
+FR,ministere des armees service de l energie operationnelle centre de soutien technique et administratif,,ministry,0.95,false
+FR,ministere des armees service de l energie operationnelle centre de soutien technique et administratif type de numero national d identification siret n national d identification 15100003100998 ville nancy cedex code postal 54035,,ministry,0.95,false
+FR,ministere des armees service de l energie operationnelle seo centre de soutien technique et administratif csta,,ministry,0.95,false
+FR,ministere des armees sid nord-ouest,,ministry,0.95,false
+FR,ministere des armees sid soud ouest,,ministry,0.95,false
 FR,ministere des armees simmt sdo ddc,,ministry,0.95,false
-FR,plateforme affretement et transport,,procurement_agency,0.95,false
-FR,saelsi,,procurement_agency,0.95,false
-FR,sca pfaf so,,procurement_agency,0.95,false
-FR,sca pfaf-so,,procurement_agency,0.95,false
-FR,sca pfc so,,procurement_agency,0.95,false
-FR,sca plate-forme commissariat sud-ouest pfc so,,procurement_agency,0.95,false
-FR,sca plate-forme sud-ouest bordeaux,,procurement_agency,0.95,false
-FR,service des achats de l etat pole production division achats de balmaministere des armees direction generale de l armement direction des operations service des achats de l armement,,procurement_agency,0.95,false
-FR,sga drh-md dm,,procurement_agency,0.95,false
-FR,sga sdpagm,,procurement_agency,0.95,false
-FR,sga sdpamg,,procurement_agency,0.95,false
-FR,sga sdpamg bcom,,procurement_agency,0.95,false
-FR,sga sdpamg bpi,,procurement_agency,0.95,false
-FR,sga shd,,procurement_agency,0.95,false
-FR,simmt sdo ddc,,procurement_agency,0.95,false
-FR,ssf antilles,,procurement_agency,0.95,false
-FR,ssf la reunion,,procurement_agency,0.95,false
-FR,ssf polynesie francaise,,procurement_agency,0.95,false
-FR,regiment du service militaire adapte,,military_unit,0.85,false
-FR,regiment du service militaire adapte de la guyane,,military_unit,0.85,false
-FR,regiment du service militaire adapte de la reunion,,military_unit,0.85,false
-FR,regiment du service militaire adapte de mayotte,,military_unit,0.85,false
-FR,regiment service militaire adapte g,,military_unit,0.85,false
-FR,cdc habitat direction interregionale nord est agissant au nom et pour le compte du maitre de l ouvrage le directeur de l etablissement du service d infrasctructure de la defense de rennes,,defence_word,0.70,false
-FR,centre national de production d infrastructure de la defense,,defence_word,0.70,false
-FR,cercle interarmees d orleans-bricy,,defence_word,0.70,false
-FR,commissariat au numerique de defense - centre national de soutien operationnel,,defence_word,0.70,false
-FR,commissariat au numerique de defense - danz sud,,defence_word,0.70,false
-FR,commissariat au numerique de defense - direction d appui au numerique zonale sud,,defence_word,0.70,false
+FR,ministere des armees simmt sdo ddc ministere des armees - simmt - sdo - division des contrats -etablissement ingenieur general jayat m le chef de la division des contrats ministere des armees,,ministry,0.95,false
+FR,plateforme affretement et transport,,procurement_agency,0.95,false
+FR,plateforme commissariat centre ouest rennes,,procurement_agency,0.95,false
+FR,plateforme commissariat de rambouillet,,procurement_agency,0.95,false
+FR,plateforme commissariat est,,procurement_agency,0.95,false
+FR,plateforme commissariat est champ obligatoire,,procurement_agency,0.95,false
+FR,plateforme commissariat est metz,,procurement_agency,0.95,false
+FR,plateforme commissariat ouest,,procurement_agency,0.95,false
+FR,plateforme commissariat ouest de rennes,,procurement_agency,0.95,false
+FR,plateforme commissariat ouest rennes,,procurement_agency,0.95,false
+FR,plateforme commissariat paris,,procurement_agency,0.95,false
+FR,plateforme commissariat paris saint germain en laye,,procurement_agency,0.95,false
+FR,plateforme commissariat paris saint-germain-en-laye,,procurement_agency,0.95,false
+FR,plateforme commissariat rambouillet,,procurement_agency,0.95,false
+FR,plateforme commissariat sud,,procurement_agency,0.95,false
+FR,plateforme commissariat sud ouest,,procurement_agency,0.95,false
+FR,plateforme commissariat sud ouest bordeaux,,procurement_agency,0.95,false
+FR,plateforme commissariat sud ouest pfc so,,procurement_agency,0.95,false
+FR,plateforme commissariat sud toulon,,procurement_agency,0.95,false
+FR,plateforme commissariat sud-est,,procurement_agency,0.95,false
+FR,plateforme commissariat sud-ouest,,procurement_agency,0.95,false
+FR,plateforme commissariat sud-ouest bordeaux,,procurement_agency,0.95,false
+FR,plateforme commissariat sud-ouest pfc so,,procurement_agency,0.95,false
+FR,plateforme commissariat sudest pfc se minarm ema sca pfcse dap bha,,procurement_agency,0.95,false
+FR,plateforme commissariat sudouest pfc so,,procurement_agency,0.95,false
+FR,plateforme du commissariat des armees sud-ouest,,procurement_agency,0.95,false
+FR,plateforme du commissariat sud-est,,procurement_agency,0.95,false
+FR,plateforme du commissariat sud-ouest,,procurement_agency,0.95,false
+FR,plateforme du commissariat sud-ouest bordeaux,,procurement_agency,0.95,false
+FR,saelsi,130019730,procurement_agency,0.95,false
+FR,sca pfaf so,13000889900150,procurement_agency,0.95,false
+FR,sca pfaf-so,,procurement_agency,0.95,false
+FR,sca pfc so,,procurement_agency,0.95,false
+FR,sca plate-forme commissariat sud-ouest pfc so,,procurement_agency,0.95,false
+FR,sca plate-forme sud-ouest bordeaux,,procurement_agency,0.95,false
+FR,service des achats de l etat pole production division achats de balmaministere des armees direction generale de l armement direction des operations service des achats de l armement,,procurement_agency,0.95,false
+FR,service du commissariat des armees sca,,procurement_agency,0.95,false
+FR,service du commissariat des armees sca - plateforme commissariat sud-est pfc se,,procurement_agency,0.95,false
+FR,sga - sdpamg,,procurement_agency,0.95,false
+FR,sga drh-md dm,,procurement_agency,0.95,false
+FR,sga sdpagm,,procurement_agency,0.95,false
+FR,sga sdpamg,,procurement_agency,0.95,false
+FR,sga sdpamg bcom,,procurement_agency,0.95,false
+FR,sga sdpamg bpi,,procurement_agency,0.95,false
+FR,sga shd,15000161800027,procurement_agency,0.95,false
+FR,simmt sdo ddc,,procurement_agency,0.95,false
+FR,ssf antilles,13001691800018,procurement_agency,0.95,false
+FR,ssf antilles guyane,,procurement_agency,0.95,false
+FR,ssf la reunion,,procurement_agency,0.95,false
+FR,ssf polynesie francaise,,procurement_agency,0.95,false
+FR,brigade verte,,military_unit,0.85,false
+FR,brigade verte d alsace,,military_unit,0.85,false
+FR,regiment du service adapte de la guadeloupe,,military_unit,0.85,false
+FR,regiment du service adaptee de la guadeloupe direction travaux infra b p 2459 97085 jarry cedex,,military_unit,0.85,false
+FR,regiment du service militaire adapte,,military_unit,0.85,false
+FR,regiment du service militaire adapte d,,military_unit,0.85,false
+FR,regiment du service militaire adapte de guadeloupe,,military_unit,0.85,false
+FR,regiment du service militaire adapte de la guadeloupe,,military_unit,0.85,false
+FR,regiment du service militaire adapte de la guadeloupe rsma-ga,,military_unit,0.85,false
+FR,regiment du service militaire adapte de la guadeloupe rsma-ga direction travaux infra b p 2459 97085 jarry cedex,,military_unit,0.85,false
+FR,regiment du service militaire adapte de la guyane,,military_unit,0.85,false
+FR,regiment du service militaire adapte de la reunion,13002016700065,military_unit,0.85,false
+FR,regiment du service militaire adapte de martinique quartier briere de l isle cs 50610 97261 fort de france,,military_unit,0.85,false
+FR,regiment du service militaire adapte de mayotte,,military_unit,0.85,false
+FR,regiment service militaire adapte g,,military_unit,0.85,false
+FR,cdc habitat direction interregionale nord est agissant au nom et pour le compte du maitre de l ouvrage le directeur de l etablissement du service d infrasctructure de la defense de rennes,,defence_word,0.70,false
+FR,centre national de production d infrastructure de la defense,,defence_word,0.70,false
+FR,cercle interarmees d orleans-bricy,,defence_word,0.70,false
+FR,commissariat au numerique de defense,,defence_word,0.70,false
+FR,commissariat au numerique de defense - centre national de soutien operationnel,,defence_word,0.70,false
+FR,commissariat au numerique de defense - danz sud,13000597800015,defence_word,0.70,false
+FR,commissariat au numerique de defense - direction d appui au numerique zonale sud,,defence_word,0.70,false
 FR,commissariat au numerique de defense cnd,,defence_word,0.70,false
-FR,commissariat au numerique de defense-cnso,,defence_word,0.70,false
-FR,defense etat major des armees,,defence_word,0.70,false
-FR,defense etat-major des armees,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de fort de france,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de saint denis,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de saint denis did sds,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de saint-denis,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de saint-denis - did saint denis,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de saint-denis did sds,,defence_word,0.70,false
-FR,direction d infrastructure de la defense de saint-denis did-sds,,defence_word,0.70,false
-FR,direction d infrastructures de la defense de saint denis,,defence_word,0.70,false
-FR,direction d infrastuture de la defense de saint-denis did sds,,defence_word,0.70,false
-FR,direction du commissariat d outre-mer et groupement de soutien de la base de defense dicom-gsbdd de guyane,,defence_word,0.70,false
-FR,direction interarmees des reseaux d infrastructure et des systemes d in,,defence_word,0.70,false
-FR,direction interarmees des reseaux d infrastructure et des systemes d information,,defence_word,0.70,false
-FR,etablissement de communication et de production audiovisuelle de la defense,,defence_word,0.70,false
-FR,etablissement de communication et de production audiovisuelles de la defense,,defence_word,0.70,false
-FR,etablissement du service d& 039 infrastructure de la defense de bordeaux,,defence_word,0.70,false
-FR,etablissement du service de la defense de rennes,,defence_word,0.70,false
-FR,etablissement public d insertion de la defense,,defence_word,0.70,false
-FR,etablissement public d insertion de la defense epide,,defence_word,0.70,false
-FR,groupement soutien base de defense,,defence_word,0.70,false
-FR,institut des hautes etudes de defense nationale,,defence_word,0.70,false
-FR,institution de gestion sociale des armees,,defence_word,0.70,false
-FR,institution de gestion sociale des armees - igesa,,defence_word,0.70,false
-FR,ministeres des armees,,defence_word,0.70,false
-FR,ministeres des armees dga do s2a prod da-bs,,defence_word,0.70,false
-FR,plateforme du commissariat des armees sud-ouest,,defence_word,0.70,false
-FR,secretariat general de la defense et de la securite nationale,,defence_word,0.70,false
-FR,section technique de l armee de terre,,defence_word,0.70,false
-FR,service historique de la defense,,defence_word,0.70,false
-FR,service historique de la defense shd,,defence_word,0.70,false
-FR,service infrastructure de la defense nord-est,,defence_word,0.70,false
-FR,service infrastructure de la defense nord-ouest,,defence_word,0.70,false
-FR,service interarmee des munitions,,defence_word,0.70,false
-FR,service interarmees des munitions,,defence_word,0.70,false
+FR,commissariat au numerique de defense-cnso,,defence_word,0.70,false
+FR,defense etat major des armees,,defence_word,0.70,false
+FR,defense etat-major des armees,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de cayenne,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de fort de france,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de fort-de-france,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint denis,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint denis did sds,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint-denis,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint-denis - did saint denis,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint-denis caserne lambert bp 50800 97476 saint-denis cedex,,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint-denis did sds,13000190200290,defence_word,0.70,false
+FR,direction d infrastructure de la defense de saint-denis did-sds,,defence_word,0.70,false
+FR,direction d infrastructures de la defense de saint denis,,defence_word,0.70,false
+FR,direction d infrastuture de la defense de saint-denis did sds,,defence_word,0.70,false
+FR,direction du commissariat d outre-mer et groupement de soutien de la base de defense dicom-gsbdd de guyane,,defence_word,0.70,false
+FR,direction interarmees des reseaux d infrastructure et des systemes d in,,defence_word,0.70,false
+FR,direction interarmees des reseaux d infrastructure et des systemes d information,,defence_word,0.70,false
+FR,direction interarmees des reseaux d infrastructure et des systemes d information de la defense dirisi centre national de soutien operationnel departement ingenierie prescription et marches sicl dipm spm 75 rue du parc bp 95249 45052 orleans cedex 1,,defence_word,0.70,false
+FR,dreal hdf zone de defense nord,,defence_word,0.70,false
+FR,etablissement de communication et de production audiovisuelle de la defense,,defence_word,0.70,false
+FR,etablissement de communication et de production audiovisuelles de la defense,,defence_word,0.70,false
+FR,etablissement du service d& 039 infrastructure de la defense de bordeaux,,defence_word,0.70,false
+FR,etablissement du service de la defense de rennes,,defence_word,0.70,false
+FR,etablissement public d insertion de la defense,,defence_word,0.70,false
+FR,etablissement public d insertion de la defense epide,,defence_word,0.70,false
+FR,etablissement public d& 039 insertion de la defense epide,,defence_word,0.70,false
+FR,etat - ministere des armees,,defence_word,0.70,false
+FR,etat - ministere des armees et des anciens combattants,,defence_word,0.70,false
+FR,etat - ministere des armees et des anciens combattants - direction interarmees des reseaux d infrastructure et des systemes d information de la defense dirisi toulon,,defence_word,0.70,false
+FR,etat - ministere des armees service infrastructure de la defense nord-est,,defence_word,0.70,false
+FR,etat ministere des armees et des anciens combattants,,defence_word,0.70,false
+FR,etat-ministere des armees,,defence_word,0.70,false
+FR,groupement soutien base de defense,,defence_word,0.70,false
+FR,institut des hautes etudes de defense nationale,,defence_word,0.70,false
+FR,institution de gestion sociale des armees,,defence_word,0.70,false
+FR,institution de gestion sociale des armees - igesa,,defence_word,0.70,false
+FR,institution national des invalide sous tutelle du ministere des armees,,defence_word,0.70,false
+FR,ministeres des armees,,defence_word,0.70,false
+FR,ministeres des armees - sid-med,,defence_word,0.70,false
+FR,ministeres des armees dga do s2a prod da-bs,,defence_word,0.70,false
+FR,ministetre des armees,,defence_word,0.70,false
+FR,minstere des armees,,defence_word,0.70,false
+FR,secretariat general de la defense et de la securite nationale,,defence_word,0.70,false
+FR,secretariat general de la defense et de la securite nationale services du premier ministre,,defence_word,0.70,false
+FR,secretariat general de la defense et de la securite nationale sgdsn,,defence_word,0.70,false
+FR,secretariat general de la defense et de la securite nationale sgdsn service rattache au premier ministre,,defence_word,0.70,false
+FR,section technique de l armee de terre,,defence_word,0.70,false
+FR,service d infrastrcuture de la defense sud-est,,defence_word,0.70,false
+FR,service historique de la defense,,defence_word,0.70,false
+FR,service historique de la defense shd,,defence_word,0.70,false
+FR,service infrastructure de la defense nord ouest,,defence_word,0.70,false
+FR,service infrastructure de la defense nord-est,,defence_word,0.70,false
+FR,service infrastructure de la defense nord-ouest,110002011,defence_word,0.70,false
+FR,service infrastructure de la defense sud-est,,defence_word,0.70,false
+FR,service interarmee des munitions,,defence_word,0.70,false
+FR,service interarmees des munitions,,defence_word,0.70,false
 FR,service interarmees des munitions simu,,defence_word,0.70,false
-FR,sm de defense des berges de l asse,,defence_word,0.70,false
-FR,synd mixte de defense valorisation for,,defence_word,0.70,false
-FR,syndicat mixte de defense et de valorisation forestier,,defence_word,0.70,false
-FR,syndicat mixte de defense et de valorisation forestiere,,defence_word,0.70,false
-FR,syndicat mixte de defense valorisation for,,defence_word,0.70,false
-FR,syndicat mixte de defense valorisation for found,,defence_word,0.70,false
+FR,sm de defense des berges de l asse,,defence_word,0.70,false
+FR,synd mixte de defense valorisation for,,defence_word,0.70,false
+FR,syndicat mixte de defense et de valorisation forestier,25840258500024,defence_word,0.70,false
+FR,syndicat mixte de defense et de valorisation forestiere,,defence_word,0.70,false
+FR,syndicat mixte de defense valorisation for,,defence_word,0.70,false
+FR,syndicat mixte de defense valorisation for found,,defence_word,0.70,false
+FR,transport de carburants pour les besoins du ministere des armees,,defence_word,0.70,false

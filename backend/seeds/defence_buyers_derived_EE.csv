@@ -1,6 +1,6 @@
 country,name,identifier,reason,confidence,reviewed
-EE,kaitseliit,,armed_forces,0.95,false
-EE,kaitseministeerium,,ministry,0.95,false
-EE,kaitsevagi,,armed_forces,0.95,false
-EE,riigi kaitseinvesteeringute keskus,,armed_forces,0.95,false
-EE,kaitseressursside amet,,defence_word,0.70,false
+EE,kaitseliit,74000725,armed_forces,0.95,false
+EE,kaitseministeerium,70004502,ministry,0.95,false
+EE,kaitsevagi,70008641,armed_forces,0.95,false
+EE,riigi kaitseinvesteeringute keskus,70009764,armed_forces,0.95,false
+EE,kaitseressursside amet,70007647,defence_word,0.70,false

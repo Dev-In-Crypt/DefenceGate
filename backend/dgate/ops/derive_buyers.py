@@ -92,6 +92,10 @@ PL_INCLUDE = [
     ("military_police", r"zandarmeri\w* wojskow"),
     ("intelligence", r"sluzba (kontrwywiadu|wywiadu) wojskowego"),
     ("naval_port_command", r"^komenda portu wojennego"),
+    # Added 13 October 2026 (coverage:C2: none of 31 air bases and 18 regional
+    # infrastructure boards were on the list).
+    ("air_base", r"\bbaza lotnictwa\b"),
+    ("infrastructure_board", r"\brejonowy zarzad infrastruktury\b"),
     ("academy", r"^wojskowa akademia techniczna|^akademia marynarki wojennej"
                 r"|^lotnicza akademia wojskowa|^akademia wojsk ladowych"
                 r"|^akademia sztuki wojennej"),
@@ -145,10 +149,12 @@ ES_INCLUDE = [
                            r"|parque y centro|unidad militar de emergencias|guardia real"
                            r"|cuarto militar|comandancia gral|sistemas de informacion)"),
     ("maintenance_centre", r"^seccion de asuntos economicos del parque y centro"),
-    ("intendance", r"^jefatura de intendencia de asuntos economicos"),
+    ("intendance", r"^jefatura de intendencia"
+                   r"|^intendente de |^organo de contratacion intendente |^intendencia de madrid$"),
     ("service", r"^armada espanola$|^ejercito de tierra$|^ejercito del aire"),
     ("defence_engineering", r"ingenieria de sistemas para la defensa"),
-    ("aerospace_institute", r"instituto nacional de tecnica aeroespacial"),
+    ("aerospace_institute", r"instituto nacional de tecnica aeroespacial|^direccion general del inta\b"),
+    ("logistic_command", r"^jefatura del apoyo logistico|^mando de apoyo logistico"),
 ]
 
 
@@ -278,19 +284,29 @@ class Proposal:
 def vocabulary_proposals(rows: Iterable[tuple[str, str, str, int]]) -> list[Proposal]:
     """Defence bodies among (country, name, identifier, notices) rows.
 
-    One proposal per organisation; the strongest rule that matches names it. A
-    name an exclusion kept out is not proposed at all.
+    One proposal per name; the strongest rule that matches names it. A name an
+    exclusion kept out is not proposed at all. Organisations of one name (the
+    same body under several registration numbers: 14 Bundeswehr service centres
+    of Aachen on 13 October 2026) are one row, which keeps the first identifier it
+    meets; the list flags by name, and `db.inherit_defence_flag` does the rest.
     """
     from ..buyer_vocab import defence_body
 
     out: list[Proposal] = []
+    seen: dict[tuple[str, str], Proposal] = {}
     for country, name, identifier, notices in rows:
         if not country or country.upper() in OWN_RULES or not name:
             continue
         body = defence_body(name, country)
         if body.label:
-            out.append(Proposal(country.upper(), name, identifier or "", body.label,
-                                body.confidence, notices))
+            key = (country.upper(), name)
+            if key in seen:
+                seen[key].notices += notices
+                seen[key].identifier = seen[key].identifier or identifier or ""
+                continue
+            seen[key] = Proposal(country.upper(), name, identifier or "", body.label,
+                                 body.confidence, notices)
+            out.append(seen[key])
     out.sort(key=lambda p: (p.country, -p.confidence, p.name))
     return out
 

@@ -1,9 +1,9 @@
 country,name,identifier,reason,confidence,reviewed
 SK,ministerstvo obrany slovenskej republiky,,ministry,0.95,false
-SK,ministerstvo obrany slovenskej republiky - akvizicna agentura,,ministry,0.95,false
-SK,ministerstvo obrany slovenskej republiky akvizicna agentura,,ministry,0.95,false
-SK,ministerstvo obrany slovenskej republiky urad pre investicie a akvizicie,,ministry,0.95,false
-SK,vojenske lesy a majetky sr - statny podnik,,military_unit,0.85,false
-SK,vojenske lesy a majetky sr statny podnik,,military_unit,0.85,false
-SK,vojensky historicky ustav,,military_unit,0.85,false
-SK,vojensky technicky a skusobny ustav zahorie,,military_unit,0.85,false
+SK,ministerstvo obrany slovenskej republiky - akvizicna agentura,,ministry,0.95,false
+SK,ministerstvo obrany slovenskej republiky akvizicna agentura,,ministry,0.95,false
+SK,ministerstvo obrany slovenskej republiky urad pre investicie a akvizicie,30845572,ministry,0.95,false
+SK,vojenske lesy a majetky sr - statny podnik,,military_unit,0.85,false
+SK,vojenske lesy a majetky sr statny podnik,31577920,military_unit,0.85,false
+SK,vojensky historicky ustav,00802751,military_unit,0.85,false
+SK,vojensky technicky a skusobny ustav zahorie,00800902,military_unit,0.85,false

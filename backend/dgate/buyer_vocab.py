@@ -64,6 +64,8 @@ FIRE_RESCUE = _rx(
     r"ugunsdz|gaisr|priesgaisr|vatrogas|gasilsk|ochotnicza straz",
     r"пожарн|противопожарн|πυροσβεστικ",
     r"service departemental d incendie|\bsdis\b|\bsamu\b|ambulance|rettungsdienst|rescue service",
+    r"brannvesen|brann og redning|\bcgdis\b|incendie et de secours|katasztrofavedelm|zachranny utvar",
+    r"morska sluzba poszukiwania|ratownictwa|ratownicz|pogotowie ratunkowe|\b110-?sentral",
 )
 
 HEALTH = _rx(
@@ -79,6 +81,7 @@ HEALTH = _rx(
     r"болниц|болница|медицинск|νοσοκομει|ιατρικ|υγειας",
     r"service de sante des armees|centre de transfusion|institut de sante",
     r"veterinar|apotheke|pharma|krwiodawstw|uzdrowisk|sanatori|rehabilit|medico|medicale",
+    r"klinicni|klinick|kliniczn|bolnisnic|bolnice\b|dom upokojencev|zdravstveni dom|nursing home",
 )
 
 EDUCATION = _rx(
@@ -89,6 +92,8 @@ EDUCATION = _rx(
     r"language school|sprachen|jezykow|studentenwerk|studentski",
     r"университет|училищ|школа|гимнази|πανεπιστημι|σχολη|σχολεια",
     r"research (?:council|centre|institute)|forschung|badawcz|wetenschapp",
+    r"egyetem|universidade|universidad\b|univerzit|veleuciliste|zespol szkol|\bzsti?o?\b",
+    r"technikum|centrum ksztalcenia|utbildning|yliopisto|universiteit|universitet|rectorado",
 )
 
 # Military property and estate agencies buy buildings, land and maintenance: real
@@ -118,6 +123,17 @@ SECURITY_SERVICE = _rx(
     r"unutarnjih|ministerul afacerilor interne|spraw wewnetrznych|vidaus reikalu|iekslietu",
     r"siseministeerium|sisaministeerium|ministry of justice|home office|piirivalve|rajavartio",
     r"полиц|жандарм|вътрешните работи|αστυνομ|λιμενικ|kustwacht|coast ?guard|tieslietu",
+    # Gaps found reading the buyers that the CPV-group demotion of 13 October 2026 would
+    # have caught: a police authority, a prison service or a customs office whose class was
+    # `other` is a security body, kept in core as before (classification:D3 is the owner's).
+    r"\bpolis\b|polismyndighet|rendor|policejn|penitentiar|penitenzi|kriminalforsorg",
+    r"kriminalvard|fangsel|\bjva\b|justizvollzugsanstalt|tullverket|tolletaten|\btulli\b",
+    r"\bdgddi\b|reditelstvi cel|robezsardz|home affairs|citizen protection|protection du citoyen",
+    r"ochrony rzadu|ochrony panstwa|\bpp elt\b|ministerium des innern|innern und",
+    r"beschaffungsamt des bundesministeriums des innern|landesamt fur innere verwaltung",
+    r"национална служба за охрана|борба с организираната|гдбоп|προστασιας του πολιτη",
+    r"αντεγκληματικ|\bjustis\b|department of justice|ministerul justitiei|ministrstvo za pravosodje",
+    r"ministarstvo pravosu|ministerstvo spravedlnosti",
 )
 
 # -------------------------------------------------------------- defence
@@ -159,7 +175,8 @@ DEFENCE_INCLUDE: list[_Row] = [
     _row("armed_forces", 0.95, None,
          r"^(?:the )?(?:irish |swedish |danish |finnish |norwegian |dutch |polish |british |maltese )?"
          r"(?:armed forces|defen[cs]e forces)",
-         r"^(?:royal |british |irish |hellenic |polish |swedish |norwegian )?(?:navy|army|air force|marines)\b",
+         r"^(?:royal (?:netherlands |danish |norwegian )?|british |irish |hellenic |polish |swedish "
+         r"|norwegian )?(?:navy|army|air force|marines)\b",
          r"^(?:royal |irish )?naval service|^air corps|^irish defence",
          r"^koninklijke (?:marine|landmacht|luchtmacht)",
          r"^armee de (?:terre|l air|l air et de l espace)|^marine nationale|^armee luxembourgeoise",
@@ -206,12 +223,18 @@ DEFENCE_INCLUDE: list[_Row] = [
          r"^dga\b", r"^ema (?:dc|sca|dcssa)", r"^sca (?:pf|plate)", r"^sga (?:sd|drh|sid|did|shd|dm)",
          r"^ssf\b", r"^esid\b", r"^dirisi\b",
          r"^saelsi\b", r"^depafi\b", r"^delpia\b", r"^drsid\b", r"^simmt\b", r"^simmad\b",
-         r"^marine (?:dcssf|dssf)", r"^plate-?forme affretement", r"^dcssf\b", r"^arm sca"),
+         r"^marine (?:dcssf|dssf)", r"^plate-?forme affretement", r"^dcssf\b", r"^arm sca",
+         r"^plate-?forme (?:du )?commissariat", r"^dicom\b"),
     _row("procurement_agency", 0.95, "SE", r"^fmv\b", r"^foi\b"),
     _row("procurement_agency", 0.95, "NL", r"^dmo\b"),
     _row("procurement_agency", 0.95, "DK", r"^dalo\b"),
     _row("procurement_agency", 0.95, "DE", r"^bwi\b", r"^hil\b", r"heeresinstandsetzung",
          r"^bw bekleidungsmanagement"),
+    # The Ministry's supply contractor: files its notices "Leidos Supply Ltd on behalf of
+    # the UK Ministry of Defence" (classification:D2 sample, 62835).
+    _row("procurement_agency", 0.90, "GB", r"^leidos supply"),
+    _row("procurement_agency", 0.95, "HU", r"vedelemgazdasagi hivatal",
+         r"^hm (?:vedelemgazdasagi|elektronikai|ei)\b"),
     _row("procurement_agency", 0.95, "LV",
          r"^nodrosinajuma valsts agentura", r"^nodrosinajuma pavelnieciba"),
     _row("military_unit", 0.85, "RO",
@@ -221,7 +244,7 @@ DEFENCE_INCLUDE: list[_Row] = [
          r"^(?:vojensk|vojenska|vojenske|vojensky|vojenskeho)\w* ",
          r"^(?:kommando|kommandeur)\b.{0,40}(?:heer|luftwaffe|marine|streitkrafte|bundeswehr)",
          r"^(?:wojskow|jednostka wojskowa|dowodztwo)",
-         r"^(?:military|garrison)\b",
+         r"^(?:military|garrison)\b", r"^ввму|^висше военноморско",
          r"^(?:brigada|regimento|batallon|regiment|batalion|brigade)\b",
          r"^(?:военн|военна|военно)\w* ",
          r"^στρατιωτικ\w*"),
@@ -234,6 +257,32 @@ DEFENCE_INCLUDE: list[_Row] = [
          r"^министерството на отбраната|^командване на|^служба военн|^военно формирование",
          r"^сухопътни во\w+|^военноморски|^висше военно",
          r"^stato maggiore|^comando delle forze|^direzione del genio militare|^direzione di commissariato"),
+    # Added 13 October 2026 (classification:D12, coverage:C2). Services and offices of the
+    # armed forces that carry the Bundeswehr's name sat at 0.70 (a defence word somewhere
+    # in the name) and so under the 0.80 loading floor: 185 service centres, none flagged.
+    # Not promoted, and so still reviewed by a person: the recruiting offices, the personnel
+    # office and the training and fire-protection centres, which buy for themselves.
+    _row("armed_forces_service", 0.90, "DE",
+         r"^bundeswehr[ -]?dienstleistungszentrum|^bwdlz\b",
+         r"^v(?:er)?pflegungsamt der bundeswehr|^verlegungsamt der bundeswehr",
+         r"^bundes?amt f(?:ur)? (?:aus+rustung|informationstechnik|infomationstechnik|infrastruktur)"
+         r".{0,60}der bundeswehr$",
+         r"^planungsamt der bundeswehr|^zentrum fur geoinformationswesen der bundeswehr",
+         r"^(?:lh )?bundeswehr bekleidungsgesellschaft"),
+    # Polish air bases and regional infrastructure boards (RZI) of the Ministry: unit
+    # numbers lead the name, which no rule above reads. Poland's list itself is
+    # derived by its own rules (ops/derive_buyers.py); these rows give the class.
+    _row("military_unit", 0.90, "PL",
+         r"^\d+ ?(?:regionalna baza logistyczna|baza lotnictwa|wojskowy oddzial gospodarczy)",
+         r"^rejonowy zarzad infrastruktury|^baza lotnictwa"),
+    # Spain's contracting boards and intendances of the three services.
+    _row("armed_forces_service", 0.90, "ES",
+         r"^junta de contratacion del (?:ejercito|aire|ministerio de defensa)",
+         r"^junta de contratacion de la armada|^junta (?:tecnico economica|de compras) .{0,30}"
+         r"(?:ejercito|armada|aire)",
+         r"^intendente de |^organo de contratacion intendente|^jefatura de intendencia",
+         r"^jefatura del apoyo logistico|^mando de apoyo logistico|^direccion de adquisiciones del mando",
+         r"^direccion general del inta\b|^instituto nacional de tecnica aeroespacial"),
     _row("defence_word", 0.70, None,
          r"\bbundeswehr\b|bundeswehr-|der bundeswehr|\bkarrc bw\b",
          r"\bdefensie\b|\bdefen[cs]e forces\b|\barmed forces\b|\bforsvaret\b|\bforsvarsmakt",
@@ -248,9 +297,13 @@ DEFENCE_INCLUDE: list[_Row] = [
 ]
 
 # "Armada spasy" is the Salvation Army, not an armed force.
+# "DGA" is the French armament agency, and also the "direction generale de l administration"
+# of the Council of Europe and a "direction generale adjointe" of France Travail: 197 and 7
+# notices of those two were flagged as defence on 13 October 2026.
 NOT_DEFENCE = _rx(
     r"armada spasy|salvation army|heilsarmee|armee du salut|esercito della salvezza|leger des heils",
     r"frelsesarme|fralsningsarme|pelastusarmeija|armata salvarii|armija spasenja",
+    r"council of europe|conseil de l europe|france travail|pole emploi",
 )
 
 DEFENCE_EXCLUDE: list[tuple[str, re.Pattern]] = [
@@ -307,8 +360,10 @@ MUNICIPAL = _rx(
     r"gmina|gminn|miasto|miejsk|powiat|starostwo|urzad miasta|urzad gminy|wojewodz|marszalkowski",
     r"\bstadt\b|stadtverwaltung|gemeinde|landkreis|\bkreis\b|verbandsgemeinde|samtgemeinde|bezirksamt",
     r"senatsverwaltung|regierungsprasidium|landesregierung|\bland \w+ vertreten durch",
-    r"commune de|ville de|mairie|communaute (?:de|d)|metropole|conseil (?:departemental|regional)",
-    r"departement de|region (?:de|d)|centre communal|syndicat intercommunal|\bccas\b",
+    # "Ville d'Orleans" folds to "ville d orleans": the elided article is part of the pattern
+    # (classification:D5, 96 notices from French towns carried class `other`).
+    r"commune (?:de|d)\b|ville (?:de|d)\b|mairie|communaute (?:de|d)|metropole|conseil (?:departemental|regional)",
+    r"departement (?:de|d)\b|region (?:de|d)|centre communal|syndicat intercommunal|\bccas\b",
     r"ayuntamiento|diputacion|cabildo|comunidad autonoma|generalitat|junta de|gobierno de|ajuntament",
     r"concello|\bconsell\b|mancomunidad|consorcio|area de gobierno|consejeria",
     r"comune di|provincia di|\bregione\b|citta metropolitana|unione dei comuni|unione montana",
@@ -334,9 +389,81 @@ SECURITY = _rx(
 )
 
 
+# Infrastructure operators: airports and air-navigation providers, road and rail
+# authorities and operators, ports and maritime administrations, meteorological
+# services, water, energy, waste and postal utilities. They buy radar, command-and-control
+# and "military" aircraft or vehicle codes for civil purposes (classification:D6 of
+# 13 October 2026: 863 core rows by name, the Polish road authority's works alone 166,
+# all carrying 35710000). Whole words or distinctive stems; a name that begins with a
+# defence body never gets here (the first-include check in buyer_class_of).
+INFRASTRUCTURE = _rx(
+    r"airport|aeroport|flughafen|lotnisk|port lotniczy|aeropuerto|letiste|letisko|luchthaven",
+    r"lufthavn|lentoasema|lentokentta|flygplats|swedavia|avinor|finavia|\baena\b|\bpansa\b",
+    r"navigation aerienne|flugsicherung|air traffic|skyguide|eurocontrol|austro control",
+    r"generalny dyrektor drog|dyrekcja drog|zarzad drog|\bgddkia\b|drog krajowych",
+    r"road (?:authority|administration|agency|directorate|operator)|\bhighways?\b|autobahn",
+    r"autoroute|strassenbau|strassenverkehr|strassen nrw|rijkswaterstaat|trafikverket|vegvesen",
+    r"vejdirektorat|vaylavirasto|ceske drahy|sprava zeleznic|sprava silnic|ridicstvi silnic",
+    r"zeleznic|railway|\brail\b|kolej|\bbahn\b|\bsncf\b|ferrovi|chemin de fer|\bvasut\b|\bcfr\b",
+    r"infrabel|prorail|network rail|\bpkp\b|\brenfe\b|\badif\b",
+    r"public transport|transports? publics?|verkehrsbetriebe|verkehrsverbund|tramwaj|autobus",
+    r"\bmetro\b|\bztm\b|\bmpk\b|zarzad transportu|urzad morski|maritime administration",
+    r"sjofartsverket|port authority|\bhafen\b|\bhavn\b|\bport of\b|harbour",
+    r"meteorolog|\bmeteo\b|wetterdienst|\bmet office\b|\bsmhi\b|\bimgw\b|\bknmi\b",
+    r"wodociag|wasserwerk|stadtwerke|water (?:company|board|utility|supply|authority)",
+    r"waterbedrijf|\benerg[ai]\b|\btauron\b|\bpge\b|energet|elektrown|electricity|power grid",
+    r"\benea\b|\borlen\b|vattenfall|veolia|\bsuez\b|\bedf\b|enedis|\bengie\b|eneco|\brwe\b",
+    r"iberdrola|abwasser|kanalisation|odpad|waste (?:management|authority)|poczta polska",
+    r"\bpostnl\b|\bsewage\b|parkeringsselskab|\bparking\b|parkerings",
+    r"kontrola zracn|legiforgalm|hungarocontrol|naviair|\benaire\b|autoridad portuaria",
+    r"puertos del estado|kystverk|dopravny podnik|dopravni podnik|tisseo|sytral|\bsiaap\b",
+    r"gasunie|\bervia\b|slovenske elektrarne|\bmvm\b|kopaln|teplarn|acquedotto|met eireann",
+    r"miljodirektorat|kartverk|seaports|autoceste|avtocest|vodovod|romsilva|public works",
+    r"regionalna dyrekcja ochrony srodowiska|park narodowy|national park|nationalpark",
+    r"железопътна инфраструктура|пътна инфраструктура|\bтец\b|\bтец",
+)
+
+# Embassies, consulates, EU institutions and international organisations: a notice by
+# an embassy is a building or services contract abroad (classification:D13: 166 core
+# rows, 156 with a military CPV). NATO bodies and the European Defence Agency are
+# defence procurement bodies and are named in DEFENCE_INCLUDE, which is checked first.
+INTERNATIONAL = _rx(
+    r"embassy|ambassade|ambasada|botschaft|ambasciata|embajada|embaixada|velvyslanectvi",
+    r"suurlahetyst|sendiraad|konsulat|consulate|\bconsulat\b|konzulat|consolato",
+    r"permanent representation|representation permanente|delegation of the european union",
+    r"european (?:commission|parliament|council|investment bank|court)",
+    r"commission europeenne|parlement europeen|council of europe|conseil de l europe",
+    r"united nations|\boecd\b|\bocde\b|\bunesco\b|\bunicef\b",
+    r"space agency|satellite cent|agency for the space programme|gnss agency|maritime safety agency",
+    r"external action service|\beeas\b|europol|european union agency|european external",
+    r"deutsche gesellschaft fur internationale zusammenarbeit|\bsida\b|central finance and contracts",
+)
+
+# Institutions of the armed forces that carry their name. The buyer *list* keeps the
+# military universities out (education), but the label must not call the armed
+# forces' own university civil: 20 of the 29 Universitat der Bundeswehr rows were
+# demoted as `education` although the customer is the Bundeswehr (classification:D11).
+ARMED_FORCES_INSTITUTION = _rx(
+    r"universitat der bundeswehr|bundeswehr universitat|helmut schmidt universitat",
+)
+
+
+def effective_buyer_class(name: str, country: str | None, listed: bool) -> str:
+    """The class stored on a notice: the name's class, except that a body the defence
+    buyer list holds is a defence body. 71,504 notices from listed buyers carried
+    `other` because only the name was asked (classification:D8 of 13 October 2026).
+    Only `other` is overridden: a listed body whose name says hospital or school keeps
+    that label, which is the better warning."""
+    cls = buyer_class_of(name, country)
+    if listed and cls == "other":
+        return "defence"
+    return cls
+
+
 @lru_cache(maxsize=100_000)
 def buyer_class_of(name: str, country: str | None = None) -> str:
-    """One of: defence, security, fire_rescue, health, education, municipal, other.
+    """One of: defence, security, fire_rescue, health, education, municipal,
+    infrastructure, international, other.
 
     Order matters: a military hospital is a hospital, a civil-protection agency is
     not a defence body, and a town that runs its fire brigade is a fire brigade.
@@ -346,6 +473,8 @@ def buyer_class_of(name: str, country: str | None = None) -> str:
         return "other"
     if CIVIL_PROTECTION.search(key) or FIRE_RESCUE.search(key):
         return "fire_rescue"
+    if ARMED_FORCES_INSTITUTION.search(key):
+        return "defence"
     # A name that starts with the ministry, an armed force, an agency or a unit is
     # one of theirs even where it goes on to name a hospital or an institute: the
     # exclusions keep such a body off the buyer *list*, they do not make a
@@ -357,6 +486,10 @@ def buyer_class_of(name: str, country: str | None = None) -> str:
         return "health"
     if EDUCATION.search(key):
         return "education"
+    if INTERNATIONAL.search(key):
+        return "international"
+    if INFRASTRUCTURE.search(key):
+        return "infrastructure"
     if defence_body(name, country).label:
         return "defence"
     if SECURITY.search(key):
@@ -366,4 +499,6 @@ def buyer_class_of(name: str, country: str | None = None) -> str:
     return "other"
 
 
-DEMOTING_CLASSES = frozenset({"municipal", "health", "education", "fire_rescue"})
+DEMOTING_CLASSES = frozenset({
+    "municipal", "health", "education", "fire_rescue", "infrastructure", "international",
+})
