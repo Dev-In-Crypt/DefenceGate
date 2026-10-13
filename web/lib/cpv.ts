@@ -3,6 +3,7 @@
  * from the Publications Office's codelist; none is written by us). Only codes in that file are listed.
  */
 import data from './data/cpv.json';
+import { cpvDivisionLabel, cpvLabel } from './taxonomy';
 
 const CODES = data.codes as Record<string, string>;
 
@@ -30,6 +31,29 @@ export interface CpvSection { id: string; title: string; intro: string; groups: 
 /** The vocabulary's title of a 3-digit group (`351` is the title of 35100000), or null when we do not hold it. */
 export function cpvGroupTitle(group: string): string | null {
   return /^\d{3}$/.test(group) ? (CODES[`${group}00000`] ?? null) : null;
+}
+
+/** The vocabulary's own title of a full code (`50640000`), or null when it is not one of the codes we hold. */
+export function cpvTitle(code: string): string | null {
+  const digits = /^\d{8}/.exec(code)?.[0];
+  return digits ? (CODES[digits] ?? null) : null;
+}
+
+/**
+ * The name to show for a notice's CPV code: the code's own title when we hold it (`exact`), else the title of its
+ * group or division. Never a title we wrote: they all come from the vocabulary.
+ */
+export function cpvName(code: string): { label: string; exact: boolean } | null {
+  const own = cpvTitle(code);
+  return own ? { label: own, exact: true } : cpvLabel(code);
+}
+
+/** A 3-digit group's title for the market tables; the division's title, said to be one, where the group is not held. */
+export function cpvGroupName(group: string): string | null {
+  const own = cpvGroupTitle(group);
+  if (own) return own;
+  const division = cpvDivisionLabel(group);
+  return division ? `${division} (division)` : null;
 }
 
 /** `35121700` -> `351217`; `35000000` -> `35`. A 2- to 8-digit prefix is what the /tenders filter takes. */

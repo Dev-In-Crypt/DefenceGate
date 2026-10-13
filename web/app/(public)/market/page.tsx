@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMarketStats } from '@/lib/api';
-import { cpvGroupTitle } from '@/lib/cpv';
+import { cpvGroupName } from '@/lib/cpv';
 import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
 import { daysText, monthLabel, percentText } from '@/lib/market';
 import { buildMetadata } from '@/lib/seo';
@@ -96,7 +96,7 @@ export default async function MarketPage() {
             caption={`Notices published by CPV group, ${from} to ${to}`}
             labelHeader="CPV group"
             rows={stats.cpvGroups.map((g) => {
-              const title = cpvGroupTitle(g.group);
+              const title = cpvGroupName(g.group);
               return {
                 key: g.group,
                 label: <span><span className="font-mono tabular-nums">{g.group}</span> <span>{title ?? 'Group'}</span></span>,

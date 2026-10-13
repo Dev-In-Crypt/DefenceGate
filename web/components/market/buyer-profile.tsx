@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { cpvGroupTitle } from '@/lib/cpv';
+import { cpvGroupName } from '@/lib/cpv';
 import { formatNumber } from '@/lib/format';
 import { daysText, percentText } from '@/lib/market';
 import type { BuyerProfile } from '@/lib/types';
@@ -64,7 +64,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
                 labelHeader="CPV group"
                 rows={profile.cpvGroups.map((g) => ({
                   key: g.group,
-                  label: <span><span className="font-mono tabular-nums">{g.group}</span> <span>{cpvGroupTitle(g.group) ?? 'Group'}</span></span>,
+                  label: <span><span className="font-mono tabular-nums">{g.group}</span> <span>{cpvGroupName(g.group) ?? 'Group'}</span></span>,
                   count: g.count,
                 }))}
               />

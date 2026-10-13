@@ -51,3 +51,20 @@ Source: `docs/verification/copy-factcheck.md`. Web only; no data, API or schema 
 - `lib/ui.check.ts`: the chip expectation changed from "Security clearance mentioned" to
   "Security-clearance field present" on purpose (H5); new checks pin `clearanceView`, `subcontractingView`
   and `listUpdatedAt`.
+
+## Site QA follow-up (`docs/verification/site-qa.md`, web side)
+
+| QA # | Change |
+|---|---|
+| 2 | Date-only deadlines read "13 Oct 2026 (date only)" (and "(time not stated)"); no dangling "UTC". `lib/format.ts`. |
+| 3 | `lib/cpv.ts` `cpvName`: the code's own title from the CPV finder data first; else the group or division, shown as "Within: ...". Market and buyer tables use `cpvGroupName` (group, else "Construction work (division)"). The dataset holds 366 of 9,454 codes, so codes outside it (79710000) still show their group; no title is invented. |
+| 8 | Funding topic tags wrap (`Tag wrap`, `break-words`). |
+| 9 | `callStatusKind` takes the opening date: forthcoming with a passed deadline is "Closed", with a passed opening day "Opening date passed" (new `pending` pill). Cards, detail page, calendar. |
+| 10 | Call-level budget: card label "Call budget" / "Topic budget"; the amount is shown once per list (`repeatedCallBudgets`), later topics say it is shared. Funding CSV gets a `budget_scope` column (new column, after `currency`). |
+| 12 | `displayName` keeps any token with a digit, slash or underscore as published. |
+| 13 | Legal basis shown as its name ("other" says so; the code sits beneath); procedures in FR/ES/NL words get an English name with "As stated" beneath (`procedureLabel`, a short table; unknown names are shown as stated). |
+| 14 | Amounts of 0, 0.01 and 1 (`isPlaceholderAmount`) read "Not available" on cards and pages, are blank in the CSVs, and a value filter on `/tenders` sends `min` of at least 1.01 so they never match (web side only; the API is not changed). |
+
+Not web, not done here: QA 1, 5, 6 (WP-4), 4 (owner), 11, 15 (done), 16.
+`lib/ui.check.ts`: two expectations changed on purpose (date-only text); new checks for items 3, 9, 10, 12, 13, 14.
+It runs green under Node 24: `node --experimental-transform-types --import <register-with-ts-resolver> lib/ui.check.ts`.

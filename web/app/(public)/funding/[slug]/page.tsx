@@ -86,7 +86,7 @@ export default async function CallDetailPage({ params }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <Tag kind="programme">{programme.label}</Tag>
               <Tag>{REGIMES[call.regime]}</Tag>
-              <StatusPill status={callStatusKind(call.status, d.state)} />
+              <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? call.titleLanguage : undefined}
@@ -109,6 +109,9 @@ export default async function CallDetailPage({ params }: Props) {
               <AmountDisplay money={call.budget} size="lg" />
               {call.budget && call.budgetScope === 'call' && (
                 <div className="mt-1 font-sans text-small font-normal text-ink-muted">Shared across several topics of the same call</div>
+              )}
+              {call.budget && call.budgetScope === 'topic' && (
+                <div className="mt-1 font-sans text-small font-normal text-ink-muted">Budget of this topic</div>
               )}
             </FactCell>
             {call.callId && <FactCell label="Call ID">{call.callId}</FactCell>}
@@ -137,7 +140,7 @@ export default async function CallDetailPage({ params }: Props) {
                 {call.scope.length > 0 && (
                   <div className={ROW}>
                     <dt className="text-body font-semibold">Topics</dt>
-                    <dd className="m-0 flex flex-wrap gap-2">{call.scope.map((s) => <Tag key={s}>{s}</Tag>)}</dd>
+                    <dd className="m-0 flex min-w-0 flex-wrap gap-2">{call.scope.map((s) => <Tag key={s} wrap>{s}</Tag>)}</dd>
                   </div>
                 )}
               </dl>

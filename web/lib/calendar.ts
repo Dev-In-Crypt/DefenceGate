@@ -24,7 +24,7 @@ export interface CalendarEntry {
   deadline: string;
   /** The source gives a date, not a time of day. */
   dateOnly: boolean;
-  /** "13 Oct 2026, UTC" or "13 Oct 2026, 16:00 UTC". */
+  /** "13 Oct 2026 (date only)" or "13 Oct 2026, 16:00 UTC". */
   when: string;
   /** The buyer, or the funder of a call. */
   who: string;

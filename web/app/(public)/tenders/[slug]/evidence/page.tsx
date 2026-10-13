@@ -4,11 +4,12 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenderVersions, isTenderSlug } from '@/lib/api';
 import { formatStamp } from '@/lib/account-format';
 import { getTenderDeadline } from '@/lib/deadline';
-import { formatDateUtc, formatMoney } from '@/lib/format';
+import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
-import { TENDER_SCOPES, countryName, cpvLabel, isNonEnglish, languageName, legalBasisLabel } from '@/lib/taxonomy';
+import { cpvName } from '@/lib/cpv';
+import { TENDER_SCOPES, countryName, isNonEnglish, languageName, legalBasisLabel, procedureLabel } from '@/lib/taxonomy';
 import { basisChips, clearanceView, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
@@ -67,6 +68,7 @@ export default async function TenderEvidencePage({ params }: Props) {
   const valueKind = valueKindLabel(tender.valueKind);
   const lang = (code: string | null) => (code ? languageName(code) : null);
   const generated = new Date().toISOString();
+  const procedureEn = tender.procedure ? procedureLabel(tender.procedure) : null;
   const clearance = clearanceView(tender);
   const subcontracting = subcontractingView(tender);
 
@@ -123,7 +125,7 @@ export default async function TenderEvidencePage({ params }: Props) {
             {cpvCodes.length === 0 ? <NotStated /> : (
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
                 {cpvCodes.map((code, i) => {
-                  const label = cpvLabel(code);
+                  const label = cpvName(code);
                   return (
                     <li key={code}>
                       <Mono>{code}</Mono>{i === 0 && tender.cpv ? <span className="text-ink-muted"> (main)</span> : null}
@@ -134,7 +136,10 @@ export default async function TenderEvidencePage({ params }: Props) {
               </ul>
             )}
           </Row>
-          <Row label="Procedure">{tender.procedure ?? <NotStated />}</Row>
+          <Row label="Procedure">
+            {tender.procedure ?? <NotStated />}
+            {procedureEn && <span className="text-ink-muted"> · {procedureEn}</span>}
+          </Row>
           <Row label="Legal basis">
             {tender.legalBasis ? <><Mono>{tender.legalBasis}</Mono>{legal && <span className="text-ink-muted"> · {legal}</span>}</> : <NotStated />}
           </Row>
@@ -151,9 +156,11 @@ export default async function TenderEvidencePage({ params }: Props) {
             {notes.map((n) => <span key={n} className="mt-1 block text-small text-ink-muted">{n}</span>)}
           </Row>
           <Row label="Estimated value">
-            {tender.estimatedValue
+            {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount)
               ? <><Mono>{formatMoney(tender.estimatedValue)}</Mono>{valueKind && <span className="text-ink-muted"> · {valueKind}</span>}</>
-              : <NotStated />}
+              : tender.estimatedValue
+                ? <><NotStated /><span className="text-ink-muted"> · the notice gives {formatMoney(tender.estimatedValue)}, a placeholder</span></>
+                : <NotStated />}
           </Row>
           {typeof (tender.lots ?? tender.lotCount) === 'number' && (tender.lots ?? tender.lotCount ?? 0) > 0 && <Row label="Lots"><Mono>{tender.lots ?? tender.lotCount}</Mono></Row>}
           <Row label="Status shown">{status.label}{tender.statusNative ? <span className="text-ink-muted"> · status word: {tender.statusNative}</span> : null}</Row>

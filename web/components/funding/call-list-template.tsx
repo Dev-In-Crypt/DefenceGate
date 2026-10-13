@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { CalendarDays, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatDateTimeUtc } from '@/lib/format';
+import { formatDateTimeUtc, repeatedCallBudgets } from '@/lib/format';
 import { PARAM, toQuery } from '@/lib/filters';
 import { listUpdatedAt } from '@/lib/source-status';
 import { fundersWithCoverage } from '@/lib/taxonomy';
@@ -43,6 +43,7 @@ export function CallListTemplate({
   const Count = result.total === 0 ? 'p' : 'h2';
   // The time of the data (`meta.updatedAt`), never the render time; left out when the API does not send it.
   const updated = listUpdatedAt(result);
+  const repeats = repeatedCallBudgets(result.items);
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
   const viewHref = (v: ListView) => `${basePath}${toQuery({ ...filters, page: 1 }, { [PARAM.view]: v === 'calendar' ? v : undefined })}`;
@@ -102,7 +103,7 @@ export function CallListTemplate({
             <CallCalendar calls={result.items} />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-4 p-0">
-              {result.items.map((c) => <li key={c.id}><CallCard call={c} /></li>)}
+              {result.items.map((c) => <li key={c.id}><CallCard call={c} budgetRepeated={repeats.has(c.id)} /></li>)}
             </ul>
           )}
 

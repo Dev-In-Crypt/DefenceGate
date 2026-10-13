@@ -52,7 +52,7 @@ function Row({ c }: { c: Call }) {
           <span className={cn('text-small font-bold', d.state === 'closed' ? 'text-ink-muted' : d.state === 'normal' ? 'text-accent-text' : 'text-soon-fg')}>{d.countdown}</span>
         ) : null}
         <AmountDisplay money={c.budget} className="text-mono text-ink-muted" />
-        {(d.state === 'closed' || upcoming) && <StatusPill status={callStatusKind(c.status, d.state)} />}
+        {(d.state === 'closed' || upcoming) && <StatusPill status={callStatusKind(c.status, d.state, c.openingDate)} />}
       </div>
     </li>
   );

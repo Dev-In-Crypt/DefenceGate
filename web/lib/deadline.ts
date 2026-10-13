@@ -1,5 +1,5 @@
 import type { Call, CallStatus, DeadlineState, IsoDateTime, StatusKind, Tender } from './types';
-import { formatDateLabelledUtc, formatDateTimeUtc } from './format';
+import { formatDateLabelledUtc, formatDateTimeUtc, openingPassed } from './format';
 
 /** Thresholds from the design system's deadline states. */
 export const SOON_DAYS = 30;
@@ -57,11 +57,16 @@ export function statusFromState(state: DeadlineState): StatusKind {
 }
 
 /**
- * Status pill for a call. The API's status wins: a forthcoming call is "Opens soon" whatever its
- * deadline says; "Closing soon" only refines an open call.
+ * Status pill for a call. A forthcoming call is "Opens soon" only while its dates allow it: a passed deadline
+ * makes it closed, and a passed opening day makes it "Opening date passed" (the stored status is the source's
+ * and can lag). "Closing soon" only refines an open call.
  */
-export function callStatusKind(status: CallStatus, state: DeadlineState): StatusKind {
-  if (status === 'forthcoming') return 'upcoming';
+export function callStatusKind(status: CallStatus, state: DeadlineState, openingDate: IsoDateTime | null = null, ref: Date = now()): StatusKind {
+  if (status === 'forthcoming') {
+    if (state === 'closed') return 'closed';
+    if (openingDate && openingPassed(openingDate, ref)) return 'pending';
+    return 'upcoming';
+  }
   if (status === 'closed' || state === 'closed') return 'closed';
   return state === 'soon' || state === 'urgent' ? 'soon' : 'open';
 }

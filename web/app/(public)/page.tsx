@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, ShieldCheck } from 'lucide-react';
 import { getAccountStatus } from '@/lib/account';
 import { getCalls, getSiteStats, getTenders } from '@/lib/api';
-import { formatDateTimeUtc, formatNumber } from '@/lib/format';
+import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
 import { Button } from '@/components/dg/button';
 import { AudienceGrid, BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
@@ -82,6 +82,7 @@ export default async function LandingPage() {
     getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }),
   ]);
   const closingTenders = dated;
+  const budgetRepeats = repeatedCallBudgets(closingCalls.items);
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
@@ -146,7 +147,7 @@ export default async function LandingPage() {
           <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
         ) : (
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingCalls.items.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" /></li>)}
+            {closingCalls.items.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" budgetRepeated={budgetRepeats.has(c.id)} /></li>)}
           </ul>
         )}
       </section>

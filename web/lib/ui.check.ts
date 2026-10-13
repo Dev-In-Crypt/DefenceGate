@@ -9,10 +9,11 @@ import { basisChips, clearanceView, subcontractingView } from './tender-basis';
 import { formatChangeValue } from './change-format';
 import { heldSpan, listUpdatedAt, minimumMet, sourceFreshness } from './source-status';
 import { barLayout, daysText, monthLabel, niceMax, percentText, shareOf } from './market';
-import { cpvGroupTitle } from './cpv';
+import { cpvGroupName, cpvGroupTitle, cpvName } from './cpv';
 import { defaultTenderSort, ignoredFilters, isDay, lastPage, parseTenderFilters, toTenderQuery } from './filters';
-import { LANGUAGES, languageName } from './taxonomy';
-import { getCallDeadline } from './deadline';
+import { LANGUAGES, languageName, legalBasisLabel, procedureLabel } from './taxonomy';
+import { callStatusKind, getCallDeadline } from './deadline';
+import { isPlaceholderAmount, repeatedCallBudgets } from './format';
 import { sourceStatusWord } from './tender-status';
 import { pageOf, resolveMonth, truncateTitle } from './calendar-view';
 import { ExportRunner, Gate, TtlCache, exportCap } from './export-cache';
@@ -34,6 +35,8 @@ assert.equal(displayName('PHASE I SUPPLY'), 'Phase I supply');
 assert.equal(displayName('DOSTAWA I MONTAŻ'), 'Dostawa i montaż');                                // Polish "and" is not a numeral
 assert.equal(displayName('DIRECTION GENERALE DE L\'ARMEMENT', 'title'), 'Direction Generale de L\'Armement');
 assert.equal(displayName('F-35 SUSTAINMENT'), 'F-35 sustainment');
+assert.equal(displayName("2024-ESID-TLN-0046 - BNT - ASSISTANCE A MAITRISE D'OUVRAGE"), "2024-ESID-TLN-0046 - bnt - assistance a maitrise d'ouvrage");   // an identifier keeps its capitals
+assert.equal(displayName('AMOA_MAYOTTE_LIIC'), 'AMOA_MAYOTTE_LIIC');                            // a file-like name is left as published
 assert.equal(displayName(''), '');
 assert.ok(upperShare('ABC def') > 0.4 && upperShare('ABC def') < 0.6);
 assert.equal(upperShare('1234'), 0);
@@ -134,12 +137,12 @@ for (const c of EU24) assert.ok(LANGUAGES[c], c);
 // ---- Call deadlines: a day is a day, a rolling call is open ----
 const ref = new Date('2026-10-12T10:00:00Z');
 const dated = getCallDeadline({ status: 'open', deadline: '2026-10-13T21:59:00Z', deadlineIsDate: true }, ref);
-assert.equal(dated.utc, '13 Oct 2026, UTC');
+assert.equal(dated.utc, '13 Oct 2026 (date only)');
 assert.ok(!dated.utc.includes('21:59'));
 assert.equal(dated.dateOnly, true);
 const midnight = getCallDeadline({ status: 'open', deadline: '2026-10-12T00:00:00Z' }, ref);
 assert.notEqual(midnight.state, 'closed');                          // a bare date is open to the end of that day
-assert.equal(midnight.utc, '12 Oct 2026, UTC');
+assert.equal(midnight.utc, '12 Oct 2026 (date only)');
 const rolling = getCallDeadline({ status: 'open', deadline: '2026-10-05T21:59:00Z', deadlineIsDate: true, rolling: true }, ref);
 assert.equal(rolling.rolling, true);
 assert.equal(rolling.label, 'Open: rolling submission');
@@ -147,6 +150,48 @@ assert.notEqual(rolling.state, 'closed');
 assert.equal(getCallDeadline({ status: 'open', deadline: '2026-10-05T21:59:00Z', rolling: false }, ref).state, 'closed');
 assert.equal(getCallDeadline({ status: 'open', deadline: '2026-10-05T21:59:00Z' }, ref).state, 'closed');
 assert.equal(getCallDeadline({ status: 'closed', deadline: null }, ref).state, 'closed');
+
+// ---- A forthcoming call is "Opens soon" only while its dates allow it ----
+assert.equal(callStatusKind('forthcoming', 'normal', '2026-11-01T00:00:00Z', ref), 'upcoming');
+assert.equal(callStatusKind('forthcoming', 'normal', null, ref), 'upcoming');
+assert.equal(callStatusKind('forthcoming', 'normal', '2026-08-13T00:00:00Z', ref), 'pending');   // opening day passed
+assert.equal(callStatusKind('forthcoming', 'closed', '2026-08-13T00:00:00Z', ref), 'closed');    // deadline passed
+assert.equal(callStatusKind('open', 'normal', '2026-08-13T00:00:00Z', ref), 'open');
+
+// ---- Placeholder amounts are not values; a call-level budget is shown once ----
+assert.equal(isPlaceholderAmount(0), true);
+assert.equal(isPlaceholderAmount(0.01), true);
+assert.equal(isPlaceholderAmount(1), true);
+assert.equal(isPlaceholderAmount(1.5), false);
+assert.equal(isPlaceholderAmount(90_000_000), false);
+const eur = (amount: number) => ({ amount, currency: 'EUR' });
+assert.deepEqual(
+  [...repeatedCallBudgets([
+    { id: '1', callId: 'A', budget: eur(90), budgetScope: 'call' },
+    { id: '2', callId: 'A', budget: eur(90), budgetScope: 'call' },
+    { id: '3', callId: 'B', budget: eur(5), budgetScope: 'topic' },
+    { id: '4', callId: 'B', budget: eur(5), budgetScope: 'topic' },
+    { id: '5', callId: 'A', budget: eur(40), budgetScope: 'call' },
+  ])],
+  ['2'],
+);
+
+// ---- CPV: the code's own title before its group's; the legal basis and the procedure in words ----
+assert.deepEqual(cpvName('50640000'), { label: 'Repair and maintenance services of warships', exact: true });
+assert.deepEqual(cpvName('79710000'), { label: 'Business services: law, marketing, consulting, recruitment, printing and security', exact: false });
+assert.equal(cpvName('99999999'), null);
+assert.equal(cpvGroupName('452'), 'Construction work (division)');
+assert.equal(cpvGroupName('351'), 'Emergency and security equipment');
+assert.equal(cpvGroupName('999'), null);
+assert.equal(legalBasisLabel('32009L0081'), 'Directive 2009/81/EC (defence and security procurement)');
+assert.ok(legalBasisLabel('other'));
+assert.equal(legalBasisLabel('something-else'), null);
+assert.equal(procedureLabel('Negociado con publicidad'), 'Negotiated procedure with prior publication');
+assert.equal(procedureLabel('Niet-openbaar'), 'Restricted procedure');
+assert.equal(procedureLabel('Procédure négociée'), 'Negotiated procedure');
+assert.equal(procedureLabel('Abierto'), 'Open procedure');
+assert.equal(procedureLabel('Open procedure'), null);                // already English: shown as stated
+assert.equal(procedureLabel('Something unlisted'), null);
 
 // ---- The status the source itself gives ----
 assert.equal(sourceStatusWord({ statusNative: 'open' }), null);

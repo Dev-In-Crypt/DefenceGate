@@ -5,11 +5,12 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug } from '@/lib/api';
 import { getTenderDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { formatDateUtc, formatMoney } from '@/lib/format';
+import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
 import { sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
-import { cpvLabel, isNonEnglish, legalBasisLabel, TENDER_SCOPES } from '@/lib/taxonomy';
+import { cpvName } from '@/lib/cpv';
+import { isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { clearanceView, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
@@ -93,6 +94,7 @@ export default async function TenderDetailPage({ params }: Props) {
   const buyer = displayName(tender.buyerName, 'title');
   const sourceStatus = sourceStatusWord(tender);
   const lots = tender.lots ?? tender.lotCount;
+  const procedureEn = tender.procedure ? procedureLabel(tender.procedure) : null;
   const clearance = clearanceView(tender);
   const subcontracting = subcontractingView(tender);
 
@@ -139,7 +141,7 @@ export default async function TenderDetailPage({ params }: Props) {
           <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
             <FactCell label="Estimated value">
               <AmountDisplay money={tender.estimatedValue} size="lg" />
-              {tender.estimatedValue && valueKindLabel(tender.valueKind) && (
+              {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && valueKindLabel(tender.valueKind) && (
                 <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
               )}
             </FactCell>
@@ -149,13 +151,20 @@ export default async function TenderDetailPage({ params }: Props) {
                 ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
                 : <span className="font-sans">Not available</span>}
             </FactCell>
-            <FactCell label="Procedure"><span className="font-sans">{tender.procedure ?? 'Not available'}</span></FactCell>
+            <FactCell label="Procedure">
+              <span className="font-sans">{procedureEn ?? tender.procedure ?? 'Not available'}</span>
+              {procedureEn && <div className="mt-1 font-sans text-small font-normal text-ink-muted">As stated: {tender.procedure}</div>}
+            </FactCell>
             <FactCell label="Legal basis">
               {tender.legalBasis ? (
-                <>
-                  {tender.legalBasis}
-                  {legal && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{legal}</div>}
-                </>
+                legal ? (
+                  <>
+                    <span className="font-sans">{legal}</span>
+                    {tender.legalBasis.trim().toLowerCase() !== 'other' && (
+                      <div className="mt-1 font-mono text-small font-normal text-ink-muted">Code {tender.legalBasis}</div>
+                    )}
+                  </>
+                ) : <span className="font-sans">{tender.legalBasis}</span>
               ) : <span className="font-sans">Not available</span>}
             </FactCell>
             <FactCell label="Buyer country">
@@ -176,13 +185,13 @@ export default async function TenderDetailPage({ params }: Props) {
             <Panel title="CPV codes">
               <ul className="m-0 flex list-none flex-col p-0">
                 {cpvCodes.map((code, i) => {
-                  const label = cpvLabel(code);
+                  const label = cpvName(code);
                   return (
                     <li key={code} className={cn(ROW, i < cpvCodes.length - 1 && 'border-b border-line')}>
                       <span className="font-mono text-mono-strong tabular-nums">{code}{i === 0 && tender.cpv ? <span className="ml-2 font-sans text-label text-ink-muted">Main</span> : null}</span>
                       <span className="text-body">
                         {label ? (
-                          <>{label.label}{!label.exact && <span className="text-ink-muted"> (group)</span>}</>
+                          label.exact ? label.label : <><span className="text-ink-muted">Within: </span>{label.label}</>
                         ) : <span className="text-ink-muted">Name not in our table</span>}
                       </span>
                     </li>

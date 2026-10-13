@@ -4,7 +4,8 @@
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
 import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, Health, MarketStats, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
-import { BUYER_PAGE_SIZE, DEFAULT_PAGE_SIZE, TENDER_PAGE_SIZE, toBuyerQuery, toQuery, toTenderQuery } from './filters';
+import { BUYER_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toQuery, toTenderQuery } from './filters';
+import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
@@ -92,6 +93,10 @@ export async function getAllCallSlugs(): Promise<{ slug: string; updatedAt: stri
 /** Query for /v1/tenders: the site's URL keys (defaults omitted) plus pageSize. */
 function tendersQuery(f: TenderFilters): string {
   const p = new URLSearchParams(toTenderQuery(f));
+  // A value filter never matches a placeholder amount (0, 0.01, 1): the pages show those as not stated.
+  if (f.valueMin !== undefined || f.valueMax !== undefined) {
+    p.set(PARAM.min, String(Math.max(f.valueMin ?? 0, PLACEHOLDER_AMOUNT_MAX + 0.01)));
+  }
   p.set('pageSize', String(f.pageSize ?? TENDER_PAGE_SIZE));
   return `?${p.toString()}`;
 }

@@ -17,7 +17,11 @@ const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 
 /** Whole card is one link (stretched title). "View original" sits above it. */
-export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLevel?: 'h2' | 'h3' }) {
+export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: {
+  call: Call; headingLevel?: 'h2' | 'h3';
+  /** The call-level budget already appeared on an earlier card of this list: say it is shared instead of repeating it. */
+  budgetRepeated?: boolean;
+}) {
   const d = getCallDeadline(call);
   const closed = d.state === 'closed';
   const upcoming = call.status === 'forthcoming';
@@ -31,7 +35,7 @@ export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLev
         <Tag kind="programme">{PROGRAMMES[call.programme].label}</Tag>
         <Tag>{REGIMES[call.regime]}</Tag>
         <Tag>{call.funderCountry}</Tag>
-        <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state)} /></span>
+        <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
       </div>
       <div className="flex flex-col gap-1">
         <H lang={nonEnglish ? call.titleLanguage : undefined} className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
@@ -70,7 +74,18 @@ export function CallCard({ call, headingLevel = 'h2' }: { call: Call; headingLev
             <span className="font-sans">{closed ? 'Closed' : 'No fixed deadline'}</span>
           )}
         </FactCell>
-        <FactCell label="Budget" tone={closed ? 'closed' : 'default'}><AmountDisplay money={call.budget} /></FactCell>
+        <FactCell label={call.budgetScope === 'call' ? 'Call budget' : call.budgetScope === 'topic' ? 'Topic budget' : 'Budget'} tone={closed ? 'closed' : 'default'}>
+          {budgetRepeated ? (
+            <span className="font-sans text-body text-ink-muted">Shared with the other topics of this call</span>
+          ) : (
+            <>
+              <AmountDisplay money={call.budget} />
+              {call.budget && call.budgetScope === 'call' && (
+                <div className="font-sans text-small font-normal text-ink-muted">Shared by several topics of this call</div>
+              )}
+            </>
+          )}
+        </FactCell>
         <FactCell label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</FactCell>
       </dl>
       <SourceBadge source={call.source} variant="inline" />

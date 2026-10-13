@@ -11,7 +11,7 @@ export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
 export type DeadlineState = 'normal' | 'soon' | 'urgent' | 'closed' | 'none';
 /** UI status pill values. 'upcoming' = a forthcoming call ("Opens soon"). */
-export type StatusKind = 'open' | 'upcoming' | 'soon' | 'closed' | 'amended' | 'unknown';
+export type StatusKind = 'open' | 'upcoming' | 'pending' | 'soon' | 'closed' | 'amended' | 'unknown';
 
 /** ISO 8601 timestamp, always UTC (e.g. "2026-11-26T16:00:00Z"). */
 export type IsoDateTime = string;
