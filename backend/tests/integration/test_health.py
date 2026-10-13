@@ -104,7 +104,9 @@ def _opp(conn, native_id, *, cpv, buyer, legal=False):
                       published_at=date.today(),
                       is_defence=True, sig_cpv=cpv, sig_buyer=buyer, sig_legal_basis=legal,
                       # `core` reads the military CPV column since 12 October 2026.
-                      sig_cpv_military=cpv)
+                      sig_cpv_military=cpv,
+                      # set, not defaulted: the default is `unknown` since 13 October 2026
+                      status="open")
     src = db.source_id(conn, "pl_atlas")
     db.upsert_opportunity(conn, opp, content_hash(db.opportunity_payload(opp)), src)
     conn.commit()

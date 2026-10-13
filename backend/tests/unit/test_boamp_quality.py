@@ -245,6 +245,48 @@ def test_the_link_is_in_the_archived_payload_only_when_there_is_one():
     assert opportunity_payload(_map("rectificatif_one_link"))["related_native_id"] == "16-45339"
 
 
+# ------------------------------------------------------------------ status
+
+@pytest.mark.parametrize("nature, status", [
+    ("APPEL_OFFRE", "open"),
+    ("ATTRIBUTION", "awarded"), ("RESULTAT", "awarded"),
+    ("INTENTION_CONCLURE", "awarded"),     # the notice of intention to conclude: veat
+    ("MODIFICATION", "awarded"), ("EX_ANTE_VOLONTAIRE", "awarded"),
+    ("PRE-INFORMATION", "forthcoming"), ("PERIODIQUE", "forthcoming"),
+    ("ANNULATION", "cancelled"),
+    ("AUTRE", "unknown"), ("SOMETHING_NEW", "unknown"), ("", "unknown"),
+])
+def test_the_lifecycle_follows_the_notices_nature_and_an_unread_one_is_never_open(nature, status):
+    """Until 12 October 2026 `_FR_STATUS.get(nature, "open")`: 46 notices of intention
+    to conclude and 45 prior-information notices were served as open calls."""
+    assert from_boamp(_synthetic({}, nature=nature)).status == status
+
+
+def test_a_rectificatif_keeps_the_type_of_the_notice_it_corrects():
+    assert from_boamp(_synthetic({}, nature="ATTRIBUTION", etat="RECTIFICATIF")).status == "awarded"
+    assert from_boamp(_synthetic({}, nature="APPEL_OFFRE", etat="RECTIFICATIF")).status == "open"
+    assert from_boamp(_synthetic({}, nature="PRE-INFORMATION",
+                                 etat="RECTIFICATIF")).status == "forthcoming"
+
+
+def test_a_rectificatif_of_no_stated_type_is_a_call_only_when_it_states_a_deadline():
+    """449 stored rectificatifs have the nature RECTIFICATIF, which names no parent:
+    with a deadline for offers it is a corrected call, without one it is not known."""
+    bare = _synthetic({}, nature="RECTIFICATIF", etat="RECTIFICATIF")
+    assert from_boamp(bare).status == "unknown"
+    dated = _synthetic({}, nature="RECTIFICATIF", etat="RECTIFICATIF",
+                       datelimitereponse="2026-11-20T12:00:00+01:00")
+    assert from_boamp(dated).status == "open"
+    # "other" is not a call, even with a date, unless it is a correction of something
+    assert from_boamp(_synthetic({}, nature="AUTRE",
+                                 datelimitereponse="2026-11-20")).status == "unknown"
+
+
+def test_the_status_native_still_names_the_perimetre_and_the_nature():
+    assert from_boamp(_synthetic({}, nature="PRE-INFORMATION")).status_native == \
+        "DIRECTIVE-81/PRE-INFORMATION"
+
+
 # --------------------------------------------------------------- TED link
 
 def test_a_boamp_record_states_no_ted_publication_number_of_its_own():

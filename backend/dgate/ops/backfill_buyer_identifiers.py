@@ -265,6 +265,49 @@ def collect_identifiers(per: dict[int, list[tuple[str, int, str]]], read_lines, 
     return idents, stats
 
 
+def _merge_group(conn, g: Group, result: dict[str, int]) -> int:
+    """Merge the absorbed organisations of one group into its survivor; returns how many.
+
+    The plan was made from a read at the start of the run, so each organisation is read
+    again here: one that is merged by now, or that carries another registered number
+    than the group's, is left out and counted in `result["skipped"]`, because
+    `db.merge_organisations` refuses both and one refusal must not end the run.
+    """
+    live = {r["id"]: r for r in conn.execute(
+        "SELECT id, national_reg_no, merged_into FROM organisation WHERE id = ANY(%s)",
+        ([g.survivor.id, *(o.id for o in g.absorbed)],)).fetchall()}
+    survivor = live.get(g.survivor.id)
+    if survivor is None or survivor["merged_into"] is not None:
+        log.warning("group %s in %s: survivor %s is already merged; left", g.identifier,
+                    g.country, g.survivor.id)
+        result["skipped"] += len(g.absorbed)
+        return 0
+    todo: list[Org] = []
+    for o in g.absorbed:
+        row = live.get(o.id)
+        if row is None or row["merged_into"] is not None:
+            log.info("organisation %s is already merged; left", o.id)
+        elif row["national_reg_no"] not in (None, g.identifier):
+            log.warning("organisation %s carries %s, not %s: not the same body; left",
+                        o.id, row["national_reg_no"], g.identifier)
+        else:
+            todo.append(o)
+            continue
+        result["skipped"] += 1
+    if todo and not g.held_by_survivor and survivor["national_reg_no"] is None:
+        conn.execute(
+            """UPDATE organisation SET national_reg_no = %s, identifier_method = %s,
+                      identifier_confidence = %s
+                WHERE id = %s AND national_reg_no IS NULL""",
+            (g.identifier, METHOD, CONFIDENCE, g.survivor.id))
+    for o in todo:
+        db.merge_organisations(
+            conn, g.survivor.id, o.id, method=METHOD, confidence=CONFIDENCE,
+            evidence=f"identifier {g.identifier} in {g.country}",
+            detected_by="backfill_buyer_identifiers")
+    return len(todo)
+
+
 def run(conn, store: RawStore, *, max_bundles: int | None = None, rounds: int = 3,
         max_group: int = DEFAULT_MAX_GROUP, apply: bool = False, top: int = 15,
         out=print) -> dict[str, int]:
@@ -328,21 +371,22 @@ def run(conn, store: RawStore, *, max_bundles: int | None = None, rounds: int = 
         out("\ndry run: nothing written (add --yes)")
         return result
 
+    result["skipped"] = result["failed_groups"] = 0
     for g in merge:
-        with conn.transaction():
-            if not g.held_by_survivor and g.survivor.national_reg_no is None:
-                conn.execute(
-                    """UPDATE organisation SET national_reg_no = %s, identifier_method = %s,
-                              identifier_confidence = %s
-                        WHERE id = %s AND national_reg_no IS NULL""",
-                    (g.identifier, METHOD, CONFIDENCE, g.survivor.id))
-            for o in g.absorbed:
-                db.merge_organisations(
-                    conn, g.survivor.id, o.id, method=METHOD, confidence=CONFIDENCE,
-                    evidence=f"identifier {g.identifier} in {g.country}",
-                    detected_by="backfill_buyer_identifiers")
-                result["merged_orgs"] += 1
-        result["merged_groups"] += 1
+        # One group at a time, each its own transaction and its own commit: a run of an
+        # hour must not be lost to the one group that cannot be merged, and what was
+        # merged stays merged if the process is stopped.
+        try:
+            with conn.transaction():
+                merged = _merge_group(conn, g, result)
+            conn.commit()
+        except Exception as exc:  # noqa: BLE001 - logged; the other groups go on
+            log.error("group %s in %s not merged: %s", g.identifier, g.country, exc)
+            conn.rollback()
+            result["failed_groups"] += 1
+            continue
+        result["merged_orgs"] += merged
+        result["merged_groups"] += 1 if merged else 0
     for g in review:
         for o in g.held_for_review:
             db.add_merge_candidate(

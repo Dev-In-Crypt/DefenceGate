@@ -93,6 +93,53 @@ def test_the_repair_never_reclassifies():
     assert change.candidate.buyer_org_id == 99
 
 
+def test_a_repair_carries_the_demotion_and_the_link_the_payload_never_held():
+    """Review finding of 13 October 2026. The classification is not versioned, so the
+    payload of the current version has no `dual_use`, `buyer_class` or
+    `sig_linked_defence`; a repair version written from it reset the serving row, and a
+    municipality's military CPV came back to `core`."""
+    raw = stored_payload("534116-2026")
+    row = serving_row(dual_use=True, buyer_class="municipal", sig_linked_defence=True,
+                      sig_cpv_military=True, sig_cpv_adjacent=False)
+    new = from_ted(raw)
+    change = plan_change(before_state(), row, new, raw_fields(raw, new.status_native))
+    assert change.changed, "a version is due, which is what writes the serving row"
+    cand = change.candidate
+    assert (cand.dual_use, cand.buyer_class, cand.sig_linked_defence) == (True, "municipal", True)
+    assert cand.sig_cpv_military is True
+
+
+def test_remap_source_carries_them_too():
+    from dgate.ops import remap_source
+
+    row = serving_row(dual_use=True, buyer_class="health", sig_linked_defence=True)
+    moved = from_ted(strip_personal_data(LIVE["534116-2026"]))
+    change = remap_source.plan(before_state(), row, moved)
+    assert (change.candidate.dual_use, change.candidate.buyer_class,
+            change.candidate.sig_linked_defence) == (True, "health", True)
+
+
+def test_a_refetch_never_replaces_a_stored_fact_by_an_absent_one():
+    """A notice TED now returns without a value, a date or a currency has not lost them."""
+    stored = db.opportunity_payload(Opportunity(
+        source_code="ted", native_id="1-2026", buyer_name_raw="Buyer", title_original="T",
+        country="PL", procedure_type="16", published_at=date(2026, 7, 31), status="open",
+        value_amount=500000.0, value_currency="EUR", value_kind="estimated", lot_count=3,
+        procedure_identifier="c3c8137c-d92b-4f7f-8175-36decaf1451d"))
+    bare = from_ted({"publication-number": "1-2026", "notice-title": "t", "buyer-name": "b",
+                     "notice-type": "cn-standard"})
+    assert bare.value_amount is None and bare.published_at is None
+    held = serving_row(value_kind="estimated", lot_count=3,
+                       procedure_identifier="c3c8137c-d92b-4f7f-8175-36decaf1451d")
+    change = plan_change(stored, held, bare, REMAPPED)
+    cand = change.candidate
+    assert (cand.value_amount, cand.value_currency, cand.published_at) == (
+        500000.0, "EUR", date(2026, 7, 31))
+    assert "value_amount" not in change.changed and "published_at" not in change.changed
+    assert "value_kind" not in change.direct and "lot_count" not in change.direct
+    assert "procedure_identifier" not in change.direct
+
+
 def test_a_second_pass_over_a_corrected_notice_plans_nothing():
     raw = stored_payload("534116-2026")
     new = from_ted(raw)

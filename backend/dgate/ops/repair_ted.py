@@ -35,6 +35,11 @@ interrupted run resumes where it stopped.
     python -m dgate.ops.repair_ted --refetch --limit 500      # report only, 5 requests
     python -m dgate.ops.repair_ted --refetch --yes
     python -m dgate.ops.repair_ted --refetch --numbers-file numbers.txt --yes
+    python -m dgate.ops.repair_ted --from-raw --epoch 2 --yes  # after the mapper changed again
+
+A notice that could not be done (TED did not return it; no payload is stored for its
+current version) is marked `refetch-missing` / `raw-missing`, so that `--limit` runs
+move on instead of taking the same first notices again.
 """
 
 from __future__ import annotations
@@ -76,10 +81,25 @@ DIRECT_COLUMNS = ("status_native", "notice_subtype", "procedure_identifier", "lo
 
 # What the serving row holds that a version payload may not: derived signals and
 # links. Carried over unchanged, so a repair never reclassifies.
+#
+# Every column `db.append_version` derives from the classification is here
+# (`db._classification_columns`): a version written without them would put the serving
+# row back to what the payload says, and a notice demoted to dual-use (a municipality's
+# military CPV) would return to `core`. The payload of an older version has none of
+# them, because the classification is not versioned.
 CARRIED_COLUMNS = (
     "buyer_org_id", "is_defence", "sig_legal_basis", "sig_cpv", "sig_buyer",
     "sig_clearance", "subcontracting_signal", "security_clearance_required",
     "title_en", "summary_en", "ted_ref",
+    "sig_cpv_military", "sig_cpv_adjacent", "sig_linked_defence", "dual_use", "buyer_class",
+)
+
+# Facts a repair never replaces by an absent one: a notice TED now returns without a
+# value, a date, a currency or an identifier has not lost it. Procedure, status and the
+# source's own type were wrong rather than missing and are replaced.
+PRESERVE = (
+    "value_amount", "value_currency", "value_kind", "published_at", "deadline_at", "country",
+    "lot_count", "notice_subtype", "procedure_identifier", "buyer_identifier",
 )
 
 
@@ -135,7 +155,8 @@ def plan_change(current_payload: dict[str, Any], serving: dict[str, Any],
     """
     base = db.opportunity_from_payload(current_payload)
     base = replace(base, **{k: serving[k] for k in CARRIED_COLUMNS if k in serving})
-    candidate = replace(base, **{f: getattr(new, f) for f in fields})
+    candidate = replace(base, **{f: getattr(new, f) for f in fields
+                                 if not (f in PRESERVE and getattr(new, f) is None)})
     payload = db.opportunity_payload(candidate)
     current = {f: current_payload.get(f) for f in db.VERSIONED_FIELDS}
     changed = [f for f in db.VERSIONED_FIELDS if current[f] != payload.get(f)]
@@ -230,14 +251,20 @@ def _state(conn, src_id: int, numbers: list[str]) -> dict[str, dict[str, Any]]:
     return {r["native_id"]: r for r in rows}
 
 
+def _modes(mode: str) -> list[str]:
+    """The marker modes that take a notice out of a run of `mode`: it was done, or it
+    was looked for and there was nothing to do it with (migration 0037)."""
+    return [mode, f"{mode}-missing"]
+
+
 def pending_numbers(conn, src_id: int, mode: str, limit: int | None) -> list[str]:
     rows = conn.execute(
         """SELECT o.native_id FROM opportunity o
             WHERE o.source_id = %s
               AND NOT EXISTS (SELECT 1 FROM ted_repair_marker m
-                               WHERE m.native_id = o.native_id AND m.mode = %s)
+                               WHERE m.native_id = o.native_id AND m.mode = ANY(%s))
             ORDER BY o.id LIMIT %s""",
-        (src_id, mode, limit),
+        (src_id, _modes(mode), limit),
     ).fetchall()
     return [r["native_id"] for r in rows]
 
@@ -278,14 +305,22 @@ def _raw_keys(conn, src_id: int, numbers: list[str]) -> dict[str, str]:
 
 
 def run_from_raw(conn, numbers: list[str], *, write: bool, batch: int = 200,
-                 workers: int = 1) -> Result:
+                 workers: int = 1, marker: str = "raw") -> Result:
     from ..reprocess import _read_batch
 
     result = Result()
     src_id = db.source_id(conn, "ted")
     store = build_store()
     keys = _raw_keys(conn, src_id, numbers)
-    result.no_raw = sum(1 for n in numbers if n not in keys)
+    unread = [n for n in numbers if n not in keys]
+    result.no_raw = len(unread)
+    if write:
+        # Marked, so that the next `--limit` run takes the next notices and not these
+        # again: a notice with no stored payload for its current version is not one this
+        # mode can do (--refetch can).
+        for number in unread:
+            _mark(conn, number, f"{marker}-missing", None)
+        conn.commit()
     # In key order, so that the notices of one stored bundle -- a whole publication
     # day -- are read one after another and the bundle is decoded once, not once
     # for every notice in it.
@@ -313,7 +348,7 @@ def run_from_raw(conn, numbers: list[str], *, write: bool, batch: int = 200,
             if write:
                 version = apply_change(conn, row["id"], row["v_version"], row["v_hash"],
                                        change, "raw")
-                _mark(conn, number, "raw", version)
+                _mark(conn, number, marker, version)
         if write:
             conn.commit()
         else:
@@ -323,7 +358,8 @@ def run_from_raw(conn, numbers: list[str], *, write: bool, batch: int = 200,
 
 
 def run_refetch(conn, numbers: list[str], *, write: bool, batch: int = 100,
-                client: httpx.Client | None = None, pause: float = 1.0) -> Result:
+                client: httpx.Client | None = None, pause: float = 1.0,
+                marker: str = "refetch") -> Result:
     result = Result()
     src_id = db.source_id(conn, "ted")
     owns = client is None
@@ -347,6 +383,8 @@ def run_refetch(conn, numbers: list[str], *, write: bool, batch: int = 100,
                     notice = by_number.get(number)
                     if notice is None:
                         result.missing += 1
+                        if write:
+                            _mark(conn, number, f"{marker}-missing", None)
                         continue
                     row = state[number]
                     try:
@@ -364,7 +402,7 @@ def run_refetch(conn, numbers: list[str], *, write: bool, batch: int = 100,
                         db.record_raw(conn, src_id, number, digest, key)
                         version = apply_change(conn, row["id"], row["v_version"], digest,
                                                change, "refetch")
-                        _mark(conn, number, "refetch", version)
+                        _mark(conn, number, marker, version)
                 if write:
                     writer.drain()          # the payloads land before the rows that point at them
                     conn.commit()
@@ -380,21 +418,26 @@ def run_refetch(conn, numbers: list[str], *, write: bool, batch: int = 100,
 
 def run(mode: str, *, write: bool = False, limit: int | None = None,
         batch: int | None = None, numbers: list[str] | None = None,
-        workers: int = 1, dsn: str | None = None) -> Result:
+        workers: int = 1, epoch: int = 1, dsn: str | None = None) -> Result:
+    # A second pass after the mapper changed again has markers of its own (`raw#2`), so
+    # that it needs nothing deleted or reset; the first pass keeps its plain names.
+    marker = mode if epoch == 1 else f"{mode}#{epoch}"
     with db.connect(dsn or settings().dsn) as conn:
         src_id = db.source_id(conn, "ted")
         if numbers is None:
-            wanted = pending_numbers(conn, src_id, mode, limit)
+            wanted = pending_numbers(conn, src_id, marker, limit)
         else:
             done = {r["native_id"] for r in conn.execute(
-                "SELECT native_id FROM ted_repair_marker WHERE mode = %s", (mode,)).fetchall()}
+                "SELECT native_id FROM ted_repair_marker WHERE mode = ANY(%s)",
+                (_modes(marker),)).fetchall()}
             wanted = [n for n in dict.fromkeys(numbers) if n not in done][:limit]
-        log.info("repair_ted --%s: %s notices to do%s", mode, len(wanted),
+        log.info("repair_ted --%s (epoch %s): %s notices to do%s", mode, epoch, len(wanted),
                  "" if write else " (dry run: nothing is written)")
         if mode == "raw":
             return run_from_raw(conn, wanted, write=write, batch=batch or 200,
-                                workers=workers)
-        return run_refetch(conn, wanted, write=write, batch=min(batch or 100, 100))
+                                workers=workers, marker=marker)
+        return run_refetch(conn, wanted, write=write, batch=min(batch or 100, 100),
+                           marker=marker)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -414,6 +457,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="--from-raw: payloads read at once (1: a stored day is decoded once)")
     p.add_argument("--numbers-file", type=Path,
                    help="publication numbers, one per line, instead of every stored TED notice")
+    p.add_argument("--epoch", type=int, default=1,
+                   help="run again after the mapper changed again (separate markers)")
     a = p.parse_args(argv)
 
     numbers = None
@@ -421,7 +466,8 @@ def main(argv: list[str] | None = None) -> int:
         numbers = [ln.strip() for ln in a.numbers_file.read_text(encoding="utf-8").splitlines()
                    if ln.strip() and not ln.startswith("#")]
     result = run("raw" if a.from_raw else "refetch", write=a.yes and not a.dry_run,
-                 limit=a.limit, batch=a.batch, numbers=numbers, workers=a.workers)
+                 limit=a.limit, batch=a.batch, numbers=numbers, workers=a.workers,
+                 epoch=a.epoch)
     print(result)
     return 0 if result.failed == 0 and result.stopped is None else 1
 

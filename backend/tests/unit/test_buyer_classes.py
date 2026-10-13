@@ -82,6 +82,37 @@ def test_bodies_that_carry_a_defence_word_are_kept_out(name, country, why):
 
 
 @pytest.mark.parametrize("name", [
+    "University Hospital Department of Human and Material Resources",
+    "Gemeente Material Resources Management",
+    "Material Resources Trading Ltd",
+])
+def test_the_phrase_material_resources_alone_does_not_make_a_defence_body(name):
+    """Review finding of 13 October 2026: the bare phrase matched any name that held it,
+    at 0.95. Only Belgian Defence's directorate (and a defence body that names it) does."""
+    assert bv.defence_body(name, "BE").label is None, name
+
+
+@pytest.mark.parametrize("name", [
+    "Direction générale Material Resources - Division Marchés publics",
+    "Defence - Material Resources Directorate",
+])
+def test_belgian_defences_material_resources_directorate_still_matches(name):
+    assert bv.defence_body(name, "BE").confidence >= 0.80, name
+
+
+def test_a_name_with_no_word_of_four_letters_is_compatible_with_nothing():
+    """A stated number is trusted against a name only when the two share a word; a name
+    with none to share used to pass because the test had nothing to compare."""
+    from dgate.db import names_compatible
+
+    assert names_compatible("ministerstvo obrany", "ceska republika ministerstvo obrany")
+    assert not names_compatible("mon", "ministerstvo obrany")
+    assert not names_compatible("ministerstvo obrany", "dga")
+    assert not names_compatible("mon", "dga")
+    assert not names_compatible("ministerstvo obrany", "krajska nemocnice liberec")
+
+
+@pytest.mark.parametrize("name", [
     "Eda bostäder", "Dga Servicios Generales", "Ministerio de Fomento",
     "Gemeinde Westendorf", "Stadt Nürnberg Hochbauamt", "Freiwillige Feuerwehr Jelonki",
     "Politiets fellestjenester", "Rigspolitiet", "Ministerstvo vnitra",

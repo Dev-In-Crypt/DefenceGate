@@ -69,6 +69,31 @@ def test_open_is_as_of_now_so_a_passed_deadline_is_closed(client, conn):
     assert lapsed["status"] == "closed" and lapsed["statusNative"] == "expired"
 
 
+@pytest.mark.parametrize("zone", ["Asia/Tokyo", "America/New_York", "UTC"])
+def test_the_to_filter_is_the_whole_utc_day_whatever_the_servers_time_zone(
+        client, conn, monkeypatch, zone):
+    """Review finding of 13 October 2026: `to` was `%s::date + 1` compared with a
+    timestamptz in the session's zone, while `from` is read as UTC: the bound moved with
+    the server (Tokyo cut the day at 15:00 UTC, New York let the next morning in)."""
+    from urllib.parse import quote
+
+    from dgate import config
+
+    evening = datetime(2026, 11, 20, 20, 0, tzinfo=timezone.utc)
+    next_morning = datetime(2026, 11, 21, 2, 0, tzinfo=timezone.utc)
+    midnight = datetime(2026, 11, 21, 0, 0, tzinfo=timezone.utc)
+    _put(conn, "EVENING", deadline=evening)
+    _put(conn, "NEXT-MORNING", deadline=next_morning)
+    _put(conn, "MIDNIGHT", deadline=midnight)
+    dsn = config.settings().dsn
+    joiner = "&" if "?" in dsn else "?"
+    monkeypatch.setenv("DGATE_DSN", f"{dsn}{joiner}options={quote(f'-c TimeZone={zone}')}")
+    config.reset_cache()
+    assert sorted(_ids(client, to="2026-11-20")) == ["EVENING"]
+    assert sorted(_ids(client, to="2026-11-21")) == ["EVENING", "MIDNIGHT", "NEXT-MORNING"]
+    assert sorted(_ids(client, **{"from": "2026-11-21"})) == ["MIDNIGHT", "NEXT-MORNING"]
+
+
 def test_a_closed_list_runs_newest_deadline_first_by_default(client, conn):
     for n, days in enumerate((90, 10, 45)):
         _put(conn, f"C-{n}", deadline=PAST - timedelta(days=days))

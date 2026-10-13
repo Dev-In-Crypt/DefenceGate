@@ -79,6 +79,35 @@ def test_a_cpv_code_that_really_changes_is_still_recorded(conn):
     assert _versions(conn, opp_id)[1]["changed_fields"] == ["cpv_codes"]
 
 
+def test_a_new_version_does_not_erase_a_link_or_attribute_set_outside_any_version(conn):
+    """Review finding of 13 October 2026. `link_twins` sets `ted_ref` on a row with no
+    version; the next version of that notice was built from a payload without it, wrote
+    NULL over it, and left `twin_method` saying it had been linked."""
+    opp_id, _ = _store(conn, _opp(source_code="fr_boamp"), "h1")
+    conn.execute(
+        """UPDATE opportunity SET ted_ref = '100-2026', twin_method = 'procedure_id',
+                  twin_confidence = 0.98, procedure_identifier = 'proc-1', lot_count = 2,
+                  buyer_identifier = '12345678', notice_subtype = '16', value_kind = 'estimated',
+                  related_native_id = 'PARENT-1' WHERE id = %s""", (opp_id,))
+    conn.commit()
+
+    assert _store(conn, _opp(source_code="fr_boamp", value_amount=9.0, value_currency="EUR"),
+                  "h2") == (opp_id, "changed")
+    row = conn.execute("SELECT * FROM opportunity WHERE id = %s", (opp_id,)).fetchone()
+    assert (row["ted_ref"], row["twin_method"]) == ("100-2026", "procedure_id")
+    assert (row["procedure_identifier"], row["lot_count"], row["buyer_identifier"]) == (
+        "proc-1", 2, "12345678")
+    assert (row["notice_subtype"], row["value_kind"], row["related_native_id"]) == (
+        "16", "estimated", "PARENT-1")
+    assert float(row["value_amount"]) == 9.0
+
+    # a version that does state a value replaces it
+    assert _store(conn, _opp(source_code="fr_boamp", value_amount=10.0, value_currency="EUR",
+                             ted_ref="200-2026"), "h3") == (opp_id, "changed")
+    assert conn.execute("SELECT ted_ref FROM opportunity WHERE id = %s",
+                        (opp_id,)).fetchone()["ted_ref"] == "200-2026"
+
+
 # ---------------------------------------------------------------- the notes
 
 def test_the_note_kind_remapped_is_accepted_and_the_old_kinds_still_are(conn):
@@ -132,6 +161,21 @@ def test_a_feed_date_move_is_not_an_amendment_and_the_count_agrees(client, conn)
     tender = _tender(client, opp_id)
     assert (tender["versionCount"], tender["amended"]) == (1, False)
     assert [v["version"] for v in client.get(f"/v1/tenders/{opp_id}/versions").json()] == [1]
+
+
+def test_the_archive_endpoint_agrees_with_the_timeline_on_what_an_amendment_is(client, conn):
+    """Review finding of 13 October 2026: `/v1/opportunities/{id}/versions` counted a
+    version that only moved the publication date as an amendment, which the timeline and
+    the pulse already hid."""
+    opp_id, _ = _store(conn, _opp(), "h1")
+    _store(conn, _opp(published_at=date(2026, 10, 3)), "h2")
+    body = client.get(f"/v1/opportunities/{opp_id}/versions").json()
+    assert body["version_count"] == 2 and body["amended"] is False
+
+    _store(conn, _opp(published_at=date(2026, 10, 3), status="awarded"), "h3")
+    body = client.get(f"/v1/opportunities/{opp_id}/versions").json()
+    assert body["version_count"] == 3 and body["amended"] is True
+    assert _tender(client, opp_id)["amended"] is True
 
 
 def test_a_deadline_extension_is_listed_in_utc_with_its_label(client, conn):

@@ -320,15 +320,17 @@ def _tokens(norm: str) -> set[str]:
 
 
 def names_compatible(a: str, b: str) -> bool:
-    """Whether two normalised names could be the same body: they share a word.
+    """Whether two normalised names could be the same body: they share a word of four
+    letters or more (a name with no such word is compatible with nothing).
 
     The guard on trusting an identifier. A notice that carries the number of a
     central purchasing body under the name of one of its members would otherwise
     be filed under the purchasing body. A pair with nothing in common is left to
     the name stages; the same body under two languages is merely not merged here.
     """
-    ta, tb = _tokens(a), _tokens(b)
-    return not ta or not tb or bool(ta & tb)
+    # Both names must have a word to share: a name with none of four letters or more
+    # ("MON", "DGA") says nothing a stated number should be trusted against.
+    return bool(_tokens(a) & _tokens(b))
 
 
 def add_merge_candidate(conn: psycopg.Connection, a: int, b: int, *, method: str,
@@ -649,6 +651,21 @@ def refresh_classification(conn: psycopg.Connection, opp_id: int, opp: Opportuni
     )
 
 
+# Columns of the serving row that are links and attributes rather than the notice's own
+# versioned facts (`opportunity_payload` leaves them out while empty).
+KEPT_WHEN_ABSENT = frozenset({
+    "ted_ref", "procedure_identifier", "related_native_id", "buyer_identifier",
+    "lot_count", "notice_subtype", "value_kind",
+})
+
+# What a PLACSP re-reading can move without the publisher having said anything: the
+# fields the mapper of 12 October 2026 owns. A version that changed only these, with the
+# entry's own update stamp unchanged, is the mapper's correction and not an amendment.
+MAPPER_OWNED = frozenset({
+    "value_amount", "value_currency", "procedure_type", "legal_basis", "published_at",
+})
+
+
 def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
                    raw_hash: str, changed: list[str], *, after: int) -> int:
     """Close the open version, append the next one, and move the serving row.
@@ -684,7 +701,11 @@ def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
                    coalesce(%s, clock_timestamp()), coalesce(%s, clock_timestamp()))""",
         (opp_id, version, Jsonb(payload), raw_hash, changed, at, at),
     )
-    sets = ", ".join(f"{k} = %s" for k in cols)
+    # A link or an attribute is not erased by a version that does not state it: a record
+    # built from a payload without `ted_ref` (a PLACSP notice, whose link `link_twins`
+    # set outside any version) would put NULL over it while `twin_method` stayed.
+    sets = ", ".join(f"{k} = COALESCE(%s, {k})" if k in KEPT_WHEN_ABSENT else f"{k} = %s"
+                     for k in cols)
     conn.execute(
         f"UPDATE opportunity SET {sets}, current_version = %s WHERE id = %s",
         list(cols.values()) + [version, opp_id],
@@ -711,6 +732,28 @@ def annotate_versions(conn: psycopg.Connection, version_ids: list[int],
            ON CONFLICT (opportunity_version_id, kind) DO NOTHING""",
         (kind, note, list(version_ids)),
     ).rowcount
+
+
+def _same_entry_state(prev: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """Whether the source's own update stamp of the incoming record is the held one.
+
+    Only a record that carries a stamp can say (PLACSP's Atom `updated`). A version
+    archived before the stamp was kept has none, and its publication date was the feed's
+    update date then: that stands in for it, by the day.
+    """
+    new = _instant(payload.get("source_updated_at"))
+    if new is None:
+        return False
+    old = _instant(prev.get("source_updated_at"))
+    if old is not None:
+        return old == new
+    try:
+        held = date.fromisoformat(str(prev.get("published_at"))[:10])
+    except ValueError:
+        return False
+    # The legacy date is the date part of the stamp's own text, and `new` keeps the
+    # stamp's offset, so its `.date()` is that same local day.
+    return held == new.date()
 
 
 def upsert_opportunity(
@@ -822,6 +865,17 @@ def upsert_opportunity(
     version = append_version(conn, opp_id, opp, raw_hash, changed,
                              after=last["version"] if last else 0)
     log.info("opportunity %s -> v%s, changed: %s", opp.native_id, version, changed)
+    if set(changed) <= MAPPER_OWNED and _same_entry_state(prev, payload):
+        # The entry says it was last changed when it already was, and only what the mapper
+        # reads differently moved: our correction, not the publisher's amendment. The
+        # replay, the historical backfill and a live walk reaching a held entry all come
+        # through here, so none of them has to know.
+        version_id = conn.execute(
+            "SELECT id FROM opportunity_version WHERE opportunity_id = %s AND version = %s",
+            (opp_id, version)).fetchone()["id"]
+        annotate_versions(conn, [version_id], "remapped",
+                          f"{opp.source_code} entry read again under a corrected mapping: "
+                          + ", ".join(changed))
     return opp_id, "changed"
 
 

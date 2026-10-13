@@ -118,6 +118,27 @@ with several `annonce_lie` entries and no reference of its own (31 of 335 sample
 stays unlinked. An award's `annonce_lie` (its tender) is another relation and is not
 stored there.
 
+### Lifecycle (status)
+
+`status` follows the record's `nature`, and an unlisted one is `unknown`, never `open`
+(it was `open` for everything unlisted until 13 October 2026; production on 13 October:
+`APPEL_OFFRE` 6,386, `ATTRIBUTION` 3,649, `RECTIFICATIF` 449, `INTENTION_CONCLURE` 46,
+`PRE-INFORMATION` 47, `MODIFICATION` 29, `EX_ANTE_VOLONTAIRE` 2, `PERIODIQUE` 1, `AUTRE` 1,
+`ANNULATION` 1):
+
+| `nature` | status |
+|---|---|
+| `APPEL_OFFRE` | open |
+| `ATTRIBUTION`, `RESULTAT`, `INTENTION_CONCLURE`, `MODIFICATION`, `EX_ANTE_VOLONTAIRE` | awarded (TED's can-*, veat) |
+| `PRE-INFORMATION`, `PERIODIQUE` | forthcoming |
+| `ANNULATION` | cancelled |
+| `RECTIFICATIF` (449 of 453 rectificatifs) or any nature with `etat: RECTIFICATIF` | open when the record states a deadline for offers, otherwise unknown: the notice does not say what its parent was |
+| anything else (`AUTRE`, a nature nobody has read) | unknown |
+
+A rectificatif whose nature is a real type (`ATTRIBUTION`, `APPEL_OFFRE`) follows it. The
+449 with the nature `RECTIFICATIF` state no deadline in the record, so they are `unknown`
+and the parent stays the notice that is listed.
+
 ### TED reference
 
 A BOAMP record states **no TED publication number of its own**, so `ted_ref` stays

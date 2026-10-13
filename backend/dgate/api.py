@@ -434,11 +434,14 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
         "opportunity_id": opp_id,
         "version_count": len(rows),
         # Not `len(rows) > 1`: a version that only re-read old content, arrived out
-        # of order or is one of our own re-mappings is not an amendment.
-        "amended": any(
-            r["version"] > 1
-            and not any(n["kind"] in db.NOT_AMENDMENT_NOTES for n in (r["notes"] or []))
-            for r in rows),
+        # of order, is one of our own re-mappings, only moved the publication date or
+        # left lines that read the same is not an amendment. The timeline's own rule,
+        # so the flag and the list on the tender page cannot disagree.
+        "amended": len(_tenders.timeline([
+            {"version": r["version"], "observed_at": r["observed_at"],
+             "changed_fields": r["changed_fields"], "payload": r["payload"],
+             "kinds": [n["kind"] for n in (r["notes"] or [])]}
+            for r in rows])) > 1,
         "versions": [
             {
                 "version": r["version"],
@@ -737,6 +740,7 @@ from .funding import router as _funding_router  # noqa: E402
 
 app.include_router(_funding_router)
 
+from . import tenders as _tenders  # noqa: E402
 from .tenders import router as _tenders_router  # noqa: E402
 
 app.include_router(_tenders_router)

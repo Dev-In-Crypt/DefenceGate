@@ -41,11 +41,59 @@ def ids(client, **params) -> list[str]:
     return sorted(t["noticeId"] for t in body["items"])
 
 
-def test_a_rectificatif_is_hidden_when_its_parent_is_held_and_shown_when_it_is_not(client, conn):
+def test_the_newest_wins_a_parent_gives_way_to_its_rectificatif_which_is_never_hidden(client, conn):
+    """Changed on 13 October 2026 (review of the data-quality work). It used to be the
+    other way round: the rectificatif was hidden whenever its parent existed, whatever
+    the parent's status or the filters, so a live corrected notice vanished when the
+    parent had expired. Now the parent is the one that gives way, and only to a
+    rectificatif that is itself in the result."""
     put(conn, "PARENT", source="fr_boamp")
     put(conn, "RECT-1", source="fr_boamp", related="PARENT")
     put(conn, "RECT-2", source="fr_boamp", related="MISSING")
-    assert ids(client) == ["PARENT", "RECT-2"]
+    assert ids(client) == ["RECT-1", "RECT-2"]
+
+
+def test_a_live_rectificatif_is_listed_when_its_parent_has_expired(client, conn):
+    past = datetime.now(timezone.utc) - timedelta(days=30)
+    put(conn, "PARENT", source="fr_boamp", deadline=past)
+    put(conn, "RECT-1", source="fr_boamp", related="PARENT", title="Armoured vehicles, amended")
+    assert ids(client, status="open") == ["RECT-1"]
+    assert ids(client, status="all") == ["RECT-1"], "the correction stands for the notice"
+    # a filter the rectificatif does not meet leaves the parent in the list
+    assert ids(client, status="closed") == ["PARENT"]
+    assert ids(client, status="all", q="Armoured vehicles, amended") == ["RECT-1"]
+
+
+def test_a_filter_that_excludes_the_rectificatif_lists_the_parent(client, conn):
+    put(conn, "PARENT", source="fr_boamp", title="Armoured vehicles")
+    put(conn, "RECT-1", source="fr_boamp", related="PARENT", title="Night vision goggles")
+    assert ids(client, q="Armoured") == ["PARENT"]
+    assert ids(client, q="Night") == ["RECT-1"]
+    assert ids(client) == ["RECT-1"]
+
+
+def test_an_award_is_not_hidden_under_an_expired_call_of_the_same_procedure(client, conn):
+    """A link by procedure identifier ties a national row to the newest TED notice of the
+    procedure, which may be the call; the award must not vanish under it."""
+    past = datetime.now(timezone.utc) - timedelta(days=30)
+    call = put(conn, "100-2026", source="ted", status="open", deadline=past)
+    award = put(conn, "NAT-1", source="fr_boamp", status="awarded", deadline=None)
+    same = put(conn, "NAT-2", source="fr_boamp", status="open", deadline=past,
+               title="Armoured vehicles")
+    assert call
+    for opp_id, method in ((award, "procedure_id"), (same, "procedure_id")):
+        conn.execute("UPDATE opportunity SET ted_ref = '100-2026', twin_method = %s WHERE id = %s",
+                     (method, opp_id))
+    conn.commit()
+    # NAT-2 has the call's own status, so it is its twin and is collapsed into it
+    assert ids(client) == ["100-2026", "NAT-1"]
+    # the same link, but as the source stated it: the old rule, every status collapses
+    conn.execute("UPDATE opportunity SET twin_method = 'stated_ted_ref' WHERE id = %s", (award,))
+    conn.commit()
+    assert ids(client) == ["100-2026"]
+    conn.execute("UPDATE opportunity SET twin_method = 'heuristic' WHERE id = %s", (award,))
+    conn.commit()
+    assert ids(client) == ["100-2026", "NAT-1"]
 
 
 def test_only_the_newest_republication_of_a_procedure_is_shown(client, conn):

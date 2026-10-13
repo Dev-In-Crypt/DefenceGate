@@ -44,7 +44,7 @@ SPAIN_TZ = ZoneInfo("Europe/Madrid")
 # Anything unmapped becomes "unknown" rather than silently "open": an unknown
 # code must be visible, not disguised as an open tender.
 STATUS_MAP = {
-    "PRE": "open",       # anuncio previo
+    "PRE": "forthcoming",  # anuncio previo: a prior-information notice, not a call
     "PUB": "open",       # publicada
     "EV": "open",        # en evaluacion, still live for the archive timeline
     "ADJ": "awarded",    # adjudicada
@@ -56,7 +56,7 @@ STATUS_MAP = {
 
 def map_status(code: str | None) -> str:
     if not code:
-        return "open"
+        return "unknown"        # an entry that states no status is not a call we can act on
     return STATUS_MAP.get(code.strip().upper(), "unknown")
 
 

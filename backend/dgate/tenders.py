@@ -9,7 +9,11 @@ Decisions that shape it:
   - a notice is `open` as of now: a passed deadline, or no deadline and a publication
     date over a year old, is `closed` (the stored status is the one it was published
     with, which a source rarely corrects)
-  - a national notice whose TED twin is in the same result is shown once
+  - a national notice whose TED twin is in the same result is shown once; so is a
+    BOAMP parent whose rectificatif is in the same result, and a TED procedure's
+    re-publications (the newest that matches the filters wins; the rectificatif never
+    hides). The buyer aggregate (`tenderCount`, `openCount`) counts every core notice of
+    the buyer, collapsed or not, so it can exceed what `/v1/tenders?buyer=` lists
   - amounts are never converted; a value range selects one currency
   - a tender names its buyer the way the notice itself does (`buyerName`); the buyers
     catalogue, and `buyerCanonicalName` beside it, use the organisation's commonest
@@ -389,8 +393,10 @@ def list_tenders(
         where.append("o.deadline_at >= %s")
         params.append(datetime.combine(from_, time(0, 0), tzinfo=timezone.utc))
     if to:
-        where.append("o.deadline_at < %s::date + 1")
-        params.append(to)
+        # The whole of the day in UTC, as `from` is read: `%s::date + 1` was compared with
+        # a timestamptz in the session's time zone, so the bound moved with the server.
+        where.append("o.deadline_at <= %s")
+        params.append(datetime.combine(to, time.max, tzinfo=timezone.utc))
     if min_ is not None or max_ is not None:
         where.append("o.value_currency = %s AND o.value_amount IS NOT NULL")
         params.append(currency.upper())
@@ -410,14 +416,26 @@ def list_tenders(
     # anti-join and can still scan in parallel: with the `ted_ref IS NOT NULL AND` guard
     # and a join to `source` it was a restricted subplan and cost 0.7 s a page. A row
     # with no ted_ref matches nothing, so it is kept, as it should be.
+    # A link made by procedure identifier or by the heuristic ties a row to the newest TED
+    # notice of the procedure, which may be another stage of it (an award under the call
+    # for competition): there the TED row has to have the row's own status as well, or
+    # the award would be hidden beneath an expired call. A stated reference keeps its rule.
     not_collapsed = ("NOT EXISTS (SELECT 1 FROM opportunity t "
                      "WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted') "
-                     "AND t.native_id = o.ted_ref AND " + " AND ".join(twin_where) + ")")
-    # A BOAMP rectificatif repeats its parent notice and is shown under it, not beside it:
-    # dropped when the notice it corrects is held. One that corrects a notice we do not
-    # hold stays visible. (`related_native_id` is null for every other row: no match.)
-    not_rectified = ("NOT EXISTS (SELECT 1 FROM opportunity p "
-                     "WHERE p.source_id = o.source_id AND p.native_id = o.related_native_id)")
+                     "AND t.native_id = o.ted_ref "
+                     "AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic') "
+                     "OR t.status = o.status) AND " + " AND ".join(twin_where) + ")")
+    # A BOAMP rectificatif repeats its parent notice, and the newest wins like a
+    # re-publication: the parent is dropped when a rectificatif of it that matches these
+    # same filters is in the result; the rectificatif is never dropped. A parent whose
+    # correction is filtered out (expired while the parent is open, another status) is
+    # listed itself, so the notice never vanishes. (`related_native_id` is null for every
+    # other row: no match.)
+    rect_where = [re.sub(r"\bo\.", "c.", clause_) for clause_ in where]
+    not_rectified = ("NOT EXISTS (SELECT 1 FROM opportunity c "
+                     "WHERE o.related_native_id IS NULL AND c.source_id = o.source_id "
+                     "AND c.related_native_id = o.native_id AND c.id <> o.id AND "
+                     + " AND ".join(rect_where) + ")")
     # A TED re-publication or corrigendum carries a new publication number but the same
     # procedure identifier: only the newest of the same status that matches these filters
     # is shown. (Award notices of a procedure have another status, so they are not hidden
@@ -432,7 +450,7 @@ def list_tenders(
                        + " AND ".join(rep_where) + ")")
     clause = (" WHERE " + " AND ".join(where) + " AND " + not_collapsed
               + " AND " + not_rectified + " AND " + not_republished)
-    args = params + params + params
+    args = params + params + params + params
 
     order = tender_order(sort, status, eff)
     # The total rides on the same pass (a window count), so the table is read once.
@@ -568,14 +586,22 @@ def _when(value: Any) -> str | None:
     return f"{_day_text(parsed.date())}, {parsed:%H:%M} UTC"
 
 
+# The longest stored text `_plain` will try to read back as a list or mapping: a CPV list
+# or a value object is a few hundred characters; the display is capped at 300 anyway.
+PLAIN_MAX_CHARS = 20_000
+
+
 def _plain(value: Any) -> Any:
     """A value the archive stored as the text of a Python or JSON list or mapping
     ("['35200000', '35810000']") read back as the list or mapping it was."""
-    if isinstance(value, str) and value.strip()[:1] in ("[", "{"):
+    # Capped before it is parsed: a stored string is not ours to trust, and a deeply
+    # nested one costs the parser its stack (RecursionError) or the process its memory.
+    if (isinstance(value, str) and len(value) <= PLAIN_MAX_CHARS
+            and value.strip()[:1] in ("[", "{")):
         for load in (json.loads, ast.literal_eval):
             try:
                 return load(value)
-            except (ValueError, SyntaxError):
+            except (ValueError, SyntaxError, RecursionError, MemoryError):
                 continue
     return value
 

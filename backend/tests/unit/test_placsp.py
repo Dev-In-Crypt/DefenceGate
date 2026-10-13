@@ -97,8 +97,17 @@ def test_status_is_mapped_and_native_code_kept():
 def test_unknown_status_code_is_not_disguised_as_open():
     """An unmapped code must be visible, not silently served as an open tender."""
     assert placsp.map_status("XYZ") == "unknown"
-    assert placsp.map_status(None) == "open"
+    # Changed on 13 October 2026 (review of the data-quality work): an entry that states
+    # no status was `open`, which is the one disguise this test exists to forbid.
+    assert placsp.map_status(None) == "unknown"
+    assert placsp.map_status("") == "unknown"
     assert placsp.map_status("anul") == "cancelled"
+
+
+def test_a_prior_information_notice_is_forthcoming_not_open():
+    """PRE is the `anuncio previo`: it announces a purchase, it is not a call."""
+    assert placsp.map_status("PRE") == "forthcoming"
+    assert placsp.map_status("pub") == "open"
 
 
 def test_status_is_versioned():
