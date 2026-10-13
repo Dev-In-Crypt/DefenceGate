@@ -865,7 +865,11 @@ def upsert_opportunity(
     version = append_version(conn, opp_id, opp, raw_hash, changed,
                              after=last["version"] if last else 0)
     log.info("opportunity %s -> v%s, changed: %s", opp.native_id, version, changed)
-    if set(changed) <= MAPPER_OWNED and _same_entry_state(prev, payload):
+    # A status that moved while the source's own code did not is the mapper's too (PRE
+    # was `open` and is `forthcoming` now).
+    owned = MAPPER_OWNED | (
+        {"status"} if prev.get("status_native") == payload.get("status_native") else set())
+    if set(changed) <= owned and _same_entry_state(prev, payload):
         # The entry says it was last changed when it already was, and only what the mapper
         # reads differently moved: our correction, not the publisher's amendment. The
         # replay, the historical backfill and a live walk reaching a held entry all come

@@ -166,6 +166,26 @@ def test_a_live_walk_reading_a_held_entry_again_after_the_mapper_changed_is_rema
     assert versions[1]["kinds"] == ["remapped"]
 
 
+def test_a_status_the_mapper_now_reads_differently_is_remapped_a_status_the_source_moved_is_not(
+        conn, raw_store):
+    """PRE (anuncio previo) was `open` and is `forthcoming`: same code, same stamp."""
+    src = db.source_id(conn, "es_placsp")
+    stamp = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+    base = _defence(XML)
+    held = dataclasses.replace(base, status="open", status_native="PRE", source_updated_at=stamp,
+                               is_defence=True, sig_cpv=True)
+    opp_id, _ = db.upsert_opportunity(conn, held, "pre-open", src)
+    now = dataclasses.replace(held, status="forthcoming")
+    assert db.upsert_opportunity(conn, now, "pre-forthcoming", src) == (opp_id, "changed")
+    # the publisher moved it: a new code and a later stamp
+    awarded = dataclasses.replace(held, status="awarded", status_native="ADJ",
+                                  source_updated_at=stamp + timedelta(days=3))
+    assert db.upsert_opportunity(conn, awarded, "adj", src) == (opp_id, "changed")
+    conn.commit()
+    kinds = [v["kinds"] for v in _versions(conn)]
+    assert kinds == [[], ["remapped"], []]
+
+
 def test_a_change_of_the_value_under_a_newer_stamp_is_the_publishers_and_not_remapped(
         conn, raw_store):
     new = _defence(XML)
