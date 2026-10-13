@@ -197,7 +197,10 @@ DEFENCE_INCLUDE: list[_Row] = [
          r"^nato support and procurement|^nato communications and information|^occar\b|^occar-",
          r"^european defen[cs]e agency|^european union military staff",
          r"^joint support|^national armaments|norwegian defen[cs]e (?:materiel|logistics|research)",
-         r"^direction generale material resources|^dg material resources|^mrmp|material resources",
+         # Belgian Defence's "Material Resources" directorate. Not the bare phrase: any
+         # hospital or university department of "human and material resources" has it.
+         r"direction generale material resources|^dg material resources|^mrmp",
+         r"defen[cs]e.{0,30}material resources",
          r"^romtehnica|^compania nationala romtehnica|^baza de aprovizionare gospodarire"),
     _row("procurement_agency", 0.95, "FR",
          r"^dga\b", r"^ema (?:dc|sca|dcssa)", r"^sca (?:pf|plate)", r"^sga (?:sd|drh|sid|did|shd|dm)",

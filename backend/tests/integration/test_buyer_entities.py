@@ -226,6 +226,76 @@ def test_the_backfill_merges_organisations_that_state_one_identifier(conn, tmp_p
     assert again["merged_orgs"] == 0
 
 
+def _land(conn, store, bundle, names, ident, start=0):
+    """Hand-built notices of one identifier under several spellings, archived and landed."""
+    src = db.source_id(conn, "ted")
+    store.put_records(bundle, [_bundled_notice(start + n, s, ident)
+                               for n, s in enumerate(names)])
+    org_ids = []
+    for n, name in enumerate(names, start):
+        _, opp = _ingest(conn, native_id=f"{n}-2026", buyer=name, country="CZ",
+                         legal="32009L0081")
+        org_ids.append(opp.buyer_org_id)
+        db.record_raw(conn, src, f"{n}-2026", f"h{n}", record_key(bundle, n - start))
+    conn.commit()
+    return org_ids
+
+
+def test_one_group_that_cannot_be_merged_does_not_end_the_run(conn, tmp_path):
+    """Review finding of 13 October 2026: `merge_organisations` raises for two different
+    registered numbers, and the one exception rolled back an hour of merges. The member
+    that carries another number is left out, the rest of its group and the other groups
+    are merged, and each group is committed on its own."""
+    store = FileRawStore(tmp_path / "raw")
+    # the larger group first: three spellings, one of which carries another number
+    first = _land(conn, store, bundle_key("ted", date(2026, 9, 1)),
+                  ["Ministerstvo obrany", "Ceska republika - Ministerstvo obrany",
+                   "Ministerstvo obrany CR"], "13572468")
+    second = _land(conn, store, bundle_key("ted", date(2026, 9, 2)),
+                   ["Ministerstvo zdravotnictvi", "Ceske Ministerstvo zdravotnictvi"],
+                   "24681357", start=10)
+    other_number = first[1]
+    conn.execute("UPDATE organisation SET national_reg_no = '99999999' WHERE id = %s",
+                 (other_number,))
+    conn.commit()
+
+    done = backfill.run(conn, store, apply=True, out=lambda *_: None)
+
+    assert done["failed_groups"] == 0 and done["skipped"] == 1
+    assert (done["merged_groups"], done["merged_orgs"]) == (2, 2)
+    row = conn.execute("SELECT merged_into FROM organisation WHERE id = %s",
+                       (other_number,)).fetchone()
+    assert row["merged_into"] is None, "the body with another number stays itself"
+    merged = {r["id"] for r in conn.execute(
+        "SELECT id FROM organisation WHERE merged_into IS NOT NULL").fetchall()}
+    assert len(merged) == 2 and merged & set(first) and merged & set(second)
+
+
+def test_an_organisation_merged_since_the_plan_was_made_is_skipped(conn, tmp_path, monkeypatch):
+    store = FileRawStore(tmp_path / "raw")
+    ids = _land(conn, store, bundle_key("ted", date(2026, 9, 1)),
+                ["Ministerstvo obrany", "Ceska republika - Ministerstvo obrany",
+                 "Ministerstvo obrany CR"], "13572468")
+    real = backfill.build_groups
+
+    def planned_then_taken(*args, **kwargs):
+        groups, singles, stats = real(*args, **kwargs)
+        group = groups[0]
+        db.merge_organisations(conn, group.survivor.id, group.absorbed[0].id,
+                               method="identifier", confidence=0.9,
+                               evidence="merged by someone else",
+                               detected_by="test")
+        return groups, singles, stats
+
+    monkeypatch.setattr(backfill, "build_groups", planned_then_taken)
+    done = backfill.run(conn, store, apply=True, out=lambda *_: None)
+    assert done["failed_groups"] == 0 and done["skipped"] == 1
+    assert done["merged_orgs"] == 1, "only the one that was still free"
+    assert conn.execute("SELECT count(*) n FROM organisation WHERE merged_into IS NOT NULL"
+                        ).fetchone()["n"] == 2
+    assert len(ids) == 3
+
+
 def test_a_group_whose_names_share_nothing_is_written_as_a_candidate(conn, tmp_path):
     store = FileRawStore(tmp_path / "raw")
     bundle = bundle_key("ted", date(2026, 9, 2))
@@ -352,7 +422,8 @@ def _legacy(conn, native_id, *, buyer, cpv, clearance=False, country="DE"):
     opp = Opportunity(
         source_code="ted", native_id=native_id, buyer_name_raw=buyer, title_original=native_id,
         country=country, published_at=date(2026, 10, 1), cpv_codes=list(cpv), is_defence=True,
-        sig_cpv=True, sig_clearance=clearance)
+        sig_cpv=True, sig_clearance=clearance,
+        status="open")      # set, not defaulted: the default is `unknown` since 13 October
     opp.buyer_org_id = db.resolve_organisation(conn, buyer, country)
     oid, _ = db.upsert_opportunity(conn, opp, f"legacy-{native_id}", db.source_id(conn, "ted"))
     conn.execute("UPDATE opportunity SET sig_cpv_military = FALSE, buyer_class = NULL, "

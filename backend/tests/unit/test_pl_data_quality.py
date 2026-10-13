@@ -403,3 +403,37 @@ def test_atlas_status_is_never_open_for_what_is_not_a_call(notice_type, status):
     from dgate.normalise import _atlas_status
 
     assert _atlas_status(notice_type) == status
+
+
+@pytest.mark.parametrize("notice_type, status", [
+    # the bulletin's own table, reused: these were `unknown` in Atlas and are decided on
+    # the board
+    ("ContractNoticeForContractsInTheFieldOfDefenceAndSecurityEU", "open"),
+    ("PriorInformationNoticeForContractsInTheFieldOfDefenceAndSecurityEU", "forthcoming"),
+    ("ContractAwardNoticeForContractsInTheFieldOfDefenceAndSecurityEU", "awarded"),
+    ("ContractAwardNotice", "awarded"),
+])
+def test_atlas_sends_the_defence_and_award_types_the_way_the_board_does(notice_type, status):
+    from dgate.normalise import _atlas_status
+
+    assert _atlas_status(notice_type) == status
+    assert ez.map_status(notice_type) == status
+
+
+@pytest.mark.parametrize("notice_type", ["pin-cfc-standard", "pin-cfc-social"])
+def test_a_prior_information_notice_used_as_a_call_reads_the_same_everywhere(notice_type):
+    """Open with a deadline, forthcoming without: TED, Atlas and the board agree."""
+    from dgate.normalise import _atlas_status
+
+    assert ez.map_status(notice_type) == "forthcoming"
+    assert ez.map_status(notice_type, has_deadline=True) == "open"
+    assert _atlas_status(notice_type) == "forthcoming"
+    assert _atlas_status(notice_type, has_deadline=True) == "open"
+    undated = from_atlas_pl(atlas_row(source="ted", notice_type=notice_type, tender_type=None))
+    dated = from_atlas_pl(atlas_row(source="ted", notice_type=notice_type, tender_type=None,
+                                    submitting_offers_date="2026-11-20T10:00:00"))
+    assert (undated.status, dated.status) == ("forthcoming", "open")
+    board = {"bzpNumber": "2026/BZP 1", "noticeType": None, "noticeTypeTed": notice_type}
+    assert from_ezamowienia(board).status == "forthcoming"
+    assert from_ezamowienia({**board, "submittingOffersDate": "2026-11-20T10:00:00"}
+                            ).status == "open"

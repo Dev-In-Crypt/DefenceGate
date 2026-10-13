@@ -77,8 +77,9 @@ class Opportunity:
     buyer_org_id: int | None = None
     # lifecycle. status is the normalised value used by the API and by
     # VERSIONED_FIELDS; status_native keeps the source's own code so a mapping
-    # mistake stays diagnosable from the serving row.
-    status: str = "open"
+    # mistake stays diagnosable from the serving row. A record that does not say what
+    # it is has `unknown`, never `open`: every mapper sets it explicitly.
+    status: str = "unknown"
     status_native: str | None = None
     # The TED publication number this national notice was forwarded under, when
     # the source states it ("696956-2026", leading zeros stripped). It is a
@@ -658,14 +659,20 @@ def _in_language(value: Any, lang3: str | None) -> str | None:
 #                                                one into expired)
 #   award, modification and ex-ante notices      awarded (or cancelled, below)
 #   prior information, market consultation       forthcoming
+#   prior information used as a call             open when it states a deadline,
+#     (pin-cfc-*)                                forthcoming when it does not
 #   corrigendum                                  open when it states a deadline
 TED_RESULT_TYPES = frozenset(
     {"can-standard", "can-social", "can-desg", "can-tran", "can-modif", "veat", "compl"})
+# A prior-information notice that is itself the call for competition. The one rule for
+# every source that republishes TED's types (TED, Atlas, e-Zamowienia): a deadline makes
+# it a call that can be acted on; without one it announces a purchase.
+PIN_AS_CALL = frozenset({"pin-cfc-standard", "pin-cfc-social"})
 TED_STATUS_BY_TYPE: dict[str, str] = {
-    **dict.fromkeys(("cn-standard", "cn-social", "cn-desg", "pin-cfc-standard",
-                     "pin-cfc-social", "subco", "qu-sy", "corr"), "open"),
+    **dict.fromkeys(("cn-standard", "cn-social", "cn-desg", "subco", "qu-sy", "corr"), "open"),
     **dict.fromkeys(TED_RESULT_TYPES, "awarded"),
     **dict.fromkeys(("pin-only", "pin-buyer", "pin-rtl", "pin-tran", "pmc"), "forthcoming"),
+    **dict.fromkeys(PIN_AS_CALL, "forthcoming"),     # "open" with a deadline: ted_status
 }
 
 
@@ -694,6 +701,8 @@ def ted_status(notice_type: str | None, has_deadline: bool,
         return "unknown"
     if notice_type == "corr":
         return "open" if has_deadline else "unknown"
+    if notice_type in PIN_AS_CALL:
+        return "open" if has_deadline else "forthcoming"
     if (notice_type in TED_RESULT_TYPES and lot_results
             and all(r == "clos-nw" for r in lot_results)):
         return "cancelled"
@@ -1015,16 +1024,43 @@ _FR_TZ = "Europe/Paris"
 # predecessor. Recorded as the CELEX reference every other source uses.
 _FR_DEFENCE_PERIMETERS = {"DIRECTIVE-81", "CMP-2006-DEFENSE"}
 
-# An awarded notice says so in `nature`: ATTRIBUTION for the award itself,
-# ANNULATION for a cancellation. Anything else is the notice of an open
-# procedure until its deadline says otherwise.
+# The lifecycle is the notice's `nature`: APPEL_OFFRE is a call for competition (open
+# until its deadline says otherwise), ATTRIBUTION and RESULTAT are the award, and
+# INTENTION_CONCLURE (the notice of intention to conclude, TED's veat) comes with the
+# awards, as do MODIFICATION and EX_ANTE_VOLONTAIRE (TED's can-modif and veat, which
+# the decision of 12 October 2026 maps to awarded); PRE-INFORMATION and PERIODIQUE are
+# prior-information notices, ANNULATION a cancellation. Anything not listed (AUTRE, a
+# nature nobody has read) is `unknown`, never `open`: a type we have not read is not
+# something a supplier can act on.
+#
+# A rectificatif may keep the `nature` of the notice it corrects (an award's correction
+# is then `awarded`, a call's `open`), and 449 of 453 stored ones have the nature
+# RECTIFICATIF, which names no parent. For those the notice itself is read, as TED's
+# corrigendum is: one that states a deadline for offers is a corrected call and `open`;
+# without one its parent type is not determinable and it is `unknown`.
 _FR_STATUS = {
+    "APPEL_OFFRE": "open",
     "ATTRIBUTION": "awarded",
     "RESULTAT": "awarded",
+    "INTENTION_CONCLURE": "awarded",
+    "MODIFICATION": "awarded",
+    "EX_ANTE_VOLONTAIRE": "awarded",
+    "PRE-INFORMATION": "forthcoming",
+    "PRE_INFORMATION": "forthcoming",
+    "PERIODIQUE": "forthcoming",
     "ANNULATION": "cancelled",
-    "RECTIFICATIF": "open",
-    "APPEL_OFFRE": "open",
 }
+
+
+def _fr_status(record: dict[str, Any], has_deadline: bool) -> str:
+    nature = str(record.get("nature") or "").strip().upper()
+    status = _FR_STATUS.get(nature)
+    if status is not None:
+        return status
+    rectificatif = nature == "RECTIFICATIF" or str(record.get("etat") or "").upper() == "RECTIFICATIF"
+    if rectificatif and has_deadline:
+        return "open"
+    return "unknown"
 
 
 def _fr_walk(node: Any, key_part: str) -> Iterator[Any]:
@@ -1301,6 +1337,8 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
     perimetre = str(record.get("perimetre") or "")
     nature = str(record.get("nature") or "")
     amount, currency = _fr_value(body)
+    deadline = parse_iso_datetime(record.get("datelimitereponse"),
+                                  default_tz=ZoneInfo(_FR_TZ))
 
     return Opportunity(
         source_code=boamp.SOURCE_CODE,
@@ -1314,11 +1352,10 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         value_amount=amount,
         value_currency=currency,
         published_at=_parse_date(record.get("dateparution")),
-        deadline_at=parse_iso_datetime(record.get("datelimitereponse"),
-                                       default_tz=ZoneInfo(_FR_TZ)),
+        deadline_at=deadline,
         cpv_codes=_fr_cpv(body),
         source_url=boamp.notice_url(record),
-        status=_FR_STATUS.get(nature, "open"),
+        status=_fr_status(record, deadline is not None),
         status_native=f"{perimetre}/{nature}" if perimetre or nature else None,
         related_native_id=_fr_corrected_notice(record, body, str(native_id)),
         procedure_identifier=_fr_procedure_id(record),
@@ -1634,7 +1671,8 @@ _ATLAS_PLANNED_TYPES = {
 }
 
 
-def _atlas_status(notice_type: str | None, procedure_result: Any = None) -> str:
+def _atlas_status(notice_type: str | None, procedure_result: Any = None,
+                  has_deadline: bool = False) -> str:
     """Live call, a record of one already decided, a planning notice, or unknown.
 
     Since 12 October 2026 an unrecognised type is `unknown`, never `open`: the
@@ -1643,18 +1681,28 @@ def _atlas_status(notice_type: str | None, procedure_result: Any = None) -> str:
     A `NoticeUpdateNotice` restates a notice that is listed itself, so it is not
     a second opportunity.
 
+    The bulletin's own table decides first (`ezamowienia.map_status`, the one the
+    board's records go through), so a type reads the same wherever it arrives: the
+    defence-and-security forms, `ContractAwardNotice`, and a prior-information notice
+    used as a call (`pin-cfc-*`: open with a deadline, forthcoming without). The sets
+    below only add the types the dataset alone carries.
+
     A result notice whose parts were all annulled (`uniewaznienie`) is
     `cancelled`, not awarded.
     """
-    if notice_type in _ATLAS_CLOSED_TYPES:
-        from .sources.ezamowienia import result_status
+    from .sources.ezamowienia import map_status, result_status
 
+    status = map_status(notice_type, has_deadline=has_deadline)
+    if status == "unknown":
+        if notice_type in _ATLAS_CLOSED_TYPES:
+            status = "awarded"
+        elif notice_type in _ATLAS_PLANNED_TYPES:
+            status = "forthcoming"
+        elif notice_type in _ATLAS_OPEN_TYPES:
+            status = "open"
+    if status == "awarded":
         return result_status(procedure_result) or "awarded"
-    if notice_type in _ATLAS_PLANNED_TYPES:
-        return "forthcoming"
-    if notice_type in _ATLAS_OPEN_TYPES:
-        return "open"
-    return "unknown"
+    return status
 
 
 # ISO 4217 codes accepted for an Atlas value. An allowlist rather than a shape
@@ -1733,7 +1781,8 @@ def from_atlas_pl(record: dict[str, Any]) -> Opportunity:
         deadline_at=deadline,
         cpv_codes=_clean_cpv(g("cpv_code")),
         source_url=url,
-        status=_atlas_status(notice_type, _first(g("procedure_result"))),
+        status=_atlas_status(notice_type, _first(g("procedure_result")),
+                             has_deadline=deadline is not None),
         status_native=notice_type,
         ted_ref=canonical_ted_ref(g("ted_number")) or ted_ref_from_url(url),
     )
@@ -1806,7 +1855,8 @@ def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
         notice_version=version,
         status=_pl_status({"noticeType": notice_type,
                            "noticeTypeTed": _first(g("noticeTypeTed")),
-                           "procedureResult": _first(g("procedureResult"))}),
+                           "procedureResult": _first(g("procedureResult")),
+                           "hasDeadline": deadline is not None}),
         status_native=native_type,
         ted_ref=ted_ref_from_url(g("pdfUrl")) or _ted_ref_from_oj_number(notice_number),
     )

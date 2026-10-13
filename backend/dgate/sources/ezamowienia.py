@@ -41,6 +41,7 @@ from typing import Any, Iterable, Iterator
 
 import httpx
 
+from ..normalise import PIN_AS_CALL
 from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
@@ -139,6 +140,9 @@ TED_SUBTYPE_TYPE = {
 
 # TED notice-type -> lifecycle, the decision's rule: cn-* open, pin-* forthcoming,
 # can-* and veat awarded. `qu-sy` (a qualification system) is none of those.
+# `pin-cfc-*` is a prior-information notice used as a call: forthcoming here, `open`
+# when the record states a deadline (`map_status(..., has_deadline=True)`), the same
+# rule `normalise.ted_status` applies to TED's own notices.
 TED_TYPE_STATUS = {
     "cn-standard": "open", "cn-social": "open", "cn-desg": "open",
     "pin-only": "forthcoming", "pin-buyer": "forthcoming", "pin-rtl": "forthcoming",
@@ -157,18 +161,23 @@ def ted_notice_type(value: str | None) -> str | None:
     return text.lower() if text.lower() in TED_TYPE_STATUS else None
 
 
-def map_status(notice_type: str | None) -> str:
+def map_status(notice_type: str | None, has_deadline: bool = False) -> str:
     """Normalised lifecycle. An unknown type is `unknown`, never a fake `open`.
 
     Takes a BZP notice type (`ContractNotice`) or a TED form (`eforms-16`,
-    `can-standard`), whichever the record carries.
+    `can-standard`), whichever the record carries. `has_deadline` is whether the
+    record states a deadline for offers: it makes a prior-information notice used as
+    a call for competition (`pin-cfc-*`) a call that can be acted on.
     """
     if not notice_type:
         return "unknown"
     text = str(notice_type).strip()
     if text in NOTICE_TYPE_STATUS:
         return NOTICE_TYPE_STATUS[text]
-    return TED_TYPE_STATUS.get(ted_notice_type(text) or "", "unknown")
+    ted_type = ted_notice_type(text) or ""
+    if ted_type in PIN_AS_CALL and has_deadline:
+        return "open"
+    return TED_TYPE_STATUS.get(ted_type, "unknown")
 
 
 # `procedureResult` is the outcome of a result notice, one `;`-separated entry
@@ -201,7 +210,9 @@ def result_status(procedure_result: str | None) -> str | None:
 def record_status(record: dict[str, Any]) -> str:
     """Lifecycle of one board record: its BZP type, else its TED form, with an
     annulled result notice shown as `cancelled` rather than `awarded`."""
-    status = map_status(record.get("noticeType") or record.get("noticeTypeTed"))
+    status = map_status(record.get("noticeType") or record.get("noticeTypeTed"),
+                        has_deadline=bool(record.get("hasDeadline")
+                                          or record.get("submittingOffersDate")))
     if status == "awarded":
         return result_status(record.get("procedureResult")) or status
     return status

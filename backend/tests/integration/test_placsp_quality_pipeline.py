@@ -10,7 +10,7 @@ Directive 2009/81/EC.
 from __future__ import annotations
 
 import dataclasses
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -56,8 +56,11 @@ def raw_store(tmp_path, monkeypatch):
 
 def _versions(conn) -> list[dict]:
     return conn.execute(
-        """SELECT v.version, v.changed_fields, v.payload FROM opportunity_version v
-            ORDER BY v.version""").fetchall()
+        """SELECT v.version, v.changed_fields, v.payload,
+                  array_remove(array_agg(n.kind), NULL) AS kinds
+             FROM opportunity_version v
+             LEFT JOIN opportunity_version_note n ON n.opportunity_version_id = v.id
+            GROUP BY v.id ORDER BY v.version""").fetchall()
 
 
 def _walk_reason(seen: dict | None = None, **kw):
@@ -82,6 +85,7 @@ def test_an_amended_notice_keeps_its_original_publication_date_across_versions(c
     assert [v["version"] for v in versions] == [1, 2]
     assert [v["payload"]["published_at"] for v in versions] == ["2026-10-10", "2026-10-10"]
     assert versions[1]["changed_fields"] == ["deadline_at"]     # only what the buyer changed
+    assert versions[1]["kinds"] == [], "a real amendment is not annotated as remapped"
     row = conn.execute("SELECT * FROM opportunity").fetchone()
     assert row["published_at"] == date(2026, 10, 10)
     assert row["deadline_at"].date() == date(2026, 11, 20)
@@ -136,8 +140,66 @@ def test_a_held_version_is_corrected_by_the_entry_that_produced_it(conn, raw_sto
     versions = _versions(conn)
     assert len(versions) == 2
     assert set(versions[1]["changed_fields"]) == {"value_amount", "procedure_type", "legal_basis"}
+    # Added on 13 October 2026 (review): the entry's update stamp is the held version's
+    # day and only mapper-owned fields moved, so this is our correction, not an amendment.
+    assert versions[1]["kinds"] == ["remapped"]
     row = conn.execute("SELECT value_amount, legal_basis FROM opportunity").fetchone()
     assert float(row["value_amount"]) == 3020897.01 and row["legal_basis"] == "32009L0081"
+
+
+def test_a_live_walk_reading_a_held_entry_again_after_the_mapper_changed_is_remapped(
+        conn, raw_store):
+    """The held record carries the stamp already (written by the mapper before a later
+    correction of a field): the same entry read again, a field the mapper owns moved."""
+    new = _defence(XML)
+    held = dataclasses.replace(new, value_amount=3655285.38, procedure_type="4",
+                               is_defence=True, sig_cpv=True)
+    db.upsert_opportunity(conn, held, "held-under-the-previous-mapper",
+                          db.source_id(conn, "es_placsp"))
+    conn.commit()
+
+    pipeline._ingest_placsp([_defence(XML)], "es_placsp-live")
+
+    versions = _versions(conn)
+    assert len(versions) == 2
+    assert set(versions[1]["changed_fields"]) == {"value_amount", "procedure_type"}
+    assert versions[1]["kinds"] == ["remapped"]
+
+
+def test_a_status_the_mapper_now_reads_differently_is_remapped_a_status_the_source_moved_is_not(
+        conn, raw_store):
+    """PRE (anuncio previo) was `open` and is `forthcoming`: same code, same stamp."""
+    src = db.source_id(conn, "es_placsp")
+    stamp = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+    base = _defence(XML)
+    held = dataclasses.replace(base, status="open", status_native="PRE", source_updated_at=stamp,
+                               is_defence=True, sig_cpv=True)
+    opp_id, _ = db.upsert_opportunity(conn, held, "pre-open", src)
+    now = dataclasses.replace(held, status="forthcoming")
+    assert db.upsert_opportunity(conn, now, "pre-forthcoming", src) == (opp_id, "changed")
+    # the publisher moved it: a new code and a later stamp
+    awarded = dataclasses.replace(held, status="awarded", status_native="ADJ",
+                                  source_updated_at=stamp + timedelta(days=3))
+    assert db.upsert_opportunity(conn, awarded, "adj", src) == (opp_id, "changed")
+    conn.commit()
+    kinds = [v["kinds"] for v in _versions(conn)]
+    assert kinds == [[], ["remapped"], []]
+
+
+def test_a_change_of_the_value_under_a_newer_stamp_is_the_publishers_and_not_remapped(
+        conn, raw_store):
+    new = _defence(XML)
+    held = dataclasses.replace(
+        new, value_amount=3655285.38, is_defence=True, sig_cpv=True,
+        source_updated_at=new.source_updated_at - timedelta(days=2))
+    db.upsert_opportunity(conn, held, "held-two-days-earlier", db.source_id(conn, "es_placsp"))
+    conn.commit()
+
+    pipeline._ingest_placsp([_defence(XML)], "es_placsp-live")
+
+    versions = _versions(conn)
+    assert [v["changed_fields"] for v in versions[1:]] == [["value_amount"]]
+    assert versions[1]["kinds"] == []
 
 
 def test_a_corrected_publication_date_is_a_version_not_history(conn, raw_store):
@@ -151,6 +213,7 @@ def test_a_corrected_publication_date_is_a_version_not_history(conn, raw_store):
 
     versions = _versions(conn)
     assert len(versions) == 2 and "published_at" in versions[1]["changed_fields"]
+    assert versions[1]["kinds"] == ["remapped"]       # added 13 October 2026 (review)
     assert conn.execute("SELECT published_at FROM opportunity").fetchone()[
         "published_at"] == date(2026, 10, 10)
 
@@ -244,6 +307,7 @@ def test_the_replay_archives_corrected_records_without_a_collection_run(
     assert archive[0][0].endswith("_202610.zip")
     assert archive[0][1] == datetime(2026, 10, 1, tzinfo=UTC)    # the month's own entries only
     assert len(_versions(conn)) == 2
+    assert _versions(conn)[1]["kinds"] == ["remapped"]    # added 13 October 2026 (review)
     # not a collection run: catch-up must not read it as today's ingest
     assert conn.execute("SELECT count(*) n FROM ingest_run").fetchone()["n"] == 0
     # only the record it archived was landed, not the two civil entries beside it

@@ -253,6 +253,36 @@ def test_a_stored_mapping_is_never_printed_as_a_python_repr():
     assert _human("title_original", "{'a': 1}") == "a: 1"
 
 
+def test_a_stored_text_nested_past_the_parser_is_left_as_text_not_an_error(monkeypatch):
+    """Review finding of 13 October 2026: `json.loads` raises RecursionError on deep
+    nesting and `ast.literal_eval` RecursionError or MemoryError, none of which was
+    caught, so one stored value of that shape made the tender's versions answer 500.
+    How deep is deep depends on the interpreter, so the parsers are made to fail the
+    way they do."""
+    import ast
+    import json
+
+    from dgate.tenders import PLAIN_MAX_CHARS, _plain
+
+    def too_deep(*args, **kwargs):
+        raise RecursionError("maximum recursion depth exceeded")
+
+    def too_big(*args, **kwargs):
+        raise MemoryError
+
+    nested = "[" * 4000 + "]" * 4000
+    monkeypatch.setattr(json, "loads", too_deep)
+    monkeypatch.setattr(ast, "literal_eval", too_big)
+    assert _plain(nested) == nested
+    assert _human("title_original", nested) is not None        # and it reads as text
+    monkeypatch.undo()
+
+    huge = "[" + "1," * PLAIN_MAX_CHARS + "1]"
+    assert _plain(huge) == huge, "over the cap it is not parsed at all"
+    assert _plain("['35200000', '35810000']") == ["35200000", "35810000"]
+    assert _plain('{"amount": 5, "currency": "EUR"}') == {"amount": 5, "currency": "EUR"}
+
+
 def test_an_amount_change_names_the_currency_of_its_own_version():
     rows = [
         _row(1, [], value_amount=100000.0, value_currency="EUR"),

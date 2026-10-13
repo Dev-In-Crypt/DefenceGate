@@ -330,6 +330,20 @@ def test_status_defaults_to_open_and_is_persisted(seeded):
     assert row["status"] == "open"
 
 
+def test_a_record_that_states_no_status_is_stored_unknown_never_open(seeded):
+    """The dataclass default was `open` (review of 13 October 2026): a mapper that forgot
+    to set the status published its notice as a call. Every mapper sets it explicitly
+    now, so the default is `unknown`. The test above is what a mapped notice gets."""
+    from dgate.normalise import Opportunity
+
+    opp = Opportunity(source_code="ted", native_id="NO-STATUS-1", buyer_name_raw="Buyer",
+                      title_original="Title", is_defence=True, sig_cpv=True)
+    assert opp.status == "unknown"
+    oid, _ = db.upsert_opportunity(seeded, opp, "no-status", db.source_id(seeded, "ted"))
+    row = seeded.execute("SELECT status FROM opportunity WHERE id=%s", (oid,)).fetchone()
+    assert row["status"] == "unknown"
+
+
 # ---------------------------------------------------------- personal data
 
 def test_no_personal_data_in_the_serving_row(seeded):

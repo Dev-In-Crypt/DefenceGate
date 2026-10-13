@@ -138,6 +138,76 @@ def test_from_raw_leaves_what_the_payload_cannot_say(conn, fs_store):
         assert after[column] == before[column], column
 
 
+def test_a_repair_keeps_the_demotion_and_the_link_that_no_version_holds(conn, fs_store):
+    """Review finding of 13 October 2026: `dual_use`, `buyer_class` and
+    `sig_linked_defence` are not in a version's payload, so a repair version put the
+    serving row back to `False`, and a municipality's military CPV returned to `core`."""
+    oid = seed_old(conn, "534116-2026")
+    conn.execute("""UPDATE opportunity SET dual_use = TRUE, buyer_class = 'municipal',
+                           sig_linked_defence = TRUE, ted_ref = 'LINKED-2026',
+                           twin_method = 'procedure_id' WHERE id = %s""", (oid,))
+    conn.commit()
+
+    result = repair_ted.run("raw", write=True)
+
+    assert result.versions == 1
+    served = row(conn, oid)
+    assert served["current_version"] == 2
+    assert served["dual_use"] is True
+    assert served["buyer_class"] == "municipal"
+    assert served["sig_linked_defence"] is True
+    assert (served["ted_ref"], served["twin_method"]) == ("LINKED-2026", "procedure_id")
+
+
+def test_a_notice_with_no_stored_payload_is_marked_so_a_limited_rerun_moves_on(conn, fs_store):
+    """`--limit N` took the first N unmarked notices; one that --from-raw could not do was
+    never marked, so every rerun took it again and never got past it."""
+    src = db.source_id(conn, "ted")
+    raw = {k: v for k, v in strip_personal_data(LIVE["536788-2026"]).items()
+           if k not in REQUESTED_LATER}
+    no_payload = replace(from_ted(raw), is_defence=True, sig_cpv=True)
+    db.upsert_opportunity(conn, no_payload, "never-landed", src)        # no raw_ingest row
+    conn.commit()
+    done = seed_old(conn, "534116-2026")
+
+    first = repair_ted.run("raw", write=True, limit=1)
+    assert (first.examined, first.no_raw) == (0, 1)
+    marks = conn.execute("SELECT native_id, mode FROM ted_repair_marker").fetchall()
+    assert [(m["native_id"], m["mode"]) for m in marks] == [("536788-2026", "raw-missing")]
+
+    second = repair_ted.run("raw", write=True, limit=1)
+    assert (second.examined, second.versions) == (1, 1)
+    assert row(conn, done)["status"] == "awarded"
+
+
+def test_a_second_epoch_runs_again_with_markers_of_its_own(conn, fs_store):
+    """The status table changed after the first pass (review item 6): a second pass has
+    to be possible without deleting a marker."""
+    oid = seed_old(conn, "534116-2026")
+    assert repair_ted.run("raw", write=True).versions == 1
+    assert repair_ted.run("raw", write=True).examined == 0
+    # the mapper moves again: a stored state that is now wrong is corrected in epoch 2
+    conn.execute("UPDATE opportunity SET status_native = NULL WHERE id = %s", (oid,))
+    conn.commit()
+    second = repair_ted.run("raw", write=True, epoch=2)
+    assert (second.examined, second.versions, second.direct) == (1, 0, 1)
+    assert row(conn, oid)["status_native"] == "can-standard"
+    assert repair_ted.run("raw", write=True, epoch=2).examined == 0
+    modes = {m["mode"] for m in conn.execute("SELECT mode FROM ted_repair_marker").fetchall()}
+    assert modes == {"raw", "raw#2"}
+
+
+def test_a_dry_run_marks_nothing_as_missing(conn, fs_store):
+    src = db.source_id(conn, "ted")
+    raw = {k: v for k, v in strip_personal_data(LIVE["536788-2026"]).items()
+           if k not in REQUESTED_LATER}
+    db.upsert_opportunity(conn, replace(from_ted(raw), is_defence=True, sig_cpv=True),
+                          "never-landed", src)
+    conn.commit()
+    assert repair_ted.run("raw", write=False).no_raw == 1
+    assert conn.execute("SELECT count(*) AS n FROM ted_repair_marker").fetchone()["n"] == 0
+
+
 def test_an_unchanged_live_notice_gets_attributes_and_no_version(conn, fs_store):
     # A cn-standard that is open and whose versioned fields already agree: only
     # the attribute columns are filled, which is not a version.
@@ -219,7 +289,29 @@ def test_refetch_reports_a_number_the_source_no_longer_has(conn, fs_store, monke
     _serve(monkeypatch, [])
     result = repair_ted.run_refetch(conn, ["93334-2024"], write=True, client=object(), pause=0)
     assert (result.missing, result.versions) == (1, 0)
-    assert conn.execute("SELECT count(*) AS n FROM ted_repair_marker").fetchone()["n"] == 0
+    # Changed on 13 October 2026 (review item 9): this used to assert that nothing was
+    # marked. A number TED did not return is now marked `refetch-missing`, so that a
+    # `--limit` rerun takes the next notices and not these again.
+    marks = conn.execute("SELECT native_id, mode, version FROM ted_repair_marker").fetchall()
+    assert [(m["native_id"], m["mode"], m["version"]) for m in marks] == [
+        ("93334-2024", "refetch-missing", None)]
+
+
+def test_a_limited_refetch_rerun_moves_past_the_numbers_ted_did_not_return(
+        conn, fs_store, monkeypatch):
+    first = seed_old(conn, "93334-2024")
+    second = seed_old(conn, "534116-2026")
+    queries = _serve(monkeypatch, [LIVE["534116-2026"]])      # TED has only the second
+    monkeypatch.setattr("time.sleep", lambda s: None)
+
+    one = repair_ted.run("refetch", write=True, limit=1)
+    assert (one.missing, one.versions) == (1, 0)
+    two = repair_ted.run("refetch", write=True, limit=1)
+    assert (two.missing, two.versions) == (0, 1)
+    assert queries == ["publication-number IN (93334-2024)", "publication-number IN (534116-2026)"]
+    assert row(conn, first)["status"] == "open" and row(conn, second)["status"] == "awarded"
+    # and nothing is left to pick: the missing one is out of the way for good
+    assert repair_ted.run("refetch", write=False).examined == 0
 
 
 def test_refetch_stops_on_a_refusal_and_keeps_what_it_did(conn, fs_store, monkeypatch):

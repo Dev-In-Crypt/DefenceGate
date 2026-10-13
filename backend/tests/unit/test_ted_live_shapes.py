@@ -160,7 +160,9 @@ def synthetic(**fields):
 
 @pytest.mark.parametrize("notice_type,status", [
     ("cn-standard", "open"), ("cn-social", "open"), ("cn-desg", "open"),
-    ("pin-cfc-standard", "open"), ("pin-cfc-social", "open"),
+    # Changed on 13 October 2026: a prior-information notice used as a call is open only
+    # when it states a deadline (the next test); stated none, as here, it is forthcoming.
+    ("pin-cfc-standard", "forthcoming"), ("pin-cfc-social", "forthcoming"),
     ("subco", "open"), ("qu-sy", "open"),
     ("can-standard", "awarded"), ("can-social", "awarded"), ("can-desg", "awarded"),
     ("can-tran", "awarded"), ("can-modif", "awarded"), ("veat", "awarded"),
@@ -172,6 +174,15 @@ def test_every_notice_type_has_the_agreed_status(notice_type, status):
     o = synthetic(**{"notice-type": notice_type})
     assert o.status == status
     assert o.status_native == notice_type
+
+
+@pytest.mark.parametrize("notice_type", ["pin-cfc-standard", "pin-cfc-social"])
+def test_a_prior_information_notice_used_as_a_call_is_open_with_a_deadline(notice_type):
+    with_deadline = synthetic(**{"notice-type": notice_type,
+                                 "deadline-receipt-request": ["2026-10-01T10:00:00+02:00"]})
+    assert with_deadline.deadline_at is not None
+    assert with_deadline.status == "open"
+    assert synthetic(**{"notice-type": notice_type}).status == "forthcoming"
 
 
 @pytest.mark.parametrize("notice_type", ["something-new", "x"])

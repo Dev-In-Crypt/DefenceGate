@@ -11,7 +11,10 @@ from dgate.ops.spot_check import ADAPTERS, differences
 
 def _opp(**kw) -> Opportunity:
     base = dict(source_code="ted", native_id="1-2026", buyer_name_raw="Ministry", title_original="Ammo",
-                country="PL", published_at=date(2026, 10, 1), cpv_codes=["35000000"], is_defence=True)
+                country="PL", published_at=date(2026, 10, 1), cpv_codes=["35000000"], is_defence=True,
+                # The row below is `open`; the record used to be open by the dataclass's
+                # default, which is `unknown` since 13 October 2026 (review item 5).
+                status="open")
     return Opportunity(**{**base, **kw})
 
 
