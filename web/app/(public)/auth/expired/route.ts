@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getUserState, SESSION_COOKIE } from '@/lib/account';
+import { clearCookie, getUserState, SESSION_COOKIE } from '@/lib/account';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +11,6 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const state = await getUserState();
   if (state.kind === 'ok') redirect('/app');
-  if (state.kind === 'unauthorized') (await cookies()).delete(SESSION_COOKIE);
+  if (state.kind === 'unauthorized') await clearCookie(SESSION_COOKIE);
   redirect('/signin');
 }

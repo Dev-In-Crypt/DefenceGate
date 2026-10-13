@@ -202,6 +202,13 @@ class Settings:
     # The account endpoints' own role (migration 0027): it alone may read and write the
     # app_* tables. Unset means `dsn`, as for the API role.
     app_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_APP_DSN") or None)
+    # Shared secret of the site's server and the account API: the site sends it in
+    # `X-DG-Internal`, and the API refuses an account or counter call without it, so the
+    # network boundary is not the only control. Unset (tests, development) keeps the
+    # header checks alone. It also keys the HMAC of the sign-in throttle counters;
+    # `app_password` (the accounts role's login) is the fallback key when it is unset.
+    internal_secret: str = field(default_factory=lambda: _env("DGATE_INTERNAL_SECRET", ""))
+    app_password: str = field(default_factory=lambda: _env("DGATE_APP_PASSWORD", ""))
     # The per-address request limiter. On unless DGATE_RATE_LIMIT=0 (the test suite
     # makes hundreds of requests from one "address" and says so in conftest).
     rate_limit: bool = field(default_factory=lambda: os.environ.get("DGATE_RATE_LIMIT") != "0")
