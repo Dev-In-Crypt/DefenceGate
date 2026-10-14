@@ -44,7 +44,14 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from .classify import classify, military_cpv_codes
+from .classify import (
+    CORE_SQL,
+    GROUP_CIVIL_DIRECTIVE,
+    GROUP_SECURITY_CPV,
+    classify,
+    military_cpv_codes,
+    scope_group_of,
+)
 from .db import same_value
 from .funding import (
     Budget,
@@ -87,7 +94,7 @@ BUYER_SLUG_LIMIT = 2000
 # payload; the publisher amended nothing.
 NOT_AN_AMENDMENT = "('reread', 'out_of_order', 'remapped')"
 
-CORE = "(o.sig_legal_basis OR (o.sig_cpv_military AND NOT o.dual_use))"   # api.CORE_SQL
+CORE = CORE_SQL                         # dgate/classify.py, also api.CORE_SQL
 
 
 class Tender(BaseModel):
@@ -261,7 +268,8 @@ TENDER_COLUMNS = (
     "o.id, o.native_id, o.buyer_org_id, o.buyer_name_raw, o.country, o.title_original, "
     "o.title_en, o.original_language, o.procedure_type, o.legal_basis, o.value_amount, "
     "o.value_currency, o.published_at, o.deadline_at, o.cpv_codes, o.sig_legal_basis, "
-    "o.sig_cpv, o.sig_cpv_military, o.sig_buyer, o.dual_use, o.buyer_class, "
+    "o.sig_cpv, o.sig_cpv_military, o.sig_buyer, o.sig_linked_defence, o.dual_use, "
+    "o.buyer_class, "
     "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
     "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype"
 )
@@ -362,11 +370,25 @@ def _qualified_by(r: dict[str, Any], cpv: list[str]) -> tuple[list[str], list[st
     """(signals that qualified the notice, the military codes among its CPV codes). A
     military code that is one of many on a civil buyer's notice was counted because the
     buyer is on the defence list when, without the buyer, the notice would be demoted as
-    dual-use: that is `buyer`, never "military product code"."""
+    dual-use: that is `buyer`, never "military product code".
+
+    A notice filed outside `core` for having only one signal from the wrong kind of buyer
+    names that instead: `directive_civil_buyer` (the directive's legal basis, from a civil
+    buyer) or `security_buyer_cpv` (a military CPV, from a police, prison, border, customs
+    or tax body)."""
+    group = scope_group_of(
+        legal_basis=bool(r.get("sig_legal_basis")),
+        military_cpv=bool(r.get("sig_cpv_military")), dual_use=bool(r.get("dual_use")),
+        buyer=bool(r.get("sig_buyer")), linked_defence=bool(r.get("sig_linked_defence")),
+        buyer_class=r.get("buyer_class"))
+    if group == GROUP_CIVIL_DIRECTIVE:
+        return [group], []
     out: list[str] = []
     if r.get("sig_legal_basis"):
         out.append("legal_basis")
     codes = military_cpv_codes(cpv) if r.get("sig_cpv_military") else []
+    if group == GROUP_SECURITY_CPV:
+        return [group], codes
     if codes:
         without_buyer = classify(legal_basis=r.get("legal_basis"), cpv_codes=cpv,
                                  buyer_is_defence=False, buyer_class=r.get("buyer_class"))

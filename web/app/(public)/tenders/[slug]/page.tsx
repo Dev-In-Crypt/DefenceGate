@@ -11,7 +11,7 @@ import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
 import { TENDER_CHANGED_LABEL, sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
 import { cpvName } from '@/lib/cpv';
 import { isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
-import { clearanceView, subcontractingView } from '@/lib/tender-basis';
+import { clearanceView, scopeGroupNote, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/dg/feedback';
 import { Tag } from '@/components/dg/tag';
@@ -134,7 +134,7 @@ export default async function TenderDetailPage({ params }: Props) {
             </p>
             <BasisChips tender={tender} />
             {tender.scope === 'supply' && (
-              <p className="m-0 text-small text-ink-muted">{TENDER_SCOPES.supply.hint}</p>
+              <p className="m-0 text-small text-ink-muted">{scopeGroupNote(tender.qualifiedBy) ?? TENDER_SCOPES.supply.hint}</p>
             )}
           </header>
 

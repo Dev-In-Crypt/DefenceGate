@@ -14,7 +14,7 @@ const STATUS_OPTIONS: { value: TenderStatusFilter; label: string }[] = [
 ];
 const SCOPE_OPTIONS: { value: TenderScopeFilter; label: string }[] = [
   { value: 'core', label: 'Defence notices' },
-  { value: 'supply', label: 'Supplies to defence buyers' },
+  { value: 'supply', label: 'Supplies to defence buyers, civil-buyer directive and security-body notices' },
   { value: 'all', label: 'All' },
 ];
 /** Value presets, plain numbers: they apply in the selected currency. Nothing is converted. */
@@ -56,7 +56,7 @@ export function TenderFilterBar({ filters, basePath }: { filters: TenderFilters;
         <Fieldset legend="Scope">
           {SCOPE_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.scope} value={o.value} label={o.label} defaultChecked={(filters.scope ?? DEFAULT_TENDER_SCOPE) === o.value} />)}
           <p className="m-0 pt-2 text-small text-ink-muted">
-            <span className="font-semibold text-ink">{TENDER_SCOPES.supply.label}:</span> {TENDER_SCOPES.supply.hint}
+            <span className="font-semibold text-ink">{TENDER_SCOPES.supply.label}:</span> {TENDER_SCOPES.supply.hint} {TENDER_SCOPES.supply.also}
           </p>
         </Fieldset>
         <CountryChoices selected={filters.country} />

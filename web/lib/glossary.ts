@@ -21,6 +21,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     see: { label: 'Find CPV codes', href: '/cpv' },
   },
   {
+    id: 'civil-buyer-directive', term: 'Filed under the defence procurement directive by a civil buyer',
+    body: 'The notice states Directive 2009/81/EC as its legal basis, and nothing else marks it as defence: no military product code, and a buyer that is not a defence or security body. We keep it in the supplies list rather than the defence notices, because the directive alone is not enough to call it defence.',
+    source: 'Directive 2009/81/EC on EUR-Lex',
+  },
+  {
+    id: 'security-body-cpv', term: 'Security-body purchase of a military-type product code',
+    body: 'The notice carries a military product code and nothing else marks it as defence, and its buyer is a police, prison, border, customs or tax body. Such bodies buy items that sit in military codes for their own use, so we keep the notice in the supplies list rather than the defence notices.',
+  },
+  {
     id: 'competitive-dialogue', term: 'Competitive dialogue',
     body: 'A procedure for complex contracts. The buyer first discusses with selected suppliers how its needs could be met, then invites final tenders based on the solutions discussed.',
     source: 'Directive 2009/81/EC on EUR-Lex',

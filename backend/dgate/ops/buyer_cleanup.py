@@ -24,7 +24,11 @@ deleted, no archived version is touched, and no merge is undone.
    is withdrawn when the name matches an include rule and an exclusion rule now rejects it:
    the Council of Europe's "DGA" (197 notices) and France Travail's. A row a person marked
    `reviewed` in the derived files stays, and so does a seeded buyer. A flag inherited from
-   a namesake (`namesake`) goes when no flagged namesake is left.
+   a namesake (`namesake`) goes when no flagged namesake is left (a namesake merged into a
+   flagged organisation counts). Neither goes when the classifier itself reads the name as a
+   defence body (`buyer_class_of`: its precedence, not the exclusion lists') or when the
+   organisation's notices are filed under the 2009/81/EC legal basis (14 October 2026: the
+   Spanish Army contracting board 311783 and a French ministry service 331798).
 
 3. **Shared identifiers** (correctness:D8), read only. A registration number that belongs
    to a ministry-level legal entity was merged with every service that stated it (`merge_method
@@ -61,7 +65,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import db
-from ..buyer_vocab import defence_body
+from ..buyer_vocab import buyer_class_of, defence_body
 from ..config import settings
 from ..normalise import normalise_org_name
 
@@ -274,10 +278,41 @@ def reviewed_names(directory: Path | None = None) -> set[tuple[str, str]]:
     return out
 
 
+def _flagged_through_merge(conn, org_id: int, country: str, name: str) -> bool:
+    """A flagged, live organisation that a same-named row (the organisation itself, or one
+    merged into it) stands for: `db.flagged_namesake` finds the flagged row named the same,
+    not the one a same-named row was merged into. 311783 ("junta de contratacion del
+    ejercito de tierra") inherited its flag from 49680, which was then merged into 2146."""
+    return conn.execute(
+        """SELECT 1 FROM organisation n JOIN organisation t ON t.id = COALESCE(n.merged_into, n.id)
+            WHERE n.country = %s AND lower(n.canonical_name) = lower(%s) AND n.id <> %s
+              AND t.merged_into IS NULL AND t.is_defence_buyer AND t.id <> %s LIMIT 1""",
+        (country, name, org_id, org_id)).fetchone() is not None
+
+
+def _with_defence_legal_basis(conn, org_ids: list[int]) -> set[int]:
+    """The organisations among `org_ids` whose notices are listed under the defence
+    procurement directive: the notice itself says defence, whatever the name says."""
+    if not org_ids:
+        return set()
+    return {r["buyer_org_id"] for r in conn.execute(
+        """SELECT DISTINCT buyer_org_id FROM opportunity
+            WHERE buyer_org_id = ANY(%s) AND sig_legal_basis""", (org_ids,)).fetchall()}
+
+
 def rejected_flags(conn, keep: set[tuple[str, str]] | None = None) -> list[dict[str, Any]]:
-    """Flagged organisations whose flag no rule or namesake supports any longer."""
+    """Flagged organisations whose flag no rule or namesake supports any longer.
+
+    A flag is withdrawn only when nothing the classifier honours stands behind it. The
+    classifier reads a name that begins with the ministry, an armed force, an agency or a
+    unit as a defence body (`buyer_class_of`, first include at 0.85 or more) before any
+    municipal, property or health vocabulary, so this does too: 'junta de contratacion
+    del ejercito de tierra' is the Army's contracting board and 'minarm sga dcsid esid
+    toulon service achats infrastructure' is a service of the Ministry of the Armed
+    Forces, although "junta de" and "infrastructure" are municipal and property words.
+    And an organisation whose notices carry the 2009/81/EC legal basis keeps its flag."""
     keep = keep if keep is not None else reviewed_names()
-    out: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
     for r in conn.execute(
             """SELECT id, country, canonical_name, defence_buyer_source AS source
                  FROM organisation
@@ -292,10 +327,15 @@ def rejected_flags(conn, keep: set[tuple[str, str]] | None = None) -> list[dict[
             # no rule matches any more (the vocabulary was narrowed, or a person added it
             # by hand to an earlier file) is left as it is.
             if body.label is None and body.excluded_as:
-                out.append({**r, "why": f"excluded as {body.excluded_as} by the name rules"})
-        elif db.flagged_namesake(conn, r["id"], None, r["country"]) is None:
-            out.append({**r, "why": "no flagged namesake is left"})
-    return out
+                candidates.append({**r, "why": f"excluded as {body.excluded_as} by the name rules"})
+        elif (db.flagged_namesake(conn, r["id"], None, r["country"]) is None
+              and not _flagged_through_merge(conn, r["id"], r["country"], r["canonical_name"])):
+            candidates.append({**r, "why": "no flagged namesake is left"})
+    # the classifier's own precedence, then the notices' legal basis
+    candidates = [c for c in candidates
+                  if buyer_class_of(c["canonical_name"], c["country"]) != "defence"]
+    protected = _with_defence_legal_basis(conn, [c["id"] for c in candidates])
+    return [c for c in candidates if c["id"] not in protected]
 
 
 def unflag(conn, rows: list[dict[str, Any]]) -> int:

@@ -28,7 +28,8 @@ def verdict(name, country, cpv, *, legal=None, listed=False):
 
 
 def in_core(sig) -> bool:
-    return bool(sig.legal_basis or (sig.military_cpv and not sig.dual_use))
+    # the scope rule, with the two groups of 14 October 2026 (tests/unit/test_scope_groups.py)
+    return sig.in_core
 
 
 # ------------------------------------------------------------ D2, D4: CPV groups
@@ -276,9 +277,10 @@ def test_spanish_intendances_are_listed(name):
 
 def test_a_property_agency_is_still_not_a_defence_buyer():
     """Owner's standing decision (docs/RUNBOOK.md, buyer_vocab.PROPERTY): military property
-    and estate agencies stay off the list. Forsvarsbygg is one of them; whether it moves is
-    a policy change and not part of this package."""
-    for name, country in (("Forsvarsbygg", "NO"), ("Agencja Mienia Wojskowego", "PL"),
+    and estate agencies stay off the list. Forsvarsbygg was one of them until the owner's
+    decision of 14 October 2026 moved it onto the list (tests/unit/test_scope_groups.py); it
+    is deliberately no longer in this tuple."""
+    for name, country in (("Agencja Mienia Wojskowego", "PL"),
                           ("Defence Infrastructure Organisation", "GB")):
         assert bv.defence_body(name, country).label is None, name
 
@@ -307,18 +309,25 @@ def test_spelling_variants_of_one_body_stay_compatible(a, b):
     assert names_compatible(a, b)
 
 
-# ---------------------------------------- the owner's decisions, pinned unchanged
+# ------------------------------- the owner's decisions of 13 and 14 October 2026
 
-def test_owner_d1_the_directive_alone_still_qualifies_a_notice_for_core():
+def test_owner_d1_the_directive_alone_from_a_civil_buyer_leaves_core():
+    """Pinned the other way until 14 October 2026 ('still qualifies a notice for core'); the
+    owner then decided (classification:D1): scope `supply`, group `directive_civil_buyer`."""
     sig = verdict("Landesbetrieb Bau und Liegenschaften", "DE", ["45000000"], legal="32009L0081")
-    assert sig.is_defence and in_core(sig)
+    assert sig.is_defence and not in_core(sig)
+    assert sig.scope_group == "directive_civil_buyer"
 
 
-def test_owner_d3_a_police_body_keeps_its_military_cpv_in_core():
+def test_owner_d3_a_police_body_with_only_a_military_cpv_leaves_core():
+    """Pinned the other way until 14 October 2026 ('keeps its military CPV in core'); the
+    owner then decided (classification:D3): scope `supply`, group `security_buyer_cpv`."""
     for name, cpv in (("Komenda Główna Policji", ["35321200"]),                  # 1037
                       ("Izba Administracji Skarbowej w Gdańsku", ["35321100", "35330000"])):  # 618
         sig = verdict(name, "PL", cpv)
-        assert bv.buyer_class_of(name, "PL") == "security" and in_core(sig), name
+        assert bv.buyer_class_of(name, "PL") == "security", name
+        assert sig.is_defence and not in_core(sig), name
+        assert sig.scope_group == "security_buyer_cpv", name
 
 
 # ------------------------------------------------- the derived file, one row a name

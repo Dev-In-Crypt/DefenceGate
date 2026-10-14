@@ -141,7 +141,7 @@ never converted, no personal data, every record carries its `source`.
 Query (all optional): `q` (title, buyer or notice number), `country` (comma ISO-2),
 `cpv` (comma prefixes, at most 20), `status` (`open` default | `closed` | `all`),
 `scope` (`core` default: the notice itself is defence | `supply`: only the buyer is a
-defence body | `all`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
+defence body, or one of the two groups of 14 October 2026 | `all`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
 UTC), `min` / `max` (estimated value) with `currency` (ISO 4217, default `EUR`: a range
 selects that one currency), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).
@@ -347,3 +347,20 @@ All additive. A response gained fields; none was removed or renamed.
 - `SourceHealth.monthlyMedian` and `gapMonths` (`YYYY-MM`): of a tender source, the usual
   notices per month (median of the whole months between its first and last) and the months
   with fewer than half of that. Absent where the read did not finish in the API's budget.
+
+## Changes of 14 October 2026 (WP-8, owner decision on the scope of `core`)
+
+- Two groups of notice leave `core` and are served as scope `supply` (never deleted; found by `q`,
+  `scope=supply` and `scope=all`). `Tender.qualifiedBy` names them with one of two new values
+  in place of the signal it was found through:
+  - `directive_civil_buyer`: the 2009/81/EC legal basis is the only defence signal and `buyerClass`
+    is known and is neither `defence` nor `security`. Label: "Filed under the defence procurement
+    directive by a civil buyer".
+  - `security_buyer_cpv`: a military CPV is the only signal (not demoted as dual-use) and
+    `buyerClass` is `security`. `militaryCpv` still lists the codes. Label: "Security-body purchase
+    of a military-type product code".
+  A listed buyer, a link to a defence notice of another source, or the legal basis together with a
+  military CPV keeps a notice in `core`; a notice whose buyer class is not yet known is never moved.
+  `scope` stays `core` or `supply`; `supply` therefore also holds these two groups.
+- Forsvarsbygg (Norwegian Defence Estates Agency) is a defence buyer: its notices are `supply`
+  through the buyer signal, `core` only with the legal basis or a military CPV as for any buyer.

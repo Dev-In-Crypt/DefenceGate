@@ -10,6 +10,12 @@ NO,forsvarets logistikkorganisasjon,,armed_forces,0.95,false
 NO,forsvarets logistikkorganisasjon flo,,armed_forces,0.95,false
 NO,forsvarets logistikkorganisasjon flo the norwegian defence logistics organisation ndlo,986105174,armed_forces,0.95,false
 NO,forsvarets v forsvarets logistikkorganisasjon,,armed_forces,0.95,false
+NO,forsvarsbygg,975950662,defence_estates_agency,0.90,false
+NO,forsvarsbygg anskaffelser,,defence_estates_agency,0.90,false
+NO,forsvarsbygg markedsomrade vest,,defence_estates_agency,0.90,false
+NO,forsvarsbygg the norwegian defence estates agency,,defence_estates_agency,0.90,false
+NO,forsvarsbygg the norwegian defence estates agency ndea,,defence_estates_agency,0.90,false
+NO,forsvarsbygg utvikling ost,,defence_estates_agency,0.90,false
 NO,forsvarsdepartementet,972417823,ministry,0.95,false
 NO,forsvarsmateriell,916075855,procurement_agency,0.95,false
 NO,forsvarsmateriell defense equipment,,procurement_agency,0.95,false

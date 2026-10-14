@@ -59,7 +59,7 @@ export function searchHref(kind: SearchKind, filters: SearchFilters): string {
 const STATUS_WORDS: Record<string, string> = {
   open: 'Open', closed: 'Closed', all: 'Any status', forthcoming: 'Opens soon', 'closing-soon': 'Closing soon',
 };
-const SCOPE_WORDS: Record<string, string> = { core: 'Defence notices', supply: 'Supplies to defence buyers', all: 'All notices' };
+const SCOPE_WORDS: Record<string, string> = { core: 'Defence notices', supply: 'Supplies to defence buyers and other qualified notices', all: 'All notices' };
 
 const codes = (v: string) => v.split(',').map((s) => s.trim()).filter(Boolean);
 

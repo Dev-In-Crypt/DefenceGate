@@ -416,6 +416,10 @@ def reclassify_serving(conn, *, source: str | None = None, dry_run: bool = True,
         "scanned": 0, "changed": 0, "defence_to_not": 0, "not_to_defence": 0,
         "demoted_to_dual_use": 0, "restored_from_dual_use": 0,
         "core_before": 0, "core_after": 0, "supply_after": 0,
+        # the same stored rows under the rule before 14 October (the directive, or a
+        # military CPV not demoted, whoever the buyer) and the two groups that rule moves
+        "core_rule_of_13_oct": 0, "group_directive_civil_buyer": 0,
+        "group_security_buyer_cpv": 0,
     }
     by_class: dict[str, int] = {}
     where, params = "o.id > %s", [0]
@@ -453,10 +457,13 @@ def reclassify_serving(conn, *, source: str | None = None, dry_run: bool = True,
             counts["core_before"] += r["is_defence"] and _core(
                 r["sig_legal_basis"], r["sig_cpv"], False)       # the rule it replaces
             if sig.is_defence:
-                counts["core_after"] += _core(sig.legal_basis, sig.military_cpv, sig.dual_use)
-                counts["supply_after"] += (
-                    (sig.buyer or sig.linked_defence)
-                    and not _core(sig.legal_basis, sig.military_cpv, sig.dual_use))
+                counts["core_rule_of_13_oct"] += _core(
+                    sig.legal_basis, sig.military_cpv, sig.dual_use)
+                counts["core_after"] += sig.in_core
+                counts["supply_after"] += not sig.in_core and bool(
+                    sig.buyer or sig.linked_defence or sig.scope_group)
+                if sig.scope_group:
+                    counts[f"group_{sig.scope_group}"] += 1
                 by_class[cls] = by_class.get(cls, 0) + 1
             if new == old:
                 continue

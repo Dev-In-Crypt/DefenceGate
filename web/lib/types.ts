@@ -131,7 +131,7 @@ export interface Paginated<T> {
 
 /** GET /v1/tenders (list), GET /v1/tenders/{slug} (detail). Contract: docs/design/API_CONTRACT.md. */
 export type TenderStatus = 'open' | 'closed';
-/** core: the notice itself is defence; supply: only the buyer is a defence body. */
+/** core: the notice itself is defence; supply: only the buyer is a defence body, or a single signal from the wrong kind of buyer (`qualifiedBy`). */
 export type TenderScope = 'core' | 'supply';
 export interface Tender {
   /** Numeric id as a string. */
@@ -195,7 +195,9 @@ export interface Tender {
   dualUse?: boolean;
   /**
    * What qualified the notice: `legal_basis`, `military_cpv` (a military product code; `militaryCpv` lists the codes
-   * that are), `buyer` (only its buyer being on the defence list keeps it). Absent on an older API build.
+   * that are), `buyer` (only its buyer being on the defence list keeps it); or, for a notice filed in `supply` with a
+   * single signal from the wrong kind of buyer, `directive_civil_buyer` (the directive alone, from a civil buyer) or
+   * `security_buyer_cpv` (a military code alone, from a security body). Absent on an older API build.
    */
   qualifiedBy?: string[];
   militaryCpv?: string[];

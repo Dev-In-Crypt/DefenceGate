@@ -28,6 +28,26 @@ export function militaryCodeChip(military: string[] | null | undefined, all: str
 
 const DEFENCE_DIRECTIVE = /(2009[/-]81|32009L0081)/i;
 
+/**
+ * The two groups that are defence-qualified but not `core` (owner decision of 14 October 2026): scope `supply`,
+ * named by the API's `qualifiedBy`. Each is the notice's only defence signal, from the wrong kind of buyer.
+ */
+export const SCOPE_GROUP_LABELS: Record<string, string> = {
+  directive_civil_buyer: 'Filed under the defence procurement directive by a civil buyer',
+  security_buyer_cpv: 'Security-body purchase of a military-type product code',
+};
+
+const SCOPE_GROUP_NOTES: Record<string, string> = {
+  directive_civil_buyer: 'The notice states the defence procurement directive as its legal basis, and nothing else marks it as defence: its buyer is not a defence or security body. It is listed with supplies, not with defence notices.',
+  security_buyer_cpv: 'The notice carries a military product code, and nothing else marks it as defence: its buyer is a police, prison, border, customs or tax body. It is listed with supplies, not with defence notices.',
+};
+
+/** The line under the chips of a notice filed in one of the two groups; null for any other notice. */
+export function scopeGroupNote(qualifiedBy: string[] | null | undefined): string | null {
+  const group = (qualifiedBy ?? []).find((q) => q in SCOPE_GROUP_NOTES);
+  return group ? SCOPE_GROUP_NOTES[group] : null;
+}
+
 /** What kind of body the buyer is, by the API's `buyerClass`. `other` says nothing and gets no chip. */
 const BUYER_CLASS: Record<string, string> = {
   defence: 'Defence body',
@@ -42,6 +62,15 @@ const BUYER_CLASS: Record<string, string> = {
 export function basisChips(t: BasisInput): string[] {
   const chips: string[] = [];
   const directive = Boolean(t.legalBasis && DEFENCE_DIRECTIVE.test(t.legalBasis));
+  // A notice filed in one of the two groups says that, and nothing that would read as "defence notice".
+  const group = Array.isArray(t.qualifiedBy) ? t.qualifiedBy.find((q) => q in SCOPE_GROUP_LABELS) : undefined;
+  if (group) {
+    chips.push(SCOPE_GROUP_LABELS[group]);
+    const named = t.buyerClass ? BUYER_CLASS[t.buyerClass] : undefined;
+    if (named) chips.push(named);
+    if (t.securityClearance) chips.push('Security-clearance field present');
+    return chips;
+  }
   if (directive) chips.push('Defence and security directive (2009/81/EC)');
   if (Array.isArray(t.qualifiedBy)) {
     // Driven by the signal that qualified the notice (site-qa2:N2): a military code is named only when it is what

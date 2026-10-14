@@ -97,13 +97,16 @@ EDUCATION = _rx(
 )
 
 # Military property and estate agencies buy buildings, land and maintenance: real
-# money, not the defence supply chain. Kept out of the list on purpose.
+# money, not the defence supply chain. Kept out of the list on purpose. One exception,
+# by the owner's decision of 14 October 2026: Forsvarsbygg (the Norwegian Defence Estates
+# Agency) is a defence buyer (DEFENCE_INCLUDE, label `defence_estates_agency`), so its
+# notices qualify into `supply`; it never reaches `core` on the buyer signal alone.
 PROPERTY = _rx(
     r"agencja mienia wojskowego|wojskowa agencja mieszkaniow|agencja nieruchomosci",
     r"bundesanstalt fur immobilienaufgaben|\bbima\b|bundesamt fur bauwesen|amt fur bundesbau",
     r"bau- ?und liegenschaft|baumanagement|liegenschaftsbetrieb|landesbetrieb|bauamt|hochbauamt",
     r"defen[cs]e (?:infrastructure organi[sz]ation|estates)|\bdio\b|infrastructure organi[sz]ation",
-    r"forsvarsbygg|fortifikationsverket|forsvarets ejendom|ejendomsstyrelse|puolustushallinnon rakennuslaitos",
+    r"fortifikationsverket|forsvarets ejendom|ejendomsstyrelse|puolustushallinnon rakennuslaitos",
     r"defence estates|estates agency|agentura hospodareni s nemovitym majetkem|agentura pre majetok",
     r"direction de l immobilier|agence immobiliere|immobilienaufgaben",
     r"service d infrastructure de la defense|service d infrastrucutre|\bdcsid\b|\besid\b|\bdrsid\b",
@@ -225,6 +228,7 @@ DEFENCE_INCLUDE: list[_Row] = [
          r"^saelsi\b", r"^depafi\b", r"^delpia\b", r"^drsid\b", r"^simmt\b", r"^simmad\b",
          r"^marine (?:dcssf|dssf)", r"^plate-?forme affretement", r"^dcssf\b", r"^arm sca",
          r"^plate-?forme (?:du )?commissariat", r"^dicom\b"),
+    _row("defence_estates_agency", 0.90, "NO", r"^forsvarsbygg\b"),
     _row("procurement_agency", 0.95, "SE", r"^fmv\b", r"^foi\b"),
     _row("procurement_agency", 0.95, "NL", r"^dmo\b"),
     _row("procurement_agency", 0.95, "DK", r"^dalo\b"),
@@ -344,6 +348,8 @@ def defence_body(name: str, country: str | None = None) -> DefenceBody:
     for why, rx in DEFENCE_EXCLUDE:
         if why == "security_service" and matched[0] == "military_police":
             continue
+        if why == "property_agency" and matched[0] == "defence_estates_agency":
+            continue          # "Forsvarsbygg - the Norwegian Defence Estates Agency"
         if rx.search(key):
             return DefenceBody(None, 0.0, why)
     return DefenceBody(matched[0], matched[1], None)

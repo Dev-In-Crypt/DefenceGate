@@ -113,6 +113,66 @@ _LEGAL_BASIS_DEFENCE = re.compile(
 )
 
 
+# ------------------------------------------------------------- scope groups
+
+# Two groups of notice that are defence-qualified but not `core` (owner decision of
+# 14 October 2026, verification round 2 data-correctness:B4). Both are served as scope
+# `supply`, never deleted, and named by `qualifiedBy`:
+#   directive_civil_buyer  the 2009/81/EC legal basis is the notice's ONLY defence signal
+#                          and the buyer is a body of a known class other than defence or
+#                          security: 'Filed under the defence procurement directive by a
+#                          civil buyer' (39 % of a read sample of 40 clearly not defence)
+#   security_buyer_cpv     a military CPV is the only signal and the buyer is a police,
+#                          prison, border, customs or tax body (class `security`):
+#                          'Security-body purchase of a military-type product code'
+# A listed buyer, a link to a national defence notice, or the legal basis AND a military
+# CPV together are further signals and keep the notice in `core`. An unclassified buyer
+# (class None: a row not yet read by the classifier) is never demoted.
+GROUP_CIVIL_DIRECTIVE = "directive_civil_buyer"
+GROUP_SECURITY_CPV = "security_buyer_cpv"
+SCOPE_GROUPS = (GROUP_CIVIL_DIRECTIVE, GROUP_SECURITY_CPV)
+_CLASSES_KEPT_IN_CORE = ("defence", "security")
+
+# The same rules in SQL over `opportunity o`, the single definition api.CORE_SQL and
+# tenders.CORE import; `scope_group_of` below is their Python twin
+# (tests/unit/test_scope_groups.py keeps the two in step).
+CIVIL_DIRECTIVE_SQL = (
+    "(o.sig_legal_basis AND NOT o.sig_cpv_military AND NOT o.sig_buyer"
+    " AND NOT o.sig_linked_defence AND o.buyer_class IS NOT NULL"
+    " AND o.buyer_class NOT IN ('defence', 'security'))")
+SECURITY_CPV_SQL = (
+    "(o.sig_cpv_military AND NOT o.sig_legal_basis AND NOT o.dual_use AND NOT o.sig_buyer"
+    " AND NOT o.sig_linked_defence AND o.buyer_class IS NOT DISTINCT FROM 'security')")
+CORE_SQL = (f"((o.sig_legal_basis AND NOT {CIVIL_DIRECTIVE_SQL})"
+            f" OR (o.sig_cpv_military AND NOT o.dual_use AND NOT {SECURITY_CPV_SQL}))")
+# What `supply` holds: a listed buyer, a linked defence notice, or one of the two groups,
+# and not core.
+SUPPLY_SQL = (f"((o.sig_buyer OR o.sig_linked_defence OR {CIVIL_DIRECTIVE_SQL}"
+              f" OR {SECURITY_CPV_SQL}) AND NOT {CORE_SQL})")
+
+
+def scope_group_of(*, legal_basis: bool, military_cpv: bool, dual_use: bool, buyer: bool,
+                   linked_defence: bool, buyer_class: str | None) -> str | None:
+    """The group a defence-qualified notice is filed under instead of `core`, or None."""
+    if buyer or linked_defence or buyer_class is None:
+        return None
+    if legal_basis and not military_cpv:
+        return None if buyer_class in _CLASSES_KEPT_IN_CORE else GROUP_CIVIL_DIRECTIVE
+    if military_cpv and not legal_basis and not dual_use and buyer_class == "security":
+        return GROUP_SECURITY_CPV
+    return None
+
+
+def in_core(*, legal_basis: bool, military_cpv: bool, dual_use: bool, buyer: bool = False,
+            linked_defence: bool = False, buyer_class: str | None = None) -> bool:
+    """The Python twin of CORE_SQL: the notice itself says defence."""
+    if not (legal_basis or (military_cpv and not dual_use)):
+        return False
+    return scope_group_of(legal_basis=legal_basis, military_cpv=military_cpv,
+                          dual_use=dual_use, buyer=buyer, linked_defence=linked_defence,
+                          buyer_class=buyer_class) is None
+
+
 def cpv_division(code: str) -> str:
     return (code or "")[:2]
 
@@ -183,13 +243,29 @@ class DefenceSignals:
                      or (self.buyer_class == "other" and self.cpv_ambiguous_only)))
 
     @property
+    def scope_group(self) -> str | None:
+        """`directive_civil_buyer`, `security_buyer_cpv`, or None (see GROUP_*)."""
+        return scope_group_of(
+            legal_basis=self.legal_basis, military_cpv=self.military_cpv,
+            dual_use=self.dual_use, buyer=self.buyer, linked_defence=self.linked_defence,
+            buyer_class=self.buyer_class)
+
+    @property
+    def in_core(self) -> bool:
+        """Scope `core`: the notice itself says defence (api.CORE_SQL)."""
+        return in_core(legal_basis=self.legal_basis, military_cpv=self.military_cpv,
+                       dual_use=self.dual_use, buyer=self.buyer,
+                       linked_defence=self.linked_defence, buyer_class=self.buyer_class)
+
+    @property
     def is_defence(self) -> bool:
         """Verdict.
 
         Strong signals stand alone: the defence directive as legal basis, and
         an unambiguously military CPV group. A military CPV demoted to
         dual-use still counts here -- it is labelled, not dropped -- and
-        leaves the `core` scope instead (api.SCOPE_SQL).
+        leaves the `core` scope instead (api.SCOPE_SQL); so do the two scope groups
+        (`scope_group`).
 
         The clearance field is deliberately NOT a signal that decides, despite
         being documented as one. Checked against live TED notices, BT-732
@@ -216,6 +292,8 @@ class DefenceSignals:
     def confidence(self) -> float:
         if self.legal_basis and self.military_cpv:
             return 1.00
+        if self.scope_group:
+            return 0.45
         if self.legal_basis:
             return 0.90
         if self.military_cpv and not self.dual_use:
@@ -307,6 +385,13 @@ def classify(
 
     if linked_defence:
         sig.reasons.append("same procurement as a defence notice of another source")
+
+    if sig.scope_group == GROUP_CIVIL_DIRECTIVE:
+        sig.reasons.append(f"not core: the directive is the only signal and the buyer is a "
+                           f"{sig.buyer_class} body")
+    elif sig.scope_group == GROUP_SECURITY_CPV:
+        sig.reasons.append("not core: a military CPV is the only signal and the buyer is a "
+                           "security body")
 
     # BT-732 presence is itself the signal. We do not parse or store the
     # clearance description: it can name systems and programmes and is not

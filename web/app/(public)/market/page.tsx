@@ -124,7 +124,7 @@ export default async function MarketPage() {
       <ContentSection title="Reading these figures">
         <ul className="m-0 flex list-disc flex-col gap-2 pl-5 text-body text-ink-muted">
           <li>They are counts of notices published. A notice can be a call for tender, a correction or an award; none states how much is spent.</li>
-          <li>Only notices that state the defence and security directive, or carry a military product code, are counted. A military code bought by a municipal, health, education or fire body is not, and neither are notices listed only because their buyer is a defence body.</li>
+          <li>Only notices that state the defence and security directive, or carry a military product code, are counted. A military code bought by a municipal, health, education or fire body is not, and neither are notices listed only because their buyer is a defence body, notices whose only signal is the defence directive from a civil buyer, or notices whose only signal is a military product code from a police, prison, border, customs or tax body.</li>
           <li>
             Coverage differs by country and over time. Each source starts on a different date and some countries publish only nationally, so a country with fewer notices is not necessarily one that buys less.
             See <Link href="/data" className={LINK}>source status</Link> for what each source covers and from when.

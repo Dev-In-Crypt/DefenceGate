@@ -66,7 +66,7 @@ export default async function TendersPage({ searchParams }: Props) {
       notices={ignoredFilters(sp, 'tenders')}
       clearHref="/tenders"
       emptyTitle="No tenders match these filters"
-      emptyText="Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and notices that only supply a defence buyer are hidden unless you choose Supplies to defence buyers or All."
+      emptyText="Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and notices that only supply a defence buyer, that are filed under the defence directive by a civil buyer, or that are a military product code bought by a security body are hidden unless you choose Supplies to defence buyers or All."
       hrefFor={(p) => `/tenders${toTenderQuery({ ...filters, page: p })}`}
       footnote="Amounts are shown in the currency the source states and are never converted or added up across currencies."
     >

@@ -5,13 +5,13 @@
  */
 import assert from 'node:assert/strict';
 import { displayName, upperShare } from './display-name';
-import { basisChips, clearanceView, militaryCodeChip, subcontractingView } from './tender-basis';
+import { basisChips, clearanceView, militaryCodeChip, scopeGroupNote, subcontractingView } from './tender-basis';
 import { formatChangeValue } from './change-format';
 import { gapSentence, heldSpan, listUpdatedAt, minimumMet, monthRanges, sourceFreshness } from './source-status';
 import { barLayout, daysText, monthLabel, niceMax, percentText, shareOf } from './market';
 import { cpvGroupName, cpvGroupTitle, cpvName } from './cpv';
 import { defaultTenderSort, ignoredFilters, isDay, lastPage, parseTenderFilters, toTenderQuery } from './filters';
-import { LANGUAGES, languageName, legalBasisLabel, procedureLabel } from './taxonomy';
+import { LANGUAGES, TENDER_SCOPES, languageName, legalBasisLabel, procedureLabel } from './taxonomy';
 import { callStatusKind, getCallDeadline, getDeadline } from './deadline';
 import { isPlaceholderAmount, repeatedCallBudgets } from './format';
 import { isLongRunning, sourceStatusWord } from './tender-status';
@@ -289,6 +289,14 @@ assert.deepEqual(basisChips({ scope: 'core', buyerClass: 'education', qualifiedB
 assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32009L0081', qualifiedBy: ['legal_basis', 'military_cpv'], militaryCpv: ['35400000'] }), ['Defence and security directive (2009/81/EC)']);
 assert.equal(militaryCodeChip(['35400000'], ['35400000']), 'Military product code (CPV 35400000)');
 assert.equal(militaryCodeChip(['1', '2', '3', '4', '5'], null), 'Military product code (CPV 1, 2, 3 and 2 more)');
+// WP-8 (14 October 2026): the two groups that left core are named, never called a defence notice
+assert.deepEqual(basisChips({ scope: 'supply', legalBasis: '32009L0081', buyerClass: 'municipal', qualifiedBy: ['directive_civil_buyer'] }),
+  ['Filed under the defence procurement directive by a civil buyer', 'Municipal body']);
+assert.deepEqual(basisChips({ scope: 'supply', buyerClass: 'security', qualifiedBy: ['security_buyer_cpv'], militaryCpv: ['35321200'] }),
+  ['Security-body purchase of a military-type product code', 'Security or interior body']);
+assert.ok(scopeGroupNote(['directive_civil_buyer'])?.includes('not a defence or security body'));
+assert.equal(scopeGroupNote(['buyer']), null);
+assert.ok((TENDER_SCOPES.supply.also ?? '').includes('civil buyer') && (TENDER_SCOPES.supply.also ?? '').includes('Security-body'));
 // N13: a notice that closes today does not "close this week"
 const noonToday = new Date('2026-10-14T09:00:00Z');
 assert.equal(getDeadline('2026-10-14T12:00:00Z', noonToday).label, 'Closes today');

@@ -31,7 +31,7 @@ from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from . import db
+from . import classify, db
 from .config import settings
 from .hardening import BodyLimit, RateLimit, SecurityHeaders
 from .listcache import cache_list
@@ -320,19 +320,26 @@ def effective_status(status: str | None, deadline_at: datetime | None,
 # with a clearance flag; the columns stay and corroborate. A military CPV bought
 # by a municipality, a hospital, a school or a fire brigade is `dual_use` and
 # leaves `core`; it is still reachable through `all`.
-CORE_SQL = "(o.sig_legal_basis OR (o.sig_cpv_military AND NOT o.dual_use))"
+#
+# Two further groups leave `core` for `supply` (owner decision of 14 October 2026):
+# the directive as the only signal from a civil buyer (`directive_civil_buyer`), and a
+# military CPV as the only signal from a police, prison, border, customs or tax body
+# (`security_buyer_cpv`). The definition is dgate/classify.py's, written once.
+CORE_SQL = classify.CORE_SQL
 SCOPE_SQL = {
     "core": CORE_SQL,
-    "supply": f"((o.sig_buyer OR o.sig_linked_defence) AND NOT {CORE_SQL})",
+    "supply": classify.SUPPLY_SQL,
     "all": "TRUE",
 }
 
 
 def row_scope(r: dict[str, Any]) -> str:
     """The Python twin of SCOPE_SQL for a row already fetched: `core` or `supply`."""
-    if r.get("sig_legal_basis") or (r.get("sig_cpv_military") and not r.get("dual_use")):
-        return "core"
-    return "supply"
+    return "core" if classify.in_core(
+        legal_basis=bool(r.get("sig_legal_basis")),
+        military_cpv=bool(r.get("sig_cpv_military")), dual_use=bool(r.get("dual_use")),
+        buyer=bool(r.get("sig_buyer")), linked_defence=bool(r.get("sig_linked_defence")),
+        buyer_class=r.get("buyer_class")) else "supply"
 
 
 BASE_SELECT = f"""
@@ -356,7 +363,9 @@ def list_opportunities(
     status: str = Query("open", max_length=20),
     scope: str = Query("core", pattern="^(core|supply|all)$",
                        description="core: the notice itself is defence (default); "
-                                   "supply: only the buyer is a defence body; all: both"),
+                                   "supply: only the buyer is a defence body, or one of the two "
+                                   "groups (directive from a civil buyer, military CPV from "
+                                   "a security body); all: both"),
     collapse: bool = Query(True, description="show a national notice once: hide it when "
                                              "the TED notice it was forwarded as is also "
                                              "in this result (see `same_notice`)"),

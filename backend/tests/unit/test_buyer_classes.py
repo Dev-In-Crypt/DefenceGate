@@ -71,7 +71,8 @@ def test_defence_bodies_are_recognised_with_confidence_to_load(name, country):
     ("Bundeswehr Sprachenschule", "DE", "education"),
     ("Defence Infrastructure Organisation (MOD DIO)", "GB", "property_agency"),
     ("Bundesanstalt für Immobilienaufgaben - Bundeswehr", "DE", "property_agency"),
-    ("Forsvarsbygg - the Norwegian Defence Estates Agency", "NO", "property_agency"),
+    # Forsvarsbygg was here until the owner's decision of 14 October 2026: it is a defence
+    # buyer now (tests/unit/test_scope_groups.py)
     ("Établissement public d'aménagement de la Défense (Paris La Défense)", "FR", "property_agency"),
     ("Myndigheten för civilt försvar", "SE", "civil_protection"),
     ("Civil Defence Directorate", "IE", "civil_protection"),

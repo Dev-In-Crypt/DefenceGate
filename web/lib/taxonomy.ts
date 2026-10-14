@@ -86,10 +86,18 @@ export function programmeBySlug(slug: string): ProgrammeCode | undefined {
   return PROGRAMME_CODES.find((c) => PROGRAMMES[c].slug === slug);
 }
 
-/** How a tender's scope is named. `supply` is "supplies to a defence buyer", never "defence notice". */
-export const TENDER_SCOPES: Record<'core' | 'supply', { label: string; hint: string }> = {
+/**
+ * How a tender's scope is named. `supply` is "supplies to a defence buyer", never "defence notice". It also holds the
+ * two groups of 14 October 2026 (`also`): the directive's legal basis alone from a civil buyer, and a military product
+ * code alone from a police, prison, border, customs or tax body.
+ */
+export const TENDER_SCOPES: Record<'core' | 'supply', { label: string; hint: string; also?: string }> = {
   core: { label: 'Defence notice', hint: 'The notice itself is defence.' },
-  supply: { label: 'Supplies to a defence buyer', hint: 'Only the buyer is a defence body; the notice itself is not marked as defence.' },
+  supply: {
+    label: 'Supplies to a defence buyer',
+    hint: 'Only the buyer is a defence body; the notice itself is not marked as defence.',
+    also: 'This list also holds notices with a single defence signal from the wrong kind of buyer: “Filed under the defence procurement directive by a civil buyer”, and “Security-body purchase of a military-type product code” (police, prison, border, customs or tax bodies).',
+  },
 };
 
 /** Legal bases we can name. Anything else is shown as the source gives it. */
