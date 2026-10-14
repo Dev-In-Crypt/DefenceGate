@@ -10,6 +10,8 @@ export const metadata: Metadata = buildMetadata({
   title: 'Privacy notice',
   description: 'What personal data DefenceGate processes when you visit the site or use an account, why, for how long, and your rights.',
   path: '/privacy',
+  // Not indexed while the imprint has no provider details.
+  noindex: true,
 });
 
 const P = 'm-0';
@@ -19,7 +21,7 @@ export default function PrivacyPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.2, published 13 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.3, published 14 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
@@ -33,12 +35,12 @@ export default function PrivacyPage() {
       </Callout>
 
       <Clause n={1} title="Who is responsible">
-        <p className={P}>The controller is the operator named in the <Link href="/imprint" className="font-semibold">imprint</Link>. Name, address and contact: <Placeholder>to be provided in the imprint</Placeholder></p>
+        <p className={P}>The controller is the operator identified in the <Link href="/imprint" className="font-semibold">imprint</Link>. The imprint is where the name, address and contact for privacy matters are given and, where one is required, the representative in the Union and the data protection officer.</p>
       </Clause>
 
       <Clause n={2} title="When you visit the site">
         <p className={P}>When your browser loads a page, the server and the reverse proxy in front of it record the technical details of the request: your IP address, the time, the address requested, the response code, the size, your browser’s headers (including user agent and referrer) and the full address requested, including any search words in it.</p>
-        <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> the log files are rotated by size and the oldest are overwritten, so how long a line lasts depends on traffic. <Placeholder>maximum retention period to be fixed by the operator</Placeholder></p>
+        <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> the log files are rotated by size and the oldest are overwritten, so how long a line lasts depends on traffic. No fixed maximum period has been set yet.</p>
         <p className={P}>Providing this data is technically necessary to receive the site.</p>
       </Clause>
 
@@ -79,23 +81,32 @@ export default function PrivacyPage() {
       </Clause>
 
       <Clause n={7} title="Personal data in public notices">
-        <p className={P}>Public procurement notices are published by public bodies and sometimes name a contact person. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business.</p>
-        <p className={P}>Some older records, held in our private archive and in the history of notices in our database, may still contain contact details that a publisher placed in a notice. The website does not show them. If your personal data is shown or held and you want it removed, write to us using the contact in the imprint.</p>
-        <p className={P}><strong>Legal basis:</strong> our legitimate interest in providing access to public procurement information (Art. 6(1)(f) GDPR). You may object at any time (Art. 21).</p>
+        <p className={P}>Public procurement notices and funding calls are published by public bodies and sometimes name a contact person. We republish them as business information about who buys and who funds what.</p>
+        <ClauseList items={[
+          <><strong>What we hold.</strong> The notice fields. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business.</>,
+          <><strong>Where it comes from.</strong> From the public source of the notice, never from you.</>,
+          <><strong>Why and on what basis.</strong> To give businesses access to public procurement information in one place: our legitimate interest, and the interest of users and of the public in transparent public procurement (Art. 6(1)(f) GDPR).</>,
+          <><strong>Who sees it.</strong> Anyone who visits the site; it is public by design. Our hosting provider processes it for us.</>,
+          <><strong>Archive.</strong> We keep a private, append-only archive of earlier versions of notices so that changes can be shown. Some older records in the archive, in the raw store that the collection lands first and in the history of notices may still contain contact details a publisher placed in a notice; they are a small number. The website does not show them. They are kept as long as the archive is kept, and we redact them earlier on a valid request or where the law requires.</>,
+          <><strong>Telling you.</strong> We do not write to each person named in a public notice; that would take disproportionate effort, so, as Art. 14(5)(b) GDPR provides, we make this information publicly available here and take the measures described in this section.</>,
+          <><strong>Your rights.</strong> You may object at any time (Art. 21), ask for access, correction or erasure (Arts. 15 to 17) and complain to a supervisory authority. On a valid objection or request we will stop showing or correct the data without undue delay after verifying the request, and we redact the archive where the law requires. See term 19 of the <Link href="/terms" className="font-semibold">terms</Link> and section 9.</>,
+        ]} />
       </Clause>
 
       <Clause n={8} title="Who receives data">
         <ClauseList items={[
+          'Every visitor to the site: public notice data is public by design (section 7).',
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
           'Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.',
           'The mail provider named in section 5, once sign-in opens.',
         ]} />
-        <p className={P}>We do not sell personal data. Apart from the domain name service above, we do not transfer personal data outside the European Economic Area as part of operating the site.</p>
+        <p className={P}>We do not sell personal data. Apart from the domain name service above, we do not transfer personal data outside the European Economic Area as part of operating the site. We disclose data to an authority where the law requires it.</p>
       </Clause>
 
       <Clause n={9} title="Your rights">
-        <p className={P}>You have the right to access, rectification, erasure, restriction of processing, data portability and to object (Arts. 15 to 21 GDPR). To use them write to the contact in the imprint, or, for an account, use Settings. We reply within one month.</p>
-        <p className={P}>You have the right to lodge a complaint with a supervisory authority, in particular in the country where you live or work, or where the operator has its seat.</p>
+        <p className={P}>You have the right to access, rectification, erasure, restriction of processing, data portability and to object (Arts. 15 to 21 GDPR). To use them write to the contact in the <Link href="/imprint" className="font-semibold">imprint</Link>, or, for an account, use Settings. We may ask for what we need to confirm who you are. We reply within one month; where a request is complex or there are many, we may extend that by up to two further months and will tell you why. If we do not act on a request we say why and tell you that you may complain to a supervisory authority or go to court. Where the law lets us refuse (for example for freedom of expression and information, or for the establishment or defence of legal claims) we say which ground we rely on.</p>
+        <p className={P}>Where erasure is due we remove the data from the site and redact it in the archive without undue delay after verifying the request. Backups containing it cannot be edited and are overwritten within 30 days.</p>
+        <p className={P}>You have the right to lodge a complaint with a supervisory authority, in particular in the country where you live or work, where the alleged infringement took place, or where the operator has its seat, as stated in the imprint.</p>
       </Clause>
 
       <Clause n={10} title="Automated decisions">
@@ -103,7 +114,7 @@ export default function PrivacyPage() {
       </Clause>
 
       <Clause n={11} title="Changes">
-        <p className={P}>We update this notice when the site changes. The version and date are at the top. Material changes for account holders are also sent by e-mail.</p>
+        <p className={P}>We update this notice when the site changes. The version and date are at the top, and earlier versions are kept and available on request. Material changes for account holders are also sent by e-mail.</p>
       </Clause>
     </ContentPage>
   );
