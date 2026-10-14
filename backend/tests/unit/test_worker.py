@@ -111,4 +111,4 @@ def test_every_job_is_reachable_from_the_cli():
                                 "health", "backup", "backup-verify", "catch-up",
                                 "atlas-backfill", "ted-history", "boamp", "calls",
                                 "topics", "bdns", "ncbr", "tenderned", "vinnova", "aid", "matine",
-                                "alerts", "backup-freshness"}
+                                "alerts", "backup-freshness", "link-twins", "requalify"}

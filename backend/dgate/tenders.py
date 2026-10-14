@@ -20,6 +20,9 @@ Decisions that shape it:
     it: `api.SUPERSEDED_SQL`); `deadlineKnown` says whether the deadline is stated at all
   - a national notice that states no value borrows the value of its TED twin at read
     time, and says so (`valueFrom: "ted_twin"`); the stored row is never changed
+  - the same for the procedure (`procedureFrom`), and for a deadline that differs from its
+    TED twin's by more than 90 days (`deadlineFrom`: a typo in the national source, 6 of 211
+    Spanish twin pairs more than a year apart); nothing is invented, the twin's own is shown
   - a tender names its buyer the way the notice itself does (`buyerName`); the buyers
     catalogue, and `buyerCanonicalName` beside it, use the organisation's commonest
     spelling rather than the normalised key the entity resolver uses
@@ -62,6 +65,13 @@ MAX_BIGINT = 9_223_372_036_854_775_807
 # on 13 October 2026), never a price. It is not shown, not borrowed from, and not matched
 # by a value range.
 PLACEHOLDER_VALUE_MAX = 1
+# A national deadline this far from its TED twin's is read as a typo in the national source
+# (data-correctness DC2/DC8, 14 October 2026), and the twin's is shown with its provenance.
+TWIN_DEADLINE_DIFFERS_DAYS = 90
+# A tender deadline further ahead than this is flagged (`deadline-more-than-1y`): 8.3 % of
+# the open set on 14 October 2026, most of it a typo in the source. Calls keep the 3-year
+# rule of `funding.anomalies`: a grant's cut-offs are legitimately far ahead.
+TENDER_DEADLINE_HORIZON_DAYS = 365
 # Each page of the list evaluates the whole filtered set once (the total rides on it), so a
 # 2,000-row export in pages of 100 was 20 passes over up to 200,000 notices; 250 makes it 8.
 MAX_PAGE_SIZE = 250
@@ -94,16 +104,24 @@ class Tender(BaseModel):
     cpv: str | None
     cpvCodes: list[str]
     procedure: str | None
+    # `ted_twin` when `procedure` is the TED notice's: the national notice states none.
+    procedureFrom: str | None = None
     legalBasis: str | None
     scope: str
     buyerClass: str | None = None
     dualUse: bool = False
     deadline: datetime | None
+    # `ted_twin` when `deadline` is the TED notice's because the national notice's own is
+    # more than 90 days from it (a typo in the national source); null: the notice's own.
+    deadlineFrom: str | None = None
     # False when the notice states no deadline: `status` is then a judgement (see
     # `api.SUPERSEDED_SQL`, `api.OPEN_WITHOUT_DEADLINE_DAYS`) and the site says "deadline
     # not stated" rather than showing nothing.
     deadlineKnown: bool = True
     publishedAt: datetime | None
+    # False when the source states no publication date (a PLACSP entry that carries only
+    # award notices): the row is listed all the same, and the site says "not stated".
+    publishedKnown: bool = True
     # When the notice was first collected (the observed time of its first version).
     firstSeenAt: datetime | None = None
     estimatedValue: Budget | None
@@ -296,14 +314,30 @@ def _version_counts(conn, ids: list[int]) -> dict[int, int]:
 def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int],
               twins: list[dict[str, Any]], observed: datetime | None, *,
               superseded: bool = False, twin_value: dict[str, Any] | None = None,
-              first_seen: datetime | None = None) -> dict[str, Any]:
+              first_seen: datetime | None = None,
+              twin_extra: dict[str, Any] | None = None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
     heading = title_en or original
     other = original if title_en and original and original.strip() != title_en.strip() else None
-    eff = api.effective_status(r.get("status"), r.get("deadline_at"), r.get("published_at"),
+    procedure, procedure_from = procedure_label(r.get("procedure_type")), None
+    deadline, deadline_from = r.get("deadline_at"), None
+    extra = twin_extra or {}
+    if procedure is None and extra.get("procedure"):
+        procedure = procedure_label(extra["procedure"])
+        procedure_from = "ted_twin" if procedure else None
+    if (deadline is not None and extra.get("deadline") is not None
+            and abs(deadline - extra["deadline"]) > timedelta(days=TWIN_DEADLINE_DIFFERS_DAYS)):
+        deadline, deadline_from = extra["deadline"], "ted_twin"
+    eff = api.effective_status(r.get("status"), deadline, r.get("published_at"),
                                superseded=superseded)
+    notes = anomalies(deadline, r.get("published_at"))
+    if deadline_from:
+        notes.append("deadline-differs-from-ted-twin")
+    if (deadline is not None and "deadline-more-than-3y" not in notes and deadline
+            > datetime.now(timezone.utc) + timedelta(days=TENDER_DEADLINE_HORIZON_DAYS)):
+        notes.append("deadline-more-than-1y")
     org_id = r.get("buyer_org_id")
     # The notice's own spelling is what the notice says; the organisation's commonest
     # spelling is what the organisation is called. 15,937 TED rows were being shown
@@ -336,14 +370,17 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "country": r.get("country"),
         "cpv": cpv[0] if cpv else None,
         "cpvCodes": cpv,
-        "procedure": procedure_label(r.get("procedure_type")),
+        "procedure": procedure,
+        "procedureFrom": procedure_from,
         "legalBasis": r.get("legal_basis"),
         "scope": api.row_scope(r),
         "buyerClass": r.get("buyer_class"),
         "dualUse": bool(r.get("dual_use")),
-        "deadline": r.get("deadline_at"),
-        "deadlineKnown": r.get("deadline_at") is not None,
+        "deadline": deadline,
+        "deadlineFrom": deadline_from,
+        "deadlineKnown": deadline is not None,
         "publishedAt": _day(r.get("published_at")),
+        "publishedKnown": r.get("published_at") is not None,
         # When we first saw the notice. "New since" compares this, never `publishedAt`: a
         # publication date is a day, and 55 % of TED notices are collected a day or more
         # after it (internal audit H3, 14 October 2026).
@@ -353,7 +390,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "valueFrom": value_from,
         "lots": r.get("lot_count"),
         "valueKind": value_kind,
-        "anomalies": anomalies(r.get("deadline_at"), r.get("published_at")),
+        "anomalies": notes,
         "status": "open" if eff == "open" else "closed",
         "statusNative": eff,
         "amended": n_versions > 1,
@@ -414,6 +451,26 @@ def _twin_values(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
                           "kind": r["value_kind"]} for r in got}
 
 
+def _twin_extras(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    """For a page's notices that name a TED twin: the twin's procedure and deadline, to be
+    shown where the notice states no procedure, or a deadline 90 days from it. The same twin
+    rule as `_twin_values` (a link made by procedure identifier or by the heuristic ties the
+    row to the newest TED notice of the procedure, which may be another stage of it)."""
+    ids = [r["id"] for r in rows if r.get("ted_ref")]
+    if not ids:
+        return {}
+    got = conn.execute(
+        """SELECT o.id AS row_id, t.procedure_type, t.deadline_at
+             FROM opportunity o
+             JOIN opportunity t ON t.source_id = (SELECT id FROM source WHERE code = 'ted')
+                               AND t.native_id = o.ted_ref
+            WHERE o.id = ANY(%s)
+              AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic')
+                   OR t.status = o.status)""", (ids,)).fetchall()
+    return {r["row_id"]: {"procedure": r["procedure_type"], "deadline": r["deadline_at"]}
+            for r in got}
+
+
 def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ids = [r["id"] for r in rows]
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
@@ -422,10 +479,12 @@ def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     span = _observed_span(conn, ids)
     over = _superseded(conn, rows)
     borrowed = _twin_values(conn, rows)
+    extras = _twin_extras(conn, rows)
     return [to_tender(r, names, versions, twins.get(r["id"], []),
                       span.get(r["id"], (None, None))[1],
                       superseded=r["id"] in over, twin_value=borrowed.get(r["id"]),
-                      first_seen=span.get(r["id"], (None, None))[0])
+                      first_seen=span.get(r["id"], (None, None))[0],
+                      twin_extra=extras.get(r["id"]))
             for r in rows]
 
 

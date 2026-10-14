@@ -768,7 +768,15 @@ UNSERVED_VALUE_KINDS = frozenset({VALUE_NOT_STATED, VALUE_IMPLAUSIBLE})
 # An amount of this or less is a placeholder in every source (TED's 0, 0.01, 1, -1; BOAMP's
 # 0.01, 0.10, 1.00 on six awards; PLACSP's 0.00 on 45 rows), never a contract value.
 PLACEHOLDER_AMOUNT_MAX = 1.0
-_IMPLAUSIBLE_AMOUNT_ABOVE = 1e10
+# Ten billion and a cent less: 9,999,999,999.99 (98602-2021) and exactly 10,000,000,000
+# (127753-2025) are fill characters, and the rule used to be "above" ten billion.
+_IMPLAUSIBLE_AMOUNT_FROM = 9_999_999_999.0
+# A total of a billion or more that the notice's own lots or estimate put a hundred times
+# lower is a figure entered in the wrong unit (421 TED rows over a billion on 14 October
+# 2026; of the 15 largest, 4 were x1000 entries: 220199-2026 states 7.27 billion for one
+# lot of 7.3 million). The suspect total is not served; the lots' own figures are used.
+_CONTRADICTED_FROM = 1e9
+_CONTRADICTED_RATIO = 100
 
 
 def _ted_value(g, notice_type: str | None, lots: int | None
@@ -784,25 +792,40 @@ def _ted_value(g, notice_type: str | None, lots: int | None
                    several and is flagged as such rather than shown as the total
       not_stated   every value the notice gives is a placeholder (0, 0.01, 1, -1):
                    no amount, no currency
-      implausible  the only value given is above ten billion: no amount, no currency
+      implausible  the only value given is ten billion or more, or a billion and more that
+                   the notice's own lots or estimate contradict a hundredfold: no amount
     """
     unusable: list[str] = []
-
-    def usable(amount: float | None) -> bool:
-        if amount is None:
-            return False
-        if amount <= PLACEHOLDER_AMOUNT_MAX:
-            unusable.append(VALUE_NOT_STATED)
-            return False
-        if amount > _IMPLAUSIBLE_AMOUNT_ABOVE:
-            unusable.append(VALUE_IMPLAUSIBLE)
-            return False
-        return True
 
     def pair(amount: str, currency: str) -> tuple[float | None, str | None]:
         got = _parse_amount(g(amount))
         cur = _first(g(currency))
         return got, (str(cur) if cur else None)
+
+    stated = [a for a in (_parse_amount(v) for v in _each(g("estimated-value-lot")))
+              if a is not None]
+    # What the notice's own smaller figures say the whole can be at most: its estimate, and
+    # its largest lot times the number of lots.
+    ceilings: list[float] = []
+    estimate = pair("estimated-value-proc", "estimated-value-cur-proc")[0]
+    if estimate is not None and estimate > PLACEHOLDER_AMOUNT_MAX:
+        ceilings.append(estimate)
+    real_lots = [a for a in stated if a > PLACEHOLDER_AMOUNT_MAX]
+    if real_lots:
+        ceilings.append(max(real_lots) * max(lots or 1, len(real_lots)))
+
+    def usable(amount: float | None, *, whole: bool = True) -> bool:
+        if amount is None:
+            return False
+        if amount <= PLACEHOLDER_AMOUNT_MAX:
+            unusable.append(VALUE_NOT_STATED)
+            return False
+        if amount >= _IMPLAUSIBLE_AMOUNT_FROM or (
+                whole and amount >= _CONTRADICTED_FROM
+                and any(amount > _CONTRADICTED_RATIO * c for c in ceilings if c != amount)):
+            unusable.append(VALUE_IMPLAUSIBLE)
+            return False
+        return True
 
     if notice_type in TED_RESULT_TYPES:
         for amount, cur in (("total-value", "total-value-cur"),
@@ -819,15 +842,13 @@ def _ted_value(g, notice_type: str | None, lots: int | None
     if usable(got):
         return got, c, "total"
 
-    stated = [a for a in (_parse_amount(v) for v in _each(g("estimated-value-lot")))
-              if a is not None]
-    amounts = [a for a in stated if usable(a)]
+    amounts = [a for a in stated if usable(a, whole=False)]
     if amounts:
         currencies = {str(c).strip().upper() for c in _each(g("estimated-value-cur-lot"))}
         # TED lists each distinct currency once, not one per lot.
         if len(currencies) == 1 and len(amounts) == (lots or len(amounts)):
             total = round(sum(amounts), 2)
-            if usable(total):
+            if usable(total, whole=False):
                 return total, next(iter(currencies)), "lot_sum"
         else:
             first_cur = _first(g("estimated-value-cur-lot"))
@@ -1398,6 +1419,35 @@ def _fr_eforms_deadline(body: dict[str, Any]) -> datetime | None:
     return max(stamps) if stamps else None
 
 
+def _fr_legacy_deadline(body: dict[str, Any]) -> datetime | None:
+    """The offers deadline of a notice in the schemas of 2015-2022, `CONDITION_DELAI.RECEPT_OFFRES`.
+
+    1,792 stored `open` rows had no deadline and about 1,400 of them state one here
+    (round 2, 14 October 2026). The value is a wall time with a fixed `+01:00` that the
+    converter writes on every notice: 22 of 22 sampled, 2021 July dates included, where
+    Paris is at +02:00. A constant is not information, so the printed date and time are
+    Paris wall time; an offset other than `+01:00` (or `Z`) is the notice's own and wins.
+    """
+    stamps: list[datetime] = []
+    for node in _fr_walk(body, "RECEPT_OFFRES"):
+        for item in node if isinstance(node, list) else [node]:
+            text = _fr_text(item)
+            if not text:
+                continue
+            fixed = text[-6:] == "+01:00" and len(text) > 6
+            stamp = parse_iso_datetime(text[:-6] if fixed else text,
+                                       default_tz=ZoneInfo(_FR_TZ))
+            if stamp is not None:
+                stamps.append(stamp)
+    return max(stamps) if stamps else None
+
+
+def _fr_diffusion_over(record: dict[str, Any], today: date | None = None) -> bool:
+    """The bulletin has stopped publishing the notice: its `datefindiffusion` is past."""
+    end = _parse_date(record.get("datefindiffusion"))
+    return end is not None and end < (today or date.today())
+
+
 def _fr_lot_count(body: dict[str, Any]) -> int | None:
     """How many lots the notice lists, in the three shapes that list them.
 
@@ -1434,7 +1484,13 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
     amount, currency = _fr_value(body)
     deadline = (_fr_eforms_deadline(body)
                 or parse_iso_datetime(record.get("datelimitereponse"),
-                                      default_tz=ZoneInfo(_FR_TZ)))
+                                      default_tz=ZoneInfo(_FR_TZ))
+                or _fr_legacy_deadline(body))
+    status = _fr_status(record, deadline is not None)
+    if status == "open" and deadline is None and _fr_diffusion_over(record):
+        # A call that states no deadline and is no longer published (25-122054, 26-33404
+        # were served open): not something a supplier can act on.
+        status = "unknown"
 
     return Opportunity(
         source_code=boamp.SOURCE_CODE,
@@ -1451,7 +1507,7 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         deadline_at=deadline,
         cpv_codes=_fr_cpv(body),
         source_url=boamp.notice_url(record),
-        status=_fr_status(record, deadline is not None),
+        status=status,
         status_native=f"{perimetre}/{nature}" if perimetre or nature else None,
         related_native_id=_fr_corrected_notice(record, body, str(native_id)),
         procedure_identifier=_fr_procedure_id(record),

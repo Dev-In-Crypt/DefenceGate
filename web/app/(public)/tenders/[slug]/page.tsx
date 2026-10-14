@@ -152,10 +152,11 @@ export default async function TenderDetailPage({ params }: Props) {
             <FactCell label="Published">
               {tender.publishedAt
                 ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
-                : <span className="font-sans">Not available</span>}
+                : <span className="font-sans">Publication date not stated by the source</span>}
             </FactCell>
             <FactCell label="Procedure">
               <span className="font-sans">{procedureEn ?? tender.procedure ?? 'Not available'}</span>
+              {tender.procedureFrom === 'ted_twin' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">Not stated in this notice; as given in the TED notice of the same procurement</div>}
               {procedureEn && <div className="mt-1 font-sans text-small font-normal text-ink-muted">As stated: {tender.procedure}</div>}
             </FactCell>
             <FactCell label="Legal basis">

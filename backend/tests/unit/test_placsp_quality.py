@@ -42,18 +42,22 @@ def test_the_value_is_the_estimated_overall_amount_not_the_years_budget_with_vat
     assert _by_id()["2026-032"].value_amount == 1304000.0
 
 
-def test_an_entry_without_an_estimate_keeps_the_previous_figure():
+def test_an_entry_without_an_estimate_reads_the_budget_without_vat_first():
+    """Changed on purpose, 14 October 2026 (data-correctness DC1): the fallback was
+    TotalAmount (with VAT) and then TaxExclusiveAmount, which put 1.21 times the TED value
+    on 25 of 103 September twin pairs. TED's values are net of VAT, so is the first now."""
     bare = XML.replace(
         '<cbc:EstimatedOverallContractAmount currencyID="EUR">35470.55'
         '</cbc:EstimatedOverallContractAmount>', "")
-    assert _by_id(bare)["138/2026"].value_amount == 8583.87        # TotalAmount, as before
-    no_total = bare.replace('<cbc:TotalAmount currencyID="EUR">8583.87</cbc:TotalAmount>', "")
-    assert _by_id(no_total)["138/2026"].value_amount == 7094.11    # then TaxExclusiveAmount
+    assert _by_id(bare)["138/2026"].value_amount == 7094.11        # TaxExclusiveAmount
+    no_net = bare.replace('<cbc:TaxExclusiveAmount currencyID="EUR">7094.11'
+                          '</cbc:TaxExclusiveAmount>', "")
+    assert _by_id(no_net)["138/2026"].value_amount == 8583.87      # then TotalAmount
 
 
 def test_a_zero_estimate_does_not_hide_a_budget():
     zero = XML.replace(">35470.55<", ">0<")
-    assert _by_id(zero)["138/2026"].value_amount == 8583.87
+    assert _by_id(zero)["138/2026"].value_amount == 7094.11        # the budget without VAT
 
 
 def test_the_currency_is_the_one_the_figure_states():

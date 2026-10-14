@@ -217,7 +217,7 @@ def test_a_payload_landed_by_the_refresh_is_applied_with_latest_raw(conn, fs_sto
     assert got[1]["kinds"] == ["remapped"] and got[1]["raw_hash"] == d_new
     assert {"status", "procedure_type"} <= set(got[1]["changed_fields"])
     served = row(conn, oid)
-    assert served["status"] == "closed"
+    assert served["status"] == "cancelled"        # was `closed` until DC6 (14 October 2026)
     assert served["procedure_type"] == "Basic procedure (art. 275 pt 1)"
     assert remap_source.run("pl_atlas", write=True, epoch=3, latest_raw=True).examined == 0
 

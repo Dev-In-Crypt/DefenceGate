@@ -19,20 +19,35 @@ Two modes, and the difference matters on the worst day:
     python -m dgate.reprocess --source ted --from 2026-09-01
     python -m dgate.reprocess --from-store          # after a total loss
     python -m dgate.reprocess --from-store --dry-run
+
+A third question is answered by `--requalify`: which landed notices does the classifier
+keep today that it dropped at ingest? Any source, one day at a time, resumable:
+
+    python -m dgate.reprocess --requalify --source fr_boamp --from 2026-09-21 --to 2026-10-14
+    python -m dgate.reprocess --requalify --days 30 --yes       # every source, last 30 days
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 import sys
 from dataclasses import dataclass
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 from . import db
 from .config import settings
-from .normalise import from_atlas_pl, from_ezamowienia, from_ted, strip_personal_data
+from .normalise import (
+    from_atlas_pl,
+    from_boamp,
+    from_ezamowienia,
+    from_ted,
+    from_tenderned,
+    strip_personal_data,
+)
 from .rawstore import BUNDLE_EXTENSION, RawStore, build_store, record_key
 from .sources.ted import content_hash
 
@@ -464,10 +479,32 @@ def reclassify_serving(conn, *, source: str | None = None, dry_run: bool = True,
     return counts
 
 
-def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
-                    linked_only: bool) -> list[tuple[str, str]]:
-    """(storage_key, native_id) of the newest raw payload of each TED notice that is
-    not in `opportunity`, for a window of landing days or for the linked ones."""
+def _from_stored_record(payload: dict[str, Any]):
+    """PLACSP lands the record its connector parsed, not the Atom entry."""
+    return db.opportunity_from_payload(payload)
+
+
+# One mapper per source whose landed payloads can be requalified: the source's own record
+# (TED, BOAMP, TenderNed, BZP, Atlas) or, for PLACSP, the parsed record.
+REQUALIFY_MAPPERS = {
+    "fr_boamp": from_boamp,
+    "nl_tenderned": from_tenderned,
+    "pl_ezam": from_ezamowienia,
+    "es_placsp": _from_stored_record,
+    "es_placsp_agg": _from_stored_record,
+    "pl_atlas": from_atlas_pl,
+    "ted": from_ted,
+}
+# The weekly job takes them in this order, TED last, so its long days cannot starve the rest.
+# The marker `backfill_day` keeps for a requalified day, apart from the source's own code.
+REQUALIFY_MARK = "-requalify"
+
+
+def _candidates(conn, source: str, src_id: int, since: date | None, until: date | None,
+                linked_only: bool = False) -> list[tuple[str, str]]:
+    """(storage_key, native_id) of the newest raw payload of each notice of `source` that is
+    not in `opportunity`, for a window of landing days (`linked_only`: the TED notices a
+    national defence notice points at, whatever their day)."""
     where, params = ["r.source_id = %s"], [src_id]
     if linked_only:
         where.append("""r.native_id IN (SELECT ted_ref FROM opportunity
@@ -475,11 +512,11 @@ def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
     else:
         if since:
             where.append("r.storage_key >= %s")
-            params.append(f"ted/{since:%Y/%m/%d}/")
+            params.append(f"{source}/{since:%Y/%m/%d}/")
         if until:
             nxt = until + timedelta(days=1)
             where.append("r.storage_key < %s")
-            params.append(f"ted/{nxt:%Y/%m/%d}/")
+            params.append(f"{source}/{nxt:%Y/%m/%d}/")
     rows = conn.execute(
         f"""SELECT DISTINCT ON (r.native_id) r.storage_key, r.native_id
               FROM raw_ingest r
@@ -493,28 +530,38 @@ def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
     return sorted((r["storage_key"], r["native_id"]) for r in rows)
 
 
-def requalify_ted(conn, store: RawStore, *, since: date | None = None,
-                  until: date | None = None, linked_only: bool = False,
-                  dry_run: bool = True, workers: int = 1, batch: int = 200,
-                  outage_attempts: int = 8, outage_pause: float = 15.0) -> dict[str, int]:
-    """Insert the raw TED notices that the current rules qualify and `opportunity` lacks.
+def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
+                    linked_only: bool) -> list[tuple[str, str]]:
+    return _candidates(conn, "ted", src_id, since, until, linked_only)
 
-    The daily job lands every TED notice and keeps only the ones that qualify at
-    the time, so a rule that widens -- a longer buyer list, a military CPV outside
+
+def requalify_source(conn, store: RawStore, source: str, *, since: date | None = None,
+                     until: date | None = None, linked_only: bool = False,
+                     dry_run: bool = True, workers: int = 1, batch: int = 200,
+                     outage_attempts: int = 8, outage_pause: float = 15.0) -> dict[str, int]:
+    """Insert the raw notices of `source` that the current rules qualify and `opportunity`
+    lacks.
+
+    The daily job lands every notice and keeps only the ones that qualify at the
+    time, so a rule that widens -- a longer buyer list, a military CPV outside
     division 35, a notice that a national defence notice says it was forwarded as
     -- leaves qualifying notices only in the raw store. This reads exactly those:
     the newest payload of each notice of the window that has no `opportunity` row,
     through the same normaliser and classifier as a live run.
 
-    One month at a time is the intended grain (`since`/`until` are landing days).
-    `linked_only` ignores the window and takes the notices a national defence
-    notice points at. `dry_run` (the default) does everything except keep it: the
-    work is rolled back, so the counts are what a real run would produce.
+    One day at a time is the intended grain (`since`/`until` are landing days); `since`
+    and `until` of one month is what `requalify_ted` was run with. `linked_only` (TED)
+    ignores the window and takes the notices a national defence notice points at.
+    `dry_run` (the default) does everything except keep it: the work is rolled back after
+    every batch, so the counts are what a real run would produce.
     """
     from .pipeline import _finalise
 
-    src_id = db.source_id(conn, "ted")
-    candidates = _ted_candidates(conn, src_id, since, until, linked_only)
+    if source not in REQUALIFY_MAPPERS:
+        raise ValueError(f"no requalify mapper for {source!r}")
+    mapper = REQUALIFY_MAPPERS[source]
+    src_id = db.source_id(conn, source)
+    candidates = _candidates(conn, source, src_id, since, until, linked_only)
     counts: dict[str, int] = {
         "candidates": len(candidates), "unreadable": 0, "qualified": 0, "inserted": 0,
         "by_legal_basis": 0, "by_military_cpv": 0, "by_buyer": 0, "by_linked": 0,
@@ -534,9 +581,9 @@ def requalify_ted(conn, store: RawStore, *, since: date | None = None,
                 continue
             try:
                 clean = strip_personal_data(payload)
-                opp = from_ted(clean)
+                opp = mapper(clean)
                 digest = content_hash(clean)
-            except Exception as exc:  # noqa: BLE001 - one bad payload must not stop a month
+            except Exception as exc:  # noqa: BLE001 - one bad payload must not stop a window
                 log.error("cannot normalise %s: %s", key, exc)
                 counts["unreadable"] += 1
                 continue
@@ -550,16 +597,100 @@ def requalify_ted(conn, store: RawStore, *, since: date | None = None,
             counts["by_buyer"] += opp.sig_buyer
             counts["by_linked"] += opp.sig_linked_defence
             counts["by_dual_use"] += opp.dual_use
-            db.upsert_opportunity(conn, opp, digest, src_id)
-            counts["inserted"] += 1
-        if not dry_run:
+            _, action = db.upsert_opportunity(conn, opp, digest, src_id)
+            # A PLACSP number held under its buyer-disambiguated spelling is "unchanged".
+            counts["inserted"] += action == "new"
+        if dry_run:
+            conn.rollback()
+        else:
             conn.commit()
-        log.info("requalify: %s", counts)
+        log.info("requalify %s: %s", source, counts)
     if dry_run:
         conn.rollback()
     else:
         conn.commit()
     return counts
+
+
+def requalify_ted(conn, store: RawStore, *, since: date | None = None,
+                  until: date | None = None, linked_only: bool = False,
+                  dry_run: bool = True, workers: int = 1, batch: int = 200,
+                  outage_attempts: int = 8, outage_pause: float = 15.0) -> dict[str, int]:
+    """`requalify_source` for TED, which is where it began."""
+    return requalify_source(conn, store, "ted", since=since, until=until,
+                            linked_only=linked_only, dry_run=dry_run, workers=workers,
+                            batch=batch, outage_attempts=outage_attempts,
+                            outage_pause=outage_pause)
+
+
+def rules_fingerprint(conn) -> str:
+    """What the answer to "does this notice qualify" depends on, in one short string: the
+    code of the classifier, the buyer vocabulary and the mappers, and the defence buyer list.
+
+    A day examined under one fingerprint is not examined again under it. A rule or list
+    change moves the fingerprint and the window is read again.
+    # ponytail: the list is summarised by count, highest id and id sum, so a flag swapped
+    # between two organisations of equal id sum is missed; use a hash of the ids if it ever is.
+    """
+    from . import buyer_vocab, classify, normalise
+
+    digest = hashlib.sha1()
+    for module in (classify, buyer_vocab, normalise):
+        digest.update(Path(module.__file__).read_bytes())
+    row = conn.execute(
+        """SELECT count(*) AS n, coalesce(max(id), 0) AS top, coalesce(sum(id), 0) AS total
+             FROM organisation WHERE is_defence_buyer""").fetchone()
+    digest.update(f"{row['n']}:{row['top']}:{row['total']}".encode())
+    return digest.hexdigest()[:10]
+
+
+def requalify_window(conn, store: RawStore, source: str, since: date, until: date, *,
+                     dry_run: bool = True, resume: bool = True, workers: int = 1,
+                     today: date | None = None, **kw: Any) -> dict[str, int]:
+    """`requalify_source` over a range of days, one day at a time.
+
+    Bounded: a day's candidates are all that is held (a PLACSP day is about ten thousand
+    keys, a TED day 3,600), and each day is committed on its own. Resumable: a day that is
+    done under the current `rules_fingerprint` is marked in `backfill_day` (as
+    `<source>-requalify-<fingerprint>`) and skipped, so an interrupted window continues and
+    a weekly run reads only the days it has not seen. A day is marked only once it is two
+    days old: TED's bundle for a day is written the morning after.
+    """
+    today = today or date.today()
+    mark = f"{source}{REQUALIFY_MARK}-{rules_fingerprint(conn)}"
+    done = db.backfill_days_done(conn, mark) if resume and not dry_run else set()
+    total: dict[str, int] = {"days": 0, "skipped_days": 0}
+    day = since
+    while day <= until:
+        if day in done:
+            total["skipped_days"] += 1
+        else:
+            part = requalify_source(conn, store, source, since=day, until=day,
+                                    dry_run=dry_run, workers=workers, **kw)
+            for k, v in part.items():
+                total[k] = total.get(k, 0) + v
+            total["days"] += 1
+            if not dry_run and part["unreadable"] == 0 and day <= today - timedelta(days=2):
+                db.mark_backfill_day(conn, mark, day, part["candidates"])
+        day += timedelta(days=1)
+    return total
+
+
+def requalify_recent(*, days: int = 30, sources: Iterable[str] | None = None,
+                     dsn: str | None = None, workers: int = 8,
+                     today: date | None = None, store: RawStore | None = None,
+                     ) -> dict[str, dict[str, int]]:
+    """The weekly job: every source's last `days` landing days, written."""
+    today = today or date.today()
+    store = store or build_store()
+    out: dict[str, dict[str, int]] = {}
+    with db.connect(dsn or settings().dsn) as conn:
+        for source in sources or REQUALIFY_MAPPERS:
+            out[source] = requalify_window(
+                conn, store, source, today - timedelta(days=days), today,
+                dry_run=False, workers=workers, today=today)
+            log.info("requalify %s: %s", source, out[source])
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -583,6 +714,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--requalify-ted", action="store_true",
                         help="insert raw TED notices the current rules qualify and "
                              "opportunity lacks; one window at a time; dry run unless --yes")
+    parser.add_argument("--requalify", action="store_true",
+                        help="insert landed notices the current rules qualify and opportunity "
+                             "lacks, any source, one day at a time, resumable; dry run unless "
+                             "--yes. With --source, --from/--to or --days")
+    parser.add_argument("--days", type=int,
+                        help="for --requalify: the last N landing days instead of --from/--to")
+    parser.add_argument("--no-resume", action="store_true",
+                        help="for --requalify: read days already done under the current rules")
     parser.add_argument("--month", help="landing month for --requalify-ted, YYYY-MM")
     parser.add_argument("--linked", action="store_true",
                         help="for --requalify-ted: the TED notices a national defence "
@@ -598,6 +737,30 @@ def main(argv: list[str] | None = None) -> int:
         for k, v in counts.items():
             print(f"  {k}: {v}")
         return 0
+
+    if args.requalify:
+        today = date.today()
+        if args.days:
+            since, until = today - timedelta(days=args.days), today
+        elif args.since:
+            since, until = args.since, args.until or today
+        else:
+            parser.error("--requalify needs --days, or --from (and optionally --to)")
+        sources = [args.source] if args.source else list(REQUALIFY_MAPPERS)
+        bad = [x for x in sources if x not in REQUALIFY_MAPPERS]
+        if bad:
+            parser.error(f"cannot requalify {bad}; choose from {', '.join(REQUALIFY_MAPPERS)}")
+        failed = 0
+        print(("applied" if args.yes else "dry run, nothing written") + f" ({since}..{until}):")
+        with db.connect(settings().dsn) as conn:
+            store = build_store()
+            for source in sources:
+                counts = requalify_window(
+                    conn, store, source, since, until, dry_run=not args.yes,
+                    resume=not args.no_resume, workers=max(args.workers, 1))
+                failed += counts["unreadable"]
+                print(f"  {source}: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
+        return 0 if failed == 0 else 1
 
     if args.requalify_ted:
         since = until = None

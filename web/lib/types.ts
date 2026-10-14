@@ -173,6 +173,12 @@ export interface Tender {
   valueKind?: string | null;
   /** 'ted_twin': the notice states no value and `estimatedValue` is its TED twin's (say so). Absent or null: its own. */
   valueFrom?: string | null;
+  /** 'ted_twin': the notice states no procedure and `procedure` is its TED twin's (say so). Absent or null: its own. */
+  procedureFrom?: string | null;
+  /** 'ted_twin': the national deadline is more than 90 days from its TED twin's and the twin's is shown. */
+  deadlineFrom?: string | null;
+  /** false: the source states no publication date; the site says "not stated" and the row stays listed. */
+  publishedKnown?: boolean;
   /** false: the notice states no deadline, so `status` is a judgement ("deadline not stated"). Absent on older API builds. */
   deadlineKnown?: boolean;
   lotCount?: number | null;

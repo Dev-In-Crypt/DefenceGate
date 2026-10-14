@@ -78,6 +78,10 @@ def source_run_status(codes: Sequence[str]) -> list[tuple[str, str, int, str]]:
     return out
 
 
+_RUNNING: set[str] = set()
+_RUNNING_LOCK = threading.Lock()
+
+
 def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -> JobResult:
     """Run one job, decide honestly whether it worked, and be loud if not.
 
@@ -88,6 +92,14 @@ def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -
       failed   the callable raised
     """
     slug = name.replace("_", "-")
+    with _RUNNING_LOCK:
+        busy = name in _RUNNING
+        _RUNNING.add(name)
+    if busy:
+        # The catch-up runs beside the scheduler (internal audit M8): a slot that fires
+        # while the catch-up is still on the same job must not start it twice.
+        log.warning("job %s is already running in this process; this start is skipped", name)
+        return JobResult(name, "success", 0.0, "already running")
     started = time.monotonic()
     ping(slug, "start")
     try:
@@ -98,6 +110,9 @@ def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -
         ping(slug, "fail")
         notify(f"[dgate] job {name} FAILED after {elapsed:.0f}s: {exc}")
         return JobResult(name, "failed", elapsed, str(exc))
+    finally:
+        with _RUNNING_LOCK:
+            _RUNNING.discard(name)
 
     elapsed = time.monotonic() - started
     bad: list[str] = []
@@ -314,6 +329,62 @@ def job_alerts() -> JobResult:
             log.info("alerts: %s", run_digests(conn))
 
     return run_job("alerts", _run)
+
+
+def job_link_twins() -> JobResult:
+    """Tie national notices to the TED notice they are the same procurement as.
+
+    Nothing in an ingest does it (data-coverage X3, 14 October 2026): rows read after the
+    last manual run stayed unlinked, so the same procurement was listed twice. Idempotent,
+    strongest method first (stated TED number, procedure identifier, heuristic), each
+    committed before the next. The identifier fill steps are not here: new BOAMP and PLACSP
+    rows state their procedure identifier at ingest, and the fill is for the rows read before
+    that (`ops/link_twins --fill-raw`, `--fill-placsp`, which also asks the publisher).
+    A PLACSP notice without a procedure identifier stays on the heuristic.
+    """
+    counts: dict[str, int] = {}
+
+    def _run() -> None:
+        from .ops import link_twins
+
+        with db.connect(settings().dsn) as conn:
+            counts.update(link_twins.run(conn, write=True))
+        # The health line: what the pass did. A night with nothing new says 0 0 0.
+        log.info("twin links: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
+
+    result = run_job("link_twins", _run)
+    result.detail = result.detail or ", ".join(f"{k} {v}" for k, v in counts.items())
+    return result
+
+
+def job_requalify() -> JobResult:
+    """Weekly: insert the notices the classifier dropped at ingest and the rules now qualify.
+
+    Classification is final at ingest and the buyer lists grow afterwards, so a notice of
+    a body listed later was landed and not kept (data-coverage X1/X2: 55 of 59 French
+    defence-body notices absent). Only TED had a requalify; this runs the same normaliser and
+    `_finalise` over every source whose payloads are in the store, day by day, for the last
+    `requalify_days`, resumably (`reprocess.requalify_recent`).
+    """
+    summary: list[str] = []
+
+    def _run() -> None:
+        from . import reprocess
+
+        cfg = settings()
+        totals = reprocess.requalify_recent(days=cfg.requalify_days)
+        unreadable = 0
+        for source, counts in totals.items():
+            summary.append(f"{source} {counts.get('inserted', 0)}/{counts.get('candidates', 0)}")
+            unreadable += counts.get("unreadable", 0)
+        log.info("requalify (inserted/candidates): %s", ", ".join(summary))
+        if unreadable:
+            raise RuntimeError(f"{unreadable} stored payloads could not be read or mapped: "
+                               + ", ".join(summary))
+
+    result = run_job("requalify_weekly", _run)
+    result.detail = result.detail or ", ".join(summary)
+    return result
 
 
 def ezam_source() -> str:
@@ -706,12 +777,14 @@ def wait_for_database(timeout: float = 180.0, interval: float = 3.0) -> bool:
 
 
 def close_interrupted_runs() -> list[int]:
-    """Fail any ingest_run left `running` by a process that was killed.
+    """Fail the ingest runs a killed process of this kind left `running`.
 
-    Safe only at start-up, where "still running" can only mean "was killed",
-    because this process has not opened a run yet. Left alone such a row makes
-    its source look permanently degraded: coverage is read from the latest run
-    per source, so every later alert for it becomes noise.
+    Safe only at start-up. A scheduled worker starting proves the previous scheduled
+    worker is dead, so its runs are closed; a run an operator's container opened is not
+    this process's to judge and is left until it is a day old (`db.close_interrupted_runs`,
+    internal audit M7). Left alone, such a row makes its source look permanently degraded:
+    coverage is read from the latest run per source, so every later alert for it becomes
+    noise.
     """
     try:
         with db.connect(settings().dsn) as conn:
@@ -791,6 +864,8 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "seed-buyers": job_seed_buyers,
     "health": job_health_report,
     "alerts": job_alerts,
+    "link-twins": job_link_twins,
+    "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
     "backup-verify": job_backup_verify,
@@ -839,6 +914,11 @@ def build_scheduler():
                   id="health_report", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_alerts, CronTrigger(minute=20),
                   id="alerts_hourly", max_instances=1, misfire_grace_time=1800)
+    sched.add_job(job_link_twins, CronTrigger(hour=cfg.twins_hour, minute=cfg.twins_minute),
+                  id="link_twins_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_requalify,
+                  CronTrigger(day_of_week="sun", hour=cfg.requalify_hour, minute=0),
+                  id="requalify_weekly", max_instances=1, misfire_grace_time=7200)
     sched.add_job(job_backup, CronTrigger(hour=cfg.backup_hour, minute=0),
                   id="backup_nightly", max_instances=1, misfire_grace_time=7200)
     sched.add_job(job_backup_verify, CronTrigger(day_of_week="sun", hour=cfg.backup_hour, minute=30),
@@ -852,7 +932,8 @@ def build_scheduler():
         # bundle a day -- one write, whatever the day holds. Running it daily
         # rather than only at start-up is what stops "complete to 18 September"
         # quietly becoming "complete to whenever the worker last restarted".
-        sched.add_job(job_ted_history, CronTrigger(hour=cfg.ted_hour + 1, minute=cfg.ted_minute),
+        sched.add_job(job_ted_history,
+                      CronTrigger(hour=(cfg.ted_hour + 1) % 24, minute=cfg.ted_minute),
                       id="ted_history_daily", max_instances=1, misfire_grace_time=7200)
     return sched
 
@@ -886,7 +967,11 @@ def describe_schedule() -> list[str]:
         f"(Polish NCBR competitions, the whole list)",
         f"health_report  {cfg.health_hour:02d}:00 UTC",
         "alerts_hourly  :20 UTC  (digests of saved searches; nothing without a mail relay)",
-        *([f"ted_history    {cfg.ted_hour + 1:02d}:{cfg.ted_minute:02d} UTC  "
+        f"link_twins     {cfg.twins_hour:02d}:{cfg.twins_minute:02d} UTC  "
+        f"(national notices tied to their TED twins, after every ingest)",
+        f"requalify      Sun {cfg.requalify_hour:02d}:00 UTC  "
+        f"(notices the rules now qualify, every source, last {cfg.requalify_days} days)",
+        *([f"ted_history    {(cfg.ted_hour + 1) % 24:02d}:{cfg.ted_minute:02d} UTC  "
            f"(every notice of yesterday, one bundle; from {cfg.ted_history_from})"]
           if ted_history_window() is not None else []),
         f"backup_nightly {cfg.backup_hour:02d}:00 UTC  "
@@ -915,6 +1000,10 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(describe_schedule()))
         return 0
 
+    # Which processes' runs a start-up may close (`db.close_interrupted_runs`): the
+    # scheduled worker's own kind, and for `--once` a kind no other process shares.
+    db.RUN_KIND = f"once-{args.once}" if args.once else "worker"
+
     if args.once:
         result = JOBS[args.once]()
         print(f"{result.name}: {result.status} in {result.seconds:.0f}s "
@@ -924,24 +1013,45 @@ def main(argv: list[str] | None = None) -> int:
     log.info("worker starting at %s UTC", datetime.now(timezone.utc).isoformat(timespec="seconds"))
     for line in describe_schedule():
         log.info("scheduled: %s", line)
-    # Before the scheduler blocks: tidy up after whatever killed the last
-    # process, then cover whatever was missed while it was not running. A cron
-    # entry cannot catch up on its own.
-    if wait_for_database():
+    # Tidy up after whatever killed the last process, then cover whatever was
+    # missed while it was not running. A cron entry cannot catch up on its own.
+    # The tidying is synchronous: a run closed after the scheduler has opened its own
+    # would be this process's. The catch-up runs beside the scheduler, not before it
+    # (internal audit M8): a PLACSP catch-up is 15-40 minutes and a week's window hours,
+    # and every slot that passed meanwhile was lost. `run_job` keeps a slot from starting
+    # a job the catch-up is still running.
+    ready = wait_for_database()
+    if ready:
         close_interrupted_runs()
         ensure_buyer_list()
-        start_backfill_thread()
-        results = catch_up_backups() + catch_up()
-    else:
-        # Loud rather than silent: a catch-up that could not run is a gap that
-        # is still open, and the next scheduled slot may be a day away.
-        notify("[dgate] worker started but the database never came up; "
-               "catch-up did not run and missed days are still missing")
-        results = []
-    for result in results:
-        log.info("catch-up %s: %s %s", result.name, result.status, result.detail)
+    start_catch_up_thread(ready)
     build_scheduler().start()
     return 0
+
+
+def start_catch_up_thread(database_ready: bool = True) -> threading.Thread:
+    thread = threading.Thread(target=_catch_up_in_background, args=(database_ready,),
+                              name="catch-up", daemon=True)
+    thread.start()
+    return thread
+
+
+def _catch_up_in_background(database_ready: bool) -> None:
+    try:
+        if database_ready:
+            start_backfill_thread()
+            results = catch_up_backups() + catch_up()
+        else:
+            # Loud rather than silent: a catch-up that could not run is a gap that
+            # is still open, and the next scheduled slot may be a day away.
+            notify("[dgate] worker started but the database never came up; "
+                   "catch-up did not run and missed days are still missing")
+            results = []
+        for result in results:
+            log.info("catch-up %s: %s %s", result.name, result.status, result.detail)
+    except Exception as exc:  # noqa: BLE001 - a start-up thread must say so, not vanish
+        log.exception("catch-up failed")
+        notify(f"[dgate] worker catch-up failed: {exc}")
 
 
 if __name__ == "__main__":

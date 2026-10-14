@@ -109,9 +109,12 @@ def test_one_concluded_part_keeps_the_notice_awarded():
     assert mapped("bzp_result_mixed").status == "awarded"
 
 
-def test_parts_that_were_annulled_or_not_decided_are_closed_not_awarded():
+def test_parts_that_were_annulled_or_not_decided_are_cancelled_not_awarded():
+    # Was `closed`, a word outside the status vocabulary; TED says `cancelled` for the same
+    # outcome (clos-nw). Changed on purpose, 14 October 2026 (data-correctness DC6).
     assert CASES["bzp_result_undecided"]["procedureResult"] == "nieRozstrzygnieto;uniewaznienie"
-    assert mapped("bzp_result_undecided").status == "closed"
+    assert mapped("bzp_result_undecided").status == "cancelled"
+    assert ez.result_status("nieRozstrzygnieto;nieRozstrzygnieto") == "cancelled"
 
 
 def test_the_word_unijna_is_not_an_outcome():
@@ -384,10 +387,12 @@ def test_an_atlas_result_with_a_contract_stays_awarded():
                                        procedure_result=result)).status == "awarded"
 
 
-def test_a_ted_row_closed_without_a_contractor_is_closed():
+def test_a_ted_row_closed_without_a_contractor_is_cancelled():
+    # `closed` until 14 October 2026: outside the vocabulary, and TED says `cancelled` for
+    # the same outcome (data-correctness DC6).
     o = from_atlas_pl(atlas_row(source="ted", notice_type="can-standard", tender_type=None,
                                 procedure_result="Zamknięte bez wyboru wykonawcy"))
-    assert o.status == "closed"
+    assert o.status == "cancelled"
 
 
 def test_the_procedure_columns_do_not_change_what_is_open():

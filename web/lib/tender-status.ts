@@ -35,6 +35,8 @@ export function tenderStatusView(t: StatusInput, ref: Date = now()): TenderStatu
 const ANOMALY_TEXT: Record<string, string> = {
   'deadline-before-publication': 'Deadline is before publication in the source; verify at the source.',
   'deadline-more-than-3y': 'Deadline is more than 3 years ahead in the source.',
+  'deadline-more-than-1y': 'Deadline is more than a year ahead in the source; verify it at the source.',
+  'deadline-differs-from-ted-twin': 'The national notice gives another deadline; the one shown is the TED notice's.',
 };
 
 /** Plain-language notes for the anomaly codes we know. Unknown or missing codes give nothing. */

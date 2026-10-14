@@ -58,9 +58,38 @@ def test_an_implausible_amount_alone_is_no_value():
     assert (o.value_amount, o.value_currency, o.value_kind) == (None, None, "implausible")
 
 
-def test_ten_billion_exactly_is_still_a_value():
-    o = ted(**{"estimated-value-proc": "10000000000", "estimated-value-cur-proc": "EUR"})
-    assert (o.value_amount, o.value_kind) == (10000000000.0, "estimated")
+def test_ten_billion_exactly_is_not_a_value_either():
+    """Changed on purpose, 14 October 2026 (data-correctness DC3): the rule was "above ten
+    billion", which let 127753-2025 (exactly 10,000,000,000) and 98602-2021
+    (9,999,999,999.99) through; both are fill characters."""
+    for stated in ("10000000000", "9999999999.99"):
+        o = ted(**{"estimated-value-proc": stated, "estimated-value-cur-proc": "EUR"})
+        assert (o.value_amount, o.value_kind) == (None, "implausible")
+
+
+def test_a_billion_the_lots_contradict_a_hundredfold_is_not_the_notices_value():
+    """220199-2026 states 7.27 billion for one lot of 7.3 million: a figure in the wrong
+    unit. The lot's own is served, as `lot_sum`; the archive keeps what TED stated."""
+    o = ted(**{"total-value": "7270000000", "total-value-cur": "EUR",
+               "estimated-value-lot": ["7300000"], "estimated-value-cur-lot": ["EUR"],
+               "description-lot": {"eng": ["a"]}})
+    assert (o.value_amount, o.value_kind) == (7300000.0, "lot_sum")
+
+
+def test_an_estimate_a_hundred_times_below_the_total_contradicts_it():
+    """177041-2026: a total of 5.44 billion against an estimate of 29 million."""
+    o = ted(**{"notice-type": "can-standard",
+               "total-value": "5440000000", "total-value-cur": "EUR",
+               "estimated-value-proc": "29000000", "estimated-value-cur-proc": "EUR"})
+    assert (o.value_amount, o.value_kind) == (29000000.0, "estimated")
+
+
+def test_a_large_total_its_lots_agree_with_is_kept():
+    o = ted(**{"total-value": "2400000000", "total-value-cur": "EUR",
+               "estimated-value-lot": ["800000000", "800000000", "800000000"],
+               "estimated-value-cur-lot": ["EUR"],
+               "description-lot": {"eng": ["a", "b", "c"]}})
+    assert (o.value_amount, o.value_kind) == (2400000000.0, "total")
 
 
 def test_lots_that_all_state_a_placeholder_are_no_value():

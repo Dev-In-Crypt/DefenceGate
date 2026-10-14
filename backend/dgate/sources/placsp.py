@@ -22,9 +22,10 @@ Two behaviours worth knowing before reading the code:
 
 from __future__ import annotations
 
-import io
 import logging
+import pickle
 import re
+import tempfile
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -35,7 +36,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from ..normalise import PLACEHOLDER_AMOUNT_MAX, Opportunity, tz_from_offset
-from . import USER_AGENT, new_client, request_with_retry
+from . import USER_AGENT, ResponseTooLarge, new_client, request_with_retry
 
 SPAIN_TZ = ZoneInfo("Europe/Madrid")
 
@@ -285,12 +286,13 @@ def _amount(project: ET.Element | None) -> tuple[float | None, str | None]:
     contract without VAT, options and extensions included. `TotalAmount` is the
     budget for the tender's year with VAT, and `TaxExclusiveAmount` the same
     without it; one real 5-year contract carries 35,470.55 against 8,583.87. Those two
-    are the fallback, in the order the connector always used, for the entries that
-    do not carry the estimate.
+    are the fallback for the entries that do not carry the estimate, the one without VAT
+    first: the connector read `TotalAmount` first until 14 October 2026, and 25 of 103
+    September 2026 twin pairs held exactly 1.21 times the TED value (data-correctness DC1).
     """
     budget = _find(project, "cac:BudgetAmount")
     found: list[tuple[float | None, str | None]] = []
-    for name in ("EstimatedOverallContractAmount", "TotalAmount", "TaxExclusiveAmount"):
+    for name in ("EstimatedOverallContractAmount", "TaxExclusiveAmount", "TotalAmount"):
         el = _find(budget, f"cbc:{name}")
         value = _float(el.text) if el is not None else None
         found.append((value, (el.get("currencyID") or "EUR") if el is not None else None))
@@ -650,6 +652,39 @@ def _updated_key(stamp: str) -> datetime:
     return value
 
 
+# What a monthly archive may weigh on disk. The largest so far (September 2026) is a few
+# hundred MiB; past this it is not an archive of PLACSP.
+MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
+
+
+def _download(client: httpx.Client, url: str, what: str):
+    """The response body of `url` in an anonymous temporary file, rewound.
+
+    Counted as it arrives (decoded), so a body that passes MAX_ARCHIVE_BYTES is cut off
+    and the file is closed -- and with it removed -- rather than filling the disk.
+    Retried like every other request; each attempt starts a new file.
+    """
+    def fetch():
+        out = tempfile.TemporaryFile(prefix="placsp-archive-")
+        try:
+            total = 0
+            with client.stream("GET", url) as response:
+                response.raise_for_status()
+                for chunk in response.iter_bytes(1024 * 1024):
+                    total += len(chunk)
+                    if total > MAX_ARCHIVE_BYTES:
+                        raise ResponseTooLarge(
+                            f"{what}: body passed {MAX_ARCHIVE_BYTES} bytes")
+                    out.write(chunk)
+            out.seek(0)
+            return out
+        except BaseException:
+            out.close()
+            raise
+
+    return request_with_retry(fetch, what=what)
+
+
 def fetch_archive(
     url: str, dataset: Dataset = MAIN, *, client: httpx.Client | None = None,
     observe: dict | None = None, since: datetime | None = None,
@@ -662,17 +697,21 @@ def fetch_archive(
     is more robust than trusting the chain inside a downloaded archive.
     """
     owns = client is None
-    client = client or new_client(headers={"User-Agent": USER_AGENT},
+    # Plain httpx, not `new_client`: its response hook reads the body into memory under the
+    # global ceiling, and an archive is streamed to disk under its own (MAX_ARCHIVE_BYTES).
+    client = client or httpx.Client(headers={"User-Agent": USER_AGENT},
                                     timeout=300.0, follow_redirects=True)
+    # The parsed entries are spooled to a second temporary file and only (stamp, offset)
+    # is kept in memory: a month is a few hundred thousand entries, each with its text,
+    # and holding them all to sort them was most of a 2 GiB worker for the September 2026
+    # archive. Both files are this function's own and go with it.
+    spool = tempfile.TemporaryFile(prefix="placsp-entries-")
+    index: list[tuple[datetime, int]] = []
+    dropped = 0
+    name_tail = url.rsplit("/", 1)[-1]
     try:
-        def fetch() -> httpx.Response:
-            response = client.get(url)
-            response.raise_for_status()
-            return response
-
-        r = request_with_retry(fetch, what=f"archive {url[-12:]}")
-        walked: list[tuple[str, Opportunity]] = []
-        with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+        with _download(client, url, f"archive {url[-12:]}") as archive, \
+                zipfile.ZipFile(archive) as zf:
             names = [n for n in zf.namelist() if n.endswith(".atom")]
             if len(names) > MAX_ARCHIVE_MEMBERS:
                 raise RuntimeError(f"{dataset.source_code}: archive has {len(names)} members")
@@ -683,30 +722,47 @@ def fetch_archive(
                 try:
                     stamps: list[str] = []
                     opps, _ = parse_feed(zf.read(name), dataset.source_code, stamps=stamps)
-                    walked.extend(zip(stamps, opps, strict=True))
                 except Exception as exc:
                     log.warning("PLACSP archive member %s failed: %s", name, exc)
-        log.info("%s archive %s: %s entries", dataset.source_code, url.rsplit("/", 1)[-1],
-                 len(walked))
-        if since is not None:
-            # The publisher's monthly archives are assembled by a filename
-            # match, and the match is loose: both the August and September 2026
-            # files carry licitacionesPerfilesContratanteCompleto3_20210930_202609,
-            # whose time of day, 20:26:09, contains "202609". That is 1,430
-            # entries from September 2021 in every recent archive, and ingesting
-            # one put 64 five-year-old notices into the archive as new.
-            kept = [pair for pair in walked if _updated_key(pair[0]) >= since]
-            if len(kept) != len(walked):
-                log.warning("%s archive %s: dropped %s entries updated before %s",
-                            dataset.source_code, url.rsplit("/", 1)[-1],
-                            len(walked) - len(kept), since.date())
-            walked = kept
+                    continue
+                for stamp, opp in zip(stamps, opps, strict=True):
+                    key = _updated_key(stamp)
+                    # The publisher's monthly archives are assembled by a filename
+                    # match, and the match is loose: both the August and September 2026
+                    # files carry licitacionesPerfilesContratanteCompleto3_20210930_202609,
+                    # whose time of day, 20:26:09, contains "202609". That is 1,430
+                    # entries from September 2021 in every recent archive, and ingesting
+                    # one put 64 five-year-old notices into the archive as new.
+                    if since is not None and key < since:
+                        dropped += 1
+                        continue
+                    index.append((key, spool.tell()))
+                    pickle.dump(opp, spool, protocol=pickle.HIGHEST_PROTOCOL)
+        log.info("%s archive %s: %s entries", dataset.source_code, name_tail,
+                 len(index) + dropped)
+        if dropped:
+            log.warning("%s archive %s: dropped %s entries updated before %s",
+                        dataset.source_code, name_tail, dropped,
+                        since.date() if since else None)
+    except BaseException:
+        spool.close()
+        raise
     finally:
         if owns:
             client.close()
     # Same reason as the live walk: an archive is the same chain, newest first,
-    # and read in file order it re-archives history as change.
-    yield from _in_source_order(walked, observe)
+    # and read in file order it re-archives history as change. The sort is stable, so
+    # entries of one instant keep the order they were read in.
+    index.sort(key=lambda pair: pair[0])
+    if observe is not None:
+        observe["newest"] = index[-1][0] if index else None
+        observe["entries"] = len(index)
+    try:
+        for _, offset in index:
+            spool.seek(offset)
+            yield pickle.load(spool)        # noqa: S301 - our own temporary file
+    finally:
+        spool.close()
 
 
 def backfill_years(

@@ -198,16 +198,16 @@ def result_status(procedure_result: str | None) -> str | None:
     nothing that changes `awarded`.
 
     One part with a contract is enough for `awarded`; a notice whose parts were
-    all annulled is `cancelled`, which the old mapping showed as awarded; parts
-    that were all annulled or undecided are `closed`.
+    all annulled or undecided awarded nothing and is `cancelled`, as TED states the
+    same outcome (`clos-nw`). It was `closed` for undecided ones until 14 October 2026,
+    a word outside the vocabulary: 564 Atlas and e-Zamowienia rows said `closed` where
+    TED's twin said `cancelled` (data-correctness DC6).
     """
     parts = {p.strip().lower() for p in str(procedure_result or "").split(";") if p.strip()}
     if not parts or _RESULT_AWARDED in parts:
         return None
-    if parts <= _RESULT_CANCELLED:
-        return "cancelled"
     if parts <= _RESULT_CANCELLED | _RESULT_UNDECIDED:
-        return "closed"
+        return "cancelled"
     return None
 
 

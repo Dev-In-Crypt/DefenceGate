@@ -224,6 +224,18 @@ class Quarantine:
         return {"status": status, "error": error}
 
 
+def _kept(conn, src_id: int, opp: Opportunity) -> bool:
+    """Whether a classified notice is archived: it qualifies, or it is already held.
+
+    A notice that stops qualifying (a later payload drops its CPV or its legal basis, a
+    buyer is un-listed) used to be skipped here for ever, so the serving row kept its stale
+    state -- `open`, with a deadline passed -- and no version said otherwise (internal
+    audit M6). One that is held is archived whatever the verdict; the verdict itself is
+    recorded on the row (`is_defence` false), which the lists do not serve.
+    """
+    return opp.is_defence or db.is_archived(conn, src_id, opp)
+
+
 def _finalise(conn, opp: Opportunity, src_id: int, *, linked_defence: bool = False) -> Opportunity:
     """Resolve the buyer, run the classifier, attach the signals."""
     org_id = db.resolve_organisation(conn, opp.buyer_name_raw, opp.country,
@@ -297,7 +309,7 @@ def run_ted(days: int = 2) -> None:
                     key = _store_raw("ted", opp.native_id, clean, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key)
                     opp = _finalise(conn, opp, src_id)
-                    if not opp.is_defence:
+                    if not _kept(conn, src_id, opp):
                         continue
                     _, action = db.upsert_opportunity(conn, opp, h, src_id)
                     new += action == "new"
@@ -368,7 +380,7 @@ def run_boamp(days: int = 2) -> None:
                     key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key)
                     opp = _finalise(conn, opp, src_id)
-                    if not opp.is_defence:
+                    if not _kept(conn, src_id, opp):
                         continue
                     _, action = db.upsert_opportunity(conn, opp, h, src_id)
                     new += action == "new"
@@ -483,7 +495,7 @@ def run_tenderned(days: int = 2, *, reread: bool = False) -> None:
                     key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key)
                     opp = _finalise(conn, opp, src_id)
-                    if not opp.is_defence:
+                    if not _kept(conn, src_id, opp):
                         continue
                     _, action = db.upsert_opportunity(conn, opp, h, src_id)
                     new += action == "new"
@@ -1043,8 +1055,15 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
                             continue
                         db.record_raw(conn, src_id, opp.native_id, h,
                                       rawstore.record_key(key, line))
+                        if "detailError" in clean and db.is_archived(conn, src_id, opp):
+                            # Landed, indexed, and not archived: a notice already held
+                            # keeps what it has. A thin copy appended as a version has its
+                            # CPV codes emptied, and when the page came back the full
+                            # record's hash matched that older version and was skipped
+                            # (`run_tenderned` has the same guard; internal audit M5).
+                            continue
                         opp = _finalise(conn, opp, src_id)
-                        if not opp.is_defence:
+                        if not _kept(conn, src_id, opp):
                             continue
                         _, action = db.upsert_opportunity(conn, opp, h, src_id)
                         new += action == "new"
@@ -1179,7 +1198,7 @@ def run_ezamowienia(days: int | None = 2, *,
                 key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
                 opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
+                if not _kept(conn, src_id, opp):
                     return
                 _, action = db.upsert_opportunity(conn, opp, h, src_id)
                 new += action == "new"
@@ -1301,14 +1320,18 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                     h = ted.content_hash(payload)
                     if replay:
                         opp = _finalise(conn, opp, src_id)
-                        if not opp.is_defence:
+                        if not _kept(conn, src_id, opp):
                             continue
-                    key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
-                    db.record_raw(conn, src_id, opp.native_id, h, key,
-                                  content_type="application/atom+xml")
+                    # Landed once per content (internal audit M10): the live feed re-reads
+                    # about 19,000 unchanged entries a night, each of which was a new
+                    # index row and a new store line saying what the first one said.
+                    if not db.raw_held(conn, src_id, opp.native_id, h):
+                        key = _store_raw(code, opp.native_id, payload, writer, content_hash=h)
+                        db.record_raw(conn, src_id, opp.native_id, h, key,
+                                      content_type="application/atom+xml")
                     if not replay:
                         opp = _finalise(conn, opp, src_id)
-                        if not opp.is_defence:
+                        if not _kept(conn, src_id, opp):
                             continue
                     _, action = db.upsert_opportunity(conn, opp, h, src_id)
                     new += action == "new"
@@ -1698,7 +1721,7 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
                 if refresh_known:
                     continue
                 opp = _finalise(conn, opp, src_id)
-                if not opp.is_defence:
+                if not _kept(conn, src_id, opp):
                     continue
                 _, action = db.upsert_opportunity(conn, opp, h, src_id)
                 new += action == "new"

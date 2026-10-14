@@ -16,8 +16,14 @@ so this repair only adds:
 Idempotent: notes are unique per version and kind, and a notice whose current
 state is already right gets no correction.
 
-    python -m dgate.ops.repair_reversions            # repair
-    python -m dgate.ops.repair_reversions --dry-run  # report only
+    python -m dgate.ops.repair_reversions            # report only
+    python -m dgate.ops.repair_reversions --yes      # repair
+
+It reports unless told to write (internal audit O1, 14 October 2026: it wrote by default,
+which every other correcting tool here does not). A version one of our own re-mappings wrote
+(`remapped`) shares its raw hash with the version it corrects, so it is never taken for a
+re-read of old content; and a correcting version keeps the serving row's classification and
+links, as `repair_ted` does, instead of putting the old payload's back.
 """
 
 from __future__ import annotations
@@ -25,10 +31,11 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .. import db
 from ..config import settings
+from .repair_ted import CARRIED_COLUMNS
 
 log = logging.getLogger("repair_reversions")
 
@@ -57,7 +64,7 @@ def plan_repair(opp_id: int, native_id: str, versions: list[dict]) -> Repair:
     latest_date = ""
     for row in versions:
         v, digest, published = row["version"], row["raw_hash"], _published(row)
-        if row.get("is_correction"):
+        if row.get("is_correction") or row.get("is_remap"):
             # A correction repeats the content it restores on purpose. Marking
             # it `reread` would tell clients to hide the one version that is
             # right -- which a second run of the first version of this repair
@@ -94,7 +101,10 @@ def affected(conn) -> list[tuple[int, str, list[dict]]]:
             """SELECT v.id, v.version, v.raw_hash, v.payload,
                       EXISTS (SELECT 1 FROM opportunity_version_note n
                                WHERE n.opportunity_version_id = v.id
-                                 AND n.kind = 'correction') AS is_correction
+                                 AND n.kind = 'correction') AS is_correction,
+                      EXISTS (SELECT 1 FROM opportunity_version_note n
+                               WHERE n.opportunity_version_id = v.id
+                                 AND n.kind = 'remapped') AS is_remap
                  FROM opportunity_version v
                 WHERE v.opportunity_id = %s ORDER BY v.version""",
             (r["id"],),
@@ -117,6 +127,9 @@ def apply(conn, repair: Repair, versions: list[dict]) -> int | None:
     target = by_version[repair.correct_to]
     latest = versions[-1]
     opp = db.opportunity_from_payload(target["payload"])
+    serving = conn.execute("SELECT * FROM opportunity WHERE id = %s",
+                           (repair.opportunity_id,)).fetchone()
+    opp = replace(opp, **{k: serving[k] for k in CARRIED_COLUMNS if k in serving})
     changed = [f for f in db.VERSIONED_FIELDS
                if latest["payload"].get(f) != target["payload"].get(f)]
     new_version = db.append_version(conn, repair.opportunity_id, opp, target["raw_hash"],
@@ -155,9 +168,10 @@ def run(dry_run: bool = False, dsn: str | None = None) -> dict[str, int]:
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     p = argparse.ArgumentParser(prog="repair-reversions")
-    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--dry-run", action="store_true", help="report only (the default)")
+    p.add_argument("--yes", action="store_true", help="write the repair")
     a = p.parse_args(argv)
-    print(run(dry_run=a.dry_run))
+    print(run(dry_run=a.dry_run or not a.yes))
     return 0
 
 

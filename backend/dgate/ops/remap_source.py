@@ -38,6 +38,8 @@ notice done is recorded in `remap_marker`.
     python -m dgate.ops.remap_source --source pl_ezam                 # report only
     python -m dgate.ops.remap_source --source pl_ezam --yes
     python -m dgate.ops.remap_source --source fr_boamp --limit 5000 --yes
+    python -m dgate.ops.remap_source --source fr_boamp --epoch 4 --no-deadline --yes
+    python -m dgate.ops.remap_source --source pl_atlas --epoch 4 --latest-raw --status closed --yes
 """
 
 from __future__ import annotations
@@ -189,7 +191,8 @@ def _apply(conn, opp_id: int, version: int, raw_hash: str, change: Change, sourc
 
 def run(source: str, *, write: bool = False, limit: int | None = None, batch: int = 200,
         workers: int = 1, epoch: int = 1, latest_raw: bool = False,
-        dsn: str | None = None) -> Result:
+        dsn: str | None = None, status: str | None = None,
+        no_deadline: bool = False) -> Result:
     from ..reprocess import _read_batch
 
     if source not in MAPPERS:
@@ -200,12 +203,18 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
     marker = source if epoch == 1 else f"{source}#{epoch}"
     with db.connect(dsn or settings().dsn) as conn:
         src_id = db.source_id(conn, source)
+        # `status` and `no_deadline` select the rows a correction can only reach (the
+        # `closed` of 564 Polish rows, the legacy BOAMP notices with no deadline): a run
+        # over 36,000 payloads to change 500 is the cost they save.
         numbers = [r["native_id"] for r in conn.execute(
             """SELECT o.native_id FROM opportunity o
                 WHERE o.source_id = %s
+                  AND (%s::text IS NULL OR o.status = %s)
+                  AND (NOT %s OR o.deadline_at IS NULL)
                   AND NOT EXISTS (SELECT 1 FROM remap_marker m
                                    WHERE m.source_code = %s AND m.native_id = o.native_id)
-                ORDER BY o.id LIMIT %s""", (src_id, marker, limit)).fetchall()]
+                ORDER BY o.id LIMIT %s""",
+            (src_id, status, status, no_deadline, marker, limit)).fetchall()]
         log.info("remap %s: %s notices to do%s", source, len(numbers),
                  "" if write else " (dry run: nothing is written)")
         store = build_store()
@@ -271,9 +280,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--latest-raw", action="store_true",
                    help="read the newest payload landed for each notice, not the current "
                         "version's own (pl_atlas after --refresh-known)")
+    p.add_argument("--status", help="only notices stored with this status (e.g. closed)")
+    p.add_argument("--no-deadline", action="store_true",
+                   help="only notices with no deadline stored")
     a = p.parse_args(argv)
     result = run(a.source, write=a.yes, limit=a.limit, batch=a.batch, workers=a.workers,
-                 epoch=a.epoch, latest_raw=a.latest_raw)
+                 epoch=a.epoch, latest_raw=a.latest_raw, status=a.status,
+                 no_deadline=a.no_deadline)
     print(result)
     return 0 if result.failed == 0 else 1
 

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import socket
 from contextlib import contextmanager
 from dataclasses import asdict, fields, replace
 from datetime import date, datetime, timedelta, timezone
@@ -206,10 +208,26 @@ def source_id(conn: psycopg.Connection, code: str) -> int:
 
 # --------------------------------------------------------- ingest runs
 
+# Who opened a run (migration 0044): `<kind>:<host>:<pid>`. The scheduled worker sets its
+# kind to "worker" when it starts; every other process (a command an operator started, a
+# test) is "cli". Start-up closes only the runs of the kind that just started, because a
+# new scheduled worker proves the previous scheduled worker is dead and proves nothing
+# about a backfill an operator has been running in another container for a day.
+RUN_KIND = "cli"
+# A run that is still `running` after this long is nobody's: the longest real one (a
+# Polish history day, a PLACSP archive) is a few hours.
+STALE_RUN_HOURS = 24.0
+
+
+def run_owner() -> str:
+    return f"{RUN_KIND}:{socket.gethostname()}:{os.getpid()}"
+
+
 def start_run(conn: psycopg.Connection, code: str, expected_min: int | None = None) -> int:
     row = conn.execute(
-        "INSERT INTO ingest_run (source_id, expected_min) VALUES (%s, %s) RETURNING id",
-        (source_id(conn, code), expected_min),
+        "INSERT INTO ingest_run (source_id, expected_min, owner) VALUES (%s, %s, %s) "
+        "RETURNING id",
+        (source_id(conn, code), expected_min, run_owner()),
     ).fetchone()
     conn.commit()
     return row["id"]
@@ -316,8 +334,12 @@ def backup_freshness(conn: psycopg.Connection, stale_hours: float,
     return out
 
 
-def close_interrupted_runs(conn: psycopg.Connection) -> list[int]:
-    """Fail any run still marked `running`, and say which.
+_OWN_KIND = object()
+
+
+def close_interrupted_runs(conn: psycopg.Connection, kind: Any = _OWN_KIND,
+                           stale_hours: float = STALE_RUN_HOURS) -> list[int]:
+    """Fail the runs a dead process left `running`, and say which.
 
     A run is only ever closed by the process that opened it, so a process that
     is killed -- a container recreated, a machine switched off -- leaves its row
@@ -325,16 +347,24 @@ def close_interrupted_runs(conn: psycopg.Connection) -> list[int]:
     latest run per source, so one interrupted run makes that source look
     degraded permanently and every subsequent alert becomes noise.
 
-    Called at worker start, where "still running" can only mean "was killed",
-    because this process has not started anything yet.
+    Which runs are dead is known only for the kind that is starting: the scheduled
+    worker, started again, means every run the earlier scheduled worker left open is
+    dead. `kind` is that kind (default: this process's own, `RUN_KIND`); `None` closes
+    by age only. Whatever the kind, a run older than `stale_hours` is closed: a
+    start-up used to fail every `running` row, including the history load an operator
+    had in another container (internal audit M7, 14 October 2026).
     """
+    own = RUN_KIND if kind is _OWN_KIND else kind
     rows = conn.execute(
         """UPDATE ingest_run
               SET status = 'failed', finished_at = clock_timestamp(),
                   error_message = coalesce(error_message,
                       'interrupted: the process that opened this run did not close it')
             WHERE status = 'running'
+              AND ((%(kind)s::text IS NOT NULL AND split_part(owner, ':', 1) = %(kind)s::text)
+                   OR started_at < clock_timestamp() - interval '1 hour' * %(hours)s)
         RETURNING id""",
+        {"kind": own, "hours": stale_hours},
     ).fetchall()
     conn.commit()
     ids = [r["id"] for r in rows]
@@ -1041,6 +1071,17 @@ def upsert_opportunity(
     return opp_id, "changed"
 
 
+def is_archived(conn: psycopg.Connection, src_id: int, opp: Opportunity) -> bool:
+    """Whether the notice already has a serving row, under its own number or, for a source
+    whose numbers are the buyer's, the number made unique by who filed it."""
+    ids = [opp.native_id]
+    if opp.source_code in LOCAL_KEY_SOURCES:
+        ids.append(_disambiguated_id(opp))
+    return conn.execute(
+        "SELECT 1 FROM opportunity WHERE source_id = %s AND native_id = ANY(%s) LIMIT 1",
+        (src_id, ids)).fetchone() is not None
+
+
 def mark_backfill_day(conn: psycopg.Connection, source_code: str, day: date,
                       notices: int) -> None:
     """Record that one publication day was loaded in full.
@@ -1115,6 +1156,21 @@ def note_backfill_finished(conn: psycopg.Connection, source_code: str) -> None:
         (source_code,),
     )
     conn.commit()
+
+
+def raw_held(conn: psycopg.Connection, src_id: int, native_id: str | None,
+             content_hash: str) -> bool:
+    """Whether this exact content of this notice is already landed and indexed.
+
+    For a feed that re-reads what it has every night (PLACSP: about 19,000 entries a day,
+    nearly all unchanged, 11.45 million `raw_ingest` rows on 14 October 2026): landing it
+    again adds an index row and a store line that say nothing the first one does not.
+    Not for a source whose "last read" time is read from `raw_ingest`
+    (`ezam_refresh_targets`): there a read is itself the fact.
+    """
+    return conn.execute(
+        "SELECT 1 FROM raw_ingest WHERE source_id = %s AND native_id IS NOT DISTINCT FROM %s "
+        "AND content_hash = %s LIMIT 1", (src_id, native_id, content_hash)).fetchone() is not None
 
 
 def record_raw(

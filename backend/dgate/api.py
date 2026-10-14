@@ -22,6 +22,7 @@ Two deliberate design choices:
 
 from __future__ import annotations
 
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -696,6 +697,27 @@ def resolve(name: str = Query(min_length=1, max_length=200),
     }
 
 
+_ARCHIVE_COUNTS: tuple[float, tuple[int, int, Any]] | None = None
+
+
+def _archive_counts(conn) -> tuple[int, int, Any]:
+    """(defence rows, archive versions, oldest observation), reused for the list cache's
+    lifetime: the three are scans (0.2-0.4 s) and the container health check asks every 30
+    seconds (internal audit L5). 0 seconds, as in the tests, reads them every time."""
+    global _ARCHIVE_COUNTS
+    ttl = settings().list_cache_seconds
+    now = time.monotonic()
+    if ttl > 0 and _ARCHIVE_COUNTS and now - _ARCHIVE_COUNTS[0] < ttl:
+        return _ARCHIVE_COUNTS[1]
+    got = (
+        conn.execute("SELECT count(*) AS n FROM opportunity WHERE is_defence").fetchone()["n"],
+        conn.execute("SELECT count(*) AS n FROM opportunity_version").fetchone()["n"],
+        conn.execute("SELECT min(observed_at) AS t FROM opportunity_version").fetchone()["t"],
+    )
+    _ARCHIVE_COUNTS = (now, got)
+    return got
+
+
 @app.get("/v1/health")
 def health(conn=Depends(get_conn)):
     """Coverage health, not just liveness.
@@ -717,15 +739,7 @@ def health(conn=Depends(get_conn)):
             WHERE s.active
             ORDER BY s.code, r.started_at DESC NULLS LAST"""
     ).fetchall()
-    total = conn.execute(
-        "SELECT count(*) AS n FROM opportunity WHERE is_defence"
-    ).fetchone()["n"]
-    versions = conn.execute(
-        "SELECT count(*) AS n FROM opportunity_version"
-    ).fetchone()["n"]
-    oldest = conn.execute(
-        "SELECT min(observed_at) AS t FROM opportunity_version"
-    ).fetchone()["t"]
+    total, versions, oldest = _archive_counts(conn)
 
     backup = db.backup_freshness(conn, settings().backup_stale_hours)
 

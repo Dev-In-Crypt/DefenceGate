@@ -351,6 +351,14 @@ class Settings:
     eu_topics_hour: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_HOUR", 4))
     eu_topics_minute: int = field(default_factory=lambda: _env_int("DGATE_EU_TOPICS_MINUTE", 35))
     health_hour: int = field(default_factory=lambda: _env_int("DGATE_HEALTH_HOUR", 7))
+    # After every ingest job has had its slot (the Polish re-read is the longest): ties
+    # national notices to their TED twins (`ops/link_twins`), which no ingest does.
+    twins_hour: int = field(default_factory=lambda: _env_int("DGATE_TWINS_HOUR", 9))
+    twins_minute: int = field(default_factory=lambda: _env_int("DGATE_TWINS_MINUTE", 15))
+    # Weekly (Sunday): notices the classifier dropped at ingest and the rules now qualify,
+    # for every source whose payloads are in the store, over the last `requalify_days`.
+    requalify_hour: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_HOUR", 12))
+    requalify_days: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_DAYS", 30))
     backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
     backup_keep_days: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))

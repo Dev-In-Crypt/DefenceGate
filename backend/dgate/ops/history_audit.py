@@ -93,7 +93,9 @@ def reported_total(first: date, last: date, client: Any = None) -> int | None:
             data = ted._post(owned, payload)
     else:
         data = ted._post(client, payload)
-    return data.get("totalNoticeCount") or data.get("total")
+    # `or` would turn a real count of 0 into whatever `total` says.
+    count = data.get("totalNoticeCount")
+    return count if count is not None else data.get("total")
 
 
 def last_loaded_day(conn: Any) -> date | None:

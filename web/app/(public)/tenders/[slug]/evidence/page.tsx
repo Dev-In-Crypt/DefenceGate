@@ -144,7 +144,7 @@ export default async function TenderEvidencePage({ params }: Props) {
             {tender.legalBasis ? <><Mono>{tender.legalBasis}</Mono>{legal && <span className="text-ink-muted"> · {legal}</span>}</> : <NotStated />}
           </Row>
           <Row label="Published">
-            {tender.publishedAt ? <Mono>{formatDateUtc(tender.publishedAt)} UTC</Mono> : <NotStated />}
+            {tender.publishedAt ? <Mono>{formatDateUtc(tender.publishedAt)} UTC</Mono> : <span className="text-ink-muted">Publication date not stated by the source</span>}
           </Row>
           <Row label="Deadline">
             {d.iso ? (
