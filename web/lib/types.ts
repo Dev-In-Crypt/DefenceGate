@@ -27,8 +27,13 @@ export interface SourceAttribution {
   sourceName: string;
   /** Link to the original record at the source. */
   url: string | null;
-  /** = lastSeenAt of the call. */
+  /**
+   * A call: = lastSeenAt. A tender: when the notice last changed AT THE SOURCE, as we saw it (the newest version
+   * that is not one of our own re-readings), never the time of our reprocessing.
+   */
   retrievedAt: IsoDateTime;
+  /** A tender: when the source's newest collection run finished (we last looked); absent for a call. */
+  checkedAt?: IsoDateTime | null;
   licence: string;
   attribution: string;
 }
@@ -188,6 +193,12 @@ export interface Tender {
   buyerClass?: string | null;
   /** Classified as dual-use rather than defence. */
   dualUse?: boolean;
+  /**
+   * What qualified the notice: `legal_basis`, `military_cpv` (a military product code; `militaryCpv` lists the codes
+   * that are), `buyer` (only its buyer being on the defence list keeps it). Absent on an older API build.
+   */
+  qualifiedBy?: string[];
+  militaryCpv?: string[];
   /** More than one version observed. */
   amended: boolean;
   versionCount: number;
@@ -195,7 +206,7 @@ export interface Tender {
   subcontracting: boolean;
   /** The same notice in other sources. `source` is the source's name or id (the contract does not say which). `id` and `noticeId` are the other notice's. */
   sameNotice: { source: string; url: string | null; id?: string; noticeId?: string }[];
-  /** retrievedAt = when the archive's record of the notice last changed (the newest version's observation time), not the time of our last fetch. */
+  /** retrievedAt = when the source last changed the notice as we saw it; checkedAt = when we last collected that source. */
   source: SourceAttribution;
 }
 
@@ -322,6 +333,9 @@ export interface SourceHealth {
   heldFrom?: string | null;
   heldTo?: string | null;
   heldCount?: number | null;
+  /** Of a tender source: the usual notices per month (median) and the months, `YYYY-MM`, well below it. */
+  monthlyMedian?: number | null;
+  gapMonths?: string[] | null;
 }
 export interface Health {
   generatedAt: IsoDateTime;

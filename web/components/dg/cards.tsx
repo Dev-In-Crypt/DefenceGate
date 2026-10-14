@@ -3,7 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, openingPhrase } from '@/lib/format';
-import { anomalyNotes, tenderStatusView } from '@/lib/tender-status';
+import { TENDER_CHANGED_LABEL, anomalyNotes, isLongRunning, tenderStatusView } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
 import type { Buyer, Call, Tender } from '@/lib/types';
@@ -125,6 +125,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
   const d = getTenderDeadline(tender);
   const closed = d.state === 'closed';
   const soon = d.state === 'soon' || d.state === 'urgent';
+  const longRunning = isLongRunning(tender) && !closed;
   const nonEnglish = isNonEnglish(tender.titleLanguage);
   const H = headingLevel;
   return (
@@ -153,7 +154,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
       </div>
       <BasisChips tender={tender} lifted />
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-        <FactCell label={soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
+        <FactCell label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
           {d.iso ? (
             <>
               <time dateTime={d.iso}>{d.utc}</time>
@@ -169,7 +170,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
         <FactCell label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</FactCell>
       </dl>
       <AnomalyNote tender={tender} />
-      <SourceBadge source={tender.source} variant="inline" retrievedLabel="Last changed in our archive" />
+      <SourceBadge source={tender.source} variant="inline" retrievedLabel={TENDER_CHANGED_LABEL} />
     </article>
   );
 }

@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTimeUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
+import { TENDER_CHECKED_LABEL } from '@/lib/tender-status';
 import type { SourceAttribution } from '@/lib/types';
 import { Icon } from './icon';
 
@@ -12,7 +13,7 @@ import { Icon } from './icon';
  */
 export function SourceBadge({ source, variant = 'full', version, retrievedLabel = 'Retrieved', className }: {
   source: SourceAttribution; variant?: 'inline' | 'full'; version?: string; className?: string;
-  /** What `retrievedAt` means for this record: "Retrieved" for a call (last seen at the source), the archive's own change time for a tender. */
+  /** What `retrievedAt` means for this record: "Retrieved" for a call (last seen at the source), the last change seen at the source for a tender. */
   retrievedLabel?: string;
 }) {
   const retrieved = formatDateTimeUtc(source.retrievedAt);
@@ -34,6 +35,7 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
       <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 font-mono text-[12px] leading-[18px] tabular-nums">
         <dt className="text-ink-muted">Source</dt><dd className="m-0 font-medium text-ink">{source.sourceName}</dd>
         <dt className="text-ink-muted">{retrievedLabel}</dt><dd className="m-0 text-ink"><time dateTime={source.retrievedAt}>{retrieved}</time></dd>
+        {source.checkedAt && (<><dt className="text-ink-muted">{TENDER_CHECKED_LABEL}</dt><dd className="m-0 text-ink"><time dateTime={source.checkedAt}>{formatDateTimeUtc(source.checkedAt)}</time></dd></>)}
         <dt className="text-ink-muted">Licence</dt><dd className="m-0 text-ink">{source.licence}</dd>
         <dt className="text-ink-muted">Attribution</dt><dd className="m-0 text-ink">{source.attribution}</dd>
         {version && (<><dt className="text-ink-muted">Version</dt><dd className="m-0 text-ink">{version}</dd></>)}

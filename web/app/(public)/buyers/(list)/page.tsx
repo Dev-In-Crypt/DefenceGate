@@ -9,7 +9,7 @@ import { BuyerCard } from '@/components/dg/cards';
 import { ListPage } from '@/components/dg/list-page';
 import { BuyerFilterBar } from '@/components/tenders/filter-bars';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 const SORT_OPTIONS = [
   { value: 'tenders', label: 'Most tenders first' },

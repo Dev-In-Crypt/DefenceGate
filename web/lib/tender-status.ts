@@ -1,6 +1,13 @@
 import type { StatusKind, Tender } from './types';
 import { getTenderDeadline, now } from './deadline';
 
+/**
+ * What the two stamps of a tender's source badge mean. `retrievedAt` is the newest version that is not one of our own
+ * re-readings of the same payload, `checkedAt` the end of the newest collection run of that source.
+ */
+export const TENDER_CHANGED_LABEL = 'Last change seen at the source';
+export const TENDER_CHECKED_LABEL = 'Source last collected';
+
 /** What a tender's status reads as. `word` is the plain one for exports ("Open" even when closing soon). */
 export interface TenderStatusView { kind: StatusKind; label: string; word: string }
 
@@ -32,12 +39,20 @@ export function tenderStatusView(t: StatusInput, ref: Date = now()): TenderStatu
   }
 }
 
+/** The API's anomaly code for a stated deadline more than three years ahead. */
+export const LONG_RUNNING = 'deadline-more-than-3y';
+
 const ANOMALY_TEXT: Record<string, string> = {
   'deadline-before-publication': 'Deadline is before publication in the source; verify at the source.',
-  'deadline-more-than-3y': 'Deadline is more than 3 years ahead in the source.',
+  [LONG_RUNNING]: 'Long-running notice: the source states a deadline more than 3 years ahead. That is usually a framework agreement or a dynamic purchasing system that stays open, not a closing date.',
   'deadline-more-than-1y': 'Deadline is more than a year ahead in the source; verify it at the source.',
-  'deadline-differs-from-ted-twin': 'The national notice gives another deadline; the one shown is the TED notice's.',
+  'deadline-differs-from-ted-twin': "The national notice gives another deadline; the one shown is the TED notice's.",
 };
+
+/** A notice whose stated deadline is more than three years ahead: shown as open until then, never as "closing". */
+export function isLongRunning(t: Pick<Tender, 'anomalies'>): boolean {
+  return Array.isArray(t.anomalies) && t.anomalies.includes(LONG_RUNNING);
+}
 
 /** Plain-language notes for the anomaly codes we know. Unknown or missing codes give nothing. */
 export function anomalyNotes(t: Pick<Tender, 'anomalies'>): string[] {

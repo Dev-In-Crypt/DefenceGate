@@ -41,7 +41,8 @@ export function buildMetadata({ title, description, path, noindex = false }: { t
     alternates: { canonical: url },
     robots: noindex ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: { type: 'website', siteName: SITE.name, title, description, url, locale: 'en_GB' },
-    twitter: { card: 'summary_large_image', title, description },
+    // No image is published, so the card is the plain one (a large-image card without an image is a broken preview).
+    twitter: { card: 'summary', title, description },
   };
 }
 

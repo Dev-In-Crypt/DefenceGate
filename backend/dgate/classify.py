@@ -121,6 +121,23 @@ def cpv_group(code: str) -> str:
     return (code or "")[:3]
 
 
+def military_cpv_codes(codes: list[str] | None) -> list[str]:
+    """The codes of a notice that `classify` reads as military (a division-35 military
+    group, or one of the added codes), in the notice's order and without repeats. What a
+    page names when it says "military product code": the code that qualified, not the
+    whole list."""
+    out: list[str] = []
+    for raw in codes or []:
+        code = (raw or "").strip()
+        if code in out:
+            continue
+        if code in CPV_MILITARY_ADJACENT or (
+                cpv_division(code) == CPV_DEFENCE_DIVISION and code not in CPV_CIVIL_EXCEPTIONS
+                and cpv_group(code) in CPV_MILITARY_GROUPS):
+            out.append(code)
+    return out
+
+
 @dataclass
 class DefenceSignals:
     """Result of classification. Every signal is retained, not just the verdict."""

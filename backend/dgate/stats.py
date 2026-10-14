@@ -492,6 +492,35 @@ def get_buyer_profile(slug: str):
 
 # ----------------------------------------------------------- source spans
 
+MAX_GAP_MONTHS = 120
+
+
+def month_gaps(per_month: dict[str, int]) -> tuple[int, list[str]]:
+    """(median notices per month, the months well below it) of one source, from the
+    notices held per month of publication (`YYYY-MM`). The first and the last month are
+    left out (a source starts and is read part-way through a month) and a month with none
+    counts as zero. "Well below" is under half of the median. Fewer than three whole months
+    say nothing. What /data says about holes is read from this, not written by hand."""
+    if len(per_month) < 2:
+        return 0, []
+    months = sorted(per_month)
+    y, m = int(months[0][:4]), int(months[0][5:7])
+    last = (int(months[-1][:4]), int(months[-1][5:7]))
+    grid: list[str] = []
+    while (y, m) <= last:
+        grid.append(f"{y:04d}-{m:02d}")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    inner = grid[1:-1]
+    if len(inner) < 3:
+        return 0, []
+    counts = sorted(per_month.get(k, 0) for k in inner)
+    mid = len(counts) // 2
+    median = counts[mid] if len(counts) % 2 else (counts[mid - 1] + counts[mid]) / 2
+    if median <= 0:
+        return 0, []
+    return int(median), [k for k in inner if per_month.get(k, 0) < median / 2]
+
+
 def source_spans(conn) -> dict[str, dict[str, Any]]:
     """For each source, how many notices (or calls) we hold and the span of their
     publication dates, so that a gap ("BOAMP from 2015, nothing before") is visible.
@@ -509,17 +538,45 @@ def source_spans(conn) -> dict[str, dict[str, Any]]:
     return out
 
 
+def source_gaps(conn) -> dict[str, dict[str, Any]]:
+    """For each tender source: the usual notices per month and the months well below it
+    (`month_gaps`), from the notices held by month of publication. A separate read from
+    `source_spans`, whose figures it must never put at risk."""
+    out: dict[str, dict[str, Any]] = {}
+    by_source: dict[str, dict[str, int]] = {}
+    for r in conn.execute(
+            """SELECT s.code, to_char(o.published_at, 'YYYY-MM') AS month, count(*) AS n
+                 FROM opportunity o JOIN source s ON s.id = o.source_id
+                WHERE o.is_defence AND o.published_at IS NOT NULL
+                GROUP BY s.code, 2""").fetchall():
+        by_source.setdefault(r["code"], {})[r["month"]] = r["n"]
+    for code, per_month in by_source.items():
+        median, gaps = month_gaps(per_month)
+        out[code] = {"monthlyMedian": median, "gapMonths": gaps[-MAX_GAP_MONTHS:]}
+    return out
+
+
 def cached_source_spans(conn) -> dict[str, dict[str, Any]]:
     """For `/v1/sources`, which every page's footer reads: a read that does not finish in
     the API role's budget must not take the footer down with it. It answers with no spans,
     and is not tried again for `RETRY_SECONDS`."""
     try:
-        return cached("source-spans", lambda: source_spans(conn))
+        spans = cached("source-spans", lambda: source_spans(conn))
     except psycopg.errors.QueryCanceled:
         conn.rollback()
         with _lock:
             _put("source-spans", {}, RETRY_SECONDS)
         return {}
+    if not spans:
+        return spans
+    try:        # the gaps are worth less than the spans: a read that is cut short leaves them out
+        gaps = cached("source-gaps", lambda: source_gaps(conn))
+    except psycopg.errors.QueryCanceled:
+        conn.rollback()
+        with _lock:
+            _put("source-gaps", {}, RETRY_SECONDS)
+        gaps = {}
+    return {code: {**span, **gaps.get(code, {})} for code, span in spans.items()}
 
 
 # ---------------------------------------------------------- last collection

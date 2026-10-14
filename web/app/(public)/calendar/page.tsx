@@ -21,7 +21,7 @@ import { Pagination } from '@/components/dg/pagination';
 import { FilterPanel } from '@/components/funding/filter-panel';
 import { Agenda, MonthGrid } from '@/components/calendar/calendar-views';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 /** Entries per page of the list view; the month view lists a month's entries up to MONTH_CAP. */
 const LIST_PAGE = 100;
@@ -191,6 +191,9 @@ export default async function CalendarPage({ searchParams }: Props) {
             Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed.
             {data.tendersOk && data.tendersTotal > data.tendersHeld && (
               <> The calendar holds the {data.tendersHeld} open tenders with the earliest deadlines of {data.tendersTotal}; later ones are on the <Link href="/tenders" className="font-semibold">tenders list</Link>.</>
+            )}
+            {data.longRunning > 0 && (
+              <> {data.longRunning} open {data.longRunning === 1 ? 'notice has' : 'notices have'} a deadline more than 3 years ahead (framework agreements and dynamic purchasing systems that stay open) and {data.longRunning === 1 ? 'is' : 'are'} left off; they are on the <Link href="/tenders" className="font-semibold">tenders list</Link>, last.</>
             )}
             {' '}Check the original notice before you act: it is authoritative.
           </p>

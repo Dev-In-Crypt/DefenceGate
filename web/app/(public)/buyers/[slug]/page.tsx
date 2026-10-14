@@ -14,7 +14,7 @@ import { Button } from '@/components/dg/button';
 import { FollowButton } from '@/components/account/save-button';
 import { BuyerProfileSection } from '@/components/market/buyer-profile';
 
-export const revalidate = 3600;
+export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchParams> };
 
 /** Open tenders are listed in full (up to this many), then the earlier ones page by page. */

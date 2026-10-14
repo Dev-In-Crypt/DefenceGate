@@ -5,7 +5,7 @@
  */
 import { getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
 import { getCallDeadline, getTenderDeadline, now } from './deadline';
-import { anomalyNotes, tenderStatusView } from './tender-status';
+import { anomalyNotes, isLongRunning, tenderStatusView } from './tender-status';
 import type { SearchParams } from './filters';
 
 export type CalendarKind = 'tender' | 'funding';
@@ -42,6 +42,8 @@ export interface CalendarData {
   /** Open tenders in total, and how many the calendar holds (the earliest deadlines first). */
   tendersTotal: number;
   tendersHeld: number;
+  /** Open tenders left off because their deadline is over three years ahead (framework agreements, DPS). */
+  longRunning: number;
 }
 
 const TENDER_PAGE = 100;
@@ -50,7 +52,7 @@ const CALL_PAGE = 500;
 
 const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
-async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total: number; held: number }> {
+async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number }> {
   const base = { status: 'open', scope: 'core', sort: 'deadline-asc', pageSize: TENDER_PAGE } as const;
   const first = await getTenders({ ...base, page: 1 }, { cacheable: true });
   const items = [...first.items];
@@ -63,9 +65,12 @@ async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total
     for (const r of rest) items.push(...r.items);
   }
   const entries: CalendarEntry[] = [];
+  let longRunning = 0;
   for (const t of items) {
     const view = tenderStatusView(t, ref);
     if (view.kind !== 'open' && view.kind !== 'soon') continue;
+    // A deadline 2030 to 2034 is a notice that stays open, not a date to plan around (site-qa2:N7).
+    if (isLongRunning(t)) { longRunning += 1; continue; }
     const d = getTenderDeadline(t, ref);
     if (!d.iso || d.state === 'closed' || !isTenderSlug(t.slug)) continue;
     entries.push({
@@ -74,7 +79,7 @@ async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total
       who: t.buyerName, country: t.country, sourceName: t.source.sourceName, note: anomalyNotes(t)[0] ?? null,
     });
   }
-  return { entries, total: first.total, held: items.length };
+  return { entries, total: first.total, held: items.length, longRunning };
 }
 
 async function loadCalls(ref: Date): Promise<CalendarEntry[]> {
@@ -96,11 +101,11 @@ async function loadCalls(ref: Date): Promise<CalendarEntry[]> {
 /** Tenders and calls together, soonest deadline first. A failing half is reported, not hidden. */
 export async function loadCalendar(ref: Date = now()): Promise<CalendarData> {
   const [t, c] = await Promise.all([
-    loadTenders(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0 })),
+    loadTenders(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0, longRunning: 0 })),
     loadCalls(ref).then((v) => ({ ok: true as const, entries: v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[] })),
   ]);
   const entries = [...t.entries, ...c.entries].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key));
-  return { entries, tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held };
+  return { entries, tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held, longRunning: t.longRunning };
 }
 
 /* ---- URL parameters: kind, country, view, month ---- */

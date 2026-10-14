@@ -11,7 +11,7 @@ import { CallCard, TenderCard } from '@/components/dg/cards';
 import { EmptyState, JsonLd } from '@/components/dg/feedback';
 import { Icon } from '@/components/dg/icon';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 const SAMPLE_SIZE = 3;
 
 export const metadata: Metadata = buildMetadata({

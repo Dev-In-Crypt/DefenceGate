@@ -3,7 +3,7 @@
  * handlers. Same filters as the list pages (lib/filters.ts parsers), data only through lib/api.ts.
  */
 import { ApiError, getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
-import { getCallDeadline } from './deadline';
+import { callStatusKind, getCallDeadline } from './deadline';
 import { parseCallFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
 import {
   EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate, TtlCache,
@@ -14,7 +14,7 @@ import { safeHttpUrl } from './safe-url';
 import { absoluteUrl } from './seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
 import type { Call, Paginated, Tender } from './types';
-import { isMidnight, isoUtc, toCsv, type Cell } from './csv';
+import { isMidnight, isoUtc, toCsv, truncationRow, type Cell } from './csv';
 import { isPlaceholderAmount } from './format';
 
 /** The most rows one download holds (`status=all` holds at most 1,000: see export-cache.ts). */
@@ -53,7 +53,9 @@ export const CALL_HEADER = [
 
 export function callRow(c: Call): Cell[] {
   const dl = c.deadline;
-  const status = c.status === 'forthcoming' ? 'Opens soon' : getCallDeadline(c).state === 'closed' ? 'Closed' : 'Open';
+  // The same function the pages read, so the file and the page cannot say two things (site-qa2:N5).
+  const kind = callStatusKind(c.status, getCallDeadline(c).state, c.openingDate);
+  const status = kind === 'closed' ? 'Closed' : kind === 'upcoming' ? 'Opens soon' : kind === 'pending' ? 'Opening date passed' : 'Open';
   const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? c.budget : null;
   return [
     c.id, c.title, c.issuer ?? c.programmeName, c.funderCountry, c.programmeName, c.callId, c.topicId, c.actionType,
@@ -165,7 +167,8 @@ export async function tendersCsvResponse(url: URL, forwardedFor: string | null =
   try {
     const r = await runner.get(`tenders${toTenderQuery({ ...parsed, page: 1 })}`, async () => {
       const { items, total } = await collect((page) => getTenders({ ...filters, page }, { fresh: true }), cap);
-      return { body: toCsv(TENDER_HEADER, items.map(tenderRow)), total, rows: items.length, cap };
+      const cut = truncationRow(TENDER_HEADER.length, items.length, total, cap);
+      return { body: toCsv(TENDER_HEADER, [...items.map(tenderRow), ...(cut ? [cut] : [])]), total, rows: items.length, cap };
     }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
   } catch (err) {
@@ -181,7 +184,8 @@ export async function callsCsvResponse(url: URL, forwardedFor: string | null = n
   try {
     const r = await runner.get(`funding${toQuery({ ...parsed, page: 1 })}`, async () => {
       const { items, total } = await collect((page) => getCalls({ ...filters, page }, { fresh: true }), cap);
-      return { body: toCsv(CALL_HEADER, items.map(callRow)), total, rows: items.length, cap };
+      const cut = truncationRow(CALL_HEADER.length, items.length, total, cap);
+      return { body: toCsv(CALL_HEADER, [...items.map(callRow), ...(cut ? [cut] : [])]), total, rows: items.length, cap };
     }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-funding');
   } catch (err) {

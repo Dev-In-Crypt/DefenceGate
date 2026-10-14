@@ -8,7 +8,7 @@ import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
-import { sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
+import { TENDER_CHANGED_LABEL, sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
 import { cpvName } from '@/lib/cpv';
 import { isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { clearanceView, subcontractingView } from '@/lib/tender-basis';
@@ -25,7 +25,7 @@ import { BasisChips } from '@/components/dg/basis-chips';
 import { AnomalyNote, TenderCard, TenderStatusPills } from '@/components/dg/cards';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
-export const revalidate = 3600;
+export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
 const RELATED_LIMIT = 3;
@@ -233,7 +233,7 @@ export default async function TenderDetailPage({ params }: Props) {
           </Panel>
 
           <Panel title="Source and attribution">
-            <SourceBadge source={tender.source} retrievedLabel="Last changed in our archive" version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
+            <SourceBadge source={tender.source} retrievedLabel={TENDER_CHANGED_LABEL} version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
           </Panel>
         </div>
 

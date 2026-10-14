@@ -12,8 +12,9 @@ Decisions that shape it:
   - a national notice whose TED twin is in the same result is shown once; so is a
     BOAMP parent whose rectificatif is in the same result, and a TED procedure's
     re-publications (the newest that matches the filters wins; the rectificatif never
-    hides). The buyer aggregate (`tenderCount`, `openCount`) counts every core notice of
-    the buyer, collapsed or not, so it can exceed what `/v1/tenders?buyer=` lists
+    hides). The buyer aggregate: `tenderCount` counts every core notice of the buyer,
+    collapsed or not; `openCount` applies the list's own collapse and status rule
+    (`collapse_clauses`), so it equals what `/v1/tenders?buyer=` lists as open
   - amounts are never converted; a value range selects one currency
   - a notice with no deadline of its own is not served open when its procedure is over
     (its TED twin's deadline has passed, an award follows it, a rectificatif replaces
@@ -43,6 +44,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from .classify import classify, military_cpv_codes
 from .db import same_value
 from .funding import (
     Budget,
@@ -110,6 +112,12 @@ class Tender(BaseModel):
     scope: str
     buyerClass: str | None = None
     dualUse: bool = False
+    # What qualified the notice, from the stored signals: `legal_basis` (2009/81/EC),
+    # `military_cpv` (a military product code; `militaryCpv` lists the codes that are),
+    # `buyer` (only its buyer's being on the defence list keeps it: without the buyer it
+    # would be demoted as dual-use). A page says "military product code" only for the second.
+    qualifiedBy: list[str] = []
+    militaryCpv: list[str] = []
     deadline: datetime | None
     # `ted_twin` when `deadline` is the TED notice's because the national notice's own is
     # more than 90 days from it (a typo in the national source); null: the notice's own.
@@ -253,7 +261,7 @@ TENDER_COLUMNS = (
     "o.id, o.native_id, o.buyer_org_id, o.buyer_name_raw, o.country, o.title_original, "
     "o.title_en, o.original_language, o.procedure_type, o.legal_basis, o.value_amount, "
     "o.value_currency, o.published_at, o.deadline_at, o.cpv_codes, o.sig_legal_basis, "
-    "o.sig_cpv, o.sig_cpv_military, o.dual_use, o.buyer_class, "
+    "o.sig_cpv, o.sig_cpv_military, o.sig_buyer, o.dual_use, o.buyer_class, "
     "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
     "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype"
 )
@@ -264,6 +272,16 @@ TENDER_SELECT = f"""
       FROM opportunity o
       JOIN source s ON s.id = o.source_id
 """
+
+
+_SOURCE_SUFFIX = re.compile(r"(?<=[^\W\d_])_\d{1,6}$")
+
+
+def clean_buyer_name(name: str | None) -> str:
+    """A buyer name as a person writes it: the Irish eTenders buyer id that TED carries
+    after the name ("Irish Defence Forces_1144", 403 notices) is not part of it. Read side
+    only: the stored name stays what the source stated."""
+    return _SOURCE_SUFFIX.sub("", redact_emails(name) or "").strip()
 
 
 def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
@@ -278,7 +296,7 @@ def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
                     GROUP BY buyer_org_id, buyer_name_raw) t
             ORDER BY buyer_org_id, n DESC, buyer_name_raw""",
         (org_ids,)).fetchall()
-    return {r["buyer_org_id"]: redact_emails(r["buyer_name_raw"]) for r in rows}
+    return {r["buyer_org_id"]: clean_buyer_name(r["buyer_name_raw"]) for r in rows}
 
 
 def _observed_span(conn, ids: list[int]) -> dict[int, tuple[datetime, datetime]]:
@@ -298,9 +316,12 @@ def _observed(conn, ids: list[int]) -> dict[int, datetime]:
     return {i: last for i, (_, last) in _observed_span(conn, ids).items()}
 
 
-def _version_counts(conn, ids: list[int]) -> dict[int, int]:
-    """How many real versions each notice has: the first, and each later one that
-    changed something a reader can see (see `timeline`)."""
+def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None]]:
+    """For each notice: how many real versions it has (the first, and each later one that
+    changed something a reader can see: see `timeline`) and when the newest of them was
+    observed. A bulk re-reading of the same payload (`remapped`, `reread`) is neither:
+    "last changed" is when the SOURCE changed the notice, as we saw it, not when we
+    reprocessed it (253 of 291 open TED notices said 12 October 17:0x)."""
     if not ids:
         return {}
     rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = ANY(%s)"),
@@ -308,14 +329,63 @@ def _version_counts(conn, ids: list[int]) -> dict[int, int]:
     by_notice: dict[int, list[dict[str, Any]]] = {}
     for r in rows:
         by_notice.setdefault(r["opportunity_id"], []).append(r)
-    return {oid: len(timeline(group)) for oid, group in by_notice.items()}
+    out = {}
+    for oid, group in by_notice.items():
+        entries = timeline(group)
+        out[oid] = (len(entries), entries[-1]["detectedAt"] if entries else None)
+    return out
+
+
+def _version_counts(conn, ids: list[int]) -> dict[int, int]:
+    return {oid: n for oid, (n, _) in _version_info(conn, ids).items()}
+
+
+def _source_runs(conn) -> dict[str, datetime]:
+    """When each source's newest successful or partial collection run finished: what
+    "we last looked at this source" means (`ingest_run` is a few hundred rows)."""
+    from .config import settings
+    from .stats import LAST_RUN_SECONDS, cached  # stats imports this module
+
+    def read() -> dict[str, datetime] | None:
+        got = conn.execute(
+            """SELECT s.code, max(r.finished_at) AS t
+                 FROM ingest_run r JOIN source s ON s.id = r.source_id
+                WHERE r.status IN ('success', 'partial') AND r.finished_at IS NOT NULL
+                GROUP BY s.code""").fetchall()
+        return {r["code"]: r["t"] for r in got} or None      # None is never kept
+    # The list cache's own switch (0 in the test suite) turns this one off too.
+    ttl = 0 if settings().list_cache_seconds <= 0 else LAST_RUN_SECONDS
+    return cached(("source-runs",), read, ttl) or {}
+
+
+def _qualified_by(r: dict[str, Any], cpv: list[str]) -> tuple[list[str], list[str]]:
+    """(signals that qualified the notice, the military codes among its CPV codes). A
+    military code that is one of many on a civil buyer's notice was counted because the
+    buyer is on the defence list when, without the buyer, the notice would be demoted as
+    dual-use: that is `buyer`, never "military product code"."""
+    out: list[str] = []
+    if r.get("sig_legal_basis"):
+        out.append("legal_basis")
+    codes = military_cpv_codes(cpv) if r.get("sig_cpv_military") else []
+    if codes:
+        without_buyer = classify(legal_basis=r.get("legal_basis"), cpv_codes=cpv,
+                                 buyer_is_defence=False, buyer_class=r.get("buyer_class"))
+        if r.get("sig_buyer") and not r.get("sig_legal_basis") and without_buyer.dual_use:
+            out.append("buyer")
+            codes = []
+        else:
+            out.append("military_cpv")
+    elif r.get("sig_buyer"):
+        out.append("buyer")
+    return out, codes
 
 
 def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int],
               twins: list[dict[str, Any]], observed: datetime | None, *,
               superseded: bool = False, twin_value: dict[str, Any] | None = None,
               first_seen: datetime | None = None,
-              twin_extra: dict[str, Any] | None = None) -> dict[str, Any]:
+              twin_extra: dict[str, Any] | None = None,
+              checked: datetime | None = None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -342,11 +412,12 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     # The notice's own spelling is what the notice says; the organisation's commonest
     # spelling is what the organisation is called. 15,937 TED rows were being shown
     # under the second, which merges a sub-unit into its parent.
-    own_name = redact_emails(r["buyer_name_raw"])
+    own_name = clean_buyer_name(r["buyer_name_raw"])
     org_name = names.get(org_id) or own_name
     buyer_name = own_name or org_name
     n_versions = versions.get(r["id"], 1) or 1
     cpv = r.get("cpv_codes") or []
+    qualified, military = _qualified_by(r, cpv)
     amount = r.get("value_amount")
     value_from, value_kind = None, r.get("value_kind")
     currency = r.get("value_currency")
@@ -376,6 +447,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "scope": api.row_scope(r),
         "buyerClass": r.get("buyer_class"),
         "dualUse": bool(r.get("dual_use")),
+        "qualifiedBy": qualified,
+        "militaryCpv": military,
         "deadline": deadline,
         "deadlineFrom": deadline_from,
         "deadlineKnown": deadline is not None,
@@ -404,6 +477,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
             "sourceName": r["source_name"],
             "url": http_url(r.get("source_url")),
             "retrievedAt": observed or datetime.now(timezone.utc),
+            "checkedAt": checked,
             "licence": r["source_licence"] or "",
             "attribution": api._attribution(r),
         },
@@ -471,21 +545,81 @@ def _twin_extras(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
             for r in got}
 
 
-def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list[dict[str, Any]]:
+    """`checked`: also say when each notice's source was last collected (`source.checkedAt`).
+    Only the API's own endpoints ask: the account role reads no run table."""
     ids = [r["id"] for r in rows]
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
-    versions = _version_counts(conn, ids)
+    info = _version_info(conn, ids)
+    versions = {i: n for i, (n, _) in info.items()}
     twins = _api()._twins(conn, ids)
     span = _observed_span(conn, ids)
     over = _superseded(conn, rows)
     borrowed = _twin_values(conn, rows)
     extras = _twin_extras(conn, rows)
+    runs = _source_runs(conn) if checked else {}
     return [to_tender(r, names, versions, twins.get(r["id"], []),
-                      span.get(r["id"], (None, None))[1],
+                      info.get(r["id"], (0, None))[1] or span.get(r["id"], (None, None))[1],
                       superseded=r["id"] in over, twin_value=borrowed.get(r["id"]),
                       first_seen=span.get(r["id"], (None, None))[0],
-                      twin_extra=extras.get(r["id"]))
+                      twin_extra=extras.get(r["id"]),
+                      checked=runs.get(r["source_code"]))
             for r in rows]
+
+
+def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
+    """The three rules that show a notice once, as one SQL condition over `opportunity o`:
+    the filters (`where`, written over `o`) are applied to the notice that would replace
+    this one as well, so a filter that keeps a notice and not its twin never makes it vanish.
+    `same_buyer` is for an aggregate over every buyer at once: the replacing notice must be
+    the same buyer's, which is what `buyer = X` in `where` says for the list. The condition
+    carries no parameters of its own: each `%s` of `where` appears once per rule."""
+    def extra(alias: str) -> list[str]:
+        return [f"{alias}.buyer_org_id = o.buyer_org_id"] if same_buyer else []
+
+    # A national notice is shown once: it is dropped when the TED notice it was forwarded
+    # as would itself be in this result (same filters), so a filter that keeps the national
+    # row and not its TED twin never makes the notice vanish. Only rows that carry a TED
+    # reference are tested, and that column is rare and indexed.
+    twin_where = [re.sub(r"\bo\.", "t.", clause) for clause in where] + extra("t")
+    # Written as a plain NOT EXISTS on (source, number) so the planner makes it an
+    # anti-join and can still scan in parallel: with the `ted_ref IS NOT NULL AND` guard
+    # and a join to `source` it was a restricted subplan and cost 0.7 s a page. A row
+    # with no ted_ref matches nothing, so it is kept, as it should be.
+    # A link made by procedure identifier or by the heuristic ties a row to the newest TED
+    # notice of the procedure, which may be another stage of it (an award under the call
+    # for competition): there the TED row has to have the row's own status as well, or
+    # the award would be hidden beneath an expired call. A stated reference keeps its rule.
+    not_collapsed = ("NOT EXISTS (SELECT 1 FROM opportunity t "
+                     "WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted') "
+                     "AND t.native_id = o.ted_ref "
+                     "AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic') "
+                     "OR t.status = o.status) AND " + " AND ".join(twin_where) + ")")
+    # A BOAMP rectificatif repeats its parent notice, and the newest wins like a
+    # re-publication: the parent is dropped when a rectificatif of it that matches these
+    # same filters is in the result; the rectificatif is never dropped. A parent whose
+    # correction is filtered out (expired while the parent is open, another status) is
+    # listed itself, so the notice never vanishes. (`related_native_id` is null for every
+    # other row: no match.)
+    rect_where = [re.sub(r"\bo\.", "c.", clause_) for clause_ in where] + extra("c")
+    not_rectified = ("NOT EXISTS (SELECT 1 FROM opportunity c "
+                     "WHERE o.related_native_id IS NULL AND c.related_native_id IS NOT NULL "
+                     "AND c.source_id = o.source_id "
+                     "AND c.related_native_id = o.native_id AND c.id <> o.id AND "
+                     + " AND ".join(rect_where) + ")")
+    # A TED re-publication or corrigendum carries a new publication number but the same
+    # procedure identifier: only the newest of the same status that matches these filters
+    # is shown. (Award notices of a procedure have another status, so they are not hidden
+    # by the call for competition, and the reverse.)
+    rep_where = [re.sub(r"\bo\.", "r.", clause_) for clause_ in where] + extra("r")
+    not_republished = ("NOT EXISTS (SELECT 1 FROM opportunity r "
+                       "WHERE o.procedure_identifier IS NOT NULL "
+                       "AND r.procedure_identifier = o.procedure_identifier "
+                       "AND r.source_id = o.source_id AND r.status = o.status AND r.id <> o.id "
+                       "AND (coalesce(r.published_at, 'epoch'::date), r.id) "
+                       "> (coalesce(o.published_at, 'epoch'::date), o.id) AND "
+                       + " AND ".join(rep_where) + ")")
+    return " AND ".join((not_collapsed, not_rectified, not_republished))
 
 
 # -------------------------------------------------------------- endpoints
@@ -571,50 +705,7 @@ def list_tenders(
             where.append("o.value_amount <= %s")
             params.append(max_)
 
-    # A national notice is shown once: it is dropped when the TED notice it was forwarded
-    # as would itself be in this result (same filters), so a filter that keeps the national
-    # row and not its TED twin never makes the notice vanish. Only rows that carry a TED
-    # reference are tested, and that column is rare and indexed.
-    twin_where = [re.sub(r"\bo\.", "t.", clause) for clause in where]
-    # Written as a plain NOT EXISTS on (source, number) so the planner makes it an
-    # anti-join and can still scan in parallel: with the `ted_ref IS NOT NULL AND` guard
-    # and a join to `source` it was a restricted subplan and cost 0.7 s a page. A row
-    # with no ted_ref matches nothing, so it is kept, as it should be.
-    # A link made by procedure identifier or by the heuristic ties a row to the newest TED
-    # notice of the procedure, which may be another stage of it (an award under the call
-    # for competition): there the TED row has to have the row's own status as well, or
-    # the award would be hidden beneath an expired call. A stated reference keeps its rule.
-    not_collapsed = ("NOT EXISTS (SELECT 1 FROM opportunity t "
-                     "WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted') "
-                     "AND t.native_id = o.ted_ref "
-                     "AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic') "
-                     "OR t.status = o.status) AND " + " AND ".join(twin_where) + ")")
-    # A BOAMP rectificatif repeats its parent notice, and the newest wins like a
-    # re-publication: the parent is dropped when a rectificatif of it that matches these
-    # same filters is in the result; the rectificatif is never dropped. A parent whose
-    # correction is filtered out (expired while the parent is open, another status) is
-    # listed itself, so the notice never vanishes. (`related_native_id` is null for every
-    # other row: no match.)
-    rect_where = [re.sub(r"\bo\.", "c.", clause_) for clause_ in where]
-    not_rectified = ("NOT EXISTS (SELECT 1 FROM opportunity c "
-                     "WHERE o.related_native_id IS NULL AND c.related_native_id IS NOT NULL "
-                     "AND c.source_id = o.source_id "
-                     "AND c.related_native_id = o.native_id AND c.id <> o.id AND "
-                     + " AND ".join(rect_where) + ")")
-    # A TED re-publication or corrigendum carries a new publication number but the same
-    # procedure identifier: only the newest of the same status that matches these filters
-    # is shown. (Award notices of a procedure have another status, so they are not hidden
-    # by the call for competition, and the reverse.)
-    rep_where = [re.sub(r"\bo\.", "r.", clause_) for clause_ in where]
-    not_republished = ("NOT EXISTS (SELECT 1 FROM opportunity r "
-                       "WHERE o.procedure_identifier IS NOT NULL "
-                       "AND r.procedure_identifier = o.procedure_identifier "
-                       "AND r.source_id = o.source_id AND r.status = o.status AND r.id <> o.id "
-                       "AND (coalesce(r.published_at, 'epoch'::date), r.id) "
-                       "> (coalesce(o.published_at, 'epoch'::date), o.id) AND "
-                       + " AND ".join(rep_where) + ")")
-    clause = (" WHERE " + " AND ".join(where) + " AND " + not_collapsed
-              + " AND " + not_rectified + " AND " + not_republished)
+    clause = (" WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where))
     args = params + params + params + params
 
     order = tender_order(sort, status, eff)
@@ -632,7 +723,8 @@ def list_tenders(
             f"SELECT count(*) AS n FROM opportunity o{clause}", args).fetchone()["n"]
     from .stats import cached_last_run  # stats imports this module
 
-    return {"items": _present(conn, rows), "total": total, "page": page, "pageSize": pageSize,
+    return {"items": _present(conn, rows, checked=with_meta is True), "total": total,
+            "page": page, "pageSize": pageSize,
             "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None}}
 
 
@@ -666,7 +758,7 @@ def get_tender(slug: str, conn=Depends(get_conn)):
     row = conn.execute(f"{TENDER_SELECT} WHERE o.id = %s AND o.is_defence", (tender_id,)).fetchone()
     if not row:
         raise HTTPException(404, "no such tender")
-    return _present(conn, [row])[0]
+    return _present(conn, [row], checked=True)[0]
 
 
 # What the timeline may say about a changed field. An allow-list with a label each:
@@ -910,8 +1002,31 @@ AGGREGATE = f"""
 """
 
 
+def aggregate_sql() -> str:
+    """The buyer aggregate (`org_id`, `n`, `open_n`, `last_published`) with `open_n` counted
+    as the buyer's own list counts it: the same status rule, and the same collapse (a national
+    notice and its TED twin, a rectificatif and its parent, a re-publication: one each). 201
+    against 169 listed on 14 October 2026. Two aggregates, so that the one over every core
+    notice stays free of sub-queries (they hold a scan back from running in parallel) and the
+    collapse is tested only on the few hundred notices that are open."""
+    eff = _api().EFFECTIVE_STATUS_SQL
+    where = ["o.is_defence = TRUE", CORE, f"{eff} = 'open'"]
+    return f"""
+    SELECT t.org_id, t.n, COALESCE(op.open_n, 0) AS open_n, t.last_published
+      FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n, max(o.published_at) AS last_published
+              FROM opportunity o
+             WHERE o.is_defence AND {CORE} AND o.buyer_org_id IS NOT NULL
+             GROUP BY o.buyer_org_id) t
+      LEFT JOIN (SELECT o.buyer_org_id AS org_id, count(*) AS open_n
+                   FROM opportunity o
+                  WHERE {" AND ".join(where)} AND o.buyer_org_id IS NOT NULL
+                    AND {collapse_clauses(where, same_buyer=True)}
+                  GROUP BY o.buyer_org_id) op ON op.org_id = t.org_id
+    """
+
+
 def _buyer(r: dict[str, Any], names: dict[int, str]) -> dict[str, Any]:
-    name = names.get(r["id"]) or redact_emails(r["canonical_name"])
+    name = names.get(r["id"]) or clean_buyer_name(r["canonical_name"])
     return {
         "id": str(r["id"]), "slug": make_slug(r["id"], name), "name": name,
         "country": (r.get("country") or None),
@@ -932,7 +1047,7 @@ def list_buyers(
     pageSize: int = Query(20, ge=1, le=100),
     conn=Depends(get_conn),
 ):
-    agg = AGGREGATE.format(eff=_api().EFFECTIVE_STATUS_SQL)
+    agg = aggregate_sql()
     where: list[str] = []
     params: list[Any] = []
     text = (q or "").replace("\x00", "").strip()
@@ -968,7 +1083,7 @@ def list_buyers(
 
 @router.get("/v1/buyers/slugs")
 def buyer_slugs(conn=Depends(get_conn)):
-    agg = AGGREGATE.format(eff=_api().EFFECTIVE_STATUS_SQL)
+    agg = aggregate_sql()
     rows = conn.execute(
         f"""SELECT org.id, org.canonical_name, a.last_published
               FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
@@ -982,7 +1097,7 @@ def buyer_slugs(conn=Depends(get_conn)):
 @router.get("/v1/buyers/{slug}", response_model=Buyer)
 def get_buyer(slug: str, conn=Depends(get_conn)):
     org_id = _id_of(slug, "buyer")
-    agg = AGGREGATE.format(eff=_api().EFFECTIVE_STATUS_SQL)
+    agg = aggregate_sql()
     row = conn.execute(
         f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
                    a.n, a.open_n, a.last_published

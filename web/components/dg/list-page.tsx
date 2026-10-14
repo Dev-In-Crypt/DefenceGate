@@ -11,13 +11,15 @@ import { SortSelect } from '../funding/filter-panel';
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], children,
+  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], children,
 }: {
   crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
   /** Rendered under the filters (the save-search island). */
   filterExtra?: React.ReactNode;
   /** The CSV of the current result; shown under the filters when there are results. */
   exportHref?: string;
+  /** The status filter of that result (it sets the file's row cap). */
+  exportStatus?: string;
   noun: string; page: number; pageSize: number; total: number;
   sort: { value: string; options: { value: string; label: string }[] };
   clearHref: string; emptyTitle: string; emptyText: string; hrefFor: (page: number) => string;
@@ -43,7 +45,7 @@ export function ListPage({
         {filterExtra || (exportHref && total > 0) ? (
           <div className="flex min-w-0 flex-col gap-4">
             {filterBar}{filterExtra}
-            {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" />}
+            {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" total={total} status={exportStatus} />}
           </div>
         ) : filterBar}
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
@@ -62,7 +64,7 @@ export function ListPage({
           <Pagination page={page} total={total} pageSize={pageSize} hrefFor={hrefFor} />
           {footnote && <p className="m-0 text-small text-ink-muted">{footnote}</p>}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" />}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" total={total} status={exportStatus} />}
         </section>
       </div>
     </>
