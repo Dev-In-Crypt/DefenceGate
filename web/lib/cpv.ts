@@ -53,7 +53,9 @@ export function cpvGroupName(group: string): string | null {
   const own = cpvGroupTitle(group);
   if (own) return own;
   const division = cpvDivisionLabel(group);
-  return division ? `${division} (division)` : null;
+  // The group's own title is not in the selection we hold; say what we know (its division) and not that the
+  // group is the division (site-qa2:N10: "Construction work (division)" for group 452).
+  return division ? `${division}: group ${group}` : null;
 }
 
 /** `35121700` -> `351217`; `35000000` -> `35`. A 2- to 8-digit prefix is what the /tenders filter takes. */

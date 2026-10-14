@@ -12,6 +12,8 @@ export const EXPORT_CACHE_MAX = 30;
 export const EXPORT_MAX_RUNNING = 6;
 /** ... and more than this for one client: six slots held by one address refused everyone else (audit X-4). */
 export const EXPORT_PER_CLIENT = 2;
+/** Rows a CSV holds at most (the pages say so; lib/export.ts has the same number as EXPORT_CAP). */
+export const EXPORT_ROW_CAP = 2000;
 /** The widest export (`status=all`) holds at most this many rows; every other export keeps its own cap. */
 export const EXPORT_ALL_CAP = 1000;
 /** Seconds a refused client is told to wait. */

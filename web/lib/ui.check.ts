@@ -5,16 +5,17 @@
  */
 import assert from 'node:assert/strict';
 import { displayName, upperShare } from './display-name';
-import { basisChips, clearanceView, subcontractingView } from './tender-basis';
+import { basisChips, clearanceView, militaryCodeChip, subcontractingView } from './tender-basis';
 import { formatChangeValue } from './change-format';
-import { heldSpan, listUpdatedAt, minimumMet, sourceFreshness } from './source-status';
+import { gapSentence, heldSpan, listUpdatedAt, minimumMet, monthRanges, sourceFreshness } from './source-status';
 import { barLayout, daysText, monthLabel, niceMax, percentText, shareOf } from './market';
 import { cpvGroupName, cpvGroupTitle, cpvName } from './cpv';
 import { defaultTenderSort, ignoredFilters, isDay, lastPage, parseTenderFilters, toTenderQuery } from './filters';
 import { LANGUAGES, languageName, legalBasisLabel, procedureLabel } from './taxonomy';
-import { callStatusKind, getCallDeadline } from './deadline';
+import { callStatusKind, getCallDeadline, getDeadline } from './deadline';
 import { isPlaceholderAmount, repeatedCallBudgets } from './format';
-import { sourceStatusWord } from './tender-status';
+import { isLongRunning, sourceStatusWord } from './tender-status';
+import { truncationRow } from './csv';
 import { pageOf, resolveMonth, truncateTitle } from './calendar-view';
 import { ExportRunner, Gate, TtlCache, exportCap } from './export-cache';
 
@@ -35,7 +36,12 @@ assert.equal(displayName('PHASE I SUPPLY'), 'Phase I supply');
 assert.equal(displayName('DOSTAWA I MONTAŻ'), 'Dostawa i montaż');                                // Polish "and" is not a numeral
 assert.equal(displayName('DIRECTION GENERALE DE L\'ARMEMENT', 'title'), 'Direction Generale de L\'Armement');
 assert.equal(displayName('F-35 SUSTAINMENT'), 'F-35 sustainment');
-assert.equal(displayName("2024-ESID-TLN-0046 - BNT - ASSISTANCE A MAITRISE D'OUVRAGE"), "2024-ESID-TLN-0046 - bnt - assistance a maitrise d'ouvrage");   // an identifier keeps its capitals
+// An identifier keeps its capitals, and so does a code between dashes; the stretch after a dash opens a sentence.
+// (Was "... - bnt - assistance a ..." until site-qa2: a code lower-cased, "round-1 defect 12".)
+assert.equal(displayName("2024-ESID-TLN-0046 - BNT - ASSISTANCE A MAITRISE D'OUVRAGE"), "2024-ESID-TLN-0046 - BNT - Assistance a maitrise d'ouvrage");
+assert.equal(displayName('EIC STEP Scale Up'), 'EIC STEP Scale Up');                                  // two acronyms in a cased title
+assert.equal(displayName('France - honey - FOURNITURE DE MIEL ET PATE A TARTINER CACAO'), 'France - honey - Fourniture de miel et pate a tartiner cacao');
+assert.equal(displayName('EIC STEP SCALE UP'), 'EIC step scale up');                                 // all capitals: the known acronym stays
 assert.equal(displayName('AMOA_MAYOTTE_LIIC'), 'AMOA_MAYOTTE_LIIC');                            // a file-like name is left as published
 assert.equal(displayName(''), '');
 assert.ok(upperShare('ABC def') > 0.4 && upperShare('ABC def') < 0.6);
@@ -180,7 +186,7 @@ assert.deepEqual(
 assert.deepEqual(cpvName('50640000'), { label: 'Repair and maintenance services of warships', exact: true });
 assert.deepEqual(cpvName('79710000'), { label: 'Business services: law, marketing, consulting, recruitment, printing and security', exact: false });
 assert.equal(cpvName('99999999'), null);
-assert.equal(cpvGroupName('452'), 'Construction work (division)');
+assert.equal(cpvGroupName('452'), 'Construction work: group 452');
 assert.equal(cpvGroupName('351'), 'Emergency and security equipment');
 assert.equal(cpvGroupName('999'), null);
 assert.equal(legalBasisLabel('32009L0081'), 'Directive 2009/81/EC (defence and security procurement)');
@@ -274,6 +280,36 @@ assert.equal(heldSpan('not a date', null), null);
 assert.equal(cpvGroupTitle('351'), 'Emergency and security equipment');
 assert.equal(cpvGroupTitle('999'), null);                            // a group we do not hold: the code is shown alone
 assert.equal(cpvGroupTitle('35'), null);
+
+// ---- Site QA round 2 (14 October 2026): WP-7 ----
+// N2: what qualified the notice names the code, or says the buyer did
+assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32014L0024', qualifiedBy: ['military_cpv'], militaryCpv: ['35811300'], cpvCodes: ['39162100', '35811300', '30192000'] }),
+  ['Military product code (CPV 35811300, among 3 codes)']);
+assert.deepEqual(basisChips({ scope: 'core', buyerClass: 'education', qualifiedBy: ['buyer'], militaryCpv: [] }), ['Supplies to a defence buyer', 'Education body']);
+assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32009L0081', qualifiedBy: ['legal_basis', 'military_cpv'], militaryCpv: ['35400000'] }), ['Defence and security directive (2009/81/EC)']);
+assert.equal(militaryCodeChip(['35400000'], ['35400000']), 'Military product code (CPV 35400000)');
+assert.equal(militaryCodeChip(['1', '2', '3', '4', '5'], null), 'Military product code (CPV 1, 2, 3 and 2 more)');
+// N13: a notice that closes today does not "close this week"
+const noonToday = new Date('2026-10-14T09:00:00Z');
+assert.equal(getDeadline('2026-10-14T12:00:00Z', noonToday).label, 'Closes today');
+assert.equal(getDeadline('2026-10-16T12:00:00Z', noonToday).label, 'Closes this week');
+// N7: a deadline more than three years ahead is a long-running notice
+assert.equal(isLongRunning({ anomalies: ['deadline-more-than-3y'] }), true);
+assert.equal(isLongRunning({ anomalies: [] }), false);
+assert.equal(isLongRunning({}), false);
+// N8: a file that holds fewer rows than match says so in its last row; a whole result says nothing
+assert.equal(truncationRow(4, 2000, 2000, 2000), null);
+const cut = truncationRow(4, 2000, 61521, 2000);
+assert.ok(cut && cut.length === 4 && String(cut[0]).startsWith('# Not the whole result') && String(cut[0]).includes('61,521'));
+// N6: the holes of a source come from its monthly counts
+assert.deepEqual(monthRanges(['2026-05', '2026-06', '2026-07', '2026-12', '2027-01']), ['May to Jul 2026', 'Dec 2026 to Jan 2027']);
+assert.deepEqual(monthRanges(['x', '2026-13']), []);
+assert.equal(
+  gapSentence({ name: 'Poland (e-Zamówienia)', heldFrom: '2026-01-02', heldTo: '2026-10-12', monthlyMedian: 1100, gapMonths: ['2026-02', '2026-03'] }),
+  'Poland (e-Zamówienia): publication dates 2 Jan 2026 to 12 Oct 2026. The usual month holds about 1,100 notices. Months with fewer than half of that: Feb to Mar 2026.',
+);
+assert.equal(gapSentence({ name: 'TED', heldFrom: '2026-01-02', heldTo: '2026-10-12', gapMonths: undefined }), null);
+assert.match(gapSentence({ name: 'TED', heldFrom: '2026-01-02', heldTo: '2026-10-12', monthlyMedian: 900, gapMonths: [] }) ?? '', /No whole month/);
 
 async function runnerChecks(): Promise<void> {
   const runner = new ExportRunner<string>(new TtlCache(600_000, 30), new Gate(2));

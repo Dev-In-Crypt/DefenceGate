@@ -129,7 +129,10 @@ export default async function MarketPage() {
             Coverage differs by country and over time. Each source starts on a different date and some countries publish only nationally, so a country with fewer notices is not necessarily one that buys less.
             See <Link href="/data" className={LINK}>source status</Link> for what each source covers and from when.
           </li>
-          <li>A rise in one month can be a source added or a backlog loaded, not more procurement.</li>
+          <li>
+            A rise or a fall in one month can be a source added, a backlog loaded or a source that ends, not more or less procurement.
+            The national bars drop after December 2025 because the Polish Atlas dataset (January 2024 to December 2025) is a one-off load, not a live portal.
+          </li>
           <li>
             The share with an amendment follows the notice page: a later version that changed something other than the publication date. It is counted only from the date we first saw each notice, so it is a floor that cannot be compared with earlier years.
             A correction published as a separate notice is not counted. How notices are collected and classified is in the <Link href="/methodology" className={LINK}>methodology</Link>.

@@ -7,13 +7,14 @@ import {
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
 import { listUpdatedAt } from '@/lib/source-status';
+import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
 import { ListPage } from '@/components/dg/list-page';
 import { TenderFilterBar } from '@/components/tenders/filter-bars';
 import { SaveSearch } from '@/components/account/save-search';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 const SORT_OPTIONS = [
   { value: 'deadline-asc', label: 'Deadline, soonest first' },
@@ -57,7 +58,9 @@ export default async function TendersPage({ searchParams }: Props) {
       meta={`${tenderSources} tender sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" />}
       filterExtra={<SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
-      exportHref={`/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}
+      // Every status and scope with nothing to narrow them is refused by the export (400): no link to a refusal.
+      exportHref={tooBroad(filters) ? undefined : `/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}
+      exportStatus={filters.status}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: SORT_OPTIONS }}
       notices={ignoredFilters(sp, 'tenders')}

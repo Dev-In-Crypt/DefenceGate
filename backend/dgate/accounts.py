@@ -822,12 +822,11 @@ def _calls_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
 
 def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
-    from . import api
-    from .tenders import AGGREGATE, _buyer, _buyer_names
+    from .tenders import _buyer, _buyer_names, aggregate_sql
 
     if not ids:
         return {}
-    agg = AGGREGATE.format(eff=api.EFFECTIVE_STATUS_SQL)
+    agg = aggregate_sql()
     rows = conn.execute(
         f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
                    a.n, a.open_n, a.last_published

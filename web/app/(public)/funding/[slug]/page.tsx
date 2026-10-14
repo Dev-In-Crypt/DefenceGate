@@ -20,7 +20,7 @@ import { CallCard } from '@/components/dg/cards';
 import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
-export const revalidate = 3600;
+export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
 const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
@@ -38,7 +38,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `Source: ${call.source.sourceName}.`,
   ].filter(Boolean).join(' ');
   return buildMetadata({
-    title: `${displayName(call.title)} (${call.topicId})`,
+    // The topic id is a Horizon-style identifier only where the call has a call id; elsewhere it falls back to the
+    // source's own key ("[aid] 12345"), which is not a title (site-qa2:N12: 27 calls).
+    title: call.callId ? `${displayName(call.title)} (${call.topicId})` : displayName(call.title),
     description,
     path: `/funding/${call.slug}`,
     noindex: !meetsMinimumContent(call),

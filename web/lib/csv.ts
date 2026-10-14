@@ -18,6 +18,18 @@ export function toCsv(header: string[], rows: Cell[][]): string {
   return `﻿${[header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')}\r\n`;
 }
 
+/**
+ * The last row of a file that holds fewer rows than match (`total` over `cap`): one cell that says so, padded to the
+ * header's width. A reader of the file alone would otherwise take 2,000 of 61,521 rows for the whole result
+ * (site-qa2:N8; the row count was only in response headers). null when nothing was cut.
+ */
+export function truncationRow(width: number, rows: number, total: number, cap: number): Cell[] | null {
+  if (total <= cap) return null;
+  const say = (n: number) => n.toLocaleString('en-GB');
+  return [`# Not the whole result: this file holds the first ${say(rows)} of ${say(total)} matching rows (limit ${say(cap)}). Narrow the filters to get the rest.`,
+    ...Array.from({ length: Math.max(0, width - 1) }, () => '')];
+}
+
 /** A midnight timestamp is a date: a source that gives only a date arrives as 00:00 UTC. */
 export const isMidnight = (iso: string): boolean => /T00:00:00(\.0+)?(Z|\+00:00)$/.test(iso);
 

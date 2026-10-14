@@ -18,6 +18,7 @@ export const config = {
   matcher: ['/((?!_next/|api/|brand/|auth/|.*\\..*).*)'],
 };
 
+const LIST_PATHS = new Set(['/tenders', '/funding', '/buyers']);
 const AUTOMATED = /bot|crawl|spider|slurp|curl|wget|python|headless|monitor|preview|fetch|scan|check/i;
 const MOBILE = /mobi|android|iphone|ipad/i;
 
@@ -62,6 +63,14 @@ export function middleware(request: NextRequest, event: NextFetchEvent) {
       lastFlush = now;
       flush(api, event);
     }
+  }
+  // A list request past page 1 carries its query to the list layouts (lib/list-bounds.ts), which answer a page past
+  // the end with a 308 before anything streams. The header is only ever read to build that redirect.
+  const { pathname, search } = request.nextUrl;
+  if (request.method === 'GET' && LIST_PATHS.has(pathname) && /[?&]page=(?:[2-9]|\d{2,})(?:&|$)/.test(search)) {
+    const forwarded = new Headers(request.headers);
+    forwarded.set('x-dg-search', search.slice(1));
+    return NextResponse.next({ request: { headers: forwarded } });
   }
   return NextResponse.next();
 }

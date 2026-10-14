@@ -65,8 +65,11 @@ SOURCE_TEXT_SOURCES = {"eu_portal", "se_vinnova"}
 # while the portal showed it open).
 ROLLING_MODELS = "('continuous', 'rolling', 'multiple cut-off')"
 
+# A call that has not opened (`forthcoming`) and whose deadline has passed never opens
+# (7 of 32 "Opens soon" on 14 October 2026): it is closed here, in the one place the web, the
+# API and the CSV read it from, not worked out again by each.
 EFFECTIVE_STATUS = f"""(CASE
-    WHEN c.status = 'open' AND c.deadline_at < now()
+    WHEN c.status IN ('open', 'forthcoming') AND c.deadline_at < now()
          AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '')
              NOT IN {ROLLING_MODELS} THEN 'closed'
     WHEN c.status = 'evaluated' OR c.status IS NULL THEN 'closed'
@@ -88,6 +91,9 @@ class SourceAttribution(BaseModel):
     sourceName: str
     url: str | None
     retrievedAt: datetime
+    # When the source's collection run that holds this record last finished (tenders only):
+    # `retrievedAt` is when the notice last CHANGED, this is when we last looked at the source.
+    checkedAt: datetime | None = None
     licence: str
     attribution: str
 
@@ -201,6 +207,10 @@ class SourceHealth(BaseModel):
     heldFrom: date | None = None
     heldTo: date | None = None
     heldCount: int | None = None
+    # Of a tender source: the usual notices per month (median) and the months, as
+    # `YYYY-MM`, well below it (stats.month_gaps). Null where it was not worked out.
+    monthlyMedian: int | None = None
+    gapMonths: list[str] | None = None
 
 
 class Health(BaseModel):

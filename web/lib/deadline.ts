@@ -96,7 +96,8 @@ export function getDeadline(deadline: IsoDateTime | null, ref: Date = now()): De
     iso: deadline, days, state,
     utc: deadline === null ? '' : formatDateTimeUtc(deadline),
     countdown: countdownLabel(days),
-    label: stateLabel(state),
+    // "Closes this week" is wrong for a notice that closes today (site-qa2:N13).
+    label: days === 0 ? 'Closes today' : stateLabel(state),
   };
 }
 

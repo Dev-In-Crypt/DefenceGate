@@ -7,7 +7,7 @@ import { buildMetadata } from '@/lib/seo';
 import { CallListTemplate, type EntryChip } from '@/components/funding/call-list-template';
 import { SaveSearch } from '@/components/account/save-search';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 const CALENDAR_LIMIT = 500;
 
 // Entry chips are filter links on this page (the filter values are the API's codes); there are no per-filter hub pages.

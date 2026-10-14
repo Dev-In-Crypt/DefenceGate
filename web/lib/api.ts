@@ -25,8 +25,18 @@ if (!API_BASE && process.env.NODE_ENV === 'production' && process.env.DG_USE_MOC
       'network); set DG_USE_MOCK=1 only to build a demo with invented data.',
   );
 }
-/** Data is collected daily; an hour of ISR keeps countdowns fresh. */
+/** Detail pages, slugs and statistics: data is collected daily; an hour of ISR is plenty. */
 export const REVALIDATE_SECONDS = 3600;
+/**
+ * The default lists, the home counters and the source status. They carry counts and "closing soon" cards that
+ * move when a deadline passes (336 shown against 313 live, cards closed at 12:00 still "Closing soon" at 12:15:
+ * site-qa2:N1), so they are as fresh as the API's own list cache (60 s, DGATE_LIST_CACHE_SECONDS) and the pages
+ * that read them revalidate at the same rate (`export const revalidate = 60`). Statuses and countdowns are
+ * computed at render time from the deadline (lib/deadline.ts), never kept in the payload.
+ */
+export const LIST_REVALIDATE_SECONDS = 60;
+/** One call, notice or buyer: its pages revalidate at this rate too. */
+export const DETAIL_REVALIDATE_SECONDS = 300;
 const RELATED_LIMIT = 3;
 /** A call, tender or buyer slug is "<id>-<words>"; anything else cannot be one and never reaches the API. */
 const CALL_SLUG_RE = /^[0-9]{1,9}(-[a-z0-9-]{0,80})?$/;
@@ -62,17 +72,17 @@ async function visitorHeaders(): Promise<Record<string, string>> {
   }
 }
 
-async function http<T>(path: string, mode: CacheMode = 'revalidate'): Promise<T | null> {
+async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { accept: 'application/json', ...(mode === 'no-store' ? await visitorHeaders() : {}) },
-    ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: REVALIDATE_SECONDS } }),
+    ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: seconds } }),
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
   return (await res.json()) as T;
 }
-async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate'): Promise<T> {
-  const r = await http<T>(path, mode);
+async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T> {
+  const r = await http<T>(path, mode, seconds);
   if (r === null) throw new ApiError(404, `GET ${path} returned 404`);
   return r;
 }
@@ -93,7 +103,7 @@ export async function getCalls(filters: CallFilters = {}, opts: { cacheable?: bo
   if (API_BASE) {
     // `fresh`: a CSV export reads every page live, so page 1 is not an hour older than page 2.
     const shared = opts.fresh !== true && (opts.cacheable === true || toQuery(filters) === '');
-    return httpOrThrow<Paginated<Call>>(`/v1/funding${fundingQuery(filters)}`, shared ? 'revalidate' : 'no-store');
+    return httpOrThrow<Paginated<Call>>(`/v1/funding${fundingQuery(filters)}`, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
   }
   return callsMock.queryCalls(filters);
 }
@@ -101,7 +111,7 @@ export async function getCalls(filters: CallFilters = {}, opts: { cacheable?: bo
 /** `slug` is "<id>-<words>"; the API looks up the leading id only. Callers redirect when the returned slug differs. */
 export async function getCall(slug: string): Promise<Call | null> {
   if (!isCallSlug(slug)) return null;
-  if (API_BASE) return http<Call>(`/v1/funding/${encodeURIComponent(slug)}`);
+  if (API_BASE) return http<Call>(`/v1/funding/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
   return callsMock.findCall(slug);
 }
 
@@ -110,7 +120,9 @@ export async function getRelatedCalls(call: Call): Promise<Call[]> {
   const { items } = await getCalls({ status: 'open', pageSize: 50 });
   const others = items.filter((c) => c.id !== call.id);
   const score = (c: Call) => (c.programme === call.programme ? 2 : 0) + (c.funderCountry === call.funderCountry ? 1 : 0);
-  return others.sort((a, b) => score(b) - score(a)).slice(0, RELATED_LIMIT);
+  // A call that shares neither the programme nor the funder country is not related (site-qa2:N15: a Polish, a
+  // Swedish and an EU call under a French one): fewer than three, or none, is the honest answer.
+  return others.filter((c) => score(c) > 0).sort((a, b) => score(b) - score(a)).slice(0, RELATED_LIMIT);
 }
 
 /** Slugs for the sitemap. */
@@ -139,7 +151,7 @@ export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?
   if (API_BASE) {
     // `fresh`: a CSV export reads every page live, so page 1 is not an hour older than page 2.
     const shared = opts.fresh !== true && (opts.cacheable === true || toTenderQuery(filters) === '');
-    return httpOrThrow<Paginated<Tender>>(`/v1/tenders${tendersQuery(filters)}`, shared ? 'revalidate' : 'no-store');
+    return httpOrThrow<Paginated<Tender>>(`/v1/tenders${tendersQuery(filters)}`, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
   }
   return tenderMock.queryTenders(filters);
 }
@@ -147,14 +159,14 @@ export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?
 /** `slug` is "<id>-<words>"; the API looks up the leading id only. Callers redirect when the returned slug differs. */
 export async function getTender(slug: string): Promise<Tender | null> {
   if (!isTenderSlug(slug)) return null;
-  if (API_BASE) return http<Tender>(`/v1/tenders/${encodeURIComponent(slug)}`);
+  if (API_BASE) return http<Tender>(`/v1/tenders/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
   return tenderMock.findTender(slug);
 }
 
 /** The archive of one notice, newest first. */
 export async function getTenderVersions(slug: string): Promise<TenderVersion[]> {
   if (!isTenderSlug(slug)) return [];
-  if (API_BASE) return (await http<TenderVersion[]>(`/v1/tenders/${encodeURIComponent(slug)}/versions`)) ?? [];
+  if (API_BASE) return (await http<TenderVersion[]>(`/v1/tenders/${encodeURIComponent(slug)}/versions`, 'revalidate', DETAIL_REVALIDATE_SECONDS)) ?? [];
   return tenderMock.tenderVersions(slug) ?? [];
 }
 
@@ -172,14 +184,14 @@ function buyersQuery(f: BuyerFilters): string {
 
 export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<Buyer>> {
   if (API_BASE) {
-    return httpOrThrow<Paginated<Buyer>>(`/v1/buyers${buyersQuery(filters)}`, toBuyerQuery(filters) === '' ? 'revalidate' : 'no-store');
+    return httpOrThrow<Paginated<Buyer>>(`/v1/buyers${buyersQuery(filters)}`, toBuyerQuery(filters) === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
   }
   return tenderMock.queryBuyers(filters);
 }
 
 export async function getBuyer(slug: string): Promise<Buyer | null> {
   if (!isBuyerSlug(slug)) return null;
-  if (API_BASE) return http<Buyer>(`/v1/buyers/${encodeURIComponent(slug)}`);
+  if (API_BASE) return http<Buyer>(`/v1/buyers/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
   return tenderMock.findBuyer(slug);
 }
 
@@ -213,7 +225,7 @@ export async function getAllBuyerSlugs(): Promise<{ slug: string; updatedAt: str
 
 /** Source list with run status: GET /v1/sources (the design's Health). */
 export async function getHealth(): Promise<Health> {
-  if (API_BASE) return httpOrThrow<Health>('/v1/sources');
+  if (API_BASE) return httpOrThrow<Health>('/v1/sources', 'revalidate', LIST_REVALIDATE_SECONDS);
   return sourcesMock.health();
 }
 

@@ -57,6 +57,40 @@ export function minimumMet(coverage: number | null): string {
 }
 
 /**
+ * Months (`YYYY-MM`, any order) as ranges a person reads: ["2026-05","2026-06","2026-07","2026-12"] becomes
+ * ["May to Jul 2026", "Dec 2026"]. Anything that is not a month is dropped.
+ */
+export function monthRanges(months: readonly string[]): string[] {
+  const keys = [...new Set(months.filter((m) => /^\d{4}-(0[1-9]|1[0-2])$/.test(m)))].sort();
+  const out: string[] = [];
+  const index = (k: string) => Number(k.slice(0, 4)) * 12 + Number(k.slice(5, 7)) - 1;
+  const say = (k: string, withYear: boolean) => `${MONTHS[Number(k.slice(5, 7)) - 1]}${withYear ? ` ${k.slice(0, 4)}` : ''}`;
+  for (let i = 0; i < keys.length;) {
+    let j = i;
+    while (j + 1 < keys.length && index(keys[j + 1]) === index(keys[j]) + 1) j += 1;
+    const from = keys[i];
+    const to = keys[j];
+    if (i === j) out.push(say(from, true));
+    else out.push(from.slice(0, 4) === to.slice(0, 4) ? `${say(from, false)} to ${say(to, true)}` : `${say(from, true)} to ${say(to, true)}`);
+    i = j + 1;
+  }
+  return out;
+}
+
+/**
+ * What /data says about the holes of one tender source, worked out from the counts the API sends and not written
+ * by hand (site-qa2:N6: a hand-written list said Poland's May to August 2026 were not held when 951 to 1,253
+ * notices a month are). null when the API did not send the figures.
+ */
+export function gapSentence(s: { name: string; heldFrom?: string | null; heldTo?: string | null; monthlyMedian?: number | null; gapMonths?: string[] | null }): string | null {
+  const span = heldSpan(s.heldFrom, s.heldTo);
+  if (!span || s.gapMonths === undefined || s.gapMonths === null) return null;
+  const usual = s.monthlyMedian ? ` The usual month holds about ${s.monthlyMedian.toLocaleString('en-GB')} notices.` : '';
+  if (s.gapMonths.length === 0) return `${s.name}: publication dates ${span}.${usual} No whole month between the first and the last is below half of that.`;
+  return `${s.name}: publication dates ${span}.${usual} Months with fewer than half of that: ${monthRanges(s.gapMonths).join(', ')}.`;
+}
+
+/**
  * "3 Nov 2020 to 12 Oct 2026": the span of publication dates we hold for a source, so that a gap (a bulletin
  * that starts in 2020) is visible. Dates arrive as YYYY-MM-DD. null when the source gives no publication date.
  */

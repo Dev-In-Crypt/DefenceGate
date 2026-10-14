@@ -326,3 +326,24 @@ All additive. A response gained fields; none was removed or renamed.
 
 **Status of other endpoints.** `/v1/opportunities` applies the same status rule
 (`status` there is the effective status; `status=expired` includes a superseded notice).
+
+## Changes of 14 October 2026 (site QA round 2, WP-7)
+
+- `Tender.source.retrievedAt` is when the SOURCE last changed the notice, as we saw it: the
+  newest version that is an amendment (not a `reread`, `out_of_order` or `remapped` version,
+  and not one that only moved the publication date). It was the newest observation of any
+  kind, which is our own reprocessing. New: `source.checkedAt`, when the source's newest
+  successful or partial collection run finished (null for a call).
+- New `Tender.qualifiedBy` (`legal_basis`, `military_cpv`, `buyer`) and `Tender.militaryCpv`
+  (the notice's codes that are military). `buyer` means the notice would be demoted as dual-use
+  without its buyer being on the defence list; a page must not call that a military product code.
+- `Buyer.openCount` applies the list's own status rule and collapse (a national notice and its
+  TED twin, a rectificatif and its parent, a re-publication count once): it equals the `total`
+  of `/v1/tenders?buyer=<id>&status=open`. `tenderCount` still counts every core notice.
+- `Buyer`/`Tender` names: a trailing `_<digits>` after a letter (the Irish eTenders buyer id
+  TED carries) is dropped when served; the stored name is unchanged.
+- `/v1/funding`: a call stored `forthcoming` whose deadline has passed is `closed` (it never
+  opened), so `status=forthcoming` and the web agree. A rolling call is unchanged.
+- `SourceHealth.monthlyMedian` and `gapMonths` (`YYYY-MM`): of a tender source, the usual
+  notices per month (median of the whole months between its first and last) and the months
+  with fewer than half of that. Absent where the read did not finish in the API's budget.

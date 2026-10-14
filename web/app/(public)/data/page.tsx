@@ -4,7 +4,7 @@ import { now } from '@/lib/deadline';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata } from '@/lib/seo';
-import { heldSpan, minimumMet, sourceFreshness, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
+import { gapSentence, heldSpan, minimumMet, sourceFreshness, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
 import type { SourceHealth, SourceType } from '@/lib/types';
 import { ClauseList } from '@/components/dg/blocks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/dg/feedback';
 import { RunStatusPill } from '@/components/dg/tag';
 import { Button } from '@/components/dg/button';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Source status',
@@ -109,15 +109,16 @@ export default async function DataPage() {
       )}
 
       <ContentSection title="Known gaps">
-        <p className="m-0 text-body text-ink-muted">As of 13 October 2026. The span of publication dates in a card above shows where a source starts; it does not show holes inside it.</p>
+        <p className="m-0 text-body text-ink-muted">
+          The per-source lines are worked out from what we hold on <time dateTime={health.generatedAt}>{formatDateTimeUtc(health.generatedAt)}</time>, month by month,
+          and change as the history loads. The first and the last month of a source are left out (they are partial). The rest do not change with the date.
+        </p>
         <ClauseList items={[
           'National tender portals are collected for four countries only: Spain (PLACSP), France (BOAMP), the Netherlands (TenderNed) and Poland (e-Zamówienia). For every other country, Germany, Italy and the Nordic and Baltic countries among them, we hold only what TED carries.',
           'TED: notices published before 2025 have not been re-checked with the current classification rules, so older ones may be mislabelled or missing.',
-          'Spain (PLACSP): the earlier history is being loaded from the portal’s monthly archives, and most of what we hold is from August 2026 on.',
-          'Poland (e-Zamówienia): the history is being loaded and has holes. January to April and September to October 2026 are held, May to August 2026 are not yet, and nothing before January 2026 is held.',
-          'Poland (Atlas): a one-off research dataset covering January 2024 to December 2025, not a live portal.',
-          'The Netherlands (TenderNed): notices from January 2026 on.',
+          'Poland (Atlas): a one-off research dataset, not a live portal. It stops where its dates stop, and the national counts fall there.',
           'Germany: federal funding announcements are not collected automatically. They can be added by hand, so a German call may be missing.',
+          ...health.sources.filter((s) => s.type === 'tenders').map((s) => gapSentence(s)).filter((t): t is string => t !== null),
         ]} />
       </ContentSection>
 

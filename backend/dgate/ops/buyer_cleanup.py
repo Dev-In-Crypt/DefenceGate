@@ -36,6 +36,16 @@ deleted, no archived version is touched, and no merge is undone.
     python -m dgate.ops.buyer_cleanup --yes               # steps 1 and 2
     python -m dgate.ops.buyer_cleanup --yes --merge-conflicting
 
+4. **A ministry that changed its name** (site-qa2:N9), same tool, same safeguards. The French
+   Ministry of Defence (MINDEF) became the Ministry of the Armed Forces (MINARM); BOAMP
+   notices still say either, so one unit was two buyers: 47 of the 800 largest buyers on
+   14 October 2026. A live organisation named `mindef <path>` is merged (method
+   `ministry_rename`, confidence 0.90) into the live `minarm <path>` of the same country when
+   there is exactly one, the two registered numbers do not contradict, and the survivor is
+   not a shared-identifier holder (step 3). Several candidates (three `minarm dga do s2a`
+   with other establishment numbers), none, or a different number: left as they are and
+   listed, because a number is a body's own and the name alone does not decide which one.
+
 Run `python -m dgate.reprocess --reclassify-serving --yes` afterwards: the serving rows read
 the flag, the merge and the buyer class from the organisation they point at.
 """
@@ -60,6 +70,25 @@ log = logging.getLogger("buyer_cleanup")
 METHOD_MERGE = "namesake_flagged"
 CONF_MERGE = 0.95
 DETECTED_BY = "buyer_cleanup"
+
+# The renames of a ministry's short name, per country: {country: {old: new}}. A path
+# after the name ("mindef dga do s2a") must be equal on both sides.
+MINISTRY_RENAMES = {"FR": {"mindef": "minarm"}}
+METHOD_RENAME = "ministry_rename"
+CONF_RENAME = 0.90
+
+RENAME_SQL = """
+SELECT d.id AS did, d.canonical_name AS dname, d.national_reg_no AS dident,
+       a.id AS aid, a.national_reg_no AS aident,
+       (SELECT count(*) FROM opportunity o WHERE o.buyer_org_id = d.id) AS notices
+  FROM organisation d
+  LEFT JOIN organisation a
+         ON a.country = d.country AND a.merged_into IS NULL AND a.id <> d.id
+        AND a.canonical_name = %(new)s || substr(d.canonical_name, length(%(old)s) + 1)
+ WHERE d.merged_into IS NULL AND d.country = %(country)s
+   AND (d.canonical_name = %(old)s OR d.canonical_name LIKE %(old)s || ' %%')
+ ORDER BY d.id, a.id
+"""
 
 PLAN_SQL = """
 SELECT DISTINCT ON (u.id)
@@ -108,6 +137,65 @@ def affected_notices(conn, holder: dict[str, Any]) -> list[tuple[str, int]]:
     return [(r["buyer_name_raw"], r["n"]) for r in rows
             if not db.names_compatible(normalise_org_name(r["buyer_name_raw"] or ""),
                                        holder["name"])]
+
+
+# ------------------------------------------------------- 4. renamed ministry
+
+def rename_plan(conn, umbrellas: set[int] | None = None) -> list[dict[str, Any]]:
+    """One entry per live organisation that carries a retired ministry name: what to do
+    (`merge`, `ambiguous`, `distinct`, `none`, `umbrella`) and the candidates it was
+    decided from. Read only."""
+    umbrellas = umbrellas or set()
+    plan: list[dict[str, Any]] = []
+    for country, names in MINISTRY_RENAMES.items():
+        for old, new in names.items():
+            by_org: dict[int, dict[str, Any]] = {}
+            for r in conn.execute(RENAME_SQL, {"old": old, "new": new,
+                                               "country": country}).fetchall():
+                e = by_org.setdefault(r["did"], {
+                    "did": r["did"], "country": country, "name": r["dname"],
+                    "identifier": r["dident"], "notices": r["notices"], "candidates": []})
+                if r["aid"] is not None:
+                    e["candidates"].append({"id": r["aid"], "identifier": r["aident"]})
+            for e in by_org.values():
+                cands = e["candidates"]
+                fit = [c for c in cands if e["identifier"] is None or c["identifier"] is None
+                       or c["identifier"] == e["identifier"]]
+                if not cands:
+                    e["action"] = "none"
+                elif len(fit) > 1:
+                    e["action"] = "ambiguous"
+                elif not fit:
+                    e["action"] = "distinct"
+                elif fit[0]["id"] in umbrellas:
+                    e["action"] = "umbrella"
+                else:
+                    e["action"] = "merge"
+                    e["keep"] = fit[0]["id"]
+                plan.append(e)
+    return plan
+
+
+def apply_renames(conn, plan: list[dict[str, Any]]) -> dict[str, int]:
+    done = {"renamed_merged": 0, "renamed_notices_moved": 0, "renamed_failed": 0}
+    for e in plan:
+        if e["action"] != "merge":
+            continue
+        evidence = (f"{e['name']!r} in {e['country']}: the retired ministry name; "
+                    f"same path as organisation {e['keep']}")
+        try:
+            with conn.transaction():
+                moved = db.merge_organisations(
+                    conn, e["keep"], e["did"], method=METHOD_RENAME, confidence=CONF_RENAME,
+                    evidence=evidence, detected_by=DETECTED_BY)
+            conn.commit()
+            done["renamed_merged"] += 1
+            done["renamed_notices_moved"] += moved["notices"]
+        except Exception as exc:  # noqa: BLE001 - one organisation must not stop the rest
+            log.error("organisation %s not handled: %s", e["did"], exc)
+            conn.rollback()
+            done["renamed_failed"] += 1
+    return done
 
 
 # ------------------------------------------------------- 1. unflagged namesakes
@@ -231,6 +319,7 @@ def run(conn, *, apply: bool = False, merge_conflicting: bool = False, top: int 
     holders = shared_identifier_holders(conn)
     plan = namesake_plan(conn, merge_conflicting=merge_conflicting, umbrellas=set(holders))
     rejected = rejected_flags(conn)
+    renames = rename_plan(conn, umbrellas=set(holders))
 
     out("1. unflagged namesakes of flagged organisations")
     out(f"   {len(plan)} organisations: {sum(p['action'] == 'merge' for p in plan)} to merge, "
@@ -256,21 +345,37 @@ def run(conn, *, apply: bool = False, merge_conflicting: bool = False, top: int 
                              aid, aname, ""))
         for raw, n in wrong:
             rows_out.append((h["id"], h["name"], h["identifier"], "notice_name", "", raw, n))
+    out("4. a ministry that changed its name (retired name -> current name, same path)")
+    kinds = {k: sum(e["action"] == k for e in renames)
+             for k in ("merge", "ambiguous", "distinct", "umbrella", "none")}
+    out(f"   {len(renames)} organisations: {kinds['merge']} to merge, {kinds['ambiguous']} with "
+        f"several candidates, {kinds['distinct']} with another number, {kinds['umbrella']} "
+        f"whose candidate is a shared-identifier holder, {kinds['none']} with no current-name twin")
+    for e in sorted(renames, key=lambda e: -e["notices"])[:top]:
+        out(f"   {e['action']:>9}  {e['did']} -> {[c['id'] for c in e['candidates']]}  "
+            f"{e['name'][:60]!r}  {e['notices']} notices")
     if report_csv is not None:
         with report_csv.open("w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
             w.writerow(["holder_id", "holder_name", "identifier", "kind", "org_id",
                         "name", "notices"])
             w.writerows(rows_out)
+            w.writerow([])
+            w.writerow(["rename_org_id", "name", "action", "candidates", "notices"])
+            for e in renames:
+                w.writerow([e["did"], e["name"], e["action"],
+                            " ".join(str(c["id"]) for c in e["candidates"]), e["notices"]])
         out(f"   report written to {report_csv}")
 
     result = {"namesakes": len(plan), "rejected_flags": len(rejected),
-              "shared_identifier_holders": len(holders)}
+              "shared_identifier_holders": len(holders), "ministry_renames": kinds["merge"],
+              "ministry_renames_unresolved": len(renames) - kinds["merge"]}
     if not apply:
         out("dry run: nothing written (add --yes)")
         return result
     result.update(apply_namesakes(conn, plan, merge_conflicting=merge_conflicting))
     result["unflagged"] = unflag(conn, rejected)
+    result.update(apply_renames(conn, renames))
     out(f"applied: {result}")
     return result
 
@@ -281,7 +386,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--merge-conflicting", action="store_true",
                    help="also merge namesakes whose registered number differs")
     p.add_argument("--report-csv", type=Path, default=None,
-                   help="write the shared-identifier report (step 3) here")
+                   help="write the shared-identifier report (step 3) and the rename plan "
+                        "(step 4) here")
     p.add_argument("--top", type=int, default=12)
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

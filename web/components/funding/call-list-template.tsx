@@ -54,7 +54,7 @@ export function CallListTemplate({
       <header className="flex flex-col gap-3">
         <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{title}</h1>
         <p className="m-0 max-w-[62ch] text-body text-ink-muted">{intro}</p>
-        <p className="m-0 font-mono text-mono text-ink-muted">{health.sources.length} sources{updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}</p>
+        <p className="m-0 font-mono text-mono text-ink-muted">{health.sources.filter((s) => s.type === 'grants').length} funding sources{updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}</p>
       </header>
 
       {chips.length > 0 && (
@@ -74,7 +74,7 @@ export function CallListTemplate({
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} />
           {saveSearch}
-          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" />}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" total={result.total} status={filters.status} />}
         </div>
 
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
@@ -112,7 +112,7 @@ export function CallListTemplate({
               hrefFor={(p) => `${basePath}${toQuery({ ...filters, page: p })}`} />
           )}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="lg:hidden" />}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="lg:hidden" total={result.total} status={filters.status} />}
         </section>
       </div>
     </>

@@ -51,13 +51,13 @@
 	@post method POST
 	header @post Cache-Control "no-store"
 
-	# RFC 9116. The contact is the operator's to provide (docs/legal): until then it says so
-	# and names no address, which is better than a guessed one.
+	# RFC 9116. `Contact` has to be a URI: the imprint page is where the operator's details go
+	# (docs/legal), so that is the contact until they are there. No address is guessed.
 	handle /.well-known/security.txt {
 		header Content-Type "text/plain; charset=utf-8"
 		header Cache-Control "public, max-age=86400"
 		respond <<TXT
-			Contact: to be provided by the operator
+			Contact: https://{$DGATE_DOMAIN:localhost}/imprint
 			Expires: 2027-04-14T00:00:00.000Z
 			Preferred-Languages: en
 			Canonical: https://{$DGATE_DOMAIN:localhost}/.well-known/security.txt
@@ -70,6 +70,8 @@
 	@public path /v1/funding /v1/funding/* /v1/opportunities /v1/opportunities/* /v1/calls /v1/calls/* /v1/tenders /v1/tenders/* /v1/buyers /v1/buyers/* /v1/stats/market /v1/sources /v1/health /v1/organisations/resolve
 	handle @public {
 		reverse_proxy api:8000 {
+			# The proxy's own `Via: 1.1 Caddy` is not for clients (site-qa2:N16).
+			header_down -Via
 			transport http {
 				dial_timeout 5s
 				response_header_timeout 20s
@@ -88,6 +90,10 @@
 	# resolves web:3000 per request, so it can start first and answers 502 meanwhile.
 	handle {
 		reverse_proxy web:3000 {
+			# Neither the proxy's `Via` nor the framework's cache and prerender markers are for clients.
+			header_down -Via
+			header_down -X-Nextjs-Cache
+			header_down -X-Nextjs-Prerender
 			transport http {
 				dial_timeout 5s
 				response_header_timeout 30s
