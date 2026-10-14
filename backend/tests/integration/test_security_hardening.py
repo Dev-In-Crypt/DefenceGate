@@ -209,6 +209,17 @@ def test_the_worker_role_writes_rows_and_cannot_change_the_schema_or_the_archive
                 c.execute(statement)
 
 
+def test_the_worker_role_can_read_every_table_so_pg_dump_can(conn, service_roles):
+    # pg_dump runs as the worker role and locks every table: one table it cannot read
+    # fails the whole nightly backup (14 October 2026, app_login_token).
+    with psycopg.connect(service_roles["worker"], autocommit=True) as c:
+        unreadable = [r[0] for r in c.execute(
+            """SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+                  AND NOT has_table_privilege(current_user, c.oid, 'SELECT')""").fetchall()]
+    assert unreadable == []
+
+
 def test_the_archive_refuses_a_truncate_that_does_not_say_it_means_it(conn):
     _store(conn, _opp())
     with pytest.raises(psycopg.errors.RaiseException):
