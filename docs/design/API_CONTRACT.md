@@ -29,8 +29,8 @@ Query parameters (all optional; names are the design's URL keys):
 | param | values | meaning |
 |---|---|---|
 | `q` | text | matches title, original title, call ID, topic ID, issuer |
-| `programme` | `EDF,EDIP,HORIZON,DIGITAL,NATIONAL` | OR within |
-| `regime` | `defence,dual-use` | OR within |
+| `programme` | `EDF,EDIP,HORIZON,DIGITAL,CEF,NATIONAL` | OR within; any other value is a 422 (was: ignored) |
+| `regime` | `defence,dual-use` | OR within; any other value is a 422 (was: ignored) |
 | `country` | `EU,PL,SE,FR,ES,FI,DE,IT,NL` | funder country; `EU` = EU programme |
 | `status` | `open` (default) `forthcoming` `closing-soon` `closed` `all` | `closing-soon` = open with deadline within 30 days |
 | `from`, `to` | `YYYY-MM-DD` | deadline range, inclusive, UTC |
@@ -192,6 +192,7 @@ interface Tender {
   scope: 'core' | 'supply';          // core: the notice itself is defence; supply: only the buyer is
   deadline: IsoDateTime | null;      // null: none stated
   publishedAt: IsoDateTime | null;
+  firstSeenAt: IsoDateTime | null;   // when we first collected it ("new since" compares this, never publishedAt)
   estimatedValue: { amount: number; currency: string } | null;
   status: 'open' | 'closed';         // as of now (a passed deadline is closed)
   statusNative: string | null;       // the source's own word: open, awarded, cancelled, unknown

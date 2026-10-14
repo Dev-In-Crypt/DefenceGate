@@ -365,8 +365,17 @@ class Settings:
     # An ordinary day needs about 150; 0 turns the fuse off.
     store_write_limit: int = field(
         default_factory=lambda: _env_int("DGATE_STORE_WRITE_LIMIT", 20000))
+    # How long a list response (tenders, buyers, opportunities) is reused by the API
+    # (listcache.py). 0 turns it off.
+    list_cache_seconds: int = field(
+        default_factory=lambda: _env_int("DGATE_LIST_CACHE_SECONDS", 60))
     backup_keep_days_local: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS_LOCAL", 7))
+    # Past this age of its newest dump (on the host, and in the store) the backup is
+    # stale: the worker alerts and /v1/health reports degraded. A nightly dump plus a
+    # failed night plus slack: a single missed night must already be loud.
+    backup_stale_hours: int = field(
+        default_factory=lambda: _env_int("DGATE_BACKUP_STALE_HOURS", 30))
     ingest_days: int = field(default_factory=lambda: _env_int("DGATE_INGEST_DAYS", 2))
     placsp_pages: int = field(default_factory=lambda: _env_int("DGATE_PLACSP_PAGES", 20))
     # Past this age of its newest entry a PLACSP live feed counts as stopped:

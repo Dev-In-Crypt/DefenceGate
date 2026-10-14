@@ -10,6 +10,8 @@ export const EXPORT_CACHE_TTL_MS = 10 * 60 * 1000;
 export const EXPORT_CACHE_MAX = 30;
 /** More uncached exports than this running at once are refused with 429. */
 export const EXPORT_MAX_RUNNING = 6;
+/** ... and more than this for one client: six slots held by one address refused everyone else (audit X-4). */
+export const EXPORT_PER_CLIENT = 2;
 /** The widest export (`status=all`) holds at most this many rows; every other export keeps its own cap. */
 export const EXPORT_ALL_CAP = 1000;
 /** Seconds a refused client is told to wait. */
@@ -70,6 +72,16 @@ export function exportCap(status: string | undefined, cap: number): number {
   return status === 'all' ? Math.min(cap, EXPORT_ALL_CAP) : cap;
 }
 
+/** Every status and every scope with nothing to narrow them is the whole archive: refused before any database time is spent. */
+export function tooBroad(f: {
+  status?: string; scope?: string; q?: string; country?: unknown[]; cpv?: unknown[]; buyer?: unknown;
+  deadlineFrom?: string; deadlineTo?: string; valueMin?: number; valueMax?: number;
+}): boolean {
+  const narrowed = Boolean(f.q || f.country?.length || f.cpv?.length || f.buyer || f.deadlineFrom || f.deadlineTo
+    || f.valueMin !== undefined || f.valueMax !== undefined);
+  return f.status === 'all' && f.scope === 'all' && !narrowed;
+}
+
 /**
  * The same result is built once at a time: concurrent identical requests share the running build, and a build
  * that finished is served from the cache. `run` is only called when neither exists and the gate lets it in;
@@ -77,18 +89,26 @@ export function exportCap(status: string | undefined, cap: number): number {
  */
 export class ExportRunner<V> {
   private readonly pending = new Map<string, Promise<V>>();
+  private readonly byClient = new Map<string, number>();
 
-  constructor(private readonly cache: TtlCache<V>, private readonly gate: Gate) {}
+  /** `perClient`: the most uncached builds one client may have running (the gate is the total). */
+  constructor(private readonly cache: TtlCache<V>, private readonly gate: Gate, private readonly perClient = Number.POSITIVE_INFINITY) {}
 
-  async get(key: string, run: () => Promise<V>): Promise<{ value: V } | { busy: true }> {
+  async get(key: string, run: () => Promise<V>, client = 'unknown'): Promise<{ value: V } | { busy: true }> {
     const hit = this.cache.get(key);
     if (hit !== undefined) return { value: hit };
     const shared = this.pending.get(key);
     if (shared) return { value: await shared };
-    if (!this.gate.enter()) return { busy: true };
+    if ((this.byClient.get(client) ?? 0) >= this.perClient || !this.gate.enter()) return { busy: true };
+    this.byClient.set(client, (this.byClient.get(client) ?? 0) + 1);
     const job = run()
       .then((value) => { this.cache.set(key, value); return value; })
-      .finally(() => { this.gate.leave(); this.pending.delete(key); });
+      .finally(() => {
+        this.gate.leave();
+        this.pending.delete(key);
+        const left = (this.byClient.get(client) ?? 1) - 1;
+        if (left > 0) this.byClient.set(client, left); else this.byClient.delete(client);
+      });
     this.pending.set(key, job);
     return { value: await job };
   }

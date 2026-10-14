@@ -15,6 +15,7 @@ process (it does). Behind more than one worker it would need a shared store.
 
 from __future__ import annotations
 
+import hmac
 import ipaddress
 import math
 import threading
@@ -55,10 +56,42 @@ def is_internal(peer: str) -> bool:
         return False
 
 
+def client_key(address: str) -> str:
+    """The bucket key of an address: an IPv6 client is its /64 (what one subscriber is
+    handed, 2^64 addresses), a mapped IPv4 address is the IPv4 one, and a string that is
+    not an address is itself. Without this one subscriber had 2^64 fresh buckets
+    (internal audit H4, 14 October 2026)."""
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return str(ip.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return str(ip)
+
+
 # What a request costs, in tokens. The archive and the entity-resolution oracle
 # are the two things worth scraping, and the slug list is the whole catalogue.
 HEAVY_PATHS = {"/v1/organisations/resolve": 5, "/v1/funding/slugs": 20,
                "/v1/tenders/slugs": 20, "/v1/buyers/slugs": 20}
+
+# Lists whose cost depends on their shape: each page evaluates the filtered set, and a
+# text search is a sequential scan of every notice (0.7 s), `status=all` and `scope=all`
+# drop the selective predicates (3.6-5.4 s a page), and a deep page sorts all that comes
+# before it. Measured 14 October 2026: a request of 4-5 s cost one token, the same as a
+# page of 0.3 s, so 120 a minute from one address held nine of the API's thirty
+# connections.
+SHAPED_LISTS = {"/v1/tenders", "/v1/opportunities"}
+MAX_COST = 30
+
+
+def _int(value: str | None) -> int:
+    try:
+        return int(value or "0")
+    except ValueError:
+        return 0
 
 
 def request_cost(path: str, params: dict[str, str]) -> int:
@@ -66,13 +99,24 @@ def request_cost(path: str, params: dict[str, str]) -> int:
         return 5
     if path in HEAVY_PATHS:
         return HEAVY_PATHS[path]
+    if path == "/v1/buyers" or (path.startswith("/v1/buyers/") and path.endswith("/profile")):
+        # The buyer list re-aggregates the whole table; a profile is 0.2-0.5 s uncached.
+        return 5 + (3 if (params.get("q") or "").strip() else 0)
+    cost = 1
     for key in ("limit", "pageSize"):
-        try:
-            if int(params.get(key, "0")) >= 100:
-                return 3
-        except ValueError:
-            pass
-    return 1
+        if _int(params.get(key)) >= 100:
+            cost = 3
+    if path in SHAPED_LISTS:
+        if (params.get("q") or "").strip():
+            cost += 5
+        if params.get("status") == "all":
+            cost += 3
+        if params.get("scope") == "all":
+            cost += 3
+        size = _int(params.get("pageSize")) or _int(params.get("limit")) or 20
+        depth = _int(params.get("offset")) or max(0, _int(params.get("page")) - 1) * size
+        cost += min(10, depth // 1000)
+    return min(cost, MAX_COST)
 
 
 class TokenBuckets:
@@ -103,6 +147,27 @@ class TokenBuckets:
         return allowed, wait
 
 
+def _forwarded_client(request: Request) -> str | None:
+    """The visitor's address as the site's server states it, or None."""
+    from .config import settings
+
+    value = request.headers.get("x-dg-client-ip")
+    if not value or len(value) > 45:
+        return None
+    try:
+        ip = ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+    if ip.is_private or ip.is_loopback:
+        return None                  # the site's own address is not a visitor
+    secret = settings().internal_secret
+    if secret:
+        given = request.headers.get("x-dg-internal") or ""
+        if not hmac.compare_digest(given.encode("utf-8"), secret.encode("utf-8")):
+            return None
+    return str(ip)
+
+
 class RateLimit(BaseHTTPMiddleware):
     def __init__(self, app: Any, buckets: TokenBuckets | None = None) -> None:
         super().__init__(app)
@@ -115,14 +180,25 @@ class RateLimit(BaseHTTPMiddleware):
         peer = request.client.host if request.client else "unknown"
         if peer in LOCAL_PEERS or not settings().rate_limit:
             return await call_next(request)
+        internal = is_internal(peer)
+        if internal:
+            # The site's own server forwards the visitor's address (it is the first
+            # `X-Forwarded-For` entry Caddy set, which the visitor cannot choose) so that a
+            # page view is charged to the visitor and not to the site's one big bucket
+            # (external audit X-2). Accepted only from a peer on the private network, and
+            # only with the shared secret when one is set: a request that came through
+            # Caddy has its client's public address as `peer` and never reaches here.
+            forwarded = _forwarded_client(request)
+            if forwarded is not None:
+                peer, internal = forwarded, False
         if request.url.path.startswith(UNCHARGED_PREFIX):
             # The site's own visit counter: it is aggregated and flushed by the site every
             # few seconds, and charging it to the one bucket every page render shares let
             # the counter's traffic starve the pages (review of 12 October 2026, H1).
             return await call_next(request)
         cost = request_cost(request.url.path, dict(request.query_params))
-        buckets = self.internal if is_internal(peer) else self.buckets
-        allowed, wait = buckets.take(peer, cost)
+        buckets = self.internal if internal else self.buckets
+        allowed, wait = buckets.take(client_key(peer), cost)
         if not allowed:
             return JSONResponse({"detail": "rate limit exceeded"}, status_code=429,
                                 headers={"Retry-After": str(max(1, math.ceil(wait)))})

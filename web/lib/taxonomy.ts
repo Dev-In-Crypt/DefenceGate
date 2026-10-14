@@ -53,6 +53,7 @@ export const PROGRAMMES: Record<ProgrammeCode, { label: string; name: string; sl
   EDIP: { label: 'EDIP', name: 'European Defence Industry Programme', slug: 'edip' },
   HORIZON: { label: 'Horizon Europe', name: 'Horizon Europe', slug: 'horizon' },
   DIGITAL: { label: 'Digital Europe', name: 'Digital Europe Programme', slug: 'digital' },
+  CEF: { label: 'Connecting Europe', name: 'Connecting Europe Facility', slug: 'cef' },
   NATIONAL: { label: 'National', name: 'National programmes', slug: 'national' },
 };
 export const PROGRAMME_CODES = Object.keys(PROGRAMMES) as ProgrammeCode[];

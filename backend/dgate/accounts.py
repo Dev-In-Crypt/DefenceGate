@@ -42,7 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import db
 from .config import settings
-from .hardening import BODY_MAX, TokenBuckets
+from .hardening import BODY_MAX, TokenBuckets, client_key
 from .ops import mailer
 from .ops.notify import notify
 
@@ -53,7 +53,9 @@ LINK_TTL = timedelta(minutes=15)
 SESSION_ABSOLUTE = timedelta(days=30)
 SESSION_IDLE = timedelta(days=7)
 LIMIT_PER_ADDRESS = 5          # sign-in links per hour, per address (A3)
+LIMIT_PER_ADDRESS_PER_IP = 3   # ... of which one client (IPv6: one /64) may ask for 3
 LIMIT_PER_IP = 20              # per client IP
+LIMIT_PER_IP_CROWDED = 3       # per client IP once half of LIMIT_GLOBAL is spent
 LIMIT_GLOBAL = 120             # in total; beyond it the operator is told
 MAX_SEARCHES = 10
 MAX_SHORTLIST = 500
@@ -143,8 +145,10 @@ def _secret() -> str:
 
 
 def _client_ip(value: str | None) -> str:
+    """The throttle key of a client: its address, an IPv6 one as its /64 (a subscriber is
+    handed 2^64 addresses; counted one by one the per-IP limits were no limit)."""
     try:
-        return str(ipaddress.ip_address((value or "").strip()))
+        return client_key(str(ipaddress.ip_address((value or "").strip())))
     except ValueError:
         return "unknown"
 
@@ -306,6 +310,17 @@ def _recent(conn, kind: str, key: str) -> int:
         "AND at > now() - interval '1 hour'", (kind, _event_key(kind, key))).fetchone()["n"]
 
 
+def _retry_after(conn, kind: str, key: str) -> int:
+    """Seconds until the oldest counted request of this key leaves the hour: the first
+    moment a request of the same kind can be accepted again."""
+    row = conn.execute(
+        "SELECT extract(epoch FROM min(at) + interval '1 hour' - now()) AS wait "
+        "FROM app_auth_event WHERE kind = %s AND key_hash = %s "
+        "AND at > now() - interval '1 hour'", (kind, _event_key(kind, key))).fetchone()
+    wait = row["wait"] if row and row["wait"] is not None else 3600
+    return max(1, min(3600, math.ceil(wait)))
+
+
 def _page_operator(message: str) -> None:
     global _last_global_page
     with _page_lock:
@@ -346,20 +361,33 @@ def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(ge
     conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
     conn.commit()
 
-    # A3. Counts are read first and written only for a request that is accepted. The per-IP
-    # and global limits are 429. The per-address limit is the same 202 and nothing is sent or
-    # stored: a 429 there would tell a stranger which address is being mailed, and refusing
-    # visibly would let anyone lock a person out of signing in by asking for their address.
+    # A3. Counts are read first and written only for a request that is accepted, and every
+    # refusal is a visible 429 with the wait: the earlier silent 202 for an address over its
+    # limit locked its owner out without a word (audit M2, X-6). It is no oracle: any
+    # address is refused the same way after the same number of requests, whether or not it
+    # has an account. Three layers, the smallest first:
+    #   - one client (IPv6: one /64) asks for one address at most LIMIT_PER_ADDRESS_PER_IP
+    #     times an hour, so a stranger needs several clients to use up a victim's five
+    #   - an address has LIMIT_PER_ADDRESS an hour in all (the mail-bomb ceiling)
+    #   - a client has LIMIT_PER_IP an hour, and LIMIT_PER_IP_CROWDED once half of the
+    #     global budget is gone: six clients with twenty each can no longer switch sign-in
+    #     off for everyone, they run into their share first
     ip = _client_ip(x_dg_client_ip)
+    pair = f"{canonical}|{ip}"
     total = _recent(conn, "all", "all")
     if total >= LIMIT_GLOBAL:
         _page_operator(f"Sign-in link requests are over {LIMIT_GLOBAL} an hour: possible abuse.")
-    if total >= LIMIT_GLOBAL or _recent(conn, "ip", ip) >= LIMIT_PER_IP:
+    ip_cap = LIMIT_PER_IP if total < LIMIT_GLOBAL // 2 else LIMIT_PER_IP_CROWDED
+    for kind, value, cap in (("ip", ip, ip_cap),
+                             ("addr_ip", pair, LIMIT_PER_ADDRESS_PER_IP),
+                             ("addr", canonical, LIMIT_PER_ADDRESS)):
+        if _recent(conn, kind, value) >= cap:
+            raise AccountError(429, "rate_limited", "too many requests, try again later",
+                               {"Retry-After": str(_retry_after(conn, kind, value))})
+    if total >= LIMIT_GLOBAL:
         raise AccountError(429, "rate_limited", "too many requests, try again later",
-                           {"Retry-After": "3600"})
-    if _recent(conn, "addr", canonical) >= LIMIT_PER_ADDRESS:
-        return {"ok": True}
-    for kind, value in (("addr", canonical), ("ip", ip), ("all", "all")):
+                           {"Retry-After": str(_retry_after(conn, "all", "all"))})
+    for kind, value in (("addr", canonical), ("addr_ip", pair), ("ip", ip), ("all", "all")):
         conn.execute("INSERT INTO app_auth_event (kind, key_hash) VALUES (%s, %s)",
                      (kind, _event_key(kind, value)))
 
@@ -650,7 +678,10 @@ def _cached(key: tuple, compute, ttl: float = CACHE_SECONDS):
 
 
 def _stamp(kind: str, item: dict[str, Any]):
-    return item.get("publishedAt") if kind == "tender" else item.get("firstSeenAt")
+    # When the portal first collected it, for tenders and calls alike. Not a publication
+    # date: a notice published yesterday and first collected today is new today, and a
+    # day compared with a timestamp missed most of them (internal audit H3).
+    return item.get("firstSeenAt")
 
 
 def run_search(conn, kind: str, filters: dict[str, str], *, full: bool = False) -> dict[str, Any]:

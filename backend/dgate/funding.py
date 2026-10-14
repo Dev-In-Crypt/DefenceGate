@@ -42,7 +42,12 @@ CLOSING_SOON_DAYS = 30
 # own name travels in `programmeName`. EDIDP, the predecessor of the defence fund,
 # has no calls and sits under EDF.
 EU_PROGRAMMES = {"EDF": "EDF", "EDIDP": "EDF", "EDIP": "EDIP",
-                 "HORIZON": "HORIZON", "DIGITAL": "DIGITAL"}
+                 "HORIZON": "HORIZON", "DIGITAL": "DIGITAL", "CEF2027": "CEF"}
+# The chips a request may name (the label and the filter read the one table above), and
+# the chip of a stored EU programme this table does not know yet: Horizon, the broadest.
+PROGRAMME_CHIPS = {*EU_PROGRAMMES.values(), "NATIONAL"}
+FALLBACK_CHIP = "HORIZON"
+REGIME_VALUES = {"defence": "defence", "dual-use": "dual_use", "dual_use": "dual_use"}
 NATIONAL_PROGRAMME = re.compile(r"^[A-Z]{2}-")
 
 # The language a national source writes in, by the funder country.
@@ -219,7 +224,7 @@ def programme_of(code: str) -> str:
     """The design's programme chip for a stored programme code."""
     if NATIONAL_PROGRAMME.match(code):
         return "NATIONAL"
-    return EU_PROGRAMMES.get(code, "HORIZON")
+    return EU_PROGRAMMES.get(code, FALLBACK_CHIP)
 
 
 def _day(value: Any) -> datetime | None:
@@ -443,18 +448,33 @@ def list_funding(
         params += [like] * 5
 
     wanted = [c.upper() for c in _csv(programme)]
+    unknown = sorted(set(wanted) - PROGRAMME_CHIPS)
+    if unknown:
+        # A value that matches nothing used to add no clause and return every call
+        # (audit M11): a typo read as "all programmes".
+        raise HTTPException(422, f"programme: unknown value {unknown[0][:20]!r}; "
+                                 f"use {', '.join(sorted(PROGRAMME_CHIPS))}")
     if wanted:
         clauses: list[str] = []
         stored = [code for code, chip in EU_PROGRAMMES.items() if chip in wanted]
         if stored:
             clauses.append("p.code = ANY(%s)")
             params.append(stored)
+        if FALLBACK_CHIP in wanted:
+            # The programmes the label table maps to nothing are labelled Horizon, so
+            # they are found by it: the label and the filter cannot disagree.
+            clauses.append("(p.code <> ALL(%s) AND p.code !~ '^[A-Z]{2}-')")
+            params.append(list(EU_PROGRAMMES))
         if "NATIONAL" in wanted:
             clauses.append("p.code ~ '^[A-Z]{2}-'")
         if clauses:
             where.append("(" + " OR ".join(clauses) + ")")
 
-    regimes = [r.replace("-", "_") for r in _csv(regime) if r in ("defence", "dual-use")]
+    asked = [r.lower() for r in _csv(regime)]
+    bad = sorted(set(asked) - set(REGIME_VALUES))
+    if bad:
+        raise HTTPException(422, f"regime: unknown value {bad[0][:20]!r}; use defence, dual-use")
+    regimes = sorted({REGIME_VALUES[r] for r in asked})
     if regimes:
         where.append("c.regime = ANY(%s)")
         params.append(regimes)

@@ -60,6 +60,7 @@ def run_digests(conn) -> dict[str, int]:
     for searches in list(by_owner.values())[:MAX_ACCOUNTS_PER_RUN]:
         result["accounts"] += 1
         sections, total = [], 0
+        evaluated: list[Any] = []       # only these may move their window on (audit M3)
         for s in searches:
             since = s["last_alerted_at"] or s["created_at"]
             try:
@@ -67,6 +68,7 @@ def run_digests(conn) -> dict[str, int]:
             except Exception as exc:  # noqa: BLE001 - one broken search must not stop the others
                 log.warning("digest: search %s skipped: %s", s["id"], type(exc).__name__)
                 continue
+            evaluated.append(s["id"])
             fresh = [i for i in found["items"] if _is_new(s["kind"], i, since)]
             if fresh:
                 total += len(fresh)
@@ -86,9 +88,12 @@ def run_digests(conn) -> dict[str, int]:
                 result["failed"] += 1
                 continue                      # not marked as sent: the next run tries again
             result["mails"] += 1
-        # The window moves on whether or not there was anything to say.
-        conn.execute("UPDATE app_saved_search SET last_alerted_at = now() WHERE id = ANY(%s)",
-                     ([s["id"] for s in searches],))
-        conn.commit()
-        result["searches"] += len(searches)
+        # The window moves on whether or not there was anything to say, but only for the
+        # searches that were actually looked at: a search that raised (a statement timeout
+        # is enough) keeps its window, so the next run covers what this one missed.
+        if evaluated:
+            conn.execute("UPDATE app_saved_search SET last_alerted_at = now() WHERE id = ANY(%s)",
+                         (evaluated,))
+            conn.commit()
+        result["searches"] += len(evaluated)
     return result

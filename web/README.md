@@ -3,7 +3,7 @@
 Next.js 15 (App Router) · TypeScript strict · Tailwind CSS 3.4 · shadcn/ui conventions · lucide-react.
 
 ```bash
-cp .env.example .env.local   # leave DG_API_URL empty to use mock data
+cp .env.example .env.local   # leave DG_API_URL empty to use mock data (development only: a production build refuses to start without it)
 npm install && npm run dev
 ```
 

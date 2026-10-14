@@ -218,3 +218,40 @@ def test_a_project_start_that_is_one_day_is_not_written_as_a_range(client, conn)
                      "project_start_latest": "2026-11-20T00:00:00"})
     rows = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]["eligibility"]
     assert {"label": "Project start", "value": "2026-11-20"} in rows
+
+
+# ------------------------------------------- unknown filter values (audit M11, 14 October 2026)
+
+def test_an_unknown_programme_or_regime_is_a_422_not_every_call(client, conn):
+    _put(conn, "a")
+    for params in ({"programme": "FOO"}, {"programme": "EDF,NOPE"}, {"regime": "defense"},
+                   {"regime": "defence,other"}):
+        r = client.get("/v1/funding", params={"status": "all", **params})
+        assert r.status_code == 422, params
+        assert "unknown value" in r.json()["detail"]
+
+
+def test_known_values_are_accepted_in_any_case(client, conn):
+    _put(conn, "d", regime="defence")
+    _put(conn, "u", regime="dual_use", days=21)
+    assert _ids(client, programme="horizon") == ["d", "u"]
+    assert _ids(client, regime="Dual-Use") == ["u"]
+    assert _ids(client, regime="dual_use") == ["u"]
+
+
+def test_a_programme_the_label_table_does_not_know_is_found_by_the_chip_it_is_labelled_with(client, conn):
+    """The one CEF call was shown as HORIZON and never returned by programme=HORIZON: the
+    label and the filter now read the same table, and CEF has a chip of its own."""
+    _put(conn, "cef", programme="CEF2027", regime="dual_use")
+    assert programme_of("CEF2027") == "CEF"
+    assert _ids(client, programme="CEF") == ["cef"]
+    assert _ids(client, programme="HORIZON") == []
+    item = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]
+    assert item["programme"] == "CEF"
+    # A stored programme the table has no entry for is labelled HORIZON and filtered as HORIZON.
+    conn.execute("INSERT INTO programme (code, name) VALUES ('NEWPROG', 'A new programme') "
+                 "ON CONFLICT (code) DO NOTHING")
+    conn.commit()
+    _put(conn, "new", programme="NEWPROG")
+    assert programme_of("NEWPROG") == "HORIZON"
+    assert _ids(client, programme="HORIZON") == ["new"]

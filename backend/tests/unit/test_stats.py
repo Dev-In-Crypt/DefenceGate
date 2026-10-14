@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 from datetime import date
 
 from dgate import stats
@@ -68,4 +70,62 @@ def test_a_computation_that_raises_is_not_cached_and_does_not_disturb_the_rest()
         pass
     assert "failed" not in stats._cache and stats.cached("done", lambda: 2) == 1
     assert stats.cached("failed", lambda: 3) == 3
+    stats.reset_cache()
+
+
+def test_one_slow_key_does_not_hold_up_another(monkeypatch):
+    """Audit M1: one lock round every computation made a buyer profile (seconds) hold up the
+    list pages' own timestamp read. Different keys run side by side; one key runs once."""
+    stats.reset_cache()
+    slow_started, release = threading.Event(), threading.Event()
+    runs = {"slow": 0}
+
+    def slow():
+        runs["slow"] += 1
+        slow_started.set()
+        release.wait(5)
+        return "slow-value"
+
+    results: list[str] = []
+    threads = [threading.Thread(target=lambda: results.append(stats.cached("slow", slow)))
+               for _ in range(3)]
+    for t in threads:
+        t.start()
+    assert slow_started.wait(2)
+    started = time.monotonic()
+    assert stats.cached("fast", lambda: "fast-value") == "fast-value"
+    assert time.monotonic() - started < 1, "a fast key waited for a slow one"
+    release.set()
+    for t in threads:
+        t.join(5)
+    assert results == ["slow-value"] * 3 and runs["slow"] == 1, "one computation, shared"
+    stats.reset_cache()
+
+
+def test_followers_of_a_failing_computation_get_its_error_and_nothing_is_kept():
+    stats.reset_cache()
+    started, release = threading.Event(), threading.Event()
+
+    def failing():
+        started.set()
+        release.wait(5)
+        raise ValueError("no")
+
+    errors: list[str] = []
+
+    def ask():
+        try:
+            stats.cached("k", failing)
+        except ValueError as exc:
+            errors.append(str(exc))
+
+    threads = [threading.Thread(target=ask) for _ in range(3)]
+    for t in threads:
+        t.start()
+    assert started.wait(2)
+    release.set()
+    for t in threads:
+        t.join(5)
+    assert errors == ["no"] * 3
+    assert stats.cached("k", lambda: "recovered") == "recovered"
     stats.reset_cache()

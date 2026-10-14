@@ -495,6 +495,61 @@ def catch_up_shipping() -> list[JobResult]:
     return [run_job("backup_ship", _run)]
 
 
+BACKUP_ALERT_EVERY_HOURS = 6
+
+
+def last_offsite_backup() -> datetime | None:
+    from .ops.backup import offsite_listing
+
+    shipped = offsite_listing()
+    return shipped[-1][1] if shipped else None
+
+
+def job_backup_freshness() -> JobResult:
+    """Hourly: record how old the newest local and shipped dumps are, and say so when
+    either is older than `backup_stale_hours`.
+
+    Not run_job: a stale backup is not a failed job (the nightly job may have "succeeded"
+    into the wrong place, or not run at all, which is exactly what no job-based alert can
+    see). Found 14 October 2026: two nightly dumps failed, one alert each, then nothing
+    for 47 hours. Repeats at most every BACKUP_ALERT_EVERY_HOURS, so a bad day is a few
+    messages, not sixty.
+    """
+    started = time.monotonic()
+    cfg = settings()
+    limit = cfg.backup_stale_hours
+    try:
+        with db.connect(cfg.dsn) as conn:
+            for kind, probe in (("local", last_backup_taken), ("offsite", last_offsite_backup)):
+                try:
+                    db.record_backup_seen(conn, kind, probe())
+                except Exception as exc:  # noqa: BLE001 - an unreadable store is itself the finding
+                    log.warning("backup freshness: cannot list %s dumps: %s", kind, type(exc).__name__)
+                    conn.rollback()
+                    db.record_backup_seen(conn, kind, None, probed=False)
+            fresh = db.backup_freshness(conn, limit)
+            if fresh["status"] != "stale":
+                return JobResult("backup_freshness", "success", time.monotonic() - started,
+                                 fresh["status"])
+            due = conn.execute(
+                "SELECT bool_and(alerted_at IS NULL OR alerted_at < now() - %s * interval '1 hour') AS due"
+                " FROM backup_status", (BACKUP_ALERT_EVERY_HOURS,)).fetchone()["due"]
+            detail = ", ".join(
+                f"{kind} " + ("none found" if fresh[f"{kind}_age_hours"] is None
+                              else f"{fresh[f'{kind}_age_hours']:.0f}h old")
+                for kind in db.BACKUP_KINDS)
+            if due:
+                notify(f"[dgate] BACKUP STALE: newest dump {detail} (limit {limit}h). "
+                       "Run `--once backup` and check the job log")
+                conn.execute("UPDATE backup_status SET alerted_at = now()")
+                conn.commit()
+            return JobResult("backup_freshness", "failed", time.monotonic() - started, detail)
+    except Exception as exc:  # noqa: BLE001 - a monitor must report, not crash the scheduler
+        log.exception("backup freshness check failed")
+        notify(f"[dgate] backup freshness check could not run: {type(exc).__name__}")
+        return JobResult("backup_freshness", "failed", time.monotonic() - started, str(exc))
+
+
 def ensure_buyer_list() -> None:
     """Seed the defence buyer list before anything is classified.
 
@@ -739,6 +794,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "backup": job_backup,
     "ted-history": job_ted_history,
     "backup-verify": job_backup_verify,
+    "backup-freshness": job_backup_freshness,
     "catch-up": job_catch_up,
     "atlas-backfill": job_atlas_backfill,
 }
@@ -787,6 +843,8 @@ def build_scheduler():
                   id="backup_nightly", max_instances=1, misfire_grace_time=7200)
     sched.add_job(job_backup_verify, CronTrigger(day_of_week="sun", hour=cfg.backup_hour, minute=30),
                   id="backup_verify", max_instances=1, misfire_grace_time=7200)
+    sched.add_job(job_backup_freshness, CronTrigger(minute=40),
+                  id="backup_freshness", max_instances=1, misfire_grace_time=1800)
     if ted_history_window() is not None:
         # The history does not end when it has caught up: every day it ended
         # yesterday, there is a new yesterday. The daily TED job asks only the
@@ -835,6 +893,8 @@ def describe_schedule() -> list[str]:
         f"(keep {cfg.backup_keep_days} days)",
         f"backup_verify  Sun {cfg.backup_hour:02d}:30 UTC  "
         f"(restore into a scratch database and count)",
+        f"backup_freshness :40 UTC  (alert when the newest dump is over "
+        f"{cfg.backup_stale_hours}h old, here or in the store)",
     ]
 
 

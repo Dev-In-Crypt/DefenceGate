@@ -63,6 +63,16 @@ def H(session: str) -> dict[str, str]:
     return {"X-DG-Session": session}
 
 
+def _observed(conn, ago: str, opportunity_id: int | None = None) -> None:
+    """Say a notice was first collected `ago` earlier. The archive refuses an UPDATE of
+    `observed_at`, so the guard is switched off for this statement, in this transaction."""
+    conn.execute("ALTER TABLE opportunity_version DISABLE TRIGGER opportunity_version_append_only")
+    conn.execute("UPDATE opportunity_version SET observed_at = now() - %s::interval "
+                 "WHERE %s::bigint IS NULL OR opportunity_id = %s", (ago, opportunity_id, opportunity_id))
+    conn.execute("ALTER TABLE opportunity_version ENABLE TRIGGER opportunity_version_append_only")
+    conn.commit()
+
+
 def _put(conn, native_id: str, *, buyer="Ministry of Defence", title="Armoured vehicles",
          deadline=FUTURE, published: date | None = None, cpv=("35400000",), country="PL") -> int:
     published = published or date.today()
@@ -184,13 +194,15 @@ def test_the_sixth_request_for_one_address_is_refused_and_the_answer_does_not_re
                                headers={"X-DG-Client-IP": "198.51.100.3"})
     assert (body_known.status_code, body_known.json()) == (body_unknown.status_code, body_unknown.json()) \
         == (202, {"ok": True})
-    # Review M3: beyond the per-address limit the answer is the same 202 and nothing is sent, so
-    # a stranger can neither learn which address is being mailed nor lock a person out by
-    # asking for their address. Only the per-IP and global limits are a 429.
+    # Audit M2 / X-6 (14 October 2026): beyond the per-address limit the answer is a visible 429
+    # with the wait, not the old silent 202 that locked the address's owner out without a word.
+    # It is no oracle: every address is refused the same way after the same number of requests.
     before = len(sent)
     answers = [client.post("/v1/account/auth/request", json={"email": "burst@example.com", "binder": _binder()},
                            headers={"X-DG-Client-IP": f"192.0.2.{i}"}) for i in range(8)]
-    assert [(r.status_code, r.json()) for r in answers] == [(202, {"ok": True})] * 8
+    assert [r.status_code for r in answers] == [202] * 5 + [429] * 3
+    assert all(r.json() == {"ok": True} for r in answers[:5])
+    assert all(int(r.headers["retry-after"]) >= 1 for r in answers[5:])
     assert len(sent) - before == 5                      # the sixth and later: nothing sent
 
 
@@ -307,8 +319,11 @@ def test_deleting_the_account_removes_everything_it_owned(client, sent, conn):
 # ---------------------------------------------------------------- searches / shortlist / follows
 
 def test_a_saved_search_counts_matches_and_new_ones(client, sent, conn):
-    _put(conn, "OLD", title="Armoured vehicles", published=date.today() - timedelta(days=30))
+    old = _put(conn, "OLD", title="Armoured vehicles", published=date.today() - timedelta(days=30))
     _put(conn, "NEW", title="Armoured trucks", published=date.today())
+    # "New" is first collected after the last visit, not published after it (audit H3):
+    # the old notice has to have been collected long ago to be old.
+    _observed(conn, "30 days", old)
     session, _ = sign_in(client, sent)
     made = client.post("/v1/account/searches", headers=H(session),
                        json={"name": "Armour", "kind": "tender", "filters": {"q": "armoured", "country": "PL"}})
@@ -399,11 +414,16 @@ def test_a_change_on_a_shortlisted_tender_is_shown_after_the_last_visit(client, 
 # ---------------------------------------------------------------- privileges / counter
 
 def test_the_public_roles_cannot_read_the_account_tables(conn):
-    for role in ("dgate_api", "dgate_worker"):
-        for table in ("app_session", "app_login_token", "app_auth_event", "app_follow", "app_shortlist",
-                      "app_hit_daily"):
-            assert conn.execute("SELECT has_table_privilege(%s, %s, 'SELECT') AS ok",
-                                (role, table)).fetchone()["ok"] is False, (role, table)
+    # The API role reads none of them. The worker role reads every table since migration 0042
+    # (pg_dump runs as it: "a backup that cannot read a table is not a backup of it") and
+    # writes none of these: the checks below.
+    for table in ("app_session", "app_login_token", "app_auth_event", "app_follow", "app_shortlist",
+                  "app_hit_daily"):
+        assert conn.execute("SELECT has_table_privilege('dgate_api', %s, 'SELECT') AS ok",
+                            (table,)).fetchone()["ok"] is False, table
+        for priv in ("INSERT", "UPDATE", "DELETE"):
+            assert conn.execute("SELECT has_table_privilege('dgate_worker', %s, %s) AS ok",
+                                (table, priv)).fetchone()["ok"] is False, (table, priv)
     # the worker reads who to mail and records that it did, nothing more
     ok = lambda priv, table: conn.execute(  # noqa: E731
         "SELECT has_table_privilege('dgate_worker', %s, %s) AS ok", (table, priv)).fetchone()["ok"]
@@ -502,9 +522,9 @@ def test_a_request_that_is_not_served_writes_nothing(client, sent, conn):
     for i in range(accounts.LIMIT_PER_ADDRESS):
         assert _ask(client, "victim@example.com", f"192.0.2.{i}").status_code == 202
     after_accepted = _auth_rows(conn)
-    assert after_accepted == (3 * accounts.LIMIT_PER_ADDRESS, accounts.LIMIT_PER_ADDRESS)
+    assert after_accepted == (4 * accounts.LIMIT_PER_ADDRESS, accounts.LIMIT_PER_ADDRESS)
     for i in range(10):                                           # over the per-address limit
-        assert _ask(client, "victim@example.com", f"192.0.2.{50 + i}").status_code == 202
+        assert _ask(client, "victim@example.com", f"192.0.2.{50 + i}").status_code == 429
     assert _auth_rows(conn) == after_accepted
     assert len(sent) == accounts.LIMIT_PER_ADDRESS                # and no mail went out for them
 
@@ -513,17 +533,41 @@ def test_a_request_that_is_not_served_writes_nothing(client, sent, conn):
     filled = _auth_rows(conn)
     for i in range(5):
         r = _ask(client, f"late{i}@example.com", "203.0.113.77")
-        assert r.status_code == 429 and r.headers["retry-after"] == "3600"
+        assert r.status_code == 429 and 3500 <= int(r.headers["retry-after"]) <= 3600
     assert _auth_rows(conn) == filled
 
 
-def test_the_per_address_limit_answers_like_any_other_request_and_never_locks_the_person_out(client, sent):
-    """M3: it is the same 202 and body, and the address's owner is unaffected by what a
-    stranger asked: their own request, once the hour is over, is served again."""
-    first = [_ask(client, "ann@example.com", f"192.0.2.{i}") for i in range(7)]
-    assert {(r.status_code, r.text) for r in first} == {(202, '{"ok":true}')}
-    other = _ask(client, "someone-else@example.com", "192.0.2.200")
+def test_the_per_address_limit_is_visible_and_a_stranger_cannot_use_up_an_address_alone(client, sent):
+    """Audit M2: a refusal says so (429, with the wait) instead of a silent 202; and one client
+    can ask for one address only LIMIT_PER_ADDRESS_PER_IP times an hour, so a stranger on one
+    address cannot burn the five an address has: its owner's own request is still served."""
+    stranger = [_ask(client, "ann@example.com", "192.0.2.9") for _ in range(5)]
+    assert [r.status_code for r in stranger] == [202, 202, 202, 429, 429]
+    assert len(sent) == accounts.LIMIT_PER_ADDRESS_PER_IP
+    owner = _ask(client, "ann@example.com", "198.51.100.77")
+    assert (owner.status_code, owner.text) == (202, '{"ok":true}')
+    assert _ask(client, "ann@example.com", "198.51.100.78").status_code == 202      # and a fifth
+    other = _ask(client, "someone-else@example.com", "192.0.2.9")
     assert (other.status_code, other.text) == (202, '{"ok":true}')
+
+
+def test_six_clients_cannot_use_up_the_hourly_budget_of_everyone(client, sent):
+    """Audit M2: six clients with twenty each used to reach the global 120 and every later
+    visitor got 429. From half the budget on a client has only a few more, so a seventh
+    client is still served after six have done their worst."""
+    for n in range(6):
+        for i in range(accounts.LIMIT_PER_IP):
+            _ask(client, f"bulk{n}-{i}@example.com", f"203.0.113.{n + 1}")
+    newcomer = _ask(client, "visitor@example.com", "198.51.100.200")
+    assert newcomer.status_code == 202
+    assert len(sent) <= accounts.LIMIT_GLOBAL // 2 + accounts.LIMIT_PER_IP + 1
+
+
+def test_an_ipv6_client_is_one_client_whatever_its_low_bits(client, sent):
+    codes = [_ask(client, f"v6-{i}@example.com", f"2001:db8:5:6:{i:x}::1").status_code
+             for i in range(accounts.LIMIT_PER_IP + 2)]
+    assert codes[:accounts.LIMIT_PER_IP] == [202] * accounts.LIMIT_PER_IP
+    assert codes[accounts.LIMIT_PER_IP:] == [429, 429]
 
 
 def test_expired_events_and_tokens_are_pruned_at_the_start_of_a_request_even_when_it_is_refused(client, sent, conn):
@@ -545,8 +589,8 @@ def test_the_throttle_keys_are_not_a_plain_hash_of_the_address_or_the_ip(client,
 
     _ask(client, "ann@example.com", "198.51.100.9")
     stored = {bytes(r["key_hash"]) for r in conn.execute("SELECT key_hash FROM app_auth_event").fetchall()}
-    assert len(stored) == 3
-    for plain in (b"ann@example.com", b"198.51.100.9", b"all"):
+    assert len(stored) == 4                  # address, address with client, client, everything
+    for plain in (b"ann@example.com", b"198.51.100.9", b"all", b"ann@example.com|198.51.100.9"):
         assert hashlib.sha256(plain).digest() not in stored
 
 
@@ -802,3 +846,69 @@ def test_with_no_relay_nothing_is_sent_and_nothing_is_marked(client, sent, conn,
     monkeypatch.delenv("DGATE_SMTP_HOST")
     config.reset_cache()
     assert run_digests(conn) == {"accounts": 0, "mails": 0, "searches": 0, "failed": 0}
+
+
+# ------------------------------------------------- first observed, not published (audit H3, M3)
+
+def test_a_notice_published_yesterday_and_first_collected_today_is_new_today(client, sent, conn):
+    """The publication date is a day (00:00 UTC): 55 % of TED notices are collected a day or
+    more after it, and compared with a timestamp earlier today they could never be new."""
+    from dgate.ops.digest import run_digests
+
+    _put(conn, "LATE-1", title="Armoured late notice", published=date.today() - timedelta(days=1))
+    session, _ = sign_in(client, sent)
+    client.post("/v1/account/searches", headers=H(session),
+                json={"name": "Armour", "kind": "tender", "filters": {"q": "armoured"},
+                      "cadence": "daily"})
+    # The person was last here two hours ago, and last alerted two days ago.
+    conn.execute("UPDATE app_user SET last_visit_at = now() - interval '2 hours'")
+    _observed(conn, "1 hour")
+    conn.execute("UPDATE app_saved_search SET created_at = now() - interval '2 days', "
+                 "last_alerted_at = now() - interval '2 days'")
+    conn.commit()
+    accounts._cache.clear()
+    board = client.get("/v1/account/dashboard", headers=H(session)).json()
+    assert board["matches"][0]["newCount"] == 1
+    assert run_digests(conn)["mails"] == 1
+    assert "Armoured late notice" in sent[-1]["body"]
+
+
+def test_a_notice_collected_before_the_last_visit_is_not_new_whatever_its_date(client, sent, conn):
+    _put(conn, "SEEN-1", title="Armoured seen notice", published=date.today())
+    session, _ = sign_in(client, sent)
+    client.post("/v1/account/searches", headers=H(session),
+                json={"name": "Armour", "kind": "tender", "filters": {"q": "armoured"}})
+    conn.execute("UPDATE app_user SET last_visit_at = now() - interval '1 hour'")
+    _observed(conn, "3 hours")
+    conn.commit()
+    accounts._cache.clear()
+    board = client.get("/v1/account/dashboard", headers=H(session)).json()
+    assert board["matches"][0]["newCount"] == 0
+
+
+def test_a_failed_search_keeps_its_window_and_the_others_move_on(client, sent, conn, monkeypatch):
+    from dgate.ops import digest
+
+    _put(conn, "WIN-1", title="Armoured one", published=date.today())
+    session, _ = sign_in(client, sent)
+    for name, q in (("good", "armoured"), ("bad", "boom")):
+        client.post("/v1/account/searches", headers=H(session),
+                    json={"name": name, "kind": "tender", "filters": {"q": q}, "cadence": "daily"})
+    conn.execute("UPDATE app_saved_search SET created_at = now() - interval '2 days', "
+                 "last_alerted_at = now() - interval '2 days'")
+    conn.commit()
+    accounts._cache.clear()
+    real = digest.run_search
+
+    def flaky(c, kind, filters, **kw):
+        if filters.get("q") == "boom":
+            raise RuntimeError("statement timeout")
+        return real(c, kind, filters, **kw)
+
+    monkeypatch.setattr(digest, "run_search", flaky)
+    assert digest.run_digests(conn)["mails"] == 1
+    rows = {r["name"]: r["last_alerted_at"] for r in conn.execute(
+        "SELECT name, last_alerted_at FROM app_saved_search").fetchall()}
+    day = timedelta(days=1)
+    assert datetime.now(timezone.utc) - rows["good"] < day, "the good search moved on"
+    assert datetime.now(timezone.utc) - rows["bad"] > day, "the failed one kept its window"

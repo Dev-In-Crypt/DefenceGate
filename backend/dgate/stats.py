@@ -9,8 +9,9 @@ explain).
 Decisions that shape it:
 
   - every aggregate is cached in this process for an hour (`CACHE_SECONDS`) and computed
-    under one lock, so a cold cache runs each query once and not once per visitor; a cache
-    hit does not open a database connection
+    once per key (single flight, no lock held while a query runs), so a cold cache runs
+    each query once and not once per visitor; a cache hit does not open a database
+    connection
   - each aggregate is a query of its own, over indexed columns: the 36-month series reads
     `opp_core_published` (migration 0038), a buyer's figures read `opp_buyer_org`
   - "amended" is the timeline's own rule (`tenders.timeline`), not an SQL approximation:
@@ -30,6 +31,8 @@ from __future__ import annotations
 
 import threading
 import time
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeout
 from contextlib import ExitStack, contextmanager
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -69,42 +72,78 @@ CHANGING_FIELDS = [f for f in FIELD_LABELS if f != "published_at"]
 # ------------------------------------------------------------------ cache
 
 _cache: dict[Any, tuple[float, Any]] = {}
-_lock = threading.Lock()
+# Whole list responses (tenders, buyers, opportunities): a store of its own so that a flood
+# of distinct queries cannot evict the hourly aggregates, and a small one, because a page
+# of 100 notices is the largest entry (`listcache.cache_list`).
+_list_cache: dict[Any, tuple[float, Any]] = {}
+LIST_SECONDS = 60
+LIST_BUYERS_SECONDS = 300      # the buyer aggregate re-reads the whole table (0.46 s)
+LIST_CACHED = 48
+LIST_MAX_PAGE = 100            # a larger page is not kept: 48 x 100 notices bounds the memory
+SINGLE_FLIGHT_WAIT = 8.0       # a follower waits for the one computing its key, at most this
+_lock = threading.Lock()       # guards the dicts only; a computation never runs under it
+_inflight: dict[Any, Future] = {}
 _ABSENT = object()
 
 
 def reset_cache() -> None:
     _cache.clear()
+    _list_cache.clear()
 
 
-def _get(key: Any) -> Any:
-    hit = _cache.get(key)
+def _get(key: Any, store: dict | None = None) -> Any:
+    hit = (_cache if store is None else store).get(key)
     return hit[1] if hit and hit[0] > time.monotonic() else _ABSENT
 
 
-def _put(key: Any, value: Any, ttl: float = CACHE_SECONDS) -> None:
-    if key not in _cache and len(_cache) >= MAX_CACHED:
-        del _cache[min(_cache, key=lambda k: _cache[k][0])]
-    _cache[key] = (time.monotonic() + ttl, value)
+def _put(key: Any, value: Any, ttl: float = CACHE_SECONDS, store: dict | None = None,
+         limit: int | None = None) -> None:
+    store = _cache if store is None else store
+    limit = MAX_CACHED if limit is None else limit
+    if key not in store and len(store) >= limit:
+        del store[min(store, key=lambda k: store[k][0])]
+    store[key] = (time.monotonic() + ttl, value)
 
 
-def cached(key: Any, compute, ttl: float = CACHE_SECONDS):
-    """`compute()` once an hour (or `ttl`) per key. A None result is not stored: it is "no such
-    buyer", and arbitrary ids must not fill the cache. A computation that raises is not
-    stored either, and the figures cached before it stay, so a retry only redoes what
-    failed. ponytail: one lock for every key, so a buyer profile waits while a market
-    figure is being computed (seconds, once an hour); per-key locks if that ever shows."""
-    value = _get(key)
+def cached(key: Any, compute, ttl: float = CACHE_SECONDS, *,
+           store: dict | None = None, limit: int | None = None):
+    """`compute()` once an hour (or `ttl`) per key, single flight: concurrent callers of one
+    key share the one computation (the first computes, the others wait for its value or its
+    error), and different keys never wait for each other (internal audit M1: one lock round
+    every computation stalled the list pages behind a buyer profile).
+
+    A None result is "no such buyer" and is not stored, so arbitrary ids cannot fill the
+    store (which is bounded all the same). A computation that raises is never stored, and
+    the figures cached before it stay."""
+    value = _get(key, store)
     if value is not _ABSENT:
         return value
     with _lock:
-        value = _get(key)
+        value = _get(key, store)
         if value is not _ABSENT:
             return value
+        flight = _inflight.get(key)
+        leader = flight is None
+        if leader:
+            flight = _inflight[key] = Future()
+    if not leader:
+        try:
+            return flight.result(timeout=SINGLE_FLIGHT_WAIT)
+        except FutureTimeout:
+            return compute()                  # the leader is stuck: do not wait on it for ever
+    try:
         value = compute()
+    except BaseException as exc:
+        with _lock:
+            _inflight.pop(key, None)
+        flight.set_exception(exc)
+        raise
+    with _lock:
         if value is not None:
-            _put(key, value, ttl)
-        return value
+            _put(key, value, ttl, store, limit)
+        _inflight.pop(key, None)
+    flight.set_result(value)
+    return value
 
 
 @contextmanager

@@ -61,6 +61,105 @@ def test_the_archive_and_the_oracle_cost_more_than_a_list_page():
     assert request_cost("/v1/opportunities", {"limit": "not-a-number"}) == 1
 
 
+def test_a_request_costs_what_its_shape_costs_the_database():
+    """Measured 14 October 2026: these cost 3.6-5.4 s at one token, a pageSize=1 page 0.3 s."""
+    assert request_cost("/v1/tenders", {"pageSize": "20"}) == 1
+    assert request_cost("/v1/tenders", {"q": "radar"}) == 6
+    assert request_cost("/v1/tenders", {"q": "   "}) == 1
+    assert request_cost("/v1/tenders", {"status": "all", "scope": "all", "page": "900",
+                                        "pageSize": "20"}) == 1 + 3 + 3 + 10
+    assert request_cost("/v1/tenders", {"pageSize": "250", "page": "4"}) == 3
+    assert request_cost("/v1/opportunities", {"limit": "200", "offset": "10000", "scope": "all"}) == 3 + 3 + 10
+    assert request_cost("/v1/buyers", {}) == 5
+    assert request_cost("/v1/buyers", {"q": "ministry"}) == 8
+    assert request_cost("/v1/buyers/12-army/profile", {}) == 5
+    # Not a list: one notice, one buyer, the funding hub's small table.
+    assert request_cost("/v1/tenders/12-armoured", {"q": "x"}) == 1
+    assert request_cost("/v1/buyers/12-army", {}) == 1
+    assert request_cost("/v1/funding", {"q": "x", "status": "all"}) == 1
+    # Never more than a quarter of the bucket for one request.
+    assert request_cost("/v1/tenders", {"q": "x", "status": "all", "scope": "all", "page": "1000",
+                                        "pageSize": "250"}) <= 30
+
+
+def test_an_ipv6_client_is_its_64_not_one_bucket_per_address():
+    from dgate.hardening import client_key
+
+    assert client_key("2001:db8:1:2:aaaa:bbbb:cccc:dddd") == client_key("2001:db8:1:2::1") == "2001:db8:1:2::/64"
+    assert client_key("2001:db8:1:3::1") != client_key("2001:db8:1:2::1")
+    assert client_key("::ffff:203.0.113.9") == "203.0.113.9"
+    assert client_key("203.0.113.9") == "203.0.113.9"
+    assert client_key("unknown") == "unknown"
+
+
+def _limited_app(monkeypatch, *, capacity: float, secret: str = ""):
+    from fastapi import FastAPI
+
+    from dgate import config
+    from dgate.hardening import RateLimit
+
+    monkeypatch.setenv("DGATE_RATE_LIMIT", "1")
+    if secret:
+        monkeypatch.setenv("DGATE_INTERNAL_SECRET", secret)
+    else:
+        monkeypatch.delenv("DGATE_INTERNAL_SECRET", raising=False)
+    config.reset_cache()
+    app = FastAPI()
+    app.add_middleware(RateLimit, buckets=TokenBuckets(capacity=capacity, refill=0.0))
+
+    @app.get("/v1/tenders")
+    def tenders():
+        return {"ok": True}
+
+    return app
+
+
+def _codes(client, n, **headers):
+    return [client.get("/v1/tenders", headers=headers).status_code for _ in range(n)]
+
+
+def test_the_sites_own_server_is_charged_per_visitor_not_to_one_shared_bucket(monkeypatch):
+    """External audit X-2: every page view of the site arrived from one private address and
+    shared a bucket 20 times the size; with the visitor's address forwarded it is that
+    visitor's bucket, so one visitor cannot spend what everyone else has."""
+    from starlette.testclient import TestClient
+
+    app = _limited_app(monkeypatch, capacity=3)
+    with TestClient(app, client=("172.18.0.9", 5000)) as site:      # the web container
+        assert _codes(site, 4, **{"X-DG-Client-IP": "93.184.216.5"}) == [200, 200, 200, 429]
+        assert _codes(site, 1, **{"X-DG-Client-IP": "93.184.216.6"}) == [200]      # another visitor
+        # No address forwarded (a build, an ISR refresh): the site's shared bucket, 20 times larger.
+        assert _codes(site, 10) == [200] * 10
+        # Still the same visitor from another address in the same IPv6 /64.
+        assert _codes(site, 1, **{"X-DG-Client-IP": "2606:4700:7:7::1"}) == [200]
+        assert _codes(site, 1, **{"X-DG-Client-IP": "2606:4700:7:7:ffff::2"}) == [200]
+        assert _codes(site, 1, **{"X-DG-Client-IP": "2606:4700:7:7:1::3"}) == [200]
+        assert _codes(site, 1, **{"X-DG-Client-IP": "2606:4700:7:7:2::4"}) == [429]
+
+
+def test_a_forwarded_address_is_believed_only_from_the_private_network(monkeypatch):
+    """A visitor who reaches the API through Caddy has a public peer address; a header he
+    sends is not a way to get a fresh bucket."""
+    from starlette.testclient import TestClient
+
+    app = _limited_app(monkeypatch, capacity=3)
+    with TestClient(app, client=("93.184.217.7", 5000)) as outside:
+        spoofed = [outside.get("/v1/tenders", headers={"X-DG-Client-IP": f"93.184.216.{n}"}).status_code
+                   for n in range(5)]
+    assert spoofed == [200, 200, 200, 429, 429]
+
+
+def test_with_a_secret_set_a_forwarded_address_needs_it(monkeypatch):
+    from starlette.testclient import TestClient
+
+    app = _limited_app(monkeypatch, capacity=3, secret="s3cret-for-the-test")
+    with TestClient(app, client=("172.18.0.9", 5000)) as site:
+        # Without the secret the header is ignored: the shared internal bucket answers.
+        assert _codes(site, 6, **{"X-DG-Client-IP": "93.184.216.5"}) == [200] * 6
+        good = {"X-DG-Client-IP": "93.184.216.5", "X-DG-Internal": "s3cret-for-the-test"}
+        assert _codes(site, 4, **good) == [200, 200, 200, 429]
+
+
 def test_a_flood_of_distinct_addresses_cannot_grow_memory_without_bound():
     clock = [0.0]
     buckets = TokenBuckets(capacity=2, refill=1.0, clock=lambda: clock[0])

@@ -6,8 +6,10 @@ import { ApiError, getCalls, getTenders, isCallSlug, isTenderSlug } from './api'
 import { getCallDeadline } from './deadline';
 import { parseCallFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
 import {
-  EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate, TtlCache, exportCap,
+  EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate, TtlCache,
+  exportCap, tooBroad,
 } from './export-cache';
+import { clientIp } from './hits';
 import { safeHttpUrl } from './safe-url';
 import { absoluteUrl } from './seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
@@ -72,13 +74,17 @@ export function searchParamsOf(url: URL): SearchParams {
   return out;
 }
 
-/** A deep page of a broad query can time out at the API (503) or hit its limiter (429): try again a little later. */
+/**
+ * A page that hits the API's limiter (429) or a restart (502) is tried again a little later. A 503 is the API
+ * saying the query itself outran its time budget: asking again is five more seconds of database time for the
+ * same answer, so it is not retried (audit X-3: four attempts burned about 20 s per failed export).
+ */
 async function withRetry<T>(run: () => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await run();
     } catch (err) {
-      const retryable = err instanceof ApiError && (err.status === 503 || err.status === 429 || err.status === 502);
+      const retryable = err instanceof ApiError && (err.status === 429 || err.status === 502);
       if (!retryable || attempt >= RETRIES) throw err;
       await new Promise((r) => setTimeout(r, 600 * attempt));
     }
@@ -107,9 +113,10 @@ interface Built { body: string; total: number; rows: number; cap: number }
 
 /**
  * A built export is kept for ten minutes (30 at most, by normalised query: the parsed filters with defaults left
- * out), identical requests in flight share one build, and a seventh uncached build at once is refused.
+ * out), identical requests in flight share one build, a seventh uncached build at once is refused, and so is a third
+ * from one client (the visitor's address as Caddy set it).
  */
-const runner = new ExportRunner<Built>(new TtlCache(EXPORT_CACHE_TTL_MS, EXPORT_CACHE_MAX), new Gate(EXPORT_MAX_RUNNING));
+const runner = new ExportRunner<Built>(new TtlCache(EXPORT_CACHE_TTL_MS, EXPORT_CACHE_MAX), new Gate(EXPORT_MAX_RUNNING), EXPORT_PER_CLIENT);
 
 const busy = () => new Response('Too many exports are running at the moment. Try again in a few seconds.', {
   status: 429,
@@ -135,23 +142,39 @@ const unavailable = () => new Response('The data service is not available. Try a
   status: 502, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
 });
 
-export async function tendersCsvResponse(url: URL): Promise<Response> {
+const text = (status: number, body: string, extra: Record<string, string> = {}) => new Response(body, {
+  status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', ...extra },
+});
+
+const NARROW = 'Narrow it with a country, a CPV code, a buyer, a search text or a date range, or leave the scope on its default.';
+
+const tooWide = () => text(503, `This export is too large to build within the time the data service allows. ${NARROW}`, { 'retry-after': '60' });
+
+/** What a failed build says: the service's own "too slow" and "too many" are passed on, not turned into "not available". */
+function failure(err: unknown): Response {
+  if (err instanceof ApiError && err.status === 503) return tooWide();
+  if (err instanceof ApiError && err.status === 429) return busy();
+  return unavailable();
+}
+
+export async function tendersCsvResponse(url: URL, forwardedFor: string | null = null): Promise<Response> {
   const parsed = parseTenderFilters(searchParamsOf(url));
+  if (tooBroad(parsed)) return text(400, `This export would hold every notice of every status and scope. ${NARROW}`);
   const filters = { ...parsed, pageSize: TENDER_PAGE };
   const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
     const r = await runner.get(`tenders${toTenderQuery({ ...parsed, page: 1 })}`, async () => {
       const { items, total } = await collect((page) => getTenders({ ...filters, page }, { fresh: true }), cap);
       return { body: toCsv(TENDER_HEADER, items.map(tenderRow)), total, rows: items.length, cap };
-    });
+    }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
   } catch (err) {
     console.error('tenders csv export failed:', err instanceof Error ? err.message : String(err));
-    return unavailable();
+    return failure(err);
   }
 }
 
-export async function callsCsvResponse(url: URL): Promise<Response> {
+export async function callsCsvResponse(url: URL, forwardedFor: string | null = null): Promise<Response> {
   const parsed = parseCallFilters(searchParamsOf(url));
   const filters = { ...parsed, pageSize: CALL_PAGE };
   const cap = exportCap(parsed.status, EXPORT_CAP);
@@ -159,10 +182,10 @@ export async function callsCsvResponse(url: URL): Promise<Response> {
     const r = await runner.get(`funding${toQuery({ ...parsed, page: 1 })}`, async () => {
       const { items, total } = await collect((page) => getCalls({ ...filters, page }, { fresh: true }), cap);
       return { body: toCsv(CALL_HEADER, items.map(callRow)), total, rows: items.length, cap };
-    });
+    }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-funding');
   } catch (err) {
     console.error('funding csv export failed:', err instanceof Error ? err.message : String(err));
-    return unavailable();
+    return failure(err);
   }
 }

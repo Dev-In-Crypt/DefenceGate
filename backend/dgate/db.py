@@ -267,6 +267,55 @@ def record_progress(conn: psycopg.Connection, run_id: int, *,
     )
 
 
+BACKUP_KINDS = ("local", "offsite")
+
+
+def record_backup_seen(conn: psycopg.Connection, kind: str,
+                       newest_at: datetime | None, *, probed: bool = True) -> None:
+    """The worker's hourly look at the backups: when the newest dump of `kind` was taken.
+
+    `probed=False` is a listing that failed: the row is touched, the old time kept, so a
+    store that cannot be read ages into "stale" instead of staying at its last good answer.
+    """
+    conn.execute(
+        """INSERT INTO backup_status (kind, newest_at, checked_at) VALUES (%s, %s, now())
+           ON CONFLICT (kind) DO UPDATE
+              SET newest_at = CASE WHEN %s THEN EXCLUDED.newest_at ELSE backup_status.newest_at END,
+                  checked_at = now()""",
+        (kind, newest_at if probed else None, probed))
+    conn.commit()
+
+
+def backup_freshness(conn: psycopg.Connection, stale_hours: float,
+                     now: datetime | None = None) -> dict[str, Any]:
+    """Ages of the newest local and shipped dumps, and one verdict.
+
+    Public-safe by construction: ages in hours and a word, never a name, size or path.
+    `ok` needs both kinds known and fresh, `stale` is any kind older than the limit (or
+    checked and found empty), `unknown` is nothing recorded yet.
+    """
+    now = now or datetime.now(timezone.utc)
+    rows = {r["kind"]: r["newest_at"] for r in
+            conn.execute("SELECT kind, newest_at FROM backup_status").fetchall()}
+    out: dict[str, Any] = {"status": "unknown", "stale_after_hours": stale_hours}
+    stale, known = False, 0
+    for kind in BACKUP_KINDS:
+        age = None
+        if kind in rows:
+            known += 1
+            if rows[kind] is None:
+                stale = True
+            else:
+                age = round((now - rows[kind]).total_seconds() / 3600, 1)
+                stale = stale or age > stale_hours
+        out[f"{kind}_age_hours"] = age
+    if stale:
+        out["status"] = "stale"
+    elif known == len(BACKUP_KINDS):
+        out["status"] = "ok"
+    return out
+
+
 def close_interrupted_runs(conn: psycopg.Connection) -> list[int]:
     """Fail any run still marked `running`, and say which.
 

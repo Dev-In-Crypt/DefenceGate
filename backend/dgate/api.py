@@ -33,6 +33,7 @@ from pydantic import BaseModel
 from . import db
 from .config import settings
 from .hardening import BodyLimit, RateLimit, SecurityHeaders
+from .listcache import cache_list
 from .normalise import http_url, normalise_org_name, redact_emails
 
 # A source whose last successful run is older than this is reported stale.
@@ -343,6 +344,7 @@ BASE_SELECT = f"""
 
 
 @app.get("/v1/opportunities", response_model=list[OpportunityOut])
+@cache_list("opportunities")
 def list_opportunities(
     country: str | None = Query(None, description="comma-separated ISO-2"),
     cpv: str | None = Query(None, description="comma-separated CPV prefixes"),
@@ -407,7 +409,9 @@ def list_opportunities(
 
 @app.get("/v1/opportunities/{opp_id}", response_model=OpportunityOut)
 def get_opportunity(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
-    row = conn.execute(BASE_SELECT + " WHERE o.id = %s", (opp_id,)).fetchone()
+    # Defence rows only, as `/v1/tenders/{id}` and the list: 268 notices that are held and
+    # not (or no longer) defence were served here with their archive (audit L1, X-8).
+    row = conn.execute(BASE_SELECT + " WHERE o.id = %s AND o.is_defence", (opp_id,)).fetchone()
     if not row:
         raise HTTPException(404, "not found")
     return _row_to_out(row, _twins(conn, [opp_id]).get(opp_id))
@@ -448,6 +452,7 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
                   coalesce(json_agg(json_build_object('kind', n.kind, 'note', n.note))
                            FILTER (WHERE n.id IS NOT NULL), '[]') AS notes
              FROM opportunity_version v
+             JOIN opportunity o ON o.id = v.opportunity_id AND o.is_defence
              LEFT JOIN opportunity_version_note n ON n.opportunity_version_id = v.id
             WHERE v.opportunity_id = %s
             GROUP BY v.id
@@ -722,6 +727,8 @@ def health(conn=Depends(get_conn)):
         "SELECT min(observed_at) AS t FROM opportunity_version"
     ).fetchone()["t"]
 
+    backup = db.backup_freshness(conn, settings().backup_stale_hours)
+
     stale_after = timedelta(hours=STALE_AFTER_HOURS)
     now = datetime.now(timezone.utc)
     sources: list[dict[str, Any]] = []
@@ -750,8 +757,11 @@ def health(conn=Depends(get_conn)):
         sources.append(item)
 
     return {
-        "status": "degraded" if unhealthy else "ok",
+        # A backup that is stale is a degraded service: the archive timeline exists
+        # nowhere else. Ages only, never a file name or a path (`db.backup_freshness`).
+        "status": "degraded" if unhealthy or backup["status"] == "stale" else "ok",
         "unhealthy_sources": unhealthy,
+        "backup": backup,
         "defence_opportunities": total,
         "archive_versions": versions,
         "archive_oldest_observation": oldest,

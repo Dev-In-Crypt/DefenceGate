@@ -51,6 +51,7 @@ from .funding import (
     make_slug,
     serves_meta,
 )
+from .listcache import cache_list
 from .normalise import http_url, redact_emails
 
 router = APIRouter()
@@ -103,6 +104,8 @@ class Tender(BaseModel):
     # not stated" rather than showing nothing.
     deadlineKnown: bool = True
     publishedAt: datetime | None
+    # When the notice was first collected (the observed time of its first version).
+    firstSeenAt: datetime | None = None
     estimatedValue: Budget | None
     # `ted_twin` when `estimatedValue` is the value of the TED notice this one is the same
     # procurement as and the notice itself states none; null when it is the notice's own.
@@ -260,15 +263,21 @@ def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
     return {r["buyer_org_id"]: redact_emails(r["buyer_name_raw"]) for r in rows}
 
 
-def _observed(conn, ids: list[int]) -> dict[int, datetime]:
-    """When each notice was last observed: its newest version's observation time.
-    Read for the page only, never inside the filtered query."""
+def _observed_span(conn, ids: list[int]) -> dict[int, tuple[datetime, datetime]]:
+    """(first, last) time each notice was observed: its oldest and newest version's
+    observation time. Read for the page only, never inside the filtered query."""
     if not ids:
         return {}
     rows = conn.execute(
-        "SELECT opportunity_id, max(observed_at) AS seen FROM opportunity_version "
-        "WHERE opportunity_id = ANY(%s) GROUP BY opportunity_id", (ids,)).fetchall()
-    return {r["opportunity_id"]: r["seen"] for r in rows}
+        "SELECT opportunity_id, min(observed_at) AS first, max(observed_at) AS last "
+        "FROM opportunity_version WHERE opportunity_id = ANY(%s) GROUP BY opportunity_id",
+        (ids,)).fetchall()
+    return {r["opportunity_id"]: (r["first"], r["last"]) for r in rows}
+
+
+def _observed(conn, ids: list[int]) -> dict[int, datetime]:
+    """When each notice was last observed: its newest version's observation time."""
+    return {i: last for i, (_, last) in _observed_span(conn, ids).items()}
 
 
 def _version_counts(conn, ids: list[int]) -> dict[int, int]:
@@ -286,8 +295,8 @@ def _version_counts(conn, ids: list[int]) -> dict[int, int]:
 
 def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int],
               twins: list[dict[str, Any]], observed: datetime | None, *,
-              superseded: bool = False, twin_value: dict[str, Any] | None = None
-              ) -> dict[str, Any]:
+              superseded: bool = False, twin_value: dict[str, Any] | None = None,
+              first_seen: datetime | None = None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -335,6 +344,10 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "deadline": r.get("deadline_at"),
         "deadlineKnown": r.get("deadline_at") is not None,
         "publishedAt": _day(r.get("published_at")),
+        # When we first saw the notice. "New since" compares this, never `publishedAt`: a
+        # publication date is a day, and 55 % of TED notices are collected a day or more
+        # after it (internal audit H3, 14 October 2026).
+        "firstSeenAt": first_seen,
         "estimatedValue": ({"amount": float(amount), "currency": currency or "EUR"}
                            if amount else None),
         "valueFrom": value_from,
@@ -406,11 +419,13 @@ def _present(conn, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
     versions = _version_counts(conn, ids)
     twins = _api()._twins(conn, ids)
-    seen = _observed(conn, ids)
+    span = _observed_span(conn, ids)
     over = _superseded(conn, rows)
     borrowed = _twin_values(conn, rows)
-    return [to_tender(r, names, versions, twins.get(r["id"], []), seen.get(r["id"]),
-                      superseded=r["id"] in over, twin_value=borrowed.get(r["id"]))
+    return [to_tender(r, names, versions, twins.get(r["id"], []),
+                      span.get(r["id"], (None, None))[1],
+                      superseded=r["id"] in over, twin_value=borrowed.get(r["id"]),
+                      first_seen=span.get(r["id"], (None, None))[0])
             for r in rows]
 
 
@@ -429,6 +444,7 @@ def tender_order(sort: str | None, status: str, eff: str) -> str:
 
 
 @router.get("/v1/tenders", response_model=TenderPage)
+@cache_list("tenders")
 def list_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -847,6 +863,7 @@ def _buyer(r: dict[str, Any], names: dict[int, str]) -> dict[str, Any]:
 
 
 @router.get("/v1/buyers", response_model=BuyerPage)
+@cache_list("buyers", ttl=5 * 60)
 def list_buyers(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),

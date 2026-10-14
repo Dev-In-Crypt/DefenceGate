@@ -35,13 +35,16 @@ export function isDay(v: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
 }
 
+const upper = (s: string) => s.toUpperCase();
+
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
-function list<T extends string>(v: string | string[] | undefined, allowed: readonly T[]): T[] | undefined {
+/** `fold` normalises each token before it is matched (country codes are upper case: `de` was silently dropped). */
+function list<T extends string>(v: string | string[] | undefined, allowed: readonly T[], fold?: (s: string) => string): T[] | undefined {
   if (!v) return undefined;
   const raw = (Array.isArray(v) ? v : [v]).flatMap((s) => s.split(','));
-  const out = raw.map((s) => s.trim()).filter((s): s is T => (allowed as readonly string[]).includes(s));
+  const out = raw.map((s) => (fold ? fold(s.trim()) : s.trim())).filter((s): s is T => (allowed as readonly string[]).includes(s));
   const unique = [...new Set(out)];
   return unique.length ? unique : undefined;
 }
@@ -69,7 +72,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     q: searchText(first(sp[PARAM.q])),
     programme: list<ProgrammeCode>(sp[PARAM.programme], PROGRAMME_CODES),
     regime: list<Regime>(sp[PARAM.regime], REGIME_CODES),
-    country: list<CountryCode>(sp[PARAM.country], Object.keys(COUNTRIES) as CountryCode[]),
+    country: list<CountryCode>(sp[PARAM.country], Object.keys(COUNTRIES) as CountryCode[], upper),
     status: oneOf(first(sp[PARAM.status]), STATUSES) ?? DEFAULT_STATUS,
     deadlineFrom: from && isDay(from) ? from : undefined,
     deadlineTo: to && isDay(to) ? to : undefined,
@@ -155,7 +158,7 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
   const status = oneOf(first(sp[PARAM.status]), TENDER_STATUSES) ?? DEFAULT_TENDER_STATUS;
   return {
     q: searchText(first(sp[PARAM.q])),
-    country: list<string>(sp[PARAM.country], COUNTRY_CODES),
+    country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     status,
     scope: oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE,
     cpv: cpvList(sp[PARAM.cpv]),
@@ -202,7 +205,7 @@ export function activeTenderFilterCount(f: TenderFilters): number {
 export function parseBuyerFilters(sp: SearchParams): BuyerFilters {
   return {
     q: searchText(first(sp[PARAM.q])),
-    country: list<string>(sp[PARAM.country], COUNTRY_CODES),
+    country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     hasOpen: first(sp[PARAM.hasOpen]) === 'true' ? true : undefined,
     sort: oneOf(first(sp[PARAM.sort]), BUYER_SORTS) ?? DEFAULT_BUYER_SORT,
     page: pageOf(first(sp[PARAM.page])),

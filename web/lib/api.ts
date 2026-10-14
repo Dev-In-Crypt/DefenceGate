@@ -1,18 +1,30 @@
 /**
  * The only data-access module. Pages and components never import lib/mock directly.
- * Set DG_API_URL to talk to the real API; leave it unset to serve mock data.
+ * Set DG_API_URL to talk to the real API. Unset, the site serves mock data in development; a production
+ * build or server without it refuses to start (DG_USE_MOCK=1 allows a demo build on purpose).
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
+import { headers } from 'next/headers';
 import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, Health, MarketStats, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
+import { clientIp } from './hits';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
 import * as statsMock from './mock/stats';
 import * as tenderMock from './mock/tenders';
 
 const API_BASE = process.env.DG_API_URL;
+const INTERNAL_SECRET = process.env.DG_INTERNAL_SECRET;
+// Fail loudly: without the API a production site would serve invented "Demo" tenders and calls, cache them for an
+// hour and list their slugs in the sitemap, with no error anywhere (internal audit M4, 14 October 2026).
+if (!API_BASE && process.env.NODE_ENV === 'production' && process.env.DG_USE_MOCK !== '1') {
+  throw new Error(
+    'DG_API_URL is not set. A production build or server needs the API address (http://api:8000 on the compose ' +
+      'network); set DG_USE_MOCK=1 only to build a demo with invented data.',
+  );
+}
 /** Data is collected daily; an hour of ISR keeps countdowns fresh. */
 export const REVALIDATE_SECONDS = 3600;
 const RELATED_LIMIT = 3;
@@ -34,9 +46,25 @@ export class ApiError extends Error {
  */
 type CacheMode = 'revalidate' | 'no-store';
 
+/**
+ * What the API needs to charge a request to the visitor and not to the site's one shared bucket (external audit
+ * X-2): the visitor's address as Caddy set it, with the shared secret when there is one. Only for requests that
+ * are shaped by the visitor (`no-store`), which are dynamic anyway: reading the request headers in a cached (ISR)
+ * fetch would make the page dynamic. Outside a request (build, revalidation) there is no visitor and nothing is sent.
+ */
+async function visitorHeaders(): Promise<Record<string, string>> {
+  try {
+    const ip = clientIp((await headers()).get('x-forwarded-for'));
+    if (ip === 'unknown') return {};
+    return INTERNAL_SECRET ? { 'x-dg-client-ip': ip, 'x-dg-internal': INTERNAL_SECRET } : { 'x-dg-client-ip': ip };
+  } catch {
+    return {};
+  }
+}
+
 async function http<T>(path: string, mode: CacheMode = 'revalidate'): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { accept: 'application/json' },
+    headers: { accept: 'application/json', ...(mode === 'no-store' ? await visitorHeaders() : {}) },
     ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: REVALIDATE_SECONDS } }),
   });
   if (res.status === 404) return null;

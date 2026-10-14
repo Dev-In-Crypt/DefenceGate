@@ -39,6 +39,31 @@
 		max_size 4KB
 	}
 
+	# Methods. The site and the API read with GET and HEAD, and the site's own forms are POST
+	# (server actions). Anything else is a 405 here, not a page from the application: TRACE
+	# answered 500 with the build id, and DELETE /tenders answered 200 with a public
+	# Cache-Control (external audit X-9). A POST answer is never stored by a cache.
+	@badmethod method TRACE TRACK PUT PATCH DELETE CONNECT
+	handle @badmethod {
+		header Allow "GET, HEAD, POST"
+		respond "Method not allowed" 405
+	}
+	@post method POST
+	header @post Cache-Control "no-store"
+
+	# RFC 9116. The contact is the operator's to provide (docs/legal): until then it says so
+	# and names no address, which is better than a guessed one.
+	handle /.well-known/security.txt {
+		header Content-Type "text/plain; charset=utf-8"
+		header Cache-Control "public, max-age=86400"
+		respond <<TXT
+			Contact: to be provided by the operator
+			Expires: 2027-04-14T00:00:00.000Z
+			Preferred-Languages: en
+			Canonical: https://{$DGATE_DOMAIN:localhost}/.well-known/security.txt
+			TXT 200
+	}
+
 	# Only what the product serves reaches the API. /docs, /openapi.json and any
 	# route added later and forgotten are a 404 here, whatever the application
 	# does.

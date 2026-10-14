@@ -5,7 +5,7 @@
 export type CountryCode = 'EU' | 'PL' | 'SE' | 'FR' | 'ES' | 'FI' | 'DE' | 'IT' | 'NL';
 /** ISO 4217 as the source states it. Amounts are never converted. */
 export type CurrencyCode = string;
-export type ProgrammeCode = 'EDF' | 'EDIP' | 'HORIZON' | 'DIGITAL' | 'NATIONAL';
+export type ProgrammeCode = 'EDF' | 'EDIP' | 'HORIZON' | 'DIGITAL' | 'CEF' | 'NATIONAL';
 export type Regime = 'defence' | 'dual-use';
 export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
