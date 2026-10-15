@@ -95,6 +95,9 @@ PL_INCLUDE = [
     # Added 13 October 2026 (coverage:C2: none of 31 air bases and 18 regional
     # infrastructure boards were on the list).
     ("air_base", r"\bbaza lotnictwa\b"),
+    # Added 15 October 2026 (coverage:X2: `155891-2026`, a TED notice of the Ministry's
+    # representation centre, which the list did not hold).
+    ("representation_centre", r"^osrodek reprezentacyjny ministerstwa obrony narodowej$"),
     ("infrastructure_board", r"\brejonowy zarzad infrastruktury\b"),
     ("academy", r"^wojskowa akademia techniczna|^akademia marynarki wojennej"
                 r"|^lotnicza akademia wojskowa|^akademia wojsk ladowych"
@@ -297,7 +300,7 @@ def vocabulary_proposals(rows: Iterable[tuple[str, str, str, int]]) -> list[Prop
     for country, name, identifier, notices in rows:
         if not country or country.upper() in OWN_RULES or not name:
             continue
-        body = defence_body(name, country)
+        body = defence_body(name, country, identifier)
         if body.label:
             key = (country.upper(), name)
             if key in seen:

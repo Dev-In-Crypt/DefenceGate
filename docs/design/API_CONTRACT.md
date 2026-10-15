@@ -192,6 +192,9 @@ interface Tender {
   scope: 'core' | 'supply';          // core: the notice itself is defence; supply: only the buyer is
   deadline: IsoDateTime | null;      // null: none stated
   publishedAt: IsoDateTime | null;
+  publishedKnown: boolean;           // false: the source states no publication date
+  noticeDate: IsoDateTime | null;    // the date of the notice the record was last read from, where stated
+  noticeKind: 'call' | 'prior' | 'award' | 'formalisation' | 'cancellation' | 'update' | null;
   firstSeenAt: IsoDateTime | null;   // when we first collected it ("new since" compares this, never publishedAt)
   estimatedValue: { amount: number; currency: string } | null;
   status: 'open' | 'closed';         // as of now (a passed deadline is closed)
@@ -263,6 +266,13 @@ All additive; nothing was removed from a response.
   `municipal`, `health`, `education`, `fire_rescue`, `other`) and `dualUse` (a military CPV
   from a body that buys for itself, demoted from `core`; reachable with `scope=all`).
 - `publishedAt` is the publication date (TED `publication-date`, not the dispatch date).
+- `noticeDate` and `noticeKind` (15 October 2026, PLACSP; null for sources that state none)
+  are the date and the kind of the notice the record was last read from. They are never a
+  publication date: a Spanish folder whose stored entry is an award has `publishedAt` null,
+  `publishedKnown` false, and `noticeKind: "award"` with its date, which the site words as
+  "Award notice dated 12 Sep 2026". Where an earlier entry of the same folder was the call,
+  `publishedAt` is the call's date (kept, not replaced by the award's). `sort=published-desc`
+  orders by `publishedAt`, else `noticeDate`.
 - `estimatedValue` is accompanied by `valueKind` (`total`, `estimated`, `lot_sum`,
   `first_lot`); `lots` is the lot count where the notice lists lots.
 - `buyerName` is the notice's own spelling; `buyerCanonicalName` is the organisation's.

@@ -6,7 +6,7 @@ import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug, REMO
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { getTenderDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
+import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
 import { TENDER_CHANGED_LABEL, sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
@@ -152,10 +152,10 @@ export default async function TenderDetailPage({ params }: Props) {
               )}
             </FactCell>
             <FactCell label="Notice ID">{tender.noticeId}</FactCell>
-            <FactCell label="Published">
+            <FactCell label={tender.publishedAt || !tender.noticeDate ? 'Published' : 'Notice date'}>
               {tender.publishedAt
                 ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
-                : <span className="font-sans">Publication date not stated by the source</span>}
+                : <span className="font-sans">{noticeDateLabel(tender) ?? 'Publication date not stated by the source'}</span>}
             </FactCell>
             <FactCell label="Procedure">
               <span className="font-sans">{procedureEn ?? tender.procedure ?? 'Not available'}</span>

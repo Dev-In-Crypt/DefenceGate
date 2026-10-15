@@ -1,65 +1,65 @@
 country,name,identifier,reason,confidence,reviewed
-NL,defence materiel organisation,,procurement_agency,0.95,false
-NL,defence materiel organisation - project procurement,,procurement_agency,0.95,false
+NL,defence materiel organisation,,procurement_agency,0.95,false
+NL,defence materiel organisation - project procurement,,procurement_agency,0.95,false
 NL,defence materiel organisation dmo,291855282,procurement_agency,0.95,false
-NL,defensie materieel organisatie,,procurement_agency,0.95,false
-NL,defensie materieel organisatie dmo,,procurement_agency,0.95,false
-NL,defensie materieel organisatie inkoop defensie materieel projecten,,procurement_agency,0.95,false
-NL,department of defense,,ministry,0.95,false
-NL,dmo,,procurement_agency,0.95,false
-NL,dutch ministry of defence,,ministry,0.95,false
-NL,het ministerie van defensi,,ministry,0.95,false
-NL,koninklijke marine,,armed_forces,0.95,false
+NL,defensie,,ministry,0.95,false
+NL,defensie materieel organisatie,,procurement_agency,0.95,false
+NL,defensie materieel organisatie dmo,,procurement_agency,0.95,false
+NL,defensie materieel organisatie inkoop defensie materieel projecten,,procurement_agency,0.95,false
+NL,department of defense,,ministry,0.95,false
+NL,dmo,,procurement_agency,0.95,false
+NL,dutch ministry of defence,,ministry,0.95,false
+NL,het ministerie van defensi,,ministry,0.95,false
+NL,koninklijke marine,,armed_forces,0.95,false
 NL,ministerie van defensi,,ministry,0.95,false
 NL,ministerie van defensie,27370985,ministry,0.95,false
-NL,ministerie van defensie - defensie materieel organisatie,,ministry,0.95,false
-NL,ministerie van defensie - defensie ondersteuningscommando p a nic inkoopprojecten,,ministry,0.95,false
+NL,ministerie van defensie - defensie materieel organisatie,,ministry,0.95,false
+NL,ministerie van defensie - defensie ondersteuningscommando p a nic inkoopprojecten,,ministry,0.95,false
 NL,ministerie van defensie - defensie pijpleiding organisatie,10371184,ministry,0.95,false
-NL,ministerie van defensie - dosco,,ministry,0.95,false
+NL,ministerie van defensie - dosco,,ministry,0.95,false
 NL,ministerie van defensie - inkoop it,27371004,ministry,0.95,false
 NL,ministerie van defensie - koninklijke marine,412151249,ministry,0.95,false
-NL,ministerie van defensie clas matlogco,,ministry,0.95,false
-NL,ministerie van defensie commando dienstencentra cdc,,ministry,0.95,false
+NL,ministerie van defensie clas matlogco,,ministry,0.95,false
+NL,ministerie van defensie commando dienstencentra cdc,,ministry,0.95,false
 NL,ministerie van defensie commando dienstencentra divisie vastgoed en beveiliging,31833604,ministry,0.95,false
-NL,ministerie van defensie commando dienstencentra p a het nic,,ministry,0.95,false
+NL,ministerie van defensie commando dienstencentra p a het nic,,ministry,0.95,false
 NL,ministerie van defensie commando landstrijdkrachten matlogco,151683036,ministry,0.95,false
-NL,ministerie van defensie commando luchtstrijdkrachten logistiek centrum woensdrecht,,ministry,0.95,false
-NL,ministerie van defensie commando materieel & it commit defensie brand-en bedrijfstoffen bedrijf dbbb,,ministry,0.95,false
+NL,ministerie van defensie commando luchtstrijdkrachten logistiek centrum woensdrecht,,ministry,0.95,false
+NL,ministerie van defensie commando materieel & it commit defensie brand-en bedrijfstoffen bedrijf dbbb,,ministry,0.95,false
 NL,ministerie van defensie commando materieel en it afdeling inkoop it,,ministry,0.95,false
-NL,ministerie van defensie d t v ris,,ministry,0.95,false
-NL,ministerie van defensie deefensie materieel organisatie,,ministry,0.95,false
-NL,ministerie van defensie defensie materieel organisatie,,ministry,0.95,false
+NL,ministerie van defensie d t v ris,,ministry,0.95,false
+NL,ministerie van defensie deefensie materieel organisatie,,ministry,0.95,false
+NL,ministerie van defensie defensie materieel organisatie,,ministry,0.95,false
 NL,ministerie van defensie defensie materieel organisatie inkoop it,431575409,ministry,0.95,false
 NL,ministerie van defensie defensie materieel organisatie kpu-bedrijf,48313223,ministry,0.95,false
-NL,ministerie van defensie defensie ondersteuningscommando,,ministry,0.95,false
-NL,ministerie van defensie defensie ondersteuningscommando dosco,,ministry,0.95,false
-NL,ministerie van defensie defensie pijpleiding organisatie,,ministry,0.95,false
+NL,ministerie van defensie defensie ondersteuningscommando,,ministry,0.95,false
+NL,ministerie van defensie defensie ondersteuningscommando dosco,,ministry,0.95,false
+NL,ministerie van defensie defensie pijpleiding organisatie,,ministry,0.95,false
 NL,ministerie van defensie dosco,271880387,ministry,0.95,false
-NL,ministerie van defensie dosco i&c,,ministry,0.95,false
-NL,ministerie van defensie inkoop it,,ministry,0.95,false
+NL,ministerie van defensie dosco i&c,,ministry,0.95,false
+NL,ministerie van defensie inkoop it,,ministry,0.95,false
 NL,ministerie van defensie iuc clas,,ministry,0.95,false
-NL,ministerie van defensie jivc inkoop,,ministry,0.95,false
+NL,ministerie van defensie jivc inkoop,,ministry,0.95,false
 NL,ministerie van defensie koninklijke marine,,ministry,0.95,false
-NL,ministerie van defensie nederland,,ministry,0.95,false
-NL,ministerie van defensie- dosco,,ministry,0.95,false
-NL,ministery of defence,,ministry,0.95,false
-NL,ministery van defence,,ministry,0.95,false
-NL,ministry of defence,,ministry,0.95,false
-NL,ministry of defence defence materiel organisation,,ministry,0.95,false
-NL,ministry of defence mod,,ministry,0.95,false
-NL,ministry of defence netherlands,,ministry,0.95,false
-NL,ministry of defense,,ministry,0.95,false
+NL,ministerie van defensie nederland,,ministry,0.95,false
+NL,ministerie van defensie- dosco,,ministry,0.95,false
+NL,ministery of defence,,ministry,0.95,false
+NL,ministery van defence,,ministry,0.95,false
+NL,ministry of defence,,ministry,0.95,false
+NL,ministry of defence defence materiel organisation,,ministry,0.95,false
+NL,ministry of defence mod,,ministry,0.95,false
+NL,ministry of defence netherlands,,ministry,0.95,false
+NL,ministry of defense,,ministry,0.95,false
 NL,ministry of defense of the netherlands,,ministry,0.95,false
-NL,ministry of defense royal netherlands navy,,ministry,0.95,false
-NL,royal netherlands air force,,armed_forces,0.95,false
-NL,royal netherlands air force logistic centre woensdrecht,,armed_forces,0.95,false
-NL,royal netherlands navy,,armed_forces,0.95,false
-NL,the netherlands ministery of defence,,ministry,0.95,false
-NL,defensie,,defence_word,0.70,false
+NL,ministry of defense royal netherlands navy,,ministry,0.95,false
+NL,royal netherlands air force,,armed_forces,0.95,false
+NL,royal netherlands air force logistic centre woensdrecht,,armed_forces,0.95,false
+NL,royal netherlands navy,,armed_forces,0.95,false
+NL,the netherlands ministery of defence,,ministry,0.95,false
 NL,nederlandse defensie academie,13668207,defence_word,0.70,false
-NL,netherlands ministry of defence,,defence_word,0.70,false
+NL,netherlands ministry of defence,,defence_word,0.70,false
 NL,nl ministry of defence,40683985,defence_word,0.70,false
-NL,nld ministry of defence,,defence_word,0.70,false
-NL,szw-catm-ea kwaliteitsmetingen defensie dtv ris,,defence_word,0.70,false
-NL,the netherlands ministry of defence,,defence_word,0.70,false
-NL,the netherlands ministry of defence modnl,,defence_word,0.70,false
+NL,nld ministry of defence,,defence_word,0.70,false
+NL,szw-catm-ea kwaliteitsmetingen defensie dtv ris,,defence_word,0.70,false
+NL,the netherlands ministry of defence,,defence_word,0.70,false
+NL,the netherlands ministry of defence modnl,,defence_word,0.70,false

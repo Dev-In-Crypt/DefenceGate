@@ -147,7 +147,7 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     # Same rule for the attributes only some sources set (TED's, migration 0030,
     # and the buyer's registration number): absent while empty, so no hash moves.
     for name in ("buyer_identifier", "notice_subtype", "procedure_identifier",
-                 "lot_count", "value_kind"):
+                 "lot_count", "value_kind", "notice_date", "notice_kind"):
         if payload.get(name) is None:
             payload.pop(name, None)
     return payload
@@ -155,7 +155,7 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
 
 # Fields that come back out of a payload as strings and have to become dates
 # and datetimes again. Everything else round-trips as itself.
-_DATE_FIELDS = {"published_at"}
+_DATE_FIELDS = {"published_at", "notice_date"}
 _DATETIME_FIELDS = {"deadline_at", "source_updated_at"}
 
 
@@ -795,6 +795,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         notice_subtype=opp.notice_subtype, procedure_identifier=opp.procedure_identifier,
         lot_count=opp.lot_count, value_kind=opp.value_kind,
         buyer_identifier=opp.buyer_identifier,
+        notice_date=opp.notice_date, notice_kind=opp.notice_kind,
     )
 
 
@@ -953,8 +954,8 @@ def upsert_opportunity(
         opp = replace(opp, published_at=None)
 
     existing = conn.execute(
-        """SELECT id, current_version, buyer_name_raw FROM opportunity
-            WHERE source_id = %s AND native_id = %s""",
+        """SELECT id, current_version, buyer_name_raw, published_at, deadline_at
+             FROM opportunity WHERE source_id = %s AND native_id = %s""",
         (src_id, opp.native_id),
     ).fetchone()
 
@@ -967,10 +968,26 @@ def upsert_opportunity(
             and _buyer_key(existing["buyer_name_raw"]) != _buyer_key(opp.buyer_name_raw)):
         opp = replace(opp, native_id=_disambiguated_id(opp))
         existing = conn.execute(
-            """SELECT id, current_version, buyer_name_raw FROM opportunity
-                WHERE source_id = %s AND native_id = %s""",
+            """SELECT id, current_version, buyer_name_raw, published_at, deadline_at
+                 FROM opportunity WHERE source_id = %s AND native_id = %s""",
             (src_id, opp.native_id),
         ).fetchone()
+
+    # A later entry of a folder (its award, its cancellation) states no call notice and so
+    # no publication date: the date the call was published, already held, is not lost with
+    # it. Only a date that is not after the notice's own deadline is carried (the mapper
+    # clears the ones that are).
+    if (existing and opp.published_at is None and existing["published_at"]
+            and opp.source_code in LOCAL_KEY_SOURCES):
+        held, limit = existing["published_at"], opp.deadline_at or existing["deadline_at"]
+        # A version without the entry's update stamp was read by the first mapper, whose
+        # date is the feed's and not a call's: that is cleared by a re-read, not carried.
+        stamped = conn.execute(
+            """SELECT payload->>'source_updated_at' IS NOT NULL AS stamped
+                 FROM opportunity_version WHERE opportunity_id = %s
+                ORDER BY version DESC LIMIT 1""", (existing["id"],)).fetchone()
+        if stamped and stamped["stamped"] and (limit is None or held <= limit.date()):
+            opp = replace(opp, published_at=held)
 
     payload = opportunity_payload(opp)
     cols = {**_serving_columns(opp), **_classification_columns(opp)}
@@ -1036,6 +1053,10 @@ def upsert_opportunity(
     if incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
         return opp_id, "stale"
     changed = changed_fields(prev, payload)
+    # The notice date follows the entry the row was last read from: a record the source
+    # stamped no earlier than the held one.
+    newer = (not prev.get("source_updated_at") or not payload.get("source_updated_at")
+             or str(payload["source_updated_at"]) >= str(prev["source_updated_at"]))
     if not changed:
         # Hash moved but nothing we track did: a cosmetic upstream edit, or a list
         # re-ordered, or a deadline written with another UTC offset. An attribute or a link
@@ -1048,9 +1069,14 @@ def upsert_opportunity(
                   SET lot_count = COALESCE(%s, lot_count),
                       ted_ref = COALESCE(ted_ref, %s),
                       related_native_id = COALESCE(related_native_id, %s),
-                      procedure_identifier = COALESCE(procedure_identifier, %s)
+                      procedure_identifier = COALESCE(procedure_identifier, %s),
+                      notice_date = CASE WHEN %s::date IS NOT NULL AND %s THEN %s
+                                         ELSE notice_date END,
+                      notice_kind = CASE WHEN %s::date IS NOT NULL AND %s THEN %s
+                                         ELSE notice_kind END
                 WHERE id = %s""",
             (opp.lot_count, opp.ted_ref, opp.related_native_id, opp.procedure_identifier,
+             opp.notice_date, newer, opp.notice_date, opp.notice_date, newer, opp.notice_kind,
              opp_id))
         return opp_id, "unchanged"
 

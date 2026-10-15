@@ -109,8 +109,10 @@ PROPERTY = _rx(
     r"fortifikationsverket|forsvarets ejendom|ejendomsstyrelse|puolustushallinnon rakennuslaitos",
     r"defence estates|estates agency|agentura hospodareni s nemovitym majetkem|agentura pre majetok",
     r"direction de l immobilier|agence immobiliere|immobilienaufgaben",
-    r"service d infrastructure de la defense|service d infrastrucutre|\bdcsid\b|\besid\b|\bdrsid\b",
-    r"cercle (?:national|de la base)|coordination de defense des services sociaux",
+    # The French Defence Infrastructure Service (SID, ESID, DCSID...) was listed here until
+    # 15 October 2026: the owner decided that it is a defence buyer (DEFENCE_INCLUDE,
+    # `defence_infrastructure_service`), like Forsvarsbygg, and it qualifies into `supply`.
+    r"cercle (?:national|de la base|interarmees|mixte)|coordination de defense des services sociaux",
     r"servicio de infraestructura|gerencia de infraestructura|instituto de vivienda|\binvied\b",
     r"agenzia del demanio|demanio|direzione dei lavori|puolustuskiinteistot",
     r"paris la defense|amenagement de la defense|epadesa|defacto|quartier d affaires|puteaux|courbevoie",
@@ -228,6 +230,74 @@ DEFENCE_INCLUDE: list[_Row] = [
          r"^saelsi\b", r"^depafi\b", r"^delpia\b", r"^drsid\b", r"^simmt\b", r"^simmad\b",
          r"^marine (?:dcssf|dssf)", r"^plate-?forme affretement", r"^dcssf\b", r"^arm sca",
          r"^plate-?forme (?:du )?commissariat", r"^dicom\b"),
+    # France (15 October 2026, coverage:X1). Real buyer strings read from the BOAMP
+    # organisations of the production database; every row has a test with them. The
+    # families are those of the Ministry of the Armed Forces (the SGA's purchasing
+    # services, the SCA platforms, the SSA's central supply, the DGA, the DIRISI, the
+    # infrastructure service) and the bodies it supervises that buy for themselves.
+    # Not included, and why: the gendarmerie (Interior; a security class), military
+    # hospitals and schools, social clubs ("cercle"), the CEA, the SGDSN, the Paris
+    # business district.
+    _row("ministry", 0.95, "FR",
+         r"^(?:etat\W+|l acheteur public est l etat\W+)?min\w*(?:ere|re)s? (?:des armee|de la defense)",
+         r"^(?:etat\W+)?min(?:arm|d[a-z]{2,7}|ar)\b",
+         r"^min(?:istere)? defense\b",
+         r"^armees?$|^defense (?:etat|nationale|mobilite)|^defense$",
+         r"^(?:defense )?etat[- ]major (?:des armees|de l armee|de la marine)"),
+    _row("defence_infrastructure_service", 0.90, "FR",
+         r"(?:^|\W)(?:service|direction|etablissement)(?: (?:central|regional)e?)?(?: du)?"
+         r"(?: service)?(?: d| de l| de la)? ?i+nfra\w* (?:de )?la ?defense",
+         r"^etablissement du service de la defense",
+         r"^(?:direction|service) (?:centrale|regionale) (?:du )?service d ?i+nfra",
+         r"^(?:dcsid|esid|drsid|usid)\b",
+         r"^did\b(?:\W+(?:sds|fdf|cayenne|papeete|de|fort|saint|nouvelle)\b)",
+         r"^sga[ -]+(?:minarm[ -]+)?(?:dcsid|sid)\b",
+         r"^sid(?:[ -]+(?:epn|expertise|idf|ne|se|so|no|n-o|s-e|med|atl\w*|nord|sud|mediterranee"
+         r"|ile|sve)\b|$)",
+         r"agissant (?:en qualite de mandataire de l etat|au nom et pour le compte).{0,260}"
+         r"(?:service d infrastr\w+ de la defense|\bsid\b|ministere des armees)"),
+    # The central supply of the Armed Forces Health Service. Its names say "sante": the
+    # health exclusion does not apply (EXEMPT); a hospital or a transfusion centre never
+    # matches these patterns. Before the procurement row: the first match names the label.
+    _row("health_supply_agency", 0.95, "FR",
+         r"\bdapsa\b|direction des approvisionnements? en produits? de sante des armees",
+         r"^(?:(?:ema|minarm|mindef|sga)[ -]+)*(?:dcssa|ssa)[ -]+(?:dapsa|daps)",
+         r"^direction centrale du service de sante des armees|^pfaf[- ]?(?:s|sante)\b"),
+    _row("procurement_agency", 0.95, "FR",
+         r"^plate[- ]?forme (?:du )?commissariat|^plate[- ]?forme (?:achats|affretement)",
+         r"^pfc\b|^pfaf\b|^dcsca\b|^sca (?:pfaf|pfc|gsbdd|plate|dcsca|so)\b",
+         r"^service du commissariat des armees|^direction centrale du service du commissariat",
+         r"^direction du commissariat (?:d outre|des forces armees)",
+         r"^ema[ -]+(?:dc|sca|dcssa|ssa|dcdirisi|dapsa|dseo)\b|^dcsea\b|^dseo\b",
+         r"^direction interarmees des reseaux d infrastructure|^commissariat au numerique de defense",
+         r"^service interarmees? des munitions|^simu\b|^service des essences des armees",
+         r"^service de l energie operationnelle|^service industriel de l aeronautique",
+         r"^structure integree du maintien en condition operationnelle|^service de maintenance"
+         r" industrielle terrestre|^service de soutien de la flotte",
+         r"^service parisien de soutien de l administration centrale|^spac\b",
+         r"^etablissement de communication et de production audiovisuelles? de la defense",
+         r"^ecpad\b|^epa ecpad|^section technique de l armee de terre"),
+    _row("base_support_group", 0.90, "FR",
+         r"gsbdd|^gsdbb\b|^groupement (?:de )?soutien (?:de la )?base de defense",
+         r"^service soutien vie gsbdd"),
+    # Bodies the Ministry supervises: a social management agency, a veterans' office.
+    # They are the Ministry's, and supply-scope only (a buyer signal never reaches core).
+    _row("ministry_affiliated", 0.85, "FR",
+         r"^igesa\b|^institution de gestion sociale des armees",
+         r"^onac(?:vg|etamp)?\b|^onac ?(?:&|et) ?vg|^epa onacvg",
+         r"^office national des (?:anciens )?combattants et (?:des )?victimes de guerre"),
+    # Units: a number leads, then the unit type. The regiments of the "service militaire
+    # adapte" (overseas youth service run in military form) were on the derived list before
+    # and stay; whether they are armed forces is the owner's call, not this change's.
+    _row("military_unit", 0.90, "FR",
+         r"^\d+(?:e|er|ere|eme|\W{0,2}me)?\W{0,2}(?:regiment|rgt|rima|rpima|rcp|rch|rei|bataillon"
+         r"|escadre|escadron|brigade|base aerienne|base navale|groupement de soutien)\b",
+         r"^(?:regiment|escadre|escadron|bataillon|base aerienne|base navale|base de defense)\b"),
+    # The Netherlands: the Ministry files under its bare name too ("Defensie", one
+    # organisation, unflagged on 15 October 2026). The academy is education, as everywhere.
+    _row("ministry", 0.95, "NL",
+         r"^defensie$", r"^defensie (?:ondersteuningscommando|vastgoed|nederland)\b",
+         r"^dienst vastgoed defensie"),
     _row("defence_estates_agency", 0.90, "NO", r"^forsvarsbygg\b"),
     _row("procurement_agency", 0.95, "SE", r"^fmv\b", r"^foi\b"),
     _row("procurement_agency", 0.95, "NL", r"^dmo\b"),
@@ -321,6 +391,16 @@ DEFENCE_EXCLUDE: list[tuple[str, re.Pattern]] = [
 ]
 
 
+# Exclusions that do not apply to a label: the estates agency's name says "estates"; the
+# infrastructure service's says "infrastructure"; the SSA's central supply bodies name the
+# health service they supply (never a hospital: the patterns are anchored on the bodies).
+EXEMPT: dict[str, frozenset[str]] = {
+    "defence_estates_agency": frozenset({"property_agency"}),
+    "defence_infrastructure_service": frozenset({"property_agency"}),
+    "health_supply_agency": frozenset({"military_healthcare"}),
+}
+
+
 @dataclass(frozen=True)
 class DefenceBody:
     label: str | None          # the include rule that matched; None = not a defence body
@@ -338,17 +418,41 @@ def _first_include(key: str, country: str | None) -> tuple[str, float] | None:
     return None
 
 
-def defence_body(name: str, country: str | None = None) -> DefenceBody:
+# French registration numbers (SIREN, nine digits) that belong to the Ministry's own services,
+# read from the organisations the database holds under them (15 October 2026): every
+# organisation under one of them is a service of the Ministry of the Armed Forces by name.
+# Not the Ministry's own number (110002011): the Conseil d'Etat and the interior ministry's
+# regional services state it too. Used only when the name says nothing: "DID CAYENNE".
+DEFENCE_SIREN_FR = {
+    "130001902": "defence_infrastructure_service",   # SID, DCSID, DID, DRSID, ESID
+    "130008899": "procurement_agency",               # Service du commissariat des armees
+    "130015340": "procurement_agency",               # SCA platforms (PFAF, affretement)
+    "130015370": "procurement_agency",
+    "130015373": "procurement_agency",
+    "130015399": "procurement_agency",
+    "151000023": "health_supply_agency",             # DAPSA
+}
+
+
+def defence_body_by_identifier(identifier: str | None, country: str | None) -> DefenceBody:
+    """A body whose registration number is one of the Ministry's own services'."""
+    digits = "".join(c for c in (identifier or "") if c.isdigit())
+    label = DEFENCE_SIREN_FR.get(digits[:9]) if (country or "").upper() == "FR" else None
+    return DefenceBody(label, 0.90, None) if label else DefenceBody(None, 0.0, None)
+
+
+def defence_body(name: str, country: str | None = None,
+                 identifier: str | None = None) -> DefenceBody:
     key = folded(name)
     if not key:
         return DefenceBody(None, 0.0, None)
     matched = _first_include(key, country)
     if matched is None:
-        return DefenceBody(None, 0.0, None)
+        return defence_body_by_identifier(identifier, country)
     for why, rx in DEFENCE_EXCLUDE:
         if why == "security_service" and matched[0] == "military_police":
             continue
-        if why == "property_agency" and matched[0] == "defence_estates_agency":
+        if why in EXEMPT.get(matched[0], ()):
             continue          # "Forsvarsbygg - the Norwegian Defence Estates Agency"
         if rx.search(key):
             return DefenceBody(None, 0.0, why)
