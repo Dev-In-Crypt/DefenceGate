@@ -115,7 +115,7 @@ export default async function DataPage() {
         </p>
         <ClauseList items={[
           'National tender portals are collected for four countries only: Spain (PLACSP), France (BOAMP), the Netherlands (TenderNed) and Poland (e-Zamówienia). For every other country, Germany, Italy and the Nordic and Baltic countries among them, we hold only what TED carries.',
-          'TED: notices published before 2025 have not been re-checked with the current classification rules, so older ones may be mislabelled or missing.',
+          'TED: notices from April 2024 on have been re-checked with the current classification rules; the older ones (back to 2017) are being re-checked now, so until that finishes an older notice may be mislabelled or missing.',
           'Poland (Atlas): a one-off research dataset, not a live portal. It stops where its dates stop, and the national counts fall there.',
           'Germany: federal funding announcements are not collected automatically. They can be added by hand, so a German call may be missing.',
           ...health.sources.filter((s) => s.type === 'tenders').map((s) => gapSentence(s)).filter((t): t is string => t !== null),

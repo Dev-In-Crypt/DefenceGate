@@ -5,7 +5,7 @@ import { Icon } from './icon';
 /** A short, framed note. Used for the "in short" summary of long texts and for plain-language caveats. */
 export function Callout({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
-    <aside className={cn('flex max-w-[860px] items-start gap-3 rounded-lg border-strong border-line bg-surface p-5 sm:p-6', className)}>
+    <aside className={cn('flex items-start gap-3 rounded-lg border-strong border-line bg-surface p-5 sm:p-6 [&_li]:max-w-[90ch] [&_p]:max-w-[90ch]', className)}>
       <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Info} /></span>
       <div className="flex min-w-0 flex-col gap-2">
         <p className="m-0 text-body font-bold">{title}</p>

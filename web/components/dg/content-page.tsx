@@ -7,7 +7,7 @@ import { Icon } from './icon';
 /** Visible on every page whose text is not written yet. Removing the `draft` prop is the whole switch. */
 export function DraftNotice({ className }: { className?: string }) {
   return (
-    <div role="note" className={cn('flex max-w-[860px] items-start gap-3 rounded-lg border-strong border-dashed border-line bg-surface p-5', className)}>
+    <div role="note" className={cn('flex items-start gap-3 rounded-lg border-strong border-dashed border-line bg-surface p-5', className)}>
       <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Info} /></span>
       <div className="flex flex-col gap-1">
         <p className="m-0 text-body font-bold">Draft — text pending</p>
@@ -45,7 +45,7 @@ export function ContentPage({ crumbs, title, lead, draft = false, wide = false, 
         {lead && <p className="m-0 max-w-[62ch] text-body text-ink-muted">{lead}</p>}
       </header>
       {draft && <DraftNotice />}
-      {children && <div className={cn('flex flex-col gap-4', !wide && 'max-w-[860px]')}>{children}</div>}
+      {children && <div className={cn('flex flex-col gap-4', !wide && '[&_p]:max-w-[90ch] [&_li]:max-w-[90ch]')}>{children}</div>}
     </>
   );
 }

@@ -85,7 +85,11 @@ export function monthRanges(months: readonly string[]): string[] {
 export function gapSentence(s: { name: string; heldFrom?: string | null; heldTo?: string | null; monthlyMedian?: number | null; gapMonths?: string[] | null }): string | null {
   const span = heldSpan(s.heldFrom, s.heldTo);
   if (!span || s.gapMonths === undefined || s.gapMonths === null) return null;
-  const usual = s.monthlyMedian ? ` The usual month holds about ${s.monthlyMedian.toLocaleString('en-GB')} notices.` : '';
+  const median = s.monthlyMedian ?? 0;
+  const usual = median >= 10 ? ` The usual month holds about ${median.toLocaleString('en-GB')} notices.`
+    : median > 0 ? ' The usual month holds only a handful of notices, so month-by-month gaps say little.' : '';
+  // A source with only a handful of notices a month has no meaningful "half of the usual month".
+  if (median > 0 && median < 10) return `${s.name}: publication dates ${span}.${usual}`;
   if (s.gapMonths.length === 0) return `${s.name}: publication dates ${span}.${usual} No whole month between the first and the last is below half of that.`;
   return `${s.name}: publication dates ${span}.${usual} Months with fewer than half of that: ${monthRanges(s.gapMonths).join(', ')}.`;
 }

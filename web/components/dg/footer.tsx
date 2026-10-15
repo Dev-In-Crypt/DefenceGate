@@ -38,7 +38,6 @@ export async function Footer() {
               <span className="text-label text-ink-muted">Follow</span>
               <a href="/changes.atom" className="inline-flex min-h-8 items-center text-small font-semibold text-ink">Atom feed</a>
               <a href="/calendar.ics" className="inline-flex min-h-8 items-center text-small font-semibold text-ink">Calendar (.ics)</a>
-              <a href="/tenders/export.csv" className="inline-flex min-h-8 items-center text-small font-semibold text-ink">CSV</a>
             </nav>
           </div>
           {COLUMNS.map((col) => (
