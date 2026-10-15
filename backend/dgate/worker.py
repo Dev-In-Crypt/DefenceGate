@@ -33,6 +33,7 @@ from .pipeline import (
     run_aid,
     run_bdns,
     run_boamp,
+    run_de_bkms,
     run_eu_portal,
     run_ezamowienia,
     run_matine,
@@ -168,6 +169,19 @@ def job_tenderned(days: int | None = None) -> JobResult:
     window = days or settings().ingest_days
     return run_job("tenderned_daily", lambda: run_tenderned(days=window, reread=True),
                    sources=["nl_tenderned"])
+
+
+def job_de_bkms(days: int | None = None) -> JobResult:
+    """The German notice service. Does nothing, and records no run, while the source is
+    inactive: the licence is not verified (migration 0050), so the schedule stays off.
+    A manual load is `pipeline de-bkms --force`."""
+    from .pipeline import source_is_active
+
+    with db.connect(settings().dsn) as conn:
+        if not source_is_active(conn, "de_bkms"):
+            return JobResult("de_bkms_daily", "success", 0.0, "source inactive; not run")
+    window = days or settings().ingest_days
+    return run_job("de_bkms_daily", lambda: run_de_bkms(days=window), sources=["de_bkms"])
 
 
 def job_matine(days: int | None = None) -> JobResult:
@@ -434,6 +448,7 @@ def daily_jobs() -> dict[str, tuple[Callable[..., JobResult], tuple[str, ...]]]:
         "ezamowienia_daily": (job_ezamowienia, (ezam_source(),)),
         "boamp_daily": (job_boamp, ("fr_boamp",)),
         "tenderned_daily": (job_tenderned, ("nl_tenderned",)),
+        "de_bkms_daily": (job_de_bkms, ("de_bkms",)),
         "vinnova_daily": (job_vinnova, ("se_vinnova",)),
         "aid_daily": (job_aid, ("fr_aid",)),
         "matine_daily": (job_matine, ("fi_matine",)),
@@ -482,6 +497,7 @@ def hours_since_last_slot(name: str) -> float:
         "ezamowienia_daily": (cfg.ezam_hour, cfg.ezam_minute),
         "boamp_daily": (cfg.boamp_hour, cfg.boamp_minute),
         "tenderned_daily": (cfg.tenderned_hour, cfg.tenderned_minute),
+        "de_bkms_daily": (cfg.de_bkms_hour, cfg.de_bkms_minute),
         "vinnova_daily": (cfg.vinnova_hour, cfg.vinnova_minute),
         "aid_daily": (cfg.aid_hour, cfg.aid_minute),
         "matine_daily": (cfg.matine_hour, cfg.matine_minute),
@@ -884,6 +900,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "ezamowienia": job_ezamowienia,
     "boamp": job_boamp,
     "tenderned": job_tenderned,
+    "de-bkms": job_de_bkms,
     "vinnova": job_vinnova,
     "aid": job_aid,
     "matine": job_matine,
@@ -926,6 +943,8 @@ def build_scheduler():
     sched.add_job(job_tenderned,
                   CronTrigger(hour=cfg.tenderned_hour, minute=cfg.tenderned_minute),
                   id="tenderned_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_de_bkms, CronTrigger(hour=cfg.de_bkms_hour, minute=cfg.de_bkms_minute),
+                  id="de_bkms_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_eu_portal,
                   CronTrigger(hour=cfg.eu_portal_hour, minute=cfg.eu_portal_minute),
                   id="eu_portal_daily", max_instances=1, misfire_grace_time=3600)
@@ -991,6 +1010,8 @@ def describe_schedule() -> list[str]:
         f"(Swedish defence-programme calls, the whole register)",
         f"tenderned_daily {cfg.tenderned_hour:02d}:{cfg.tenderned_minute:02d} UTC  "
         f"(every publication and its detail page, one day at a time)",
+        f"de_bkms_daily  {cfg.de_bkms_hour:02d}:{cfg.de_bkms_minute:02d} UTC  "
+        f"(German notice day files, last three days; off while the source is inactive)",
         f"eu_portal      {cfg.eu_portal_hour:02d}:{cfg.eu_portal_minute:02d} UTC  "
         f"(grant calls: open, forthcoming, and closed this year)",
         f"eu_topics      {cfg.eu_topics_hour:02d}:{cfg.eu_topics_minute:02d} UTC  "

@@ -110,6 +110,12 @@ _BOAMP_FLOORS = {0: 150, 1: 180, 2: 175, 3: 250, 4: 290, 5: 310, 6: 200}   # Mon
 #   Sunday     Fri, Sat            90         35
 _TENDERNED_FLOORS = {0: 25, 1: 25, 2: 30, 3: 55, 4: 70, 5: 65, 6: 35}   # Monday = 0
 
+# Germany, the national notice service. The run reads three publication days. Measured
+# 13-14 October 2026: a weekday 732 to 1,035 files, Sunday 506; the per-day check in
+# `run_de_bkms` is the sharp one (290), this floor only catches a run that read next to
+# nothing. Flat: the window always holds one weekday and two other days.
+_DE_BKMS_FLOORS = {d: 400 for d in range(7)}
+
 # Sweden. Not a daily feed: the whole register of application rounds is fetched every
 # night and the question is whether all of it arrived. 3,840 rounds on 10 October 2026,
 # growing; the floor is under 80% of that so a shortfall is loud and ordinary growth
@@ -177,6 +183,7 @@ def _default_floors() -> dict[str, dict[int, int]]:
         "pl_ezam": _weekday_floors("DGATE_FLOOR_PL_EZAM", _EZAM_FLOORS),
         "fr_boamp": _weekday_floors("DGATE_FLOOR_FR_BOAMP", _BOAMP_FLOORS),
         "nl_tenderned": _weekday_floors("DGATE_FLOOR_NL_TENDERNED", _TENDERNED_FLOORS),
+        "de_bkms": _weekday_floors("DGATE_FLOOR_DE_BKMS", _DE_BKMS_FLOORS),
         "eu_portal": _weekday_floors("DGATE_FLOOR_EU_PORTAL", _EU_PORTAL_FLOORS),
         "es_bdns": _weekday_floors("DGATE_FLOOR_ES_BDNS", _BDNS_FLOORS),
         "pl_ncbr": _weekday_floors("DGATE_FLOOR_PL_NCBR", _NCBR_FLOORS),
@@ -326,6 +333,9 @@ class Settings:
     # The Dutch platform, ten minutes after the French bulletin and before TED.
     tenderned_hour: int = field(default_factory=lambda: _env_int("DGATE_TENDERNED_HOUR", 5))
     tenderned_minute: int = field(default_factory=lambda: _env_int("DGATE_TENDERNED_MINUTE", 55))
+    # The German notice service. The scheduled job does nothing while the source is inactive.
+    de_bkms_hour: int = field(default_factory=lambda: _env_int("DGATE_DE_BKMS_HOUR", 6))
+    de_bkms_minute: int = field(default_factory=lambda: _env_int("DGATE_DE_BKMS_MINUTE", 5))
     # The reference data document is 124 MiB and is rebuilt by the Commission
     # overnight; 04:20 is before the tender runs so a deadline that moved is
     # known by the time the morning health report is written.

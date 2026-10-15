@@ -66,6 +66,8 @@ FIRE_RESCUE = _rx(
     r"service departemental d incendie|\bsdis\b|\bsamu\b|ambulance|rettungsdienst|rescue service",
     r"brannvesen|brann og redning|\bcgdis\b|incendie et de secours|katasztrofavedelm|zachranny utvar",
     r"morska sluzba poszukiwania|ratownictwa|ratownicz|pogotowie ratunkowe|\b110-?sentral",
+    # German city fire departments that do not say Feuerwehr (BKMS sample, 13 October 2026).
+    r"branddirektion|brandschutzamt|amt fur brand",
 )
 
 HEALTH = _rx(
