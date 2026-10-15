@@ -44,7 +44,9 @@ METHODS = ("stated_ted_ref", "procedure_id", "heuristic")
 # How sure each method is, as the share of links expected to be the same procurement.
 # The two identifier methods compare a value both sides state; the heuristic's figure is
 # the lower bound of the sample read by hand (see docs/sources/boamp.md, "TED reference").
-CONFIDENCE = {"stated_ted_ref": 1.0, "procedure_id": 0.98, "heuristic": 0.9}
+CONFIDENCE = {"stated_ted_ref": 1.0, "procedure_id": 0.98, "heuristic": 0.9,
+              # no value on either side, deadline within a day (zones differ): weaker
+              "heuristic_novalue": 0.8}
 
 # Sources whose stored raw payload is the record as the source sent it, so the mapper can
 # read the procedure identifier again. PLACSP's raw payload is the mapped record, which
@@ -118,22 +120,26 @@ def link_procedure(conn, *, write: bool = False, source: str | None = None,
 
 
 # Every pair of a national row and a TED row that agree on what the heuristic requires.
-# `free` marks the rows that may be written: no stated link and no identifier. The others
+# `free` marks the rows that may be written: no stated link and no identifier that a TED row
+# shares (BOAMP 26-77210 states one that TED's payload for the same notice lacks, and was
+# never offered to the heuristic for that reason). The others
 # still count as candidates, because a second notice that looks the same makes the match
 # ambiguous whether or not it already has a twin.
 _PAIRS = """
 SELECT n.id AS nid, n.source_id AS nsrc, coalesce(n.related_native_id, n.native_id) AS ngroup,
-       (n.ted_ref IS NULL AND n.procedure_identifier IS NULL) AS free, n.status AS nstatus,
+       (n.ted_ref IS NULL AND (n.procedure_identifier IS NULL OR NOT EXISTS (
+            SELECT 1 FROM opportunity x WHERE x.source_id = %(ted)s
+               AND x.procedure_identifier = n.procedure_identifier))) AS free,
+       n.status AS nstatus,
        t.native_id AS tnative, t.id AS tid, coalesce(t.procedure_identifier, t.native_id) AS tgroup,
        t.status AS tstatus, t.published_at AS tpub
   FROM opportunity n
   JOIN opportunity t
     ON t.source_id = %(ted)s AND t.country = n.country
-   AND t.deadline_at = n.deadline_at
-   AND t.value_amount = n.value_amount AND t.value_currency = n.value_currency
+   AND {match}
    AND abs(t.published_at - n.published_at) <= 14
  WHERE n.source_id <> %(ted)s AND n.deadline_at IS NOT NULL AND n.published_at IS NOT NULL
-   AND n.value_amount IS NOT NULL AND n.value_currency IS NOT NULL
+   AND {have}
    AND EXISTS (SELECT 1 FROM unnest(n.cpv_codes) a, unnest(t.cpv_codes) b
                 WHERE left(a, 5) = left(b, 5) AND length(a) >= 5 AND length(b) >= 5)
    AND (n.buyer_org_id = t.buyer_org_id
@@ -142,9 +148,24 @@ SELECT n.id AS nid, n.source_id AS nsrc, coalesce(n.related_native_id, n.native_
 """
 
 
-def heuristic_pairs(conn) -> list[tuple[int, str]]:
+# The strict match needs the same deadline instant and the same value. A notice with no
+# value on either side (SID Sud-Est, BOAMP 26-77210 / TED 537243-2026: the buyer's local
+# 16:00 against TED's 23:59 Paris, no amount, no procedure identifier in TED's payload) never
+# matched, so the loose match takes a deadline within a day and both values empty. The
+# one-candidate-per-side rule is unchanged and the confidence is lower.
+_STRICT = ("t.deadline_at = n.deadline_at AND t.value_amount = n.value_amount "
+           "AND t.value_currency = n.value_currency",
+           "n.value_amount IS NOT NULL AND n.value_currency IS NOT NULL")
+_LOOSE = ("t.deadline_at IS NOT NULL AND abs(extract(epoch FROM t.deadline_at - n.deadline_at)) <= 86400 "
+          "AND t.value_amount IS NULL AND t.value_currency IS NULL",
+          "n.value_amount IS NULL AND n.value_currency IS NULL")
+
+
+def heuristic_pairs(conn, *, loose: bool = False) -> list[tuple[int, str]]:
     """(national row id, TED native id) for every row the heuristic would link."""
-    return unambiguous(conn.execute(_PAIRS, {"ted": _ted_id(conn)}).fetchall())
+    match, have = _LOOSE if loose else _STRICT
+    sql = _PAIRS.replace("{match}", match).replace("{have}", have)
+    return unambiguous(conn.execute(sql, {"ted": _ted_id(conn)}).fetchall())
 
 
 def unambiguous(rows: list[dict[str, Any]]) -> list[tuple[int, str]]:
@@ -175,23 +196,24 @@ def unambiguous(rows: list[dict[str, Any]]) -> list[tuple[int, str]]:
 
 def link_heuristic(conn, *, write: bool = False, source: str | None = None,
                    limit: int | None = None) -> int:
-    pairs = heuristic_pairs(conn)
     only = _only(source, conn)
+    pairs = [(p, "heuristic") for p in heuristic_pairs(conn)]
+    pairs += [(p, "heuristic_novalue") for p in heuristic_pairs(conn, loose=True)]
     if only is not None:
         keep = {r["id"] for r in conn.execute(
             "SELECT id FROM opportunity WHERE id = ANY(%s) AND source_id = %s",
-            ([nid for nid, _ in pairs], only))}
-        pairs = [p for p in pairs if p[0] in keep]
+            ([p[0] for p, _ in pairs], only))}
+        pairs = [(p, m) for p, m in pairs if p[0] in keep]
     if limit is not None:
         pairs = pairs[:limit]
     if not write:
         return len(pairs)
     done = 0
-    for nid, tnative in pairs:
+    for (nid, tnative), conf in pairs:
         done += conn.execute(
             """UPDATE opportunity SET ted_ref = %s, twin_method = 'heuristic', twin_confidence = %s
-                WHERE id = %s AND ted_ref IS NULL AND procedure_identifier IS NULL""",
-            (tnative, CONFIDENCE["heuristic"], nid)).rowcount
+                WHERE id = %s AND ted_ref IS NULL""",
+            (tnative, CONFIDENCE[conf], nid)).rowcount
     return done
 
 

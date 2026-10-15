@@ -180,6 +180,13 @@ def _post(client: httpx.Client, payload: dict[str, Any]) -> dict[str, Any]:
     return request_with_retry(send, what=f"TED page {payload.get('page')}").json()
 
 
+def _complete_or_raise(seen: int, total: Any, query: str) -> None:
+    """A list that ends before the count TED itself stated is a short day, not a small one."""
+    if isinstance(total, int) and seen < total:
+        raise RuntimeError(f"TED: {seen} of {total} notices returned; the result was "
+                           f"cut short, not complete ({query[:80]})")
+
+
 def search(
     query: str,
     fields: list[str] | None = None,
@@ -209,7 +216,9 @@ def search(
             }
             data = _post(client, payload)
             notices = data.get("notices") or data.get("results") or []
+            total = data.get("totalNoticeCount") or data.get("total")
             if not notices:
+                _complete_or_raise(seen, total, query)
                 break
             for n in notices:
                 seen += 1
@@ -220,8 +229,12 @@ def search(
             if total is not None and seen >= total:
                 break
             if len(notices) < PAGE_SIZE:
+                _complete_or_raise(seen, total, query)
                 break
             page += 1
+        else:
+            raise RuntimeError(f"TED: {max_pages} pages read and more are stated; "
+                               f"the result was cut short, not complete ({query[:80]})")
     finally:
         if owns_client:
             client.close()

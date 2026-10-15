@@ -20,11 +20,13 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 os.environ.setdefault("DGATE_RATE_LIMIT", "0")
 # Tests insert between two reads of one list: no response reuse, except in the tests of it.
 os.environ.setdefault("DGATE_LIST_CACHE_SECONDS", "0")
+# The nightly completeness control asks the portals for their day totals: never from tests.
+os.environ.setdefault("DGATE_COMPLETENESS_CHECK", "0")
 
 TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
             call, raw_ingest, ingest_run,
-            app_user, app_login_token, app_auth_event, app_hit_daily, backup_status,
+            app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check,
             suppression, data_request"""
 # `programme` is deliberately not truncated: it is reference data the migration
 # seeds once, and a test that started with no programmes would be testing a

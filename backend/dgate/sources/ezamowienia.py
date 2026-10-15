@@ -33,6 +33,7 @@ Three properties of this API shape everything below.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -407,6 +408,20 @@ def day_query(day: date) -> dict[str, Any]:
         "SortingDirection": SORT_DIRECTION,
         "PageSize": PAGE_SIZE,
     }
+
+
+def official_total(day: date, *, client: httpx.Client) -> int:
+    """The portal's own count of notices published on `day`: `TotalCount` in the
+    `X-Pagination` response header of a one-page query (measured 8-14 October 2026:
+    3,217, 2,813, 26, 49, 2,993, 2,983, 3,069)."""
+    def send() -> httpx.Response:
+        response = client.get(SEARCH_URL, params={**day_query(day), "PageSize": 10,
+                                                  "PageNumber": 1}, timeout=90.0)
+        response.raise_for_status()
+        return response
+
+    header = request_with_retry(send, what=f"{SOURCE_CODE} total {day}").headers
+    return int(json.loads(header["X-Pagination"])["TotalCount"])
 
 
 def fetch_window(
