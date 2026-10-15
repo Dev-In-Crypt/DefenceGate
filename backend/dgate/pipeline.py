@@ -40,6 +40,7 @@ from .normalise import (
     from_atlas_pl,
     from_bdns,
     from_boamp,
+    from_de_bkms,
     from_eu_call,
     from_ezamowienia,
     from_matine,
@@ -57,6 +58,7 @@ from .sources import (
     aid,
     bdns,
     boamp,
+    de_bkms,
     eu_portal,
     ezamowienia,
     matine,
@@ -513,6 +515,112 @@ def run_tenderned(days: int = 2, *, reread: bool = False) -> None:
             raise
     log.info("%s done: %s fetched, %s new, %s changed, %s thin", code, fetched, new,
              changed, thin)
+
+
+def source_is_active(conn, code: str) -> bool:
+    """`source.active`. A source seeded inactive is collected only on a manual `--force`."""
+    row = conn.execute("SELECT active FROM source WHERE code = %s", (code,)).fetchone()
+    return bool(row and row["active"])
+
+
+# A publication day under this many files is short: 40% of the weekday median (732 on
+# 14 October 2026). A day before today only: today's file is still being filled.
+DE_BKMS_DAY_FLOOR = 290
+
+
+def run_de_bkms(days: int = 2, *, force: bool = False, today: date | None = None) -> None:
+    """Daily pull of the German notice service: the last `days + 1` publication days.
+
+    Day files are regenerated and hold late arrivals, so three days overlap on purpose and
+    the run is idempotent (a payload already held has its hash in `raw_ingest`, and an
+    unchanged notice adds no version). Days go oldest first so a notice's versions arrive
+    in order.
+
+    While the source is inactive (its licence is not verified; migration 0050) the run
+    does nothing unless `force`: the scheduled job stays off, a manual run lands data,
+    and the rows it writes are held back from every public read by the database.
+
+    The count check: for each day the files the zip held are compared with the payloads
+    landed from it. A file that is not a notice (`unreadable`), a day short of
+    `DE_BKMS_DAY_FLOOR`, or a landed count that differs from the zip's own makes the run
+    `partial`, never `success`.
+    """
+    code = de_bkms.SOURCE_CODE
+    cfg = settings()
+    with db.connect(cfg.dsn) as conn:
+        if not force and not source_is_active(conn, code):
+            log.info("%s: source is inactive; nothing collected (use --force for a manual run)",
+                     code)
+            return
+    today = today or date.today()
+    with (db.connect(cfg.dsn) as conn,
+          BundleWriter(build_store(), code) as writer):
+        src_id = db.source_id(conn, code)
+        run_id = db.start_run(conn, code, settings().floor(code))
+        q = Quarantine(code)
+        fetched = new = changed = unreadable = 0
+        problems: list[str] = []
+        client = de_bkms._client()
+        try:
+            for day in de_bkms.window_days(days, today):
+                opened = de_bkms.open_day(day, client=client)
+                if opened is None:
+                    if day == today:
+                        continue     # today's file does not exist yet
+                    raise RuntimeError(f"{code}: no file for {day}")
+                landed = 0
+                with opened as day_file:
+                    for record in day_file.records():
+                        fetched += 1
+                        _checkpoint(conn, code, fetched, new, changed, every=100,
+                                    writer=writer, run_id=run_id)
+                        with q.guard(conn, record):
+                            clean = strip_personal_data(record)
+                            h = ted.content_hash(clean)
+                            try:
+                                opp = from_de_bkms(clean)
+                            except ValueError as exc:
+                                # Landed all the same: the file is evidence, and replayable
+                                # when the mapper learns the shape.
+                                unreadable += 1
+                                log.warning("%s: %s: %s", code, record.get("file"), exc)
+                                native = str(record.get("notice_id") or record.get("file"))
+                                key = _store_raw(code, native, clean, writer, content_hash=h)
+                                db.record_raw(conn, src_id, native, h, key)
+                                landed += 1
+                                continue
+                            key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
+                            db.record_raw(conn, src_id, opp.native_id, h, key)
+                            landed += 1
+                            opp = _finalise(conn, opp, src_id)
+                            if not _kept(conn, src_id, opp):
+                                continue
+                            _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                            new += action == "new"
+                            changed += action == "changed"
+                    entries = day_file.entries
+                log.info("%s: %s files on %s, %s landed", code, entries, day, landed)
+                if landed != entries:
+                    problems.append(f"{day}: {entries} files in the zip, {landed} landed")
+                if day < today and entries < DE_BKMS_DAY_FLOOR:
+                    problems.append(f"{day}: {entries} files, under {DE_BKMS_DAY_FLOOR}")
+                time.sleep(de_bkms.REQUEST_PAUSE)
+            writer.drain()
+            if unreadable:
+                problems.append(f"{unreadable} files were not readable notices")
+            status, error = q.merge("partial" if problems else "success",
+                                    "; ".join(problems) or None)
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status=status, error=error)
+        except Exception as exc:
+            conn.rollback()
+            db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
+                          status="failed", error=str(exc))
+            raise
+        finally:
+            client.close()
+    log.info("%s done: %s fetched, %s new, %s changed, %s unreadable", code, fetched, new,
+             changed, unreadable)
 
 
 def run_eu_portal() -> None:
@@ -984,13 +1092,16 @@ def _history_source(code: str) -> tuple[Any, Any]:
         # run starts at that day.
         HISTORY_SOURCES[ezamowienia.SOURCE_CODE] = (
             lambda day: ezamowienia.fetch_day(day), from_ezamowienia)
+        # Germany: a day is one zip request of 500 to 1,050 files; from 2023-10-25 on.
+        HISTORY_SOURCES[de_bkms.SOURCE_CODE] = (
+            lambda day: de_bkms.fetch_day(day), from_de_bkms)
     if code not in HISTORY_SOURCES:
         raise ValueError(f"no historical load defined for {code!r}")
     return HISTORY_SOURCES[code]
 
 
 def run_history(source_code: str, start: date, end: date, *, resume: bool = True,
-                max_days: int | None = None) -> int:
+                max_days: int | None = None, force: bool = False) -> int:
     """Load every notice a source published between two dates, one day at a time.
 
     The daily jobs collect defence notices; this collects everything, because
@@ -1020,6 +1131,13 @@ def run_history(source_code: str, start: date, end: date, *, resume: bool = True
     """
     fetch_day, mapper = _history_source(source_code)
     cfg = settings()
+    if source_code == de_bkms.SOURCE_CODE and start < de_bkms.HISTORY_FROM:
+        raise ValueError(f"{source_code}: files before {de_bkms.HISTORY_FROM} are not eForms")
+    if source_code == de_bkms.SOURCE_CODE and not force:
+        with db.connect(cfg.dsn) as probe:
+            if not source_is_active(probe, source_code):
+                raise RuntimeError(f"{source_code} is inactive (licence not verified); "
+                                   f"a manual load needs --force")
     store = build_store()
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     loaded = 0
@@ -1981,6 +2099,11 @@ def main(argv: list[str] | None = None) -> int:
     nl = sub.add_parser("tenderned", help="ingest the Dutch platform (TenderNed)")
     nl.add_argument("--days", type=int, default=2)
 
+    de = sub.add_parser("de-bkms", help="ingest the German notice service (BKMS day files)")
+    de.add_argument("--days", type=int, default=2, help="days before today; the window is days+1")
+    de.add_argument("--force", action="store_true",
+                    help="run although the source is inactive (its licence is not verified)")
+
     sub.add_parser("calls", help="refresh the EU grant calendar (calls for proposals)")
 
     sub.add_parser("ncbr", help="refresh the Polish NCBR competitions")
@@ -2018,7 +2141,7 @@ def main(argv: list[str] | None = None) -> int:
     h = sub.add_parser("history",
                        help="one-off historical load of every notice of a source")
     h.add_argument("--source", default="ted",
-                   help="ted, fr_boamp, nl_tenderned or pl_ezam")
+                   help="ted, fr_boamp, nl_tenderned, pl_ezam or de_bkms")
     h.add_argument("--from", dest="start", type=date.fromisoformat, required=True,
                    help="first publication day, YYYY-MM-DD (the API starts at 2017)")
     h.add_argument("--to", dest="end", type=date.fromisoformat, default=None,
@@ -2027,6 +2150,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="stop after this many days; for a rehearsal")
     h.add_argument("--no-resume", action="store_true",
                    help="reload days already marked done")
+    h.add_argument("--force", action="store_true",
+                   help="load an inactive source (de_bkms: licence not verified)")
 
     sub.add_parser("seed-buyers", help="seed the defence buyer list")
 
@@ -2058,6 +2183,8 @@ def main(argv: list[str] | None = None) -> int:
         run_boamp(days=a.days)
     elif a.cmd == "tenderned":
         run_tenderned(days=a.days, reread=True)
+    elif a.cmd == "de-bkms":
+        run_de_bkms(days=a.days, force=a.force)
     elif a.cmd == "calls":
         run_eu_portal()
     elif a.cmd == "ncbr":
@@ -2078,7 +2205,7 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "history":
         try:
             run_history(a.source, a.start, a.end or date.today() - timedelta(days=1),
-                        resume=not a.no_resume, max_days=a.max_days)
+                        resume=not a.no_resume, max_days=a.max_days, force=a.force)
         except HistoryStopped as stop:
             # Already logged and recorded. Not a success: the exit status says so.
             log.error("%s", stop)

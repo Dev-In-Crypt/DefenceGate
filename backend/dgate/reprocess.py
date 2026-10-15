@@ -43,6 +43,7 @@ from .config import settings
 from .normalise import (
     from_atlas_pl,
     from_boamp,
+    from_de_bkms,
     from_ezamowienia,
     from_ted,
     from_tenderned,
@@ -496,6 +497,7 @@ def _from_stored_record(payload: dict[str, Any]):
 REQUALIFY_MAPPERS = {
     "fr_boamp": from_boamp,
     "nl_tenderned": from_tenderned,
+    "de_bkms": from_de_bkms,
     "pl_ezam": from_ezamowienia,
     "es_placsp": _from_stored_record,
     "es_placsp_agg": _from_stored_record,

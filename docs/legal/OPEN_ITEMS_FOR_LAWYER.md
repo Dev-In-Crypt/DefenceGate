@@ -63,3 +63,21 @@ request log, not the public count) and 6 are built; 4 is not. Details: `docs/DAT
    number" to avoid a number that goes stale.
 6. **Terms texts in the repository.** Keep a dated copy of each published version outside git
    history if "available on request" is to be met without engineering.
+
+## German notice service (oeffentlichevergabe.de), source `de_bkms` (added 15 October 2026)
+
+The connector is built and the source is held back (`active = FALSE`, `commercial_ok` NULL):
+nothing it collects is served until these are answered. Measurements: `docs/sources/de_national.md`.
+
+1. Under what licence may the notice exports (`/api/notice-exports`: eForms, OCDS, CSV) be reused
+   commercially? Datennutzungsgesetz open-data rules, Datenlizenz Deutschland, CC BY, or other? Ask the
+   Beschaffungsamt des BMI in writing; the licence text could not be read on the site.
+2. Is automated daily download of the day files without registration permitted, and is a historical
+   load of every day since 25 October 2023 (about 1,000 requests, one a second) within the terms?
+3. Attribution: what wording, and does it apply to derived, unified records and to the API?
+4. Personal data in the files (contact names, telephone numbers, e-mail addresses, beneficial owners,
+   jury members, natural-person winners): is stripping at ingestion, before the file is landed, enough
+   under the GDPR, and may the stripped file be kept in the private raw store?
+5. Does the statutory duty to publish put these notices outside database rights (sui generis)?
+6. Notices a buyer sent only to a state platform and not to the BKMS: is anything we may use covering
+   them? (A coverage question, but it decides what the product may claim.)

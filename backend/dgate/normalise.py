@@ -1032,6 +1032,68 @@ def scrub_opportunity(opp: "Opportunity") -> "Opportunity":
     return opp
 
 
+# eForms UBL (German BKMS day files): elements that are, or hold, personal data. `Contact`
+# is name, telephone, telefax and e-mail of buyers, winners, service providers and
+# touch points; the beneficial owner and the jury member are natural persons by definition.
+_EFORMS_DROP = frozenset({
+    "Contact", "ElectronicMail", "Telephone", "Telefax", "UltimateBeneficialOwner",
+    "TechnicalCommitteePerson", "FamilyName", "FirstName", "MiddleName", "JobTitle",
+    "BirthDate", "BirthplaceName", "ResidenceAddress"})
+MAX_EFORMS_XML = 8 * 1024 * 1024
+
+
+def strip_eforms_xml(xml: Any) -> str | None:
+    """An eForms notice file without its personal data, or None when it cannot be made safe.
+
+    Contact blocks and person elements are removed at any depth; an organisation flagged
+    `NaturalPersonIndicator` true keeps only its identifier, since its name and address are
+    a person's; addresses written into prose are replaced. A file that is too large,
+    declares a document type, or does not parse is dropped, not kept: it cannot be scrubbed.
+    """
+    import xml.etree.ElementTree as ET
+
+    if not isinstance(xml, str) or len(xml) > MAX_EFORMS_XML:
+        return None
+    if re.search(r"<!\s*(DOCTYPE|ENTITY)", xml, re.IGNORECASE):
+        return None
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        return None
+
+    def local(el: Any) -> str:
+        return str(el.tag).rsplit("}", 1)[-1]
+
+    def sweep(el: Any, depth: int = 0) -> None:
+        if depth > MAX_DEPTH:
+            raise ValueError("eForms document nested too deeply")
+        natural = local(el) == "Organization" and any(
+            local(c) == "NaturalPersonIndicator" and (c.text or "").strip().lower() == "true"
+            for c in el)
+        for child in list(el):
+            if local(child) in _EFORMS_DROP:
+                el.remove(child)
+                continue
+            if natural and local(child) in ("Company", "TouchPoint"):
+                for part in list(child):
+                    if local(part) != "PartyIdentification":
+                        child.remove(part)
+            sweep(child, depth + 1)
+        for text_attr in ("text", "tail"):
+            value = getattr(el, text_attr)
+            if value and "@" in value:
+                setattr(el, text_attr, _EMAIL.sub(EMAIL_PLACEHOLDER, value))
+        for k, v in list(el.attrib.items()):
+            if "@" in v:
+                el.attrib[k] = _EMAIL.sub(EMAIL_PLACEHOLDER, v)
+
+    try:
+        sweep(root)
+    except (ValueError, RecursionError):
+        return None
+    return ET.tostring(root, encoding="unicode").replace("\x00", "")
+
+
 def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     """Remove personal-data fields before a payload is persisted or served.
 
@@ -1052,6 +1114,13 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     backslash and an archive entry that no longer parsed.
     """
     clean = {k: v for k, v in notice.items() if k not in PERSONAL_DATA_FIELDS}
+    # German BKMS notice file (eForms UBL): the XML is taken apart on its own, because
+    # `_bound` below cuts every string at MAX_STRING and a notice can be longer.
+    if "xml" in clean and "file" in clean and "notice_id" in clean:
+        xml = clean.pop("xml")
+        clean = _redact_emails(_bound(clean))
+        clean["xml"] = strip_eforms_xml(xml)
+        return clean
     body = clean.pop("donnees", None) if "idweb" in clean else None
     clean = _redact_emails(_bound(clean))
     if body is None:
@@ -1774,6 +1843,53 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
         ted_ref=canonical_ted_ref(detail.get("pbNummerTed")),
         description=str(description).strip() if description else None,
     )
+
+
+# ----------------------------------------------- German BKMS mapping (eForms)
+
+_DE_TZ = "Europe/Berlin"
+
+
+def from_de_bkms(record: dict[str, Any]) -> Opportunity:
+    """Map one BKMS notice file onto the unified schema, through the TED mapper.
+
+    The XML is read into TED's own field names (`sources.de_bkms.ted_fields`) and
+    `from_ted` does the rest, so status, value and deadline rules are the same as for
+    the TED notice this one is the twin of. What is the BKMS's own: the identity (the
+    notice id, without the version, so an amendment is a version), the TED number where
+    the file states one, and the absence of a page URL (none is verified).
+    """
+    from .sources import de_bkms
+
+    xml = record.get("xml")
+    if not isinstance(xml, str) or not xml:
+        raise ValueError(f"notice file {record.get('file')!r} unreadable: "
+                         f"{record.get('unreadable') or 'no document'}")
+    try:
+        fields = de_bkms.ted_fields(xml)
+    except Exception as exc:    # ParseError and the like: one file is not the run
+        raise ValueError(f"notice file {record.get('file')!r} is not a notice: {exc}") from exc
+    native_id = fields.pop("_notice_id") or record.get("notice_id")
+    if not native_id:
+        raise ValueError("notice has no identifier")
+    fields["notice-identifier"] = native_id
+    if not fields.get("notice-version") and record.get("version"):
+        fields["notice-version"] = record["version"]
+    tz = ZoneInfo(_DE_TZ)
+    stamps = [_parse_datetime(d, t, default_tz=tz) for d, t in fields.pop("_deadlines", [])]
+    fields["deadline-receipt-request"] = [s.isoformat() for s in stamps if s is not None]
+    ted_ref = canonical_ted_ref(fields.pop("_ted_ref", None))
+    fields.pop("_folder_id", None)
+    fields.pop("_lots", None)
+
+    opp = from_ted(fields)
+    opp.source_code = de_bkms.SOURCE_CODE
+    opp.native_id = str(native_id)
+    opp.source_url = None
+    opp.country = opp.country or "DE"
+    opp.original_language = opp.original_language or "DE"
+    opp.ted_ref = ted_ref
+    return opp
 
 
 # --------------------------------------------------- e-Zamowienia mapping

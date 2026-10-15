@@ -734,7 +734,8 @@ def _archive_counts(conn) -> tuple[int, int, Any]:
     if ttl > 0 and _ARCHIVE_COUNTS and now - _ARCHIVE_COUNTS[0] < ttl:
         return _ARCHIVE_COUNTS[1]
     got = (
-        conn.execute("SELECT count(*) AS n FROM opportunity WHERE is_defence").fetchone()["n"],
+        conn.execute("SELECT count(*) AS n FROM opportunity "
+                     "WHERE is_defence AND NOT suppressed").fetchone()["n"],
         conn.execute("SELECT count(*) AS n FROM opportunity_version").fetchone()["n"],
         conn.execute("SELECT min(observed_at) AS t FROM opportunity_version").fetchone()["t"],
     )
