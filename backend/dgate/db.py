@@ -540,42 +540,6 @@ def inherit_defence_flag(conn: psycopg.Connection, org_id: int, norm: str | None
     return True
 
 
-def flag_by_name_rules(conn: psycopg.Connection, org_id: int | None,
-                       identifier: str | None = None, min_confidence: float = 0.80) -> bool:
-    """Flag an organisation whose own name the defence vocabulary names
-    (`buyer_vocab.defence_body`), with the rule that did it stored on the row.
-
-    The seed lists hold the names that were seen when they were written; a Ministry service
-    that files under a new spelling would otherwise be unflagged until the next seed run
-    (coverage:X1 of 14 October 2026: 55 of 59 French defence-body notices since 21 September
-    were not stored). Used for BOAMP only, where the vocabulary was read against the real
-    organisations. Never un-flags. Returns whether the organisation is flagged now.
-    """
-    from .buyer_vocab import defence_body
-
-    if org_id is None:
-        return False
-    row = conn.execute(
-        "SELECT canonical_name, country, is_defence_buyer FROM organisation WHERE id = %s",
-        (org_id,)).fetchone()
-    if row is None:
-        return False
-    if row["is_defence_buyer"]:
-        return True
-    body = defence_body(row["canonical_name"], row["country"], identifier)
-    if not body.label or body.confidence < min_confidence:
-        return False
-    conn.execute(
-        """UPDATE organisation
-              SET is_defence_buyer = TRUE,
-                  defence_buyer_source = COALESCE(defence_buyer_source, 'derived_rule'),
-                  defence_buyer_reason = COALESCE(defence_buyer_reason, %s),
-                  defence_buyer_confidence = COALESCE(defence_buyer_confidence, %s)
-            WHERE id = %s""",
-        (body.label[:120], round(body.confidence, 2), org_id))
-    return True
-
-
 def resolve_organisation(
     conn: psycopg.Connection, raw_name: str, country: str | None,
     *, src_id: int | None = None, identifier: str | None = None,
@@ -1012,7 +976,13 @@ def upsert_opportunity(
     if (existing and opp.published_at is None and existing["published_at"]
             and opp.source_code in LOCAL_KEY_SOURCES):
         held, limit = existing["published_at"], opp.deadline_at or existing["deadline_at"]
-        if limit is None or held <= limit.date():
+        # A version without the entry's update stamp was read by the first mapper, whose
+        # date is the feed's and not a call's: that is cleared by a re-read, not carried.
+        stamped = conn.execute(
+            """SELECT payload->>'source_updated_at' IS NOT NULL AS stamped
+                 FROM opportunity_version WHERE opportunity_id = %s
+                ORDER BY version DESC LIMIT 1""", (existing["id"],)).fetchone()
+        if stamped and stamped["stamped"] and (limit is None or held <= limit.date()):
             opp = replace(opp, published_at=held)
 
     payload = opportunity_payload(opp)

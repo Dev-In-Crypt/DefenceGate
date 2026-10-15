@@ -209,9 +209,10 @@ district. A registration number of a Ministry service (`DEFENCE_SIREN_FR`) names
 name says nothing ("DID CAYENNE"); the Ministry's own number is shared by other bodies and is
 not used.
 
-A new spelling is flagged when its notice arrives (`db.flag_by_name_rules`, BOAMP only, source
-`derived_rule`, the rule stored as the reason). To bring the landed notices in:
+A buyer is on the list only once the seed run has flagged it: a spelling the vocabulary names
+but the seed files do not hold stays unflagged. After every change of the vocabulary:
 
-    python -m dgate.pipeline seed-buyers          # loads seeds/defence_buyers_derived_FR.csv
+    python -m dgate.ops.derive_buyers --derived-dir seeds --names-file <FR names export>
+    python -m dgate.pipeline seed-buyers          # loads seeds/defence_buyers_derived_*.csv
     python -m dgate.reprocess --requalify --source fr_boamp --from 2026-06-01 --yes
     python -m dgate.reprocess --reclassify-serving --yes   # serving rows of the held ones

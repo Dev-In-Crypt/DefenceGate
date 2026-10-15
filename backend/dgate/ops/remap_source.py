@@ -102,13 +102,16 @@ def from_placsp_stored(payload: dict[str, Any]) -> Opportunity:
 def placsp_call_date(conn, opp_id: int, new: Opportunity) -> Opportunity:
     """The call notice's date, for a folder whose current entry states none: the earliest
     version that did state a publication date (an award or a cancellation entry that came
-    later carries no call notice and the first reading of it dropped the date). Not after
-    the notice's own deadline, which is the date of an award read as a publication."""
+    later carries no call notice and the first reading of it dropped the date). Only from a
+    version carrying the entry's update stamp: one without it was read by the first mapper,
+    whose date is the feed's. Not after the notice's own deadline, which is the date of an
+    award read as a publication."""
     if new.published_at is not None:
         return new
     row = conn.execute(
         """SELECT payload->>'published_at' AS d FROM opportunity_version
             WHERE opportunity_id = %s AND payload->>'published_at' IS NOT NULL
+              AND payload->>'source_updated_at' IS NOT NULL
             ORDER BY version LIMIT 1""", (opp_id,)).fetchone()
     if not row:
         return new

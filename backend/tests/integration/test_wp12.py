@@ -236,45 +236,34 @@ def _boamp(idweb: str, buyer: str, cpv: str = "45000000") -> dict:
     }
 
 
-def test_a_body_the_name_rules_name_is_flagged_when_its_notice_arrives(conn):
-    """The seeds list names that were seen; a new spelling of a Ministry service must not
-    wait for the next seed run (coverage:X1)."""
-    from dgate.normalise import from_boamp
-
+def _land_boamp(conn, payload: dict) -> None:
     src = db.source_id(conn, "fr_boamp")
-    opp = from_boamp(_boamp("26-91277", "SID Sud-Est"))
-    opp = pipeline._finalise(conn, opp, src)
-    assert opp.sig_buyer and opp.is_defence and opp.buyer_class == "defence"
-    org = conn.execute("SELECT is_defence_buyer, defence_buyer_source, defence_buyer_reason "
-                       "FROM organisation WHERE id = %s", (opp.buyer_org_id,)).fetchone()
-    assert org["is_defence_buyer"] and org["defence_buyer_source"] == "derived_rule"
-    assert org["defence_buyer_reason"] == "defence_infrastructure_service"
+    digest = content_hash(payload)
+    key = build_store().put(storage_key("fr_boamp", payload["idweb"], when=date(2026, 9, 21),
+                                        content_hash=digest), payload)
+    db.record_raw(conn, src, payload["idweb"], digest, key)
 
 
-def test_a_municipality_or_a_hospital_is_not_flagged_by_the_name_rules(conn):
-    from dgate.normalise import from_boamp
-
-    src = db.source_id(conn, "fr_boamp")
-    names = ("Commune de Ghisonaccia", "Hôpital d'instruction des armées Percy",
-             "Gendarmerie nationale - Commandement de la Guyane")
-    for i, name in enumerate(names):
-        opp = pipeline._finalise(conn, from_boamp(_boamp(f"26-{i}", name)), src)
-        assert not opp.sig_buyer, name
-        assert not db.is_defence_buyer(conn, opp.buyer_org_id), name
-
-
-def test_a_landed_notice_of_a_new_spelling_is_recovered_by_requalify(conn, fs_store):
-    """The coverage report's example: a SID notice landed, not stored, qualifies now."""
-    payload = _boamp("26-91277", "SID Sud-Est")
-    src = db.source_id(conn, "fr_boamp")
-    key = build_store().put(storage_key("fr_boamp", "26-91277", when=date(2026, 9, 21),
-                                        content_hash=content_hash(payload)), payload)
-    db.record_raw(conn, src, "26-91277", content_hash(payload), key)
+def test_a_landed_notice_of_a_service_of_the_ministry_is_recovered_once_the_seeds_are_loaded(
+        conn, fs_store):
+    """The coverage report's example (X1): `26-91217`, SID NORD OUEST, landed on 21 September
+    and not stored because its buyer was not on the list. The committed French seeds name
+    it; the seed run flags it; the requalify inserts the notice."""
+    _land_boamp(conn, _boamp("26-91217", "SID NORD OUEST"))
+    _land_boamp(conn, _boamp("26-91278", "Commune de Ghisonaccia"))
+    _land_boamp(conn, _boamp("26-91279", "DAPSA"))
     conn.commit()
-    counts = reprocess.requalify_source(conn, build_store(), "fr_boamp",
-                                        since=date(2026, 9, 21), until=date(2026, 9, 21),
-                                        dry_run=False)
-    assert counts["candidates"] == 1 and counts["inserted"] == 1 and counts["by_buyer"] == 1
-    held = conn.execute("SELECT is_defence, sig_buyer, buyer_class FROM opportunity "
-                        "WHERE native_id = '26-91277'").fetchone()
-    assert held["is_defence"] and held["sig_buyer"]
+
+    before = reprocess.requalify_source(conn, build_store(), "fr_boamp", since=date(2026, 9, 21),
+                                        until=date(2026, 9, 21), dry_run=True)
+    assert before["inserted"] == 0, "nothing qualifies until the buyers are listed"
+
+    assert pipeline.seed_derived_buyers(conn) > 800
+    conn.commit()
+    counts = reprocess.requalify_source(conn, build_store(), "fr_boamp", since=date(2026, 9, 21),
+                                        until=date(2026, 9, 21), dry_run=False)
+    held = {r["native_id"]: r for r in conn.execute(
+        "SELECT native_id, is_defence, sig_buyer, buyer_class FROM opportunity").fetchall()}
+    assert set(held) == {"26-91217", "26-91279"}, counts
+    assert (counts["candidates"], counts["inserted"], counts["by_buyer"]) == (3, 2, 2)
+    assert held["26-91217"]["buyer_class"] == "defence" and held["26-91217"]["sig_buyer"]
