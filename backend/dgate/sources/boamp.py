@@ -157,6 +157,12 @@ def search(params: dict[str, Any], *, client: httpx.Client | None = None,
             client.close()
 
 
+def official_total(day: date, *, client: httpx.Client) -> int:
+    """The portal's own count of notices published on `day` (`total_count`, no rows asked)."""
+    page = _page(client, {**day_query(day), "limit": 0}, 0)
+    return int(page["total_count"])
+
+
 def fetch_window(days_back: int = 2, *, client: httpx.Client | None = None,
                  today: date | None = None) -> Iterator[dict[str, Any]]:
     """Every notice published from `days_back` days ago to today, deduplicated.

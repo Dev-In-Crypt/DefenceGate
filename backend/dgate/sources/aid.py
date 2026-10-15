@@ -178,12 +178,23 @@ def fetch_page(client: httpx.Client, kind: str, path: str) -> dict[str, Any]:
     }
 
 
+class Pages(list):
+    """The pages read, and in `failed` the paths that could not be (empty by default)."""
+
+    failed: list[str]
+
+    def __init__(self, *args: Any) -> None:
+        super().__init__(*args)
+        self.failed = []
+
+
 def fetch_all(*, client: httpx.Client | None = None) -> list[dict[str, Any]]:
     """Every call page, one request a second. A page that cannot be read is skipped with
-    a warning and the run is told, so one withdrawn page does not cost the others."""
+    a warning and its path put in the result's `failed`, so one withdrawn page does not cost
+    the others and the run can end `partial` (it used to be told nothing)."""
     owns = client is None
     client = client or _client()
-    records: list[dict[str, Any]] = []
+    records = Pages()
     try:
         pages = list_pages(client)
         for kind, path in pages:
@@ -191,6 +202,7 @@ def fetch_all(*, client: httpx.Client | None = None) -> list[dict[str, Any]]:
                 records.append(fetch_page(client, kind, path))
             except (httpx.HTTPError, ValueError, RuntimeError) as exc:
                 log.warning("%s: %s unreadable: %s", SOURCE_CODE, path, exc)
+                records.failed.append(str(path))
             time.sleep(REQUEST_PAUSE)
     finally:
         if owns:

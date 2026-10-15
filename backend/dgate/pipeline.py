@@ -236,17 +236,39 @@ def _kept(conn, src_id: int, opp: Opportunity) -> bool:
     return opp.is_defence or db.is_archived(conn, src_id, opp)
 
 
+def _twin_is_defence(conn, opp: Opportunity) -> bool:
+    """Whether the same procurement is already a defence notice in the other direction.
+
+    A TED notice is defence when a national defence notice says it was forwarded under
+    its number. A national notice is defence when the TED notice it states (`ted_ref`, or
+    the eForms procedure identifier) is a defence row we hold: a republished TED notice
+    whose national body lacks the CPV and legal basis was landed and then dropped (7 of 7
+    sampled Polish ones, 2026/S 68-238462 among them). Nothing is guessed: only a stated
+    reference or an identical procedure identifier counts.
+    """
+    if opp.source_code == "ted":
+        return conn.execute(
+            "SELECT 1 FROM opportunity WHERE ted_ref = %s AND is_defence LIMIT 1",
+            (opp.native_id,)).fetchone() is not None
+    if opp.ted_ref and conn.execute(
+            """SELECT 1 FROM opportunity t WHERE t.native_id = %s AND t.is_defence
+                  AND t.source_id = (SELECT id FROM source WHERE code = 'ted') LIMIT 1""",
+            (opp.ted_ref,)).fetchone():
+        return True
+    pid = (opp.procedure_identifier or "").strip("{} ")
+    return bool(pid) and conn.execute(
+        """SELECT 1 FROM opportunity t WHERE t.procedure_identifier = ANY(%s) AND t.is_defence
+              AND t.source_id = (SELECT id FROM source WHERE code = 'ted') LIMIT 1""",
+        ([pid, pid.lower(), pid.upper()],)).fetchone() is not None
+
+
 def _finalise(conn, opp: Opportunity, src_id: int, *, linked_defence: bool = False) -> Opportunity:
     """Resolve the buyer, run the classifier, attach the signals."""
     org_id = db.resolve_organisation(conn, opp.buyer_name_raw, opp.country,
                                      src_id=src_id, identifier=opp.buyer_identifier)
     opp.buyer_org_id = org_id
-    if opp.source_code == "ted" and not linked_defence:
-        # A national defence notice that says it was forwarded to TED under this
-        # number makes the TED notice the same procurement: defence too.
-        linked_defence = conn.execute(
-            "SELECT 1 FROM opportunity WHERE ted_ref = %s AND is_defence LIMIT 1",
-            (opp.native_id,)).fetchone() is not None
+    if not linked_defence:
+        linked_defence = _twin_is_defence(conn, opp)
     listed = db.is_defence_buyer(conn, org_id)
     buyer_class = effective_buyer_class(opp.buyer_name_raw, opp.country, listed)
     sig = classify(
@@ -272,6 +294,26 @@ def _finalise(conn, opp: Opportunity, src_id: int, *, linked_defence: bool = Fal
         opp.description, opp.title_original
     )
     return opp
+
+
+def _completeness(code: str, landed: dict[date, int], days_back: int | None,
+                  skip: Iterable[date] = ()) -> tuple[dict[str, Any] | None, str | None]:
+    """Nightly control: the days a run walked against the portal's own day totals
+    (`ops/controls.check_days`). Never raises; (None, None) when off or nothing to compare.
+    Re-read notices of older days are outside the window and not counted."""
+    if days_back is None or not landed or not settings().completeness_check:
+        return None, None
+    from .ops import controls
+
+    today = date.today()
+    window = {today - timedelta(days=n) for n in range(days_back + 1)}
+    try:
+        detail, problem = controls.check_days(
+            code, {d: n for d, n in landed.items() if d in window}, skip=set(skip), today=today)
+    except Exception as exc:  # noqa: BLE001 - a control must not fail the run it checks
+        log.warning("%s: completeness control could not run: %s", code, type(exc).__name__)
+        return None, None
+    return {"completeness": detail}, problem
 
 
 def run_ted(days: int = 2) -> None:
@@ -364,6 +406,7 @@ def run_boamp(days: int = 2) -> None:
         run_id = db.start_run(conn, code, settings().floor(code))
         q = Quarantine(code)
         fetched = new = changed = 0
+        landed: dict[date, int] = {}
         try:
             for record in boamp.fetch_window(days_back=days):
                 fetched += 1
@@ -379,6 +422,8 @@ def run_boamp(days: int = 2) -> None:
                         continue
                     key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key)
+                    if opp.published_at:
+                        landed[opp.published_at] = landed.get(opp.published_at, 0) + 1
                     opp = _finalise(conn, opp, src_id)
                     if not _kept(conn, src_id, opp):
                         continue
@@ -386,8 +431,10 @@ def run_boamp(days: int = 2) -> None:
                     new += action == "new"
                     changed += action == "changed"
             writer.drain()
+            detail, short = _completeness(code, landed, days)
+            status, error = q.merge("partial" if short else "success", short)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          **q.outcome())
+                          status=status, error=error, detail=detail)
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -462,6 +509,7 @@ def run_tenderned(days: int = 2, *, reread: bool = False) -> None:
         run_id = db.start_run(conn, code, settings().floor(code))
         q = Quarantine(code)
         fetched = new = changed = thin = 0
+        landed: dict[date, int] = {}
         try:
             window = tenderned.fetch_window(days_back=days)
             waiting = (_tenderned_unlinked(conn, src_id, build_store(), days_back=days)
@@ -494,6 +542,8 @@ def run_tenderned(days: int = 2, *, reread: bool = False) -> None:
                         continue
                     key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                     db.record_raw(conn, src_id, opp.native_id, h, key)
+                    if opp.published_at:
+                        landed[opp.published_at] = landed.get(opp.published_at, 0) + 1
                     opp = _finalise(conn, opp, src_id)
                     if not _kept(conn, src_id, opp):
                         continue
@@ -501,11 +551,13 @@ def run_tenderned(days: int = 2, *, reread: bool = False) -> None:
                     new += action == "new"
                     changed += action == "changed"
             writer.drain()
-            status, error = q.merge(
-                "partial" if thin else "success",
-                f"{thin} publications without their detail page" if thin else None)
+            detail, short = _completeness(code, landed, days)
+            problems = [m for m in (
+                f"{thin} publications without their detail page" if thin else None, short) if m]
+            status, error = q.merge("partial" if problems else "success",
+                                    "; ".join(problems) or None)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          status=status, error=error)
+                          status=status, error=error, detail=detail)
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -702,7 +754,9 @@ def run_aid() -> None:
             "SELECT content_hash FROM raw_ingest WHERE source_id = %s", (src_id,)).fetchall()}
         fetched = new = changed = landed = 0
         try:
-            for record in aid.fetch_all():
+            pages = aid.fetch_all()
+            unreadable: list[str] = list(getattr(pages, "failed", ()))
+            for record in pages:
                 fetched += 1
                 _checkpoint(conn, code, fetched, new, changed, every=20,
                             writer=writer, run_id=run_id)
@@ -726,8 +780,12 @@ def run_aid() -> None:
                     new += action == "new"
                     changed += action == "changed"
             writer.drain()
+            status, error = q.merge(
+                "partial" if unreadable else "success",
+                f"{len(unreadable)} pages could not be read: " + ", ".join(unreadable[:5])
+                if unreadable else None)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          **q.outcome())
+                          status=status, error=error)
         except Exception as exc:
             conn.rollback()
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
@@ -1184,8 +1242,10 @@ def run_ezamowienia(days: int | None = 2, *,
         q = Quarantine(code)
         fetched = new = changed = refreshed = 0
         problems: list[str] = []
+        landed: dict[date, int] = {}
+        unread: list[date] = []
 
-        def ingest(record: dict[str, Any]) -> None:
+        def ingest(record: dict[str, Any]) -> date | None:
             nonlocal new, changed
             with q.guard(conn, record):
                 clean = strip_personal_data(record)
@@ -1194,24 +1254,27 @@ def run_ezamowienia(days: int | None = 2, *,
                     opp = from_ezamowienia(clean)
                 except ValueError as exc:
                     log.warning("skipping malformed notice: %s", exc)
-                    return
+                    return None
                 key = _store_raw(code, opp.native_id, clean, writer, content_hash=h)
                 db.record_raw(conn, src_id, opp.native_id, h, key)
                 opp = _finalise(conn, opp, src_id)
                 if not _kept(conn, src_id, opp):
-                    return
+                    return opp.published_at
                 _, action = db.upsert_opportunity(conn, opp, h, src_id)
                 new += action == "new"
                 changed += action == "changed"
+                return opp.published_at
+            return None
 
         try:
             if days is not None:
-                unread: list[date] = []
                 for record in ezamowienia.fetch_window(days_back=days, failed=unread):
                     fetched += 1
                     _checkpoint(conn, code, fetched, new, changed, every=100,
                                 writer=writer, run_id=run_id)
-                    ingest(record)
+                    day = ingest(record)
+                    if day:
+                        landed[day] = landed.get(day, 0) + 1
                 if unread:
                     # Said by day, so the owner can load exactly those days with
                     # `history --source pl_ezam --from D --to D`. The run is
@@ -1256,10 +1319,13 @@ def run_ezamowienia(days: int | None = 2, *,
                 if unreadable:
                     problems.append(f"{unreadable} open notices could not be re-read")
             writer.drain()
+            detail, short = _completeness(code, landed, days, skip=unread)
+            if short:
+                problems.append(short)
             status, error = q.merge("partial" if problems else "success",
                                     "; ".join(problems) or None)
             db.finish_run(conn, run_id, fetched=fetched, new=new, changed=changed,
-                          status=status, error=error)
+                          status=status, error=error, detail=detail)
         except Exception as exc:
             # Roll back first. finish_run commits, and without this it committed
             # the raw_ingest rows written since the last checkpoint along with the

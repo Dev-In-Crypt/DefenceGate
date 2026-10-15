@@ -359,6 +359,10 @@ class Settings:
     # for every source whose payloads are in the store, over the last `requalify_days`.
     requalify_hour: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_HOUR", 12))
     requalify_days: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_DAYS", 30))
+    # Per-day official total against what a run landed (ops/controls.py); one request a day
+    # per source. Off in the test suite.
+    completeness_check: bool = field(
+        default_factory=lambda: _env_int("DGATE_COMPLETENESS_CHECK", 1) == 1)
     backup_hour: int = field(default_factory=lambda: _env_int("DGATE_BACKUP_HOUR", 2))
     backup_keep_days: int = field(
         default_factory=lambda: _env_int("DGATE_BACKUP_KEEP_DAYS", 30))

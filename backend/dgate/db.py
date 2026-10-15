@@ -13,6 +13,7 @@ Everything else in this file is plumbing.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import socket
@@ -237,6 +238,7 @@ def finish_run(
     conn: psycopg.Connection, run_id: int, *,
     fetched: int, new: int, changed: int,
     status: str = "success", error: str | None = None,
+    detail: dict[str, Any] | None = None,
 ) -> None:
     """Close a run and decide whether it should have been loud.
 
@@ -262,9 +264,11 @@ def finish_run(
         # down until it stopped finishing at all.
         """UPDATE ingest_run
               SET finished_at = clock_timestamp(), status = %s, records_fetched = %s,
-                  records_new = %s, records_changed = %s, error_message = %s
+                  records_new = %s, records_changed = %s, error_message = %s,
+                  detail = COALESCE(%s::jsonb, detail)
             WHERE id = %s""",
-        (status, fetched, new, changed, error, run_id),
+        (status, fetched, new, changed, error,
+         json.dumps(detail, default=str) if detail else None, run_id),
     )
     conn.commit()
 

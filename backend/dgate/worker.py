@@ -17,6 +17,7 @@ not a green tick. That distinction is the whole reason this file exists.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import threading
@@ -385,6 +386,36 @@ def job_requalify() -> JobResult:
     result = run_job("requalify_weekly", _run)
     result.detail = result.detail or ", ".join(summary)
     return result
+
+
+def job_controls() -> JobResult:
+    """Daily: the controls that are not part of a run (ops/controls.py).
+
+    PLACSP has no portal counter, so its two measures are taken from the stored rows; the
+    Atlas record on Zenodo is looked at once a week. An alert is announced once, and again
+    only after `ALERT_EVERY_HOURS`. Not run_job: a control that finds something is a
+    finding, not a failed job.
+    """
+    from .ops import controls
+
+    started = time.monotonic()
+    try:
+        with db.connect(settings().dsn) as conn:
+            done = [controls.check_placsp(conn)]
+            try:
+                atlas = controls.check_atlas(conn)
+                if atlas:
+                    done.append(atlas)
+            except Exception as exc:  # noqa: BLE001 - Zenodo down is not an alert
+                log.warning("atlas control could not read Zenodo: %s", type(exc).__name__)
+            for row in controls.due_alerts(conn):
+                notify(f"[dgate] control {row['control']}: {json.dumps(row['detail'], default=str)}")
+        detail = ", ".join(f"{d['control']} {d['status']}" for d in done)
+        return JobResult("controls", "success", time.monotonic() - started, detail)
+    except Exception as exc:  # noqa: BLE001 - a monitor must report, not crash the scheduler
+        log.exception("controls failed")
+        notify(f"[dgate] controls could not run: {type(exc).__name__}")
+        return JobResult("controls", "failed", time.monotonic() - started, str(exc))
 
 
 def ezam_source() -> str:
@@ -870,6 +901,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "ted-history": job_ted_history,
     "backup-verify": job_backup_verify,
     "backup-freshness": job_backup_freshness,
+    "controls": job_controls,
     "catch-up": job_catch_up,
     "atlas-backfill": job_atlas_backfill,
 }
@@ -925,6 +957,8 @@ def build_scheduler():
                   id="backup_verify", max_instances=1, misfire_grace_time=7200)
     sched.add_job(job_backup_freshness, CronTrigger(minute=40),
                   id="backup_freshness", max_instances=1, misfire_grace_time=1800)
+    sched.add_job(job_controls, CronTrigger(hour=cfg.health_hour, minute=10),
+                  id="controls_daily", max_instances=1, misfire_grace_time=3600)
     if ted_history_window() is not None:
         # The history does not end when it has caught up: every day it ended
         # yesterday, there is a new yesterday. The daily TED job asks only the
@@ -978,6 +1012,7 @@ def describe_schedule() -> list[str]:
         f"(keep {cfg.backup_keep_days} days)",
         f"backup_verify  Sun {cfg.backup_hour:02d}:30 UTC  "
         f"(restore into a scratch database and count)",
+        f"controls      {cfg.health_hour:02d}:10 UTC  (PLACSP measures, Atlas record)",
         f"backup_freshness :40 UTC  (alert when the newest dump is over "
         f"{cfg.backup_stale_hours}h old, here or in the store)",
     ]

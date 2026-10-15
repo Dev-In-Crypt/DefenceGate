@@ -507,12 +507,29 @@ REQUALIFY_MAPPERS = {
 REQUALIFY_MARK = "-requalify"
 
 
+# A Polish notice republished from TED is numbered `<year>/S <OJ issue>-<TED number>`: the TED
+# notice is `<number>-<year>`. Read from the number alone, so the raw index answers it
+# without opening a payload (completeness-evidence, 15 October 2026: 7 of 7 sampled were
+# landed and dropped because their body lacked the CPV and the legal basis).
+_TWIN_OF_NATIVE = {
+    "pl_ezam": ("r.native_id ~ '^20[12][0-9]/S [0-9]+-[0-9]+$'",
+                "(regexp_replace(r.native_id, '^.*-', '')::bigint)::text "
+                "|| '-' || left(r.native_id, 4)"),
+}
+
+
 def _candidates(conn, source: str, src_id: int, since: date | None, until: date | None,
-                linked_only: bool = False) -> list[tuple[str, str]]:
+                linked_only: bool = False, twin_only: bool = False) -> list[tuple[str, str]]:
     """(storage_key, native_id) of the newest raw payload of each notice of `source` that is
     not in `opportunity`, for a window of landing days (`linked_only`: the TED notices a
     national defence notice points at, whatever their day)."""
     where, params = ["r.source_id = %s"], [src_id]
+    if twin_only:
+        shape, twin = _TWIN_OF_NATIVE[source]
+        where.append(shape)
+        where.append(f"""EXISTS (SELECT 1 FROM opportunity t
+                                 WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted')
+                                   AND t.is_defence AND t.native_id = {twin})""")
     if linked_only:
         where.append("""r.native_id IN (SELECT ted_ref FROM opportunity
                                           WHERE is_defence AND ted_ref IS NOT NULL)""")
@@ -544,10 +561,13 @@ def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
 
 def requalify_source(conn, store: RawStore, source: str, *, since: date | None = None,
                      until: date | None = None, linked_only: bool = False,
+                     twin_only: bool = False,
                      dry_run: bool = True, workers: int = 1, batch: int = 200,
                      outage_attempts: int = 8, outage_pause: float = 15.0) -> dict[str, int]:
     """Insert the raw notices of `source` that the current rules qualify and `opportunity`
-    lacks.
+    lacks. `twin_only` (pl_ezam) reads only the notices whose number names a TED defence
+    notice we hold: the correction for national notices dropped before they inherited the
+    verdict of their TED twin.
 
     The daily job lands every notice and keeps only the ones that qualify at the
     time, so a rule that widens -- a longer buyer list, a military CPV outside
@@ -568,7 +588,9 @@ def requalify_source(conn, store: RawStore, source: str, *, since: date | None =
         raise ValueError(f"no requalify mapper for {source!r}")
     mapper = REQUALIFY_MAPPERS[source]
     src_id = db.source_id(conn, source)
-    candidates = _candidates(conn, source, src_id, since, until, linked_only)
+    if twin_only and source not in _TWIN_OF_NATIVE:
+        raise ValueError(f"{source!r} does not number its notices after a TED notice")
+    candidates = _candidates(conn, source, src_id, since, until, linked_only, twin_only)
     counts: dict[str, int] = {
         "candidates": len(candidates), "unreadable": 0, "qualified": 0, "inserted": 0,
         "by_legal_basis": 0, "by_military_cpv": 0, "by_buyer": 0, "by_linked": 0,
@@ -630,6 +652,12 @@ def requalify_ted(conn, store: RawStore, *, since: date | None = None,
                             outage_pause=outage_pause)
 
 
+# Bumped when a rule changes that lives outside the three hashed modules, so the weekly
+# job reads the days it has already marked again. 1: national notices inherit the defence
+# verdict of the TED notice they state (pipeline._twin_is_defence).
+RULES_EPOCH = "twin-defence-1"
+
+
 def rules_fingerprint(conn) -> str:
     """What the answer to "does this notice qualify" depends on, in one short string: the
     code of the classifier, the buyer vocabulary and the mappers, and the defence buyer list.
@@ -641,7 +669,7 @@ def rules_fingerprint(conn) -> str:
     """
     from . import buyer_vocab, classify, normalise
 
-    digest = hashlib.sha1()
+    digest = hashlib.sha1(RULES_EPOCH.encode())
     for module in (classify, buyer_vocab, normalise):
         digest.update(Path(module.__file__).read_bytes())
     row = conn.execute(
@@ -725,6 +753,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="insert landed notices the current rules qualify and opportunity "
                              "lacks, any source, one day at a time, resumable; dry run unless "
                              "--yes. With --source, --from/--to or --days")
+    parser.add_argument("--twin-linked", action="store_true",
+                        help="for --requalify --source pl_ezam: only the notices numbered after "
+                             "a TED defence notice we hold (all history, no window)")
     parser.add_argument("--days", type=int,
                         help="for --requalify: the last N landing days instead of --from/--to")
     parser.add_argument("--no-resume", action="store_true",
@@ -744,6 +775,18 @@ def main(argv: list[str] | None = None) -> int:
         for k, v in counts.items():
             print(f"  {k}: {v}")
         return 0
+
+    if args.requalify and args.twin_linked:
+        if not args.source:
+            parser.error("--twin-linked needs --source")
+        with db.connect(settings().dsn) as conn:
+            counts = requalify_source(conn, build_store(), args.source, since=args.since,
+                                      until=args.until, twin_only=True,
+                                      dry_run=not args.yes, workers=max(args.workers, 1))
+        print(("applied" if args.yes else "dry run, nothing written") + ":")
+        for k, v in counts.items():
+            print(f"  {k}: {v}")
+        return 0 if counts["unreadable"] == 0 else 1
 
     if args.requalify:
         today = date.today()

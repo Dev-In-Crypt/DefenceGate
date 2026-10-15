@@ -112,6 +112,14 @@ def fetch_day_list(day: date, *, client: httpx.Client) -> list[dict[str, Any]]:
     return list(seen.values())
 
 
+def official_total(day: date, *, client: httpx.Client) -> int:
+    """The platform's own count of publications of `day` (`totalElements`, one row asked)."""
+    payload = _get(client, LIST_URL, f"{SOURCE_CODE} total {day}",
+                   {"page": 0, "size": 1, "publicatieDatumVanaf": day.isoformat(),
+                    "publicatieDatumTot": day.isoformat()})
+    return int(payload["totalElements"])
+
+
 def fetch_detail(publication_id: str, *, client: httpx.Client) -> dict[str, Any]:
     if not str(publication_id).isascii() or not str(publication_id).isdigit() \
             or len(str(publication_id)) > 12:

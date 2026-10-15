@@ -742,6 +742,15 @@ def _archive_counts(conn) -> tuple[int, int, Any]:
     return got
 
 
+def _completeness_line(check: dict[str, Any]) -> dict[str, Any]:
+    """One line for the health page: the newest day compared and whether any day was short."""
+    days = check.get("days") or {}
+    newest = max(days) if days else None
+    row = days.get(newest, {}) if newest else {}
+    return {"day": newest, "landed": row.get("landed"), "official": row.get("official"),
+            "short": bool(check.get("short"))}
+
+
 @app.get("/v1/health")
 def health(conn=Depends(get_conn)):
     """Coverage health, not just liveness.
@@ -757,7 +766,7 @@ def health(conn=Depends(get_conn)):
         """SELECT DISTINCT ON (s.code)
                   s.code, s.active, r.status, r.finished_at, r.started_at,
                   r.records_fetched, r.records_new, r.records_changed,
-                  r.error_message
+                  r.error_message, r.detail
              FROM source s
              LEFT JOIN ingest_run r ON r.source_id = s.id
             WHERE s.active
@@ -776,6 +785,10 @@ def health(conn=Depends(get_conn)):
         # `str(exception)` and has held an object-store URL; it stays in the table.
         item = {"code": r["code"], "active": r["active"], "status": r["status"],
                 "finished_at": r["finished_at"], "records_fetched": r["records_fetched"]}
+        check = (r["detail"] or {}).get("completeness")
+        if check:
+            # Latest complete days against the portal's own day totals (ops/controls.py).
+            item["completeness"] = _completeness_line(check)
         if r["status"] is None:
             item["status"] = "never_run"
             item["health"] = "unhealthy"
@@ -800,6 +813,11 @@ def health(conn=Depends(get_conn)):
         "status": "degraded" if unhealthy or backup["status"] == "stale" else "ok",
         "unhealthy_sources": unhealthy,
         "backup": backup,
+        "controls": {c["control"]: {"status": c["status"], "checked_at": c["checked_at"],
+                                    **c["detail"]}
+                     for c in conn.execute(
+                         "SELECT control, status, checked_at, detail FROM control_check"
+                     ).fetchall()},
         "defence_opportunities": total,
         "archive_versions": versions,
         "archive_oldest_observation": oldest,
