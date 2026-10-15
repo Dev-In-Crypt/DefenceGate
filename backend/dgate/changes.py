@@ -155,7 +155,7 @@ def _amendments(conn, ids: list[int], since: datetime) -> dict[tuple[int, date],
 
 
 def build_events(conn, *, scope: str | None, countries: list[str],
-                 now: datetime | None = None) -> tuple[list[dict[str, Any]], datetime, datetime]:
+                 now: datetime | None = None, goods: str | None = None) -> tuple[list[dict[str, Any]], datetime, datetime]:
     """Every event of the window, newest first, as plain dicts (`id` is the notice's),
     with the window's bounds. The scope is `core` or `supply` or `all`, or None for core
     and supply together."""
@@ -164,6 +164,8 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     since = now - timedelta(days=WINDOW_DAYS)
     scope_sql = (f"({api.SCOPE_SQL['core']} OR {api.SCOPE_SQL['supply']})" if scope is None
                  else api.SCOPE_SQL[scope])
+    if goods:
+        scope_sql = f"({scope_sql} AND {api.GOODS_SQL[goods]})"
     params: list[Any] = []
     country_sql = ""
     if countries:
@@ -199,13 +201,14 @@ def build_events(conn, *, scope: str | None, countries: list[str],
 def list_changes(
     country: str | None = Query(None, max_length=200),
     scope: str | None = Query(None, pattern="^(core|supply|all)$"),
+    goods: str | None = Query(None, pattern="^defence$"),
     page: int = Query(1, ge=1, le=100),
     pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
     countries = T._split(country, "country", upper=True, max_length=2)
-    events, since, until = build_events(conn, scope=scope, countries=countries)
+    events, since, until = build_events(conn, scope=scope, countries=countries, goods=goods)
     start = (page - 1) * pageSize
     shown = events[start:start + pageSize]
     ids = [e["id"] for e in shown]

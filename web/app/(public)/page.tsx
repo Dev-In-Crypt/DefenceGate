@@ -86,7 +86,7 @@ export default async function LandingPage() {
   // Cached for a minute; any failure reads as "not open", which keeps the earlier wording.
   const { open: accountsOpen } = await getAccountStatus();
   const faq = FAQ.map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
-  const [stats, current, dated, closingCalls, coreOpen, supplyOpen, changes, exampleCounts] = await Promise.all([
+  const [stats, current, dated, closingCalls, coreOpen, supplyOpen, goodsOpen, changes, exampleCounts] = await Promise.all([
     getSiteStats(),
     // Current: not past its deadline, and with no deadline only if published within the last year.
     getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
@@ -96,6 +96,7 @@ export default async function LandingPage() {
     // What is in here: open notices by scope, as the list's own filter counts them.
     getTenders({ scope: 'core', pageSize: 1 }, { cacheable: true }).catch(() => null),
     getTenders({ scope: 'supply', pageSize: 1 }, { cacheable: true }).catch(() => null),
+    getTenders({ goods: 'defence', pageSize: 1 }, { cacheable: true }).catch(() => null),
     getChanges({ pageSize: 1 }).catch(() => null),
     Promise.all(EXAMPLES.map((e) => getTenders({ country: [e.country], cpv: [e.cpv], pageSize: 1 }, { cacheable: true }).then((r) => r.total).catch(() => 0))),
   ]);
@@ -160,8 +161,9 @@ export default async function LandingPage() {
         <p className="m-0 max-w-[70ch] text-body text-ink-muted">
           Open tenders, split by how the notice itself qualifies. The tender search above shows the first by default; the second is the &ldquo;Supplies to defence buyers&rdquo; choice of the scope filter.
         </p>
-        <dl className="m-0 grid gap-3 md:grid-cols-3">
+        <dl className="m-0 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Counter label="Defence notices" value={coreOpen ? formatNumber(coreOpen.total) : '–'} sub={`Open tenders. ${TENDER_SCOPES.core.hint} The tender list shows these by default.`} />
+          <Counter label="Defence goods only" value={goodsOpen ? formatNumber(goodsOpen.total) : '–'} sub="Open tenders that say defence themselves, not only through their buyer. The “Defence goods only” switch of the tender filters." />
           <Counter label="Supplies to defence buyers" value={supplyOpen ? formatNumber(supplyOpen.total) : '–'} sub={`Open tenders. ${TENDER_SCOPES.supply.hint}`} />
           <Counter label="Open funding calls" value={String(stats.openCalls)} sub="EU and national programmes, searched separately from tenders." />
         </dl>

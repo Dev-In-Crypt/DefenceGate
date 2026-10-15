@@ -557,13 +557,14 @@ def revoke_session(session_id: str, conn=Depends(get_conn), user=Depends(current
 
 
 # ------------------------------------------------------------------ searches
-_TENDER_KEYS = {"q", "country", "cpv", "status", "scope", "buyer", "from", "to", "min", "max",
+_TENDER_KEYS = {"q", "country", "cpv", "status", "scope", "goods", "buyer", "from", "to", "min", "max",
                 "currency", "sort"}
 _CALL_KEYS = {"q", "programme", "regime", "country", "status", "from", "to", "min", "max",
               "currency", "sort"}
 _ENUMS = {
     ("tender", "status"): {"open", "closed", "all"},
     ("tender", "scope"): {"core", "supply", "all"},
+    ("tender", "goods"): {"defence"},
     ("tender", "sort"): {"deadline-asc", "published-desc"},
     ("call", "status"): {"open", "forthcoming", "closing-soon", "closed", "all"},
     ("call", "sort"): {"deadline-asc", "deadline-desc", "budget-desc"},
@@ -626,6 +627,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
     }
     if kind == "tender":
         base.update(cpv=f.get("cpv"), status=f.get("status", "open"), scope=f.get("scope", "core"),
+                    goods=f.get("goods"),
                     buyer=int(f["buyer"]) if "buyer" in f else None)
     else:
         base.update(programme=f.get("programme"), regime=f.get("regime"),

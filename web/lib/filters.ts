@@ -20,7 +20,7 @@ export const MAX_PAGE = 1000;
 export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
-  scope: 'scope', hasOpen: 'hasOpen', cpv: 'cpv',
+  scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv',
 } as const;
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
@@ -132,6 +132,7 @@ export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
 
 const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'all'];
 const TENDER_SCOPES: TenderScopeFilter[] = ['core', 'supply', 'all'];
+const GOODS = ['defence'] as const;
 const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'deadline-desc', 'published-desc'];
 const BUYER_SORTS: BuyerSort[] = ['tenders', 'name'];
 const COUNTRY_CODES: string[] = BUYER_COUNTRY_CODES;
@@ -161,6 +162,7 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     status,
     scope: oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE,
+    goods: oneOf(first(sp[PARAM.goods]), GOODS),
     cpv: cpvList(sp[PARAM.cpv]),
     deadlineFrom: from && isDay(from) ? from : undefined,
     deadlineTo: to && isDay(to) ? to : undefined,
@@ -180,6 +182,7 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
   if (f.status && f.status !== DEFAULT_TENDER_STATUS) p.set(PARAM.status, f.status);
   if (f.scope && f.scope !== DEFAULT_TENDER_SCOPE) p.set(PARAM.scope, f.scope);
+  if (f.goods) p.set(PARAM.goods, f.goods);
   if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
   if (f.buyer) p.set('buyer', f.buyer);
   if (f.deadlineFrom) p.set(PARAM.from, f.deadlineFrom);
@@ -198,6 +201,7 @@ export function activeTenderFilterCount(f: TenderFilters): number {
     f.q, f.country?.length, f.cpv?.length,
     f.status !== DEFAULT_TENDER_STATUS ? f.status : undefined,
     f.scope !== DEFAULT_TENDER_SCOPE ? f.scope : undefined,
+    f.goods,
     f.deadlineFrom, f.deadlineTo, f.valueMin, f.valueMax,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
@@ -234,9 +238,11 @@ export const CHANGE_PAGE_SIZE = 25;
 
 export function parseChangeFilters(sp: SearchParams): ChangeFilters {
   const scope = oneOf(first(sp[PARAM.scope]), TENDER_SCOPES);
+  const goods = oneOf(first(sp[PARAM.goods]), GOODS);
   return {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     scope,
+    ...(goods ? { goods } : {}),
     page: pageOf(first(sp[PARAM.page])),
     pageSize: CHANGE_PAGE_SIZE,
   };
@@ -247,6 +253,7 @@ export function toChangeQuery(f: ChangeFilters): string {
   const p = new URLSearchParams();
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
   if (f.scope) p.set(PARAM.scope, f.scope);
+  if (f.goods) p.set(PARAM.goods, f.goods);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   const s = p.toString();
   return s ? `?${s}` : '';
@@ -294,6 +301,7 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
     choice(PARAM.sort, kind === 'tenders' ? TENDER_SORTS : SORTS);
     if (kind === 'tenders') {
       choice(PARAM.scope, TENDER_SCOPES);
+      choice(PARAM.goods, GOODS);
       for (const v of many(PARAM.cpv)) {
         if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
       }

@@ -58,6 +58,8 @@ export function TenderFilterBar({ filters, basePath }: { filters: TenderFilters;
           <p className="m-0 pt-2 text-small text-ink-muted">
             <span className="font-semibold text-ink">{TENDER_SCOPES.supply.label}:</span> {TENDER_SCOPES.supply.hint} {TENDER_SCOPES.supply.also}
           </p>
+          <Choice name={PARAM.goods} value="defence" label="Defence goods only" defaultChecked={filters.goods === 'defence'}
+            hint="Only notices that say defence themselves: the directive or a military product code, not a purchase that is here because its buyer is a defence body." />
         </Fieldset>
         <CountryChoices selected={filters.country} />
         <Fieldset legend="Deadline between (UTC)" className="gap-2">

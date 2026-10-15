@@ -103,3 +103,24 @@ def test_a_row_that_is_not_defence_is_not_served_by_the_opportunity_endpoints(cl
     assert client.get(f"/v1/opportunities/{hidden}").status_code == 404
     assert client.get(f"/v1/opportunities/{hidden}/versions").status_code == 404
     assert client.get(f"/v1/tenders/{hidden}").status_code == 404, "the same answer as the tender endpoint"
+
+
+def test_goods_defence_keeps_only_notices_that_say_defence_themselves(client, conn):
+    def put(native_id, **flags):
+        opp = Opportunity(
+            source_code="ted", native_id=native_id, buyer_name_raw="Buyer " + native_id,
+            title_original="Goods " + native_id, country="PL", published_at=date(2026, 10, 1),
+            deadline_at=FUTURE, cpv_codes=["35400000"], status="open", is_defence=True, **flags)
+        src = db.source_id(conn, "ted")
+        db.upsert_opportunity(conn, opp, f"hash-{native_id}", src)
+        conn.commit()
+
+    put("G-OWN", sig_cpv=True, sig_cpv_military=True, buyer_class="defence", sig_buyer=True)
+    put("G-LISTED", sig_cpv=True, sig_cpv_military=True, buyer_class="municipal", sig_buyer=True)
+    def ids(**p):
+        return {i["noticeId"] for i in client.get("/v1/tenders", params=p).json()["items"]}
+
+    assert ids() == {"G-OWN", "G-LISTED"}                       # the default is unchanged
+    assert ids(goods="defence") == {"G-OWN"}
+    assert client.get("/v1/tenders", params={"goods": "other"}).status_code == 422
+    assert client.get("/v1/changes", params={"goods": "defence"}).status_code == 200

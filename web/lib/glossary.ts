@@ -26,6 +26,10 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'Directive 2009/81/EC on EUR-Lex',
   },
   {
+    id: 'defence-goods-only', term: 'Defence goods only',
+    body: 'A switch in the tender filters. It keeps the notices that say defence themselves, by the defence procurement directive or a military product code, and drops those that are listed only because their buyer is a defence body or its product code is explained by the buyer’s own needs. It narrows the scope you chose; it never widens it.',
+  },
+  {
     id: 'security-body-cpv', term: 'Security-body purchase of a military-type product code',
     body: 'The notice carries a military product code and nothing else marks it as defence, and its buyer is a police, prison, border, customs or tax body. Such bodies buy items that sit in military codes for their own use, so we keep the notice in the supplies list rather than the defence notices.',
   },

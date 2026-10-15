@@ -145,6 +145,15 @@ SECURITY_CPV_SQL = (
     " AND NOT o.sig_linked_defence AND o.buyer_class IS NOT DISTINCT FROM 'security')")
 CORE_SQL = (f"((o.sig_legal_basis AND NOT {CIVIL_DIRECTIVE_SQL})"
             f" OR (o.sig_cpv_military AND NOT o.dual_use AND NOT {SECURITY_CPV_SQL}))")
+# `goods=defence` (owner decision of 15 October 2026): `core` minus the notices kept only by
+# a listed buyer, i.e. qualifiedBy has `legal_basis` or `military_cpv`. A military CPV counts
+# unless the buyer is listed AND of a demoting class (it would be dual-use without the
+# listing: tenders._qualified_by says `buyer`).
+# ponytail: `cpv_ambiguous_only` is not a column, so a listed buyer of class `other` with only
+# ambiguous military codes still counts here; store the flag if that ever matters.
+_DEMOTING_SQL = ", ".join(f"'{c}'" for c in sorted(DEMOTING_CLASSES))
+GOODS_DEFENCE_SQL = (f"({CORE_SQL} AND (o.sig_legal_basis OR (o.sig_cpv_military AND NOT"
+                     f" (o.sig_buyer AND o.buyer_class IN ({_DEMOTING_SQL})))))")
 # What `supply` holds: a listed buyer, a linked defence notice, or one of the two groups,
 # and not core.
 SUPPLY_SQL = (f"((o.sig_buyer OR o.sig_linked_defence OR {CIVIL_DIRECTIVE_SQL}"
@@ -196,6 +205,14 @@ def military_cpv_codes(codes: list[str] | None) -> list[str]:
                 and cpv_group(code) in CPV_MILITARY_GROUPS):
             out.append(code)
     return out
+
+
+def in_goods_defence(*, legal_basis: bool, military_cpv: bool, dual_use: bool, buyer: bool = False,
+                     linked_defence: bool = False, buyer_class: str | None = None) -> bool:
+    """The Python twin of GOODS_DEFENCE_SQL."""
+    return in_core(legal_basis=legal_basis, military_cpv=military_cpv, dual_use=dual_use,
+                   buyer=buyer, linked_defence=linked_defence, buyer_class=buyer_class) and (
+        legal_basis or (military_cpv and not (buyer and buyer_class in DEMOTING_CLASSES)))
 
 
 @dataclass
