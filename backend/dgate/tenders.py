@@ -65,6 +65,7 @@ from .funding import (
 )
 from .listcache import cache_list
 from .normalise import http_url, redact_emails
+from .suppress import WITHHELD_NAME, removed
 
 router = APIRouter()
 
@@ -271,7 +272,8 @@ TENDER_COLUMNS = (
     "o.sig_cpv, o.sig_cpv_military, o.sig_buyer, o.sig_linked_defence, o.dual_use, "
     "o.buyer_class, "
     "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
-    "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype"
+    "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype, "
+    "o.suppressed, o.buyer_withheld"
 )
 
 TENDER_SELECT = f"""
@@ -301,6 +303,7 @@ def _buyer_names(conn, org_ids: list[int]) -> dict[int, str]:
              FROM (SELECT buyer_org_id, buyer_name_raw, count(*) AS n
                      FROM opportunity
                     WHERE buyer_org_id = ANY(%s) AND is_defence
+                      AND NOT suppressed AND NOT buyer_withheld
                     GROUP BY buyer_org_id, buyer_name_raw) t
             ORDER BY buyer_org_id, n DESC, buyer_name_raw""",
         (org_ids,)).fetchall()
@@ -437,6 +440,10 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     own_name = clean_buyer_name(r["buyer_name_raw"])
     org_name = names.get(org_id) or own_name
     buyer_name = own_name or org_name
+    if r.get("buyer_withheld"):
+        # An organisation suppressed on request: the notice stays, its buyer is nobody
+        # the site can name, link or aggregate.
+        org_id, org_name, buyer_name = None, WITHHELD_NAME, WITHHELD_NAME
     n_versions = versions.get(r["id"], 1) or 1
     cpv = r.get("cpv_codes") or []
     qualified, military = _qualified_by(r, cpv)
@@ -540,6 +547,7 @@ def _twin_values(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
              JOIN opportunity t ON t.source_id = (SELECT id FROM source WHERE code = 'ted')
                                AND t.native_id = o.ted_ref
             WHERE o.id = ANY(%s) AND t.value_amount > %s AND t.value_currency IS NOT NULL
+              AND NOT t.suppressed
               AND t.value_kind IS DISTINCT FROM 'first_lot'
               AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic')
                    OR t.status = o.status)""", (ids, PLACEHOLDER_VALUE_MAX)).fetchall()
@@ -560,7 +568,7 @@ def _twin_extras(conn, rows: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
              FROM opportunity o
              JOIN opportunity t ON t.source_id = (SELECT id FROM source WHERE code = 'ted')
                                AND t.native_id = o.ted_ref
-            WHERE o.id = ANY(%s)
+            WHERE o.id = ANY(%s) AND NOT t.suppressed
               AND (coalesce(o.twin_method, '') NOT IN ('procedure_id', 'heuristic')
                    OR t.status = o.status)""", (ids,)).fetchall()
     return {r["row_id"]: {"procedure": r["procedure_type"], "deadline": r["deadline_at"]}
@@ -680,7 +688,7 @@ def list_tenders(
 ):
     api = _api()
     eff = api.EFFECTIVE_STATUS_SQL
-    where = ["o.is_defence = TRUE", api.SCOPE_SQL[scope]]
+    where = ["o.is_defence = TRUE", "NOT o.suppressed", api.SCOPE_SQL[scope]]
     params: list[Any] = []
 
     if status == "open":
@@ -692,7 +700,8 @@ def list_tenders(
     if text:
         like = _like(text)
         where.append("(o.title_en ILIKE %s OR o.title_original ILIKE %s "
-                     "OR o.buyer_name_raw ILIKE %s OR o.native_id ILIKE %s)")
+                     "OR (o.buyer_name_raw ILIKE %s AND NOT o.buyer_withheld) "
+                     "OR o.native_id ILIKE %s)")
         params += [like] * 4
     countries = _split(country, "country", upper=True, max_length=2)
     if countries:
@@ -759,7 +768,7 @@ def tender_slugs(conn=Depends(get_conn)):
                    (SELECT max(v.observed_at) FROM opportunity_version v
                      WHERE v.opportunity_id = o.id) AS updated
               FROM opportunity o
-             WHERE o.is_defence AND {api.SCOPE_SQL['core']}
+             WHERE o.is_defence AND NOT o.suppressed AND {api.SCOPE_SQL['core']}
                AND ({api.EFFECTIVE_STATUS_SQL} = 'open' OR o.published_at >= %s)
              ORDER BY o.published_at DESC NULLS LAST, o.id DESC
              LIMIT {TENDER_SLUG_LIMIT}""", (since.date(),)).fetchall()
@@ -780,6 +789,8 @@ def get_tender(slug: str, conn=Depends(get_conn)):
     row = conn.execute(f"{TENDER_SELECT} WHERE o.id = %s AND o.is_defence", (tender_id,)).fetchone()
     if not row:
         raise HTTPException(404, "no such tender")
+    if row["suppressed"]:
+        raise removed()
     return _present(conn, [row], checked=True)[0]
 
 
@@ -1004,12 +1015,19 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 @router.get("/v1/tenders/{slug}/versions", response_model=list[TenderVersion])
 def tender_versions(slug: str, conn=Depends(get_conn)):
     tender_id = _id_of(slug, "tender")
-    if not conn.execute("SELECT 1 FROM opportunity WHERE id = %s AND is_defence",
-                        (tender_id,)).fetchone():
+    held = conn.execute("SELECT suppressed, buyer_withheld FROM opportunity "
+                        "WHERE id = %s AND is_defence", (tender_id,)).fetchone()
+    if not held:
         raise HTTPException(404, "no such tender")
+    if held["suppressed"]:
+        raise removed()
     rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = %s"),
                         (tender_id,)).fetchall()
-    return list(reversed(timeline(rows)))
+    out = list(reversed(timeline(rows)))
+    if held["buyer_withheld"]:      # a line about the buyer's name would say the name
+        for entry in out:
+            entry["changes"] = [c for c in entry["changes"] if c["field"] != "buyer_name_raw"]
+    return out
 
 
 # ----------------------------------------------------------------- buyers
@@ -1019,7 +1037,8 @@ AGGREGATE = f"""
            count(*) FILTER (WHERE {{eff}} = 'open') AS open_n,
            max(o.published_at) AS last_published
       FROM opportunity o
-     WHERE o.is_defence AND {CORE} AND o.buyer_org_id IS NOT NULL
+     WHERE o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld
+       AND {CORE} AND o.buyer_org_id IS NOT NULL
      GROUP BY o.buyer_org_id
 """
 
@@ -1032,12 +1051,14 @@ def aggregate_sql() -> str:
     notice stays free of sub-queries (they hold a scan back from running in parallel) and the
     collapse is tested only on the few hundred notices that are open."""
     eff = _api().EFFECTIVE_STATUS_SQL
-    where = ["o.is_defence = TRUE", CORE, f"{eff} = 'open'"]
+    where = ["o.is_defence = TRUE", "NOT o.suppressed", "NOT o.buyer_withheld", CORE,
+             f"{eff} = 'open'"]
     return f"""
     SELECT t.org_id, t.n, COALESCE(op.open_n, 0) AS open_n, t.last_published
       FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n, max(o.published_at) AS last_published
               FROM opportunity o
-             WHERE o.is_defence AND {CORE} AND o.buyer_org_id IS NOT NULL
+             WHERE o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld
+               AND {CORE} AND o.buyer_org_id IS NOT NULL
              GROUP BY o.buyer_org_id) t
       LEFT JOIN (SELECT o.buyer_org_id AS org_id, count(*) AS open_n
                    FROM opportunity o
@@ -1126,5 +1147,8 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
               FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
              WHERE org.id = %s""", (org_id,)).fetchone()
     if not row:
+        if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
+                        (org_id,)).fetchone():
+            raise removed()
         raise HTTPException(404, "no such buyer")
     return _buyer(row, _buyer_names(conn, [org_id]))

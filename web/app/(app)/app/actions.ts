@@ -7,7 +7,7 @@
  */
 import { redirect } from 'next/navigation';
 import {
-  authLogout, BIND_COOKIE, CADENCES, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist, revokeOtherSessions,
+  acceptTerms, authLogout, BIND_COOKIE, CADENCES, clearCookie, deleteFollow, deleteMe, deleteSearch, deleteShortlist, revokeOtherSessions,
   revokeSession, ROLES, SCOPES, SESSION_COOKIE, SHORTLIST_STATUSES, updateMe, updateSearch, putShortlist, type AccountResult,
 } from '@/lib/account';
 import { followRef, isUuid, numericRef } from '@/lib/refs';
@@ -29,6 +29,11 @@ function pick<T extends string>(v: string, allowed: readonly T[]): T | null {
 function back(path: string, r: AccountResult<unknown>, ok: string = 'saved'): never {
   if (!r.ok && r.status === 401) redirect('/auth/expired');
   redirect(`${path}?n=${r.ok ? ok : r.status === 422 ? 'invalid' : 'error'}`);
+}
+
+export async function acceptCurrentTerms(form: FormData): Promise<void> {
+  const r = await acceptTerms({ termsVersion: field(form, 'termsVersion', 20), privacyVersion: field(form, 'privacyVersion', 20) });
+  back('/app', r, 'saved');
 }
 
 export async function signOut(): Promise<void> {

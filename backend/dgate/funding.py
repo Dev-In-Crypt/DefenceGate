@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from . import db
 from .config import settings
 from .normalise import http_url, redact_emails
+from .suppress import removed
 
 router = APIRouter()
 
@@ -441,7 +442,7 @@ def list_funding(
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
-    where: list[str] = []
+    where: list[str] = ["NOT c.suppressed"]
     params: list[Any] = []
 
     if status == "closing-soon":
@@ -546,7 +547,8 @@ def list_funding(
 
 @router.get("/v1/funding/slugs")
 def funding_slugs(conn=Depends(get_conn)):
-    rows = conn.execute("SELECT c.id, c.title, c.last_seen_at FROM call c ORDER BY c.id").fetchall()
+    rows = conn.execute("SELECT c.id, c.title, c.last_seen_at FROM call c "
+                        "WHERE NOT c.suppressed ORDER BY c.id").fetchall()
     return [{"slug": make_slug(r["id"], r["title"]), "updatedAt": r["last_seen_at"]} for r in rows]
 
 
@@ -558,6 +560,8 @@ def get_funding(slug: str, conn=Depends(get_conn)):
     row = conn.execute(SELECT + " WHERE c.id = %s", (int(m.group(1)),)).fetchone()
     if not row:
         raise HTTPException(404, "no such call")
+    if row["suppressed"]:
+        raise removed()
     return to_call(row, detail=True)
 
 

@@ -43,6 +43,7 @@ from pydantic import BaseModel
 
 from . import db
 from .config import settings
+from .suppress import removed
 from .tenders import CORE, FIELD_LABELS, TIMELINE_SQL, _api, _id_of, timeline
 
 router = APIRouter()
@@ -62,7 +63,7 @@ TIMELINE_CHUNK = 500
 
 # Exactly the predicate of the partial index `opp_core_published` (migration 0038), so
 # the planner can use it.
-CORE_NOTICES = f"o.is_defence AND {CORE}"
+CORE_NOTICES = f"o.is_defence AND NOT o.suppressed AND {CORE}"
 
 # A version that changed only the publication date is not an amendment (tenders.timeline);
 # nor is one annotated with a `db.NOT_AMENDMENT_NOTES` kind.
@@ -193,7 +194,7 @@ def _scope(since: date, today: date) -> tuple[str, list[Any]]:
 
 
 def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
-    return f"{CORE_NOTICES} AND o.buyer_org_id = %s", [org_id]
+    return f"{CORE_NOTICES} AND NOT o.buyer_withheld AND o.buyer_org_id = %s", [org_id]
 
 
 # ------------------------------------------------------------ aggregates
@@ -485,6 +486,10 @@ def get_buyer_profile(slug: str):
         with _connection() as conn:
             return buyer_profile(conn, org_id)
     found = cached(("buyer", org_id), build)
+    with _connection() as conn:
+        if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
+                        (org_id,)).fetchone():
+            raise removed()
     if found is None:
         raise HTTPException(404, "no such buyer")
     return found
@@ -526,7 +531,8 @@ def source_spans(conn) -> dict[str, dict[str, Any]]:
     publication dates, so that a gap ("BOAMP from 2015, nothing before") is visible.
     A grant source's span is blank where the source gives no publication date."""
     out: dict[str, dict[str, Any]] = {}
-    for table, extra in (("opportunity", "WHERE o.is_defence"), ("call", "")):
+    for table, extra in (("opportunity", "WHERE o.is_defence AND NOT o.suppressed"),
+                         ("call", "WHERE NOT c.suppressed")):
         alias = table[0]
         rows = conn.execute(
             f"""SELECT s.code, count(*) AS n, min({alias}.published_at) AS first,
@@ -547,7 +553,7 @@ def source_gaps(conn) -> dict[str, dict[str, Any]]:
     for r in conn.execute(
             """SELECT s.code, to_char(o.published_at, 'YYYY-MM') AS month, count(*) AS n
                  FROM opportunity o JOIN source s ON s.id = o.source_id
-                WHERE o.is_defence AND o.published_at IS NOT NULL
+                WHERE o.is_defence AND NOT o.suppressed AND o.published_at IS NOT NULL
                 GROUP BY s.code, 2""").fetchall():
         by_source.setdefault(r["code"], {})[r["month"]] = r["n"]
     for code, per_month in by_source.items():

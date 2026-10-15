@@ -22,7 +22,7 @@ until the Imprint is filled in. Nothing here is legal advice.
 | 19 | Time limits given: "without undue delay" and one month for data protection requests; no fixed working-day figures were promised. |
 | 23 | Governing law and courts: arbitration is a choice not taken. Depends on the seat in the Imprint. |
 | P1 | Representative in the Union (GDPR Art. 27) and DPO: needed or not, once the seat is known. |
-| P2 (section 2) | Maximum log retention. `docs/DATA_PROTECTION.md` proposes 14 days; not implemented (logs rotate by size), so the page says no fixed period is set. |
+| P2 (section 2) | Maximum log retention. 14 days implemented 15 Oct 2026 and stated in Privacy 1.4; confirm the figure is acceptable. |
 | P3 (section 7) | Legitimate-interest assessment (Art. 6(1)(f)) is not written down; the page states the interest but does not say an assessment is on file. Art. 14(5)(b) reliance. Period for older records in the archive and raw store (the page gives criteria, no number). |
 | P4 (section 8) | Transfer mechanism for Cloudflare DNS (adequacy or SCCs) is not stated on the page. Mail provider still to be named. |
 | P5 (section 9) | Refusal grounds, one-month rule and up to two months extension as written. |
@@ -31,6 +31,18 @@ until the Imprint is filled in. Nothing here is legal advice.
 | 22 | "Earlier versions kept and available on request": v1.0 to v1.2 texts are in git history; confirm the owner will keep them. |
 
 ## Engineering follow-up (promised by neither page as a technical fact; listed so the text can later be tightened)
+
+**Status 15 October 2026 (branch wp-wp11, owner approval of the same day).** Items 1, 2, 3, 5 (as the
+request log, not the public count) and 6 are built; 4 is not. Details: `docs/DATA_PROTECTION.md`.
+
+- 1 done: table `suppression`, owner CLI `python -m dgate.ops.suppress`, every public read honours it,
+  410 "removed on request" at the detail address, a re-ingest cannot clear it. Terms 19 and
+  Privacy 7/9 may now say "at once" once the lawyer agrees; the page texts were not changed.
+- 2 done: tick on the sign-in form, `terms_version`, `privacy_version`, `accepted_at` on `app_user`,
+  asked again when the constants in `accounts.py` change (sign-in stays closed until a mail relay).
+- 3 done: 14 days for the proxy's request log (`logprune`), API access line off; Privacy 1.4 states it.
+- 4 not done: no ticketing; the request log `data_request` records dates only.
+- 6 done: `docs/legal/versions/` (Terms 2.0, Privacy 1.3 and 1.4; earlier ones only in git history).
 
 1. **Suppression of a notice, label or link from the public site and public endpoints.** None
    exists. A serving-column edit is overwritten by the next collection and `opportunity_version`

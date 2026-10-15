@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Printer } from 'lucide-react';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug } from '@/lib/api';
+import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { RemovedOnRequest } from '@/components/dg/removed';
 import { getTenderDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
@@ -32,7 +33,8 @@ const RELATED_LIMIT = 3;
 const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const tender = await getTender((await params).slug);
+  const tender = await getTender((await params).slug).catch(whenRemoved);
+  if (tender === REMOVED) return { title: 'Removed on request', robots: { index: false } };
   if (!tender) return { title: 'Tender not found', robots: { index: false } };
   const d = getTenderDeadline(tender);
   // Structured fields only: buyer, deadline, value, source.
@@ -67,7 +69,8 @@ export default async function TenderDetailPage({ params }: Props) {
   const { slug } = await params;
   // A slug that cannot be a tender never reaches the API.
   if (!isTenderSlug(slug)) notFound();
-  const tender = await getTender(slug);
+  const tender = await getTender(slug).catch(whenRemoved);
+  if (tender === REMOVED) return <RemovedOnRequest what="notice" />;
   if (!tender) notFound();
   // The API looks up the leading id only; a changed title must not break a link.
   if (tender.slug !== slug && isTenderSlug(tender.slug)) permanentRedirect(`/tenders/${tender.slug}`);

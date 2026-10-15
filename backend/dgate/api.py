@@ -36,6 +36,7 @@ from .config import settings
 from .hardening import BodyLimit, RateLimit, SecurityHeaders
 from .listcache import cache_list
 from .normalise import http_url, normalise_org_name, redact_emails
+from .suppress import WITHHELD_NAME, removed
 
 # A source whose last successful run is older than this is reported stale.
 # Every connector in Phase 1 runs daily, so a day and a half allows one missed
@@ -183,7 +184,7 @@ def _twins(conn, ids: list[int]) -> dict[int, list[dict[str, Any]]]:
         """
         SELECT a.id AS row_id, b.id, bs.code AS source, b.native_id, b.source_url
           FROM opportunity a
-          JOIN opportunity b ON b.id <> a.id AND b.is_defence AND (
+          JOIN opportunity b ON b.id <> a.id AND b.is_defence AND NOT b.suppressed AND (
                 (b.source_id = (SELECT id FROM source WHERE code = 'ted')
                    AND b.native_id = a.ted_ref)
              OR (a.source_id = (SELECT id FROM source WHERE code = 'ted')
@@ -211,8 +212,9 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         source=r["source_code"],
         native_id=r["native_id"],
         buyer={
-            "organisation_id": r.get("buyer_org_id"),
-            "name": redact_emails(r["buyer_name_raw"]),
+            "organisation_id": None if r.get("buyer_withheld") else r.get("buyer_org_id"),
+            "name": (WITHHELD_NAME if r.get("buyer_withheld")
+                     else redact_emails(r["buyer_name_raw"])),
             "resolution_confidence": float(r["org_confidence"])
             if r.get("org_confidence") is not None else None,
         },
@@ -373,7 +375,8 @@ def list_opportunities(
     offset: int = Query(0, ge=0, le=MAX_OFFSET),
     conn=Depends(get_conn),
 ):
-    where = ["o.is_defence = TRUE", f"{EFFECTIVE_STATUS_SQL} = %s", SCOPE_SQL[scope]]
+    where = ["o.is_defence = TRUE", "NOT o.suppressed", f"{EFFECTIVE_STATUS_SQL} = %s",
+             SCOPE_SQL[scope]]
     params: list[Any] = [status]
 
     if country:
@@ -424,6 +427,8 @@ def get_opportunity(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_co
     row = conn.execute(BASE_SELECT + " WHERE o.id = %s AND o.is_defence", (opp_id,)).fetchone()
     if not row:
         raise HTTPException(404, "not found")
+    if row["suppressed"]:
+        raise removed()
     return _row_to_out(row, _twins(conn, [opp_id]).get(opp_id))
 
 
@@ -440,9 +445,12 @@ SNAPSHOT_FIELDS = (
 )
 
 
-def public_snapshot(payload: dict[str, Any] | None) -> dict[str, Any]:
+def public_snapshot(payload: dict[str, Any] | None, *, buyer_withheld: bool = False
+                    ) -> dict[str, Any]:
     """A stored version payload as it may be served: allow-listed and redacted."""
     kept = {k: v for k, v in (payload or {}).items() if k in SNAPSHOT_FIELDS}
+    if buyer_withheld and "buyer_name_raw" in kept:
+        kept["buyer_name_raw"] = WITHHELD_NAME
     if "source_url" in kept:
         kept["source_url"] = http_url(kept["source_url"])
     return redact_emails(kept)
@@ -456,6 +464,11 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
     observation timestamp and the list of fields that changed. Not available
     from any upstream source.
     """
+    gone = conn.execute("SELECT suppressed, buyer_withheld FROM opportunity "
+                        "WHERE id = %s AND is_defence", (opp_id,)).fetchone()
+    if gone and gone["suppressed"]:
+        raise removed()
+    withheld = bool(gone and gone["buyer_withheld"])
     rows = conn.execute(
         """SELECT v.version, v.observed_at, v.valid_from, v.valid_to,
                   v.changed_fields, v.payload,
@@ -490,7 +503,7 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
                 "valid_from": r["valid_from"],
                 "valid_to": r["valid_to"],
                 "changed_fields": r["changed_fields"] or [],
-                "snapshot": public_snapshot(r["payload"]),
+                "snapshot": public_snapshot(r["payload"], buyer_withheld=withheld),
                 # A version the archive recorded wrongly is annotated, never
                 # removed: see migration 0006. Clients should not present a
                 # `reread`, `out_of_order` or `remapped` version as a real amendment.
@@ -553,7 +566,7 @@ CALL_SELECT = """
            c.title, c.regime, c.status, c.type_of_action, c.budget, c.budget_scope, c.currency,
            c.min_consortium_size, c.min_member_states, c.opens_at, c.published_at, c.deadline_at,
            c.source_url, c.country, c.issuer, c.first_seen_at, c.last_seen_at,
-           s.code AS source_code, s.attribution AS source_attribution
+           c.suppressed, s.code AS source_code, s.attribution AS source_attribution
       FROM call c JOIN programme p ON p.id = c.programme_id
       LEFT JOIN source s ON s.id = c.source_id
 """
@@ -615,7 +628,7 @@ def list_calls(
     difference from the opportunities endpoint that matters: a call is useful
     while it is open, and what an applicant needs first is the one closing next.
     """
-    where: list[str] = []
+    where: list[str] = ["NOT c.suppressed"]
     params: list[Any] = []
     if status != "all":
         where.append("c.status = %s")
@@ -663,6 +676,8 @@ def get_call(call_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
         + " WHERE c.id = %s", (call_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="no such call")
+    if row["suppressed"]:
+        raise removed()
     base = _call_to_out(row)
     return CallDetailOut(**base.model_dump(), eligibility_text=row.get("eligibility_text"),
                          conditions=row.get("conditions_raw"),
@@ -684,7 +699,7 @@ def resolve(name: str = Query(min_length=1, max_length=200),
                   o.canonical_name, o.country, o.ncage_code, o.is_defence_buyer
              FROM organisation_alias a
              JOIN organisation o ON o.id = a.organisation_id
-            WHERE a.normalised_name = %s AND a.country_hint = %s
+            WHERE a.normalised_name = %s AND a.country_hint = %s AND NOT o.suppressed
             ORDER BY a.confidence DESC LIMIT 1""",
         (norm, country.upper()),
     ).fetchone()

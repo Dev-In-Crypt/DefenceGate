@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
-import { getCall, getRelatedCalls } from '@/lib/api';
+import { getCall, getRelatedCalls, REMOVED, whenRemoved } from '@/lib/api';
+import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, openingPhrase } from '@/lib/format';
@@ -26,7 +27,8 @@ type Props = { params: Promise<{ slug: string }> };
 const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const call = await getCall((await params).slug);
+  const call = await getCall((await params).slug).catch(whenRemoved);
+  if (call === REMOVED) return { title: 'Removed on request', robots: { index: false } };
   if (!call) return { title: 'Call not found', robots: { index: false } };
   const d = getCallDeadline(call);
   // Structured fields only: programme, opening, deadline, budget, source.
@@ -59,7 +61,8 @@ function Panel({ title, children, className }: { title: string; children: React.
 
 export default async function CallDetailPage({ params }: Props) {
   const { slug } = await params;
-  const call = await getCall(slug);
+  const call = await getCall(slug).catch(whenRemoved);
+  if (call === REMOVED) return <RemovedOnRequest what="call" />;
   if (!call) notFound();
   // The API looks up the leading id only; a changed title must not break a link.
   if (call.slug !== slug) permanentRedirect(`/funding/${call.slug}`);

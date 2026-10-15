@@ -41,6 +41,11 @@ def client(conn, sent):
     accounts._cache.clear()
 
 
+# Migration 0047: the sign-in form carries the tick and the versions it showed.
+ACCEPT = {"acceptTerms": True, "termsVersion": accounts.TERMS_VERSION,
+          "privacyVersion": accounts.PRIVACY_VERSION}
+
+
 def _binder() -> str:
     return secrets.token_urlsafe(32)
 
@@ -51,7 +56,7 @@ def _token(box: list[dict]) -> str:
 
 def sign_in(client, box, email="ann@example.com", ip="203.0.113.7") -> tuple[str, dict]:
     binder = _binder()
-    r = client.post("/v1/account/auth/request", json={"email": email, "binder": binder},
+    r = client.post("/v1/account/auth/request", json={"email": email, "binder": binder, **ACCEPT},
                     headers={"X-DG-Client-IP": ip})
     assert r.status_code == 202, r.text
     v = client.post("/v1/account/auth/verify", json={"token": _token(box), "binder": binder})
@@ -89,11 +94,11 @@ def _put(conn, native_id: str, *, buyer="Ministry of Defence", title="Armoured v
 # ---------------------------------------------------------------- status / A6
 
 def test_sign_in_is_open_only_when_mail_can_be_sent(client, monkeypatch):
-    assert client.get("/v1/account/status").json() == {"open": True}
+    assert client.get("/v1/account/status").json()["open"] is True
     monkeypatch.delenv("DGATE_SMTP_HOST")
     config.reset_cache()
-    assert client.get("/v1/account/status").json() == {"open": False}
-    r = client.post("/v1/account/auth/request", json={"email": "a@example.com", "binder": _binder()})
+    assert client.get("/v1/account/status").json()["open"] is False
+    r = client.post("/v1/account/auth/request", json={"email": "a@example.com", "binder": _binder(), **ACCEPT})
     assert r.status_code == 503 and r.json()["error"] == "not_open"
 
 
@@ -145,7 +150,7 @@ def test_a_first_sign_in_is_new_and_a_second_is_not(client, sent):
 
 def test_a_link_works_once(client, sent):
     binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder})
+    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
     token = _token(sent)
     assert client.post("/v1/account/auth/verify", json={"token": token, "binder": binder}).status_code == 200
     again = client.post("/v1/account/auth/verify", json={"token": token, "binder": binder})
@@ -154,7 +159,7 @@ def test_a_link_works_once(client, sent):
 
 def test_a_link_expires(client, sent, conn):
     binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder})
+    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
     conn.execute("UPDATE app_login_token SET expires_at = now() - interval '1 minute'")
     conn.commit()
     assert client.post("/v1/account/auth/verify",
@@ -163,7 +168,7 @@ def test_a_link_expires(client, sent, conn):
 
 def test_a_link_is_bound_to_the_browser_that_asked_and_a_stranger_does_not_burn_it(client, sent):
     binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder})
+    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
     token = _token(sent)
     other = client.post("/v1/account/auth/verify", json={"token": token, "binder": _binder()})
     assert other.status_code == 400
@@ -172,7 +177,7 @@ def test_a_link_is_bound_to_the_browser_that_asked_and_a_stranger_does_not_burn_
 
 def test_only_hashes_are_stored(client, sent, conn):
     binder = _binder()
-    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder})
+    client.post("/v1/account/auth/request", json={"email": "ann@example.com", "binder": binder, **ACCEPT})
     token = _token(sent)
     session = client.post("/v1/account/auth/verify", json={"token": token, "binder": binder}).json()["session"]
     stored = [bytes(r["token_hash"]) for r in conn.execute("SELECT token_hash FROM app_login_token").fetchall()]
@@ -187,10 +192,10 @@ def test_the_sixth_request_for_one_address_is_refused_and_the_answer_does_not_re
     known = sign_in(client, sent, email="known@example.com", ip="198.51.100.1")
     assert known
     body_known = client.post("/v1/account/auth/request",
-                             json={"email": "known@example.com", "binder": _binder()},
+                             json={"email": "known@example.com", "binder": _binder(), **ACCEPT},
                              headers={"X-DG-Client-IP": "198.51.100.2"})
     body_unknown = client.post("/v1/account/auth/request",
-                               json={"email": "nobody@example.com", "binder": _binder()},
+                               json={"email": "nobody@example.com", "binder": _binder(), **ACCEPT},
                                headers={"X-DG-Client-IP": "198.51.100.3"})
     assert (body_known.status_code, body_known.json()) == (body_unknown.status_code, body_unknown.json()) \
         == (202, {"ok": True})
@@ -198,7 +203,7 @@ def test_the_sixth_request_for_one_address_is_refused_and_the_answer_does_not_re
     # with the wait, not the old silent 202 that locked the address's owner out without a word.
     # It is no oracle: every address is refused the same way after the same number of requests.
     before = len(sent)
-    answers = [client.post("/v1/account/auth/request", json={"email": "burst@example.com", "binder": _binder()},
+    answers = [client.post("/v1/account/auth/request", json={"email": "burst@example.com", "binder": _binder(), **ACCEPT},
                            headers={"X-DG-Client-IP": f"192.0.2.{i}"}) for i in range(8)]
     assert [r.status_code for r in answers] == [202] * 5 + [429] * 3
     assert all(r.json() == {"ok": True} for r in answers[:5])
@@ -207,22 +212,22 @@ def test_the_sixth_request_for_one_address_is_refused_and_the_answer_does_not_re
 
 
 def test_one_ip_is_limited_across_addresses(client, sent):
-    codes = [client.post("/v1/account/auth/request", json={"email": f"u{i}@example.com", "binder": _binder()},
+    codes = [client.post("/v1/account/auth/request", json={"email": f"u{i}@example.com", "binder": _binder(), **ACCEPT},
                          headers={"X-DG-Client-IP": "192.0.2.50"}).status_code for i in range(22)]
     assert codes[:20] == [202] * 20 and codes[20:] == [429, 429]
 
 
 def test_a_disposable_domain_gets_the_same_answer_and_no_mail(client, sent):
-    r = client.post("/v1/account/auth/request", json={"email": "x@mailinator.com", "binder": _binder()})
+    r = client.post("/v1/account/auth/request", json={"email": "x@mailinator.com", "binder": _binder(), **ACCEPT})
     assert (r.status_code, r.json()) == (202, {"ok": True})
     assert sent == []
 
 
 def test_a_malformed_address_or_binder_is_refused(client, sent):
     assert client.post("/v1/account/auth/request",
-                       json={"email": "nope", "binder": _binder()}).json()["error"] == "invalid_email"
+                       json={"email": "nope", "binder": _binder(), **ACCEPT}).json()["error"] == "invalid_email"
     assert client.post("/v1/account/auth/request",
-                       json={"email": "a@example.com", "binder": "short"}).status_code == 422
+                       json={"email": "a@example.com", "binder": "short", **ACCEPT}).status_code == 422
 
 
 # ---------------------------------------------------------------- A5
@@ -514,7 +519,7 @@ def _auth_rows(conn) -> tuple[int, int]:
 
 
 def _ask(client, email, ip="198.51.100.20"):
-    return client.post("/v1/account/auth/request", json={"email": email, "binder": _binder()},
+    return client.post("/v1/account/auth/request", json={"email": email, "binder": _binder(), **ACCEPT},
                        headers={"X-DG-Client-IP": ip})
 
 
@@ -912,3 +917,56 @@ def test_a_failed_search_keeps_its_window_and_the_others_move_on(client, sent, c
     day = timedelta(days=1)
     assert datetime.now(timezone.utc) - rows["good"] < day, "the good search moved on"
     assert datetime.now(timezone.utc) - rows["bad"] > day, "the failed one kept its window"
+
+
+# ---------------------------------------------------------------- terms acceptance (0047)
+
+def test_the_tick_is_required_and_is_for_the_versions_now_current(client, sent):
+    body = {"email": "ann@example.com", "binder": _binder()}
+    for extra in ({}, {"acceptTerms": False, "termsVersion": accounts.TERMS_VERSION,
+                       "privacyVersion": accounts.PRIVACY_VERSION},
+                  {"acceptTerms": True, "termsVersion": "0.1",
+                   "privacyVersion": accounts.PRIVACY_VERSION}):
+        r = client.post("/v1/account/auth/request", json={**body, **extra})
+        assert (r.status_code, r.json()["error"]) == (422, "terms_not_accepted")
+    assert sent == []
+
+
+def test_the_versions_and_time_are_stored_at_the_first_verified_sign_in(client, sent, conn):
+    assert client.get("/v1/account/status").json()["termsVersion"] == accounts.TERMS_VERSION
+    session, _ = sign_in(client, sent)
+    row = conn.execute("SELECT terms_version, privacy_version, accepted_at FROM app_user").fetchone()
+    assert (row["terms_version"], row["privacy_version"]) == (accounts.TERMS_VERSION,
+                                                              accounts.PRIVACY_VERSION)
+    assert row["accepted_at"] is not None
+    me = client.get("/v1/account/me", headers=H(session)).json()
+    assert me["terms"]["current"] is True and me["terms"]["termsVersion"] == accounts.TERMS_VERSION
+
+
+def test_a_new_version_asks_again(client, sent, conn, monkeypatch):
+    session, _ = sign_in(client, sent)
+    monkeypatch.setattr(accounts, "TERMS_VERSION", "9.0")
+    assert client.get("/v1/account/me", headers=H(session)).json()["terms"]["current"] is False
+    # the old tick no longer signs anyone in
+    old = {**ACCEPT, "termsVersion": "2.0"}
+    r = client.post("/v1/account/auth/request",
+                    json={"email": "ann@example.com", "binder": _binder(), **old})
+    assert r.status_code == 422
+    # a signed-in account accepts the new text from the site
+    bad = client.post("/v1/account/me/terms", headers=H(session),
+                      json={"termsVersion": "8.0", "privacyVersion": accounts.PRIVACY_VERSION})
+    assert bad.status_code == 422
+    ok = client.post("/v1/account/me/terms", headers=H(session),
+                     json={"termsVersion": "9.0", "privacyVersion": accounts.PRIVACY_VERSION})
+    assert ok.status_code == 200
+    assert client.get("/v1/account/me", headers=H(session)).json()["terms"]["current"] is True
+    assert conn.execute("SELECT terms_version FROM app_user").fetchone()["terms_version"] == "9.0"
+
+
+def test_the_status_call_prunes_spent_counters_and_links(client, conn, monkeypatch):
+    conn.execute("INSERT INTO app_auth_event (kind, key_hash, at) "
+                 "VALUES ('ip', 'x'::bytea, now() - interval '2 days')")
+    conn.commit()
+    monkeypatch.setattr(accounts, "_last_prune", 0.0)
+    client.get("/v1/account/status")
+    assert conn.execute("SELECT count(*) AS n FROM app_auth_event").fetchone()["n"] == 0

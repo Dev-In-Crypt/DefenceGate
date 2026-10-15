@@ -25,8 +25,8 @@ export default async function SignInPage() {
       title="Sign in"
       lead={status.open ? 'Enter your e-mail address and we send you a link. No password to remember.' : undefined}
     >
-      {status.open ? (
-        <SignInForm />
+      {status.open && status.termsVersion && status.privacyVersion ? (
+        <SignInForm termsVersion={status.termsVersion} privacyVersion={status.privacyVersion} />
       ) : (
         <Callout title="Sign-in is not open yet">
           <p className="m-0">Accounts are not available at the moment. Browsing tenders, buyers and funding calls needs no account.</p>

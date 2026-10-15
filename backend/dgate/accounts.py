@@ -69,6 +69,13 @@ MAX_HIT_COUNT = 10_000         # one key's count in one batch
 NOTE_MAX = 500
 SEARCH_RESULTS = 100           # how many newest matches are read to count the new ones
 
+# The texts a sign-in accepts. Bump one when the published page changes: the sign-in form then
+# asks again (the form carries the versions it shows) and /me says `termsCurrent: false` for
+# an account that accepted an older one. Keep in step with web/app/(public)/terms and privacy,
+# and keep a dated copy of the text in docs/legal/versions/.
+TERMS_VERSION = "2.0"
+PRIVACY_VERSION = "1.4"
+
 ROLES = ("supplier", "prime", "consultant", "grant_writer", "other")
 TRACKS = ("tenders", "funding")
 SCOPES = ("core", "all")
@@ -229,6 +236,15 @@ class _Body(BaseModel):
 class LinkRequest(_Body):
     email: str = Field(max_length=320)
     binder: str
+    # The tick on the sign-in form, with the versions of the two texts the form showed.
+    acceptTerms: bool = False
+    termsVersion: str | None = Field(None, max_length=20)
+    privacyVersion: str | None = Field(None, max_length=20)
+
+
+class TermsAcceptance(_Body):
+    termsVersion: str = Field(max_length=20)
+    privacyVersion: str = Field(max_length=20)
 
 
 class Verify(_Body):
@@ -291,9 +307,31 @@ class HitBatch(_Body):
 
 
 # ------------------------------------------------------------------ status
+_last_prune = 0.0
+
+
+def prune_expired(conn) -> None:
+    """Sign-in counters and spent links older than a day, deleted. The sign-in request does
+    this too, but only a request does: with none, rows would wait. The status call (the site
+    asks every minute) bounds that to a day plus ten minutes, which is what the Privacy notice
+    says. Throttled to one pass in ten minutes per process."""
+    global _last_prune
+    if time.monotonic() - _last_prune < 600:
+        return
+    _last_prune = time.monotonic()
+    conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
+    conn.execute("DELETE FROM app_login_token WHERE expires_at < now() - interval '1 day'")
+
+
 @router.get("/status")
-def status() -> JSONResponse:
-    return JSONResponse({"open": mailer.can_send()}, headers={"Cache-Control": "public, max-age=60"})
+def status(conn=Depends(get_conn)) -> JSONResponse:
+    try:
+        prune_expired(conn)
+    except Exception:  # noqa: BLE001 - the status answer must not depend on housekeeping
+        log.warning("status: prune failed")
+    return JSONResponse({"open": mailer.can_send(), "termsVersion": TERMS_VERSION,
+                         "privacyVersion": PRIVACY_VERSION},
+                        headers={"Cache-Control": "public, max-age=60"})
 
 
 # ------------------------------------------------------------------ sign-in
@@ -353,6 +391,12 @@ def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(ge
         raise AccountError(422, "invalid_email", "that does not look like an e-mail address") from None
     if not _BINDER.match(body.binder):
         raise AccountError(422, "invalid_request", "invalid request")
+    # The tick is required, and it is for the texts as they stand now: a form rendered
+    # before a new version went live is asked again, not silently accepted.
+    if not (body.acceptTerms and body.termsVersion == TERMS_VERSION
+            and body.privacyVersion == PRIVACY_VERSION):
+        raise AccountError(422, "terms_not_accepted",
+                           "accept the terms of use and the privacy notice to sign in")
 
     # Tiny tables, so pruned at the start of every request that gets this far (an index on
     # `at`): what the notice says (about a day) is then true. Committed at once, so a
@@ -396,9 +440,11 @@ def auth_request(body: LinkRequest, background: BackgroundTasks, conn=Depends(ge
         "SELECT 1 FROM app_disposable_domain WHERE domain = %s", (domain,)).fetchone() is not None
     token = _secret()
     conn.execute(
-        "INSERT INTO app_login_token (token_hash, binder_hash, email_canonical, email_display, expires_at) "
-        "VALUES (%s, %s, %s, %s, now() + %s::interval)",
-        (_hash(token), _hash(body.binder), canonical, display, LINK_TTL))
+        "INSERT INTO app_login_token (token_hash, binder_hash, email_canonical, email_display, "
+        "expires_at, terms_version, privacy_version, accepted_at) "
+        "VALUES (%s, %s, %s, %s, now() + %s::interval, %s, %s, now())",
+        (_hash(token), _hash(body.binder), canonical, display, LINK_TTL,
+         TERMS_VERSION, PRIVACY_VERSION))
     if not disposable:                     # A4: refused quietly, identical answer
         background.add_task(_send_link, display, token)
     return {"ok": True}
@@ -410,7 +456,8 @@ def auth_verify(body: Verify, conn=Depends(get_conn)) -> dict[str, Any]:
     if not _TOKEN.match(body.token) or not _BINDER.match(body.binder):
         raise fail
     row = conn.execute(
-        "SELECT token_hash, binder_hash, email_canonical, email_display, expires_at, used_at "
+        "SELECT token_hash, binder_hash, email_canonical, email_display, expires_at, used_at, "
+        "terms_version, privacy_version, accepted_at "
         "FROM app_login_token WHERE token_hash = %s FOR UPDATE", (_hash(body.token),)).fetchone()
     if (not row or row["used_at"] is not None or row["expires_at"] <= datetime.now(timezone.utc)
             or not hmac.compare_digest(bytes(row["binder_hash"]), _hash(body.binder))):
@@ -419,15 +466,22 @@ def auth_verify(body: Verify, conn=Depends(get_conn)) -> dict[str, Any]:
         raise fail
     conn.execute("UPDATE app_login_token SET used_at = now() WHERE token_hash = %s", (row["token_hash"],))
     created = conn.execute(
-        "INSERT INTO app_user (email_canonical, email_display) VALUES (%s, %s) "
+        "INSERT INTO app_user (email_canonical, email_display, terms_version, privacy_version, "
+        "accepted_at) VALUES (%s, %s, %s, %s, %s) "
         "ON CONFLICT (email_canonical) DO NOTHING RETURNING id",
-        (row["email_canonical"], row["email_display"])).fetchone()
+        (row["email_canonical"], row["email_display"], row["terms_version"],
+         row["privacy_version"], row["accepted_at"])).fetchone()
     if created:
         user_id, is_new = created["id"], True
     else:
         user_id = conn.execute("SELECT id FROM app_user WHERE email_canonical = %s",
                                (row["email_canonical"],)).fetchone()["id"]
         is_new = False
+        if row["accepted_at"] is not None:      # a returning sign-in re-accepts the current texts
+            conn.execute(
+                "UPDATE app_user SET terms_version = %s, privacy_version = %s, accepted_at = %s "
+                "WHERE id = %s", (row["terms_version"], row["privacy_version"],
+                                  row["accepted_at"], user_id))
     raw = _secret()                        # A5: a fresh session id at every sign-in
     conn.execute("DELETE FROM app_session WHERE user_id = %s AND expires_at <= now()", (user_id,))
     # At most MAX_SESSIONS per account: the oldest beyond the cap go (the account's own
@@ -456,12 +510,27 @@ def _user_out(u: dict[str, Any]) -> dict[str, Any]:
         "profile": {"role": u["role"], "tracks": list(u["tracks"]), "countries": list(u["countries"]),
                     "scope": u["scope"], "cadence": u["cadence"]},
         "onboarded": u["onboarded"], "lastVisitAt": u["last_visit_at"],
+        "terms": {"termsVersion": u.get("terms_version"), "privacyVersion": u.get("privacy_version"),
+                  "acceptedAt": u.get("accepted_at"),
+                  "current": (u.get("terms_version") == TERMS_VERSION
+                              and u.get("privacy_version") == PRIVACY_VERSION)},
     }
 
 
 @router.get("/me")
 def me(user=Depends(current)) -> dict[str, Any]:
     return _user_out(user)
+
+
+@router.post("/me/terms")
+def accept_terms(body: TermsAcceptance, conn=Depends(get_conn),
+                 user=Depends(current)) -> dict[str, Any]:
+    """A signed-in account accepts the current texts (the re-prompt after a new version)."""
+    if body.termsVersion != TERMS_VERSION or body.privacyVersion != PRIVACY_VERSION:
+        raise AccountError(422, "terms_version", "those are not the current versions")
+    conn.execute("UPDATE app_user SET terms_version = %s, privacy_version = %s, accepted_at = now() "
+                 "WHERE id = %s", (TERMS_VERSION, PRIVACY_VERSION, user["id"]))
+    return {"termsVersion": TERMS_VERSION, "privacyVersion": PRIVACY_VERSION, "current": True}
 
 
 @router.patch("/me")
@@ -808,7 +877,8 @@ def _tenders_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
     if not ids:
         return {}
-    rows = conn.execute(f"{TENDER_SELECT} WHERE o.id = ANY(%s) AND o.is_defence", (ids,)).fetchall()
+    rows = conn.execute(f"{TENDER_SELECT} WHERE o.id = ANY(%s) AND o.is_defence "
+                        f"AND NOT o.suppressed", (ids,)).fetchall()
     return {t["id"]: t for t in _present(conn, rows)}
 
 
@@ -817,7 +887,8 @@ def _calls_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
     if not ids:
         return {}
-    rows = conn.execute(f"{SELECT} WHERE c.id = ANY(%s)", (ids,)).fetchall()
+    rows = conn.execute(f"{SELECT} WHERE c.id = ANY(%s) AND NOT c.suppressed",
+                        (ids,)).fetchall()
     return {c["id"]: c for c in (to_call(r) for r in rows)}
 
 
@@ -885,9 +956,11 @@ def _check_ref(conn, kind: str, ref: str) -> str:
     norm = _norm_ref(ref)
     if norm is None:
         raise AccountError(404, "not_found", "no such item")
-    found = (conn.execute("SELECT 1 FROM opportunity WHERE id = %s AND is_defence", (int(norm),)).fetchone()
+    found = (conn.execute("SELECT 1 FROM opportunity WHERE id = %s AND is_defence AND NOT suppressed",
+                              (int(norm),)).fetchone()
              if kind == "tender"
-             else conn.execute("SELECT 1 FROM call WHERE id = %s", (int(norm),)).fetchone())
+             else conn.execute("SELECT 1 FROM call WHERE id = %s AND NOT suppressed",
+                                (int(norm),)).fetchone())
     if not found:
         raise AccountError(404, "not_found", "no such item")
     return norm
@@ -936,7 +1009,8 @@ def _check_follow(conn, kind: str, ref: str) -> str:
     if kind == "buyer":
         norm = _norm_ref(ref)
         if norm is None or not conn.execute(
-                "SELECT 1 FROM organisation WHERE id = %s", (int(norm),)).fetchone():
+                "SELECT 1 FROM organisation WHERE id = %s AND NOT suppressed",
+                (int(norm),)).fetchone():
             raise AccountError(404, "not_found", "no such buyer")
         return norm
     if kind == "programme":
@@ -1019,7 +1093,7 @@ def pulse(conn) -> dict[str, Any]:
 
     def compute() -> dict[str, Any]:
         eff = api.EFFECTIVE_STATUS_SQL
-        base = f"o.is_defence AND {CORE}"
+        base = f"o.is_defence AND NOT o.suppressed AND {CORE}"
         row = conn.execute(f"""
             SELECT count(*) FILTER (WHERE o.published_at >= now() - interval '30 days') AS p30,
                    count(*) FILTER (WHERE o.published_at >= now() - interval '60 days'
@@ -1132,7 +1206,8 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
                                      AND n.kind = ANY(%s))
                   AND (v.opportunity_id = ANY(%s)
                        OR v.opportunity_id IN (SELECT id FROM opportunity
-                                                WHERE buyer_org_id = ANY(%s) AND is_defence))
+                                                WHERE buyer_org_id = ANY(%s) AND is_defence
+                                                  AND NOT suppressed AND NOT buyer_withheld))
                 GROUP BY v.opportunity_id ORDER BY seen DESC LIMIT 10""",
             (since, list(db.NOT_AMENDMENT_NOTES), watched, buyers)).fetchall()]
         items = _tenders_by_id(conn, ids)

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { getHealth, getTender, getTenderVersions, isTenderSlug } from '@/lib/api';
+import { getHealth, getTender, getTenderVersions, isTenderSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { RemovedOnRequest } from '@/components/dg/removed';
 import { formatStamp } from '@/lib/account-format';
 import { getTenderDeadline } from '@/lib/deadline';
 import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
@@ -22,7 +23,8 @@ export const dynamic = 'force-dynamic';
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const tender = await getTender((await params).slug);
+  const tender = await getTender((await params).slug).catch(whenRemoved);
+  if (tender === REMOVED) return { title: 'Removed on request', robots: { index: false } };
   if (!tender) return { title: 'Tender not found', robots: { index: false } };
   return buildMetadata({
     title: `Evidence record: ${tender.title} (${tender.noticeId})`,
@@ -49,7 +51,8 @@ const NotStated = () => <span className="text-ink-muted">Not available</span>;
 export default async function TenderEvidencePage({ params }: Props) {
   const { slug } = await params;
   if (!isTenderSlug(slug)) notFound();
-  const tender = await getTender(slug);
+  const tender = await getTender(slug).catch(whenRemoved);
+  if (tender === REMOVED) return <RemovedOnRequest what="notice" />;
   if (!tender) notFound();
   if (tender.slug !== slug && isTenderSlug(tender.slug)) permanentRedirect(`/tenders/${tender.slug}/evidence`);
 

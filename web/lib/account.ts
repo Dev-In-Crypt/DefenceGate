@@ -170,6 +170,7 @@ function toMe(raw: unknown): Me {
     profile: toProfile(raw.profile),
     onboarded: raw.onboarded === true,
     lastVisitAt: typeof raw.lastVisitAt === 'string' ? raw.lastVisitAt : null,
+    termsCurrent: isRecord(raw.terms) && raw.terms.current === true,
   };
 }
 
@@ -208,26 +209,38 @@ export function dataOrNull<T>(r: AccountResult<T>): T | null {
  * GET /v1/account/status, cached 60 seconds. Reads no cookie, so a static page can call it. Any failure is
  * "not open": the site then shows "Sign-in is not open yet" and sends nothing else.
  */
-export async function getAccountStatus(): Promise<{ open: boolean }> {
-  if (!API_BASE) return { open: false };
+export interface AccountStatus { open: boolean; termsVersion: string | null; privacyVersion: string | null }
+
+export async function getAccountStatus(): Promise<AccountStatus> {
+  const closed = { open: false, termsVersion: null, privacyVersion: null };
+  if (!API_BASE) return closed;
   try {
     const res = await fetch(`${API_BASE}/v1/account/status`, {
       headers: INTERNAL_SECRET ? { accept: 'application/json', 'x-dg-internal': INTERNAL_SECRET } : { accept: 'application/json' },
       next: { revalidate: 60 },
       signal: AbortSignal.timeout(5_000),
     });
-    if (!res.ok) return { open: false };
+    if (!res.ok) return closed;
     const body: unknown = await res.json();
-    return { open: isRecord(body) && body.open === true };
+    if (!isRecord(body)) return closed;
+    const version = (v: unknown) => (typeof v === 'string' && /^[0-9.]{1,20}$/.test(v) ? v : null);
+    return { open: body.open === true, termsVersion: version(body.termsVersion), privacyVersion: version(body.privacyVersion) };
   } catch {
-    return { open: false };
+    return closed;
   }
 }
 
 /* ---- sign-in ---- */
 
-export const authRequest = (email: string, binder: string) =>
-  call<void>('/auth/request', { method: 'POST', json: { email, binder }, session: false });
+/** The tick on the form, with the versions of the two texts the form showed (the API refuses anything else). */
+export interface TermsTick { termsVersion: string; privacyVersion: string }
+
+export const authRequest = (email: string, binder: string, tick: TermsTick) =>
+  call<void>('/auth/request', { method: 'POST', json: { email, binder, acceptTerms: true, ...tick }, session: false });
+
+/** A signed-in account accepts the current texts (the re-prompt after a new version). */
+export const acceptTerms = (tick: TermsTick) =>
+  call<void>('/me/terms', { method: 'POST', json: tick });
 
 export interface VerifiedSession { session: string; expiresAt: string; isNew: boolean }
 export const authVerify = (token: string, binder: string) =>

@@ -100,7 +100,7 @@ def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
         f"""SELECT o.id, v.observed_at
               FROM opportunity o
               JOIN opportunity_version v ON v.opportunity_id = o.id AND v.version = 1
-             WHERE o.is_defence AND {scope_sql}{country_sql}
+             WHERE o.is_defence AND NOT o.suppressed AND {scope_sql}{country_sql}
                AND o.published_at >= %s AND v.observed_at >= %s""",
         params + [published_from, since]).fetchall()
     amended_rows = conn.execute(
@@ -175,7 +175,7 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     if not ids:
         return [], since, now
     # The list's own rules for showing a notice once; the filters are the ones above.
-    where = ["o.is_defence = TRUE", scope_sql] + (["o.country = ANY(%s)"] if countries else [])
+    where = ["o.is_defence = TRUE", "NOT o.suppressed", scope_sql] + (["o.country = ANY(%s)"] if countries else [])
     shown = {r["id"] for r in conn.execute(
         f"SELECT o.id FROM opportunity o WHERE o.id = ANY(%s) AND {' AND '.join(where)} "
         f"AND {T.collapse_clauses(where)}", [ids] + params * 4).fetchall()}

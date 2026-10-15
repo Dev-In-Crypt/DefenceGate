@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CircleAlert, MailCheck } from 'lucide-react';
 import { requestSignIn, type SignInState } from '@/app/(public)/signin/actions';
 import { Button } from '../dg/button';
-import { TextInput } from '../dg/form';
+import { Choice, TextInput } from '../dg/form';
 import { Icon } from '../dg/icon';
 
 const initial: SignInState = { status: 'idle' };
@@ -14,9 +14,10 @@ const MESSAGE: Partial<Record<SignInState['status'], string>> = {
   invalid: 'That does not look like an e-mail address.',
   rate_limited: 'Too many requests. Try again later.',
   unavailable: 'Sign-in is temporarily unavailable. Try again in a few minutes.',
+  terms: 'Tick the box to accept the terms of use and the privacy notice.',
 };
 
-export function SignInForm() {
+export function SignInForm({ termsVersion, privacyVersion }: { termsVersion: string; privacyVersion: string }) {
   const [state, action, pending] = useActionState(requestSignIn, initial);
 
   if (state.status === 'sent') {
@@ -43,10 +44,13 @@ export function SignInForm() {
       {message && state.status !== 'invalid' && (
         <p role="alert" className="m-0 flex items-center gap-1 text-small text-alert"><Icon icon={CircleAlert} size="inline" />{message}</p>
       )}
-      <p className="m-0 text-small text-ink-muted">
-        By signing in you confirm that you act for a trade, business or profession and accept the <Link href="/terms" className="font-semibold">terms of use</Link>.
-        How we handle your e-mail address is in the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
-      </p>
+      <input type="hidden" name="termsVersion" value={termsVersion} />
+      <input type="hidden" name="privacyVersion" value={privacyVersion} />
+      <Choice
+        name="acceptTerms" required
+        label={<>I act for a trade, business or profession, and I accept the <Link href="/terms" className="font-semibold">terms of use</Link> (version {termsVersion}).</>}
+        hint={`How we handle your e-mail address is in the privacy notice (version ${privacyVersion}).`}
+      />
       <div><Button type="submit" disabled={pending}>{pending ? 'Sending' : 'Send sign-in link'}</Button></div>
     </form>
   );

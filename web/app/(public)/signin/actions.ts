@@ -8,7 +8,7 @@ export interface SignInState {
    * `sent` is the one answer for every address that passed the format check: the API answers 202 whether or
    * not the address exists, and so does this page.
    */
-  status: 'idle' | 'sent' | 'invalid' | 'rate_limited' | 'unavailable';
+  status: 'idle' | 'sent' | 'invalid' | 'rate_limited' | 'unavailable' | 'terms';
   /** The address as typed, handed back only so a failed attempt does not empty the field. Never on `sent`. */
   email?: string;
 }
@@ -23,12 +23,17 @@ export async function requestSignIn(_prev: SignInState, form: FormData): Promise
   const raw = form.get('email');
   const email = typeof raw === 'string' ? raw.trim() : '';
   if (!email || email.length > EMAIL_MAX || !email.includes('@')) return { status: 'invalid', email: email.slice(0, EMAIL_MAX) };
+  // The tick is required and is for the versions the form showed; the API checks them against its own.
+  const termsVersion = String(form.get('termsVersion') ?? '').slice(0, 20);
+  const privacyVersion = String(form.get('privacyVersion') ?? '').slice(0, 20);
+  if (form.get('acceptTerms') !== 'on') return { status: 'terms', email };
 
   const binder = randomBytes(32).toString('base64url');
   await setCookie(BIND_COOKIE, binder, BIND_MAX_AGE_SECONDS);
 
-  const r = await authRequest(email, binder);
+  const r = await authRequest(email, binder, { termsVersion, privacyVersion });
   if (r.ok) return { status: 'sent' };
+  if (r.status === 422 && r.error === 'terms_not_accepted') return { status: 'terms', email };
   if (r.status === 422) return { status: 'invalid', email };
   if (r.status === 429) return { status: 'rate_limited', email };
   return { status: 'unavailable', email };

@@ -412,6 +412,8 @@ export interface Me {
   profile: Profile;
   onboarded: boolean;
   lastVisitAt: IsoDateTime | null;
+  /** False when the account accepted an older version of the terms or the privacy notice (or none). */
+  termsCurrent: boolean;
 }
 
 /** GET /v1/account/sessions */

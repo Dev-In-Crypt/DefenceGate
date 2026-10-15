@@ -72,7 +72,11 @@ services:
     # trusted from any peer because nothing but Caddy can reach this port (it is
     # `expose`d to the compose network, never published).
     command: ["uvicorn", "dgate.api:app", "--host", "0.0.0.0", "--port", "8000",
-              "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header"]
+              "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header",
+              # uvicorn's access line holds the client address (--proxy-headers) and the
+              # query string, and container logs rotate by size only. The proxy's own
+              # access log is the one request log, and it has a 14-day limit (logprune).
+              "--no-access-log"]
     environment:
       # The API reads and nothing else: a role with SELECT, a 5 s statement budget
       # and 30 connections (migration 0024). Its own password, not the owner's.
@@ -258,8 +262,34 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
+      - caddylogs:/var/log/caddy
     depends_on:
       - api
+
+  # Keeps the proxy's request logs to 14 days (Privacy notice, section 2): cuts old lines
+  # from the active files and deletes rolled ones, hourly. It reads only each line's
+  # timestamp. Root inside the container so it can rewrite Caddy's files; no capabilities
+  # and no network.
+  logprune:
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "2"
+    build:
+      context: ../backend
+    user: "0:0"
+    command: ["python", "-m", "dgate.ops.logprune", "--dir", "/logs", "--days", "14",
+              "--every", "3600"]
+    volumes:
+      - caddylogs:/logs
+    network_mode: none
+    mem_limit: 128m
+    pids_limit: 32
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    restart: unless-stopped
 
 volumes:
   atlas:
@@ -268,3 +298,4 @@ volumes:
   backups:
   caddydata:
   caddyconfig:
+  caddylogs:

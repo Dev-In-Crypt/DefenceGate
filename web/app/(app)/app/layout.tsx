@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { LogOut } from 'lucide-react';
-import { getUserState } from '@/lib/account';
+import { getAccountStatus, getUserState } from '@/lib/account';
 import { AppNav } from '@/components/account/app-nav';
 import { Button } from '@/components/dg/button';
 import { ErrorState } from '@/components/dg/feedback';
 import { Logo } from '@/components/dg/logo';
 import { ThemeToggle } from '@/components/dg/theme-toggle';
-import { signOut } from './actions';
+import { acceptCurrentTerms, signOut } from './actions';
 
 // Everything here depends on the session cookie: never cached, never indexed.
 export const dynamic = 'force-dynamic';
@@ -50,7 +50,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const { email } = state.user;
+  const { email, termsCurrent } = state.user;
+  // A new version of the terms or the privacy notice: asked again here, as the sign-in form does.
+  const status = termsCurrent ? null : await getAccountStatus();
   return (
     <>
       {skip}
@@ -82,7 +84,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </aside>
 
-        <main id="main" className="flex min-w-0 flex-col gap-6">{children}</main>
+        <main id="main" className="flex min-w-0 flex-col gap-6">
+          {status?.termsVersion && status.privacyVersion && (
+            <form action={acceptCurrentTerms} className="flex flex-col gap-3 rounded-lg bg-surface p-5">
+              <p className="m-0 text-body">
+                The <a href="/terms" className="font-semibold">terms of use</a> (version {status.termsVersion}) and the{' '}
+                <a href="/privacy" className="font-semibold">privacy notice</a> (version {status.privacyVersion}) have changed. Please accept them to go on using your account.
+              </p>
+              <input type="hidden" name="termsVersion" value={status.termsVersion} />
+              <input type="hidden" name="privacyVersion" value={status.privacyVersion} />
+              <div><Button type="submit">Accept</Button></div>
+            </form>
+          )}
+          {children}
+        </main>
       </div>
     </>
   );

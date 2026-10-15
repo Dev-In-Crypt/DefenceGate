@@ -81,6 +81,14 @@ async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: nu
   if (!res.ok) throw new ApiError(res.status, `GET ${path} failed`);
   return (await res.json()) as T;
 }
+
+/** What a detail page gets for something the API answers 410 for: removed on request (see `whenRemoved`). */
+export const REMOVED = 'removed' as const;
+/** `.catch(whenRemoved)` on a detail fetch: a 410 becomes `REMOVED`, every other failure still throws. */
+export function whenRemoved(e: unknown): typeof REMOVED {
+  if (e instanceof ApiError && e.status === 410) return REMOVED;
+  throw e;
+}
 async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T> {
   const r = await http<T>(path, mode, seconds);
   if (r === null) throw new ApiError(404, `GET ${path} returned 404`);

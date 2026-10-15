@@ -5,7 +5,16 @@
 # included) gets the same token filter as the access log below: a sign-in token is a
 # credential and must not be written to any log (review of 13 October 2026, M6).
 {
+	# Logs go to files in a volume and not to the container's stdout: Docker rotates by size
+	# only, and the Privacy notice promises a maximum age. `logprune` (docker-compose.yml)
+	# removes lines and rolled files older than 14 days every hour; roll_keep_for is the
+	# same limit as a second guard, roll_size/roll_keep cap the volume.
 	log {
+		output file /var/log/caddy/caddy.log {
+			roll_size 20MiB
+			roll_keep 10
+			roll_keep_for 336h
+		}
 		format filter {
 			wrap json
 			fields {
@@ -106,9 +115,13 @@
 	# The filter encoder drops the `token` query parameter from the logged URI and Referer
 	# (review of 13 October 2026, M6). Everything else in the line is as before.
 	log {
-		output stdout
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 10
+			roll_keep_for 336h
+		}
 		format filter {
-			wrap console
+			wrap json
 			fields {
 				request>uri query {
 					delete token

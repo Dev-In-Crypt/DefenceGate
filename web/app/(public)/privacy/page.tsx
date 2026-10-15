@@ -21,14 +21,14 @@ export default function PrivacyPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.3, published 14 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.4, published 15 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
           'Browsing needs no account and sets no cookie.',
           'No advertising, no third-party trackers, no analytics script and no analytics cookie.',
           'Visits are counted by our own server, by page, by the kind of site you came from and by phone or computer, with no identifier, no address and no user agent stored.',
-          'The hosting server keeps ordinary access logs.',
+          'The hosting server keeps ordinary access logs for at most 14 days.',
           'A sign-in account, when it opens, uses a one-time e-mail link. There is no password and no tracking pixel in our mail.',
           'The notices we show are public. We do not keep the contact fields a source publishes, and we remove e-mail addresses from free text. A small number of older records in our private archive still contain them; they are not shown (section 7).',
         ]} />
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 
       <Clause n={2} title="When you visit the site">
         <p className={P}>When your browser loads a page, the server and the reverse proxy in front of it record the technical details of the request: your IP address, the time, the address requested, the response code, the size, your browser’s headers (including user agent and referrer) and the full address requested, including any search words in it.</p>
-        <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> the log files are rotated by size and the oldest are overwritten, so how long a line lasts depends on traffic. No fixed maximum period has been set yet.</p>
+        <p className={P}><strong>Purpose:</strong> deliver the site, keep it secure and find abuse. <strong>Legal basis:</strong> our legitimate interest in a secure and working service (Art. 6(1)(f) GDPR). <strong>Retention:</strong> request log lines are deleted after 14 days at the latest: a clean-up job runs every hour and removes older lines and files.</p>
         <p className={P}>Providing this data is technically necessary to receive the site.</p>
       </Clause>
 
@@ -64,6 +64,7 @@ export default function PrivacyPage() {
         <p className={P}>An account is created when you follow a sign-in link sent to your e-mail address. We then hold:</p>
         <ClauseList items={[
           'your e-mail address, when the account was created and when you last visited;',
+          'the version of the terms of use and of this notice you accepted, and when;',
           'the choices you make: your role, whether you follow tenders or funding, countries, scope and alert frequency;',
           'what you save: searches with the name you give them and when they were last alerted, shortlisted notices with the status and note you write, and followed buyers and programmes;',
           'for up to a day: your e-mail address with the one-time link, and a keyed hash (HMAC) of your e-mail address and of your IP address, kept only to limit how often links can be requested;',

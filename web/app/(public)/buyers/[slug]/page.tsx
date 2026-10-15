@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { getBuyer, getBuyerProfile, getTenders, isBuyerSlug } from '@/lib/api';
+import { getBuyer, getBuyerProfile, getTenders, isBuyerSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { RemovedOnRequest } from '@/components/dg/removed';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, type SearchParams } from '@/lib/filters';
@@ -28,7 +29,8 @@ function pageOf(sp: SearchParams): number {
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
-  const buyer = await getBuyer(slug);
+  const buyer = await getBuyer(slug).catch(whenRemoved);
+  if (buyer === REMOVED) return { title: 'Removed on request', robots: { index: false } };
   if (!buyer) return { title: 'Buyer not found', robots: { index: false } };
   const name = displayName(buyer.name, 'title');
   return buildMetadata({
@@ -42,7 +44,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function BuyerDetailPage({ params, searchParams }: Props) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
   if (!isBuyerSlug(slug)) notFound();
-  const buyer = await getBuyer(slug);
+  const buyer = await getBuyer(slug).catch(whenRemoved);
+  if (buyer === REMOVED) return <RemovedOnRequest what="buyer" />;
   if (!buyer) notFound();
   if (buyer.slug !== slug && isBuyerSlug(buyer.slug)) permanentRedirect(`/buyers/${buyer.slug}`);
 
