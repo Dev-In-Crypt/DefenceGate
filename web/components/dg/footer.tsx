@@ -31,9 +31,7 @@ export async function Footer() {
             <Logo href="/" />
             <p className="m-0 max-w-[36ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>
             <div className="mt-2 flex max-w-[34ch] flex-col gap-2 rounded-md bg-surface-inset p-4">
-              <p className="m-0 font-mono text-mono text-ink-muted">
-                {health.sources.length} sources<br />Last collection run<br />{formatDateTimeUtc(lastDataUpdate(health))}
-              </p>
+              <p className="m-0 text-small text-ink-muted">Which sources are healthy, and when each was last collected.</p>
               <Link href="/data" className="text-small font-semibold text-ink">Source status →</Link>
             </div>
             <nav aria-label="Follow" className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -55,7 +53,8 @@ export async function Footer() {
         <p className="m-0 max-w-[90ch] border-t border-line pt-4 text-small text-ink-muted">
           DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
         </p>
-        <div className="flex flex-wrap justify-end gap-2 font-mono text-mono text-ink-muted">
+        <div className="flex flex-wrap justify-between gap-2 font-mono text-mono text-ink-muted">
+          <span>{health.sources.length} sources · Last collection run {formatDateTimeUtc(lastDataUpdate(health))}</span>
           <span>All dates in UTC</span>
         </div>
       </div>
