@@ -2,7 +2,8 @@ import { sourceById } from './sources';
 import { now } from '../deadline';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE } from '../filters';
 import type {
-  Buyer, BuyerFilters, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope, TenderVersion,
+  Buyer, BuyerFilters, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
+  TenderVersion,
 } from '../types';
 
 /**
@@ -172,6 +173,37 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   const pageSize = f.pageSize ?? TENDER_PAGE_SIZE;
   const page = f.page ?? 1;
   return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+}
+
+const CHANGE_WINDOW_DAYS = 14;
+/** The fields an amendment is listed for (the API's allow-list, in the mock's own field names). */
+const CHANGE_FIELDS = new Set(['deadline', 'estimated_value', 'status', 'procedure']);
+
+/** What the API's /v1/changes answers, built from the mock versions: a notice first seen in the window is new. */
+export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
+  const since = ref.getTime() - CHANGE_WINDOW_DAYS * 86_400_000;
+  const all: Change[] = [];
+  for (const t of allTenders(ref)) {
+    if (f.country?.length && (!t.country || !f.country.includes(t.country))) continue;
+    if (f.scope !== 'all' && t.scope !== (f.scope ?? t.scope)) continue;
+    const versions = [...(tenderVersions(t.slug) ?? [])].sort((a, b) => a.version - b.version);
+    versions.forEach((v, i) => {
+      const at = new Date(v.detectedAt);
+      if (at.getTime() < since || at.getTime() > ref.getTime()) return;
+      const lines = v.changes.filter((c) => CHANGE_FIELDS.has(c.field));
+      if (i > 0 && lines.length === 0) return;
+      const day = v.detectedAt.slice(0, 10);
+      all.push({ id: `${t.id}-${day.replace(/-/g, '')}`, kind: i === 0 ? 'new' : 'amended', day, detectedAt: v.detectedAt, changes: i === 0 ? [] : lines, tender: t });
+    });
+  }
+  all.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt) || b.id.localeCompare(a.id));
+  const pageSize = f.pageSize ?? 25;
+  const page = f.page ?? 1;
+  return {
+    items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length, page, pageSize,
+    windowDays: CHANGE_WINDOW_DAYS, windowFrom: new Date(since).toISOString(), windowTo: ref.toISOString(),
+    counts: { new: all.filter((c) => c.kind === 'new').length, amended: all.filter((c) => c.kind === 'amended').length },
+  };
 }
 
 /** Like the API: only the leading integer of "<id>-<words>" is looked up. */

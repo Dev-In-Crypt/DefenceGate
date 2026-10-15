@@ -804,6 +804,11 @@ from .tenders import router as _tenders_router  # noqa: E402
 
 app.include_router(_tenders_router)
 
+# What changed in the last 14 days (changes.py): new notices and real amendments.
+from .changes import router as _changes_router  # noqa: E402
+
+app.include_router(_changes_router)
+
 # Market overview and the buyer profile: cached counts of notices (stats.py).
 from .stats import router as _stats_router  # noqa: E402
 

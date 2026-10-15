@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ArrowRight, BellRing, Bookmark, Clock, GitCompare } from 'lucide-react';
+import { ArrowRight, BellRing, Bookmark, CalendarDays, Clock, Download, GitCompare, Link2, Rss } from 'lucide-react';
 import { buildMetadata } from '@/lib/seo';
 import { getAccountStatus } from '@/lib/account';
 import { BenefitGrid, Callout } from '@/components/dg/blocks';
@@ -11,7 +11,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Alerts and saved searches',
-  description: 'Save a search, follow buyers and programmes, and get an e-mail when new notices match. Changes to the notices you follow show on your dashboard.',
+  description: 'E-mail alerts and saved searches are being prepared and are not open yet. What works today without an account: filters in the address, CSV, a deadline calendar file and a feed of what changed.',
   path: '/alerts',
 });
 
@@ -22,6 +22,14 @@ const FEATURES = [
   { icon: BellRing, title: 'Closing soon', body: 'Your dashboard lists the deadlines of the notices you shortlisted, and of your saved-search matches, for the next 14 days.' },
 ];
 
+/** What a visitor can do today, with no account and nothing to configure. */
+const WORKS_TODAY = [
+  { icon: Link2, title: 'A search you can keep', body: 'Every filter on the tender, funding and buyer pages is in the address. Bookmark it, or send the link, and it opens the same search.' },
+  { icon: Rss, title: 'A feed of what changed', body: 'New notices and amendments to a deadline, value, status or procedure from the last 14 days, as a page and as an Atom feed. Add it to a feed reader and it works like an alert, without an account.' },
+  { icon: CalendarDays, title: 'A calendar file', body: 'The deadline calendar is a file you can subscribe to in your own calendar: open tenders and funding calls with a deadline.' },
+  { icon: Download, title: 'CSV of any result', body: 'Download the public fields of a tender or funding list, with the source, licence and attribution on every row.' },
+];
+
 export default async function AlertsPage() {
   const { open } = await getAccountStatus();
   return (
@@ -30,9 +38,18 @@ export default async function AlertsPage() {
       title="Alerts and saved searches"
       lead={open
         ? 'Stop re-checking portals. Sign in with your e-mail to save searches, follow buyers and get alerts.'
-        : 'Stop re-checking portals. Saved searches and alerts are being prepared and are not open yet. There is no date.'}
+        : 'E-mail alerts and saved searches are being prepared and are not open yet. There is no date. What works today needs no account: it is listed first.'}
     >
       {open && <Button href="/signin" iconRight={ArrowRight} className="self-start">Sign in with e-mail</Button>}
+
+      <section aria-labelledby="today" className="flex flex-col gap-4">
+        <h2 id="today" className="m-0 text-h2">What works today, without an account</h2>
+        <BenefitGrid items={WORKS_TODAY} columns={2} />
+        <div className="flex flex-wrap items-center gap-x-5">
+          <Button href="/changes" iconRight={ArrowRight}>See what changed</Button>
+          <a href="/changes.atom" className="inline-flex min-h-11 items-center text-small font-bold">Atom feed</a>
+        </div>
+      </section>
 
       <section aria-labelledby="features" className="flex flex-col gap-4">
         <h2 id="features" className="m-0 text-h2">{open ? 'What you get' : 'What is planned'}</h2>
@@ -46,7 +63,7 @@ export default async function AlertsPage() {
       {!open && (
         <section aria-labelledby="waitlist" className="flex max-w-[860px] flex-col gap-3">
           <h2 id="waitlist" className="m-0 text-h2">Waitlist</h2>
-          <p className="m-0 text-body text-ink-muted">The waitlist is not open. The form below checks your answers but stores and sends nothing, and we will not contact you.</p>
+          <p className="m-0 text-body text-ink-muted">The waitlist is not open. The form below checks your answers but stores and sends nothing, and we will not contact you, so there is nothing to sign up to yet: use the feed above, or check back.</p>
           <WaitlistForm />
         </section>
       )}

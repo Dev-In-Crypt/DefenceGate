@@ -1,5 +1,5 @@
 import type {
-  BuyerFilters, BuyerSort, CallFilters, CallSort, CallStatusFilter, CountryCode, ListView, ProgrammeCode, Regime,
+  BuyerFilters, BuyerSort, CallFilters, CallSort, CallStatusFilter, ChangeFilters, CountryCode, ListView, ProgrammeCode, Regime,
   TenderFilters, TenderScopeFilter, TenderSort, TenderStatusFilter,
 } from './types';
 import { BUYER_COUNTRY_CODES, COUNTRIES, PROGRAMME_CODES, REGIME_CODES } from './taxonomy';
@@ -226,6 +226,30 @@ export function toBuyerQuery(f: BuyerFilters): string {
 
 export function activeBuyerFilterCount(f: BuyerFilters): number {
   return [f.q, f.country?.length, f.hasOpen ? 1 : undefined].filter((v) => v !== undefined && v !== 0 && v !== '').length;
+}
+
+/* ---- What changed (/changes): country and scope only; 14 days is the API's window ---- */
+
+export const CHANGE_PAGE_SIZE = 25;
+
+export function parseChangeFilters(sp: SearchParams): ChangeFilters {
+  const scope = oneOf(first(sp[PARAM.scope]), TENDER_SCOPES);
+  return {
+    country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
+    scope,
+    page: pageOf(first(sp[PARAM.page])),
+    pageSize: CHANGE_PAGE_SIZE,
+  };
+}
+
+/** URL / API query for the change list, defaults omitted. Empty: the default list (cacheable). */
+export function toChangeQuery(f: ChangeFilters): string {
+  const p = new URLSearchParams();
+  if (f.country?.length) p.set(PARAM.country, f.country.join(','));
+  if (f.scope) p.set(PARAM.scope, f.scope);
+  if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
+  const s = p.toString();
+  return s ? `?${s}` : '';
 }
 
 /* ---- What a list page was asked for and did not use ---- */

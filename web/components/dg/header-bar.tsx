@@ -10,7 +10,11 @@ import { Logo } from './logo';
 import { Icon } from './icon';
 import { ThemeToggle } from './theme-toggle';
 
-/** Only routes that exist. "Get alerts" is the call-to-action: a button from lg, a last menu item below md. */
+/**
+ * Only routes that exist. The call-to-action is a button from lg and a last menu item below md. Alerts by e-mail are
+ * not open (they need a mail provider and sign-in), so the button leads to what works today without an account: the
+ * list of what changed and its Atom feed. It becomes "Sign in" when the API says accounts are open.
+ */
 export const MAIN_NAV = [
   { label: 'Funding', href: '/funding' },
   { label: 'Tenders', href: '/tenders' },
@@ -18,8 +22,8 @@ export const MAIN_NAV = [
   { label: 'Data', href: '/data' },
   { label: 'Pricing', href: '/pricing' },
 ] as const;
-const ALERTS = { label: 'Get alerts', href: '/alerts' } as const;
-/** Replaces "Get alerts" once the API says accounts are open (layout reads /v1/account/status, 60 s cache). */
+const ALERTS = { label: 'What changed', href: '/changes' } as const;
+/** Replaces "What changed" once the API says accounts are open (layout reads /v1/account/status, 60 s cache). */
 const SIGN_IN = { label: 'Sign in', href: '/signin' } as const;
 
 function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {

@@ -5,8 +5,8 @@
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
 import { headers } from 'next/headers';
-import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, Health, MarketStats, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
-import { BUYER_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toQuery, toTenderQuery } from './filters';
+import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Health, MarketStats, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
+import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
 import { clientIp } from './hits';
@@ -174,6 +174,20 @@ export async function getTenderVersions(slug: string): Promise<TenderVersion[]> 
 export async function getAllTenderSlugs(): Promise<{ slug: string; updatedAt: string }[]> {
   if (API_BASE) return httpOrThrow<{ slug: string; updatedAt: string }[]>('/v1/tenders/slugs');
   return tenderMock.allTenders().filter((t) => t.scope === 'core').map((t) => ({ slug: t.slug, updatedAt: t.source.retrievedAt }));
+}
+
+/**
+ * What changed in the last 14 days (GET /v1/changes, kept five minutes on the API). Only the unfiltered first page is
+ * shared in the site's cache; a country, a scope or another page is the visitor's own request. null when the endpoint
+ * does not exist yet (a site built before the API was updated): the page then says the feed is not available.
+ */
+export async function getChanges(filters: ChangeFilters = {}): Promise<ChangePage | null> {
+  if (API_BASE) {
+    const p = new URLSearchParams(toChangeQuery(filters));
+    p.set('pageSize', String(filters.pageSize ?? CHANGE_PAGE_SIZE));
+    return http<ChangePage>(`/v1/changes?${p.toString()}`, toChangeQuery(filters) === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+  }
+  return tenderMock.queryChanges(filters);
 }
 
 function buyersQuery(f: BuyerFilters): string {

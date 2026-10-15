@@ -2,10 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, ShieldCheck } from 'lucide-react';
 import { getAccountStatus } from '@/lib/account';
-import { getCalls, getSiteStats, getTenders } from '@/lib/api';
+import { getCalls, getChanges, getSiteStats, getTenders } from '@/lib/api';
+import { toTenderQuery } from '@/lib/filters';
 import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
+import { BUYER_COUNTRIES, TENDER_SCOPES, cpvDivisionLabel } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
+import { Select, TextInput } from '@/components/dg/form';
 import { AudienceGrid, BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
 import { CallCard, TenderCard } from '@/components/dg/cards';
 import { EmptyState, JsonLd } from '@/components/dg/feedback';
@@ -19,6 +22,16 @@ export const metadata: Metadata = buildMetadata({
   description: 'Tenders, buyers and funding calls from TED and national portals in one place. Every record links to its original source, and changes to dates, values and status are kept.',
   path: '/',
 });
+
+/**
+ * Example searches for the finder under the headline. Each is a real filter of /tenders; the page counts the open
+ * notices of each when it renders and shows the first three that have any, so an example is never an empty list.
+ */
+const EXAMPLES: { country: string; cpv: string }[] = [
+  { country: 'PL', cpv: '35' }, { country: 'FR', cpv: '35' }, { country: 'DE', cpv: '34' },
+  { country: 'ES', cpv: '18' }, { country: 'NL', cpv: '50' }, { country: 'SE', cpv: '35' },
+];
+const EXAMPLES_SHOWN = 3;
 
 const BENEFITS = [
   { icon: SearchCheck, title: 'Many portals, one list', body: 'TED notices and the national portals of France, the Netherlands, Poland and Spain, in one list with one layout. Other countries appear through TED only.' },
@@ -73,14 +86,20 @@ export default async function LandingPage() {
   // Cached for a minute; any failure reads as "not open", which keeps the earlier wording.
   const { open: accountsOpen } = await getAccountStatus();
   const faq = FAQ.map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
-  const [stats, current, dated, closingCalls] = await Promise.all([
+  const [stats, current, dated, closingCalls, coreOpen, supplyOpen, changes, exampleCounts] = await Promise.all([
     getSiteStats(),
     // Current: not past its deadline, and with no deadline only if published within the last year.
     getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
     // With a stated deadline that has not passed: the ones a reader can still act on by date.
     getTenders({ deadlineFrom: today, pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
     getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }),
+    // What is in here: open notices by scope, as the list's own filter counts them.
+    getTenders({ scope: 'core', pageSize: 1 }, { cacheable: true }).catch(() => null),
+    getTenders({ scope: 'supply', pageSize: 1 }, { cacheable: true }).catch(() => null),
+    getChanges({ pageSize: 1 }).catch(() => null),
+    Promise.all(EXAMPLES.map((e) => getTenders({ country: [e.country], cpv: [e.cpv], pageSize: 1 }, { cacheable: true }).then((r) => r.total).catch(() => 0))),
   ]);
+  const examples = EXAMPLES.map((e, i) => ({ ...e, open: exampleCounts[i] })).filter((e) => e.open > 0).slice(0, EXAMPLES_SHOWN);
   const closingTenders = dated;
   const budgetRepeats = repeatedCallBudgets(closingCalls.items);
   return (
@@ -94,9 +113,36 @@ export default async function LandingPage() {
           <p className="m-0 max-w-[52ch] text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <Button href="/tenders" iconRight={ArrowRight}>Browse current tenders</Button>
-            <Button href="/funding" variant="secondary">Browse funding calls</Button>
+          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg bg-surface-inset p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select name="country" label="Country of the buyer" placeholder="Any country"
+                options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
+              <TextInput name="cpv" label="Product code (CPV)" placeholder="For example 35 or 35120000" maxLength={200} inputMode="numeric" />
+            </div>
+            <TextInput search name="q" label="Or a word in the title or the name of the buyer" placeholder="For example uniforms" maxLength={100} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" iconRight={ArrowRight}>Find tenders</Button>
+              <Link href="/cpv" className="inline-flex min-h-11 items-center text-small font-bold">Not sure of the code? CPV finder</Link>
+            </div>
+          </form>
+          {examples.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="m-0 text-small text-ink-muted">Open now, for example:</p>
+              <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
+                {examples.map((e) => (
+                  <li key={`${e.country}-${e.cpv}`}>
+                    <Link href={`/tenders${toTenderQuery({ country: [e.country], cpv: [e.cpv] })}`} className="inline-flex min-h-11 items-center text-small font-bold">
+                      {BUYER_COUNTRIES[e.country] ?? e.country}, {cpvDivisionLabel(e.cpv)?.toLowerCase() ?? `CPV ${e.cpv}`}: {formatNumber(e.open)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-x-5">
+            <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
+            <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
+            <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
           </div>
           <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
         </div>
@@ -108,6 +154,40 @@ export default async function LandingPage() {
           <div className="col-span-2"><Counter label="Last collection run" value={formatDateTimeUtc(stats.lastUpdate)} /></div>
         </dl>
       </section>
+
+      <section aria-labelledby="inside" className="flex flex-col gap-4 rounded-lg bg-surface p-6 md:p-8">
+        <h2 id="inside" className="m-0 text-h2">What is in here</h2>
+        <p className="m-0 max-w-[70ch] text-body text-ink-muted">
+          Open tenders, split by how the notice itself qualifies. The tender search above shows the first by default; the second is the &ldquo;Supplies to defence buyers&rdquo; choice of the scope filter.
+        </p>
+        <dl className="m-0 grid gap-3 md:grid-cols-3">
+          <Counter label="Defence notices" value={coreOpen ? formatNumber(coreOpen.total) : '–'} sub={`Open tenders. ${TENDER_SCOPES.core.hint} The tender list shows these by default.`} />
+          <Counter label="Supplies to defence buyers" value={supplyOpen ? formatNumber(supplyOpen.total) : '–'} sub={`Open tenders. ${TENDER_SCOPES.supply.hint}`} />
+          <Counter label="Open funding calls" value={String(stats.openCalls)} sub="EU and national programmes, searched separately from tenders." />
+        </dl>
+        <p className="m-0 max-w-[70ch] text-small text-ink-muted">{TENDER_SCOPES.supply.also}</p>
+        <p className="m-0 max-w-[70ch] text-small text-ink-muted">
+          Not in these counts: notices that are only dual-use (reachable with the scope &ldquo;All&rdquo;) and closed notices. We read the national portals of France, the
+          Netherlands, Poland and Spain; every other country appears through TED only. The{' '}
+          <Link href="/data" className="font-semibold">status page</Link> lists every source, its span of dates and the known gaps; the{' '}
+          <Link href="/methodology" className="font-semibold">methodology</Link> says how a notice is judged.
+        </p>
+      </section>
+
+      {changes && (
+        <section aria-labelledby="changed" className="flex flex-col items-start gap-3 rounded-lg bg-surface p-6 md:p-8">
+          <h2 id="changed" className="m-0 text-h2">What changed in the last {changes.windowDays} days</h2>
+          <p className="m-0 max-w-[70ch] text-body text-ink-muted">
+            <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.new)}</span> new notices and{' '}
+            <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.amended)}</span> amendments to a deadline, value, status or procedure,
+            from our archive. There is an Atom feed of the same list: no account needed.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-5">
+            <Button href="/changes" variant="secondary">See what changed</Button>
+            <a href="/changes.atom" className="inline-flex min-h-11 items-center text-small font-bold">Atom feed</a>
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="why" className="flex flex-col gap-4">
         <h2 id="why" className="m-0 text-h2">Why DefenceGate</h2>
@@ -160,7 +240,10 @@ export default async function LandingPage() {
             ? 'Sign in with your e-mail to save a search, follow buyers and programmes, and keep a shortlist for your own bids. Browsing stays free.'
             : 'Saved searches with alerts for new matches, followed buyers and programmes, and a shortlist for your own bids. They are not open yet. Browsing stays free.'}
         </p>
-        <Button href={accountsOpen ? '/signin' : '/alerts'} variant="secondary">{accountsOpen ? 'Sign in' : 'What is planned'}</Button>
+        <div className="flex flex-wrap items-center gap-x-5">
+          <Button href={accountsOpen ? '/signin' : '/alerts'} variant="secondary">{accountsOpen ? 'Sign in' : 'What is planned and what works today'}</Button>
+          {!accountsOpen && <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed (works today)</Link>}
+        </div>
       </section>
 
       <Callout title="Please note">

@@ -102,10 +102,12 @@ def request_cost(path: str, params: dict[str, str]) -> int:
     if path == "/v1/buyers" or (path.startswith("/v1/buyers/") and path.endswith("/profile")):
         # The buyer list re-aggregates the whole table; a profile is 0.2-0.5 s uncached.
         return 5 + (3 if (params.get("q") or "").strip() else 0)
-    cost = 1
+    # The change feed reads the archive's last 14 days and every page of it computes them
+    # (its answer is kept five minutes): dearer than a plain page, as a list of its own.
+    cost = 3 if path == "/v1/changes" else 1
     for key in ("limit", "pageSize"):
         if _int(params.get(key)) >= 100:
-            cost = 3
+            cost = max(cost, 3)
     if path in SHAPED_LISTS:
         if (params.get("q") or "").strip():
             cost += 5

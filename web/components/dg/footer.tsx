@@ -7,12 +7,12 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   { title: 'Directory', links: [
     { label: 'Funding calls', href: '/funding' }, { label: 'Closing soon', href: '/funding?status=closing-soon' },
     { label: 'Tenders', href: '/tenders' }, { label: 'Buyers', href: '/buyers' },
-    { label: 'Deadline calendar', href: '/calendar' },
+    { label: 'Deadline calendar', href: '/calendar' }, { label: 'What changed', href: '/changes' },
   ] },
   { title: 'Data', links: [
     { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
     { label: 'Market overview', href: '/market' }, { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
-    { label: 'Alerts', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
+    { label: 'Alerts (not open yet)', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
     { label: 'Pricing', href: '/pricing' },
   ] },
   { title: 'About and legal', links: [

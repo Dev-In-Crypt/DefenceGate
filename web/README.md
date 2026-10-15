@@ -96,6 +96,14 @@ Added with the same tokens: `Footer`, `TenderCard`, `BuyerCard`, `TenderStatusPi
 - `/cpv`: selection of the official CPV 2008 vocabulary in `lib/data/cpv.json` (source and licence in the file's `_source` and `_licence`). `/glossary`: entries in `lib/glossary.ts`.
 - Tender status words come from `lib/tender-status.ts`: only an effective `open` reads "Open"; `expired` is "Closed"; `awarded`, `cancelled`, `forthcoming` ("Planned") and `unknown` ("Status unknown") have their own pills.
 - `lib/export.check.ts` is a self-check of the CSV and calendar-file helpers; the command to run it is in its header.
+- `/changes` and `/changes.atom`: what changed in the last 14 days (`GET /v1/changes`, contract in `docs/design/API_CONTRACT.md`). New notices and amendments to a deadline, value, status or procedure, one entry per notice per day; the feed (`lib/atom.ts`, Atom 1.0, tag-URI ids, `ETag`/`Last-Modified`) is what an alert would be while sign-in is closed. Without `DG_API_URL` the demo data answers (`lib/mock/tenders.ts` `queryChanges`).
+- `lib/atom.check.ts` checks the feed's validity and the change filters. `npm run check` runs every `lib/*.check.ts` (`scripts/run-checks.mjs`).
+
+## Tests
+
+- `npm run typecheck` and `npm run check`: types and the self-checks.
+- `npm run e2e` (Playwright, `e2e/`): the main routes at 1280 px and at 375 px, checking status, title, headline, key text, no console error, no horizontal scroll and no e-mail address in the page; the feed is validated with the browser's XML parser. It only reads, one worker, with a pause after each page (`E2E_PACE_MS`, 700 ms). Against a site: `E2E_BASE_URL=https://defencegatehub.com npm run e2e`. Against a build: `npm run build && npm run e2e` (starts `next start` itself). The browser comes from `npx playwright install chromium` (add `--with-deps` on a bare machine; the `mcr.microsoft.com/playwright:*-jammy` images carry the system libraries).
+- CI (`.github/workflows/web.yml`) builds with the demo data (`DG_USE_MOCK=1`, `NEXT_PUBLIC_DG_NOW` pinned) and runs the same tests: no secret, no API, no production.
 
 ## States
 

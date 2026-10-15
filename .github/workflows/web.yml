@@ -1,0 +1,63 @@
+name: Web
+
+# The site's own checks: types, the self-check scripts, a production build and the end-to-end tests of the main
+# routes at desktop width and at 375 px. It needs no secret and talks to no production: the build and the tests run on
+# the site's built-in demo data (web/lib/mock), pinned to a date, with no API behind it.
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["web/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", ".github/workflows/web.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: types, checks, build, end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # No API is reachable: DG_API_URL stays unset and DG_USE_MOCK says the demo data is on purpose (a production
+      # build without either refuses to start). NEXT_PUBLIC_DG_NOW pins "now" so deadlines and the 14-day window of
+      # /changes are the same on every run. The origin is a stub: it only ends up in canonical URLs.
+      DG_USE_MOCK: "1"
+      NEXT_PUBLIC_DG_NOW: "2026-10-12T08:00:00Z"
+      NEXT_PUBLIC_SITE_URL: "https://ci.example.test"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Self-checks (lib/*.check.ts)
+        run: npm run check
+
+      - name: Build
+        run: npx next build
+
+      - name: Browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end (desktop and 375 px)
+        run: npx playwright test
+        env:
+          E2E_PACE_MS: "0"

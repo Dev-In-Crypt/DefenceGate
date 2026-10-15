@@ -399,3 +399,11 @@ def test_the_visit_counter_is_not_charged_to_the_shared_internal_bucket(monkeypa
     assert [client.get("/v1/funding").status_code for _ in range(5)] == [200, 200, 200, 429, 429]
     monkeypatch.undo()
     config.reset_cache()
+
+
+def test_the_change_feed_costs_more_than_a_plain_list_page():
+    """/v1/changes computes the archive's last 14 days on a miss (its answer is kept five
+    minutes): three tokens a page, as a page of 100 or more of any list."""
+    assert request_cost("/v1/changes", {}) == 3
+    assert request_cost("/v1/changes", {"pageSize": "200", "country": "PL"}) == 3
+    assert request_cost("/v1/tenders", {}) == 1

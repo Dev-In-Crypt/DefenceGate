@@ -1,0 +1,37 @@
+import Link from 'next/link';
+import { displayName } from '@/lib/display-name';
+import { formatDateTimeUtc } from '@/lib/format';
+import type { Change } from '@/lib/types';
+import { StatusPill, Tag } from '../dg/tag';
+import { describeChange } from '../dg/version-timeline';
+
+/**
+ * One change: a notice that is new, or that was amended, on one day. The lines under the title say what moved
+ * ("Deadline changed from ... to ..."), in the words of the notice's own version history.
+ */
+export function ChangeEntry({ change }: { change: Change }) {
+  const t = change.tender;
+  const isNew = change.kind === 'new';
+  return (
+    <article className="flex flex-col gap-3 rounded-lg bg-surface p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {isNew ? <Tag kind="programme">New</Tag> : <StatusPill status="amended" />}
+        {t.country && <Tag>{t.country}</Tag>}
+        <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
+      </div>
+      <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]">
+        <Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link>
+      </h3>
+      <p className="m-0 text-small font-semibold">
+        {t.buyerSlug ? <Link href={`/buyers/${t.buyerSlug}`}>{displayName(t.buyerName, 'title')}</Link> : displayName(t.buyerName, 'title')}
+      </p>
+      {isNew ? (
+        <p className="m-0 text-body text-ink-muted">First collected by DefenceGate on this day.</p>
+      ) : (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {change.changes.map((c, i) => <li key={`${c.field}-${i}`} className="min-w-0 text-body">{describeChange(c)}</li>)}
+        </ul>
+      )}
+    </article>
+  );
+}

@@ -364,3 +364,44 @@ All additive. A response gained fields; none was removed or renamed.
   `scope` stays `core` or `supply`; `supply` therefore also holds these two groups.
 - Forsvarsbygg (Norwegian Defence Estates Agency) is a defence buyer: its notices are `supply`
   through the buyer signal, `core` only with the legal basis or a military CPV as for any buyer.
+
+## Changes of 15 October 2026 (WP-10: what changed)
+
+### `/v1/changes`
+The real changes of the last 14 days, newest first. Query (all optional): `country` (comma ISO-2,
+at most 20), `scope` (`core` | `supply` | `all`; absent: `core` and `supply` together, which is the
+only default that differs from `/v1/tenders`), `page` (1..100), `pageSize` (1..200, default 50; a
+page over 100 is not kept in the answer cache). Answers are kept five minutes; the limiter charges
+three tokens a request (`hardening.request_cost`).
+
+Returns `{ items: Change[], total, page, pageSize, windowDays, windowFrom, windowTo, counts, meta }`
+with `counts = { new, amended }` over the whole window (not the page) and `windowDays` always 14.
+
+`Change` = `{ id, kind, day, detectedAt, changes, tender }`:
+
+- `id`: `<notice id>-<YYYYMMDD>`, stable. One entry per notice per UTC day.
+- `kind`: `new` (first collected in the window, published no earlier than 7 days before it, so a
+  history load is not news) or `amended`. A notice first seen and amended the same day is one `new`
+  entry; one first seen earlier and amended is `amended`.
+- `day`: the UTC day observed. `detectedAt`: the latest observation of that day.
+- `changes`: `FieldChange[]`, empty for `new`. Only `status`, `deadline_at`, `value_amount`,
+  `value_currency` and `procedure_type` are listed (an allow-list). Several amendments of one day
+  are merged: the line runs from the day's first `before` to its last `after`, and a line that
+  returned to where it began is dropped.
+- `tender`: the same `Tender` as `/v1/tenders` (current state, nothing personal).
+
+What is **not** an amendment: a version annotated `reread`, `out_of_order`, `remapped` or
+`correction` in `opportunity_version_note`; one that moved only the publication date or the CPV
+codes; a line whose two sides read the same. Our own re-derivations therefore never appear. A
+national notice listed under its TED twin in `/v1/tenders` is listed once here too.
+
+The archive began on 8 September 2026: a change made earlier is not shown, and a change is dated
+the day we observed it, which may be later than the day the buyer made it. Index: migration 0046
+(`oppver_observed`, partial on `observed_at` for versions after the first).
+
+### Site routes built on it
+`/changes` (page, filters `country` and `scope` in the URL; filtered and paged views are noindex) and
+`/changes.atom` (Atom 1.0, newest 100 entries, same filters). Each entry's `id` is
+`tag:<host>,2026:change:<Change.id>`, `updated` is `detectedAt`, the feed answers `ETag` and
+`Last-Modified` and 304 on `If-None-Match` / `If-Modified-Since`, and carries titles, buyers,
+countries and the old and new values only. `/changes` is in the sitemap without its filters.

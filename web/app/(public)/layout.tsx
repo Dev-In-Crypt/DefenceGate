@@ -5,7 +5,7 @@ import { AccountsOpenProvider } from '@/components/account/accounts-open';
 
 /**
  * Reads no cookie, so public pages stay statically renderable. The status call is cached for 60 seconds and any
- * failure means "not open": the header then keeps "Get alerts".
+ * failure means "not open": the header then keeps "What changed".
  */
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   const { open } = await getAccountStatus();

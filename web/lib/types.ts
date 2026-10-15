@@ -253,6 +253,42 @@ export interface TenderVersion {
   changes: FieldChange[];
 }
 
+/**
+ * GET /v1/changes: what changed in the last 14 days. One entry per notice per UTC day. `new`: first collected in
+ * the window; `amended`: its deadline, value, status or procedure changed, as the archive observed it (a bulk
+ * re-reading of our own is never one). `changes` is empty for `new`.
+ */
+export type ChangeKind = 'new' | 'amended';
+export interface Change {
+  /** "<notice id>-<YYYYMMDD>": stable, so a feed reader does not show an entry twice. */
+  id: string;
+  kind: ChangeKind;
+  /** The UTC day it was observed, YYYY-MM-DD. */
+  day: string;
+  /** The latest observation of that day. */
+  detectedAt: IsoDateTime;
+  changes: FieldChange[];
+  tender: Tender;
+}
+export interface ChangePage {
+  items: Change[];
+  total: number;
+  page: number;
+  pageSize: number;
+  windowDays: number;
+  windowFrom: IsoDateTime;
+  windowTo: IsoDateTime;
+  counts: { new: number; amended: number };
+  meta?: { updatedAt?: string | null } | null;
+}
+/** `scope` absent: defence notices and supplies to defence buyers together. */
+export interface ChangeFilters {
+  country?: string[];
+  scope?: TenderScopeFilter;
+  page?: number;
+  pageSize?: number;
+}
+
 /** GET /v1/buyers (list), GET /v1/buyers/{slug} (detail). */
 export interface Buyer {
   id: string;
