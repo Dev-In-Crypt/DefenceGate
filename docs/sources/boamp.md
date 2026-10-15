@@ -183,3 +183,35 @@ window), and exits 75. A rerun refuses to start before `resume_after`.
   against).
 - `lot_count` is the number of `cac:ProcurementProjectLot` (not `Part`), `OBJET.LOTS.LOT`,
   `lots.lot`; a notice that lists none is not counted as one.
+
+## Defence buyers by name (15 October 2026, WP-12)
+
+BOAMP does not mark most Ministry of the Armed Forces purchases as defence (they are filed
+under the ordinary regimes), so the buyer's name decides: 55 of 59 notices of French defence
+bodies since 21 September 2026 were absent from the table (coverage:X1). The vocabulary of
+`dgate/buyer_vocab.py` now names the Ministry's families, read against the 81,467 French
+organisations of the database:
+
+- the Ministry under its spellings (`Ministère des armées`, `MINARM`, `MINDEF`, `Etat -
+  Ministère des armées ...`, typos), the état-major;
+- the infrastructure service (SID, ESID, DCSID, DID, DRSID, USID; `defence_infrastructure_service`),
+  which the property exclusion kept out until the owner's decision of 15 October;
+- the SCA's platforms (PFC, PFAF, plate-forme commissariat), the commissariat d'outre-mer,
+  the health supply (DAPSA, PFAF-S; the "santé" exclusion does not apply to these);
+- DIRISI / commissariat au numérique de défense, ECPAD, SIMu, SEO, SSF, STAT;
+- groupements de soutien de base de défense (GSBDD);
+- bodies the Ministry supervises (IGESA, ONAC-VG), `ministry_affiliated`, supply scope only;
+- numbered units (régiment, escadre, base aérienne ...).
+
+Left out on purpose: the gendarmerie (Interior; class `security`), military hospitals and
+transfusion centres, schools, social clubs ("cercle"), the CEA, the SGDSN, the Paris business
+district. A registration number of a Ministry service (`DEFENCE_SIREN_FR`) names a body whose
+name says nothing ("DID CAYENNE"); the Ministry's own number is shared by other bodies and is
+not used.
+
+A new spelling is flagged when its notice arrives (`db.flag_by_name_rules`, BOAMP only, source
+`derived_rule`, the rule stored as the reason). To bring the landed notices in:
+
+    python -m dgate.pipeline seed-buyers          # loads seeds/defence_buyers_derived_FR.csv
+    python -m dgate.reprocess --requalify --source fr_boamp --from 2026-06-01 --yes
+    python -m dgate.reprocess --reclassify-serving --yes   # serving rows of the held ones

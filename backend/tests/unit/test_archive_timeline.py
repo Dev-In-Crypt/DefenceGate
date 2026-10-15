@@ -310,4 +310,6 @@ def test_a_closed_list_runs_newest_deadline_first_unless_a_sort_was_asked_for():
     assert "o.deadline_at ASC" in tender_order("deadline-asc", "closed", eff)
     assert "o.deadline_at ASC" in tender_order(None, "open", eff)
     assert "o.deadline_at ASC" in tender_order(None, "all", eff)
-    assert tender_order("published-desc", "closed", eff).startswith("o.published_at DESC")
+    # WP-12: a folder with only its award sorts by that notice's date, so it is not lost at the end
+    assert tender_order("published-desc", "closed", eff).startswith(
+        "coalesce(o.published_at, o.notice_date) DESC")

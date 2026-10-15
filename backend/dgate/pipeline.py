@@ -248,6 +248,9 @@ def _finalise(conn, opp: Opportunity, src_id: int, *, linked_defence: bool = Fal
             "SELECT 1 FROM opportunity WHERE ted_ref = %s AND is_defence LIMIT 1",
             (opp.native_id,)).fetchone() is not None
     listed = db.is_defence_buyer(conn, org_id)
+    if not listed and opp.source_code == "fr_boamp":
+        # The French vocabulary was read against the real BOAMP organisations (WP-12).
+        listed = db.flag_by_name_rules(conn, org_id, opp.buyer_identifier)
     buyer_class = effective_buyer_class(opp.buyer_name_raw, opp.country, listed)
     sig = classify(
         legal_basis=opp.legal_basis,

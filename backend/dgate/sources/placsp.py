@@ -314,18 +314,9 @@ _CALL_NOTICES = ("DOC_CN",)
 _PRIOR_NOTICES = ("DOC_PIN", "DOC_PIN_RTL")
 
 
-def _publication_date(cfs: ET.Element) -> date | None:
-    """When the portal first published the notice.
-
-    Each `ValidNoticeInfo` is one notice type with one `AdditionalPublicationStatus`
-    per medium (the buyer profile hosted on PLACSP, DOUE, BOE), and the date is the
-    `IssueDate` of its document reference (specification section 4.39). An amended
-    notice keeps adding dates, so the earliest date of the call notice is the
-    publication, and the portal's own medium wins over a gazette's date, which can be
-    a day either side. The Atom `updated` time is when the entry last changed, not
-    this, and is kept apart in `source_updated_at`.
-    """
-    rows: list[tuple[str, bool, date]] = []   # (notice type, portal's own medium, date)
+def _notice_rows(cfs: ET.Element) -> list[tuple[str, bool, date]]:
+    """(notice type, portal's own medium, date) for every date a ValidNoticeInfo states."""
+    rows: list[tuple[str, bool, date]] = []
     for info in _findall(cfs, "cac-place-ext:ValidNoticeInfo"):
         kind = (_text(info, "cbc-place-ext:NoticeTypeCode") or "").upper()
         issued = _parse_date(_text(info, "cbc-place-ext:NoticeIssueDate"))
@@ -338,11 +329,73 @@ def _publication_date(cfs: ET.Element) -> date | None:
                                      or _text(ref, "cbc-place-ext:IssueDate"))
                 if issued:
                     rows.append((kind, "perfil" in medium, issued))
+    return rows
+
+
+def _publication_date(cfs: ET.Element) -> date | None:
+    """When the portal first published the notice.
+
+    Each `ValidNoticeInfo` is one notice type with one `AdditionalPublicationStatus`
+    per medium (the buyer profile hosted on PLACSP, DOUE, BOE), and the date is the
+    `IssueDate` of its document reference (specification section 4.39). An amended
+    notice keeps adding dates, so the earliest date of the call notice is the
+    publication, and the portal's own medium wins over a gazette's date, which can be
+    a day either side. The Atom `updated` time is when the entry last changed, not
+    this, and is kept apart in `source_updated_at`.
+    """
+    rows = _notice_rows(cfs)
     for kinds in (_CALL_NOTICES, _PRIOR_NOTICES):
         pool = [(own, d) for kind, own, d in rows if kind in kinds]
         if pool:
             return min([d for own, d in pool if own] or [d for _, d in pool])
     return None
+
+
+# What a notice is, as the site labels it. Not a publication date: an award or a
+# cancellation is dated and named, never presented as the tender's publication.
+NOTICE_KINDS = ("call", "prior", "award", "formalisation", "cancellation", "update")
+_KIND_OF_STATUS = {"PUB": "call", "PRE": "prior", "ADJ": "award", "RES": "award",
+                   "ANUL": "cancellation", "EV": "update"}
+
+
+def notice_kind_of_status(status_native: str | None) -> str:
+    return _KIND_OF_STATUS.get((status_native or "").upper(), "update")
+
+
+def _kind_of_notice_type(code: str) -> str:
+    if code in _CALL_NOTICES:
+        return "call"
+    if code in _PRIOR_NOTICES:
+        return "prior"
+    if "ANUL" in code or "DESIST" in code or "RENUNC" in code:
+        return "cancellation"
+    if "ADJ" in code:
+        return "award"
+    if "FORM" in code:
+        return "formalisation"
+    return "update"
+
+
+def _own_notice(cfs: ET.Element, status_native: str | None,
+                updated: datetime | None) -> tuple[date | None, str | None]:
+    """The date and kind of the notice this entry was written for.
+
+    The entry lists every notice of its folder so far, so its own is the newest of them.
+    Where it lists none the date is the day of its update stamp and the kind is read from
+    the folder's status code. Dated by the entry itself, never a publication date.
+    """
+    rows = _notice_rows(cfs)
+    if rows:
+        newest = max(d for _, _, d in rows)
+        kinds = sorted({k for k, _, d in rows if d == newest})
+        # Several notices on one day: the one the status code names, else the last listed.
+        named = notice_kind_of_status(status_native)
+        kind = next((_kind_of_notice_type(k) for k in kinds
+                     if _kind_of_notice_type(k) == named), _kind_of_notice_type(kinds[-1]))
+        return newest, kind
+    if updated is not None:
+        return updated.date(), notice_kind_of_status(status_native)
+    return None, None
 
 
 # `cac:TenderResult/cbc:ResultCode` of a folder in `ADJ` or `RES`. Read off the live feed of
@@ -445,6 +498,8 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
     url = link_el.get("href") if link_el is not None else None
 
     status_native = _text(cfs, "cbc-place-ext:ContractFolderStatusCode")
+    updated = _instant(_text(entry, "atom:updated"))
+    notice_date, notice_kind = _own_notice(cfs, status_native, updated)
     status = map_status(status_native)
     if status == "awarded" and _no_winner(cfs):
         status = "cancelled"
@@ -465,7 +520,9 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
         value_amount=amount,
         value_currency=currency if amount is not None else None,
         published_at=published,
-        source_updated_at=_instant(_text(entry, "atom:updated")),
+        source_updated_at=updated,
+        notice_date=notice_date,
+        notice_kind=notice_kind,
         deadline_at=deadline,
         cpv_codes=cpv,
         source_url=url,

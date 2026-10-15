@@ -22,7 +22,11 @@ Sources and what the corrections are (see docs/DATA_QUALITY_PLAN_2026-10-12.md):
     es_placsp,    from the STORED payload, which is the record the connector parsed (the
     es_placsp_agg Atom entry itself is not kept): the procedure named for the codes that
                   were verified, a prior notice no longer `open`, and a publication date
-                  that is after the notice's own deadline cleared. What needs the entry
+                  that is after the notice's own deadline cleared. From epoch 2 (WP-12):
+                  the entry's own notice date and kind (`notice_date`, `notice_kind`, from
+                  its update stamp and status code, not versioned), and a publication date
+                  lost to a later award or cancellation entry restored from the folder's
+                  earliest version that states one (the call notice's). What needs the entry
                   (value, lots, publication date, no-winner outcome) is the replay's:
                   `pipeline placsp-backfill`.
 
@@ -48,6 +52,7 @@ import argparse
 import logging
 import sys
 from dataclasses import replace
+from datetime import date
 from typing import Any
 
 from .. import db
@@ -84,8 +89,33 @@ def from_placsp_stored(payload: dict[str, Any]) -> Opportunity:
     amount, currency = opp.value_amount, opp.value_currency
     if amount is not None and amount <= PLACEHOLDER_AMOUNT_MAX:
         amount, currency = None, None          # 0.00, which the mapper no longer offers
+    # The entry's own date: the day of its update stamp, as the entry states it (local day).
+    notice_date, notice_kind = opp.notice_date, opp.notice_kind
+    if notice_date is None and opp.source_updated_at is not None:
+        notice_date = opp.source_updated_at.date()
+        notice_kind = placsp.notice_kind_of_status(opp.status_native)
     return replace(opp, procedure_type=placsp.map_procedure(opp.procedure_type),
-                   status=status, value_amount=amount, value_currency=currency)
+                   status=status, value_amount=amount, value_currency=currency,
+                   notice_date=notice_date, notice_kind=notice_kind)
+
+
+def placsp_call_date(conn, opp_id: int, new: Opportunity) -> Opportunity:
+    """The call notice's date, for a folder whose current entry states none: the earliest
+    version that did state a publication date (an award or a cancellation entry that came
+    later carries no call notice and the first reading of it dropped the date). Not after
+    the notice's own deadline, which is the date of an award read as a publication."""
+    if new.published_at is not None:
+        return new
+    row = conn.execute(
+        """SELECT payload->>'published_at' AS d FROM opportunity_version
+            WHERE opportunity_id = %s AND payload->>'published_at' IS NOT NULL
+            ORDER BY version LIMIT 1""", (opp_id,)).fetchone()
+    if not row:
+        return new
+    held = date.fromisoformat(row["d"][:10])
+    if new.deadline_at is not None and held > new.deadline_at.date():
+        return new
+    return replace(new, published_at=held)
 
 
 def placsp_stored_clears(payload: dict[str, Any], new: Opportunity) -> set[str]:
@@ -120,21 +150,24 @@ CLEARS = {
 FIELDS = (
     "status", "status_native", "procedure_type", "legal_basis", "title_original", "title_en",
     "value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
-    "ted_ref", "related_native_id", "country", "lot_count",
+    "ted_ref", "related_native_id", "country", "lot_count", "notice_date", "notice_kind",
 )
 
 # Facts: a mapper that now yields nothing does not erase what is stored.
 PRESERVE = ("value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
-            "ted_ref", "related_native_id", "title_en", "legal_basis", "country", "lot_count")
+            "ted_ref", "related_native_id", "title_en", "legal_basis", "country", "lot_count",
+            "notice_date", "notice_kind")
 
 # Columns that are not versioned: updated in place when they differ.
-DIRECT = ("status_native", "ted_ref", "related_native_id", "title_en", "lot_count")
+DIRECT = ("status_native", "ted_ref", "related_native_id", "title_en", "lot_count",
+          "notice_date", "notice_kind")
 
 
 def plan(current_payload: dict[str, Any], serving: dict[str, Any], new: Opportunity,
          clear: frozenset[str] | set[str] = frozenset()) -> Change:
     base = db.opportunity_from_payload(current_payload)
     base = replace(base, **{k: serving[k] for k in CARRIED_COLUMNS if k in serving})
+    base = replace(base, **{k: serving.get(k) for k in ("notice_date", "notice_kind")})
     # A stored amount of one or less that the mapper no longer offers was a placeholder, not
     # a fact the source lost: it is cleared, whichever source it is.
     held = base.value_amount
@@ -244,6 +277,8 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
                 try:
                     clean = strip_personal_data(payload)
                     new = mapper(clean)
+                    if source in CLEARS:        # PLACSP: the call notice's date, if lost
+                        new = placsp_call_date(conn, row["id"], new)
                     clears = CLEARS[source](clean, new) if source in CLEARS else set()
                     change = plan(row["v_payload"], row, new, clears)
                 except Exception as exc:  # noqa: BLE001 - one notice must not stop the run

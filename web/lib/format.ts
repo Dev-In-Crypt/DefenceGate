@@ -12,6 +12,21 @@ export function formatDateUtc(iso: IsoDateTime): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+const NOTICE_KIND_LABELS: Record<string, string> = {
+  call: 'Call notice', prior: 'Prior information notice', award: 'Award notice',
+  formalisation: 'Contract formalisation notice', cancellation: 'Cancellation notice', update: 'Notice',
+};
+
+/**
+ * "Award notice dated 12 Sep 2026": what the source gave in place of a publication date. Null when it gave
+ * neither. A kind this build does not know reads as plain "Notice", never as a publication.
+ */
+export function noticeDateLabel(t: { noticeDate?: IsoDateTime | null; noticeKind?: string | null }): string | null {
+  if (!t.noticeDate) return null;
+  const kind = NOTICE_KIND_LABELS[t.noticeKind ?? ''] ?? 'Notice';
+  return `${kind} dated ${formatDateUtc(t.noticeDate)}`;
+}
+
 /** "13 Oct 2026 (date only)": a date without a time of day says so, instead of a dangling "UTC". */
 export function formatDateLabelledUtc(iso: IsoDateTime): string {
   return `${formatDateUtc(iso)} (date only)`;

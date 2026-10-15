@@ -106,6 +106,12 @@ class Opportunity:
     procedure_identifier: str | None = None
     lot_count: int | None = None
     value_kind: str | None = None
+    # The date and kind of the notice this record was read from (migration 0048), where
+    # the source states them and no publication date: a PLACSP entry that is an award
+    # carries its own date and no call notice. Never a publication date. Attributes: not
+    # in VERSIONED_FIELDS, left out of the payload while empty so no hash moves.
+    notice_date: date | None = None
+    notice_kind: str | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False

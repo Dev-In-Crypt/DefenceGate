@@ -146,7 +146,7 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     # Same rule for the attributes only some sources set (TED's, migration 0030,
     # and the buyer's registration number): absent while empty, so no hash moves.
     for name in ("buyer_identifier", "notice_subtype", "procedure_identifier",
-                 "lot_count", "value_kind"):
+                 "lot_count", "value_kind", "notice_date", "notice_kind"):
         if payload.get(name) is None:
             payload.pop(name, None)
     return payload
@@ -154,7 +154,7 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
 
 # Fields that come back out of a payload as strings and have to become dates
 # and datetimes again. Everything else round-trips as itself.
-_DATE_FIELDS = {"published_at"}
+_DATE_FIELDS = {"published_at", "notice_date"}
 _DATETIME_FIELDS = {"deadline_at", "source_updated_at"}
 
 
@@ -540,6 +540,42 @@ def inherit_defence_flag(conn: psycopg.Connection, org_id: int, norm: str | None
     return True
 
 
+def flag_by_name_rules(conn: psycopg.Connection, org_id: int | None,
+                       identifier: str | None = None, min_confidence: float = 0.80) -> bool:
+    """Flag an organisation whose own name the defence vocabulary names
+    (`buyer_vocab.defence_body`), with the rule that did it stored on the row.
+
+    The seed lists hold the names that were seen when they were written; a Ministry service
+    that files under a new spelling would otherwise be unflagged until the next seed run
+    (coverage:X1 of 14 October 2026: 55 of 59 French defence-body notices since 21 September
+    were not stored). Used for BOAMP only, where the vocabulary was read against the real
+    organisations. Never un-flags. Returns whether the organisation is flagged now.
+    """
+    from .buyer_vocab import defence_body
+
+    if org_id is None:
+        return False
+    row = conn.execute(
+        "SELECT canonical_name, country, is_defence_buyer FROM organisation WHERE id = %s",
+        (org_id,)).fetchone()
+    if row is None:
+        return False
+    if row["is_defence_buyer"]:
+        return True
+    body = defence_body(row["canonical_name"], row["country"], identifier)
+    if not body.label or body.confidence < min_confidence:
+        return False
+    conn.execute(
+        """UPDATE organisation
+              SET is_defence_buyer = TRUE,
+                  defence_buyer_source = COALESCE(defence_buyer_source, 'derived_rule'),
+                  defence_buyer_reason = COALESCE(defence_buyer_reason, %s),
+                  defence_buyer_confidence = COALESCE(defence_buyer_confidence, %s)
+            WHERE id = %s""",
+        (body.label[:120], round(body.confidence, 2), org_id))
+    return True
+
+
 def resolve_organisation(
     conn: psycopg.Connection, raw_name: str, country: str | None,
     *, src_id: int | None = None, identifier: str | None = None,
@@ -791,6 +827,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         notice_subtype=opp.notice_subtype, procedure_identifier=opp.procedure_identifier,
         lot_count=opp.lot_count, value_kind=opp.value_kind,
         buyer_identifier=opp.buyer_identifier,
+        notice_date=opp.notice_date, notice_kind=opp.notice_kind,
     )
 
 
@@ -949,8 +986,8 @@ def upsert_opportunity(
         opp = replace(opp, published_at=None)
 
     existing = conn.execute(
-        """SELECT id, current_version, buyer_name_raw FROM opportunity
-            WHERE source_id = %s AND native_id = %s""",
+        """SELECT id, current_version, buyer_name_raw, published_at, deadline_at
+             FROM opportunity WHERE source_id = %s AND native_id = %s""",
         (src_id, opp.native_id),
     ).fetchone()
 
@@ -963,10 +1000,20 @@ def upsert_opportunity(
             and _buyer_key(existing["buyer_name_raw"]) != _buyer_key(opp.buyer_name_raw)):
         opp = replace(opp, native_id=_disambiguated_id(opp))
         existing = conn.execute(
-            """SELECT id, current_version, buyer_name_raw FROM opportunity
-                WHERE source_id = %s AND native_id = %s""",
+            """SELECT id, current_version, buyer_name_raw, published_at, deadline_at
+                 FROM opportunity WHERE source_id = %s AND native_id = %s""",
             (src_id, opp.native_id),
         ).fetchone()
+
+    # A later entry of a folder (its award, its cancellation) states no call notice and so
+    # no publication date: the date the call was published, already held, is not lost with
+    # it. Only a date that is not after the notice's own deadline is carried (the mapper
+    # clears the ones that are).
+    if (existing and opp.published_at is None and existing["published_at"]
+            and opp.source_code in LOCAL_KEY_SOURCES):
+        held, limit = existing["published_at"], opp.deadline_at or existing["deadline_at"]
+        if limit is None or held <= limit.date():
+            opp = replace(opp, published_at=held)
 
     payload = opportunity_payload(opp)
     cols = {**_serving_columns(opp), **_classification_columns(opp)}
@@ -1032,6 +1079,10 @@ def upsert_opportunity(
     if incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
         return opp_id, "stale"
     changed = changed_fields(prev, payload)
+    # The notice date follows the entry the row was last read from: a record the source
+    # stamped no earlier than the held one.
+    newer = (not prev.get("source_updated_at") or not payload.get("source_updated_at")
+             or str(payload["source_updated_at"]) >= str(prev["source_updated_at"]))
     if not changed:
         # Hash moved but nothing we track did: a cosmetic upstream edit, or a list
         # re-ordered, or a deadline written with another UTC offset. An attribute or a link
@@ -1044,9 +1095,14 @@ def upsert_opportunity(
                   SET lot_count = COALESCE(%s, lot_count),
                       ted_ref = COALESCE(ted_ref, %s),
                       related_native_id = COALESCE(related_native_id, %s),
-                      procedure_identifier = COALESCE(procedure_identifier, %s)
+                      procedure_identifier = COALESCE(procedure_identifier, %s),
+                      notice_date = CASE WHEN %s::date IS NOT NULL AND %s THEN %s
+                                         ELSE notice_date END,
+                      notice_kind = CASE WHEN %s::date IS NOT NULL AND %s THEN %s
+                                         ELSE notice_kind END
                 WHERE id = %s""",
             (opp.lot_count, opp.ted_ref, opp.related_native_id, opp.procedure_identifier,
+             opp.notice_date, newer, opp.notice_date, opp.notice_date, newer, opp.notice_kind,
              opp_id))
         return opp_id, "unchanged"
 

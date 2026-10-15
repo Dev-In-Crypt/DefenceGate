@@ -137,6 +137,12 @@ class Tender(BaseModel):
     # False when the source states no publication date (a PLACSP entry that carries only
     # award notices): the row is listed all the same, and the site says "not stated".
     publishedKnown: bool = True
+    # The date and kind of the notice this record was last read from (`call`, `prior`,
+    # `award`, `formalisation`, `cancellation`, `update`), where the source states them.
+    # Never a publication date: a PLACSP folder that holds only its award has
+    # `publishedKnown` false and still says "Award notice dated 12 Sep 2026" from these.
+    noticeDate: datetime | None = None
+    noticeKind: str | None = None
     # When the notice was first collected (the observed time of its first version).
     firstSeenAt: datetime | None = None
     estimatedValue: Budget | None
@@ -271,7 +277,8 @@ TENDER_COLUMNS = (
     "o.sig_cpv, o.sig_cpv_military, o.sig_buyer, o.sig_linked_defence, o.dual_use, "
     "o.buyer_class, "
     "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
-    "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype"
+    "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype, "
+    "o.notice_date, o.notice_kind"
 )
 
 TENDER_SELECT = f"""
@@ -476,6 +483,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "deadlineKnown": deadline is not None,
         "publishedAt": _day(r.get("published_at")),
         "publishedKnown": r.get("published_at") is not None,
+        "noticeDate": _day(r.get("notice_date")),
+        "noticeKind": r.get("notice_kind"),
         # When we first saw the notice. "New since" compares this, never `publishedAt`: a
         # publication date is a day, and 55 % of TED notices are collected a day or more
         # after it (internal audit H3, 14 October 2026).
@@ -652,7 +661,9 @@ def tender_order(sort: str | None, status: str, eff: str) -> str:
     newest deadline first, then newest publication: the soonest of a closed list is a
     notice from years ago. A sort that was asked for is always honoured."""
     if sort == "published-desc":
-        return "o.published_at DESC NULLS LAST, o.id DESC"
+        # A folder with only its award has no publication date: it sorts by the date of
+        # that notice, and the site labels it as such.
+        return "coalesce(o.published_at, o.notice_date) DESC NULLS LAST, o.id DESC"
     if sort == "deadline-desc" or (sort is None and status == "closed"):
         return "o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST, o.id DESC"
     return f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"

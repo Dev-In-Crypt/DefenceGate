@@ -184,6 +184,9 @@ export interface Tender {
   deadlineFrom?: string | null;
   /** false: the source states no publication date; the site says "not stated" and the row stays listed. */
   publishedKnown?: boolean;
+  /** The date and kind of the notice the record was last read from, where the source states them. Never a publication date. */
+  noticeDate?: IsoDateTime | null;
+  noticeKind?: string | null;
   /** false: the notice states no deadline, so `status` is a judgement ("deadline not stated"). Absent on older API builds. */
   deadlineKnown?: boolean;
   lotCount?: number | null;

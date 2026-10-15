@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenderVersions, isTenderSlug } from '@/lib/api';
 import { formatStamp } from '@/lib/account-format';
 import { getTenderDeadline } from '@/lib/deadline';
-import { formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
+import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { TENDER_CHANGED_LABEL, TENDER_CHECKED_LABEL, anomalyNotes, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
@@ -143,8 +143,8 @@ export default async function TenderEvidencePage({ params }: Props) {
           <Row label="Legal basis">
             {tender.legalBasis ? <><Mono>{tender.legalBasis}</Mono>{legal && <span className="text-ink-muted"> · {legal}</span>}</> : <NotStated />}
           </Row>
-          <Row label="Published">
-            {tender.publishedAt ? <Mono>{formatDateUtc(tender.publishedAt)} UTC</Mono> : <span className="text-ink-muted">Publication date not stated by the source</span>}
+          <Row label={tender.publishedAt || !tender.noticeDate ? 'Published' : 'Notice date'}>
+            {tender.publishedAt ? <Mono>{formatDateUtc(tender.publishedAt)} UTC</Mono> : <span className="text-ink-muted">{noticeDateLabel(tender) ?? 'Publication date not stated by the source'}</span>}
           </Row>
           <Row label="Deadline">
             {d.iso ? (
