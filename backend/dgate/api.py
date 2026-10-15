@@ -328,6 +328,7 @@ def effective_status(status: str | None, deadline_at: datetime | None,
 # military CPV as the only signal from a police, prison, border, customs or tax body
 # (`security_buyer_cpv`). The definition is dgate/classify.py's, written once.
 CORE_SQL = classify.CORE_SQL
+GOODS_SQL = {"defence": classify.GOODS_DEFENCE_SQL}      # the `goods` parameter
 SCOPE_SQL = {
     "core": CORE_SQL,
     "supply": classify.SUPPLY_SQL,

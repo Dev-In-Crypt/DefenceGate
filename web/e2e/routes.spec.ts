@@ -42,6 +42,13 @@ test('/tenders with a country and a CPV filter', async ({ page }) => {
   await expect(page.getByLabel('CPV code')).toHaveValue('35');
 });
 
+test('/tenders: the Defence goods only switch travels in the URL and explains itself', async ({ page }) => {
+  await visit(page, '/tenders?goods=defence', { title: /tenders/i, h1: 'Tenders' });
+  const box = page.getByLabel('Defence goods only');
+  await expect(box).toBeChecked();
+  await expect(page.getByText(/say defence themselves/i).first()).toBeVisible();
+});
+
 test('a tender detail page', async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
   const first = page.locator('a[href^="/tenders/"]:not([href$=".csv"])').first();

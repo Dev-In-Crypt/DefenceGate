@@ -220,6 +220,8 @@ export interface TenderFilters {
   country?: string[];
   status?: TenderStatusFilter;
   scope?: TenderScopeFilter;
+  /** `defence`: only notices that say defence themselves (not kept in only by a listed buyer). */
+  goods?: 'defence';
   /** CPV code prefixes (2 to 8 digits), at most 20. */
   cpv?: string[];
   /** Organisation id. Set by code (the buyer page), never read from the URL. */
@@ -285,6 +287,7 @@ export interface ChangePage {
 export interface ChangeFilters {
   country?: string[];
   scope?: TenderScopeFilter;
+  goods?: 'defence';
   page?: number;
   pageSize?: number;
 }

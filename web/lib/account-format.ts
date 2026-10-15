@@ -36,7 +36,7 @@ export function followHref(kind: FollowKind, ref: string, slug?: string | null):
 
 /** The query keys the public list pages read. Anything else in a stored filter is dropped from the link. */
 export const FILTER_KEYS: Record<SearchKind, readonly string[]> = {
-  tender: ['q', 'country', 'cpv', 'status', 'scope', 'from', 'to', 'min', 'max', 'currency', 'sort'],
+  tender: ['q', 'country', 'cpv', 'status', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency', 'sort'],
   call: ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort'],
 };
 
@@ -71,6 +71,7 @@ export function describeFilters(kind: SearchKind, filters: SearchFilters): strin
   if (kind === 'tender') {
     const scope = text(filters.scope) || 'core';
     out.push(SCOPE_WORDS[scope] ?? scope);
+    if (text(filters.goods) === 'defence') out.push('Defence goods only');
   }
   const q = text(filters.q);
   if (q) out.push(`Keyword "${q.slice(0, 60)}"`);

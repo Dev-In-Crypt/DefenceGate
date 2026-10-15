@@ -176,3 +176,22 @@ def test_the_other_estate_agencies_stay_off_the_list():
                           ("Fortifikationsverket", "SE"),
                           ("Bundesanstalt für Immobilienaufgaben - Bundeswehr", "DE")):
         assert bv.defence_body(name, country).label is None, name
+
+
+# ------------------------------------------------- goods=defence (owner decision, 15 Oct 2026)
+
+def test_goods_defence_is_core_minus_notices_kept_only_by_a_listed_buyer():
+    assert api.GOODS_SQL["defence"] == c.GOODS_DEFENCE_SQL
+    assert c.CORE_SQL in c.GOODS_DEFENCE_SQL          # one core definition, not a copy
+    base = dict(legal_basis=False, military_cpv=True, dual_use=False)
+    # a military code with a defence buyer: the notice itself says defence
+    assert c.in_goods_defence(**base, buyer=True, buyer_class="defence")
+    # kept only by the listing of a municipal buyer: core, but not goods
+    assert c.in_core(**base, buyer=True, buyer_class="municipal")
+    assert not c.in_goods_defence(**base, buyer=True, buyer_class="municipal")
+    # the directive qualifies on its own wherever the buyer is listed
+    assert c.in_goods_defence(legal_basis=True, military_cpv=False, dual_use=False,
+                              buyer=True, buyer_class="municipal")
+    # outside core is outside goods
+    assert not c.in_goods_defence(legal_basis=True, military_cpv=False, dual_use=False,
+                                  buyer_class="other")

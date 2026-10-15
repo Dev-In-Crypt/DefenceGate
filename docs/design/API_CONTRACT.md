@@ -141,7 +141,7 @@ never converted, no personal data, every record carries its `source`.
 Query (all optional): `q` (title, buyer or notice number), `country` (comma ISO-2),
 `cpv` (comma prefixes, at most 20), `status` (`open` default | `closed` | `all`),
 `scope` (`core` default: the notice itself is defence | `supply`: only the buyer is a
-defence body, or one of the two groups of 14 October 2026 | `all`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
+defence body, or one of the two groups of 14 October 2026 | `all`), `goods` (`defence`: of the chosen scope, only notices that say defence themselves, i.e. `legal_basis` or `military_cpv` in `qualifiedBy`, not kept by a listed buyer alone; absent by default; the same parameter on `/v1/changes`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
 UTC), `min` / `max` (estimated value) with `currency` (ISO 4217, default `EUR`: a range
 selects that one currency), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).

@@ -674,6 +674,7 @@ def list_tenders(
     cpv: str | None = Query(None, max_length=400),
     status: str = Query("open", pattern="^(open|closed|all)$"),
     scope: str = Query("core", pattern="^(core|supply|all)$"),
+    goods: str | None = Query(None, pattern="^defence$"),
     buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
     from_: date | None = Query(None, alias="from"),
     to: date | None = None,
@@ -689,6 +690,8 @@ def list_tenders(
     api = _api()
     eff = api.EFFECTIVE_STATUS_SQL
     where = ["o.is_defence = TRUE", "NOT o.suppressed", api.SCOPE_SQL[scope]]
+    if goods:
+        where.append(api.GOODS_SQL[goods])
     params: list[Any] = []
 
     if status == "open":
