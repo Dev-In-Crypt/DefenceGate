@@ -137,6 +137,7 @@ SELECT n.id AS nid, n.source_id AS nsrc, coalesce(n.related_native_id, n.native_
   JOIN opportunity t
     ON t.source_id = %(ted)s AND t.country = n.country
    AND {match}
+   AND (n.procedure_identifier IS NULL OR t.procedure_identifier IS NULL)
    AND abs(t.published_at - n.published_at) <= 14
  WHERE n.source_id <> %(ted)s AND n.deadline_at IS NOT NULL AND n.published_at IS NOT NULL
    AND {have}
