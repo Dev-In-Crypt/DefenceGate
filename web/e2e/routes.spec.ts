@@ -89,3 +89,18 @@ test('the 404 page', async ({ page }) => {
     h1: 'This page is not in the directory',
   });
 });
+
+test('the tenders CSV downloads for the default scope and for closed notices, never as a 5xx', async ({ request }) => {
+  for (const query of ['', '?status=closed']) {
+    const res = await request.get(`/tenders/export.csv${query}`, { timeout: 45_000 });
+    expect(res.status(), `export.csv${query}`).toBe(200);
+    expect(res.headers()['content-type']).toContain('text/csv');
+    expect(res.headers()['content-disposition']).toContain('attachment');
+    const body = await res.text();
+    const lines = body.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean);
+    expect(lines[0].startsWith('id,notice_id,title,buyer,country')).toBe(true);
+    // 2,000 rows, a marker row and the header at most.
+    expect(lines.length).toBeLessThanOrEqual(2002);
+    expect(body).not.toMatch(/[A-Z0-9._%+-]+@[A-Z0-9-]+\.[A-Z]{2,}/i);
+  }
+});

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { csvCell, isMidnight, isoUtc, toCsv } from './csv';
 import { foldLine, icsText } from './ics';
 import { cpvPrefix } from './cpv';
-import { ExportRunner, Gate, TtlCache, tooBroad } from './export-cache';
+import { ExportRunner, Gate, TtlCache, collectByCursor, listOrder, tooBroad } from './export-cache';
 
 // Spreadsheet formulas are defused, ordinary text is not touched.
 for (const bad of ['=SUM(A1)', '+1', '-1+2', '@cmd', '\tx', '\rx']) assert.ok(csvCell(bad).replace(/^"/, '').startsWith("'"), bad);
@@ -62,4 +62,51 @@ void (async () => {
   release.splice(0).forEach((r) => r());
   assert.deepEqual(await again, { value: '3' });
   console.log('export checks passed');
+})();
+
+// A cursor export degrades instead of failing: a "too slow" page is asked again once, smaller, after a pause.
+void (async () => {
+  const slow = new Error('503');
+  const calls: Array<[string | null, number]> = [];
+  const rows = Array.from({ length: 2500 }, (_, i) => ({ id: String(i), deadline: null as string | null }));
+  const make = (failFirstAt: number | null) => async (cursor: string | null, size: number) => {
+    calls.push([cursor, size]);
+    if (failFirstAt !== null && calls.length === failFirstAt) throw slow;
+    const at = cursor ? Number(cursor) : 0;
+    const items = rows.slice(at, at + size);
+    return { items, nextCursor: at + size < rows.length ? String(at + size) : null };
+  };
+  const pauses: number[] = [];
+  const opts = { retryable: (e: unknown) => e === slow, sleep: async (ms: number) => { pauses.push(ms); } };
+  const ok = await collectByCursor(make(2), 2000, opts);
+  assert.equal(ok.items.length, 2000);
+  assert.equal(ok.more, true, 'cut at the cap with rows left');
+  assert.deepEqual(pauses, [1000], 'one pause');
+  assert.deepEqual(calls.map(([, s]) => s), [1000, 1000, 500, 500], 'the failed page is repeated at half the size and the rest keeps it');
+  calls.length = 0;
+  const all = await collectByCursor(make(null), 3000, opts);
+  assert.equal(all.items.length, 2500);
+  assert.equal(all.more, false);
+  // Two failures in a row on one page are an error, not a loop.
+  await assert.rejects(collectByCursor(async () => { throw slow; }, 100, opts), slow);
+  // An error that is not "too slow" is not retried.
+  let n = 0;
+  await assert.rejects(collectByCursor(async () => { n += 1; throw new Error('bad'); }, 100, opts));
+  assert.equal(n, 1);
+  // The list's order for a file read by id.
+  const d = (id: string, deadline: string | null) => ({ id, deadline });
+  assert.deepEqual(listOrder([d('a', null), d('b', '2026-12-01T00:00:00Z'), d('c', '2026-11-01T00:00:00Z')], 'open').map((x) => x.id), ['c', 'b', 'a']);
+  assert.deepEqual(listOrder([d('a', null), d('b', '2026-12-01T00:00:00Z'), d('c', '2026-11-01T00:00:00Z')], 'closed').map((x) => x.id), ['b', 'c', 'a']);
+  // A failed build is remembered for its TTL only, and is not run again meanwhile.
+  let now = 0;
+  const failing = new ExportRunner<string>(new TtlCache(1000, 10), new Gate(6), 2, new TtlCache(30_000, 10, () => now));
+  let runs = 0;
+  const boom = async () => { runs += 1; throw new Error('x'); };
+  await assert.rejects(failing.get('k', boom));
+  await assert.rejects(failing.get('k', boom));
+  assert.equal(runs, 1, 'remembered');
+  now = 30_001;
+  await assert.rejects(failing.get('k', boom));
+  assert.equal(runs, 2, 'forgotten after 30 s');
+  console.log('cursor export checks passed');
 })();

@@ -164,6 +164,25 @@ export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?
   return tenderMock.queryTenders(filters);
 }
 
+/**
+ * One page of a tenders CSV export: the notices of the same filters, newest first, `limit` at a time (the API
+ * allows 2,000), with no total. `nextCursor` goes back as `cursor` until it is null. Always read live.
+ */
+export async function getTenderExportPage(
+  filters: TenderFilters, cursor: string | null, limit: number,
+): Promise<{ items: Tender[]; nextCursor: string | null }> {
+  if (API_BASE) {
+    const p = new URLSearchParams(tendersQuery(filters));
+    for (const k of ['page', 'pageSize', 'sort']) p.delete(k);
+    p.set('limit', String(limit));
+    if (cursor) p.set('cursor', cursor);
+    return httpOrThrow<{ items: Tender[]; nextCursor: string | null }>(`/v1/tenders/export?${p.toString()}`, 'no-store');
+  }
+  const page = cursor ? Number(cursor) : 1;
+  const r = tenderMock.queryTenders({ ...filters, page, pageSize: limit });
+  return { items: r.items, nextCursor: page * limit < r.total ? String(page + 1) : null };
+}
+
 /** `slug` is "<id>-<words>"; the API looks up the leading id only. Callers redirect when the returned slug differs. */
 export async function getTender(slug: string): Promise<Tender | null> {
   if (!isTenderSlug(slug)) return null;

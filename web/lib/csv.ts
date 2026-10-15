@@ -23,10 +23,12 @@ export function toCsv(header: string[], rows: Cell[][]): string {
  * header's width. A reader of the file alone would otherwise take 2,000 of 61,521 rows for the whole result
  * (site-qa2:N8; the row count was only in response headers). null when nothing was cut.
  */
-export function truncationRow(width: number, rows: number, total: number, cap: number): Cell[] | null {
-  if (total <= cap) return null;
+export function truncationRow(width: number, rows: number, total: number | null, cap: number, more = false): Cell[] | null {
+  // `total` null: the export reads by cursor and never counts; `more` says the cursor was not exhausted.
+  if (total === null ? !more : total <= cap) return null;
   const say = (n: number) => n.toLocaleString('en-GB');
-  return [`# Not the whole result: this file holds the first ${say(rows)} of ${say(total)} matching rows (limit ${say(cap)}). Narrow the filters to get the rest.`,
+  const of = total === null ? `matching rows, and more matched` : `of ${say(total)} matching rows`;
+  return [`# Not the whole result: this file holds the first ${say(rows)} ${of} (limit ${say(cap)}). Narrow the filters to get the rest.`,
     ...Array.from({ length: Math.max(0, width - 1) }, () => '')];
 }
 

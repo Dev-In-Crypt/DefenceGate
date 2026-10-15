@@ -16,6 +16,12 @@ export const EXPORT_PER_CLIENT = 2;
 export const EXPORT_ROW_CAP = 2000;
 /** The widest export (`status=all`) holds at most this many rows; every other export keeps its own cap. */
 export const EXPORT_ALL_CAP = 1000;
+/** A failed build is remembered this long, so a broken query is not re-run by every click and reload (and no longer). */
+export const EXPORT_FAILURE_TTL_MS = 30 * 1000;
+/** The page sizes of a cursor export: the first request, and the floor it degrades to. */
+export const EXPORT_PAGE_START = 1000;
+export const EXPORT_PAGE_MIN = 125;
+export const EXPORT_RETRY_BACKOFF_MS = 1000;
 /** Seconds a refused client is told to wait. */
 export const EXPORT_RETRY_AFTER_SECONDS = 15;
 
@@ -84,27 +90,77 @@ export function tooBroad(f: {
   return f.status === 'all' && f.scope === 'all' && !narrowed;
 }
 
+/** The list's order for a file read by id: the soonest deadline first (the latest first for closed), none last. */
+export function listOrder<T extends { deadline: string | null }>(items: T[], status: string | undefined): T[] {
+  const sign = status === 'closed' ? -1 : 1;
+  const at = (t: T) => (t.deadline ? Date.parse(t.deadline) : Number.NaN);
+  return [...items].sort((a, b) => {
+    const x = at(a), y = at(b);
+    if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) === Number.isNaN(y) ? 0 : Number.isNaN(x) ? 1 : -1;
+    return sign * (x - y);
+  });
+}
+
+/**
+ * Reads a result by cursor, `size` rows at a time (the API's export endpoint: a cheap keyed scan, no total), up to
+ * `cap` rows. A page that fails with something `retryable` is asked again once, after a pause, at half the size
+ * (never below EXPORT_PAGE_MIN), and the smaller size is kept for the pages after it: a slow query is answered
+ * with a smaller page, not with an error. `more` is true when the cursor still had rows when `cap` was reached.
+ * A second failure on the same page is thrown.
+ */
+export async function collectByCursor<T>(
+  fetchPage: (cursor: string | null, size: number) => Promise<{ items: T[]; nextCursor: string | null }>,
+  cap: number,
+  opts: { retryable: (err: unknown) => boolean; sleep?: (ms: number) => Promise<void>; start?: number; backoffMs?: number },
+): Promise<{ items: T[]; more: boolean }> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let size = Math.min(opts.start ?? EXPORT_PAGE_START, cap);
+  let cursor: string | null = null;
+  const items: T[] = [];
+  for (;;) {
+    const want = Math.min(size, cap - items.length);
+    let page: { items: T[]; nextCursor: string | null };
+    try {
+      page = await fetchPage(cursor, want);
+    } catch (err) {
+      if (!opts.retryable(err)) throw err;
+      size = Math.max(EXPORT_PAGE_MIN, Math.floor(size / 2));
+      await sleep(opts.backoffMs ?? EXPORT_RETRY_BACKOFF_MS);
+      page = await fetchPage(cursor, Math.min(size, cap - items.length));
+    }
+    items.push(...page.items);
+    cursor = page.nextCursor;
+    if (cursor === null) return { items, more: false };
+    if (items.length >= cap) return { items, more: true };
+  }
+}
+
 /**
  * The same result is built once at a time: concurrent identical requests share the running build, and a build
  * that finished is served from the cache. `run` is only called when neither exists and the gate lets it in;
- * otherwise the answer is `busy`. A failed build is never cached.
+ * otherwise the answer is `busy`. A failed build is remembered for EXPORT_FAILURE_TTL_MS only and rethrown.
  */
 export class ExportRunner<V> {
   private readonly pending = new Map<string, Promise<V>>();
   private readonly byClient = new Map<string, number>();
 
   /** `perClient`: the most uncached builds one client may have running (the gate is the total). */
-  constructor(private readonly cache: TtlCache<V>, private readonly gate: Gate, private readonly perClient = Number.POSITIVE_INFINITY) {}
+  constructor(
+    private readonly cache: TtlCache<V>, private readonly gate: Gate, private readonly perClient = Number.POSITIVE_INFINITY,
+    private readonly failures: TtlCache<unknown> = new TtlCache(EXPORT_FAILURE_TTL_MS, EXPORT_CACHE_MAX),
+  ) {}
 
   async get(key: string, run: () => Promise<V>, client = 'unknown'): Promise<{ value: V } | { busy: true }> {
     const hit = this.cache.get(key);
     if (hit !== undefined) return { value: hit };
     const shared = this.pending.get(key);
     if (shared) return { value: await shared };
+    if (this.failures.get(key) !== undefined) throw this.failures.get(key);
     if ((this.byClient.get(client) ?? 0) >= this.perClient || !this.gate.enter()) return { busy: true };
     this.byClient.set(client, (this.byClient.get(client) ?? 0) + 1);
     const job = run()
       .then((value) => { this.cache.set(key, value); return value; })
+      .catch((err: unknown) => { this.failures.set(key, err ?? new Error('export failed')); throw err; })
       .finally(() => {
         this.gate.leave();
         this.pending.delete(key);

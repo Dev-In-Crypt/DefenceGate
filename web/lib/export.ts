@@ -2,12 +2,12 @@
  * CSV export of the public fields of a /tenders or /funding result. Used by the two `export.csv` route
  * handlers. Same filters as the list pages (lib/filters.ts parsers), data only through lib/api.ts.
  */
-import { ApiError, getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
+import { ApiError, getCalls, getTenderExportPage, isCallSlug, isTenderSlug } from './api';
 import { callStatusKind, getCallDeadline } from './deadline';
 import { parseCallFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
 import {
-  EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate, TtlCache,
-  exportCap, tooBroad,
+  EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PAGE_MIN, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate,
+  TtlCache, collectByCursor, exportCap, listOrder, tooBroad,
 } from './export-cache';
 import { clientIp } from './hits';
 import { safeHttpUrl } from './safe-url';
@@ -19,8 +19,6 @@ import { isPlaceholderAmount } from './format';
 
 /** The most rows one download holds (`status=all` holds at most 1,000: see export-cache.ts). */
 export const EXPORT_CAP = 2000;
-/** The API evaluates the whole filtered set once per page, so fewer, larger pages (its limit is 250). */
-const TENDER_PAGE = 250;
 const CALL_PAGE = 500;
 const PARALLEL = 4;
 const RETRIES = 4;
@@ -93,6 +91,9 @@ async function withRetry<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+/** What a page may fail with and still be worth asking again, smaller: the API's limiter, a restart, "too slow". */
+const retryableStatus = (err: unknown) => err instanceof ApiError && [429, 502, 503].includes(err.status);
+
 /** Page 1, then the rest four at a time, up to `cap` rows. A page that cannot be had fails the export. */
 async function collect<T extends { id: string }>(fetchOne: (page: number) => Promise<Paginated<T>>, cap: number): Promise<{ items: T[]; total: number }> {
   const fetchPage = (page: number) => withRetry(() => fetchOne(page));
@@ -111,7 +112,8 @@ async function collect<T extends { id: string }>(fetchOne: (page: number) => Pro
   return { items: once.slice(0, cap), total: first.total };
 }
 
-interface Built { body: string; total: number; rows: number; cap: number }
+/** `total` is null when the file was cut: the export never counts the rest. */
+interface Built { body: string; total: number | null; rows: number; cap: number }
 
 /**
  * A built export is kept for ten minutes (30 at most, by normalised query: the parsed filters with defaults left
@@ -133,7 +135,7 @@ function csvResponse(b: Built, name: string): Response {
       'content-type': 'text/csv; charset=utf-8',
       'content-disposition': `attachment; filename="${name}-${stamp()}.csv"`,
       'cache-control': 'public, max-age=300',
-      'x-total-matching': String(b.total),
+      ...(b.total === null ? { 'x-truncated': 'true' } : { 'x-total-matching': String(b.total) }),
       'x-rows': String(b.rows),
       'x-row-cap': String(b.cap),
     },
@@ -150,7 +152,7 @@ const text = (status: number, body: string, extra: Record<string, string> = {}) 
 
 const NARROW = 'Narrow it with a country, a CPV code, a buyer, a search text or a date range, or leave the scope on its default.';
 
-const tooWide = () => text(503, `This export is too large to build within the time the data service allows. ${NARROW}`, { 'retry-after': '60' });
+const tooWide = () => text(503, `This export could not be built within the time the data service allows, even in small pages. ${NARROW}`, { 'retry-after': '60' });
 
 /** What a failed build says: the service's own "too slow" and "too many" are passed on, not turned into "not available". */
 function failure(err: unknown): Response {
@@ -162,13 +164,15 @@ function failure(err: unknown): Response {
 export async function tendersCsvResponse(url: URL, forwardedFor: string | null = null): Promise<Response> {
   const parsed = parseTenderFilters(searchParamsOf(url));
   if (tooBroad(parsed)) return text(400, `This export would hold every notice of every status and scope. ${NARROW}`);
-  const filters = { ...parsed, pageSize: TENDER_PAGE };
   const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
     const r = await runner.get(`tenders${toTenderQuery({ ...parsed, page: 1 })}`, async () => {
-      const { items, total } = await collect((page) => getTenders({ ...filters, page }, { fresh: true }), cap);
-      const cut = truncationRow(TENDER_HEADER.length, items.length, total, cap);
-      return { body: toCsv(TENDER_HEADER, [...items.map(tenderRow), ...(cut ? [cut] : [])]), total, rows: items.length, cap };
+      // By cursor over the API's export endpoint (a keyed scan, no count): a page costs the same at any depth.
+      const { items: read, more } = await collectByCursor(
+        (cursor, size) => getTenderExportPage(parsed, cursor, size), cap, { retryable: retryableStatus });
+      const items = listOrder(read, parsed.status);
+      const cut = truncationRow(TENDER_HEADER.length, items.length, null, cap, more);
+      return { body: toCsv(TENDER_HEADER, [...items.map(tenderRow), ...(cut ? [cut] : [])]), total: more ? null : items.length, rows: items.length, cap };
     }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
   } catch (err) {
@@ -183,7 +187,13 @@ export async function callsCsvResponse(url: URL, forwardedFor: string | null = n
   const cap = exportCap(parsed.status, EXPORT_CAP);
   try {
     const r = await runner.get(`funding${toQuery({ ...parsed, page: 1 })}`, async () => {
-      const { items, total } = await collect((page) => getCalls({ ...filters, page }, { fresh: true }), cap);
+      const read = (size: number) => collect((page) => getCalls({ ...filters, page, pageSize: size }, { fresh: true }), cap);
+      // "Too slow" is answered with a smaller page after a pause, once, before it is a failure.
+      const { items, total } = await read(CALL_PAGE).catch(async (err: unknown) => {
+        if (!retryableStatus(err)) throw err;
+        await new Promise((res) => setTimeout(res, 1000));
+        return read(EXPORT_PAGE_MIN);
+      });
       const cut = truncationRow(CALL_HEADER.length, items.length, total, cap);
       return { body: toCsv(CALL_HEADER, [...items.map(callRow), ...(cut ? [cut] : [])]), total, rows: items.length, cap };
     }, clientIp(forwardedFor));

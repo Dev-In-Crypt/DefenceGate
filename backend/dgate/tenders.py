@@ -676,27 +676,9 @@ def tender_order(sort: str | None, status: str, eff: str) -> str:
     return f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
 
 
-@router.get("/v1/tenders", response_model=TenderPage)
-@cache_list("tenders")
-def list_tenders(
-    q: str | None = Query(None, max_length=100),
-    country: str | None = Query(None, max_length=200),
-    cpv: str | None = Query(None, max_length=400),
-    status: str = Query("open", pattern="^(open|closed|all)$"),
-    scope: str = Query("core", pattern="^(core|supply|all)$"),
-    goods: str | None = Query(None, pattern="^defence$"),
-    buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
-    from_: date | None = Query(None, alias="from"),
-    to: date | None = None,
-    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
-    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
-    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
-    sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
-    page: int = Query(1, ge=1, le=1000),
-    pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
-    conn=Depends(get_conn),
-    with_meta=Depends(serves_meta),
-):
+def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency):
+    """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
+    list or export applies: one place, so the list and the export can never disagree."""
     api = _api()
     eff = api.EFFECTIVE_STATUS_SQL
     where = ["o.is_defence = TRUE", "NOT o.suppressed", api.SCOPE_SQL[scope]]
@@ -748,7 +730,32 @@ def list_tenders(
         if max_ is not None:
             where.append("o.value_amount <= %s")
             params.append(max_)
+    return where, params, eff
 
+
+@router.get("/v1/tenders", response_model=TenderPage)
+@cache_list("tenders")
+def list_tenders(
+    q: str | None = Query(None, max_length=100),
+    country: str | None = Query(None, max_length=200),
+    cpv: str | None = Query(None, max_length=400),
+    status: str = Query("open", pattern="^(open|closed|all)$"),
+    scope: str = Query("core", pattern="^(core|supply|all)$"),
+    goods: str | None = Query(None, pattern="^defence$"),
+    buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
+    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
+    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
+    page: int = Query(1, ge=1, le=1000),
+    pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
+    conn=Depends(get_conn),
+    with_meta=Depends(serves_meta),
+):
+    where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
+                                         to, min_, max_, currency)
     clause = (" WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where))
     args = params + params + params + params
 
@@ -770,6 +777,60 @@ def list_tenders(
     return {"items": _present(conn, rows, checked=with_meta is True), "total": total,
             "page": page, "pageSize": pageSize,
             "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None}}
+
+
+EXPORT_MAX_LIMIT = 2000
+EXPORT_DEFAULT_LIMIT = 500
+
+
+class TenderExportPage(BaseModel):
+    items: list[Tender]
+    # The cursor of the next call (the id of this call's last row), null when this is the last page.
+    nextCursor: str | None = None
+
+
+def export_sql(where: list[str], limit: int, cursor: int | None) -> tuple[str, int]:
+    """The page query of the export: the list's own filters and collapse rules, but keyed on the
+    primary key (newest id first) instead of sorted and counted, so a page costs a scan that
+    stops after `limit` + 1 rows and never reads the whole result. Returns the SQL and how many
+    times the filter parameters repeat in it (the collapse rules carry them three more times)."""
+    keyset = " AND o.id < %s" if cursor is not None else ""
+    return (f"{TENDER_SELECT} WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where)
+            + f"{keyset} ORDER BY o.id DESC LIMIT %s"), 4
+
+
+@router.get("/v1/tenders/export", response_model=TenderExportPage)
+def export_tenders(
+    q: str | None = Query(None, max_length=100),
+    country: str | None = Query(None, max_length=200),
+    cpv: str | None = Query(None, max_length=400),
+    status: str = Query("open", pattern="^(open|closed|all)$"),
+    scope: str = Query("core", pattern="^(core|supply|all)$"),
+    goods: str | None = Query(None, pattern="^defence$"),
+    buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
+    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
+    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    cursor: str | None = Query(None, pattern="^[0-9]{1,18}$"),
+    limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_MAX_LIMIT),
+    conn=Depends(get_conn),
+):
+    """One page of a CSV export: the notices the list would show for the same filters, newest id
+    first, `limit` at a time (at most 2,000), with no total (that is the window count that made
+    the list too slow for a long result). Call again with `cursor` = `nextCursor` until it is
+    null. Rows are read a moment apart: a caller de-duplicates by id. Not cached."""
+    where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
+                                       to, min_, max_, currency)
+    after = int(cursor) if cursor is not None else None
+    sql, repeats = export_sql(where, limit, after)
+    args = params * repeats + ([after] if after is not None else []) + [limit + 1]
+    rows = conn.execute(sql, args).fetchall()
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return {"items": _present(conn, rows),
+            "nextCursor": str(rows[-1]["id"]) if more and rows else None}
 
 
 @router.get("/v1/tenders/slugs")

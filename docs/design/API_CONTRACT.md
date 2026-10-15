@@ -154,6 +154,16 @@ in the same result is shown once (the TED one); `sameNotice` lists the other cop
 ### `/v1/tenders/{slug}/versions`
 The archive: `TenderVersion[]`, newest first. 404 for an unknown notice.
 
+### `/v1/tenders/export`
+
+One page of a CSV export (15 October 2026). The same filters as `/v1/tenders` (`q`, `country`, `cpv`,
+`status`, `scope`, `goods`, `buyer`, `from`, `to`, `min`, `max`, `currency`), the same collapse rules, no
+`sort`, `page` or `pageSize`. Rows come newest id first, `limit` at a time (default 500, at most 2,000);
+`cursor` is the previous response's `nextCursor` (digits only). There is no total: the page costs a keyed
+scan that stops after `limit + 1` rows, so it is the same at any depth. `nextCursor` is null on the last
+page (a page that ends the result exactly has none). Rows may repeat or be missed if the data changes
+between calls; a caller de-duplicates by `id`. Not cached.
+
 ### `/v1/tenders/slugs`
 `[{ slug, updatedAt }]` for the sitemap: open notices and those published in the last
 12 months, core scope only, at most 5,000.

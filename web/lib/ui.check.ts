@@ -309,6 +309,9 @@ assert.equal(isLongRunning({}), false);
 assert.equal(truncationRow(4, 2000, 2000, 2000), null);
 const cut = truncationRow(4, 2000, 61521, 2000);
 assert.ok(cut && cut.length === 4 && String(cut[0]).startsWith('# Not the whole result') && String(cut[0]).includes('61,521'));
+// a cursor export never counts: it says so when the cursor still had rows, and nothing when it did not
+assert.equal(truncationRow(4, 1200, null, 2000, false), null);
+assert.ok(String(truncationRow(4, 2000, null, 2000, true)?.[0]).includes('and more matched'));
 // N6: the holes of a source come from its monthly counts
 assert.deepEqual(monthRanges(['2026-05', '2026-06', '2026-07', '2026-12', '2027-01']), ['May to Jul 2026', 'Dec 2026 to Jan 2027']);
 assert.deepEqual(monthRanges(['x', '2026-13']), []);
@@ -333,7 +336,8 @@ async function runnerChecks(): Promise<void> {
   assert.deepEqual(await sameAsA, { value: 'A' });
   assert.deepEqual(await runner.get('a', () => Promise.reject(new Error('cached'))), { value: 'A' });   // and now it is cached
   await assert.rejects(runner.get('f', () => Promise.reject(new Error('boom'))));
-  assert.deepEqual(await runner.get('f', async () => 'F'), { value: 'F' });                 // a failure is never cached
+  // A failure is remembered for 30 s (EXPORT_FAILURE_TTL_MS) and not run again meanwhile; export.check.ts checks the expiry.
+  await assert.rejects(runner.get('f', async () => 'F'), /boom/);
 }
 
 runnerChecks().then(() => console.log('ui checks passed'), (err) => { console.error(err); process.exit(1); });
