@@ -123,7 +123,10 @@ def open_day(day: date, *, client: httpx.Client, attempts: int = 4) -> DayFile |
         tmp = tempfile.TemporaryFile()
         try:
             with client.stream("GET", EXPORT_URL, params=params) as response:
-                if response.status_code == 404:
+                # The service answers 400 for today's day (and 404 for a day it has none for):
+                # neither is a failure, the file simply is not there yet (16 Oct 2026).
+                if response.status_code == 404 or (response.status_code == 400
+                                                   and day >= date.today()):
                     tmp.close()
                     return None
                 if response.status_code in (429, 403):
