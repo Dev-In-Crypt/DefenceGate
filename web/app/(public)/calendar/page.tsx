@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, ChevronLeft, ChevronRight, Download, List } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, List } from 'lucide-react';
 import { now } from '@/lib/deadline';
 import { formatMonthUtc } from '@/lib/format';
 import {
@@ -76,6 +76,8 @@ export default async function CalendarPage({ searchParams }: Props) {
   const href = (over: Partial<CalendarParams>) => `/calendar${calendarQuery({ ...p, page: 1, month: p.view === 'month' ? month : null, ...over })}`;
   const feed = `/calendar.ics${calendarQuery({ kind: p.kind, countries: p.countries })}`;
   const bothDown = !data.tendersOk && !data.callsOk;
+  // The same address for a calendar app that subscribes: `webcal://` opens it there instead of downloading a file.
+  const subscribe = absoluteUrl(feed).replace(/^https?:/, 'webcal:');
 
   return (
     <>
@@ -114,12 +116,23 @@ export default async function CalendarPage({ searchParams }: Props) {
           <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg bg-surface p-5">
             <h2 id="feed-heading" className="m-0 text-body font-bold">Calendar feed</h2>
             <p className="m-0 text-small text-ink-muted">
-              Add this address to your calendar app to follow the deadlines above. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.
+              Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.
             </p>
+            <a href={subscribe} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
+              <Icon icon={CalendarPlus} size="inline" />Subscribe in your calendar app
+            </a>
             <code className="break-all rounded-md bg-surface-inset px-3 py-2 font-mono text-mono">{absoluteUrl(feed)}</code>
             <a href={feed} download className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
               <Icon icon={Download} size="inline" />Download .ics
             </a>
+            <details className="text-small text-ink-muted">
+              <summary className="min-h-11 cursor-pointer py-2 font-bold text-ink">If the subscribe link does nothing</summary>
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 pt-1">
+                <li><span className="font-semibold text-ink">Google Calendar:</span> Other calendars, From URL, paste the address above.</li>
+                <li><span className="font-semibold text-ink">Outlook:</span> Add calendar, Subscribe from web, paste the address.</li>
+                <li><span className="font-semibold text-ink">Apple Calendar:</span> File, New Calendar Subscription, paste the address.</li>
+              </ul>
+            </details>
           </section>
         </div>
 
@@ -188,7 +201,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           )}
 
           <p className="m-0 text-small text-ink-muted">
-            Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed.
+            Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed here; the calendar file has the opening days of the calls that have not opened.
             {data.tendersOk && data.tendersTotal > data.tendersHeld && (
               <> The calendar holds the {data.tendersHeld} open tenders with the earliest deadlines of {data.tendersTotal}; later ones are on the <Link href="/tenders" className="font-semibold">tenders list</Link>.</>
             )}

@@ -28,7 +28,7 @@ Query parameters (all optional; names are the design's URL keys):
 
 | param | values | meaning |
 |---|---|---|
-| `q` | text | matches title, original title, call ID, topic ID, issuer |
+| `q` | text | word search (16 Oct 2026): accents and hyphens folded (`counter-drone` = `counter drone`), every word must match a whole word (up to 3 letters), the start of a word (4 letters) or part of a word (5 or more); the identifiers match by the start of their words; `drone`, `uas`, `uav`, `unmanned`, `rpas` are synonyms, as are `logistics`/`supply`/`mobility` and `ai`/`artificial intelligence` (`backend/dgate/textsearch.py`). Over title, original title, issuer, call ID, topic ID |
 | `programme` | `EDF,EDIP,HORIZON,DIGITAL,CEF,NATIONAL` | OR within; any other value is a 422 (was: ignored) |
 | `regime` | `defence,dual-use` | OR within; any other value is a 422 (was: ignored) |
 | `country` | `EU,PL,SE,FR,ES,FI,DE,IT,NL` | funder country; `EU` = EU programme |
@@ -36,10 +36,11 @@ Query parameters (all optional; names are the design's URL keys):
 | `from`, `to` | `YYYY-MM-DD` | deadline range, inclusive, UTC |
 | `min`, `max` | number | budget range, in `currency` |
 | `currency` | ISO 4217, default `EUR` | the currency `min`, `max` and `sort=budget-desc` refer to |
-| `sort` | `deadline-asc` (default) `deadline-desc` `budget-desc` | closed calls always last; calls without a deadline after those with one |
+| `sort` | `deadline-asc` (default, but `deadline-desc` when `status=closed`) `deadline-desc` `budget-desc` | closed calls always last; calls without a deadline after those with one |
 | `page`, `pageSize` | 1.., pageSize <= 500 | |
 
-Response: `{ "items": [Call], "total": int, "page": int, "pageSize": int }`.
+Response: `{ "items": [Call], "total": int, "page": int, "pageSize": int, "meta": {...}, "search": { "terms": [str], "alsoSearched": [str] } | null }`.
+`search` is null without `q`; `alsoSearched` lists the synonyms searched beyond the typed words.
 
 `sort=budget-desc` lists calls whose budget is in `currency` first, largest first, then
 the rest by deadline. It never orders across currencies.
@@ -425,3 +426,27 @@ the day we observed it, which may be later than the day the buyer made it. Index
 `tag:<host>,2026:change:<Change.id>`, `updated` is `detectedAt`, the feed answers `ETag` and
 `Last-Modified` and 304 on `If-None-Match` / `If-Modified-Since`, and carries titles, buyers,
 countries and the old and new values only. `/changes` is in the sitemap without its filters.
+
+## Changes of 16 October 2026 (WP-19, funding frictions of `docs/verification/ux/ux-funding.md`)
+
+All additive, except the first point, which corrects a status.
+
+- `/v1/funding` `status`: a call the source lists `forthcoming` whose `openingDate` has come (UTC
+  day) and whose `deadline` is ahead is `open` (F1). It is in `status=open`, `closing-soon`, the
+  calendar and the `.ics`, and no longer in `forthcoming`. A forthcoming call with no deadline
+  stays forthcoming. `Call.sourceStatus` (`string | null`) is the source's own word.
+- `Call.funder` (`string`): the issuing body of a national call, the programme name where a
+  national source names no issuer, otherwise `European Commission` (the operator of the portal EU
+  calls are read from) (F6). `programmeName` stays the programme in full.
+- `/v1/funding/{slug}` also has `whoCanApply` (`{label, value}[]`: the eligible-countries and
+  other-eligibility sections of the source's own conditions, and the applicants/beneficiaries of
+  a national call; empty when the source says nothing) and `documents` (`{label, url}[]`: the
+  documents the conditions link, https on `europa.eu` hosts only), both withdrawn with
+  `conditionsText` when the source's `commercial_ok` is not true (F2, F9).
+- `/v1/changes` also has `funding` (page 1 only, at most 50): `{id, kind: 'call-new' |
+  'call-amended', day, detectedAt, changes: FieldChange[], call: Call}`, and `fundingTotal` (all of
+  them, whatever the page); `counts` keeps its two numbers.
+  `call-new`: first collected in the window and not closed; `call-amended`: the source moved the
+  closing or opening date (table `call_change`, migration 0053; a day re-expressed is not a
+  move). The tender `items`, `total` and `counts.new`/`amended` are unchanged; `scope` and
+  `goods` filters switch `funding` off, `country` filters by funder country (F5).

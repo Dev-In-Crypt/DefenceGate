@@ -22,10 +22,12 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
     return (
       <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-mono text-ink-muted', className)}>
         <span>{source.sourceName} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
-        {url && (
+        {url ? (
           <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 ml-auto font-sans text-small font-bold text-link">
             View original<span className="sr-only"> at {source.sourceName} (opens in new tab)</span>
           </a>
+        ) : (
+          <span className="ml-auto font-sans text-small">The source gives no link to this record</span>
         )}
       </div>
     );
@@ -40,10 +42,12 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
         <dt className="text-ink-muted">Attribution</dt><dd className="m-0 text-ink">{source.attribution}</dd>
         {version && (<><dt className="text-ink-muted">Version</dt><dd className="m-0 text-ink">{version}</dd></>)}
       </dl>
-      {url && (
+      {url ? (
         <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start font-sans text-small font-bold text-link">
           View original <Icon icon={ExternalLink} size="inline" /><span className="sr-only">(opens in new tab)</span>
         </a>
+      ) : (
+        <p className="m-0 font-sans text-small">The source gives no link to this record. Search for it by its identifier at {source.sourceName}.</p>
       )}
     </div>
   );

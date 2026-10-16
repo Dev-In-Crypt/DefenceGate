@@ -5,6 +5,7 @@
  */
 import { getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
 import { getCallDeadline, getTenderDeadline, now } from './deadline';
+import { formatDateLabelledUtc } from './format';
 import { anomalyNotes, isLongRunning, tenderStatusView } from './tender-status';
 import type { SearchParams } from './filters';
 
@@ -12,15 +13,21 @@ export type CalendarKind = 'tender' | 'funding';
 export type KindFilter = 'all' | 'tenders' | 'funding';
 export type CalendarView = 'list' | 'month';
 
+/** A deadline, or the day a funding call opens (only in the calendar file: the page lists deadlines). */
+export type CalendarEvent = 'deadline' | 'opens';
+
 export interface CalendarEntry {
-  /** `<kind>-<id>`: also the stable part of the calendar-file UID. */
+  /** `<kind>-<id>` (`funding-<id>-opens` for an opening): also the stable part of the calendar-file UID. */
   key: string;
   kind: CalendarKind;
+  event: CalendarEvent;
+  /** A funding call that has not opened yet: its deadline is the source's planned one. */
+  planned?: boolean;
   id: string;
   title: string;
   /** Site path of the detail page. */
   href: string;
-  /** ISO UTC. */
+  /** ISO UTC. For an opening, the opening day. */
   deadline: string;
   /** The source gives a date, not a time of day. */
   dateOnly: boolean;
@@ -37,6 +44,8 @@ export interface CalendarEntry {
 
 export interface CalendarData {
   entries: CalendarEntry[];
+  /** Funding calls that have not opened: the day each opens and its planned deadline. For the calendar file. */
+  upcoming: CalendarEntry[];
   tendersOk: boolean;
   callsOk: boolean;
   /** Open tenders in total, and how many the calendar holds (the earliest deadlines first). */
@@ -74,7 +83,7 @@ async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total
     const d = getTenderDeadline(t, ref);
     if (!d.iso || d.state === 'closed' || !isTenderSlug(t.slug)) continue;
     entries.push({
-      key: `tender-${t.id}`, kind: 'tender', id: t.id, title: t.title, href: `/tenders/${t.slug}`,
+      key: `tender-${t.id}`, kind: 'tender', event: 'deadline', id: t.id, title: t.title, href: `/tenders/${t.slug}`,
       deadline: d.iso, dateOnly: d.dateOnly === true, when: d.utc,
       who: t.buyerName, country: t.country, sourceName: t.source.sourceName, note: anomalyNotes(t)[0] ?? null,
     });
@@ -82,30 +91,52 @@ async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total
   return { entries, total: first.total, held: items.length, longRunning };
 }
 
-async function loadCalls(ref: Date): Promise<CalendarEntry[]> {
-  const r = await getCalls({ status: 'open', pageSize: CALL_PAGE, page: 1 }, { cacheable: true });
+/** Calls that have not opened yet (`Opens soon`): the opening day, still to come, and the planned deadline. */
+export async function loadUpcomingCalls(ref: Date): Promise<CalendarEntry[]> {
+  const r = await getCalls({ status: 'forthcoming', pageSize: CALL_PAGE, page: 1 }, { cacheable: true });
+  const today = ref.toISOString().slice(0, 10);
+  const entries: CalendarEntry[] = [];
+  for (const c of r.items) {
+    if (c.status !== 'forthcoming' || !isCallSlug(c.slug)) continue;
+    const base = { kind: 'funding', id: c.id, title: c.title, href: `/funding/${c.slug}`, who: c.issuer ?? c.programmeName,
+      country: c.funderCountry, sourceName: c.source.sourceName, note: null } as const;
+    if (c.openingDate && dayOf(c.openingDate) >= today) {
+      entries.push({ ...base, key: `funding-${c.id}-opens`, event: 'opens', deadline: c.openingDate, dateOnly: true, when: formatDateLabelledUtc(c.openingDate) });
+    }
+    const d = getCallDeadline(c, ref);
+    if (c.deadline && d.iso && d.state !== 'closed') {
+      entries.push({ ...base, key: `funding-${c.id}`, event: 'deadline', planned: true, deadline: c.deadline, dateOnly: d.dateOnly === true, when: d.utc });
+    }
+  }
+  return entries;
+}
+
+async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcoming: CalendarEntry[] }> {
+  const [r, upcoming] = await Promise.all([getCalls({ status: 'open', pageSize: CALL_PAGE, page: 1 }, { cacheable: true }), loadUpcomingCalls(ref)]);
   const entries: CalendarEntry[] = [];
   for (const c of r.items) {
     const d = getCallDeadline(c, ref);
     // A rolling call past its last cut-off is open but has no coming deadline to put on a calendar.
     if (c.status !== 'open' || !c.deadline || !d.iso || d.state === 'closed' || d.rolling || !isCallSlug(c.slug)) continue;
     entries.push({
-      key: `funding-${c.id}`, kind: 'funding', id: c.id, title: c.title, href: `/funding/${c.slug}`,
+      key: `funding-${c.id}`, kind: 'funding', event: 'deadline', id: c.id, title: c.title, href: `/funding/${c.slug}`,
       deadline: c.deadline, dateOnly: d.dateOnly === true, when: d.utc,
       who: c.issuer ?? c.programmeName, country: c.funderCountry, sourceName: c.source.sourceName, note: null,
     });
   }
-  return entries;
+  return { entries, upcoming };
 }
+
+const byTime = (a: CalendarEntry, b: CalendarEntry) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key);
 
 /** Tenders and calls together, soonest deadline first. A failing half is reported, not hidden. */
 export async function loadCalendar(ref: Date = now()): Promise<CalendarData> {
   const [t, c] = await Promise.all([
     loadTenders(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0, longRunning: 0 })),
-    loadCalls(ref).then((v) => ({ ok: true as const, entries: v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[] })),
+    loadCalls(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], upcoming: [] as CalendarEntry[] })),
   ]);
-  const entries = [...t.entries, ...c.entries].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key));
-  return { entries, tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held, longRunning: t.longRunning };
+  const entries = [...t.entries, ...c.entries].sort(byTime);
+  return { entries, upcoming: c.upcoming.sort(byTime), tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held, longRunning: t.longRunning };
 }
 
 /* ---- URL parameters: kind, country, view, month ---- */

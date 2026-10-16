@@ -2,13 +2,14 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getCalls, getHealth } from '@/lib/api';
 import { filtersFromQuery } from '@/lib/account-format';
-import { activeFilterCount, ignoredFilters, lastPage, parseCallFilters, parseView, toQuery, type SearchParams } from '@/lib/filters';
+import { activeFilterCount, broadenings, ignoredFilters, lastPage, parseCallFilters, parseView, toQuery, type SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
 import { CallListTemplate, type EntryChip } from '@/components/funding/call-list-template';
 import { SaveSearch } from '@/components/account/save-search';
 
 export const revalidate = 60;
 const CALENDAR_LIMIT = 500;
+const MAX_ALTERNATIVES = 4;
 
 // Entry chips are filter links on this page (the filter values are the API's codes); there are no per-filter hub pages.
 const CHIPS: EntryChip[] = [
@@ -51,13 +52,20 @@ export default async function FundingHubPage({ searchParams }: Props) {
   // A page past the end is the last page, not an empty list.
   const last = lastPage(result.total, result.pageSize);
   if (view === 'list' && result.total > 0 && (filters.page ?? 1) > last) redirect(`/funding${toQuery({ ...filters, page: last })}`);
+  // An empty list says which filter to loosen: each looser search is counted (one call each, at most four).
+  const alternatives = result.total === 0 && view === 'list'
+    ? (await Promise.all(broadenings(filters).slice(0, MAX_ALTERNATIVES).map(async (b) => ({
+      label: b.label, filters: b.filters,
+      total: (await getCalls({ ...b.filters, pageSize: 1 }).catch(() => null))?.total ?? 0,
+    })))).filter((a) => a.total > 0)
+    : [];
   return (
     <CallListTemplate
       title="Funding calls"
-      intro="EU and national funding for defence and dual-use projects. Every deadline is in UTC and every call links to its source."
+      intro="EU and national funding for defence and dual-use projects. Every deadline is in UTC, and a call links to its source page where the source gives one."
       basePath="/funding"
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
-      filters={filters} result={result} view={view} health={health} chips={CHIPS}
+      filters={filters} result={result} view={view} health={health} chips={CHIPS} alternatives={alternatives}
       notices={ignoredFilters(sp, 'funding')}
       saveSearch={<SaveSearch kind="call" filters={filtersFromQuery(toQuery({ ...filters, page: 1 }))} />}
       exportHref={`/funding/export.csv${toQuery({ ...filters, page: 1 })}`}

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CalendarDays, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTimeUtc, repeatedCallBudgets } from '@/lib/format';
-import { PARAM, toQuery } from '@/lib/filters';
+import { PARAM, describeCallFilters, toQuery } from '@/lib/filters';
 import { listUpdatedAt } from '@/lib/source-status';
 import { fundersWithCoverage } from '@/lib/taxonomy';
 import type { CallFilters, Health, ListView, Paginated, Call } from '@/lib/types';
@@ -26,9 +26,12 @@ const SORT_OPTIONS = [
 
 export interface EntryChip { label: string; href: string }
 
+/** A way of loosening one filter of an empty list, with how many calls it would show. */
+export interface Alternative { label: string; total: number; filters: CallFilters }
+
 /** Shared template for /funding and every /funding/* list sub-page. */
 export function CallListTemplate({
-  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch, exportHref, notices = [],
+  title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch, exportHref, notices = [], alternatives = [],
 }: {
   title: string; intro: string; basePath: string; crumbs: Crumb[]; filters: CallFilters;
   result: Paginated<Call>; view: ListView; health: Health; chips?: EntryChip[]; hide?: FilterGroup[];
@@ -38,6 +41,8 @@ export function CallListTemplate({
   exportHref?: string;
   /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
   notices?: string[];
+  /** Of an empty list: the looser searches that find something (see lib/filters.ts broadenings). */
+  alternatives?: Alternative[];
 }) {
   // An empty result has one heading, the empty state's: the count line is then a paragraph, not a second h2.
   const Count = result.total === 0 ? 'p' : 'h2';
@@ -95,9 +100,23 @@ export function CallListTemplate({
           </div>
 
           <FilterNotices notices={notices} />
+          {result.search && result.search.alsoSearched.length > 0 && (
+            <p className="m-0 text-small text-ink-muted">Also searched: {result.search.alsoSearched.join(', ')}.</p>
+          )}
           {result.total === 0 ? (
-            <EmptyState title="No calls match these filters" action={<Button variant="secondary" href={basePath}>Clear filters</Button>}>
-              Try a wider deadline range or fewer programmes. Closed calls are hidden unless you choose Closed or All.
+            <EmptyState title="No calls match" action={<Button variant="secondary" href={basePath}>Clear filters</Button>}>
+              <p className="m-0">Nothing matches {describeCallFilters(filters).join(', ')}.</p>
+              {alternatives.length > 0 && (
+                <ul className="m-0 mt-3 flex list-none flex-col gap-1 p-0">
+                  {alternatives.map((a) => (
+                    <li key={a.label}>
+                      <Link href={`${basePath}${toQuery(a.filters)}`} className="font-semibold">
+                        {a.total} {a.total === 1 ? 'call matches' : 'calls match'} {a.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </EmptyState>
           ) : view === 'calendar' ? (
             <CallCalendar calls={result.items} />

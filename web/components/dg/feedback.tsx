@@ -37,7 +37,7 @@ function StateShell({ icon, title, children, action, tone = 'default' }: { icon:
       <span className={cn('flex size-11 items-center justify-center rounded-pill bg-surface-inset', tone === 'error' ? 'text-alert' : 'text-ink')}>{icon}</span>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-h3">{title}</h2>
-        {children && <p className="m-0 max-w-[60ch] text-body text-ink-muted">{children}</p>}
+        {children && <div className="m-0 max-w-[60ch] text-body text-ink-muted">{children}</div>}
       </div>
       {action}
     </div>

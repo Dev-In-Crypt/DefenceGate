@@ -9,6 +9,10 @@ export type SearchParams = Record<string, string | string[] | undefined>;
 
 export const DEFAULT_PAGE_SIZE = 10;
 export const DEFAULT_SORT: CallSort = 'deadline-asc';
+/** Soonest deadline first, except on a closed list: its soonest is the oldest, so the newest deadline leads. */
+export function defaultCallSort(status: CallStatusFilter | undefined): CallSort {
+  return status === 'closed' ? 'deadline-desc' : DEFAULT_SORT;
+}
 export const DEFAULT_STATUS: CallStatusFilter = 'open';
 /** Budget filter and budget sort refer to this currency unless the URL says otherwise. Nothing is converted. */
 export const DEFAULT_CURRENCY = 'EUR';
@@ -68,18 +72,19 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
   const to = first(sp[PARAM.to]);
   const page = num(first(sp[PARAM.page]));
   const currency = first(sp[PARAM.currency]);
+  const status = oneOf(first(sp[PARAM.status]), STATUSES) ?? DEFAULT_STATUS;
   return {
     q: searchText(first(sp[PARAM.q])),
     programme: list<ProgrammeCode>(sp[PARAM.programme], PROGRAMME_CODES),
     regime: list<Regime>(sp[PARAM.regime], REGIME_CODES),
     country: list<CountryCode>(sp[PARAM.country], Object.keys(COUNTRIES) as CountryCode[], upper),
-    status: oneOf(first(sp[PARAM.status]), STATUSES) ?? DEFAULT_STATUS,
+    status,
     deadlineFrom: from && isDay(from) ? from : undefined,
     deadlineTo: to && isDay(to) ? to : undefined,
     budgetMin: num(first(sp[PARAM.min])),
     budgetMax: num(first(sp[PARAM.max])),
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
-    sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? DEFAULT_SORT,
+    sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? defaultCallSort(status),
     page: page && page >= 1 ? Math.min(Math.floor(page), MAX_PAGE) : 1,
     pageSize: DEFAULT_PAGE_SIZE,
   };
@@ -102,7 +107,7 @@ export function toQuery(f: CallFilters, extra: Partial<Record<string, string | u
   if (f.budgetMin !== undefined) p.set(PARAM.min, String(f.budgetMin));
   if (f.budgetMax !== undefined) p.set(PARAM.max, String(f.budgetMax));
   if (f.currency && f.currency !== DEFAULT_CURRENCY) p.set(PARAM.currency, f.currency);
-  if (f.sort && f.sort !== DEFAULT_SORT) p.set(PARAM.sort, f.sort);
+  if (f.sort && f.sort !== defaultCallSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
   const s = p.toString();
@@ -115,6 +120,45 @@ export function activeFilterCount(f: CallFilters): number {
     f.status !== DEFAULT_STATUS ? f.status : undefined,
     f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
+}
+
+/* ---- An empty funding list: what was asked, and what would find something ---- */
+
+const STATUS_WORDS: Record<CallStatusFilter, string> = {
+  open: 'Open', forthcoming: 'Opens soon', 'closing-soon': 'Closing soon', closed: 'Closed', all: 'All',
+};
+
+/** The filters in force, in words, for "No calls match ...". The default status is not a choice and is named too. */
+export function describeCallFilters(f: CallFilters): string[] {
+  const out: string[] = [];
+  if (f.q) out.push(`the search “${f.q}”`);
+  out.push(`status ${STATUS_WORDS[f.status ?? DEFAULT_STATUS]}`);
+  if (f.programme?.length) out.push(`programme ${f.programme.join(', ')}`);
+  if (f.regime?.length) out.push(`regime ${f.regime.join(', ')}`);
+  if (f.country?.length) out.push(`funder country ${f.country.join(', ')}`);
+  if (f.deadlineFrom || f.deadlineTo) out.push(`deadline ${f.deadlineFrom ?? '…'} to ${f.deadlineTo ?? '…'}`);
+  if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push(`budget ${f.budgetMin ?? 0} to ${f.budgetMax ?? '∞'} ${f.currency ?? DEFAULT_CURRENCY}`);
+  return out;
+}
+
+export interface Broadening {
+  /** Completes "N calls match ...": "in all statuses", "without the search “x”". */
+  label: string;
+  filters: CallFilters;
+}
+
+/** Each way of loosening one filter of an empty list, the likeliest culprit first: the search, then the status. */
+export function broadenings(f: CallFilters): Broadening[] {
+  const base = { ...f, page: 1 };
+  const out: Broadening[] = [];
+  if (f.q) out.push({ label: `without the search “${f.q}”`, filters: { ...base, q: undefined } });
+  if ((f.status ?? DEFAULT_STATUS) !== 'all') out.push({ label: 'in all statuses, closed ones too', filters: { ...base, status: 'all', sort: undefined } });
+  if (f.programme?.length) out.push({ label: 'in every programme', filters: { ...base, programme: undefined } });
+  if (f.regime?.length) out.push({ label: 'with either regime', filters: { ...base, regime: undefined } });
+  if (f.country?.length) out.push({ label: 'from any funder country', filters: { ...base, country: undefined } });
+  if (f.deadlineFrom || f.deadlineTo) out.push({ label: 'with any deadline', filters: { ...base, deadlineFrom: undefined, deadlineTo: undefined } });
+  if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push({ label: 'with any budget', filters: { ...base, budgetMin: undefined, budgetMax: undefined } });
+  return out;
 }
 
 /* ---- Tenders (/tenders) and buyers (/buyers). Same keys and caps as the funding filters. ---- */

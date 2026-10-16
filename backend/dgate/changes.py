@@ -7,6 +7,11 @@ Two kinds of entry, each about a notice that is in scope:
   - `amended`  its deadline, value (or currency), status or procedure changed, as the
                archive observed it
 
+and a third list of its own, `funding` (ux-funding F5): funding calls first collected in the
+window (`call-new`) and calls whose closing or opening date the source moved
+(`call-amended`, from `call_change`). It is a separate list, not mixed into `items`, so a
+reader of the tender list sees no new shape; the Atom feed and the page put it beside them.
+
 The archive is the source and nothing is invented. An amendment is a real one, by the rule
 the per-notice timeline already uses (`tenders.timeline`): versions annotated `reread`,
 `out_of_order` or `remapped`, and versions annotated `correction`, are not amendments; nor
@@ -32,7 +37,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from . import tenders as T
-from .funding import ListMeta, get_conn, serves_meta
+from .funding import EFFECTIVE_STATUS, FundingCall, ListMeta, get_conn, serves_meta, to_call
+from .funding import SELECT as CALL_SELECT
 from .listcache import cache_list
 
 router = APIRouter()
@@ -70,6 +76,16 @@ class ChangeCounts(BaseModel):
     amended: int
 
 
+class FundingChange(BaseModel):
+    # Stable: "call-<call id>-<YYYYMMDD>", one per call per UTC day.
+    id: str
+    kind: str                          # call-new | call-amended
+    day: date
+    detectedAt: datetime
+    changes: list[T.FieldChange]       # empty for a new call
+    call: FundingCall
+
+
 class ChangePage(BaseModel):
     items: list[Change]
     total: int
@@ -79,7 +95,58 @@ class ChangePage(BaseModel):
     windowFrom: datetime
     windowTo: datetime
     counts: ChangeCounts
+    # Funding calls new or moved in the window, newest first; page 1 only, at most FUNDING_LIMIT.
+    # `fundingTotal` counts them all, whatever the page.
+    funding: list[FundingChange] = []
+    fundingTotal: int = 0
     meta: ListMeta = ListMeta()
+
+
+FUNDING_LIMIT = 50
+FUNDING_FIELD_LABELS = {"deadline_at": "Deadline", "opens_at": "Opening date"}
+
+
+def funding_events(conn, *, countries: list[str], now: datetime | None = None) -> list[dict[str, Any]]:
+    """Funding calls new or moved in the window, newest first, as plain dicts (`row` is the
+    call's serving row). A call collected in the window is one `call-new` entry, and wins over
+    a date move of the same day; several moves of a day are one entry running from the day's
+    first `before` to its last `after`. A call already closed is not news."""
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=WINDOW_DAYS)
+    country_sql = " AND COALESCE(c.country, 'EU') = ANY(%s)" if countries else ""
+    extra = [countries] if countries else []
+    first = conn.execute(
+        f"{CALL_SELECT} WHERE NOT c.suppressed AND c.first_seen_at >= %s "
+        f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}", [since, *extra]).fetchall()
+    moves = conn.execute(
+        "SELECT ch.call_id, ch.field, ch.before_value, ch.after_value, ch.observed_at "
+        "  FROM call_change ch WHERE ch.observed_at >= %s ORDER BY ch.observed_at, ch.id",
+        (since,)).fetchall()
+    events: dict[tuple[int, date], dict[str, Any]] = {}
+    for r in first:
+        at = r["first_seen_at"].astimezone(timezone.utc)
+        events[(r["id"], at.date())] = {"row": r, "kind": "call-new", "day": at.date(), "at": at,
+                                        "changes": []}
+    moved: dict[tuple[int, date], dict[str, Any]] = {}
+    for m in moves:
+        at = m["observed_at"].astimezone(timezone.utc)
+        slot = moved.setdefault((m["call_id"], at.date()), {"at": at, "lines": {}})
+        slot["at"] = max(slot["at"], at)
+        line = slot["lines"].setdefault(m["field"], {"field": m["field"], "before": m["before_value"]})
+        line["after"] = m["after_value"]
+    if moved:
+        rows = {r["id"]: r for r in conn.execute(
+            f"{CALL_SELECT} WHERE NOT c.suppressed AND c.id = ANY(%s){country_sql}",
+            [[cid for cid, _ in moved], *extra]).fetchall()}
+        for (cid, day), slot in moved.items():
+            if cid not in rows or (cid, day) in events:
+                continue
+            lines = [{"field": f, "label": FUNDING_FIELD_LABELS[f], "before": v["before"], "after": v["after"]}
+                     for f, v in slot["lines"].items() if v["before"] != v["after"]]
+            if lines:
+                events[(cid, day)] = {"row": rows[cid], "kind": "call-amended", "day": day,
+                                      "at": slot["at"], "changes": lines}
+    return sorted(events.values(), key=lambda e: (e["day"], e["at"], e["row"]["id"]), reverse=True)
 
 
 def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
@@ -214,6 +281,12 @@ def list_changes(
     ids = [e["id"] for e in shown]
     rows = conn.execute(f"{T.TENDER_SELECT} WHERE o.id = ANY(%s)", (ids,)).fetchall() if ids else []
     tenders = {t["id"]: t for t in T._present(conn, rows, checked=with_meta is True)}
+    # The tender scope filters do not apply to funding calls; a country does (the funder's).
+    calls = funding_events(conn, countries=countries) if scope in (None, "core", "all") and not goods else []
+    funding = [{
+        "id": f"call-{e['row']['id']}-{e['day']:%Y%m%d}", "kind": e["kind"], "day": e["day"],
+        "detectedAt": e["at"], "changes": e["changes"], "call": to_call(e["row"]),
+    } for e in calls[:FUNDING_LIMIT]] if page == 1 else []
     items = [{
         "id": f"{e['id']}-{e['day']:%Y%m%d}", "kind": e["kind"], "day": e["day"],
         "detectedAt": e["at"], "changes": e["changes"], "tender": tenders[str(e["id"])],
@@ -225,5 +298,6 @@ def list_changes(
         "windowDays": WINDOW_DAYS, "windowFrom": since, "windowTo": until,
         "counts": {"new": sum(1 for e in events if e["kind"] == "new"),
                    "amended": sum(1 for e in events if e["kind"] == "amended")},
+        "funding": funding, "fundingTotal": len(calls),
         "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None},
     }

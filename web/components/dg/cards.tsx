@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, now } from '@/lib/deadline';
-import { formatDateUtc, openingPhrase } from '@/lib/format';
+import { formatDateUtc, funderLine, openingPhrase } from '@/lib/format';
 import { TENDER_CHANGED_LABEL, anomalyNotes, isLongRunning, tenderStatusView } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
@@ -48,7 +48,11 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             {' · '}<LangLabel kind="title" code={call.originalLanguage} />
           </span>
         )}
+        <span className="text-small text-ink-muted">{funderLine(call)}</span>
       </div>
+      {call.status === 'open' && call.sourceStatus === 'forthcoming' && (
+        <p className="m-0 text-small text-ink-muted">The source still lists this call as forthcoming; its opening date has passed and its deadline is ahead.</p>
+      )}
       {upcoming && call.openingDate && (
         <p className="m-0 text-body font-bold text-ink">
           {openingPhrase(call.openingDate, now()).lead}{' '}

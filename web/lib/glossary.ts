@@ -59,8 +59,28 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'dual-use', term: 'Dual-use',
-    body: 'Goods, software or technology that can serve both civil and military purposes. In EU export law the word has a specific legal meaning, set by Regulation (EU) 2021/821. On a funding call here, “dual-use” is a label DefenceGate gives to calls under civil programmes or areas it treats as dual-use; the label is ours, not the programme’s, and it is not an export-control classification.',
+    body: 'Goods, software or technology that can serve both civil and military purposes. In EU export law the word has a specific legal meaning, set by Regulation (EU) 2021/821. On a funding call here, “dual-use” is a label DefenceGate gives, and the label is ours, not the programme’s, and not an export-control classification. We give it to all Digital Europe calls, to Horizon Europe’s civil-security, digital, industry and space areas and the European Innovation Council, and to Connecting Europe military-mobility topics. Calls under a defence programme (EDF, EDIP) are labelled defence. Because the rule names whole programmes, most open calls carry the label.',
     source: 'EUR-Lex',
+    see: { label: 'The rule in the methodology', href: '/methodology#s-what-defence-and-dual-use-mean-here' },
+  },
+  {
+    id: 'action-type', term: 'Action type',
+    body: 'The kind of grant a funding call offers, as the EU portal codes it, for example EDF-LS for a European Defence Fund lump sum grant or HORIZON-EIC for a European Innovation Council grant. We show the portal’s code and do not interpret it; the call text explains what the grant covers.',
+    source: 'EU Funding & Tenders Portal',
+  },
+  {
+    id: 'call-and-topic', term: 'Call and topic',
+    full: 'Call budget and topic budget',
+    body: 'On the EU portal a call for proposals is split into topics, and you apply to a topic. Topics of one call can share a single budget: then the card says “Call budget” and the same figure appears on each of them, because the portal does not say how the pot is split. A figure marked “Topic budget” belongs to that topic alone.',
+    source: 'EU Funding & Tenders Portal',
+  },
+  {
+    id: 'call-status', term: 'Open, Opens soon, Opening date passed',
+    body: 'Open: the call takes proposals and its deadline is ahead. Opens soon: the source lists the call as forthcoming and its opening day is still ahead. Opening date passed: the source still lists the call as forthcoming, its opening day has passed and it states no deadline. A call the source calls forthcoming whose opening day has passed and whose deadline is ahead is shown as Open, and says so. Closing soon: open, with a deadline within 30 days.',
+  },
+  {
+    id: 'date-only-deadline', term: 'Date only (deadline)',
+    body: 'The EU portal and several national sources give the closing day and not the hour. We show the date, say that the time is not published by the source, and keep the call open through the end of that day. If the call has an hour, it is in the call text.',
   },
   {
     id: 'eda', term: 'EDA', full: 'European Defence Agency',
@@ -79,6 +99,22 @@ export const GLOSSARY: GlossaryEntry[] = [
     see: { label: 'EDF and EDIP calls', href: '/funding?programme=EDF' },
   },
   {
+    id: 'digital-europe', term: 'Digital Europe', full: 'Digital Europe Programme',
+    body: 'An EU programme for 2021 to 2027 that funds digital capacity such as cybersecurity and artificial intelligence. It is a civil programme, and all its calls carry our dual-use label.',
+    source: 'EU Funding & Tenders Portal',
+    see: { label: 'Digital Europe calls', href: '/funding?programme=DIGITAL' },
+  },
+  {
+    id: 'cef', term: 'CEF', full: 'Connecting Europe Facility',
+    body: 'An EU programme for transport, energy and digital infrastructure. We list only its military-mobility topics, which adapt transport corridors so that armed forces can use them as well as civilians, and label them dual-use.',
+    source: 'EU Funding & Tenders Portal',
+  },
+  {
+    id: 'eic', term: 'EIC', full: 'European Innovation Council',
+    body: 'A part of Horizon Europe that funds innovation by start-ups and small companies. Its Accelerator is a place where a single small company can apply without a consortium; each call’s own text says who may apply. We label its calls dual-use.',
+    source: 'EU Funding & Tenders Portal',
+  },
+  {
     id: 'eforms', term: 'eForms',
     body: 'The EU standard electronic format for public procurement notices, used on TED. It defines the fields a notice carries, so that notices from different countries can be read and compared in the same way.',
     source: 'TED and the Publications Office of the European Union',
@@ -86,6 +122,17 @@ export const GLOSSARY: GlossaryEntry[] = [
   {
     id: 'framework-agreement', term: 'Framework agreement',
     body: 'An agreement between a buyer and one or more suppliers that sets the terms for contracts to be awarded during a period. The buyer then places orders or runs mini-competitions under it. Being a party to a framework does not guarantee any order.',
+  },
+  {
+    id: 'horizon-europe', term: 'Horizon Europe',
+    body: 'The EU research and innovation programme for 2021 to 2027. Its calls are grouped in clusters and other parts; we list the civil-security, digital, industry and space areas and the European Innovation Council, and label them dual-use. It is not a defence fund.',
+    source: 'EU Funding & Tenders Portal',
+    see: { label: 'Horizon Europe calls', href: '/funding?programme=HORIZON' },
+  },
+  {
+    id: 'horizon-cluster-3', term: 'Horizon Cluster 3', full: 'Civil Security for Society (CL3)',
+    body: 'The part of Horizon Europe for civil security research, such as protection against crime, border management and resilience. Its topic codes begin HORIZON-CL3. It is a civil programme: we label its calls dual-use, and the call text, not our label, says who may apply.',
+    source: 'EU Funding & Tenders Portal',
   },
   {
     id: 'lot', term: 'Lot',
@@ -117,6 +164,11 @@ export const GLOSSARY: GlossaryEntry[] = [
     id: 'restricted-procedure', term: 'Restricted procedure',
     body: 'A two-stage procedure. Any supplier may ask to take part, but only those the buyer selects after the first stage are invited to submit a tender.',
     source: 'Directive 2009/81/EC on EUR-Lex',
+  },
+  {
+    id: 'usi', term: 'USI', full: 'Ukraine Support Instrument',
+    body: 'Some calls of the EDIP programme are run under the Ukraine Support Instrument: their identifiers contain EDIP-USI and the call text names the instrument. They are listed with the EDF calls.',
+    source: 'EU Funding & Tenders Portal',
   },
   {
     id: 'safe', term: 'SAFE', full: 'Security Action for Europe',

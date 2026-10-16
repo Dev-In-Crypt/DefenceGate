@@ -3,7 +3,8 @@ import { sourceById } from './sources';
 import { deadlineState, now } from '../deadline';
 import { PROGRAMMES } from '../taxonomy';
 import type { Call, CallFilters, CallStatus, CountryCode, CurrencyCode, EligibilityItem, Paginated, ProgrammeCode, Regime } from '../types';
-import { DEFAULT_CURRENCY, DEFAULT_PAGE_SIZE } from '../filters';
+import { DEFAULT_CURRENCY, DEFAULT_PAGE_SIZE, defaultCallSort } from '../filters';
+import { parseQuery } from '../text-search';
 
 interface RawCall {
   slug: string; programme: ProgrammeCode; programmeName?: string; callId: string | null; topicId: string;
@@ -30,11 +31,13 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
   return {
     id, slug: `${id}-${r.slug}`, programme: r.programme,
     programmeName: r.programmeName ?? PROGRAMMES[r.programme].name,
+    // The issuing body of a national call, otherwise the Commission (backend/dgate/funding.py funder_of).
+    funder: r.issuer ?? (r.programme === 'NATIONAL' ? (r.programmeName ?? PROGRAMMES[r.programme].name) : 'European Commission'),
     callId: r.callId, topicId: r.topicId,
     title: r.title, titleLanguage: r.titleLanguage ?? 'en',
     originalTitle: r.originalTitle ?? null, originalLanguage: r.originalLanguage ?? null,
     regime: r.regime, funderCountry: r.country, issuer: r.issuer ?? null,
-    status, openingDate: r.opening, deadline: r.deadline,
+    status, sourceStatus: status, openingDate: r.opening, deadline: r.deadline,
     budget: r.budget ? { amount: r.budget[0], currency: r.budget[1] } : null,
     budgetScope: r.budget ? (r.budgetScope ?? 'topic') : null,
     actionType: r.actionType, fundingRate: r.fundingRate, scope: r.scope,
@@ -56,7 +59,7 @@ export function allCalls(ref: Date = now(), detail = false): Call[] {
 const time = (iso: string) => new Date(iso).getTime();
 
 export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
-  const q = f.q?.toLowerCase();
+  const query = f.q ? parseQuery(f.q) : undefined;
   const status = f.status ?? 'open';
   const currency = f.currency ?? DEFAULT_CURRENCY;
   /** Budget amount in the selected currency only. Amounts in other currencies are never compared with it. */
@@ -84,11 +87,11 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
       if (f.budgetMin !== undefined && amount < f.budgetMin) return false;
       if (f.budgetMax !== undefined && amount > f.budgetMax) return false;
     }
-    if (q && ![c.title, c.originalTitle, c.callId, c.topicId, c.issuer].some((s) => s?.toLowerCase().includes(q))) return false;
+    if (f.q && !(query && query.matches([c.title, c.originalTitle, c.issuer].filter(Boolean).join(' '), [c.callId, c.topicId].filter(Boolean).join(' ')))) return false;
     return true;
   });
 
-  const sort = f.sort ?? 'deadline-asc';
+  const sort = f.sort ?? defaultCallSort(status);
   items = items.sort((a, b) => {
     // Closed calls always last; calls without a deadline after those with one.
     const closedA = a.status === 'closed', closedB = b.status === 'closed';
@@ -106,7 +109,10 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
 
   const pageSize = f.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = f.page ?? 1;
-  return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+  return {
+    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize,
+    search: f.q ? { terms: query?.terms ?? [], alsoSearched: query?.alsoSearched ?? [] } : null,
+  };
 }
 
 /** Like the API: only the leading integer of "<id>-<words>" is looked up. */

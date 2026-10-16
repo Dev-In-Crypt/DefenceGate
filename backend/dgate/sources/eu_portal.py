@@ -38,6 +38,7 @@ import logging
 import re
 from datetime import UTC, date, datetime, time
 from typing import Any, Iterator
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -352,6 +353,33 @@ def conditions_text(details: dict[str, Any]) -> str | None:
     return text or None
 
 
+_ANCHOR = re.compile(r"""<a\s[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""", re.I | re.S)
+MAX_DOCUMENTS = 12
+
+
+def call_documents(details: dict[str, Any]) -> list[dict[str, str]]:
+    """The documents the conditions block links: the call document, the application form
+    templates, the work programme (ux-funding F9). Links to the Commission's own hosts only
+    (europa.eu), each address once, labelled with the source's own words for it."""
+    raw = details.get("conditions")
+    if not isinstance(raw, str):
+        return []
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for href, inner in _ANCHOR.findall(raw):
+        url = html.unescape(href).strip()
+        parts = urlsplit(url)
+        host = (parts.hostname or "").lower()
+        if parts.scheme != "https" or not (host == "europa.eu" or host.endswith(".europa.eu")):
+            continue
+        label = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", inner))).strip()
+        if not label or url in seen:
+            continue
+        seen.add(url)
+        out.append({"label": label[:1].upper() + label[1:120], "url": url})
+    return out[:MAX_DOCUMENTS]
+
+
 def consortium_rule(text: str | None) -> tuple[int | None, int | None]:
     """How many members, and from how many countries, the call requires.
 
@@ -473,6 +501,7 @@ def detail_fields(details: dict[str, Any], identifier: str) -> dict[str, Any]:
             "mga": [m.get("abbreviation") for m in (details.get("topicMGAs") or [])],
             "tags": details.get("tags") or [],
             "for_smes": bool(details.get("sme")),
+            "documents": call_documents(details),
             "submission_urls": [link.get("url") for link in (details.get("links") or [])
                                 if link.get("url")],
         },

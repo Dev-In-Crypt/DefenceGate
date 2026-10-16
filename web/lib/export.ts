@@ -56,7 +56,7 @@ export function callRow(c: Call): Cell[] {
   const status = kind === 'closed' ? 'Closed' : kind === 'upcoming' ? 'Opens soon' : kind === 'pending' ? 'Opening date passed' : 'Open';
   const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? c.budget : null;
   return [
-    c.id, c.title, c.issuer ?? c.programmeName, c.funderCountry, c.programmeName, c.callId, c.topicId, c.actionType,
+    c.id, c.title, c.funder, c.funderCountry, c.programmeName, c.callId, c.topicId, c.actionType,
     isoUtc(c.openingDate, c.openingDate !== null && isMidnight(c.openingDate)), isoUtc(dl, dl !== null && isMidnight(dl)),
     budget?.amount, budget?.currency, budget ? c.budgetScope : null, status,
     c.source.sourceName, safeHttpUrl(c.source.url) ?? '', c.source.licence, c.source.attribution, isoUtc(c.source.retrievedAt),

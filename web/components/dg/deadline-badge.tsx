@@ -71,6 +71,8 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className 
         <time dateTime={d.iso ?? undefined}>{d.countdown}</time>
       </span>
       {d.utc && <span className={cn('font-mono tabular-nums', lg ? 'text-mono-strong' : 'text-[12px] leading-4', t.date)}>{d.utc}</span>}
+      {/* The source gives a day. What time that day ends is in its call text, so say that and no more. */}
+      {d.dateOnly && d.state !== 'closed' && <span className={cn('font-sans', lg ? 'text-small' : 'text-[12px] leading-4', t.label)}>Time not published by the source</span>}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Button } from '../dg/button';
 import { Choice, Fieldset, Select, TextInput } from '../dg/form';
 import { FilterPanel } from './filter-panel';
 import { COUNTRIES, CURRENCIES, FUNDER_COUNTRIES, PROGRAMMES, PROGRAMME_CODES, REGIMES, REGIME_CODES } from '@/lib/taxonomy';
-import { DEFAULT_CURRENCY, MAX_QUERY_LENGTH, PARAM, activeFilterCount } from '@/lib/filters';
+import { DEFAULT_CURRENCY, MAX_QUERY_LENGTH, PARAM, activeFilterCount, defaultCallSort } from '@/lib/filters';
 import type { CallFilters, CallStatusFilter, CountryCode } from '@/lib/types';
 
 export type FilterGroup = 'status' | 'programme' | 'regime' | 'country';
@@ -32,7 +32,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   return (
     <FilterPanel activeCount={activeFilterCount(filters)}>
       <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className="flex flex-col gap-6 rounded-lg bg-surface p-5">
-        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} />
+        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Whole words; counter-drone and counter drone are the same, and drone also finds unmanned." />
         {show('status') && (
           <Fieldset legend="Status">
             {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? 'open') === o.value} />)}
@@ -47,7 +47,10 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
         {show('regime') && (
           <Fieldset legend="Regime">
             {REGIME_CODES.map((r) => <Choice key={r} name={PARAM.regime} value={r} label={REGIMES[r]} defaultChecked={filters.regime?.includes(r)} />)}
-            <p className="m-0 text-small text-ink-muted">Dual-use is our label for calls under civil programmes we treat as dual-use. It is not the programme’s label.</p>
+            <p className="m-0 text-small text-ink-muted">
+              Dual-use is our label for calls under civil programmes we treat as dual-use. It is not the programme’s label.
+              See the <Link href="/methodology#s-what-defence-and-dual-use-mean-here" className="font-semibold">rule</Link> and the <Link href="/glossary#dual-use" className="font-semibold">glossary</Link>.
+            </p>
           </Fieldset>
         )}
         {show('country') && (
@@ -68,7 +71,8 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
           <Select name={PARAM.max} aria-label="Maximum budget" placeholder="No maximum" options={budgetOptions} defaultValue={filters.budgetMax?.toString() ?? ''} />
           <p className="m-0 text-small text-ink-muted">Amounts are shown and filtered in the currency the source states. Nothing is converted.</p>
         </Fieldset>
-        {filters.sort && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
+        {/* Only a sort the visitor chose travels on: the default depends on the status, which the form may change. */}
+        {filters.sort && filters.sort !== defaultCallSort(filters.status) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
         {view && <input type="hidden" name={PARAM.view} value={view} />}
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit">Apply filters</Button>

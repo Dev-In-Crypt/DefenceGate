@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import type { Call, Tender } from './types';
-import { PROGRAMMES, COUNTRIES } from './taxonomy';
 import { safeHttpUrl } from './safe-url';
 
 export const SITE = {
@@ -60,7 +59,7 @@ export function callJsonLd(call: Call) {
   return {
     '@context': 'https://schema.org', '@type': 'MonetaryGrant',
     name: call.title, inLanguage: call.titleLanguage, identifier: call.topicId, url: absoluteUrl(`/funding/${call.slug}`),
-    funder: { '@type': 'Organization', name: call.programme === 'NATIONAL' ? (call.issuer ?? `${COUNTRIES[call.funderCountry]} national programme`) : PROGRAMMES[call.programme].name },
+    funder: { '@type': 'Organization', name: call.funder },
     ...(call.budget ? { amount: { '@type': 'MonetaryAmount', currency: call.budget.currency, value: call.budget.amount } } : {}),
     ...(basedOn ? { isBasedOn: basedOn } : {}),
     sdDatePublished: call.source.retrievedAt,

@@ -5,7 +5,7 @@
  * change twice, and `updated` is when we last observed that day's change. Titles, buyers, countries, dates and
  * statuses only, as everywhere else: no contact data and nothing about what is being bought beyond its title.
  */
-import type { Change } from './types';
+import type { Change, FundingChange } from './types';
 
 export interface AtomOptions {
   /** Site origin, no trailing slash: https://defencegatehub.com */
@@ -58,10 +58,28 @@ export function entryTitle(c: Change): string {
   return `${c.kind === 'new' ? 'New' : 'Amended'}: ${c.tender.title}`;
 }
 
-export function buildAtom(changes: Change[], o: AtomOptions): string {
-  const updated = changes.reduce((m, c) => (c.detectedAt > m ? c.detectedAt : m), '') || o.generatedAt;
+/** Funding entries have their own kinds (`call-new`, `call-amended`), so a reader can tell them from notices. */
+function fundingEntry(f: FundingChange, o: AtomOptions): string {
+  const c = f.call;
+  const lines = f.changes.map((l) => `${l.label}: ${l.before ?? 'not stated'} to ${l.after ?? 'not stated'}`);
+  const text = f.kind === 'call-new' ? `New funding call: ${c.funder}, ${c.programmeName}.` : `Funding call from ${c.funder}, ${c.programmeName}. ${lines.join('. ')}.`;
+  return [
+    '  <entry>',
+    `    <id>${xmlText(tagId(o.origin, 'change', f.id))}</id>`,
+    `    <title>${xmlText(`${f.kind === 'call-new' ? 'New funding call' : 'Funding call, date moved'}: ${c.title}`)}</title>`,
+    `    <link rel="alternate" type="text/html" href="${xmlText(`${o.origin}/funding/${c.slug}`)}"/>`,
+    `    <updated>${rfc3339(f.detectedAt)}</updated>`,
+    `    <category term="${f.kind}"/>`,
+    `    <summary type="text">${xmlText(text)}</summary>`,
+    '  </entry>',
+  ].join('\n');
+}
+
+export function buildAtom(changes: Change[], o: AtomOptions, funding: FundingChange[] = []): string {
+  const stamps = [...changes.map((c) => c.detectedAt), ...funding.map((f) => f.detectedAt)];
+  const updated = stamps.reduce((m, s) => (s > m ? s : m), '') || o.generatedAt;
   const self = `${o.origin}${o.selfPath}`;
-  const entries = changes.map((c) => {
+  const entries = [...funding.map((f) => fundingEntry(f, o)), ...changes.map((c) => {
     const link = `${o.origin}/tenders/${c.tender.slug}`;
     return [
       '  <entry>',
@@ -73,7 +91,7 @@ export function buildAtom(changes: Change[], o: AtomOptions): string {
       `    <summary type="text">${xmlText(summary(c))}</summary>`,
       '  </entry>',
     ].join('\n');
-  });
+  })];
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">',

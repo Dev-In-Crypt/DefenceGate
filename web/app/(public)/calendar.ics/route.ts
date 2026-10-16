@@ -3,7 +3,8 @@ import { searchParamsOf } from '@/lib/export';
 import { buildIcs } from '@/lib/ics';
 
 /**
- * The deadline calendar as an iCalendar file: open tenders and funding calls with a deadline, soonest first,
+ * The deadline calendar as an iCalendar file: open tenders and funding calls with a deadline, soonest first, and
+ * for each funding call that has not opened its opening day and planned deadline as events of their own,
  * at most 500 events. `kind` (all, tenders, funding) and `country` narrow it like the page. Cached for an hour.
  */
 export async function GET(request: Request): Promise<Response> {
@@ -17,7 +18,10 @@ export async function GET(request: Request): Promise<Response> {
   }
   const hour = new Date();
   hour.setUTCMinutes(0, 0, 0);
-  return new Response(buildIcs(filterEntries(data.entries, { kind, countries }), hour), {
+  // Deadlines of open notices, then the opening days and planned deadlines of funding calls that have not opened.
+  const events = [...data.entries, ...data.upcoming].sort(
+    (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key));
+  return new Response(buildIcs(filterEntries(events, { kind, countries }), hour), {
     headers: {
       'content-type': 'text/calendar; charset=utf-8',
       'content-disposition': 'inline; filename="defencegate-deadlines.ics"',

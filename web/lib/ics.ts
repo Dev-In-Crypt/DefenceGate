@@ -45,9 +45,15 @@ function event(e: CalendarEntry, dtstamp: string): string[] {
   const start = new Date(e.deadline);
   const url = absoluteUrl(e.href);
   const kind = e.kind === 'tender' ? 'Tender' : 'Funding call';
+  const opens = e.event === 'opens';
+  // An opening and a call's planned deadline are their own events (own UID), so a calendar shows both and the
+  // deadline keeps its UID when the call opens.
+  const word = opens ? 'Opens' : e.planned ? 'Deadline, call not open yet' : 'Deadline';
   const description = [
     `${kind}: ${e.who}${e.country ? ` (${countryName(e.country)})` : ''}.`,
-    `Deadline ${e.when}.`,
+    opens ? `Planned opening ${e.when}. The source may move it.` : `Deadline ${e.when}.`,
+    e.dateOnly && !opens ? 'The source publishes a day and no time.' : null,
+    e.planned && !opens ? 'The call has not opened: the date is the source’s plan.' : null,
     e.note,
     `Source: ${e.sourceName}.`,
     'The original notice is authoritative: check it at the source before you act.',
@@ -61,7 +67,7 @@ function event(e: CalendarEntry, dtstamp: string): string[] {
     lines.push(`DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + EVENT_MINUTES * 60_000))}`);
   }
   lines.push(
-    `SUMMARY:${icsText(`Deadline: ${e.title}`, SUMMARY_MAX)}`,
+    `SUMMARY:${icsText(`${word}: ${e.title}`, SUMMARY_MAX)}`,
     `DESCRIPTION:${icsText(description, DESCRIPTION_MAX)}`,
     `URL:${url}`,
     'TRANSP:TRANSPARENT',
@@ -80,7 +86,7 @@ export function buildIcs(entries: CalendarEntry[], at: Date = new Date()): strin
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:DefenceGate deadlines',
-    `X-WR-CALDESC:${icsText('Deadlines of open defence tenders and funding calls, in UTC. The original notice is authoritative.', DESCRIPTION_MAX)}`,
+    `X-WR-CALDESC:${icsText('Deadlines of open defence tenders and funding calls, and the opening days of calls that have not opened, in UTC. The original notice is authoritative.', DESCRIPTION_MAX)}`,
     ...entries.slice(0, ICS_MAX_EVENTS).flatMap((e) => event(e, dtstamp)),
     'END:VCALENDAR',
   ];

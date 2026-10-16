@@ -104,3 +104,8 @@ export function formatNumber(n: number): string {
 export function formatPercent(share: number): string {
   return `${Math.round(share * 100)}%`;
 }
+
+/** "European Commission · European Defence Fund": who pays and the programme in full; said once when they are the same. */
+export function funderLine(c: { funder: string; programmeName: string }): string {
+  return c.funder === c.programmeName ? c.funder : `${c.funder} · ${c.programmeName}`;
+}

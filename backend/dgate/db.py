@@ -1365,7 +1365,32 @@ def upsert_call(conn: psycopg.Connection, call: Any, content_hash: str,
     if "deadline_at" in changed:
         log.warning("call %s deadline moved: %s -> %s", call.topic_code or call.native_id,
                     before.get("deadline_at"), call.deadline_at)
+    record_call_dates(conn, call_id, before, call)
     return call_id, ("changed" if changed else "unchanged"), changed
+
+
+def _call_day(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).date().isoformat()
+    return value.isoformat() if isinstance(value, date) else None
+
+
+def record_call_dates(conn: psycopg.Connection, call_id: int, before: dict[str, Any],
+                      call: Any) -> None:
+    """Note a date the SOURCE moved on a call we already held (`call_change`, migration 0053).
+
+    Called only where the payload itself changed. A date counts when its calendar day (UTC)
+    differs, so re-expressing the same closing day (a date-only deadline kept as the end of its
+    day) is not a change. A date that was not stated and now is, or the reverse, is recorded
+    with the empty side null."""
+    for field in ("deadline_at", "opens_at"):
+        new = getattr(call, field, None)
+        old = before.get(field)
+        if new is None or _call_day(old) == _call_day(new):
+            continue
+        conn.execute(
+            "INSERT INTO call_change (call_id, field, before_value, after_value) VALUES (%s, %s, %s, %s)",
+            (call_id, field, _call_day(old), _call_day(new)))
 
 
 # Columns the topic detail document fills. Separate from CALL_FIELDS because

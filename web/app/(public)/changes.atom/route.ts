@@ -21,15 +21,18 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
   const query = toChangeQuery({ country: filters.country, scope: filters.scope });
+  // Funding calls (new, or a date moved) travel in the same feed under their own categories; only the unfiltered
+  // by-scope view carries them, as in the API.
+  const funding = data.funding ?? [];
   const body = buildAtom(data.items, {
     origin: SITE.url.replace(/\/$/, ''),
     selfPath: `/changes.atom${query}`,
     pagePath: `/changes${query}`,
     title: 'DefenceGate: what changed',
-    subtitle: `New defence and dual-use notices and amendments to their deadline, value, status or procedure, from the last ${data.windowDays} days. Our archive began in September 2026.`,
+    subtitle: `New defence and dual-use notices and amendments to their deadline, value, status or procedure, and new funding calls and moved funding dates, from the last ${data.windowDays} days. Our archive began in September 2026.`,
     generatedAt: data.windowTo,
-  });
-  const lastModified = new Date(data.items.reduce((m, c) => (c.detectedAt > m ? c.detectedAt : m), data.windowFrom));
+  }, funding);
+  const lastModified = new Date([...data.items, ...funding].reduce((m, c) => (c.detectedAt > m ? c.detectedAt : m), data.windowFrom));
   const etag = etagOf(body);
   const headers = {
     etag,

@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from . import db
+from . import db, textsearch
 from .config import settings
 from .normalise import http_url, redact_emails
 from .suppress import removed
@@ -69,10 +69,19 @@ ROLLING_MODELS = "('continuous', 'rolling', 'multiple cut-off')"
 # A call that has not opened (`forthcoming`) and whose deadline has passed never opens
 # (7 of 32 "Opens soon" on 14 October 2026): it is closed here, in the one place the web, the
 # API and the CSV read it from, not worked out again by each.
+#
+# A call the source still lists as `forthcoming` whose opening day has come and whose deadline
+# is ahead is open (ux-funding F1, 16 October 2026: 9 calls, among them 3 EIC Pathfinder calls
+# closing 28 October, sat in "Opens soon" and were missing from Open now, Closing soon, the
+# calendar and the .ics). The dates decide; `sourceStatus` still carries the source's word.
+# This one expression is the only place the rule lives: the list filters, the sort, the
+# calendar, the .ics and the CSV all read `status` from it.
 EFFECTIVE_STATUS = f"""(CASE
     WHEN c.status IN ('open', 'forthcoming') AND c.deadline_at < now()
          AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '')
              NOT IN {ROLLING_MODELS} THEN 'closed'
+    WHEN c.status = 'forthcoming' AND c.opens_at <= (now() AT TIME ZONE 'UTC')::date
+         AND c.deadline_at >= now() THEN 'open'
     WHEN c.status = 'evaluated' OR c.status IS NULL THEN 'closed'
     ELSE c.status END)"""
 
@@ -85,6 +94,11 @@ class Budget(BaseModel):
 class Row(BaseModel):
     label: str
     value: str
+
+
+class Document(BaseModel):
+    label: str
+    url: str
 
 
 class SourceAttribution(BaseModel):
@@ -137,6 +151,9 @@ class FundingCall(BaseModel):
     slug: str
     programme: str
     programmeName: str
+    # The body that pays: the issuing body of a national call, otherwise the Commission, which
+    # runs the portal the EU calls come from (ux-funding F6). Never a guess from the title.
+    funder: str
     callId: str | None
     topicId: str
     title: str
@@ -147,6 +164,9 @@ class FundingCall(BaseModel):
     funderCountry: str
     issuer: str | None
     status: str
+    # What the source itself says (`forthcoming`, `open`, `closed`...). It differs from `status`
+    # when the dates settle it: an opening day that has passed makes a forthcoming call open.
+    sourceStatus: str | None = None
     openingDate: datetime | None
     deadline: datetime | None
     deadlineIsDate: bool = False
@@ -168,6 +188,12 @@ class FundingCall(BaseModel):
 
 class FundingCallDetail(FundingCall):
     conditionsText: str | None = None
+    # Who may apply, in the source's own words where it gives them (the eligible-countries and
+    # other-eligibility sections of its conditions) and from its structured fields (applicants of
+    # a national call). Empty when the source gives nothing: the page then points at the call text.
+    whoCanApply: list[Row] = []
+    # The official documents the source links from the call (call document, application forms...).
+    documents: list[Document] = []
 
 
 def serves_meta() -> bool:
@@ -183,12 +209,19 @@ class ListMeta(BaseModel):
     updatedAt: datetime | None = None
 
 
+class SearchInfo(BaseModel):
+    # The words searched (folded), and the synonyms searched as well: "also searched: ...".
+    terms: list[str]
+    alsoSearched: list[str]
+
+
 class FundingPage(BaseModel):
     items: list[FundingCall]
     total: int
     page: int
     pageSize: int
     meta: ListMeta = ListMeta()
+    search: SearchInfo | None = None
 
 
 class SourceHealth(BaseModel):
@@ -340,6 +373,65 @@ def titles(programme_code: str, country: str | None, title: str,
     return title, national, None, None
 
 
+# The body behind an EU programme's calls: the portal they are read from is the Commission's
+# (sources/eu_portal.py, "Operator: European Commission (SEDIA)").
+EU_FUNDER = "European Commission"
+
+
+def funder_of(programme_code: str, issuer: str | None, programme_name: str) -> str:
+    """Who pays, from the call's own fields: the issuing body where the source names one, the
+    programme for a national call without one, otherwise the Commission."""
+    if issuer and issuer.strip():
+        return issuer.strip()
+    return programme_name if NATIONAL_PROGRAMME.match(programme_code) else EU_FUNDER
+
+
+# The two sections of an EU call's conditions that answer "who can apply". The source writes
+# them as numbered headings ("2. Eligible countries", "3. Other eligibility conditions"); the
+# text has been flattened by then (`sources.eu_portal.conditions_text`), so a section runs to
+# the next numbered heading.
+_NEXT_HEADING = r"(?=\s\d[a-c]?\.\s+[A-Z]|\Z)"
+_WHO_SECTIONS = (
+    ("Eligible countries", re.compile(
+        r"(?:^|\s)2\.\s+(?i:eligible\s+countries)\s+(.*?)" + _NEXT_HEADING, re.S)),
+    ("Other eligibility conditions", re.compile(
+        r"(?:^|\s)3\.\s+(?i:other\s+eligib\w+\s+conditions)\s+(.*?)" + _NEXT_HEADING, re.S)),
+)
+WHO_MAX_CHARS = 700
+# The labels of a national call's structured fields that say who may apply.
+WHO_LABELS = ("Applicants", "Beneficiaries")
+MAX_DOCUMENTS = 12
+
+
+def who_can_apply(conditions_text: str | None, terms: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Label/value rows answering "who can apply", only from what the source states."""
+    out = [dict(r) for r in terms if r["label"] in WHO_LABELS]
+    for label, pattern in _WHO_SECTIONS:
+        m = pattern.search(conditions_text or "")
+        if not m:
+            continue
+        value = re.sub(r"\s+([.,;:])", lambda g: g.group(1), re.sub(r"\s+", " ", m.group(1))).strip()
+        if len(value) < 3:
+            continue
+        if len(value) > WHO_MAX_CHARS:
+            value = value[:WHO_MAX_CHARS].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
+        out.append({"label": label, "value": value[0].upper() + value[1:]})
+    return out
+
+
+def documents_of(cond: dict[str, Any]) -> list[dict[str, str]]:
+    """The documents the source links from the call, as the connector stored them."""
+    out: list[dict[str, str]] = []
+    for d in cond.get("documents") or []:
+        if not isinstance(d, dict):
+            continue
+        url = http_url(d.get("url"))
+        label = str(d.get("label") or "").strip()
+        if url and url.startswith("https://") and label:
+            out.append({"label": redact_emails(label[:120]), "url": url})
+    return out[:MAX_DOCUMENTS]
+
+
 def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
     from .api import _attribution  # api includes this router, so import it late
 
@@ -352,6 +444,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "slug": make_slug(r["id"], r["title"]),
         "programme": programme_of(prog),
         "programmeName": r["programme_name"],
+        "funder": redact_emails(funder_of(prog, r.get("issuer"), r["programme_name"])),
         "callId": r.get("call_identifier"),
         "topicId": r.get("topic_code") or r["native_id"],
         "title": redact_emails(heading),
@@ -362,6 +455,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "funderCountry": r.get("country") or "EU",
         "issuer": redact_emails(r.get("issuer")),
         "status": status,
+        "sourceStatus": r.get("status"),
         "openingDate": _day(r.get("opens_at")),
         "deadline": r.get("deadline_at"),
         # The source gave a day and no time: print the date only. Stored as the end of
@@ -396,6 +490,8 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         may_serve = r["source_code"] in SOURCE_TEXT_SOURCES and r.get("source_commercial_ok") is True
         text = r.get("eligibility_text") if may_serve else None
         out["conditionsText"] = redact_emails(text.strip()) if text and text.strip() else None
+        out["whoCanApply"] = redact_emails(who_can_apply(out["conditionsText"], out["eligibility"]))
+        out["documents"] = documents_of(cond) if may_serve else []
     return out
 
 
@@ -436,7 +532,8 @@ def list_funding(
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
     currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
-    sort: str = Query("deadline-asc", pattern="^(deadline-asc|deadline-desc|budget-desc)$"),
+    # Soonest first, except on a closed list: its soonest is the oldest, so the newest leads (F13).
+    sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|budget-desc)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
@@ -452,11 +549,18 @@ def list_funding(
         where.append(f"{EFFECTIVE_STATUS} = %s")
         params.append(status)
 
+    search = None
     if q and q.replace("\x00", "").strip():
-        like = _like(q.replace("\x00", "").strip())
-        where.append("(c.title ILIKE %s OR c.topic_code ILIKE %s OR c.call_identifier ILIKE %s "
-                     "OR c.issuer ILIKE %s OR c.conditions_raw->>'title_sv' ILIKE %s)")
-        params += [like] * 5
+        # Word search over the call texts, in Python (textsearch.py): the SQL then takes the ids.
+        query = textsearch.parse(q.replace("\x00", ""))
+        hits = [r["id"] for r in conn.execute(
+            """SELECT c.id, concat_ws(' ', c.title, c.issuer, c.conditions_raw->>'title_sv') AS text,
+                      concat_ws(' ', c.topic_code, c.call_identifier) AS codes
+                 FROM call c WHERE NOT c.suppressed""").fetchall()
+                if query is not None and query.matches(r["text"], r["codes"])]
+        where.append("c.id = ANY(%s)")
+        params.append(hits)
+        search = {"terms": query.terms if query else [], "alsoSearched": query.also if query else []}
 
     wanted = [c.upper() for c in _csv(programme)]
     unknown = sorted(set(wanted) - PROGRAMME_CHIPS)
@@ -521,6 +625,7 @@ def list_funding(
 
     # An open call held open past its cut-off (continuous, several cut-offs) sorts after
     # the ones with a deadline still to come, not first because its date is oldest.
+    sort = sort or ("deadline-desc" if status == "closed" else "deadline-asc")
     closed_last = (f"({EFFECTIVE_STATUS} = 'closed') ASC, "
                    f"({EFFECTIVE_STATUS} = 'open' AND c.deadline_at < now()) ASC")
     if sort == "budget-desc":
@@ -541,7 +646,7 @@ def list_funding(
     from .stats import cached_last_run  # stats imports tenders, which imports this module
 
     return {"items": [to_call(r) for r in rows], "total": total,
-            "page": page, "pageSize": pageSize,
+            "page": page, "pageSize": pageSize, "search": search,
             "meta": {"updatedAt": cached_last_run(conn, "grant") if with_meta is True else None}}
 
 

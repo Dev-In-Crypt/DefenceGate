@@ -52,6 +52,8 @@ export interface Call {
   programme: ProgrammeCode;
   /** "Horizon Europe", "Vinnova calls in the civil-military ..." */
   programmeName: string;
+  /** Who pays: the issuing body of a national call, otherwise the European Commission (the portal's operator). */
+  funder: string;
   /** EU call identifier; null for national sources. */
   callId: string | null;
   /** EU topic code, or the source's own identifier. */
@@ -70,6 +72,11 @@ export interface Call {
   /** The body that issues a national call. */
   issuer: string | null;
   status: CallStatus;
+  /**
+   * The source's own word for the status. It differs from `status` when the dates settle it: a call the source still
+   * lists as forthcoming whose opening day has passed and whose deadline is ahead is served open.
+   */
+  sourceStatus?: string | null;
   openingDate: IsoDateTime | null;
   /** null: no stated deadline (a standing call). Never "closed". */
   deadline: IsoDateTime | null;
@@ -95,6 +102,15 @@ export interface Call {
   source: SourceAttribution;
   /** Detail only: the source's own conditions text, in its language, unedited. */
   conditionsText?: string | null;
+  /** Detail only: who may apply, in the source's words where it gives them. Empty: the source says nothing. */
+  whoCanApply?: EligibilityItem[];
+  /** Detail only: the official documents the source links from the call. */
+  documents?: CallDocument[];
+}
+
+export interface CallDocument {
+  label: string;
+  url: string;
 }
 
 export type CallStatusFilter = 'open' | 'forthcoming' | 'closing-soon' | 'closed' | 'all';
@@ -120,11 +136,18 @@ export interface CallFilters {
   pageSize?: number;
 }
 
+/** `/v1/funding` with a search text: the words searched and the synonyms searched as well. */
+export interface SearchInfo {
+  terms: string[];
+  alsoSearched: string[];
+}
+
 export interface Paginated<T> {
   items: T[];
   total: number;
   page: number;
   pageSize: number;
+  search?: SearchInfo | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
   meta?: { updatedAt?: string | null } | null;
 }
@@ -284,7 +307,23 @@ export interface ChangePage {
   windowFrom: IsoDateTime;
   windowTo: IsoDateTime;
   counts: { new: number; amended: number };
+  /** Funding calls first collected in the window or whose dates the source moved; page 1 only. Absent on older API builds. */
+  funding?: FundingChange[];
+  /** How many such calls there are in all, whatever the page. */
+  fundingTotal?: number;
   meta?: { updatedAt?: string | null } | null;
+}
+/** A funding call that is new in the window (`call-new`) or whose closing or opening date the source moved (`call-amended`). */
+export type FundingChangeKind = 'call-new' | 'call-amended';
+export interface FundingChange {
+  /** "call-<call id>-<YYYYMMDD>": one per call per UTC day. */
+  id: string;
+  kind: FundingChangeKind;
+  day: string;
+  detectedAt: IsoDateTime;
+  /** Empty for `call-new`. `before` and `after` are ISO days. */
+  changes: FieldChange[];
+  call: Call;
 }
 /** `scope` absent: defence notices and supplies to defence buyers together. */
 export interface ChangeFilters {

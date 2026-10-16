@@ -52,8 +52,9 @@ test('/changes.atom is a valid Atom 1.0 feed and answers conditional requests', 
       ids.add(id);
       if (kid(entry, 'title').length !== 1) problems.push(`entry ${id}: needs one title`);
       if (!RFC3339.test(kid(entry, 'updated')[0]?.textContent ?? '')) problems.push(`entry ${id}: updated is not RFC 3339`);
-      if (!kid(entry, 'link').some((l) => l.getAttribute('rel') === 'alternate' && (l.getAttribute('href') ?? '').includes('/tenders/'))) {
-        problems.push(`entry ${id}: needs an alternate link to the tender`);
+      // A notice links to its tender page, a funding call (categories call-new, call-amended) to its call page.
+      if (!kid(entry, 'link').some((l) => l.getAttribute('rel') === 'alternate' && /\/(tenders|funding)\//.test(l.getAttribute('href') ?? ''))) {
+        problems.push(`entry ${id}: needs an alternate link to the tender or the call`);
       }
     }
     if (/@[A-Za-z0-9-]+\.[A-Za-z]{2,}/.test(xml)) problems.push('an e-mail address is in the feed');
