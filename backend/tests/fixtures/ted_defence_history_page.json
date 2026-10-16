@@ -1,0 +1,20 @@
+{
+  "notices": [
+    {"publication-number": "103679-2021", "buyer-country": ["NLD"],
+     "buyer-name": {"eng": ["Ministerie van Defensie"]},
+     "classification-cpv": ["35300000", "44523200"], "legal-basis": ["32009L0081"],
+     "notice-type": "can-standard", "publication-date": "2021-03-26+01:00",
+     "dispatch-date": "2021-03-24+01:00", "notice-title": {"eng": "Supply of ammunition"}},
+    {"publication-number": "105063-2021", "buyer-country": ["ITA"],
+     "buyer-name": {"ita": ["Aeronautica Militare - Centro tecnico rifornimenti"]},
+     "classification-cpv": ["50630000"], "legal-basis": ["32014L0024"],
+     "notice-type": "cn-standard", "publication-date": "2021-03-30+02:00",
+     "dispatch-date": "2021-03-26+01:00", "notice-title": {"ita": "Manutenzione veicoli"}},
+    {"publication-number": "102262-2021", "buyer-country": ["DEU"],
+     "buyer-name": {"deu": ["Bundeswehr-Dienstleistungszentrum Erfurt"]},
+     "classification-cpv": ["44000000", "44211000"], "legal-basis": ["32014L0024"],
+     "notice-type": "cn-standard", "publication-date": "2021-03-16+01:00",
+     "dispatch-date": "2021-03-12+01:00", "notice-title": {"deu": "Baustoffe"}}
+  ],
+  "totalNoticeCount": 3
+}

@@ -50,6 +50,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import time
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Iterator
@@ -166,6 +167,47 @@ def day_query(day: date) -> str:
     return f"publication-date>={stamp} AND publication-date<={stamp}"
 
 
+# Name stems for the history query below: TED's `buyer-name~` is a case- and accent-insensitive
+# word match (`~Armees` finds "Économat des armées"; a trailing `*` is allowed, a leading one is
+# refused). Read against the vocabulary of buyer_vocab.DEFENCE_INCLUDE, 16 October 2026. The
+# classifier still decides: a stem only decides what is fetched. Short acronyms (DGA, DMO, BWI,
+# HIL) are left out, they name civil bodies as often as defence ones.
+DEFENCE_BUYER_STEMS = (
+    "Defence", "Defense", "Defensie", "Defensa", "Defesa", "Difesa", "Verteidigung*",
+    "Landesverteidigung", "Bundeswehr", "Bundesheer", "Streitkräfte", "Luftwaffe", "Marinearsenal",
+    "Wehrtechnische", "Ausrüstung", "armee*", "\"armed forces\"", "army", "navy", "\"air force\"",
+    "\"Marine nationale\"", "Mindef", "Minarm", "\"Leidos Supply\"", "military", "militare", "militar*",
+    "Esercito", "Ejército", "Exército", "Armada", "Marinha", "\"Forças Armadas\"", "Landmacht",
+    "Luchtmacht", "Wojsk*", "Obrony", "Uzbrojenia", "Obrany", "Vojensk*", "Armáda", "Obrane",
+    "Obrambo", "Odbrane", "Vojska", "Oružane", "Honvéd*", "Honvédelmi", "Apărării", "\"Statul Major\"",
+    "отбраната", "военн*", "Αμυνας", "Αμυντικ*", "Στρατιωτικ*", "Forsvar*", "Försvar*", "Puolustus*",
+    "Kaitse*", "\"Aizsardzības ministrija\"", "Gynybos", "Kariuomen*", "NATO", "OCCAR",
+)
+
+
+def _cpv_terms() -> list[str]:
+    from ..classify import CPV_MILITARY_ADJACENT, CPV_MILITARY_GROUPS
+
+    return ([f"classification-cpv={g}*" for g in sorted(CPV_MILITARY_GROUPS)]
+            + ["classification-cpv IN (" + " ".join(sorted(CPV_MILITARY_ADJACENT)) + ")"])
+
+
+def defence_history_query(start: date, end: date) -> str:
+    """Notices of a publication window that the classifier can qualify without the full day.
+
+    Three server-side selections ORed: the legal basis 2009/81/EC; a military CPV (the groups
+    and added codes classify.py reads; division 35 as a whole is not asked, the civil groups
+    never qualify); a buyer whose name carries a defence stem. What it cannot see: a buyer
+    listed under a name without any stem, and a notice qualified only by a link from a
+    national defence notice (`sig_linked_defence`).
+    """
+    window = (f"publication-date>={start.strftime('%Y%m%d')} AND "
+              f"publication-date<={end.strftime('%Y%m%d')}")
+    signals = (['legal-basis IN ("32009L0081")'] + _cpv_terms()
+               + [f"buyer-name~{stem}" for stem in DEFENCE_BUYER_STEMS])
+    return f"({window}) AND ({' OR '.join(signals)})"
+
+
 def _post(client: httpx.Client, payload: dict[str, Any]) -> dict[str, Any]:
     def send() -> httpx.Response:
         r = client.post(
@@ -193,6 +235,8 @@ def search(
     *,
     client: httpx.Client | None = None,
     max_pages: int = MAX_PAGES,
+    page_size: int = PAGE_SIZE,
+    pause: float = 0.0,
 ) -> Iterator[dict[str, Any]]:
     """Yield raw notice records, following pagination.
 
@@ -211,9 +255,11 @@ def search(
                 "query": query,
                 "fields": fields,
                 "page": page,
-                "limit": PAGE_SIZE,
+                "limit": page_size,
                 "scope": "ALL",
             }
+            if page > 1 and pause:
+                time.sleep(pause)
             data = _post(client, payload)
             notices = data.get("notices") or data.get("results") or []
             total = data.get("totalNoticeCount") or data.get("total")
@@ -228,13 +274,26 @@ def search(
                      page, len(notices), seen, total)
             if total is not None and seen >= total:
                 break
-            if len(notices) < PAGE_SIZE:
+            if len(notices) < page_size:
                 _complete_or_raise(seen, total, query)
                 break
             page += 1
         else:
             raise RuntimeError(f"TED: {max_pages} pages read and more are stated; "
                                f"the result was cut short, not complete ({query[:80]})")
+    finally:
+        if owns_client:
+            client.close()
+
+
+def count(query: str, *, client: httpx.Client | None = None) -> int:
+    """How many notices a query matches, in one request (the API states it with any page)."""
+    owns_client = client is None
+    client = client or new_client(headers={"User-Agent": USER_AGENT})
+    try:
+        data = _post(client, {"query": query, "fields": ["publication-number"], "page": 1,
+                              "limit": 1, "scope": "ALL"})
+        return int(data.get("totalNoticeCount") or data.get("total") or 0)
     finally:
         if owns_client:
             client.close()

@@ -1309,6 +1309,163 @@ def run_ted_history(start: date, end: date, *, resume: bool = True,
     return run_history("ted", start, end, resume=resume, max_days=max_days)
 
 
+# ---------------------------------------------------------------- TED defence history
+#
+# Before 17 April 2024 the TED notices we hold are those that qualified when they were
+# landed, under the rules of that day. `ted-defence-history` asks the API for the notices
+# today's rules can qualify without the full day (legal basis, military CPV, a defence stem
+# in the buyer's name: `ted.defence_history_query`) and runs them through the daily
+# pipeline's own steps. Windows are months; one above the API's paging cap is split into
+# weeks and those into days. A window is marked in `backfill_day` under
+# `ted-defence:<M|W|D>`, so an interrupted run resumes at the window it was in.
+DEFENCE_HISTORY_MARK = "ted-defence"
+DEFENCE_WINDOW_CAP = 10_000        # TED refuses paging past 15,000 results in one query
+DEFENCE_PAGE = 100
+
+
+def _month_windows(start: date, end: date) -> list[tuple[date, date]]:
+    out, cur = [], start
+    while cur <= end:
+        nxt = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
+        out.append((cur, min(end, nxt - timedelta(days=1))))
+        cur = nxt
+    return out
+
+
+def _split_window(start: date, end: date, level: str) -> list[tuple[date, date]]:
+    """A month into weeks, a week into days."""
+    if level == "M":
+        return [(a, min(end, a + timedelta(days=6)))
+                for a in (start + timedelta(days=7 * i) for i in range((end - start).days // 7 + 1))]
+    return [(start + timedelta(days=i),) * 2 for i in range((end - start).days + 1)]
+
+
+def plan_ted_defence_history(conn, start: date, end: date, *, pause: float = 1.0,
+                             resume: bool = True) -> list[dict[str, Any]]:
+    """Every window the load would walk with its notice count (one request each, plus the
+    split of a window above the cap). `done` windows are counted as zero requests."""
+    done = {lv: (db.backfill_days_done(conn, f"{DEFENCE_HISTORY_MARK}:{lv}") if resume else set())
+            for lv in "MWD"}
+    plan: list[dict[str, Any]] = []
+
+    def walk(a: date, b: date, level: str) -> None:
+        if a in done[level]:
+            plan.append({"start": a, "end": b, "level": level, "notices": 0, "requests": 0,
+                         "done": True})
+            return
+        time.sleep(pause)
+        total = ted.count(ted.defence_history_query(a, b))
+        if total > DEFENCE_WINDOW_CAP and level != "D":
+            nxt = "W" if level == "M" else "D"
+            for sa, sb in _split_window(a, b, level):
+                walk(sa, sb, nxt)
+            return
+        plan.append({"start": a, "end": b, "level": level, "notices": total,
+                     "requests": -(-total // DEFENCE_PAGE) + 1, "done": False})
+
+    for a, b in _month_windows(start, end):
+        walk(a, b, "M")
+    return plan
+
+
+def print_defence_plan(plan: list[dict[str, Any]]) -> None:
+    years: dict[int, list[int]] = {}
+    for w in plan:
+        row = years.setdefault(w["start"].year, [0, 0, 0])
+        row[0] += 1
+        row[1] += w["notices"]
+        row[2] += w["requests"]
+        print(f"{w['level']} {w['start']}..{w['end']}  "
+              + ("done" if w["done"] else f"{w['notices']} notices, {w['requests']} requests"))
+    print("year  windows  notices  requests")
+    for y, (n, notices, requests) in sorted(years.items()):
+        print(f"{y}  {n:7}  {notices:7}  {requests:8}")
+    total = sum(w["requests"] for w in plan)
+    print(f"total  {sum(w['notices'] for w in plan)} notices, {total} requests "
+          f"(about {total / 60:.0f} minutes at one request a second)")
+
+
+def run_ted_defence_history(start: date, end: date, *, resume: bool = True,
+                            max_windows: int | None = None, pause: float = 1.0) -> int:
+    """Load the notices of a publication range that today's rules can qualify. Returns the
+    number of windows loaded. Safe to repeat and to interrupt."""
+    cfg = settings()
+    store = build_store()
+    loaded = 0
+    with db.connect(cfg.dsn) as conn:
+        src_id = db.source_id(conn, "ted")
+        held = db.backfill_resume_after(conn, DEFENCE_HISTORY_MARK)
+        if held is not None:
+            raise HistoryStopped(DEFENCE_HISTORY_MARK, None, held, 0)
+        done = {lv: (db.backfill_days_done(conn, f"{DEFENCE_HISTORY_MARK}:{lv}") if resume
+                     else set()) for lv in "MWD"}
+
+        def load(a: date, b: date, level: str) -> bool:
+            """False when `max_windows` is reached."""
+            nonlocal loaded
+            if a in done[level]:
+                return True
+            if max_windows is not None and loaded >= max_windows:
+                return False
+            query = ted.defence_history_query(a, b)
+            time.sleep(pause)
+            total = ted.count(query)
+            if total > DEFENCE_WINDOW_CAP and level != "D":
+                nxt = "W" if level == "M" else "D"
+                return all(load(sa, sb, nxt) for sa, sb in _split_window(a, b, level))
+            fetched = new = 0
+            try:
+                stream = ted.search(query, page_size=DEFENCE_PAGE, pause=pause)
+                for part, chunk in enumerate(_in_chunks(stream, BUNDLE_CHUNK)):
+                    cleaned = [strip_personal_data(notice) for notice in chunk]
+                    key = rawstore.bundle_key(DEFENCE_HISTORY_MARK, a, part)
+                    if store.put_records(key, cleaned) != len(cleaned):
+                        raise RuntimeError(f"bundle {key} did not take all {len(cleaned)} records")
+                    for line, clean in enumerate(cleaned):
+                        fetched += 1
+                        h = ted.content_hash(clean)
+                        try:
+                            opp = from_ted(clean)
+                        except ValueError as exc:
+                            log.warning("skipping malformed notice: %s", exc)
+                            continue
+                        if not conn.execute(
+                                """SELECT 1 FROM raw_ingest WHERE source_id = %s AND native_id = %s
+                                      AND content_hash = %s LIMIT 1""",
+                                (src_id, opp.native_id, h)).fetchone():
+                            db.record_raw(conn, src_id, opp.native_id, h,
+                                          rawstore.record_key(key, line))
+                        opp = _finalise(conn, opp, src_id)
+                        if not _kept(conn, src_id, opp):
+                            continue
+                        _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                        new += action == "new"
+                    conn.commit()
+                if fetched != total:
+                    raise RuntimeError(f"TED window {a}..{b}: {fetched} notices read, "
+                                       f"{total} stated; not marking it done")
+            except RateLimited as exc:
+                conn.rollback()
+                resume_after = db.record_backfill_stop(
+                    conn, DEFENCE_HISTORY_MARK, a, str(exc), exc.retry_after)
+                raise HistoryStopped(DEFENCE_HISTORY_MARK, a, resume_after, loaded) from exc
+            except Exception:
+                conn.rollback()
+                raise
+            db.mark_backfill_day(conn, f"{DEFENCE_HISTORY_MARK}:{level}", a, fetched)
+            done[level].add(a)
+            loaded += 1
+            log.info("ted-defence %s %s..%s: %s notices, %s new defence", level, a, b, fetched, new)
+            return True
+
+        for a, b in _month_windows(start, end):
+            if not load(a, b, "M"):
+                break
+        else:
+            db.note_backfill_finished(conn, DEFENCE_HISTORY_MARK)
+    return loaded
+
+
 def _in_chunks(items: Iterable[Any], size: int) -> Iterator[list[Any]]:
     """Group a stream into lists of at most `size`, yielding at least one."""
     chunk: list[Any] = []
@@ -2288,6 +2445,15 @@ def main(argv: list[str] | None = None) -> int:
     h.add_argument("--force", action="store_true",
                    help="load an inactive source (de_bkms: licence not verified)")
 
+    dh = sub.add_parser(
+        "ted-defence-history",
+        help="TED notices before the full-day load that today's rules qualify (dry run by default)")
+    dh.add_argument("--from", dest="start", type=date.fromisoformat, required=True)
+    dh.add_argument("--to", dest="end", type=date.fromisoformat, required=True)
+    dh.add_argument("--yes", action="store_true", help="load; without it only count")
+    dh.add_argument("--no-resume", action="store_true")
+    dh.add_argument("--max-windows", type=int, default=None)
+
     sub.add_parser("seed-buyers", help="seed the defence buyer list")
 
     a = p.parse_args(argv)
@@ -2343,6 +2509,18 @@ def main(argv: list[str] | None = None) -> int:
                         resume=not a.no_resume, max_days=a.max_days, force=a.force)
         except HistoryStopped as stop:
             # Already logged and recorded. Not a success: the exit status says so.
+            log.error("%s", stop)
+            return EXIT_STOPPED
+    elif a.cmd == "ted-defence-history":
+        if not a.yes:
+            with db.connect(settings().dsn) as conn:
+                plan = plan_ted_defence_history(conn, a.start, a.end, resume=not a.no_resume)
+            print_defence_plan(plan)
+            return 0
+        try:
+            run_ted_defence_history(a.start, a.end, resume=not a.no_resume,
+                                    max_windows=a.max_windows)
+        except HistoryStopped as stop:
             log.error("%s", stop)
             return EXIT_STOPPED
     elif a.cmd == "seed-buyers":
