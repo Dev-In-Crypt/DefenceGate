@@ -762,7 +762,7 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
 
 
 @router.get("/v1/tenders", response_model=TenderPage)
-@cache_list("tenders")
+@cache_list("tenders", ttl=5 * 60)
 def list_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -868,7 +868,7 @@ class ScopeCounts(BaseModel):
 
 
 @router.get("/v1/tenders/scope-counts", response_model=ScopeCounts)
-@cache_list("tender-scope-counts")
+@cache_list("tender-scope-counts", ttl=5 * 60)
 def tender_scope_counts(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
