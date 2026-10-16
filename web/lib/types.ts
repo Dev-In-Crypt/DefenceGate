@@ -364,6 +364,8 @@ export interface Buyer {
   lastPublishedAt: IsoDateTime | null;
   /** On the curated list of defence bodies. */
   isDefenceBuyer: boolean;
+  /** Other organisation rows of the same body shown under this buyer (0 when none). */
+  nameVariants: number;
 }
 
 /** GET /v1/stats/market: counts of core-scope notices published. Never spend, never market size. */

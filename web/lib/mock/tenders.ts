@@ -228,6 +228,7 @@ export function allBuyers(ref: Date = now()): Buyer[] {
       id: buyerId(i), slug: `${buyerId(i)}-${b.words}`, name: b.name, country: b.country,
       tenderCount: mine.length, openCount: mine.filter((t) => t.status === 'open').length,
       lastPublishedAt: published.at(-1) ?? null, isDefenceBuyer: b.defence,
+      nameVariants: i === 0 ? 2 : 0,
     };
   });
 }

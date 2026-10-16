@@ -3,7 +3,7 @@ import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { getBuyer, getBuyerProfile, getTenders, isBuyerSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { displayName } from '@/lib/display-name';
-import { formatDateUtc } from '@/lib/format';
+import { formatDateUtc, variantsLine } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, type SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
 import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
@@ -90,6 +90,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
               : <span className="font-sans">Not stated</span>}
           </FactCell>
         </dl>
+        {variantsLine(buyer.nameVariants) && <p className="m-0 text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
         <p className="m-0 max-w-[62ch] text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
       </header>
 

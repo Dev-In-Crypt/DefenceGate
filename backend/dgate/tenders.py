@@ -210,6 +210,9 @@ class Buyer(BaseModel):
     openCount: int
     lastPublishedAt: datetime | None
     isDefenceBuyer: bool
+    # Other organisation rows of the same body shown under this buyer (WP-22, migration
+    # 0055): 0 when it has none.
+    nameVariants: int = 0
 
 
 class BuyerPage(BaseModel):
@@ -634,7 +637,10 @@ def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
     the same buyer's, which is what `buyer = X` in `where` says for the list. The condition
     carries no parameters of its own: each `%s` of `where` appears once per rule."""
     def extra(alias: str) -> list[str]:
-        return [f"{alias}.buyer_org_id = o.buyer_org_id"] if same_buyer else []
+        # The same buyer is the same family (migration 0055): a twin filed under another
+        # name variant of the body still replaces the notice.
+        return ([f"dgate_buyer_head({alias}.buyer_org_id) = dgate_buyer_head(o.buyer_org_id)"]
+                if same_buyer else [])
 
     # A national notice is shown once: it is dropped when the TED notice it was forwarded
     # as would itself be in this result (same filters), so a filter that keeps the national
@@ -748,7 +754,8 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
             params.append(f"{p}%")
         where.append("(" + " OR ".join(clauses) + ")")
     if buyer is not None:
-        where.append("o.buyer_org_id = %s")
+        # Every organisation row of the buyer's family (any member id gives the family).
+        where.append("o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))")
         params.append(buyer)
     if from_:
         where.append("o.deadline_at >= %s")
@@ -1225,31 +1232,49 @@ AGGREGATE = f"""
      WHERE o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld
        AND {CORE} AND o.buyer_org_id IS NOT NULL
      GROUP BY o.buyer_org_id
-"""
+"""  # not used since the family aggregate (WP-22); see DELETION_CANDIDATES.md
 
 
 def aggregate_sql() -> str:
-    """The buyer aggregate (`org_id`, `n`, `open_n`, `last_published`) with `open_n` counted
-    as the buyer's own list counts it: the same status rule, and the same collapse (a national
+    """The buyer aggregate (`org_id`, `n`, `open_n`, `last_published`, `variants`), one row
+    per buyer FAMILY (`org_id` is the head's id: migration 0055, `buyer_family_member`; a
+    buyer with no family is its own head), with `open_n` counted as the buyer's own list
+    counts it: the same status rule, and the same collapse (a national
     notice and its TED twin, a rectificatif and its parent, a re-publication: one each). 201
     against 169 listed on 14 October 2026. Two aggregates, so that the one over every core
     notice stays free of sub-queries (they hold a scan back from running in parallel) and the
-    collapse is tested only on the few hundred notices that are open."""
+    collapse is tested only on the few hundred notices that are open. The family is a LEFT
+    JOIN to a table of some hundreds of rows, so the scan stays as it was."""
     eff = _api().EFFECTIVE_STATUS_SQL
     where = ["o.is_defence = TRUE", "NOT o.suppressed", "NOT o.buyer_withheld", CORE,
              f"{eff} = 'open'"]
+    # Counted per organisation first (a plain column, whose statistics give the planner the
+    # right number of groups: a few thousand), then per family. Grouping by the COALESCE
+    # directly made it expect 220,000 groups and join them to `organisation` by a hash.
+    fam = ("LEFT JOIN buyer_family_member m ON m.org_id = x.org_id")
     return f"""
-    SELECT t.org_id, t.n, COALESCE(op.open_n, 0) AS open_n, t.last_published
-      FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n, max(o.published_at) AS last_published
-              FROM opportunity o
-             WHERE o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld
-               AND {CORE} AND o.buyer_org_id IS NOT NULL
-             GROUP BY o.buyer_org_id) t
-      LEFT JOIN (SELECT o.buyer_org_id AS org_id, count(*) AS open_n
-                   FROM opportunity o
-                  WHERE {" AND ".join(where)} AND o.buyer_org_id IS NOT NULL
-                    AND {collapse_clauses(where, same_buyer=True)}
-                  GROUP BY o.buyer_org_id) op ON op.org_id = t.org_id
+    SELECT t.org_id, t.n, COALESCE(op.open_n, 0) AS open_n, t.last_published,
+           COALESCE(v.variants, 0) AS variants
+      FROM (SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS n,
+                   max(x.last_published) AS last_published
+              FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n,
+                           max(o.published_at) AS last_published
+                      FROM opportunity o
+                     WHERE o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld
+                       AND {CORE} AND o.buyer_org_id IS NOT NULL
+                     GROUP BY o.buyer_org_id) x
+              {fam}
+             GROUP BY COALESCE(m.head_org_id, x.org_id)) t
+      LEFT JOIN (SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS open_n
+                   FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n
+                           FROM opportunity o
+                          WHERE {" AND ".join(where)} AND o.buyer_org_id IS NOT NULL
+                            AND {collapse_clauses(where, same_buyer=True)}
+                          GROUP BY o.buyer_org_id) x
+                   {fam}
+                  GROUP BY COALESCE(m.head_org_id, x.org_id)) op ON op.org_id = t.org_id
+      LEFT JOIN (SELECT head_org_id, count(*) AS variants
+                   FROM buyer_family_member GROUP BY head_org_id) v ON v.head_org_id = t.org_id
     """
 
 
@@ -1261,6 +1286,7 @@ def _buyer(r: dict[str, Any], names: dict[int, str]) -> dict[str, Any]:
         "tenderCount": r["n"], "openCount": r["open_n"],
         "lastPublishedAt": _day(r.get("last_published")),
         "isDefenceBuyer": bool(r.get("is_defence_buyer")),
+        "nameVariants": int(r.get("variants") or 0),
     }
 
 
@@ -1285,21 +1311,35 @@ def list_buyers(
         # not searched, which made a name search take seconds. Folded again by `dg_fold`
         # (migration 0054) so that "Ausrüstung" finds "ausrustung"; each word must begin
         # a word.
-        where.append(" AND ".join(
-            ["dg_fold(org.canonical_name) LIKE dg_word_pattern(%s)"] * len(words)))
-        params += words
+        # A family is found by the name of any of its members as well as by its head's.
+        like = " AND ".join(["dg_fold({c}) LIKE dg_word_pattern(%s)"] * len(words))
+        where.append(
+            f"(({like.format(c='org.canonical_name')}) OR org.id IN ("
+            "SELECT fm.head_org_id FROM buyer_family_member fm "
+            f"JOIN organisation mo ON mo.id = fm.org_id WHERE {like.format(c='mo.canonical_name')}))")
+        params += words + words
     countries = _split(country, "country", upper=True, max_length=2)
     if countries:
         where.append("org.country = ANY(%s)")
         params.append(countries)
     if hasOpen:
-        where.append("a.open_n > 0")
-    base = ("FROM organisation org JOIN (" + agg + ") a ON a.org_id = org.id"
-            + ((" WHERE " + " AND ".join(where)) if where else ""))
-    order = "org.canonical_name, org.id" if sort == "name" else "a.n DESC, org.id"
+        where.append("org.open_n > 0")
+    # The aggregate and its join to `organisation` are computed first, each as a step of its
+    # own (MATERIALIZED), and the filters run over the few thousand families that come out:
+    # `?q=de` timed out at 5 s on 16 October 2026 because the name filter was run over all
+    # 300,000 organisations before the join. The planner expects 60,000 families, so it would
+    # do that again if it were allowed to push the filter down, and read all 350,000 organisations
+    # to join them (the ANY over the aggregate's ids makes that an index lookup of each).
+    with_a = ("WITH a AS MATERIALIZED (" + agg + "), org AS MATERIALIZED ("
+              "SELECT o.id, o.canonical_name, o.country, o.is_defence_buyer, a.n, a.open_n, "
+              "a.last_published, a.variants FROM a JOIN organisation o ON o.id = a.org_id "
+              "WHERE o.id = ANY(ARRAY(SELECT org_id FROM a))) ")
+    base = "FROM org" + ((" WHERE " + " AND ".join(where)) if where else "")
+    order = "org.canonical_name, org.id" if sort == "name" else "org.n DESC, org.id"
     rows = conn.execute(
-        f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
-                   a.n, a.open_n, a.last_published, count(*) OVER () AS total_rows {base}
+        f"""{with_a}SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
+                   org.n, org.open_n, org.last_published, org.variants,
+                   count(*) OVER () AS total_rows {base}
              ORDER BY {order} LIMIT %s OFFSET %s""",
         params + [pageSize, (page - 1) * pageSize]).fetchall()
     if rows:
@@ -1307,7 +1347,7 @@ def list_buyers(
     elif page == 1:
         total = 0
     else:
-        total = conn.execute(f"SELECT count(*) AS n {base}", params).fetchone()["n"]
+        total = conn.execute(f"{with_a}SELECT count(*) AS n {base}", params).fetchone()["n"]
     names = _buyer_names(conn, [r["id"] for r in rows])
     return {"items": [_buyer(r, names) for r in rows], "total": total,
             "page": page, "pageSize": pageSize}
@@ -1330,14 +1370,15 @@ def buyer_slugs(conn=Depends(get_conn)):
 def get_buyer(slug: str, conn=Depends(get_conn)):
     org_id = _id_of(slug, "buyer")
     agg = aggregate_sql()
+    # An old link to a member of a family shows the family (migration 0055).
     row = conn.execute(
         f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
-                   a.n, a.open_n, a.last_published
+                   a.n, a.open_n, a.last_published, a.variants
               FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
-             WHERE org.id = %s""", (org_id,)).fetchone()
+             WHERE org.id = dgate_buyer_head(%s)""", (org_id,)).fetchone()
     if not row:
         if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
                         (org_id,)).fetchone():
             raise removed()
         raise HTTPException(404, "no such buyer")
-    return _buyer(row, _buyer_names(conn, [org_id]))
+    return _buyer(row, _buyer_names(conn, [row["id"]]))
