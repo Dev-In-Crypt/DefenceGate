@@ -346,6 +346,7 @@ def run_from_raw(conn, numbers: list[str], *, write: bool, batch: int = 200,
     for chunk in _chunks(ordered, batch):
         state = _state(conn, src_id, chunk)
         order = [n for n in chunk if n in state]
+        conn.commit()               # nothing is open across the slow store reads
         payloads = _read_batch(store, [keys[n] for n in order], workers, 4, 10.0)
         for number, payload in zip(order, payloads, strict=True):
             if isinstance(payload, Exception):
@@ -386,6 +387,7 @@ def run_refetch(conn, numbers: list[str], *, write: bool, batch: int = 100,
         with BundleWriter(build_store(), "ted") as writer:
             for chunk in _chunks(numbers, batch):
                 state = _state(conn, src_id, chunk)
+                conn.commit()           # nothing is open across the slow HTTP request
                 query = f"publication-number IN ({' '.join(chunk)})"
                 try:
                     got = list(ted.search(query, client=client))

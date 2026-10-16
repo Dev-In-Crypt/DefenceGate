@@ -307,6 +307,9 @@ def reprocess(
         chunk: list[str] = []
 
         def flush() -> None:
+            # End the transaction the index read (or the last batch) left open: the store
+            # reads below are slow, and a role's idle-in-transaction limit is 30 minutes.
+            conn.commit()
             payloads = _read_batch(store, chunk, workers, outage_attempts, outage_pause)
             for key, payload in zip(chunk, payloads, strict=True):
                 replay_key(conn, store, key, result, dry_run=dry_run, payload=payload)

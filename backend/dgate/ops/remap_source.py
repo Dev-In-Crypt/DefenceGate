@@ -270,6 +270,7 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
         for chunk in _chunks(ordered, batch):
             state = _state(conn, src_id, chunk)
             order = [n for n in chunk if n in state]
+            conn.commit()           # nothing is open across the slow store reads
             payloads = _read_batch(store, [keys[n] for n in order], workers, 4, 10.0)
             for number, payload in zip(order, payloads, strict=True):
                 if isinstance(payload, Exception):

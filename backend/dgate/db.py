@@ -1131,6 +1131,33 @@ def mark_backfill_day(conn: psycopg.Connection, source_code: str, day: date,
     conn.commit()
 
 
+def write_backfill_progress(conn: psycopg.Connection, marker: str, day: date,
+                            entries: int) -> None:
+    """Note, without committing, how many entries of one unit are finished.
+
+    The caller commits it with the rows it counts, so the number never runs ahead of
+    the data. A different `marker` from the one that says a unit is done, which
+    nothing here may set.
+    """
+    conn.execute(
+        """INSERT INTO backfill_day (source_code, day, notices) VALUES (%s, %s, %s)
+           ON CONFLICT (source_code, day)
+           DO UPDATE SET notices = EXCLUDED.notices, finished_at = clock_timestamp()""",
+        (marker, day, entries))
+
+
+def reset_backfill_progress(conn: psycopg.Connection, marker: str, day: date) -> None:
+    """Start a unit over. Only a unit that wrote progress (200 entries or more) has a row."""
+    conn.execute("UPDATE backfill_day SET notices = 0 WHERE source_code = %s AND day = %s",
+                 (marker, day))
+
+
+def backfill_progress(conn: psycopg.Connection, marker: str, day: date) -> int:
+    row = conn.execute("SELECT notices FROM backfill_day WHERE source_code = %s AND day = %s",
+                       (marker, day)).fetchone()
+    return row["notices"] if row else 0
+
+
 def backfill_days_done(conn: psycopg.Connection, source_code: str) -> set[date]:
     rows = conn.execute(
         "SELECT day FROM backfill_day WHERE source_code = %s", (source_code,)

@@ -137,6 +137,36 @@ def _checkpoint(conn, label: str, fetched: int, new: int, changed: int,
         log.info("%s: %s fetched, %s new, %s changed", label, fetched, new, changed)
 
 
+IDLE_COMMIT_SECONDS = 30.0
+
+
+def _pulled(conn, items: Iterable[Any], writer: BufferedWriter | None = None,
+            every: float = IDLE_COMMIT_SECONDS, clock=time.monotonic) -> Iterator[Any]:
+    """Yield `items`, never asking for the next one inside an old transaction.
+
+    A generator does its work when it is asked, and the first request of an archive
+    replay is a download of hundreds of megabytes plus a parse that took 30-40 minutes
+    on 16 October 2026. The connection had run a query to find the source and sat
+    "idle in transaction" all that time, and the worker role's
+    `idle_in_transaction_session_timeout` of 30 minutes closed it ("the connection is
+    lost"). So the first request, and any later one after `every` seconds without a
+    commit, is preceded by a commit (the writer drained first, as `_checkpoint` does).
+    """
+    it = iter(items)
+    last = None
+    while True:
+        if last is None or clock() - last >= every:
+            if writer is not None:
+                writer.drain()
+            conn.commit()
+            last = clock()
+        try:
+            item = next(it)
+        except StopIteration:
+            return
+        yield item
+
+
 # What one badly shaped record can raise. Connection and server failures
 # (OperationalError, InterfaceError, anything not listed) are not here on purpose:
 # those are the run's, and they still fail it.
@@ -1460,7 +1490,8 @@ def run_ezamowienia(days: int | None = 2, *,
 
 def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                    dataset: placsp.Dataset = placsp.MAIN,
-                   stale_reason=None, *, replay: bool = False) -> tuple[int, int, int]:
+                   stale_reason=None, *, replay: bool = False, resume_from: int = 0,
+                   progress: tuple[str, date] | None = None) -> tuple[int, int, int]:
     """Ingest one PLACSP stream. `stale_reason()`, if given, is asked once the
     stream is exhausted; a non-empty answer records the run as partial.
 
@@ -1473,6 +1504,11 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
     today's collection -- and it lands a raw payload only for the records it
     archives, because re-landing a month of non-defence entries would spend the
     object store's daily write allowance on records no row depends on.
+
+    `progress` is a `(marker, day)` key in `backfill_day`: at every checkpoint the count
+    of entries finished is written into it in the same transaction as their rows, and
+    `resume_from` skips that many entries of the (identically ordered) archive, so a
+    unit that failed late is not redone from its first entry.
 
     Returns (fetched, new, changed).
     """
@@ -1490,10 +1526,12 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                     ORDER BY started_at DESC LIMIT 1""", (src_id,)).fetchone()
             seen["until"] = row["newest_entry_at"] if row else None
         q = Quarantine(label)
-        fetched = new = changed = 0
+        fetched = new = changed = resume_from
         try:
-            for opp in opps:
+            for opp in itertools.islice(_pulled(conn, opps, writer), resume_from, None):
                 fetched += 1
+                if progress and fetched % 200 == 0:
+                    db.write_backfill_progress(conn, *progress, fetched - 1)
                 _checkpoint(conn, label, fetched, new, changed, writer=writer,
                             run_id=run_id)
                 with q.guard(conn, opp):
@@ -1681,6 +1719,37 @@ def _live_walk_running(conn) -> bool:
             LIMIT 1""").fetchone() is not None
 
 
+REPLAY_ATTEMPTS = 3
+
+
+def _replay_unit(url, ds, since, name, pmark, day, resume, sleep) -> tuple[int, int, int]:
+    """Replay one archive, and again from where it got to if the database goes away.
+
+    A lost connection loses the work since the last checkpoint and nothing else; the
+    entries finished are in `backfill_day` under `pmark`. Reading the archive again is
+    the cost (it is a download), not the entries. A fresh `--no-resume` run starts the
+    unit over; a retry inside this run, and a plain rerun, continue.
+    """
+    for attempt in range(1, REPLAY_ATTEMPTS + 1):
+        with db.connect(settings().dsn) as conn:
+            if attempt == 1 and not resume:
+                db.reset_backfill_progress(conn, pmark, day)
+            skip = db.backfill_progress(conn, pmark, day)
+        try:
+            got = _ingest_placsp(placsp.fetch_archive(url, ds, since=since), f"{name}-replay",
+                                 ds, replay=True, resume_from=skip, progress=(pmark, day))
+            with db.connect(settings().dsn) as conn:    # finished: the next read starts at 0
+                db.reset_backfill_progress(conn, pmark, day)
+            return got
+        except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
+            if attempt == REPLAY_ATTEMPTS:
+                raise
+            log.warning("replay of %s lost its database connection (%s); attempt %s of %s "
+                        "continuing after the finished entries", url, exc, attempt + 1, REPLAY_ATTEMPTS)
+            sleep(30.0 * attempt)
+    raise AssertionError("unreachable")
+
+
 def run_placsp_replay(start: tuple[int, int], end: tuple[int, int] | None = None,
                       datasets: Iterable[placsp.Dataset] = (), *, resume: bool = True,
                       pause: float = 1.0, now: datetime | None = None,
@@ -1747,10 +1816,10 @@ def run_placsp_replay(start: tuple[int, int], end: tuple[int, int] | None = None
             url = (ds.monthly_archive_url(year, month) if month
                    else ds.annual_archive_url(year))
             since = datetime(year, month or 1, 1, tzinfo=timezone.utc)
+            pmark = f"{mark}-progress"
             try:
-                fetched, new, changed = _ingest_placsp(
-                    placsp.fetch_archive(url, ds, since=since), f"{name}-replay", ds,
-                    replay=True)
+                fetched, new, changed = _replay_unit(
+                    url, ds, since, name, pmark, day, resume, sleep)
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
                     log.error("%s: rate limited at %s; stopping", ds.source_code, name)
