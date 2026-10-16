@@ -696,7 +696,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
     }
     if kind == "tender":
         base.update(cpv=f.get("cpv"), status=f.get("status", "open"), scope=f.get("scope", "relevant"),
-                    goods=f.get("goods"),
+                    goods=f.get("goods"), confidence=None,
                     buyer=int(f["buyer"]) if "buyer" in f else None)
     else:
         base.update(programme=f.get("programme"), regime=f.get("regime"),

@@ -229,6 +229,13 @@ export interface Tender {
    */
   qualifiedBy?: string[];
   militaryCpv?: string[];
+  /**
+   * How sure we are the notice is defence procurement: `high` (a military product code and a listed defence buyer
+   * agree), `medium` (the buyer is a defence body, or the directive and a military code agree) or `low` (one weak
+   * signal). `basis` is the reason in plain words. A statement about the group of notices that get the level,
+   * measured on a sample (methodology), never about the single notice. Absent on an older API build.
+   */
+  confidence?: { level: 'high' | 'medium' | 'low'; basis: string[] } | null;
   /** More than one version observed. */
   amended: boolean;
   versionCount: number;

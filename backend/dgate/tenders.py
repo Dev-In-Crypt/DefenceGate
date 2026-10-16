@@ -52,6 +52,7 @@ from .classify import (
     military_cpv_codes,
     scope_group_of,
 )
+from .confidence import CONFIDENCE_SQL, LEVELS, confidence_of_row
 from .db import same_value
 from .funding import (
     Budget,
@@ -99,6 +100,11 @@ NOT_AN_AMENDMENT = "('reread', 'out_of_order', 'remapped', 'history')"
 CORE = CORE_SQL                         # dgate/classify.py, also api.CORE_SQL
 
 
+class Confidence(BaseModel):
+    level: str
+    basis: list[str]
+
+
 class Tender(BaseModel):
     id: str
     slug: str
@@ -127,6 +133,9 @@ class Tender(BaseModel):
     # would be demoted as dual-use). A page says "military product code" only for the second.
     qualifiedBy: list[str] = []
     militaryCpv: list[str] = []
+    # How sure we are the notice is defence procurement (dgate/confidence.py): `level` is
+    # `high`, `medium` or `low`, `basis` the signals behind it in plain words.
+    confidence: Confidence | None = None
     deadline: datetime | None
     # `ted_twin` when `deadline` is the TED notice's because the national notice's own is
     # more than 90 days from it (a typo in the national source); null: the notice's own.
@@ -494,6 +503,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "dualUse": bool(r.get("dual_use")),
         "qualifiedBy": qualified,
         "militaryCpv": military,
+        "confidence": confidence_of_row(r),
         "deadline": deadline,
         "deadlineFrom": deadline_from,
         "deadlineKnown": deadline is not None,
@@ -761,6 +771,17 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
     return where, params, eff
 
 
+def _confidence_levels(text: str | None) -> list[str]:
+    """The levels of a `confidence=high,medium` filter, in the order given; every level, or
+    none at all, means no filter. An unknown level is a 422, like any other bad filter."""
+    got = [w.strip().lower() for w in (text or "").split(",") if w.strip()]
+    bad = [w for w in got if w not in LEVELS]
+    if bad:
+        raise HTTPException(422, f"confidence must be a comma list of {', '.join(LEVELS)}")
+    levels = [lv for lv in LEVELS if lv in got]
+    return [] if len(levels) == len(LEVELS) else levels
+
+
 @router.get("/v1/tenders", response_model=TenderPage)
 @cache_list("tenders", ttl=5 * 60)
 def list_tenders(
@@ -779,11 +800,15 @@ def list_tenders(
     sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
+    confidence: str | None = Query(None, max_length=40),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
     where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
                                          to, min_, max_, currency)
+    levels = _confidence_levels(confidence)
+    if levels:
+        where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
     clause = (" WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where))
     args = params + params + params + params
 

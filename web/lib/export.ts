@@ -13,7 +13,7 @@ import { clientIp } from './hits';
 import { safeHttpUrl } from './safe-url';
 import { absoluteUrl } from './seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
-import { basisChips } from './tender-basis';
+import { basisChips, confidenceCell } from './tender-basis';
 import type { Call, Paginated, Tender } from './types';
 import { isMidnight, isoUtc, toCsv, truncationRow, type Cell } from './csv';
 import { isPlaceholderAmount } from './format';
@@ -32,6 +32,8 @@ export const TENDER_HEADER = [
   // file holds the whole result. The last is a column and not a line in the data, so the file stays rectangular and
   // a parser needs no special case: `true` on every row when the result was cut at the row limit.
   'scope', 'why_listed', 'versions', 'result_truncated',
+  // WP-23: how sure we are, the level only. Appended last, so the column order of the file never moves.
+  'confidence',
 ];
 
 export function tenderRow(t: Tender, truncated = false): Cell[] {
@@ -47,6 +49,7 @@ export function tenderRow(t: Tender, truncated = false): Cell[] {
     t.source.sourceName, safeHttpUrl(t.source.url) ?? '', t.source.licence, t.source.attribution, isoUtc(t.source.retrievedAt),
     isTenderSlug(t.slug) ? absoluteUrl(`/tenders/${t.slug}`) : '',
     t.scope, basisChips(t).join(' | '), t.versionCount, truncated ? 'true' : 'false',
+    confidenceCell(t.confidence),
   ];
 }
 

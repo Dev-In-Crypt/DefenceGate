@@ -144,7 +144,7 @@ Query (all optional): `q` (title, buyer or notice number), `country` (comma ISO-
 `scope` (`relevant` default since 16 October 2026: `core` and `supply` together | `core`: the notice itself is defence | `supply`: only the buyer is a
 defence body, or one of the two groups of 14 October 2026 | `all`; see "Changes of 16 October 2026"), `goods` (`defence`: of the chosen scope, only notices that say defence themselves, i.e. `legal_basis` or `military_cpv` in `qualifiedBy`, not kept by a listed buyer alone; absent by default; the same parameter on `/v1/changes`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
 UTC), `min` / `max` (estimated value) with `currency` (ISO 4217, default `EUR`: a range
-selects that one currency), `sort` (`deadline-asc` default | `published-desc`), `page`
+selects that one currency), `confidence` (`high`, `medium`, `low`, comma list; absent or all three: no filter; another word: 422), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).
 Returns `{ items: Tender[], total, page, pageSize, meta }`. A national notice whose TED twin is
 in the same result is shown once (the TED one); `sameNotice` lists the other copies.
@@ -201,6 +201,7 @@ interface Tender {
   procedure: string | null;          // as the source states it
   legalBasis: string | null;         // e.g. "32009L0081" (Directive 2009/81/EC)
   scope: 'core' | 'supply';          // core: the notice itself is defence; supply: only the buyer is
+  confidence: { level: 'high' | 'medium' | 'low'; basis: string[] } | null;  // how sure we are, see "Changes of 16 October 2026 (WP-23)"
   deadline: IsoDateTime | null;      // null: none stated
   publishedAt: IsoDateTime | null;
   publishedKnown: boolean;           // false: the source states no publication date
@@ -485,3 +486,24 @@ All additive, except the first point, which corrects a status.
 - CSV of tenders (site): the `sort` parameter is honoured; the file is rectangular: columns `scope`, `why_listed`,
   `versions` and `result_truncated` (`true` on every row when the result was cut at the limit, which then holds the
   most recently added notices, in the order chosen); no note row in the data.
+
+## Changes of 16 October 2026 (WP-23, classification confidence)
+
+- **`Tender.confidence`** `{ level: 'high' | 'medium' | 'low', basis: string[] }`, on the list, the detail, the
+  export page, `/v1/changes` items and the account searches (one object, built in `tenders.to_tender`). Derived at
+  read time from the stored signals by one pure function (`dgate/confidence.py`); nothing is stored and the
+  `is_defence` verdict, the scope and `qualifiedBy` are unchanged. `basis` is the signals behind the level in
+  plain words, in the order a reader weighs them ("Defence directive (2009/81/EC)", "Military product code",
+  "Defence buyer", then what is missing or doubtful: "No military product code in the notice", "Buyer is not on
+  the defence list", "Buyer is a police, prison, border, customs or tax body"). The level is a statement about the
+  measured precision of the notices that receive it, not about the single notice; the measured figures are on the
+  methodology page ("How sure we are") and in `docs/verification/ux/confidence-sample.md`. No percentage is served.
+  - `high`: a military product code and a listed defence buyer agree.
+  - `medium`: the buyer is a listed defence body (the item is often ordinary), or the directive and a military
+    code agree on a buyer of class `defence`, `other` or not yet classified.
+  - `low`: everything else that is listed (one weak signal, or a signal from a security or civil body).
+- **`GET /v1/tenders?confidence=high,medium`** keeps the notices of those levels (the list's collapse rules apply
+  to the filter as to any other). Not on `/v1/tenders/export` or `scope-counts`. Cost: no new sequential scan
+  (`EXPLAIN` on production, open, default scope: the default list's own parallel scan with one more filter, lower
+  estimated cost for each level).
+- **CSV** (site): `confidence` is the last column of the tenders file (the level only), after `result_truncated`.
