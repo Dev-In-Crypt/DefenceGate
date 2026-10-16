@@ -632,7 +632,7 @@ _CALL_KEYS = {"q", "programme", "regime", "country", "status", "from", "to", "mi
               "currency", "sort"}
 _ENUMS = {
     ("tender", "status"): {"open", "closed", "all"},
-    ("tender", "scope"): {"core", "supply", "all"},
+    ("tender", "scope"): {"relevant", "core", "supply", "all"},
     ("tender", "goods"): {"defence"},
     ("tender", "sort"): {"deadline-asc", "published-desc"},
     ("call", "status"): {"open", "forthcoming", "closing-soon", "closed", "all"},
@@ -695,7 +695,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
         "currency": f.get("currency", "EUR"), "page": 1,
     }
     if kind == "tender":
-        base.update(cpv=f.get("cpv"), status=f.get("status", "open"), scope=f.get("scope", "core"),
+        base.update(cpv=f.get("cpv"), status=f.get("status", "open"), scope=f.get("scope", "relevant"),
                     goods=f.get("goods"),
                     buyer=int(f["buyer"]) if "buyer" in f else None)
     else:

@@ -48,12 +48,12 @@ assert.ok(upperShare('ABC def') > 0.4 && upperShare('ABC def') < 0.6);
 assert.equal(upperShare('1234'), 0);
 
 // ---- Why a notice is listed: the signals, never a generic "Defence notice" ----
-assert.deepEqual(basisChips({ legalBasis: '32009L0081', scope: 'core' }), ['Defence and security directive (2009/81/EC)']);
-assert.deepEqual(basisChips({ legalBasis: '2009/81/EC', scope: 'core' }), ['Defence and security directive (2009/81/EC)']);
+assert.deepEqual(basisChips({ legalBasis: '32009L0081', scope: 'core' }), ['Defence directive (2009/81/EC)']);
+assert.deepEqual(basisChips({ legalBasis: '2009/81/EC', scope: 'core' }), ['Defence directive (2009/81/EC)']);
 assert.deepEqual(basisChips({ legalBasis: '32014L0024', scope: 'core', buyerClass: 'fire_rescue' }), ['Military product code (CPV)', 'Fire and rescue body']);
 assert.deepEqual(
   basisChips({ scope: 'supply', buyerClass: 'defence', dualUse: true, securityClearance: true }),
-  ['Supplies to a defence buyer', 'Defence body', 'Dual-use / security', 'Security-clearance field present'],
+  ['Defence buyer', 'Defence body', 'Dual-use / security', 'Security-clearance field present'],
 );
 assert.deepEqual(basisChips({ scope: 'core', buyerClass: 'other' }), ['Military product code (CPV)']);
 assert.ok(!basisChips({ scope: 'core', legalBasis: '32009L0081', buyerClass: 'security' }).some((c) => /Defence notice/.test(c)));
@@ -285,8 +285,8 @@ assert.equal(cpvGroupTitle('35'), null);
 // N2: what qualified the notice names the code, or says the buyer did
 assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32014L0024', qualifiedBy: ['military_cpv'], militaryCpv: ['35811300'], cpvCodes: ['39162100', '35811300', '30192000'] }),
   ['Military product code (CPV 35811300, among 3 codes)']);
-assert.deepEqual(basisChips({ scope: 'core', buyerClass: 'education', qualifiedBy: ['buyer'], militaryCpv: [] }), ['Supplies to a defence buyer', 'Education body']);
-assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32009L0081', qualifiedBy: ['legal_basis', 'military_cpv'], militaryCpv: ['35400000'] }), ['Defence and security directive (2009/81/EC)']);
+assert.deepEqual(basisChips({ scope: 'core', buyerClass: 'education', qualifiedBy: ['buyer'], militaryCpv: [] }), ['Defence buyer', 'Education body']);
+assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32009L0081', qualifiedBy: ['legal_basis', 'military_cpv'], militaryCpv: ['35400000'] }), ['Defence directive (2009/81/EC)']);
 assert.equal(militaryCodeChip(['35400000'], ['35400000']), 'Military product code (CPV 35400000)');
 assert.equal(militaryCodeChip(['1', '2', '3', '4', '5'], null), 'Military product code (CPV 1, 2, 3 and 2 more)');
 // WP-8 (14 October 2026): the two groups that left core are named, never called a defence notice

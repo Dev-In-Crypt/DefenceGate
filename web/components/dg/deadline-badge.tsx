@@ -18,8 +18,10 @@ const TONE: Record<DeadlineState, { box: string; label: string; count: string; d
  * `opening` (forthcoming calls only): the opening date leads and the deadline, if any, follows it.
  * A null deadline renders "No fixed deadline" with no countdown.
  */
-export function DeadlineBadge({ deadline, info, opening, size = 'md', className }: {
+export function DeadlineBadge({ deadline, info, opening, size = 'md', className, local }: {
   deadline?: IsoDateTime | null; info?: DeadlineInfo; opening?: IsoDateTime | null; size?: 'md' | 'lg'; className?: string;
+  /** The same moment in the buyer's own time zone (lib/deadline.ts localDeadline), where it adds something. */
+  local?: string | null;
 }) {
   const d = info ?? getDeadline(deadline ?? null);
   const t = TONE[d.state];
@@ -71,6 +73,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className 
         <time dateTime={d.iso ?? undefined}>{d.countdown}</time>
       </span>
       {d.utc && <span className={cn('font-mono tabular-nums', lg ? 'text-mono-strong' : 'text-[12px] leading-4', t.date)}>{d.utc}</span>}
+      {local && <span className={cn('font-sans', lg ? 'text-small' : 'text-[12px] leading-4', t.label)}>{local}</span>}
     </div>
   );
 }

@@ -109,3 +109,44 @@ export function heldSpan(from: string | null | undefined, to: string | null | un
   if (a && b) return a === b ? a : `${a} to ${b}`;
   return a ?? b;
 }
+
+/**
+ * The page a person reads for a source, where the address the API holds is its data interface (an API root answers
+ * 404, 400 or 405 to a browser: three of the 14 "Open ..." links of /data, 16 October 2026). Only the sources whose
+ * stored address is not a page are listed here; any other keeps the address it has.
+ */
+const SOURCE_HOME: Record<string, string> = {
+  ted: 'https://ted.europa.eu/en/',
+  fr_boamp: 'https://www.boamp.fr/',
+  nl_tenderned: 'https://www.tenderned.nl/',
+  pl_ezam: 'https://ezamowienia.gov.pl/',
+  de_bkms: 'https://www.oeffentlichevergabe.de/',
+  se_vinnova: 'https://www.vinnova.se/en/',
+};
+export function sourcePage(id: string, stored: string | null | undefined): string | null {
+  return SOURCE_HOME[id] ?? stored ?? null;
+}
+
+/**
+ * Per source id: the share, in whole percent, of its held notices that state no estimated value (a placeholder
+ * amount counts as not stated). Only for a source with at least 20 notices and a count from the API.
+ */
+export function valueMissingShares(sources: { id: string; heldCount?: number | null; valueStatedCount?: number | null }[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of sources) {
+    if (typeof s.heldCount !== 'number' || typeof s.valueStatedCount !== 'number' || s.heldCount < 20) continue;
+    out[s.id] = Math.min(100, Math.max(0, Math.round((1 - s.valueStatedCount / s.heldCount) * 100)));
+  }
+  return out;
+}
+
+/** "Not stated by the buyer in 82 % of notices from this source." Null when the share is not known. */
+export function valueMissingNote(shares: Record<string, number>, sourceId: string | null | undefined): string | null {
+  const pct = sourceId ? shares[sourceId] : undefined;
+  return pct === undefined ? null : `Not stated by the buyer in ${pct} % of notices from this source.`;
+}
+
+/** "Showing the last answer received at 12 Oct 2026, 09:14 UTC: the data service is slow right now." */
+export function staleNote(asOf: string | null | undefined, formatter: (iso: string) => string): string | null {
+  return asOf ? `The data service did not answer in time. This is its last answer, as of ${formatter(asOf)}; reload in a minute for the current one.` : null;
+}

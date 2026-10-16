@@ -38,13 +38,13 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import psycopg
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from . import db
 from .config import settings
 from .suppress import removed
-from .tenders import CORE, FIELD_LABELS, TIMELINE_SQL, _api, _id_of, timeline
+from .tenders import CORE, FIELD_LABELS, PLACEHOLDER_VALUE_MAX, TIMELINE_SQL, _api, _id_of, timeline
 
 router = APIRouter()
 
@@ -187,10 +187,15 @@ def month_starts(today: date, n: int = MONTHS) -> list[date]:
     return out[::-1]
 
 
-def _scope(since: date, today: date) -> tuple[str, list[Any]]:
+def _scope(since: date, today: date, country: str | None = None) -> tuple[str, list[Any]]:
     """Core-scope notices published from `since` to `today` (a date in the future is
-    not a publication)."""
-    return f"{CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s", [since, today]
+    not a publication), of one buyer country when asked."""
+    where = f"{CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s"
+    params: list[Any] = [since, today]
+    if country:
+        where += " AND o.country = %s"
+        params.append(country)
+    return where, params
 
 
 def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
@@ -201,21 +206,33 @@ def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
 # Each takes a connection and a (where, params) scope over `opportunity o` and returns
 # plain data. The same helpers serve the market and a buyer.
 
-def notices_per_month(conn, today: date, months: int = MONTHS) -> list[dict[str, Any]]:
+def notices_per_month(conn, today: date, months: int = MONTHS, *,
+                      starts: list[date] | None = None, country: str | None = None
+                      ) -> list[dict[str, Any]]:
     """Notices published per calendar month, all sources and TED alone, zero-filled.
-    The month `today` is in is incomplete and says so."""
-    starts = month_starts(today, months)
+    The month `today` is in is incomplete and says so. `starts` (the months of one calendar
+    year) replaces the trailing `months`; `country` keeps one buyer country."""
+    starts = starts or month_starts(today, months)
+    extra, args = ("", [])
+    if country:
+        extra, args = " AND o.country = %s", [country]
     rows = conn.execute(
         f"""SELECT date_trunc('month', o.published_at)::date AS month, count(*) AS n,
                    count(*) FILTER (
                        WHERE o.source_id = (SELECT id FROM source WHERE code = 'ted')) AS ted
               FROM opportunity o
-             WHERE {CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s
-             GROUP BY 1""", (starts[0], today)).fetchall()
+             WHERE {CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s{extra}
+             GROUP BY 1""", (starts[0], min(today, _month_end(starts[-1])), *args)).fetchall()
     found = {r["month"]: r for r in rows}
     return [{"month": f"{d:%Y-%m}", "count": found[d]["n"] if d in found else 0,
-             "ted": found[d]["ted"] if d in found else 0, "partial": d == starts[-1]}
+             "ted": found[d]["ted"] if d in found else 0,
+             "partial": d.year == today.year and d.month == today.month}
             for d in starts]
+
+
+def _month_end(first: date) -> date:
+    nxt = date(first.year + (first.month == 12), first.month % 12 + 1, 1)
+    return nxt - timedelta(days=1)
 
 
 def notices_per_country(conn, where: str, params: list[Any], top: int = TOP_COUNTRIES
@@ -285,7 +302,9 @@ def amendment_share(conn, where: str, params: list[Any]) -> dict[str, Any]:
         by_notice: dict[int, list[dict[str, Any]]] = {}
         for r in rows:
             by_notice.setdefault(r["opportunity_id"], []).append(r)
-        amended += sum(1 for group in by_notice.values() if len(timeline(group)) > 1)
+        # A version a history load wrote is listed on the tender page, not counted here.
+        amended += sum(1 for group in by_notice.values()
+                       if any(not e.get("historic") for e in timeline(group)[1:]))
     return {"notices": total, "amended": amended,
             "share": round(amended / total, 4) if total else None}
 
@@ -313,16 +332,30 @@ BASIS = {
 }
 
 
-def market(get_conn, today: date | None = None) -> dict[str, Any]:
+def window_words(basis: dict[str, str], year: int | None) -> dict[str, str]:
+    """The basis texts say "the last 12 months"; for a calendar year they say the year."""
+    if year is None:
+        return dict(basis)
+    return {k: v.replace("in the last 12 months", f"in {year}") for k, v in basis.items()}
+
+
+def market(get_conn, today: date | None = None, *, year: int | None = None,
+           country: str | None = None) -> dict[str, Any]:
     """Each figure is cached on its own for the hour. The API role has a 5 s budget and a
     cold cache can spend it on one query (a 36-month scan took 11.7 s on a busy server on
     13 October 2026, before migration 0038): the request then fails with a 503, and the
     next one redoes only what is not cached, on pages the failed one already warmed."""
     today = today or datetime.now(timezone.utc).date()
-    since = today - timedelta(days=WINDOW_DAYS)
-    where, params = _scope(since, today)
+    if year is not None:
+        # A calendar year (to today when it is the current one): the figure can be quoted and
+        # reproduced, which the rolling window cannot (the 12 months move every day).
+        since, until = date(year, 1, 1), min(date(year, 12, 31), today)
+        starts = [date(year, m, 1) for m in range(1, 13) if date(year, m, 1) <= today]
+    else:
+        since, until, starts = today - timedelta(days=WINDOW_DAYS), today, None
+    where, params = _scope(since, until, country)
     sections = {
-        "months": lambda c: notices_per_month(c, today),
+        "months": lambda c: notices_per_month(c, today, starts=starts, country=country),
         "countries": lambda c: notices_per_country(c, where, params),
         "sources": lambda c: notices_per_source(c, where, params),
         "amendments": lambda c: amendment_share(c, where, params),
@@ -332,17 +365,19 @@ def market(get_conn, today: date | None = None) -> dict[str, Any]:
     got: dict[str, dict[str, Any]] = {}
     for name, fn in sections.items():
         got[name] = cached(
-            ("market", name, today),
+            ("market", name, today, year, country),
             lambda fn=fn: {"at": datetime.now(timezone.utc), "data": fn(get_conn())})
     return {
         "asOf": min(part["at"] for part in got.values()),     # the oldest figure on the page
         "scope": "core",
         "unit": "notices published",
         "windowFrom": since,
-        "windowTo": today,
+        "windowTo": until,
+        "year": year,
+        "country": country,
         "sourceCount": len(got["sources"]["data"]),
         **{name: part["data"] for name, part in got.items()},
-        "basis": dict(BASIS),
+        "basis": window_words(BASIS, year),
     }
 
 
@@ -394,6 +429,10 @@ class MarketStats(BaseModel):
     unit: str
     windowFrom: date
     windowTo: date
+    # The calendar year and the buyer country the figures were asked for, null for the
+    # rolling 12 months and all countries.
+    year: int | None = None
+    country: str | None = None
     sourceCount: int
     months: list[MonthCount]
     countries: Countries
@@ -404,10 +443,16 @@ class MarketStats(BaseModel):
     basis: dict[str, str]
 
 
+MARKET_FIRST_YEAR = 2017
+
+
 @router.get("/v1/stats/market", response_model=MarketStats)
-def market_stats():
+def market_stats(year: int | None = Query(None, ge=MARKET_FIRST_YEAR, le=2100),
+                 country: str | None = Query(None, pattern="^[A-Za-z]{2}$")):
+    if year is not None and year > datetime.now(timezone.utc).year:
+        raise HTTPException(422, "year is in the future")
     with _Lazy() as get_conn:
-        return market(get_conn)
+        return market(get_conn, year=year, country=country.upper() if country else None)
 
 
 # ----------------------------------------------------------- buyer profile
@@ -534,13 +579,18 @@ def source_spans(conn) -> dict[str, dict[str, Any]]:
     for table, extra in (("opportunity", "WHERE o.is_defence AND NOT o.suppressed"),
                          ("call", "WHERE NOT c.suppressed")):
         alias = table[0]
+        # How many notices state a value at all (a placeholder amount is "not stated"): the
+        # site says "not stated by the buyer in N % of notices from this source" from it.
+        stated = (f", count(*) FILTER (WHERE o.value_amount > {PLACEHOLDER_VALUE_MAX}) AS stated"
+                  if table == "opportunity" else "")
         rows = conn.execute(
             f"""SELECT s.code, count(*) AS n, min({alias}.published_at) AS first,
-                       max({alias}.published_at) AS last
+                       max({alias}.published_at) AS last{stated}
                   FROM {table} {alias} JOIN source s ON s.id = {alias}.source_id
                   {extra} GROUP BY s.code""").fetchall()
         for r in rows:
-            out[r["code"]] = {"heldFrom": r["first"], "heldTo": r["last"], "heldCount": r["n"]}
+            out[r["code"]] = {"heldFrom": r["first"], "heldTo": r["last"], "heldCount": r["n"],
+                              **({"valueStatedCount": r["stated"]} if "stated" in r else {})}
     return out
 
 

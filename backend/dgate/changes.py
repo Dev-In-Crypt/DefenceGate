@@ -2,15 +2,18 @@
 
 Two kinds of entry, each about a notice that is in scope:
 
-  - `new`      the notice was first collected in the window (and was published in or just
-               before it: an old notice read in by a history load is not news)
+  - `new`      the notice was first collected in the window and was published in it (or a
+               day or two before: TED notices are collected after their publication date).
+               An older notice read in by a history load is not news
   - `amended`  its deadline, value (or currency), status or procedure changed, as the
                archive observed it
 
 The archive is the source and nothing is invented. An amendment is a real one, by the rule
 the per-notice timeline already uses (`tenders.timeline`): versions annotated `reread`,
 `out_of_order` or `remapped`, and versions annotated `correction`, are not amendments; nor
-is a version that moved only the publication date (the PLACSP feed stamp). The listed
+is a version that moved only the publication date (the PLACSP feed stamp), nor one a
+history load wrote (note kind `history`, migration 0054: the publisher made that change
+long before we read it, so "seen today" would be false). The listed
 fields are an allow-list (`CHANGE_FIELDS`): a field added to the archive later is not
 shown until someone decides it should be.
 
@@ -46,12 +49,13 @@ DEFAULT_PAGE_SIZE = 50
 CANDIDATE_LIMIT = 20000
 # A notice first seen in the window counts as new only if it was published no earlier than
 # this many days before the window opened: TED notices are collected a day or more after
-# their publication date, a history load reads in years.
-PUBLISHED_SLACK_DAYS = 7
+# their publication date, a history load reads in years (and 11,231 "amendments" of 16
+# October 2026 were deadline moves of 2022 that a load read in).
+PUBLISHED_SLACK_DAYS = 2
 # The fields an amendment is listed for, as the archive names them.
 CHANGE_FIELDS = ("status", "deadline_at", "value_amount", "value_currency", "procedure_type")
 # Version notes that mean "not something the publisher did".
-NOT_A_CHANGE = ("reread", "out_of_order", "remapped", "correction")
+NOT_A_CHANGE = ("reread", "out_of_order", "remapped", "correction", "history")
 
 
 class Change(BaseModel):
@@ -131,7 +135,7 @@ def _amendments(conn, ids: list[int], since: datetime) -> dict[tuple[int, date],
         corrected = {r["version"] for r in group if "correction" in (r.get("kinds") or [])}
         for entry in T.timeline(group):
             at = entry["detectedAt"].astimezone(timezone.utc)
-            if at < since or entry["version"] in corrected:
+            if at < since or entry["version"] in corrected or entry.get("historic"):
                 continue
             lines = [c for c in entry["changes"] if c["field"] in CHANGE_FIELDS]
             if not lines:
@@ -157,13 +161,12 @@ def _amendments(conn, ids: list[int], since: datetime) -> dict[tuple[int, date],
 def build_events(conn, *, scope: str | None, countries: list[str],
                  now: datetime | None = None, goods: str | None = None) -> tuple[list[dict[str, Any]], datetime, datetime]:
     """Every event of the window, newest first, as plain dicts (`id` is the notice's),
-    with the window's bounds. The scope is `core` or `supply` or `all`, or None for core
-    and supply together."""
+    with the window's bounds. The scope is `relevant` (the default, None too: core and supply
+    together), `core`, `supply` or `all`."""
     api = T._api()
     now = now or datetime.now(timezone.utc)
     since = now - timedelta(days=WINDOW_DAYS)
-    scope_sql = (f"({api.SCOPE_SQL['core']} OR {api.SCOPE_SQL['supply']})" if scope is None
-                 else api.SCOPE_SQL[scope])
+    scope_sql = api.SCOPE_SQL[scope or "relevant"]
     if goods:
         scope_sql = f"({scope_sql} AND {api.GOODS_SQL[goods]})"
     params: list[Any] = []
@@ -200,7 +203,7 @@ def build_events(conn, *, scope: str | None, countries: list[str],
 @cache_list("changes", ttl=5 * 60)
 def list_changes(
     country: str | None = Query(None, max_length=200),
-    scope: str | None = Query(None, pattern="^(core|supply|all)$"),
+    scope: str | None = Query(None, pattern="^(relevant|core|supply|all)$"),
     goods: str | None = Query(None, pattern="^defence$"),
     page: int = Query(1, ge=1, le=100),
     pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),

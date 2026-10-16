@@ -307,7 +307,8 @@ def test_the_replay_archives_corrected_records_without_a_collection_run(
     assert archive[0][0].endswith("_202610.zip")
     assert archive[0][1] == datetime(2026, 10, 1, tzinfo=UTC)    # the month's own entries only
     assert len(_versions(conn)) == 2
-    assert _versions(conn)[1]["kinds"] == ["remapped"]    # added 13 October 2026 (review)
+    # added 13 October 2026 (review); and, since WP-20, `history`: a replay is a load of the past
+    assert sorted(_versions(conn)[1]["kinds"]) == ["history", "remapped"]
     # not a collection run: catch-up must not read it as today's ingest
     assert conn.execute("SELECT count(*) n FROM ingest_run").fetchone()["n"] == 0
     # only the record it archived was landed, not the two civil entries beside it

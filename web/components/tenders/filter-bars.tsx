@@ -2,21 +2,19 @@ import Link from 'next/link';
 import { Button } from '../dg/button';
 import { Choice, Fieldset, Select, TextInput } from '../dg/form';
 import { FilterPanel } from '../funding/filter-panel';
-import { BUYER_COUNTRIES, CURRENCIES, TENDER_SCOPES } from '@/lib/taxonomy';
+import { BUYER_COUNTRIES, CURRENCIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import {
   DEFAULT_CURRENCY, DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, MAX_QUERY_LENGTH, PARAM, activeBuyerFilterCount, activeTenderFilterCount,
   defaultTenderSort,
 } from '@/lib/filters';
-import type { BuyerFilters, TenderFilters, TenderScopeFilter, TenderStatusFilter } from '@/lib/types';
+import { formatNumber } from '@/lib/format';
+import type { BuyerFilters, ScopeCounts, TenderFilters, TenderScopeFilter, TenderStatusFilter } from '@/lib/types';
 
 const STATUS_OPTIONS: { value: TenderStatusFilter; label: string }[] = [
   { value: 'open', label: 'Open' }, { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' },
 ];
-const SCOPE_OPTIONS: { value: TenderScopeFilter; label: string }[] = [
-  { value: 'core', label: 'Defence notices' },
-  { value: 'supply', label: 'Supplies to defence buyers, civil-buyer directive and security-body notices' },
-  { value: 'all', label: 'All' },
-];
+/** The scope choices, in the order of the glossary (lib/taxonomy.ts SCOPE_CHOICES); `all` is the escape hatch. */
+const SCOPE_OPTIONS: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
 /** Value presets, plain numbers: they apply in the selected currency. Nothing is converted. */
 const VALUE_PRESETS = [100_000, 500_000, 1_000_000, 5_000_000, 10_000_000, 50_000_000];
 const formatPreset = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000}M` : `${n / 1_000}k`);
@@ -38,7 +36,7 @@ function CountryChoices({ selected }: { selected: string[] | undefined }) {
  * URL-synced filter form (GET) for /tenders. Works without JS; FilterPanel enhances it. The same
  * progressive-enhancement panel as the funding filters.
  */
-export function TenderFilterBar({ filters, basePath }: { filters: TenderFilters; basePath: string }) {
+export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: TenderFilters; basePath: string; scopeCounts?: ScopeCounts | null }) {
   const currency = filters.currency ?? DEFAULT_CURRENCY;
   const currencyOptions = (CURRENCIES.includes(currency) ? [...CURRENCIES] : [...CURRENCIES, currency]).map((c) => ({ value: c, label: c }));
   const valueOptions = VALUE_PRESETS.map((n) => ({ value: String(n), label: `${currency} ${formatPreset(n)}` }));
@@ -54,12 +52,19 @@ export function TenderFilterBar({ filters, basePath }: { filters: TenderFilters;
           {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? DEFAULT_TENDER_STATUS) === o.value} />)}
         </Fieldset>
         <Fieldset legend="Scope">
-          {SCOPE_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.scope} value={o.value} label={o.label} defaultChecked={(filters.scope ?? DEFAULT_TENDER_SCOPE) === o.value} />)}
-          <p className="m-0 pt-2 text-small text-ink-muted">
-            <span className="font-semibold text-ink">{TENDER_SCOPES.supply.label}:</span> {TENDER_SCOPES.supply.hint} {TENDER_SCOPES.supply.also}
+          {SCOPE_OPTIONS.map((o) => {
+            const n = o === 'all' ? undefined : scopeCounts?.[o];
+            return (
+              <Choice key={o} type="radio" name={PARAM.scope} value={o}
+                label={<span>{SCOPE_CHOICES[o].label}{n !== undefined && <span className="font-mono text-mono-strong tabular-nums"> ({formatNumber(n)})</span>}</span>}
+                defaultChecked={(filters.scope ?? DEFAULT_TENDER_SCOPE) === o} />
+            );
+          })}
+          <p className="m-0 pt-1 text-small text-ink-muted">
+            Counts are for the other filters as they are now. <Link href="/glossary#scope" className="font-semibold">What the scopes mean</Link>
           </p>
           <Choice name={PARAM.goods} value="defence" label="Defence goods only" defaultChecked={filters.goods === 'defence'}
-            hint="Only notices that say defence themselves: the directive or a military product code, not a purchase that is here because its buyer is a defence body." />
+            hint="Narrows the scope you chose to notices that say defence themselves: the directive or a military product code." />
         </Fieldset>
         <CountryChoices selected={filters.country} />
         <Fieldset legend="Deadline between (UTC)" className="gap-2">

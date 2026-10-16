@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getHealth } from '@/lib/api';
+import { portalWords } from '@/lib/coverage-copy';
+import { SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
 import { Callout, ClauseList, Steps } from '@/components/dg/blocks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -18,7 +21,8 @@ const PIPELINE = [
   { title: 'Classify and link', body: 'Each notice is checked for defence and dual-use signals and linked to the same notice on other sources where a shared reference or identifier exists.' },
 ];
 
-export default function MethodologyPage() {
+export default async function MethodologyPage() {
+  const portals = portalWords((await getHealth()).sources);
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Methodology', href: '/methodology' }]}
@@ -35,13 +39,17 @@ export default function MethodologyPage() {
           We keep a new version when a notice’s title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes, and record which fields changed. A change to anything else, such as a rewritten description, does not create a version. Earlier versions are never overwritten or deleted.
         </p>
         <p className="m-0 text-body text-ink-muted">
-          History starts when we first saw a notice: our archive began in September 2026, and earlier states are not reconstructed. The timeline on a record lists the amendments we observed and when we observed them, which is not necessarily when the source made the change. Versions we add ourselves when we correct how a field is read are kept in the archive but are not listed as amendments.
+          History starts when we first saw a notice: our archive began in September 2026, and earlier states are not reconstructed. The timeline on a record lists the amendments we observed and when we observed them, which is not necessarily when the source made the change. Versions we add ourselves when we correct how a field is read are kept in the archive but are not listed as amendments. When we load a source&rsquo;s older notices, the changes we find in them are real but old: the record lists them marked as read from history, and they are not counted in the change list, the feeds or the amendment shares.
+        </p>
+        <p className="m-0 text-body text-ink-muted">
+          The change list and its Atom feed show a notice as new only if it was published in the last 14 days, not merely loaded in them. The amendment shares of the market page count notices with an amendment we saw live.
         </p>
       </ContentSection>
 
       <ContentSection title="What “defence” and “dual-use” mean here">
         <p className="m-0 text-body text-ink-muted">
-          The label is an automated indication built from separate signals. A legal basis or a military product code can qualify a notice. A military code bought by a municipal, health, education or fire body is labelled dual-use or security and is not in the default view. A buyer on our defence list, or a link to a defence notice of another source, puts a notice in the separate “supplies to defence buyers” list. Two kinds of notice with a single defence signal from the wrong kind of buyer are kept in that same list and never deleted: a notice whose only signal is the defence directive, from a buyer that is not a defence or security body (“Filed under the defence procurement directive by a civil buyer”), and a notice whose only signal is a military product code, from a police, prison, border, customs or tax body (“Security-body purchase of a military-type product code”). Search and the scope filter find them. The “Defence goods only” switch narrows the list further, to notices that say defence themselves (the directive or a military product code) and not only through a listed buyer. A security-clearance or confidentiality field and a civil security code are recorded but do not qualify a notice.
+          The label is an automated indication built from separate signals. A legal basis or a military product code can qualify a notice. A military code bought by a municipal, health, education or fire body is labelled dual-use or security and is not in the default view. A buyer on our defence list, or a link to a defence notice of another source, puts a notice in the separate “supplies to defence buyers” list.
+          The default list, “{SCOPE_CHOICES.relevant.short}”, is the core defence notices and the supplies to defence buyers together, and every card says why it is there; “{SCOPE_CHOICES.core.short}” and “{SCOPE_CHOICES.supply.short}” show one part each. Two kinds of notice with a single defence signal from the wrong kind of buyer are kept in that same list and never deleted: a notice whose only signal is the defence directive, from a buyer that is not a defence or security body (“Filed under the defence procurement directive by a civil buyer”), and a notice whose only signal is a military product code, from a police, prison, border, customs or tax body (“Security-body purchase of a military-type product code”). Search and the scope filter find them. The “Defence goods only” switch narrows the list further, to notices that say defence themselves (the directive or a military product code) and not only through a listed buyer. A security-clearance or confidentiality field and a civil security code are recorded but do not qualify a notice.
         </p>
         <ClauseList items={[
           'The legal basis of the procedure, for example Directive 2009/81/EC on defence and security procurement.',
@@ -70,7 +78,7 @@ export default function MethodologyPage() {
         <ClauseList items={[
           'Collection is scheduled once a day, not real time. The status page shows when each source last ran.',
           'A source can fail, change format or publish late. A run that fell short is marked partial.',
-          'National tender portals are collected for four countries (Spain, France, the Netherlands and Poland); elsewhere we hold only what TED carries. Below-threshold procurement is often not published centrally. Known gaps are listed on the source status page.',
+          `National tender portals and feeds are collected for ${portals.count} countries (${portals.names}); elsewhere we hold only what TED carries. For Germany that is the federal notice service, from 25 October 2023. Below-threshold procurement is often not published centrally. Known gaps are listed on the source status page.`,
           'A field a source does not give, or that we do not read from it, is shown as not available or not read from this source, never as a finding.',
           'A record that cannot be read is skipped and logged instead of being guessed. It is not shown.',
         ]} />

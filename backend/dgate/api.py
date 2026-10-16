@@ -332,6 +332,10 @@ GOODS_SQL = {"defence": classify.GOODS_DEFENCE_SQL}      # the `goods` parameter
 SCOPE_SQL = {
     "core": CORE_SQL,
     "supply": classify.SUPPLY_SQL,
+    # The site's default (owner decision of 16 October 2026): the two together, `core` and
+    # `supply`, which do not overlap (SUPPLY_SQL excludes CORE_SQL). Not `all`: a military
+    # CPV bought by a municipality or a hospital (`dual_use`) is in neither.
+    "relevant": f"({CORE_SQL} OR {classify.SUPPLY_SQL})",
     "all": "TRUE",
 }
 
@@ -492,11 +496,11 @@ def get_versions(opp_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)
         # of order, is one of our own re-mappings, only moved the publication date or
         # left lines that read the same is not an amendment. The timeline's own rule,
         # so the flag and the list on the tender page cannot disagree.
-        "amended": len(_tenders.timeline([
+        "amended": any(not e.get("historic") for e in _tenders.timeline([
             {"version": r["version"], "observed_at": r["observed_at"],
              "changed_fields": r["changed_fields"], "payload": r["payload"],
              "kinds": [n["kind"] for n in (r["notes"] or [])]}
-            for r in rows])) > 1,
+            for r in rows])[1:]),
         "versions": [
             {
                 "version": r["version"],

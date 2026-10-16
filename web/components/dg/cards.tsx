@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { callStatusKind, getCallDeadline, getTenderDeadline, now } from '@/lib/deadline';
-import { formatDateUtc, openingPhrase } from '@/lib/format';
+import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
+import { formatDateUtc, isPlaceholderAmount, openingPhrase } from '@/lib/format';
 import { TENDER_CHANGED_LABEL, anomalyNotes, isLongRunning, tenderStatusView } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
+import { cpvLabel } from '@/lib/taxonomy';
+import { matchedCpv } from '@/lib/tender-basis';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
 import { AmountDisplay, CountryLabel, FactCell, LangLabel } from './data-display';
@@ -121,8 +123,17 @@ export function AnomalyNote({ tender, className }: { tender: Pick<Tender, 'anoma
 }
 
 /** Whole card is one link (stretched title). The buyer link and "View original" sit above it. */
-export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; headingLevel?: 'h2' | 'h3' }) {
+export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }: {
+  tender: Tender; headingLevel?: 'h2' | 'h3';
+  /** The CPV prefixes the list is filtered by: a notice found through an additional code says so. */
+  cpvFilter?: string[];
+  /** Why the value is missing for this source ("Not stated by the buyer in 82 % of notices from this source"). */
+  valueNote?: string | null;
+}) {
   const d = getTenderDeadline(tender);
+  const local = d.state === 'closed' ? null : localDeadline(d.iso, tender.country, d.dateOnly);
+  const matched = matchedCpv(tender, cpvFilter);
+  const mainName = tender.cpv ? cpvLabel(tender.cpv) : null;
   const closed = d.state === 'closed';
   const soon = d.state === 'soon' || d.state === 'urgent';
   const longRunning = isLongRunning(tender) && !closed;
@@ -132,9 +143,16 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
       <div className="flex flex-wrap items-center gap-2">
         {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
+        {mainName && <span className="text-small text-ink-muted">{mainName.label}</span>}
         {tender.country && <Tag>{tender.country}</Tag>}
         <span className="ml-auto flex flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
       </div>
+      {matched.length > 0 && (
+        <p className="m-0 text-small text-ink-muted">
+          Matches your code filter through {matched.length === 1 ? 'an additional code' : 'additional codes'}:{' '}
+          {matched.map((c, i) => <span key={c}>{i > 0 && ', '}<span className="font-mono text-mono-strong">{c}</span>{cpvLabel(c) ? ` (${cpvLabel(c)?.label})` : ''}</span>)}
+        </p>
+      )}
       <div className="flex flex-col gap-1">
         <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
           <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</Link>
@@ -158,6 +176,7 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
           {d.iso ? (
             <>
               <time dateTime={d.iso}>{d.utc}</time>
+              {local && <div className="font-sans text-small font-normal text-ink-muted">{local}</div>}
               {d.countdown && (
                 <div className={cn('font-sans text-small font-bold', closed ? 'text-ink-muted' : soon ? 'text-soon-fg' : 'text-accent-text')}>{d.countdown}</div>
               )}
@@ -166,7 +185,15 @@ export function TenderCard({ tender, headingLevel = 'h2' }: { tender: Tender; he
             <span className="font-sans">{closed ? 'Closed' : 'No deadline stated'}</span>
           )}
         </FactCell>
-        <FactCell label="Estimated value" tone={closed ? 'closed' : 'default'}><AmountDisplay money={tender.estimatedValue} /></FactCell>
+        <FactCell label="Estimated value" tone={closed ? 'closed' : 'default'}>
+          <AmountDisplay money={tender.estimatedValue} />
+          {valueNote && (!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && (
+            <div className="font-sans text-small font-normal text-ink-muted">{valueNote}</div>
+          )}
+          {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && tender.valueKind === 'lot_sum' && (
+            <div className="font-sans text-small font-normal text-ink-muted">Sum of the values the notice states for its lots</div>
+          )}
+        </FactCell>
         <FactCell label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</FactCell>
       </dl>
       <AnomalyNote tender={tender} />

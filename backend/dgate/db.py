@@ -12,12 +12,14 @@ Everything else in this file is plumbing.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
 import os
 import socket
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import asdict, fields, replace
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -42,7 +44,48 @@ VERSIONED_FIELDS = [
 # Version note kinds that say "this version is not something the source did":
 # re-read content, history arriving late, and our own bulk re-mapping. A client
 # that counts amendments or reports "changes since your last visit" skips them.
-NOT_AMENDMENT_NOTES = ("reread", "out_of_order", "remapped")
+NOT_AMENDMENT_NOTES = ("reread", "out_of_order", "remapped", "history")
+
+# `history`: the version was written by a command that loads the past (a history load, a
+# replay of an archive, a re-qualification, a backfill). The change in it is real, the
+# publisher did make it, but we saw it only now, so "seen today" would be false: the
+# tender page lists it as an earlier change, and the feeds, the changes page and the
+# amendment counts leave it out (migration 0054).
+HISTORY_NOTE = "history"
+_LOAD_LABEL: ContextVar[str | None] = ContextVar("dgate_load_label", default=None)
+
+
+@contextmanager
+def historical_load(label: str) -> Iterator[None]:
+    """Mark every version written inside the block as a history load's (`HISTORY_NOTE`).
+
+    Nested loads keep the outermost label. A ContextVar, so the thread that runs the
+    command is the only one affected."""
+    token = _LOAD_LABEL.set(_LOAD_LABEL.get() or label)
+    try:
+        yield
+    finally:
+        _LOAD_LABEL.reset(token)
+
+
+def historical(label: str):
+    """Decorator form of `historical_load` for the entry points of such commands."""
+    def wrap(fn):
+        @functools.wraps(fn)
+        def inner(*args, **kwargs):
+            with historical_load(label):
+                return fn(*args, **kwargs)
+        return inner
+    return wrap
+
+
+def _tag_load(conn: psycopg.Connection, version_id: int) -> None:
+    label = _LOAD_LABEL.get()
+    if label:
+        conn.execute(
+            """INSERT INTO opportunity_version_note (opportunity_version_id, kind, note)
+               VALUES (%s, 'history', %s) ON CONFLICT DO NOTHING""",
+            (version_id, f"written by a {label} load; the change itself is older"))
 
 
 # Sources whose identifier is a file number the buyer itself assigns, so it is
@@ -873,14 +916,16 @@ def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
     ).fetchone()
     # No previous version means nothing was closed; the column defaults apply.
     at = closed["valid_to"] if closed else None
-    conn.execute(
+    new_id = conn.execute(
         """INSERT INTO opportunity_version
              (opportunity_id, version, payload, raw_hash, changed_fields,
               observed_at, valid_from)
            VALUES (%s, %s, %s, %s, %s,
-                   coalesce(%s, clock_timestamp()), coalesce(%s, clock_timestamp()))""",
+                   coalesce(%s, clock_timestamp()), coalesce(%s, clock_timestamp()))
+        RETURNING id""",
         (opp_id, version, Jsonb(payload), raw_hash, changed, at, at),
-    )
+    ).fetchone()["id"]
+    _tag_load(conn, new_id)
     # A link or an attribute is not erased by a version that does not state it: a record
     # built from a payload without `ted_ref` (a PLACSP notice, whose link `link_twins`
     # set outside any version) would put NULL over it while `twin_method` stayed.
@@ -1001,12 +1046,13 @@ def upsert_opportunity(
             f"VALUES ({placeholders}) RETURNING id",
             values,
         ).fetchone()["id"]
-        conn.execute(
+        first_id = conn.execute(
             """INSERT INTO opportunity_version
                  (opportunity_id, version, payload, raw_hash, changed_fields)
-               VALUES (%s, 1, %s, %s, %s)""",
+               VALUES (%s, 1, %s, %s, %s) RETURNING id""",
             (opp_id, Jsonb(payload), raw_hash, []),
-        )
+        ).fetchone()["id"]
+        _tag_load(conn, first_id)
         return opp_id, "new"
 
     opp_id = existing["id"]

@@ -300,10 +300,11 @@ def test_each_source_reports_the_span_of_dates_it_holds(client, conn):
     _put(conn, "T2", source="ted", published=date(2026, 9, 30))
     _put(conn, "B1", source="fr_boamp", country="FR", published=date(2026, 1, 15))
     spans = stats.source_spans(conn)
+    # WP-20: also how many of them state a value (here none: `_put` states none)
     assert spans["ted"] == {"heldFrom": date(2024, 3, 1), "heldTo": date(2026, 9, 30),
-                            "heldCount": 2}
+                            "heldCount": 2, "valueStatedCount": 0}
     assert spans["fr_boamp"] == {"heldFrom": date(2026, 1, 15), "heldTo": date(2026, 1, 15),
-                                 "heldCount": 1}
+                                 "heldCount": 1, "valueStatedCount": 0}
     assert "nl_tenderned" not in spans
 
     listed = {s["id"]: s for s in client.get("/v1/sources").json()["sources"]}

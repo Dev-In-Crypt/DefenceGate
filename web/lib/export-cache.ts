@@ -90,10 +90,17 @@ export function tooBroad(f: {
   return f.status === 'all' && f.scope === 'all' && !narrowed;
 }
 
-/** The list's order for a file read by id: the soonest deadline first (the latest first for closed), none last. */
-export function listOrder<T extends { deadline: string | null }>(items: T[], status: string | undefined): T[] {
-  const sign = status === 'closed' ? -1 : 1;
-  const at = (t: T) => (t.deadline ? Date.parse(t.deadline) : Number.NaN);
+/**
+ * The list's order for a file read by id. With a `sort` (the list's own parameter) that order is used: `deadline-asc`,
+ * `deadline-desc`, `published-desc`; none last. With none, the soonest deadline first (the latest first for closed).
+ * The file used to ignore `sort` (UX walk-through 16 October 2026): 1,000 rows came out in the order of the id.
+ */
+export function listOrder<T extends { deadline: string | null; publishedAt?: string | null }>(
+  items: T[], status: string | undefined, sort?: string,
+): T[] {
+  const by = sort ?? (status === 'closed' ? 'deadline-desc' : 'deadline-asc');
+  const sign = by === 'deadline-asc' ? 1 : -1;
+  const at = (t: T) => Date.parse((by === 'published-desc' ? t.publishedAt : t.deadline) ?? '');
   return [...items].sort((a, b) => {
     const x = at(a), y = at(b);
     if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) === Number.isNaN(y) ? 0 : Number.isNaN(x) ? 1 : -1;

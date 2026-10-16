@@ -53,7 +53,7 @@ const CALL_PAGE = 500;
 const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
 async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number }> {
-  const base = { status: 'open', scope: 'core', sort: 'deadline-asc', pageSize: TENDER_PAGE } as const;
+  const base = { status: 'open', scope: 'relevant', sort: 'deadline-asc', pageSize: TENDER_PAGE } as const;
   const first = await getTenders({ ...base, page: 1 }, { cacheable: true });
   const items = [...first.items];
   const size = Math.max(1, first.pageSize || TENDER_PAGE);

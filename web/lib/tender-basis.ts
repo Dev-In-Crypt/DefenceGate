@@ -27,6 +27,11 @@ export function militaryCodeChip(military: string[] | null | undefined, all: str
 }
 
 const DEFENCE_DIRECTIVE = /(2009[/-]81|32009L0081)/i;
+/** The reasons a notice is listed, in the plain words of the owner's decision of 16 October 2026. */
+export const DIRECTIVE_CHIP = 'Defence directive (2009/81/EC)';
+export const BUYER_CHIP = 'Defence buyer';
+/** The line that introduces the chips on a card. */
+export const WHY_HERE = 'Why this is here';
 
 /**
  * The two groups that are defence-qualified but not `core` (owner decision of 14 October 2026): scope `supply`,
@@ -71,17 +76,17 @@ export function basisChips(t: BasisInput): string[] {
     if (t.securityClearance) chips.push('Security-clearance field present');
     return chips;
   }
-  if (directive) chips.push('Defence and security directive (2009/81/EC)');
+  if (directive) chips.push(DIRECTIVE_CHIP);
   if (Array.isArray(t.qualifiedBy)) {
     // Driven by the signal that qualified the notice (site-qa2:N2): a military code is named only when it is what
     // qualified the notice, and a notice that is here through its buyer says so and nothing about a code.
     const by = t.qualifiedBy;
     if (by.includes('military_cpv') && !directive) chips.push(militaryCodeChip(t.militaryCpv, t.cpvCodes));
-    if ((by.includes('buyer') || t.scope === 'supply') && !directive && !by.includes('military_cpv')) chips.push('Supplies to a defence buyer');
+    if ((by.includes('buyer') || t.scope === 'supply') && !directive && !by.includes('military_cpv')) chips.push(BUYER_CHIP);
   } else {
     // An API that does not say what qualified the notice: `core` without the directive is a military product code.
     if (t.scope === 'core' && !directive) chips.push('Military product code (CPV)');
-    if (t.scope === 'supply') chips.push('Supplies to a defence buyer');
+    if (t.scope === 'supply') chips.push(BUYER_CHIP);
   }
   const cls = t.buyerClass ? BUYER_CLASS[t.buyerClass] : undefined;
   if (cls) chips.push(cls);
@@ -131,3 +136,15 @@ export function subcontractingView(t: SignalInput): SignalView {
 
 /** The one line under the chips. */
 export const CLASSIFIED_AUTOMATICALLY = 'Classified automatically';
+
+/**
+ * The additional CPV codes through which a notice matched a CPV filter, when its main code does not match: the card
+ * shows the main code only, so a notice found by an additional code looked like a wrong result (4 of 9 hits of
+ * cpv=34 on 16 October 2026). Empty when there is no filter or the main code already matches.
+ */
+export function matchedCpv(t: { cpv?: string | null; cpvCodes?: string[] | null }, prefixes: readonly string[] | undefined): string[] {
+  if (!prefixes || prefixes.length === 0) return [];
+  const hit = (code: string) => prefixes.some((p) => code.startsWith(p));
+  if (t.cpv && hit(t.cpv)) return [];
+  return (t.cpvCodes ?? []).filter((c) => c !== t.cpv && hit(c)).slice(0, 3);
+}

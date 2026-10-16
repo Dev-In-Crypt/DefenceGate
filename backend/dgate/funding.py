@@ -208,6 +208,9 @@ class SourceHealth(BaseModel):
     heldFrom: date | None = None
     heldTo: date | None = None
     heldCount: int | None = None
+    # Of a tender source: how many of the held notices state an estimated value (a placeholder
+    # amount does not count). Null for a grant source.
+    valueStatedCount: int | None = None
     # Of a tender source: the usual notices per month (median) and the months, as
     # `YYYY-MM`, well below it (stats.month_gaps). Null where it was not worked out.
     monthlyMedian: int | None = None
