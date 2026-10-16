@@ -6,6 +6,13 @@ import { pace, visit } from './helpers';
  * The same file runs in the `desktop` and the `mobile-375` project.
  */
 
+
+/** Below the `lg` breakpoint the filters sit behind a "Filters" button; open it so the text is on screen. */
+async function openFilters(page: import('@playwright/test').Page) {
+  const button = page.getByRole('button', { name: /^Filters/ });
+  if (await button.isVisible() && (await button.getAttribute('aria-expanded')) !== 'true') await button.click();
+}
+
 test('home: the finder, the honest alerts button and what is in here', async ({ page }) => {
   await visit(page, '/', {
     title: /DefenceGate/,
@@ -46,6 +53,7 @@ test('/tenders: the Defence goods only switch travels in the URL and explains it
   await visit(page, '/tenders?goods=defence', { title: /tenders/i, h1: 'Tenders' });
   const box = page.getByLabel('Defence goods only');
   await expect(box).toBeChecked();
+  await openFilters(page);
   await expect(page.getByText(/say defence themselves/i).first()).toBeVisible();
 });
 
@@ -112,6 +120,7 @@ test('/tenders: the default scope is defence-relevant, with counts, and an expli
   const relevant = page.getByLabel(/Defence-relevant \(core \+ supplies to defence buyers\)/);
   await expect(relevant).toBeChecked();
   // The three choices say how many each leads to; the count is a number, not a dash.
+  await openFilters(page);
   await expect(page.getByText(/Core: the notice itself is defence/)).toBeVisible();
   await expect(page.getByText(/Supplies to defence buyers only/)).toBeVisible();
   await visit(page, '/tenders?scope=core', { title: /tenders/i, h1: 'Tenders' });
@@ -128,6 +137,8 @@ test('the header has Market, and Methodology under Data', async ({ page, isMobil
   if (isMobile) await page.getByRole('button', { name: 'Open menu' }).click();
   const nav = page.getByRole('navigation', { name: isMobile ? 'Main menu' : 'Main' });
   await expect(nav.getByRole('link', { name: 'Market', exact: true })).toBeVisible();
+  // On a desktop the Data menu opens on hover.
+  if (!isMobile) await nav.getByRole('link', { name: 'Data', exact: true }).hover();
   await expect(nav.getByRole('link', { name: 'Methodology' })).toHaveCount(1);
 });
 

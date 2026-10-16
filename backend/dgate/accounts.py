@@ -316,7 +316,7 @@ def prune_expired(conn) -> None:
     asks every minute) bounds that to a day plus ten minutes, which is what the Privacy notice
     says. Throttled to one pass in ten minutes per process."""
     global _last_prune
-    if time.monotonic() - _last_prune < 600:
+    if _last_prune and time.monotonic() - _last_prune < 600:   # 0.0: never run (a fresh host's clock is under 600)
         return
     _last_prune = time.monotonic()
     conn.execute("DELETE FROM app_auth_event WHERE at < now() - interval '1 day'")
