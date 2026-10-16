@@ -175,7 +175,7 @@ RECORD_ERRORS = (ValueError, TypeError, KeyError, AttributeError, IndexError,
 MAX_QUARANTINED = 50
 _ID_KEYS = ("native_id", "publication-number", "notice-identifier", "idweb", "id", "slug",
             "Diarienummer", "publicatieId", "bzpNumber", "noticeNumber", "objectId",
-            "ccm2Id", "path", "numeroConvocatoria")
+            "ccm2Id", "path", "numeroConvocatoria", "file")
 
 
 def _record_id(record: Any) -> str:
@@ -637,6 +637,15 @@ def run_de_bkms(days: int = 2, *, force: bool = False, today: date | None = None
     today = today or date.today()
     with (db.connect(cfg.dsn) as conn,
           BundleWriter(build_store(), code) as writer):
+        # One run of this source at a time, whoever started it. The scheduled job and a
+        # manual `--once` overlapped on 16 October 2026 and both inserted the same new
+        # notice: a UniqueViolation, quarantined, the run `partial`. A session lock is
+        # released when the connection closes.
+        if not conn.execute("SELECT pg_try_advisory_lock(hashtext('dgate_run:de_bkms')) AS ok"
+                            ).fetchone()["ok"]:
+            log.warning("%s: another run is in progress; this one is skipped", code)
+            return
+        conn.commit()
         src_id = db.source_id(conn, code)
         run_id = db.start_run(conn, code, settings().floor(code))
         q = Quarantine(code)

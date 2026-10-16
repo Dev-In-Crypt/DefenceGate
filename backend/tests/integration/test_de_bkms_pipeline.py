@@ -281,3 +281,19 @@ def test_the_notice_is_linked_to_its_ted_twin_by_the_procedure_identifier(conn, 
         (NOTICE,)).fetchone()
     assert (row["ted_ref"], row["twin_method"], float(row["twin_confidence"])) == (
         "710974-2026", "procedure_id", 0.98)
+
+
+def test_a_quarantined_bkms_record_is_named_by_its_file():
+    assert pipeline._record_id({"file": "abc-01.xml", "xml": "<a/>"}) == "abc-01.xml"
+
+
+def test_a_second_run_while_one_is_in_progress_is_skipped_not_raced(conn, monkeypatch, schema):
+    import psycopg
+
+    _feed(monkeypatch, {TODAY: DEFENCE})
+    with psycopg.connect(schema, autocommit=True) as other:
+        other.execute("SELECT pg_advisory_lock(hashtext('dgate_run:de_bkms'))")
+        pipeline.run_de_bkms(days=0, force=True, today=TODAY)
+        assert _runs(conn) == []
+    pipeline.run_de_bkms(days=0, force=True, today=TODAY)
+    assert [r["status"] for r in _runs(conn)] == ["success"]
