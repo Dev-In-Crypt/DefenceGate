@@ -131,7 +131,7 @@ export default async function DataPage() {
 
       <ContentSection title="Using the data">
         <ClauseList items={[
-          'CSV: the Download CSV button under the filters of Tenders and of Funding gives the public fields of the current result, with the source, licence and attribution on every row. A tenders file holds at most 2,000 rows (1,000 when the status is All); a result cut at the limit holds the most recently added notices in the order you chose, and every row then says result_truncated = true.',
+          'CSV: the Download CSV button under the filters of Tenders and of Funding gives the public fields of the current result, with the source, licence and attribution on every row. A tenders file holds at most 2,000 rows (1,000 when the status is All); a result cut at the limit holds the most recently added notices in the order you chose, and every row then says result_truncated = true. The last column of a tenders file, confidence, is the notice’s level (high, medium or low; see Methodology, “How sure are we”).',
           'Atom: What changed has a feed (/changes.atom) of the same list, with the same country and scope choices. No account is needed.',
           'Calendar: the deadlines of open tenders and funding calls as an .ics feed (/calendar.ics), for your calendar program.',
           'API: the site reads a JSON interface that is not documented and not supported for use by others; the terms say what automated use is allowed.',

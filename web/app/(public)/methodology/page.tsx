@@ -62,6 +62,20 @@ export default async function MethodologyPage() {
         </p>
       </ContentSection>
 
+      <ContentSection title="How sure are we">
+        <p className="m-0 text-body text-ink-muted">
+          Every notice in the list carries a confidence level, high, medium or low, next to the reasons it is listed. The level is worked out from the same signals, when you open the page, and it does not change which notices are listed. It describes the group of notices that get the level, not the single notice: read the reasons on the card, then the original.
+        </p>
+        <ClauseList items={[
+          <><span className="font-semibold text-ink">High.</span> A military product code and a buyer on our defence list agree. In our sample, 96 % of these notices were themselves defence goods or services (95 % interval 88 to 98) and 99 % were defence goods or services or a defence body buying (92 to 100). Sample: 64 notices.</>,
+          <><span className="font-semibold text-ink">Medium.</span> The buyer is on our defence list, or the defence directive and a military product code agree for a buyer that is not a security or civil body. The buyer is a defence body in 93 % of the sample (85 to 97), but only 11 % of the notices were defence goods or services themselves (6 to 19): most are ordinary purchases such as food, cleaning, IT or building work. Sample: 111 notices.</>,
+          <><span className="font-semibold text-ink">Low.</span> One weak signal, or a signal from the wrong kind of buyer: only the directive from a civil body, only a military product code, a military code bought by a police, prison, border, customs or tax body. In the sample 21 % were defence goods or services or a defence body buying (16 to 27) and 34 % were not defence at all (28 to 40). Sample: 188 notices.</>,
+        ]} />
+        <p className="m-0 text-body text-ink-muted">
+          These are estimates from a random sample of 363 notices read by hand on 16 October 2026, drawn at random within each combination of signals and, inside it, in proportion across sources; the figures are weighted by the size of each combination. One person judged the notices from the title, the buyer and the product codes. The intervals are 95 % intervals; a different sample would give different numbers, and they will drift as the sources and our rules change. The low level is a small share of the list (about 7 %), the medium level most of it (about 83 %). We re-measure when the rules change.
+        </p>
+      </ContentSection>
+
       <ContentSection title="Linking the same notice">
         <p className="m-0 text-body text-ink-muted">
           The same procurement is often published on TED and on a national portal. We link a national notice to its TED notice by the reference it states, by the procedure identifier both carry or, where neither exists, by a strict match on buyer, deadline, value and publication date. Each link stores how it was made, and a linked national notice is shown under the TED one, so a wrong link can hide a notice: check both. Buyers are matched by their organisation identifier where the notice carries one, then by an identical name after case, accent and legal-form normalisation, in the same country.

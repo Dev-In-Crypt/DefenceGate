@@ -15,6 +15,34 @@ export interface BasisInput {
   /** The notice's own military CPV codes, and all its codes (to say "one of 46"). */
   militaryCpv?: string[] | null;
   cpvCodes?: string[] | null;
+  /** How sure we are (API `confidence`); undefined on an older API build. */
+  confidence?: ConfidenceInput | null;
+}
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+export interface ConfidenceInput { level?: string | null; basis?: string[] | null }
+
+/** Where the three levels are explained: the section "How sure are we" of the methodology page. */
+export const CONFIDENCE_HREF = '/methodology#s-how-sure-are-we';
+const CONFIDENCE_WORD: Record<ConfidenceLevel, string> = { high: 'High', medium: 'Medium', low: 'Low' };
+
+/**
+ * The badge next to the "why" chips: the visible text, the sentence shown on hover and focus (the API's `basis`), and
+ * the accessible name, which says the level and the reason. null when the API gives no level (an older build) or one
+ * this build does not know, so a new level is never shown as a wrong word.
+ */
+/** The CSV cell: the level only (`high`, `medium`, `low`), empty when the API gave none or one this build does not know. */
+export function confidenceCell(c: ConfidenceInput | null | undefined): string {
+  return confidenceView(c)?.level ?? '';
+}
+
+export interface ConfidenceView { level: ConfidenceLevel; text: string; sentence: string; name: string }
+export function confidenceView(c: ConfidenceInput | null | undefined): ConfidenceView | null {
+  const level = c?.level as ConfidenceLevel | undefined;
+  if (!level || !(level in CONFIDENCE_WORD)) return null;
+  const sentence = (c?.basis ?? []).filter(Boolean).join('; ');
+  const text = `${CONFIDENCE_WORD[level]} confidence`;
+  return { level, text, sentence: sentence ? `${sentence}.` : '', name: sentence ? `${text}: ${sentence}.` : text };
 }
 
 /** "Military product code (CPV 35811300, one of 46 codes)": the code that qualified the notice, not "a code". */
