@@ -279,6 +279,7 @@ def _read_batch(store: RawStore, keys: list[str], workers: int,
     return payloads
 
 
+@db.historical("replay")
 def reprocess(
     *, source: str | None = None, since: date | None = None, until: date | None = None,
     from_store: bool = False, dry_run: bool = False, dsn: str | None = None,
@@ -564,6 +565,7 @@ def _ted_candidates(conn, src_id: int, since: date | None, until: date | None,
     return _candidates(conn, "ted", src_id, since, until, linked_only)
 
 
+@db.historical("requalify")
 def requalify_source(conn, store: RawStore, source: str, *, since: date | None = None,
                      until: date | None = None, linked_only: bool = False,
                      twin_only: bool = False,

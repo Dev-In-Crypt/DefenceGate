@@ -2,11 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, ShieldCheck } from 'lucide-react';
 import { getAccountStatus } from '@/lib/account';
-import { getCalls, getChanges, getSiteStats, getTenders } from '@/lib/api';
+import { getCalls, getChanges, getHealth, getSiteStats, getTenderScopeCounts, getTenders, lastDataUpdate } from '@/lib/api';
+import { portalWords } from '@/lib/coverage-copy';
+import { staleNote, valueMissingNote, valueMissingShares } from '@/lib/source-status';
 import { toTenderQuery } from '@/lib/filters';
 import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
-import { BUYER_COUNTRIES, TENDER_SCOPES, cpvDivisionLabel } from '@/lib/taxonomy';
+import { BUYER_COUNTRIES, SCOPE_CHOICES, TENDER_SCOPES, cpvDivisionLabel } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Select, TextInput } from '@/components/dg/form';
 import { AudienceGrid, BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
@@ -33,8 +35,8 @@ const EXAMPLES: { country: string; cpv: string }[] = [
 ];
 const EXAMPLES_SHOWN = 3;
 
-const BENEFITS = [
-  { icon: SearchCheck, title: 'Many portals, one list', body: 'TED notices and the national portals of France, the Netherlands, Poland and Spain, in one list with one layout. Other countries appear through TED only.' },
+const benefits = (names: string) => [
+  { icon: SearchCheck, title: 'Many portals, one list', body: `TED notices and the national portals of ${names}, in one list with one layout. Other countries appear through TED only.` },
   { icon: GitCompare, title: 'See what changed', body: 'Deadlines move and values are corrected. We keep a new version when a notice’s deadline, value, status or another main field changes, so you see what changed and when. Our archive began in September 2026.' },
   { icon: Link2, title: 'Straight to the source', body: 'Each record links to its original publication. Check it there before you act: the source is the authority, not us.' },
   { icon: ShieldCheck, title: 'Know what we cover', body: 'Every source, when it last ran and whether it met the minimum we expect are public, with the span of publication dates held. Known gaps are listed on the status page.' },
@@ -55,12 +57,12 @@ const STEPS = [
   { title: 'You verify and act', body: 'Open the original, confirm the details there, then bid or apply. We link; the decision is yours.' },
 ];
 
-const FAQ: FaqItem[] = [
+const faqItems = (portals: { count: string; names: string }): FaqItem[] => [
   { q: 'What is DefenceGate?', a: 'An independent information service that collects publicly published defence and dual-use procurement notices and funding calls, shows them in one directory, and keeps a version history of the changes it observes.' },
   { q: 'Is it an official source?', a: 'No. We are not affiliated with the EU, TED or any government. Every record links to the original publication, which is the authoritative text.' },
-  { q: 'Where does the data come from?', a: 'From TED, the national tender portals of France, the Netherlands, Poland and Spain, and public funding portals. The source status page lists each one with its licence, when it last ran and the known gaps.' },
+  { q: 'Where does the data come from?', a: `From TED, the national tender portals and feeds of ${portals.names}, and public funding portals. The source status page lists each one with its licence, when it last ran and the known gaps.` },
   { q: 'How current is it?', a: 'Each source is collected once a day, not in real time. The status page shows the last run per source. Always confirm deadlines in the original notice.' },
-  { q: 'Is it complete?', a: 'No, and we do not claim it is. Sources can fail or publish late, national tender portals are collected for four countries only, and some history is still being loaded. A notice you need may be missing, so check the portals relevant to you.' },
+  { q: 'Is it complete?', a: `No, and we do not claim it is. Sources can fail or publish late, national tender portals are collected for ${portals.count} countries only (the others through TED), and some history is still being loaded. A notice you need may be missing, so check the portals relevant to you.` },
   { q: 'How do you decide what counts as defence or dual-use?', a: 'Automatically, from several signals such as the legal basis, the product classification and the buyer. It can be wrong and is not a legal determination. See the methodology page.' },
   { q: 'What does the version history show?', a: 'What changed in a notice between two of our observations and when we saw it, for example a moved deadline or a corrected value. A new version is kept when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. History starts when we first saw a notice (our archive began in September 2026); earlier states are not reconstructed.' },
   { q: 'Do I need an account?', a: 'Not to browse. Alerts and a personal workspace are being prepared and are not open yet.' },
@@ -69,11 +71,19 @@ const FAQ: FaqItem[] = [
   { q: 'How do I report an error?', a: 'Use the contact route in the imprint and tell us the record and what is wrong. We check it against the source.' },
 ];
 
-function Counter({ label, value, sub }: { label: string; value: string; sub?: string }) {
+/**
+ * A figure of the home page. `value` null means the data service gave none and no earlier answer is held: the tile says
+ * so in words. It is never a dash, which read as "zero" or as a broken page (UX walk-throughs of 16 October 2026).
+ * `asOf`: the figure is the last good one, from that time.
+ */
+function Counter({ label, value, sub, asOf }: { label: string; value: string | null; sub?: string; asOf?: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
       <dt className="text-label text-ink-muted">{label}</dt>
-      <dd className="m-0 font-mono text-figure tabular-nums">{value}</dd>
+      {value === null
+        ? <dd className="m-0 text-body text-ink-muted">Not available right now</dd>
+        : <dd className="m-0 font-mono text-figure tabular-nums">{value}</dd>}
+      {asOf && value !== null && <dd className="m-0 text-small text-ink-muted">as of {formatDateTimeUtc(asOf)}</dd>}
       {sub && <dd className="m-0 text-small text-ink-muted">{sub}</dd>}
     </div>
   );
@@ -85,24 +95,31 @@ export default async function LandingPage() {
   const today = new Date().toISOString().slice(0, 10);
   // Cached for a minute; any failure reads as "not open", which keeps the earlier wording.
   const { open: accountsOpen } = await getAccountStatus();
-  const faq = FAQ.map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
-  const [stats, current, dated, closingCalls, coreOpen, supplyOpen, goodsOpen, changes, exampleCounts] = await Promise.all([
-    getSiteStats(),
+  const health = await getHealth().catch(() => null);
+  const portals = portalWords(health?.sources ?? []);
+  const faq = faqItems(portals).map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
+  const [stats, current, dated, closingCalls, counts, goodsOpen, changes, exampleCounts] = await Promise.all([
+    getSiteStats().catch(() => null),
     // Current: not past its deadline, and with no deadline only if published within the last year.
     getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
     // With a stated deadline that has not passed: the ones a reader can still act on by date.
     getTenders({ deadlineFrom: today, pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
-    getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }),
-    // What is in here: open notices by scope, as the list's own filter counts them.
-    getTenders({ scope: 'core', pageSize: 1 }, { cacheable: true }).catch(() => null),
-    getTenders({ scope: 'supply', pageSize: 1 }, { cacheable: true }).catch(() => null),
+    getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
+    // What is in here: open notices by scope, as the list's own filter counts them (one request, three counts).
+    getTenderScopeCounts({}),
+    // The "Defence goods only" switch narrows whichever scope is chosen; on the default scope it is a part of core.
     getTenders({ goods: 'defence', pageSize: 1 }, { cacheable: true }).catch(() => null),
     getChanges({ pageSize: 1 }).catch(() => null),
     Promise.all(EXAMPLES.map((e) => getTenders({ country: [e.country], cpv: [e.cpv], pageSize: 1 }, { cacheable: true }).then((r) => r.total).catch(() => 0))),
   ]);
   const examples = EXAMPLES.map((e, i) => ({ ...e, open: exampleCounts[i] })).filter((e) => e.open > 0).slice(0, EXAMPLES_SHOWN);
   const closingTenders = dated;
-  const budgetRepeats = repeatedCallBudgets(closingCalls.items);
+  const closingCallItems = closingCalls?.items ?? [];
+  const budgetRepeats = repeatedCallBudgets(closingCallItems);
+  const missing = valueMissingShares(health?.sources ?? []);
+  const stale = [current, dated].map((r) => r?.staleAsOf).find(Boolean);
+  // The goods tile earns its place only when its number differs from core's (it was 300 = 300 on 16 October 2026).
+  const showGoods = goodsOpen !== null && counts !== null && goodsOpen.total !== counts.core;
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
@@ -148,29 +165,34 @@ export default async function LandingPage() {
           <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
         </div>
         <dl aria-label="Live data" className="m-0 grid grid-cols-2 gap-3">
-          <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : '–'} />
-          <Counter label="Current notices" value={current ? formatNumber(current.total) : '–'} sub="including some without a stated deadline" />
-          <Counter label="Open funding calls" value={String(stats.openCalls)} />
-          <Counter label="Sources" value={String(stats.sources)} />
-          <div className="col-span-2"><Counter label="Last collection run" value={formatDateTimeUtc(stats.lastUpdate)} /></div>
+          <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
+          <Counter label="Current notices" value={current ? formatNumber(current.total) : null} asOf={current?.staleAsOf} sub="including some without a stated deadline" />
+          <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} />
+          <Counter label="Sources" value={stats ? String(stats.sources) : null} />
+          <div className="col-span-2"><Counter label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} /></div>
         </dl>
       </section>
 
       <section aria-labelledby="inside" className="flex flex-col gap-4 rounded-lg bg-surface p-6 md:p-8">
         <h2 id="inside" className="m-0 text-h2">What is in here</h2>
+        {stale && <p role="status" className="m-0 text-small text-ink-muted">{staleNote(stale, formatDateTimeUtc)}</p>}
         <p className="m-0 max-w-[70ch] text-body text-ink-muted">
-          Open tenders, split by how the notice itself qualifies. The tender search above shows the first by default; the second is the &ldquo;Supplies to defence buyers&rdquo; choice of the scope filter.
+          Open tenders, by the scope names of the tender filter. The first is the default list: the other two together.
         </p>
         <dl className="m-0 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Counter label="Defence notices" value={coreOpen ? formatNumber(coreOpen.total) : '–'} sub={`Open tenders. ${TENDER_SCOPES.core.hint} The tender list shows these by default.`} />
-          <Counter label="Defence goods only" value={goodsOpen ? formatNumber(goodsOpen.total) : '–'} sub="Open tenders that say defence themselves, not only through their buyer. The “Defence goods only” switch of the tender filters." />
-          <Counter label="Supplies to defence buyers" value={supplyOpen ? formatNumber(supplyOpen.total) : '–'} sub={`Open tenders. ${TENDER_SCOPES.supply.hint}`} />
-          <Counter label="Open funding calls" value={String(stats.openCalls)} sub="EU and national programmes, searched separately from tenders." />
+          <Counter label={SCOPE_CHOICES.relevant.short} value={counts ? formatNumber(counts.relevant) : null} sub={`Open tenders. ${SCOPE_CHOICES.relevant.hint}`} />
+          <Counter label={SCOPE_CHOICES.core.short} value={counts ? formatNumber(counts.core) : null}
+            sub={`${SCOPE_CHOICES.core.hint}${showGoods || goodsOpen === null ? '' : ' The “Defence goods only” switch gives the same list.'}`} />
+          {showGoods && goodsOpen && (
+            <Counter label="Core, defence goods only" value={formatNumber(goodsOpen.total)} sub="Of the core notices, those that state the directive or a military product code themselves: the “Defence goods only” switch." />
+          )}
+          <Counter label={SCOPE_CHOICES.supply.short} value={counts ? formatNumber(counts.supply) : null} sub={SCOPE_CHOICES.supply.hint} />
+          <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} sub="EU and national programmes, searched separately from tenders." />
         </dl>
         <p className="m-0 max-w-[70ch] text-small text-ink-muted">{TENDER_SCOPES.supply.also}</p>
         <p className="m-0 max-w-[70ch] text-small text-ink-muted">
-          Not in these counts: notices that are only dual-use (reachable with the scope &ldquo;All&rdquo;) and closed notices. We read the national portals of France, the
-          Netherlands, Poland and Spain; every other country appears through TED only. The{' '}
+          Not in these counts: notices that are only dual-use (reachable with the scope &ldquo;All&rdquo;) and closed notices. We read the national portals and feeds of {portals.names}; every
+          other country appears through TED only. The{' '}
           <Link href="/data" className="font-semibold">status page</Link> lists every source, its span of dates and the known gaps; the{' '}
           <Link href="/methodology" className="font-semibold">methodology</Link> says how a notice is judged.
         </p>
@@ -193,7 +215,7 @@ export default async function LandingPage() {
 
       <section aria-labelledby="why" className="flex flex-col gap-4">
         <h2 id="why" className="m-0 text-h2">Why DefenceGate</h2>
-        <BenefitGrid items={BENEFITS} />
+        <BenefitGrid items={benefits(portals.names)} />
       </section>
 
       <section aria-labelledby="who" className="flex flex-col gap-4">
@@ -211,11 +233,16 @@ export default async function LandingPage() {
           <h2 id="closing-tenders" className="m-0 text-h2">Tenders closing next</h2>
           <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
         </div>
-        {!closingTenders || closingTenders.items.length === 0 ? (
+        {!closingTenders ? (
+          // The data service did not answer and no earlier answer is held: say that, not "no tenders".
+          <EmptyState title="The list could not be loaded just now" action={<Button variant="secondary" href="/tenders">Open the tender list</Button>}>
+            The data service is slow at the moment. This is not an empty market: reload in a minute, or open the full list.
+          </EmptyState>
+        ) : closingTenders.items.length === 0 ? (
           <EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />
         ) : (
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingTenders.items.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" /></li>)}
+            {closingTenders.items.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
           </ul>
         )}
       </section>
@@ -225,11 +252,15 @@ export default async function LandingPage() {
           <h2 id="closing" className="m-0 text-h2">Funding calls closing soon</h2>
           <Link href="/funding?status=closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
         </div>
-        {closingCalls.items.length === 0 ? (
+        {closingCalls === null ? (
+          <EmptyState title="The list could not be loaded just now" action={<Button variant="secondary" href="/funding">Open the funding list</Button>}>
+            The data service is slow at the moment. This is not an empty list: reload in a minute.
+          </EmptyState>
+        ) : closingCallItems.length === 0 ? (
           <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
         ) : (
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingCalls.items.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" budgetRepeated={budgetRepeats.has(c.id)} /></li>)}
+            {closingCallItems.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" budgetRepeated={budgetRepeats.has(c.id)} /></li>)}
           </ul>
         )}
       </section>

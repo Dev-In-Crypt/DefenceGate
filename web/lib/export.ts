@@ -13,6 +13,7 @@ import { clientIp } from './hits';
 import { safeHttpUrl } from './safe-url';
 import { absoluteUrl } from './seo';
 import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
+import { basisChips } from './tender-basis';
 import type { Call, Paginated, Tender } from './types';
 import { isMidnight, isoUtc, toCsv, truncationRow, type Cell } from './csv';
 import { isPlaceholderAmount } from './format';
@@ -27,9 +28,13 @@ const RETRIES = 4;
 export const TENDER_HEADER = [
   'id', 'notice_id', 'title', 'buyer', 'country', 'cpv', 'procedure', 'published', 'deadline_utc', 'value', 'currency',
   'value_kind', 'status', 'notes', 'source_name', 'source_url', 'licence', 'attribution', 'archive_changed_at_utc', 'page_url',
+  // WP-20: why the notice is on the list (scope and the reasons), how many versions the archive holds, and whether the
+  // file holds the whole result. The last is a column and not a line in the data, so the file stays rectangular and
+  // a parser needs no special case: `true` on every row when the result was cut at the row limit.
+  'scope', 'why_listed', 'versions', 'result_truncated',
 ];
 
-export function tenderRow(t: Tender): Cell[] {
+export function tenderRow(t: Tender, truncated = false): Cell[] {
   const dl = t.deadline;
   const dateOnly = dl !== null && (t.deadlineIsDate ?? isMidnight(dl));
   // A placeholder amount (0, 0.01, 1) is not a value: blank, so a sum is not poisoned.
@@ -41,6 +46,7 @@ export function tenderRow(t: Tender): Cell[] {
     tenderStatusView(t).word, anomalyNotes(t).join(' | '),
     t.source.sourceName, safeHttpUrl(t.source.url) ?? '', t.source.licence, t.source.attribution, isoUtc(t.source.retrievedAt),
     isTenderSlug(t.slug) ? absoluteUrl(`/tenders/${t.slug}`) : '',
+    t.scope, basisChips(t).join(' | '), t.versionCount, truncated ? 'true' : 'false',
   ];
 }
 
@@ -170,9 +176,10 @@ export async function tendersCsvResponse(url: URL, forwardedFor: string | null =
       // By cursor over the API's export endpoint (a keyed scan, no count): a page costs the same at any depth.
       const { items: read, more } = await collectByCursor(
         (cursor, size) => getTenderExportPage(parsed, cursor, size), cap, { retryable: retryableStatus });
-      const items = listOrder(read, parsed.status);
-      const cut = truncationRow(TENDER_HEADER.length, items.length, null, cap, more);
-      return { body: toCsv(TENDER_HEADER, [...items.map(tenderRow), ...(cut ? [cut] : [])]), total: more ? null : items.length, rows: items.length, cap };
+      // The order asked for (`sort`) is applied to what was read. A result longer than the limit holds the most
+      // recently added notices, in that order: the limit is by date added, not by the sort (said in the page and on /data).
+      const items = listOrder(read, parsed.status, parsed.sort);
+      return { body: toCsv(TENDER_HEADER, items.map((t) => tenderRow(t, more))), total: more ? null : items.length, rows: items.length, cap };
     }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
   } catch (err) {

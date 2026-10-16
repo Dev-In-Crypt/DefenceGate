@@ -100,6 +100,21 @@ export const TENDER_SCOPES: Record<'core' | 'supply', { label: string; hint: str
   },
 };
 
+/**
+ * The one glossary of scope names (owner decision of 16 October 2026): the home page, the scope filter, the cards, the
+ * glossary and the methodology all take their words from here, and the URL value is the key. `relevant` is the default
+ * and is left out of URLs.
+ */
+export const SCOPE_CHOICES: Record<'relevant' | 'core' | 'supply' | 'all', { label: string; short: string; hint: string }> = {
+  relevant: {
+    label: 'Defence-relevant (core + supplies to defence buyers)', short: 'Defence-relevant',
+    hint: 'Both lists below together. This is what the site shows unless you choose another.',
+  },
+  core: { label: 'Core: the notice itself is defence', short: 'Core defence notices', hint: TENDER_SCOPES.core.hint },
+  supply: { label: 'Supplies to defence buyers only', short: 'Supplies to defence buyers', hint: TENDER_SCOPES.supply.hint },
+  all: { label: 'All, including notices that are only dual-use', short: 'All notices', hint: 'Everything we hold that has any defence signal, also a military code bought by a municipality or a hospital.' },
+};
+
 /** Legal bases we can name. Anything else is shown as the source gives it. */
 const LEGAL_BASES: Record<string, string> = {
   '32009L0081': 'Directive 2009/81/EC (defence and security procurement)',

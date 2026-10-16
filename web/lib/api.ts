@@ -5,11 +5,12 @@
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
 import { headers } from 'next/headers';
-import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Health, MarketStats, Paginated, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
 import { clientIp } from './hits';
+import { recall, remember } from './last-good';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
 import * as statsMock from './mock/stats';
@@ -72,9 +73,13 @@ async function visitorHeaders(): Promise<Record<string, string>> {
   }
 }
 
+/** A request the data service has not answered by now is given up: the page then shows its last good answer, or says so. */
+const HTTP_TIMEOUT_MS = 20_000;
+
 async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { accept: 'application/json', ...(mode === 'no-store' ? await visitorHeaders() : {}) },
+    signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     ...(mode === 'no-store' ? { cache: 'no-store' as const } : { next: { revalidate: seconds } }),
   });
   if (res.status === 404) return null;
@@ -95,6 +100,27 @@ async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seco
   return r;
 }
 
+/**
+ * Run a read; remember a good answer; when the data service does not answer (a timeout, a 5xx), give the last good
+ * answer for the same request marked `staleAsOf`, so the page can say "as of" instead of showing dashes or an empty
+ * list. A refusal (4xx) and a read that must be live (`allowStale: false`, the CSV export) are never softened.
+ * `persist`: also kept on disk, for the answers every visitor shares (default lists, counters, source status).
+ */
+async function withLastGood<T extends object>(
+  key: string, fetcher: () => Promise<T>, opts: { persist?: boolean; allowStale?: boolean } = {},
+): Promise<T & { staleAsOf?: string }> {
+  try {
+    const value = await fetcher();
+    await remember(key, value, { persist: opts.persist });
+    return value;
+  } catch (e) {
+    if (opts.allowStale === false || (e instanceof ApiError && e.status >= 400 && e.status < 500)) throw e;
+    const kept = await recall<T>(key);
+    if (!kept) throw e;
+    return { ...kept.value, staleAsOf: kept.at };
+  }
+}
+
 /** Query for /v1/funding: the site's URL keys (defaults omitted) plus pageSize. */
 function fundingQuery(f: CallFilters): string {
   const p = new URLSearchParams(toQuery(f));
@@ -111,7 +137,9 @@ export async function getCalls(filters: CallFilters = {}, opts: { cacheable?: bo
   if (API_BASE) {
     // `fresh`: a CSV export reads every page live, so page 1 is not an hour older than page 2.
     const shared = opts.fresh !== true && (opts.cacheable === true || toQuery(filters) === '');
-    return httpOrThrow<Paginated<Call>>(`/v1/funding${fundingQuery(filters)}`, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+    const path = `/v1/funding${fundingQuery(filters)}`;
+    return withLastGood(`funding:${path}`, () => httpOrThrow<Paginated<Call>>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS),
+      { persist: shared, allowStale: opts.fresh !== true });
   }
   return callsMock.queryCalls(filters);
 }
@@ -159,9 +187,33 @@ export async function getTenders(filters: TenderFilters = {}, opts: { cacheable?
   if (API_BASE) {
     // `fresh`: a CSV export reads every page live, so page 1 is not an hour older than page 2.
     const shared = opts.fresh !== true && (opts.cacheable === true || toTenderQuery(filters) === '');
-    return httpOrThrow<Paginated<Tender>>(`/v1/tenders${tendersQuery(filters)}`, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+    const path = `/v1/tenders${tendersQuery(filters)}`;
+    return withLastGood(`tenders:${path}`, () => httpOrThrow<Paginated<Tender>>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS),
+      { persist: shared, allowStale: opts.fresh !== true });
   }
   return tenderMock.queryTenders(filters);
+}
+
+/**
+ * What each scope choice of the tender filter leads to, for the other filters as given (GET /v1/tenders/scope-counts).
+ * null when the API cannot say (an older build, or no answer in time): the filter then shows its choices without counts.
+ */
+export async function getTenderScopeCounts(filters: TenderFilters = {}): Promise<ScopeCounts | null> {
+  try {
+    if (API_BASE) {
+      const p = new URLSearchParams(toTenderQuery({ ...filters, scope: undefined, sort: undefined, page: 1 }));
+      for (const k of ['scope', 'sort', 'page']) p.delete(k);
+      if (filters.valueMin !== undefined || filters.valueMax !== undefined) p.set(PARAM.min, String(Math.max(filters.valueMin ?? 0, PLACEHOLDER_AMOUNT_MAX + 0.01)));
+      const q = p.toString();
+      return await http<ScopeCounts>(`/v1/tenders/scope-counts${q ? `?${q}` : ''}`, q === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+    }
+    const all = tenderMock.queryTenders({ ...filters, scope: 'all', page: 1, pageSize: 100000 }).items;
+    const core = all.filter((t) => t.scope === 'core').length;
+    const supply = all.filter((t) => t.scope === 'supply').length;
+    return { relevant: core + supply, core, supply };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -208,11 +260,19 @@ export async function getAllTenderSlugs(): Promise<{ slug: string; updatedAt: st
  * shared in the site's cache; a country, a scope or another page is the visitor's own request. null when the endpoint
  * does not exist yet (a site built before the API was updated): the page then says the feed is not available.
  */
+const NO_ENDPOINT = Object.freeze({ none: true });
 export async function getChanges(filters: ChangeFilters = {}): Promise<ChangePage | null> {
   if (API_BASE) {
     const p = new URLSearchParams(toChangeQuery(filters));
     p.set('pageSize', String(filters.pageSize ?? CHANGE_PAGE_SIZE));
-    return http<ChangePage>(`/v1/changes?${p.toString()}`, toChangeQuery(filters) === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+    const path = `/v1/changes?${p.toString()}`;
+    const shared = toChangeQuery(filters) === '';
+    // `null` is "no such endpoint": not remembered, not a failure.
+    const got = await withLastGood(`changes:${path}`, async () => {
+      const r = await http<ChangePage>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+      return r ?? NO_ENDPOINT;
+    }, { persist: shared });
+    return got === NO_ENDPOINT ? null : (got as ChangePage);
   }
   return tenderMock.queryChanges(filters);
 }
@@ -242,9 +302,13 @@ export async function getBuyer(slug: string): Promise<Buyer | null> {
  * page already built keeps being served and the next visit retries: a page that rendered "not available" would be
  * kept for an hour.
  */
-export async function getMarketStats(): Promise<MarketStats | null> {
+export async function getMarketStats(filters: MarketFilters = {}): Promise<MarketStats | null> {
   if (!API_BASE) return statsMock.marketStats();
-  return http<MarketStats>('/v1/stats/market');
+  const p = new URLSearchParams();
+  if (filters.year) p.set('year', String(filters.year));
+  if (filters.country) p.set('country', filters.country);
+  const q = p.toString();
+  return http<MarketStats>(`/v1/stats/market${q ? `?${q}` : ''}`, q ? 'no-store' : 'revalidate');
 }
 
 /** A buyer's own figures (GET /v1/buyers/{slug}/profile). null when there are none or the API cannot answer. */
@@ -266,7 +330,7 @@ export async function getAllBuyerSlugs(): Promise<{ slug: string; updatedAt: str
 
 /** Source list with run status: GET /v1/sources (the design's Health). */
 export async function getHealth(): Promise<Health> {
-  if (API_BASE) return httpOrThrow<Health>('/v1/sources', 'revalidate', LIST_REVALIDATE_SECONDS);
+  if (API_BASE) return withLastGood('health', () => httpOrThrow<Health>('/v1/sources', 'revalidate', LIST_REVALIDATE_SECONDS), { persist: true });
   return sourcesMock.health();
 }
 

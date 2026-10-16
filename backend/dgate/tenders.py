@@ -92,8 +92,9 @@ BUYER_SLUG_LIMIT = 2000
 
 # A version the archive recorded wrongly is annotated, never removed (migration 0006).
 # `remapped` (migration 0028): appended by a bulk re-derivation from the same source
-# payload; the publisher amended nothing.
-NOT_AN_AMENDMENT = "('reread', 'out_of_order', 'remapped')"
+# payload; the publisher amended nothing. `history` (migration 0054): written by a command
+# that loads the past, so the change is older than the day we saw it.
+NOT_AN_AMENDMENT = "('reread', 'out_of_order', 'remapped', 'history')"
 
 CORE = CORE_SQL                         # dgate/classify.py, also api.CORE_SQL
 
@@ -185,6 +186,9 @@ class TenderVersion(BaseModel):
     # counts by. `version` is the archive's own row number and has gaps (v11 of 2 listed).
     sequence: int = 0
     detectedAt: datetime
+    # True for a version a history load wrote: `detectedAt` is the day we read it, the
+    # change itself was published earlier.
+    historic: bool = False
     changes: list[FieldChange]
 
 
@@ -333,12 +337,15 @@ def _observed(conn, ids: list[int]) -> dict[int, datetime]:
     return {i: last for i, (_, last) in _observed_span(conn, ids).items()}
 
 
-def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None]]:
+def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None, int]]:
     """For each notice: how many real versions it has (the first, and each later one that
     changed something a reader can see: see `timeline`) and when the newest of them was
     observed. A bulk re-reading of the same payload (`remapped`, `reread`) is neither:
     "last changed" is when the SOURCE changed the notice, as we saw it, not when we
-    reprocessed it (253 of 291 open TED notices said 12 October 17:0x)."""
+    reprocessed it (253 of 291 open TED notices said 12 October 17:0x). The third number is
+    how many of the later versions are the publisher's own, seen when they happened: a
+    version a history load wrote (`history`) is listed but is neither "amended" nor "last
+    changed"."""
     if not ids:
         return {}
     rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = ANY(%s)"),
@@ -349,12 +356,14 @@ def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None]
     out = {}
     for oid, group in by_notice.items():
         entries = timeline(group)
-        out[oid] = (len(entries), entries[-1]["detectedAt"] if entries else None)
+        real = [e for e in entries[1:] if not e.get("historic")]
+        last = real[-1] if real else (entries[0] if entries else None)
+        out[oid] = (len(entries), last["detectedAt"] if last else None, len(real))
     return out
 
 
 def _version_counts(conn, ids: list[int]) -> dict[int, int]:
-    return {oid: n for oid, (n, _) in _version_info(conn, ids).items()}
+    return {oid: n for oid, (n, _, _) in _version_info(conn, ids).items()}
 
 
 def _source_runs(conn) -> dict[str, datetime]:
@@ -416,7 +425,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
               superseded: bool = False, twin_value: dict[str, Any] | None = None,
               first_seen: datetime | None = None,
               twin_extra: dict[str, Any] | None = None,
-              checked: datetime | None = None) -> dict[str, Any]:
+              checked: datetime | None = None,
+              amended: bool | None = None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -503,7 +513,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "anomalies": notes,
         "status": "open" if eff == "open" else "closed",
         "statusNative": eff,
-        "amended": n_versions > 1,
+        "amended": n_versions > 1 if amended is None else amended,
         "versionCount": n_versions,
         "securityClearance": bool(r.get("security_clearance_required")),
         "subcontracting": bool(r.get("subcontracting_signal")),
@@ -589,7 +599,7 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
     ids = [r["id"] for r in rows]
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
     info = _version_info(conn, ids)
-    versions = {i: n for i, (n, _) in info.items()}
+    versions = {i: n for i, (n, _, _) in info.items()}
     twins = _api()._twins(conn, ids)
     span = _observed_span(conn, ids)
     over = _superseded(conn, rows)
@@ -597,11 +607,12 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
     extras = _twin_extras(conn, rows)
     runs = _source_runs(conn) if checked else {}
     return [to_tender(r, names, versions, twins.get(r["id"], []),
-                      info.get(r["id"], (0, None))[1] or span.get(r["id"], (None, None))[1],
+                      info.get(r["id"], (0, None, 0))[1] or span.get(r["id"], (None, None))[1],
                       superseded=r["id"] in over, twin_value=borrowed.get(r["id"]),
                       first_seen=span.get(r["id"], (None, None))[0],
                       twin_extra=extras.get(r["id"]),
-                      checked=runs.get(r["source_code"]))
+                      checked=runs.get(r["source_code"]),
+                      amended=info[r["id"]][2] > 0 if r["id"] in info else None)
             for r in rows]
 
 
@@ -676,6 +687,16 @@ def tender_order(sort: str | None, status: str, eff: str) -> str:
     return f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
 
 
+SEARCH_SEPARATORS = re.compile(r"[\s\-–—/_.,;:()\"'’]+")
+MAX_SEARCH_WORDS = 6
+
+
+def search_words(text: str) -> list[str]:
+    """The words of a search text, split where `dg_fold` splits (migration 0054); a piece
+    that is only punctuation is dropped, and at most MAX_SEARCH_WORDS are used."""
+    return [w for w in SEARCH_SEPARATORS.split(text or "") if w][:MAX_SEARCH_WORDS]
+
+
 def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency):
     """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
     list or export applies: one place, so the list and the export can never disagree."""
@@ -692,12 +713,19 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         where.append(f"{eff} <> 'open'")
 
     text = (q or "").replace("\x00", "").strip()
-    if text:
-        like = _like(text)
-        where.append("(o.title_en ILIKE %s OR o.title_original ILIKE %s "
-                     "OR (o.buyer_name_raw ILIKE %s AND NOT o.buyer_withheld) "
-                     "OR o.native_id ILIKE %s)")
-        params += [like] * 4
+    words = search_words(text)
+    if words:
+        # Every word must begin a word of the title or the buyer's name, accents and
+        # punctuation folded on both sides (migration 0054); the notice number is matched
+        # as typed. The folded titles are trigram-indexed.
+        per_word = ("(dg_fold(o.title_en) LIKE dg_word_pattern(%s) "
+                    "OR dg_fold(o.title_original) LIKE dg_word_pattern(%s) "
+                    "OR (dg_fold(o.buyer_name_raw) LIKE dg_word_pattern(%s) "
+                    "AND NOT o.buyer_withheld))")
+        where.append("((" + " AND ".join([per_word] * len(words)) + ") OR o.native_id ILIKE %s)")
+        for w in words:
+            params += [w] * 3
+        params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
     if countries:
         where.append("o.country = ANY(%s)")
@@ -740,7 +768,7 @@ def list_tenders(
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=400),
     status: str = Query("open", pattern="^(open|closed|all)$"),
-    scope: str = Query("core", pattern="^(core|supply|all)$"),
+    scope: str = Query("relevant", pattern="^(relevant|core|supply|all)$"),
     goods: str | None = Query(None, pattern="^defence$"),
     buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
     from_: date | None = Query(None, alias="from"),
@@ -805,7 +833,7 @@ def export_tenders(
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=400),
     status: str = Query("open", pattern="^(open|closed|all)$"),
-    scope: str = Query("core", pattern="^(core|supply|all)$"),
+    scope: str = Query("relevant", pattern="^(relevant|core|supply|all)$"),
     goods: str | None = Query(None, pattern="^defence$"),
     buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
     from_: date | None = Query(None, alias="from"),
@@ -831,6 +859,41 @@ def export_tenders(
     rows = rows[:limit]
     return {"items": _present(conn, rows),
             "nextCursor": str(rows[-1]["id"]) if more and rows else None}
+
+
+class ScopeCounts(BaseModel):
+    relevant: int
+    core: int
+    supply: int
+
+
+@router.get("/v1/tenders/scope-counts", response_model=ScopeCounts)
+@cache_list("tender-scope-counts")
+def tender_scope_counts(
+    q: str | None = Query(None, max_length=100),
+    country: str | None = Query(None, max_length=200),
+    cpv: str | None = Query(None, max_length=400),
+    status: str = Query("open", pattern="^(open|closed|all)$"),
+    goods: str | None = Query(None, pattern="^defence$"),
+    buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
+    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
+    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    conn=Depends(get_conn),
+):
+    """How many notices the list would show under each scope for the same other filters, with
+    the list's own collapse rules, so the counts next to the scope choices are the totals the
+    choices lead to. (`all` is not counted: it is not a choice the site offers.)"""
+    out: dict[str, int] = {}
+    for scope in ("relevant", "core", "supply"):
+        where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
+                                           to, min_, max_, currency)
+        clause = " WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where)
+        out[scope] = conn.execute(f"SELECT count(*) AS n FROM opportunity o{clause}",
+                                  params * 4).fetchone()["n"]
+    return out
 
 
 @router.get("/v1/tenders/slugs")
@@ -1021,6 +1084,18 @@ def _human(field: str, value: Any, currency: Any = None) -> str | None:
 # the next change is measured from.
 SKIPPED_KINDS = {"reread", "out_of_order"}
 REMAPPED_KIND = "remapped"
+# `history` is a real state that the publisher did change, seen late: it stays in the
+# timeline (and is the baseline of the next change) but is marked, and no count of
+# amendments includes it.
+HISTORIC_KIND = "history"
+
+
+def link_host(value: Any) -> str | None:
+    """The site a source link points at, for a line a reader can understand."""
+    text = str(value or "").strip()
+    host = re.sub(r"^[a-z][a-z0-9+.-]*://", "", text, flags=re.I).split("/", 1)[0].split("?", 1)[0]
+    host = host.lower().removeprefix("www.")
+    return host or None
 
 # Only the allow-listed fields of each payload: the description and the rest are never
 # needed to draw a timeline, and a notice with sixty versions carries sixty copies.
@@ -1056,7 +1131,8 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         payload = r["payload"] or {}
         if previous is None:
-            out.append({"version": r["version"], "detectedAt": r["observed_at"], "changes": []})
+            out.append({"version": r["version"], "detectedAt": r["observed_at"],
+                        "historic": HISTORIC_KIND in kinds, "changes": []})
         elif REMAPPED_KIND not in kinds:
             changes = []
             for field in r["changed_fields"] or []:
@@ -1064,6 +1140,16 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     continue
                 before, after = previous.get(field), payload.get(field)
                 if same_value(field, before, after):
+                    continue
+                if field == "source_url":
+                    # A new address on the same site (the publisher's own identifier in the
+                    # path) is not a change a reader can use; a move to another site is,
+                    # and says which, not the two addresses.
+                    host_before, host_after = link_host(before), link_host(after)
+                    if host_before == host_after:
+                        continue
+                    changes.append({"field": field, "label": FIELD_LABELS[field],
+                                    "before": host_before, "after": host_after})
                     continue
                 shown_before, shown_after = _show(field, before), _show(field, after)
                 if shown_before == shown_after:
@@ -1079,7 +1165,7 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                                 "before": human_before, "after": human_after})
             if any(c["field"] != "published_at" for c in changes):
                 out.append({"version": r["version"], "detectedAt": r["observed_at"],
-                            "changes": changes})
+                            "historic": HISTORIC_KIND in kinds, "changes": changes})
         previous = payload
     for number, entry in enumerate(out, 1):
         entry["sequence"] = number
@@ -1168,11 +1254,15 @@ def list_buyers(
     where: list[str] = []
     params: list[Any] = []
     text = (q or "").replace("\x00", "").strip()
-    if text:
+    words = search_words(text)
+    if words:
         # The normalised name (accents folded, lower case): the 281,000 aliases are
-        # not searched, which made a name search take seconds.
-        where.append("org.canonical_name ILIKE %s")
-        params.append(_like(text))
+        # not searched, which made a name search take seconds. Folded again by `dg_fold`
+        # (migration 0054) so that "Ausrüstung" finds "ausrustung"; each word must begin
+        # a word.
+        where.append(" AND ".join(
+            ["dg_fold(org.canonical_name) LIKE dg_word_pattern(%s)"] * len(words)))
+        params += words
     countries = _split(country, "country", upper=True, max_length=2)
     if countries:
         where.append("org.country = ANY(%s)")

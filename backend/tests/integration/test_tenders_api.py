@@ -102,12 +102,25 @@ def test_a_closed_list_runs_newest_deadline_first_by_default(client, conn):
     assert _ids(client, status="closed", sort="deadline-desc") == ["C-1", "C-2", "C-0"]
 
 
-def test_core_is_the_default_and_supply_is_only_the_buyer(client, conn):
+def test_relevant_is_the_default_core_and_supply_are_explicit(client, conn):
+    """Owner decision of 16 October 2026: the default is core and supply together."""
     _put(conn, "CORE")
     _put(conn, "SUPPLY", sig_cpv=False, sig_buyer=True, cpv=("15000000",))
-    assert client.get("/v1/tenders").json()["total"] == 1
+    assert client.get("/v1/tenders").json()["total"] == 2
+    assert client.get("/v1/tenders", params={"scope": "relevant"}).json()["total"] == 2
+    assert _ids(client, scope="core") == ["CORE"]
     body = client.get("/v1/tenders", params={"scope": "supply"}).json()
     assert [t["noticeId"] for t in body["items"]] == ["SUPPLY"] and body["items"][0]["scope"] == "supply"
+
+
+def test_scope_counts_are_the_totals_the_choices_lead_to(client, conn):
+    _put(conn, "CORE")
+    _put(conn, "SUPPLY", sig_cpv=False, sig_buyer=True, cpv=("15000000",))
+    _put(conn, "SUPPLY-2", sig_cpv=False, sig_buyer=True, cpv=("15000000",))
+    assert client.get("/v1/tenders/scope-counts").json() == {"relevant": 3, "core": 1, "supply": 2}
+    # the other filters apply to every count
+    got = client.get("/v1/tenders/scope-counts", params={"cpv": "15"}).json()
+    assert got == {"relevant": 2, "core": 0, "supply": 2}
 
 
 def test_an_english_title_leads_and_the_original_is_kept_beneath(client, conn):

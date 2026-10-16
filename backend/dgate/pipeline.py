@@ -1197,6 +1197,7 @@ def _history_source(code: str) -> tuple[Any, Any]:
     return HISTORY_SOURCES[code]
 
 
+@db.historical("history")
 def run_history(source_code: str, start: date, end: date, *, resume: bool = True,
                 max_days: int | None = None, force: bool = False) -> int:
     """Load every notice a source published between two dates, one day at a time.
@@ -1394,6 +1395,7 @@ def print_defence_plan(plan: list[dict[str, Any]]) -> None:
           f"(about {total / 60:.0f} minutes at one request a second)")
 
 
+@db.historical("history")
 def run_ted_defence_history(start: date, end: date, *, resume: bool = True,
                             max_windows: int | None = None, pause: float = 1.0) -> int:
     """Load the notices of a publication range that today's rules can qualify. Returns the
@@ -1850,6 +1852,7 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
             _ingest_placsp(iter(entries), f"{ds.source_code}-{year}{month:02d}", ds)
 
 
+@db.historical("backfill")
 def run_placsp_backfill(start: int, end: int,
                         datasets: Iterable[placsp.Dataset] = ()) -> None:
     """Historical load. Run once, oldest first, then never again.
@@ -1916,6 +1919,7 @@ def _replay_unit(url, ds, since, name, pmark, day, resume, sleep) -> tuple[int, 
     raise AssertionError("unreachable")
 
 
+@db.historical("replay")
 def run_placsp_replay(start: tuple[int, int], end: tuple[int, int] | None = None,
                       datasets: Iterable[placsp.Dataset] = (), *, resume: bool = True,
                       pause: float = 1.0, now: datetime | None = None,
@@ -2065,6 +2069,7 @@ def atlas_done_marker(year: int) -> Path:
     return Path(settings().atlas_dir) / (atlas_pl.YEAR_FILES[year] + ".done")
 
 
+@db.historical("backfill")
 def run_atlas_backfill(year: int, *, path: Path | None = None,
                        limit: int | None = None, resume: bool = True,
                        workers: int | None = None, refresh_known: bool = False) -> None:

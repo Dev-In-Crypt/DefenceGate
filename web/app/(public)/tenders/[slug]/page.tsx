@@ -4,7 +4,8 @@ import { Printer } from 'lucide-react';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
-import { getTenderDeadline } from '@/lib/deadline';
+import { getTenderDeadline, localDeadline } from '@/lib/deadline';
+import { valueMissingNote, valueMissingShares } from '@/lib/source-status';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -89,6 +90,8 @@ export default async function TenderDetailPage({ params }: Props) {
   const sourceNames = new Map(health.sources.map((s) => [s.id, s.name]));
 
   const d = getTenderDeadline(tender);
+  const local = d.state === 'closed' ? null : localDeadline(d.iso, tender.country, d.dateOnly);
+  const missingNote = valueMissingNote(valueMissingShares(health.sources), tender.source.sourceId);
   const closed = d.state === 'closed';
   const nonEnglish = isNonEnglish(tender.titleLanguage);
   const sourceUrl = safeHttpUrl(tender.source.url);
@@ -142,11 +145,14 @@ export default async function TenderDetailPage({ params }: Props) {
           </header>
 
           {/* Deadline first on mobile: the hero element */}
-          <DeadlineBadge info={d} size="lg" className="w-full lg:hidden" />
+          <DeadlineBadge info={d} size="lg" className="w-full lg:hidden" local={local} />
 
           <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
             <FactCell label="Estimated value">
               <AmountDisplay money={tender.estimatedValue} size="lg" />
+              {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
+                <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}</div>
+              )}
               {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && valueKindLabel(tender.valueKind) && (
                 <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
               )}
@@ -242,7 +248,7 @@ export default async function TenderDetailPage({ params }: Props) {
 
         <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
           <div className="flex flex-col gap-4 rounded-lg bg-surface p-6">
-            <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" />
+            <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" local={local} />
             <SaveButton kind="tender" refId={tender.id} />
             {tender.buyerId && <FollowButton kind="buyer" refId={tender.buyerId} label="Follow this buyer" />}
             {sourceUrl && (

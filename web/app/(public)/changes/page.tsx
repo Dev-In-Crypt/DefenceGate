@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation';
 import { Rss } from 'lucide-react';
 import { getChanges } from '@/lib/api';
 import { lastPage, parseChangeFilters, toChangeQuery, PARAM, type SearchParams } from '@/lib/filters';
-import { formatDateUtc, formatNumber } from '@/lib/format';
-import { BUYER_COUNTRIES } from '@/lib/taxonomy';
+import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
+import { staleNote } from '@/lib/source-status';
+import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
 import type { Change } from '@/lib/types';
 import { Button } from '@/components/dg/button';
@@ -31,11 +32,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return { ...meta, alternates: { ...meta.alternates, types: { 'application/atom+xml': '/changes.atom' } } };
 }
 
-const SCOPE_OPTIONS = [
-  { value: 'core', label: 'Defence notices only' },
-  { value: 'supply', label: 'Supplies to defence buyers only' },
-  { value: 'all', label: 'Everything we hold, including dual-use' },
-];
+/** The same names as the tender list (lib/taxonomy.ts SCOPE_CHOICES); the default is left unselected. */
+const SCOPE_OPTIONS = (['core', 'supply', 'all'] as const).map((value) => ({ value, label: SCOPE_CHOICES[value].label }));
 
 /** The entries of one UTC day, in the API's order (newest first), under that day. */
 function byDay(items: Change[]): { day: string; items: Change[] }[] {
@@ -61,13 +59,30 @@ export default async function ChangesPage({ searchParams }: Props) {
       </p>
     </header>
   );
+  const country = filters.country?.[0] ?? '';
+  const filterForm = (
+    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:flex-row sm:items-end">
+      <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={country} className="sm:min-w-56"
+        options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
+      <Select name={PARAM.scope} label="What to include" placeholder={SCOPE_CHOICES.relevant.label} defaultValue={filters.scope ?? ''}
+        className="sm:min-w-72" options={SCOPE_OPTIONS} />
+      <div className="flex items-center gap-3">
+        <Button type="submit">Apply</Button>
+        <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
+      </div>
+    </form>
+  );
   if (!data) {
+    // The filters stay (a visitor who picked a country should not start over), and the way out is a retry.
     return (
       <>
         <Breadcrumbs items={crumbs} />
         {header}
-        <EmptyState title="The change list is not available right now" action={<Button variant="secondary" href="/tenders">Browse tenders</Button>}>
-          It is read from our archive and could not be loaded. Try again in a few minutes.
+        {filterForm}
+        <EmptyState title="The change list is not available right now"
+          action={<Button variant="secondary" href={`/changes${toChangeQuery(filters)}`}>Try again</Button>}>
+          It is read from our archive and the data service did not answer in time. Your filters are kept; try again in a minute.
+          Nothing here means there are no changes: the list could not be read.
         </EmptyState>
       </>
     );
@@ -75,13 +90,15 @@ export default async function ChangesPage({ searchParams }: Props) {
   const last = lastPage(data.total, data.pageSize);
   if (data.total > 0 && (filters.page ?? 1) > last) redirect(`/changes${toChangeQuery({ ...filters, page: last })}`);
   const feedHref = `/changes.atom${toChangeQuery({ country: filters.country, scope: filters.scope })}`;
-  const country = filters.country?.[0] ?? '';
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
   const to = Math.min(data.total, data.page * data.pageSize);
   return (
     <>
       <Breadcrumbs items={crumbs} />
       {header}
+      {data.staleAsOf && (
+        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(data.staleAsOf, formatDateTimeUtc)}</p>
+      )}
 
       <section aria-labelledby="window" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
         <h2 id="window" className="m-0 text-h3">The last {data.windowDays} days</h2>
@@ -98,8 +115,9 @@ export default async function ChangesPage({ searchParams }: Props) {
         )}
         <p className="m-0 text-small text-ink-muted">
           Taken from our own archive, which began in September 2026: an amendment is a change we observed in a source, on the day we saw it, which may be
-          later than the day the buyer made it. Our own corrections and re-readings are never listed. A notice published in several places is listed once.
-          One entry is one notice on one day.
+          later than the day the buyer made it. Our own corrections and re-readings are never listed, nor are changes we only learned of by loading a
+          source&rsquo;s older notices (a notice&rsquo;s own page lists those as earlier changes). A notice counts as new only if it was published in these
+          days. A notice published in several places is listed once. One entry is one notice on one day.
         </p>
         <div className="flex flex-wrap gap-x-6">
           <a href={feedHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
@@ -110,16 +128,7 @@ export default async function ChangesPage({ searchParams }: Props) {
         </div>
       </section>
 
-      <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:flex-row sm:items-end">
-        <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={country} className="sm:min-w-56"
-          options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
-        <Select name={PARAM.scope} label="What to include" placeholder="Defence notices and supplies to defence buyers" defaultValue={filters.scope ?? ''}
-          className="sm:min-w-72" options={SCOPE_OPTIONS} />
-        <div className="flex items-center gap-3">
-          <Button type="submit">Apply</Button>
-          <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
-        </div>
-      </form>
+      {filterForm}
 
       {(data.funding?.length ?? 0) > 0 && (
         <section aria-labelledby="funding-heading" className="flex flex-col gap-3">

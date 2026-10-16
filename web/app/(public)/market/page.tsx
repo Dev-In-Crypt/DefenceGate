@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMarketStats } from '@/lib/api';
+import { MARKET_FIRST_YEAR, PARAM, parseMarketFilters, type SearchParams } from '@/lib/filters';
+import { BUYER_COUNTRIES } from '@/lib/taxonomy';
+import { Button } from '@/components/dg/button';
+import { Select } from '@/components/dg/form';
 import { cpvGroupName } from '@/lib/cpv';
 import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
 import { daysText, monthLabel, percentText } from '@/lib/market';
@@ -21,21 +25,42 @@ export const metadata: Metadata = buildMetadata({
 const BASIS = 'text-small text-ink-muted m-0 max-w-[75ch]';
 const LINK = 'font-semibold';
 
-export default async function MarketPage() {
-  const stats = await getMarketStats();
+type Props = { searchParams: Promise<SearchParams> };
+
+export default async function MarketPage({ searchParams }: Props) {
+  const filters = parseMarketFilters(await searchParams);
+  const stats = await getMarketStats(filters).catch(() => null);
+  const thisYear = new Date().getUTCFullYear();
+  const yearOptions = Array.from({ length: thisYear - MARKET_FIRST_YEAR + 1 }, (_, i) => String(thisYear - i)).map((y) => ({ value: y, label: y }));
+  const selectors = (
+    <form method="get" action="/market" role="search" aria-label="Choose the year and the country" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:flex-row sm:items-end">
+      <Select name={PARAM.year} label="Year of publication" placeholder="Last 12 months (moves daily)" defaultValue={filters.year ? String(filters.year) : ''}
+        className="sm:min-w-56" options={yearOptions} />
+      <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={filters.country ?? ''} className="sm:min-w-56"
+        options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
+      <div className="flex items-center gap-3">
+        <Button type="submit">Show</Button>
+        <Link href="/market" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
+      </div>
+    </form>
+  );
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'Market overview', href: '/market' }];
   if (!stats) {
     return (
       <ContentPage crumbs={crumbs} title="Market overview">
-        <EmptyState title="The overview is not available right now">
-          The figures are computed by the data service and could not be read. Try again in a few minutes, or see the <Link href="/data" className={LINK}>source status</Link>.
+        {selectors}
+        <EmptyState title="The overview is not available right now" action={<Button variant="secondary" href={`/market${filters.year || filters.country ? `?${new URLSearchParams({ ...(filters.year ? { year: String(filters.year) } : {}), ...(filters.country ? { country: filters.country } : {}) })}` : ''}`}>Try again</Button>}>
+          The figures are computed by the data service and could not be read. Your choice is kept: try again in a minute, or see the <Link href="/data" className={LINK}>source status</Link>.
         </EmptyState>
       </ContentPage>
     );
   }
 
   const months = stats.months;
-  const last36 = months.reduce((n, m) => n + m.count, 0);
+  const inMonths = months.reduce((n, m) => n + m.count, 0);
+  const yearOf = stats.year ?? null;
+  const where = stats.country ? ` in ${BUYER_COUNTRIES[stats.country] ?? stats.country}` : '';
+  const monthsTitle = yearOf ? `Notices published per month, ${yearOf}${where}` : `Notices published per month, last 36 months${where}`;
   const from = formatDateUtc(stats.windowFrom);
   const to = formatDateUtc(stats.windowTo);
   const w = stats.responseWindow;
@@ -48,9 +73,11 @@ export default async function MarketPage() {
       title="Market overview"
       lead="How many defence procurement notices are published, by month, country and subject. Every figure counts notices published: none is contract value, spend or market size."
     >
+      {selectors}
+
       <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg bg-surface p-4 lg:grid-cols-3">
-        <FactCell label={`Notices, ${from} to ${to}`}>{formatNumber(stats.countries.total)}</FactCell>
-        <FactCell label="Notices, last 36 months">{formatNumber(last36)}</FactCell>
+        <FactCell label={`Notices, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
+        <FactCell label={yearOf ? `Notices, ${yearOf}, by month below` : 'Notices, last 36 months'}>{formatNumber(inMonths)}</FactCell>
         <FactCell label="Sources that published them">{stats.sourceCount}</FactCell>
         <FactCell label="Typical response window">
           <span>{daysText(w.median)}</span>
@@ -67,8 +94,8 @@ export default async function MarketPage() {
       <ContentSection title="Notices published per month">
         <BarChart
           id="months"
-          title="Notices published per month, last 36 months"
-          summary={`Bars for ${monthLabel(months[0]?.month ?? '')} to ${monthLabel(months[months.length - 1]?.month ?? '')}, ${formatNumber(last36)} notices in all. TED notices and notices from national sources are stacked.`}
+          title={monthsTitle}
+          summary={`Bars for ${monthLabel(months[0]?.month ?? '')} to ${monthLabel(months[months.length - 1]?.month ?? '')}, ${formatNumber(inMonths)} notices in all. TED notices and notices from national sources are stacked.`}
           bars={months.map((m) => ({ label: monthLabel(m.month), primary: m.ted, secondary: Math.max(0, m.count - m.ted), partial: m.partial }))}
           primaryName="TED"
           secondaryName="National sources"
@@ -84,11 +111,21 @@ export default async function MarketPage() {
             labelHeader="Country"
             total={stats.countries.total}
             rows={[
-              ...stats.countries.items.map((c) => ({ key: c.country, label: <CountryLabel code={c.country} />, count: c.count })),
+              ...stats.countries.items.map((c) => ({
+                key: c.country,
+                // To the notices behind the number: the tender list, this country, every status, the market's own scope (core).
+                label: <Link href={`/tenders?country=${c.country}&status=all&scope=core`} className={LINK}><CountryLabel code={c.country} /></Link>,
+                count: c.count,
+              })),
               ...(stats.countries.other > 0 ? [{ key: 'other', label: <span>Other countries, or none stated</span>, count: stats.countries.other }] : []),
             ]}
           />
           <p className={BASIS}>{stats.basis.countries}</p>
+          <p className={BASIS}>
+            A country row opens the tender list for that country with the market&rsquo;s own scope (core), every status and every year: the list has no publication-year filter, so a year&rsquo;s count is not reproduced there.
+            The Polish figure includes the one-off Atlas dataset, which ends in December 2025, and TED notices before April 2024 are still being re-checked; see{' '}
+            <Link href="/data" className={LINK}>source status</Link>.
+          </p>
         </ContentSection>
 
         <ContentSection title="By subject">

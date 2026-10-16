@@ -4,7 +4,9 @@ import { now } from '@/lib/deadline';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata } from '@/lib/seo';
-import { gapSentence, heldSpan, minimumMet, sourceFreshness, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
+import { gapSentence, heldSpan, minimumMet, sourceFreshness, sourcePage, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
+import { portalWords } from '@/lib/coverage-copy';
+import Link from 'next/link';
 import type { SourceHealth, SourceType } from '@/lib/types';
 import { ClauseList } from '@/components/dg/blocks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
@@ -27,7 +29,7 @@ const GROUPS: { type: SourceType; title: string }[] = [
 ];
 
 function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
-  const url = safeHttpUrl(s.url);
+  const url = safeHttpUrl(sourcePage(s.id, s.url));
   const fresh = sourceFreshness(s, asOf);
   const held = typeof s.heldCount === 'number';
   const span = heldSpan(s.heldFrom, s.heldTo);
@@ -68,6 +70,8 @@ export default async function DataPage() {
   const health = await getHealth();
   const ref = now();
   const kinds = health.sources.map((s) => sourceFreshness(s, ref).kind);
+  const portals = portalWords(health.sources);
+  const germany = health.sources.find((s) => s.id === 'de_bkms');
   const count = (...k: FreshnessKind[]) => kinds.filter((x) => k.includes(x)).length;
   return (
     <ContentPage
@@ -114,12 +118,29 @@ export default async function DataPage() {
           and change as the history loads. The first and the last month of a source are left out (they are partial). The rest do not change with the date.
         </p>
         <ClauseList items={[
-          'National tender portals are collected for four countries only: Spain (PLACSP), France (BOAMP), the Netherlands (TenderNed) and Poland (e-Zamówienia). For every other country, Germany, Italy and the Nordic and Baltic countries among them, we hold only what TED carries.',
+          `National tender portals and feeds are collected for ${portals.count} countries: ${portals.names}. For every other country, Italy and the Nordic and Baltic countries among them, we hold only what TED carries.`,
+          germany
+            ? `Germany: the federal notice service (Bekanntmachungsservice, published as open data under CC0) is collected every day${typeof germany.heldCount === 'number' ? ` and we hold ${formatNumber(germany.heldCount)} of its notices` : ''}. It starts on 25 October 2023, when German notices moved to eForms: older German notices are here only if TED carries them, and so is anything published only on a state or municipal portal.`
+            : 'Germany: we hold only what TED carries.',
           'TED: notices from April 2024 on have been re-checked with the current classification rules; the older ones (back to 2017) are being re-checked now, so until that finishes an older notice may be mislabelled or missing.',
           'Poland (Atlas): a one-off research dataset, not a live portal. It stops where its dates stop, and the national counts fall there.',
           'Germany: federal funding announcements are not collected automatically. They can be added by hand, so a German call may be missing.',
           ...health.sources.filter((s) => s.type === 'tenders').map((s) => gapSentence(s)).filter((t): t is string => t !== null),
         ]} />
+      </ContentSection>
+
+      <ContentSection title="Using the data">
+        <ClauseList items={[
+          'CSV: the Download CSV button under the filters of Tenders and of Funding gives the public fields of the current result, with the source, licence and attribution on every row. A tenders file holds at most 2,000 rows (1,000 when the status is All); a result cut at the limit holds the most recently added notices in the order you chose, and every row then says result_truncated = true.',
+          'Atom: What changed has a feed (/changes.atom) of the same list, with the same country and scope choices. No account is needed.',
+          'Calendar: the deadlines of open tenders and funding calls as an .ics feed (/calendar.ics), for your calendar program.',
+          'API: the site reads a JSON interface that is not documented and not supported for use by others; the terms say what automated use is allowed.',
+        ]} />
+        <p className="m-0 text-body text-ink-muted">
+          <span className="font-semibold text-ink">Licence of what we add.</span> The notices and calls keep the licence of the source that published them, listed on each source above; where it allows, you may take them from the source itself. What we add
+          (the selection and arrangement, the normalisation, the defence label and the links between sources, the version archive and our texts) is ours, all rights reserved; the{' '}
+          <Link href="/terms" className="font-semibold">terms</Link> let you use extracts for your own internal business purposes and say what is not allowed. If you cite a number or a notice, name DefenceGate, the source of the notice and the date you read it.
+        </p>
       </ContentSection>
 
       <ContentSection title="What is and is not covered">

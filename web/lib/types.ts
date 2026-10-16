@@ -150,6 +150,8 @@ export interface Paginated<T> {
   search?: SearchInfo | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
   meta?: { updatedAt?: string | null } | null;
+  /** Set by lib/api.ts, never by the API: the data service did not answer, and this is its last good answer, received at this time. */
+  staleAsOf?: IsoDateTime;
 }
 
 /** GET /v1/tenders (list), GET /v1/tenders/{slug} (detail). Contract: docs/design/API_CONTRACT.md. */
@@ -239,7 +241,10 @@ export interface Tender {
 }
 
 export type TenderStatusFilter = 'open' | 'closed' | 'all';
-export type TenderScopeFilter = 'core' | 'supply' | 'all';
+/** `relevant` (the default since 16 October 2026): core and supply together. See SCOPE_CHOICES in lib/taxonomy.ts. */
+export type TenderScopeFilter = 'relevant' | 'core' | 'supply' | 'all';
+/** GET /v1/tenders/scope-counts: what each scope choice leads to, for the other filters as given. */
+export interface ScopeCounts { relevant: number; core: number; supply: number }
 export type TenderSort = 'deadline-asc' | 'deadline-desc' | 'published-desc';
 export interface TenderFilters {
   q?: string;
@@ -276,6 +281,8 @@ export interface TenderVersion {
   version: number;
   /** 1 for the notice as first seen, then one per listed change. Absent on API builds that do not send it. */
   sequence?: number;
+  /** A history load wrote this version: `detectedAt` is when we read the change, not when it was published. */
+  historic?: boolean;
   /** When we first saw this version. */
   detectedAt: IsoDateTime;
   changes: FieldChange[];
@@ -312,6 +319,8 @@ export interface ChangePage {
   /** How many such calls there are in all, whatever the page. */
   fundingTotal?: number;
   meta?: { updatedAt?: string | null } | null;
+  /** See Paginated.staleAsOf. */
+  staleAsOf?: IsoDateTime;
 }
 /** A funding call that is new in the window (`call-new`) or whose closing or opening date the source moved (`call-amended`). */
 export type FundingChangeKind = 'call-new' | 'call-amended';
@@ -356,9 +365,12 @@ export interface MarketStats {
   asOf: IsoDateTime;
   scope: 'core';
   unit: 'notices published';
-  /** The 12-month window of every figure but `months`, as dates. */
+  /** The window of every figure but `months`, as dates: the rolling 12 months, or the calendar year asked for. */
   windowFrom: string;
   windowTo: string;
+  /** The calendar year and the buyer country the figures were asked for; absent or null: the rolling 12 months, all countries. */
+  year?: number | null;
+  country?: string | null;
   /** Sources that contributed core notices in the window. */
   sourceCount: number;
   /** 36 calendar months, oldest first; the last may be incomplete. */
@@ -370,6 +382,9 @@ export interface MarketStats {
   cpvGroups: { group: string; count: number }[];
   basis: Record<string, string>;
 }
+
+/** The market page's selectors: a calendar year (the rolling 12 months when absent) and one buyer country. */
+export interface MarketFilters { year?: number; country?: string }
 
 /** GET /v1/buyers/{slug}/profile: the buyer's own core-scope notices, counted. */
 export interface BuyerProfile {
@@ -416,6 +431,8 @@ export interface SourceHealth {
   heldFrom?: string | null;
   heldTo?: string | null;
   heldCount?: number | null;
+  /** Of a tender source: how many of the held notices state an estimated value. */
+  valueStatedCount?: number | null;
   /** Of a tender source: the usual notices per month (median) and the months, `YYYY-MM`, well below it. */
   monthlyMedian?: number | null;
   gapMonths?: string[] | null;

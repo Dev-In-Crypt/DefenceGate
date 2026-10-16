@@ -137,11 +137,11 @@ const time = (iso: string) => new Date(iso).getTime();
 export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Tender> {
   const q = f.q?.toLowerCase();
   const status = f.status ?? 'open';
-  const scope = f.scope ?? 'core';
+  const scope = f.scope ?? 'relevant';
   const currency = f.currency ?? 'EUR';
   let items = allTenders(ref).filter((t) => {
     if (status !== 'all' && t.status !== status) return false;
-    if (scope !== 'all' && t.scope !== scope) return false;
+    if (scope !== 'all' && scope !== 'relevant' && t.scope !== scope) return false;
     if (f.buyer && t.buyerId !== f.buyer) return false;
     if (f.cpv?.length && !t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) return false;
     if (f.country && (!t.country || !f.country.includes(t.country))) return false;
@@ -185,7 +185,7 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
   const all: Change[] = [];
   for (const t of allTenders(ref)) {
     if (f.country?.length && (!t.country || !f.country.includes(t.country))) continue;
-    if (f.scope !== 'all' && t.scope !== (f.scope ?? t.scope)) continue;
+    if (f.scope !== 'all' && f.scope !== 'relevant' && t.scope !== (f.scope ?? t.scope)) continue;
     const versions = [...(tenderVersions(t.slug) ?? [])].sort((a, b) => a.version - b.version);
     versions.forEach((v, i) => {
       const at = new Date(v.detectedAt);

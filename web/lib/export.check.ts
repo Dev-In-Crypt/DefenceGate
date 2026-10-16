@@ -97,6 +97,12 @@ void (async () => {
   const d = (id: string, deadline: string | null) => ({ id, deadline });
   assert.deepEqual(listOrder([d('a', null), d('b', '2026-12-01T00:00:00Z'), d('c', '2026-11-01T00:00:00Z')], 'open').map((x) => x.id), ['c', 'b', 'a']);
   assert.deepEqual(listOrder([d('a', null), d('b', '2026-12-01T00:00:00Z'), d('c', '2026-11-01T00:00:00Z')], 'closed').map((x) => x.id), ['b', 'c', 'a']);
+  // The order asked for is applied; without one, the status decides.
+  const e = (id: string, deadline: string | null, publishedAt: string | null) => ({ id, deadline, publishedAt });
+  const rowsE = [e('a', '2026-12-01T00:00:00Z', '2026-01-01'), e('b', '2026-11-01T00:00:00Z', '2026-03-01'), e('c', null, null)];
+  assert.deepEqual(listOrder(rowsE, 'open', 'deadline-desc').map((x) => x.id), ['a', 'b', 'c']);
+  assert.deepEqual(listOrder(rowsE, 'open', 'published-desc').map((x) => x.id), ['b', 'a', 'c']);
+  assert.deepEqual(listOrder(rowsE, 'closed', 'deadline-asc').map((x) => x.id), ['b', 'a', 'c']);
   // A failed build is remembered for its TTL only, and is not run again meanwhile.
   let now = 0;
   const failing = new ExportRunner<string>(new TtlCache(1000, 10), new Gate(6), 2, new TtlCache(30_000, 10, () => now));

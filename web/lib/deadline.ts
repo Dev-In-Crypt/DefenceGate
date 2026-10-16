@@ -161,3 +161,41 @@ export function getTenderDeadline(
   if (tender.status !== 'closed' || info.state === 'closed') return info;
   return { ...info, state: 'closed', countdown: 'Closed', label: stateLabel('closed') };
 }
+
+/**
+ * The time zone a buyer's deadline is meant in, by the buyer's country (the main zone of a country with several:
+ * Spain's Canary Islands and Portugal's Azores keep their mainland's here). Only countries the sources carry.
+ */
+export const COUNTRY_TIME_ZONE: Record<string, string> = {
+  DE: 'Europe/Berlin', PL: 'Europe/Warsaw', FR: 'Europe/Paris', CZ: 'Europe/Prague', ES: 'Europe/Madrid',
+  RO: 'Europe/Bucharest', IT: 'Europe/Rome', GB: 'Europe/London', FI: 'Europe/Helsinki', NL: 'Europe/Amsterdam',
+  DK: 'Europe/Copenhagen', SE: 'Europe/Stockholm', NO: 'Europe/Oslo', BG: 'Europe/Sofia', SI: 'Europe/Ljubljana',
+  BE: 'Europe/Brussels', LT: 'Europe/Vilnius', LV: 'Europe/Riga', GR: 'Europe/Athens', EE: 'Europe/Tallinn',
+  HR: 'Europe/Zagreb', HU: 'Europe/Budapest', PT: 'Europe/Lisbon', SK: 'Europe/Bratislava', IE: 'Europe/Dublin',
+  AT: 'Europe/Vienna', CY: 'Asia/Nicosia', CH: 'Europe/Zurich', MT: 'Europe/Malta', LU: 'Europe/Luxembourg',
+  IS: 'Atlantic/Reykjavik',
+};
+
+/**
+ * "10:00 CEST (Warsaw)" for a deadline with a time of day, in the buyer's country; null for a date-only deadline, an
+ * unknown country, or when the buyer's clock reads the same as UTC (the line would add nothing). A different day is
+ * said ("00:30 CEST on 27 Nov"). The UTC form stays the stated one; this is a convenience, not a second deadline.
+ */
+export function localDeadline(iso: IsoDateTime | null, country: string | null | undefined, dateOnly = false): string | null {
+  const zone = country ? COUNTRY_TIME_ZONE[country.toUpperCase()] : undefined;
+  if (!iso || !zone || dateOnly) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime()) || (d.getUTCHours() === 0 && d.getUTCMinutes() === 0)) return null;
+  const parts = (opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en-GB', { timeZone: zone, ...opts }).formatToParts(d);
+  const get = (ps: Intl.DateTimeFormatPart[], t: string) => ps.find((p) => p.type === t)?.value ?? '';
+  const clock = parts({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' });
+  const day = parts({ day: 'numeric', month: 'short' });
+  const time = `${get(clock, 'hour')}:${get(clock, 'minute')}`;
+  const abbr = get(clock, 'timeZoneName');
+  const utcTime = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  if (time === utcTime && /^(GMT|UTC)$/.test(abbr)) return null;
+  const sameDay = Number(get(day, 'day')) === d.getUTCDate();
+  const city = zone.split('/')[1].replace(/_/g, ' ');
+  return `${time} ${abbr}${sameDay ? '' : ` on ${get(day, 'day')} ${get(day, 'month')}`} (${city})`;
+}

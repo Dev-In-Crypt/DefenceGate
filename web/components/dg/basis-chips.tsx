@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CLASSIFIED_AUTOMATICALLY, basisChips, type BasisInput } from '@/lib/tender-basis';
+import { CLASSIFIED_AUTOMATICALLY, WHY_HERE, basisChips, type BasisInput } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Tag } from './tag';
 
@@ -13,9 +13,12 @@ export function BasisChips({ tender, lifted = false, className }: { tender: Basi
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {chips.length > 0 && (
-        <ul aria-label="Why this notice is listed" className="m-0 flex list-none flex-wrap gap-2 p-0">
-          {chips.map((c) => <li key={c}><Tag wrap>{c}</Tag></li>)}
-        </ul>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-label text-ink-muted">{WHY_HERE}</span>
+          <ul aria-label="Why this notice is listed" className="m-0 flex list-none flex-wrap gap-2 p-0">
+            {chips.map((c) => <li key={c}><Tag wrap>{c}</Tag></li>)}
+          </ul>
+        </div>
       )}
       <p className="m-0 text-small text-ink-muted">
         {CLASSIFIED_AUTOMATICALLY}; <Link href="/methodology" className={cn('font-semibold', lifted && 'relative z-10')}>see how</Link>

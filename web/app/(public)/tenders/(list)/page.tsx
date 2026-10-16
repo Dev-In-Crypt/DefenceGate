@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { getHealth, getTenders } from '@/lib/api';
+import { getHealth, getTenderScopeCounts, getTenders } from '@/lib/api';
 import { filtersFromQuery } from '@/lib/account-format';
 import {
   activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
-import { listUpdatedAt } from '@/lib/source-status';
+import { listUpdatedAt, staleNote, valueMissingNote, valueMissingShares } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
@@ -43,7 +43,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function TendersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseTenderFilters(sp);
-  const [result, health] = await Promise.all([getTenders(filters), getHealth()]);
+  const [result, health, scopeCounts] = await Promise.all([getTenders(filters), getHealth(), getTenderScopeCounts(filters)]);
+  const missing = valueMissingShares(health.sources);
+  const stale = staleNote(result.staleAsOf, formatDateTimeUtc);
   // A page past the end is the last page, not an empty list.
   const last = lastPage(result.total, result.pageSize);
   if (result.total > 0 && (filters.page ?? 1) > last) redirect(`/tenders${toTenderQuery({ ...filters, page: last })}`);
@@ -56,21 +58,21 @@ export default async function TendersPage({ searchParams }: Props) {
       title="Tenders"
       intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and changes to dates, values and status are kept in its version history."
       meta={`${tenderSources} tender sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`}
-      filterBar={<TenderFilterBar filters={filters} basePath="/tenders" />}
+      filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} />}
       filterExtra={<SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
       // Every status and scope with nothing to narrow them is refused by the export (400): no link to a refusal.
       exportHref={tooBroad(filters) ? undefined : `/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}
       exportStatus={filters.status}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: SORT_OPTIONS }}
-      notices={ignoredFilters(sp, 'tenders')}
+      notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"
       emptyTitle="No tenders match these filters"
-      emptyText="Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and notices that only supply a defence buyer, that are filed under the defence directive by a civil buyer, or that are a military product code bought by a security body are hidden unless you choose Supplies to defence buyers or All."
+      emptyText="Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and a military product code bought by a municipality or a hospital (dual-use) is hidden unless you choose the scope All."
       hrefFor={(p) => `/tenders${toTenderQuery({ ...filters, page: p })}`}
       footnote="Amounts are shown in the currency the source states and are never converted or added up across currencies."
     >
-      {result.items.map((t) => <li key={t.id}><TenderCard tender={t} /></li>)}
+      {result.items.map((t) => <li key={t.id}><TenderCard tender={t} cpvFilter={filters.cpv} valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
     </ListPage>
   );
 }

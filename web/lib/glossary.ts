@@ -16,6 +16,11 @@ export interface GlossaryEntry {
 
 export const GLOSSARY: GlossaryEntry[] = [
   {
+    id: 'scope', term: 'Scope (defence-relevant, core, supplies)',
+    body: 'Defence-relevant is the default list: the core defence notices and the supplies to defence buyers together. Core means the notice itself is defence, by the defence procurement directive or a military product code. Supplies to defence buyers are notices that are here because their buyer is a defence body, or because of a single defence signal from the wrong kind of buyer. Each card says why it is on the list. A military code bought by a municipality or a hospital is dual-use and only appears under All.',
+    see: { label: 'How a notice is judged', href: '/methodology' },
+  },
+  {
     id: 'cpv', term: 'CPV', full: 'Common Procurement Vocabulary',
     body: 'The EU code list that describes what a contract is for. A code has eight digits, and the first two give the division, the first three the group. Buyers put one main code and any number of additional codes on a notice.',
     see: { label: 'Find CPV codes', href: '/cpv' },

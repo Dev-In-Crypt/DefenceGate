@@ -141,8 +141,8 @@ never converted, no personal data, every record carries its `source`.
 ### `/v1/tenders`
 Query (all optional): `q` (title, buyer or notice number), `country` (comma ISO-2),
 `cpv` (comma prefixes, at most 20), `status` (`open` default | `closed` | `all`),
-`scope` (`core` default: the notice itself is defence | `supply`: only the buyer is a
-defence body, or one of the two groups of 14 October 2026 | `all`), `goods` (`defence`: of the chosen scope, only notices that say defence themselves, i.e. `legal_basis` or `military_cpv` in `qualifiedBy`, not kept by a listed buyer alone; absent by default; the same parameter on `/v1/changes`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
+`scope` (`relevant` default since 16 October 2026: `core` and `supply` together | `core`: the notice itself is defence | `supply`: only the buyer is a
+defence body, or one of the two groups of 14 October 2026 | `all`; see "Changes of 16 October 2026"), `goods` (`defence`: of the chosen scope, only notices that say defence themselves, i.e. `legal_basis` or `military_cpv` in `qualifiedBy`, not kept by a listed buyer alone; absent by default; the same parameter on `/v1/changes`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
 UTC), `min` / `max` (estimated value) with `currency` (ISO 4217, default `EUR`: a range
 selects that one currency), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).
@@ -450,3 +450,38 @@ All additive, except the first point, which corrects a status.
   closing or opening date (table `call_change`, migration 0053; a day re-expressed is not a
   move). The tender `items`, `total` and `counts.new`/`amended` are unchanged; `scope` and
   `goods` filters switch `funding` off, `country` filters by funder country (F5).
+
+
+## Changes of 16 October 2026 (WP-20, UX walk-throughs; owner decision on the default scope)
+
+- **Default scope.** `/v1/tenders`, `/v1/tenders/export` and `/v1/changes` default to `scope=relevant`: `core`
+  and `supply` together (`SCOPE_SQL['relevant']`, the two do not overlap). `core`, `supply` and `all` keep their
+  meaning; `all` still holds the notices that are only dual-use. `Tender.scope` is still `core` or `supply`.
+  The site's own default (list, CSV, calendar, home counters, saved searches without a `scope`, `/changes`) is
+  `relevant`; a URL or saved search that carries `scope=` keeps its meaning. `/v1/opportunities` is unchanged
+  (`core` default). Cost of the default list on production (`EXPLAIN ANALYZE`, 16 October, first page, open):
+  320 ms execution time warm, a parallel sequential scan where `core` alone uses the
+  `opp_core_published_v2` index; no new index was needed.
+- **`GET /v1/tenders/scope-counts`** with the filters of `/v1/tenders` except `scope`, `sort`, `page`: `{relevant,
+  core, supply}`, each the total the list would show under that scope with the list's own collapse rules.
+  Cached like the lists. The site prints them next to the scope choices and on the home page.
+- **History is not news.** A version written by a history load, a replay, a re-qualification or a backfill is
+  annotated `history` (migration 0054; `db.historical_load`). `/v1/changes`, the Atom feed, the digests and
+  every amendment count (`Tender.amended`, the market and buyer "with an amendment" shares) leave it out.
+  `TenderVersion.historic` is true for such a version: the tender page lists it ("Read by DefenceGate on ..."),
+  `detectedAt` is when we read it. `Tender.versionCount` still counts it. A notice is `new` only if it was
+  published inside the window (two days of slack, was seven). `python -m dgate.ops.tag_history` annotates the
+  versions written before; it reports unless told `--yes`.
+- **Version lines.** A change of `source_url` inside the same site is not a line; a move to another site is one
+  line naming the two sites, not the two addresses.
+- **Search.** `q` of `/v1/tenders` and of `/v1/buyers`: every word must begin a word of the title or buyer name,
+  accents and punctuation folded both ways (`dg_fold`, migration 0054: "Ausrüstung" = "Ausrustung", "off-road" =
+  "off road"); at most six words; the notice number is matched as typed. Trigram indexes on the folded titles.
+- **`GET /v1/stats/market`** takes `year` (2017 to the current year; the calendar year, to today when current) and
+  `country` (ISO-2); the response carries `year` and `country`, `windowFrom`/`windowTo` are the year's, and the
+  `months` series is that year's twelve months. Without them: unchanged (rolling 12 months, 36-month series).
+- **`GET /v1/sources`**: `valueStatedCount` (tender sources): how many of the held notices state a value (a
+  placeholder amount does not count). The site says "Not stated by the buyer in N % of notices from this source".
+- CSV of tenders (site): the `sort` parameter is honoured; the file is rectangular: columns `scope`, `why_listed`,
+  `versions` and `result_truncated` (`true` on every row when the result was cut at the limit, which then holds the
+  most recently added notices, in the order chosen); no note row in the data.

@@ -130,9 +130,10 @@ def test_an_old_notice_read_in_by_a_history_load_is_not_news(client, conn):
     assert feed(client)["total"] == 0
 
 
-def test_a_notice_published_a_few_days_before_the_window_still_counts(client, conn):
-    """TED notices are collected a day or more after their publication date."""
-    store(conn, opp("LATE", published=TODAY - timedelta(days=18)))
+def test_a_notice_published_a_day_before_the_window_still_counts(client, conn):
+    """TED notices are collected a day or more after their publication date (WP-20: the slack
+    is two days, it was seven; a notice published 18 days ago is not news any more)."""
+    store(conn, opp("LATE", published=TODAY - timedelta(days=15)))
     assert feed(client)["counts"]["new"] == 1
 
 

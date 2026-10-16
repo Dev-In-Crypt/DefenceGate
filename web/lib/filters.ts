@@ -24,7 +24,7 @@ export const MAX_PAGE = 1000;
 export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
-  scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv',
+  scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv', year: 'year',
 } as const;
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
@@ -166,7 +166,7 @@ export function broadenings(f: CallFilters): Broadening[] {
 export const TENDER_PAGE_SIZE = 10;
 export const BUYER_PAGE_SIZE = 20;
 export const DEFAULT_TENDER_STATUS: TenderStatusFilter = 'open';
-export const DEFAULT_TENDER_SCOPE: TenderScopeFilter = 'core';
+export const DEFAULT_TENDER_SCOPE: TenderScopeFilter = 'relevant';
 export const DEFAULT_TENDER_SORT: TenderSort = 'deadline-asc';
 /** Soonest deadline first, except on a closed list: its soonest is years old, so the newest deadline leads. */
 export function defaultTenderSort(status: TenderStatusFilter | undefined): TenderSort {
@@ -175,7 +175,7 @@ export function defaultTenderSort(status: TenderStatusFilter | undefined): Tende
 export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
 
 const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'all'];
-const TENDER_SCOPES: TenderScopeFilter[] = ['core', 'supply', 'all'];
+const TENDER_SCOPES: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
 const GOODS = ['defence'] as const;
 const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'deadline-desc', 'published-desc'];
 const BUYER_SORTS: BuyerSort[] = ['tenders', 'name'];
@@ -281,7 +281,9 @@ export function activeBuyerFilterCount(f: BuyerFilters): number {
 export const CHANGE_PAGE_SIZE = 25;
 
 export function parseChangeFilters(sp: SearchParams): ChangeFilters {
-  const scope = oneOf(first(sp[PARAM.scope]), TENDER_SCOPES);
+  // `relevant` is the API's default for the change list too: left out, like the tender list does.
+  const asked = oneOf(first(sp[PARAM.scope]), TENDER_SCOPES);
+  const scope = asked === DEFAULT_TENDER_SCOPE ? undefined : asked;
   const goods = oneOf(first(sp[PARAM.goods]), GOODS);
   return {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
@@ -301,6 +303,19 @@ export function toChangeQuery(f: ChangeFilters): string {
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   const s = p.toString();
   return s ? `?${s}` : '';
+}
+
+/* ---- Market overview (/market): a calendar year and one buyer country ---- */
+
+/** The first year the market page offers: the archive holds notices back to 2021, and TED history before 2024 is partial. */
+export const MARKET_FIRST_YEAR = 2021;
+
+export function parseMarketFilters(sp: SearchParams, thisYear: number = new Date().getUTCFullYear()): { year?: number; country?: string } {
+  const y = Number(first(sp[PARAM.year]));
+  const year = Number.isInteger(y) && y >= MARKET_FIRST_YEAR && y <= thisYear ? y : undefined;
+  const c = (first(sp[PARAM.country]) ?? '').trim().toUpperCase();
+  const country = COUNTRY_CODES.includes(c) ? c : undefined;
+  return { ...(year ? { year } : {}), ...(country ? { country } : {}) };
 }
 
 /* ---- What a list page was asked for and did not use ---- */

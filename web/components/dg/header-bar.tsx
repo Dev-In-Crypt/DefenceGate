@@ -14,14 +14,17 @@ import { ThemeToggle } from './theme-toggle';
  * Only routes that exist. The call-to-action is a button from lg and a last menu item below md. Alerts by e-mail are
  * not open (they need a mail provider and sign-in), so there is no call-to-action button until accounts are open: then
  * it is "Sign in". "What changed" lives in the footer and on the home page, where it is not a primary action.
+ * Market is in the header and Methodology is under Data (UX walk-throughs of 16 October 2026: analysts looked for them there).
  */
-export const MAIN_NAV = [
+export interface NavItem { label: string; href: string; children?: readonly { label: string; href: string }[] }
+export const MAIN_NAV: readonly NavItem[] = [
   { label: 'Funding', href: '/funding' },
   { label: 'Tenders', href: '/tenders' },
   { label: 'Buyers', href: '/buyers' },
-  { label: 'Data', href: '/data' },
+  { label: 'Market', href: '/market' },
+  { label: 'Data', href: '/data', children: [{ label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' }] },
   { label: 'Pricing', href: '/pricing' },
-] as const;
+];
 /** Shown only once the API says accounts are open (layout reads /v1/account/status, 60 s cache). */
 const SIGN_IN = { label: 'Sign in', href: '/signin' } as const;
 
@@ -46,7 +49,15 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
       <div className="flex items-center gap-6 rounded-pill bg-surface py-3 pl-6 pr-3">
         <Logo href="/" />
         <nav aria-label="Main" className="hidden flex-1 justify-center gap-5 md:flex">
-          {MAIN_NAV.map((n) => <NavLink key={n.href} {...n} active={isActive(n.href)} />)}
+          {MAIN_NAV.map((n) => n.children ? (
+            // A link with a small menu under it: open on hover and on keyboard focus, no script needed.
+            <div key={n.href} className="group relative">
+              <NavLink href={n.href} label={n.label} active={isActive(n.href) || n.children.some((c) => isActive(c.href))} />
+              <div className="invisible absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg bg-surface px-4 py-2 shadow-lg group-focus-within:visible group-hover:visible">
+                {n.children.map((c) => <NavLink key={c.href} href={c.href} label={c.label} active={pathname === c.href} />)}
+              </div>
+            </div>
+          ) : <NavLink key={n.href} href={n.href} label={n.label} active={isActive(n.href)} />)}
         </nav>
         <div className="ml-auto flex items-center gap-2 md:ml-0">
           <ThemeToggle />
@@ -59,7 +70,14 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
       </div>
       {open && (
         <nav id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
-          {[...MAIN_NAV, ...(cta ? [cta] : [])].map((n) => <NavLink key={n.href} {...n} active={isActive(n.href)} onClick={() => setOpen(false)} />)}
+          {[...MAIN_NAV, ...(cta ? [cta] : [])].map((n) => (
+            <div key={n.href} className="flex flex-col">
+              <NavLink href={n.href} label={n.label} active={isActive(n.href)} onClick={() => setOpen(false)} />
+              {'children' in n && n.children?.filter((c) => c.href !== n.href).map((c) => (
+                <span key={c.href} className="pl-4"><NavLink href={c.href} label={c.label} active={pathname === c.href} onClick={() => setOpen(false)} /></span>
+              ))}
+            </div>
+          ))}
         </nav>
       )}
     </header>

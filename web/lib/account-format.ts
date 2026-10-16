@@ -3,7 +3,7 @@
  * them too. Nothing here reads a cookie or calls the API.
  */
 import type { Cadence, FollowKind, Role, SearchFilters, SearchKind, ShortlistKind, ShortlistStatus, Track } from './types';
-import { PROGRAMMES, REGIMES, countryName } from './taxonomy';
+import { PROGRAMMES, REGIMES, SCOPE_CHOICES, countryName } from './taxonomy';
 import { formatDateUtc, formatNumber } from './format';
 
 export const STATUS_LABEL: Record<ShortlistStatus, string> = {
@@ -59,7 +59,7 @@ export function searchHref(kind: SearchKind, filters: SearchFilters): string {
 const STATUS_WORDS: Record<string, string> = {
   open: 'Open', closed: 'Closed', all: 'Any status', forthcoming: 'Opens soon', 'closing-soon': 'Closing soon',
 };
-const SCOPE_WORDS: Record<string, string> = { core: 'Defence notices', supply: 'Supplies to defence buyers and other qualified notices', all: 'All notices' };
+const SCOPE_WORDS: Record<string, string> = { relevant: SCOPE_CHOICES.relevant.short, core: SCOPE_CHOICES.core.short, supply: SCOPE_CHOICES.supply.short, all: SCOPE_CHOICES.all.short };
 
 const codes = (v: string) => v.split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -69,7 +69,7 @@ export function describeFilters(kind: SearchKind, filters: SearchFilters): strin
   const status = text(filters.status) || 'open';
   out.push(STATUS_WORDS[status] ?? status);
   if (kind === 'tender') {
-    const scope = text(filters.scope) || 'core';
+    const scope = text(filters.scope) || 'relevant';
     out.push(SCOPE_WORDS[scope] ?? scope);
     if (text(filters.goods) === 'defence') out.push('Defence goods only');
   }
