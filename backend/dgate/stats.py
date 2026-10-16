@@ -199,7 +199,9 @@ def _scope(since: date, today: date, country: str | None = None) -> tuple[str, l
 
 
 def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
-    return f"{CORE_NOTICES} AND NOT o.buyer_withheld AND o.buyer_org_id = %s", [org_id]
+    # The buyer's whole family: any member id gives the head's family (migration 0055).
+    return (f"{CORE_NOTICES} AND NOT o.buyer_withheld AND o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))",
+            [org_id])
 
 
 # ------------------------------------------------------------ aggregates
@@ -480,6 +482,7 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
               FROM opportunity o WHERE {where}""", params).fetchone()
     if not head["n"]:
         return None
+    head_id = conn.execute("SELECT dgate_buyer_head(%s) AS h", (org_id,)).fetchone()["h"]
     first_year = today.year - BUYER_YEARS + 1
     rows = conn.execute(
         f"""SELECT extract(year FROM o.published_at)::int AS y, count(*) AS n
@@ -487,7 +490,7 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
              GROUP BY 1""", params + [date(first_year, 1, 1), today]).fetchall()
     by_year = {r["y"]: r["n"] for r in rows}
     return {
-        "buyerId": str(org_id),
+        "buyerId": str(head_id),
         "asOf": datetime.now(timezone.utc),
         "scope": "core",
         "unit": "notices published",

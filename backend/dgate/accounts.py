@@ -900,13 +900,17 @@ def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
     if not ids:
         return {}
     agg = aggregate_sql()
+    # A followed buyer may be a member of a family: it shows the family (migration 0055).
+    heads = {r["id"]: r["h"] for r in conn.execute(
+        "SELECT i AS id, dgate_buyer_head(i) AS h FROM unnest(%s::bigint[]) AS i", (ids,)).fetchall()}
     rows = conn.execute(
         f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
-                   a.n, a.open_n, a.last_published
+                   a.n, a.open_n, a.last_published, a.variants
               FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
-             WHERE org.id = ANY(%s)""", (ids,)).fetchall()
+             WHERE org.id = ANY(%s)""", (sorted(set(heads.values())),)).fetchall()
     names = _buyer_names(conn, [r["id"] for r in rows])
-    return {str(r["id"]): _buyer(r, names) for r in rows}
+    by_head = {r["id"]: _buyer(r, names) for r in rows}
+    return {str(i): by_head[h] for i, h in heads.items() if h in by_head}
 
 
 PROGRAMME_NAMES = {"EDF": "European Defence Fund", "EDIP": "European Defence Industry Programme",
@@ -1208,7 +1212,10 @@ def dashboard(conn=Depends(get_conn), user=Depends(throttled)) -> dict[str, Any]
                                      AND n.kind = ANY(%s))
                   AND (v.opportunity_id = ANY(%s)
                        OR v.opportunity_id IN (SELECT id FROM opportunity
-                                                WHERE buyer_org_id = ANY(%s) AND is_defence
+                                                WHERE buyer_org_id IN (
+                                                          SELECT unnest(dgate_family_ids(b))
+                                                            FROM unnest(%s::bigint[]) AS b)
+                                                  AND is_defence
                                                   AND NOT suppressed AND NOT buyer_withheld))
                 GROUP BY v.opportunity_id ORDER BY seen DESC LIMIT 10""",
             (since, list(db.NOT_AMENDMENT_NOTES), watched, buyers)).fetchall()]

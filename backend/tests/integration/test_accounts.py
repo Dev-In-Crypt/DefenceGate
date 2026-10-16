@@ -731,7 +731,7 @@ def test_a_reference_with_leading_zeros_is_the_same_item_everywhere(client, sent
 # ---------------------------------------------------------------- review M4: the accounts role
 
 READ_BY_ACCOUNT_CODE = ("opportunity", "opportunity_version", "opportunity_version_note", "call",
-                        "programme", "source", "organisation")
+                        "programme", "source", "organisation", "buyer_family_member")
 
 
 def test_the_accounts_role_reads_only_what_the_account_code_needs(conn):

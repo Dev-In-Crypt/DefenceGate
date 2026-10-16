@@ -105,6 +105,11 @@ export function formatPercent(share: number): string {
   return `${Math.round(share * 100)}%`;
 }
 
+/** "Includes 2 other name variants of this body": a buyer that is several organisation rows of one body; null when it is one. */
+export function variantsLine(n: number): string | null {
+  return n > 0 ? `Includes ${n} other name ${n === 1 ? 'variant' : 'variants'} of this body` : null;
+}
+
 /** "European Commission · European Defence Fund": who pays and the programme in full; said once when they are the same. */
 export function funderLine(c: { funder: string; programmeName: string }): string {
   return c.funder === c.programmeName ? c.funder : `${c.funder} · ${c.programmeName}`;

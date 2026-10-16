@@ -372,6 +372,24 @@ def job_link_twins() -> JobResult:
     return result
 
 
+def job_buyer_families() -> JobResult:
+    """Daily: bring the buyer families up to date (ops/buyer_families.py, WP-22), so that
+    a new name variant of a body joins its family the next day. Display layer only: no
+    organisation, alias or notice is changed. Idempotent."""
+    counts: dict[str, int] = {}
+
+    def _run() -> None:
+        from .ops import buyer_families
+
+        with db.connect(settings().dsn) as conn:
+            counts.update(buyer_families.run(conn, write=True))
+        log.info("buyer families: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
+
+    result = run_job("buyer_families", _run)
+    result.detail = result.detail or ", ".join(f"{k} {v}" for k, v in counts.items())
+    return result
+
+
 def job_requalify() -> JobResult:
     """Weekly: insert the notices the classifier dropped at ingest and the rules now qualify.
 
@@ -913,6 +931,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "health": job_health_report,
     "alerts": job_alerts,
     "link-twins": job_link_twins,
+    "buyer-families": job_buyer_families,
     "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
@@ -967,6 +986,10 @@ def build_scheduler():
                   id="alerts_hourly", max_instances=1, misfire_grace_time=1800)
     sched.add_job(job_link_twins, CronTrigger(hour=cfg.twins_hour, minute=cfg.twins_minute),
                   id="link_twins_daily", max_instances=1, misfire_grace_time=3600)
+    # An hour after the twins: the ingests and the buyer cleanup have finished by then.
+    sched.add_job(job_buyer_families,
+                  CronTrigger(hour=(cfg.twins_hour + 1) % 24, minute=cfg.twins_minute),
+                  id="buyer_families_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_requalify,
                   CronTrigger(day_of_week="sun", hour=cfg.requalify_hour, minute=0),
                   id="requalify_weekly", max_instances=1, misfire_grace_time=7200)
@@ -1024,6 +1047,8 @@ def describe_schedule() -> list[str]:
         "alerts_hourly  :20 UTC  (digests of saved searches; nothing without a mail relay)",
         f"link_twins     {cfg.twins_hour:02d}:{cfg.twins_minute:02d} UTC  "
         f"(national notices tied to their TED twins, after every ingest)",
+        f"buyer_families {(cfg.twins_hour + 1) % 24:02d}:{cfg.twins_minute:02d} UTC  "
+        f"(organisation rows of one body shown as one buyer; display only)",
         f"requalify      Sun {cfg.requalify_hour:02d}:00 UTC  "
         f"(notices the rules now qualify, every source, last {cfg.requalify_days} days)",
         *([f"ted_history    {(cfg.ted_hour + 1) % 24:02d}:{cfg.ted_minute:02d} UTC  "

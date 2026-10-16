@@ -233,6 +233,7 @@ interface Buyer {
   openCount: number;                 // of those, open now
   lastPublishedAt: IsoDateTime | null;
   isDefenceBuyer: boolean;           // on the curated list of defence bodies
+  nameVariants: number;              // other organisation rows of the same body shown under this one; 0 when none
 }
 ```
 
@@ -361,6 +362,16 @@ All additive. A response gained fields; none was removed or renamed.
 - `Buyer.openCount` applies the list's own status rule and collapse (a national notice and its
   TED twin, a rectificatif and its parent, a re-publication count once): it equals the `total`
   of `/v1/tenders?buyer=<id>&status=open`. `tenderCount` still counts every core notice.
+- Buyer families (WP-22, migration 0055): one body that appears under several organisation rows
+  ("BAAINBw", its long name, a department) is one `Buyer`. `id`, `slug` and `name` are the head
+  row's (the row with most defence notices); `tenderCount`, `openCount` and `lastPublishedAt` add
+  up the whole family, and `nameVariants` is the number of other rows in it. `/v1/buyers/{slug}`
+  and `/v1/buyers/{slug}/profile` accept the id of any member (an old link) and answer for the
+  family, with the head's `id` and `slug` (the site redirects to it). `/v1/tenders?buyer=<id>`
+  lists the notices of every member. `/v1/buyers?q=` finds a family by the name of any member.
+  A tender's own `buyerId` and `buyerSlug` are still those of its own organisation row. The
+  grouping is a display layer (`buyer_family_member`, rules in `dgate/buyer_family.py`); no
+  organisation row, alias or notice is changed.
 - `Buyer`/`Tender` names: a trailing `_<digits>` after a letter (the Irish eTenders buyer id
   TED carries) is dropped when served; the stored name is unchanged.
 - `/v1/funding`: a call stored `forthcoming` whose deadline has passed is `closed` (it never

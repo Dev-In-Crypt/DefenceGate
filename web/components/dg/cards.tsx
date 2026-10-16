@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
-import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase } from '@/lib/format';
+import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
 import { TENDER_CHANGED_LABEL, anomalyNotes, isLongRunning, tenderStatusView } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
@@ -209,6 +209,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }
 /** A procurement body. Counts are core-scope notices only (API_CONTRACT.md). */
 export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headingLevel?: 'h2' | 'h3' }) {
   const H = headingLevel;
+  const variants = variantsLine(buyer.nameVariants);
   return (
     <article className={cn(CARD, 'text-ink')}>
       <div className="flex flex-col gap-2">
@@ -217,6 +218,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
           <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</Link>
         </H>
         {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
+        {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
       </div>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
         <FactCell label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></FactCell>
