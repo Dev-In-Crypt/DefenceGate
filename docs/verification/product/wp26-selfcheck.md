@@ -1,7 +1,7 @@
 # WP-26 self-check: networks data (layer 2, data and resolution)
 
 Branch `wp-wp26`, 17 October 2026. Written by the implementer for the verifier. Everything below was run on the
-server (`/root/dev-h`, test database `agent_h`, scratch database `agent_h_scratch`); nothing ran on the laptop and
+server (`/root/dev-h`, test database `agent_h`, scratch database `agent_h_scratch`, now deleted); nothing ran on the laptop and
 nothing was written to production. No language model API was called: the EDF extraction ran on the real
 factsheets with a stand-in that reads the table without a model (see "What could not be checked").
 
@@ -46,7 +46,7 @@ disk on the host during this work: 2.5 to 3.8 GB.
   participations, all EUR, no key, 10,000 rows an answer at most. Licence: Commission Decision 2011/833/EU
   (`COM_REUSE` on every distribution; cordis.europa.eu/about/legal).
 * **First full load**: 35 minutes, status success, 551,237 rows read (72,534 + 80,208 + 398,495). 67,113 organisations
-  created (66,857 by PIC, 258 by name because the service gives no PIC), 5,402 matched to organisations the
+  created (66,857 by PIC, 258 by name because the service gives no PIC), 5,404 matched to organisations the
   buyer side already held (5,402 by alias, 2 by name; all with the same country), 4 ambiguous (queued), 13 skipped
   (no country). 80,208 projects, 382,155 participations (276 organisations met twice in a project were merged:
   coordinator wins, amounts added).
@@ -106,8 +106,8 @@ council CSIC (PIC 999991722) is a participant in Italy while the buyer side hold
 * Estimated live cost: mean layout text 2,616 characters (max 14,422), about 1,300 input tokens and 700 output tokens
   a file at the configured prices: **about USD 0.42 for the 284 files**, once; a month later only new or changed files.
 * Hand check: two factsheets read against the database in full (STRATUS: 13 of 13 entities, countries, amounts;
-  EURODAMM: 12 of 12) and 15 random participations over 12 further factsheets: the entity's printed name and the
-  country are in the file, **15 of 15 yes**. "Printed anywhere in the file" is weaker than "on the same row"; the
+  EURODAMM: 12 of 12) and 15 random participations, each against its own factsheet read afresh: the entity's printed
+  name and the country are in the file, **15 of 15 yes**. "Printed anywhere in the file" is weaker than "on the same row"; the
   row-level pairing is what `table_rows` now checks in the product.
 
 ## Resolution
@@ -125,8 +125,8 @@ council CSIC (PIC 999991722) is a participant in Italy while the buyer side hold
 * The old buyer-side key (`normalise_org_name`) is untouched: names stored with it are still found (both keys are
   tried), new rows get the new key. Changing the stored key would have orphaned every alias, as the code comment says.
 * **Measured on the real load**: 829 rows in the review queue after the EDF load and a sample of 12,000 organisations
-  of stage 3: `pic_conflict` 157 (the same name under two PICs), `exact_name_ambiguous` 7, `trigram` 665 (of which
-  most come from EDF spellings against CORDIS). Stage 3 costs **38 ms an organisation** on the host (3,000 in 114 s,
+  of stage 3: `pic_conflict` 157 (the same name under two PICs), `exact_name_ambiguous` 7, `trigram` 665 (EDF
+  spellings against CORDIS organisations, and the 12,000 sampled organisations). Stage 3 costs **38 ms an organisation** on the host (3,000 in 114 s,
   with the EDF load running at the same time), 46 minutes for all 72,500 CORDIS organisations; the estimate for the
   full queue is about 2,400 pairs. `--no-candidates` and `resolution-candidates` (resumable chunks) exist so the first
   load does not have to wait for it.
@@ -145,8 +145,8 @@ positive and 84 negative**, all taken from the real data of this work and labell
 * 20 positives where one body is registered twice in CORDIS (two PICs; the cascade keeps these apart on purpose);
 * 84 negatives: 29 parent and subsidiary or group mates (Thales, Safran, Siemens, Airbus, Kongsberg, Indra, Saab,
   BAE, Leonardo, ...); 20 numbered siblings (schools, depots, districts); 12 the same name in two countries;
-  23 look-alikes of different institutions (7 universities, 9 pairs the stage-3 queue proposed, 5 Polish
-  companies whose names differ by one word, 2 pairs where a notice states another body's registry number).
+  23 look-alikes of different institutions (7 universities, 9 pairs the stage-3 queue proposed, 5 pairs of
+  companies (4 Polish) whose names differ by one word, 2 pairs where a notice states another body's registry number).
 
 ```
 stage              said same  right  wrong  precision   recall
@@ -170,7 +170,7 @@ positives no stage found: 26
   They stay duplicates until a person or stage 4/5 decides.
 * **Caveat on independence**: the extra legal forms and the spacing rule of `names.py` were chosen after looking at
   the same EDF/CORDIS sample the gold positives come from, so the recall of `exact_name` is optimistic. The negatives
-  were chosen independently of the rules (apart from the Polish long form, which turned 5 look-alike negatives into
+  were chosen independently of the rules (apart from the Polish long form, which turned 4 look-alike negatives into
   non-candidates). A second labeller has not seen the file.
 
 ## Snapshots and events
@@ -179,7 +179,8 @@ positives no stage found: 26
 its last snapshot (or has none), one `consortium_change` row per project that had one before. On the real data: first
 run **77,109 snapshots in 8.8 s**, second run 0 in 3.7 s; a participant marked inactive and snapshotted on a later day
 gives exactly one change row (`removed [362103]`), the same day again none, the participant back one more.
-Merged organisations are read through `merged_into` (test). A project that loses all its members gets no row.
+Merged organisations are read through `merged_into` (test). A project that loses all its members gets no row. One
+snapshot per project and day: a second change on the same day is recorded by the next run only.
 
 ## Report
 
@@ -195,7 +196,20 @@ Merged organisations are read through `merged_into` (test). A project that loses
 
 Whole report 3.9 s from the command line (host idle; under load the same queries took 4.2, 4.1, 2.3 s). It is a command for the worker role, not an endpoint: against the API role's
 5 s budget the first two queries would need the monthly numbers materialised (a table filled by the snapshot job); that
-is for whoever builds the pages. 
+is for whoever builds the pages.
+
+### EXPLAIN of the queries the resolver runs per organisation (scratch copy, 426,000 organisations, cold cache)
+
+| Query | Plan | Execution |
+|---|---|---|
+| by PIC | `organisation_pic_uq` index scan | 4.9 ms |
+| alias by normalised name | `organisation_alias_name_country_source_uq` index scan, then the organisation by key | 8.9 ms |
+| exact name in a country | `organisation_country_name` index scan | 5.1 ms |
+| registry or VAT number | bitmap-or of `organisation_reg_uq` and the new `organisation_vat` | 4.7 ms |
+| trigram candidates (stage 3) | bitmap scan of `organisation_name_trgm` at 0.85 | 359 ms for one long name on a cold cache; 38 ms on average over 3,000 organisations |
+
+No query of the first four scans a table; stage 3 is the one that costs, which is why it is optional in a bulk load.
+
 ## Second runs (idempotency on the real data)
 
 Same code, back to back, on the scratch database that held a first load:
@@ -298,6 +312,6 @@ re-pointed on a merge (see below); the first snapshot of a project has no event.
 
 Created and deleted by me, at the end of the run: database `agent_h_scratch` (476 MB: a read-only COPY of production
 `organisation` and `organisation_alias`, 357,874 and 354,922 rows, and the CORDIS and EDF loads), `/root/dev-h-scratch`
-(36 MB: the raw store of those loads, five result pages, probe PDFs, the sitemap), the helper scripts in `/root/dev-h/`
+(about 40 MB: the raw store of those loads, five result pages, probe PDFs, the sitemap), the helper scripts in `/root/dev-h/`
 (`*.sh`, `*.py`, `*.sql`) and `/root/dev-h-*.py`. Kept: `/root/dev-h/backend` (the test copy) and database `agent_h`
 (created because it did not exist, empty after the tests); both are listed in `docs/DELETION_CANDIDATES.md`.
