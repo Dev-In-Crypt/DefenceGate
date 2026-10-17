@@ -242,6 +242,9 @@ class FundingCallDetail(FundingCall):
     eligibilitySources: list[EligibilitySource] = []
     # How `cascade` was decided and the sentence it rests on (null when it is not determined).
     cascadeBasis: CascadeBasis | None = None
+    # The area earlier projects are compared in for partner suggestions (dgate/partners.py), from the topic
+    # code alone; null when the call has none (Digital Europe, CEF, national calls). No database read.
+    partnerArea: str | None = None
 
 
 def serves_meta() -> bool:
@@ -731,6 +734,9 @@ def get_funding(slug: str, conn=Depends(get_conn)):
     if row["suppressed"]:
         raise removed()
     out = to_call(row, detail=True)
+    from .partners import area_label  # partners imports this module
+
+    out["partnerArea"] = area_label(row.get("topic_code"))
     if row["source_code"] in SOURCE_TEXT_SOURCES and row.get("source_commercial_ok") is True:
         read = eligibility_of(conn, row)
         out["documentEligibility"] = read["documentEligibility"]

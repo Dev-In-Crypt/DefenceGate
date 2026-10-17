@@ -121,6 +121,8 @@ export interface Call {
   eligibilitySources?: EligibilitySourceInfo[];
   /** Detail only: how `cascade` was decided and the sentence it rests on. Absent when it is not determined. */
   cascadeBasis?: { reason: string; evidence: string | null } | null;
+  /** Detail only: the area earlier projects are compared in for partner suggestions ("EDF capability category SPACE"); null when the call has none. */
+  partnerArea?: string | null;
 }
 
 /** Where some of a call's rules are written: its call document, the work programme's general annexes, or the topic's own text. */
@@ -684,4 +686,34 @@ export interface Dashboard {
   following: DashboardFollowing[];
   shortlist: { counts: Partial<Record<ShortlistStatus, number>>; items: ShortlistItem[] };
   pulse: DashboardPulse | null;
+}
+
+/** GET /v1/funding/{slug}/partners (WP-32): organisations of earlier projects in the call's area, ranked. */
+export interface PartnerEvidence { projectId: string; acronym: string | null; title: string; year: number | null; role: string }
+export interface Partner {
+  organisationId: string;
+  /** "<id>-<words>": the page is /organisations/<slug>. */
+  slug: string;
+  name: string;
+  country: string;
+  /** Projects of the area the organisation took part in (a project counted once). */
+  projects: number;
+  coordinated: number;
+  firstYear: number | null;
+  lastYear: number | null;
+  /** The newest projects, at most three. */
+  evidence: PartnerEvidence[];
+}
+export interface PartnersAnswer {
+  call: { id: string; slug: string; topic: string | null };
+  /** Null when the call's code names no area the project data can be compared with. */
+  area: { kind: string; label: string; rule: string; projects: number; organisations: number; firstYear: number | null; lastYear: number | null; broaderThanCall: boolean } | null;
+  partners: Partner[];
+  /** Organisations of the whole area by country, before the country filter. */
+  countries: { country: string; organisations: number }[];
+  /** Organisations in the area (in the chosen country when a filter is set). */
+  total: number;
+  country: string | null;
+  note: string | null;
+  source?: { readAt: string | null; sources: string[]; licence: string };
 }

@@ -658,3 +658,64 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
 A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input. The limiter charges
 three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
 content policy allows connections to the site only); the verdict is the only thing that leaves the browser.
+
+## "Does this call fit me" and partner suggestions (added 17 October 2026, WP-32)
+
+Stateless: the profile of the readiness check stays in the visitor's browser (`dg.profile.v1`). Nothing below reads, stores
+or logs one. The browser compares the document facts of a call with its profile itself (`web/lib/fit.ts`).
+
+### `GET /v1/funding/{slug}/partners?country=XX&limit=20`
+
+Organisations that took part in earlier funded projects of the call's **area** (deterministic, no model). `country` is one
+ISO-2 code (422 otherwise), `limit` 1 to 50 (default 20). 404 for an unknown call, 410 for one removed on request. Kept
+ten minutes in memory.
+
+"Same area" (stated in `area.rule`, and measured by hand on real calls in `docs/verification/product/wp32-selfcheck.md`):
+
+| Call | Compared with | Fallback |
+|---|---|---|
+| EDF call with a capability category in its topic code (`EDF-2026-DA-SPACE-PRS-STEP`: SPACE) | EDF projects (factsheets) of the same category | all EDF projects, when the category has fewer than 5 organisations |
+| EDF or EDIP call with no category in its code (`EDF-EDIP-P-...`) | all EDF projects | |
+| Horizon Europe call (`HORIZON-CL3-2026-01-BM-01`: cluster CL3, destination BM; the call round `01` is not part of it) | Horizon Europe projects in CORDIS whose topic is `HORIZON-CL3-<year>-BM-...` | the cluster (`HORIZON-CL3-<year>-...`), when the destination has fewer than 5 organisations |
+| anything else (Digital Europe, CEF, national calls) | nothing: `area` is null and `note` says no project data is held | |
+
+The EDF 2021 and 2022 factsheets name no category, so those projects count only at the "all EDF" level. Horizon 2020 and
+FP7 projects are not compared (their topic codes do not map to Horizon Europe destinations without a table we do not hold).
+
+Response: `{ call: { id, slug, topic }, area: { kind, label, rule, projects, organisations, firstYear, lastYear,
+broaderThanCall } | null, partners[], countries: [{ country, organisations }], total, country, note, source: { readAt,
+sources, licence } }`. `countries` counts the organisations of the whole area before the `country` filter (at most 40);
+`total` is the organisations of the filter. A partner is `{ organisationId, slug, name, country, projects, coordinated,
+firstYear, lastYear, evidence: [{ projectId, acronym, title, year, role }] }` (at most 3 evidence projects, newest first).
+Ranking: the number of the area's projects the organisation took part in (a project counted once), then its latest year,
+then the projects it coordinated. Only participations that are `active` count; an organisation is read through
+`merged_into` (the live row is named and linked); one removed on request is left out. `slug` is `<id>-<words>` for
+`/organisations/<slug>` (page built by WP-28; the leading id is what resolves). Organisation-level facts only: no person,
+no contact.
+
+### `GET /v1/fit/facts?ids=1,2,3`
+
+Internal to the site (not in the public Caddy list): the facts the badge "fits my profile" compares, for up to 100 calls
+of one list page (422 for more, or an id that is not digits). `{ items: { "<id>": { state: read | not_read | no_source,
+basis, facts: { <name>: { value, note, scope } } } } }`; a call removed on request is absent. Only the seven facts the
+comparison reads (`eligible_countries`, `sme_only`, `natural_persons_allowed`, `consortium_required`, `min_entities`,
+`min_countries`, `ownership_control_restriction`), no quote. The same facts and the same source rule (`eu_portal`,
+`se_vinnova` with `commercial_ok`) as `documentEligibility` on the call page.
+
+### `GET /v1/funding/{slug}`
+
+New field `partnerArea: string | null`: the label of the narrowest area of the call (`EDF capability category SPACE`), from
+its topic code alone; null where partner suggestions have nothing to compare (no database read).
+
+### `POST /v1/readiness/assess` with `call`
+
+A call of the EDIP is now judged by the EDIP rules, though the portal files it under the EDF: `EDF-EDIP-P-...` by
+`EDIP`, `EDF-EDIP-USI-...` by `EDIP-USI`, a code that says neither by both. (Before, `timings` for these calls held the
+EDF verdict.)
+
+### Site routes built on it
+
+`/api/fit/facts` and `/api/funding/{slug}/partners` (the site's own proxies: the page's content policy allows connections
+to the site only; they carry no profile). The call page `/funding/{slug}` has "Your readiness for this call" and, for a
+call with a `partnerArea`, "Partners from earlier projects". The badges and the switch "Fits my profile" are on `/funding`,
+`/changes` and the digest. The home page names the three parts.

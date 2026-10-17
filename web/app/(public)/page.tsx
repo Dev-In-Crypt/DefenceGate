@@ -198,6 +198,50 @@ export default async function LandingPage() {
         </p>
       </section>
 
+      <section aria-labelledby="layers" className="flex flex-col gap-4 rounded-lg bg-surface p-6 md:p-8">
+        <h2 id="layers" className="m-0 text-h2">Three questions, three parts</h2>
+        <p className="m-0 max-w-[70ch] text-body text-ink-muted">
+          A supplier asks the same three things in turn. Each part below answers one of them from public sources, and says where the answer comes from.
+        </p>
+        <ol className="m-0 grid list-none gap-3 p-0 md:grid-cols-3">
+          <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-5">
+            <h3 className="m-0 text-h4">1. What is open to me?</h3>
+            <p className="m-0 text-body">
+              Procurement notices from TED and the national portals, and EU and national funding calls, with their deadlines. A funding call whose rules we have read
+              shows what its document says about who may apply.
+            </p>
+            <p className="m-0 flex flex-wrap gap-x-4 text-small font-bold">
+              <Link href="/tenders" className="inline-flex min-h-11 items-center">Tenders</Link>
+              <Link href="/funding" className="inline-flex min-h-11 items-center">Funding calls</Link>
+            </p>
+          </li>
+          <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-5">
+            <h3 className="m-0 text-h4">2. Who is already inside?</h3>
+            <p className="m-0 text-body">
+              Who took part in funded projects, in which role and with whom: Horizon Europe, Horizon 2020 and FP7 projects from CORDIS, and European Defence Fund projects
+              from the Commission’s factsheets, which a language model reads. A funding call page lists organisations from earlier projects of the same area.
+            </p>
+            <p className="m-0 flex flex-wrap gap-x-4 text-small font-bold">
+              <Link href="/organisations" className="inline-flex min-h-11 items-center">Organisations in funded projects</Link>
+            </p>
+          </li>
+          <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-5">
+            <h3 className="m-0 text-h4">3. What do I need to qualify?</h3>
+            <p className="m-0 text-body">
+              Five short questions about your company, kept in your browser, give a verdict for the European Defence Fund, EDIP and SAFE, the steps you would still need,
+              and, on a call page, whether you can get them before the deadline. Each rule shows the text it rests on.
+            </p>
+            <p className="m-0 flex flex-wrap gap-x-4 text-small font-bold">
+              <Link href="/readiness" className="inline-flex min-h-11 items-center">Readiness check</Link>
+              <Link href="/requirements" className="inline-flex min-h-11 items-center">Requirements</Link>
+            </p>
+          </li>
+        </ol>
+        <p className="m-0 max-w-[70ch] text-small text-ink-muted">
+          None of this is legal advice or a promise of eligibility: the call text and the contracting authority decide.
+        </p>
+      </section>
+
       {changes && (
         <section aria-labelledby="changed" className="flex flex-col items-start gap-3 rounded-lg bg-surface p-6 md:p-8">
           <h2 id="changed" className="m-0 text-h2">What changed in the last {changes.windowDays} days</h2>

@@ -105,15 +105,18 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     else lines.push(withNote({ key: 'control', label: 'Ownership control', verdict: 'yes', reason: 'The restriction applies, and your company is not controlled from outside the eligible countries.', quote: own.quote }, own));
   }
 
-  // A general rule of the work programme annexes is never a "no": the topic may change it.
-  const settled = lines.map((l): Line => (l.verdict === 'no' && facts[LINE_FACT[l.key] ?? '']?.scope === 'general'
-    ? { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule; the topic may differ, so check its own conditions.` }
-    : l));
+  // A general rule of the work programme annexes is neither a firm "no" nor a plain "yes": the topic may change it.
+  const settled = lines.map((l): Line => {
+    if (facts[LINE_FACT[l.key] ?? '']?.scope !== 'general') return l;
+    if (l.verdict === 'no') return { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule; the topic may differ, so check its own conditions.` };
+    if (l.verdict === 'yes') return { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule, and the topic may add conditions: check its own.` };
+    return l;
+  });
   return { verdict: settled.reduce<Verdict>((v, l) => worst(v, l.verdict), 'yes'), lines: settled };
 }
 
 /** The fact each line of the verdict rests on. */
-const LINE_FACT: Record<string, string> = {
+export const LINE_FACT: Record<string, string> = {
   country: 'eligible_countries', sme: 'sme_only', person: 'natural_persons_allowed',
   consortium: 'consortium_required', control: 'ownership_control_restriction',
 };

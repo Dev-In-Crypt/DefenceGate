@@ -89,6 +89,11 @@ the first feature that stores anything new.
 
 The readiness check asks a company about its country, ownership and control, products and certificates. **None of it is stored or logged by the server.** The answers live in the visitor's browser (localStorage, `dg.profile.v1`). The verdict is computed by `POST /v1/readiness/assess`, which receives them in the body, keeps no copy, opens no write (it runs under the read-only API role; a test asserts it) and logs nothing of the body (a test asserts that too; the proxy's request log holds the address and the path, not a POST body). The company name and size entered in the wizard are not part of the request. A profile can say who owns a company, so it is treated as private even though it is not personal data of a natural person. The tables `requirement`, `requirement_issuer`, `requirement_prerequisite`, `readiness_programme` and `programme_requirement` hold public regulatory content only: no personal data and no contact details (a test checks the seed file for e-mail addresses).
 
+
+## "Does this call fit me" and partner suggestions (WP-32, 17 October 2026): nothing new is held
+
+The saved profile of the readiness check is read by the pages of the funding list, the changes list, the digest and a call page, in the browser only. **The profile is never part of a request except the one that computes a verdict** (`POST /v1/readiness/assess`, as above, now also with a call id, which is public). The badge "fits my profile" asks the site for the public document facts of the calls on the page (`GET /api/fit/facts?ids=...`: call ids only) and compares them with the profile in the browser. A visitor without a saved profile causes no such request. The partner list (`GET /api/funding/{slug}/partners`) carries a call and an optional country filter; the profile's country only orders the answer in the browser. The partner suggestions name **organisations** (their name as CORDIS or the EDF factsheet gives it, their country, the projects they took part in) and nothing about a person; an organisation removed on request (`organisation.suppressed`) is left out, and one merged into another is shown as the live one. No table is added and nothing is written by these endpoints (the API role cannot write).
+
 ## Who can read it
 
 The API and worker service roles (`dgate_api`, `dgate_worker`), the owner on the host,

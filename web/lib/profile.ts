@@ -125,6 +125,8 @@ export interface AssessRequest {
     export_intent: 'none' | 'within_eu' | 'outside_eu' | 'unsure' | null;
   };
   statuses: Record<string, Status>;
+  /** A call of the funding list (its id), to also get the timing of the steps against its deadline (WP-32). */
+  call?: number;
 }
 
 const tri = (v: Tri): boolean | null => (v === 'yes' ? true : v === 'no' ? false : null);

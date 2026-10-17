@@ -11,6 +11,7 @@ import { Select } from '../dg/form';
 import { Icon } from '../dg/icon';
 import { Tag } from '../dg/tag';
 import { describeChange } from '../dg/version-timeline';
+import { FitBadge, FitFilter, FitItem } from '../funding/fit-badge';
 
 const KIND_WORDS: Record<DigestCall['kind'], string> = {
   'call-new': 'New call', 'call-opened': 'Opened this week', 'call-amended': 'Date moved', 'call-closing': 'Closing soon',
@@ -34,6 +35,7 @@ function CallItem({ c }: { c: DigestCall }) {
         <Tag>{c.programmeName}</Tag>
         <Tag>{c.funderCountry}</Tag>
         {c.cascade === true && <Tag>Cascade funding</Tag>}
+        <FitBadge id={c.id} />
       </div>
       <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]"><Link href={`/funding/${c.slug}`}>{displayName(c.title)}</Link></h3>
       <p className="m-0 text-small font-semibold">{c.funder}</p>
@@ -124,6 +126,8 @@ export function DigestView({ issue, filters, basePath, feedHref }: { issue: Dige
         </div>
       </form>
 
+      <FitFilter />
+
       {empty && (
         <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
           Nothing was recorded for {country ?? 'any country'} in this week. Notices are collected once a day, so a quiet week is possible.
@@ -148,9 +152,9 @@ export function DigestView({ issue, filters, basePath, feedHref }: { issue: Dige
               <p className="m-0 text-body text-ink-muted">None{country ? ` for ${country}` : ''} this week.</p>
             ) : (
               <ul className={cn('m-0 flex list-none flex-col gap-3 p-0')}>
-                {items.map((it) => (
-                  <li key={`${it.kind}-${it.id}`}>{isTender ? <TenderItem t={it as DigestTender} /> : <CallItem c={it as DigestCall} />}</li>
-                ))}
+                {items.map((it) => (isTender
+                  ? <li key={`${it.kind}-${it.id}`}><TenderItem t={it as DigestTender} /></li>
+                  : <FitItem key={`${it.kind}-${it.id}`} id={it.id}><CallItem c={it as DigestCall} /></FitItem>))}
               </ul>
             )}
             {cut && (

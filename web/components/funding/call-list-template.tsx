@@ -15,6 +15,7 @@ import { ResultTools } from '../dg/download-link';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
+import { FitFilter, FitItem } from './fit-badge';
 import { SortSelect } from './filter-panel';
 import { CallCalendar } from './call-calendar';
 
@@ -100,6 +101,7 @@ export function CallListTemplate({
           </div>
 
           <FilterNotices notices={notices} />
+          {view === 'list' && result.total > 0 && <FitFilter />}
           {result.search && result.search.alsoSearched.length > 0 && (
             <p className="m-0 text-small text-ink-muted">Also searched: {result.search.alsoSearched.join(', ')}.</p>
           )}
@@ -122,7 +124,7 @@ export function CallListTemplate({
             <CallCalendar calls={result.items} />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-4 p-0">
-              {result.items.map((c) => <li key={c.id}><CallCard call={c} budgetRepeated={repeats.has(c.id)} /></li>)}
+              {result.items.map((c) => <FitItem key={c.id} id={c.id}><CallCard call={c} budgetRepeated={repeats.has(c.id)} /></FitItem>)}
             </ul>
           )}
 

@@ -20,6 +20,23 @@ const data = raw as unknown as { eligibility: Record<string, EligibilityItem[]>;
 
 const FIRST_SEEN = '2026-09-01T06:00:00Z';
 
+const EDF_CATEGORIES = new Set(['GROUND', 'CYBER', 'SPACE', 'NAVAL', 'AIR', 'UWW', 'SENS', 'C4ISR', 'MCBRN', 'DIGIT', 'ENERENV', 'MATCOMP', 'PROTMOB', 'SIMTRAIN', 'DIS', 'SME', 'SMERO', 'AIRDEF', 'DS']);
+
+/** The area of the API's `partnerArea` (backend/dgate/partners.py `area_label`) for the demo calls: EDF category, or Horizon cluster and destination. */
+function mockPartnerArea(topic: string): string | null {
+  const t = topic.toUpperCase().split('-');
+  if (t[0] === 'EDF') {
+    const c = t.slice(1).find((x) => EDF_CATEGORIES.has(x));
+    return c ? `EDF capability category ${c}` : 'all projects of the European Defence Fund';
+  }
+  const year = t.findIndex((x, i) => i >= 2 && /^20\d\d$/.test(x));
+  if (t[0] !== 'HORIZON' || year < 0) return null;
+  const rest = t.slice(year + 1);
+  if (rest.length > 1 && /^\d{2}$/.test(rest[0]) && /^[A-Z]+$/.test(rest[1])) rest.shift();
+  const family = t.slice(1, year).join('-');
+  return /^[A-Z]+$/.test(rest[0] ?? '') ? `Horizon Europe, ${family}, destination ${rest[0]}` : `Horizon Europe, ${family}`;
+}
+
 /** Mirrors the API: ids are 1-based positions, slug is "<id>-<words>", conditionsText is detail-only. */
 function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
   const src = sourceById(r.sourceId);
@@ -50,6 +67,7 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
       retrievedAt: r.retrievedAt, licence: src.licence, attribution: src.attribution,
     },
     ...(detail && r.conditionsText ? { conditionsText: r.conditionsText } : {}),
+    ...(detail ? { partnerArea: mockPartnerArea(r.topicId) } : {}),
   };
 }
 
