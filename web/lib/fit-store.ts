@@ -108,7 +108,7 @@ async function flush(): Promise<void> {
 }
 
 /** An item showing call `id` is on the page: read the profile, and with one, ask for the call's facts. */
-function mount(id: string): void {
+export function mount(id: string): void {
   mounted.set(id, (mounted.get(id) ?? 0) + 1);
   const changed = readProfile();
   if (profile !== null && profile.country !== '' && !asked.has(id)) {
@@ -119,7 +119,7 @@ function mount(id: string): void {
   if (changed) recount();
 }
 
-function unmount(id: string): void {
+export function unmount(id: string): void {
   const n = (mounted.get(id) ?? 1) - 1;
   if (n <= 0) mounted.delete(id); else mounted.set(id, n);
   if (mounted.size === 0 && onlyFits) onlyFits = false;      // leaving the list turns the filter off
@@ -135,7 +135,7 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
 }
-const getSnapshot = (): FitSnapshot => snapshot;
+export const getSnapshot = (): FitSnapshot => snapshot;
 const getServerSnapshot = (): FitSnapshot => SERVER;
 
 /** For a badge or an item of a list: the state of the store, with the item registered while it is on the page. */

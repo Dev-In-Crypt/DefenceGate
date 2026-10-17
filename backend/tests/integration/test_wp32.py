@@ -8,11 +8,11 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from dgate import api, stats
+from dgate import api, config, stats
 from dgate.funding import make_slug
 from dgate.readiness import api as readiness_api
 from dgate.readiness import seed
-from tests.integration.test_readiness_api import CONTENT, UA
+from tests.integration.test_readiness_api import CONTENT, UA, service_roles  # noqa: F401 (a fixture)
 from tests.integration.test_wp31 import doc, hold, put
 
 pytestmark = pytest.mark.integration
@@ -268,9 +268,14 @@ def test_fit_facts_follow_the_licence_row_of_the_source(client, conn):
     cid = put(conn, "lic", documents=[doc("https://example.test/d.pdf")])
     hold(conn, "https://example.test/d.pdf", "call_document", sme_only=(True, "SMEs only.", None))
     assert client.get("/v1/fit/facts", params={"ids": str(cid)}).json()["items"][str(cid)]["state"] == "read"
-    conn.execute("UPDATE source SET commercial_ok = NULL WHERE code = 'eu_portal'")
-    conn.commit()
-    assert client.get("/v1/fit/facts", params={"ids": str(cid)}).json()["items"][str(cid)]["state"] == "no_source"
+    was = conn.execute("SELECT commercial_ok FROM source WHERE code = 'eu_portal'").fetchone()["commercial_ok"]
+    try:
+        conn.execute("UPDATE source SET commercial_ok = NULL WHERE code = 'eu_portal'")
+        conn.commit()
+        assert client.get("/v1/fit/facts", params={"ids": str(cid)}).json()["items"][str(cid)]["state"] == "no_source"
+    finally:                                   # `source` is reference data that no test starts without
+        conn.execute("UPDATE source SET commercial_ok = %s WHERE code = 'eu_portal'", (was,))
+        conn.commit()
 
 
 def test_fit_facts_refuse_bad_ids_and_more_than_a_hundred(client):
@@ -299,3 +304,20 @@ def test_an_edip_call_filed_under_the_edf_is_judged_by_the_edip_rules(conn):
         assert timings(edip) == {"EDIP": "not_possible"}, "a Ukrainian company is not eligible for the EDIP programme"
         assert timings(usi) == {"EDIP-USI": "yes"}
         assert timings(plain) == {"EDF": "yes"}
+
+
+# ------------------------------------------------------------------------------ the read-only role
+
+def test_both_reads_work_with_nothing_but_the_read_only_api_role(conn, space, service_roles, monkeypatch):
+    """The tests above run as the owner; the site runs as `dgate_api`, which can only SELECT. A table or a column the
+    queries read and the role may not would fail here and nowhere else."""
+    _, slug = call(conn, "edf1", "EDF-2026-DA-SPACE-PRS-STEP")
+    read = put(conn, "read", documents=[doc("https://example.test/r.pdf")])
+    hold(conn, "https://example.test/r.pdf", "call_document", sme_only=(True, "SMEs only.", None))
+    monkeypatch.setenv("DGATE_API_DSN", service_roles["api"])
+    config.reset_cache()
+    with TestClient(api.app) as c:
+        body = c.get(f"/v1/funding/{slug}/partners").json()
+        assert [p["name"] for p in body["partners"]][:2] == ["Alpha SA", "Bravo GmbH"] and body["source"]["licence"]
+        assert c.get("/v1/fit/facts", params={"ids": str(read)}).json()["items"][str(read)]["facts"]["sme_only"]["value"] is True
+    config.reset_cache()
