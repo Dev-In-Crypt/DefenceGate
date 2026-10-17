@@ -294,6 +294,20 @@ class Settings:
         "DGATE_USER_AGENT",
         "dgate/0.1 (+https://github.com/Dev-In-Crypt/DefenceGate)"))
 
+    # --- language model (eligibility extraction; the worker only) ----------
+    # The key is read from the environment and never written to a file in the repository.
+    # `llm_monthly_cap_usd` is our own stop: the provider's project limit is the real one.
+    # The prices are per million tokens and deliberately on the high side of the published
+    # ones, so that the counter stops early rather than late.
+    openai_api_key: str = field(default_factory=lambda: _env("DGATE_OPENAI_API_KEY", ""))
+    openai_model: str = field(default_factory=lambda: _env("DGATE_OPENAI_MODEL", ""))
+    llm_monthly_cap_usd: float = field(
+        default_factory=lambda: float(_env("DGATE_LLM_MONTHLY_CAP_USD", "5") or 5))
+    llm_price_in_per_m: float = field(
+        default_factory=lambda: float(_env("DGATE_LLM_PRICE_IN_PER_M", "0.30") or 0.30))
+    llm_price_out_per_m: float = field(
+        default_factory=lambda: float(_env("DGATE_LLM_PRICE_OUT_PER_M", "1.50") or 1.50))
+
     # --- mail (sign-in links, alert digests) ----------------------------
     # Accounts are "open" only when mail can actually be delivered: without a relay a
     # sign-in link would be issued and never arrive. The password is read from the
