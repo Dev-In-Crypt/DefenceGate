@@ -20,9 +20,9 @@ const TYPES = [
 const TRI = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'Not sure' }];
 
 const VERDICT: Record<Verdict, { icon: typeof CircleCheck; word: string; cls: string }> = {
-  yes: { icon: CircleCheck, word: 'You can apply', cls: 'text-ink' },
+  yes: { icon: CircleCheck, word: 'Nothing in the document excludes you so far', cls: 'text-ink' },
   check: { icon: CircleAlert, word: 'Check before you apply', cls: 'text-ink' },
-  no: { icon: CircleX, word: 'You cannot apply', cls: 'text-ink' },
+  no: { icon: CircleX, word: 'The document appears to exclude you: read the quoted sentence', cls: 'text-ink' },
 };
 const WORD: Record<Verdict, string> = { yes: 'Allowed', check: 'Check', no: 'Not allowed' };
 
