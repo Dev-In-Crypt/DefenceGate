@@ -6,6 +6,7 @@
 import { getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
 import { getCallDeadline, getTenderDeadline, now } from './deadline';
 import { formatDateLabelledUtc } from './format';
+import { ROLLING_NOTE } from './ics';
 import { anomalyNotes, isLongRunning, tenderStatusView } from './tender-status';
 import type { SearchParams } from './filters';
 
@@ -23,6 +24,8 @@ export interface CalendarEntry {
   event: CalendarEvent;
   /** A funding call that has not opened yet: its deadline is the source's planned one. */
   planned?: boolean;
+  /** A funding call that takes submissions continuously or in several cut-offs: its date is the latest cut-off, not the end. */
+  rolling?: boolean;
   id: string;
   title: string;
   /** Site path of the detail page. */
@@ -121,7 +124,9 @@ async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcomin
     entries.push({
       key: `funding-${c.id}`, kind: 'funding', event: 'deadline', id: c.id, title: c.title, href: `/funding/${c.slug}`,
       deadline: c.deadline, dateOnly: d.dateOnly === true, when: d.utc,
-      who: c.issuer ?? c.programmeName, country: c.funderCountry, sourceName: c.source.sourceName, note: null,
+      who: c.issuer ?? c.programmeName, country: c.funderCountry, sourceName: c.source.sourceName,
+      // The source's date is a cut-off of a call that keeps taking submissions: the file must not call it the end.
+      rolling: c.rolling === true, note: c.rolling === true ? ROLLING_NOTE : null,
     });
   }
   return { entries, upcoming };

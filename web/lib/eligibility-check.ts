@@ -8,7 +8,11 @@
  * not read, or whose quote was not found in the document, is never in the data (the API drops it).
  */
 
-export interface EligibilityFact { value: unknown; note?: string | null; quote: string; confidence: number }
+export interface EligibilityFact {
+  value: unknown; note?: string | null; quote: string; confidence: number;
+  /** Where it was read: the call document, the work programme's general annexes (a rule the topic may change), or the topic's own text. */
+  scope?: 'call_document' | 'general' | 'topic';
+}
 export type EligibilityFacts = Record<string, EligibilityFact | undefined>;
 
 export type OrgType = 'sme' | 'large' | 'public' | 'university' | 'individual';
@@ -101,5 +105,17 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     else lines.push(withNote({ key: 'control', label: 'Ownership control', verdict: 'yes', reason: 'The restriction applies, and your company is not controlled from outside the eligible countries.', quote: own.quote }, own));
   }
 
-  return { verdict: lines.reduce<Verdict>((v, l) => worst(v, l.verdict), 'yes'), lines };
+  // A general rule of the work programme annexes is never a "no": the topic may change it.
+  const settled = lines.map((l): Line => (l.verdict === 'no' && facts[LINE_FACT[l.key] ?? '']?.scope === 'general'
+    ? { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule; the topic may differ, so check its own conditions.` }
+    : l));
+  return { verdict: settled.reduce<Verdict>((v, l) => worst(v, l.verdict), 'yes'), lines: settled };
 }
+
+/** The fact each line of the verdict rests on. */
+const LINE_FACT: Record<string, string> = {
+  country: 'eligible_countries', sme: 'sme_only', person: 'natural_persons_allowed',
+  consortium: 'consortium_required', control: 'ownership_control_restriction',
+};
+
+export const SCOPE_WORDS = { call_document: 'Call document', general: 'General rule (work programme annexes)', topic: 'This topic' } as const;

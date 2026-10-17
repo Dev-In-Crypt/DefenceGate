@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getAllBuyerSlugs, getAllCallSlugs, getAllTenderSlugs, getHealth, isBuyerSlug, isCallSlug, isTenderSlug } from '@/lib/api';
+import { getAllBuyerSlugs, getAllCallSlugs, getAllTenderSlugs, getDigestWeeks, getHealth, isBuyerSlug, isCallSlug, isTenderSlug } from '@/lib/api';
 import { absoluteUrl } from '@/lib/seo';
 
 export const revalidate = 3600;
@@ -11,20 +11,23 @@ export const revalidate = 3600;
  * sitemap. Add them here when their noindex is removed. /alerts is indexable and listed. /changes is listed without its
  * filters (a filtered or paged view is noindex); /changes.atom is a feed, not a page, and is linked from the page's head.
  */
-const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/calendar', '/cpv', '/glossary', '/data', '/market', '/methodology', '/about', '/alerts', '/changes'];
+const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/calendar', '/cpv', '/glossary', '/data', '/market', '/methodology', '/about', '/alerts', '/changes', '/digest'];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Funding slugs are required (as before). The tender and buyer lists degrade to empty if their endpoints are
   // not deployed yet, so a frontend built before the backend still produces a sitemap.
-  const [calls, tenders, buyers, health] = await Promise.all([
+  const [calls, tenders, buyers, health, weeks] = await Promise.all([
     getAllCallSlugs(),
     getAllTenderSlugs().catch(() => []),
     getAllBuyerSlugs().catch(() => []),
     getHealth(),
+    getDigestWeeks().catch(() => []),
   ]);
   const lastModified = new Date(health.generatedAt);
   return [
     ...STATIC_PATHS.map((p) => ({ url: absoluteUrl(p), lastModified })),
+    // An issue never changes once its week has ended: its last change is the end of the week.
+    ...weeks.map((w) => ({ url: absoluteUrl(`/digest/${w.week}`), lastModified: new Date(w.weekTo) })),
     ...calls.filter((c) => isCallSlug(c.slug)).map((c) => ({ url: absoluteUrl(`/funding/${c.slug}`), lastModified: new Date(c.updatedAt) })),
     ...tenders.filter((t) => isTenderSlug(t.slug)).map((t) => ({ url: absoluteUrl(`/tenders/${t.slug}`), lastModified: new Date(t.updatedAt) })),
     ...buyers.filter((b) => isBuyerSlug(b.slug)).map((b) => ({ url: absoluteUrl(`/buyers/${b.slug}`), lastModified: new Date(b.updatedAt) })),

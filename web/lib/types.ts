@@ -94,6 +94,11 @@ export interface Call {
   scope: string[];
   /** Structured rows only; may be empty. */
   eligibility: EligibilityItem[];
+  /**
+   * Financial support to third parties (cascade funding): true or false where a source we hold says so, null where
+   * nothing does. Null is "not determined", never "no". Absent on older API builds.
+   */
+  cascade?: boolean | null;
   /** The source's own date for the call, where it states one. */
   publishedAt: IsoDateTime | null;
   firstSeenAt: IsoDateTime;
@@ -108,12 +113,32 @@ export interface Call {
   documents?: CallDocument[];
   /** Detail only: the rules read from the call document (verified quotes only), or null when it was not read. */
   documentEligibility?: CallDocumentEligibility | null;
+  /**
+   * Detail only. `read`: facts are served; `not_read`: the places the rules are written are known (`eligibilitySources`)
+   * and none has been read yet; `no_source`: the portal lists nothing we can read.
+   */
+  eligibilityState?: 'read' | 'not_read' | 'no_source';
+  eligibilitySources?: EligibilitySourceInfo[];
+  /** Detail only: how `cascade` was decided and the sentence it rests on. Absent when it is not determined. */
+  cascadeBasis?: { reason: string; evidence: string | null } | null;
+}
+
+/** Where some of a call's rules are written: its call document, the work programme's general annexes, or the topic's own text. */
+export interface EligibilitySourceInfo {
+  scope: 'call_document' | 'general' | 'topic';
+  label: string;
+  url: string | null;
+  extractedAt: IsoDateTime | null;
 }
 
 export interface CallDocumentEligibility {
-  documentUrl: string;
+  /** The document the facts were read from; null when they come from the topic's own text only. */
+  documentUrl: string | null;
   extractedAt: IsoDateTime;
-  facts: Record<string, { value: unknown; note?: string | null; quote: string; confidence: number }>;
+  /** `work_programme`: the call has no call document, and the facts come from the general annexes and the topic's text. */
+  basis?: 'call_document' | 'work_programme';
+  sources?: EligibilitySourceInfo[];
+  facts: Record<string, { value: unknown; note?: string | null; quote: string; confidence: number; scope?: 'call_document' | 'general' | 'topic' }>;
 }
 
 export interface CallDocument {
@@ -140,6 +165,8 @@ export interface CallFilters {
   /** ISO 4217 that budgetMin, budgetMax and sort=budget-desc refer to. Default EUR. */
   currency?: CurrencyCode;
   sort?: CallSort;
+  /** Only calls with cascade funding (financial support to third parties). */
+  cascade?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -156,6 +183,8 @@ export interface Paginated<T> {
   page: number;
   pageSize: number;
   search?: SearchInfo | null;
+  /** `/v1/funding`: calls with cascade funding among those that match every filter but this one. Absent on older API builds. */
+  cascadeTotal?: number | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
   meta?: { updatedAt?: string | null } | null;
   /** Set by lib/api.ts, never by the API: the data service did not answer, and this is its last good answer, received at this time. */
@@ -349,6 +378,83 @@ export interface FundingChange {
   changes: FieldChange[];
   call: Call;
 }
+/**
+ * GET /v1/digest: the issue of one ISO week (Monday to Monday, UTC). The counts are the full ones; each list holds at
+ * most `sectionLimit` items, newest or soonest first.
+ */
+export interface DigestTender {
+  id: string;
+  slug: string;
+  kind: ChangeKind;
+  day: string;
+  title: string;
+  buyerName: string;
+  country: string | null;
+  deadline: IsoDateTime | null;
+  estimatedValue: Money | null;
+  changes: FieldChange[];
+}
+export type DigestCallKind = 'call-new' | 'call-amended' | 'call-opened' | 'call-closing';
+export interface DigestCall {
+  id: string;
+  slug: string;
+  kind: DigestCallKind;
+  title: string;
+  funder: string;
+  programmeName: string;
+  funderCountry: string;
+  status: string;
+  openingDate: IsoDateTime | null;
+  deadline: IsoDateTime | null;
+  deadlineIsDate: boolean;
+  cascade: boolean | null;
+  /** One line from the facts read from the call's document; null when none were read. */
+  eligibility: string | null;
+  eligibilityState: 'read' | 'not_read' | 'no_source';
+  changes: FieldChange[];
+}
+export interface DigestCounts {
+  tendersNew: number;
+  tendersAmended: number;
+  callsNew: number;
+  callsAmended: number;
+  callsOpened: number;
+  callsClosing: number;
+  cascade: number;
+}
+export interface Digest {
+  /** ISO week, YYYY-Www. */
+  week: string;
+  weekFrom: IsoDateTime;
+  /** Exclusive: the next Monday. */
+  weekTo: IsoDateTime;
+  closingUntil: IsoDateTime;
+  generatedAt: IsoDateTime;
+  sectionLimit: number;
+  counts: DigestCounts;
+  tendersNew: DigestTender[];
+  tendersAmended: DigestTender[];
+  callsNew: DigestCall[];
+  callsAmended: DigestCall[];
+  callsOpened: DigestCall[];
+  callsClosing: DigestCall[];
+  cascadeCalls: DigestCall[];
+  /** Open calls with cascade funding today (not the week's). */
+  cascadeOpenNow: number;
+  country: string | null;
+  previousWeek: string | null;
+  nextWeek: string | null;
+  meta?: { updatedAt?: string | null } | null;
+  staleAsOf?: IsoDateTime;
+}
+export interface DigestWeek {
+  week: string;
+  weekFrom: IsoDateTime;
+  weekTo: IsoDateTime;
+  counts: DigestCounts | null;
+  computedAt: IsoDateTime | null;
+}
+
 /** `scope` absent: defence notices and supplies to defence buyers together. */
 export interface ChangeFilters {
   country?: string[];

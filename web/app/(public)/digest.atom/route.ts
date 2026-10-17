@@ -1,0 +1,41 @@
+import { getDigest, getDigestWeeks } from '@/lib/api';
+import { etagOf } from '@/lib/atom';
+import { buildDigestAtom, parseDigestFilters } from '@/lib/digest';
+import { searchParamsOf } from '@/lib/export';
+import { SITE } from '@/lib/seo';
+import type { Digest } from '@/lib/types';
+
+/** The newest issues a reader gets: a month of weeks. */
+const FEED_ISSUES = 4;
+
+/**
+ * The weekly digest as an Atom feed: one entry per issue (counts and the first headlines), newest first. `country`
+ * narrows it like the page. An issue does not change once its week has ended, so the feed answers conditional requests
+ * (ETag and Last-Modified) and is kept an hour.
+ */
+export async function GET(request: Request): Promise<Response> {
+  const filters = parseDigestFilters(searchParamsOf(new URL(request.url)));
+  const weeks = await getDigestWeeks(FEED_ISSUES).catch(() => null);
+  if (!weeks) return unavailable();
+  const got = await Promise.all(weeks.map((w) => getDigest(w.week, filters.country).catch(() => null)));
+  // Half a feed presented as the whole one would mislead a subscriber: an issue that cannot be read is an error.
+  if (got.some((d) => d === null)) return unavailable();
+  const issues = got as Digest[];
+  const body = buildDigestAtom(issues, { origin: SITE.url.replace(/\/$/, ''), country: filters.country, generatedAt: new Date().toISOString() });
+  const lastModified = new Date(issues.reduce((m, d) => (d.weekTo > m ? d.weekTo : m), '1970-01-01T00:00:00Z'));
+  const etag = etagOf(body);
+  const headers = { etag, 'last-modified': lastModified.toUTCString(), 'cache-control': 'public, max-age=3600' };
+  const sent = request.headers.get('if-none-match');
+  const since = request.headers.get('if-modified-since');
+  const notModified = sent !== null
+    ? sent.split(',').some((t) => t.trim() === etag || t.trim() === `W/${etag}`)
+    : since !== null && !Number.isNaN(Date.parse(since)) && Date.parse(since) >= lastModified.getTime();
+  if (notModified) return new Response(null, { status: 304, headers });
+  return new Response(body, { headers: { ...headers, 'content-type': 'application/atom+xml; charset=utf-8' } });
+}
+
+function unavailable(): Response {
+  return new Response('The weekly digest could not be built right now. Try again in a few minutes.', {
+    status: 502, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}

@@ -6,7 +6,7 @@ import { COUNTRIES, CURRENCIES, FUNDER_COUNTRIES, PROGRAMMES, PROGRAMME_CODES, R
 import { DEFAULT_CURRENCY, MAX_QUERY_LENGTH, PARAM, activeFilterCount, defaultCallSort } from '@/lib/filters';
 import type { CallFilters, CallStatusFilter, CountryCode } from '@/lib/types';
 
-export type FilterGroup = 'status' | 'programme' | 'regime' | 'country';
+export type FilterGroup = 'status' | 'programme' | 'regime' | 'country' | 'cascade';
 
 const STATUS_OPTIONS: { value: CallStatusFilter; label: string }[] = [
   { value: 'open', label: 'Open' }, { value: 'forthcoming', label: 'Opens soon' },
@@ -21,8 +21,10 @@ const BUDGET_PRESETS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000
  * `hide` removes groups fixed by a sub-page (e.g. a sub-page fixed to one country hides country).
  * `countries` is the list of funder countries with coverage (see fundersWithCoverage); default is all.
  */
-export function FilterBar({ filters, basePath, hide = [], view, countries = FUNDER_COUNTRIES }: {
+export function FilterBar({ filters, basePath, hide = [], view, countries = FUNDER_COUNTRIES, cascadeTotal }: {
   filters: CallFilters; basePath: string; hide?: FilterGroup[]; view?: string; countries?: CountryCode[];
+  /** Calls with cascade funding among those that match the other filters (the API's `cascadeTotal`); absent: no count. */
+  cascadeTotal?: number | null;
 }) {
   const show = (g: FilterGroup) => !hide.includes(g);
   const currency = filters.currency ?? DEFAULT_CURRENCY;
@@ -59,6 +61,16 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
               <Choice key={c} name={PARAM.country} value={c} defaultChecked={filters.country?.includes(c)}
                 label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span>{COUNTRIES[c]}</span>} />
             ))}
+          </Fieldset>
+        )}
+        {show('cascade') && (
+          <Fieldset legend="Financial support to third parties">
+            <Choice name={PARAM.cascade} value="true" defaultChecked={filters.cascade === true}
+              label={`Only calls with cascade funding${typeof cascadeTotal === 'number' ? ` (${cascadeTotal})` : ''}`} />
+            <p className="m-0 text-small text-ink-muted">
+              The call passes part of its money to third parties, usually small firms, by calls of its own.
+              A call is counted only where its text or document says so; see the <Link href="/glossary#cascade-funding" className="font-semibold">glossary</Link>.
+            </p>
           </Fieldset>
         )}
         <Fieldset legend="Deadline between (UTC)" className="gap-2">

@@ -110,22 +110,26 @@ FUNDING_LIMIT = 50
 FUNDING_FIELD_LABELS = {"deadline_at": "Deadline", "opens_at": "Opening date"}
 
 
-def funding_events(conn, *, countries: list[str], now: datetime | None = None) -> list[dict[str, Any]]:
+def funding_events(conn, *, countries: list[str], now: datetime | None = None,
+                   days: int = WINDOW_DAYS, bounded: bool = False) -> list[dict[str, Any]]:
     """Funding calls new or moved in the window, newest first, as plain dicts (`row` is the
     call's serving row). A call collected in the window is one `call-new` entry, and wins over
     a date move of the same day; several moves of a day are one entry running from the day's
     first `before` to its last `after`. A call already closed is not news."""
     now = now or datetime.now(timezone.utc)
-    since = now - timedelta(days=WINDOW_DAYS)
+    since = now - timedelta(days=days)
     country_sql = " AND COALESCE(c.country, 'EU') = ANY(%s)" if countries else ""
     extra = [countries] if countries else []
+    # `bounded`: `now` is the end of the window, and nothing seen after it is listed (the digest of a past week).
     first = conn.execute(
-        f"{CALL_SELECT} WHERE NOT c.suppressed AND c.first_seen_at >= %s "
-        f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}", [since, *extra]).fetchall()
+        f"{CALL_SELECT} WHERE NOT c.suppressed AND c.first_seen_at >= %s"
+        f"{' AND c.first_seen_at < %s' if bounded else ''} "
+        f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}", [since, *([now] if bounded else []), *extra]).fetchall()
     moves = conn.execute(
         "SELECT ch.call_id, ch.field, ch.before_value, ch.after_value, ch.observed_at "
-        "  FROM call_change ch WHERE ch.observed_at >= %s ORDER BY ch.observed_at, ch.id",
-        (since,)).fetchall()
+        f"  FROM call_change ch WHERE ch.observed_at >= %s{' AND ch.observed_at < %s' if bounded else ''} "
+        "ORDER BY ch.observed_at, ch.id",
+        (since, *([now] if bounded else []))).fetchall()
     events: dict[tuple[int, date], dict[str, Any]] = {}
     for r in first:
         at = r["first_seen_at"].astimezone(timezone.utc)
@@ -154,7 +158,7 @@ def funding_events(conn, *, countries: list[str], now: datetime | None = None) -
 
 
 def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
-                since: datetime) -> tuple[dict[int, datetime], list[int]]:
+                since: datetime, until: datetime | None = None) -> tuple[dict[int, datetime], list[int]]:
     """(notices first seen in the window with when, notices with a candidate amendment).
 
     The amendment scan is written for the planner, not for the reader (EXPLAIN ANALYZE on
@@ -167,13 +171,17 @@ def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
     keeps the hashed side to the window as the notes table grows. Scope and country are
     applied by the caller, on the few thousand notices left."""
     published_from = (since - timedelta(days=PUBLISHED_SLACK_DAYS)).date()
+    # The digest of a past week bounds the scan above as well as below; /changes does not.
+    upper_new = " AND v.observed_at < %s" if until else ""
+    upper_args = [until] if until else []
     new_rows = conn.execute(
         f"""SELECT o.id, v.observed_at
               FROM opportunity o
               JOIN opportunity_version v ON v.opportunity_id = o.id AND v.version = 1
              WHERE o.is_defence AND NOT o.suppressed AND {scope_sql}{country_sql}
-               AND o.published_at >= %s AND v.observed_at >= %s""",
-        params + [published_from, since]).fetchall()
+               AND o.published_at >= %s AND v.observed_at >= %s{upper_new}""",
+        params + [published_from, since] + upper_args).fetchall()
+    upper_amended = " AND v.observed_at < %s" if until else ""
     amended_rows = conn.execute(
         f"""WITH annotated AS MATERIALIZED (
                 SELECT opportunity_version_id AS vid FROM opportunity_version_note
@@ -181,13 +189,14 @@ def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
             SELECT DISTINCT v.opportunity_id AS id
               FROM opportunity_version v
              WHERE v.observed_at >= %s AND v.version > 1 AND v.changed_fields && %s::text[]
-               AND NOT EXISTS (SELECT 1 FROM annotated a WHERE a.vid = v.id)
+               AND NOT EXISTS (SELECT 1 FROM annotated a WHERE a.vid = v.id){upper_amended}
              LIMIT {CANDIDATE_LIMIT}""",
-        [list(NOT_A_CHANGE), since, since, list(CHANGE_FIELDS)]).fetchall()
+        [list(NOT_A_CHANGE), since, since, list(CHANGE_FIELDS)] + upper_args).fetchall()
     return ({r["id"]: r["observed_at"] for r in new_rows}, [r["id"] for r in amended_rows])
 
 
-def _amendments(conn, ids: list[int], since: datetime) -> dict[tuple[int, date], dict[str, Any]]:
+def _amendments(conn, ids: list[int], since: datetime,
+                until: datetime | None = None) -> dict[tuple[int, date], dict[str, Any]]:
     """The amendments of each notice since `since`, as the notice's own timeline reads
     them, one per notice per UTC day with the day's lines merged."""
     if not ids:
@@ -202,7 +211,7 @@ def _amendments(conn, ids: list[int], since: datetime) -> dict[tuple[int, date],
         corrected = {r["version"] for r in group if "correction" in (r.get("kinds") or [])}
         for entry in T.timeline(group):
             at = entry["detectedAt"].astimezone(timezone.utc)
-            if at < since or entry["version"] in corrected or entry.get("historic"):
+            if at < since or (until is not None and at >= until) or entry["version"] in corrected or entry.get("historic"):
                 continue
             lines = [c for c in entry["changes"] if c["field"] in CHANGE_FIELDS]
             if not lines:
@@ -226,13 +235,14 @@ def _amendments(conn, ids: list[int], since: datetime) -> dict[tuple[int, date],
 
 
 def build_events(conn, *, scope: str | None, countries: list[str],
-                 now: datetime | None = None, goods: str | None = None) -> tuple[list[dict[str, Any]], datetime, datetime]:
+                 now: datetime | None = None, goods: str | None = None,
+                 days: int = WINDOW_DAYS, bounded: bool = False) -> tuple[list[dict[str, Any]], datetime, datetime]:
     """Every event of the window, newest first, as plain dicts (`id` is the notice's),
     with the window's bounds. The scope is `relevant` (the default, None too: core and supply
     together), `core`, `supply` or `all`."""
     api = T._api()
     now = now or datetime.now(timezone.utc)
-    since = now - timedelta(days=WINDOW_DAYS)
+    since = now - timedelta(days=days)
     scope_sql = api.SCOPE_SQL[scope or "relevant"]
     if goods:
         scope_sql = f"({scope_sql} AND {api.GOODS_SQL[goods]})"
@@ -242,7 +252,7 @@ def build_events(conn, *, scope: str | None, countries: list[str],
         country_sql = " AND o.country = ANY(%s)"
         params.append(countries)
 
-    first_seen, amended_ids = _candidates(conn, scope_sql, country_sql, params, since)
+    first_seen, amended_ids = _candidates(conn, scope_sql, country_sql, params, since, now if bounded else None)
     ids = sorted(set(first_seen) | set(amended_ids))
     if not ids:
         return [], since, now
@@ -251,7 +261,7 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     shown = {r["id"] for r in conn.execute(
         f"SELECT o.id FROM opportunity o WHERE o.id = ANY(%s) AND {' AND '.join(where)} "
         f"AND {T.collapse_clauses(where)}", [ids] + params * 4).fetchall()}
-    amendments = _amendments(conn, [i for i in amended_ids if i in shown], since)
+    amendments = _amendments(conn, [i for i in amended_ids if i in shown], since, now if bounded else None)
 
     events: dict[tuple[int, date], dict[str, Any]] = {}
     for (oid, day), a in amendments.items():

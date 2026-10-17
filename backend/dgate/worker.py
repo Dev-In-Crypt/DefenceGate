@@ -410,6 +410,40 @@ def job_warm_lists() -> JobResult:
     return result
 
 
+def job_cascade_flags() -> JobResult:
+    """Daily: set `call.cascade` (financial support to third parties) from the call text and the
+    eligibility facts already read (cascade.py, WP-31). No model, no website; idempotent."""
+    counts: dict[str, int] = {}
+
+    def _run() -> None:
+        from . import cascade
+
+        with db.connect(settings().dsn) as conn:
+            counts.update(cascade.run(conn, write=True))
+        log.info("cascade flags: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
+
+    result = run_job("cascade_flags", _run)
+    result.detail = result.detail or ", ".join(f"{k} {v}" for k, v in counts.items())
+    return result
+
+
+def job_digest() -> JobResult:
+    """Daily: store the weekly digest issues (weekly_digest.py, WP-31): the last two complete weeks
+    again and any week still missing, at most eight a run. The pages read the stored row."""
+    counts: dict[str, int] = {}
+
+    def _run() -> None:
+        from . import weekly_digest
+
+        with db.connect(settings().dsn) as conn:
+            counts.update(weekly_digest.refresh(conn))
+        log.info("digest: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
+
+    result = run_job("digest", _run)
+    result.detail = result.detail or ", ".join(f"{k} {v}" for k, v in counts.items())
+    return result
+
+
 def job_requalify() -> JobResult:
     """Weekly: insert the notices the classifier dropped at ingest and the rules now qualify.
 
@@ -953,6 +987,8 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "link-twins": job_link_twins,
     "buyer-families": job_buyer_families,
     "warm-lists": job_warm_lists,
+    "cascade-flags": job_cascade_flags,
+    "digest": job_digest,
     "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
@@ -1014,6 +1050,12 @@ def build_scheduler():
     # Four-hourly, away from the ingests' hours by the slot: the snapshots are good for eight.
     sched.add_job(job_warm_lists, CronTrigger(hour="1,5,9,13,17,21", minute=50),
                   id="warm_lists", max_instances=1, misfire_grace_time=3600)
+    # After the portal's calls and topics (04:20, 04:35): the text the flag is read from is fresh.
+    sched.add_job(job_cascade_flags, CronTrigger(hour=(cfg.eu_topics_hour + 1) % 24, minute=0),
+                  id="cascade_flags_daily", max_instances=1, misfire_grace_time=3600)
+    # After the twins and the buyer families (09:15, 10:15): the week's notices are collapsed by then.
+    sched.add_job(job_digest, CronTrigger(hour=(cfg.twins_hour + 2) % 24, minute=0),
+                  id="digest_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_requalify,
                   CronTrigger(day_of_week="sun", hour=cfg.requalify_hour, minute=0),
                   id="requalify_weekly", max_instances=1, misfire_grace_time=7200)
@@ -1073,6 +1115,10 @@ def describe_schedule() -> list[str]:
         f"(national notices tied to their TED twins, after every ingest)",
         f"buyer_families {(cfg.twins_hour + 1) % 24:02d}:{cfg.twins_minute:02d} UTC  "
         f"(organisation rows of one body shown as one buyer; display only)",
+        f"cascade_flags {(cfg.eu_topics_hour + 1) % 24:02d}:00 UTC  "
+        f"(financial support to third parties, set on each call from its text and facts)",
+        f"digest         {(cfg.twins_hour + 2) % 24:02d}:00 UTC  "
+        f"(weekly digest issues: last two complete weeks and any missing)",
         f"requalify      Sun {cfg.requalify_hour:02d}:00 UTC  "
         f"(notices the rules now qualify, every source, last {cfg.requalify_days} days)",
         *([f"ted_history    {(cfg.ted_hour + 1) % 24:02d}:{cfg.ted_minute:02d} UTC  "

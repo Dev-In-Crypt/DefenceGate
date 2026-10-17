@@ -77,7 +77,7 @@ export function CallListTemplate({
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
-            countries={fundersWithCoverage(health.sources, filters.country)} />
+            countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} />
           {saveSearch}
           {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" total={result.total} status={filters.status} />}
         </div>

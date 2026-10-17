@@ -5,7 +5,7 @@
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
 import { headers } from 'next/headers';
-import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
@@ -275,6 +275,27 @@ export async function getChanges(filters: ChangeFilters = {}): Promise<ChangePag
     return got === NO_ENDPOINT ? null : (got as ChangePage);
   }
   return tenderMock.queryChanges(filters);
+}
+
+/**
+ * One issue of the weekly digest (GET /v1/digest): `week` is YYYY-Www, absent for the latest complete week. An issue
+ * does not change once its week has ended, so the site shares one cached answer per week and country. null: no such
+ * issue (a week outside the archive, or not ended) or an API build that does not have the endpoint.
+ */
+export async function getDigest(week?: string, country?: string): Promise<Digest | null> {
+  if (!API_BASE) return null;
+  const p = new URLSearchParams();
+  if (week) p.set('week', week);
+  if (country) p.set('country', country);
+  const path = `/v1/digest${p.size > 0 ? `?${p.toString()}` : ''}`;
+  const got = await withLastGood(`digest:${path}`, async () => (await http<Digest>(path, 'revalidate', LIST_REVALIDATE_SECONDS)) ?? NO_ENDPOINT, { persist: !country });
+  return got === NO_ENDPOINT ? null : (got as Digest);
+}
+
+/** The issues there are, newest first, with the counts of the stored ones (GET /v1/digest/weeks). Empty when unavailable. */
+export async function getDigestWeeks(limit = 52): Promise<DigestWeek[]> {
+  if (!API_BASE) return [];
+  return (await http<DigestWeek[]>(`/v1/digest/weeks?limit=${limit}`, 'revalidate', LIST_REVALIDATE_SECONDS)) ?? [];
 }
 
 function buyersQuery(f: BuyerFilters): string {

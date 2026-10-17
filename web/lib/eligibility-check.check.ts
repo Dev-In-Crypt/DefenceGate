@@ -39,4 +39,13 @@ const none = check({}, base);
 assert.deepEqual([none.verdict, none.lines.length], ['yes', 0]);
 // Unanswered questions add no line.
 assert.equal(check(edf, { country: '', orgType: '', hasPartners: '', controlledAbroad: '' }).lines.length, 0);
+// WP-31: a fact read from the work programme's general annexes is never a "no"; the topic may change it.
+const general = (value: unknown, note: string | null = null) => ({ value, note, quote: 'q', confidence: 1, scope: 'general' as const });
+const fromAnnexes: EligibilityFacts = { ...edf, sme_only: general(true), ownership_control_restriction: general(true) };
+assert.equal(check(fromAnnexes, { ...base, orgType: 'large' }).verdict, 'check');
+assert.equal(check(fromAnnexes, { ...base, controlledAbroad: 'yes' }).verdict, 'check');
+assert.match(check(fromAnnexes, { ...base, controlledAbroad: 'yes' }).lines.find((l) => l.key === 'control')!.reason, /general rule/);
+// ...while the same fact read from the topic's own text, or from a call document, still is.
+const topic = { ...fromAnnexes, sme_only: { ...fromAnnexes.sme_only!, scope: 'topic' as const } };
+assert.equal(check(topic, { ...base, orgType: 'large' }).verdict, 'no');
 console.log('eligibility-check checks passed');

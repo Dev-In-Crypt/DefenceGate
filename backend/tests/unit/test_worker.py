@@ -112,4 +112,4 @@ def test_every_job_is_reachable_from_the_cli():
                                 "atlas-backfill", "ted-history", "boamp", "calls",
                                 "topics", "bdns", "ncbr", "tenderned", "de-bkms", "vinnova", "aid", "matine",
                                 "alerts", "backup-freshness", "link-twins", "requalify", "controls",
-                                "buyer-families", "warm-lists"}
+                                "buyer-families", "warm-lists", "cascade-flags", "digest"}

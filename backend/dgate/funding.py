@@ -180,6 +180,9 @@ class FundingCall(BaseModel):
     fundingRate: str | None
     scope: list[str]
     eligibility: list[Row]
+    # Financial support to third parties (cascade funding): true or false where a source we hold
+    # says so, null where nothing does (dgate/cascade.py). Null is "not determined", not "no".
+    cascade: bool | None = None
     publishedAt: datetime | None
     firstSeenAt: datetime
     lastSeenAt: datetime
@@ -193,14 +196,34 @@ class EligibilityFact(BaseModel):
     note: str | None = None
     quote: str
     confidence: float
+    # Where it was read: `call_document`, `general` (work programme annexes) or `topic`.
+    scope: str = "call_document"
+
+
+class EligibilitySource(BaseModel):
+    """A place where some of the call's rules are written: its call document, the work programme's
+    general annexes, or the topic's own conditions text. `extractedAt` is null when not read yet."""
+    scope: str
+    label: str
+    url: str | None
+    extractedAt: datetime | None
 
 
 class CallEligibility(BaseModel):
     # The call document the facts were read from, and when. Read by a language model; the
-    # document is authoritative.
-    documentUrl: str
+    # document is authoritative. Without a call document the facts come from the work programme's
+    # general annexes and the topic's own text: `basis` is then `work_programme`, and every fact
+    # says which of the two it is (`scope`) and carries a note saying so.
+    documentUrl: str | None
     extractedAt: datetime
+    basis: str = "call_document"
+    sources: list[EligibilitySource] = []
     facts: dict[str, EligibilityFact]
+
+
+class CascadeBasis(BaseModel):
+    reason: str
+    evidence: str | None
 
 
 class FundingCallDetail(FundingCall):
@@ -213,6 +236,12 @@ class FundingCallDetail(FundingCall):
     documents: list[Document] = []
     # What the call document says about who may apply (null when it has not been read).
     documentEligibility: CallEligibility | None = None
+    # `read`: facts are served; `not_read`: the places the rules are written are known and none has
+    # been read yet (`eligibilitySources`); `no_source`: the portal lists nothing we can read.
+    eligibilityState: str = "no_source"
+    eligibilitySources: list[EligibilitySource] = []
+    # How `cascade` was decided and the sentence it rests on (null when it is not determined).
+    cascadeBasis: CascadeBasis | None = None
 
 
 def serves_meta() -> bool:
@@ -241,6 +270,8 @@ class FundingPage(BaseModel):
     pageSize: int
     meta: ListMeta = ListMeta()
     search: SearchInfo | None = None
+    # Calls with cascade funding among those that match every filter but this one (the filter bar's count).
+    cascadeTotal: int | None = None
 
 
 class SourceHealth(BaseModel):
@@ -493,6 +524,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "fundingRate": None,
         "scope": scope_keywords(prog, cond),
         "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
+        "cascade": r.get("cascade"),
         "publishedAt": _day(r.get("published_at")),
         "firstSeenAt": r["first_seen_at"],
         "lastSeenAt": r["last_seen_at"],
@@ -556,6 +588,8 @@ def list_funding(
     currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
     # Soonest first, except on a closed list: its soonest is the oldest, so the newest leads (F13).
     sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|budget-desc)$"),
+    # Only `true` is a filter: calls that have cascade funding (financial support to third parties).
+    cascade: str | None = Query(None, pattern="^true$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
@@ -641,6 +675,13 @@ def list_funding(
             where.append("c.budget <= %s")
             params.append(max_)
 
+    # The count the filter bar shows: the calls with cascade funding among the other filters' matches.
+    cascade_total = conn.execute(
+        f"SELECT count(*) AS n FROM ({SELECT} WHERE {' AND '.join([*where, 'c.cascade IS TRUE'])}) c",
+        params).fetchone()["n"]
+    if cascade == "true":
+        where.append("c.cascade IS TRUE")
+
     clause = (" WHERE " + " AND ".join(where)) if where else ""
     total = conn.execute(
         f"SELECT count(*) AS n FROM ({SELECT}{clause}) c", params).fetchone()["n"]
@@ -668,7 +709,7 @@ def list_funding(
     from .stats import cached_last_run  # stats imports tenders, which imports this module
 
     return {"items": [to_call(r) for r in rows], "total": total,
-            "page": page, "pageSize": pageSize, "search": search,
+            "page": page, "pageSize": pageSize, "search": search, "cascadeTotal": cascade_total,
             "meta": {"updatedAt": cached_last_run(conn, "grant") if with_meta is True else None}}
 
 
@@ -691,27 +732,30 @@ def get_funding(slug: str, conn=Depends(get_conn)):
         raise removed()
     out = to_call(row, detail=True)
     if row["source_code"] in SOURCE_TEXT_SOURCES and row.get("source_commercial_ok") is True:
-        out["documentEligibility"] = eligibility_of(conn, row.get("conditions_raw") or {})
+        read = eligibility_of(conn, row)
+        out["documentEligibility"] = read["documentEligibility"]
+        out["eligibilityState"] = read["state"]
+        out["eligibilitySources"] = read["sources"]
+    if row.get("cascade_reason") and row["cascade_reason"] != "not_stated":
+        out["cascadeBasis"] = {"reason": row["cascade_reason"], "evidence": redact_emails(row.get("cascade_evidence"))}
     return out
 
 
-def eligibility_of(conn, cond: dict[str, Any]) -> dict[str, Any] | None:
-    """The facts read from the call's call document, verified ones only."""
-    urls = [d["url"] for d in cond.get("documents") or []
-            if isinstance(d, dict) and str(d.get("label", "")).lower().startswith("call document")
-            and isinstance(d.get("url"), str)]
-    if not urls:
-        return None
-    row = conn.execute(
-        """SELECT url, fields, extracted_at FROM call_eligibility
-            WHERE url = ANY(%s) ORDER BY extracted_at DESC LIMIT 1""", (urls,)).fetchone()
-    if not row:
-        return None
-    facts = {name: {"value": f["value"], "note": redact_emails(f["note"]) if f.get("note") else None,
-                    "quote": redact_emails(f["quote"]), "confidence": f["confidence"]}
-             for name, f in row["fields"].items()
-             if f.get("verified") and f.get("value") is not None and f.get("quote")}
-    return {"documentUrl": row["url"], "extractedAt": row["extracted_at"], "facts": facts} if facts else None
+def eligibility_of(conn, row: dict[str, Any]) -> dict[str, Any]:
+    """What is known of the call's eligibility rules (`eligibility.read_many`), in the shape the
+    detail serves: the verified facts, from the call document or, without one, from the work
+    programme's general annexes and the topic's own text; or the honest state that none was read."""
+    from . import eligibility
+
+    got = eligibility.read_many(
+        conn, [(row["id"], row.get("conditions_raw") or {}, row.get("eligibility_text"))])[row["id"]]
+    read_at = [s["extractedAt"] for s in got["sources"] if s["extractedAt"]]
+    doc = None
+    if got["facts"]:
+        doc = {"documentUrl": next((s["url"] for s in got["sources"] if s["url"] and s["extractedAt"]), None),
+               "extractedAt": max(read_at), "basis": got["basis"], "sources": got["sources"],
+               "facts": got["facts"]}
+    return {"state": got["state"], "sources": got["sources"], "documentEligibility": doc}
 
 
 @router.get("/v1/sources", response_model=Health)

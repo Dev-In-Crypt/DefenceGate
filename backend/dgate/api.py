@@ -848,6 +848,11 @@ from .changes import router as _changes_router  # noqa: E402
 
 app.include_router(_changes_router)
 
+# The weekly digest (weekly_digest.py): the same data as /v1/changes and the funding list, by ISO week.
+from .weekly_digest import router as _digest_router  # noqa: E402
+
+app.include_router(_digest_router)
+
 # Market overview and the buyer profile: cached counts of notices (stats.py).
 from .stats import router as _stats_router  # noqa: E402
 

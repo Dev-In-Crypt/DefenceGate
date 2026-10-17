@@ -700,7 +700,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
                     buyer=int(f["buyer"]) if "buyer" in f else None)
     else:
         base.update(programme=f.get("programme"), regime=f.get("regime"),
-                    status=f.get("status", "open"))
+                    status=f.get("status", "open"), cascade=None)
     return base
 
 

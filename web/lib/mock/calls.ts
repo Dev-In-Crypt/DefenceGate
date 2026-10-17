@@ -14,7 +14,7 @@ interface RawCall {
   budget: [number, CurrencyCode] | null; budgetScope?: 'call' | 'topic';
   actionType: string | null; fundingRate: string | null; scope: string[];
   sourceId: string; retrievedAt: string; publishedAt?: string; firstSeenAt?: string;
-  eligibility?: EligibilityItem[]; conditionsText?: string;
+  eligibility?: EligibilityItem[]; conditionsText?: string; cascade?: boolean;
 }
 const data = raw as unknown as { eligibility: Record<string, EligibilityItem[]>; calls: RawCall[] };
 
@@ -42,6 +42,7 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
     budgetScope: r.budget ? (r.budgetScope ?? 'topic') : null,
     actionType: r.actionType, fundingRate: r.fundingRate, scope: r.scope,
     eligibility: r.eligibility ?? data.eligibility[eligKey] ?? [],
+    cascade: r.cascade ?? null,
     publishedAt: r.publishedAt ?? null,
     firstSeenAt: r.firstSeenAt ?? FIRST_SEEN, lastSeenAt: r.retrievedAt,
     source: {
@@ -90,6 +91,9 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
     if (f.q && !(query && query.matches([c.title, c.originalTitle, c.issuer].filter(Boolean).join(' '), [c.callId, c.topicId].filter(Boolean).join(' ')))) return false;
     return true;
   });
+  // The calls with cascade funding among those that match every other filter (the API's `cascadeTotal`).
+  const cascadeTotal = items.filter((c) => c.cascade === true).length;
+  if (f.cascade) items = items.filter((c) => c.cascade === true);
 
   const sort = f.sort ?? defaultCallSort(status);
   items = items.sort((a, b) => {
@@ -110,7 +114,7 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
   const pageSize = f.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = f.page ?? 1;
   return {
-    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize,
+    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, cascadeTotal,
     search: f.q ? { terms: query?.terms ?? [], alsoSearched: query?.alsoSearched ?? [] } : null,
   };
 }

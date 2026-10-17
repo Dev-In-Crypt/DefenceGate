@@ -31,6 +31,13 @@ const PROGRAMME_GLOSSARY: Partial<Record<string, string>> = { EDF: 'edf', EDIP: 
 
 const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
 
+/** Where the cascade flag was read from, in words. */
+const CASCADE_BASIS: Record<string, string> = {
+  call_document: 'From the call document',
+  topic_text: 'From the topic’s own conditions',
+  call_text: 'From the call’s conditions text',
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const call = await getCall((await params).slug).catch(whenRemoved);
   if (call === REMOVED) return { title: 'Removed on request', robots: { index: false } };
@@ -101,6 +108,7 @@ export default async function CallDetailPage({ params }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <Tag kind="programme">{programme.label}</Tag>
               <Tag>{REGIMES[call.regime]}</Tag>
+              {call.cascade === true && <Tag>Cascade funding</Tag>}
               <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
             </div>
             <div className="flex flex-col gap-2">
@@ -200,9 +208,46 @@ export default async function CallDetailPage({ params }: Props) {
             )}
           </Panel>
 
-          {call.documentEligibility && (
+          {call.documentEligibility ? (
             <Panel title="Can you apply?">
-              <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)} />
+              <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
+                basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} />
+            </Panel>
+          ) : call.eligibilityState === 'not_read' ? (
+            <Panel title="Can you apply?">
+              <p className="m-0 text-body">
+                The rules for this call have not been read yet, so there is no verdict here. They are written
+                {(call.eligibilitySources ?? []).some((s) => s.scope === 'general') ? ' in the work programme’s general annexes' : ' in the source’s documents'}
+                {(call.eligibilitySources ?? []).some((s) => s.scope === 'topic') ? ' and in this topic’s own conditions (under “Conditions as published by the source”)' : ''}.
+                Read them at the source before you apply.
+              </p>
+              <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                {(call.eligibilitySources ?? []).filter((s) => s.url && safeHttpUrl(s.url)).map((s) => (
+                  <li key={s.url}>
+                    <a href={safeHttpUrl(s.url!) ?? '#'} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 break-words text-body font-semibold">
+                      {s.label}<Icon icon={ExternalLink} size="inline" /><span className="sr-only">(opens in new tab)</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          ) : null}
+
+          {call.cascade !== null && call.cascade !== undefined && (
+            <Panel title="Financial support to third parties">
+              {call.cascade ? (
+                <p className="m-0 text-body">
+                  This call has cascade funding: the projects it funds may pass part of the money to third parties, usually small firms, by calls of their own.
+                  See the <Link href="/glossary#cascade-funding" className="font-semibold">glossary</Link>.
+                </p>
+              ) : (
+                <p className="m-0 text-body">The call’s document says financial support to third parties is not allowed.</p>
+              )}
+              {call.cascadeBasis?.evidence && (
+                <p className="m-0 text-small text-ink-muted">
+                  {CASCADE_BASIS[call.cascadeBasis.reason] ?? 'Source'}: <q className="italic">{call.cascadeBasis.evidence}</q>
+                </p>
+              )}
             </Panel>
           )}
 

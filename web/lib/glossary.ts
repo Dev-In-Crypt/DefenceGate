@@ -80,6 +80,11 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'EU Funding & Tenders Portal',
   },
   {
+    id: 'cascade-funding', term: 'Cascade funding (financial support to third parties)', full: 'FSTP',
+    body: 'Some calls let the projects they fund pass part of the money on to third parties, usually small firms and start-ups, through open calls of the project’s own. We mark a call as cascade only where its call document or its conditions text says so. A call that is not marked is not shown to have none: its text may simply not say.',
+    source: 'The call document of each call',
+  },
+  {
     id: 'call-status', term: 'Open, Opens soon, Opening date passed',
     body: 'Open: the call takes proposals and its deadline is ahead. Opens soon: the source lists the call as forthcoming and its opening day is still ahead. Opening date passed: the source still lists the call as forthcoming, its opening day has passed and it states no deadline. A call the source calls forthcoming whose opening day has passed and whose deadline is ahead is shown as Open, and says so. Closing soon: open, with a deadline within 30 days.',
   },

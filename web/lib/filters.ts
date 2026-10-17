@@ -24,7 +24,7 @@ export const MAX_PAGE = 1000;
 export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
-  scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv', year: 'year',
+  scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv', year: 'year', cascade: 'cascade',
 } as const;
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
@@ -85,6 +85,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     budgetMax: num(first(sp[PARAM.max])),
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
     sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? defaultCallSort(status),
+    cascade: first(sp[PARAM.cascade]) === 'true' ? true : undefined,
     page: page && page >= 1 ? Math.min(Math.floor(page), MAX_PAGE) : 1,
     pageSize: DEFAULT_PAGE_SIZE,
   };
@@ -108,6 +109,7 @@ export function toQuery(f: CallFilters, extra: Partial<Record<string, string | u
   if (f.budgetMax !== undefined) p.set(PARAM.max, String(f.budgetMax));
   if (f.currency && f.currency !== DEFAULT_CURRENCY) p.set(PARAM.currency, f.currency);
   if (f.sort && f.sort !== defaultCallSort(f.status)) p.set(PARAM.sort, f.sort);
+  if (f.cascade) p.set(PARAM.cascade, 'true');
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
   const s = p.toString();
@@ -118,7 +120,7 @@ export function activeFilterCount(f: CallFilters): number {
   return [
     f.q, f.programme?.length, f.regime?.length, f.country?.length,
     f.status !== DEFAULT_STATUS ? f.status : undefined,
-    f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax,
+    f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax, f.cascade ? 'cascade' : undefined,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
 
@@ -138,6 +140,7 @@ export function describeCallFilters(f: CallFilters): string[] {
   if (f.country?.length) out.push(`funder country ${f.country.join(', ')}`);
   if (f.deadlineFrom || f.deadlineTo) out.push(`deadline ${f.deadlineFrom ?? '…'} to ${f.deadlineTo ?? '…'}`);
   if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push(`budget ${f.budgetMin ?? 0} to ${f.budgetMax ?? '∞'} ${f.currency ?? DEFAULT_CURRENCY}`);
+  if (f.cascade) out.push('financial support to third parties');
   return out;
 }
 
@@ -158,6 +161,7 @@ export function broadenings(f: CallFilters): Broadening[] {
   if (f.country?.length) out.push({ label: 'from any funder country', filters: { ...base, country: undefined } });
   if (f.deadlineFrom || f.deadlineTo) out.push({ label: 'with any deadline', filters: { ...base, deadlineFrom: undefined, deadlineTo: undefined } });
   if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push({ label: 'with any budget', filters: { ...base, budgetMin: undefined, budgetMax: undefined } });
+  if (f.cascade) out.push({ label: 'without the financial-support filter', filters: { ...base, cascade: undefined } });
   return out;
 }
 
@@ -369,6 +373,7 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
       codes(PARAM.country, Object.keys(COUNTRIES), 'funder country');
       codes(PARAM.programme, PROGRAMME_CODES, 'programme');
       codes(PARAM.regime, REGIME_CODES, 'regime');
+      choice(PARAM.cascade, ['true']);
     }
     const from = day(PARAM.from);
     const to = day(PARAM.to);

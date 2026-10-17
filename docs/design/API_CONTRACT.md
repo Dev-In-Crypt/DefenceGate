@@ -518,3 +518,54 @@ All additive, except the first point, which corrects a status.
   (`EXPLAIN` on production, open, default scope: the default list's own parallel scan with one more filter, lower
   estimated cost for each level).
 - **CSV** (site): `confidence` is the last column of the tenders file (the level only), after `result_truncated`.
+
+## Changes of 17 October 2026 (WP-31: cascade funding, calls without a call document, weekly digest)
+
+### `/v1/funding` and `/v1/funding/{slug}`
+
+- `cascade` (query, optional): only `true` is accepted (`cascade=false` is a 422). It keeps the calls that have
+  cascade funding (financial support to third parties).
+- Every call has `cascade: true | false | null`. `null` is "not determined", never "no": it is set only where a
+  verified fact read from the call document, the topic's own conditions text, or a sentence of the conditions text says
+  so (`dgate/cascade.py`; an annex titled "Information on financial support to third parties" is not a statement).
+- The list has `cascadeTotal`: the calls with cascade funding among those that match every filter but this one (the
+  filter bar's count).
+- The detail has `cascadeBasis: { reason, evidence } | null` (`call_document`, `topic_text`, `call_text`,
+  `call_document_other_topic`; evidence is the sentence), `eligibilityState` (`read`, `not_read`, `no_source`) and
+  `eligibilitySources` (`{ scope, label, url, extractedAt }`, where the rules are written).
+- `documentEligibility` now also exists for a call with no call document: `basis: "work_programme"`, `documentUrl` is the
+  general annexes' URL (or null), and each fact has `scope` (`call_document`, `general`, `topic`) and a `note` that says
+  whether it is the work programme's general rule or this topic's own. A topic fact whose quote was found wins over a
+  general one. `documentEligibility` is null with `eligibilityState: "not_read"` while nothing has been read.
+
+### `/v1/digest?week=YYYY-Www&country=XX`
+
+The issue of one ISO week (Monday 00:00 to the next Monday, UTC). `week` absent: the last complete week. A week
+outside the archive (before 2026-W37) or not yet ended is 404; a malformed `week` or `country` is 422. `country` is
+one ISO-2 code (a notice's buyer country, or the call's funder country; `EU` for the Commission's own calls).
+
+Built from the same functions as `/v1/changes` (`changes.build_events` over exactly the week) and the funding list, so
+`counts.tendersNew` and `counts.tendersAmended` are the numbers `/v1/changes` gives for that window. Lists hold at
+most `sectionLimit` (30) items; `counts` are the full numbers.
+
+`{ week, weekFrom, weekTo (exclusive), closingUntil, generatedAt, sectionLimit, counts: { tendersNew, tendersAmended,
+callsNew, callsAmended, callsOpened, callsClosing, cascade }, tendersNew[], tendersAmended[], callsNew[], callsAmended[],
+callsOpened[], callsClosing[], cascadeCalls[], cascadeOpenNow, country, previousWeek, nextWeek, meta }`
+
+- tender item: `{ id, slug, kind (new|amended), day, title, buyerName, country, deadline, estimatedValue, changes[] }`
+- call item: `{ id, slug, kind (call-new|call-amended|call-opened|call-closing), title, funder, programmeName,
+  funderCountry, status, openingDate, deadline, deadlineIsDate, cascade, eligibility, eligibilityState, changes[] }`;
+  `eligibility` is one line from the verified facts (never a verdict) or null.
+- `callsClosing`: calls whose deadline falls in the 14 days after the week; rolling calls are not listed.
+- A stored issue (`digest_issue`, written by the worker's `digest` job) is one row read; a week with no row is computed
+  on the spot. Kept five minutes in memory.
+
+### `/v1/digest/weeks?limit=52`
+
+`[{ week, weekFrom, weekTo, counts | null, computedAt | null }]`, newest first; `counts` is null for a week not
+stored yet.
+
+### Site routes built on it
+
+`/digest` (latest issue and the list of earlier weeks), `/digest/[YYYY-Www]`, `/digest.atom` (one entry per week, the
+last four, `?country=` allowed). Navigation entries are left to the orchestrator.

@@ -124,6 +124,7 @@ export default async function ChangesPage({ searchParams }: Props) {
             <Icon icon={Rss} size="inline" />Atom feed of this list
           </a>
           <Link href="/calendar" className="inline-flex min-h-11 items-center text-small font-bold">Deadline calendar</Link>
+          <Link href="/digest" className="inline-flex min-h-11 items-center text-small font-bold">Weekly digest</Link>
           <Link href="/alerts" className="inline-flex min-h-11 items-center text-small font-bold">E-mail alerts (not open yet)</Link>
         </div>
       </section>

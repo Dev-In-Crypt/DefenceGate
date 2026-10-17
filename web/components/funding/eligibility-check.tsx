@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { check, factText, FACT_LABELS, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
+import { check, factText, FACT_LABELS, SCOPE_WORDS, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
+import type { EligibilitySourceInfo } from '@/lib/types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Select } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
@@ -25,20 +26,31 @@ const VERDICT: Record<Verdict, { icon: typeof CircleCheck; word: string; cls: st
 };
 const WORD: Record<Verdict, string> = { yes: 'Allowed', check: 'Check', no: 'Not allowed' };
 
-export function EligibilityCheck({ facts, documentUrl, readAt }: { facts: EligibilityFacts; documentUrl: string; readAt: string }) {
+export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [] }: {
+  facts: EligibilityFacts; documentUrl: string | null; readAt: string; basis?: 'call_document' | 'work_programme'; sources?: EligibilitySourceInfo[];
+}) {
   const [p, setP] = useState<Profile>({ country: '', orgType: '', hasPartners: '', controlledAbroad: '' });
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP((x) => ({ ...x, [k]: v }));
   const result = check(facts, p);
   const answered = result.lines.length > 0;
   const shown = Object.keys(FACT_LABELS).filter((k) => facts[k]);
-  const doc = safeHttpUrl(documentUrl);
+  const doc = documentUrl ? safeHttpUrl(documentUrl) : null;
+  const fromProgramme = basis === 'work_programme';
   const V = VERDICT[result.verdict];
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="m-0 text-small text-ink-muted">
-        Read automatically from the call document on {readAt}. Each line shows the document’s own sentence. The document is authoritative and this is not legal advice.
-      </p>
+      {fromProgramme ? (
+        <p className="m-0 text-small text-ink-muted">
+          This call has no call document of its own. The rules below were read automatically on {readAt} from the work programme’s general annexes
+          (they apply to every call of the programme, and the topic may change them) and from this topic’s own conditions. Each line says which, and shows
+          the text’s own sentence. The official texts are authoritative and this is not legal advice.
+        </p>
+      ) : (
+        <p className="m-0 text-small text-ink-muted">
+          Read automatically from the call document on {readAt}. Each line shows the document’s own sentence. The document is authoritative and this is not legal advice.
+        </p>
+      )}
 
       <dl className="m-0 flex flex-col">
         {shown.map((k, i) => {
@@ -48,6 +60,7 @@ export function EligibilityCheck({ facts, documentUrl, readAt }: { facts: Eligib
               <dt className="text-body font-semibold sm:w-64 sm:shrink-0">{FACT_LABELS[k]}</dt>
               <dd className="m-0 flex min-w-0 flex-col gap-1 text-body">
                 <span>{factText(f)}</span>
+                {fromProgramme && f.scope && <span className="text-label font-bold text-ink">{SCOPE_WORDS[f.scope]}</span>}
                 {f.note && <span className="text-small text-ink-muted">{f.note}</span>}
                 <q className="text-small italic text-ink-muted">{f.quote}</q>
               </dd>
@@ -85,7 +98,15 @@ export function EligibilityCheck({ facts, documentUrl, readAt }: { facts: Eligib
         )}
       </div>
 
-      {doc && <p className="m-0 text-small"><a href={doc} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Open the call document</a></p>}
+      {fromProgramme ? (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+          {sources.filter((s) => s.url && safeHttpUrl(s.url)).map((s) => (
+            <li key={s.url}><a href={safeHttpUrl(s.url!) ?? '#'} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Open: {s.label}</a></li>
+          ))}
+        </ul>
+      ) : (
+        doc && <p className="m-0 text-small"><a href={doc} target="_blank" rel="noopener noreferrer" className="font-semibold underline">Open the call document</a></p>
+      )}
     </div>
   );
 }
