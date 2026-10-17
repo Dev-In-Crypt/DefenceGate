@@ -30,7 +30,7 @@ from .config import settings
 from .enrichment.base import strict_schema
 
 TASK = "call_eligibility"
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 MAX_PDF_BYTES = 40 * 1024 * 1024
 MAX_CHARS = 350_000          # about 90,000 tokens: the longest call documents are cut here
 UNVERIFIED_CAP = 0.3
@@ -89,9 +89,12 @@ SYSTEM = (
     "1 means the sentence says it plainly, 0.5 means you combined several sentences, below 0.5 "
     "means you are unsure. `note` is a short qualification when the fact holds only under a "
     "condition (for example: only if the applicant is a specific kind of body), otherwise null. "
-    "If a rule differs by topic or by type of action, report the general rule and say so in "
-    "the note. Eligibility and funding conditions only; do not describe the technical content "
-    "of the work."
+    "A yes/no fact states the general rule; an exception to it goes in the note, never in the "
+    "value (if natural persons are not eligible except sole traders, the value is false and the "
+    "note names the exception). If the document states a rule only for one topic or one type of "
+    "action, or the rule differs between them, say so in the note and report the lowest or most "
+    "general case in the value. Eligibility and funding conditions only; do not describe the "
+    "technical content of the work."
 )
 
 
@@ -201,7 +204,7 @@ def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | N
         text = doc["text"]
     answer, usage = llm.complete_json(
         conn, task=TASK, system=SYSTEM, user=f"Call document:\n\n{text}", schema=schema(),
-        schema_name="eligibility", max_output_tokens=4000, client=llm_client)
+        schema_name="eligibility", max_output_tokens=7000, client=llm_client)
     fields = check_quotes(answer, text)
     from psycopg.types.json import Jsonb
 
