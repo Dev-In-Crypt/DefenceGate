@@ -106,6 +106,14 @@ export interface Call {
   whoCanApply?: EligibilityItem[];
   /** Detail only: the official documents the source links from the call. */
   documents?: CallDocument[];
+  /** Detail only: the rules read from the call document (verified quotes only), or null when it was not read. */
+  documentEligibility?: CallDocumentEligibility | null;
+}
+
+export interface CallDocumentEligibility {
+  documentUrl: string;
+  extractedAt: IsoDateTime;
+  facts: Record<string, { value: unknown; note?: string | null; quote: string; confidence: number }>;
 }
 
 export interface CallDocument {

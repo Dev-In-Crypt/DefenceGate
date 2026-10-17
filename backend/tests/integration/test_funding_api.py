@@ -255,3 +255,35 @@ def test_a_programme_the_label_table_does_not_know_is_found_by_the_chip_it_is_la
     _put(conn, "new", programme="NEWPROG")
     assert programme_of("NEWPROG") == "HORIZON"
     assert _ids(client, programme="HORIZON") == ["new"]
+
+
+def test_the_call_page_serves_the_verified_facts_read_from_its_call_document(client, conn):
+    from psycopg.types.json import Jsonb
+
+    url = "https://ec.europa.eu/info/funding-tenders/opportunities/docs/call-fiche_demo_en.pdf"
+    _put(conn, "elig", conditions={"documents": [{"label": "Call document", "url": url}]})
+    fields = {
+        "consortium_required": {"value": True, "confidence": 1.0, "quote": "Minimum 3 applicants.",
+                                "note": None, "verified": True},
+        "sme_only": {"value": False, "confidence": 0.9, "quote": "Open to all legal entities.",
+                     "note": "SMEs get a bonus.", "verified": True},
+        "min_entities": {"value": 3, "confidence": 0.3, "quote": "made up", "note": None, "verified": False},
+        "eligible_countries": {"value": None, "confidence": 0, "quote": None, "note": None, "verified": False},
+    }
+    conn.execute("INSERT INTO call_document_text (url, sha256, pages, chars, text) VALUES (%s, 'x', 1, 1, 'x')", (url,))
+    conn.execute("INSERT INTO call_eligibility (url, fields, model, prompt_version, input_tokens, output_tokens, cost_usd)"
+                 " VALUES (%s, %s, 'm', 3, 1, 1, 0)", (url, Jsonb(fields)))
+    conn.commit()
+    item = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]
+    detail = client.get(f"/v1/funding/{item['slug']}").json()
+    elig = detail["documentEligibility"]
+    assert elig["documentUrl"] == url
+    assert set(elig["facts"]) == {"consortium_required", "sme_only"}, "unverified and unstated facts are never served"
+    assert elig["facts"]["sme_only"]["note"] == "SMEs get a bonus."
+    assert "documentEligibility" not in item, "the list does not carry it"
+
+
+def test_a_call_without_a_read_document_has_no_eligibility(client, conn):
+    _put(conn, "plain")
+    item = client.get("/v1/funding", params={"status": "all"}).json()["items"][0]
+    assert client.get(f"/v1/funding/{item['slug']}").json()["documentEligibility"] is None

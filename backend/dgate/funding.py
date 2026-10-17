@@ -186,6 +186,23 @@ class FundingCall(BaseModel):
     source: SourceAttribution
 
 
+class EligibilityFact(BaseModel):
+    """One fact read from the call document. Only a fact whose quote was found in the document's
+    text is served (`verified`), so `quote` is always the document's own sentence."""
+    value: Any
+    note: str | None = None
+    quote: str
+    confidence: float
+
+
+class CallEligibility(BaseModel):
+    # The call document the facts were read from, and when. Read by a language model; the
+    # document is authoritative.
+    documentUrl: str
+    extractedAt: datetime
+    facts: dict[str, EligibilityFact]
+
+
 class FundingCallDetail(FundingCall):
     conditionsText: str | None = None
     # Who may apply, in the source's own words where it gives them (the eligible-countries and
@@ -194,6 +211,8 @@ class FundingCallDetail(FundingCall):
     whoCanApply: list[Row] = []
     # The official documents the source links from the call (call document, application forms...).
     documents: list[Document] = []
+    # What the call document says about who may apply (null when it has not been read).
+    documentEligibility: CallEligibility | None = None
 
 
 def serves_meta() -> bool:
@@ -670,7 +689,29 @@ def get_funding(slug: str, conn=Depends(get_conn)):
         raise HTTPException(404, "no such call")
     if row["suppressed"]:
         raise removed()
-    return to_call(row, detail=True)
+    out = to_call(row, detail=True)
+    if row["source_code"] in SOURCE_TEXT_SOURCES and row.get("source_commercial_ok") is True:
+        out["documentEligibility"] = eligibility_of(conn, row.get("conditions_raw") or {})
+    return out
+
+
+def eligibility_of(conn, cond: dict[str, Any]) -> dict[str, Any] | None:
+    """The facts read from the call's call document, verified ones only."""
+    urls = [d["url"] for d in cond.get("documents") or []
+            if isinstance(d, dict) and str(d.get("label", "")).lower().startswith("call document")
+            and isinstance(d.get("url"), str)]
+    if not urls:
+        return None
+    row = conn.execute(
+        """SELECT url, fields, extracted_at FROM call_eligibility
+            WHERE url = ANY(%s) ORDER BY extracted_at DESC LIMIT 1""", (urls,)).fetchone()
+    if not row:
+        return None
+    facts = {name: {"value": f["value"], "note": redact_emails(f["note"]) if f.get("note") else None,
+                    "quote": redact_emails(f["quote"]), "confidence": f["confidence"]}
+             for name, f in row["fields"].items()
+             if f.get("verified") and f.get("value") is not None and f.get("quote")}
+    return {"documentUrl": row["url"], "extractedAt": row["extracted_at"], "facts": facts} if facts else None
 
 
 @router.get("/v1/sources", response_model=Health)

@@ -19,6 +19,7 @@ import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/d
 import { SourceBadge } from '@/components/dg/source-badge';
 import { Button } from '@/components/dg/button';
 import { CallCard } from '@/components/dg/cards';
+import { EligibilityCheck } from '@/components/funding/eligibility-check';
 import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
@@ -198,6 +199,12 @@ export default async function CallDetailPage({ params }: Props) {
               <p className="m-0 text-body text-ink-muted">The source gives no link to this call. Search for “{call.topicId}” at {call.source.sourceName}.</p>
             )}
           </Panel>
+
+          {call.documentEligibility && (
+            <Panel title="Can you apply?">
+              <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)} />
+            </Panel>
+          )}
 
           <Panel title="Terms">
             {terms.length > 0 ? (
