@@ -2470,6 +2470,38 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("seed-buyers", help="seed the defence buyer list")
 
+    co = sub.add_parser("cordis", help="load CORDIS projects, organisations and participations "
+                                       "(SPARQL service; monthly)")
+    co.add_argument("--programme", action="append", choices=["H2020", "HORIZON", "FP7"],
+                    help="keep only this framework's projects; repeat for several (default: all)")
+    co.add_argument("--max-pages", type=int, default=None,
+                    help="read this many pages of each kind; a rehearsal, marks nothing inactive")
+    co.add_argument("--no-candidates", action="store_true",
+                    help="do not queue trigram candidates for the organisations created "
+                         "(stage 3; about 40 ms an organisation, so 45 minutes on a first load; "
+                         "`resolution-candidates` does it later, in chunks)")
+
+    ed = sub.add_parser("edf", help="load the EDF project factsheets (crawl, read, resolve)")
+    ed.add_argument("--year", type=int, action="append", help="a call year; repeat (default: all)")
+    ed.add_argument("--max-files", type=int, default=None, help="stop after this many factsheets")
+    ed.add_argument("--reread", action="store_true",
+                    help="fetch files read in the last 25 days again (the site rate-limits)")
+
+    qc = sub.add_parser("resolution-candidates",
+                        help="stage 3 for organisations already held: trigram candidates into the "
+                             "review queue (resumable)")
+    qc.add_argument("--after-id", type=int, default=0)
+    qc.add_argument("--limit", type=int, default=5000)
+    qc.add_argument("--all", action="store_true", help="every live organisation, not only those with a PIC")
+
+    sub.add_parser("consortium-snapshot",
+                   help="write the consortium snapshots and the consortium.changed rows")
+
+    re_ = sub.add_parser("resolution-eval", help="precision and recall of each resolution stage")
+    re_.add_argument("--gold", type=Path, default=None)
+    re_.add_argument("--load", action="store_true")
+    re_.add_argument("--json", action="store_true")
+
     a = p.parse_args(argv)
     if a.cmd == "ted":
         run_ted(days=a.days)
@@ -2539,6 +2571,33 @@ def main(argv: list[str] | None = None) -> int:
             return EXIT_STOPPED
     elif a.cmd == "seed-buyers":
         seed_buyers()
+    elif a.cmd == "cordis":
+        from . import networks
+
+        networks.run_cordis(programmes=set(a.programme) if a.programme else None,
+                            max_pages=a.max_pages, candidates=not a.no_candidates)
+    elif a.cmd == "edf":
+        from . import networks
+
+        networks.run_edf(years=set(a.year) if a.year else None, max_files=a.max_files,
+                         reread=a.reread)
+    elif a.cmd == "resolution-candidates":
+        from . import networks
+
+        with db.connect(settings().dsn) as conn:
+            print(networks.queue_candidates(conn, after_id=a.after_id, limit=a.limit,
+                                            all_orgs=a.all))
+    elif a.cmd == "consortium-snapshot":
+        from . import networks
+
+        print(networks.run_snapshot())
+    elif a.cmd == "resolution-eval":
+        from .resolution import evaluate
+
+        args = ["--gold", str(a.gold)] if a.gold else []
+        args += ["--load"] if a.load else []
+        args += ["--json"] if a.json else []
+        return evaluate.main(args)
     return 0
 
 

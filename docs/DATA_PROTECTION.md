@@ -68,6 +68,18 @@ suppression shows its notices with the buyer "Name withheld on request" and remo
 When two organisations are merged (`merge_organisations`), a suppression on the absorbed one does
 not carry over: add it for the survivor.
 
+Held since migration 0060 (WP-26, 17 October 2026), written only by the monthly networks jobs
+(`dgate/networks.py`) and read by the API role:
+
+| Where | What | Why | Retention |
+|---|---|---|---|
+| `organisation` (new rows, `display_name`, `eu_pic`, `vat_number`) | the legal name, country, participant identification code and VAT number of every organisation that took part in a CORDIS or EDF project, as the source publishes them. Legal names are company names; a sole trader or an individual consultant can be registered under their own name (not measurable from the data) | the participation graph | as long as the organisation is in the source; a removal request is handled through `suppression` (kind organisation) |
+| `project`, `participation` | project title, acronym, grant number, call and topic, dates, cost and EU contribution; per organisation: role, EU contribution and how the link was decided. No person, no contact, no abstract | the participation graph | rows are never deleted by the importers (a participant who left is marked inactive) |
+| `consortium_snapshot`, `consortium_change` | the list of organisations of a project at a date and the difference between two dates | history that no public source keeps | indefinite |
+| `project_factsheet` | what the language model reported from one EDF factsheet (organisation names, countries, role, amounts) and what the quote check dropped. The technical description of the project is cut before the text is landed or sent to the model | audit of the extraction | indefinite |
+| Raw store `cordis/` and `edf_factsheets/` | the result pages of the SPARQL service (organisation, project and participation fields) and the layout and plain text of each factsheet without its description | replay without refetching | as the rest of the raw store |
+| `resolution_review`, `resolution_gold` | pairs of organisation ids waiting for a person; hand-labelled pairs of company names for the evaluation | working data | until decided; the gold set is a seed file in the repository |
+
 Not held: payment data, passwords (there are none: sign-in is by one-time link), IP
 addresses beyond the proxy's request log (14 days) and the keyed (HMAC) rate-limit counters, which are kept a day. The waitlist form
 stores nothing (`web/app/(public)/actions.ts`). This file changes in the same commit as

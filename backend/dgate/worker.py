@@ -242,6 +242,31 @@ def job_eu_topics() -> JobResult:
     return run_job("eu_topics_daily", run_topic_details, sources=["eu_portal"])
 
 
+def job_cordis() -> JobResult:
+    """Monthly: the CORDIS projects, organisations and participations (networks.run_cordis, WP-26).
+    The service republishes the whole population; one pass reads it and a second one changes
+    nothing. About half an hour, one request every second or slower."""
+    from . import networks
+
+    return run_job("cordis_monthly", networks.run_cordis, sources=["cordis"])
+
+
+def job_edf() -> JobResult:
+    """Monthly: the EDF project factsheets (networks.run_edf). Every PDF is fetched and hashed
+    (one request a second); the model is asked only about a file it has not read in this form."""
+    from . import networks
+
+    return run_job("edf_monthly", networks.run_edf, sources=["edf_factsheets"])
+
+
+def job_consortium_snapshot() -> JobResult:
+    """Monthly, after the two above: one snapshot per project whose consortium changed and the
+    consortium.changed row for each difference (networks.snapshot_consortia)."""
+    from . import networks
+
+    return run_job("consortium_snapshot", networks.run_snapshot)
+
+
 def job_seed_buyers() -> JobResult:
     return run_job("seed_buyers", seed_buyers)
 
@@ -953,6 +978,9 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "link-twins": job_link_twins,
     "buyer-families": job_buyer_families,
     "warm-lists": job_warm_lists,
+    "cordis": job_cordis,
+    "edf": job_edf,
+    "consortium-snapshot": job_consortium_snapshot,
     "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
@@ -1025,6 +1053,13 @@ def build_scheduler():
                   id="backup_freshness", max_instances=1, misfire_grace_time=1800)
     sched.add_job(job_controls, CronTrigger(hour=cfg.health_hour, minute=10),
                   id="controls_daily", max_instances=1, misfire_grace_time=3600)
+    # Networks, monthly and in this order: CORDIS, the EDF factsheets, then the snapshot of both.
+    sched.add_job(job_cordis, CronTrigger(day=5, hour=cfg.networks_hour, minute=30),
+                  id="cordis_monthly", max_instances=1, misfire_grace_time=86400)
+    sched.add_job(job_edf, CronTrigger(day=6, hour=cfg.networks_hour, minute=30),
+                  id="edf_monthly", max_instances=1, misfire_grace_time=86400)
+    sched.add_job(job_consortium_snapshot, CronTrigger(day=7, hour=cfg.networks_hour, minute=30),
+                  id="consortium_snapshot", max_instances=1, misfire_grace_time=86400)
     if ted_history_window() is not None:
         # The history does not end when it has caught up: every day it ended
         # yesterday, there is a new yesterday. The daily TED job asks only the
@@ -1082,6 +1117,12 @@ def describe_schedule() -> list[str]:
         f"(keep {cfg.backup_keep_days} days)",
         f"backup_verify  Sun {cfg.backup_hour:02d}:30 UTC  "
         f"(restore into a scratch database and count)",
+        f"cordis_monthly  day 5, {cfg.networks_hour:02d}:30 UTC  "
+        f"(research projects, organisations and participations; CORDIS SPARQL service)",
+        f"edf_monthly    day 6, {cfg.networks_hour:02d}:30 UTC  "
+        f"(EDF project factsheets: crawl, read, resolve; the model only for new files)",
+        f"consortium_snapshot day 7, {cfg.networks_hour:02d}:30 UTC  "
+        f"(composition snapshot per project and the consortium.changed rows)",
         f"controls      {cfg.health_hour:02d}:10 UTC  (PLACSP measures, Atlas record)",
         f"backup_freshness :40 UTC  (alert when the newest dump is over "
         f"{cfg.backup_stale_hours}h old, here or in the store)",

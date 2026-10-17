@@ -1,0 +1,2263 @@
+[
+ {
+  "name_a": "Société wallonne des eaux",
+  "country_a": "BE",
+  "name_b": "LA SOCIETE WALLONNE DES EAUX",
+  "country_b": "BE",
+  "ids_a": {
+   "reg": "0230132005"
+  },
+  "ids_b": {
+   "vat": "BE0230132005",
+   "pic": "941399454"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Aggerverband – KöR",
+  "country_a": "DE",
+  "name_b": "AGGERVERBAND",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "122537802"
+  },
+  "ids_b": {
+   "vat": "DE122537802",
+   "pic": "938362190"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "HBC. Hochschule Biberach",
+  "country_a": "DE",
+  "name_b": "HOCHSCHULE BIBERACH",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "811635265"
+  },
+  "ids_b": {
+   "vat": "DE811635265",
+   "pic": "949587321"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Община Бургас",
+  "country_a": "BG",
+  "name_b": "OBSHTINA BURGAS",
+  "country_b": "BG",
+  "ids_a": {
+   "reg": "000056814"
+  },
+  "ids_b": {
+   "vat": "BG000056814",
+   "pic": "966998336"
+  },
+  "is_match": true,
+  "kind": "script",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Freie Universität Berlin",
+  "country_a": "DE",
+  "name_b": "FREIE UNIVERSITAET BERLIN",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "811304768"
+  },
+  "ids_b": {
+   "vat": "DE811304768",
+   "pic": "999994826"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Sundhed.dk",
+  "country_a": "DK",
+  "name_b": "SUNDHED.DK IS",
+  "country_b": "DK",
+  "ids_a": {
+   "reg": "31908574"
+  },
+  "ids_b": {
+   "vat": "DK31908574",
+   "pic": "961318404"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Rectorado de la Universidad de Oviedo",
+  "country_a": "ES",
+  "name_b": "UNIVERSIDAD DE OVIEDO",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "Q3318001I"
+  },
+  "ids_b": {
+   "vat": "ESQ3318001I",
+   "pic": "999848647"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Stadt Köln - Amt für Recht, Vergabe und Versicherungen",
+  "country_a": "DE",
+  "name_b": "STADT KOLN",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "122790626"
+  },
+  "ids_b": {
+   "vat": "DE122790626",
+   "pic": "997438973"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Unidade Local de Saúde de São José, EPE",
+  "country_a": "PT",
+  "name_b": "CENTRO HOSPITALAR DE LISBOA CENTRAL, EPE",
+  "country_b": "PT",
+  "ids_a": {
+   "reg": "508080142"
+  },
+  "ids_b": {
+   "vat": "PT508080142",
+   "pic": "940798539"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Junta de Gobierno del Ayuntamiento de Cádiz",
+  "country_a": "ES",
+  "name_b": "AYUNTAMIENTO DE CADIZ",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "P1101200B"
+  },
+  "ids_b": {
+   "vat": "ESP1101200B",
+   "pic": "915322750"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Junta de Contratación del Ministerio de Economía y Empresa",
+  "country_a": "ES",
+  "name_b": "MINISTERIO DE ASUNTOS ECONOMICOS Y TRANSFORMACION DIGITAL",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "S2800568D"
+  },
+  "ids_b": {
+   "vat": "ESS2800568D",
+   "pic": "966392474"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "„София Тех Парк“ АД",
+  "country_a": "BG",
+  "name_b": "SOFIA TECH PARK JSC",
+  "country_b": "BG",
+  "ids_a": {
+   "reg": "202099976"
+  },
+  "ids_b": {
+   "vat": "BG202099976",
+   "pic": "928350238"
+  },
+  "is_match": true,
+  "kind": "script",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Ayuntamiento de Barakaldo - Ayuntamiento de Barakaldo",
+  "country_a": "ES",
+  "name_b": "AYUNTAMIENTO DE BARAKALDO",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "P4801700H"
+  },
+  "ids_b": {
+   "vat": "ESP4801700H",
+   "pic": "928116759"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Serviço Estrangeiros e Fronteiras",
+  "country_a": "PT",
+  "name_b": "SERVICO DE ESTRANGEIROS E FRONTEIRAS PORTUGUESE IMMIGRATION AND BORDERS SERVICES",
+  "country_b": "PT",
+  "ids_a": {
+   "reg": "600015955"
+  },
+  "ids_b": {
+   "vat": "PT600015955",
+   "pic": "916010868"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Национална спортна академия „Васил Левски“",
+  "country_a": "BG",
+  "name_b": "NATSIONALNA SPORTNA AKADEMIYA VASSIL LEVSKI",
+  "country_b": "BG",
+  "ids_a": {
+   "reg": "000670627"
+  },
+  "ids_b": {
+   "vat": "BG000670627",
+   "pic": "948871849"
+  },
+  "is_match": true,
+  "kind": "script",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "universitat pompeu fabra",
+  "country_a": "ES",
+  "name_b": "UNIVERSIDAD POMPEU FABRA",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "Q5850017D"
+  },
+  "ids_b": {
+   "vat": "ESQ5850017D",
+   "pic": "999867077"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Stuttgarter Straßenbahnen AG",
+  "country_a": "DE",
+  "name_b": "STUTTGARTER STRASSENBAHNEN AG",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "812884131"
+  },
+  "ids_b": {
+   "vat": "DE812884131",
+   "pic": "937596375"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Junta de Gobierno de la Diputación Provincial de Castellón",
+  "country_a": "ES",
+  "name_b": "DIPUTACION PROVINCIAL DE CASTELLON",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "P1200000F"
+  },
+  "ids_b": {
+   "vat": "ESP1200000F",
+   "pic": "952311178"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Direzione regionale Piemonte e Valle d'Aosta",
+  "country_a": "IT",
+  "name_b": "AGENZIA DEL DEMANIO",
+  "country_b": "IT",
+  "ids_a": {
+   "reg": "06340981007"
+  },
+  "ids_b": {
+   "vat": "IT06340981007",
+   "pic": "880878632"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Hrvatske autoceste d.o.o.",
+  "country_a": "HR",
+  "name_b": "HRVATSKE AUTOCESTE DRUSTVO S OGRANICENOM ODGOVORNOSCU, ZA UPRAVLJANJE, GRADENJE I ODRZAVANJE AUTOCESTA",
+  "country_b": "HR",
+  "ids_a": {
+   "reg": "57500462912"
+  },
+  "ids_b": {
+   "vat": "HR57500462912",
+   "pic": "889390964"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Държавно предприятие „Ръководство на въздушното движение“ ТПП",
+  "country_a": "BG",
+  "name_b": "DARJAVNO PREDPRIYATIE RAKOVODSTVO NA VAZDUSHNOTO DVIJENIE TPP",
+  "country_b": "BG",
+  "ids_a": {
+   "reg": "000697179"
+  },
+  "ids_b": {
+   "vat": "BG000697179 |"
+  },
+  "is_match": true,
+  "kind": "script",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Rheinisch-Westfälisch Technische Hochschule Aachen",
+  "country_a": "DE",
+  "name_b": "RHEINISCH-WESTFAELISCHE TECHNISCHE HOCHSCHULE AACHEN",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "121689807"
+  },
+  "ids_b": {
+   "vat": "DE121689807",
+   "pic": "999983962"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "societe des transports intercommunaux de bruxelles",
+  "country_a": "BE",
+  "name_b": "SOCIETE DES TRANSPORTS INTERCOMMUNAUX DE BRUXELLES SSF",
+  "country_b": "BE",
+  "ids_a": {
+   "reg": "0247499953"
+  },
+  "ids_b": {
+   "vat": "BE0247499953",
+   "pic": "996655601"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Det Kongelige Akademi",
+  "country_a": "DK",
+  "name_b": "DET KONGELIGE DANSKE KUNST-AKADEMISSKOLER FOR ARKITEKTIR, DESIGN OG KONSERVERING",
+  "country_b": "DK",
+  "ids_a": {
+   "reg": "18975734"
+  },
+  "ids_b": {
+   "vat": "DK18975734",
+   "pic": "990942010"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "interporto bologna",
+  "country_a": "IT",
+  "name_b": "INTERPORTO BOLOGNA SPA",
+  "country_b": "IT",
+  "ids_a": {
+   "reg": "00372790378"
+  },
+  "ids_b": {
+   "vat": "IT00372790378",
+   "pic": "996755026"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Ayuntamiento de Getxo - Ayuntamiento de Getxo",
+  "country_a": "ES",
+  "name_b": "Getxoko Udala-Ayuntamiento de Getxo",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "P4805300C"
+  },
+  "ids_b": {
+   "vat": "ESP4805300C",
+   "pic": "936164752"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Die Autobahn des Bundes GmbH",
+  "country_a": "DE",
+  "name_b": "DIE AUTOBAHN GMBH DES BUNDES",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "329214156"
+  },
+  "ids_b": {
+   "vat": "DE329214156",
+   "pic": "888874051"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Faculdade Ciências Universidade Lisboa",
+  "country_a": "PT",
+  "name_b": "FACULDADE DE CIENCIAS DA UNIVERSIDADE DE LISBOA",
+  "country_b": "PT",
+  "ids_a": {
+   "reg": "502618418"
+  },
+  "ids_b": {
+   "vat": "PT502618418",
+   "pic": "999857377"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Politechnika Rzeszowska",
+  "country_a": "PL",
+  "name_b": "POLITECHNIKA RZESZOWSKA IM IGNACEGO LUKASIEWICZA PRZ",
+  "country_b": "PL",
+  "ids_a": {
+   "reg": "8130266999"
+  },
+  "ids_b": {
+   "vat": "PL8130266999",
+   "pic": "999886186"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "National College of Art and Design (NCAD)",
+  "country_a": "IE",
+  "name_b": "NATIONAL COLLEGE OF ART AND DESIGN",
+  "country_b": "IE",
+  "ids_a": {
+   "reg": "4752340G"
+  },
+  "ids_b": {
+   "vat": "IE4752340G",
+   "pic": "986301821"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "presidencia de la agencia estatal de meteorologia",
+  "country_a": "ES",
+  "name_b": "AGENCIA ESTATAL DE METEOROLOGIA",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "Q2801668A"
+  },
+  "ids_b": {
+   "vat": "ESQ2801668A",
+   "pic": "996472271"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "TV 2 Danmark A/S",
+  "country_a": "DK",
+  "name_b": "TV 2 DENMARK AS",
+  "country_b": "DK",
+  "ids_a": {
+   "reg": "10413494"
+  },
+  "ids_b": {
+   "vat": "DK10413494",
+   "pic": "953735623"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Diputación Foral de Álava - Departamento de Agricultura",
+  "country_a": "ES",
+  "name_b": "DIPUTACION FORAL DE ALAVA",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "P0100000I"
+  },
+  "ids_b": {
+   "vat": "ESP0100000I",
+   "pic": "935416494"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Landeshauptstadt München – Kommunalreferat",
+  "country_a": "DE",
+  "name_b": "LANDESHAUPTSTADT MUNCHEN",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "129524000"
+  },
+  "ids_b": {
+   "vat": "DE129524000",
+   "pic": "997625601"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "PGE Energetyka Kolejowa S.A.",
+  "country_a": "PL",
+  "name_b": "PGE ENERGETYKA KOLEJOWA SPOLKA AKCYJNA",
+  "country_b": "PL",
+  "ids_a": {
+   "reg": "5262542704"
+  },
+  "ids_b": {
+   "vat": "PL5262542704",
+   "pic": "908433713"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Presidencia de la Diputación Provincial de Málaga",
+  "country_a": "ES",
+  "name_b": "DIPUTACION PROVINCIAL DE MALAGA",
+  "country_b": "ES",
+  "ids_a": {
+   "reg": "P2900000G"
+  },
+  "ids_b": {
+   "vat": "ESP2900000G",
+   "pic": "948939167"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "same registry number in a procurement notice and in CORDIS; names differ"
+ },
+ {
+  "name_a": "Fresenius Digital Technology GmbH",
+  "country_a": "DE",
+  "name_b": "FRESENIUS NETCARE GMBH",
+  "country_b": "DE",
+  "ids_a": {
+   "reg": "813238573"
+  },
+  "ids_b": {
+   "vat": "DE813238573",
+   "pic": "917026361"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "a procurement notice states this number for a body that is not the registered holder"
+ },
+ {
+  "name_a": "voltra energy - pelnomocnik zamawiajacych",
+  "country_a": "PL",
+  "name_b": "INSTYTUT ENERGETYKI - PANSTWOWY INSTYTUT BADAWCZY",
+  "country_b": "PL",
+  "ids_a": {
+   "reg": "5250008761"
+  },
+  "ids_b": {
+   "vat": "PL5250008761",
+   "pic": "999543873"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "a procurement notice states this number for a body that is not the registered holder"
+ },
+ {
+  "name_a": "BUSINESS FINLAND OY FINLAND",
+  "country_a": "FI",
+  "name_b": "BUSINESS FINLAND OY",
+  "country_b": "FI",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "916229118"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "Association Techtera Auvergne – Rhône- Alpes",
+  "country_a": "FR",
+  "name_b": "ASSOCIATION TECHTERA AUVERGNE RHÔNE ALPES",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "953553554"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "Totalförsvaretsforskningsinstitut",
+  "country_a": "SE",
+  "name_b": "TOTALFORSVARETS FORSKNINGSINSTITUT",
+  "country_b": "SE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999627875"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "GRAPHENE XT",
+  "country_a": "IT",
+  "name_b": "GRAPHENE-XT SRL",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "912346693"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "POLITECHNICKA LODZKA LODZ",
+  "country_a": "PL",
+  "name_b": "POLITECHNIKA LODZKA",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999886671"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "Intracom Defense S.A.",
+  "country_a": "GR",
+  "name_b": "INTRACOM DEFENSE AE",
+  "country_b": "GR",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "996235688"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "TKMS ATLAS ELEKTRONIK GMBH",
+  "country_a": "DE",
+  "name_b": "ATLAS ELEKTRONIK GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "986464587"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "Bundesministerium für Verteidigung",
+  "country_a": "DE",
+  "name_b": "BUNDESMINISTERIUM DER VERTEIDIGUNG",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "966006220"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "ADDITESS ADVANCED INTEGRATED TECHNOLOGY SOLUTIONS AND SERVICES LTD",
+  "country_a": "CY",
+  "name_b": "ADDITESS ADVANCED INTEGRATED TECHNOLOGY SOLUTIONS & SERVICES LTD",
+  "country_b": "CY",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "954502214"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "III- V LAB",
+  "country_a": "FR",
+  "name_b": "III-V LAB",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999971546"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "INSTITUT ZA MEDICINSKA ISTRAZIVANJA IMEDICINU RADA",
+  "country_a": "HR",
+  "name_b": "INSTITUT ZA MEDICINSKA ISTRAZIVANJA I MEDICINU RADA",
+  "country_b": "HR",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "998300333"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "ROBERT KOCH- INSTITUT",
+  "country_a": "DE",
+  "name_b": "ROBERT KOCH-INSTITUT",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999515549"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "INSTITUTT FOR ENERGITEKNOLOGI",
+  "country_a": "NO",
+  "name_b": "INSTITUTT FOR ENERGITEKNIKK",
+  "country_b": "NO",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999455603"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "GMV AEROSPACE AND DEFENCE S.A.U.",
+  "country_a": "ES",
+  "name_b": "GMV AEROSPACE AND DEFENCE S.A.",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999905004"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "DEPARTMENT OF DEFENCE IRELAND",
+  "country_a": "IE",
+  "name_b": "DEPARTMENT OF DEFENCE",
+  "country_b": "IE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "951904845"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "NEDERLANDSE INSTRUMENTEN COMPAGNIE NEDINSCO BV",
+  "country_a": "NL",
+  "name_b": "NEDERLANDSE INSTRUMENTEN COMPAGNIENEDINSCO BV",
+  "country_b": "NL",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "952163253"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "SC MGM STAR CONSTRUCT SRL",
+  "country_a": "RO",
+  "name_b": "MGM STAR CONSTRUCT SRL",
+  "country_b": "RO",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "952030751"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "FRAUNHOFER- GESELLSCHAFT ZUR FÖRDERUNG DER ANGEWANDTEN FORSCHUNG",
+  "country_a": "DE",
+  "name_b": "FRAUNHOFER GESELLSCHAFT ZUR FORDERUNG DER ANGEWANDTEN FORSCHUNG EV",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999984059"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "MANAGING&INNOVATION BUSINESS PARTNERS",
+  "country_a": "ES",
+  "name_b": "MANAGING & INNOVATION BUSINESS PARTNERS SL",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "890915804"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "INNOVATION IN RESEARCH AND ENGINEERING SOLUTIONS",
+  "country_a": "BE",
+  "name_b": "INNOVATION IN RESEARCH & ENGINEERING SOLUTIONS",
+  "country_b": "BE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "929601829"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "EASN TECHNOLOGY INNOVATION SERVICES",
+  "country_a": "BE",
+  "name_b": "EASN TECHNOLOGY INNOVATION SERVICES BVBA",
+  "country_b": "BE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "984454068"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "POLITO - (POLITECNICO DI TORINO)",
+  "country_a": "IT",
+  "name_b": "POLITECNICO DI TORINO",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999977754"
+  },
+  "is_match": true,
+  "kind": "variant",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "THALES NEDERLAND B.V",
+  "country_a": "NL",
+  "name_b": "THALES NEDERLAND BV",
+  "country_b": "NL",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999480241"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "STRUCTURAL VIBRATION SOLUTIONS A/S",
+  "country_a": "DK",
+  "name_b": "STRUCTURAL VIBRATIONS SOLUTIONS A/S",
+  "country_b": "DK",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "986868010"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "SISTRADE SOFTWARE CONSULTING,S.A.",
+  "country_a": "PT",
+  "name_b": "SISTRADE - SOFTWARE CONSULTING SA",
+  "country_b": "PT",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "970758444"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "VALNEVA",
+  "country_a": "FR",
+  "name_b": "VALNEVA SE",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "952667556"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "M3 System Belgium",
+  "country_a": "BE",
+  "name_b": "M3 SYSTEMS BELGIUM",
+  "country_b": "BE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "969448459"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "PRISMA ELECTRONICS ABEE",
+  "country_a": "GR",
+  "name_b": "PRISMA ELECTRONICS SA",
+  "country_b": "GR",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "984440488"
+  },
+  "is_match": true,
+  "kind": "legal_form",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "GESELLSCHAFT FUR ANGEWANDTE MIKRO UND OPTOELEKTR ONIK MIT BESCHRANKTERHAFTUNG AMO GMBH",
+  "country_a": "DE",
+  "name_b": "GESELLSCHAFT FUR ANGEWANDTE MIKRO UND OPTOELEKTRONIK MIT BESCHRANKTERHAFTUNG AMO GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "999796558"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "CEIIA -CENTRO DE ENGENHARIA E DESENVOLVIMENTO (ASSOCIACAO)",
+  "country_a": "PT",
+  "name_b": "CEIIA - CENTRO DE ENGENHARIA E DESENVOLVIMENTO (ASSOCIACAO)",
+  "country_b": "PT",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "973080139"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "LAMBDA X SA",
+  "country_a": "BE",
+  "name_b": "LAMBDA-X SA",
+  "country_b": "BE",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "956804315"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "INSTITUTUL NATIONAL DE CERCETARE-DEZVOLTARE AEROSPATIALA \"ELIE CARAFOLI\"-INCAS BUCURESTI",
+  "country_a": "RO",
+  "name_b": "INSTITUTUL NATIONAL DE CERCETARE-DEZVOLTARE AEROSPATIALA ELIE CARAFOLI- INCAS BUCURESTI",
+  "country_b": "RO",
+  "ids_a": {},
+  "ids_b": {
+   "pic": "913125312"
+  },
+  "is_match": true,
+  "kind": "spelling",
+  "note": "EDF factsheet spelling against the CORDIS legal name"
+ },
+ {
+  "name_a": "Aalborg Universitet",
+  "country_a": "DK",
+  "name_b": "AALBORG UNIVERSITET",
+  "country_b": "DK",
+  "ids_a": {
+   "pic": "998625380"
+  },
+  "ids_b": {
+   "pic": "999904034"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "Carl Zeiss SMT GmbH",
+  "country_a": "DE",
+  "name_b": "CARL ZEISS SMT GMBH",
+  "country_b": "DE",
+  "ids_a": {
+   "pic": "950397659"
+  },
+  "ids_b": {
+   "pic": "950397174"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "Board of Trustees of the Leland Stanford Junior University",
+  "country_a": "US",
+  "name_b": "BOARD OF TRUSTEES OF THE LELAND STANFORD JUNIOR UNIVERSITY",
+  "country_b": "US",
+  "ids_a": {
+   "pic": "885386804"
+  },
+  "ids_b": {
+   "pic": "999466467"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "Paris Sciences et Lettres",
+  "country_a": "FR",
+  "name_b": "PARIS SCIENCES ET LETTRES",
+  "country_b": "FR",
+  "ids_a": {
+   "pic": "888894535"
+  },
+  "ids_b": {
+   "pic": "889126251"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "MTU AERO ENGINES GMBH",
+  "country_a": "DE",
+  "name_b": "MTU AERO ENGINES AG",
+  "country_b": "DE",
+  "ids_a": {
+   "pic": "999989879"
+  },
+  "ids_b": {
+   "pic": "950259822"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "NOVALED GMBH",
+  "country_a": "DE",
+  "name_b": "NOVALED AG",
+  "country_b": "DE",
+  "ids_a": {
+   "pic": "941395671"
+  },
+  "ids_b": {
+   "pic": "999758340"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "ENERDATA SA",
+  "country_a": "FR",
+  "name_b": "ENERDATA SAS",
+  "country_b": "FR",
+  "ids_a": {
+   "pic": "999743693"
+  },
+  "ids_b": {
+   "pic": "950362060"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "ELETTRONICA SPA",
+  "country_a": "IT",
+  "name_b": "DF ELETTRONICA - S.R.L.",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two Italian companies; the second has a prefix"
+ },
+ {
+  "name_a": "SKA POLSKA SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_a": "PL",
+  "name_b": "FEV POLSKA SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "one differing initial"
+ },
+ {
+  "name_a": "GISS SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_a": "PL",
+  "name_b": "M SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "short names plus the long legal form"
+ },
+ {
+  "name_a": "EXOFRAME SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_a": "PL",
+  "name_b": "EXC SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "short names plus the long legal form"
+ },
+ {
+  "name_a": "SYBILLA TECHNOLOGIES SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_a": "PL",
+  "name_b": "JAS TECHNOLOGIE SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "different first word"
+ },
+ {
+  "name_a": "LEONARDO",
+  "country_a": "IT",
+  "name_b": "LESO LEONARDO",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "the group and a small company with Leonardo in its name"
+ },
+ {
+  "name_a": "KONGSBERG",
+  "country_a": "NO",
+  "name_b": "Kongsberg SIM AS",
+  "country_b": "NO",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "the group name and one subsidiary"
+ },
+ {
+  "name_a": "AIRBUS DEFENCE AND SPACE GMBH",
+  "country_a": "DE",
+  "name_b": "AIRBUS DEFENCE AND SPACE SA",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "AIRBUS DEFENCE AND SPACE GMBH",
+  "country_a": "DE",
+  "name_b": "AIRBUS DEFENCE AND SPACE SAS",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "AIRBUS DEFENCE AND SPACE SA",
+  "country_a": "ES",
+  "name_b": "AIRBUS DEFENCE AND SPACE LTD",
+  "country_b": "GB",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "SIEMENS ENERGY SRL",
+  "country_a": "IT",
+  "name_b": "SIEMENS ENERGY AB",
+  "country_b": "SE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "SIEMENS ENERGY SAS",
+  "country_a": "FR",
+  "name_b": "SIEMENS ENERGY UNIPESSOAL LDA",
+  "country_b": "PT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "SIEMENS INDUSTRY SOFTWARE SRL",
+  "country_a": "IT",
+  "name_b": "SIEMENS INDUSTRY SOFTWARE SL",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "SIEMENS INDUSTRY SOFTWARE LIMITED",
+  "country_a": "GB",
+  "name_b": "SIEMENS INDUSTRY SOFTWARE GMBH & CO KG",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "SIEMENS HEALTHCARE SL",
+  "country_a": "ES",
+  "name_b": "SIEMENS HEALTHCARE SAS",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "SAFRAN NACELLES",
+  "country_a": "FR",
+  "name_b": "SAFRAN NACELLES LIMITED",
+  "country_b": "GB",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "Bosch Rexroth B.V.",
+  "country_a": "NL",
+  "name_b": "Bosch Rexroth Ltd",
+  "country_b": "GB",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "THALES ALENIA SPACE ITALIA SPA",
+  "country_a": "IT",
+  "name_b": "Thales Alenia Space France",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "GMV INNOVATING SOLUTIONS LTD",
+  "country_a": "GB",
+  "name_b": "GMV AEROSPACE AND DEFENCE S.A.",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_country",
+  "note": "the same name in two countries is two companies"
+ },
+ {
+  "name_a": "THALES",
+  "country_a": "FR",
+  "name_b": "THALES SIX GTS FRANCE SAS",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "THALES",
+  "country_a": "FR",
+  "name_b": "THALES NEDERLAND BV",
+  "country_b": "NL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "SAFRAN SA",
+  "country_a": "FR",
+  "name_b": "SAFRAN AIRCRAFT ENGINES",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "SAFRAN LANDING SYSTEMS",
+  "country_a": "FR",
+  "name_b": "SAFRAN NACELLES",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "SIEMENS AKTIENGESELLSCHAFT",
+  "country_a": "DE",
+  "name_b": "SIEMENS MOBILITY GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "AIRBUS DEFENCE AND SPACE GMBH",
+  "country_a": "DE",
+  "name_b": "AIRBUS HELICOPTERS DEUTSCHLAND GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "BOSCH REXROTH AG",
+  "country_a": "DE",
+  "name_b": "BOSCH ENGINEERING GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "DIEHL AEROSPACE GMBH",
+  "country_a": "DE",
+  "name_b": "DIEHL AVIATION LAUPHEIM GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "OHB SYSTEM AG",
+  "country_a": "DE",
+  "name_b": "OHB DIGITAL SERVICES GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "RHEINMETALL DEFENCE ELECTRONICS GMBH",
+  "country_a": "DE",
+  "name_b": "RHEINMETALL WAFFE MUNITION GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "INDRA SISTEMAS SA",
+  "country_a": "ES",
+  "name_b": "INDRA ESPACIO SA",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "AIRBUS DEFENCE AND SPACE SA",
+  "country_a": "ES",
+  "name_b": "AIRBUS OPERATIONS SL",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "SAAB AKTIEBOLAG",
+  "country_a": "SE",
+  "name_b": "SAAB KOCKUMS AKTIEBOLAG",
+  "country_b": "SE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "KONGSBERG DEFENCE & AEROSPACE AS",
+  "country_a": "NO",
+  "name_b": "KONGSBERG MARITIME AS",
+  "country_b": "NO",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "NAVAL GROUP",
+  "country_a": "FR",
+  "name_b": "NAVAL ENERGIES",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "NEXTER SYSTEMS",
+  "country_a": "FR",
+  "name_b": "NEXTER ROBOTICS",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "AIRBUS GROUP LIMITED",
+  "country_a": "GB",
+  "name_b": "AIRBUS DS LIMITED",
+  "country_b": "GB",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "THALES ALENIA SPACE ITALIA SPA",
+  "country_a": "IT",
+  "name_b": "THALES ITALIA SPA",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "SIEMENS HEALTHINEERS AG",
+  "country_a": "DE",
+  "name_b": "SIEMENS ENERGY GLOBAL GMBH & CO. KG",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "THALES ALENIA SPACE DEUTSCHLAND GMBH",
+  "country_a": "DE",
+  "name_b": "THALES DEUTSCHLAND GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "INDRA SISTEMAS SA",
+  "country_a": "ES",
+  "name_b": "INDRA SISTEMAS DE COMUNICACIONES SEGURAS S.L.U",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "TEKEVER TECNOLOGIAS DE INFORMACAO SA",
+  "country_a": "PT",
+  "name_b": "TEKEVER ASDS",
+  "country_b": "PT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "ELBIT SYSTEMS LTD",
+  "country_a": "IL",
+  "name_b": "ELBIT SECURITY SYSTEMS LTD",
+  "country_b": "IL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "DIEHL BGT DEFENCE GMBHCOKG",
+  "country_a": "DE",
+  "name_b": "DIEHL AEROSPACE GMBH",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "SAFRAN SEATS",
+  "country_a": "FR",
+  "name_b": "SAFRAN CERAMICS",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "BAE SYSTEMS SURFACE SHIPS LIMITED",
+  "country_a": "GB",
+  "name_b": "BAE SYSTEMS INTEGRATED SYSTEM TECHNOLOGIES LTD",
+  "country_b": "GB",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "GMV AEROSPACE AND DEFENCE S.A.",
+  "country_a": "ES",
+  "name_b": "GMV SOLUCIONES GLOBALES INTERNET SAU",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "parent_child",
+  "note": "one group, two legal entities"
+ },
+ {
+  "name_a": "Zespół Edukacyjny nr 5 w Zielonej Górze",
+  "country_a": "PL",
+  "name_b": "Zespół Edukacyjny nr 11 w Zielonej Górze",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Zespół Edukacyjny nr 5 w Zielonej Górze",
+  "country_a": "PL",
+  "name_b": "Zespół Edukacyjny nr 8 w Zielonej Górze",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Przedszkole Samorządowe nr 6",
+  "country_a": "PL",
+  "name_b": "Przedszkole Samorządowe nr 3",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Przedszkole Samorządowe nr 6",
+  "country_a": "PL",
+  "name_b": "Przedszkole Samorządowe nr 8",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Zespół Szkolno-Przedszkolny nr 7",
+  "country_a": "PL",
+  "name_b": "Zespól Szkolno-Przedszkolny nr 11",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Zespół Szkolno-Przedszkolny nr 7",
+  "country_a": "PL",
+  "name_b": "Zespół Szkolno-Przedszkolny nr 8",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Městská část Praha 10",
+  "country_a": "CZ",
+  "name_b": "mestska cast praha 3",
+  "country_b": "CZ",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Městská část Praha 10",
+  "country_a": "CZ",
+  "name_b": "Městská část Praha 4",
+  "country_b": "CZ",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Stadt Delmenhorst FD 53",
+  "country_a": "DE",
+  "name_b": "Stadt Delmenhorst FD 51",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Knoten Lindau Kabeltiefbau NT 85",
+  "country_a": "DE",
+  "name_b": "Knoten Lindau Kabeltiefbau NT 87",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Stadt Abensberg (3)",
+  "country_a": "DE",
+  "name_b": "Stadt Abensberg (4)",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Przedszkole nr 1 w Pińczowie",
+  "country_a": "PL",
+  "name_b": "Przedszkole nr 3 w Pińczowie",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Aeronautica militare — 3° reparto genio A.M.",
+  "country_a": "IT",
+  "name_b": "Aeronautica Militare – 1° Reparto Genio A.M.",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Městská část Praha 10",
+  "country_a": "CZ",
+  "name_b": "mestska cast praha 1",
+  "country_b": "CZ",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Przedszkole Samorządowe nr 6",
+  "country_a": "PL",
+  "name_b": "Przedszkole Samorządowe nr 1",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Przedszkole Samorządowe nr 6",
+  "country_a": "PL",
+  "name_b": "Przedszkole Samorządowe nr 39",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Zespół Szkolno-Przedszkolny nr 7",
+  "country_a": "PL",
+  "name_b": "ZESPÓŁ SZKOLNO-PRZEDSZKOLNY NR 20",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Stadt Abensberg (3)",
+  "country_a": "DE",
+  "name_b": "Stadt Abensberg (2)",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Przedszkole Samorządowe nr 6",
+  "country_a": "PL",
+  "name_b": "PRZEDSZKOLE SAMORZĄDOWE NR 7",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "Městská část Praha 10",
+  "country_a": "CZ",
+  "name_b": "mestska cast praha 9",
+  "country_b": "CZ",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "sibling",
+  "note": "numbered siblings (schools, depots, districts)"
+ },
+ {
+  "name_a": "TECHNISCHE UNIVERSITAET MUENCHEN",
+  "country_a": "DE",
+  "name_b": "TECHNISCHE UNIVERSITAET DRESDEN",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "TECHNISCHE UNIVERSITEIT DELFT",
+  "country_a": "NL",
+  "name_b": "TECHNISCHE UNIVERSITEIT EINDHOVEN",
+  "country_b": "NL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "POLITECHNIKA WARSZAWSKA",
+  "country_a": "PL",
+  "name_b": "POLITECHNIKA GDANSKA",
+  "country_b": "PL",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "UNIVERSIDAD DE SEVILLA",
+  "country_a": "ES",
+  "name_b": "UNIVERSIDAD DE OVIEDO",
+  "country_b": "ES",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "UNIVERSITA DEGLI STUDI DI TORINO",
+  "country_a": "IT",
+  "name_b": "UNIVERSITA DEGLI STUDI DI TRIESTE",
+  "country_b": "IT",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "TECHNISCHE UNIVERSITAET CHEMNITZ",
+  "country_a": "DE",
+  "name_b": "TECHNISCHE UNIVERSITAET DRESDEN",
+  "country_b": "DE",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "UNIVERSITE DE LORRAINE",
+  "country_a": "FR",
+  "name_b": "UNIVERSITE DE LILLE",
+  "country_b": "FR",
+  "ids_a": {},
+  "ids_b": {},
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two institutions of one country with the same first words"
+ },
+ {
+  "name_a": "MINISTERIE VAN BINNENLANDSE ZAKEN EN KONINKRIJKSRELATIES",
+  "country_a": "NL",
+  "name_b": "MINISTERIE BINNENLANDSE ZAKEN EN KONINKRIJKSRELATIES",
+  "country_b": "NL",
+  "ids_a": {
+   "pic": "999814309"
+  },
+  "ids_b": {
+   "pic": "997639084"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "JULIUS KUHN-INSTITUT BUNDESFORSCHUNGSINSTITUT FUR KULTURPFLANZEN",
+  "country_a": "DE",
+  "name_b": "JULIUS KUHN INSTITUT BUNDESFORSCHUNGSINSTITUT FUR KULTURPFLANZEN",
+  "country_b": "DE",
+  "ids_a": {
+   "pic": "999494015"
+  },
+  "ids_b": {
+   "pic": "998890578"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "THE UNIVERSITY OF THE WEST INDIES",
+  "country_a": "JM",
+  "name_b": "THE UNIVERSITY OF THE WEST INDIES U WI*",
+  "country_b": "JM",
+  "ids_a": {
+   "pic": "999860287"
+  },
+  "ids_b": {
+   "pic": "999871248"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "ASSOCIATION INTERNATIONALE DE STANDARDISATION BIOLOGIQUE POUR L'EUROPE(IABS-EU)",
+  "country_a": "FR",
+  "name_b": "Association Internationale de Standardisation Biologique pour l'Europe",
+  "country_b": "FR",
+  "ids_a": {
+   "pic": "934774936"
+  },
+  "ids_b": {
+   "pic": "939943290"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "Toulouse Business School",
+  "country_a": "FR",
+  "name_b": "TOULOUSE BUSINESS SCHOOL -TBS",
+  "country_b": "FR",
+  "ids_a": {
+   "pic": "949660556"
+  },
+  "ids_b": {
+   "pic": "914831930"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "MECAPROTEC INDUSTRIES - MPI",
+  "country_a": "FR",
+  "name_b": "MECAPROTEC INDUSTRIES",
+  "country_b": "FR",
+  "ids_a": {
+   "pic": "891316317"
+  },
+  "ids_b": {
+   "pic": "925393290"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "BANGOR UNIVERSITY",
+  "country_a": "GB",
+  "name_b": "University of Bangor",
+  "country_b": "GB",
+  "ids_a": {
+   "pic": "999823815"
+  },
+  "ids_b": {
+   "pic": "888896781"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "UNIVERSITY OF HAIFA",
+  "country_a": "IL",
+  "name_b": "Haifa University",
+  "country_b": "IL",
+  "ids_a": {
+   "pic": "999897826"
+  },
+  "ids_b": {
+   "pic": "932412501"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "PROCTER&GAMBLE SERVICE GMBH",
+  "country_a": "DE",
+  "name_b": "PROCTER AND GAMBLE SERVICE GMBH",
+  "country_b": "DE",
+  "ids_a": {
+   "pic": "905256575"
+  },
+  "ids_b": {
+   "pic": "998080919"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "ECOLE SUPERIEURE DE PHYSIQUE ET DECHIMIE INDUSTRIELLES DE LA VILLE DEPARIS",
+  "country_a": "FR",
+  "name_b": "ECOLE SUPERIEURE DE PHYSIQUE ET CHIMIE INDUSTRIELLES DE LA VILLE DE PARIS",
+  "country_b": "FR",
+  "ids_a": {
+   "pic": "975116460"
+  },
+  "ids_b": {
+   "pic": "998635177"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "EUROPEAN HEAT PUMP ASSOCIATION",
+  "country_a": "BE",
+  "name_b": "EUROPEAN HEAT PUMP ASSOCIATION GEIE",
+  "country_b": "BE",
+  "ids_a": {
+   "pic": "923854288"
+  },
+  "ids_b": {
+   "pic": "997910393"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "CENTRAL-ASIAN INSTITUTE FOR APPLIED GEOSCIENCES CAIAG",
+  "country_a": "KG",
+  "name_b": "CENTRAL-ASIAN INSTITUTE FOR APPLIED GEOSCIENCES",
+  "country_b": "KG",
+  "ids_a": {
+   "pic": "887862729"
+  },
+  "ids_b": {
+   "pic": "983386486"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "U.S. Food & Drug Administration",
+  "country_a": "US",
+  "name_b": "Food & Drug Administration",
+  "country_b": "US",
+  "ids_a": {
+   "pic": "996948056"
+  },
+  "ids_b": {
+   "pic": "888891467"
+  },
+  "is_match": true,
+  "kind": "duplicate_pic",
+  "note": "one legal entity registered twice in the Participant Register (two PICs)"
+ },
+ {
+  "name_a": "UNIVERSIDADE FEDERAL DO RIO DE JANEIRO",
+  "country_a": "BR",
+  "name_b": "UNIVERSIDADE FEDERAL RURAL DO RIO DE JANEIRO",
+  "country_b": "BR",
+  "ids_a": {
+   "pic": "999848841"
+  },
+  "ids_b": {
+   "pic": "896135568"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "CITY UNIVERSITY OF HONG KONG",
+  "country_a": "HK",
+  "name_b": "University of Hong Kong",
+  "country_b": "HK",
+  "ids_a": {
+   "pic": "999621376"
+  },
+  "ids_b": {
+   "pic": "901812881"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "EAST CHINA UNIVERSITY OF SCIENCE AND TECHNOLOGY",
+  "country_a": "CN",
+  "name_b": "University of Science and Technology of China",
+  "country_b": "CN",
+  "ids_a": {
+   "pic": "997351382"
+  },
+  "ids_b": {
+   "pic": "996228025"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "CITY UNIVERSITY OF LONDON",
+  "country_a": "GB",
+  "name_b": "UNIVERSITY OF LONDON",
+  "country_b": "GB",
+  "ids_a": {
+   "pic": "999842730"
+  },
+  "ids_b": {
+   "pic": "999900639"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "KONGSBERG MARITIME CM AS",
+  "country_a": "NO",
+  "name_b": "KONGSBERG MARITIME AS",
+  "country_b": "NO",
+  "ids_a": {
+   "pic": "996441425"
+  },
+  "ids_b": {
+   "pic": "999444351"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "PLC SYSTEM - SRL",
+  "country_a": "IT",
+  "name_b": "SYSTEM SPA",
+  "country_b": "IT",
+  "ids_a": {
+   "pic": "940962566"
+  },
+  "ids_b": {
+   "pic": "951760218"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "DANONE SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_a": "PL",
+  "name_b": "DAC SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_b": "PL",
+  "ids_a": {
+   "pic": "891644565"
+  },
+  "ids_b": {
+   "pic": "898353667"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "AIRLY SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_a": "PL",
+  "name_b": "AIUT SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA",
+  "country_b": "PL",
+  "ids_a": {
+   "pic": "896255751"
+  },
+  "ids_b": {
+   "pic": "966652337"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ },
+ {
+  "name_a": "FUNDACAO UNIVERSIDADE DO AMAZONAS",
+  "country_a": "BR",
+  "name_b": "UNIVERSIDADE DO ESTADO DO AMAZONAS FUNDACAO",
+  "country_b": "BR",
+  "ids_a": {
+   "pic": "972972469"
+  },
+  "ids_b": {
+   "pic": "997605716"
+  },
+  "is_match": false,
+  "kind": "other_entity",
+  "note": "two different institutions or companies with look-alike names (stage 3 proposes them to a person)"
+ }
+]
