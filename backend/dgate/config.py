@@ -153,6 +153,14 @@ _BDNS_FLOORS = {day: 15 for day in range(7)}
 # entries and nowhere near enough to hide a walk that stopped at the second page.
 _NCBR_FLOORS = {day: 300 for day in range(7)}
 
+# Networks (WP-26). Monthly, whole-population jobs. CORDIS: the SPARQL service held 72,534
+# organisations, 80,208 projects and 398,584 participations on 17 October 2026, 551,000 rows in
+# all; the floor is under three quarters of that. EDF factsheets: 61 + 41 + 60 + 63 + 61 files
+# on the five results pages (2021 to 2025); 150 asks whether the pages were reached at all.
+# These are NOT in the weekday-floor table below, which `/v1/health` also reads as "this source has
+# a daily rhythm" and would call a monthly source stale after 36 hours: they are plain settings
+# (`Settings.cordis_floor`, `Settings.edf_floor`).
+
 
 def _weekday_floors(name: str, defaults: dict[int, int]) -> dict[int, int]:
     """Per-weekday floors, overridable with one env var per source.
@@ -383,6 +391,11 @@ class Settings:
     # for every source whose payloads are in the store, over the last `requalify_days`.
     requalify_hour: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_HOUR", 12))
     requalify_days: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_DAYS", 30))
+    # The monthly networks jobs (CORDIS on the 5th, EDF factsheets on the 6th, the consortium
+    # snapshot on the 7th), all at this hour.
+    networks_hour: int = field(default_factory=lambda: _env_int("DGATE_NETWORKS_HOUR", 2))
+    cordis_floor: int = field(default_factory=lambda: _env_int("DGATE_FLOOR_CORDIS", 400_000))
+    edf_floor: int = field(default_factory=lambda: _env_int("DGATE_FLOOR_EDF_FACTSHEETS", 150))
     # Per-day official total against what a run landed (ops/controls.py); one request a day
     # per source. Off in the test suite.
     completeness_check: bool = field(

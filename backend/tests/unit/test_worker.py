@@ -106,10 +106,25 @@ def test_schedule_is_described_for_operators():
     assert any("backup_verify" in line for line in lines)
 
 
+def test_the_networks_jobs_are_monthly_and_in_order_cordis_edf_snapshot():
+    jobs = {job.id: job for job in worker.build_scheduler().get_jobs()}
+    days = {}
+    for name in ("cordis_monthly", "edf_monthly", "consortium_snapshot"):
+        trigger = jobs[name].trigger
+        fields = {f.name: str(f) for f in trigger.fields}
+        days[name] = int(fields["day"])
+        assert fields["month"] == "*"           # every month
+    assert days["cordis_monthly"] < days["edf_monthly"] < days["consortium_snapshot"]
+    lines = worker.describe_schedule()
+    for word in ("cordis_monthly", "edf_monthly", "consortium_snapshot"):
+        assert any(line.startswith(word) for line in lines)
+
+
 def test_every_job_is_reachable_from_the_cli():
     assert set(worker.JOBS) == {"ted", "ezamowienia", "placsp", "seed-buyers",
                                 "health", "backup", "backup-verify", "catch-up",
                                 "atlas-backfill", "ted-history", "boamp", "calls",
                                 "topics", "bdns", "ncbr", "tenderned", "de-bkms", "vinnova", "aid", "matine",
                                 "alerts", "backup-freshness", "link-twins", "requalify", "controls",
-                                "buyer-families", "warm-lists", "cascade-flags", "digest"}
+                                "buyer-families", "warm-lists", "cascade-flags", "digest",
+                                "cordis", "edf", "consortium-snapshot"}
