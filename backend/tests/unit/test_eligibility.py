@@ -10,7 +10,7 @@ PDF = (b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pa
 
 
 def _fact(value=None, confidence=0.0, quote=None):
-    return {"value": value, "confidence": confidence, "quote": quote}
+    return {"value": value, "confidence": confidence, "quote": quote, "note": None}
 
 
 def _answer(**given):
@@ -53,7 +53,7 @@ def test_the_schema_is_closed_so_that_strict_structured_output_accepts_it():
                 yield from objects(v)
 
     found = list(objects(s))
-    assert len(found) >= 6
+    assert len(found) >= 5      # the root and the four kinds of fact
     for o in found:
         assert o["additionalProperties"] is False
         assert set(o["required"]) == set(o["properties"])
@@ -73,3 +73,30 @@ def test_something_that_is_not_a_pdf_is_refused():
         eligibility.fetch_text("https://x.test/a.pdf", _http(b"<html>no</html>"))
     with pytest.raises(ValueError, match="HTTP 404"):
         eligibility.fetch_text("https://x.test/a.pdf", _http(b"", 404))
+
+
+def test_a_long_quote_cut_short_at_its_end_still_verifies_but_a_made_up_one_does_not():
+    sentence = ("Consortia must be composed of at least 3 contracting authorities from 3 different EU Member "
+                "States or EDIP associated countries, of which at least 2 must be contracting authorities")
+    text = sentence + " from 2 EU Member States (only beneficiaries count)."
+    cut = sentence + " from 2 EU Member States (only beneficiaries cou"        # the model's quote ends early
+    out = eligibility.check_quotes(_answer(min_entities=_fact(3, 1.0, cut + "x")), text)
+    assert out["min_entities"]["verified"] is True
+    made_up = "Applicants must hold a security clearance of the highest level for every participating entity."
+    out = eligibility.check_quotes(_answer(min_entities=_fact(3, 1.0, made_up)), text)
+    assert out["min_entities"]["verified"] is False
+
+
+def test_an_eccc_page_with_a_download_link_is_followed_to_the_pdf():
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        if "/document/download/" in str(request.url):
+            return httpx.Response(200, content=PDF, headers={"content-type": "application/pdf"})
+        return httpx.Response(200, text='<a href="/document/download/abc_en?filename=Call.pdf">x</a>',
+                              headers={"content-type": "text/html; charset=utf-8"})
+    http = httpx.Client(transport=httpx.MockTransport(handler))
+    _, pages, text = eligibility.fetch_text("https://cybersecurity-centre.europa.eu/document/abc_en", http)
+    assert pages == 1 and "Hello" in text
+    assert seen[1] == "https://cybersecurity-centre.europa.eu/document/download/abc_en?filename=Call.pdf"

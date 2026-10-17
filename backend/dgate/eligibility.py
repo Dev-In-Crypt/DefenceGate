@@ -20,6 +20,7 @@ import hashlib
 import io
 import re
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 from pydantic import BaseModel
@@ -29,7 +30,7 @@ from .config import settings
 from .enrichment.base import strict_schema
 
 TASK = "call_eligibility"
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 MAX_PDF_BYTES = 40 * 1024 * 1024
 MAX_CHARS = 350_000          # about 90,000 tokens: the longest call documents are cut here
 UNVERIFIED_CAP = 0.3
@@ -39,30 +40,28 @@ class FactStr(BaseModel):
     value: str | None
     confidence: float
     quote: str | None
+    note: str | None
 
 
 class FactBool(BaseModel):
     value: bool | None
     confidence: float
     quote: str | None
+    note: str | None
 
 
 class FactInt(BaseModel):
     value: int | None
     confidence: float
     quote: str | None
-
-
-class FactNum(BaseModel):
-    value: float | None
-    confidence: float
-    quote: str | None
+    note: str | None
 
 
 class FactList(BaseModel):
     value: list[str] | None
     confidence: float
     quote: str | None
+    note: str | None
 
 
 class Eligibility(BaseModel):
@@ -75,7 +74,7 @@ class Eligibility(BaseModel):
     sme_only: FactBool                  # reserved for small and medium enterprises
     natural_persons_allowed: FactBool
     ownership_control_restriction: FactBool   # entities controlled by non-eligible countries/entities are excluded
-    funding_rate_percent: FactNum       # the main reimbursement or funding rate, in percent
+    funding_rate: FactStr               # the funding or reimbursement rate, in the document's words (a range or a ceiling stays a range)
     cascade_funding: FactBool           # financial support to third parties (FSTP / cascade) is part of the action
 
 
@@ -88,9 +87,11 @@ SYSTEM = (
     "For every fact you do state, copy the sentence that states it verbatim into `quote` "
     "(at most 300 characters, no paraphrase, no ellipsis). Confidence is between 0 and 1: "
     "1 means the sentence says it plainly, 0.5 means you combined several sentences, below 0.5 "
-    "means you are unsure. If a rule differs by topic or by type of action, report the general "
-    "rule and say so in the value. Eligibility and funding conditions only; do not describe the "
-    "technical content of the work."
+    "means you are unsure. `note` is a short qualification when the fact holds only under a "
+    "condition (for example: only if the applicant is a specific kind of body), otherwise null. "
+    "If a rule differs by topic or by type of action, report the general rule and say so in "
+    "the note. Eligibility and funding conditions only; do not describe the technical content "
+    "of the work."
 )
 
 
@@ -100,6 +101,25 @@ def schema() -> dict[str, Any]:
 
 # ----------------------------------------------------------------- the document
 
+def _get_pdf(http: httpx.Client, url: str) -> bytes:
+    r = http.get(url)
+    if r.status_code != 200:
+        raise ValueError(f"HTTP {r.status_code}")
+    content = r.content
+    if not content.startswith(b"%PDF") and "text/html" in r.headers.get("content-type", ""):
+        # The ECCC site serves a page whose download link is the file.
+        m = re.search(r'href="(/document/download/[^"]+)"', r.text)
+        if m:
+            r2 = http.get(urljoin(str(r.url), m.group(1)))
+            if r2.status_code == 200:
+                content = r2.content
+    if len(content) > MAX_PDF_BYTES:
+        raise ValueError("file too large")
+    if not content.startswith(b"%PDF"):
+        raise ValueError("not a PDF")
+    return content
+
+
 def fetch_text(url: str, client: httpx.Client | None = None) -> tuple[str, int, str]:
     """(sha256 of the file, number of pages, text) of a PDF."""
     from pypdf import PdfReader
@@ -107,20 +127,14 @@ def fetch_text(url: str, client: httpx.Client | None = None) -> tuple[str, int, 
     http = client or httpx.Client(timeout=120, follow_redirects=True,
                                   headers={"User-Agent": settings().user_agent})
     try:
-        r = http.get(url)
+        content = _get_pdf(http, url)
     finally:
         if client is None:
             http.close()
-    if r.status_code != 200:
-        raise ValueError(f"HTTP {r.status_code}")
-    if len(r.content) > MAX_PDF_BYTES:
-        raise ValueError("file too large")
-    if not r.content.startswith(b"%PDF"):
-        raise ValueError("not a PDF")
-    reader = PdfReader(io.BytesIO(r.content))
+    reader = PdfReader(io.BytesIO(content))
     pages = [(p.extract_text() or "") for p in reader.pages]
     text = re.sub(r"[ \t]+", " ", "\n".join(pages))
-    return hashlib.sha256(r.content).hexdigest(), len(pages), text
+    return hashlib.sha256(content).hexdigest(), len(pages), text
 
 
 def _norm(s: str) -> str:
@@ -132,11 +146,17 @@ def check_quotes(answer: dict[str, Any], text: str) -> dict[str, Any]:
     without a found quote keeps its value but its confidence is capped."""
     haystack = _norm(text)
     out: dict[str, Any] = {}
+
+    def found(quote: str) -> bool:
+        q = _norm(quote)
+        # A long quote the model cut short or tidied at its end is still the document's sentence.
+        return bool(q) and (q in haystack or (len(q) >= 100 and q[:100] in haystack))
+
     for name in FIELDS:
         fact = dict(answer[name])
         stated = fact["value"] is not None
         quote = (fact.get("quote") or "").strip()
-        fact["verified"] = bool(stated and quote and _norm(quote) in haystack)
+        fact["verified"] = bool(stated and found(quote))
         if stated and not fact["verified"]:
             fact["confidence"] = min(float(fact["confidence"]), UNVERIFIED_CAP)
         out[name] = fact
