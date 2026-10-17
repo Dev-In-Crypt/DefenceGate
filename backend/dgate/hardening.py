@@ -76,6 +76,8 @@ def client_key(address: str) -> str:
 # are the two things worth scraping, and the slug list is the whole catalogue.
 HEAVY_PATHS = {"/v1/organisations/resolve": 5, "/v1/funding/slugs": 20,
                "/v1/tenders/slugs": 20, "/v1/buyers/slugs": 20}
+# The readiness assessment evaluates a few dozen rules in memory: cheap, but it takes a body.
+HEAVY_PATHS["/v1/readiness/assess"] = 3
 
 # Lists whose cost depends on their shape: each page evaluates the filtered set, and a
 # text search is a sequential scan of every notice (0.7 s), `status=all` and `scope=all`
@@ -211,6 +213,7 @@ class RateLimit(BaseHTTPMiddleware):
 # actually arrive: a chunked body has no Content-Length to look at.
 BODY_MAX = 16 * 1024
 BODY_LIMITED_PREFIXES = ("/v1/account", "/v1/internal")
+BODY_LIMITED_PREFIXES += ("/v1/readiness",)       # the profile of a company: a few hundred bytes
 
 
 class _TooLarge(Exception):

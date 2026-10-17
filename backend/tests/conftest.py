@@ -28,7 +28,9 @@ TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opport
             call, raw_ingest, ingest_run,
             app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check,
             suppression, data_request, list_snapshot,
-            call_eligibility, call_document_text, llm_usage, digest_issue"""
+            call_eligibility, call_document_text, llm_usage, digest_issue,
+            programme_requirement, requirement_issuer, requirement_prerequisite, requirement,
+            readiness_programme"""
 # `programme` is deliberately not truncated: it is reference data the migration
 # seeds once, and a test that started with no programmes would be testing a
 # database that cannot exist.

@@ -569,3 +569,92 @@ stored yet.
 
 `/digest` (latest issue and the list of earlier weeks), `/digest/[YYYY-Www]`, `/digest.atom` (one entry per week, the
 last four, `?country=` allowed). Navigation entries are left to the orchestrator.
+
+## Readiness (added 17 October 2026, WP-29)
+
+Layer 3 of the product: what separates a company from taking part in a programme. The catalogue and the
+rules are public; the assessment is **stateless**: the profile is sent in the body, nothing about it is
+stored or logged (the site's own route, `web/app/api/readiness/assess/route.ts`, does not read the body
+either: it passes it on), and a company is not an account. Content (`seeds/requirements.json`, migrations
+0063-0065) is applied by the worker when it starts and read from the database; every requirement and every
+rule has a `source` (url, reference, verbatim text, whether the text was checked against the Official
+Journal or quoted from the research notes, the verification status V / S / U of the technical appendix,
+and the date last reviewed). No model is involved anywhere.
+
+### `GET /v1/requirements`
+`{ items: RequirementSummary[], total, meta: { rulesReviewed } }`. `RequirementSummary` =
+`{ code, name, category, kind, summary, cost, days, mandatoryFor, programmes, verificationStatus, lastReviewed, sourceUrl }`.
+`kind` is `document` (something a company obtains) or `rule` (assessed, not obtained). `cost` is
+`{ min, max, currency, basis: free | vendor_range | not_stated, text, alt, label }` or `null` when the
+sources state none: money is never converted (`alt` is a second figure the source itself gave in another
+currency) and a `vendor_range` carries `label: "vendor range, not a benchmark"`. `days` is
+`{ min, max, text, note }` in calendar days, or `null`.
+
+### `GET /v1/requirements/{code}`
+`REQ-NCAGE`, `REQ-PIC`, `REQ-EDF-ELIG`, `REQ-EDIP-ELIG`, `REQ-SAFE-35`, `REQ-ISO9001`, `REQ-EN9100`,
+`REQ-AQAP2110`, `REQ-AQAP2310`, `REQ-EXPORT`, `REQ-REOCE`, `REQ-FSC-ES`. A summary plus `description`,
+`legalBasis`, `variants` (a different cost or time when another requirement is held), `extras`,
+`prerequisites`, `requiredBy`, `issuers`, `rules` (which programme asks for it, as what, with its source) and
+`source`. 404 for an unknown code, 422 for a malformed one.
+
+### `GET /v1/requirements/{code}/issuers?country=XX`
+`{ requirement, country, issuers: [{ country, name, url, notes, verificationStatus }], note }`. The rows for
+the country, else the rows that hold for every country (`country: "*"`), else none and `note` says the body
+has not been collected for that country. An issuer the appendix marks unverified has `UNVERIFIED` in its notes.
+
+### `GET /v1/readiness/programmes`
+The rules, public: `{ programmes: [{ code, name, summary, kind, legalBasis, sourceUrl, callProgramme,
+lastReviewed, rules: [{ rule, title, obligation, kind, requirement, appliesWhen, condition, conditionalWhen,
+texts, note, denominator, reads, source }] }], fields, groups, statuses, meta }`. `condition` is the JSON
+expression of the engine (`all`, `any`, `not`, `field` with `is` / `in`, `status`, `threshold`); `fields` is
+the catalogue of profile fields with the question asked for each; `groups` the country groups the rules use
+(`EU`, `EEA_EFTA`, `UA`). Programmes: `EDF`, `EDIP` (the Programme), `EDIP-USI` (the Ukraine Support
+Instrument), `SAFE`, `NATO-SUPPLY`, and `GENERAL` (export control, exporter registration and security
+clearance: rules that apply whichever route is taken, with no verdict of their own).
+
+### `POST /v1/readiness/assess`
+Body (JSON, at most 16 KiB at the API and 4 KiB through the proxy; unknown keys are refused):
+
+```json
+{ "profile": { "country": "UA", "executive_management_country": "UA", "third_country_control": "no",
+               "ua_non_government_controlled_area": false, "non_eu_component_cost_pct": 20,
+               "restricted_third_country_component": false, "handles_classified": false,
+               "product_regime": "dual_use", "export_intent": "outside_eu" },
+  "statuses": { "REQ-PIC": "held", "REQ-NCAGE": "not_held" },
+  "programmes": ["SAFE"], "call": 123 }
+```
+
+`country` and `executive_management_country` are ISO 3166-1 alpha-2 in capitals (`XX` for a country that is
+not listed); every other profile field may be `null`, which means unknown, never "no" (a missing answer is
+listed under `missing`, not guessed). `third_country_control`: `no` | `ua_eea_only` | `other`.
+`product_regime`: `none` | `dual_use` | `military` | `unknown`. `export_intent`: `none` | `within_eu` |
+`outside_eu` | `unsure`. `non_eu_component_cost_pct` is 0 to 100 and is the share of **the estimated cost of
+the components of the end product** (SAFE Article 16(10)), never of the contract value. `statuses` maps a
+requirement code to `held` | `in_progress` | `not_held` | `not_applicable`; a requirement not mentioned is
+not held. `programmes` limits the answer (default: all but `GENERAL`). `call` is a call id from `/v1/funding`:
+the answer then says whether the company can take part before the call closes.
+
+Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, notice }`.
+
+- `assessments[]` and `general[]`: `{ programme, name, kind, summary, legalBasis, sourceUrl, verdict:
+  eligible | blocked | conditional, incomplete, blocking, conditions, counts, missing: [{ field, question }],
+  rules: [{ rule, title, outcome, reason, obligation, kind, requirement, note, denominator, asks, source }] }`.
+  `outcome`: `met` | `not_met` | `conditional` (a derogation exists: guarantees, a screening) | `unknown`
+  (an answer is missing) | `not_applicable` | `info`. `verdict`: `blocked` if a mandatory rule is not met;
+  else `conditional` if a mandatory rule is conditional or unknown (`incomplete` says which); else `eligible`.
+  A rule that is not mandatory (AQAP, export licence, clearance) never changes the verdict.
+- `roadmap`: `{ steps, tracks, totals, totalsWithOptional, unknownCost, unknownDuration, label }`. A step is
+  `{ order, code, name, status, optional, when, blockingFor, neededFor, cost, days, variantUsed, branchNote,
+  issuers, issuerNote, prerequisites, parallelWith, ... }`, ordered by the prerequisite graph, then cost, then
+  time; `tracks` are the groups of steps that depend on each other (the others run in parallel); `totals` are
+  ranges per currency and the slowest track for time, over the required steps only; `totalsWithOptional` also
+  counts what only a contract might ask for (AQAP). Where the company holds ISO 9001, the AQAP 2110 step uses
+  the range the source gives for a firm that already holds it (`variantUsed`).
+- `call` (when asked for): `{ id, title, programme, status, deadline, covered, timings: [{ programme,
+  verdict, daysLeft, steps, fastestPathDays, notFixable, realistic: yes | maybe | no | not_possible | depends
+  | unknown | closed, text }] }`. `not_possible`: a rule that no certificate fixes is not met. A call of a programme
+  with no rules (Horizon) has `covered: false`. 404 for an unknown call, 410 for one removed on request.
+
+A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input. The limiter charges
+three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
+content policy allows connections to the site only); the verdict is the only thing that leaves the browser.

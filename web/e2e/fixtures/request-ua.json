@@ -1,0 +1,22 @@
+{
+ "profile": {
+  "country": "UA",
+  "executive_management_country": "UA",
+  "export_intent": "outside_eu",
+  "handles_classified": false,
+  "non_eu_component_cost_pct": 20.0,
+  "product_regime": "dual_use",
+  "restricted_third_country_component": false,
+  "third_country_control": "no",
+  "ua_non_government_controlled_area": false
+ },
+ "statuses": {
+  "REQ-AQAP2110": "not_held",
+  "REQ-AQAP2310": "not_held",
+  "REQ-EN9100": "not_held",
+  "REQ-EXPORT": "not_held",
+  "REQ-ISO9001": "not_held",
+  "REQ-NCAGE": "not_held",
+  "REQ-PIC": "not_held"
+ }
+}
