@@ -84,7 +84,7 @@ test('a requirement page says what it is, who issues it, the cost and time, the 
   await expect(page.getByText('vendor range, not a benchmark').first()).toBeVisible();
   await expect(page.getByText('USD 17,000-48,000').first()).toBeVisible();
   await expect(page.getByText('3-8 months').first()).toBeVisible();
-  await expect(page.getByText('PECAL, audited through DGAM structures')).toBeVisible();
+  await expect(page.getByText('PECAL, audited through DGAM structures').first()).toBeVisible();
   await expect(page.getByText(/AQAP 2120 no longer exists/)).toBeVisible();
   // AQAP is shown as a contract matter, not as a condition of the programmes
   await expect(page.getByText(/not a condition for applying to the EDF/)).toBeVisible();
