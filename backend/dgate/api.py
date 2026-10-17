@@ -862,3 +862,21 @@ from .accounts import router as _account_router  # noqa: E402
 app.include_router(_account_router)
 app.include_router(_internal_router)
 app.add_exception_handler(AccountError, account_error_handler)
+
+# Layer 3, readiness (dgate/readiness): the public requirements catalogue and the stateless
+# assessment. A refused assessment body is not echoed back (the framework's own 422 repeats it).
+from fastapi.exception_handlers import request_validation_exception_handler  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+
+from .readiness.api import router as _readiness_router  # noqa: E402
+
+app.include_router(_readiness_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/v1/readiness"):
+        problems = [{"loc": list(e["loc"]), "msg": e["msg"]} for e in exc.errors()]
+        return JSONResponse({"detail": problems}, status_code=422)
+    return await request_validation_exception_handler(request, exc)
+

@@ -73,6 +73,10 @@ addresses beyond the proxy's request log (14 days) and the keyed (HMAC) rate-lim
 stores nothing (`web/app/(public)/actions.ts`). This file changes in the same commit as
 the first feature that stores anything new.
 
+## Readiness check (WP-29, 17 October 2026): nothing is held
+
+The readiness check asks a company about its country, ownership and control, products and certificates. **None of it is stored or logged by the server.** The answers live in the visitor's browser (localStorage, `dg.profile.v1`). The verdict is computed by `POST /v1/readiness/assess`, which receives them in the body, keeps no copy, opens no write (it runs under the read-only API role; a test asserts it) and logs nothing of the body (a test asserts that too; the proxy's request log holds the address and the path, not a POST body). The company name and size entered in the wizard are not part of the request. A profile can say who owns a company, so it is treated as private even though it is not personal data of a natural person. The tables `requirement`, `requirement_issuer`, `requirement_prerequisite`, `readiness_programme` and `programme_requirement` hold public regulatory content only: no personal data and no contact details (a test checks the seed file for e-mail addresses).
+
 ## Who can read it
 
 The API and worker service roles (`dgate_api`, `dgate_worker`), the owner on the host,

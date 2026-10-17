@@ -706,6 +706,21 @@ def job_backup_freshness() -> JobResult:
         return JobResult("backup_freshness", "failed", time.monotonic() - started, str(exc))
 
 
+def ensure_requirements() -> None:
+    """Apply the readiness content (`seeds/requirements.json`) on every start. It is idempotent, and
+    this is what makes a deploy that changes a rule change the rule, with no separate step. A failure
+    is reported and does not stop the worker: the previous rules stay in place."""
+    from .readiness.seed import apply, load_file
+
+    try:
+        with db.connect(settings().dsn) as conn:
+            counts = apply(conn, load_file())
+        log.info("readiness content applied: %s", counts)
+    except Exception as exc:  # noqa: BLE001 - loud, but must not block start-up
+        log.error("could not apply the readiness content: %s", exc)
+        notify(f"[dgate] readiness content not applied: {exc}; the previous rules stay in place")
+
+
 def ensure_buyer_list() -> None:
     """Seed the defence buyer list before anything is classified.
 
@@ -1129,6 +1144,7 @@ def main(argv: list[str] | None = None) -> int:
     if ready:
         close_interrupted_runs()
         ensure_buyer_list()
+        ensure_requirements()
     start_catch_up_thread(ready)
     build_scheduler().start()
     return 0

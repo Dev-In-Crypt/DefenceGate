@@ -1,5 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { getAllBuyerSlugs, getAllCallSlugs, getAllTenderSlugs, getHealth, isBuyerSlug, isCallSlug, isTenderSlug } from '@/lib/api';
+import { requirementSlug } from '@/lib/readiness';
+import { getRequirements } from '@/lib/readiness-api';
 import { absoluteUrl } from '@/lib/seo';
 
 export const revalidate = 3600;
@@ -16,6 +18,7 @@ const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/calendar', '/cpv
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Funding slugs are required (as before). The tender and buyer lists degrade to empty if their endpoints are
   // not deployed yet, so a frontend built before the backend still produces a sitemap.
+  const requirements = await getRequirements().then((r) => r.items).catch(() => []);
   const [calls, tenders, buyers, health] = await Promise.all([
     getAllCallSlugs(),
     getAllTenderSlugs().catch(() => []),
@@ -25,6 +28,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const lastModified = new Date(health.generatedAt);
   return [
     ...STATIC_PATHS.map((p) => ({ url: absoluteUrl(p), lastModified })),
+    // The readiness check and the requirements catalogue (WP-29). /readiness/results and /readiness/roadmap are private to the visitor and noindex.
+    ...['/readiness', '/requirements'].map((p) => ({ url: absoluteUrl(p), lastModified })),
+    ...requirements.map((r) => ({ url: absoluteUrl(`/requirements/${requirementSlug(r.code)}`), lastModified: new Date(r.lastReviewed) })),
     ...calls.filter((c) => isCallSlug(c.slug)).map((c) => ({ url: absoluteUrl(`/funding/${c.slug}`), lastModified: new Date(c.updatedAt) })),
     ...tenders.filter((t) => isTenderSlug(t.slug)).map((t) => ({ url: absoluteUrl(`/tenders/${t.slug}`), lastModified: new Date(t.updatedAt) })),
     ...buyers.filter((b) => isBuyerSlug(b.slug)).map((b) => ({ url: absoluteUrl(`/buyers/${b.slug}`), lastModified: new Date(b.updatedAt) })),

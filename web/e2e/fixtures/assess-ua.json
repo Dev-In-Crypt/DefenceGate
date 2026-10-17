@@ -1,0 +1,1095 @@
+{
+ "assessments": [
+  {
+   "blocking": [
+    "EDF-PIC"
+   ],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 1,
+    "met": 3,
+    "not_applicable": 0,
+    "not_met": 1,
+    "unknown": 0
+   },
+   "incomplete": false,
+   "kind": "programme",
+   "legalBasis": "Regulation (EU) 2021/697, as amended by Regulation (EU) 2025/2653",
+   "missing": [],
+   "name": "European Defence Fund (EDF)",
+   "programme": "EDF",
+   "rules": [
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine (under the EU-Ukraine Association Agreement).",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is established in an EU Member State, an EEA EFTA state or Ukraine. These are the Union and the associated countries of the EDF.",
+     "requirement": null,
+     "rule": "EDF-ESTABLISH",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2021/697, Article 9(1) and Article 5 (as replaced by Regulation (EU) 2025/2653)",
+      "text": "[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.\n\n[Regulation (EU) 2021/697, Article 5, as replaced by Regulation (EU) 2025/2653, Article 3(1)] The Fund shall be open to the participation of the following third countries (associated countries): (a) members of the European Free Trade Association which are members of the EEA, in accordance with the conditions laid down in the Agreement on the European Economic Area; (b) Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
+      "url": "http://data.europa.eu/eli/reg/2021/697/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Established in the Union or an associated country"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": "The same paragraph requires that the infrastructure, facilities, assets and resources used for the action are located in a Member State or an associated country for the whole duration of the action. This service does not ask about that.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your executive management structures are in an EU Member State, an EEA EFTA state or Ukraine.",
+     "requirement": null,
+     "rule": "EDF-EXEC-MGMT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2021/697, Article 9(2)",
+      "text": "[Regulation (EU) 2021/697, Article 9(2)] The infrastructure, facilities, assets and resources of the recipients and subcontractors involved in an action which are used for the purposes of an action supported by the Fund shall be located on the territory of a Member State or of an associated country for the entire duration of an action, and their executive management structures shall be established in the Union or in an associated country.",
+      "url": "http://data.europa.eu/eli/reg/2021/697/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Executive management in the Union or an associated country"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "control",
+     "note": "The guarantees must show that control is not exercised in a way that restricts the action, that access to sensitive information is prevented, and that intellectual property stays with the recipient. Paragraph 4 of Article 9 lists them.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is not controlled from a non-associated third country. Control from an EEA EFTA state or Ukraine does not count against you under the EDF.",
+     "requirement": null,
+     "rule": "EDF-CONTROL",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2021/697, Article 9(3) and (4)",
+      "text": "[Regulation (EU) 2021/697, Article 9(3)] For the purposes of an action supported by the Fund, the recipients and subcontractors involved in an action shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2021/697, Article 9(4), first sentence] By way of derogation from paragraph 3, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or a non-associated third-country entity shall be eligible to be a recipient or subcontractor involved in an action only if guarantees approved by the Member State or the associated country in which it is established in accordance with its national procedures are made available to the Commission.",
+      "url": "http://data.europa.eu/eli/reg/2021/697/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Not controlled by a non-associated third country"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "registration",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "not_met",
+     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "requirement": "REQ-PIC",
+     "rule": "EDF-PIC",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "EU Funding and Tenders Portal, Participant Register",
+      "text": "[DefenceGate technical appendix, Participant Register and PIC] a hard prerequisite for any EDF or EDIP application.",
+      "url": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
+      "verificationStatus": "V"
+     },
+     "title": "PIC registered on the Funding and Tenders Portal"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "AQAP 2110 is not a condition for applying to the EDF. It is likely to be needed to deliver, where a prime contractor or a national buyer names it in a contract.",
+     "requirement": "REQ-AQAP2110",
+     "rule": "EDF-AQAP",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "notes",
+      "ref": "No AQAP requirement appears in Regulation (EU) 2021/697 or in Regulation (EU) 2025/2653 (text checked on 17 October 2026)",
+      "text": "[DefenceGate technical appendix, Who actually requires it] No blanket AQAP requirement appears in the EDF, EDIP or SAFE regulations as an eligibility condition.",
+      "url": "http://data.europa.eu/eli/reg/2021/697/oj",
+      "verificationStatus": "V"
+     },
+     "title": "AQAP quality certification"
+    }
+   ],
+   "sourceUrl": "http://data.europa.eu/eli/reg/2021/697/oj",
+   "summary": "Grants for collaborative defence research and capability development, run by the European Commission.",
+   "verdict": "blocked"
+  },
+  {
+   "blocking": [
+    "EDIP-ESTABLISH",
+    "EDIP-EXEC-MGMT",
+    "EDIP-PIC"
+   ],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 1,
+    "met": 1,
+    "not_applicable": 0,
+    "not_met": 3,
+    "unknown": 0
+   },
+   "incomplete": false,
+   "kind": "programme",
+   "legalBasis": "Regulation (EU) 2025/2643",
+   "missing": [],
+   "name": "European Defence Industry Programme (EDIP): the Programme",
+   "programme": "EDIP",
+   "rules": [
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "not_met",
+     "reason": "Your company is established outside the EU and the EEA EFTA states. Under the EDIP Programme, recipients must be established in the Union or in an associated country. Ukraine is not an associated country of the Programme; Ukrainian companies are covered by the Ukraine Support Instrument, which has its own card.",
+     "requirement": null,
+     "rule": "EDIP-ESTABLISH",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 9(1), Article 8 and the definition of 'associated countries' in Article 2",
+      "text": "[Regulation (EU) 2025/2643, Article 9(1)] Only legal entities established in the Union or in an associated country and having their executive management structures in the Union or in an associated country shall be eligible to be recipients of Union funding under this Regulation.\n\n[Regulation (EU) 2025/2643, Article 2, definition of 'associated countries'] ‘associated countries’ means members of the European Free Trade Association which are members of the European Economic Area that apply this Regulation in accordance with the Agreement on the European Economic Area;\n\n[Regulation (EU) 2025/2643, Article 8] The Programme shall be open to the participation of associated countries, in accordance with the conditions laid down in the Agreement on the European Economic Area.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Established in the Union or an associated country"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": "Paragraph 3 of the same Article also requires the infrastructure, facilities, assets and resources used for the action to be located in a Member State or an associated country. This service does not ask about that.",
+     "obligation": "mandatory",
+     "outcome": "not_met",
+     "reason": "Your executive management structures are outside the EU and the EEA EFTA states. Under the EDIP Programme they must be in the Union or in an associated country.",
+     "requirement": null,
+     "rule": "EDIP-EXEC-MGMT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 9(1)",
+      "text": "[Regulation (EU) 2025/2643, Article 9(1)] Only legal entities established in the Union or in an associated country and having their executive management structures in the Union or in an associated country shall be eligible to be recipients of Union funding under this Regulation.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Executive management in the Union or an associated country"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "control",
+     "note": "Paragraph 6 of Article 9 lists what the guarantees must show.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is not controlled from a third country.",
+     "requirement": null,
+     "rule": "EDIP-CONTROL",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 9(5) and (6)",
+      "text": "[Regulation (EU) 2025/2643, Article 9(5)] Recipients of Union funding under the Programme shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2025/2643, Article 9(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or by a non-associated third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State or associated country in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452 of the European Parliament and of the Council (39), are made available to the Commission.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Not controlled by a non-associated third country"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "registration",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "not_met",
+     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "requirement": "REQ-PIC",
+     "rule": "EDIP-PIC",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "EU Funding and Tenders Portal, Participant Register",
+      "text": "[DefenceGate technical appendix, Participant Register and PIC] a hard prerequisite for any EDF or EDIP application.",
+      "url": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
+      "verificationStatus": "V"
+     },
+     "title": "PIC registered on the Funding and Tenders Portal"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "AQAP 2110 is not a condition for applying to EDIP. It is likely to be needed to deliver, where a prime contractor or a national buyer names it in a contract.",
+     "requirement": "REQ-AQAP2110",
+     "rule": "EDIP-AQAP",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "notes",
+      "ref": "No AQAP requirement appears in Regulation (EU) 2025/2643 (text checked on 17 October 2026)",
+      "text": "[DefenceGate technical appendix, Who actually requires it] No blanket AQAP requirement appears in the EDF, EDIP or SAFE regulations as an eligibility condition.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "AQAP quality certification"
+    }
+   ],
+   "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
+   "summary": "Union funding for the European defence industrial base. This card covers the Programme itself; the Ukraine Support Instrument has its own card.",
+   "verdict": "blocked"
+  },
+  {
+   "blocking": [
+    "USI-PIC"
+   ],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 1,
+    "met": 4,
+    "not_applicable": 0,
+    "not_met": 1,
+    "unknown": 0
+   },
+   "incomplete": false,
+   "kind": "programme",
+   "legalBasis": "Regulation (EU) 2025/2643, Chapter on the Ukraine Support Instrument",
+   "missing": [],
+   "name": "EDIP: Ukraine Support Instrument",
+   "programme": "EDIP-USI",
+   "rules": [
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is established in an EU Member State or in Ukraine.",
+     "requirement": null,
+     "rule": "USI-ESTABLISH",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 26(1)",
+      "text": "[Regulation (EU) 2025/2643, Article 26(1)] Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Established in the Union or in Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": "Paragraph 3 of the same Article also requires the infrastructure, facilities, assets and resources used for the action to be located in a Member State or in Ukraine. This service does not ask about that.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your executive management structures are in an EU Member State or in Ukraine.",
+     "requirement": null,
+     "rule": "USI-EXEC-MGMT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 26(1)",
+      "text": "[Regulation (EU) 2025/2643, Article 26(1)] Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Executive management in the Union or in Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is not established in a non-government controlled area of Ukraine.",
+     "requirement": null,
+     "rule": "USI-TERRITORY",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 26(1), second subparagraph",
+      "text": "[Regulation (EU) 2025/2643, Article 26(1), second subparagraph] Legal entities established in the non-government controlled areas of Ukraine shall not be eligible for funding under this Regulation.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Not established in a non-government controlled area of Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "control",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is not controlled from a third country.",
+     "requirement": null,
+     "rule": "USI-CONTROL",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2025/2643, Article 26(5) and (6)",
+      "text": "[Regulation (EU) 2025/2643, Article 26(5)] For the purposes of an action supported by the Ukraine Support Instrument, the recipients of Union funding shall not be subject to control by a non-associated third country other than Ukraine or by another third-country entity.\n\n[Regulation (EU) 2025/2643, Article 26(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union and controlled by a non-associated third country other than Ukraine or by another third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452, are made available to the Commission.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Not controlled by a non-associated third country other than Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "registration",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "not_met",
+     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "requirement": "REQ-PIC",
+     "rule": "USI-PIC",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "EU Funding and Tenders Portal, Participant Register",
+      "text": "[DefenceGate technical appendix, Participant Register and PIC] a hard prerequisite for any EDF or EDIP application.",
+      "url": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
+      "verificationStatus": "V"
+     },
+     "title": "PIC registered on the Funding and Tenders Portal"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "AQAP 2110 is not a condition for applying to the Ukraine Support Instrument. It is likely to be needed to deliver, where a prime contractor or a national buyer names it in a contract.",
+     "requirement": "REQ-AQAP2110",
+     "rule": "USI-AQAP",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "notes",
+      "ref": "No AQAP requirement appears in Regulation (EU) 2025/2643 (text checked on 17 October 2026)",
+      "text": "[DefenceGate technical appendix, Who actually requires it] No blanket AQAP requirement appears in the EDF, EDIP or SAFE regulations as an eligibility condition.",
+      "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+      "verificationStatus": "V"
+     },
+     "title": "AQAP quality certification"
+    }
+   ],
+   "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
+   "summary": "The part of EDIP that funds cooperation with Ukraine's defence industry, with its own eligibility rules.",
+   "verdict": "blocked"
+  },
+  {
+   "blocking": [],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 2,
+    "met": 5,
+    "not_applicable": 0,
+    "not_met": 0,
+    "unknown": 0
+   },
+   "incomplete": false,
+   "kind": "programme",
+   "legalBasis": "Council Regulation (EU) 2025/1106, Article 16",
+   "missing": [],
+   "name": "Security Action for Europe (SAFE)",
+   "programme": "SAFE",
+   "rules": [
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": "Derogation for subcontractors: see the information line on the 15-35 % subcontractor allowance below.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is established in an EU Member State, an EEA EFTA state or Ukraine.",
+     "requirement": null,
+     "rule": "SAFE-ESTABLISH",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Council Regulation (EU) 2025/1106, Article 16(3)",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(3), first sentence] Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Established in the Union, an EEA EFTA state or Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "establishment",
+     "note": "Paragraph 8 also requires the infrastructure, facilities, assets and resources used for the procurement to be located in a Member State, an EEA EFTA state or Ukraine, with a narrow exception where no alternative is readily available. This service does not ask about that.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your executive management structures are in an EU Member State, an EEA EFTA state or Ukraine.",
+     "requirement": null,
+     "rule": "SAFE-EXEC-MGMT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Council Regulation (EU) 2025/1106, Article 16(3)",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(3), first sentence] Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Executive management in the Union, an EEA EFTA state or Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "control",
+     "note": "Paragraph 6 of Article 16 lists what the guarantees must show.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is not controlled from a third country other than an EEA EFTA state or Ukraine.",
+     "requirement": null,
+     "rule": "SAFE-CONTROL",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Council Regulation (EU) 2025/1106, Article 16(3) and (5)",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(3), second sentence] They shall not be subject to control by a third country which is not an EEA EFTA State or Ukraine or by another third-country entity which is not established in the Union, in an EEA EFTA State or in Ukraine.\n\n[Council Regulation (EU) 2025/1106, Article 16(5), first sentence] By way of derogation from paragraph 3, a legal entity established in the Union and controlled by another third country or by another third-country entity may participate in the common procurement if it has been subject to screening within the meaning of Regulation (EU) 2019/452 and, where necessary, to appropriate mitigation measures, or if it provides guarantees verified by the Member State in which the contractor or subcontractor involved in the common procurement is established.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine"
+    },
+    {
+     "asks": [],
+     "denominator": "the estimated cost of the components of the end product",
+     "kind": "threshold",
+     "note": "The percentage is measured against the estimated cost of the components of the end product, not against the contract value. It is a property of the end product you would supply, so the answer is about one product.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 % of the estimated cost of the components of the end product.",
+     "requirement": null,
+     "rule": "SAFE-ORIGIN-35",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Council Regulation (EU) 2025/1106, Article 16(10), first sentence",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(10), first sentence] The cost of components originating outside the Union, EEA EFTA States and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "categorical",
+     "note": "This is a separate rule from the 35 % threshold. It is a yes or no, with no percentage.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "You report no component from a third country that contravenes the security and defence interests of the Union and its Member States.",
+     "requirement": null,
+     "rule": "SAFE-NO-RESTRICTED",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Council Regulation (EU) 2025/1106, Article 16(10), second sentence",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(10), second sentence] For the purpose of procurements supported by the SAFE instrument, no component shall be sourced from a third country that contravenes the security and defence interests of the Union and its Member States.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "No component from a third country that contravenes the Union's security and defence interests"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "A procurement can include one subcontractor that is allocated between 15 % and 35 % of the value of the contract and is not established, or has no executive management, in the Union, an EEA EFTA state or Ukraine, if a direct contractual relationship with it existed before the Regulation entered into force, or the contractor commits to study within two years replacing its input. This figure is a share of the contract value. It is not the 35 % component cost threshold above.",
+     "requirement": null,
+     "rule": "SAFE-SUBCONTRACT-RELIEF",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Council Regulation (EU) 2025/1106, Article 16(4)",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(4), introductory words] By way of derogation from paragraph 3, in order to take into account industrial cooperation with non-EU partners, common procurements that involve a subcontractor which is allocated between 15 % and 35 % of the value of the contract, and that is not established or doesn’t have its executive management structures in the Union, EEA EFTA State or Ukraine, shall be eligible for support under the SAFE instrument providing that at least one of the following conditions are met:\n\n[Council Regulation (EU) 2025/1106, Article 16(4)(a)] a direct contractual relationship related to the defence product has been established between the contractor and that subcontractor prior to the date of entry into force of this Regulation;\n\n[Council Regulation (EU) 2025/1106, Article 16(4)(b)] the contractor commits to studying, within two years, the feasibility of replacing the input provided by that subcontractor with an alternative, restriction-free input originating in the Union, EEA EFTA States or Ukraine, and meeting technical and time requirements.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Subcontractors outside the Union: the 15 to 35 % allowance"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "AQAP 2110 is not an eligibility condition of SAFE. It is likely to be needed to deliver, where the prime contractor or the national buyer names it in the contract.",
+     "requirement": "REQ-AQAP2110",
+     "rule": "SAFE-AQAP",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "notes",
+      "ref": "No AQAP requirement appears in Council Regulation (EU) 2025/1106 (text checked on 17 October 2026)",
+      "text": "[DefenceGate technical appendix, Who actually requires it] No blanket AQAP requirement appears in the EDF, EDIP or SAFE regulations as an eligibility condition.",
+      "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
+      "verificationStatus": "V"
+     },
+     "title": "AQAP quality certification"
+    }
+   ],
+   "sourceUrl": "http://data.europa.eu/eli/reg/2025/1106/oj",
+   "summary": "Loans to Member States for common defence procurements. A company does not apply: the rules decide whether it can be a contractor or subcontractor in a procurement that SAFE supports.",
+   "verdict": "eligible"
+  },
+  {
+   "blocking": [
+    "NATO-NCAGE"
+   ],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 1,
+    "met": 0,
+    "not_applicable": 0,
+    "not_met": 1,
+    "unknown": 0
+   },
+   "incomplete": false,
+   "kind": "route",
+   "legalBasis": null,
+   "missing": [],
+   "name": "NATO and NSPA supply",
+   "programme": "NATO-SUPPLY",
+   "rules": [
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "registration",
+     "note": null,
+     "obligation": "mandatory",
+     "outcome": "not_met",
+     "reason": "You need an NCAGE code to supply through NSPA or to have NATO stock numbers assigned. It is free of charge.",
+     "requirement": "REQ-NCAGE",
+     "rule": "NATO-NCAGE",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "NSPA NCAGE Code Request Tool",
+      "text": "[DefenceGate technical appendix, NCAGE] a five-character entity identifier, required for NSN assignment, for registration in NATO and national supply systems, and for procurement through NSPA.",
+      "url": "https://eportal.nspa.nato.int/Codification/CageTool/",
+      "verificationStatus": "V"
+     },
+     "title": "NCAGE code"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "AQAP 2110 (or 2310 for aviation and space) is required where a NATO or national contract names it. This service cannot know which of your target contracts do.",
+     "requirement": "REQ-AQAP2110",
+     "rule": "NATO-AQAP",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "NATO Standardization Office",
+      "text": "[DefenceGate technical appendix, AQAP editions and who requires it] AQAP enters through individual contracts: when a prime or a national buyer names it, and it then cascades down the supply chain to subcontractors.",
+      "url": "https://nso.nato.int/",
+      "verificationStatus": "S"
+     },
+     "title": "AQAP quality certification"
+    }
+   ],
+   "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
+   "summary": "Supplying NATO bodies and the NATO Support and Procurement Agency (NSPA), and being assigned NATO stock numbers.",
+   "verdict": "blocked"
+  }
+ ],
+ "call": null,
+ "general": [
+  {
+   "blocking": [],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 0,
+    "met": 0,
+    "not_applicable": 4,
+    "not_met": 1,
+    "unknown": 0
+   },
+   "incomplete": false,
+   "kind": "general",
+   "legalBasis": null,
+   "missing": [],
+   "name": "Requirements that apply whichever route you take",
+   "programme": "GENERAL",
+   "rules": [
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "You have said which regime applies to your product.",
+     "requirement": null,
+     "rule": "G-REGIME",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "DefenceGate technical appendix, Export control",
+      "text": "[DefenceGate technical appendix, Export control] Dual-use falls under 2021/821. Military goods fall under the Common Military List, with intra-EU transfers governed by Directive 2009/43/EC and separate licences. A product may sit in the military regime and not the dual-use one.",
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "verificationStatus": "S"
+     },
+     "title": "Which export regime applies to your product"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_met",
+     "reason": "You export, or may export, items in a controlled regime. Controlled categories need an export licence; which licence depends on the regime. Your competent authority decides whether your product is controlled.",
+     "requirement": "REQ-EXPORT",
+     "rule": "G-EXPORT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2021/821, Article 3(1)",
+      "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Export licence"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This applies to Spanish exporters of controlled items only.",
+     "requirement": "REQ-REOCE",
+     "rule": "G-REOCE",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "DefenceGate technical appendix, Spain export control",
+      "text": "[DefenceGate technical appendix, Spain export control] exporters must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents.",
+      "url": "https://comercio.gob.es/",
+      "verificationStatus": "V"
+     },
+     "title": "REOCE registration (Spanish exporters)"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This applies to Spanish companies that handle classified information.",
+     "requirement": "REQ-FSC-ES",
+     "rule": "G-HSEM",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "DefenceGate technical appendix, Facility and personnel security clearance",
+      "text": "[DefenceGate technical appendix, Facility and personnel security clearance] Facility clearance is called HSEM (Habilitación de Seguridad de Empresa). ONS maps it directly to the international FSCIS (Facility Security Clearance Information Sheet).",
+      "url": "https://www.cni.es/oficina-nacional-de-seguridad",
+      "verificationStatus": "V"
+     },
+     "title": "Facility security clearance (Spain)"
+    },
+    {
+     "asks": [],
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This applies to companies that handle classified information.",
+     "requirement": null,
+     "rule": "G-CLASSIFIED-OTHER",
+     "source": {
+      "lastReviewed": "2026-09-07",
+      "origin": "notes",
+      "ref": "DefenceGate technical appendix, Facility and personnel security clearance; Ukraine requirements path",
+      "text": "[DefenceGate technical appendix, Facility and personnel security clearance] NSA and DSA contacts for other member states were not collected.",
+      "url": "https://www.cni.es/oficina-nacional-de-seguridad",
+      "verificationStatus": "U"
+     },
+     "title": "Facility security clearance (other countries)"
+    }
+   ],
+   "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+   "summary": "Export control, exporter registration and facility security clearance depend on what you make and where you sell, not on the programme.",
+   "verdict": "eligible"
+  }
+ ],
+ "generatedAt": "2026-10-17T12:00:00+00:00",
+ "notice": "This is a structured reading of the rules of each programme, with the text of the regulation beside every line. It is not legal advice and it does not replace the call text or the contracting authority. The answers were not stored.",
+ "roadmap": {
+  "label": "vendor range, not a benchmark",
+  "steps": [
+   {
+    "blockingFor": [
+     "EDF",
+     "EDIP",
+     "EDIP-USI"
+    ],
+    "branchNote": null,
+    "category": "registration",
+    "code": "REQ-PIC",
+    "cost": {
+     "alt": null,
+     "basis": "free",
+     "currency": null,
+     "label": null,
+     "max": 0,
+     "min": 0,
+     "text": "Free"
+    },
+    "days": {
+     "max": 0,
+     "min": 0,
+     "note": null,
+     "text": "Immediate on completing the registration wizard"
+    },
+    "issuerNote": null,
+    "issuers": [
+     {
+      "country": "*",
+      "name": "European Commission, EU Funding and Tenders Portal (Participant Register)",
+      "notes": "Same for every country. An EU Login account is needed.",
+      "status": "V",
+      "url": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register"
+     }
+    ],
+    "lastReviewed": "2026-09-07",
+    "name": "PIC (Participant Identification Code)",
+    "neededFor": [
+     {
+      "programme": "EDF",
+      "rule": "EDF-PIC",
+      "title": "PIC registered on the Funding and Tenders Portal"
+     },
+     {
+      "programme": "EDIP",
+      "rule": "EDIP-PIC",
+      "title": "PIC registered on the Funding and Tenders Portal"
+     },
+     {
+      "programme": "EDIP-USI",
+      "rule": "USI-PIC",
+      "title": "PIC registered on the Funding and Tenders Portal"
+     }
+    ],
+    "optional": false,
+    "order": 1,
+    "parallelWith": [
+     2,
+     3,
+     4,
+     5
+    ],
+    "prerequisites": [],
+    "sourceUrl": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
+    "status": "not_held",
+    "summary": "A nine-digit code issued when an organisation registers on the EU Funding and Tenders Portal. Free and immediate. Needed to apply for EDF and EDIP funding.",
+    "variantUsed": null,
+    "verificationStatus": "V",
+    "when": null
+   },
+   {
+    "blockingFor": [
+     "NATO-SUPPLY"
+    ],
+    "branchNote": null,
+    "category": "identification",
+    "code": "REQ-NCAGE",
+    "cost": {
+     "alt": null,
+     "basis": "free",
+     "currency": null,
+     "label": null,
+     "max": 0,
+     "min": 0,
+     "text": "Free of charge (NSPA)"
+    },
+    "days": {
+     "max": 20,
+     "min": 5,
+     "note": "Working days are converted to calendar days at 7/5 and rounded up: 3 working days is 5 calendar days and 14 working days is 20.",
+     "text": "Up to 14 working days on average; routine priority is 10 calendar days, emergency is 3 working days"
+    },
+    "issuerNote": null,
+    "issuers": [
+     {
+      "country": "UA",
+      "name": "National Codification Bureau of Ukraine, Ministry of Defence",
+      "notes": "Ukraine is in the NATO Codification System at Tier 2 and has run its own codification, feeding the international catalogue, since 2019. UNVERIFIED: the official Ukrainian-language name of the bureau was not confirmed.",
+      "status": "V",
+      "url": null
+     }
+    ],
+    "lastReviewed": "2026-09-07",
+    "name": "NCAGE code",
+    "neededFor": [
+     {
+      "programme": "NATO-SUPPLY",
+      "rule": "NATO-NCAGE",
+      "title": "NCAGE code"
+     }
+    ],
+    "optional": false,
+    "order": 2,
+    "parallelWith": [
+     1,
+     3,
+     4,
+     5
+    ],
+    "prerequisites": [],
+    "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
+    "status": "not_held",
+    "summary": "A five-character entity identifier from the NATO codification system. Needed for NATO and NSPA supply and for stock numbers. Free of charge.",
+    "variantUsed": null,
+    "verificationStatus": "V",
+    "when": null
+   },
+   {
+    "blockingFor": [],
+    "branchNote": null,
+    "category": "export_control",
+    "code": "REQ-EXPORT",
+    "cost": null,
+    "days": null,
+    "issuerNote": "The body that issues this has not been collected for your country.",
+    "issuers": [],
+    "lastReviewed": "2026-10-17",
+    "name": "Export licence for dual-use or military items",
+    "neededFor": [
+     {
+      "programme": "GENERAL",
+      "rule": "G-EXPORT",
+      "title": "Export licence"
+     }
+    ],
+    "optional": false,
+    "order": 3,
+    "parallelWith": [
+     1,
+     2,
+     4,
+     5
+    ],
+    "prerequisites": [],
+    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+    "status": "not_held",
+    "summary": "An authorisation to export items in a controlled category. Which licence depends on whether the item is in the dual-use regime or the military regime.",
+    "variantUsed": null,
+    "verificationStatus": "V",
+    "when": null
+   },
+   {
+    "blockingFor": [],
+    "branchNote": null,
+    "category": "quality",
+    "code": "REQ-ISO9001",
+    "cost": null,
+    "days": null,
+    "issuerNote": "The body that issues this has not been collected for your country.",
+    "issuers": [],
+    "lastReviewed": "2026-09-07",
+    "name": "ISO 9001 quality management certificate",
+    "neededFor": [
+     {
+      "programme": "",
+      "rule": "",
+      "title": "Comes before AQAP 2110 quality assurance certification"
+     }
+    ],
+    "optional": true,
+    "order": 4,
+    "parallelWith": [
+     1,
+     2,
+     3
+    ],
+    "prerequisites": [],
+    "sourceUrl": "https://www.iso.org/standard/62085.html",
+    "status": "not_held",
+    "summary": "The general quality management standard. AQAP 2110 contains all of ISO 9001:2015, so holding it makes the AQAP path shorter and cheaper.",
+    "variantUsed": null,
+    "verificationStatus": "S",
+    "when": "when a contract names it"
+   },
+   {
+    "blockingFor": [],
+    "branchNote": "Starting from zero without ISO 9001 adds roughly 30-40 % to the budget and 1-2 months.",
+    "category": "quality",
+    "code": "REQ-AQAP2110",
+    "cost": {
+     "alt": {
+      "currency": "EUR",
+      "max": 44200,
+      "min": 15700,
+      "text": "about EUR 15,700-44,200, as converted in the research notes"
+     },
+     "basis": "vendor_range",
+     "currency": "USD",
+     "label": "vendor range, not a benchmark",
+     "max": 48000,
+     "min": 17000,
+     "text": "USD 17,000-48,000 for a full cycle at a firm of 30-80 employees (vendor quote)"
+    },
+    "days": {
+     "max": 240,
+     "min": 90,
+     "note": "Months are counted as 30 days.",
+     "text": "3-8 months"
+    },
+    "issuerNote": null,
+    "issuers": [
+     {
+      "country": "UA",
+      "name": "Commercial and partner certification bodies, for example Ekontrol (a Bureau Veritas partner)",
+      "notes": "Several bodies operate; Ekontrol is one.",
+      "status": "S",
+      "url": null
+     }
+    ],
+    "lastReviewed": "2026-09-07",
+    "name": "AQAP 2110 quality assurance certification",
+    "neededFor": [
+     {
+      "programme": "EDF",
+      "rule": "EDF-AQAP",
+      "title": "AQAP quality certification"
+     },
+     {
+      "programme": "EDIP",
+      "rule": "EDIP-AQAP",
+      "title": "AQAP quality certification"
+     },
+     {
+      "programme": "EDIP-USI",
+      "rule": "USI-AQAP",
+      "title": "AQAP quality certification"
+     },
+     {
+      "programme": "SAFE",
+      "rule": "SAFE-AQAP",
+      "title": "AQAP quality certification"
+     },
+     {
+      "programme": "NATO-SUPPLY",
+      "rule": "NATO-AQAP",
+      "title": "AQAP quality certification"
+     }
+    ],
+    "optional": true,
+    "order": 5,
+    "parallelWith": [
+     1,
+     2,
+     3
+    ],
+    "prerequisites": [
+     {
+      "code": "REQ-ISO9001",
+      "name": "ISO 9001 quality management certificate",
+      "relation": "before",
+      "status": "not_held",
+      "step": 4
+     }
+    ],
+    "sourceUrl": "https://nso.nato.int/",
+    "status": "not_held",
+    "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",
+    "variantUsed": null,
+    "verificationStatus": "S",
+    "when": "when a contract names it"
+   }
+  ],
+  "totals": {
+   "cost": [],
+   "days": {
+    "max": 20,
+    "min": 5
+   },
+   "freeSteps": [
+    "REQ-PIC",
+    "REQ-NCAGE"
+   ]
+  },
+  "totalsWithOptional": {
+   "cost": [
+    {
+     "currency": "USD",
+     "max": 48000,
+     "min": 17000,
+     "steps": [
+      "REQ-AQAP2110"
+     ]
+    }
+   ],
+   "days": {
+    "max": 240,
+    "min": 90
+   },
+   "freeSteps": [
+    "REQ-PIC",
+    "REQ-NCAGE"
+   ]
+  },
+  "tracks": [
+   [
+    "REQ-PIC"
+   ],
+   [
+    "REQ-NCAGE"
+   ],
+   [
+    "REQ-EXPORT"
+   ],
+   [
+    "REQ-ISO9001",
+    "REQ-AQAP2110"
+   ]
+  ],
+  "unknownCost": [
+   "REQ-EXPORT"
+  ],
+  "unknownDuration": [
+   "REQ-EXPORT"
+  ]
+ },
+ "rulesReviewed": "2026-10-17"
+}
