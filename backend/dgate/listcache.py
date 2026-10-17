@@ -15,7 +15,19 @@ from typing import Any
 _SCALARS = (str, int, float, bool, date, datetime, type(None))
 
 
-def cache_list(name: str, ttl: float | None = None):
+SNAPSHOT_HOURS = 8       # a snapshot older than this is ignored (the worker renews them every 4 hours)
+
+
+def snapshot_key(name: str, kwargs: dict[str, Any]) -> str:
+    """The key of a pre-computed response (`list_snapshot`): the endpoint's name and its
+    normalised arguments, the connection left out. The worker (`ops/warm_lists`) and the API
+    must build it the same way, so it is built here."""
+    return name + "?" + "&".join(
+        f"{k}={(v is True) if k == 'with_meta' else v}"
+        for k, v in sorted(kwargs.items()) if k != "conn")
+
+
+def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
     """Wrap a list endpoint's function: the whole response is kept for `ttl` seconds
     (`DGATE_LIST_CACHE_SECONDS`, 60; 0 turns it off, as in the test suite) under the normalised arguments, everything but the connection,
     so one query is computed once a minute whoever asks, concurrent askers share the
@@ -26,9 +38,14 @@ def cache_list(name: str, ttl: float | None = None):
 
     FastAPI reads the query parameters from the signature and resolves the stringified
     annotations in the function's own globals: the wrapper is therefore rebuilt on the
-    endpoint's globals, or `date | None` would be looked up in this module."""
+    endpoint's globals, or `date | None` would be looked up in this module.
+
+    `snapshot=True`: when the memory has no answer, a response the worker pre-computed
+    (`list_snapshot`, at most `SNAPSHOT_HOURS` old) is used before the query is run. The
+    original function stays at `.__wrapped__` for the worker."""
     def wrap(fn):
-        scalars = _SCALARS            # a free variable: `inner` is rebuilt on other globals
+        # Free variables: `inner` is rebuilt on the endpoint's globals, not this module's.
+        scalars, key_of, hours = _SCALARS, snapshot_key, SNAPSHOT_HOURS
 
         def inner(*args: Any, **kwargs: Any):
             from . import stats
@@ -36,12 +53,29 @@ def cache_list(name: str, ttl: float | None = None):
 
             default = settings().list_cache_seconds
             size = kwargs.get("pageSize", kwargs.get("limit"))
-            if args or not isinstance(size, int) or size > stats.LIST_MAX_PAGE:
+            # No size at all (the scope counts) is a small answer, and is kept.
+            if args or (size is not None and (not isinstance(size, int) or size > stats.LIST_MAX_PAGE)):
                 return fn(*args, **kwargs)
+
+            def compute():
+                conn = kwargs.get("conn")
+                if snapshot and default > 0 and hasattr(conn, "execute"):
+                    try:
+                        row = conn.execute(
+                            "SELECT body FROM list_snapshot WHERE key = %s "
+                            "AND computed_at > now() - make_interval(hours => %s)",
+                            (key_of(name, kwargs), hours)).fetchone()
+                    except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+                        conn.rollback()
+                        row = None
+                    if row:
+                        return row["body"]
+                return fn(*args, **kwargs)
+
             frozen = tuple(sorted(
                 (k, (v is True) if k == "with_meta" else v if isinstance(v, scalars) else repr(v))
                 for k, v in kwargs.items() if k != "conn"))
-            return stats.cached((name, frozen), lambda: fn(*args, **kwargs),
+            return stats.cached((name, frozen), compute,
                                 0 if default <= 0 else (default if ttl is None else ttl),
                                 store=stats._list_cache, limit=stats.LIST_CACHED)
 

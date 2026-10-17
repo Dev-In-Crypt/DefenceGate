@@ -390,6 +390,26 @@ def job_buyer_families() -> JobResult:
     return result
 
 
+def job_warm_lists() -> JobResult:
+    """Every four hours: pre-compute the slow tender views (closed and all, every country, the
+    first pages, and the scope counts) into `list_snapshot` (ops/warm_lists.py). The API reads
+    a row by key before it runs the query. About ten minutes of one core; derived data only."""
+    counts: dict[str, int] = {}
+
+    def _run() -> None:
+        from .ops import warm_lists
+
+        with db.connect(settings().dsn) as conn:
+            counts.update(warm_lists.run(conn, write=True))
+        log.info("warm lists: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
+        if counts.get("failed"):
+            raise RuntimeError(f"{counts['failed']} views failed")
+
+    result = run_job("warm_lists", _run)
+    result.detail = result.detail or ", ".join(f"{k} {v}" for k, v in counts.items())
+    return result
+
+
 def job_requalify() -> JobResult:
     """Weekly: insert the notices the classifier dropped at ingest and the rules now qualify.
 
@@ -932,6 +952,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "alerts": job_alerts,
     "link-twins": job_link_twins,
     "buyer-families": job_buyer_families,
+    "warm-lists": job_warm_lists,
     "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
@@ -990,6 +1011,9 @@ def build_scheduler():
     sched.add_job(job_buyer_families,
                   CronTrigger(hour=(cfg.twins_hour + 1) % 24, minute=cfg.twins_minute),
                   id="buyer_families_daily", max_instances=1, misfire_grace_time=3600)
+    # Four-hourly, away from the ingests' hours by the slot: the snapshots are good for eight.
+    sched.add_job(job_warm_lists, CronTrigger(hour="1,5,9,13,17,21", minute=50),
+                  id="warm_lists", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_requalify,
                   CronTrigger(day_of_week="sun", hour=cfg.requalify_hour, minute=0),
                   id="requalify_weekly", max_instances=1, misfire_grace_time=7200)

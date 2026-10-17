@@ -790,7 +790,7 @@ def _confidence_levels(text: str | None) -> list[str]:
 
 
 @router.get("/v1/tenders", response_model=TenderPage)
-@cache_list("tenders", ttl=5 * 60)
+@cache_list("tenders", ttl=5 * 60, snapshot=True)
 def list_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -900,7 +900,7 @@ class ScopeCounts(BaseModel):
 
 
 @router.get("/v1/tenders/scope-counts", response_model=ScopeCounts)
-@cache_list("tender-scope-counts", ttl=5 * 60)
+@cache_list("tender-scope-counts", ttl=5 * 60, snapshot=True)
 def tender_scope_counts(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
