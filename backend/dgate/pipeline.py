@@ -2487,6 +2487,13 @@ def main(argv: list[str] | None = None) -> int:
     ed.add_argument("--reread", action="store_true",
                     help="fetch files read in the last 25 days again (the site rate-limits)")
 
+    aw = sub.add_parser("awards", help="read the winners of the TED result notices we hold (the supplier "
+                                        "map; asks TED by publication number, once per notice)")
+    aw.add_argument("--since", type=date.fromisoformat, default=None,
+                    help="only notices published from this day (default 2023-01-01)")
+    aw.add_argument("--limit", type=int, default=None,
+                    help="read at most this many notices; a rehearsal, the rest wait for the next run")
+
     qc = sub.add_parser("resolution-candidates",
                         help="stage 3 for organisations already held: trigram candidates into the "
                              "review queue (resumable)")
@@ -2581,6 +2588,11 @@ def main(argv: list[str] | None = None) -> int:
 
         networks.run_edf(years=set(a.year) if a.year else None, max_files=a.max_files,
                          reread=a.reread)
+    elif a.cmd == "awards":
+        from . import awards
+
+        kw = {"since": a.since} if a.since else {}
+        print(dict(awards.run_awards(limit=a.limit, **kw)))
     elif a.cmd == "resolution-candidates":
         from . import networks
 

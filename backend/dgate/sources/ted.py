@@ -50,6 +50,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -294,6 +295,47 @@ def count(query: str, *, client: httpx.Client | None = None) -> int:
         data = _post(client, {"query": query, "fields": ["publication-number"], "page": 1,
                               "limit": 1, "scope": "ALL"})
         return int(data.get("totalNoticeCount") or data.get("total") or 0)
+    finally:
+        if owns_client:
+            client.close()
+
+
+# The winners of a result notice (WP-37, the supplier map). The raw payloads of the daily pull do not carry them
+# (TED_FIELDS above has no winner field), so the supplier loader asks for them by publication number.
+#   organisation-name-tenderer / -country-tenderer / -identifier-tenderer  one entry per organisation of
+#       the notice's tendering parties, in the same order (measured 18 October 2026: a legal form and a
+#       country agree for 99.0 % of 1,226 name/country pairs; `winner-name` against `winner-country` agree
+#       for 81 % in notices with several winners, so the winner fields must not be zipped)
+#   winner-name   the name of the winning organisation, once per lot; it says WHICH tenderers won
+#                 (every winner name is among the tenderers: 30,632 of 30,632 notices measured)
+AWARD_FIELDS = [
+    "publication-number",
+    "winner-name",
+    "organisation-name-tenderer",
+    "organisation-country-tenderer",
+    "organisation-identifier-tenderer",
+]
+AWARD_BATCH = 100        # "a hundred numbers answer in one request" (module docstring)
+PUBLICATION_NUMBER = re.compile(r"\d{1,9}-\d{4}")      # 633131-2026; nothing else goes into a query
+
+
+def fetch_by_numbers(numbers: list[str], fields: list[str] | None = None, *,
+                     client: httpx.Client | None = None) -> dict[str, dict[str, Any]]:
+    """The records of up to a hundred publication numbers, by number. A number TED does not
+    know is simply absent from the answer."""
+    if not numbers:
+        return {}
+    if len(numbers) > AWARD_BATCH:
+        raise ValueError(f"at most {AWARD_BATCH} publication numbers per request")
+    if not all(PUBLICATION_NUMBER.fullmatch(n) for n in numbers):
+        raise ValueError("not a publication number")        # the query is built from them: no other text
+    owns_client = client is None
+    client = client or new_client(headers={"User-Agent": USER_AGENT})
+    try:
+        query = "publication-number IN (" + " ".join(numbers) + ")"
+        data = _post(client, {"query": query, "fields": fields or AWARD_FIELDS, "page": 1,
+                              "limit": len(numbers), "scope": "ALL"})
+        return {_number(n): n for n in (data.get("notices") or data.get("results") or [])}
     finally:
         if owns_client:
             client.close()

@@ -939,6 +939,12 @@ from .network_api import router as _network_router  # noqa: E402
 app.include_router(_network_router)
 
 
+# The supplier map (suppliers.py, WP-37): winners of the TED result notices of the core scope.
+from .suppliers import router as _suppliers_router  # noqa: E402
+
+app.include_router(_suppliers_router)
+
+
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):
     """The 422 for a refused request, on every route: where it was wrong and why, never what was

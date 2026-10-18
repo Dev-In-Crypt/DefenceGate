@@ -5,7 +5,7 @@
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
 import { headers } from 'next/headers';
-import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
@@ -46,6 +46,7 @@ export function isCallSlug(slug: string): boolean {
 }
 export const isTenderSlug = isCallSlug;
 export const isBuyerSlug = isCallSlug;
+export const isSupplierSlug = isCallSlug;
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -309,6 +310,37 @@ export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<B
     return httpOrThrow<Paginated<Buyer>>(`/v1/buyers${buyersQuery(filters)}`, toBuyerQuery(filters) === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
   }
   return tenderMock.queryBuyers(filters);
+}
+
+const SUPPLIER_PAGE_SIZE = 20;
+
+/** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is empty: there is no mock supplier. */
+export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem>> {
+  if (!API_BASE) return { items: [], total: 0, page: 1, pageSize: SUPPLIER_PAGE_SIZE };
+  const p = new URLSearchParams();
+  if (f.q) p.set('q', f.q);
+  if (f.country) p.set('country', f.country);
+  if (f.cpv) p.set('cpv', f.cpv);
+  if (f.sort && f.sort !== 'awards') p.set('sort', f.sort);
+  if (f.page && f.page > 1) p.set('page', String(f.page));
+  const filtered = p.size > 0;
+  p.set('pageSize', String(f.pageSize ?? SUPPLIER_PAGE_SIZE));
+  return httpOrThrow<Paginated<SupplierItem>>(`/v1/suppliers?${p.toString()}`, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS);
+}
+
+/** The public aggregate (GET /v1/suppliers/summary). null when the API has no supplier map yet. */
+export async function getSupplierSummary(): Promise<SupplierSummary | null> {
+  if (!API_BASE) return null;
+  try {
+    return await http<SupplierSummary>('/v1/suppliers/summary', 'revalidate', DETAIL_REVALIDATE_SECONDS);
+  } catch {
+    return null;
+  }
+}
+
+export async function getSupplier(slug: string): Promise<Supplier | null> {
+  if (!isSupplierSlug(slug) || !API_BASE) return null;
+  return http<Supplier>(`/v1/suppliers/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
 }
 
 export async function getBuyer(slug: string): Promise<Buyer | null> {

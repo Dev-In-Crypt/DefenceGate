@@ -106,6 +106,21 @@ The worker reads the call documents of EU funding calls (public PDFs of the Comm
 | `digest_issue`, `list_snapshot` | the weekly digest issues and pre-computed list pages, built from the public serving rows (titles, buyers, dates). They hold what the serving rows held at the time; a removal on request deletes them in the same transaction and the digest is rebuilt (WP-34 C1, C2) | speed; the digest archive | replaceable |
 
 **Processor: OpenAI** (`api.openai.com`, Responses API, `store: false`). The only data sent is the cleaned text of a public call document or topic text and the instructions; no visitor, account or request data is ever sent. The key is held by the worker only. Whether a data processing agreement, the provider's retention terms and a transfer mechanism for the United States are in place is for the owner and the lawyer to confirm; this file does not decide it. The privacy notice names the processor (draft wording of 17 October 2026, awaiting approval: `docs/legal/versions/privacy-v1.5-2026-10-17.md`).
+## Supplier map (WP-37, 18 October 2026)
+
+| Where | What | Why | Retention |
+|---|---|---|---|
+| `award`, `award_notice` | per TED result notice of the core scope: the winning organisation (name as the buyer published it, country, registration number as published), the notice it won and how the organisation was found. Counts of the winners left out (natural persons, no country). No contact, no person | the supplier map | rows are never deleted by the loader; a removal request is handled through `suppression` (kind organisation or notice) |
+| `organisation` (new rows), `organisation_alias` | the legal name, country and registration number of every winner | the same | as for the participation graph above |
+| Raw store `ted_awards/` | the winner fields of each result notice as TED returned them, **with the entries of natural persons blanked** (`[natural person]`, their number removed) before the record is landed | replay without refetching | as the rest of the raw store |
+
+A winner that looks like a natural person (a sole trader under their own name, a Polish trading name that ends in the
+owner's name, an "e.K.") is skipped by `dgate/awards.py: person_reason` and written nowhere. It is a rule on names:
+measured on 18 October 2026, of 5,997 distinct core-scope names 184 were skipped (about two thirds of those read by
+hand were persons) and about 0.8 % of the rest are probably still a person (`docs/design/SUPPLIER_MAP_FEASIBILITY.md`,
+section 3). The public pages say how to ask for a removal. Winners are public in TED; the map adds that they are
+collected per company, which is why the aggregate publishes no group of fewer than three suppliers and the pages carry
+no ranking, share or total.
 
 ## Who can read it
 

@@ -23,7 +23,7 @@ os.environ.setdefault("DGATE_LIST_CACHE_SECONDS", "0")
 # The nightly completeness control asks the portals for their day totals: never from tests.
 os.environ.setdefault("DGATE_COMPLETENESS_CHECK", "0")
 
-TABLES = """compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
+TABLES = """award, award_notice, compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
             call, raw_ingest, ingest_run,
             app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check,
