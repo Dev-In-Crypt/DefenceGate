@@ -877,6 +877,12 @@ from .readiness.api import router as _readiness_router  # noqa: E402
 
 app.include_router(_readiness_router)
 
+# Layer 2 for the user (network_api.py): organisations, projects, analytics. After `resolve` above, so that
+# `/v1/organisations/resolve` is not taken for a slug.
+from .network_api import router as _network_router  # noqa: E402
+
+app.include_router(_network_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

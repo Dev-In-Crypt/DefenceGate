@@ -11,7 +11,7 @@ import { SortSelect } from '../funding/filter-panel';
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], children,
+  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, children,
 }: {
   crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
   /** Rendered under the filters (the save-search island). */
@@ -26,6 +26,8 @@ export function ListPage({
   footnote?: string;
   /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
   notices?: string[];
+  /** The total as words when it is not an exact count ("10,000 or more"). */
+  totalText?: string;
   children: React.ReactNode;
 }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -51,7 +53,7 @@ export function ListPage({
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
-              {total === 0 ? `No ${noun}` : `Showing ${from}–${to} of ${total} ${noun}`}
+              {total === 0 ? `No ${noun}` : `Showing ${from}–${to} of ${totalText ?? total} ${noun}`}
             </Count>
             <SortSelect value={sort.value} options={sort.options} />
           </div>
