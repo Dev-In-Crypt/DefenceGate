@@ -658,3 +658,45 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
 A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input. The limiter charges
 three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
 content policy allows connections to the site only); the verdict is the only thing that leaves the browser.
+
+## Supplier map (WP-37, 18 October 2026)
+
+Public, no account. The winners named in TED result notices of the **core scope** (defence-qualified and
+`sig_legal_basis` or a military, non-dual-use CPV; the same definition as the rest of the site), from 2023, loaded by
+`python -m dgate.pipeline awards`. An award is a (notice, organisation) pair. Natural persons are not in it. A notice
+or organisation removed on request (`suppression`) is out of every answer; an organisation removed answers 410 on its
+own address. Feasibility and numbers: `docs/design/SUPPLIER_MAP_FEASIBILITY.md`.
+
+`GET /v1/suppliers?q=&country=&cpv=&sort=awards|name&page=&pageSize=` returns `{ items, total, page, pageSize }`;
+`country` is the supplier's country (comma-separated codes), `cpv` a prefix of the notice's main CPV (comma-separated),
+`q` words that begin a word of the normalised or the stated name. An item:
+
+    { id, slug, name, country, awardCount, firstYear, lastYear, cpvDivisions: ["33", "35"] }
+
+`awardCount` is the number of distinct notices. `name` is the spelling most notices use. Cached five minutes.
+
+`GET /v1/suppliers/summary` is the public aggregate:
+
+    { kMin: 3, since, noticesRead, noticesWithSupplier, suppliers, awards, skippedNaturalPersons,
+      firstPublished, lastPublished,
+      byCpv: [{ key: "35", suppliers, awards }], byCountry: [{ key: "DE", suppliers, awards }],
+      cells: [{ division, country, suppliers, awards }], suppressedGroups, coverage }
+
+A group (a CPV division, a country, a division within a country) with fewer than `kMin` suppliers is **not
+published**; `suppressedGroups` counts the groups held back. No supplier name is in the summary. `coverage` is the
+sentence every page must carry: TED holds only part of European defence spending (a 2025 ECIPE brief says about a tenth; not re-checked), and this map is the open
+segment.
+
+`GET /v1/suppliers/{slug}` (slug `<id>-<words>`): the item above and
+
+    { byYear: [{ year, awards }], byCpv: [{ division, awards }],
+      buyers: [{ slug, name, country, awards }],            (links to /buyers/{slug}; a buyer withheld on request is absent)
+      notices: [{ id, slug, noticeId, title, buyerName, buyerCountry, publishedAt, cpv, winnersInNotice,
+                  valueAmount, valueCurrency, sourceUrl }],   (the latest 50, newest first; slug links to /tenders/{slug})
+      noticeCount, namesAsStated, identifiers, attribution }
+
+`valueAmount` is set only when `winnersInNotice` is 1 and the notice states a total or a sum of lots above the
+placeholder amount; otherwise it is null (a value shared by several winners belongs to none). There is no total
+per supplier, no share, no rank and no "single source" flag, on purpose (the mosaic effect: the module docstring of
+`dgate/suppliers.py`). 404 for an unknown supplier or a malformed slug, 410 for one removed on request.
+

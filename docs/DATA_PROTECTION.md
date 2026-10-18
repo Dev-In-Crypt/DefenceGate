@@ -89,6 +89,22 @@ the first feature that stores anything new.
 
 The readiness check asks a company about its country, ownership and control, products and certificates. **None of it is stored or logged by the server.** The answers live in the visitor's browser (localStorage, `dg.profile.v1`). The verdict is computed by `POST /v1/readiness/assess`, which receives them in the body, keeps no copy, opens no write (it runs under the read-only API role; a test asserts it) and logs nothing of the body (a test asserts that too; the proxy's request log holds the address and the path, not a POST body). The company name and size entered in the wizard are not part of the request. A profile can say who owns a company, so it is treated as private even though it is not personal data of a natural person. The tables `requirement`, `requirement_issuer`, `requirement_prerequisite`, `readiness_programme` and `programme_requirement` hold public regulatory content only: no personal data and no contact details (a test checks the seed file for e-mail addresses).
 
+## Supplier map (WP-37, 18 October 2026)
+
+| Where | What | Why | Retention |
+|---|---|---|---|
+| `award`, `award_notice` | per TED result notice of the core scope: the winning organisation (name as the buyer published it, country, registration number as published), the notice it won and how the organisation was found. Counts of the winners left out (natural persons, no country). No contact, no person | the supplier map | rows are never deleted by the loader; a removal request is handled through `suppression` (kind organisation or notice) |
+| `organisation` (new rows), `organisation_alias` | the legal name, country and registration number of every winner | the same | as for the participation graph above |
+| Raw store `ted_awards/` | the winner fields of each result notice as TED returned them, **with the entries of natural persons blanked** (`[natural person]`, their number removed) before the record is landed | replay without refetching | as the rest of the raw store |
+
+A winner that looks like a natural person (a sole trader under their own name, a Polish trading name that ends in the
+owner's name, an "e.K.") is skipped by `dgate/awards.py: person_reason` and written nowhere. It is a rule on names:
+measured on 18 October 2026, of 5,997 distinct core-scope names 184 were skipped (about two thirds of those read by
+hand were persons) and about 0.8 % of the rest are probably still a person (`docs/design/SUPPLIER_MAP_FEASIBILITY.md`,
+section 3). The public pages say how to ask for a removal. Winners are public in TED; the map adds that they are
+collected per company, which is why the aggregate publishes no group of fewer than three suppliers and the pages carry
+no ranking, share or total.
+
 ## Who can read it
 
 The API and worker service roles (`dgate_api`, `dgate_worker`), the owner on the host,

@@ -877,6 +877,11 @@ from .readiness.api import router as _readiness_router  # noqa: E402
 
 app.include_router(_readiness_router)
 
+# The supplier map (suppliers.py, WP-37): winners of the TED result notices of the core scope.
+from .suppliers import router as _suppliers_router  # noqa: E402
+
+app.include_router(_suppliers_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

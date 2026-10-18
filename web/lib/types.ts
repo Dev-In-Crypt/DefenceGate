@@ -685,3 +685,59 @@ export interface Dashboard {
   shortlist: { counts: Partial<Record<ShortlistStatus, number>>; items: ShortlistItem[] };
   pulse: DashboardPulse | null;
 }
+
+/** The supplier map (GET /v1/suppliers, docs/design/API_CONTRACT.md): winners named in TED result notices of the core scope. */
+export interface SupplierItem {
+  id: string;
+  slug: string;
+  name: string;
+  country: string;
+  awardCount: number;
+  firstYear: number | null;
+  lastYear: number | null;
+  /** CPV divisions (two digits) of the notices the supplier won. */
+  cpvDivisions: string[];
+}
+export interface SupplierNotice {
+  id: string;
+  slug: string;
+  noticeId: string;
+  title: string;
+  buyerName: string | null;
+  buyerCountry: string | null;
+  publishedAt: IsoDateTime | null;
+  cpv: string | null;
+  /** How many winners the notice names; a value is stated only where this is 1. */
+  winnersInNotice: number;
+  valueAmount: number | null;
+  valueCurrency: string | null;
+  sourceUrl: string | null;
+}
+export interface Supplier extends SupplierItem {
+  byYear: { year: number; awards: number }[];
+  byCpv: { division: string; awards: number }[];
+  buyers: { slug: string; name: string; country: string | null; awards: number }[];
+  notices: SupplierNotice[];
+  noticeCount: number;
+  namesAsStated: string[];
+  identifiers: string[];
+  attribution: string;
+}
+export interface SupplierFilters { q?: string; country?: string; cpv?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
+export interface SupplierSummary {
+  /** A group of fewer suppliers than this is not published. */
+  kMin: number;
+  since: string;
+  noticesRead: number;
+  noticesWithSupplier: number;
+  suppliers: number;
+  awards: number;
+  skippedNaturalPersons: number;
+  firstPublished: IsoDateTime | null;
+  lastPublished: IsoDateTime | null;
+  byCpv: { key: string; suppliers: number; awards: number }[];
+  byCountry: { key: string; suppliers: number; awards: number }[];
+  cells: { division: string; country: string; suppliers: number; awards: number }[];
+  suppressedGroups: number;
+  coverage: string;
+}
