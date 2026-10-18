@@ -131,11 +131,12 @@ second, the connector's User-Agent):
 * The open data is **older than the pages**: JOANNEUM (238600) 1,652,264.59 and Granada (241820) 165,312.96 were amended on
   the site (1,823,370.98 and 182,596.14; the service's own project total of 241820 is the old figure too). Not a loader
   defect; the age of the copy is the limit (`Coverage`, above).
-* A project whose participants' amounts add up to **more than its EU contribution** (38 projects on 17 October: ERC grants
+* A project whose participants' amounts add up to **more than its EU contribution** (33 projects on 17 October: ERC grants
   that moved between two hosts and are paid to both in full, grants amended after the payment was recorded) cannot be
   right in every row and the data does not say which. Every positive amount of such a project is withheld (`NULL`, note
-  `exceeds_project_total`), the figure as stated is kept in `participation.contribution_stated`; a rounding of one euro per
-  participant is not an excess. 612 amounts, 18 of them a coordinator carrying the whole project.
+  `exceeds_project_total`), the figure as stated is kept in `participation.contribution_stated`. One euro per participant (CORDIS
+  rounds) and 2 per cent of the project total (an amendment moves a few thousand euro) are not an excess. 391 amounts, EUR 889.8 M
+  of 141.2 bn, 18 of them a coordinator carrying the whole project; 278 of the 391 are in five projects.
 
 `participation.contribution` is therefore "EUR the service pays to this participant, gross of its linked third parties,
 `NULL` = unknown"; the column comment and migration 0086 say the same, `contribution_note` is a closed list. The directory
