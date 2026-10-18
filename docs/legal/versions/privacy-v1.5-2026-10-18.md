@@ -1,8 +1,8 @@
-Static copy of the privacy text, version 1.5, 2026-10-17. DRAFT WORDING (WP-34, branch wp-wp34): extracted from the page source; not approved by the operator or a lawyer, not yet published. Until it is published it may be edited together with the page; once published it is never edited.
+Static copy of the privacy text, version 1.5, published 18 October 2026 on the owner's instruction (taken from the page source of the commit that published it). It names OpenAI as a processor; a lawyer's review of this wording is item P7 in OPEN_ITEMS_FOR_LAWYER.md.
 
 # Privacy notice
 
-Version 1.5, published 17 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live.
+Version 1.5, published 18 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live.
 
 ## In short
 - Browsing needs no account and sets no cookie.
