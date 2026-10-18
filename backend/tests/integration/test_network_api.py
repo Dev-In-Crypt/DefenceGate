@@ -512,6 +512,9 @@ def test_consortium_gaps_finds_repeat_participants_who_never_partnered_with_the_
     assert alpha["partnerCountries"] == ["ES", "FR"]
     assert {p["acronym"] for p in alpha["recentProjects"]} == {"CHARLIE", "DELTAP"}
     assert "CYBER" in {a["code"] for a in body["areas"]} and "country of establishment" in body["definition"]
+    assert any("not a gap" in x for x in body["limits"])               # no Ukrainian is in any CYBER project: nobody is "missing" one
+    fr = client.get("/v1/analytics/consortium-gaps?programme=EDF&topic=CYBER&lacking=FR").json()
+    assert not any("not a gap" in x for x in fr["limits"])             # France does take part in them: this is a real filter
 
 
 def test_consortium_gaps_drops_whoever_did_partner_with_the_country(conn, client, world):
@@ -535,6 +538,7 @@ def test_consortium_gaps_by_topic_code_prefix_and_its_limits(client, world):
     assert {i["organisation"]["name"] for i in body["items"]} == {"BRAVO INGÉNIERIE SAS", "ECHO IBERICA SL"}
     assert client.get("/v1/analytics/consortium-gaps?programme=HORIZON").status_code == 422   # no topic for Horizon
     assert client.get("/v1/analytics/consortium-gaps?programme=HORIZON&topic=HORIZON-CL4").status_code == 200
+    assert client.get("/v1/analytics/consortium-gaps?topic=%25").json()["projectsInArea"] == 0   # a LIKE character is not a wildcard
     assert client.get("/v1/analytics/consortium-gaps?lacking=Ukraine").status_code == 422
     assert client.get("/v1/analytics/consortium-gaps?minProjects=1").status_code == 422
 

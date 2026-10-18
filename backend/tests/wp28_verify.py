@@ -66,7 +66,7 @@ def timings(client: TestClient) -> None:
     print(f"top={top} mid={mid} small={small} ua={ua} biggest_project={proj}")
     for u in urls:
         walls, cpus = [], []
-        for i in range(3):
+        for _ in range(3):
             d0, c0, t0 = _db_usec(), time.process_time(), time.perf_counter()
             r = client.get(u)
             walls.append((time.perf_counter() - t0) * 1000)
@@ -155,14 +155,19 @@ def gaps(client: TestClient) -> None:
 
 
 def edf(client: TestClient) -> None:
-    rows = sql("""SELECT organisation_id AS id, name, country, projects FROM organisation_network WHERE programmes @> '{EDF}'
-                  ORDER BY (SELECT count(DISTINCT pa.project_id) FROM participation pa JOIN project p ON p.id = pa.project_id
-                             JOIN programme pr ON pr.id = p.programme_id
-                            WHERE pr.code = 'EDF' AND pa.active AND pa.organisation_id IN (SELECT id FROM organisation WHERE id = organisation_id OR merged_into = organisation_id)) DESC
-                  LIMIT 10""")
+    rows = sql("""SELECT g.id, g.n AS edf_projects, COALESCE(o.display_name, o.canonical_name) AS name, o.country
+                    FROM (SELECT COALESCE(l.live_id, pa.organisation_id) AS id, count(DISTINCT pa.project_id) AS n
+                            FROM participation pa JOIN project p ON p.id = pa.project_id JOIN programme pr ON pr.id = p.programme_id
+                            LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
+                           WHERE pr.code = 'EDF' AND pa.active GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 10) g
+                    JOIN organisation o ON o.id = g.id ORDER BY g.n DESC, g.id""")
     for r in rows:
-        p = client.get(f"/v1/organisations/{r['id']}-x/partners?programme=EDF&pageSize=8").json()
-        print(f"{r['name'][:50]} ({r['country']}), partners in EDF: {p['total']}")
+        resp = client.get(f"/v1/organisations/{r['id']}-x/partners?programme=EDF&pageSize=8")
+        if resp.status_code != 200:
+            print(r["name"], "->", resp.status_code, resp.text[:120])
+            continue
+        p = resp.json()
+        print(f"{r['name'][:50]} ({r['country']}), {r['edf_projects']} EDF projects, partners in EDF: {p['total']} in {p['countries']} countries")
         for x in p["items"][:6]:
             print(f"     {x['organisation']['name'][:46]:46} {x['organisation']['country']} shared={x['shared']} {x['firstYear']}-{x['lastYear']}")
 

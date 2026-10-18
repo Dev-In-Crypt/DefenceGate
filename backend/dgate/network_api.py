@@ -447,7 +447,8 @@ def _partner_ctes(fam: list[int], live: int, programmes: list[str], countries: l
         SELECT {LIVE} AS org, mine.project_id, mine.yr, mine.prog
           FROM mine JOIN participation pa ON pa.project_id = mine.project_id AND pa.active
           LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
-         WHERE NOT (pa.organisation_id = ANY(%s)) AND {LIVE} <> %s AND NOT COALESCE(l.suppressed, FALSE)),
+         WHERE pa.project_id = ANY(ARRAY(SELECT project_id FROM mine))   -- steers the planner to the project index
+           AND NOT (pa.organisation_id = ANY(%s)) AND {LIVE} <> %s AND NOT COALESCE(l.suppressed, FALSE)),
     agg AS MATERIALIZED (
         SELECT org, count(DISTINCT project_id) AS shared, max(yr) AS last_year, min(yr) AS first_year,
                array_agg(DISTINCT prog) FILTER (WHERE prog IS NOT NULL) AS programmes
@@ -815,7 +816,8 @@ def consortium_gaps(
         raise _bad("topic: give a topic code prefix for a programme other than the EDF ones; the whole of "
                    "Horizon is not an area")
     lack = lacking.upper()
-    prm: dict[str, Any] = {"programmes": programmes, "topic": topic, "like": (topic or "") + "%"}
+    prm: dict[str, Any] = {"programmes": programmes, "topic": topic,
+                           "like": (topic or "").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"}
     area = conn.execute(
         f"""SELECT p.id, p.acronym, p.title, p.category, pr.code AS programme, {YEAR} AS year
               FROM project p JOIN programme pr ON pr.id = p.programme_id
@@ -870,7 +872,10 @@ def consortium_gaps(
                        "identify a consortium beyond the projects its members share."),
         "items": items,
         "areas": [{"code": a["code"], "projects": a["projects"]} for a in areas],
-        "limits": ["The EDF factsheets are read by a language model; a participant missed or misplaced would "
+        "limits": ([] if with_lack or not area else [
+            f"No project of this area has a participant established in {lack} at all, so the list is every "
+            "organisation funded that often in it, not a gap."]) + [
+                   "The EDF factsheets are read by a language model; a participant missed or misplaced would "
                    "show a gap that is not there.",
                    "Participants are those the source lists for the project today (active); a participant that "
                    "left is not counted.",
