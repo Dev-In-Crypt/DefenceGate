@@ -85,6 +85,11 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'The call document of each call',
   },
   {
+    id: 'open-to-ukraine', term: 'Open to Ukraine',
+    body: 'We mark a call as open to Ukrainian participants only where something we hold says so: its call document or conditions text names Ukraine as an eligible country, or the regulation of its regime does (the Ukraine Support Instrument of EDIP is open to entities established in Ukraine). The EDIP Programme is not: its associated countries are EEA EFTA states. For European Defence Fund calls the answer is unknown: Ukraine may take part as an associated country under the EU-Ukraine association agreement, and we have found no official text that says that agreement is in force. A call that is not marked is not shown to be closed to Ukraine: unknown is not no.',
+    source: 'Regulation (EU) 2025/2643; Regulation (EU) 2021/697, Article 5; the call document of each call',
+  },
+  {
     id: 'call-status', term: 'Open, Opens soon, Opening date passed',
     body: 'Open: the call takes proposals and its deadline is ahead. Opens soon: the source lists the call as forthcoming and its opening day is still ahead. Opening date passed: the source still lists the call as forthcoming, its opening day has passed and it states no deadline. A call the source calls forthcoming whose opening day has passed and whose deadline is ahead is shown as Open, and says so. Closing soon: open, with a deadline within 30 days.',
   },
