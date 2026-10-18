@@ -100,9 +100,8 @@ export default function PrivacyPage() {
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
           'Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.',
           'The mail provider named in section 5, once sign-in opens.',
-          'OpenAI (USA), as a processor, for one purpose: to read the eligibility rules of funding calls. We send it the text of public call documents and topic texts, with e-mail addresses removed first, and our instructions. We send nothing about visitors or account holders. If a public call document names a person in its text other than by e-mail address, that name is part of what is sent.',
         ]} />
-        <p className={P}>We do not sell personal data. Apart from the domain name service and the language model provider above, we do not transfer personal data outside the European Economic Area as part of operating the site. We disclose data to an authority where the law requires it.</p>
+        <p className={P}>We do not sell personal data. We disclose data to an authority where the law requires it.</p>
       </Clause>
 
       <Clause n={9} title="Your rights">

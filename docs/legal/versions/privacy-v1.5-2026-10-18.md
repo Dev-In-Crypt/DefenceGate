@@ -1,3 +1,5 @@
+[Amended on the owner's instruction, 18 October 2026: the OpenAI recipient line and the EEA-transfer sentence were removed from section 8; the version number and date are unchanged.]
+
 Static copy of the privacy text, version 1.5, published 18 October 2026 on the owner's instruction (taken from the page source of the commit that published it). It names OpenAI as a processor; a lawyer's review of this wording is item P7 in OPEN_ITEMS_FOR_LAWYER.md.
 
 # Privacy notice
@@ -77,8 +79,7 @@ Public procurement notices and funding calls are published by public bodies and 
 - The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.
 - Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.
 - The mail provider named in section 5, once sign-in opens.
-- OpenAI (USA), as a processor, for one purpose: to read the eligibility rules of funding calls. We send it the text of public call documents and topic texts, with e-mail addresses removed first, and our instructions. We send nothing about visitors or account holders. If a public call document names a person in its text other than by e-mail address, that name is part of what is sent.
-We do not sell personal data. Apart from the domain name service and the language model provider above, we do not transfer personal data outside the European Economic Area as part of operating the site. We disclose data to an authority where the law requires it.
+We do not sell personal data. We disclose data to an authority where the law requires it.
 
 ## 9. Your rights
 
