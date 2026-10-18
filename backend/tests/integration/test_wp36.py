@@ -134,12 +134,13 @@ def test_the_call_detail_says_how_the_flag_was_decided_and_carries_the_rules_blo
     assert block["regime"]["code"] == "EDIP-USI" and block["encoded"] is True
     assert "USI-TERRITORY" in [r["rule"] for r in block["rules"]]
     assert all(r["source"]["url"] and r["source"]["text"] and r["source"]["lastReviewed"] for r in block["rules"])
-    assert block["alsoRead"]["ref"].startswith("Regulation (EU) 2025/2643, Article 27(3)")
+    # WP-33 put the 35 % origin rule in the seed: it is a rule of the block and needs no supplement.
+    assert "USI-ORIGIN-35" in [r["rule"] for r in block["rules"]] and block["alsoRead"] is None
     assert "legal advice" in block["notice"]
 
     unconfirmed = client.get(f"/v1/funding/{edf}").json()
     assert unconfirmed["openToUkraine"] is None and unconfirmed["ukraineBasis"]["reason"] == "edf_association_unconfirmed"
-    assert [r["rule"] for r in unconfirmed["rulesApply"]["rules"]] == ["EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
+    assert [r["rule"] for r in unconfirmed["rulesApply"]["rules"]] == ["EDF-LEGAL-ENTITY", "EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
 
     horizon = client.get(f"/v1/funding/{hz}").json()
     assert horizon["rulesApply"]["regime"]["code"] == "HORIZON" and horizon["rulesApply"]["encoded"] is False
