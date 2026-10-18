@@ -175,14 +175,16 @@ by a test that fails without the fix:
   merge (head, method, confidence, alias memory, review closed, directory counted once, idempotent), the family in the directory, on the card
   and on the profile (card = profile), the legal-form guard in the cascade and the supplier split, the gaps route, the EDF recovery with a real
   PDF text, the refiling of a category.
-* Ruff clean. Unit suite (default marker): all pass, including the web-fixture tests once `web/` and `infra/` are present on the server
-  (the first run failed five tests only because the test copy had no `web/` directory). Integration: the files that touch the changed
-  code (`test_network_api`, `test_networks_*`, `test_wp32`, `test_wp41_*`, `test_supplier_map`) pass; the full integration run is
-  recorded in the report. `tsc --noEmit` of `web/` is clean (the `node_modules` of another implementer's copy, mounted read-only).
+* Ruff clean. Unit suite (default marker): 2,635 tests, all pass, including the web-fixture tests once `web/` and `infra/` are present
+  on the server (the first run failed five tests only because the test copy had no `web/` directory). Integration: **all 1,029 pass**, run in
+  three batches against one test database, the files that touch the changed code first (451 + 164 + 414), including
+  `test_security_hardening`'s rate-limit test that failed on the earlier packages' hosts (it passed here). Two batches had a
+  `DeadlockDetected` in a fixture, once caused by my own second run on the same database and once by a run killed mid-test; the test was
+  re-run alone and passed. `tsc --noEmit` of `web/` is clean (the `node_modules` of another implementer's copy, mounted read-only).
 
 ## Not checked, not met
 
-* **The full integration suite on the final tree**: see the report; the host is shared with several other full runs.
+* The full integration suite ran in batches, not as one run (the host is shared with several other full runs; one run takes hours).
 * The new directory refresh SQL (two indexed joins added to the 33 s job) and the profile's extra queries were not timed on production-sized
   data: the new table does not exist in production, and a copy of `participation` did not fit the scratch budget. The profile adds
   one query on a table of about 60 rows; the directory list adds one column.
