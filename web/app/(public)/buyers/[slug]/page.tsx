@@ -77,9 +77,9 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
 
       <header className="flex flex-col gap-4">
         {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
-        <h1 className="m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{name}</h1>
+        <h1 className="m-0 break-words page-title">{name}</h1>
         <FollowButton kind="buyer" refId={buyer.id} label="Follow this buyer" />
-        <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+        <dl className="facts-grid m-0 border-b border-line">
           <FactCell label="Country">
             {buyer.country ? <CountryLabel code={buyer.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}
           </FactCell>
@@ -92,9 +92,9 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           </FactCell>
         </dl>
         {variantsLine(buyer.nameVariants) && <p className="m-0 text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
-        <p className="m-0 max-w-[62ch] text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
         {buyer.organisationSlug && (
-          <p className="m-0 max-w-[62ch] text-body">
+          <p className="m-0 max-w-prose text-body">
             Also took part in funded projects: <Link href={`/organisations/${buyer.organisationSlug}`} className="font-semibold">see its projects, partners and EU funding</Link>.
           </p>
         )}

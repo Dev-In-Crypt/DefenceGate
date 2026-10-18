@@ -74,8 +74,8 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
       <JsonLd data={{ '@context': 'https://schema.org', '@type': 'Organization', name, url: absoluteUrl(base), address: { '@type': 'PostalAddress', addressCountry: org.country } }} />
       <header className="flex flex-col gap-4">
         <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p.code || 'none'} kind="programme">{p.code || 'Programme not stated'}</Tag>)}</p>
-        <h1 className="m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{name}</h1>
-        <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
+        <h1 className="m-0 break-words page-title">{name}</h1>
+        <dl className="facts-grid m-0 border-b border-line">
           <FactCell label="Country">
             <CountryLabel code={org.country} className="font-sans" />
             {countryBasisNote(org) && <span className="block font-sans text-small font-normal text-ink-muted">{countryBasisNote(org)}</span>}
@@ -89,7 +89,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
           <FactCell label="Active"><span>{yearsLabel(org.counts.firstYear, org.counts.lastYear)}</span></FactCell>
         </dl>
         {org.buyer && (
-          <p className="m-0 max-w-[70ch] text-body">
+          <p className="m-0 max-w-prose text-body">
             Also a procurement buyer: <Link href={`/buyers/${org.buyer.slug}`} className="font-semibold">{org.buyer.tenderCount} defence {org.buyer.tenderCount === 1 ? 'notice' : 'notices'} on its buyer page</Link>.
           </p>
         )}
@@ -105,7 +105,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
 
       <CountryNote />
       <DataSources sources={org.sources} amountNote={org.amountNote} />
-      <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+      <p className="m-0 max-w-prose text-small text-ink-muted">
         Names are as CORDIS and the EDF project factsheets publish them. We do not list an organisation whose name looks like a natural person&rsquo;s.
         If this entry is you, or a business named after you, and you want it removed, write to the contact in the <Link href="/imprint" className="font-semibold">imprint</Link>;
         the <Link href="/privacy" className="font-semibold">privacy notice</Link> (sections 7 and 9) says how a request is handled.
@@ -129,10 +129,10 @@ function countryBasisNote(org: OrgProfile): string | null {
 function Overview({ org }: { org: OrgProfile }) {
   return (
     <>
-      <section aria-labelledby="recognised" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+      <section aria-labelledby="recognised" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <h2 id="recognised" className="m-0 text-h3">How we recognised this organisation</h2>
-        <p className="m-0 max-w-[80ch] text-body">{org.resolution.note}</p>
-        <dl className="m-0 grid gap-x-8 gap-y-2 sm:grid-cols-[max-content_1fr]">
+        <p className="m-0 max-w-prose text-body">{org.resolution.note}</p>
+        <dl className="m-0 grid gap-x-12 gap-y-2 sm:grid-cols-[max-content_1fr]">
           <dt className="font-bold">PIC</dt>
           <dd className="m-0">
             {org.pic
@@ -144,7 +144,7 @@ function Overview({ org }: { org: OrgProfile }) {
           {org.mergedFrom > 0 && (<><dt className="font-bold">Merged names</dt><dd className="m-0">{org.mergedFrom} other organisation {org.mergedFrom === 1 ? 'row was' : 'rows were'} merged into this one; their projects are counted here.</dd></>)}
         </dl>
       </section>
-      <section aria-labelledby="by-programme" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+      <section aria-labelledby="by-programme" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <h2 id="by-programme" className="m-0 text-h3">By programme</h2>
         <TableBox label="Projects by programme">
           <table className="w-full min-w-[480px] border-collapse text-left text-small">
@@ -178,9 +178,9 @@ async function FundingTab({ slug }: { slug: string }) {
   const funding = await getOrganisationFunding(slug).catch(() => null);
   if (!funding) return <ErrorState title="The funding history could not be loaded" retryHref={`/organisations/${slug}?tab=funding`} />;
   return (
-    <section aria-labelledby="funding" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+    <section aria-labelledby="funding" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <h2 id="funding" className="m-0 text-h3">Funding by programme and year</h2>
-      <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+      <p className="m-0 max-w-prose text-small text-ink-muted">
         Years are the year a project started (the call year for EDF projects). {funding.amountNote}
       </p>
       <FundingChart rows={funding.rows} />
@@ -213,9 +213,9 @@ async function PartnersTab({ slug, sp, page, base }: { slug: string; sp: SearchP
     return `${base}?${s}`;
   };
   return (
-    <section aria-labelledby="partners" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+    <section aria-labelledby="partners" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <h2 id="partners" className="m-0 text-h3">Partners</h2>
-      <p className="m-0 max-w-[80ch] text-small text-ink-muted">{data.note}</p>
+      <p className="m-0 max-w-prose text-small text-ink-muted">{data.note}</p>
       <FilterForm base={base} tab="partners" programme={programme} country={country} />
       {data.items.length === 0 ? (
         <EmptyState title="No partners match">Try another programme or country.</EmptyState>
@@ -243,7 +243,7 @@ async function ProjectsTab({ slug, sp, page, base }: { slug: string; sp: SearchP
     return `${base}?${s}`;
   };
   return (
-    <section aria-labelledby="projects" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+    <section aria-labelledby="projects" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <h2 id="projects" className="m-0 text-h3">Projects</h2>
       <FilterForm base={base} tab="projects" programme={programme} />
       {data.items.length === 0 ? (
@@ -261,9 +261,9 @@ async function ProjectsTab({ slug, sp, page, base }: { slug: string; sp: SearchP
 
 function AliasesTab({ org }: { org: OrgProfile }) {
   return (
-    <section aria-labelledby="aliases" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+    <section aria-labelledby="aliases" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <h2 id="aliases" className="m-0 text-h3">Names this organisation is known by</h2>
-      <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+      <p className="m-0 max-w-prose text-small text-ink-muted">
         Each name below was matched to this organisation, with the method and the confidence of the match. A name is never merged
         into an organisation by similarity alone: similar names are queued for a person to decide.
         {org.aliases.total > org.aliases.items.length ? ` Showing ${org.aliases.items.length} of ${org.aliases.total}.` : ''}

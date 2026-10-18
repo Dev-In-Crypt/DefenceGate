@@ -20,14 +20,15 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
   const url = safeHttpUrl(source.url);
   if (variant === 'inline') {
     return (
-      <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-mono text-ink-muted', className)}>
-        <span>{source.sourceName} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
+      // Provenance of a list card: one hairline above it, 13/18 sans (not a monospace sentence), the link at the right end.
+      <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-0 border-t border-line pt-1 font-sans text-[13px] leading-[18px] text-ink-muted', className)}>
+        <span className="min-w-0 flex-1 basis-64 [overflow-wrap:anywhere]">{source.sourceName} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
         {url ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 ml-auto inline-flex min-h-6 items-center font-sans text-small font-bold text-link">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 inline-flex min-h-8 items-center text-small font-bold text-link">
             View original<span className="sr-only"> at {source.sourceName} (opens in new tab)</span>
           </a>
         ) : (
-          <span className="ml-auto font-sans text-small">The source gives no link to this record</span>
+          <span className="text-small">The source gives no link to this record</span>
         )}
       </div>
     );

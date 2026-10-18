@@ -10,7 +10,8 @@ import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
 import type { Change } from '@/lib/types';
 import { Button } from '@/components/dg/button';
-import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
+import { EmptyState } from '@/components/dg/feedback';
+import { PageHeader } from '@/components/dg/page-header';
 import { Select } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
 import { Pagination } from '@/components/dg/pagination';
@@ -52,17 +53,15 @@ export default async function ChangesPage({ searchParams }: Props) {
   const data = await getChanges(filters).catch(() => null);
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'What changed', href: '/changes' }];
   const header = (
-    <header className="flex flex-col gap-3">
-      <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">What changed</h1>
-      <p className="m-0 max-w-[62ch] text-body text-ink-muted">
+    <PageHeader crumbs={crumbs} title="What changed"
+      lead={<>
         New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value.
         No account is needed, and the Atom feed does what an alert would.
-      </p>
-    </header>
+      </>} />
   );
   const country = filters.country?.[0] ?? '';
   const filterForm = (
-    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:flex-row sm:items-end">
+    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:items-end">
       <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={country} className="sm:min-w-56"
         options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
       <Select name={PARAM.scope} label="What to include" placeholder={SCOPE_CHOICES.relevant.label} defaultValue={filters.scope ?? ''}
@@ -77,7 +76,6 @@ export default async function ChangesPage({ searchParams }: Props) {
     // The filters stay (a visitor who picked a country should not start over), and the way out is a retry.
     return (
       <>
-        <Breadcrumbs items={crumbs} />
         {header}
         {filterForm}
         <EmptyState title="The change list is not available right now"
@@ -95,13 +93,12 @@ export default async function ChangesPage({ searchParams }: Props) {
   const to = Math.min(data.total, data.page * data.pageSize);
   return (
     <>
-      <Breadcrumbs items={crumbs} />
       {header}
       {data.staleAsOf && (
         <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(data.staleAsOf, formatDateTimeUtc)}</p>
       )}
 
-      <section aria-labelledby="window" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+      <section aria-labelledby="window" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <h2 id="window" className="m-0 text-h3">The last {data.windowDays} days</h2>
         <p className="m-0 text-body">
           <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices and{' '}

@@ -29,7 +29,7 @@ function Radios<T extends string>({ legend, hint, name, value, options, onChange
 }) {
   return (
     <Fieldset legend={legend}>
-      {hint && <p className="m-0 max-w-[70ch] text-small text-ink-muted">{hint}</p>}
+      {hint && <p className="m-0 max-w-prose text-small text-ink-muted">{hint}</p>}
       {options.map((o) => (
         <Choice key={o.value} type="radio" name={name} label={o.label} hint={o.hint} checked={value === o.value} onChange={() => onChange(o.value)} />
       ))}
@@ -116,7 +116,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
             <ul className="m-0 flex list-none flex-col gap-0.5 p-0 pb-2">
               {missing.map((m) => (
                 <li key={m.question}>
-                  <button type="button" onClick={() => go(m.step)} className="inline-flex min-h-8 items-center border-0 bg-transparent p-0 text-left font-sans text-small text-link underline">
+                  <button type="button" onClick={() => go(m.step)} className="inline-flex min-h-12 items-center border-0 bg-transparent p-0 text-left font-sans text-small text-link underline">
                     Step {m.step}: {m.question}
                   </button>
                 </li>
@@ -132,7 +132,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
         </p>
       )}
 
-      <form ref={formRef} className="flex flex-col gap-6 rounded-lg bg-surface p-5 sm:p-6" onSubmit={(e) => { e.preventDefault(); next(); }} aria-label={STEPS[current - 1]}>
+      <form ref={formRef} className="flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5 sm:p-6" onSubmit={(e) => { e.preventDefault(); next(); }} aria-label={STEPS[current - 1]}>
         <h2 ref={headingRef} tabIndex={-1} className="m-0 text-h3">{STEPS[current - 1]}</h2>
 
         {current === 1 && (
@@ -233,7 +233,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
 
         {current === 4 && (
           <div className="flex flex-col gap-4">
-            <p className="m-0 max-w-[70ch] text-small text-ink-muted">Say what you already hold. Anything you leave as it is counts as not held.</p>
+            <p className="m-0 max-w-prose text-small text-ink-muted">Say what you already hold. Anything you leave as it is counts as not held.</p>
             {visibleCodes(profile.country).map((code) => {
               const r = byCode.get(code);
               return (
@@ -329,7 +329,7 @@ function Keep({ profile, onImport }: { profile: Profile; onImport: (p: Profile) 
     <details>
       <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold text-ink">Keep my answers in a file, or load answers from one</summary>
       <div className="flex flex-col gap-3 pb-2">
-        <p className="m-0 max-w-[70ch]">
+        <p className="m-0 max-w-prose">
           The file holds exactly what this browser holds, including the company name if you entered one. Use it to check another company without losing this one,
           or to move to another computer. Nothing is sent to our server.
         </p>

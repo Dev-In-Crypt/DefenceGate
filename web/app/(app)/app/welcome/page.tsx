@@ -21,7 +21,7 @@ export default async function WelcomePage({ searchParams }: Props) {
     <>
       <AppHeader title="Welcome" lead="Five choices, about a minute. The defaults are fine and you can change all of them later in Settings." />
       <Notice code={n} />
-      <form action={saveWelcome} className="flex max-w-[860px] flex-col gap-6 rounded-lg bg-surface p-5 sm:p-6">
+      <form action={saveWelcome} className="flex max-w-form flex-col gap-6 rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <ProfileFields profile={me.profile} />
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit">Save and continue</Button>

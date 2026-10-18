@@ -18,6 +18,7 @@ import { DeadlineBadge } from '@/components/dg/deadline-badge';
 import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/dg/data-display';
 import { SourceBadge } from '@/components/dg/source-badge';
 import { Button } from '@/components/dg/button';
+import { Card } from '@/components/dg/card';
 import { CallCard } from '@/components/dg/cards';
 import { EligibilityCheck } from '@/components/funding/eligibility-check';
 import { CallReadiness } from '@/components/funding/call-readiness';
@@ -68,13 +69,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 const panelId = (title: string) => title.toLowerCase().replace(/\W+/g, '-');
 
 function Panel({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
-  const id = panelId(title);
-  return (
-    <section aria-labelledby={id} className={cn('flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6', className)}>
-      <h2 id={id} className="m-0 scroll-mt-4 text-h3">{title}</h2>
-      {children}
-    </section>
-  );
+  return <Card title={title} id={panelId(title)} className={className}>{children}</Card>;
 }
 
 export default async function CallDetailPage({ params }: Props) {
@@ -133,7 +128,7 @@ export default async function CallDetailPage({ params }: Props) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? call.titleLanguage : undefined}
-                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{displayName(call.title)}</h1>
+                className={cn('m-0 break-words page-title', closed ? 'text-ink-muted' : 'text-ink')}>{displayName(call.title)}</h1>
               {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
             </div>
             {call.originalTitle && (
@@ -155,15 +150,15 @@ export default async function CallDetailPage({ params }: Props) {
 
           {toc.length >= 5 && (
             // A call page runs to some twenty screens at 375 px: the way to its parts is one tap from the top (U14).
-            <nav aria-label="On this page" className="flex flex-col gap-1 rounded-lg bg-surface px-5 py-3 sm:px-6">
+            <nav aria-label="On this page" className="flex flex-col gap-1 rounded-lg border border-edge bg-surface px-5 py-3 sm:px-6">
               <p className="m-0 text-label text-ink">On this page</p>
               <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
-                {toc.map((t) => <li key={t.id}><a href={`#${t.id}`} className="inline-flex min-h-8 items-center text-small font-semibold">{t.label}</a></li>)}
+                {toc.map((t) => <li key={t.id}><a href={`#${t.id}`} className="inline-flex min-h-12 items-center text-small font-semibold">{t.label}</a></li>)}
               </ul>
             </nav>
           )}
 
-          <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+          <dl className="facts-grid m-0 border-b border-line">
             <FactCell label="Budget">
               <AmountDisplay money={call.budget} size="lg" />
               {call.budget && call.budgetScope === 'call' && (
@@ -349,7 +344,7 @@ export default async function CallDetailPage({ params }: Props) {
           )}
 
           {call.conditionsText && (
-            <details id="conditions" className="group scroll-mt-4 rounded-lg bg-surface px-5 sm:px-6">
+            <details id="conditions" className="group scroll-mt-4 rounded-lg border border-edge bg-surface px-5 sm:px-6">
               <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-body font-semibold [&::-webkit-details-marker]:hidden">
                 Conditions as published by the source
                 <Icon icon={Plus} className="shrink-0 text-ink-muted transition-transform duration-dg group-open:rotate-45" />
@@ -365,7 +360,7 @@ export default async function CallDetailPage({ params }: Props) {
         </div>
 
         <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
-          <div className="flex flex-col gap-4 rounded-lg bg-surface p-6">
+          <div className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
             <SaveButton kind="call" refId={call.id} />
             <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />

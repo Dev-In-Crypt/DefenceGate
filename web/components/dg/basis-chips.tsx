@@ -28,7 +28,7 @@ function ConfidenceBadge({ view, lifted }: { view: ConfidenceView; lifted: boole
         {view.sentence && (
           <span
             aria-hidden="true"
-            className="invisible absolute left-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-4rem)] whitespace-normal rounded-lg bg-surface px-3 py-2 text-small font-normal text-ink shadow-lg group-focus-within/conf:visible group-hover/conf:visible"
+            className="invisible absolute left-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-4rem)] whitespace-normal rounded-lg border border-edge bg-surface px-3 py-2 text-small font-normal text-ink shadow-lg group-focus-within/conf:visible group-hover/conf:visible"
           >
             {view.sentence}
           </span>
@@ -47,7 +47,7 @@ export function BasisChips({ tender, lifted = false, className }: { tender: Basi
   const chips = basisChips(tender);
   const confidence = confidenceView(tender.confidence);
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn('flex flex-col gap-1', className)}>
       {(chips.length > 0 || confidence) && (
         <div className="flex flex-wrap items-center gap-2">
           {chips.length > 0 && (

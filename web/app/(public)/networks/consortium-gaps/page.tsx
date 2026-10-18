@@ -74,7 +74,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
                 <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0 text-small">
                   {data.areas.map((a) => (
                     <li key={a.code}>
-                      <Link href={`/networks/consortium-gaps?topic=${encodeURIComponent(a.code)}&lacking=${data.lacking}`} className="inline-flex min-h-8 items-center font-mono font-semibold">{a.code}</Link>
+                      <Link href={`/networks/consortium-gaps?topic=${encodeURIComponent(a.code)}&lacking=${data.lacking}`} className="inline-flex min-h-12 items-center font-mono font-semibold">{a.code}</Link>
                       {EDF_CATEGORY_WORDS[a.code] ? <span> {EDF_CATEGORY_WORDS[a.code]}</span> : null} <span className="text-ink-muted">({a.projects})</span>
                     </li>
                   ))}

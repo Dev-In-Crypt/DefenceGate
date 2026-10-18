@@ -13,7 +13,7 @@ import { ScrollBox } from '@/components/dg/scroll-box';
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6';
+const CARD = 'flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6';
 const TH = 'py-1 pr-4 font-semibold';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -40,8 +40,8 @@ export default async function SupplierPage({ params }: Props) {
     <>
       <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }, { label: s.name, href: `/suppliers/${s.slug}` }]} />
       <header className="flex flex-col gap-4">
-        <h1 className="m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{s.name}</h1>
-        <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+        <h1 className="m-0 break-words page-title">{s.name}</h1>
+        <dl className="facts-grid m-0 border-b border-line">
           <FactCell label="Country"><CountryLabel code={s.country} className="font-sans" /></FactCell>
           <FactCell label="Notices naming it a winner"><span className="tabular-nums">{formatNumber(s.noticeCount)}</span></FactCell>
           <FactCell label="Years">
@@ -52,7 +52,7 @@ export default async function SupplierPage({ params }: Props) {
         {s.namesAsStated.length > 1 && (
           <p className="m-0 text-small text-ink-muted">Also published as: {s.namesAsStated.slice(1).join('; ')}.</p>
         )}
-        <p className="m-0 max-w-[75ch] text-small text-ink-muted">
+        <p className="m-0 max-w-prose text-small text-ink-muted">
           This is what buyers published in TED result notices of the defence-relevant scope, from 2023. TED holds only part of European defence
           spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking, no share and no contract total: a value appears only on a notice
           that names one winner. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
@@ -62,14 +62,14 @@ export default async function SupplierPage({ params }: Props) {
       <div className="grid gap-4 lg:grid-cols-2">
         <section aria-labelledby="by-year" className={CARD}>
           <h2 id="by-year" className="m-0 text-h3">Notices per year</h2>
-          <table className="w-full border-collapse text-left text-small">
+          <table className="w-full min-w-[420px] border-collapse text-left text-small">
             <caption className="sr-only">Notices naming {s.name} a winner, per year of publication</caption>
-            <thead><tr className="border-b border-line"><th scope="col" className={TH}>Year</th><th scope="col" className="py-1 text-right font-semibold">Notices</th></tr></thead>
+            <thead><tr className="border-b border-line"><th scope="col" className={TH}>Year</th><th scope="col" className="py-2 text-right font-semibold">Notices</th></tr></thead>
             <tbody>
               {s.byYear.map((y) => (
                 <tr key={y.year} className="border-b border-line last:border-0">
-                  <th scope="row" className="py-1 pr-4 font-normal">{y.year}</th>
-                  <td className="py-1 text-right font-mono tabular-nums">{formatNumber(y.awards)}</td>
+                  <th scope="row" className="py-2 pr-4 font-normal">{y.year}</th>
+                  <td className="py-2 text-right font-mono tabular-nums">{formatNumber(y.awards)}</td>
                 </tr>
               ))}
             </tbody>
@@ -77,14 +77,14 @@ export default async function SupplierPage({ params }: Props) {
         </section>
         <section aria-labelledby="by-cpv" className={CARD}>
           <h2 id="by-cpv" className="m-0 text-h3">Product groups</h2>
-          <table className="w-full border-collapse text-left text-small">
+          <table className="w-full min-w-[420px] border-collapse text-left text-small">
             <caption className="sr-only">Notices naming {s.name} a winner, per CPV division</caption>
-            <thead><tr className="border-b border-line"><th scope="col" className={TH}>CPV division</th><th scope="col" className="py-1 text-right font-semibold">Notices</th></tr></thead>
+            <thead><tr className="border-b border-line"><th scope="col" className={TH}>CPV division</th><th scope="col" className="py-2 text-right font-semibold">Notices</th></tr></thead>
             <tbody>
               {s.byCpv.map((c) => (
                 <tr key={c.division} className="border-b border-line last:border-0">
-                  <th scope="row" className="py-1 pr-4 font-normal">{c.division} {cpvDivisionLabel(c.division) ?? ''}</th>
-                  <td className="py-1 text-right font-mono tabular-nums">{formatNumber(c.awards)}</td>
+                  <th scope="row" className="py-2 pr-4 font-normal">{c.division} {cpvDivisionLabel(c.division) ?? ''}</th>
+                  <td className="py-2 text-right font-mono tabular-nums">{formatNumber(c.awards)}</td>
                 </tr>
               ))}
             </tbody>
@@ -108,11 +108,11 @@ export default async function SupplierPage({ params }: Props) {
 
       <section aria-labelledby="notices" className="flex flex-col gap-3">
         <h2 id="notices" className="m-0 text-h2">The notices</h2>
-        <p className="m-0 max-w-[75ch] text-small text-ink-muted">
+        <p className="m-0 max-w-prose text-small text-ink-muted">
           Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} of ${formatNumber(s.noticeCount)}` : ''}. Each links to its own page and to the notice at TED.
         </p>
         <ScrollBox label="Result notices of this supplier">
-          <table className="w-full border-collapse text-left text-small">
+          <table className="w-full min-w-[420px] border-collapse text-left text-small">
             <caption className="sr-only">Result notices naming {s.name} a winner</caption>
             <thead>
               <tr className="border-b border-line">
@@ -120,7 +120,7 @@ export default async function SupplierPage({ params }: Props) {
                 <th scope="col" className={TH}>Buyer</th>
                 <th scope="col" className={TH}>Published</th>
                 <th scope="col" className={TH}>CPV</th>
-                <th scope="col" className="py-1 font-semibold">Value</th>
+                <th scope="col" className="py-2 font-semibold">Value</th>
               </tr>
             </thead>
             <tbody>

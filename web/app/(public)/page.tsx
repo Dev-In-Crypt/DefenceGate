@@ -125,7 +125,7 @@ export default async function LandingPage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      <section aria-labelledby="hero" className="grid items-end gap-6 rounded-lg bg-surface p-6 md:p-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+      <section aria-labelledby="hero" className="grid items-end gap-6 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-16 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-5">
           <h1 id="hero" className="m-0 text-[40px] font-extrabold leading-[44px] tracking-[-1.5px] md:text-display">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-[52ch] text-body text-ink-muted md:text-h3 md:font-normal">
@@ -136,20 +136,20 @@ export default async function LandingPage() {
             <li className="flex flex-col rounded-md bg-surface-inset p-3">
               <span className="text-label text-ink">1. What is open to me?</span>
               <span className="flex flex-wrap gap-x-4 text-small font-bold">
-                <Link href="/tenders" className="inline-flex min-h-8 items-center">Tenders</Link>
-                <Link href="/funding" className="inline-flex min-h-8 items-center">Funding calls</Link>
+                <Link href="/tenders" className="inline-flex min-h-12 items-center">Tenders</Link>
+                <Link href="/funding" className="inline-flex min-h-12 items-center">Funding calls</Link>
               </span>
             </li>
             <li className="flex flex-col rounded-md bg-surface-inset p-3">
               <span className="text-label text-ink">2. Who is already inside?</span>
-              <Link href="/organisations" className="inline-flex min-h-8 items-center text-small font-bold">Organisations in funded projects</Link>
+              <Link href="/organisations" className="inline-flex min-h-12 items-center text-small font-bold">Organisations in funded projects</Link>
             </li>
             <li className="flex flex-col rounded-md bg-surface-inset p-3">
               <span className="text-label text-ink">3. What do I need to qualify?</span>
-              <Link href="/readiness" className="inline-flex min-h-8 items-center text-small font-bold">Readiness check</Link>
+              <Link href="/readiness" className="inline-flex min-h-12 items-center text-small font-bold">Readiness check</Link>
             </li>
           </ol>
-          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg bg-surface-inset p-4">
+          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface-inset p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Select name="country" label="Country of the buyer" placeholder="Any country"
                 options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
@@ -191,7 +191,7 @@ export default async function LandingPage() {
         </dl>
       </section>
 
-      <section aria-labelledby="inside" className="flex flex-col gap-4 rounded-lg bg-surface p-6 md:p-8">
+      <section aria-labelledby="inside" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
         <h2 id="inside" className="m-0 text-h2">What is in here</h2>
         {stale && <p role="status" className="m-0 text-small text-ink-muted">{staleNote(stale, formatDateTimeUtc)}</p>}
         <p className="m-0 max-w-[70ch] text-body text-ink-muted">
@@ -216,7 +216,7 @@ export default async function LandingPage() {
         </p>
       </section>
 
-      <section aria-labelledby="layers" className="flex flex-col gap-4 rounded-lg bg-surface p-6 md:p-8">
+      <section aria-labelledby="layers" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
         <h2 id="layers" className="m-0 text-h2">Three questions, three parts</h2>
         <p className="m-0 max-w-[70ch] text-body text-ink-muted">
           A supplier asks the same three things in turn. Each part below answers one of them from public sources, and says where the answer comes from.
@@ -261,7 +261,7 @@ export default async function LandingPage() {
       </section>
 
       {changes && (
-        <section aria-labelledby="changed" className="flex flex-col items-start gap-3 rounded-lg bg-surface p-6 md:p-8">
+        <section aria-labelledby="changed" className="flex flex-col items-start gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
           <h2 id="changed" className="m-0 text-h2">What changed in the last {changes.windowDays} days</h2>
           <p className="m-0 max-w-[70ch] text-body text-ink-muted">
             <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.new)}</span> new notices and{' '}
@@ -327,7 +327,7 @@ export default async function LandingPage() {
         )}
       </section>
 
-      <section aria-labelledby="next" className="flex flex-col items-start gap-4 rounded-lg bg-surface p-6 md:p-8">
+      <section aria-labelledby="next" className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
         <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Clock} /></span>
         <h2 id="next" className="m-0 text-h2">{accountsOpen ? 'Save searches and keep a shortlist' : 'Alerts and a personal workspace are being prepared'}</h2>
         <p className="m-0 max-w-[62ch] text-body text-ink-muted">

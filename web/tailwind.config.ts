@@ -6,7 +6,7 @@ const v = (name: string) => `var(--${name})`;
 const DG_COLORS = [
   'bg', 'surface', 'surface-inset', 'line', 'ink', 'ink-muted', 'primary', 'on-primary',
   'accent', 'accent-text', 'urgent', 'on-urgent', 'link', 'open-bg', 'open-fg', 'soon-bg',
-  'soon-fg', 'closed-bg', 'closed-fg', 'alert', 'primary-hover', 'primary-press',
+  'soon-fg', 'closed-bg', 'closed-fg', 'alert', 'primary-hover', 'primary-press', 'edge',
 ] as const;
 
 const config: Config = {
@@ -27,20 +27,34 @@ const config: Config = {
         popover: { DEFAULT: v('popover'), foreground: v('popover-foreground') },
         secondary: { DEFAULT: v('secondary'), foreground: v('secondary-foreground') },
       },
-      spacing: {
-        1: v('space-1'), 2: v('space-2'), 3: v('space-3'), 4: v('space-4'),
-        5: v('space-5'), 6: v('space-6'), 8: v('space-8'), 10: v('space-10'),
-      },
+      // Spacing is Tailwind's own scale (4 = 16, 6 = 24, 8 = 32, 12 = 48, 16 = 64, 24 = 96). Until WP-44 it was
+      // overridden (6 = 28, 8 = 48, 10 = 64), which made `p-6` an odd 28 px and `gap-8` a 48 px gap. Do not override it again.
       borderRadius: { md: v('radius-md'), lg: v('radius-lg'), pill: v('radius-pill') },
       borderWidth: { DEFAULT: '1px', strong: '1.5px' },
-      maxWidth: { content: v('content-max') },
+      maxWidth: {
+        /** The content box of a data page (the container adds the gutters). */
+        content: v('content-max'),
+        /** The ONE reading measure (about 68 characters of Manrope at 16 px). Replaces every ad hoc `ch` cap. */
+        prose: v('measure'),
+        /** A reading page: title column, gap, one measure, padding. */
+        reading: v('reading-max'),
+        /** The width of a form, everywhere. */
+        form: v('form-max'),
+      },
       fontFamily: { sans: [v('font-sans')], mono: [v('font-mono')] },
       fontSize: {
         display: ['56px', { lineHeight: '60px', letterSpacing: '-2px', fontWeight: '800' }],
-        h1: ['40px', { lineHeight: '48px', letterSpacing: '-1.5px', fontWeight: '800' }],
-        h2: ['28px', { lineHeight: '36px', letterSpacing: '-0.5px', fontWeight: '700' }],
-        h3: ['20px', { lineHeight: '28px', fontWeight: '600' }],
-        body: ['16px', { lineHeight: '24px' }],
+        // Page title: `h1-sm` below md, `h1` from md up (the `.page-title` class in globals.css picks).
+        h1: ['36px', { lineHeight: '44px', letterSpacing: '-0.5px', fontWeight: '700' }],
+        'h1-sm': ['32px', { lineHeight: '40px', letterSpacing: '-0.5px', fontWeight: '700' }],
+        h2: ['24px', { lineHeight: '32px', letterSpacing: '-0.3px', fontWeight: '700' }],
+        /** Card title and sub-section title. */
+        h3: ['20px', { lineHeight: '28px', fontWeight: '700' }],
+        /** Heading inside a card (a question, a step, a verdict). Was undefined: seven headings rendered as plain text. */
+        h4: ['18px', { lineHeight: '26px', fontWeight: '600' }],
+        /** Opening paragraph of a page: larger than the body and set in the ink colour. */
+        lead: ['18px', { lineHeight: '28px' }],
+        body: ['16px', { lineHeight: '26px' }],
         small: ['14px', { lineHeight: '20px' }],
         label: ['12px', { lineHeight: '16px', fontWeight: '700' }],
         mono: ['13px', { lineHeight: '20px' }],

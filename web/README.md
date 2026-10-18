@@ -49,8 +49,8 @@ public/brand/             mark.svg, mark-reversed.svg, mark-small.svg, favicon.s
 
 ## How tokens map to the design system
 
-- `app/globals.css` copies every token from the DS `tokens/*.css` with **identical names** (`--bg`, `--surface`, `--surface-inset`, `--ink`, `--primary`, `--accent`, `--accent-text`, `--urgent`, `--open-bg`, `--soon-bg`, `--closed-bg`, `--alert`, `--space-*`, `--radius-*`, `--transition`…). Light on `:root`, dark on `[data-theme="dark"]`.
-- `tailwind.config.ts` maps each token to a utility: `bg-surface`, `text-ink`, `text-accent-text`, `bg-soon-bg`, `rounded-lg` (= `--radius-lg`, 20px), `rounded-md` (14px), `rounded-pill`, `p-6` (= `--space-6`, 28px), `gap-8` (48px), `text-h1`, `text-mono-strong`, `text-figure`, `duration-dg`. Never use raw hex in components.
+- `app/globals.css` copies every token from the DS `tokens/*.css` with **identical names** (`--bg`, `--surface`, `--surface-inset`, `--ink`, `--primary`, `--accent`, `--accent-text`, `--urgent`, `--open-bg`, `--soon-bg`, `--closed-bg`, `--alert`, `--edge`, `--radius-*`, `--measure`, `--content-max`, `--gutter`, `--transition`…). Light on `:root`, dark on `[data-theme="dark"]`.
+- `tailwind.config.ts` maps each token to a utility: `bg-surface`, `text-ink`, `text-accent-text`, `bg-soon-bg`, `rounded-lg` (= `--radius-lg`, 20px), `rounded-md` (14px), `rounded-pill`, `p-6` (24px), `gap-8` (32px), `gap-12` (48px) (spacing is Tailwind's own scale, 4/8/12/16/24/32/48/64/96: there is no override), `text-h1` (36/44), `text-h4` (18/26), `text-lead`, `max-w-prose` (the one reading measure, 680px), `border-edge`, `text-mono-strong`, `text-figure`, `duration-dg`. Never use raw hex in components.
 - DS type classes (`.display .h1 … .figure`) also exist in `globals.css` for parity.
 - **shadcn/ui:** role variables (`--background`, `--card`, `--muted`, `--border`, `--ring`, `--destructive`, `--primary-foreground`…) point at DG tokens. shadcn's `accent` role (hover fill) is deliberately **not** mapped, because DG `--accent` is copper and reserved for the logo and time pressure. When adding a shadcn component, replace `bg-accent text-accent-foreground` with `bg-surface-inset text-ink`.
 - Logo colours are fixed and do not follow the theme (`components/dg/logo.tsx`).
@@ -119,3 +119,7 @@ UTC everywhere (`lib/format.ts` appends "UTC"); amounts always `CUR 1,234` (`for
 - A production build fails unless `NEXT_PUBLIC_SITE_URL` starts with `https://`. `DG_ALLOW_INSECURE_SITE_URL=1` allows it to be unset (local previews only).
 - Source-supplied URLs only become links through `lib/safe-url.ts` (`http:` / `https:` only).
 - Every header and footer link points to a page that exists. A link to a page that does not exist yet must not be added.
+
+## Layout foundation (WP-44)
+
+Components in `components/dg` (API and measurements: `docs/verification/product/wp44-selfcheck.md`): `PageHeader` (breadcrumbs, h1, lead, actions: use it for every page head), `Card` / `TextCard` (the one white box: 1px edge, 20/24px padding, titled variant with a 56px header row), `FactsGrid` / `Fact` and the `facts-grid` class (label-above-value hairline grid, at most 3 columns), `AutoGrid` (cards fill the row, a lone card takes it), `Prose` (the reading measure and rhythm), `Details` (a long line behind a 44px summary), `DataTable` (keeps its width, scrolls inside its box at 375px), `ContentPage` / `ContentSection` / `PageSection` (reading pages are one centred column with the title of each card in its own column from lg; `wide` is the data page). Never write a `max-w-[..ch]`, an `h1` class string or a white-card class string by hand: use `max-w-prose`, `PageHeader` and `Card`.

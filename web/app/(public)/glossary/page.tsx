@@ -33,7 +33,7 @@ export default function GlossaryPage() {
       lead="The terms a defence supplier meets in tenders and funding calls, explained briefly. These are plain-language explanations, not legal advice; the original notice and the legal text are authoritative."
     >
       <JsonLd data={definedTerms()} />
-      <nav aria-label="Terms" className="rounded-lg bg-surface p-5 sm:p-6">
+      <nav aria-label="Terms" className="rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0">
           {ENTRIES.map((e) => (
             <li key={e.id}><a href={`#${e.id}`} className="inline-flex min-h-11 items-center text-small font-semibold">{e.term}</a></li>
@@ -43,7 +43,7 @@ export default function GlossaryPage() {
 
       <dl className="m-0 flex flex-col gap-4">
         {ENTRIES.map((e) => (
-          <div key={e.id} id={e.id} className="flex scroll-mt-4 flex-col gap-2 rounded-lg bg-surface p-5 sm:p-6">
+          <div key={e.id} id={e.id} className="flex scroll-mt-4 flex-col gap-2 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <dt className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-h3 font-semibold">{e.term}</span>
               {e.full && <span className="text-small text-ink-muted">{e.full}</span>}

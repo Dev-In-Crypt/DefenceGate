@@ -4,7 +4,7 @@ import { Eye, FileSearch, Scale, ShieldCheck } from 'lucide-react';
 import { buildMetadata } from '@/lib/seo';
 import { Button } from '@/components/dg/button';
 import { BenefitGrid, Callout } from '@/components/dg/blocks';
-import { ContentPage, ContentSection } from '@/components/dg/content-page';
+import { ContentPage, ContentSection, PageSection } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
 
@@ -44,10 +44,9 @@ export default function AboutPage() {
         </p>
       </ContentSection>
 
-      <section aria-labelledby="principles" className="flex max-w-[860px] flex-col gap-4">
-        <h2 id="principles" className="m-0 text-h2">How we work</h2>
+      <PageSection title="How we work" id="principles">
         <BenefitGrid items={PRINCIPLES} columns={2} />
-      </section>
+      </PageSection>
 
       <ContentSection title="Who is behind it">
         <p className="m-0 text-body text-ink-muted">

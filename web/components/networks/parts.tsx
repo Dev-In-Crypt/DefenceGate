@@ -15,7 +15,7 @@ import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
 
-const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted sm:p-6';
+const CARD = 'group relative flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 const TH = 'py-2 pr-4 align-bottom font-semibold';
 const TD = 'py-2 pr-4 align-top';
@@ -48,14 +48,14 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
   return (
     <article className={cn(CARD, 'text-ink')}>
       <div className="flex flex-col gap-2">
-        <h2 className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
+        <h2 className="m-0 line-clamp-3 text-h3 md:line-clamp-2">
           <Link href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</Link>
         </h2>
         <span className="text-small text-ink-muted"><CountryLabel code={org.country} /></span>
         {org.nameVariants ? <span className="text-small text-ink-muted">Includes {org.nameVariants} name {org.nameVariants === 1 ? 'variant' : 'variants'}</span> : null}
         <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{p}</Tag>)}</p>
       </div>
-      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
+      <dl className="facts-grid m-0 border-b border-line">
         {defence ? (
           <>
             <FactCell label="Defence projects"><span className="tabular-nums">{org.defenceProjects}</span></FactCell>
@@ -83,7 +83,7 @@ export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; bas
   const chosen = filters.programme ?? [];
   const link = (f: OrgFilters) => `${basePath}${toOrgQuery({ ...f, page: 1 })}`;
   return (
-    <p role="status" className="m-0 max-w-[80ch] rounded-md bg-surface-inset px-4 py-3 text-body">
+    <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-body">
       {filters.allProgrammes ? (
         <>Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7.{' '}
           <Link href={link({ ...filters, allProgrammes: false, programme: [] })} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
@@ -101,7 +101,7 @@ export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; bas
 /** What the country of an organisation means: one country per registration, and a multi-site body shows one of them (U10: CSIC under Italy). */
 export function CountryNote({ className }: { className?: string }) {
   return (
-    <p className={cn('m-0 max-w-[80ch] text-small text-ink-muted', className)}>
+    <p className={cn('m-0 max-w-prose text-small text-ink-muted', className)}>
       The country is the one the source records for the organisation’s registration (its PIC), and each profile says what it rests on. Where the record
       contradicts itself (the address in one country, the site name and the VAT number in another) we follow the two that agree: the Spanish research council
       CSIC is shown under Spain although its address is recorded in Italy. A body with sites in several countries is shown under the first of them in
@@ -115,7 +115,7 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
   const countries = Object.entries({ UA: 'Ukraine', ...BUYER_COUNTRIES }).sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label: `${label} (${value})` }));
   return (
     <FilterPanel activeCount={activeOrgFilterCount(filters)}>
-      <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-6 rounded-lg bg-surface p-5">
+      <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5">
         <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
         <Fieldset legend="Programme">
           {PROGRAMME_CHOICES.map((p) => (
@@ -143,7 +143,7 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
 export function DataSources({ sources, amountNote, only }: { sources: SourceNote[]; amountNote?: string; only?: string[] }) {
   const shown = only ? sources.filter((s) => only.includes(s.code)) : sources;
   return (
-    <section aria-labelledby="data-sources" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+    <section aria-labelledby="data-sources" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <h2 id="data-sources" className="m-0 text-h3">Where this comes from</h2>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {shown.map((s) => (
@@ -153,12 +153,12 @@ export function DataSources({ sources, amountNote, only }: { sources: SourceNote
               {s.readAt ? <>Last read on <time dateTime={s.readAt}>{formatDateUtc(s.readAt)}</time>. </> : 'Not read yet. '}
               Licence: {s.licence}. {s.attribution}.
             </span>
-            {s.note && <span className="max-w-[80ch] text-small">{s.note}</span>}
+            {s.note && <span className="max-w-prose text-small">{s.note}</span>}
           </li>
         ))}
       </ul>
-      {amountNote && <p className="m-0 max-w-[80ch] text-small text-ink-muted">{amountNote}</p>}
-      <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+      {amountNote && <p className="m-0 max-w-prose text-small text-ink-muted">{amountNote}</p>}
+      <p className="m-0 max-w-prose text-small text-ink-muted">
         Organisation-level facts only: a name, a country, a role, an amount, a year. A participant is recognised by its PIC where the source gives one,
         otherwise by name; the page says which. <Link href="/methodology" className="font-semibold">How the data is built</Link>.
       </p>
@@ -288,7 +288,7 @@ export function ProjectTable({ items }: { items: OrgProjectRow[] }) {
             <tr key={p.slug} className="border-b border-line last:border-0">
               <th scope="row" className={cn(TD, 'font-normal')}>
                 <Link href={`/projects/${p.slug}`} className="font-semibold">{p.acronym ?? p.title}</Link>
-                {p.acronym && <span className="block max-w-[48ch] text-ink-muted">{p.title}</span>}
+                {p.acronym && <span className="block max-w-prose text-ink-muted">{p.title}</span>}
               </th>
               <td className={TD}>{p.programme ?? 'Not stated'}</td>
               <td className={cn(TD, 'font-mono tabular-nums')}>{p.year ?? 'Not stated'}</td>

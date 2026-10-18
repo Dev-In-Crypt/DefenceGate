@@ -42,7 +42,7 @@ export default async function FollowingPage({ searchParams }: Props) {
             const d = describe(f);
             const href = followHref(f.kind, f.ref, d.slug);
             return (
-              <li key={`${f.kind}/${f.ref}`} className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <li key={`${f.kind}/${f.ref}`} className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <div className="flex min-w-0 flex-col gap-2">
                   <div><Tag>{f.kind === 'buyer' ? 'Buyer' : 'Programme'}</Tag></div>
                   <h2 className="m-0 break-words text-h3">

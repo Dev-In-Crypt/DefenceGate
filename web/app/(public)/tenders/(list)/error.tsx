@@ -18,7 +18,7 @@ export default function TendersError({ reset }: { error: Error & { digest?: stri
   }
   return (
     <>
-      <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">Tenders</h1>
+      <h1 className="m-0 page-title">Tenders</h1>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <TenderFilterBar filters={parseTenderFilters(query)} basePath="/tenders" />
         <ErrorState title="We could not load tenders" onRetry={reset}>

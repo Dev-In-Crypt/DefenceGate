@@ -32,7 +32,7 @@ function Totals({ title, totals, id }: { title: string; totals: RoadmapTotals; i
 function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onMark: (code: string, status: 'held' | 'in_progress') => void }) {
   const blocking = s.blockingFor.length > 0;
   return (
-    <li className="flex flex-col gap-3 rounded-lg bg-surface p-5" data-step={s.code}>
+    <li className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5" data-step={s.code}>
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-primary font-mono text-mono-strong text-on-primary" aria-hidden="true">{s.order}</span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -44,7 +44,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
           </p>
         </div>
       </div>
-      <p className="m-0 max-w-[70ch] text-body text-ink-muted">{s.summary}</p>
+      <p className="m-0 max-w-prose text-body text-ink-muted">{s.summary}</p>
 
       <dl className="m-0 grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-3">
@@ -164,7 +164,7 @@ export function RoadmapView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-5">
         <p className="m-0 text-body">Steps in order, for a company established in <strong>{countryName(profile.country)}</strong>. Marking a step re-scores your results.</p>
         <Button href="/readiness/results" variant="secondary">My results</Button>
       </div>

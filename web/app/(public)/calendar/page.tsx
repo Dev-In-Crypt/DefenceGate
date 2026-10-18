@@ -12,7 +12,8 @@ import type { SearchParams } from '@/lib/filters';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { countryName } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
-import { Breadcrumbs, EmptyState, ErrorState } from '@/components/dg/feedback';
+import { EmptyState, ErrorState } from '@/components/dg/feedback';
+import { PageHeader } from '@/components/dg/page-header';
 import { Choice, Fieldset } from '@/components/dg/form';
 import { Button } from '@/components/dg/button';
 import { Icon } from '@/components/dg/icon';
@@ -32,7 +33,7 @@ const KINDS: { value: KindFilter; label: string }[] = [
   { value: 'tenders', label: 'Tenders' },
   { value: 'funding', label: 'Funding calls' },
 ];
-const FORM = 'flex flex-col gap-6 rounded-lg bg-surface p-5';
+const FORM = 'flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5';
 
 type Props = { searchParams: Promise<SearchParams> };
 
@@ -81,13 +82,8 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Deadline calendar', href: '/calendar' }]} />
-      <header className="flex flex-col gap-3">
-        <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">Deadline calendar</h1>
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">
-          The deadlines of open defence tenders and open funding calls, soonest first. Times are UTC; a notice that gives only a date shows only the date. Each entry links to its record and its source.
-        </p>
-      </header>
+      <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Deadline calendar', href: '/calendar' }]} title="Deadline calendar"
+        lead="The deadlines of open defence tenders and open funding calls, soonest first. Times are UTC; a notice that gives only a date shows only the date. Each entry links to its record and its source." />
 
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -113,7 +109,7 @@ export default async function CalendarPage({ searchParams }: Props) {
             </form>
           </FilterPanel>
 
-          <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg bg-surface p-5">
+          <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5">
             <h2 id="feed-heading" className="m-0 text-body font-bold">Calendar feed</h2>
             <p className="m-0 text-small text-ink-muted">
               Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.

@@ -19,7 +19,7 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', className, to
   // The tenders file marks a cut in a column (`result_truncated`); the funding file still ends with a note row.
   const tenders = csvHref.startsWith('/tenders/');
   return (
-    <div className={cn('flex flex-col gap-2 rounded-lg bg-surface p-5', className)}>
+    <div className={cn('flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5', className)}>
       <a href={csvHref} download className={cn(buttonVariants({ variant: 'secondary', fullWidth: true }))}>
         <Icon icon={Download} size="button" />Download CSV
       </a>

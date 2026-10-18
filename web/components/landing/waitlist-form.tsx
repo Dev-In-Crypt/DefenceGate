@@ -19,7 +19,7 @@ export function WaitlistForm() {
   const [state, action, pending] = useActionState(joinWaitlist, initial);
   if (state.status === 'closed') {
     return (
-      <div role="status" className="flex flex-col items-start gap-3 rounded-lg bg-surface p-6">
+      <div role="status" className="flex flex-col items-start gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Clock} /></span>
         <h3 className="m-0 text-h3">Sign-ups are not open yet</h3>
         <p className="m-0 text-body text-ink-muted">{state.message ?? 'Sign-ups are not open yet. Nothing you entered was stored or sent.'}</p>
@@ -29,7 +29,7 @@ export function WaitlistForm() {
   }
   const e = state.errors ?? {};
   return (
-    <form action={action} noValidate className="flex flex-col gap-5 rounded-lg bg-surface p-5 sm:p-6">
+    <form action={action} noValidate className="flex flex-col gap-5 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <p className="m-0 text-small text-ink-muted">Sign-ups are not open yet. Nothing you enter here is stored or sent.</p>
       {e.form && <p role="alert" className="m-0 flex items-center gap-1 text-small text-alert"><Icon icon={CircleAlert} size="inline" />{e.form}</p>}
       <TextInput name="email" type="email" autoComplete="email" maxLength={EMAIL_MAX_LENGTH} label="Work email" required error={e.email} />

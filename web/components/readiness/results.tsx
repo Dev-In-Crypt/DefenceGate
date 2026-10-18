@@ -35,7 +35,7 @@ export function ResultsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-5">
         <p className="m-0 text-body">
           {profile.name ? <strong>{profile.name}</strong> : 'Your company'}, established in <strong>{countryName(profile.country)}</strong>
           {profile.country === 'XX' && ' (a country that is not listed)'}.
@@ -59,11 +59,11 @@ export function ResultsView() {
           {result.data.general.map((a) => (
             <section key={a.programme} aria-labelledby="general" className="flex flex-col gap-4">
               <h2 id="general" className="m-0 text-h2">Other requirements that may apply to you</h2>
-              <p className="m-0 max-w-[70ch] text-body text-ink-muted">{a.summary} They do not change the verdicts above; they are listed in your roadmap when they apply to you.</p>
+              <p className="m-0 max-w-prose text-body text-ink-muted">{a.summary} They do not change the verdicts above; they are listed in your roadmap when they apply to you.</p>
               <ProgrammeCard a={a} general />
             </section>
           ))}
-          <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+          <p className="m-0 max-w-prose text-small text-ink-muted">
             {result.data.notice} Rules last reviewed on {isoDay(result.data.rulesReviewed)}. How we read the sources:{' '}
             <Link href="/requirements" className="font-semibold">the requirements catalogue</Link>.
           </p>

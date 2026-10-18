@@ -151,7 +151,7 @@ function Pulse({ d }: { d: Dashboard }) {
         <p className="m-0 text-body text-ink-muted">Market figures are not available right now. They return on the next refresh.</p>
       ) : (
         <>
-          <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+          <dl className="facts-grid m-0 border-b border-line">
             <FactCell label="Published, last 30 days">
               {formatNumber(p.tendersPublished30d)}
               <div className="font-sans text-small font-normal text-ink-muted">Previous 30 days: {formatNumber(p.tendersPublishedPrev30d)}</div>

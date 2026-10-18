@@ -12,14 +12,14 @@ export function FundingChangeEntry({ change }: { change: FundingChange }) {
   const c = change.call;
   const isNew = change.kind === 'call-new';
   return (
-    <article className="flex flex-col gap-3 rounded-lg bg-surface p-5">
+    <article className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{isNew ? 'New call' : 'Date moved'}</Tag>
         <Tag>{PROGRAMMES[c.programme].label}</Tag>
         <FitBadge id={c.id} />
         <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
       </div>
-      <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]">
+      <h3 className="m-0 break-words text-h3">
         <Link href={`/funding/${c.slug}`}>{displayName(c.title)}</Link>
       </h3>
       <p className="m-0 text-small font-semibold">{funderLine(c)}</p>

@@ -35,14 +35,14 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
   const span = heldSpan(s.heldFrom, s.heldTo);
   const noun = s.type === 'grants' ? 'Calls' : 'Notices';
   return (
-    <article className="flex min-w-0 flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+    <article className="flex min-w-0 flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="m-0 min-w-0 text-h3">{s.name}</h3>
         <RunStatusPill status={fresh.kind} />
       </div>
       {s.country && <span className="text-small"><CountryLabel code={s.country} /></span>}
       {fresh.note && <p className="m-0 text-small font-semibold">{fresh.note}</p>}
-      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+      <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Last run">
           {s.lastRunAt ? <time dateTime={s.lastRunAt}>{formatDateTimeUtc(s.lastRunAt)}</time> : <span className="font-sans">Never</span>}
         </FactCell>
@@ -50,7 +50,7 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
         <FactCell label="Met expected minimum"><span className="font-sans">{minimumMet(s.coverage)}</span></FactCell>
       </dl>
       {held && (
-        <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
+        <dl className="facts-grid m-0 border-b border-line">
           <FactCell label="Publication dates held">
             {span ? <span>{span}</span> : <span className="font-sans">Not stated by the source</span>}
           </FactCell>
@@ -80,12 +80,12 @@ export default async function DataPage() {
       title="Source status"
       lead="Every source we collect from and when it last ran. Met expected minimum compares what a run fetched with the minimum we expect from that source; it is not a share of everything the source publishes."
     >
-      <p className="m-0 max-w-[860px] text-body text-ink-muted">
+      <p className="m-0 max-w-prose text-body text-ink-muted">
         <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was within the last {STALE_AFTER_DAYS} days.
         Sources are collected once a day, so an older run means missed runs. It does not mean the source is fully collected. A run older than that is shown as stale, a load made once as a one-off load, and a source that failed or has never run as such.
       </p>
 
-      <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg bg-surface p-4 lg:grid-cols-3">
+      <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg border border-edge bg-surface p-4 lg:grid-cols-3">
         <FactCell label="Sources">{health.sources.length}</FactCell>
         <FactCell label={`OK (run in the last ${STALE_AFTER_DAYS} days)`}>{count('ok')}</FactCell>
         <FactCell label={`Stale (last run over ${STALE_AFTER_DAYS} days ago)`}>{count('stale')}</FactCell>

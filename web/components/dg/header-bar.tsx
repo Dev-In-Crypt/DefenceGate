@@ -88,7 +88,7 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
                 className="inline-flex min-h-11 w-7 items-center justify-center border-0 bg-transparent p-0 text-ink">
                 <Icon icon={ChevronDown} size="inline" className={cn('transition-transform duration-dg', sub === n.href && 'rotate-180')} />
               </button>
-              <div id={`sub-${n.label}`} className={cn('absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg bg-surface px-4 py-2 shadow-lg group-hover:visible', sub === n.href ? 'visible' : 'invisible')}>
+              <div id={`sub-${n.label}`} className={cn('absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg border border-edge bg-surface px-4 py-2 shadow-lg group-hover:visible', sub === n.href ? 'visible' : 'invisible')}>
                 {n.children.map((c) => <NavLink key={c.href} href={c.href} label={c.label} active={pathname === c.href} />)}
               </div>
             </div>
@@ -104,7 +104,7 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
         </div>
       </div>
       {open && (
-        <nav ref={mobileRef} id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 xl:hidden">
+        <nav ref={mobileRef} id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg border border-edge bg-surface px-6 py-4 xl:hidden">
           {[...MAIN_NAV, ...(cta ? [cta] : [])].map((n) => (
             <div key={n.href} className="flex flex-col">
               <NavLink href={n.href} label={n.label} active={isActive(n.href)} onClick={() => setOpen(false)} />

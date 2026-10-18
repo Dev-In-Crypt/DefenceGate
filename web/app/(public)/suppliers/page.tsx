@@ -7,7 +7,8 @@ import { formatDateUtc, formatNumber } from '@/lib/format';
 import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { cpvForWords } from '@/lib/cpv';
-import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
+import { EmptyState } from '@/components/dg/feedback';
+import { PageHeader } from '@/components/dg/page-header';
 import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
 import { CountryLabel } from '@/components/dg/data-display';
@@ -66,7 +67,7 @@ function withProduct(f: ReturnType<typeof parse>) {
   return { match, none: match !== null && match.prefixes.length === 0, api: { ...f, cpv } };
 }
 
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6';
+const CARD = 'flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6';
 const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-normal';
 
 export default async function SuppliersPage({ searchParams }: Props) {
@@ -90,16 +91,10 @@ export default async function SuppliersPage({ searchParams }: Props) {
   if (result.total > 0 && f.page > last) redirect(href(f, last));
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} />
-      <header className="flex flex-col gap-3">
-        <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">Defence supplier map</h1>
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">
-          Which companies have won defence-relevant contracts that a buyer published in TED, where they are and how often.
-          This is the open segment of the market, not all of it.
-        </p>
-      </header>
+      <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} title="Defence supplier map"
+        lead="Which companies have won defence-relevant contracts that a buyer published in TED, where they are and how often. This is the open segment of the market, not all of it." />
 
-      <section aria-labelledby="coverage" className={`${CARD} max-w-[75ch]`}>
+      <section aria-labelledby="coverage" className={`${CARD} max-w-prose`}>
         <h2 id="coverage" className="m-0 text-h3">What this map covers</h2>
         <p className="m-0 text-body">
           The winners named in TED result notices that our archive holds in the defence-relevant scope, from 2023. TED holds only part of
@@ -119,30 +114,30 @@ export default async function SuppliersPage({ searchParams }: Props) {
       {summary && summary.byCpv.length > 0 && (
         <section aria-labelledby="aggregate" className="flex flex-col gap-4">
           <h2 id="aggregate" className="m-0 text-h2">By product group and country</h2>
-          <p className="m-0 max-w-[75ch] text-small text-ink-muted">
+          <p className="m-0 max-w-prose text-small text-ink-muted">
             Counts of suppliers and wins. A group of fewer than {summary.kMin} suppliers is not shown ({formatNumber(summary.suppressedGroups)} groups are
             held back), so that no figure describes one company, and the same holds for a list narrowed by country or product group. The map states no contract value per supplier and ranks nobody by value; a supplier's wins are a count of notices, each with its link.
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={CARD}>
               <ScrollBox label="By CPV division">
-                <table className="w-full border-collapse text-left text-small">
+                <table className="w-full min-w-[420px] border-collapse text-left text-small">
                   <caption className="mb-2 text-left text-h3">By CPV division</caption>
                   <thead>
                     <tr className="border-b border-line">
-                      <th scope="col" className="py-1 pr-4 font-semibold">Product group</th>
-                      <th scope="col" className="py-1 pr-4 text-right font-semibold">Suppliers</th>
-                      <th scope="col" className="py-1 text-right font-semibold">Wins</th>
+                      <th scope="col" className="py-2 pr-4 font-semibold">Product group</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Suppliers</th>
+                      <th scope="col" className="py-2 text-right font-semibold">Wins</th>
                     </tr>
                   </thead>
                   <tbody>
                     {summary.byCpv.map((g) => (
                       <tr key={g.key} className="border-b border-line last:border-0">
-                        <th scope="row" className="py-1 pr-4 font-normal">
+                        <th scope="row" className="py-2 pr-4 font-normal">
                           <Link href={`/suppliers?cpv=${g.key}`}>{g.key} {cpvDivisionLabel(g.key) ?? ''}</Link>
                         </th>
-                        <td className="py-1 pr-4 text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
-                        <td className="py-1 text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
+                        <td className="py-2 pr-4 text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
+                        <td className="py-2 text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -151,21 +146,21 @@ export default async function SuppliersPage({ searchParams }: Props) {
             </div>
             <div className={CARD}>
               <ScrollBox label="By country of the supplier">
-                <table className="w-full border-collapse text-left text-small">
+                <table className="w-full min-w-[420px] border-collapse text-left text-small">
                   <caption className="mb-2 text-left text-h3">By country of the supplier</caption>
                   <thead>
                     <tr className="border-b border-line">
-                      <th scope="col" className="py-1 pr-4 font-semibold">Country</th>
-                      <th scope="col" className="py-1 pr-4 text-right font-semibold">Suppliers</th>
-                      <th scope="col" className="py-1 text-right font-semibold">Wins</th>
+                      <th scope="col" className="py-2 pr-4 font-semibold">Country</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Suppliers</th>
+                      <th scope="col" className="py-2 text-right font-semibold">Wins</th>
                     </tr>
                   </thead>
                   <tbody>
                     {summary.byCountry.map((g) => (
                       <tr key={g.key} className="border-b border-line last:border-0">
-                        <th scope="row" className="py-1 pr-4 font-normal"><Link href={`/suppliers?country=${g.key}`}>{countryName(g.key)}</Link></th>
-                        <td className="py-1 pr-4 text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
-                        <td className="py-1 text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
+                        <th scope="row" className="py-2 pr-4 font-normal"><Link href={`/suppliers?country=${g.key}`}>{countryName(g.key)}</Link></th>
+                        <td className="py-2 pr-4 text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
+                        <td className="py-2 text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -202,17 +197,17 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <Button type="submit" variant="primary">Search</Button>
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
         </form>
-        <p id="product-help" className="m-0 max-w-[75ch] text-small text-ink-muted">
+        <p id="product-help" className="m-0 max-w-prose text-small text-ink-muted">
           A product word is read as CPV codes, from a short list of words for the main defence products (drone, explosives, body armour, tank, and a few more)
           and otherwise from the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>; suppliers are
           listed that won notices whose main CPV code starts with one of them. The page shows the codes it used. Not sure of the word? Browse the finder and copy a code into the CPV box.
         </p>
-        <p id="order-help" className="m-0 max-w-[75ch] text-small text-ink-muted">
+        <p id="order-help" className="m-0 max-w-prose text-small text-ink-muted">
           “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
           reseller with many small awards can come first. Choose “Name” for a neutral order.
         </p>
         {match && (
-          <p role="status" className="m-0 max-w-[75ch] rounded-md bg-surface-inset px-4 py-3 text-small">
+          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small">
             {match.prefixes.length === 0
               ? <>No code in the CPV finder has “{f.product}” in its title. Try a shorter or more general word, or browse the <Link href="/cpv" className="font-semibold">CPV finder</Link>.</>
               : match.via === 'keyword'
@@ -234,7 +229,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {result.items.map((s) => (
-              <li key={s.id} className="flex flex-col gap-1 rounded-lg bg-surface p-4">
+              <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-4">
                 <Link href={`/suppliers/${s.slug}`} className="break-words text-h3 font-semibold">{s.name}</Link>
                 <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
                   <CountryLabel code={s.country} />
@@ -249,7 +244,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </ul>
         )}
         {result.maxOffset !== undefined && result.total > result.maxOffset && (
-          <p className="m-0 max-w-[75ch] text-small text-ink-muted">
+          <p className="m-0 max-w-prose text-small text-ink-muted">
             The list shows the first {formatNumber(result.maxOffset)} of {formatNumber(result.total)}. Search by company name, or narrow by country or product group, to reach the others.
           </p>
         )}

@@ -8,30 +8,19 @@ import { PROGRAMMES } from '@/lib/taxonomy';
 import type { Call, ShortlistKind, Tender } from '@/lib/types';
 import { Icon } from '../dg/icon';
 import { Button } from '../dg/button';
+import { Card } from '../dg/card';
+import { PageHeader } from '../dg/page-header';
 
 /** Page title of a signed-in page. No breadcrumbs: the sidebar is the navigation. */
 export function AppHeader({ title, lead }: { title: string; lead?: string }) {
-  return (
-    <header className="flex flex-col gap-2">
-      <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{title}</h1>
-      {lead && <p className="m-0 max-w-[62ch] text-body text-ink-muted">{lead}</p>}
-    </header>
-  );
+  return <PageHeader title={title} lead={lead} />;
 }
 
 /** A framed section with an h2. */
 export function Block({ id, title, aside, children, className }: {
   id: string; title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string;
 }) {
-  return (
-    <section aria-labelledby={id} className={cn('flex min-w-0 flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6', className)}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={id} className="m-0 text-h3">{title}</h2>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
+  return <Card title={title} id={id} action={aside} className={className}>{children}</Card>;
 }
 
 /** What to do next, with links. Never a bare empty box. */
@@ -69,11 +58,11 @@ export function Notice({ code }: { code?: string | string[] }) {
 
 export function LoadFailed({ href }: { href: string }) {
   return (
-    <div role="alert" className="flex flex-col items-start gap-4 rounded-lg bg-surface p-6">
+    <div role="alert" className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-alert"><Icon icon={CircleAlert} /></span>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-h3">We could not load this</h2>
-        <p className="m-0 max-w-[60ch] text-body text-ink-muted">Your account is fine. The service did not answer. Try again in a moment.</p>
+        <p className="m-0 max-w-prose text-body text-ink-muted">Your account is fine. The service did not answer. Try again in a moment.</p>
       </div>
       <Button href={href} variant="secondary">Try again</Button>
     </div>

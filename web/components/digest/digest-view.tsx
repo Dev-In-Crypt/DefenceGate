@@ -6,7 +6,9 @@ import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber } from '@/l
 import { countryName } from '@/lib/taxonomy';
 import type { Digest, DigestCall, DigestTender, DigestWeek } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import type { Crumb } from '@/lib/seo';
 import { Button } from '../dg/button';
+import { PageHeader } from '../dg/page-header';
 import { Select } from '../dg/form';
 import { Icon } from '../dg/icon';
 import { Tag } from '../dg/tag';
@@ -29,7 +31,7 @@ function CallDates({ c }: { c: DigestCall }) {
 
 function CallItem({ c }: { c: DigestCall }) {
   return (
-    <article className="flex flex-col gap-2 rounded-lg bg-surface p-5">
+    <article className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{KIND_WORDS[c.kind]}</Tag>
         <Tag wrap>{c.programmeName}</Tag>
@@ -37,7 +39,7 @@ function CallItem({ c }: { c: DigestCall }) {
         {c.cascade === true && <Tag>Cascade funding</Tag>}
         <FitBadge id={c.id} />
       </div>
-      <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]"><Link href={`/funding/${c.slug}`}>{displayName(c.title)}</Link></h3>
+      <h3 className="m-0 break-words text-h3"><Link href={`/funding/${c.slug}`}>{displayName(c.title)}</Link></h3>
       <p className="m-0 text-small font-semibold">{c.funder}</p>
       <CallDates c={c} />
       {c.changes.length > 0 && (
@@ -54,13 +56,13 @@ function CallItem({ c }: { c: DigestCall }) {
 
 function TenderItem({ t }: { t: DigestTender }) {
   return (
-    <article className="flex flex-col gap-2 rounded-lg bg-surface p-5">
+    <article className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{t.kind === 'new' ? 'New notice' : 'Amended notice'}</Tag>
         {t.country && <Tag>{t.country}</Tag>}
         <time dateTime={t.day} className="ml-auto font-mono text-mono text-ink-muted">{formatDateUtc(`${t.day}T00:00:00Z`)}</time>
       </div>
-      <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]"><Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link></h3>
+      <h3 className="m-0 break-words text-h3"><Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link></h3>
       <p className="m-0 text-small font-semibold">{t.buyerName}{t.country ? ` (${countryName(t.country)})` : ''}</p>
       <p className="m-0 font-mono text-mono text-ink-muted">
         {t.deadline ? <>Deadline <time dateTime={t.deadline}>{formatDateUtc(t.deadline)}</time> UTC</> : 'No deadline stated'}
@@ -77,26 +79,27 @@ function TenderItem({ t }: { t: DigestTender }) {
  * One issue of the weekly digest. The same page for /digest (the latest issue) and /digest/[week].
  * `basePath` is where the country filter submits to; `feedHref` is the Atom feed for the same country.
  */
-export function DigestView({ issue, filters, basePath, feedHref }: { issue: Digest; filters: DigestFilters; basePath: string; feedHref: string }) {
+export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices }: {
+  issue: Digest; filters: DigestFilters; basePath: string; feedHref: string; crumbs: Crumb[];
+  /** Status lines about the data, shown under the page header. */
+  notices?: React.ReactNode;
+}) {
   const c = issue.counts;
   const country = filters.country ? DIGEST_COUNTRIES[filters.country] ?? filters.country : null;
   const empty = c.tendersNew + c.tendersAmended + c.callsNew + c.callsAmended + c.callsOpened + c.callsClosing === 0;
   const fundingQuiet = c.callsNew + c.callsAmended + c.callsOpened === 0;
   return (
     <>
-      <header className="flex flex-col gap-3">
-        <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">Weekly digest</h1>
-        <p className="m-0 text-h3">
-          <time dateTime={issue.weekFrom}>{weekLabel(issue.week)}</time>{country ? ` · ${country}` : ''}
-        </p>
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">
+      <PageHeader crumbs={crumbs} title="Weekly digest"
+        sub={<><time dateTime={issue.weekFrom}>{weekLabel(issue.week)}</time>{country ? ` · ${country}` : ''}</>}
+        lead={<>
           What was new and what changed in the week, from the same archive as <Link href="/changes" className="font-semibold">What changed</Link> and the{' '}
           <Link href="/funding" className="font-semibold">funding calls</Link>: new and amended defence notices, funding calls that appeared, opened or had a date moved, calls closing in
           the two weeks after, and calls with cascade funding. Each item links to its page, which links to the source. No account is needed.
-        </p>
-      </header>
+        </>} />
+      {notices}
 
-      <section aria-labelledby="numbers" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+      <section aria-labelledby="numbers" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
         <h2 id="numbers" className="m-0 text-h3">The week in numbers</h2>
         <p className="m-0 text-body">{countsSentence(issue)}</p>
         <ul className="m-0 flex list-none flex-wrap gap-x-6 gap-y-1 p-0 text-small">
@@ -117,7 +120,7 @@ export function DigestView({ issue, filters, basePath, feedHref }: { issue: Dige
         </div>
       </section>
 
-      <form method="get" action={basePath} role="search" aria-label="Filter the digest" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:flex-row sm:items-end">
+      <form method="get" action={basePath} role="search" aria-label="Filter the digest" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:items-end">
         <Select name="country" label="Country" placeholder="All countries" defaultValue={filters.country ?? ''} className="sm:min-w-64"
           hint="A notice’s buyer country, or the funder country of a call."
           options={Object.entries(DIGEST_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
@@ -127,7 +130,7 @@ export function DigestView({ issue, filters, basePath, feedHref }: { issue: Dige
         </div>
       </form>
 
-      <details className="rounded-lg bg-surface px-5 sm:px-6">
+      <details className="rounded-lg border border-edge bg-surface px-5 sm:px-6">
         <summary className="flex min-h-12 cursor-pointer items-center py-3 text-body font-semibold">What “new” means here</summary>
         <div className="flex flex-col gap-2 pb-4 text-small">
           <p className="m-0"><strong>A new notice</strong> is one our archive collected for the first time in this week and that was published in it, or up to two days before it (TED notices are collected after their publication date). A notice that was published earlier and that we read in later is not new.</p>

@@ -6,7 +6,6 @@ import { formatDateTimeUtc } from '@/lib/format';
 import type { SearchParams } from '@/lib/filters';
 import { staleNote } from '@/lib/source-status';
 import { buildMetadata } from '@/lib/seo';
-import { Breadcrumbs } from '@/components/dg/feedback';
 import { DigestView, WeekList } from '@/components/digest/digest-view';
 
 export const revalidate = 300;
@@ -37,14 +36,16 @@ export default async function DigestWeekPage({ params, searchParams }: Props) {
   if (!issue) notFound();
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Weekly digest', href: '/digest' }, { label: weekLabel(week), href: `/digest/${week}${digestQuery(filters)}` }]} />
-      {unknown && (
-        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
-      )}
-      {issue.staleAsOf && (
-        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
-      )}
-      <DigestView issue={issue} filters={filters} basePath={`/digest/${week}`} feedHref={`/digest.atom${digestQuery(filters)}`} />
+      <DigestView issue={issue} filters={filters} basePath={`/digest/${week}`} feedHref={`/digest.atom${digestQuery(filters)}`}
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Weekly digest', href: '/digest' }, { label: weekLabel(week), href: `/digest/${week}${digestQuery(filters)}` }]}
+        notices={<>
+        {unknown && (
+          <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
+        )}
+        {issue.staleAsOf && (
+          <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
+        )}
+      </>} />
       <WeekList weeks={weeks} current={issue.week} filters={filters} />
     </>
   );

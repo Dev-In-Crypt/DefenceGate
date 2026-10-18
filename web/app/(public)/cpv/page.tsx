@@ -31,7 +31,7 @@ export default function CpvPage() {
 
       <CpvBrowser sections={sections} />
 
-      <p className="m-0 max-w-[860px] text-small text-ink-muted">
+      <p className="m-0 max-w-prose text-small text-ink-muted">
         Titles are the English names in the CPV 2008 vocabulary (Commission Regulation (EC) No 213/2008) as published by the Publications Office of the European Union, retrieved {CPV_SOURCE.retrieved}.
         This is a selection of {CPV_SOURCE.held} of the vocabulary&rsquo;s {CPV_SOURCE.vocabularySize.toLocaleString('en-GB')} codes, and the selection is ours. The complete vocabulary is on the EU Vocabularies site of the Publications Office.
       </p>

@@ -13,13 +13,13 @@ export function ChangeEntry({ change }: { change: Change }) {
   const t = change.tender;
   const isNew = change.kind === 'new';
   return (
-    <article className="flex flex-col gap-3 rounded-lg bg-surface p-5">
+    <article className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         {isNew ? <Tag kind="programme">New</Tag> : <StatusPill status="amended" />}
         {t.country && <Tag>{t.country}</Tag>}
         <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
       </div>
-      <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]">
+      <h3 className="m-0 break-words text-h3">
         <Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link>
       </h3>
       <p className="m-0 text-small font-semibold">

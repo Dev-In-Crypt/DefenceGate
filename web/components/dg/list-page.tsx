@@ -1,5 +1,6 @@
 import type { Crumb } from '@/lib/seo';
-import { Breadcrumbs, EmptyState } from './feedback';
+import { EmptyState } from './feedback';
+import { PageHeader } from './page-header';
 import { Pagination } from './pagination';
 import { Button } from './button';
 import { ResultTools } from './download-link';
@@ -38,14 +39,9 @@ export function ListPage({
   const Count = total === 0 ? 'p' : 'h2';
   return (
     <>
-      <Breadcrumbs items={crumbs} />
-      <header className="flex flex-col gap-3">
-        <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{title}</h1>
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">{intro}</p>
-        {meta && <p className="m-0 font-mono text-mono text-ink-muted">{meta}</p>}
-      </header>
+      <PageHeader crumbs={crumbs} title={title} lead={intro} meta={meta} />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         {filterExtra || (exportHref && total > 0) ? (
           <div className="flex min-w-0 flex-col gap-4">
             {filterBar}{filterExtra}

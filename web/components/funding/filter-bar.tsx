@@ -35,7 +35,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   const budgetOptions = BUDGET_PRESETS.map((n) => ({ value: String(n), label: `${currency} ${n / 1_000_000}M` }));
   return (
     <FilterPanel activeCount={activeFilterCount(filters)}>
-      <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className="flex flex-col gap-6 rounded-lg bg-surface p-5">
+      <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className="flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5">
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Whole words; counter-drone and counter drone are the same, and drone also finds unmanned." />
         {show('status') && (
           <Fieldset legend="Status">

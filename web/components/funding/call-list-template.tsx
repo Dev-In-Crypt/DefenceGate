@@ -7,7 +7,8 @@ import { listUpdatedAt } from '@/lib/source-status';
 import { fundersWithCoverage } from '@/lib/taxonomy';
 import type { CallFilters, Health, ListView, Paginated, Call } from '@/lib/types';
 import type { Crumb } from '@/lib/seo';
-import { Breadcrumbs, EmptyState } from '../dg/feedback';
+import { EmptyState } from '../dg/feedback';
+import { PageHeader } from '../dg/page-header';
 import { CallCard } from '../dg/cards';
 import { Pagination } from '../dg/pagination';
 import { Button } from '../dg/button';
@@ -56,26 +57,22 @@ export function CallListTemplate({
 
   return (
     <>
-      <Breadcrumbs items={crumbs} />
-      <header className="flex flex-col gap-3">
-        <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{title}</h1>
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">{intro}</p>
-        <p className="m-0 font-mono text-mono text-ink-muted">{health.sources.filter((s) => s.type === 'grants').length} funding sources{updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}</p>
-      </header>
+      <PageHeader crumbs={crumbs} title={title} lead={intro}
+        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`} />
 
       {chips.length > 0 && (
-        <nav aria-label="Browse funding" className="-mx-4 overflow-x-auto px-4">
+        <nav aria-label="Browse funding" className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0">
           <ul className="m-0 flex w-max list-none gap-2 p-0 md:w-auto md:flex-wrap">
             {chips.map((c) => (
               <li key={c.href}>
-                <Link href={c.href} className="inline-flex min-h-11 items-center rounded-pill bg-surface px-4 text-small font-bold text-ink no-underline transition-colors duration-dg hover:bg-surface-inset hover:no-underline">{c.label}</Link>
+                <Link href={c.href} className="inline-flex min-h-11 items-center rounded-pill border border-edge bg-surface px-4 text-small font-bold text-ink no-underline transition-colors duration-dg hover:bg-surface-inset hover:no-underline">{c.label}</Link>
               </li>
             ))}
           </ul>
         </nav>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className="flex min-w-0 flex-col gap-4">
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} />
@@ -89,7 +86,7 @@ export function CallListTemplate({
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} calls` : `Showing ${from}–${to} of ${result.total} calls`}
             </Count>
             {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={SORT_OPTIONS} />}
-            <div role="group" aria-label="View" className="flex rounded-pill bg-surface p-1">
+            <div role="group" aria-label="View" className="flex rounded-pill border border-edge bg-surface p-1">
               {(['list', 'calendar'] as const).map((v) => (
                 <Link key={v} href={viewHref(v)} aria-current={view === v ? 'true' : undefined}
                   className={cn('inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 text-small font-bold no-underline hover:no-underline',

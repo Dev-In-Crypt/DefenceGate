@@ -10,14 +10,30 @@ import { cpvLabel } from '@/lib/taxonomy';
 import { matchedCpv } from '@/lib/tender-basis';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
-import { AmountDisplay, CountryLabel, FactCell, LangLabel } from './data-display';
+import { AmountDisplay, CountryLabel, FactCell, LIST_FACTS, LangLabel, ListFact } from './data-display';
 import { Icon } from './icon';
 import { SourceBadge } from './source-badge';
 import { BasisChips } from './basis-chips';
 import { FitBadge } from '../funding/fit-badge';
 
-const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted sm:p-6';
+/** A list card: the surface, the edge, 20 px padding, 12 px between its parts. Call cards are about 215 px tall at 1280 px and wider, tender cards about 260 px. */
+const CARD = 'group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
+/** Card title: 20/28, two lines at most from md (three below); the whole title stays in the link text. */
+const CARD_TITLE = 'm-0 line-clamp-3 text-h3 md:line-clamp-2';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
+/** Text part at the left, facts at the right (from xl); one column below. */
+const CARD_BODY = 'grid gap-x-6 gap-y-3 xl:grid-cols-[minmax(0,1fr)_340px]';
+
+/** The title in the original language, one line, with its label; nothing when there is none. */
+function OriginalTitle({ title, lang }: { title: string | null | undefined; lang: string | null | undefined }) {
+  if (!title) return null;
+  return (
+    <p className="m-0 flex min-w-0 items-baseline gap-2 text-small text-ink-muted">
+      <span lang={lang ?? undefined} className="min-w-0 truncate">{displayName(title)}</span>
+      <LangLabel kind="title" code={lang} className="shrink-0" />
+    </p>
+  );
+}
 
 /** Whole card is one link (stretched title). "View original" sits above it. */
 export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: {
@@ -34,70 +50,69 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Tag kind="programme">{PROGRAMMES[call.programme].label}</Tag>
-        <Tag>{REGIMES[call.regime]}</Tag>
-        <Tag>{call.funderCountry}</Tag>
-        {call.cascade === true && <Tag>Cascade funding</Tag>}
-        {!closed && <FitBadge id={call.id} />}
-        {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
-        <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
-      </div>
-      <div className="flex flex-col gap-1">
-        <H lang={nonEnglish ? call.titleLanguage : undefined} className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
-          <Link href={`/funding/${call.slug}`} className={TITLE_LINK}>{displayName(call.title)}</Link>
-        </H>
-        {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
-        {call.originalTitle && (
-          <span className="text-small text-ink-muted">
-            <span lang={call.originalLanguage ?? undefined}>{displayName(call.originalTitle)}</span>
-            {' · '}<LangLabel kind="title" code={call.originalLanguage} />
-          </span>
-        )}
-        <span className="text-small text-ink-muted">{funderLine(call)}</span>
-      </div>
-      {call.status === 'open' && call.sourceStatus === 'forthcoming' && (
-        <p className="m-0 text-small text-ink-muted">The source still lists this call as forthcoming; its opening date has passed and its deadline is ahead.</p>
-      )}
-      {upcoming && call.openingDate && (
-        <p className="m-0 text-body font-bold text-ink">
-          {openingPhrase(call.openingDate, now()).lead}{' '}
-          <time dateTime={call.openingDate}>{openingPhrase(call.openingDate, now()).date}</time>
-        </p>
-      )}
-      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-        <FactCell label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
-          {d.rolling && d.iso ? (
-            <>
-              <span className="font-sans">Open: rolling submission</span>
-              <div className="font-sans text-small font-normal text-ink-muted">Last cut-off <time dateTime={d.iso}>{d.utc}</time></div>
-            </>
-          ) : d.iso ? (
-            <>
-              <time dateTime={d.iso}>{d.utc}</time>
-              {/* No countdown before the call opens, and none without a deadline. */}
-              {!upcoming && d.countdown && (
-                <div className={cn('font-sans text-small font-bold', closed ? 'text-ink-muted' : soon ? 'text-soon-fg' : 'text-accent-text')}>{d.countdown}</div>
-              )}
-            </>
-          ) : (
-            <span className="font-sans">{closed ? 'Closed' : 'No fixed deadline'}</span>
+      <div className={CARD_BODY}>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Tag kind="programme">{PROGRAMMES[call.programme].label}</Tag>
+            <Tag>{REGIMES[call.regime]}</Tag>
+            <Tag>{call.funderCountry}</Tag>
+            {call.cascade === true && <Tag>Cascade funding</Tag>}
+            {!closed && <FitBadge id={call.id} />}
+            {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
+            <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
+          </div>
+          <H lang={nonEnglish ? call.titleLanguage : undefined} className={CARD_TITLE}>
+            <Link href={`/funding/${call.slug}`} className={TITLE_LINK}>{displayName(call.title)}</Link>
+          </H>
+          <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-small text-ink-muted">
+            <span>{funderLine(call)}</span>
+            {nonEnglish && <LangLabel kind="language" code={call.titleLanguage} />}
+          </p>
+          <OriginalTitle title={call.originalTitle} lang={call.originalLanguage} />
+          {call.status === 'open' && call.sourceStatus === 'forthcoming' && (
+            <p className="m-0 text-small text-ink-muted">The source still lists this call as forthcoming; its opening date has passed and its deadline is ahead.</p>
           )}
-        </FactCell>
-        <FactCell label={call.budgetScope === 'call' ? 'Call budget' : call.budgetScope === 'topic' ? 'Topic budget' : 'Budget'} tone={closed ? 'closed' : 'default'}>
-          {budgetRepeated ? (
-            <span className="font-sans text-body text-ink-muted">Shared with the other topics of this call</span>
-          ) : (
-            <>
-              <AmountDisplay money={call.budget} />
-              {call.budget && call.budgetScope === 'call' && (
-                <div className="font-sans text-small font-normal text-ink-muted">Shared by several topics of this call</div>
-              )}
-            </>
+          {upcoming && call.openingDate && (
+            <p className="m-0 text-body font-bold text-ink">
+              {openingPhrase(call.openingDate, now()).lead}{' '}
+              <time dateTime={call.openingDate}>{openingPhrase(call.openingDate, now()).date}</time>
+            </p>
           )}
-        </FactCell>
-        <FactCell label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</FactCell>
-      </dl>
+        </div>
+        <dl className={LIST_FACTS}>
+          <ListFact label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
+            {d.rolling && d.iso ? (
+              <>
+                <span className="font-sans">Open: rolling submission</span>
+                <div className="font-sans text-small font-normal text-ink-muted">Last cut-off <time dateTime={d.iso}>{d.utc}</time></div>
+              </>
+            ) : d.iso ? (
+              <>
+                <time dateTime={d.iso}>{d.utc}</time>
+                {/* No countdown before the call opens, and none without a deadline. */}
+                {!upcoming && d.countdown && (
+                  <div className={cn('font-sans text-small font-bold', closed ? 'text-ink-muted' : soon ? 'text-soon-fg' : 'text-accent-text')}>{d.countdown}</div>
+                )}
+              </>
+            ) : (
+              <span className="font-sans">{closed ? 'Closed' : 'No fixed deadline'}</span>
+            )}
+          </ListFact>
+          <ListFact label={call.budgetScope === 'call' ? 'Call budget' : call.budgetScope === 'topic' ? 'Topic budget' : 'Budget'} tone={closed ? 'closed' : 'default'}>
+            {budgetRepeated ? (
+              <span className="font-sans text-body text-ink-muted">Shared with the other topics of this call</span>
+            ) : (
+              <>
+                <AmountDisplay money={call.budget} />
+                {call.budget && call.budgetScope === 'call' && (
+                  <div className="font-sans text-small font-normal text-ink-muted">Shared by several topics of this call</div>
+                )}
+              </>
+            )}
+          </ListFact>
+          <ListFact label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</ListFact>
+        </dl>
+      </div>
       <SourceBadge source={call.source} variant="inline" />
     </article>
   );
@@ -149,61 +164,60 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
-      <div className="flex flex-wrap items-center gap-2">
-        {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-        {mainName && <span className="text-small text-ink-muted">{mainName.label}</span>}
-        {tender.country && <Tag>{tender.country}</Tag>}
-        <span className="ml-auto flex flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
+      <div className={CARD_BODY}>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
+            {mainName && <span title={mainName.label} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName.label}</span>}
+            {tender.country && <Tag>{tender.country}</Tag>}
+            <span className="ml-auto flex shrink-0 flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
+          </div>
+          {matched.length > 0 && (
+            <p className="m-0 text-small text-ink-muted">
+              Matches your code filter through {matched.length === 1 ? 'an additional code' : 'additional codes'}:{' '}
+              {matched.map((c, i) => <span key={c}>{i > 0 && ', '}<span className="font-mono text-mono-strong">{c}</span>{cpvLabel(c) ? ` (${cpvLabel(c)?.label})` : ''}</span>)}
+            </p>
+          )}
+          <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className={CARD_TITLE}>
+            <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</Link>
+          </H>
+          <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-small">
+            {tender.buyerSlug ? (
+              <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 inline-flex min-h-8 items-center font-semibold">{displayName(tender.buyerName, 'title')}</Link>
+            ) : (
+              <span className="font-semibold">{displayName(tender.buyerName, 'title')}</span>
+            )}
+            {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
+          </p>
+          <OriginalTitle title={tender.originalTitle} lang={tender.originalLanguage} />
+          <BasisChips tender={tender} lifted className="pt-1" />
+        </div>
+        <dl className={LIST_FACTS}>
+          <ListFact label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
+            {d.iso ? (
+              <>
+                <time dateTime={d.iso}>{d.utc}</time>
+                {local && <div className="font-sans text-small font-normal text-ink-muted">{local}</div>}
+                {d.countdown && (
+                  <div className={cn('font-sans text-small font-bold', closed ? 'text-ink-muted' : soon ? 'text-soon-fg' : 'text-accent-text')}>{d.countdown}</div>
+                )}
+              </>
+            ) : (
+              <span className="font-sans">{closed ? 'Closed' : 'No deadline stated'}</span>
+            )}
+          </ListFact>
+          <ListFact label="Estimated value" tone={closed ? 'closed' : 'default'}>
+            <AmountDisplay money={tender.estimatedValue} />
+            {valueNote && (!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && (
+              <div className="font-sans text-small font-normal text-ink-muted">{valueNote}</div>
+            )}
+            {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && tender.valueKind === 'lot_sum' && (
+              <div className="font-sans text-small font-normal text-ink-muted">Sum of the values the notice states for its lots</div>
+            )}
+          </ListFact>
+          <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</ListFact>
+        </dl>
       </div>
-      {matched.length > 0 && (
-        <p className="m-0 text-small text-ink-muted">
-          Matches your code filter through {matched.length === 1 ? 'an additional code' : 'additional codes'}:{' '}
-          {matched.map((c, i) => <span key={c}>{i > 0 && ', '}<span className="font-mono text-mono-strong">{c}</span>{cpvLabel(c) ? ` (${cpvLabel(c)?.label})` : ''}</span>)}
-        </p>
-      )}
-      <div className="flex flex-col gap-1">
-        <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
-          <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</Link>
-        </H>
-        {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
-        {tender.originalTitle && (
-          <span className="text-small text-ink-muted">
-            <span lang={tender.originalLanguage ?? undefined}>{displayName(tender.originalTitle)}</span>
-            {' · '}<LangLabel kind="title" code={tender.originalLanguage} />
-          </span>
-        )}
-        {tender.buyerSlug ? (
-          <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 inline-flex min-h-6 items-center self-start text-small font-semibold">{displayName(tender.buyerName, 'title')}</Link>
-        ) : (
-          <span className="text-small font-semibold">{displayName(tender.buyerName, 'title')}</span>
-        )}
-      </div>
-      <BasisChips tender={tender} lifted />
-      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-        <FactCell label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
-          {d.iso ? (
-            <>
-              <time dateTime={d.iso}>{d.utc}</time>
-              {local && <div className="font-sans text-small font-normal text-ink-muted">{local}</div>}
-              {d.countdown && (
-                <div className={cn('font-sans text-small font-bold', closed ? 'text-ink-muted' : soon ? 'text-soon-fg' : 'text-accent-text')}>{d.countdown}</div>
-              )}
-            </>
-          ) : (
-            <span className="font-sans">{closed ? 'Closed' : 'No deadline stated'}</span>
-          )}
-        </FactCell>
-        <FactCell label="Estimated value" tone={closed ? 'closed' : 'default'}>
-          <AmountDisplay money={tender.estimatedValue} />
-          {valueNote && (!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && (
-            <div className="font-sans text-small font-normal text-ink-muted">{valueNote}</div>
-          )}
-          {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && tender.valueKind === 'lot_sum' && (
-            <div className="font-sans text-small font-normal text-ink-muted">Sum of the values the notice states for its lots</div>
-          )}
-        </FactCell>
-        <FactCell label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</FactCell>
-      </dl>
       <AnomalyNote tender={tender} />
       <SourceBadge source={tender.source} variant="inline" retrievedLabel={TENDER_CHANGED_LABEL} />
     </article>
@@ -218,13 +232,13 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
     <article className={cn(CARD, 'text-ink')}>
       <div className="flex flex-col gap-2">
         {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
-        <H className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
+        <H className={CARD_TITLE}>
           <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</Link>
         </H>
         {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
         {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
       </div>
-      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
+      <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></FactCell>
         <FactCell label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></FactCell>
         <FactCell label="Last published">

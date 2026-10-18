@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const ROW = 'grid gap-1 py-2.5 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4 print:py-1.5';
-const PANEL = 'flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6 print:break-inside-avoid print:rounded-none print:border-t print:border-line print:bg-transparent print:p-0 print:pt-4';
+const PANEL = 'flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6 print:break-inside-avoid print:rounded-none print:border-t print:border-line print:bg-transparent print:p-0 print:pt-4';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (

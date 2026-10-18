@@ -19,7 +19,7 @@ const SCOPE_OPTIONS: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all']
 const VALUE_PRESETS = [100_000, 500_000, 1_000_000, 5_000_000, 10_000_000, 50_000_000];
 const formatPreset = (n: number) => (n >= 1_000_000 ? `${n / 1_000_000}M` : `${n / 1_000}k`);
 
-const FORM = 'flex flex-col gap-6 rounded-lg bg-surface p-5';
+const FORM = 'flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5';
 
 function CountryChoices({ selected }: { selected: string[] | undefined }) {
   return (

@@ -30,7 +30,7 @@ export default function PricingPage() {
       <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
         {PLANS.map((p) => (
           <li key={p.name} className="min-w-0">
-            <article className="flex h-full flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+            <article className="flex h-full flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
               <h2 className="m-0 text-h3">{p.name}</h2>
               <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
                 <span className="text-label text-ink-muted">Price</span>

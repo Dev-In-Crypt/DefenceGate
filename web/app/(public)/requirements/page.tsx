@@ -19,7 +19,7 @@ export const metadata: Metadata = buildMetadata({
 
 function Card({ r }: { r: RequirementSummary }) {
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+    <li className="flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <h3 className="m-0 text-h3"><Link href={`/requirements/${requirementSlug(r.code)}`} className="text-inherit">{r.name}</Link></h3>
       <p className="m-0 text-body text-ink-muted">{r.summary}</p>
       {r.kind === 'document' && (

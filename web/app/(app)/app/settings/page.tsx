@@ -25,7 +25,7 @@ export default async function SettingsPage({ searchParams }: Props) {
       <Notice code={n} />
 
       <Block id="profile" title="Profile" aside={<span className="max-w-full truncate text-small text-ink-muted">{me.email}</span>}>
-        <form action={saveSettings} className="flex max-w-[860px] flex-col gap-6">
+        <form action={saveSettings} className="flex max-w-form flex-col gap-6">
           <ProfileFields profile={me.profile} />
           <div><Button type="submit">Save profile</Button></div>
         </form>
@@ -65,17 +65,17 @@ export default async function SettingsPage({ searchParams }: Props) {
       </Block>
 
       <Block id="data" title="Download my data">
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">Everything held about this account as one JSON file: your profile, saved searches, shortlist and follows.</p>
+        <p className="m-0 max-w-prose text-body text-ink-muted">Everything held about this account as one JSON file: your profile, saved searches, shortlist and follows.</p>
         <form method="post" action="/app/settings/export">
           <Button type="submit" variant="secondary" icon={Download}>Download my data</Button>
         </form>
       </Block>
 
       <Block id="delete" title="Delete account">
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">
+        <p className="m-0 max-w-prose text-body text-ink-muted">
           This deletes your profile, saved searches, shortlist and follows, and signs you out everywhere. It cannot be undone.
         </p>
-        <form action={deleteAccount} className="flex max-w-[560px] flex-col gap-4">
+        <form action={deleteAccount} className="flex max-w-form flex-col gap-4">
           <TextInput name="confirm" type="email" autoComplete="off" required maxLength={254}
             label="Type your e-mail address to confirm" hint="The same address you sign in with." />
           <div><Button type="submit" variant="secondary" className="border-alert text-alert">Delete my account</Button></div>

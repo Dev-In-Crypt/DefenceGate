@@ -25,7 +25,7 @@ function EntryRow({ e }: { e: CalendarEntry }) {
         <span className="font-mono text-mono text-ink-muted">{e.when}</span>
       </div>
       <Link href={e.href}
-        className="break-words text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
+        className="break-words py-1 text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
         {displayName(e.title)}
       </Link>
       <span className="break-words text-small text-ink-muted">{displayName(e.who, 'title')} · {e.sourceName}</span>
@@ -43,7 +43,7 @@ export function Agenda({ entries }: { entries: CalendarEntry[] }) {
   return (
     <div className="flex flex-col gap-4">
       {groupByDay(entries).map(({ day, items }) => (
-        <section key={day} id={`d-${day}`} aria-labelledby={`h-${day}`} className="flex scroll-mt-4 flex-col gap-1 rounded-lg bg-surface p-5 sm:p-6">
+        <section key={day} id={`d-${day}`} aria-labelledby={`h-${day}`} className="flex scroll-mt-4 flex-col gap-1 rounded-lg border border-edge bg-surface p-5 sm:p-6">
           <h3 id={`h-${day}`} className="m-0 text-h3"><time dateTime={day}>{dayLabel(day)}</time></h3>
           <ul className="m-0 flex list-none flex-col p-0">
             {items.map((e) => <EntryRow key={e.key} e={e} />)}
@@ -65,7 +65,7 @@ export function MonthGrid({ month, label, entries, today }: { month: string; lab
     byDay.set(k, [...(byDay.get(k) ?? []), e]);
   }
   return (
-    <div className="hidden rounded-lg bg-surface p-3 md:block">
+    <div className="hidden rounded-lg border border-edge bg-surface p-3 md:block">
       <table className="w-full table-fixed border-separate border-spacing-1">
         <caption className="sr-only">Deadlines in {label}, UTC</caption>
         <thead>

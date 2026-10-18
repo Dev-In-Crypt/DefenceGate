@@ -62,8 +62,8 @@ export function RuleItem({ rule }: { rule: RuleResult }) {
         <h4 className="m-0 min-w-0 flex-1 text-body font-bold">{rule.title}</h4>
         <span className="text-small text-ink-muted">{OBLIGATION_WORD[rule.obligation]}</span>
       </div>
-      <p className="m-0 max-w-[80ch] text-body">{rule.reason}</p>
-      {rule.note && <p className="m-0 max-w-[80ch] text-small text-ink-muted">{rule.note}</p>}
+      <p className="m-0 max-w-prose text-body">{rule.reason}</p>
+      {rule.note && <p className="m-0 max-w-prose text-small text-ink-muted">{rule.note}</p>}
       {rule.asks.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
           {rule.asks.map((a) => <li key={a.field}>To answer: {a.question}</li>)}
@@ -89,12 +89,12 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
   const todo = a.rules.filter((r) => r.outcome === 'not_met' || r.outcome === 'to_obtain');
   const id = `prog-${a.programme}`;
   return (
-    <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6" data-programme={a.programme} data-verdict={a.verdict}>
+    <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6" data-programme={a.programme} data-verdict={a.verdict}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <H id={id} className="m-0 min-w-0 flex-1 text-h3">{a.name}</H>
         {!general && <VerdictBadge verdict={a.verdict} />}
       </div>
-      <p className="m-0 max-w-[70ch] text-body text-ink-muted">{a.summary}</p>
+      <p className="m-0 max-w-prose text-body text-ink-muted">{a.summary}</p>
       {!general && <p className="m-0 text-small font-semibold">{VERDICT_MEANING[a.verdict]}</p>}
       {general && todo.length > 0 && (
         <div className="flex flex-col gap-1 text-small">
@@ -127,7 +127,7 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
             {a.missing.map((m) => (
               <li key={m.field}>
-                <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-8 items-center font-semibold">{m.question}</Link>
+                <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-12 items-center font-semibold">{m.question}</Link>
               </li>
             ))}
           </ul>

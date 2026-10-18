@@ -89,7 +89,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
       <Select label="Show organisations from" options={countries} value={country} onChange={(e) => setCountry(e.target.value)} className="sm:max-w-xs" hint={hint} />
       {saved !== '' && !country && (
         <p className="m-0 flex flex-col items-start gap-0.5 text-small text-ink-muted">
-          <button type="button" onClick={() => setMine(!mine)} className="inline-flex min-h-8 items-center border-0 bg-transparent p-0 text-left font-sans text-small font-semibold text-link underline">
+          <button type="button" onClick={() => setMine(!mine)} className="inline-flex min-h-12 items-center border-0 bg-transparent p-0 text-left font-sans text-small font-semibold text-link underline">
             {mine ? 'Show the largest organisations of all countries instead' : `Put organisations from ${countryName(saved)} first`}
           </button>
           {!mine && <span>Your saved profile stays in this browser. This sends only the country code, {saved}, to our server with the request.</span>}

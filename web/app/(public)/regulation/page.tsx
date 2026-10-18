@@ -37,7 +37,7 @@ export default async function RegulationPage() {
         {newestFirst(feed.entries).map((e) => {
           const url = safeHttpUrl(e.source.url);
           return (
-            <li key={e.code} id={e.code} className="flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+            <li key={e.code} id={e.code} className="flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2">
                 <Tag>{STATUS_WORD[e.status]}</Tag>
                 <Tag>{e.instrument}</Tag>
@@ -46,7 +46,7 @@ export default async function RegulationPage() {
               <h2 className="m-0 text-h3">
                 {e.title}{' '}
                 <a href={`#${e.code}`} aria-label={`Link to this entry: ${e.title}`} title="Link to this entry"
-                  className="inline-flex min-h-8 min-w-8 items-center justify-center align-middle text-ink-muted"><Icon icon={Link2} size="inline" /></a>
+                  className="inline-flex min-h-12 min-w-12 items-center justify-center align-middle text-ink-muted"><Icon icon={Link2} size="inline" /></a>
               </h2>
               <p className="m-0 max-w-[90ch] text-body">{e.whatChanged}</p>
               <p className="m-0 max-w-[90ch] text-small text-ink-muted">{STATUS_MEANING[e.status]}</p>

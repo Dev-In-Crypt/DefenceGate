@@ -7,7 +7,7 @@ import { TextInput } from '../dg/form';
 import { EmptyState } from '../dg/feedback';
 import type { CpvSection } from '@/lib/cpv';
 
-const INDENT = ['pl-0', 'pl-4', 'pl-8', 'pl-12', 'pl-16'] as const;
+const INDENT = ['pl-0', 'pl-4', 'pl-12', 'pl-12', 'pl-16'] as const;
 
 function matches(r: { code: string; title: string }, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -36,7 +36,7 @@ export function CpvBrowser({ sections }: { sections: CpvSection[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div role="search" className="flex max-w-[560px] flex-col gap-2">
+      <div role="search" className="flex max-w-form flex-col gap-2">
         <TextInput search label="Search by code or words" placeholder="For example 3530 or ammunition" value={query}
           onChange={(e) => setQuery(e.target.value)} aria-controls={resultsId} autoComplete="off" />
         <p className="m-0 text-small text-ink-muted" aria-live="polite">
@@ -50,10 +50,10 @@ export function CpvBrowser({ sections }: { sections: CpvSection[] }) {
             The finder holds a selection of the vocabulary, not all of it. A code that is not listed can still be used in a notice.
           </EmptyState>
         ) : shown.map((s) => (
-          <section key={s.id} aria-labelledby={`cpv-${s.id}`} className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6">
+          <section key={s.id} aria-labelledby={`cpv-${s.id}`} className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <div className="flex flex-col gap-1">
               <h2 id={`cpv-${s.id}`} className="m-0 text-h3">{s.title}</h2>
-              <p className="m-0 max-w-[70ch] text-small text-ink-muted">{s.intro}</p>
+              <p className="m-0 max-w-prose text-small text-ink-muted">{s.intro}</p>
             </div>
             {s.groups.map((g) => (
               <div key={g.id} className="flex flex-col gap-1">

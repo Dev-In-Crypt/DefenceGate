@@ -30,9 +30,9 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
 export async function Footer() {
   const health = await getHealth();
   return (
-    <footer className="page pb-8 print:hidden">
-      <div className="flex flex-col gap-8 rounded-lg bg-surface p-6">
-        <div className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
+    <footer className="page pb-12 print:hidden">
+      <div className="flex flex-col gap-12 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+        <div className="grid gap-12 md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
           <div className="flex flex-col gap-3">
             <Logo href="/" />
             <p className="m-0 max-w-[36ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>
@@ -42,8 +42,8 @@ export async function Footer() {
             </div>
             <nav aria-label="Follow" className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="text-label text-ink-muted">Follow</span>
-              <a href="/changes.atom" className="inline-flex min-h-8 items-center text-small font-semibold text-ink">Atom feed</a>
-              <a href="/calendar.ics" className="inline-flex min-h-8 items-center text-small font-semibold text-ink">Calendar (.ics)</a>
+              <a href="/changes.atom" className="inline-flex min-h-12 items-center text-small font-semibold text-ink">Atom feed</a>
+              <a href="/calendar.ics" className="inline-flex min-h-12 items-center text-small font-semibold text-ink">Calendar (.ics)</a>
             </nav>
           </div>
           {COLUMNS.map((col) => (
@@ -55,7 +55,7 @@ export async function Footer() {
             </nav>
           ))}
         </div>
-        <p className="m-0 max-w-[90ch] border-t border-line pt-4 text-small text-ink-muted">
+        <p className="m-0 max-w-prose border-t border-line pt-4 text-small text-ink-muted">
           DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
         </p>
         <div className="flex flex-wrap justify-between gap-2 font-mono text-mono text-ink-muted">

@@ -21,7 +21,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
               {last ? (
                 <span aria-current="page" className="max-w-[40ch] truncate text-ink-muted">{c.label}</span>
               ) : (
-                <><Link href={c.href} className="inline-flex min-h-6 items-center font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
+                <><Link href={c.href} className="inline-flex min-h-8 items-center font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
               )}
             </li>
           );
@@ -33,11 +33,11 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
 
 function StateShell({ icon, title, children, action, tone = 'default' }: { icon: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode; tone?: 'default' | 'error' }) {
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className="flex flex-col items-start gap-4 rounded-lg bg-surface p-6">
+    <div role={tone === 'error' ? 'alert' : 'status'} className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <span className={cn('flex size-11 items-center justify-center rounded-pill bg-surface-inset', tone === 'error' ? 'text-alert' : 'text-ink')}>{icon}</span>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-h3">{title}</h2>
-        {children && <div className="m-0 max-w-[60ch] text-body text-ink-muted">{children}</div>}
+        {children && <div className="m-0 max-w-prose text-body text-ink-muted">{children}</div>}
       </div>
       {action}
     </div>
@@ -61,9 +61,9 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function CallCardSkeleton() {
   return (
-    <div className="flex flex-col gap-5 rounded-lg bg-surface p-6">
+    <div className="flex flex-col gap-5 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <div className="flex gap-2"><Skeleton className="h-[26px] w-14 rounded-pill" /><Skeleton className="h-[26px] w-20 rounded-pill" /><Skeleton className="ml-auto h-7 w-16 rounded-pill" /></div>
-      <Skeleton className="h-8 w-3/4" />
+      <Skeleton className="h-12 w-3/4" />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3"><Skeleton className="h-[88px]" /><Skeleton className="h-[88px]" /><Skeleton className="h-[88px]" /></div>
       <Skeleton className="h-4 w-1/2" />
     </div>
@@ -73,7 +73,7 @@ export function CallCardSkeleton() {
 /** Plan gate. Content is never rendered behind the lock. Without `href` (no plans page yet) the action is plain text. */
 export function LockedFeature({ feature, plan = 'Pro', href }: { feature: string; plan?: string; href?: string }) {
   return (
-    <div className="flex flex-col items-start gap-4 rounded-lg border-strong border-dashed border-line bg-surface p-6">
+    <div className="flex flex-col items-start gap-4 rounded-lg border-strong border-dashed border-line bg-surface p-5 sm:p-6">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Lock} /></span>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-h3">{feature}</h2>

@@ -70,9 +70,9 @@ export function BarChart({ id, title, summary, bars, primaryName, secondaryName,
         {bars.some((b) => b.partial) && <span>The lighter bar is a period that is not over yet.</span>}
       </figcaption>
       <details open={bars.length <= 12} className="rounded-md bg-surface-inset p-3">
-        <summary className="cursor-pointer text-small font-semibold">Figures as a table</summary>
+        <summary className="inline-flex min-h-11 cursor-pointer items-center text-small font-semibold">Figures as a table</summary>
         <div className="mt-3 max-h-80 overflow-auto">
-          <table className="w-full border-collapse text-left text-small">
+          <table className="w-full min-w-[440px] border-collapse text-left text-small">
             <caption className="sr-only">{title}</caption>
             <thead>
               <tr className="border-b border-line">
@@ -111,7 +111,7 @@ export function RankTable({ caption, labelHeader, rows, total, unit = 'Notices' 
   const top = Math.max(1, ...rows.map((r) => r.count));
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-small">
+      <table className="w-full min-w-[440px] border-collapse text-left text-small">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-line">

@@ -63,7 +63,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
       )}
 
       <ContentSection title="At a glance">
-        <dl className="m-0 grid gap-x-8 gap-y-3 sm:grid-cols-[max-content_1fr]">
+        <dl className="m-0 grid gap-x-12 gap-y-3 sm:grid-cols-[max-content_1fr]">
           <dt className="font-bold">Kind</dt><dd className="m-0">{CATEGORY_WORD[r.category] ?? r.category}{r.kind === 'rule' ? ' (assessed, not obtained)' : ''}</dd>
           {r.kind === 'document' && (
             <>

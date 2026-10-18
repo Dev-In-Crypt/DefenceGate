@@ -6,7 +6,7 @@ import type { BuyerProfile } from '@/lib/types';
 import { FactCell } from '@/components/dg/data-display';
 import { BarChart, RankTable } from './charts';
 
-const BASIS = 'm-0 max-w-[75ch] text-small text-ink-muted';
+const BASIS = 'm-0 max-w-prose text-small text-ink-muted';
 
 /**
  * What a buyer's own notices add up to: how many a year, on what subjects, how long it gives to respond,
@@ -21,11 +21,11 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
   return (
     <section aria-labelledby="buyer-profile" className="flex flex-col gap-4">
       <h2 id="buyer-profile" className="m-0 text-h2">Profile</h2>
-      <p className="m-0 max-w-[75ch] text-body text-ink-muted">
+      <p className="m-0 max-w-prose text-body text-ink-muted">
         Counts of {name}&apos;s defence notices in our archive, from {profile.sources.length === 1 ? 'one source' : `${profile.sources.length} sources`}.
         They count notices, not contract value, and are only as complete as those sources: see <Link href="/data" className="font-semibold">source status</Link>.
       </p>
-      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+      <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Typical response window">
           <span>{daysText(w.median)}</span>
           <span className="block font-sans text-small font-normal text-ink-muted">
@@ -42,7 +42,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
       </dl>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+        <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
           <h3 className="m-0 text-h3">Notices per year</h3>
           <BarChart
             id="buyer-years"
@@ -56,7 +56,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
-          <div className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+          <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <h3 className="m-0 text-h3">Subjects</h3>
             {profile.cpvGroups.length > 0 ? (
               <RankTable
@@ -73,7 +73,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
             )}
             <p className={BASIS}>{profile.basis.cpvGroups}</p>
           </div>
-          <div className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+          <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <h3 className="m-0 text-h3">Sources</h3>
             <RankTable
               caption={`Notices by source, ${name}`}

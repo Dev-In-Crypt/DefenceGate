@@ -22,7 +22,7 @@ export const metadata: Metadata = buildMetadata({
   path: '/market',
 });
 
-const BASIS = 'text-small text-ink-muted m-0 max-w-[75ch]';
+const BASIS = 'text-small text-ink-muted m-0 max-w-prose';
 const LINK = 'font-semibold';
 
 type Props = { searchParams: Promise<SearchParams> };
@@ -33,7 +33,7 @@ export default async function MarketPage({ searchParams }: Props) {
   const thisYear = new Date().getUTCFullYear();
   const yearOptions = Array.from({ length: thisYear - MARKET_FIRST_YEAR + 1 }, (_, i) => String(thisYear - i)).map((y) => ({ value: y, label: y }));
   const selectors = (
-    <form method="get" action="/market" role="search" aria-label="Choose the year and the country" className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:flex-row sm:items-end">
+    <form method="get" action="/market" role="search" aria-label="Choose the year and the country" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:items-end">
       <Select name={PARAM.year} label="Year of publication" placeholder="Last 12 months (moves daily)" defaultValue={filters.year ? String(filters.year) : ''}
         className="sm:min-w-56" options={yearOptions} />
       <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={filters.country ?? ''} className="sm:min-w-56"
@@ -75,7 +75,7 @@ export default async function MarketPage({ searchParams }: Props) {
     >
       {selectors}
 
-      <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg bg-surface p-4 lg:grid-cols-3">
+      <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg border border-edge bg-surface p-4 lg:grid-cols-3">
         <FactCell label={`Notices, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
         <FactCell label={yearOf ? `Notices, ${yearOf}, by month below` : 'Notices, last 36 months'}>{formatNumber(inMonths)}</FactCell>
         <FactCell label="Sources that published them">{stats.sourceCount}</FactCell>

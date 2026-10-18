@@ -22,6 +22,7 @@ import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/d
 import { SourceBadge } from '@/components/dg/source-badge';
 import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
+import { Card, slugId } from '@/components/dg/card';
 import { AlertsLine } from '@/components/dg/alerts-line';
 import { BasisChips } from '@/components/dg/basis-chips';
 import { AnomalyNote, TenderCard, TenderStatusPills } from '@/components/dg/cards';
@@ -55,13 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function Panel({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
-  const id = title.toLowerCase().replace(/\W+/g, '-');
-  return (
-    <section aria-labelledby={id} className={cn('flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6', className)}>
-      <h2 id={id} className="m-0 text-h3">{title}</h2>
-      {children}
-    </section>
-  );
+  return <Card title={title} id={slugId(title)} className={className}>{children}</Card>;
 }
 
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -123,7 +118,7 @@ export default async function TenderDetailPage({ params }: Props) {
             </div>
             <div className="flex flex-col gap-2">
               <h1 lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined}
-                className={cn('m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1', closed ? 'text-ink-muted' : 'text-ink')}>{title}</h1>
+                className={cn('m-0 break-words page-title', closed ? 'text-ink-muted' : 'text-ink')}>{title}</h1>
               {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
             </div>
             {tender.originalTitle && (
@@ -147,7 +142,7 @@ export default async function TenderDetailPage({ params }: Props) {
           {/* Deadline first on mobile: the hero element */}
           <DeadlineBadge info={d} size="lg" className="w-full lg:hidden" local={local} />
 
-          <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
+          <dl className="facts-grid m-0 border-b border-line">
             <FactCell label="Estimated value">
               <AmountDisplay money={tender.estimatedValue} size="lg" />
               {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
@@ -247,7 +242,7 @@ export default async function TenderDetailPage({ params }: Props) {
         </div>
 
         <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
-          <div className="flex flex-col gap-4 rounded-lg bg-surface p-6">
+          <div className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" local={local} />
             <SaveButton kind="tender" refId={tender.id} />
             {tender.buyerId && <FollowButton kind="buyer" refId={tender.buyerId} label="Follow this buyer" />}

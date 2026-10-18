@@ -5,7 +5,8 @@ import { formatDateTimeUtc } from '@/lib/format';
 import type { SearchParams } from '@/lib/filters';
 import { staleNote } from '@/lib/source-status';
 import { buildMetadata } from '@/lib/seo';
-import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
+import { EmptyState } from '@/components/dg/feedback';
+import { PageHeader } from '@/components/dg/page-header';
 import { Button } from '@/components/dg/button';
 import { DigestView, WeekList } from '@/components/digest/digest-view';
 
@@ -34,8 +35,7 @@ export default async function DigestPage({ searchParams }: Props) {
   if (!issue) {
     return (
       <>
-        <Breadcrumbs items={crumbs} />
-        <h1 className="m-0 text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">Weekly digest</h1>
+        <PageHeader crumbs={crumbs} title="Weekly digest" />
         <EmptyState title="There is no issue to show right now" action={<Button variant="secondary" href={`/digest${digestQuery(filters)}`}>Try again</Button>}>
           The first issue appears when the first full week of our archive has ended, and the data service did not answer for this one.
           Nothing here means there is nothing to report: the issue could not be read. <a href="/changes" className="font-semibold">What changed</a> covers the last 14 days meanwhile.
@@ -45,14 +45,15 @@ export default async function DigestPage({ searchParams }: Props) {
   }
   return (
     <>
-      <Breadcrumbs items={crumbs} />
-      {unknown && (
-        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
-      )}
-      {issue.staleAsOf && (
-        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
-      )}
-      <DigestView issue={issue} filters={filters} basePath="/digest" feedHref={`/digest.atom${digestQuery(filters)}`} />
+      <DigestView issue={issue} filters={filters} basePath="/digest" feedHref={`/digest.atom${digestQuery(filters)}`} crumbs={crumbs}
+        notices={<>
+        {unknown && (
+          <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
+        )}
+        {issue.staleAsOf && (
+          <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
+        )}
+      </>} />
       <WeekList weeks={weeks} current={issue.week} filters={filters} />
     </>
   );
