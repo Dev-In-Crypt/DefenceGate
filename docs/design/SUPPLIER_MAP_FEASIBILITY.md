@@ -204,9 +204,11 @@ Question: what would the raw store let a text detector do, and how precise is it
 
 - Candidates on production (TED, core scope, result subtypes, from 2023-01-01, not suppressed): **7,596** notices
   (7,394 since 2024), 550 buyers. At 100 numbers a request that is **76 requests**, about two minutes at one a second.
-- Expected rows: about 11,600 awards and about 4,800 organisations (of 425,330 now: +1.1 %). Database growth well
-  under 15 MB (the limit given was 500 MB). The raw store gets about 76 bundles of person-blanked records, a few
-  megabytes.
+- Measured by loading those 7,596 notices (a read-only export of production) into a scratch database and running the
+  real loader against the live API: **76 requests, 196 s, 9,826 awards, 4,187 supplier organisations (4,178 of them
+  new; production has 425,330 organisations: +1.0 %), 223 winners left out as natural persons**. Added size about
+  10 MB (the limit given was 500 MB); the raw store gets 76 bundles of person-blanked records, a few megabytes.
+  Details: `docs/verification/product/wp37-selfcheck.md`.
 - Licence: TED notices are reusable, commercially too, with attribution (Commission Decision 2011/833/EU); the
   attribution line is stored on the source and returned by the API.
 

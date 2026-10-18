@@ -171,17 +171,17 @@ def test_two_companies_of_one_name_with_different_numbers_are_two_suppliers(conn
     for n in (50, 51, 52):
         put_notice(conn, f"{n}-2026")
     fake = FakeTed([
-        rec("50-2026", [("Mueller Bau GmbH", "DEU", "DE111111111")]),
-        rec("51-2026", [("Mueller Bau GmbH", "DEU", "DE222222222")]),
-        rec("52-2026", [("Mueller Bau GmbH", "DEU", "DE222222222")]),     # the second one again, by its number
+        rec("50-2026", [("Mueller Bau GmbH", "DEU", "DE123456789")]),
+        rec("51-2026", [("Mueller Bau GmbH", "DEU", "DE987654321")]),
+        rec("52-2026", [("Mueller Bau GmbH", "DEU", "DE987654321")]),     # the second one again, by its number
     ])
     run(fake)
     orgs = conn.execute("SELECT id, national_reg_no FROM organisation WHERE canonical_name = 'mueller bau' "
                         "ORDER BY id").fetchall()
-    assert [o["national_reg_no"] for o in orgs] == ["111111111", "222222222"]
+    assert [o["national_reg_no"] for o in orgs] == ["123456789", "987654321"]
     wins = conn.execute("""SELECT o.national_reg_no, count(*) AS n FROM award a JOIN organisation o
                             ON o.id = a.organisation_id GROUP BY 1 ORDER BY 1""").fetchall()
-    assert [(w["national_reg_no"], w["n"]) for w in wins] == [("111111111", 1), ("222222222", 2)]
+    assert [(w["national_reg_no"], w["n"]) for w in wins] == [("123456789", 1), ("987654321", 2)]
     review = conn.execute("SELECT proposed_relation, method, status FROM resolution_review").fetchall()
     assert [(r["proposed_relation"], r["method"], r["status"]) for r in review] == [
         ("same_name_other_id", "id_conflict", "open")]                    # nothing merged, a person decides
@@ -233,6 +233,15 @@ def test_a_profile_states_the_notices_and_shows_a_value_only_where_one_supplier_
     assert not {"valueTotal", "share", "rank", "dependency"} & set(rh)
 
 
+def test_one_registration_number_written_two_ways_is_shown_once(conn, env, client):
+    put_notice(conn, "60-2026")
+    put_notice(conn, "61-2026")
+    run(FakeTed([rec("60-2026", [("Rheinmetall Landsysteme GmbH", "DEU", "DE190270455")]),
+                 rec("61-2026", [("Rheinmetall Landsysteme GmbH", "DEU", "DE 190 270 455")])]))
+    prof = client.get(f"/v1/suppliers/{_slug(client, 'landsysteme')}").json()
+    assert prof["noticeCount"] == 2 and len(prof["identifiers"]) == 1
+
+
 def test_an_unknown_or_malformed_supplier_is_a_404_and_a_removed_one_is_gone(conn, env, client):
     run(scenario(conn))
     assert client.get("/v1/suppliers/999999-nobody").status_code == 404
@@ -279,7 +288,7 @@ def test_three_suppliers_of_one_country_make_a_published_cell(conn, env, client)
     names = ("Alfa Tech GmbH", "Beta Werke GmbH", "Gamma Systems GmbH")
     for i in range(3):
         put_notice(conn, f"{40 + i}-2026")
-    run(FakeTed([rec(f"{40 + i}-2026", [(n, "DEU", f"DE10000000{i}")]) for i, n in enumerate(names)]))
+    run(FakeTed([rec(f"{40 + i}-2026", [(n, "DEU", f"DE12345678{i}")]) for i, n in enumerate(names)]))
     s = client.get("/v1/suppliers/summary").json()
     assert s["cells"] == [{"division": "35", "country": "DE", "suppliers": 3, "awards": 3}]
     assert [(g["key"], g["suppliers"]) for g in s["byCountry"]] == [("DE", 3)]

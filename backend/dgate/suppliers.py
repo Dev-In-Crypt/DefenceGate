@@ -31,7 +31,7 @@ from pydantic import BaseModel
 from .classify import CORE_SQL
 from .funding import get_conn, make_slug
 from .listcache import cache_list
-from .normalise import PLACEHOLDER_AMOUNT_MAX, redact_emails
+from .normalise import PLACEHOLDER_AMOUNT_MAX, normalise_identifier, redact_emails
 from .suppress import removed
 from .tenders import _buyer_names, _day, _id_of, _split, search_words
 
@@ -304,7 +304,10 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         (org_id,)).fetchall()
     idents = conn.execute(
         f"""SELECT a.identifier_as_stated AS v, count(*) AS n {base} AND a.identifier_as_stated IS NOT NULL
-             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 3""", (org_id,)).fetchall()
+             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 8""", (org_id,)).fetchall()
+    numbers: dict[str, str] = {}              # one spelling of each number: "DE 129 415 943" is "DE129415943"
+    for r in idents:
+        numbers.setdefault(normalise_identifier(r["v"], org["country"]) or r["v"], r["v"])
     buyer_ids = [r["id"] for r in buyer_rows]
     names = _buyer_names(conn, buyer_ids)
     countries = {r["id"]: r["country"] for r in conn.execute(
@@ -331,6 +334,6 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
                     "country": countries.get(i), "awards": r["awards"]}
                    for r in buyer_rows for i in [r["id"]] if names.get(i)],
         "notices": out_notices, "noticeCount": head["n"],
-        "namesAsStated": [r["v"] for r in stated], "identifiers": [r["v"] for r in idents],
+        "namesAsStated": [r["v"] for r in stated], "identifiers": list(numbers.values())[:3],
         "attribution": "Source: TED (Tenders Electronic Daily), © European Union. Winners as named in each result notice.",
     }

@@ -363,14 +363,20 @@ def _namesake_guard(conn: psycopg.Connection, res: Resolution, w: Winner) -> Res
     reg = normalise_identifier(w.identifier, w.country) if w.identifier else None
     if not reg or res.org_id is None or res.method in ("pic", "national_id", "vat"):
         return res
+    key, _ = key_of(w.name)
+    # The cascade tries an alias before a registration number, so a name that was decided before wins over
+    # the number: the body that holds this number, if its name fits, is the supplier.
+    holder = conn.execute("""SELECT id, canonical_name FROM organisation
+                              WHERE country = %s AND national_reg_no = %s AND merged_into IS NULL""",
+                          (w.country, reg)).fetchone()
+    if holder:
+        if holder["id"] != res.org_id and db.names_compatible(key, holder["canonical_name"]):
+            return Resolution(holder["id"], "national_id", db.CONF_IDENTIFIER)
+        return res          # the number sits on a body whose name shares nothing with this one: a person decides
     held = conn.execute("SELECT national_reg_no FROM organisation WHERE id = %s",
                         (res.org_id,)).fetchone()["national_reg_no"]
     if not held or not numbers_conflict(held, reg):
         return res
-    if conn.execute("SELECT 1 FROM organisation WHERE country = %s AND national_reg_no = %s",
-                    (w.country, reg)).fetchone():
-        return res          # the number sits on a body whose name shares nothing with this one: a person decides
-    key, _ = key_of(w.name)
     other = db._new_organisation(conn, key, w.country or "", reg)
     conn.execute("UPDATE organisation SET display_name = %s WHERE id = %s", (w.name[:300], other))
     add_review(conn, res.org_id, other, relation="same_name_other_id", method="id_conflict", confidence=0.50,
