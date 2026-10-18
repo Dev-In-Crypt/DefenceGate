@@ -7,10 +7,10 @@ import assert from 'node:assert/strict';
 import { etagOf } from './atom';
 import type { CalendarEntry } from './calendar';
 import {
-  buildDigestAtom, countsSentence, digestPath, headlines, isWeek, parseDigestFilters, truncation, weekLabel, weekMonday,
+  buildDigestAtom, countsSentence, digestPath, headlines, isWeek, parseDigestFilters, truncation, unknownDigestCountry, weekLabel, weekMonday,
 } from './digest';
 import { activeFilterCount, broadenings, describeCallFilters, ignoredFilters, parseCallFilters, toQuery } from './filters';
-import { buildIcs, ROLLING_NOTE } from './ics';
+import { buildIcs, EU_CUT_OFF_NOTE, ROLLING_NOTE } from './ics';
 import type { Digest, DigestCall, DigestTender } from './types';
 
 // ---- weeks -------------------------------------------------------------------------------------------------------------
@@ -25,6 +25,12 @@ assert.equal(weekLabel('2026-W53'), 'Week 53: 28 December to 3 January 2027');
 
 // ---- the URL filter -----------------------------------------------------------------------------------------------------
 assert.deepEqual(parseDigestFilters({}), {});
+// D4: a country the digest does not list is reported, not silently dropped.
+assert.equal(unknownDigestCountry({ country: 'zz' }), 'ZZ');
+assert.equal(unknownDigestCountry({ country: 'pl' }), null);
+assert.equal(unknownDigestCountry({}), null);
+assert.equal(unknownDigestCountry({ country: '  ' }), null);
+assert.deepEqual(parseDigestFilters({ country: 'ZZ' }), {});
 assert.deepEqual(parseDigestFilters({ country: 'es' }), { country: 'ES' });
 assert.deepEqual(parseDigestFilters({ country: ['FR', 'ES'] }), { country: 'FR' });
 assert.deepEqual(parseDigestFilters({ country: 'EU' }), { country: 'EU' });
@@ -100,8 +106,16 @@ const entry = (over: Partial<CalendarEntry>): CalendarEntry => ({
 });
 const ics = buildIcs([entry({ rolling: true, note: ROLLING_NOTE }), entry({ key: 'funding-26', id: '26', title: 'Single stage' })], new Date('2026-10-17T10:00:00Z'))
   .replace(/\r\n /g, '');
-assert.ok(ics.includes('SUMMARY:Latest cut-off: EIC Accelerator'));
+assert.ok(ics.includes('SUMMARY:Cut-off: EIC Accelerator'));
 assert.ok(ics.includes('SUMMARY:Deadline: Single stage'));
-assert.ok(ics.includes('Latest cut-off 4 Nov 2026 (date only).') && ics.includes('several cut-offs'));
+assert.ok(ics.includes('Cut-off 4 Nov 2026 (date only).') && ics.includes('several cut-offs') && ics.includes('next cut-off'));
+assert.ok(!ics.includes('Latest cut-off'), 'the stored date is the next cut-off, not the latest (V-B C2)');
+// C1: an EU portal call is an all-day event that says the cut-off is 17:00 Brussels; the notes do not push the link out of the text.
+const eu = ics.split('BEGIN:VEVENT').find((e) => e.includes('UID:funding-24@'))!;
+assert.ok(eu.includes('DTSTART;VALUE=DATE:20261104') && eu.includes('17:00 Brussels time') && eu.includes('https://defencegatehub.com/funding/24-eic') && !eu.includes('…'));
+assert.ok(EU_CUT_OFF_NOTE.includes('17:00 Brussels'));
+// ... and another source's date-only deadline keeps the plain sentence.
+const plain = buildIcs([entry({ sourceName: 'Vinnova', key: 'funding-27', id: '27' })], new Date('2026-10-17T10:00:00Z')).replace(/\r\n /g, '');
+assert.ok(plain.includes('The source publishes a day and no time.') && !plain.includes('17:00'));
 
 console.log('digest.check: ok');

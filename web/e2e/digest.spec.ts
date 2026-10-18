@@ -145,7 +145,7 @@ test('the calendar file: dates are ascending, openings are all-day, a call with 
       expect(e, `${uid}: an opening is an all-day event`).toMatch(/DTSTART;VALUE=DATE:\d{8}/);
       expect(e).toContain('Planned opening');
     }
-    if (/SUMMARY:Latest cut-off/.test(e)) expect(e).toContain('several cut-offs');
+    if (/SUMMARY:Cut-off:/.test(e)) expect(e).toContain('several cut-offs');
   }
   expect([...starts].sort(), 'events are in date order').toEqual(starts);
   expect(body).toContain('X-WR-CALNAME:DefenceGate deadlines');

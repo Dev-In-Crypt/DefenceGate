@@ -121,10 +121,16 @@ def funding_events(conn, *, countries: list[str], now: datetime | None = None,
     country_sql = " AND COALESCE(c.country, 'EU') = ANY(%s)" if countries else ""
     extra = [countries] if countries else []
     # `bounded`: `now` is the end of the window, and nothing seen after it is listed (the digest of a past week).
+    # A call is new when it was first collected in the window AND the source published it (or opened it)
+    # no earlier than the window, give or take PUBLISHED_SLACK_DAYS. The first load of a source reads in
+    # calls published months ago: they are not news (V-B D1: 50 of W39's 74 had opened before the week).
+    published_from = (since - timedelta(days=PUBLISHED_SLACK_DAYS)).date()
     first = conn.execute(
         f"{CALL_SELECT} WHERE NOT c.suppressed AND c.first_seen_at >= %s"
         f"{' AND c.first_seen_at < %s' if bounded else ''} "
-        f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}", [since, *([now] if bounded else []), *extra]).fetchall()
+        f"AND (COALESCE(c.published_at, c.opens_at) IS NULL OR COALESCE(c.published_at, c.opens_at) >= %s) "
+        f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}",
+        [since, *([now] if bounded else []), published_from, *extra]).fetchall()
     moves = conn.execute(
         "SELECT ch.call_id, ch.field, ch.before_value, ch.after_value, ch.observed_at "
         f"  FROM call_change ch WHERE ch.observed_at >= %s{' AND ch.observed_at < %s' if bounded else ''} "
@@ -209,9 +215,14 @@ def _amendments(conn, ids: list[int], since: datetime,
     out: dict[tuple[int, date], dict[str, Any]] = {}
     for oid, group in by_notice.items():
         corrected = {r["version"] for r in group if "correction" in (r.get("kinds") or [])}
+        # What the publisher changed before we first read the notice is not an amendment we observed: PLACSP
+        # feeds a notice once per modification, so a second version minutes after the first was written
+        # earlier by the publisher (V-B D2: all 30 "amended" of W37).
+        first_day = group[0]["observed_at"].astimezone(timezone.utc).date()
         for entry in T.timeline(group):
             at = entry["detectedAt"].astimezone(timezone.utc)
-            if at < since or (until is not None and at >= until) or entry["version"] in corrected or entry.get("historic"):
+            if (at < since or (until is not None and at >= until) or entry["version"] in corrected
+                    or entry.get("historic") or at.date() == first_day):
                 continue
             lines = [c for c in entry["changes"] if c["field"] in CHANGE_FIELDS]
             if not lines:

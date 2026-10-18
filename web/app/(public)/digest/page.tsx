@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getDigest, getDigestWeeks } from '@/lib/api';
-import { digestQuery, parseDigestFilters } from '@/lib/digest';
+import { digestQuery, parseDigestFilters, unknownDigestCountry } from '@/lib/digest';
 import { formatDateTimeUtc } from '@/lib/format';
 import type { SearchParams } from '@/lib/filters';
 import { staleNote } from '@/lib/source-status';
@@ -26,7 +26,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 /** The latest complete week. `/digest/[week]` is the same page for an earlier one. */
 export default async function DigestPage({ searchParams }: Props) {
-  const filters = parseDigestFilters(await searchParams);
+  const sp = await searchParams;
+  const filters = parseDigestFilters(sp);
+  const unknown = unknownDigestCountry(sp);
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'Weekly digest', href: '/digest' }];
   const [issue, weeks] = await Promise.all([getDigest(undefined, filters.country).catch(() => null), getDigestWeeks().catch(() => [])]);
   if (!issue) {
@@ -44,6 +46,9 @@ export default async function DigestPage({ searchParams }: Props) {
   return (
     <>
       <Breadcrumbs items={crumbs} />
+      {unknown && (
+        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
+      )}
       {issue.staleAsOf && (
         <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
       )}

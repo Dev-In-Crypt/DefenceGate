@@ -54,6 +54,13 @@ export function parseDigestFilters(sp: SearchParams): DigestFilters {
   return Object.hasOwn(DIGEST_COUNTRIES, code) ? { country: code } : {};
 }
 
+/** A `country` that was asked for and is not one of DIGEST_COUNTRIES: the page says it was ignored, the feed refuses it. */
+export function unknownDigestCountry(sp: SearchParams): string | null {
+  const raw = (Array.isArray(sp.country) ? sp.country[0] : sp.country) ?? '';
+  const code = raw.trim().toUpperCase();
+  return code && !Object.hasOwn(DIGEST_COUNTRIES, code) ? code.slice(0, 8) : null;
+}
+
 export function digestQuery(f: DigestFilters): string {
   return f.country ? `?country=${f.country}` : '';
 }

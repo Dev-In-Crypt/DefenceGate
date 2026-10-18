@@ -658,3 +658,21 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
 A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input. The limiter charges
 three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
 content policy allows connections to the site only); the verdict is the only thing that leaves the browser.
+
+## Changes of 18 October 2026 (WP-35: eligibility per topic, digest and calendar fixes)
+
+- `/v1/digest`, `/v1/digest/weeks` and `/v1/changes` are **not** on the public path list of `infra/Caddyfile` on purpose:
+  only the site's server reaches them (the site serves them as `/digest`, `/digest.atom`, `/changes`). The week-on-the-spot
+  computation of an issue that is not stored is too heavy for an open endpoint. Add them to `@public` only if the owner
+  wants a public data API for them (then with the rate limit of the other lists).
+- `documentEligibility.facts` come from a call-document row kept **per topic** (`call_eligibility.url` is
+  `<document url>#<topic code>`, `document_url` the document). A quote that names another topic's code is not served;
+  a general-annex sentence about `cascade_funding` or `ownership_control_restriction` is never served (it is conditional on
+  the topic); an exclusion of high-risk suppliers is not an `ownership_control_restriction`; contradicting facts are
+  reconciled with a note (a consortium is required: no `single_applicant_allowed`). Rows read before keep serving, under
+  the same checks, until their topic is read again with prompt version 4.
+- `callsNew` / `call-new`: a call is new in a window only if the source published it (or opened it) no earlier than two days
+  before the window; a source's first load of old calls is not news. `tendersAmended` / `amended`: a change observed on
+  the UTC day of the notice's first reading is not an amendment.
+- The digest's eligibility line says "a single applicant may apply" for one entity, and "consortium of at least N
+  entities" only from N = 2; it never repeats a general-annex Yes.
