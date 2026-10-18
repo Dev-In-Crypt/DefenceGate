@@ -211,7 +211,8 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               onChange={(v) => set('regime', v)} />
             <TextInput label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={6}
               hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. Leave empty if you do not know."
-              value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value.replace(/[^0-9.,]/g, ''))} />
+              value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value.replace(/[^0-9.,]/g, ''))}
+              error={profile.componentPct && !(Number(profile.componentPct.replace(',', '.')) <= 100) ? 'Enter a number from 0 to 100.' : undefined} />
             <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
               hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
               value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />

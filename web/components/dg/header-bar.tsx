@@ -77,7 +77,7 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
     <header className="relative">
       <div className="flex items-center gap-6 rounded-pill bg-surface py-3 pl-6 pr-3">
         <Logo href="/" />
-        <nav aria-label="Main" className="hidden flex-1 justify-center gap-5 md:flex">
+        <nav aria-label="Main" className="hidden flex-1 justify-center gap-5 xl:flex">
           {MAIN_NAV.map((n) => n.children ? (
             // A link with a small menu under it: open on hover, or on its button.
             <div key={n.href} className="group relative flex items-center"
@@ -94,17 +94,17 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
             </div>
           ) : <NavLink key={n.href} href={n.href} label={n.label} active={isActive(n.href)} />)}
         </nav>
-        <div className="ml-auto flex items-center gap-2 md:ml-0">
+        <div className="ml-auto flex items-center gap-2 xl:ml-0">
           <ThemeToggle />
           {cta && <Button href={cta.href} className="hidden lg:inline-flex">{cta.label}</Button>}
           <button ref={toggleRef} type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)}
-            className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink md:hidden">
+            className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink xl:hidden">
             <Icon icon={open ? X : Menu} />
           </button>
         </div>
       </div>
       {open && (
-        <nav ref={mobileRef} id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
+        <nav ref={mobileRef} id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 xl:hidden">
           {[...MAIN_NAV, ...(cta ? [cta] : [])].map((n) => (
             <div key={n.href} className="flex flex-col">
               <NavLink href={n.href} label={n.label} active={isActive(n.href)} onClick={() => setOpen(false)} />

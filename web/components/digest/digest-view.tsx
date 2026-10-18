@@ -32,7 +32,7 @@ function CallItem({ c }: { c: DigestCall }) {
     <article className="flex flex-col gap-2 rounded-lg bg-surface p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{KIND_WORDS[c.kind]}</Tag>
-        <Tag>{c.programmeName}</Tag>
+        <Tag wrap>{c.programmeName}</Tag>
         <Tag>{c.funderCountry}</Tag>
         {c.cascade === true && <Tag>Cascade funding</Tag>}
         <FitBadge id={c.id} />
