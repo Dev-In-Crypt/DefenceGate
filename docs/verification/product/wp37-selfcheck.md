@@ -42,6 +42,8 @@ Implementer's own check, before the independent verifier. Branch `wp-wp37` (from
 - Mutation check (before the last two additions): with the person rule switched off, 4 integration and 19 unit tests
   failed.
 - Web: `web/e2e/suppliers.spec.ts` (4 tests, not run here).
+- Whole suite on the server, final tree (apart from the one-line Caddyfile change after it): `ruff check .` clean, unit and
+  integration suites together `EXIT=0` (`/root/q_full_suite2.log`, test database `agent_q`).
 
 ## Live run against production data (scratch database)
 
