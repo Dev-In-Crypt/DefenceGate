@@ -45,6 +45,7 @@ from .suppress import removed
 
 router = APIRouter()
 
+MAX_AREA_PROJECTS = 600       # a wider area is not ranked: it costs seconds and the list says little (the whole EIC is 1,137 projects)
 MIN_ORGS = 5                 # the narrower level needs this many organisations, or the broader one is used
 MAX_LIMIT = 50
 MAX_FIT_IDS = 100
@@ -195,10 +196,14 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, lim
     # The narrowest area with enough organisations; else the broadest. The areas are nested (a category is part of the
     # programme, a destination part of its cluster), so an empty broadest area means there is nothing at any level.
     chosen = None
+    too_broad = False
     for i, area in enumerate(areas):
         if area.source not in sources:
             continue
         found = _area_projects(conn, area, sources[area.source])
+        if len(found) > MAX_AREA_PROJECTS:
+            too_broad = True
+            continue
         orgs = _organisations(conn, [r["id"] for r in found]) if found else []
         chosen = (area, found, orgs)
         if len(orgs) >= MIN_ORGS or i == len(areas) - 1:
@@ -206,7 +211,8 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, lim
     if chosen is None or not chosen[2]:
         base["area"] = {"kind": areas[0].kind, "label": areas[0].label, "rule": areas[0].rule, "projects": 0,
                         "organisations": 0, "firstYear": None, "lastYear": None, "broaderThanCall": False}
-        base["note"] = "No earlier project of this area is held yet."
+        base["note"] = ("The nearest comparable area is too broad to rank usefully: it holds more than "
+                        f"{MAX_AREA_PROJECTS} projects." if too_broad else "No earlier project of this area is held yet.")
         return base
     area, found, orgs = chosen
     by_country: dict[str, int] = {}

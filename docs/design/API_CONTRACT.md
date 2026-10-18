@@ -679,6 +679,9 @@ ten minutes in memory.
 | Horizon Europe call (`HORIZON-CL3-2026-01-BM-01`: cluster CL3, destination BM; the call round `01` is not part of it) | Horizon Europe projects in CORDIS whose topic is `HORIZON-CL3-<year>-BM-...` | the cluster (`HORIZON-CL3-<year>-...`), when the destination has fewer than 5 organisations |
 | anything else (Digital Europe, CEF, national calls) | nothing: `area` is null and `note` says no project data is held | |
 
+An area of more than 600 projects (the whole EIC has 1,137) is not ranked: `partners` is empty and `note` says the nearest
+comparable area is too broad.
+
 The EDF 2021 and 2022 factsheets name no category, so those projects count only at the "all EDF" level. Horizon 2020 and
 FP7 projects are not compared (their topic codes do not map to Horizon Europe destinations without a table we do not hold).
 

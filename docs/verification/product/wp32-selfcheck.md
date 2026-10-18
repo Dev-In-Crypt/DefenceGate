@@ -85,7 +85,7 @@ a case-insensitive regular expression on the call code or the category, no helpe
 | 33 CL4 DIGITAL-EMERGING | CL4 destination DIGITAL (213, 1176) | Fraunhofer; CNRS; imec; VTT; Chalmers | yes |
 | 138 EuroHPC SPT-10 | no destination data: cluster JU-EUROHPC, wider (5, 32), says so | Luxembourg bodies, 2025 only | yes (thin) |
 | 24 EIC Accelerator | destination ACCELERATOR (423, 451) | 423 single-company grants, one project each | **no**: correct by the rule, useless: a call for one company has no partners |
-| 131 EIC Defence | cluster EIC (1137, 2001), wider, says so | CNRS, CSIC, TU Delft, Fraunhofer | **no**: the area is the EIC as a whole, mostly Pathfinder research; says so, but not a useful list for an SME call |
+| 131 EIC Defence | destination DEFENCE has no project yet; the EIC as a whole (1,137 projects) is over the 600-project limit and is not ranked | empty, with the note "the nearest comparable area is too broad" | yes (honest empty; the first version listed CNRS, CSIC and TU Delft from all of EIC, which is not a useful list and cost 4 s under load: that is why the limit exists) |
 | 77 RAISE | none | empty, with the note | yes (honest empty) |
 | 95 EDF SPACE | EDF category SPACE (9, 154) | Leonardo; Airbus D&S (FR, DE, ES); GMV; Thales Alenia Space Italia; AIT | yes |
 | 88 EDF CYBER | category CYBER (6, 87) | Indra; Romanian MoD; Leonardo; AIT; Airbus Cybersecurity; CY4GATE | yes |
@@ -95,7 +95,7 @@ a case-insensitive regular expression on the call code or the category, no helpe
 | 84 EDF MCBRN | category MCBRN (7, 99) | AIT; CEA; Fraunhofer; CNRS; Zatloukal Innovations | yes |
 | 110 EDIP-P (no category in its code) | all EDF projects (283, 1744), says so | Leonardo (74); Indra (64); Fraunhofer; AIT; TNO; Thales | yes (broad, labelled) |
 
-Two "no" of 18 lines (16 calls listed with a verdict each; EIC Accelerator and EIC Defence). Findings from the reading:
+One "no" of 18 lines (the rows above are 18 calls; the first sample had 16): EIC Accelerator. Findings from the reading:
 
 - **CORDIS gives the country of the site of a PIC**, so the Spanish research council CSIC appears under Italy (already noted by
   WP-26). The country filter follows that data.
@@ -109,16 +109,18 @@ Two "no" of 18 lines (16 calls listed with a verdict each; EIC Accelerator and E
 
 ### Timings (EXPLAIN ANALYZE of the module's queries on production)
 
-The server was heavily loaded the whole time by other work (load average 9 to 114), so absolute figures are pessimistic.
-Per call: 1 light query on `project`, 1 aggregate over the area's participations, 1 evidence query by organisation, plus a
-`source` lookup; 4 to 5 statements. Execution time of the four statements on production, **without** the migration's index
-(not applied there yet): call 95 SPACE 70 ms, 102 NAVAL 8 ms, 42 FCT 121 ms, 33 CL4 379 ms, 24 EIC Accelerator 772 ms in a
-quiet moment; the widest areas (110 all EDF, 131 EIC cluster, 1,700 to 2,000 organisations) 2.2 s and above under load 11 to 16
-(5 s at the worst moment). The filter of `project` was a sequential scan of 80,208 rows (295 ms); on a copy of the `project`
-table the index `project_call_upper` of migration 0070 makes it 15 ms (408 kB). The two widest areas remain the slowest: they join
-7,000 participations. The response is cached ten minutes in memory (`cache_list`). **Against the brief's 1.5 s cold budget the two
-widest areas must be measured again on a quiet server after the migration: not demonstrated here.** If they exceed it, the
-narrow answer is to cap the fallback to the family level at the clusters with data and to precompute those two areas.
+The server was heavily loaded the whole time by other work (load average 9 to 114, 3.8 GB of memory shared by about 17 test runs),
+so absolute figures are pessimistic. Per call: one light query on `project`, one aggregate over the area's participations,
+one evidence query by organisation, and a `source` lookup. Execution time of the statements, **without** the migration's index
+(not applied on production yet), at load 14: call 95 SPACE 38 ms, 110 (all EDF: 283 projects, 1,744 organisations) 384 ms,
+42 FCT 834 ms, 24 EIC Accelerator (423 projects) 1.4 s, 40 DRS 1.7 s; in quieter moments 42 FCT 121 ms, 33 CL4 379 ms,
+24 EIC Accelerator 772 ms, 102 NAVAL 8 ms. The filter of `project` is a sequential scan of 80,208 rows (295 ms); on a copy of the
+`project` table the index `project_call_upper` of migration 0070 makes it 15 ms (408 kB). The first version, which also fell back
+to the EIC as a whole (1,137 projects), took 5.8 s under load: areas over 600 projects are now not ranked (a test fixes the
+limit). The response is cached ten minutes in memory (`cache_list`). **The brief's 1.5 s cold budget is met in the quiet
+measurements and probably after the index; it is not demonstrated for the wide areas (EIC Accelerator, all EDF) on a quiet
+server with the index, because the index is not on production.** The orchestrator should run `EXPLAIN ANALYZE` of call 24
+and 40 after the migration.
 
 ## Verifier's extra scope (E1, E2, F6, F7), each with a test that failed before
 
@@ -137,7 +139,7 @@ to exclude you: read the quoted sentence") is adopted in this branch so that the
 ## Tests added
 
 Backend (server, `agent_l`/`agent_l2`): `tests/unit/test_wp32_areas.py` (areas of a call, real topic codes, regular
-expressions, injection characters, programme routing), `tests/integration/test_wp32.py` (20: ranking by projects then recency,
+expressions, injection characters, programme routing), `tests/integration/test_wp32.py` (21: ranking by projects then recency,
 evidence and its dedupe, merged organisation counted once, organisation removed on request, inactive participation, country
 filter and counts, limit bounds, fallback to the wider area, EDIP compared with all EDF, Horizon destination vs other
 destinations and clusters, wrong source, no-data answers, 404/410, slug by leading id, `partnerArea`, fit facts: only the read
@@ -161,8 +163,21 @@ the read-only `dgate_api` role). Web: `lib/fit.check.ts`, `lib/fit-store.check.t
 ## Not checked, not met
 
 - **The Playwright specs (`e2e/fit.spec.ts`) were not run** (no browser on the server); written against the markup by role and label.
-- `next build` and the page weight in kB were not measured; `tsc --noEmit` and `npm run check` ran (result in the report).
+- `next build` and the page weight in kB were not measured. `tsc --noEmit` is clean and the checks `fit`, `fit-store`, `eligibility-check` and `call-readiness` pass on the final code; the other `npm run check` files passed on the previous build of the branch (they do not import anything changed since).
 - The widest partner areas against the 1.5 s budget on a quiet server (above).
 - "Eligible with one step" (plan M3-19's second filter) is not built: the badge is the four-way verdict the brief asks for.
 - The Digest items carry no programme: their badge comes from the facts endpoint, which names programme and topic, so it matches the list.
 - Navigation: none new from this package. The home page links `/organisations` (WP-28).
+
+## Test results (server)
+
+- `ruff check .`: clean.
+- Targeted run on the final code (`test_wp32`, `test_wp31`, `test_readiness_api`, `test_funding_api`, `test_calls_api`,
+  `test_networks_snapshot`, `test_eligibility`): 142 integration tests passed, 58 unit tests (`test_wp32_areas`, `test_worker`,
+  `test_eligibility`, `test_funding_terms`) passed; `test_wp32` alone, 21 tests, passed again after the last change.
+- Full suite: unit passed on the code of 17 October; the full integration run of that code had one failure,
+  `test_security_hardening.py::test_the_rate_limit_answers_429_with_a_wait_and_leaves_the_probe_alone`, the load-sensitive test that
+  fails the same way on unmodified `integration` (see the WP-29 and WP-31 self-checks). **The full suite was not run on the very last
+  commit**: the shared server (3.8 GB, 17 parallel test runs) killed the run by memory; the targeted run above covers the
+  modules this branch changes.
+- Web: `tsc --noEmit` clean; checks above pass.

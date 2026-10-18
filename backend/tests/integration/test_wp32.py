@@ -203,6 +203,18 @@ def test_a_horizon_call_is_compared_with_its_destination_and_not_with_other_dest
     assert "Fct1" in {p["name"] for p in wide["partners"]}
 
 
+def test_an_area_that_is_too_broad_is_not_ranked_and_the_answer_says_so(client, conn, space, monkeypatch):
+    from dgate import partners as module
+
+    monkeypatch.setattr(module, "MAX_AREA_PROJECTS", 2)
+    _, slug = call(conn, "edf1", "EDF-2026-DA-SPACE-PRS-STEP")          # 3 SPACE projects, 4 in all EDF
+    body = partners(client, slug)
+    assert body["partners"] == [] and "too broad" in body["note"]
+    assert body["area"]["label"] == "EDF capability category SPACE" and body["area"]["projects"] == 0
+    monkeypatch.setattr(module, "MAX_AREA_PROJECTS", 3)                 # exactly at the limit: ranked
+    assert partners(client, slug)["partners"]
+
+
 def test_projects_of_the_wrong_source_are_not_compared(client, conn):
     p = project(conn, "cordis-space", edf=False, category="SPACE", topic="HORIZON-CL4-2023-SPACE-01-01")
     for i in range(6):
