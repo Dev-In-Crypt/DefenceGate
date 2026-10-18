@@ -26,7 +26,7 @@ def _record(**over):
         "path": "/web/ncbr/feng010101-ip01-00326",
         "publishDate": "2026-07-01T10:00:00",
         "type": "NCBR",
-        "description": "<p>Konkurs. Kontakt: jan.kowalski@ncbr.gov.pl</p>",
+        "description": "<p>Konkurs. Kontakt: jan.kowalski@example.invalid</p>",
         "budget": "350 000 000 zł",
         "status": "APPLICATIONS_IN_PROGRESS",
         "typesOfApplicant": json.dumps(["large_enterprise", "consortium", "sme"]),
@@ -193,7 +193,7 @@ def test_the_budget_text_survives_for_the_reader_when_it_is_not_a_sum():
 
 
 def test_a_contact_address_in_the_landed_description_is_redacted():
-    assert "jan.kowalski@ncbr.gov.pl" not in str(strip_personal_data(SMART))
+    assert "jan.kowalski@example.invalid" not in str(strip_personal_data(SMART))
 
 
 # -------------------------------------------------------------- fetching

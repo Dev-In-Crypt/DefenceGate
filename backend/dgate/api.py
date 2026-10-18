@@ -33,7 +33,7 @@ from pydantic import BaseModel
 
 from . import classify, db
 from .config import settings
-from .hardening import BodyLimit, RateLimit, SecurityHeaders
+from .hardening import BodyLimit, HeadAsGet, RateLimit, SecurityHeaders
 from .listcache import cache_list
 from .normalise import http_url, normalise_org_name, redact_emails
 from .suppress import WITHHELD_NAME, removed
@@ -57,6 +57,7 @@ app = FastAPI(
 app.add_middleware(BodyLimit)         # innermost: its 413 still gets the security headers
 app.add_middleware(SecurityHeaders)
 app.add_middleware(RateLimit)
+app.add_middleware(HeadAsGet)         # outermost: a HEAD is routed, charged and secured as the GET it stands for
 
 # Largest values a request may carry, and how many items a list parameter may
 # have. Chosen well above anything the frontend sends; a request beyond them is
@@ -705,6 +706,7 @@ def resolve(name: str = Query(min_length=1, max_length=200),
              FROM organisation_alias a
              JOIN organisation o ON o.id = a.organisation_id
             WHERE a.normalised_name = %s AND a.country_hint = %s AND NOT o.suppressed
+              AND o.individual_reason IS NULL      -- a natural person is not confirmed as "known" (WP-39, N2)
             ORDER BY a.confidence DESC LIMIT 1""",
         (norm, country.upper()),
     ).fetchone()

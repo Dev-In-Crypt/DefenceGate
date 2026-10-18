@@ -800,6 +800,16 @@ Rules that hold for every endpoint:
 - **Removed on request** (`organisation.suppressed`, also when set on a duplicate row merged into another): the
   profile and its tabs answer **410**; the organisation is left out of the directory, the partners and the analyses;
   inside a project's consortium it is `{ id: null, slug: null, name: "Name withheld on request", country: null }`.
+- **Natural persons** (`organisation.individual_reason`, `dgate/individuals.py`, WP-39, 18 October 2026): CORDIS and the EDF
+  factsheets state no legal form, so a name that looks like a person's (no legal form or organisational word, a given name
+  among two to five words; a sole-proprietor form beside a given name; an owner's name in a trailing parenthesis) marks the
+  organisation. It is treated like a suppressed one, with other words: the profile and its tabs answer **410** (`detail:
+  "not published"`), it is not in `organisation_network` (so not in the directory, the sitemap slugs or the partner
+  lists) and inside a project it is `{ id: null, slug: null, name: "Name not shown", country: null }` with
+  `contribution: null`. The rule can miss a person and hide an organisation; the measured rates are in
+  `docs/DATA_PROTECTION.md`.
+- **Removal reaches the derived table.** Setting `organisation.suppressed` deletes the merge family's rows of
+  `organisation_network` in the same transaction (a trigger, migration 0080); the partner lists read that table.
 - Only `participation.active` counts: a participant a later load no longer finds is history (`/history`), not a member.
 - `OrgRef` = `{ id, slug, name, country }`. `slug` = `<id>-<words>` (`make_slug`), only the leading id is read.
 - `SourceNote` = `{ code, name, licence, attribution, readAt, note }`: every list and page says where the data comes
@@ -903,6 +913,12 @@ own address. Feasibility and numbers: `docs/design/SUPPLIER_MAP_FEASIBILITY.md`.
 
 `awardCount` is the number of distinct notices. `name` is the spelling most notices use. Cached five minutes.
 
+WP-39 (18 October 2026): the page also carries `maxOffset` (500: the list serves no position beyond it; a `page` whose
+first position is at or beyond it answers 422, and the last page is cut at it) and `withheld`. A `country` or `cpv`
+filter that selects fewer than `kMin` suppliers answers `items: [], total: 0, withheld: true`, whatever `sort`: the
+group rule of the summary, judged on the country and product group alone, so a `q` inside a large group works. A winner
+string that is no supplier (`award.excluded_reason`) is not listed.
+
 `GET /v1/suppliers/summary` is the public aggregate:
 
     { kMin: 3, since, noticesRead, noticesWithSupplier, suppliers, awards, skippedNaturalPersons,
@@ -922,6 +938,9 @@ segment.
       notices: [{ id, slug, noticeId, title, buyerName, buyerCountry, publishedAt, cpv, winnersInNotice,
                   valueAmount, valueCurrency, sourceUrl }],   (the latest 50, newest first; slug links to /tenders/{slug})
       noticeCount, namesAsStated, identifiers, attribution }
+
+`identifiers` holds registration or tax numbers only: a telephone number, an e-mail address or a word typed into the
+field is not shown (verify2-abuse N1). 410 also for an organisation the directory treats as a natural person.
 
 `valueAmount` is set only when `winnersInNotice` is 1 and the notice states a total or a sum of lots above the
 placeholder amount; otherwise it is null (a value shared by several winners belongs to none). There is no total

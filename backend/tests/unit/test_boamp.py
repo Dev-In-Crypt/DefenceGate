@@ -37,8 +37,8 @@ EFORMS_DEFENCE = {
         },
         "ext:UBLExtensions": {"efac:Organizations": {"efac:Organization": {"efac:Company": {
             "cbc:Name": "Ministere des Armees",
-            "cac:Contact": {"cbc:Name": "Joseph COLIN", "cbc:Telephone": "0383193494",
-                            "cbc:ElectronicMail": "joseph.colin@intradef.gouv.fr"}}}}},
+            "cac:Contact": {"cbc:Name": "Jean EXEMPLE", "cbc:Telephone": "0199001234",
+                            "cbc:ElectronicMail": "jean.exemple@example.invalid"}}}}},
     }}}, ensure_ascii=False),
 }
 
@@ -55,8 +55,8 @@ FN_SIMPLE = {
                          "description": "Travaux pour la rehabilitation du batiment"},
         "lots": {"lot": [{"codeCPV": {"objetPrincipal": {"classPrincipale": "45262500"}},
                           "description": "Maconneries"}]},
-        "communication": {"nomContact": "M Le Maire", "telContact": "+33 466599003",
-                          "adresseMailContact": "pierre@beaucaire.fr"},
+        "communication": {"nomContact": "M Le Maire Exemple", "telContact": "+33 199001235",
+                          "adresseMailContact": "maire.exemple@example.invalid"},
     }}}, ensure_ascii=False),
 }
 
@@ -68,7 +68,7 @@ OLD_SCHEMA = {
     "perimetre": "CMP-2006",
     "nature": "APPEL_OFFRE",
     "donnees": json.dumps({"IDENTITE": {"DENOMINATION": "Commune de Digne",
-                                        "TEL": "04-92-74-80-13"},
+                                        "TEL": "01-99-00-12-34"},
                            "OBJET": {"OBJET_COMPLET": "Travaux de voirie communale"}}),
 }
 
@@ -193,9 +193,9 @@ def test_contact_details_are_removed_from_every_shape_before_landing():
     a flat key filter sees none of it."""
     for record in (EFORMS_DEFENCE, FN_SIMPLE, OLD_SCHEMA):
         clean = json.dumps(strip_personal_data(record), ensure_ascii=False)
-        for trace in ("joseph.colin@intradef.gouv.fr", "0383193494", "Joseph COLIN",
-                      "pierre@beaucaire.fr", "+33 466599003", "M Le Maire",
-                      "04-92-74-80-13"):
+        for trace in ("jean.exemple@example.invalid", "0199001234", "Jean EXEMPLE",
+                      "maire.exemple@example.invalid", "+33 199001235", "M Le Maire Exemple",
+                      "01-99-00-12-34"):
             assert trace not in clean, trace
 
 
@@ -218,9 +218,9 @@ def test_an_address_written_into_prose_is_redacted_too():
     has to be found. 300 recent TED payloads carried six of them."""
     record = {**FN_SIMPLE, "donnees": json.dumps({"FNSimple": {"initial": {
         "informComplementaire": {
-            "autres": "Renseignements: greffe.ta-nice@juradm.fr ou 04 92 00 00 00"}}}})}
+            "autres": "Renseignements: greffe@example.invalid ou 01 99 00 12 36"}}}})}
     clean = json.dumps(strip_personal_data(record), ensure_ascii=False)
-    assert "greffe.ta-nice@juradm.fr" not in clean
+    assert "greffe@example.invalid" not in clean
     assert "[email removed]" in clean
     assert "Renseignements" in clean
 
@@ -229,9 +229,9 @@ def test_redaction_reaches_every_source_not_only_france():
     from dgate.normalise import strip_personal_data as strip
 
     ted_notice = {"notice-identifier": ["1-2026"],
-                  "notice-title": {"eng": "Write to helpdesk@logintrade.net for access"}}
+                  "notice-title": {"eng": "Write to helpdesk@example.invalid for access"}}
     clean = json.dumps(strip(ted_notice), ensure_ascii=False)
-    assert "helpdesk@logintrade.net" not in clean and "[email removed]" in clean
+    assert "helpdesk@example.invalid" not in clean and "[email removed]" in clean
 
 
 def test_text_without_an_address_is_left_exactly_as_it_was():
@@ -245,11 +245,11 @@ def test_an_address_after_an_escaped_newline_does_not_break_the_body():
     left a dangling backslash, and the archive entry no longer parsed."""
     record = {**FN_SIMPLE, "donnees": json.dumps({"FNSimple": {"initial": {
         "informComplementaire": {
-            "autres": "Mairie\nRoquebrune\n04.92.10.48.81\nrestauration@mairie.fr"}}}})}
+            "autres": "Mairie\nRoquebrune\n01.99.00.12.37\nrestauration@example.invalid"}}}})}
     clean = strip_personal_data(record)
     body = json.loads(clean["donnees"])            # must still be readable JSON
     text = body["FNSimple"]["initial"]["informComplementaire"]["autres"]
-    assert "restauration@mairie.fr" not in text
+    assert "restauration@example.invalid" not in text
     assert "[email removed]" in text
     assert "Roquebrune" in text and text.count("\n") == 3
     assert fr.notice_body(clean) != {}

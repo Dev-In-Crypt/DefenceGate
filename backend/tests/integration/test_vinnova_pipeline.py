@@ -32,7 +32,7 @@ def _round(dnr, title, *, programme="civil-militära synergier", publik=1, text=
         "WebTextLista": [{"TextSv": text or "Svenska företag kan söka.", "TextEn": ""}],
         "LankLista": [{"Beskrivning": "Ansök här", "URL": f"https://ansok.vinnova.se/utlysning/{dnr}"}],
         "DokumentLista": [],
-        "KontaktLista": [{"Namn": "Per Persson", "Epost": "per.persson@vinnova.se"}],
+        "KontaktLista": [{"Namn": "Per Persson", "Epost": "per.persson@example.invalid"}],
         "utlysning": {"Diarienummer": "2024-01511", "Titel": "Civil-militära synergier",
                       "TitelEngelska": "Civil-military synergies", "DiarienummerProgram": "P1"},
         "program": {"Diarienummer": "P1", "Titel": f"Innovationsprogrammet för {programme}",
@@ -136,7 +136,7 @@ def test_the_country_the_currency_and_the_attribution_reach_the_api(conn, fs_sto
         assert call["attribution"].startswith("Källa: Vinnova")
         assert call["source_url"] == "https://ansok.vinnova.se/utlysning/2026-01503"
         one = client.get(f"/v1/calls/{call['id']}").json()
-        assert "per.persson@vinnova.se" not in json.dumps(one)
+        assert "per.persson@example.invalid" not in json.dumps(one)
 
 
 def test_the_landed_payload_carries_no_contact_person(conn, fs_store, monkeypatch):
@@ -146,7 +146,7 @@ def test_the_landed_payload_carries_no_contact_person(conn, fs_store, monkeypatc
     pipeline.run_vinnova()
     key = conn.execute("SELECT storage_key FROM raw_ingest").fetchone()["storage_key"]
     landed = json.dumps(build_store().get(key), ensure_ascii=False)
-    assert "per.persson@vinnova.se" not in landed and "KontaktLista" not in landed
+    assert "per.persson@example.invalid" not in landed and "KontaktLista" not in landed
 
 
 def test_a_call_whose_deadline_passes_closes_though_its_payload_did_not_change(

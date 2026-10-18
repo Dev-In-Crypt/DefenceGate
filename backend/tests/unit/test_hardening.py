@@ -403,7 +403,8 @@ def test_the_visit_counter_is_not_charged_to_the_shared_internal_bucket(monkeypa
 
 def test_the_change_feed_costs_more_than_a_plain_list_page():
     """/v1/changes computes the archive's last 14 days on a miss (its answer is kept five
-    minutes): three tokens a page, as a page of 100 or more of any list."""
-    assert request_cost("/v1/changes", {}) == 3
-    assert request_cost("/v1/changes", {"pageSize": "200", "country": "PL"}) == 3
+    minutes): five tokens a page. It was three until WP-39 measured 1.2-2.1 s cold for it on the
+    production host (verify2-abuse N4)."""
+    assert request_cost("/v1/changes", {}) == 5
+    assert request_cost("/v1/changes", {"pageSize": "200", "country": "PL"}) == 5
     assert request_cost("/v1/tenders", {}) == 1

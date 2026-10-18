@@ -18,7 +18,10 @@ Rules every endpoint keeps:
   - An organisation merged into another (`organisation.merged_into`) is its live row everywhere; participations
     are not re-pointed by a merge, so a reader goes through `organisation_merged_live`/`dgate_live_org`.
   - An organisation removed on request (`organisation.suppressed`) has no page (410), is left out of lists and
-    is named "Name withheld on request" inside someone else's consortium.
+    is named "Name withheld on request" inside someone else's consortium. One the directory treats as a natural
+    person (`organisation.individual_reason`, `individuals.py`, WP-39) is handled the same way, named "Name not
+    shown", and is left out of `organisation_network`, which is what the directory, the partner lists and the
+    sitemap read.
   - Only `participation.active` counts: a participant a later load no longer finds is history, not a member.
   - The directory reads `organisation_network` (derived, migration 0068, rebuilt after every load); everything
     else reads the participations themselves.
@@ -38,7 +41,7 @@ from .classify import CORE_SQL
 from .funding import get_conn, make_slug
 from .listcache import cache_list
 from .normalise import http_url, redact_emails
-from .suppress import WITHHELD_NAME, removed
+from .suppress import INDIVIDUAL_NAME, WITHHELD_NAME, not_published, removed
 from .tenders import _buyer_names, _id_of, search_words
 
 router = APIRouter()
@@ -84,8 +87,9 @@ def _org_name(r: dict[str, Any]) -> str:
 def org_ref(r: dict[str, Any], *, id_key: str = "id") -> dict[str, Any]:
     """An organisation as another record names it: id, slug, name, country. One removed on request is
     named as such and carries no link."""
-    if r.get("suppressed"):
-        return {"id": None, "slug": None, "name": WITHHELD_NAME, "country": None}
+    if r.get("suppressed") or r.get("individual"):
+        return {"id": None, "slug": None, "name": INDIVIDUAL_NAME if r.get("individual") else WITHHELD_NAME,
+                "country": None}
     oid = r[id_key]
     name = _org_name(r)
     return {"id": str(oid), "slug": make_slug(oid, name), "name": name,
@@ -207,19 +211,21 @@ def organisation_slugs(conn=Depends(get_conn)):
 def live_organisation(conn, slug: str) -> dict[str, Any]:
     """The organisation behind a slug, followed through `merged_into` to its live row, with the ids whose
     participations are its own (itself and everything merged into it, minus any removed on request).
-    404 when there is none or it has no participation; 410 when it was removed on request."""
+    404 when there is none or it has no participation; 410 when it was removed on request or is a natural person."""
     org_id = _id_of(slug, "organisation")
     row = conn.execute(
         """SELECT o.id, o.canonical_name, o.display_name, o.country, o.eu_pic, o.pic_method,
-                  o.pic_confidence, o.suppressed
+                  o.pic_confidence, o.suppressed, o.individual_reason
              FROM organisation o WHERE o.id = dgate_live_org(%s)""", (org_id,)).fetchone()
     if not row:
         raise HTTPException(404, "no such organisation")
     if row["suppressed"]:
         raise removed()
+    if row["individual_reason"]:
+        raise not_published()
     family = [r["id"] for r in conn.execute(
-        "SELECT id FROM organisation WHERE id = ANY(dgate_merged_in(%s)) AND NOT suppressed",
-        (row["id"],)).fetchall()]
+        "SELECT id FROM organisation WHERE id = ANY(dgate_merged_in(%s)) AND NOT suppressed "
+        "AND individual_reason IS NULL", (row["id"],)).fetchall()]
     row["family"] = family
     return row
 
@@ -286,9 +292,9 @@ def network_slug_of_buyer(conn, family_ids: list[int]) -> str | None:
             GROUP BY 1 ORDER BY n DESC, 1 LIMIT 1""", (family_ids,)).fetchone()
     if not row:
         return None
-    o = conn.execute("SELECT id, canonical_name, display_name, suppressed FROM organisation WHERE id = %s",
-                     (row["org"],)).fetchone()
-    if not o or o["suppressed"]:
+    o = conn.execute("SELECT id, canonical_name, display_name, suppressed, individual_reason FROM organisation "
+                     "WHERE id = %s", (row["org"],)).fetchone()
+    if not o or o["suppressed"] or o["individual_reason"]:
         return None
     return make_slug(o["id"], _org_name(o))
 
@@ -454,9 +460,9 @@ def _partner_ctes(fam: list[int], live: int, programmes: list[str], countries: l
                array_agg(DISTINCT prog) FILTER (WHERE prog IS NOT NULL) AS programmes
           FROM nb GROUP BY org),
     sel AS MATERIALIZED (
-        SELECT o.id, o.canonical_name, o.display_name, o.country, a.shared, a.last_year, a.first_year,
-               a.programmes
-          FROM agg a JOIN organisation o ON o.id = a.org WHERE NOT o.suppressed{ctry_sql})"""
+        SELECT o.organisation_id AS id, o.name AS canonical_name, o.name AS display_name, o.country, a.shared,
+               a.last_year, a.first_year, a.programmes
+          FROM agg a JOIN organisation_network o ON o.organisation_id = a.org WHERE TRUE{ctry_sql})"""
     args: list[Any] = [fam] + ([programmes] if programmes else []) + [fam, live] + (
         [countries] if countries else [])
     return sql, args
@@ -594,7 +600,9 @@ def _role_rank(role: str) -> int:
 def _members(conn, project_id: int) -> list[dict[str, Any]]:
     rows = conn.execute(
         f"""SELECT {LIVE} AS org_id, o.canonical_name, o.display_name, o.country,
-                   (o.suppressed OR COALESCE(l.suppressed, FALSE)) AS suppressed, pa.role, pa.contribution, pa.resolution_method, pa.resolution_confidence
+                   (o.suppressed OR COALESCE(l.suppressed, FALSE) OR o.individual_reason IS NOT NULL) AS suppressed,
+                   (o.individual_reason IS NOT NULL) AS individual,
+                   pa.role, pa.contribution, pa.resolution_method, pa.resolution_confidence
               FROM participation pa
               LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
               JOIN organisation o ON o.id = {LIVE}
@@ -648,8 +656,9 @@ def get_project(slug: str, conn=Depends(get_conn)):
         "startDate": p["start_date"], "endDate": p["end_date"], "durationMonths": p["duration_months"],
         "totalCost": _num(p["total_cost"]), "euContribution": _num(p["eu_contribution"]),
         "coordinator": org_ref(coordinator, id_key="org_id") if coordinator else None,
+        # A natural person's name is not shown, and neither is what they received.
         "members": [{"organisation": org_ref(m, id_key="org_id"), "role": m["role"],
-                     "contribution": _num(m["contribution"]),
+                     "contribution": None if m.get("individual") else _num(m["contribution"]),
                      "resolution": {"method": m["resolution_method"],
                                     "confidence": _num(m["resolution_confidence"])}} for m in members],
         "memberCount": len(members),
@@ -681,7 +690,9 @@ def project_history(slug: str, conn=Depends(get_conn)):
     refs: dict[int, dict[str, Any]] = {}
     if ids:
         for o in conn.execute(
-                """SELECT r.id AS asked, o.id, o.canonical_name, o.display_name, o.country, o.suppressed
+                """SELECT r.id AS asked, o.id, o.canonical_name, o.display_name, o.country,
+                          (o.suppressed OR o.individual_reason IS NOT NULL) AS suppressed,
+                          (o.individual_reason IS NOT NULL) AS individual
                      FROM unnest(%s::bigint[]) r(id) JOIN organisation o ON o.id = dgate_live_org(r.id)""",
                 (list(ids),)).fetchall():
             refs[o["asked"]] = org_ref(o)
@@ -713,7 +724,8 @@ def _org_rows(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
     if not ids:
         return {}
     return {r["id"]: r for r in conn.execute(
-        "SELECT id, canonical_name, display_name, country, suppressed FROM organisation WHERE id = ANY(%s)",
+        "SELECT id, canonical_name, display_name, country, (suppressed OR individual_reason IS NOT NULL) AS suppressed, "
+        "(individual_reason IS NOT NULL) AS individual FROM organisation WHERE id = ANY(%s)",
         (list(ids),)).fetchall()}
 
 
@@ -728,7 +740,8 @@ def ukraine_partners(
     programmes = _codes(programme, "programme", pattern=PROGRAMME_CODE)
     # One row per (project, Ukrainian participant): a few thousand at most, aggregated here.
     pairs = conn.execute(
-        f"""WITH ua AS MATERIALIZED (SELECT id FROM organisation WHERE country = 'UA' AND merged_into IS NULL AND NOT suppressed),
+        f"""WITH ua AS MATERIALIZED (SELECT id FROM organisation WHERE country = 'UA' AND merged_into IS NULL AND NOT suppressed
+                                                AND individual_reason IS NULL),
                  fam AS MATERIALIZED (SELECT id, id AS live FROM ua
                          UNION ALL SELECT m.id, m.live_id FROM organisation_merged_live m JOIN ua ON ua.id = m.live_id
                           WHERE NOT m.suppressed),
@@ -840,7 +853,7 @@ def consortium_gaps(
     if len(area) > MAX_AREA_PROJECTS:
         raise _bad(f"topic: that area holds more than {MAX_AREA_PROJECTS} projects; give a narrower topic")
     members = conn.execute(
-        f"""SELECT pa.project_id, {LIVE} AS org, o.country, o.suppressed
+        f"""SELECT pa.project_id, {LIVE} AS org, o.country, (o.suppressed OR o.individual_reason IS NOT NULL) AS suppressed
               FROM participation pa LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
               JOIN organisation o ON o.id = {LIVE}
              WHERE pa.active AND NOT COALESCE(l.suppressed, FALSE) AND pa.project_id = ANY(%s)""", ([a["id"] for a in area],)).fetchall()

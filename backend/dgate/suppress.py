@@ -14,11 +14,20 @@ from fastapi import HTTPException
 
 WITHHELD_NAME = "Name withheld on request"
 REMOVED = "removed on request"
+# An organisation the directory treats as a natural person (`individuals.py`): nobody asked, so the words
+# differ; inside someone else's consortium its name is not shown either.
+INDIVIDUAL_NAME = "Name not shown"
+NOT_PUBLISHED = "not published"
 
 
 def removed() -> HTTPException:
     """The answer for the detail URL of something removed on request: 410, neutral."""
     return HTTPException(410, REMOVED)
+
+
+def not_published() -> HTTPException:
+    """The answer for the detail URL of an organisation that is a natural person: 410, neutral."""
+    return HTTPException(410, NOT_PUBLISHED)
 
 
 def withheld(row: dict[str, Any] | None) -> bool:

@@ -16,8 +16,11 @@ nobody published. The map therefore (1) shows supplier-level detail only as the 
 (name, country, buyer, date, CPV, value of a notice with one winner), (2) publishes aggregates only
 for groups of at least `K_MIN` suppliers, so that no figure describes one supplier's position,
 (3) states no ranking of suppliers by contract value, no "sole source" or "single point of failure"
-label and no sum of values per supplier, and (4) honours a removal request: an organisation or a
-notice removed on request (`suppression`) is out of every answer here.
+label and no sum of values per supplier, (4) honours a removal request: an organisation or a
+notice removed on request (`suppression`) is out of every answer here, and (5, WP-39) holds the same
+group rule on the list: a country or product-group filter that selects fewer than `K_MIN` suppliers
+answers "withheld", and the list serves at most `MAX_OFFSET` positions, so the table cannot be walked
+page by page.
 """
 
 from __future__ import annotations
@@ -31,13 +34,23 @@ from pydantic import BaseModel
 from .classify import CORE_SQL
 from .funding import get_conn, make_slug
 from .listcache import cache_list
-from .normalise import PLACEHOLDER_AMOUNT_MAX, normalise_identifier, redact_emails
-from .suppress import removed
+from .normalise import (
+    PLACEHOLDER_AMOUNT_MAX,
+    looks_like_contact,
+    normalise_identifier,
+    redact_emails,
+)
+from .suppress import not_published, removed
 from .tenders import _buyer_names, _day, _id_of, _split, search_words
 
 router = APIRouter()
 
 K_MIN = 3                      # an aggregate group needs this many suppliers to be published
+# The deepest list position served (WP-39, verify2-abuse N5/N7). 4,186 suppliers were 42 requests of 100;
+# nobody reads past the first few pages of a list, and a longer walk is a name, country or product-group
+# search. Narrowing is the way to everything: this raises the price of copying the table, it does not make
+# it impossible (the data is public in TED; the rate limit prices the rest).
+MAX_OFFSET = 500
 MAX_BIGINT = 9_223_372_036_854_775_807
 SINCE = "2023-01-01"
 PROFILE_NOTICES = 50
@@ -47,7 +60,11 @@ FROM = """FROM award a
           JOIN opportunity o ON o.id = a.opportunity_id
           JOIN organisation raw_org ON raw_org.id = a.organisation_id
           JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)"""
-SCOPE = f"o.is_defence AND NOT o.suppressed AND {CORE_SQL} AND NOT org.suppressed AND NOT raw_org.suppressed"
+# `excluded_reason`: a winner string that is no supplier (a placeholder, a consortium written as one name,
+# garbled text; migration 0080, `ops/clean_suppliers.py`). `individual_reason`: an organisation the directory
+# treats as a natural person (`individuals.py`): never listed, as in the directory.
+SCOPE = (f"o.is_defence AND NOT o.suppressed AND {CORE_SQL} AND NOT org.suppressed AND NOT raw_org.suppressed "
+         "AND a.excluded_reason IS NULL AND org.individual_reason IS NULL AND raw_org.individual_reason IS NULL")
 
 
 class SupplierItem(BaseModel):
@@ -66,6 +83,8 @@ class SupplierPage(BaseModel):
     total: int
     page: int
     pageSize: int
+    maxOffset: int = MAX_OFFSET              # the list serves no position beyond this
+    withheld: bool = False                   # the country / product-group filter selects fewer than kMin suppliers
 
 
 class Count(BaseModel):
@@ -154,6 +173,21 @@ SHOWN = """(SELECT x.name_as_stated FROM award x
              GROUP BY 1 ORDER BY count(*) DESC, (x.name_as_stated = upper(x.name_as_stated)), 1 LIMIT 1)"""
 
 
+def _group_filters(country: str | None, cpv: str | None) -> tuple[list[str], list[Any]]:
+    """The country and product-group part of the filters: the group whose size the k rule is about."""
+    where: list[str] = []
+    params: list[Any] = []
+    countries = _split(country, "country", upper=True, max_length=2)
+    if countries:
+        where.append("a.supplier_country = ANY(%s)")
+        params.append(countries)
+    prefixes = _split(cpv, "cpv", max_length=8)
+    if prefixes:
+        where.append("(" + " OR ".join(["a.cpv_main LIKE %s"] * len(prefixes)) + ")")
+        params += [f"{p}%" for p in prefixes]
+    return where, params
+
+
 def _filters(q: str | None, country: str | None, cpv: str | None) -> tuple[list[str], list[Any]]:
     where: list[str] = []
     params: list[Any] = []
@@ -165,15 +199,8 @@ def _filters(q: str | None, country: str | None, cpv: str | None) -> tuple[list[
         where.append(" AND ".join([like] * len(words)))
         for w in words:
             params += [w, w]
-    countries = _split(country, "country", upper=True, max_length=2)
-    if countries:
-        where.append("a.supplier_country = ANY(%s)")
-        params.append(countries)
-    prefixes = _split(cpv, "cpv", max_length=8)
-    if prefixes:
-        where.append("(" + " OR ".join(["a.cpv_main LIKE %s"] * len(prefixes)) + ")")
-        params += [f"{p}%" for p in prefixes]
-    return where, params
+    gwhere, gparams = _group_filters(country, cpv)
+    return where + gwhere, params + gparams
 
 
 def _item(r: dict[str, Any]) -> dict[str, Any]:
@@ -195,6 +222,21 @@ def list_suppliers(
     pageSize: int = Query(20, ge=1, le=100),
     conn=Depends(get_conn),
 ):
+    offset = (page - 1) * pageSize
+    if offset >= MAX_OFFSET:
+        raise HTTPException(422, f"page: the list serves the first {MAX_OFFSET} suppliers only; search by name, "
+                                 "country or product group")
+    gwhere, gparams = _group_filters(country, cpv)
+    if gwhere:
+        # The k rule of the summary, held for a filtered list too: a country or product group with fewer than
+        # K_MIN suppliers is not listed, so a filter cannot turn the aggregate into a view of one or two firms.
+        # The group is the country / CPV part alone, so a name search inside a large group still works.
+        size = conn.execute(f"SELECT count(DISTINCT org.id) AS n {FROM} WHERE {' AND '.join([SCOPE] + gwhere)}",
+                            gparams).fetchone()["n"]
+        if size < K_MIN:
+            # A group with no supplier at all is simply empty: "withheld" is for a group that exists and is small.
+            return {"items": [], "total": 0, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
+                    "withheld": size > 0}
     where, params = _filters(q, country, cpv)
     cond = " AND ".join([SCOPE] + where)
     order = "canonical_name, id" if sort == "name" else "n DESC, canonical_name, id"
@@ -211,12 +253,13 @@ def list_suppliers(
                GROUP BY org.id, org.country, org.canonical_name),
             m AS (SELECT base.*, count(*) OVER () AS total_rows FROM base ORDER BY {order} LIMIT %s OFFSET %s)
             SELECT m.*, {SHOWN} AS shown FROM m ORDER BY {order}""",
-        params + [pageSize, (page - 1) * pageSize]).fetchall()
+        params + [min(pageSize, MAX_OFFSET - offset), offset]).fetchall()
     total = rows[0]["total_rows"] if rows else 0
     if not rows and page > 1:
         total = conn.execute(
             f"SELECT count(DISTINCT org.id) AS n {FROM} WHERE {cond}", params).fetchone()["n"]
-    return {"items": [_item(r) for r in rows], "total": total, "page": page, "pageSize": pageSize}
+    return {"items": [_item(r) for r in rows], "total": total, "page": page, "pageSize": pageSize,
+            "maxOffset": MAX_OFFSET, "withheld": False}
 
 
 @router.get("/v1/suppliers/summary", response_model=Summary)
@@ -265,15 +308,17 @@ def supplier_summary(conn=Depends(get_conn)):
 def get_supplier(slug: str, conn=Depends(get_conn)):
     org_id = _id_of(slug, "supplier")
     org = conn.execute(
-        "SELECT id, canonical_name, display_name, country, suppressed, merged_into FROM organisation WHERE id = %s",
+        "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation WHERE id = %s",
         (org_id,)).fetchone()
     if org and org["merged_into"] is not None:
         org_id = org["merged_into"]
         org = conn.execute(
-            "SELECT id, canonical_name, display_name, country, suppressed, merged_into FROM organisation "
+            "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation "
             "WHERE id = %s", (org_id,)).fetchone()
     if org and org["suppressed"]:
         raise removed()
+    if org and org["individual_reason"]:
+        raise not_published()
     base = f"{FROM} WHERE {SCOPE} AND org.id = %s"
     head = conn.execute(
         f"""SELECT count(DISTINCT a.opportunity_id) AS n,
@@ -304,10 +349,14 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         (org_id,)).fetchall()
     idents = conn.execute(
         f"""SELECT a.identifier_as_stated AS v, count(*) AS n {base} AND a.identifier_as_stated IS NOT NULL
-             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 8""", (org_id,)).fetchall()
+             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 30""", (org_id,)).fetchall()
     numbers: dict[str, str] = {}              # one spelling of each number: "DE 129 415 943" is "DE129415943"
     for r in idents:
-        numbers.setdefault(normalise_identifier(r["v"], org["country"]) or r["v"], r["v"])
+        # Only a number-shaped value is a registration number. A telephone number or an address typed into the
+        # field is contact data (verify2-abuse N1), a word is nothing: neither is shown, whatever is stored.
+        key = None if looks_like_contact(r["v"]) else normalise_identifier(r["v"], org["country"])
+        if key:
+            numbers.setdefault(key, redact_emails(r["v"]))
     buyer_ids = [r["id"] for r in buyer_rows]
     names = _buyer_names(conn, buyer_ids)
     countries = {r["id"]: r["country"] for r in conn.execute(
@@ -334,6 +383,6 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
                     "country": countries.get(i), "awards": r["awards"]}
                    for r in buyer_rows for i in [r["id"]] if names.get(i)],
         "notices": out_notices, "noticeCount": head["n"],
-        "namesAsStated": [r["v"] for r in stated], "identifiers": list(numbers.values())[:3],
+        "namesAsStated": [redact_emails(r["v"]) for r in stated], "identifiers": list(numbers.values())[:3],
         "attribution": "Source: TED (Tenders Electronic Daily), © European Union. Winners as named in each result notice.",
     }

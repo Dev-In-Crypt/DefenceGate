@@ -6,11 +6,15 @@ import { ContentPage } from './content-page';
  */
 export function RemovedOnRequest({ what }: { what: 'notice' | 'buyer' | 'call' | 'organisation' | 'supplier' }) {
   const noun = what === 'notice' ? 'notice' : what === 'buyer' ? 'buyer page' : what === 'organisation' ? 'organisation page' : what === 'supplier' ? 'supplier page' : 'funding call';
+  // An organisation page is also refused for an entry that looks like a natural person (nobody asked): say both.
+  const person = what === 'organisation';
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Removed on request', href: '/' }]}
-      title="Removed on request"
-      lead={`This ${noun} was removed from DefenceGate on request. It is no longer shown or listed here.`}
+      crumbs={[{ label: 'Home', href: '/' }, { label: person ? 'Not shown' : 'Removed on request', href: '/' }]}
+      title={person ? 'Not shown' : 'Removed on request'}
+      lead={person
+        ? 'This organisation page is not shown. It was removed on request, or the entry is the name of a natural person, which DefenceGate does not publish.'
+        : `This ${noun} was removed from DefenceGate on request. It is no longer shown or listed here.`}
     />
   );
 }

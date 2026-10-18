@@ -140,7 +140,7 @@ PAGE = """<html><head>
 </head><body><header>menu</header><main><h1>ASTRID 2026</h1>
 <p>Le montant maximum de l'aide allouée est limité à 400 k€.</p>
 <p>Ouverture : 16/12/2025 à 09:00 CET Limite de dépôt des projets : 02/03/2026 à 15:00 CET</p>
-<p>Contact : jean.dupont@defense.gouv.fr</p>
+<p>Contact : jean.dupont@example.invalid</p>
 <p>Partager la page Veuillez autoriser le dépôt de cookies A la une 8 octobre 2026
 Limite de dépôt des projets : 01/01/2027</p></main></body></html>"""
 
@@ -219,7 +219,7 @@ def test_the_kind_of_call_comes_from_its_title(title, kind):
 def test_an_address_in_the_page_is_removed_before_landing():
     record = aid.fetch_page(_Client({"/aid/appels-projets/cours/astrid": PAGE}), "cours",
                             "/aid/appels-projets/cours/astrid")
-    assert "jean.dupont@defense.gouv.fr" not in strip_personal_data(record)["text"]
+    assert "jean.dupont@example.invalid" not in strip_personal_data(record)["text"]
 
 
 def test_a_page_with_no_title_is_refused():

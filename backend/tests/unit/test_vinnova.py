@@ -49,7 +49,7 @@ OPEN_ROUND = {
     "DokumentLista": [{"Titel": "Utlysningstext", "fileURL": "https://data.vinnova.se/api/file/1",
                        "Lang": "Sv", "Primary": True}],
     "KontaktLista": [{"Namn": "Per Persson", "Telefon": "08 123 12 12",
-                      "Epost": "per.persson@vinnova.se"}],
+                      "Epost": "per.persson@example.invalid"}],
 }
 INVITED_ROUND = {**OPEN_ROUND, "Diarienummer": "2025-00979", "Publik": 0, "Webbsida": 0,
                  "Titel": "Behovsdriven försvarsinnovation extra", "WebTextLista": []}
@@ -222,7 +222,7 @@ def test_a_round_outside_the_defence_programmes_is_refused():
 def test_contact_persons_are_removed_before_landing():
     clean = strip_personal_data(OPEN)
     assert "KontaktLista" not in clean
-    assert "per.persson@vinnova.se" not in json.dumps(clean)
+    assert "per.persson@example.invalid" not in json.dumps(clean)
 
 
 @pytest.mark.parametrize("text,amount", [

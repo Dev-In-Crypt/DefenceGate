@@ -138,8 +138,8 @@ Ukraine, which could be read as "no"; it stays unknown.
 
 | Statement on the page | Measured |
 |---|---|
-| Server at Hetzner, Helsinki, Finland | the server's address 2.29.42.177: RIPE netname CLOUD-HEL1, AS24940 Hetzner Online GmbH, FI, Helsinki; reverse name `your-server.de`; the privacy notice says the same |
-| Storage Box in Germany | `u683312.your-storagebox.de` resolves to 91.98.255.71, RIPE DE-HETZNER, Gunzenhausen DE (an address range, not a statement from Hetzner about the data centre; the page says so) |
+| Server at Hetzner, Helsinki, Finland | the server's address (omitted here, WP-39): RIPE netname CLOUD-HEL1, AS24940 Hetzner Online GmbH, FI, Helsinki; reverse name `your-server.de`; the privacy notice says the same |
+| Storage Box in Germany | the box's host name (omitted here, WP-39: the box is shared with another project) resolves to an address in RIPE DE-HETZNER, Gunzenhausen DE (an address range, not a statement from Hetzner about the data centre; the page says so) |
 | Production writes the archive to the Storage Box only | `DGATE_RAW_BACKEND=sftp`, `DGATE_S3_ENDPOINT` empty in the worker container |
 | Cloudflare is registrar and DNS, not a proxy | RDAP of the domain: registrar Cloudflare, Inc.; NS lola/ram.ns.cloudflare.com; the A record is the Hetzner address itself (not a Cloudflare range); no MX, TXT or AAAA record |
 | Let's Encrypt issues the certificate | `openssl s_client` on the server: issuer Let's Encrypt (CN=YE1), valid 12 October 2026 to 10 January 2027 |

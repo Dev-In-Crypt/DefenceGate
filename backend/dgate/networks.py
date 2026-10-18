@@ -25,7 +25,7 @@ import httpx
 import psycopg
 from psycopg.types.json import Jsonb
 
-from . import db, llm
+from . import db, individuals, llm
 from .config import settings
 from .rawstore import BundleWriter, build_store, storage_key
 from .resolution import resolve
@@ -680,7 +680,7 @@ INSERT INTO organisation_network (organisation_id, name, country, projects, coor
 SELECT a.org, COALESCE(o.display_name, o.canonical_name), o.country, a.projects, a.coordinated,
        a.eu, a.y0, a.y1, a.progs, a.roles, now()
   FROM agg a JOIN organisation o ON o.id = a.org
- WHERE NOT o.suppressed
+ WHERE NOT o.suppressed AND o.individual_reason IS NULL
 ON CONFLICT (organisation_id) DO UPDATE SET
   name = EXCLUDED.name, country = EXCLUDED.country, projects = EXCLUDED.projects,
   coordinated = EXCLUDED.coordinated, eu_contribution = EXCLUDED.eu_contribution,
@@ -691,10 +691,15 @@ ON CONFLICT (organisation_id) DO UPDATE SET
 
 def refresh_organisation_network(conn: psycopg.Connection) -> dict[str, int]:
     """Rebuild the directory table (migration 0068) from the participations: one row per live,
-    unsuppressed organisation with an active participation. Rows of an organisation that no longer
-    qualifies (merged away since, suppressed, all its participations inactive) are deleted: the table
+    unsuppressed organisation that is not a natural person, with an active participation. Rows of an
+    organisation that no longer qualifies (merged away since, suppressed, an individual, all its
+    participations inactive) are deleted: the table
     is derived, the participations are the record. One transaction (`now()` is its start), so a reader
     sees the old table or the new one."""
+    # First the natural persons (WP-39): they are marked from the names of the organisations that took part, in
+    # this same transaction, and the rebuild leaves them out like a suppressed organisation.
+    persons = individuals.mark_individuals(conn)
+    log.info("directory refresh: %s", persons)
     conn.execute(REFRESH_NETWORK_SQL)
     gone = conn.execute("DELETE FROM organisation_network WHERE refreshed_at < now()").rowcount
     n = conn.execute("SELECT count(*) AS n FROM organisation_network").fetchone()["n"]

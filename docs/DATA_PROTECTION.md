@@ -1,6 +1,7 @@
 # Data protection: what is held, where, and for how long
 
-Status: working document of 12 October 2026. The inventory is fact (measured on the
+Status: working document of 12 October 2026, corrected on 18 October 2026 (WP-39: the statements
+that the independent check of that day found untrue are rewritten below, each with its date). The inventory is fact (measured on the
 production database or read from the code). The retention periods are **proposals** for
 the owner and a lawyer to accept or change; nothing below is legal advice and no lawful
 basis is decided here. The procedure for a request from a person is in
@@ -19,11 +20,11 @@ redacts anything e-mail-shaped again on output.
 | Where | What | How much | Why it is there |
 |---|---|---|---|
 | Raw store (Storage Box `dgate/`), payloads landed before the sweeps | notice payloads with the contact fields the source published (e-mail, sometimes phone and a person's name) | about 100 TED notices (landed 14-19 Sep, swept 22-23 Sep); PLACSP payloads landed before 12 Oct were not measured | landed before the boundary was applied to every connector; the store is immutable by design |
-| `opportunity_version.payload` | e-mail addresses inside the stored snapshot | 108 versions (103 in `description`) | the append-only trigger refuses correction; redacted on output only, by the owner's decision of 12 Oct |
-| `opportunity` | e-mail in a serving column | 5 rows | same cause |
-| `organisation_alias` | an e-mail-shaped string used as a name | 95 rows | a source put it in the buyer field |
+| `opportunity_version.payload` | e-mail addresses inside the stored snapshot | 108 versions (103 in `description`) on 12 October; not re-measured on 18 October (a scan of the 650,000 versions is not a short query) | the append-only trigger refuses correction; redacted on output only, by the owner's decision of 12 Oct |
+| `opportunity` | e-mail in a serving column | 4 rows in the title, summary and buyer-name columns on 18 October 2026 (5 on 12 October, other columns not re-counted) | same cause |
+| `organisation_alias` | a string with an "@" used as a name | 172 rows on 18 October 2026 (95 on 12 October; some are brand names such as "@HOME B.V."); profiles redact the address-shaped ones on output | a source put it in the buyer field |
 | Database dumps on the host and the Storage Box | everything above | 30 days of nightly dumps; those before 12 Oct are plaintext and age out by 11 Nov 2026, later ones are encrypted | backup |
-| `/root/dgate-cutover.sql.gz` on the host | a plaintext dump of 16 Sep | one file, 110 MB | the migration to the host; **to be deleted by the owner** |
+| A plaintext dump of 16 Sep in the root user's home directory on the host | everything above, as of that day | one file, 110 MB | the migration to the host; **to be deleted by the owner**. (Its file name is not given here: this file is in a public repository.) |
 | Logs | the proxy's request log (client address, time, address requested including the query string, response code, size, request headers including user agent and referrer; the `token` query parameter of `/auth/verify`, also as `Referer`, is removed by a filter before a line is written) and its own error log, both as files in the `caddylogs` volume | **14 days at the latest** since 15 Oct 2026: `dgate.ops.logprune` (compose service `logprune`) cuts older lines from the active files and deletes rolled files, hourly; Caddy's `roll_keep_for 336h` and `roll_size` are a second guard. The API's own access line is switched off (`--no-access-log`). Container logs of the other services hold no request data (size-capped, 5 x 20 MB each) | operation |
 | Buyer and issuer names | legal entities, occasionally a sole trader's own name | not measured | the notice names the buyer |
 
@@ -61,7 +62,9 @@ and never readable by the public API or the accounts role:
 | `opportunity.suppressed`, `buyer_withheld`, `organisation.suppressed`, `call.suppressed` | flags set by triggers from `suppression` on the serving rows; the archive rows are untouched | the public read side hides flagged rows | follows `suppression` |
 | `data_request` | received date, kind (access, rectification, erasure, restriction, objection, portability, removal, other), status, closed date, a handler note typed by the owner. No name, address or message of the requester; the note must not contain them either | to show when a request arrived and how it ended | as long as the lawyer says; rows are never deleted |
 
-Owner commands: `python -m dgate.ops.suppress add|list|lift` and `python -m dgate.ops.data_request add|list|close`
+Owner commands (WP-39 added `mark_individuals` and `clean_suppliers`, both dry runs unless `--yes`):
+`python -m dgate.ops.mark_individuals` and `python -m dgate.ops.clean_suppliers`; and
+`python -m dgate.ops.suppress add|list|lift` and `python -m dgate.ops.data_request add|list|close`
 (dry run unless `--yes`). A suppressed notice is a 410 "removed on request" at its address and is
 absent from every list, export, feed, sitemap slug, statistic and account view; an organisation
 suppression shows its notices with the buyer "Name withheld on request" and removes the buyer page.
@@ -73,11 +76,12 @@ Held since migration 0060 (WP-26, 17 October 2026), written only by the monthly 
 
 | Where | What | Why | Retention |
 |---|---|---|---|
-| `organisation` (new rows, `display_name`, `eu_pic`, `vat_number`) | the legal name, country, participant identification code and VAT number of every organisation that took part in a CORDIS or EDF project, as the source publishes them. Legal names are company names; a sole trader or an individual consultant can be registered under their own name (not measurable from the data) | the participation graph | as long as the organisation is in the source; a removal request is handled through `suppression` (kind organisation) |
+| `organisation` (new rows, `display_name`, `eu_pic`, `vat_number`) | the legal name, country, participant identification code and VAT number of every organisation that took part in a CORDIS or EDF project, as the source publishes them. Legal names are company names; a sole trader or an individual consultant can be registered under their own name. **Measured on 18 October 2026: 3 of a random 300 of the 73,347 organisations in the directory (1.0 %) were natural persons, shown with PIC, country and EU amounts, indexable** | the participation graph | as long as the organisation is in the source; a removal request is handled through `suppression` (kind organisation) |
+| `organisation.individual_reason` (migration 0080, WP-39) | why the organisation is treated as a natural person. The rule is on the name (`dgate/individuals.py`): no legal form and no organisational word, two to five words, at least one a given name of a list; or a sole-proprietor form (PL "S.C.", DE "e.K.", RO "PFA", FR "EIRL") beside a given name; or an owner's name in a trailing parenthesis. It runs with every directory rebuild and with `python -m dgate.ops.mark_individuals`. Such an organisation is **shown nowhere**: not in the directory or the sitemap, its profile is a 410, inside a project or a partner list its name is "Name not shown" and what it received is not shown. The row, its participations and its aliases stay (nothing is deleted). Measured on a copy of the production tables on 18 October 2026: 710 of 73,347 organisations flagged (0.97 %), with about 960 participations in 880 projects and EUR 122 million of EU contribution attached (counted on 699 flagged before the last five names were added); none is also a buyer or a supplier. Hand checks on fresh random samples (taken before the last five names were added to the list): of 100 flagged names 3 were organisations (a cooperative, a Portuguese Lda named for a person, a publisher named for its founder) and 7 were businesses named for their owner (hidden on purpose, they carry a person's name); of 150 unflagged candidate names (two to four plain words, no organisational word) 5 were persons whose names are not on the list, which is about 150 of 4,569. So the rule finds roughly four persons in five among Latin-script names and hides about one organisation in thirty; Arabic, Albanian, Chinese and Indian names are mostly missed and a script other than Latin is not read | the directory must not show persons | follows the participation |
 | `project`, `participation` | project title, acronym, grant number, call and topic, dates, cost and EU contribution; per organisation: role, EU contribution and how the link was decided. No person, no contact, no abstract | the participation graph | rows are never deleted by the importers (a participant who left is marked inactive) |
 | `consortium_snapshot`, `consortium_change` | the list of organisations of a project at a date and the difference between two dates | history that no public source keeps | indefinite |
 | `project_factsheet` | what the language model reported from one EDF factsheet (organisation names, countries, role, amounts) and what the quote check dropped. The technical description of the project is cut before the text is landed or sent to the model | audit of the extraction | indefinite |
-| Raw store `cordis/` and `edf_factsheets/` | the result pages of the SPARQL service (organisation, project and participation fields) and the layout and plain text of each factsheet without its description | replay without refetching | as the rest of the raw store |
+| Raw store `cordis/` and `edf_factsheets/` | the result pages of the SPARQL service (organisation, project and participation fields) and the layout and plain text of each factsheet without its description (e-mail addresses are replaced before landing since WP-39; the 283 factsheets landed before are unredacted) | replay without refetching | as the rest of the raw store |
 | `resolution_review`, `resolution_gold` | pairs of organisation ids waiting for a person; hand-labelled pairs of company names for the evaluation | working data | until decided; the gold set is a seed file in the repository |
 
 Not held: payment data, passwords (there are none: sign-in is by one-time link), IP
@@ -93,6 +97,7 @@ The readiness check asks a company about its country, ownership and control, pro
 ## "Does this call fit me" and partner suggestions (WP-32, 17 October 2026): nothing new is held
 
 The saved profile of the readiness check is read by the pages of the funding list, the changes list, the digest and a call page, in the browser only. **The profile is never part of a request except the one that computes a verdict** (`POST /v1/readiness/assess`, as above, now also with a call id, which is public). The badge "fits my profile" asks the site for the public document facts of the calls on the page (`GET /api/fit/facts?ids=...`: call ids only) and compares them with the profile in the browser. A visitor without a saved profile causes no such request. The partner list (`GET /api/funding/{slug}/partners`) carries a call and an optional country filter. The list loads with nothing about the profile in the request; the profile's country goes out, as `prefer=XX` (a two-letter code, nothing else of the profile), only when the visitor presses "Put organisations from <country> first", and the page says so beside the button (WP-38). The proxy's request log holds the address and the path with that query, as for the country filter a visitor picks by hand. The partner suggestions name **organisations** (their name as CORDIS or the EDF factsheet gives it, their country, the projects they took part in) and nothing about a person; an organisation removed on request (`organisation.suppressed`) is left out, and one merged into another is shown as the live one. No table is added and nothing is written by these endpoints (the API role cannot write).
+The saved profile of the readiness check is read by the pages of the funding list, the changes list, the digest and a call page, in the browser only. **The profile is never part of a request except the one that computes a verdict** (`POST /v1/readiness/assess`, as above, now also with a call id, which is public). The badge "fits my profile" asks the site for the public document facts of the calls on the page (`GET /api/fit/facts?ids=...`: call ids only) and compares them with the profile in the browser. A visitor without a saved profile causes no such request (corrected on 18 October 2026: that also means the server can tell that a visitor who sends `/api/fit/facts`, or the partner request below, without having asked for it has a saved profile; it cannot tell who; the privacy notice 1.6 says so). The partner list (`GET /api/funding/{slug}/partners`) carries a call and an optional country filter; the profile's country only orders the answer in the browser. The partner suggestions name **organisations** (their name as CORDIS or the EDF factsheet gives it, their country, the projects they took part in) and nothing about a person; an organisation removed on request (`organisation.suppressed`) is left out, and one merged into another is shown as the live one. No table is added and nothing is written by these endpoints (the API role cannot write).
 
 ## Eligibility reading of funding calls (WP-31 and WP-34, 17 October 2026)
 
@@ -105,12 +110,12 @@ The worker reads the call documents of EU funding calls (public PDFs of the Comm
 | `llm_usage` | per day, task and model: requests, tokens, cost in USD. No text, no identifier | the monthly spending cap | indefinite; contains no person |
 | `digest_issue`, `list_snapshot` | the weekly digest issues and pre-computed list pages, built from the public serving rows (titles, buyers, dates). They hold what the serving rows held at the time; a removal on request deletes them in the same transaction and the digest is rebuilt (WP-34 C1, C2) | speed; the digest archive | replaceable |
 
-**Processor: OpenAI** (`api.openai.com`, Responses API, `store: false`). The only data sent is the cleaned text of a public call document or topic text and the instructions; no visitor, account or request data is ever sent. The key is held by the worker only. Whether a data processing agreement, the provider's retention terms and a transfer mechanism for the United States are in place is for the owner and the lawyer to confirm; this file does not decide it. The privacy notice names the processor (draft wording of 17 October 2026, awaiting approval: `docs/legal/versions/privacy-v1.5-2026-10-17.md`).
+**Processor: OpenAI** (`api.openai.com`, Responses API, `store: false`). The data sent is the cleaned text of a public call document or topic text, **and (corrected on 18 October 2026, verify2-abuse N6) the layout text of each EDF project factsheet without its technical description, with the names of the participants (task `edf_factsheet`: 283 factsheets, 284 requests)**, and the instructions; no visitor, account or request data is ever sent. E-mail addresses are removed from the call documents since WP-34 and from the factsheet text since WP-39 (`edf_factsheets.read_pdf`, before the text is landed, quoted or sent). **The 283 factsheets already read were sent before that removal**; whether any printed an address was not checked (the stored result, `project_factsheet.facts`, holds none, and the two rows with an "@" are the brand name SYSTEM@TIC). The layout and plain text of those factsheets as landed in the raw store (`edf_factsheets/`) are unredacted; rewriting a bundle of the immutable store is the owner's decision, as for the older payloads above. The key is held by the worker only. Whether a data processing agreement, the provider's retention terms and a transfer mechanism for the United States are in place is for the owner and the lawyer to confirm; this file does not decide it. The privacy notice names the processor for call documents (version 1.5, published 18 October 2026); the wording that adds the factsheets and the open transfer question is version 1.6, a draft awaiting approval (`docs/legal/versions/privacy-v1.6-2026-10-18.md`).
 ## Supplier map (WP-37, 18 October 2026)
 
 | Where | What | Why | Retention |
 |---|---|---|---|
-| `award`, `award_notice` | per TED result notice of the core scope: the winning organisation (name as the buyer published it, country, registration number as published), the notice it won and how the organisation was found. Counts of the winners left out (natural persons, no country). No contact, no person | the supplier map | rows are never deleted by the loader; a removal request is handled through `suppression` (kind organisation or notice) |
+| `award`, `award_notice` | per TED result notice of the core scope: the winning organisation (name as the buyer published it, country, registration number as published), the notice it won and how the organisation was found. Counts of the winners left out (natural persons, no country, placeholders, consortium strings, garbled names). **Before 18 October 2026 (WP-39, verify2-abuse N1) the identifier field also kept whatever a buyer typed into it: 1 e-mail address and 3 telephone numbers on 4 of 4,186 profiles, and 547 of 8,368 stored values were not registration numbers.** Now only a number-shaped value is stored and shown (a leading "+", a "tel" label or an "@" makes a value contact data), and `python -m dgate.ops.clean_suppliers --yes` cleans what was stored, including the registration number two organisations had been given from a telephone number. `award.excluded_reason` (migration 0080) marks winner strings that are no supplier; the row is kept and every supplier query skips it | the supplier map | rows are never deleted by the loader; a removal request is handled through `suppression` (kind organisation or notice) |
 | `organisation` (new rows), `organisation_alias` | the legal name, country and registration number of every winner | the same | as for the participation graph above |
 | Raw store `ted_awards/` | the winner fields of each result notice as TED returned them, **with the entries of natural persons blanked** (`[natural person]`, their number removed) before the record is landed | replay without refetching | as the rest of the raw store |
 
@@ -119,15 +124,41 @@ owner's name, an "e.K.") is skipped by `dgate/awards.py: person_reason` and writ
 measured on 18 October 2026, of 5,997 distinct core-scope names 184 were skipped (about two thirds of those read by
 hand were persons) and about 0.8 % of the rest are probably still a person (`docs/design/SUPPLIER_MAP_FEASIBILITY.md`,
 section 3). The public pages say how to ask for a removal. Winners are public in TED; the map adds that they are
-collected per company, which is why the aggregate publishes no group of fewer than three suppliers and the pages carry
-no ranking, share or total.
+collected per company, which is why the aggregate publishes no group of fewer than three suppliers.
+
+**Corrected on 18 October 2026 (verify2-abuse N5, N7):** that rule held for `/v1/suppliers/summary` only, and the
+statement that "the pages carry no ranking, share or total" was wider than the truth: the list shows, per supplier, the
+number of notices it won (`awardCount`) and can be ordered by it. The list now holds the group rule too: a country or
+product-group filter that selects fewer than three suppliers answers "withheld" whatever the sort or the search word
+(the group is judged without the search word, so a name search inside a large group works), and it serves at most 500
+positions (`suppliers.MAX_OFFSET`; the table was 4,186 suppliers, so 42 requests of 100). A page beyond the cap is
+refused (the site answers 404 for it). Narrowing by name, country or product group still reaches every supplier that is
+not in a small group, so the cap raises the price of copying the table; it does not forbid it, and the rate limit prices
+the rest. The pages state no contract value per supplier, no share and no ranking by value.
+
+Names that are no supplier (N8): a placeholder ("keine Angabe"), a consortium written as one string, text with a
+replacement character, contact data in the name, are refused by the loader and counted (`skipped_placeholder`,
+`skipped_consortium_string`, `skipped_garbled`, `skipped_contact_in_name`); a role note after one company ("- Lider") is
+removed and the company kept. `python -m dgate.ops.clean_suppliers` marks what was stored (dry run unless `--yes`).
 
 ## Who can read it
 
 The API and worker service roles (`dgate_api`, `dgate_worker`), the owner on the host,
 and whoever holds the Storage Box key. The private half of the backup key is only on the
-owner's laptop. The raw store is private and never served. Nothing here is public except
-what `/v1/*` returns, which is the allow-listed and redacted view.
+owner's laptop. The raw store is private and never served. **Corrected on 18 October 2026:**
+it is not true that nothing is public except what `/v1/*` returns. The organisation, project
+and analytics data (`/v1/organisations*`, `/v1/projects*`, `/v1/analytics/*`, `/v1/fit/facts`) is
+blocked at the proxy but public through the HTML pages that read it. What the public gets is the
+redacted view, since WP-39 without organisations that are natural persons and without contact data
+in a supplier's identifiers; what is behind it (the raw store, the archive snapshots, the account
+tables) is not public.
+
+An organisation entry in `suppression` now also clears what was derived from it: the directory table
+`organisation_network` (the list, its count, the sitemap slugs and the partner lists) loses the merge
+family's rows in the same transaction (a database trigger, migration 0080, verify2-abuse N3), and
+`python -m dgate.ops.suppress lift` rebuilds it. What can still be shown after an entry, from caches that no
+command can clear: an organisation list or a partner tab for up to five minutes, the Ukraine and gap
+analytics for up to fifteen, the site's own pages for five, a feed reader for an hour.
 
 ## Proposed retention (owner and lawyer to decide)
 
