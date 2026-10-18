@@ -8,6 +8,26 @@ import { pace, visit } from './helpers';
 
 const heading = (page: import('@playwright/test').Page) => page.locator('#results-heading');
 
+// WP-43 (verification 3): the first page of calls is ordinary HTML in the first response. A loading file made the server send a
+// skeleton in place and the list as a hidden block that only a script swaps in, so a visitor without scripts saw "Loading".
+test('the first page of calls is in the HTML the server sends, before any hidden block', async ({ request }) => {
+  const html = await (await request.get('/funding?status=all')).text();
+  const hidden = html.indexOf('<div hidden id="S:');
+  const visible = hidden === -1 ? html : html.slice(0, hidden);
+  expect(visible).toMatch(/<h2[^>]*>\s*<a [^>]*href="\/funding\/\d+-[^"]*"[^>]*>[^<]+<\/a>/);
+  expect(visible).toMatch(/Showing 1/);
+  expect(html).not.toContain('Loading funding calls');
+});
+
+test('with scripts off the list, its filters and the pager still work as links', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto('/funding?status=all');
+  await expect(page.locator('a[href^="/funding/"]:not([href*="export"])').first()).toBeVisible();
+  await expect(heading(page)).toContainText(/Showing 1/);
+  await context.close();
+});
+
 test('search: a hyphen and a space are the same search', async ({ page }) => {
   await visit(page, '/funding?status=all&q=counter-drone', { title: /funding/i, h1: /funding/i });
   const hyphen = (await heading(page).textContent())?.trim();

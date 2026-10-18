@@ -5,12 +5,12 @@
  */
 import assert from 'node:assert/strict';
 import {
-  DEFENCE_PROGRAMMES, EDF_CATEGORY_WORDS, GAP_PROGRAMMES, activeOrgFilterCount, effectiveProgrammes, fundingGroups, isNetworkSlug, methodWord, orgApiQuery, parseOrgFilters, roleWord, toOrgQuery, yearsLabel,
+  DEFENCE_PROGRAMMES, EDF_CATEGORY_WORDS, GAP_PROGRAMMES, activeOrgFilterCount, defaultOrgSort, effectiveProgrammes, fundingGroups, isNetworkSlug, methodWord, orgApiQuery, parseOrgFilters, roleWord, toOrgQuery, yearsLabel,
 } from './networks';
 
 // ---- the URL -----------------------------------------------------------------------------------------------------------
 const none = parseOrgFilters({});
-assert.deepEqual(none, { q: undefined, country: [], programme: [], role: [], minProjects: undefined, sort: 'projects', page: 1, pageSize: 20 });
+assert.deepEqual(none, { q: undefined, country: [], programme: [], role: [], minProjects: undefined, sort: 'defence', page: 1, pageSize: 20 });
 assert.equal(toOrgQuery(none), '');
 assert.equal(activeOrgFilterCount(none), 0);
 
@@ -23,7 +23,7 @@ assert.equal(f.q, 'Thales');
 assert.equal(activeOrgFilterCount(f), 5);
 assert.equal(toOrgQuery(f), '?q=Thales&country=DE%2CFR%2CUA&programme=EDF%2CHORIZON&role=coordinator&min=5&sort=name&page=3');
 assert.equal(orgApiQuery(f), '?q=Thales&country=DE%2CFR%2CUA&programme=EDF%2CHORIZON&role=coordinator&sort=name&page=3&minProjects=5&pageSize=20');
-assert.equal(orgApiQuery(none), '?programme=EDF%2CEDIDP%2CPADR&sort=projects&pageSize=20', 'U10: with no choice the API is asked for the defence-relevant programmes');
+assert.equal(orgApiQuery(none), '?programme=EDF%2CEDIDP%2CPADR&sort=defence&pageSize=20', 'U10: with no choice the API is asked for the defence-relevant programmes, ordered by the defence count');
 assert.deepEqual(effectiveProgrammes(none), DEFENCE_PROGRAMMES);
 assert.equal(toOrgQuery(none), '', 'and the default stays out of the address');
 
@@ -43,7 +43,23 @@ assert.equal('allProgrammes' in none, false, 'the key is absent unless chosen');
 for (const bad of ['0', '-3', 'abc', '1', '', '1e99999']) assert.equal(parseOrgFilters({ page: bad }).page, 1, `page ${bad}`);
 assert.equal(parseOrgFilters({ page: '99999' }).page, 1000);
 assert.equal(parseOrgFilters({ min: '1' }).minProjects, undefined, 'a minimum of one is no filter');
-assert.equal(parseOrgFilters({ sort: 'funding' }).sort, 'projects');
+assert.equal(parseOrgFilters({ sort: 'funding' }).sort, 'defence', 'an unknown sort is the default of the scope');
+assert.equal(parseOrgFilters({ sort: 'funding', programme: 'all' }).sort, 'projects');
+
+// WP-43 (verification 3, finding 4): limited to the defence programmes the directory is ordered by the defence count, not by the
+// all-programme total (CNRS: 4,336 projects, 10 in the EDF); over a civil programme or all of them it is ordered by all projects.
+assert.equal(defaultOrgSort(none), 'defence');
+assert.equal(defaultOrgSort(parseOrgFilters({ programme: 'edf' })), 'defence');
+assert.equal(defaultOrgSort(parseOrgFilters({ programme: 'edf,padr' })), 'defence');
+assert.equal(defaultOrgSort(parseOrgFilters({ programme: 'edf,horizon' })), 'projects', 'one civil programme in the list');
+assert.equal(defaultOrgSort(parseOrgFilters({ programme: 'h2020' })), 'projects');
+assert.equal(defaultOrgSort(parseOrgFilters({ programme: 'all' })), 'projects');
+assert.equal(parseOrgFilters({ sort: 'defence', programme: 'all' }).sort, 'defence', 'asked for outright');
+assert.equal(toOrgQuery(parseOrgFilters({ sort: 'projects' })), '?sort=projects', 'in the defence scope, all-projects order is a choice and is kept in the address');
+assert.equal(toOrgQuery(parseOrgFilters({ programme: 'all', sort: 'defence' })), '?programme=all&sort=defence');
+assert.equal(toOrgQuery(parseOrgFilters({ programme: 'all', sort: 'projects' })), '?programme=all', 'and the default of the scope stays out of it');
+assert.equal(orgApiQuery(parseOrgFilters({ programme: 'all' })), '?sort=projects&pageSize=20');
+assert.equal(orgApiQuery(parseOrgFilters({ sort: 'name' })), '?sort=name&programme=EDF%2CEDIDP%2CPADR&pageSize=20');
 assert.equal(parseOrgFilters({ q: 'x'.repeat(500) }).q?.length, 100);
 assert.equal(parseOrgFilters({ q: '   ' }).q, undefined);
 // 20 values at most; the same value once

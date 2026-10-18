@@ -1,0 +1,47 @@
+{
+  "_source": "Curated by DefenceGate. Each entry maps product words a buyer or supplier uses to the CPV 2008 codes the notices of that product carry. The codes and their English titles are those of the Publications Office codelist (EU Vocabularies, dataset http://publications.europa.eu/resource/dataset/cpv, as published in the OP-TED eForms SDK repository, retrieved 18 October 2026); no title is written by us.",
+  "_note": "Used by the product search of the supplier map (lib/cpv.ts, cpvForWords) before the finder's titles are searched. The finder matches words in titles only, so 'drone' (the CPV says 'Unmanned aerial vehicles' and 'Non-piloted aircraft'), 'explosives', 'body armour' (the CPV says 'Garments for anti-ballistic protection') and 'tank' (which hit heating tanks) found nothing or the wrong thing. A word is listed only when the codes are certain: the product is named by the title of the code, or notices of that product carry it in the archive (checked on 18 October 2026). The query is read as a whole: every word of it must belong to a listed phrase, otherwise the finder's titles are searched as before.",
+  "_retrieved": "2026-10-18",
+  "entries": [
+    {
+      "words": ["drone", "drones", "uav", "uavs", "uas", "unmanned aircraft", "unmanned aerial vehicle", "unmanned aerial vehicles"],
+      "codes": [
+        { "code": "35613000", "title": "Unmanned aerial vehicles" },
+        { "code": "34711200", "title": "Non-piloted aircraft" }
+      ]
+    },
+    {
+      "words": ["explosive", "explosives"],
+      "codes": [{ "code": "24600000", "title": "Explosives" }]
+    },
+    {
+      "words": ["pyrotechnic", "pyrotechnics", "flare", "flares"],
+      "codes": [{ "code": "24613000", "title": "Signalling flares, rain rockets, fog signals and pyrotechnic articles" }]
+    },
+    {
+      "words": ["detonator", "detonators", "fuse", "fuses", "igniter", "igniters"],
+      "codes": [{ "code": "24615000", "title": "Fuses, caps, igniters and electric detonators" }]
+    },
+    {
+      "words": ["propellant", "propellants", "gunpowder"],
+      "codes": [{ "code": "24611000", "title": "Propellant powders" }]
+    },
+    {
+      "words": ["body armour", "body armor", "bulletproof", "bullet proof", "ballistic protection", "ballistic vest", "ballistic vests"],
+      "codes": [{ "code": "35815000", "title": "Garments for anti-ballistic protection" }]
+    },
+    {
+      "words": ["tank", "tanks", "battle tank", "battle tanks", "main battle tank", "main battle tanks"],
+      "codes": [{ "code": "35411000", "title": "Battle tanks" }],
+      "note": "A tank here is a battle tank. For storage or heating tanks use the CPV box (44600000)."
+    },
+    {
+      "words": ["armored vehicle", "armored vehicles", "armoured vehicle", "armoured vehicles"],
+      "codes": [{ "code": "35410000", "title": "Armoured military vehicles" }]
+    },
+    {
+      "words": ["ammo"],
+      "codes": [{ "code": "35330000", "title": "Ammunition" }]
+    }
+  ]
+}

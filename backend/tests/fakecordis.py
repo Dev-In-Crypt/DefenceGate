@@ -28,13 +28,13 @@ class FakeCordis:
             return httpx.Response(200, text=self.robots)
         query = request.url.params["query"]
         self.requests.append(query)
-        if "COUNT(DISTINCT" in query:
+        if "AS ?n)" in query:
             kind = {"Organisation": "organisations", "Project": "projects",
                     "OrganisationRole": "roles"}[re.search(r"a e:(\w+)", query).group(1)]
             n = self.claimed.get(kind, len(self.rows[kind]))
             return httpx.Response(200, json=_bindings([{"n": str(n)}]))
-        kind = ("organisations" if "e:Organisation ." in query else
-                "projects" if "e:Project ." in query else "roles")
+        kind = ("roles" if "?x a e:OrganisationRole" in query else
+                "organisations" if "?x a e:Organisation ." in query else "projects")
         m = re.search(r'FILTER \(STR\(\?x\) > "[^"]*?/([^/"]*)"\)', query)
         after = m.group(1) if m else ""
         limit = int(re.search(r"LIMIT (\d+)", query).group(1))

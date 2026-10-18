@@ -160,3 +160,22 @@ The display name follows the name CORDIS prints now (`_settle_organisation`); th
 recorded when the organisation first met it). The service's copy lags the site: SANSIRRO GMBH (PIC 422890) is printed
 QUS TECH GMBH on the site and is still SANSIRRO in the service, so the mechanism will act when the service catches up.
 
+
+## A payment read twice (WP-43, 18 October 2026)
+
+The roles query sums a role's payment (`SUM(?amt)` grouped by the role). The other patterns multiply the rows it sums over:
+a role that points to two organisation nodes, or to two projects, was read once per combination, so its payment came out
+doubled. 207 of the 398,584 roles are such (on 18 October); in 168 of them one node is a bare reference (a URI with no
+description at all) beside the real organisation, in the others both are described. The biggest effect is on one body:
+CEA (PIC 888898201) carries a bare duplicate node in many projects (ENEN2plus: 92,035 stored for the 46,017.50 the
+open data holds; a 549 million euro project listed 118 million for CEA instead of 59 million). `cordis.role_record` now divides
+the sum by `orgs` x `projects` (`COUNT(DISTINCT ?o)`, `COUNT(DISTINCT ?p)` of the query), and the organisation of the role is
+the node with a description (`real_org`) when there is one. Measured on the live service: the query costs 8.7 s a page
+instead of 5.9 s. `python -m dgate.ops.repair_role_multiples [--yes]` corrects the rows already stored (one request).
+
+16,012 roles (4.0 per cent) point only to a bare node: the service names no organisation for them, so they cannot be loaded
+(for example a 121,500 euro participant of SLAFNET). They are the `roles_unlinked` of the load report.
+
+A figure on a CORDIS project page that differs from the open data is not this: MedMaD (172,750.08), RECOMBINE (41,400)
+and E-TANDEM (240,750) are what the service states; the page was amended later. A participation that ended is shown at
+0 on the page; the open data holds no end of participation, so the stored amount stays.

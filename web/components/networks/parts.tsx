@@ -38,7 +38,13 @@ export function TableBox({ label, children }: { label: string; children: React.R
   return <ScrollBox label={label}>{children}</ScrollBox>;
 }
 
-export function OrgCard({ org }: { org: OrgListItem }) {
+/**
+ * `scope`: what the list is limited to. In the defence scope (the default of the directory) the first figure is the number of
+ * defence projects (EDF, EDIDP, PADR) and the others are labelled as all-programme figures: CNRS has 10 EDF projects among 4,336
+ * (verification 3, finding 4). Over all programmes the first figure is every project and the defence ones are named beside it.
+ */
+export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'defence' | 'all' }) {
+  const defence = scope === 'defence';
   return (
     <article className={cn(CARD, 'text-ink')}>
       <div className="flex flex-col gap-2">
@@ -50,9 +56,19 @@ export function OrgCard({ org }: { org: OrgListItem }) {
         <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{p}</Tag>)}</p>
       </div>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
-        <FactCell label="Projects"><span className="tabular-nums">{org.projects}</span></FactCell>
-        <FactCell label="As coordinator"><span className="tabular-nums">{org.coordinated}</span></FactCell>
-        <FactCell label="EU contribution">{org.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(org.euContribution)}</FactCell>
+        {defence ? (
+          <>
+            <FactCell label="Defence projects"><span className="tabular-nums">{org.defenceProjects}</span></FactCell>
+            <FactCell label="Projects, all programmes"><span className="tabular-nums">{org.projects}</span></FactCell>
+          </>
+        ) : (
+          <>
+            <FactCell label="Projects"><span className="tabular-nums">{org.projects}</span></FactCell>
+            <FactCell label="Of which defence"><span className="tabular-nums">{org.defenceProjects}</span></FactCell>
+          </>
+        )}
+        <FactCell label={defence ? 'Coordinated, all programmes' : 'As coordinator'}><span className="tabular-nums">{org.coordinated}</span></FactCell>
+        <FactCell label={defence ? 'EU contribution, all programmes' : 'EU contribution'}>{org.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(org.euContribution)}</FactCell>
         <FactCell label="Active"><span>{yearsLabel(org.firstYear, org.lastYear)}</span></FactCell>
       </dl>
     </article>
@@ -86,8 +102,10 @@ export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; bas
 export function CountryNote({ className }: { className?: string }) {
   return (
     <p className={cn('m-0 max-w-[80ch] text-small text-ink-muted', className)}>
-      The country is the one the source records for the organisation’s registration (its PIC). A body with sites in several countries is recorded under one
-      of them, which is not always its legal seat: the Spanish research council CSIC, for example, appears under Italy. The data holds no country per site, so we do not guess.
+      The country is the one the source records for the organisation’s registration (its PIC), and each profile says what it rests on. Where the record
+      contradicts itself (the address in one country, the site name and the VAT number in another) we follow the two that agree: the Spanish research council
+      CSIC is shown under Spain although its address is recorded in Italy. A body with sites in several countries is shown under the first of them in
+      alphabetical order, and its profile lists the others. Beyond that we do not guess.
     </p>
   );
 }

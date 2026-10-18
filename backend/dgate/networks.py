@@ -26,6 +26,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from . import db, individuals, llm
+from .classify import DEFENCE_PROGRAMMES
 from .config import settings
 from .rawstore import BundleWriter, build_store, storage_key
 from .resolution import resolve
@@ -214,8 +215,9 @@ def _settle_organisation(conn: psycopg.Connection, org_id: int, rec: cordis.OrgR
     creates a new one with the country of the first record it meets. When the record's three signals
     say another country than the one stored (`cordis.seat_country`: CSIC, address Trento, site
     "Madrid ES", VAT ES), the stored country follows, with the basis and the countries seen, and the
-    organisation's aliases move with it. A record that is plain (basis None) never changes an
-    organisation whose stored basis is also None: its country may have come from the buyer side.
+    organisation's aliases move with it. A record whose address stands undisputed (basis 'address') never changes
+    an organisation whose stored basis is None: its country may have come from the buyer side. When the two agree
+    the basis is stored, so that no basis means "not looked at" (WP-43).
 
     Name. CORDIS prints the current name; the display name follows it, and the name it replaces
     stays an alias (it was recorded when the organisation first met it)."""
@@ -228,20 +230,30 @@ def _settle_organisation(conn: psycopg.Connection, org_id: int, rec: cordis.OrgR
         return
     have = (row["country"].strip(), row["country_basis"], list(row["country_sites"] or []))
     want = (rec.country, rec.country_basis, list(rec.country_sites))
-    if rec.country and (rec.country_basis or row["country_basis"]) and have != want:
-        conn.execute(
-            "UPDATE organisation SET country = %s, country_basis = %s, country_sites = %s WHERE id = %s",
-            (rec.country, rec.country_basis, list(rec.country_sites) or None, org_id))
-        if have[0] != rec.country:
+    if rec.country and have != want:
+        if row["country_basis"] is not None or rec.country_basis != "address":
             conn.execute(
-                """UPDATE organisation_alias a SET country_hint = %s
-                    WHERE a.organisation_id = %s AND a.country_hint = %s
-                      AND NOT EXISTS (SELECT 1 FROM organisation_alias b
-                                       WHERE b.normalised_name = a.normalised_name
-                                         AND b.country_hint = %s
-                                         AND b.source_id IS NOT DISTINCT FROM a.source_id)""",
-                (rec.country, org_id, have[0], rec.country))
-        c["countries_changed"] += 1
+                "UPDATE organisation SET country = %s, country_basis = %s, country_sites = %s WHERE id = %s",
+                (rec.country, rec.country_basis, list(rec.country_sites) or None, org_id))
+            if have[0] != rec.country:
+                conn.execute(
+                    """UPDATE organisation_alias a SET country_hint = %s
+                        WHERE a.organisation_id = %s AND a.country_hint = %s
+                          AND NOT EXISTS (SELECT 1 FROM organisation_alias b
+                                           WHERE b.normalised_name = a.normalised_name
+                                             AND b.country_hint = %s
+                                             AND b.source_id IS NOT DISTINCT FROM a.source_id)""",
+                    (rec.country, org_id, have[0], rec.country))
+                c["countries_changed"] += 1
+            else:
+                c["bases_set"] += 1
+        elif have[0] == rec.country:
+            # the record's address and the stored country agree and nothing disputes them: say so
+            conn.execute("UPDATE organisation SET country_basis = 'address' WHERE id = %s", (org_id,))
+            c["bases_set"] += 1
+        else:
+            # an undisputed address against a country that has no basis (it may have come from the buyer side)
+            c["address_differs_kept"] += 1
     shown = " ".join((row["display_name"] or "").split())
     # A rename, not a respelling: CORDIS prints names without accents and with its own punctuation (13 of the
     # 72,534 differ that way on 17 October), and "Fundación" is not improved by "FUNDACION".
@@ -819,6 +831,8 @@ def run_snapshot() -> dict[str, int]:
 
 YEAR_SQL = "COALESCE(extract(year FROM p.start_date)::int, p.call_year::int)"
 
+DEFENCE_IN = ", ".join(f"'{c}'" for c in DEFENCE_PROGRAMMES)
+
 REFRESH_NETWORK_SQL = f"""
 WITH part AS (
   SELECT COALESCE(h.id, COALESCE(l.live_id, pa.organisation_id)) AS org,
@@ -837,13 +851,14 @@ agg AS (
          sum(contribution) AS eu, min(yr) AS y0, max(yr) AS y1,
          array_remove(array_agg(DISTINCT prog ORDER BY prog), NULL) AS progs,
          array_agg(DISTINCT role ORDER BY role) AS roles,
-         count(DISTINCT own) FILTER (WHERE in_family) AS variants
+         count(DISTINCT own) FILTER (WHERE in_family) AS variants,
+         count(DISTINCT project_id) FILTER (WHERE prog IN ({DEFENCE_IN})) AS defence
     FROM part GROUP BY org)
 INSERT INTO organisation_network (organisation_id, name, country, projects, coordinated,
                                   eu_contribution, first_year, last_year, programmes, roles,
-                                  family_variants, refreshed_at)
+                                  family_variants, defence_projects, refreshed_at)
 SELECT a.org, COALESCE(o.display_name, o.canonical_name), o.country, a.projects, a.coordinated,
-       a.eu, a.y0, a.y1, a.progs, a.roles, a.variants, now()
+       a.eu, a.y0, a.y1, a.progs, a.roles, a.variants, a.defence, now()
   FROM agg a JOIN organisation o ON o.id = a.org
  WHERE NOT o.suppressed AND o.individual_reason IS NULL
 ON CONFLICT (organisation_id) DO UPDATE SET
@@ -851,7 +866,8 @@ ON CONFLICT (organisation_id) DO UPDATE SET
   coordinated = EXCLUDED.coordinated, eu_contribution = EXCLUDED.eu_contribution,
   first_year = EXCLUDED.first_year, last_year = EXCLUDED.last_year,
   programmes = EXCLUDED.programmes, roles = EXCLUDED.roles,
-  family_variants = EXCLUDED.family_variants, refreshed_at = EXCLUDED.refreshed_at
+  family_variants = EXCLUDED.family_variants, defence_projects = EXCLUDED.defence_projects,
+  refreshed_at = EXCLUDED.refreshed_at
 """
 
 

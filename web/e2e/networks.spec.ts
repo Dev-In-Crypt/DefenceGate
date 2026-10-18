@@ -32,6 +32,25 @@ test('/organisations: the directory lists the organisations with their counts an
   await expect(page.getByText(/by a language model/i).first()).toBeVisible();
 });
 
+// WP-43 (verification 3, finding 4): the defence directory counted and sorted by every programme (CNRS: 4,336 projects, 10 in the EDF).
+test('/organisations: the defence scope puts the defence count first and labels the all-programme figures', async ({ page }) => {
+  await visit(page, '/organisations', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  const first = page.getByRole('article').first();
+  await expect(first.getByText('Defence projects', { exact: true })).toBeVisible();
+  await expect(first.getByText('Projects, all programmes', { exact: true })).toBeVisible();
+  await expect(first.getByText('Coordinated, all programmes', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Sort')).toHaveValue('defence');
+  await expect(page.getByText(/Defence projects are those of the European Defence Fund/)).toBeVisible();
+});
+
+test('/organisations: over all programmes the first figure is every project and the defence ones are named beside it', async ({ page }) => {
+  await visit(page, '/organisations?programme=all', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  const first = page.getByRole('article').first();
+  await expect(first.getByText('Projects', { exact: true })).toBeVisible();
+  await expect(first.getByText('Of which defence', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Sort')).toHaveValue('projects');
+});
+
 test('/organisations: search folds accents, and the country filter travels in the URL', async ({ page }) => {
   await visit(page, '/organisations?q=ingenierie', { title: /organisations/i, h1: 'Organisations in funded projects' });
   await expect(page.getByRole('article')).toHaveCount(1);

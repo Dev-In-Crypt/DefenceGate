@@ -91,16 +91,41 @@ WHERE {{
     OPTIONAL {{ ?g e:hasFundingSchemeTopic ?t . ?t e:identifier ?topic }} }}
   {keyset}
 }} GROUP BY ?x ORDER BY STR(?x) LIMIT {limit}"""
+    # SUM(?amt) is taken over the rows the other patterns multiply: a role that points to two organisation nodes
+    # (one of them a bare reference with no description: 208 of 398,584 roles on 18 October 2026, 168 of which also
+    # have a real one) or to two projects is read once per combination, so its payment came out doubled (ENEN2plus,
+    # NATURE-ETN). `orgs` and `projects` are how many combinations there are; `role_record` divides by them.
+    # `real_org` is the node that has a description, preferred over a bare reference when the role has both.
     return PREFIX + f"""
 SELECT (STRAFTER(STR(?x), "{base}") AS ?key) (MIN(?prcn) AS ?project)
-       (MIN(STRAFTER(STR(?o), "{_BASE['organisations']}")) AS ?org) (MIN(?label) AS ?role)
-       (SUM(?amt) AS ?amount)
+       (MIN(STRAFTER(STR(?o), "{_BASE['organisations']}")) AS ?org)
+       (MIN(STRAFTER(STR(?ro), "{_BASE['organisations']}")) AS ?real_org) (MIN(?label) AS ?role)
+       (SUM(?amt) AS ?amount) (COUNT(DISTINCT ?o) AS ?orgs) (COUNT(DISTINCT ?p) AS ?projects)
 WHERE {{
   ?x a e:OrganisationRole ; e:isInvolvedIn ?p ; e:isRoleOf ?o ; e:roleLabel ?label .
   ?p e:rcn ?prcn .
+  OPTIONAL {{ ?o a e:Organisation . BIND(?o AS ?ro) }}
   OPTIONAL {{ ?x e:isRecipientOf ?gp . ?gp e:hasPaymentAmount ?m . ?m e:value ?amt }}
   {keyset}
 }} GROUP BY ?x ORDER BY STR(?x) LIMIT {limit}"""
+
+
+def multiple_roles_query() -> str:
+    """The roles whose rows the other patterns multiply (see `_query`): a role that points to more than one
+    organisation node or project. About 210 of them, so one request. `pic` is that of the node with a description.
+    Used by `ops.repair_role_multiples` to correct the amounts stored before `role_record` divided them."""
+    org = _BASE["organisations"]
+    return PREFIX + f"""
+SELECT (STRAFTER(STR(?x), "{_BASE['roles']}") AS ?key) (MIN(?prcn) AS ?project)
+       (MIN(STRAFTER(STR(?o), "{org}")) AS ?org) (MIN(STRAFTER(STR(?ro), "{org}")) AS ?real_org)
+       (MIN(?pic) AS ?pic) (MIN(?label) AS ?role) (SUM(?amt) AS ?amount)
+       (COUNT(DISTINCT ?o) AS ?orgs) (COUNT(DISTINCT ?p) AS ?projects)
+WHERE {{
+  ?x a e:OrganisationRole ; e:isInvolvedIn ?p ; e:isRoleOf ?o ; e:roleLabel ?label .
+  ?p e:rcn ?prcn .
+  OPTIONAL {{ ?o a e:Organisation . BIND(?o AS ?ro) OPTIONAL {{ ?o e:identifier ?pic }} }}
+  OPTIONAL {{ ?x e:isRecipientOf ?gp . ?gp e:hasPaymentAmount ?m . ?m e:value ?amt }}
+}} GROUP BY ?x HAVING (COUNT(DISTINCT ?o) > 1 || COUNT(DISTINCT ?p) > 1) ORDER BY STR(?x) LIMIT 10000"""
 
 
 def _count_query(kind: str) -> str:
@@ -209,7 +234,7 @@ class OrgRecord:
     name: str
     vat: str | None
     country: str | None
-    country_basis: str | None = None        # None | 'vote' | 'several' (see seat_country)
+    country_basis: str | None = None        # None (no country) | 'address' | 'vote' | 'several' (see seat_country)
     country_sites: tuple[str, ...] = ()     # every country the record gives, when the basis is not None
 
 
@@ -323,8 +348,10 @@ def org_record(row: dict[str, str]) -> OrgRecord | None:
     countries = _parts(row.get("countries")) or ([row["country"]] if row.get("country") else [])
     country, basis, seen = seat_country(countries, _parts(row.get("site_names")),
                                         _parts(row.get("vats")) or ([row["vat"]] if row.get("vat") else []))
+    # `seat_country` says None when the address stands undisputed; the stored basis names it, so that a country with
+    # no basis means "never looked at" and not "looked at, fine" (N4 of the third verification).
     return OrgRecord(row["key"], pic if len(pic) == 9 else None, name,
-                     clean_text(row.get("vat"), 30), country, basis, seen)
+                     clean_text(row.get("vat"), 30), country, basis or ("address" if country else None), seen)
 
 
 def project_record(row: dict[str, str]) -> ProjectRecord | None:
@@ -344,11 +371,23 @@ def project_record(row: dict[str, str]) -> ProjectRecord | None:
         call_code=call, topic_code=topic, programme=programme_of(topic, call, ga, start))
 
 
+def _whole(value: Any) -> int:
+    try:
+        return int(float(value)) if value not in (None, "") else 1
+    except ValueError:
+        return 1
+
+
 def role_record(row: dict[str, str]) -> RoleRecord | None:
     role = _ROLE.get(row.get("role") or "")
     if not (row.get("project") and row.get("org") and role):
         return None
     amount = _num(row.get("amount"))
+    if amount is not None:
+        # the query's SUM counts each payment once per organisation node and per project the role points to
+        copies = max(_whole(row.get("orgs")), 1) * max(_whole(row.get("projects")), 1)
+        if copies > 1:
+            amount = round(amount / copies, 2)
     note = None
     if amount is None:
         note = "no_payment_stated"
@@ -357,4 +396,4 @@ def role_record(row: dict[str, str]) -> RoleRecord | None:
         # beneficiary's payment, so 0 is "not stated separately", not "received nothing" (13,701 of
         # 14,048 third-party rows on 17 October 2026; 8 of 10 read on the CORDIS pages had an amount).
         amount, note = None, "linked_third_party"
-    return RoleRecord(row["project"].strip(), row["org"], role, amount, note)
+    return RoleRecord(row["project"].strip(), row.get("real_org") or row["org"], role, amount, note)

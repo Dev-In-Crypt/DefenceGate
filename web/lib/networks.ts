@@ -62,8 +62,17 @@ export const GAP_PROGRAMMES: { value: string; label: string }[] = [
 ];
 
 export const MIN_PROJECT_CHOICES = [2, 5, 10, 25];
-export const ORG_SORTS = ['projects', 'name'] as const;
-export const DEFAULT_ORG_SORT = 'projects';
+export const ORG_SORTS = ['defence', 'projects', 'name'] as const;
+
+/**
+ * The order the directory opens on. Limited to the defence programmes (the default), it is by the number of defence projects:
+ * the all-programme total put CNRS (4,336 projects, 10 of them in the EDF) above the firms that build defence projects.
+ * Any list that includes a civil programme opens on all projects.
+ */
+export function defaultOrgSort(f: Pick<OrgFilters, 'programme' | 'allProgrammes'>): 'defence' | 'projects' {
+  const programmes = effectiveProgrammes(f);
+  return programmes.length > 0 && programmes.every((c) => DEFENCE_PROGRAMMES.includes(c)) ? 'defence' : 'projects';
+}
 
 /** How a participant was recognised as an organisation we hold (`participation.resolution_method`). */
 const METHOD_WORD: Record<string, string> = {
@@ -89,10 +98,12 @@ function pageOf(v: string | undefined): number {
 
 export function parseOrgFilters(sp: SearchParams): OrgFilters {
   const q = Array.from((first(sp.q) ?? '').trim()).slice(0, MAX_QUERY).join('').trim();
-  const sort = (ORG_SORTS as readonly string[]).includes(first(sp.sort) ?? '') ? (first(sp.sort) as 'projects' | 'name') : DEFAULT_ORG_SORT;
+  const asked = first(sp.sort) ?? '';
   const min = Number(first(sp.min));
   const programmes = tokens(sp.programme, (c) => c.toUpperCase()).filter((c) => /^[A-Z0-9_-]{1,20}$/.test(c));
   const all = programmes.includes('ALL');
+  const sort = (ORG_SORTS as readonly string[]).includes(asked) ? (asked as 'defence' | 'projects' | 'name')
+    : defaultOrgSort({ programme: all ? [] : programmes, allProgrammes: all });
   return {
     q: q || undefined,
     country: tokens(sp.country, (c) => c.toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)),
@@ -112,7 +123,7 @@ function params(f: OrgFilters): URLSearchParams {
   else if (f.programme?.length) p.set('programme', f.programme.join(','));
   if (f.role?.length) p.set('role', f.role.join(','));
   if (f.minProjects) p.set('min', String(f.minProjects));
-  if (f.sort && f.sort !== DEFAULT_ORG_SORT) p.set('sort', f.sort);
+  if (f.sort && f.sort !== defaultOrgSort(f)) p.set('sort', f.sort);
   if (f.page && f.page > 1) p.set('page', String(f.page));
   return p;
 }
@@ -129,7 +140,7 @@ export function orgApiQuery(f: OrgFilters): string {
   const programmes = effectiveProgrammes(f);
   if (programmes.length) p.set('programme', programmes.join(',')); else p.delete('programme');
   if (p.has('min')) { p.set('minProjects', p.get('min') as string); p.delete('min'); }
-  p.set('sort', f.sort ?? DEFAULT_ORG_SORT);
+  p.set('sort', f.sort ?? defaultOrgSort(f));
   p.set('pageSize', String(f.pageSize ?? ORG_PAGE_SIZE));
   return `?${p.toString()}`;
 }

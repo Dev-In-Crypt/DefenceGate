@@ -14,7 +14,12 @@ export interface SourceNote {
 
 export interface OrgListItem {
   id: string; slug: string; name: string; country: string;
-  projects: number; coordinated: number;
+  /** Projects in every programme, civil research included. */
+  projects: number;
+  /** Projects of the defence programmes only (EDF, EDIDP, PADR): the figure a defence reader means. */
+  defenceProjects: number;
+  /** All programmes, like `projects` and `euContribution`. */
+  coordinated: number;
   /** EUR, CORDIS only; null when the organisation took part only in EDF projects. */
   euContribution: number | null;
   firstYear: number | null; lastYear: number | null; programmes: string[];
@@ -26,7 +31,7 @@ export interface OrgPage {
   items: OrgListItem[];
   /** Capped at 10,000: `totalExact` is false then ("10,000+"). */
   total: number; totalExact: boolean; page: number; pageSize: number;
-  meta: { updatedAt: string | null; sources: SourceNote[]; amountNote: string };
+  meta: { updatedAt: string | null; sources: SourceNote[]; amountNote: string; sort?: string; defenceProgrammes?: string[]; countsNote?: string };
   staleAsOf?: string;
 }
 
@@ -36,6 +41,8 @@ export interface ProgrammeFigures {
 
 export interface OrgProfile {
   id: string; slug: string; name: string; country: string;
+  /** What the country rests on: address | vote | several (null: not looked at). `countrySites` lists every country the source gave when it is not `address`. */
+  countryBasis?: 'address' | 'vote' | 'several' | null; countrySites?: string[];
   pic: { value: string; method: string | null; confidence: number | null } | null;
   counts: {
     projects: number; participations: number; coordinated: number; euContribution: number | null;
@@ -127,5 +134,5 @@ export interface OrgFilters {
   q?: string; country?: string[]; programme?: string[]; role?: string[]; minProjects?: number;
   /** `programme=all`: the visitor switched the defence-relevant default off (see DEFENCE_PROGRAMMES in lib/networks.ts). */
   allProgrammes?: boolean;
-  sort?: 'projects' | 'name'; page?: number; pageSize?: number;
+  sort?: 'defence' | 'projects' | 'name'; page?: number; pageSize?: number;
 }
