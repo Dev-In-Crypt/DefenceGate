@@ -209,21 +209,21 @@ def _default_floors() -> dict[str, dict[int, int]]:
 @dataclass(frozen=True)
 class Settings:
     # --- database -------------------------------------------------------
-    dsn: str = field(default_factory=lambda: _env(
+    dsn: str = field(repr=False, default_factory=lambda: _env(
         "DGATE_DSN", "postgresql://dgate:dgate@localhost:5432/dgate"))
     # The public API's own connection, a role that can only read (migration 0024).
     # Unset means it uses `dsn`, so a rollout can move the API first.
-    api_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_API_DSN") or None)
+    api_dsn: str | None = field(repr=False, default_factory=lambda: os.environ.get("DGATE_API_DSN") or None)
     # The account endpoints' own role (migration 0027): it alone may read and write the
     # app_* tables. Unset means `dsn`, as for the API role.
-    app_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_APP_DSN") or None)
+    app_dsn: str | None = field(repr=False, default_factory=lambda: os.environ.get("DGATE_APP_DSN") or None)
     # Shared secret of the site's server and the account API: the site sends it in
     # `X-DG-Internal`, and the API refuses an account or counter call without it, so the
     # network boundary is not the only control. Unset (tests, development) keeps the
     # header checks alone. It also keys the HMAC of the sign-in throttle counters;
     # `app_password` (the accounts role's login) is the fallback key when it is unset.
-    internal_secret: str = field(default_factory=lambda: _env("DGATE_INTERNAL_SECRET", ""))
-    app_password: str = field(default_factory=lambda: _env("DGATE_APP_PASSWORD", ""))
+    internal_secret: str = field(repr=False, default_factory=lambda: _env("DGATE_INTERNAL_SECRET", ""))
+    app_password: str = field(repr=False, default_factory=lambda: _env("DGATE_APP_PASSWORD", ""))
     # The per-address request limiter. On unless DGATE_RATE_LIMIT=0 (the test suite
     # makes hundreds of requests from one "address" and says so in conftest).
     rate_limit: bool = field(default_factory=lambda: os.environ.get("DGATE_RATE_LIMIT") != "0")
@@ -245,9 +245,9 @@ class Settings:
     s3_endpoint: str | None = field(
         default_factory=lambda: os.environ.get("DGATE_S3_ENDPOINT") or None)
     s3_region: str = field(default_factory=lambda: _env("DGATE_S3_REGION", "auto"))
-    s3_access_key: str | None = field(
+    s3_access_key: str | None = field(repr=False,
         default_factory=lambda: os.environ.get("DGATE_S3_ACCESS_KEY") or None)
-    s3_secret_key: str | None = field(
+    s3_secret_key: str | None = field(repr=False,
         default_factory=lambda: os.environ.get("DGATE_S3_SECRET_KEY") or None)
     # The `sftp` backend: a directory on an SSH host, in practice a Hetzner
     # Storage Box. `sftp_root` is relative to the login directory, so with a
@@ -307,7 +307,7 @@ class Settings:
     # `llm_monthly_cap_usd` is our own stop: the provider's project limit is the real one.
     # The prices are per million tokens and deliberately on the high side of the published
     # ones, so that the counter stops early rather than late.
-    openai_api_key: str = field(default_factory=lambda: _env("DGATE_OPENAI_API_KEY", ""))
+    openai_api_key: str = field(repr=False, default_factory=lambda: _env("DGATE_OPENAI_API_KEY", ""))
     openai_model: str = field(default_factory=lambda: _env("DGATE_OPENAI_MODEL", ""))
     llm_monthly_cap_usd: float = field(
         default_factory=lambda: float(_env("DGATE_LLM_MONTHLY_CAP_USD", "5") or 5))
@@ -323,7 +323,7 @@ class Settings:
     smtp_host: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_HOST") or None)
     smtp_port: int = field(default_factory=lambda: _env_int("DGATE_SMTP_PORT", 587))
     smtp_user: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_USER") or None)
-    smtp_password: str | None = field(
+    smtp_password: str | None = field(repr=False,
         default_factory=lambda: os.environ.get("DGATE_SMTP_PASSWORD") or None)
     smtp_from: str | None = field(default_factory=lambda: os.environ.get("DGATE_SMTP_FROM") or None)
     # starttls (587), ssl (465) or none (a local relay only).
@@ -336,7 +336,7 @@ class Settings:
     # never be able to take the pipeline down with it.
     healthchecks_base: str | None = field(
         default_factory=lambda: os.environ.get("DGATE_HEALTHCHECKS_BASE"))
-    telegram_token: str | None = field(
+    telegram_token: str | None = field(repr=False,
         default_factory=lambda: os.environ.get("DGATE_TELEGRAM_TOKEN"))
     telegram_chat_id: str | None = field(
         default_factory=lambda: os.environ.get("DGATE_TELEGRAM_CHAT_ID"))

@@ -9,8 +9,14 @@
 
 Dry run unless --yes. What changes: one row in `suppression`; a database trigger then
 flags the serving rows, and a re-ingest cannot clear the flag. The archive rows are not
-touched. The site may show a cached copy for up to ten minutes (CSV export cache and the
-page cache); the API's list cache is a minute. Nothing needs a restart.
+touched. Adding or lifting an entry also drops the stored digest issues (`digest_issue`, built
+weeks ahead, with titles and buyer names) and the pre-computed list pages (`list_snapshot`, up to
+eight hours old): both are derived and replaceable, and neither was reading the flag. The digest
+is rebuilt at once; the list pages are served from the live query until the worker's next round
+(every four hours; `python -m dgate.ops.warm_lists --yes` does it now). What may still be shown
+from a cache: the API keeps a list a minute and an issue five minutes, the site's pages five
+minutes, its CSV export ten, and the Atom feeds are sent with `max-age=3600`, so a reader or a
+feed reader can hold a copy for an hour. Nothing needs a restart.
 """
 
 from __future__ import annotations
@@ -45,6 +51,18 @@ def affected(conn, kind: str, source: str | None, native_id: str | None,
     return conn.execute(sql, args).fetchone()["n"]
 
 
+def drop_derived(conn) -> dict[str, int]:
+    """Delete what was built from the serving rows before the entry changed: the stored digest
+    issues and the pre-computed list pages. Both tables are derived (the digest is rebuilt from
+    the archive, the snapshots by the worker), so nothing is lost, and the API falls back to the
+    live query, which honours the flags. Runs in the caller's transaction, so the flag and the
+    deletion commit together. (A worker build that read the rows just before the entry and
+    writes just after it can bring a stale row back: the daily rebuild of the last two weeks and
+    the four-hourly snapshots replace it; the CLI rebuilds the digest right after this.)"""
+    return {table: conn.execute(f"DELETE FROM {table}").rowcount
+            for table in ("digest_issue", "list_snapshot")}
+
+
 def add(conn, *, kind: str, source: str | None, native_id: str | None,
         organisation: int | None, reason: str, requested_at: datetime, decided_by: str,
         note: str = "") -> int:
@@ -56,6 +74,7 @@ def add(conn, *, kind: str, source: str | None, native_id: str | None,
            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
         (kind, source, native_id, organisation, reason, requested_at, decided_by, note),
     ).fetchone()
+    drop_derived(conn)
     return row["id"]
 
 
@@ -63,7 +82,27 @@ def lift(conn, entry_id: int, *, by: str, note: str = "") -> bool:
     got = conn.execute(
         "UPDATE suppression SET lifted_at = now(), lifted_by = %s, lifted_note = %s "
         "WHERE id = %s AND lifted_at IS NULL RETURNING id", (by, note, entry_id)).fetchone()
+    if got:
+        drop_derived(conn)
     return got is not None
+
+
+LIST_HINT = ("list pages: closed and all-status tender lists use the live query (about 3 s each) until "
+             "`python -m dgate.ops.warm_lists --yes` runs or the worker's next round (within 4 hours)")
+
+
+def rebuild_digest(conn) -> str:
+    """Store the digest issues again from the rows as they now stand (the worker does it daily
+    for the last two weeks and for missing weeks, eight a run). A failure is reported, not
+    raised: the entry is already committed and the API computes an issue itself meanwhile."""
+    from .. import weekly_digest
+
+    try:
+        return f"digest rebuilt: {weekly_digest.refresh(conn, max_builds=26)}"
+    except Exception as exc:  # noqa: BLE001 - say what happened; the removal itself stands
+        conn.rollback()
+        return (f"digest NOT rebuilt ({str(exc)[:200]}): the worker rebuilds it at its next daily run; "
+                "until then the API computes each issue on the request")
 
 
 def listing(conn, *, include_lifted: bool) -> list[dict[str, Any]]:
@@ -109,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
             ok = lift(conn, args.id, by=args.by, note=args.note)
             conn.commit()
             print("lifted" if ok else "no active entry with that id")
+            if ok:
+                print(rebuild_digest(conn))
+                print(LIST_HINT)
             return 0 if ok else 1
         if args.kind == "organisation":
             if not args.organisation:
@@ -131,7 +173,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"refused: {exc}")
             return 1
         conn.commit()
-        print(f"entry {entry} written")
+        print(f"entry {entry} written; stored digest issues and list pages dropped")
+        print(rebuild_digest(conn))
+        print(LIST_HINT)
     return 0
 
 

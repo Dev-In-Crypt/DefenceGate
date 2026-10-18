@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -52,10 +53,25 @@ COUNTRY_ALIASES = {"EL": "GR", "UK": "GB"}
 MAX_BIGINT = 9_223_372_036_854_775_807
 
 
+class _LazyConn:
+    """A connection that is opened on first use and closed with the request. The rules are kept in
+    memory (`content`), so a warm request needs no database at all; opening one per request, as
+    `Depends` of a plain connection does, let a flood of cheap assessments hold the API role's
+    connections for nothing (WP-34 C3)."""
+
+    def __init__(self, stack: ExitStack) -> None:
+        self._stack, self._conn = stack, None
+
+    def __getattr__(self, name: str) -> Any:
+        if self._conn is None:
+            cfg = settings()
+            self._conn = self._stack.enter_context(db.connect(cfg.api_dsn or cfg.dsn))
+        return getattr(self._conn, name)
+
+
 def get_conn():
-    cfg = settings()
-    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
-        yield conn
+    with ExitStack() as stack:
+        yield _LazyConn(stack)
 
 
 # --------------------------------------------------------------------------- content cache

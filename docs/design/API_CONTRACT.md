@@ -657,7 +657,8 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
   | unknown | closed, text }] }`. `not_possible`: a rule that no certificate fixes is not met. A call of a programme
   with no rules (Horizon) has `covered: false`. 404 for an unknown call, 410 for one removed on request.
 
-A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input, nor the name of an unknown key (`(unknown field)`). The limiter charges
+A refused request, on any route, is a 422 with `{ detail: [{ loc, msg, type }] }` and never repeats the input: no `input`, no `ctx`, and in `loc` any name that is not a field or parameter of the API (an invented key, a key of a dictionary field) is shown as `*` (WP-34). The limiter charges An invented key is shown as `(unknown field)`, never by name.
+The limiter charges
 three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
 content policy allows connections to the site only); the verdict is the only thing that leaves the browser.
 

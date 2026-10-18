@@ -74,7 +74,7 @@ SEARCH_RESULTS = 100           # how many newest matches are read to count the n
 # an account that accepted an older one. Keep in step with web/app/(public)/terms and privacy,
 # and keep a dated copy of the text in docs/legal/versions/.
 TERMS_VERSION = "2.0"
-PRIVACY_VERSION = "1.4"
+PRIVACY_VERSION = "1.5"
 
 ROLES = ("supplier", "prime", "consultant", "grant_writer", "other")
 TRACKS = ("tenders", "funding")

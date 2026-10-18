@@ -94,6 +94,19 @@ The readiness check asks a company about its country, ownership and control, pro
 
 The saved profile of the readiness check is read by the pages of the funding list, the changes list, the digest and a call page, in the browser only. **The profile is never part of a request except the one that computes a verdict** (`POST /v1/readiness/assess`, as above, now also with a call id, which is public). The badge "fits my profile" asks the site for the public document facts of the calls on the page (`GET /api/fit/facts?ids=...`: call ids only) and compares them with the profile in the browser. A visitor without a saved profile causes no such request. The partner list (`GET /api/funding/{slug}/partners`) carries a call and an optional country filter; the profile's country only orders the answer in the browser. The partner suggestions name **organisations** (their name as CORDIS or the EDF factsheet gives it, their country, the projects they took part in) and nothing about a person; an organisation removed on request (`organisation.suppressed`) is left out, and one merged into another is shown as the live one. No table is added and nothing is written by these endpoints (the API role cannot write).
 
+## Eligibility reading of funding calls (WP-31 and WP-34, 17 October 2026)
+
+The worker reads the call documents of EU funding calls (public PDFs of the Commission, and the topic texts of the funding portal) with a language model and keeps the eligibility facts. Held, written only by the worker (`dgate/eligibility.py`), read by the API role (`call_eligibility` only):
+
+| Where | What | Why | Retention |
+|---|---|---|---|
+| `call_document_text` | the plain text of each call document (up to 350,000 characters), its hash, page count and fetch time. **E-mail addresses are replaced by `[email removed]` before the text is stored and before it is sent** (since WP-34; texts stored before are cleaned once with `python -m dgate.ops.extract_eligibility --redact-stored --yes`). A name or telephone number typed into a document is not removed; the documents are public calls for proposals and name a contact point at most. Not served | to check a quote again and to re-read without a new download | as long as the call is on the site; replaceable |
+| `call_eligibility` | per document: the facts the model reported (countries, entity types, consortium size, funding rate, and so on), each with a verbatim quote from the document, a confidence, and whether the quote was found (`verified`), the model name, prompt version, tokens and cost. Only verified facts are served, with e-mail-shaped text redacted again on output | the eligibility line of a call | as long as the call is on the site; replaceable |
+| `llm_usage` | per day, task and model: requests, tokens, cost in USD. No text, no identifier | the monthly spending cap | indefinite; contains no person |
+| `digest_issue`, `list_snapshot` | the weekly digest issues and pre-computed list pages, built from the public serving rows (titles, buyers, dates). They hold what the serving rows held at the time; a removal on request deletes them in the same transaction and the digest is rebuilt (WP-34 C1, C2) | speed; the digest archive | replaceable |
+
+**Processor: OpenAI** (`api.openai.com`, Responses API, `store: false`). The only data sent is the cleaned text of a public call document or topic text and the instructions; no visitor, account or request data is ever sent. The key is held by the worker only. Whether a data processing agreement, the provider's retention terms and a transfer mechanism for the United States are in place is for the owner and the lawyer to confirm; this file does not decide it. The privacy notice names the processor (draft wording of 17 October 2026, awaiting approval: `docs/legal/versions/privacy-v1.5-2026-10-17.md`).
+
 ## Who can read it
 
 The API and worker service roles (`dgate_api`, `dgate_worker`), the owner on the host,
