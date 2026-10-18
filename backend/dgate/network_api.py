@@ -68,8 +68,10 @@ SOURCE_NOTE = {
                       "name that is not in it is dropped. The factsheets state no amount per participant.",
 }
 # What an EDF-only number means; shown wherever an amount is.
-AMOUNT_NOTE = ("EU contribution is the amount CORDIS states per participant. EDF factsheets state none per "
-               "participant, so EDF projects count as projects but add nothing to the amounts.")
+AMOUNT_NOTE = ("EU contribution is the amount CORDIS's open data pays to the participant. For a participant with "
+               "linked third parties it may include their share (the CORDIS page prints the net); an amount the data "
+               "does not hold is left out, not counted as zero. EDF factsheets state none per participant, so EDF "
+               "projects count as projects but add nothing to the amounts.")
 
 
 def _num(v: Any) -> float | None:
@@ -168,7 +170,7 @@ def list_organisations(
     order = "name, organisation_id" if sort == "name" else "projects DESC, organisation_id"
     rows = conn.execute(
         f"""SELECT organisation_id, name, country, projects, coordinated, eu_contribution, first_year,
-                   last_year, programmes, refreshed_at
+                   last_year, programmes, family_variants, refreshed_at
               FROM organisation_network WHERE {where}
              ORDER BY {order} LIMIT %s OFFSET %s""", params + [pageSize, (page - 1) * pageSize]).fetchall()
     if rows and len(rows) < pageSize:
@@ -189,6 +191,7 @@ def list_organisations(
             "name": _clean(r["name"]), "country": r["country"], "projects": r["projects"],
             "coordinated": r["coordinated"], "euContribution": _num(r["eu_contribution"]),
             "firstYear": r["first_year"], "lastYear": r["last_year"], "programmes": r["programmes"],
+            "nameVariants": r["family_variants"],
         } for r in rows],
         "total": min(total, COUNT_CAP), "totalExact": exact, "page": page, "pageSize": pageSize,
         "meta": {"updatedAt": refreshed["refreshed_at"] if refreshed else None,
@@ -226,7 +229,27 @@ def live_organisation(conn, slug: str) -> dict[str, Any]:
     family = [r["id"] for r in conn.execute(
         "SELECT id FROM organisation WHERE id = ANY(dgate_merged_in(%s)) AND NOT suppressed "
         "AND individual_reason IS NULL", (row["id"],)).fetchall()]
+    row["merged"] = len(family)
+    # Name variants (WP-41): rows the directory shows under this one, never merged. Their participations are
+    # counted for the head's profile (the directory card says "includes N name variants" and must equal it).
+    variants = conn.execute(
+        """SELECT fm.org_id, fm.method, fm.confidence, o.canonical_name, o.display_name, o.country,
+                  (SELECT count(DISTINCT pa.project_id) FROM participation pa
+                    WHERE pa.organisation_id = ANY(dgate_merged_in(fm.org_id)) AND pa.active) AS projects
+             FROM organisation_family_member fm JOIN organisation o ON o.id = fm.org_id
+            WHERE fm.head_org_id = %s AND NOT o.suppressed AND o.individual_reason IS NULL AND o.merged_into IS NULL
+            ORDER BY projects DESC, fm.org_id""", (row["id"],)).fetchall()
+    row["variants"] = [v for v in variants if v["projects"]]
+    for v in row["variants"]:
+        family += [r["id"] for r in conn.execute(
+            "SELECT id FROM organisation WHERE id = ANY(dgate_merged_in(%s)) AND NOT suppressed "
+            "AND individual_reason IS NULL", (v["org_id"],)).fetchall()]
     row["family"] = family
+    head = conn.execute(
+        """SELECT o.id, o.canonical_name, o.display_name, o.country, fm.method, fm.confidence
+             FROM organisation_family_member fm JOIN organisation o ON o.id = fm.head_org_id
+            WHERE fm.org_id = %s AND NOT o.suppressed AND o.merged_into IS NULL""", (row["id"],)).fetchone()
+    row["variant_of"] = head
     return row
 
 
@@ -361,7 +384,17 @@ def get_organisation(slug: str, conn=Depends(get_conn)):
         "resolution": {"note": resolution_note(methods, _num(totals["lowest"]), org["eu_pic"]),
                        "participations": methods, "lowestConfidence": _num(totals["lowest"])},
         "aliases": {"total": alias_total, "items": alias_items},
-        "mergedFrom": len(fam) - 1,
+        "mergedFrom": org["merged"] - 1,
+        "nameVariants": {
+            "total": len(org["variants"]),
+            "note": ("These rows carry a name of this organisation that no rule could prove to be the same legal body "
+                     "(different spelling, or the same name under another registration). They are not merged; "
+                     "their projects are counted here and each keeps its own page."),
+            "items": [{"organisation": org_ref({**v, "id": v["org_id"]}), "projects": v["projects"],
+                       "method": v["method"], "confidence": _num(v["confidence"])} for v in org["variants"]],
+        } if org["variants"] else None,
+        "variantOf": {"organisation": org_ref(org["variant_of"]), "method": org["variant_of"]["method"],
+                      "confidence": _num(org["variant_of"]["confidence"])} if org["variant_of"] else None,
         "buyer": _buyer_link(conn, org["id"]),
         "sources": _sources(conn, tuple(c for c in SOURCES if c in src_codes) or SOURCES),
         "amountNote": AMOUNT_NOTE,
@@ -602,7 +635,7 @@ def _members(conn, project_id: int) -> list[dict[str, Any]]:
         f"""SELECT {LIVE} AS org_id, o.canonical_name, o.display_name, o.country,
                    (o.suppressed OR COALESCE(l.suppressed, FALSE) OR o.individual_reason IS NOT NULL) AS suppressed,
                    (o.individual_reason IS NOT NULL) AS individual,
-                   pa.role, pa.contribution, pa.resolution_method, pa.resolution_confidence
+                   pa.role, pa.contribution, pa.contribution_note, pa.resolution_method, pa.resolution_confidence
               FROM participation pa
               LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
               JOIN organisation o ON o.id = {LIVE}
@@ -659,6 +692,7 @@ def get_project(slug: str, conn=Depends(get_conn)):
         # A natural person's name is not shown, and neither is what they received.
         "members": [{"organisation": org_ref(m, id_key="org_id"), "role": m["role"],
                      "contribution": None if m.get("individual") else _num(m["contribution"]),
+                     "contributionNote": None if m.get("individual") else m["contribution_note"],
                      "resolution": {"method": m["resolution_method"],
                                     "confidence": _num(m["resolution_confidence"])}} for m in members],
         "memberCount": len(members),
@@ -842,13 +876,25 @@ def consortium_gaps(
         raise _bad("topic: give a topic code prefix for a programme other than the EDF ones; the whole of "
                    "Horizon is not an area")
     lack = lacking.upper()
-    prm: dict[str, Any] = {"programmes": programmes, "topic": topic,
-                           "like": (topic or "").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"}
+
+    def like(prefix: str) -> str:
+        return prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+    # The code a visitor types is the call's or topic's own (HORIZON-CL3-2023-DRS); the stored topic codes of
+    # CORDIS carry a framework prefix (HORIZON_HORIZON-CL3-2023-DRS-01-01, H2020_SEC-2015-1). Both are matched,
+    # and the call code, which is the clean one (WP-41, N9).
+    forms = [topic] if topic else []
+    if topic and topic.startswith("HORIZON-"):
+        forms.append("HORIZON_" + topic)
+    if topic and re.match(r"(H2020|FP7)-", topic):
+        forms.append(topic.replace("-", "_", 1))
+    prm: dict[str, Any] = {"programmes": programmes, "topic": topic, "likes": [like(f) for f in forms]}
     area = conn.execute(
         f"""SELECT p.id, p.acronym, p.title, p.category, pr.code AS programme, {YEAR} AS year
               FROM project p JOIN programme pr ON pr.id = p.programme_id
              WHERE pr.code = ANY(%(programmes)s)
-               AND (%(topic)s::text IS NULL OR upper(p.category) = %(topic)s OR upper(p.topic_code) LIKE %(like)s)
+               AND (%(topic)s::text IS NULL OR upper(p.category) = %(topic)s
+                    OR upper(p.topic_code) LIKE ANY(%(likes)s) OR upper(p.call_code) LIKE ANY(%(likes)s))
              LIMIT {MAX_AREA_PROJECTS + 1}""", prm).fetchall()
     if len(area) > MAX_AREA_PROJECTS:
         raise _bad(f"topic: that area holds more than {MAX_AREA_PROJECTS} projects; give a narrower topic")
@@ -898,11 +944,13 @@ def consortium_gaps(
                        "identify a consortium beyond the projects its members share."),
         "items": items,
         "areas": [{"code": a["code"], "projects": a["projects"]} for a in areas],
-        "limits": ([] if with_lack or not area else [
+        "limits": ([f"No project of the programme matches the topic {topic!r}. Give the call or topic code as "
+                    "the programme prints it (HORIZON-CL3-2023-DRS, H2020-SEC-2015, an EDF category such as CYBER) "
+                    "or its start."] if not area else []) + ([] if with_lack or not area else [
             f"No project of this area has a participant established in {lack} at all, so the list is every "
-            "organisation funded that often in it, not a gap."]) + [
+            "organisation funded that often in it, not a gap."]) + ([
                    "The EDF factsheets are read by a language model; a participant missed or misplaced would "
-                   "show a gap that is not there.",
+                   "show a gap that is not there."] if set(programmes) & set(EDF_PROGRAMMES) else []) + [
                    "Participants are those the source lists for the project today (active); a participant that "
                    "left is not counted.",
                    "An organisation removed on request is left out of the list but its country still counts "

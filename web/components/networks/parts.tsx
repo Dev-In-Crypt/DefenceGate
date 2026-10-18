@@ -46,6 +46,7 @@ export function OrgCard({ org }: { org: OrgListItem }) {
           <Link href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</Link>
         </h2>
         <span className="text-small text-ink-muted"><CountryLabel code={org.country} /></span>
+        {org.nameVariants ? <span className="text-small text-ink-muted">Includes {org.nameVariants} name {org.nameVariants === 1 ? 'variant' : 'variants'}</span> : null}
         <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{p}</Tag>)}</p>
       </div>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">

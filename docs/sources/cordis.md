@@ -104,3 +104,59 @@ The source is seeded **inactive** (migration 0060) and its first finished run sw
 active source and calls one that never ran `unhealthy`; a monthly source with a weekday floor would also be called
 stale after 36 hours. The floor of this source is therefore a plain setting (`DGATE_FLOOR_CORDIS`, 400,000 rows)
 and not an entry of the daily floor table. Its kind is `grant`, as for the other funding sources.
+
+## What an amount means, what a null means (WP-41, 18 October 2026)
+
+Found by reading the SPARQL fields of a handful of projects and the same projects' CORDIS pages (nine project pages,
+`/project/rcn/<n>`, which robots.txt allows; `/data/` and `/search` were not requested; about 30 SPARQL requests, one a
+second, the connector's User-Agent):
+
+* The only money on a participation is the **grant payment of its role** (`isRecipientOf` / `hasPaymentAmount` / `value`).
+  There is no "net" amount and no link from a third party to the beneficiary it is linked to (role properties: `order`,
+  `roleLabel`, `isBeneficiaryOf`, `isInvolvedIn`, dates; nothing else).
+* The CORDIS page prints, per participant, the **net EU contribution**: "the sum of money that the participant receives,
+  deducted by the EU contribution to its linked third party" (the page's own definition). The open data pays the
+  beneficiary the gross and shows its third parties at 0. Example, ERC 695618: payment to the Universite de Lorraine
+  2,810,229 (= the project total), CNRS (third party) 0; the page: Lorraine 2,248,040, CNRS 562,189. This is the cause of
+  the coordinator-equals-project-total cases and of the 13,701 third-party rows stored as 0 (8 of 10 read on the pages had an
+  amount). The loader now stores a third party at 0 as unknown (`NULL`, note `linked_third_party`) and a participant of a
+  project that has third parties with the note `gross_of_third_parties`.
+* Where the service holds **no payment at all** for a role (the grant has no payment and no funding amount: recent Horizon
+  Europe grants, 273305, 274592, 277703, 274757; and single roles such as the CNR in 236264) the amount is unknown: `NULL`,
+  note `no_payment_stated`. The 1,749 H2020 / Horizon Europe participant rows with a null amount are of this kind; CORDIS shows
+  an amount on the page for 10 of 12 read. **Not fixable from SPARQL.** Options for the owner: the monthly CSV package
+  (`organization.csv` has `ecContribution` and `netEcContribution`; a person downloads it in a browser, as for the German
+  portals), or a targeted read of about 1,000 project pages (about 20 minutes at one a second, robots.txt allows `/project/`; a
+  new HTML reader to build and keep).
+* The open data is **older than the pages**: JOANNEUM (238600) 1,652,264.59 and Granada (241820) 165,312.96 were amended on
+  the site (1,823,370.98 and 182,596.14; the service's own project total of 241820 is the old figure too). Not a loader
+  defect; the age of the copy is the limit (`Coverage`, above).
+* A project whose participants' amounts add up to **more than its EU contribution** (33 projects on 17 October: ERC grants
+  that moved between two hosts and are paid to both in full, grants amended after the payment was recorded) cannot be
+  right in every row and the data does not say which. Every positive amount of such a project is withheld (`NULL`, note
+  `exceeds_project_total`), the figure as stated is kept in `participation.contribution_stated`. One euro per participant (CORDIS
+  rounds) and 2 per cent of the project total (an amendment moves a few thousand euro) are not an excess. 391 amounts, EUR 889.8 M
+  of 141.2 bn, 18 of them a coordinator carrying the whole project; 278 of the 391 are in five projects.
+
+`participation.contribution` is therefore "EUR the service pays to this participant, gross of its linked third parties,
+`NULL` = unknown"; the column comment and migration 0086 say the same, `contribution_note` is a closed list. The directory
+and profile sums skip `NULL`. Repair of rows already stored, without a reload: `python -m dgate.ops.repair_contributions
+[--yes]` (reads the stored rows, no network; the loader applies the same function).
+
+## Country and name of an organisation (WP-41)
+
+The organisation record has a country only through its sites (`hasSite` / `hasAddress` / `addressCountry`). Of 72,534
+organisations **one** has sites in two countries (FUNDACAO EUROCEAN, Lisboa PT and 's-Gravenhage NL, with two VAT numbers),
+and **one** has a site whose name contradicts its address: PIC 999991722 (CSIC) has the address "Belenzani 19, 38122
+Trento, IT" under the site name "... CIENTIFICAS Madrid ES" and VAT ESQ2818002D; the project pages (participation
+addresses) show Spain. It is not a multi-site problem: the record is contradictory, and the first load took the address.
+`cordis.seat_country` decides from the three signals the record gives (address, the country its site name ends with,
+the prefix of its VAT number): all agree or only the address speaks, the address; the name and the VAT number agree
+against the address, that country (`organisation.country_basis = 'vote'`); sites in several countries, the first one and the
+list (`'several'`, `country_sites`). One signal against the address changes nothing (CrowdHelix: address IE, VAT IE, site
+name "London UK"). The repair needs 15 requests: `python -m dgate.pipeline cordis-countries [--yes]`.
+
+The display name follows the name CORDIS prints now (`_settle_organisation`); the earlier name stays an alias (it was
+recorded when the organisation first met it). The service's copy lags the site: SANSIRRO GMBH (PIC 422890) is printed
+QUS TECH GMBH on the site and is still SANSIRRO in the service, so the mechanism will act when the service catches up.
+

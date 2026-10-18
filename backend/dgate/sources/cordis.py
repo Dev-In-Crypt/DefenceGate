@@ -31,6 +31,7 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from ..normalise import _ISO3_TO_2
 from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
@@ -60,12 +61,15 @@ def _query(kind: str, after: str, limit: int) -> str:
     if kind == "organisations":
         return PREFIX + f"""
 SELECT (STRAFTER(STR(?x), "{base}") AS ?key) (MIN(?pic) AS ?pic) (MIN(?rcn) AS ?rcn)
-       (MIN(?name) AS ?name) (MIN(?vat) AS ?vat) (MIN(?cc) AS ?country)
+       (MIN(?name) AS ?name) (MIN(?v) AS ?vat) (MIN(?cc) AS ?country)
+       (GROUP_CONCAT(DISTINCT ?cc; separator="|") AS ?countries)
+       (GROUP_CONCAT(DISTINCT ?sn; separator="|") AS ?site_names)
+       (GROUP_CONCAT(DISTINCT ?v; separator="|") AS ?vats)
 WHERE {{
   ?x a e:Organisation .
   OPTIONAL {{ ?x e:identifier ?pic }} OPTIONAL {{ ?x e:rcn ?rcn }}
-  OPTIONAL {{ ?x e:legalName ?name }} OPTIONAL {{ ?x e:vatNumber ?vat }}
-  OPTIONAL {{ ?x e:hasSite ?s . ?s e:hasAddress ?a . ?a e:addressCountry ?cc }}
+  OPTIONAL {{ ?x e:legalName ?name }} OPTIONAL {{ ?x e:vatNumber ?v }}
+  OPTIONAL {{ ?x e:hasSite ?s . ?s e:hasAddress ?a . ?a e:addressCountry ?cc . OPTIONAL {{ ?s e:name ?sn }} }}
   {keyset}
 }} GROUP BY ?x ORDER BY STR(?x) LIMIT {limit}"""
     if kind == "projects":
@@ -205,6 +209,8 @@ class OrgRecord:
     name: str
     vat: str | None
     country: str | None
+    country_basis: str | None = None        # None | 'vote' | 'several' (see seat_country)
+    country_sites: tuple[str, ...] = ()     # every country the record gives, when the basis is not None
 
 
 @dataclass
@@ -230,6 +236,7 @@ class RoleRecord:
     org_key: str
     role: str
     contribution: float | None
+    note: str | None = None        # why the amount is absent (participation.contribution_note)
 
 
 def country_of(value: Any) -> str | None:
@@ -258,13 +265,66 @@ def programme_of(topic: str | None, call: str | None, ga: str | None, start: dat
     return None
 
 
+_COUNTRY_CODES = frozenset(_ISO3_TO_2.values()) | {"UK", "EL"}
+# Prefixes a VAT number can carry (EU member states, with EL for Greece, and the neighbours that use one).
+_VAT_PREFIXES = frozenset({"AT", "BE", "BG", "HR", "CY", "CZ", "DE", "DK", "EE", "EL", "ES", "FI", "FR", "HU",
+                           "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK", "XI",
+                           "GB", "UK", "NO", "CH", "IS", "LI"})
+
+
+def _tail_country(site_name: str) -> str | None:
+    """The country code a site name ends with ("... CIENTIFICAS Madrid ES"), when it is a country."""
+    m = re.search(r"\s([A-Z]{2})$", site_name.strip())
+    return country_of(m.group(1)) if m and m.group(1) in _COUNTRY_CODES else None
+
+
+def _vat_country(vat: str) -> str | None:
+    m = re.match(r"([A-Z]{2})[0-9A-Z]{4,}$", re.sub(r"[^0-9A-Za-z]", "", vat or "").upper())
+    return country_of(m.group(1)) if m and m.group(1) in _VAT_PREFIXES else None
+
+
+def seat_country(countries: list[str], site_names: list[str], vats: list[str]
+                 ) -> tuple[str | None, str | None, tuple[str, ...]]:
+    """(country, basis, countries seen) of an organisation, from what its CORDIS record states.
+
+    The record gives the country of the address of each site. Three signals can speak for the legal
+    seat: that address, the country the site's name ends with, and the prefix of the VAT number.
+      * all agree, or only the address speaks     -> the address country, basis None
+      * the address is alone against a name and a VAT number that agree on another country
+                                                  -> that country, basis 'vote' (CSIC: address Trento IT,
+                                                     site "... Madrid ES", VAT ES; 8 of 8 CORDIS project
+                                                     pages show Spain)
+      * sites in several countries                -> the first of them in alphabetical order, basis
+                                                     'several'; the whole list is kept. Nothing decides
+                                                     which is the seat (EurOcean: Lisboa PT and 's-Gravenhage NL)
+    One signal against the address is not enough: the address stays and nothing is claimed."""
+    sites = sorted({c for c in (country_of(x) for x in countries) if c})
+    if not sites:
+        return None, None, ()
+    if len(sites) > 1:
+        return sites[0], "several", tuple(sites)
+    named = {c for c in (_tail_country(n) for n in site_names) if c}
+    vatted = {c for c in (_vat_country(v) for v in vats) if c}
+    if len(named) == 1 and named == vatted and sites[0] not in named:
+        seat = next(iter(named))
+        return seat, "vote", tuple(sorted({sites[0], seat}))
+    return sites[0], None, ()
+
+
+def _parts(value: Any) -> list[str]:
+    return [p for p in str(value or "").split("|") if p]
+
+
 def org_record(row: dict[str, str]) -> OrgRecord | None:
     name = clean_text(row.get("name"), 300)
     if not row.get("key") or not name:
         return None
     pic = re.sub(r"\D", "", row.get("pic") or "")
+    countries = _parts(row.get("countries")) or ([row["country"]] if row.get("country") else [])
+    country, basis, seen = seat_country(countries, _parts(row.get("site_names")),
+                                        _parts(row.get("vats")) or ([row["vat"]] if row.get("vat") else []))
     return OrgRecord(row["key"], pic if len(pic) == 9 else None, name,
-                     clean_text(row.get("vat"), 30), country_of(row.get("country")))
+                     clean_text(row.get("vat"), 30), country, basis, seen)
 
 
 def project_record(row: dict[str, str]) -> ProjectRecord | None:
@@ -288,4 +348,13 @@ def role_record(row: dict[str, str]) -> RoleRecord | None:
     role = _ROLE.get(row.get("role") or "")
     if not (row.get("project") and row.get("org") and role):
         return None
-    return RoleRecord(row["project"].strip(), row["org"], role, _num(row.get("amount")))
+    amount = _num(row.get("amount"))
+    note = None
+    if amount is None:
+        note = "no_payment_stated"
+    elif role == "third_party" and amount == 0:
+        # CORDIS pays the linked beneficiary and shows the third party at 0: the share is inside the
+        # beneficiary's payment, so 0 is "not stated separately", not "received nothing" (13,701 of
+        # 14,048 third-party rows on 17 October 2026; 8 of 10 read on the CORDIS pages had an amount).
+        amount, note = None, "linked_third_party"
+    return RoleRecord(row["project"].strip(), row["org"], role, amount, note)

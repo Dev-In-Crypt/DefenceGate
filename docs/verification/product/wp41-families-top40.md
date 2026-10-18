@@ -1,0 +1,48 @@
+# WP-41: the 40 biggest name families, read by hand (18 October 2026)
+
+Built offline from read-only dumps of production (73,308 organisations with a participation, 4,550 open review pairs, the 505 merged rows) by the same code that `python -m dgate.ops.org_families` runs: `org_dedupe.plan` first (its merges are applied to the counts), then `org_family.build`. 57 families and 60 variants in all; these are the 40 with the most projects. Order: projects of the head plus its variants (an upper bound: a project both rows took part in is counted once by the directory).
+
+Reading: for each family the head is the first row, each variant follows with its own project count, PIC (or `-`) and the stored method and confidence. The verdict is whether a reader who knows the institution would call all of them one body: **40 of 40 yes**. Nothing here is merged; different PICs, registration numbers, VAT numbers, legal forms and countries are vetoed before a family forms (3,817 pairs reached the rule: 66 accepted, 81 vetoed for two PICs, 21 for two VAT numbers, 8 for two legal forms, 2 for two registration numbers, 3,639 had a row outside the directory).
+
+| # | Head | Variants | Verdict |
+|---|---|---|---|
+| 1 | DE FRAUNHOFER GESELLSCHAFT ZUR FORDERUNG DER ANGEWANDTEN FORSCHUNG EV (id 56183, 2729 projects, PIC 999984059) | FRAUNHOFER GESELLSCHAFT ZUR FOERDERUNG DER ANGEWANDTEN FORSCHUNG E.V. (id 426741, 8 projects, PIC -, name_variant 0.93) | yes |
+| 2 | FR INSTITUT NATIONAL DE LA SANTE ET DE LA RECHERCHE MEDICALE (id 47610, 1003 projects, PIC 999997833) | institut national de la sante et de la recherche medicale inserm (id 243880, 1 projects, PIC -, name_variant 0.93) | yes |
+| 3 | NL NEDERLANDSE ORGANISATIE VOOR TOEGEPAST NATUURWETENSCHAPPELIJK ONDERZOEK TNO (id 140375, 936 projects, PIC 999988909) | NEDERLANDSE ORGANISATIE VOOR TOEGEPAST NATUURWETENSCHAPPELIJK ONDERZOEK (id 426828, 3 projects, PIC -, name_variant 0.96) | yes |
+| 4 | GR ETHNIKO KENTRO EREVNAS KAI TECHNOLOGIKIS ANAPTYXIS (id 410148, 776 projects, PIC 998802502) | ETHNIKO KENTRO EREVNAS KAI TECHNOLOGIKIS ANAPTYXIS - CERTH (id 426739, 1 projects, PIC -, name_variant 0.89) | yes |
+| 5 | NO NORGES TEKNISK-NATURVITENSKAPELIGE UNIVERSITET NTNU (id 82614, 638 projects, PIC 999977851) | Norges Teknisk-Naturvitenskapelige Universitet (id 426972, 1 projects, PIC -, name_variant 0.92) | yes |
+| 6 | IT POLITECNICO DI TORINO (id 37692, 584 projects, PIC 999977754) | POLITO - (POLITECNICO DI TORINO) (id 426772, 1 projects, PIC -, name_variant 0.92) | yes |
+| 7 | BE INTERUNIVERSITAIR MICRO-ELECTRONICA CENTRUM (id 365865, 561 projects, PIC 999981149) | INTERUNIVERSITAIR MICRO-ELECTRONICA CENTRUM VZW (id 376632, 1 projects, PIC -, name_variant 0.92) | yes |
+| 8 | FR INSTITUT NATIONAL DE RECHERCHE EN INFORMATIQUE ET AUTOMATIQUE (id 365436, 517 projects, PIC 999547074) | institut national de recherche en informatique et en automatique (id 81486, 1 projects, PIC -, name_variant 0.99) | yes |
+| 9 | SI UNIVERZA V LJUBLJANI (id 34377, 471 projects, PIC 999923240) | UNIVERZA V LJUBLJANI (UL) (id 426892, 1 projects, PIC -, name_variant 0.91) | yes |
+| 10 | AT AIT AUSTRIAN INSTITUTE OF TECHNOLOGY GMBH (id 41793, 451 projects, PIC 999584128) | austrian institute of technology (id 220699, 3 projects, PIC -, name_variant 0.92); AITAUSTRIAN INSTITUTE OF TECHNOLOGY GMBH (id 427248, 1 projects, PIC -, name_variant 0.89) | yes |
+| 11 | SI INSTITUT JOZEF STEFAN (id 162535, 371 projects, PIC 999971837) | Jožef Stefan Institute (id 427005, 1 projects, PIC -, name_variant 0.88) | yes |
+| 12 | GR NATIONAL CENTER FOR SCIENTIFIC RESEARCH DEMOKRITOS (id 407000, 313 projects, PIC 999978239) | National Centre for Scientific Research Demokritos (id 411511, 1 projects, PIC -, name_variant 0.89) | yes |
+| 13 | DE TECHNISCHE UNIVERSITAT DORTMUND (id 48162, 143 projects, PIC 999848453) | TECHNISCHE UNIVERSITAET DORTMUND (id 390936, 1 projects, PIC -, name_variant 0.86) | yes |
+| 14 | IT C.I.R.A. CENTRO ITALIANO RICERCHE AEROSPAZIALI SCPA (id 425135, 135 projects, PIC 999789768) | CENTRO ITALIANO RICERCHE AEROSPAZIALI SCPA (id 405394, 2 projects, PIC -, name_variant 0.9) | yes |
+| 15 | FR COMMISSARIAT A L ENERGIE ATOMIQUE ET AUX ENERGIES ALTERNATIVES (id 28627, 118 projects, PIC 888898201) | COMMISARIAT À L'ÉNERGIE ATOMIQUE ET AUX ÉNERGIES ALTERNATIVES (id 426776, 1 projects, PIC -, name_variant 0.89) | yes |
+| 16 | DE TECHNISCHE UNIVERSITAT HAMBURG (id 56929, 82 projects, PIC 999838753) | technische universitat hamburg-harburg (id 83999, 1 projects, PIC -, name_variant 0.91) | yes |
+| 17 | IT THALES ALENIA SPACE ITALIA SPA (id 360772, 75 projects, PIC 999488195) | THALES ALENIA SPACE ITALY (id 427120, 1 projects, PIC -, name_variant 0.85) | yes |
+| 18 | HU HUN-REN SZAMITASTECHNIKAI ES AUTOMATIZALASI KUTATOINTEZET (id 234532, 72 projects, PIC 999651252) | szamitastechnikai es automatizalasi kutatointezet (id 184579, 1 projects, PIC -, name_variant 0.86) | yes |
+| 19 | PT INOV INSTITUTO DE ENGENHARIA DE SISTEMAS E COMPUTADORES INOVACAO (id 155060, 58 projects, PIC 999620503) | INSTITUTO DE ENGENHARIA DE SISTEMAS E COMPUTADORES INOVACAO (id 427070, 1 projects, PIC -, name_variant 0.98) | yes |
+| 20 | FR INSTITUT NATIONAL DES SCIENCES APPLIQUEES DE TOULOUSE (id 363133, 53 projects, PIC 999869405) | INSTITUT NATIONAL DES SCIENCES APPLIQUEES DE TOULOUSE INSAT (id 397716, 1 projects, PIC -, name_variant 0.94) | yes |
+| 21 | DE BALANCE TECHNOLOGY CONSULTING GMBH (id 420819, 36 projects, PIC 999421168) | BALance Technology Consulting HmbH (id 427067, 1 projects, PIC -, name_variant 0.86) | yes |
+| 22 | PL SIEC BADAWCZA LUKASIEWICZ - PRZEMYSLOWY INSTYTUT AUTOMATYKI I POMIAROW PIAP (id 9748, 34 projects, PIC 999549984) | SIEC BADAWCZA LUKASIEWICZ - PRZEMYSLOWY INSTYTUT AUTOMATYKI I POMIAROW (id 427124, 1 projects, PIC -, name_variant 0.94) | yes |
+| 23 | BE INNOVATION IN RESEARCH & ENGINEERING SOLUTIONS (id 414858, 33 projects, PIC 929601829) | INNOVATION IN RESEARCH AND ENGINEERING SOLUTIONS (id 427004, 1 projects, PIC -, name_variant 0.91) | yes |
+| 24 | FR SAFRAN ELECTRONICS & DEFENSE (id 426744, 32 projects, PIC -) | Safran Electronics and Defense SAS (id 427013, 1 projects, PIC -, name_variant 0.87) | yes |
+| 25 | IT ISTITUTO SUPERIORE MARIO BOELLA SULLE TECNOLOGIE DELL'INFORMAZIONE E DELLE TELEC (id 422552, 31 projects, PIC 999599357) | Istituto Superiore Mario Boella sulle tecnologie dell'informazione e delle telec (id 368858, 1 projects, PIC -, name_variant 0.91); Istituto Superiore Mario Boella sullle tecnologie dell'informazione e delle tele (id 383174, 1 projects, PIC -, name_variant 0.9) | yes |
+| 26 | FR OFFICENATIONAL D'ETUDES ETDE RECHERCHES AEROSPATIALES (id 427154, 27 projects, PIC -) | OFFICE NATIONAL D'ETUDES DE RECHERCHES AEROSPATIALES (id 426736, 1 projects, PIC -, name_variant 0.9) | yes |
+| 27 | NO KONGSBERG DEFENCE & AEROSPACE AS (id 423012, 26 projects, PIC 903174373) | Kongsberg Defence and Aerospace AS (id 427105, 1 projects, PIC -, name_variant 0.9) | yes |
+| 28 | CY ADDITESS ADVANCED INTEGRATED TECHNOLOGY SOLUTIONS & SERVICES LTD (id 390515, 23 projects, PIC 954502214) | ADDITESS ADVANCED INTEGRATED TECHNOLOGY SOLUTIONS AND SERVICES LTD (id 426783, 2 projects, PIC -, name_variant 0.95) | yes |
+| 29 | BE SHIPYARDS AND MARITIME EQUIPMENT ASSOCIATION OF EUROPE (id 384376, 21 projects, PIC 950054279) | The Shipyards' and Maritime Equipment Association of Europe (id 426851, 1 projects, PIC -, name_variant 0.93) | yes |
+| 30 | AT VIA DONAU OSTERREICHISCHE WASSERSTRASSEN GESELLSCHAFT MBH (id 406504, 20 projects, PIC 997972764) | via donau - osterreichische wasserstrassen-gesellschaft (id 121406, 1 projects, PIC -, name_variant 0.99) | yes |
+| 31 | FI BUSINESS FINLAND OY (id 91292, 18 projects, PIC 916229118) | BUSINESS FINLAND OY FINLAND (id 427056, 1 projects, PIC -, name_variant 0.99) | yes |
+| 32 | DE INSTITUT FUR SEEVERKEHRSWIRTSCHAFT UND LOGISTIK (id 420588, 18 projects, PIC 998803278) | INSTITUT FUER SEEVERKEHRSWIRTSCHAFT UND LOGISTIK (id 364562, 1 projects, PIC -, name_variant 0.9) | yes |
+| 33 | IT CETENA SPA CENTRO PER GLI STUDI DI TECNICA NAVALE (id 378644, 13 projects, PIC 997336638) | CENTRO PER GLI STUDI DI TECNICA NAVALE CETENA S.P.A. (id 426852, 1 projects, PIC -, name_variant 0.99) | yes |
+| 34 | ES ESCRIBANO MECHANICAL AND ENGINEERING S.L.U. (id 375772, 12 projects, PIC 911574767) | Escribano Mechanical & Engineering S.L (id 426794, 1 projects, PIC -, name_variant 0.89) | yes |
+| 35 | BE M3 SYSTEMS BELGIUM (id 411255, 10 projects, PIC 969448459) | M3 System Belgium (id 426870, 1 projects, PIC -, name_variant 0.85) | yes |
+| 36 | FR ECOLE NATIONALE SUPERIEURE ARTS INDUSTRIES TEXTILES (id 369720, 8 projects, PIC 998095178) | ecole nationale superieure des arts et industries textiles (id 225075, 1 projects, PIC -, name_variant 0.91) | yes |
+| 37 | GR AKMON - SYMVOULOI EPICHEIRISEON - ANTIPROSOPEIES, EMPORIKI, EXAGOGIKI- EISAGOGIK (id 427441, 5 projects, PIC -) | AKMON - SYMVOULOI EPICHEIRISEON - ANTIPROSOPEIES, EMPORIKI, EXAGOGIKI -EISAGOGIK (id 427292, 3 projects, PIC -, name_variant 0.9) | yes |
+| 38 | IE Nautical Enterprise Centre Ltd. (id 365583, 6 projects, PIC 997665177) | NAUTICAL ENTERPRISE CENTRE LTD (id 384130, 1 projects, PIC -, name_variant 0.87) | yes |
+| 39 | FI VALTION TEKNILLINEN TUTKIMUSKESKUS (id 391795, 6 projects, PIC 972940362) | Valtion tekninen tutkimuskeskus (id 374001, 1 projects, PIC -, name_variant 0.86) | yes |
+| 40 | DE ESG ELEKTRONIKSYSTEM UND LOGISTIK GmbH (id 426668, 6 projects, PIC -) | ESG ELEKTRONIKSYSTEM- UND LOGISTIK-GMBH (id 426678, 1 projects, PIC -, name_variant 0.87) | yes |

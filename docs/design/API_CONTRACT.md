@@ -679,8 +679,9 @@ ten minutes in memory.
 
 | Call | Compared with | Fallback |
 |---|---|---|
-| EDF call with a capability category in its topic code (`EDF-2026-DA-SPACE-PRS-STEP`: SPACE) | EDF projects (factsheets) of the same category | all EDF projects, when the category has fewer than 5 organisations |
-| EDF or EDIP call with no category in its code (`EDF-EDIP-P-...`) | all EDF projects | |
+| EDF call with a capability category in its topic code (`EDF-2026-DA-SPACE-PRS-STEP`: SPACE). When the code names several, the last one counts (`EDF-2026-LS-DIS-RA-SMERO-NT` is SMERO, not DIS; WP-41) | EDF projects (factsheets) of the same category | all EDF projects, when the category has fewer than 5 organisations |
+| EDIP call whose title names an EDF capability: `...-CPA-AMDS` (air and missile defence: AIRDEF), `...-CPA-GNPS` (ground and naval: GROUND, NAVAL), `...-CPA-C5ISRS` (C4ISR, SPACE). Our reading of the title, said in `area.rule`; `area.kind` is `edf-related` (WP-41) | EDF projects of those categories | all EDF projects |
+| any other EDF or EDIP call with no category in its code (`EDF-EDIP-P-...`) | all EDF projects, `area.generic` is true and `note` says the list is the same for every such topic | |
 | Horizon Europe call (`HORIZON-CL3-2026-01-BM-01`: cluster CL3, destination BM; the call round `01` is not part of it) | Horizon Europe projects in CORDIS whose topic is `HORIZON-CL3-<year>-BM-...` | the cluster (`HORIZON-CL3-<year>-...`), when the destination has fewer than 5 organisations |
 | anything else (Digital Europe, CEF, national calls) | nothing: `area` is null and `note` says no project data is held | |
 
@@ -692,6 +693,7 @@ FP7 projects are not compared (their topic codes do not map to Horizon Europe de
 
 Response: `{ call: { id, slug, topic }, area: { kind, label, rule, projects, organisations, firstYear, lastYear,
 broaderThanCall } | null, partners[], countries: [{ country, organisations }], total, country, prefer, note, source: { readAt,
+broaderThanCall, generic } | null, partners[], countries: [{ country, organisations }], total, country, note, source: { readAt,
 sources, licence } }`. `countries` counts the organisations of the whole area before the `country` filter (at most 40);
 `total` is the organisations of the filter. A partner is `{ organisationId, slug, name, country, projects, coordinated,
 firstYear, lastYear, evidence: [{ projectId, acronym, title, year, role }] }` (at most 3 evidence projects, newest first).
@@ -815,8 +817,15 @@ Rules that hold for every endpoint:
 - `SourceNote` = `{ code, name, licence, attribution, readAt, note }`: every list and page says where the data comes
   from (CORDIS; EDF project factsheets), its licence and when the newest finished run ended. EDF participants are read
   from the factsheets by a language model; the note says so.
-- **Amounts.** `contribution` is the EU contribution CORDIS states per participant, in EUR. The EDF factsheets state none
-  per participant: it is `null`, EDF projects count as projects and add nothing to a sum (`amountNote` says so).
+- **Amounts (WP-41).** `contribution` is the EU funding that CORDIS's open data pays to the participant, in EUR. It is not
+  the "net EU contribution" the CORDIS web page prints: the page deducts what the participant passes on to its linked third
+  parties, and the open data does not say which third party is linked to which beneficiary, so for a participant of a project
+  that has third parties the figure may include their share (`contributionNote: "gross_of_third_parties"` on a project's
+  members). `null` means unknown, never zero; `contributionNote` says why: `no_payment_stated` (the service holds no payment
+  for the role), `linked_third_party` (a third party the service shows at 0: its share is inside another payment),
+  `exceeds_project_total` (the amounts of the project add up to more than its EU contribution, so none is shown),
+  `source_states_none` (EDF factsheets state no amount per participant). A stated `0` is a participant that is not funded
+  (an associated partner). Sums skip `null`; EDF projects count as projects and add nothing (`amountNote` says so).
 - A list parameter that is not valid (`role`, `country`, `programme`, `sort`, a page deeper than 10,000 results) is a 422.
 
 ### `GET /v1/organisations?country=&programme=&role=&q=&minProjects=&sort=&page=&pageSize=`
@@ -824,9 +833,13 @@ The directory: one row per live organisation with at least one active participat
 `HORIZON`, `H2020`, `FP7`) and `role` (`coordinator`, `participant`, `partner`, `associated_partner`,
 `international_partner`, `third_party`) take comma-separated values; `q` is the folded, word-initial search of the
 tender and buyer lists (accents ignored); `sort` is `projects` (default; most first) or `name`; `pageSize` up to 100.
-`{ items: [{ id, slug, name, country, projects, coordinated, euContribution, firstYear, lastYear, programmes }], total,
+`{ items: [{ id, slug, name, country, projects, coordinated, euContribution, firstYear, lastYear, programmes, nameVariants }], total,
 totalExact, page, pageSize, meta: { updatedAt, sources, amountNote } }`. `total` stops at 10,000 (`totalExact: false`):
 counting every match of a broad word took 1.5 s. A year is the year the project started (the call year for EDF).
+`nameVariants` (WP-41): how many other rows with a participation the card stands for. They carry a name of the same body
+that no rule could prove to be one legal body (another spelling, or the same name under another PIC): they are **not
+merged**, the card's figures count their projects, each has its own profile, and they are not listed separately.
+The rule and the stored method and confidence are in `organisation_family_member` (`dgate/org_family.py`).
 
 ### `GET /v1/organisations/slugs`
 `[{ slug, updatedAt }]`: the 2,000 organisations with the most projects (three or more), for the sitemap.
@@ -835,8 +848,12 @@ counting every match of a broad word took 1.5 s. A year is the year the project 
 The profile: `{ id, slug, name, country, pic: { value, method, confidence } | null, counts: { projects, participations,
 coordinated, euContribution, firstYear, lastYear }, programmes: [{ code, name, projects,
 euContribution, firstYear, lastYear }], resolution: { note, participations: { <method>: n }, lowestConfidence },
-aliases: { total, items: [{ name, method, confidence, firstSeen, source }] }, mergedFrom, buyer: { slug, name,
-tenderCount } | null, sources, amountNote }`. The PIC is the only identifier served. `resolution.note` is one
+aliases: { total, items: [{ name, method, confidence, firstSeen, source }] }, mergedFrom,
+nameVariants: { total, note, items: [{ organisation, projects, method, confidence }] } | null,
+variantOf: { organisation, method, confidence } | null, buyer: { slug, name,
+tenderCount } | null, sources, amountNote }`. For the head of a name family `counts` and every tab include the variants'
+participations (a project counted once), so the profile equals the directory card; `variantOf` is set on a profile that is
+itself a variant (its own figures only). The PIC is the only identifier served. `resolution.note` is one
 sentence on how the participations were matched ("matched by its PIC", "by its exact normalised name within the
 country", ...). `buyer` is the buyer page of the same body when it has defence notices in scope (`/v1/buyers/{slug}`
 answers the other way round with `organisationSlug`). 404 for an organisation with no participation, 410 when removed.
@@ -890,7 +907,9 @@ Ukrainian coordinators are counted apart, not listed as primes. It does not say 
 (`lacking`, ISO-2). The answer is the organisations that took part in at least `minProjects` (2 to 50) projects of the
 area, **none** of which had a participant established in `lacking`. Consortia as such are not listed: the data does not
 identify one beyond the projects its members share. `topic` is required for any programme other than EDF/EDIDP/PADR, and an
-area larger than 4,000 projects is refused (422). `{ programme, topic, lacking, minProjects, projectsInArea, definition,
+area larger than 4,000 projects is refused (422). `topic` is matched against the category, the stored topic code and the
+call code, in the form the programme prints it (`HORIZON-CL3-2023-DRS`) or with the stored framework prefix
+(`HORIZON_HORIZON-CL3-2023-DRS`); a topic that matches no project says so in `limits` (WP-41). `{ programme, topic, lacking, minProjects, projectsInArea, definition,
 items: [{ organisation, projects, partnerCountries, recentProjects }], areas: [{ code, projects }], limits, sources }`.
 
 ### Site routes built on it

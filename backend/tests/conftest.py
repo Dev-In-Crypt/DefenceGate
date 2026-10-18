@@ -31,7 +31,7 @@ TABLES = """award, award_notice, compaction_pending, backfill_day, enrichment_jo
             call_eligibility, call_document_text, llm_usage, digest_issue,
             programme_requirement, requirement_issuer, requirement_prerequisite, requirement,
             readiness_programme,
-            organisation_network, consortium_change, consortium_snapshot, participation, project_factsheet, project,
+            organisation_family_member, organisation_network, consortium_change, consortium_snapshot, participation, project_factsheet, project,
             resolution_review, resolution_gold, regulation_entry"""
 # `programme` is deliberately not truncated: it is reference data the migration
 # seeds once, and a test that started with no programmes would be testing a

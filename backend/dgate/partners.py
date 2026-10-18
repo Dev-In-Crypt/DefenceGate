@@ -74,8 +74,21 @@ class Area:
     rule: str            # how projects are matched, in a sentence
     source: str          # the source whose projects are compared
     category: str | None = None
+    categories: tuple[str, ...] = ()    # several EDF categories at once (an EDIP topic related to them by its title)
+    generic: bool = False        # compared with every project of the programme: says nothing about this topic
     like: str | None = None      # upper-case LIKE prefix of the project's call code
     regex: str | None = None     # upper-case regular expression on the project's call code
+
+
+# EDIP topics name products, the EDF names capability categories, and an EDIP topic code carries no category.
+# Three EDIP topics name, in their own title, the capability of an EDF category; they are compared with it.
+# This is a reading of the call title (stated in the response), not a taxonomy of the Commission; every other
+# EDIP topic is compared with all EDF projects and says so (`generic`). Keyed by the last token of the code.
+EDIP_RELATED: dict[str, tuple[tuple[str, ...], str]] = {
+    "AMDS": (("AIRDEF",), "Air and missile defence systems"),
+    "GNPS": (("GROUND", "NAVAL"), "Ground and naval platforms and systems"),
+    "C5ISRS": (("C4ISR", "SPACE"), "C5ISR and other space-related products"),
+}
 
 
 def areas_of(topic_code: str | None) -> list[Area]:
@@ -85,12 +98,21 @@ def areas_of(topic_code: str | None) -> list[Area]:
     if len(tokens) < 3 or any(not t or not re.fullmatch(r"[A-Z0-9]+", t) for t in tokens):
         return []
     if tokens[0] == "EDF":
-        category = next((t for t in tokens[1:] if t in edf_factsheets.CATEGORIES), None)
+        category = edf_factsheets.category_of(tokens[1:])
         broad = Area("edf", "all projects of the European Defence Fund",
                      "All EDF projects read from the factsheets of the call results, 2021 onwards.",
-                     edf_factsheets.SOURCE_CODE)
+                     edf_factsheets.SOURCE_CODE, generic=category is None)
         if category is None:
+            related = EDIP_RELATED.get(tokens[-1]) if "EDIP" in tokens else None
+            if related:
+                cats, title = related
+                return [Area("edf-related", f"EDF capability categories {' and '.join(cats)}",
+                             f"EDF projects of the capability categories {', '.join(cats)}, which the title of this EDIP topic "
+                             f"(\"{title}\") names. Our reading of the title, not a classification by the Commission.",
+                             edf_factsheets.SOURCE_CODE, categories=cats), broad]
             return [broad]
+        # The category is the last one the code names: in EDF-2026-LS-DIS-RA-SMERO-NT the call is for SMEs and
+        # research organisations (SMERO), not for the disruptive technologies (DIS) that its code starts with.
         return [Area("edf-category", f"EDF capability category {category}",
                      f"EDF projects whose factsheet file name names the category {category}, as this call's topic code does.",
                      edf_factsheets.SOURCE_CODE, category=category), broad]
@@ -136,6 +158,9 @@ def _area_projects(conn, area: Area, source_id: int) -> list[dict[str, Any]]:
     if area.category:
         clauses.append("pr.category = %s")
         params.append(area.category)
+    if area.categories:
+        clauses.append("pr.category = ANY(%s)")
+        params.append(list(area.categories))
     if area.like:
         clauses.append("upper(pr.call_code) LIKE %s")
         params.append(area.like)
@@ -215,7 +240,8 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
             break
     if chosen is None or not chosen[2]:
         base["area"] = {"kind": areas[0].kind, "label": areas[0].label, "rule": areas[0].rule, "projects": 0,
-                        "organisations": 0, "firstYear": None, "lastYear": None, "broaderThanCall": False}
+                        "organisations": 0, "firstYear": None, "lastYear": None, "broaderThanCall": False,
+                        "generic": areas[0].generic}
         base["note"] = ("The nearest comparable area is too broad to rank usefully: it holds more than "
                         f"{MAX_AREA_PROJECTS} projects." if too_broad else "No earlier project of this area is held yet.")
         return base
@@ -232,7 +258,7 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
         "area": {"kind": area.kind, "label": area.label, "rule": area.rule, "projects": len(found),
                  "organisations": len(orgs), "firstYear": min(years, default=None), "lastYear": max(years, default=None),
                  # The narrower area had too few organisations, so the broader one answered.
-                 "broaderThanCall": area is not areas[0]},
+                 "broaderThanCall": area is not areas[0], "generic": area.generic},
         "partners": [{
             "organisationId": str(o["id"]),
             "slug": make_slug(o["id"], o["display_name"] or o["canonical_name"]),
@@ -245,7 +271,8 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
         "total": by_country.get(country, 0) if country else len(orgs),
         "country": country,
         "prefer": prefer,
-        "note": None,
+        "note": ("This topic has no earlier counterpart by area, so these are the organisations that took part most often "
+                 "in any EDF project, the same list as for every other topic of its kind.") if area.generic else None,
     }
 
 
