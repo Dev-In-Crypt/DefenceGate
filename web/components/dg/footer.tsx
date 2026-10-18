@@ -38,7 +38,7 @@ export async function Footer() {
             <p className="m-0 max-w-[36ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>
             <div className="mt-2 flex max-w-[34ch] flex-col gap-2 rounded-md bg-surface-inset p-4">
               <p className="m-0 text-small text-ink-muted">Which sources are healthy, and when each was last collected.</p>
-              <Link href="/data" className="text-small font-semibold text-ink">Source status →</Link>
+              <Link href="/data" className="inline-flex min-h-6 items-center text-small font-semibold text-ink">Source status →</Link>
             </div>
             <nav aria-label="Follow" className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="text-label text-ink-muted">Follow</span>

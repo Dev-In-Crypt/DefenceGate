@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
-import { FIT_MEANING, FIT_WORD } from '@/lib/fit';
+import { fitLabel, shownFit } from '@/lib/fit';
 import { useFit, useFitState } from '@/lib/fit-hooks';
 import { fitFor, hiddenByFilter, isLoaded, setOnlyFits } from '@/lib/fit-store';
 import { cn } from '@/lib/utils';
@@ -19,13 +19,14 @@ const ICON = { yes: CircleCheck, check: CircleAlert, no: CircleX, unknown: Circl
 export function FitBadge({ id, className }: { id: string; className?: string }) {
   const s = useFit(id);
   if (!s.ready || !s.hasProfile || !isLoaded(id)) return null;
-  const { fit, conditions } = fitFor(id);
+  const result = fitFor(id);
+  const { word, detail } = fitLabel(result);
   return (
-    <span title={[FIT_MEANING[fit], ...(fit === 'unknown' ? [] : conditions)].join(' ')}
-      className={cn('inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface-inset px-2.5 py-[5px] font-sans text-label text-ink', className)}>
-      <Icon icon={ICON[fit]} size="inline" />
+    <span title={detail}
+      className={cn('inline-flex max-w-full items-start gap-1.5 rounded-pill border border-line bg-surface-inset px-2.5 py-[5px] font-sans text-label text-ink', className)}>
+      <Icon icon={ICON[shownFit(result)]} size="inline" className="mt-0.5 shrink-0" />
       <span className="sr-only">Your saved profile: </span>
-      <span>{FIT_WORD[fit]}</span>
+      <span className="min-w-0 break-words">{word}</span>
     </span>
   );
 }
@@ -55,11 +56,12 @@ export function FitFilter({ className }: { className?: string }) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <Choice label="Fits my profile" checked={s.onlyFits} onChange={(e) => setOnlyFits(e.target.checked)}
-        hint="Keeps the calls on this page that are eligible or worth a look, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules." />
+        hint="Keeps the calls on this page that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules." />
       <p role="status" className="m-0 text-small text-ink-muted">
         {s.loaded === 0 ? 'Checking the calls on this page…' : (
           <>
-            On this page: {s.counts.yes} eligible, {s.counts.check} to check, {s.counts.no} not eligible, {s.counts.unknown} without rules to compare.
+            On this page: {s.counts.yes} eligible on the rules read, {s.counts.check} where nothing known blocks you but conditions are left to check,
+            {' '}{s.counts.no} blocked, {s.counts.unknown} without rules to compare.
             {s.onlyFits && hidden > 0 ? ` ${hidden} hidden.` : ''}
           </>
         )}

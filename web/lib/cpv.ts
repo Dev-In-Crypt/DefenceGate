@@ -114,3 +114,36 @@ export function cpvSections(): CpvSection[] {
     },
   ];
 }
+
+export interface ProductMatch {
+  /** The CPV prefixes to filter by: the shortest that cover the matching codes, at most `max`. */
+  prefixes: string[];
+  /** Codes whose title matched, with their titles (first few, for the page to show why). */
+  codes: { code: string; title: string }[];
+  /** How many codes matched. */
+  matched: number;
+  /** More prefixes matched than `max`: the filter holds the first `max` only. */
+  truncated: boolean;
+}
+
+/**
+ * The CPV codes of the finder (this file's selection of the official vocabulary) whose title holds every word asked for,
+ * as prefixes for a filter. "ammunition" gives the codes whose title begins so; a prefix that is already covered by a shorter one
+ * is dropped, so a group and its members count once. Nothing here is a title of ours (U9: a product search for the supplier map).
+ */
+export function cpvForWords(words: string, max = 20): ProductMatch {
+  const ws = words.toLowerCase().split(/\s+/).filter((w) => w.length >= 3).slice(0, 5);
+  if (ws.length === 0) return { prefixes: [], codes: [], matched: 0, truncated: false };
+  const found = Object.entries(CODES).filter(([, title]) => { const t = title.toLowerCase(); return ws.every((w) => t.includes(w)); });
+  // Titles that begin with the word are the thing itself ("Ammunition"); a title that only lists it ("Weapons, ammunition and associated
+  // parts") would pull in the whole group. The headwords are used when there are any.
+  const heads = found.filter(([, title]) => title.toLowerCase().startsWith(ws[0]));
+  const hits = (heads.length > 0 ? heads : found).sort(([a], [b]) => a.localeCompare(b));
+  const all = [...new Set(hits.map(([code]) => cpvPrefix(code)))].sort((a, b) => a.length - b.length || a.localeCompare(b));
+  const kept: string[] = [];
+  for (const p of all) if (!kept.some((k) => p.startsWith(k))) kept.push(p);
+  return {
+    prefixes: kept.slice(0, max), truncated: kept.length > max, matched: hits.length,
+    codes: hits.slice(0, 6).map(([code, title]) => ({ code, title })),
+  };
+}

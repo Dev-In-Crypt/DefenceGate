@@ -3,7 +3,7 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { check, type EligibilityFacts, type Profile } from './eligibility-check';
+import { check, consortiumUnclear, factDisplay, unclearConsortiumText, type EligibilityFacts, type Profile } from './eligibility-check';
 
 const f = (value: unknown, note: string | null = null) => ({ value, note, quote: 'q', confidence: 1 });
 const edf: EligibilityFacts = {
@@ -84,7 +84,25 @@ assert.equal(check({ eligible_countries: q('Union, Ukraine, or an EEA member ass
 const contradiction = check({ ...edf, consortium_required: q(false, 'q'), min_entities: q(2, 'q') }, companyOnly);
 assert.equal(contradiction.lines.find((l) => l.key === 'consortium')!.verdict, 'check');
 assert.ok(!/^No consortium is required\.$/.test(contradiction.lines.find((l) => l.key === 'consortium')!.reason));
-const noted = check({ ...edf, consortium_required: q(false, 'q', 'Consortia must include a Ukrainian entity.'), min_entities: q(1, 'q') }, companyOnly);
+const noted = check({ ...edf, consortium_required: q(false, 'q', 'Consortia must include a Ukrainian entity.'), min_entities: q(1, 'q'), min_countries: q(1, 'q') }, companyOnly);
 assert.match(noted.lines.find((l) => l.key === 'consortium')!.reason, /No consortium is required\. A condition applies: Consortia must include a Ukrainian entity/);
 assert.equal(noted.verdict, 'check');
+// U5, call 193 (EDIP): "No consortium is required" next to "at least 4 countries" is never printed as a bare "No".
+const call193: EligibilityFacts = { ...edf, consortium_required: q(false, 'q', 'A single applicant is allowed only if it is a SEAP.'), min_entities: q(1, 'q'), min_countries: q(4, 'q') };
+assert.equal(consortiumUnclear(call193), true, 'countries above one is enough');
+assert.equal(consortiumUnclear({ ...call193, min_countries: q(1, 'q') }), false, 'one entity, one country: no conflict');
+assert.equal(consortiumUnclear({ ...call193, consortium_required: q(true, 'q') }), false, 'a consortium that is required is not unclear');
+assert.equal(consortiumUnclear({ ...call193, min_countries: undefined }), false, 'no number, no conflict');
+assert.match(factDisplay('consortium_required', call193), /^The document is unclear, read it: it says no consortium is required and also asks for at least 4 countries.$/);
+assert.notEqual(factDisplay('consortium_required', call193), 'No', 'never the bare word');
+assert.equal(factDisplay('consortium_required', { ...call193, min_countries: q(1, 'q') }), 'No');
+assert.equal(factDisplay('min_countries', call193), '4');
+assert.match(unclearConsortiumText(call193), /at least 4 countries/);
+assert.ok(!/legal entities/.test(unclearConsortiumText(call193)), 'a minimum of one entity is not mentioned');
+const line193 = check(call193, companyOnly).lines.find((l) => l.key === 'consortium')!;
+assert.equal(line193.verdict, 'check');
+assert.match(line193.reason, /document is unclear/);
+assert.match(line193.reason, /SEAP/, 'the note is carried');
+// the same with a minimum number of entities only
+assert.equal(consortiumUnclear({ ...edf, consortium_required: q(false, 'q'), min_entities: q(2, 'q'), min_countries: undefined }), true);
 console.log('eligibility-check checks passed');

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import { ChevronDown, Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
 import { Logo } from './logo';
@@ -54,17 +54,41 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
   const pathname = usePathname();
   const cta = accountsOpen ? SIGN_IN : null;
   const [open, setOpen] = useState(false);
+  // The small menus of the desktop bar open on hover, and on a button that says so (aria-expanded): the hover alone was
+  // unreachable on a touch screen, and focus-within alone cost four tab stops per menu (U16).
+  const [sub, setSub] = useState<string | null>(null);
+  const mobileRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  useEffect(() => {
+    if (!open && sub === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (open) { setOpen(false); toggleRef.current?.focus(); }
+      setSub(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, sub]);
+  // The mobile menu opens with focus on its first link, not left behind on the page.
+  useEffect(() => { if (open) mobileRef.current?.querySelector<HTMLElement>('a')?.focus(); }, [open]);
+  useEffect(() => { setSub(null); setOpen(false); }, [pathname]);
   return (
     <header className="relative">
       <div className="flex items-center gap-6 rounded-pill bg-surface py-3 pl-6 pr-3">
         <Logo href="/" />
         <nav aria-label="Main" className="hidden flex-1 justify-center gap-5 md:flex">
           {MAIN_NAV.map((n) => n.children ? (
-            // A link with a small menu under it: open on hover and on keyboard focus, no script needed.
-            <div key={n.href} className="group relative">
+            // A link with a small menu under it: open on hover, or on its button.
+            <div key={n.href} className="group relative flex items-center"
+              onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSub((cur) => (cur === n.href ? null : cur)); }}>
               <NavLink href={n.href} label={n.label} active={isActive(n.href) || n.children.some((c) => isActive(c.href))} />
-              <div className="invisible absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg bg-surface px-4 py-2 shadow-lg group-focus-within:visible group-hover:visible">
+              <button type="button" aria-expanded={sub === n.href} aria-controls={`sub-${n.label}`} aria-label={`${n.label}: more pages`}
+                onClick={() => setSub(sub === n.href ? null : n.href)}
+                className="inline-flex min-h-11 w-7 items-center justify-center border-0 bg-transparent p-0 text-ink">
+                <Icon icon={ChevronDown} size="inline" className={cn('transition-transform duration-dg', sub === n.href && 'rotate-180')} />
+              </button>
+              <div id={`sub-${n.label}`} className={cn('absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg bg-surface px-4 py-2 shadow-lg group-hover:visible', sub === n.href ? 'visible' : 'invisible')}>
                 {n.children.map((c) => <NavLink key={c.href} href={c.href} label={c.label} active={pathname === c.href} />)}
               </div>
             </div>
@@ -73,14 +97,14 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
         <div className="ml-auto flex items-center gap-2 md:ml-0">
           <ThemeToggle />
           {cta && <Button href={cta.href} className="hidden lg:inline-flex">{cta.label}</Button>}
-          <button type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)}
+          <button ref={toggleRef} type="button" aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen(!open)}
             className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink md:hidden">
             <Icon icon={open ? X : Menu} />
           </button>
         </div>
       </div>
       {open && (
-        <nav id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
+        <nav ref={mobileRef} id="mobile-nav" aria-label="Main menu" className="mt-2 flex flex-col rounded-lg bg-surface px-6 py-4 md:hidden">
           {[...MAIN_NAV, ...(cta ? [cta] : [])].map((n) => (
             <div key={n.href} className="flex flex-col">
               <NavLink href={n.href} label={n.label} active={isActive(n.href)} onClick={() => setOpen(false)} />

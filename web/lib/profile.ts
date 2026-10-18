@@ -184,6 +184,67 @@ export function withStatus(p: Profile, code: string, status: Status): Profile {
   return { ...p, statuses: { ...p.statuses, [code]: status }, updatedAt: new Date().toISOString() };
 }
 
+// ---------------------------------------------------------------- what is still unanswered (U7)
+
+/** One question of the wizard that has no answer yet, in the words of the wizard, with the step that asks it. */
+export interface Unanswered { step: number; question: string }
+
+/**
+ * The questions the rules read that the profile leaves empty, in the order of the wizard. The optional ones (name, size, the share of
+ * non-EU components) and the certificates, which count as "not held" until said otherwise, are not listed. Empty before a country is chosen.
+ */
+export function unanswered(p: Profile): Unanswered[] {
+  const out: Unanswered[] = [];
+  const need = (step: number, empty: boolean, question: string) => { if (empty) out.push({ step, question }); };
+  need(1, !p.country, 'Country where your company is established');
+  need(1, !p.legalForm, 'Legal form of your organisation');
+  need(2, !p.managementSameCountry && !p.managementCountry, 'Country of the executive management');
+  need(2, !p.control, 'Whether your company is controlled from outside the EU');
+  need(2, p.country === 'UA' && !p.uaOccupied, 'Whether you are established in an area of Ukraine the government does not control');
+  need(3, !p.regime, 'Which export regime your main product is in');
+  need(3, !p.restricted, 'Whether a component comes from a third country that contravenes the security and defence interests of the Union');
+  need(3, !p.uaEeaComponents, 'Whether components originate in Ukraine or an EEA EFTA state');
+  need(3, !p.safeRole, 'Your role in a SAFE-supported procurement');
+  need(5, !p.classified, 'Whether you will handle classified information');
+  need(5, !p.exportIntent, 'Whether you export, or plan to export');
+  return out;
+}
+
+/** The step to open when a finished profile is changed: the first with an unanswered question, else the first. */
+export function firstStepToAnswer(p: Profile): number {
+  return unanswered(p)[0]?.step ?? 1;
+}
+
+/** The wizard step that asks the question behind an API `missing` field (see `ProgrammeAssessment.missing`); 1 for one it does not know. */
+export function stepOfField(field: string): number {
+  const f = field.replace(/^profile\./, '');
+  if (['country', 'legal_form'].includes(f)) return 1;
+  if (['executive_management_country', 'third_country_control', 'ua_non_government_controlled_area'].includes(f)) return 2;
+  if (['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'safe_role', 'product_regime'].includes(f)) return 3;
+  if (['handles_classified', 'export_intent'].includes(f)) return 5;
+  return 1;
+}
+
+// ---------------------------------------------------------------- export and import (U7: a second client must not overwrite the first)
+
+const MAX_IMPORT = 20_000;
+
+/** The profile as a block of text to keep: the same JSON the browser stores, with the date it was written. */
+export function exportProfile(p: Profile): string {
+  return JSON.stringify({ ...p, updatedAt: new Date().toISOString() }, null, 2);
+}
+
+/** A profile from text a visitor pasted or loaded from a file, or the reason it is not one of ours. */
+export function importProfile(text: string): { ok: true; profile: Profile } | { ok: false; reason: string } {
+  if (text.length > MAX_IMPORT) return { ok: false, reason: 'That is too long to be a set of answers from this site.' };
+  let raw: unknown;
+  try { raw = JSON.parse(text); } catch { return { ok: false, reason: 'That is not a set of answers: it does not read as the block this site writes.' }; }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || (raw as { version?: unknown }).version !== PROFILE_VERSION) {
+    return { ok: false, reason: 'That is not a set of answers from this site (its version is missing or unknown).' };
+  }
+  return { ok: true, profile: parseProfile(raw) };
+}
+
 // ---------------------------------------------------------------- storage
 
 export function loadProfile(): Profile | null {

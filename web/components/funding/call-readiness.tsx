@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { ArrowRight, Pencil } from 'lucide-react';
 import type { EligibilityFacts } from '@/lib/eligibility-check';
 import { callSummary } from '@/lib/call-readiness';
-import { FIT_WORD, fitOf, type Fit } from '@/lib/fit';
+import { cleanQuote } from '@/lib/quote';
+import { fitLabel, fitOf, linesSummary, type Fit } from '@/lib/fit';
 import { isFinished, toRequest } from '@/lib/profile';
 import { VERDICT_WORD, assess, daysRange, formatRange } from '@/lib/readiness';
 import type { Assessment, CallTiming, ProgrammeAssessment } from '@/lib/readiness-types';
@@ -75,7 +76,7 @@ function Timing({ t, a, data }: { t: CallTiming; a: ProgrammeAssessment | undefi
             ))}
           </ul>
           <p className="m-0 text-small text-ink-muted">
-            Together {t.fastestPathDays.min} to {t.fastestPathDays.max} days. <Link href="/readiness/roadmap" className="font-semibold">Your roadmap</Link> has the order, the issuers and the parallel tracks.
+            Together: {daysRange(t.fastestPathDays.min, t.fastestPathDays.max)}. <Link href="/readiness/roadmap" className="font-semibold">Your roadmap</Link> has the order, the issuers and the parallel tracks.
           </p>
         </div>
       )}
@@ -132,16 +133,19 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
       {result.state === 'done' && <p className="m-0 text-body font-semibold">{callSummary(fit, timings)}</p>}
 
       <div className="flex flex-col gap-2">
-        <h4 className="m-0 text-label">The rules read from this call’s document: {doc ? FIT_WORD[doc.fit] : 'not compared'}</h4>
+        <h4 className="m-0 text-label">The rules read from this call’s document: {doc ? (doc.fit === 'unknown' ? (facts ? 'nothing to compare with your profile' : 'rules not read') : fitLabel(doc).word) : 'not compared'}</h4>
         {doc?.result ? (
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {doc.result.lines.map((l) => (
-              <li key={l.key} className={ROW}>
-                <span><strong>{l.label}: {l.verdict === 'yes' ? 'Allowed' : l.verdict === 'no' ? 'Not allowed' : 'Check'}.</strong> {l.reason}</span>
-                {l.quote && <q className="text-small italic text-ink-muted">{l.quote}</q>}
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="m-0 text-small font-semibold">{linesSummary(doc.result.lines)}</p>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {doc.result.lines.map((l) => (
+                <li key={l.key} className={ROW}>
+                  <span><strong>{l.label}: {l.verdict === 'yes' ? 'Allowed' : l.verdict === 'no' ? 'Not allowed' : 'Check'}.</strong> {l.reason}</span>
+                  {l.quote && <q className="text-small italic text-ink-muted">{cleanQuote(l.quote)}</q>}
+                </li>
+              ))}
+            </ul>
+          </>
         ) : (
           <p className="m-0 text-small text-ink-muted">
             {facts ? 'None of the rules read from the document concerns what your profile says.' : 'The rules of this call have not been read, so there is nothing to compare your profile with. Read the source’s own text before you apply.'}

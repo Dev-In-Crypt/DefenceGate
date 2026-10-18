@@ -96,6 +96,10 @@ export interface ProjectHistory {
 
 export interface UkrainePartners {
   since: number; definition: string;
+  /** The programmes asked for (empty: all). */
+  programme?: string[];
+  /** Projects with a Ukrainian participant per programme, before the programme filter. */
+  byProgramme?: { code: string; projects: number }[];
   totals: { projects: number; coordinators: number; ukrainianOrganisations: number; projectsCoordinatedFromUkraine: number };
   coordinators: {
     organisation: OrgRef; projects: number; ukrainianOrganisations: number; lastYear: number | null; programmes: string[];
@@ -115,5 +119,7 @@ export interface ConsortiumGaps {
 
 export interface OrgFilters {
   q?: string; country?: string[]; programme?: string[]; role?: string[]; minProjects?: number;
+  /** `programme=all`: the visitor switched the defence-relevant default off (see DEFENCE_PROGRAMMES in lib/networks.ts). */
+  allProgrammes?: boolean;
   sort?: 'projects' | 'name'; page?: number; pageSize?: number;
 }

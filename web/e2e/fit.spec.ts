@@ -52,6 +52,9 @@ async function mockFacts(page: Page): Promise<{ calls: number }> {
   return seen;
 }
 
+/** The words of a badge (U4): what is known, never "eligible" beside a condition. */
+const BADGE = /^(Eligible|Nothing known blocks you.*|Blocked by: .*|Rules not read)$/;
+
 const listItems = (page: Page) => page.locator('section[aria-labelledby="results-heading"] > ul > li');
 
 test('a visitor without a profile gets no badge, no request and a way to the check', async ({ page }) => {
@@ -60,7 +63,7 @@ test('a visitor without a profile gets no badge, no request and a way to the che
   await visit(page, '/funding?status=all', { title: /funding/i, h1: /funding/i });
   await expect(page.getByRole('link', { name: 'Answer the readiness check' })).toBeVisible();
   await expect(page.getByLabel('Fits my profile')).toHaveCount(0);
-  await expect(page.getByText(/^(Eligible|Check|Not eligible|Unknown)$/)).toHaveCount(0);
+  await expect(page.getByText(BADGE)).toHaveCount(0);
   await page.waitForTimeout(400);
   expect(facts.calls, 'no request for the facts without a profile').toBe(0);
 });
@@ -75,11 +78,11 @@ test('with a profile each call of the list gets a badge and the list can be narr
   expect(facts.calls, 'one request for the page, not one per call').toBe(1);
 
   // A large company: the SME-only calls are "not eligible", the unread ones "unknown", the open ones eligible.
-  const badges = page.locator('article').getByText(/^(Eligible|Check|Not eligible|Unknown)$/);
+  const badges = page.locator('article').getByText(BADGE);
   await expect(badges.first()).toBeVisible();
   const words = await badges.allTextContents();
   expect(new Set(words).size, `several different verdicts in ${words.join(', ')}`).toBeGreaterThan(1);
-  expect(words).toContain('Not eligible');
+  expect(words.some((w) => w === 'Blocked by: Organisation size'), `a large company is blocked by the size of an SME-only call: ${words.join(', ')}`).toBe(true);
 
   const total = await listItems(page).count();
   await switchBox.check();
@@ -99,14 +102,14 @@ test('two profiles see different verdicts on the same calls', async ({ browser, 
     await mockFacts(page);
     await saveProfile(page, p);
     await visit(page, '/funding?status=all', { title: /funding/i, h1: /funding/i });
-    await expect(page.locator('article').getByText(/^(Eligible|Check|Not eligible|Unknown)$/).first()).toBeVisible();
-    words[name] = await page.locator('article').getByText(/^(Eligible|Check|Not eligible|Unknown)$/).allTextContents();
+    await expect(page.locator('article').getByText(BADGE).first()).toBeVisible();
+    words[name] = await page.locator('article').getByText(BADGE).allTextContents();
     await context.close();
   }
   expect(words.es.length).toBe(words.ua.length);
-  expect(words.es, 'a Spanish company is eligible where a Ukrainian one must check').toContain('Eligible');
+  expect(words.es, 'a Spanish company is eligible where a Ukrainian one has conditions to check').toContain('Eligible');
   expect(words.ua).not.toContain('Eligible');
-  expect(words.ua).toContain('Check');
+  expect(words.ua.some((w) => /^Nothing known blocks you, \d+ conditions? to check$/.test(w)), `a Ukrainian company has conditions to check: ${words.ua.join(', ')}`).toBe(true);
 });
 
 async function firstEdfCall(page: Page): Promise<string> {
@@ -146,7 +149,7 @@ test('a call page with a profile shows the document rules, the programme rules a
           timings: [{
             programme: 'EDF', name: 'European Defence Fund (EDF)', verdict: 'blocked', deadline: '2026-12-15T17:00:00+00:00', daysLeft: 59,
             steps: ['REQ-PIC'], fastestPathDays: { min: 0, max: 0 }, notFixable: [], realistic: 'yes',
-            text: 'The missing steps take up to 0 days; the call closes in 59 days.',
+            text: 'The missing steps need no time; the call closes in 59 days.',
           }],
         },
       }),
@@ -181,14 +184,19 @@ const PARTNERS = {
   source: { readAt: '2026-10-17T12:00:00Z', sources: ['CORDIS, European Commission', 'European Commission, DG DEFIS, EDF results factsheets'], licence: 'Commission Decision 2011/833/EU (reuse of Commission documents)' },
 };
 
-async function mockPartners(page: Page): Promise<string[]> {
-  const asked: string[] = [];
+/** Answers like the API: `country` keeps one country, `prefer` lists one first. `preferred` remembers the `prefer` of every request. */
+async function mockPartners(page: Page, answer: Record<string, unknown> = PARTNERS): Promise<string[] & { preferred: string[] }> {
+  const asked = Object.assign([] as string[], { preferred: [] as string[] });
   await page.route('**/api/funding/*/partners*', async (route) => {
     const url = new URL(route.request().url());
     asked.push(url.searchParams.get('country') ?? '');
     const country = url.searchParams.get('country');
-    const partners = country ? PARTNERS.partners.filter((p) => p.country === country) : PARTNERS.partners;
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...PARTNERS, partners, country }) });
+    const prefer = url.searchParams.get('prefer');
+    asked.preferred.push(prefer ?? '');
+    const all = (answer.partners as typeof PARTNERS.partners);
+    const partners = country ? all.filter((p) => p.country === country)
+      : prefer ? [...all].sort((a, b) => Number(b.country === prefer) - Number(a.country === prefer)) : all;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...answer, partners, country, prefer }) });
   });
   return asked;
 }
@@ -211,10 +219,10 @@ test('partner suggestions load on request, are ranked with their evidence, and f
   await page.getByLabel('Show organisations from').selectOption('ES');
   await expect(page.getByRole('link', { name: 'Alpha SA' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Charlie SL' })).toBeVisible();
-  expect(asked).toEqual(['', 'ES']);
+  expect([...asked]).toEqual(['', 'ES']);
 });
 
-test('with a profile the partner list loads by itself and puts the profile’s country first', async ({ page }) => {
+test('with a profile the partner list loads by itself with nothing about the profile in the request, and puts its country first on request', async ({ page }) => {
   const asked = await mockPartners(page);
   await mockFacts(page);
   // The saved profile also asks for the programme verdict: answer it (the CI site has no API behind it).
@@ -226,9 +234,38 @@ test('with a profile the partner list loads by itself and puts the profile’s c
   await visit(page, href, { title: /DefenceGate/, h1: /.+/ });
   const links = page.getByRole('link', { name: /^(Alpha SA|Charlie SL)$/ });
   await expect(links).toHaveCount(2);
+  // the API's own order, and no country in the request: the profile stays in the browser until the visitor chooses
+  expect(await links.allTextContents()).toEqual(['Alpha SA', 'Charlie SL']);
+  expect(asked.preferred).toEqual(['']);
+  await expect(page.getByText(/This sends only the country code, ES, to our server/)).toBeVisible();
+  // U1: the country goes to the server as `prefer`, which does the ordering; a browser can only re-sort the twenty it was given.
+  await page.getByRole('button', { name: 'Put organisations from Spain first' }).click();
+  await expect(page.getByText(/are listed first \(10 in this area\)/)).toBeVisible();
+  await expect(links).toHaveCount(2);
   expect(await links.allTextContents()).toEqual(['Charlie SL', 'Alpha SA']);
-  await expect(page.getByText(/come first/)).toBeVisible();
-  expect(asked).toEqual(['']);
+  expect(asked.preferred).toEqual(['', 'ES']);
+  await page.getByRole('button', { name: 'Show the largest organisations of all countries instead' }).click();
+  await expect.poll(() => asked.preferred.length).toBe(3);
+  expect(asked.preferred).toEqual(['', 'ES', '']);
+  expect(asked.every((c) => c === '')).toBe(true);
+});
+
+test('a call that names no capability category says the list is the whole programme and offers the country first', async ({ page }) => {
+  const wide = {
+    ...PARTNERS, call: { id: '1', slug: '1-x', topic: 'EDF-EDIP-P-2027-FNLC-CPA-AMDS' },
+    area: { kind: 'edf', label: 'all projects of the European Defence Fund', rule: 'All EDF projects read from the factsheets of the call results, 2021 onwards.', projects: 283, organisations: 1200, firstYear: 2021, lastYear: 2025, broaderThanCall: false },
+  };
+  await mockPartners(page, wide);
+  await saveProfile(page, null);
+  const href = await firstEdfCall(page);
+  await visit(page, href, { title: /DefenceGate/, h1: /.+/ });
+  await page.getByRole('button', { name: 'Show organisations from earlier projects' }).click();
+  await expect(page.getByText(/names no capability category, so this list is compared with the whole programme/)).toBeVisible();
+  await expect(page.getByText(/Choose a country first/)).toBeVisible();
+  // the country choice comes before the list, not after it
+  const picker = page.getByLabel('Show organisations from');
+  const first = page.getByRole('link', { name: 'Alpha SA' });
+  expect((await picker.boundingBox())!.y).toBeLessThan((await first.boundingBox())!.y);
 });
 
 test('the home page names the three parts', async ({ page }) => {

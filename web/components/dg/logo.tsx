@@ -48,7 +48,7 @@ export function Logo({ size = 21, reversed = false, href }: { size?: number; rev
   );
   const style = { gap: Math.round(markH * GAP_TO_MARK) };
   return href ? (
-    <Link href={href} aria-label="DefenceGate home" className="inline-flex items-center hover:no-underline" style={style}>{inner}</Link>
+    <Link href={href} aria-label="DefenceGate home" className="inline-flex min-h-6 items-center hover:no-underline" style={style}>{inner}</Link>
   ) : (
     <span className="inline-flex items-center" style={style}>{inner}</span>
   );

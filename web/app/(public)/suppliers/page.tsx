@@ -6,10 +6,12 @@ import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
+import { cpvForWords } from '@/lib/cpv';
 import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
 import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
 import { CountryLabel } from '@/components/dg/data-display';
+import { ScrollBox } from '@/components/dg/scroll-box';
 
 export const revalidate = 300;
 
@@ -21,10 +23,11 @@ function parse(sp: SearchParams) {
   const q = first(sp.q).slice(0, 100).trim();
   const country = first(sp.country).toUpperCase().replace(/[^A-Z,]/g, '').slice(0, 20);
   const cpv = first(sp.cpv).replace(/[^0-9,]/g, '').slice(0, 40);
+  const product = first(sp.product).replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
   const sort = first(sp.sort) === 'name' ? ('name' as const) : ('awards' as const);
   const n = Number(first(sp.page));
   const page = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), MAX_PAGE) : 1;
-  return { q, country, cpv, sort, page };
+  return { q, country, cpv, product, sort, page };
 }
 
 function href(f: ReturnType<typeof parse>, page: number): string {
@@ -32,6 +35,7 @@ function href(f: ReturnType<typeof parse>, page: number): string {
   if (f.q) p.set('q', f.q);
   if (f.country) p.set('country', f.country);
   if (f.cpv) p.set('cpv', f.cpv);
+  if (f.product) p.set('product', f.product);
   if (f.sort !== 'awards') p.set('sort', f.sort);
   if (page > 1) p.set('page', String(page));
   return `/suppliers${p.size ? `?${p.toString()}` : ''}`;
@@ -39,9 +43,9 @@ function href(f: ReturnType<typeof parse>, page: number): string {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parse(await searchParams);
-  let noindex = Boolean(f.q || f.country || f.cpv || f.page > 1 || f.sort !== 'awards');
+  let noindex = Boolean(f.q || f.country || f.cpv || f.product || f.page > 1 || f.sort !== 'awards');
   if (!noindex) {
-    try { noindex = (await getSuppliers(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
+    try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
     title: 'Defence supplier map',
@@ -51,13 +55,28 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   });
 }
 
+/**
+ * The filters as the API takes them. A product word is turned into CPV prefixes from the finder's vocabulary and replaces the CPV
+ * codes typed; a product that matches no code gives no prefixes and an empty answer, never the unfiltered list.
+ */
+function withProduct(f: ReturnType<typeof parse>) {
+  const match = f.product ? cpvForWords(f.product) : null;
+  // A product word takes the place of the typed codes (the page says so): an intersection of two lists of prefixes is not what anyone means.
+  const cpv = match ? match.prefixes.join(',') : f.cpv;
+  return { match, none: match !== null && match.prefixes.length === 0, api: { ...f, cpv } };
+}
+
 const CARD = 'flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6';
 const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-normal';
 
 export default async function SuppliersPage({ searchParams }: Props) {
   const f = parse(await searchParams);
-  const filtered = Boolean(f.q || f.country || f.cpv);
-  const [result, summary] = await Promise.all([getSuppliers(f), f.page === 1 && !filtered ? getSupplierSummary() : Promise.resolve(null)]);
+  const filtered = Boolean(f.q || f.country || f.cpv || f.product);
+  const { match, none, api } = withProduct(f);
+  const [result, summary] = await Promise.all([
+    none ? Promise.resolve({ items: [], total: 0, page: 1, pageSize: 20 }) : getSuppliers(api),
+    f.page === 1 && !filtered ? getSupplierSummary() : Promise.resolve(null),
+  ]);
   const last = lastPage(result.total, result.pageSize);
   if (result.total > 0 && f.page > last) redirect(href(f, last));
   return (
@@ -97,7 +116,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={CARD}>
-              <div className="overflow-x-auto">
+              <ScrollBox label="By CPV division">
                 <table className="w-full border-collapse text-left text-small">
                   <caption className="mb-2 text-left text-h3">By CPV division</caption>
                   <thead>
@@ -119,10 +138,10 @@ export default async function SuppliersPage({ searchParams }: Props) {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ScrollBox>
             </div>
             <div className={CARD}>
-              <div className="overflow-x-auto">
+              <ScrollBox label="By country of the supplier">
                 <table className="w-full border-collapse text-left text-small">
                   <caption className="mb-2 text-left text-h3">By country of the supplier</caption>
                   <thead>
@@ -142,7 +161,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ScrollBox>
             </div>
           </div>
         </section>
@@ -159,11 +178,14 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <label className="flex flex-col gap-1 text-small font-semibold">Country code, for example DE
             <input name="country" defaultValue={f.country} maxLength={20} className={`${INPUT} w-40`} />
           </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">Product, for example ammunition
+            <input name="product" defaultValue={f.product} maxLength={60} className={`${INPUT} w-48`} aria-describedby="product-help" />
+          </label>
           <label className="flex flex-col gap-1 text-small font-semibold">CPV code, for example 35
             <input name="cpv" defaultValue={f.cpv} maxLength={40} className={`${INPUT} w-40`} />
           </label>
           <label className="flex flex-col gap-1 text-small font-semibold">Order
-            <select name="sort" defaultValue={f.sort} className={INPUT}>
+            <select name="sort" defaultValue={f.sort} className={INPUT} aria-describedby="order-help">
               <option value="awards">Most wins first</option>
               <option value="name">Name, A to Z</option>
             </select>
@@ -171,6 +193,23 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <Button type="submit" variant="primary">Search</Button>
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
         </form>
+        <p id="product-help" className="m-0 max-w-[75ch] text-small text-ink-muted">
+          A product word is matched to the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>, and suppliers are
+          listed that won notices whose main CPV code starts with one of them. Not sure of the word? Browse the finder and copy a code into the CPV box.
+        </p>
+        <p id="order-help" className="m-0 max-w-[75ch] text-small text-ink-muted">
+          “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
+          reseller with many small awards can come first. Choose “Name” for a neutral order.
+        </p>
+        {match && (
+          <p role="status" className="m-0 max-w-[75ch] rounded-md bg-surface-inset px-4 py-3 text-small">
+            {match.prefixes.length === 0
+              ? <>No code in the CPV finder has “{f.product}” in its title. Try a shorter or more general word, or browse the <Link href="/cpv" className="font-semibold">CPV finder</Link>.</>
+              : <>“{f.product}” matches {match.matched} {match.matched === 1 ? 'code' : 'codes'} of the finder, for example {match.codes.slice(0, 3).map((c) => `${c.code} ${c.title}`).join('; ')}.
+                {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length}; use a narrower word for the rest)` : ''}.
+                {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>}
+          </p>
+        )}
         {result.total === 0 ? (
           <EmptyState title="No suppliers match" action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
             Only companies named as winners in a TED result notice of the defence-relevant scope are listed. Try a shorter name.

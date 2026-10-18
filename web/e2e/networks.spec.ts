@@ -18,7 +18,8 @@ async function openFilters(page: Page) {
 }
 
 test('/organisations: the directory lists the organisations with their counts and says where the data comes from', async ({ page }) => {
-  await visit(page, '/organisations', {
+  // all programmes: the directory opens on the defence ones (WP-38, U10), and the demo set has one civil-only organisation
+  await visit(page, '/organisations?programme=all', {
     title: /organisations/i, h1: 'Organisations in funded projects', text: ['Where this comes from', 'Showing 1–4 of 4 organisations'],
   });
   const cards = page.getByRole('article');
@@ -36,7 +37,7 @@ test('/organisations: search folds accents, and the country filter travels in th
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('link', { name: /Bravo/i })).toBeVisible();
 
-  await visit(page, '/organisations', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations?programme=all', { title: /organisations/i, h1: 'Organisations in funded projects' });
   await openFilters(page);
   await page.getByLabel('Country of the organisation').selectOption('UA');
   await page.getByRole('button', { name: 'Apply filters' }).click();
@@ -116,7 +117,7 @@ test('an EDF project says its participants were read by a model and what the che
 });
 
 test('the Ukraine partners analysis names the coordinator and the Ukrainian participant, and states its definition', async ({ page }) => {
-  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations', text: ['What this counts', 'Limits'] });
+  await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations', text: ['What this counts', 'Limits'] });
   await expect(page.getByText(/country of establishment, as the source states it, is Ukraine/i)).toBeVisible();
   const table = page.getByRole('table', { name: /Coordinators with a Ukrainian participant/i });
   await expect(table.getByRole('link', { name: /Alpha Systems/i })).toBeVisible();

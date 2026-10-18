@@ -490,6 +490,18 @@ def test_ukraine_partners_names_the_coordinator_and_the_ukrainian_participant(cl
     assert later["coordinators"] == [] and later["totals"]["projects"] == 0
 
 
+def test_ukraine_partners_can_be_narrowed_to_programmes_and_says_what_the_others_hold(client, world):
+    # U10: the page defaults to the defence programmes; the one Ukrainian project of the world is an H2020 one.
+    every = client.get("/v1/analytics/ukraine-partners?since=2019").json()
+    assert every["programme"] == [] and every["byProgramme"] == [{"code": "H2020", "projects": 1}]
+    edf = client.get("/v1/analytics/ukraine-partners?since=2019&programme=edf,EDIDP").json()
+    assert edf["programme"] == ["EDF", "EDIDP"] and edf["coordinators"] == [] and edf["totals"]["projects"] == 0
+    assert edf["byProgramme"] == [{"code": "H2020", "projects": 1}], "what a wider choice would add"
+    h = client.get("/v1/analytics/ukraine-partners?since=2019&programme=H2020").json()
+    assert h["totals"]["projects"] == 1 and len(h["coordinators"]) == 1
+    assert client.get("/v1/analytics/ukraine-partners?programme=EDF;DROP").status_code == 422
+
+
 def test_ukraine_partners_counts_a_ukrainian_coordinator_apart(conn, client, world):
     ua2 = org(conn, "lviv works", "UA", "999000009", "LVIV WORKS")
     join(conn, world.p2, ua2, "participant")

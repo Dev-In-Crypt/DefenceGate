@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ExternalLink, Rss } from 'lucide-react';
+import { ExternalLink, Link2, Rss } from 'lucide-react';
 import { getRegulation } from '@/lib/regulation-api';
-import { STATUS_MEANING, STATUS_WORD, linkHref } from '@/lib/regulation';
+import { STATUS_MEANING, STATUS_WORD, citation, linkHref, newestFirst } from '@/lib/regulation';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { buildMetadata } from '@/lib/seo';
+import { SITE, buildMetadata } from '@/lib/seo';
 import { ContentPage } from '@/components/dg/content-page';
 import { Icon } from '@/components/dg/icon';
 import { Tag } from '@/components/dg/tag';
@@ -32,8 +32,9 @@ export default async function RegulationPage() {
         {feed.notice}{feed.lastChecked ? ` Last checked ${formatDateUtc(feed.lastChecked)}.` : ''}{' '}
         <a href="/regulation.atom" className="inline-flex min-h-11 items-center gap-1 font-semibold"><Icon icon={Rss} size="inline" />Atom feed</a>
       </p>
+      <p className="m-0 max-w-[90ch] text-small text-ink-muted">Newest event first. Each entry has a link to itself and a line you can copy into a note.</p>
       <ol className="m-0 flex list-none flex-col gap-4 p-0">
-        {feed.entries.map((e) => {
+        {newestFirst(feed.entries).map((e) => {
           const url = safeHttpUrl(e.source.url);
           return (
             <li key={e.code} id={e.code} className="flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
@@ -42,7 +43,11 @@ export default async function RegulationPage() {
                 <Tag>{e.instrument}</Tag>
                 <time dateTime={e.eventDate} className="font-mono text-mono text-ink-muted">{formatDateUtc(e.eventDate)}</time>
               </div>
-              <h2 className="m-0 text-h3">{e.title}</h2>
+              <h2 className="m-0 text-h3">
+                {e.title}{' '}
+                <a href={`#${e.code}`} aria-label={`Link to this entry: ${e.title}`} title="Link to this entry"
+                  className="inline-flex min-h-8 min-w-8 items-center justify-center align-middle text-ink-muted"><Icon icon={Link2} size="inline" /></a>
+              </h2>
               <p className="m-0 max-w-[90ch] text-body">{e.whatChanged}</p>
               <p className="m-0 max-w-[90ch] text-small text-ink-muted">{STATUS_MEANING[e.status]}</p>
               <p className="m-0 max-w-[90ch] text-body"><strong>Who is affected.</strong> {e.affected}</p>
@@ -64,6 +69,10 @@ export default async function RegulationPage() {
                 </p>
               )}
               <p className="m-0 text-small text-ink-muted">Last checked <time dateTime={e.checkedOn}>{formatDateUtc(e.checkedOn)}</time>.</p>
+              <p className="m-0 text-small">
+                <span className="font-semibold">Cite this entry: </span>
+                <span className="break-words select-all text-ink-muted">{citation(e, SITE.url)}</span>
+              </p>
             </li>
           );
         })}

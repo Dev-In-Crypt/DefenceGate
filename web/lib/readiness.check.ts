@@ -3,7 +3,7 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, daysRange, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug, ruleSentence, statusWords } from './readiness';
+import { PROGRAMME_NAME, joinWords, programmeName, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, daysRange, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug, ruleSentence, statusWords } from './readiness';
 import type { RMoney, RequirementDetail, RSource } from './readiness-types';
 
 const usd: RMoney = { min: 17000, max: 48000, currency: 'USD', basis: 'vendor_range', text: 'USD 17,000-48,000', alt: null, label: 'vendor range, not a benchmark' };
@@ -20,7 +20,9 @@ assert.equal(formatRange({ ...usd, min: 5, max: 5 }), 'USD 5');
 assert.equal(formatDays({ min: 90, max: 240, text: '3-8 months', note: null }), '3-8 months');
 assert.equal(formatDays({ min: 5, max: 20, text: null, note: null }), '5 to 20 days');
 assert.equal(formatDays(null), 'Not stated in the sources');
-assert.equal(daysRange(0, 0), 'immediate');
+assert.equal(daysRange(0, 0), 'no time needed', 'U8: never "0 to 0 days"');
+assert.equal(formatDays({ min: 0, max: 0, text: 'immediate', note: null }), 'immediate', 'the source own word wins');
+assert.equal(formatDays({ min: 0, max: 0, text: null, note: null }), 'no time needed');
 assert.equal(daysRange(90, 240), '3 to 8 months');
 assert.equal(daysRange(90, 90), '3 months');
 assert.equal(daysRange(10, 90), '10 to 90 days');
@@ -71,4 +73,13 @@ assert.equal(faq[2].a, '3-8 months.');
 assert.deepEqual(faqOf({ ...req, issuers: [], cost: null, days: null, mandatoryFor: null } as RequirementDetail).map((f) => f.a),
   ['The issuing body has not been collected for any country.', 'No cost is stated in the sources used.', 'No duration is stated in the sources used.']);
 assert.deepEqual(faqOf({ ...req, kind: 'rule', mandatoryFor: null } as RequirementDetail), []);
+// U13: the stored keys of the programmes are never shown as they are.
+assert.equal(programmeName('GENERAL'), 'the general requirements');
+assert.equal(programmeName('NATO-SUPPLY'), 'NATO and NSPA supply');
+assert.equal(programmeName('EDIP-USI'), 'EDIP Ukraine Support Instrument');
+assert.equal(programmeName('NEW-ONE'), 'NEW-ONE', 'an unknown key is shown as it is');
+for (const k of ['EDF', 'EDIP', 'EDIP-USI', 'SAFE', 'NATO-SUPPLY', 'GENERAL']) assert.ok(PROGRAMME_NAME[k], k);
+assert.equal(joinWords(['a']), 'a');
+assert.equal(joinWords(['a', 'b']), 'a and b');
+assert.equal(joinWords(['a', 'b', 'c']), 'a, b and c');
 console.log('readiness.check ok');

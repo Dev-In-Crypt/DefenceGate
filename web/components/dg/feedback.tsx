@@ -21,7 +21,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
               {last ? (
                 <span aria-current="page" className="max-w-[40ch] truncate text-ink-muted">{c.label}</span>
               ) : (
-                <><Link href={c.href} className="font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
+                <><Link href={c.href} className="inline-flex min-h-6 items-center font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
               )}
             </li>
           );

@@ -11,9 +11,11 @@ import { SortSelect } from '../funding/filter-panel';
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, children,
+  crumbs, title, intro, meta, scope, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, children,
 }: {
   crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
+  /** Said above the results: what the list shows when that is a default the visitor did not choose. */
+  scope?: React.ReactNode;
   /** Rendered under the filters (the save-search island). */
   filterExtra?: React.ReactNode;
   /** The CSV of the current result; shown under the filters when there are results. */
@@ -51,6 +53,7 @@ export function ListPage({
           </div>
         ) : filterBar}
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
+          {scope}
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {total === 0 ? `No ${noun}` : `Showing ${from}–${to} of ${totalText ?? total} ${noun}`}

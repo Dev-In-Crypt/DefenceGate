@@ -252,6 +252,8 @@ def test_call_timing_yes_when_the_slowest_path_fits():
     t = timing(UA, {}, "EDF", 42)
     assert t["realistic"] == "yes" and t["steps"] == ["REQ-PIC"] and t["fastestPathDays"] == {"min": 0, "max": 0}
     assert t["daysLeft"] == 42.0
+    # U8: a PIC is issued at once, so the sentence must not say "up to 0 days".
+    assert "0 days" not in t["text"] and t["text"].startswith("The missing steps need no time;")
 
 
 def test_call_timing_when_nothing_is_missing_you_can_apply_now():

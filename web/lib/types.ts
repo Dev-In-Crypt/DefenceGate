@@ -743,6 +743,8 @@ export interface PartnersAnswer {
   /** Organisations in the area (in the chosen country when a filter is set). */
   total: number;
   country: string | null;
+  /** The country listed first (the visitor's own), or null. */
+  prefer?: string | null;
   note: string | null;
   source?: { readAt: string | null; sources: string[]; licence: string };
 }

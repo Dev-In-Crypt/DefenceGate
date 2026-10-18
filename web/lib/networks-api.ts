@@ -6,7 +6,7 @@
  */
 import { DETAIL_REVALIDATE_SECONDS, LIST_REVALIDATE_SECONDS, REVALIDATE_SECONDS, http, httpOrThrow } from './api';
 import * as mock from './mock/networks';
-import { orgApiQuery, toOrgQuery } from './networks';
+import { effectiveProgrammes, orgApiQuery, toOrgQuery } from './networks';
 import type {
   ConsortiumGaps, OrgFilters, OrgFunding, OrgPage, OrgProfile, OrgProjectPage, PartnerPage, ProjectDetail, ProjectHistory, UkrainePartners,
 } from './networks-types';
@@ -16,7 +16,7 @@ const enc = encodeURIComponent;
 
 /** The directory. Only the unfiltered first page is shared; anything built from the URL is read live. */
 export async function getOrganisations(f: OrgFilters): Promise<OrgPage> {
-  if (!API_BASE) return mock.queryOrgs(f);
+  if (!API_BASE) return mock.queryOrgs({ ...f, programme: effectiveProgrammes(f) });
   const shared = toOrgQuery({ ...f, page: 1 }) === '';
   return httpOrThrow<OrgPage>(`/v1/organisations${orgApiQuery(f)}`, shared && (f.page ?? 1) === 1 ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
 }
@@ -58,9 +58,12 @@ export async function getProjectHistory(slug: string): Promise<ProjectHistory | 
   return http<ProjectHistory>(`/v1/projects/${enc(slug)}/history`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
 }
 
-export async function getUkrainePartners(since: number): Promise<UkrainePartners> {
-  if (!API_BASE) return mock.ukrainePartners(since);
-  return httpOrThrow<UkrainePartners>(`/v1/analytics/ukraine-partners?since=${since}`, 'no-store', LIST_REVALIDATE_SECONDS);
+/** `programmes`: the programme codes to count (empty: all of them). */
+export async function getUkrainePartners(since: number, programmes: string[] = []): Promise<UkrainePartners> {
+  if (!API_BASE) return mock.ukrainePartners(since, programmes);
+  const p = new URLSearchParams({ since: String(since) });
+  if (programmes.length) p.set('programme', programmes.join(','));
+  return httpOrThrow<UkrainePartners>(`/v1/analytics/ukraine-partners?${p}`, 'no-store', LIST_REVALIDATE_SECONDS);
 }
 
 export async function getConsortiumGaps(f: { programme: string; topic?: string; lacking: string }): Promise<ConsortiumGaps | null> {

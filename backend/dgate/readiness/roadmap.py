@@ -326,7 +326,9 @@ def call_timing(assessment: Assessment, roadmap: Mapping[str, Any], deadline: da
         out["text"] = "No certificate is missing, but a guarantee or an answer is still needed."
     elif totals["max"] <= days_left:
         out["realistic"] = "yes"
-        out["text"] = f"The missing steps take up to {totals['max']} days; the call closes in {round(days_left)} days."
+        # "up to 0 days" read as a mistake (a PIC is issued at once): say that no time is needed.
+        took = "need no time" if totals["max"] == 0 else f"take up to {totals['max']} days"
+        out["text"] = f"The missing steps {took}; the call closes in {round(days_left)} days."
     elif totals["min"] <= days_left:
         out["realistic"] = "maybe"
         out["text"] = (f"The missing steps take {totals['min']} to {totals['max']} days; the call closes in "

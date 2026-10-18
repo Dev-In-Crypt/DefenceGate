@@ -131,6 +131,24 @@ export default async function LandingPage() {
           <p className="m-0 max-w-[52ch] text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
+          {/* The three layers, in the hero (U15: they started 1,849 px down, after the whole tender form). */}
+          <ol aria-label="The three parts of DefenceGate" className="m-0 grid list-none gap-2 p-0 md:grid-cols-3">
+            <li className="flex flex-col rounded-md bg-surface-inset p-3">
+              <span className="text-label text-ink">1. What is open to me?</span>
+              <span className="flex flex-wrap gap-x-4 text-small font-bold">
+                <Link href="/tenders" className="inline-flex min-h-8 items-center">Tenders</Link>
+                <Link href="/funding" className="inline-flex min-h-8 items-center">Funding calls</Link>
+              </span>
+            </li>
+            <li className="flex flex-col rounded-md bg-surface-inset p-3">
+              <span className="text-label text-ink">2. Who is already inside?</span>
+              <Link href="/organisations" className="inline-flex min-h-8 items-center text-small font-bold">Organisations in funded projects</Link>
+            </li>
+            <li className="flex flex-col rounded-md bg-surface-inset p-3">
+              <span className="text-label text-ink">3. What do I need to qualify?</span>
+              <Link href="/readiness" className="inline-flex min-h-8 items-center text-small font-bold">Readiness check</Link>
+            </li>
+          </ol>
           <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg bg-surface-inset p-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Select name="country" label="Country of the buyer" placeholder="Any country"

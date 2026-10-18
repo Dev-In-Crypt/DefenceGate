@@ -81,6 +81,7 @@ export function DigestView({ issue, filters, basePath, feedHref }: { issue: Dige
   const c = issue.counts;
   const country = filters.country ? DIGEST_COUNTRIES[filters.country] ?? filters.country : null;
   const empty = c.tendersNew + c.tendersAmended + c.callsNew + c.callsAmended + c.callsOpened + c.callsClosing === 0;
+  const fundingQuiet = c.callsNew + c.callsAmended + c.callsOpened === 0;
   return (
     <>
       <header className="flex flex-col gap-3">
@@ -126,7 +127,24 @@ export function DigestView({ issue, filters, basePath, feedHref }: { issue: Dige
         </div>
       </form>
 
+      <details className="rounded-lg bg-surface px-5 sm:px-6">
+        <summary className="flex min-h-12 cursor-pointer items-center py-3 text-body font-semibold">What “new” means here</summary>
+        <div className="flex flex-col gap-2 pb-4 text-small">
+          <p className="m-0"><strong>A new notice</strong> is one our archive collected for the first time in this week and that was published in it, or up to two days before it (TED notices are collected after their publication date). A notice that was published earlier and that we read in later is not new.</p>
+          <p className="m-0"><strong>A new funding call</strong> is one collected for the first time in this week and published, or opened, no earlier than two days before it: a source’s first load of old calls is not news.</p>
+          <p className="m-0">Our archive began in September 2026, so a call or notice that existed before then is never new here, only changed. This page shows the last complete week; the current week appears when it ends, and <Link href="/changes" className="font-semibold">What changed</Link> covers the last 14 days.</p>
+        </div>
+      </details>
+
       <FitFilter />
+
+      {fundingQuiet && (
+        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
+          No funding call was new, opened or had a date moved{country ? ` for ${country}` : ''} in this week. That is a statement about this week only: calls that were already listed before it
+          are not new even when they are open. {c.callsClosing > 0 ? `${formatNumber(c.callsClosing)} ${c.callsClosing === 1 ? 'call closes' : 'calls close'} within the next 14 days (below). ` : ''}
+          The <Link href="/funding" className="font-semibold">funding list</Link> shows every open call.
+        </p>
+      )}
 
       {empty && (
         <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">

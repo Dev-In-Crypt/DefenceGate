@@ -8,6 +8,7 @@ import { formatDateUtc, formatNumber } from '@/lib/format';
 import { buildMetadata } from '@/lib/seo';
 import { Breadcrumbs } from '@/components/dg/feedback';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
+import { ScrollBox } from '@/components/dg/scroll-box';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -110,7 +111,7 @@ export default async function SupplierPage({ params }: Props) {
         <p className="m-0 max-w-[75ch] text-small text-ink-muted">
           Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} of ${formatNumber(s.noticeCount)}` : ''}. Each links to its own page and to the notice at TED.
         </p>
-        <div className="overflow-x-auto">
+        <ScrollBox label="Result notices of this supplier">
           <table className="w-full border-collapse text-left text-small">
             <caption className="sr-only">Result notices naming {s.name} a winner</caption>
             <thead>
@@ -141,7 +142,7 @@ export default async function SupplierPage({ params }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollBox>
       </section>
     </>
   );

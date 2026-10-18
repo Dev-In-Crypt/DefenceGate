@@ -173,7 +173,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }
           </span>
         )}
         {tender.buyerSlug ? (
-          <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 self-start text-small font-semibold">{displayName(tender.buyerName, 'title')}</Link>
+          <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 inline-flex min-h-6 items-center self-start text-small font-semibold">{displayName(tender.buyerName, 'title')}</Link>
         ) : (
           <span className="text-small font-semibold">{displayName(tender.buyerName, 'title')}</span>
         )}

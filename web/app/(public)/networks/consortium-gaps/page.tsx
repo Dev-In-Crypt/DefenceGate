@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getConsortiumGaps } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
-import { countryName } from '@/lib/taxonomy';
+import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
+import { EDF_CATEGORY_WORDS, GAP_PROGRAMMES } from '@/lib/networks';
+import { Select } from '@/components/dg/form';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { DataSources, OrgLink, TableBox } from '@/components/networks/parts';
@@ -10,6 +12,9 @@ import type { SearchParams } from '@/lib/filters';
 
 export const revalidate = 900;
 type Props = { searchParams: Promise<SearchParams> };
+
+const COUNTRIES = Object.entries({ UA: 'Ukraine', LI: 'Liechtenstein', TR: 'Türkiye', US: 'United States', ...BUYER_COUNTRIES })
+  .map(([value, label]) => ({ value, label: `${label} (${value})` })).sort((a, b) => a.label.localeCompare(b.label, 'en'));
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -43,15 +48,12 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
       wide
     >
       <form method="get" action="/networks/consortium-gaps" aria-label="Choose the area and the country" className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-label" htmlFor="programme">Programme
-          <input id="programme" name="programme" defaultValue={q.programme} maxLength={20} className="h-11 w-32 rounded-md border-strong border-line bg-surface px-4 font-mono text-body text-ink" />
-        </label>
+        <Select name="programme" label="Programme" options={GAP_PROGRAMMES} defaultValue={GAP_PROGRAMMES.some((p) => p.value === q.programme) ? q.programme : 'EDF'} className="w-64" />
         <label className="flex flex-col gap-1 text-label" htmlFor="topic">Capability category or topic code start
           <input id="topic" name="topic" defaultValue={q.topic ?? ''} maxLength={60} placeholder="For example CYBER" className="h-11 w-56 rounded-md border-strong border-line bg-surface px-4 font-mono text-body text-ink" />
         </label>
-        <label className="flex flex-col gap-1 text-label" htmlFor="lacking">With no participant from (ISO code)
-          <input id="lacking" name="lacking" defaultValue={q.lacking} maxLength={2} className="h-11 w-24 rounded-md border-strong border-line bg-surface px-4 font-mono text-body uppercase text-ink" />
-        </label>
+        <Select name="lacking" label="With no participant from" options={COUNTRIES.some((c) => c.value === q.lacking) ? COUNTRIES : [...COUNTRIES, { value: q.lacking, label: `${countryName(q.lacking)} (${q.lacking})` }]} defaultValue={q.lacking} className="w-56"
+          hint="Ukraine unless you choose another country." />
         <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
       </form>
       {problem && <ErrorState title={problem} retryHref="/networks/consortium-gaps" />}
@@ -64,10 +66,20 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
               with no participant from {countryName(data.lacking)}.
             </p>
             {data.areas.length > 0 && (
-              <p className="m-0 text-small text-ink-muted">
-                EDF capability categories in the data:{' '}
-                {data.areas.map((a, i) => <span key={a.code}>{i > 0 ? ', ' : ''}<Link href={`/networks/consortium-gaps?topic=${encodeURIComponent(a.code)}&lacking=${data.lacking}`}>{a.code}</Link> ({a.projects})</span>)}.
-              </p>
+              <>
+                <p className="m-0 text-small text-ink-muted">
+                  EDF capability categories in the data, with the number of projects. The codes are those of the Commission’s own file names; the words beside them are our plain reading
+                  of the abbreviation, and the EDF work programme is authoritative.
+                </p>
+                <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0 text-small">
+                  {data.areas.map((a) => (
+                    <li key={a.code}>
+                      <Link href={`/networks/consortium-gaps?topic=${encodeURIComponent(a.code)}&lacking=${data.lacking}`} className="inline-flex min-h-8 items-center font-mono font-semibold">{a.code}</Link>
+                      {EDF_CATEGORY_WORDS[a.code] ? <span> {EDF_CATEGORY_WORDS[a.code]}</span> : null} <span className="text-ink-muted">({a.projects})</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </ContentSection>
           <ContentSection title="Organisations">

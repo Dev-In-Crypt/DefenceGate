@@ -667,10 +667,12 @@ content policy allows connections to the site only); the verdict is the only thi
 Stateless: the profile of the readiness check stays in the visitor's browser (`dg.profile.v1`). Nothing below reads, stores
 or logs one. The browser compares the document facts of a call with its profile itself (`web/lib/fit.ts`).
 
-### `GET /v1/funding/{slug}/partners?country=XX&limit=20`
+### `GET /v1/funding/{slug}/partners?country=XX&prefer=XX&limit=20`
 
 Organisations that took part in earlier funded projects of the call's **area** (deterministic, no model). `country` is one
-ISO-2 code (422 otherwise), `limit` 1 to 50 (default 20). 404 for an unknown call, 410 for one removed on request. Kept
+ISO-2 code (422 otherwise) and keeps only that country. `prefer` is one ISO-2 code and keeps every country but lists that
+country's organisations first (then the usual order); `country` wins when both are given (WP-38, U1: a browser can only re-sort the
+first `limit` rows, and an organisation of a small country is never among the largest twenty of the whole area). `limit` 1 to 50 (default 20). 404 for an unknown call, 410 for one removed on request. Kept
 ten minutes in memory.
 
 "Same area" (stated in `area.rule`, and measured by hand on real calls in `docs/verification/product/wp32-selfcheck.md`):
@@ -689,7 +691,7 @@ The EDF 2021 and 2022 factsheets name no category, so those projects count only 
 FP7 projects are not compared (their topic codes do not map to Horizon Europe destinations without a table we do not hold).
 
 Response: `{ call: { id, slug, topic }, area: { kind, label, rule, projects, organisations, firstYear, lastYear,
-broaderThanCall } | null, partners[], countries: [{ country, organisations }], total, country, note, source: { readAt,
+broaderThanCall } | null, partners[], countries: [{ country, organisations }], total, country, prefer, note, source: { readAt,
 sources, licence } }`. `countries` counts the organisations of the whole area before the `country` filter (at most 40);
 `total` is the organisations of the filter. A partner is `{ organisationId, slug, name, country, projects, coordinated,
 firstYear, lastYear, evidence: [{ projectId, acronym, title, year, role }] }` (at most 3 evidence projects, newest first).
@@ -860,9 +862,12 @@ newest first, at most 50.
 ### `GET /v1/projects/slugs`
 `[{ slug, updatedAt }]`: the EDF projects, for the sitemap (the 80,000 CORDIS projects are not listed).
 
-### `GET /v1/analytics/ukraine-partners?since=YYYY`
+### `GET /v1/analytics/ukraine-partners?since=YYYY&programme=EDF,EDIDP`
 Coordinators (the prime of a project) whose project, started in or after `since` (default 2021), had an active
-participant whose **country of establishment, as the source states it, is Ukraine**. `{ since, definition, totals:
+participant whose **country of establishment, as the source states it, is Ukraine**. `programme` is a comma-separated list of
+programme codes (empty: all of them; WP-38, U10: the site asks for the defence-relevant ones first and offers all). `byProgramme`
+counts the projects with a Ukrainian participant per programme *before* that filter, so a page can say what a wider choice would add.
+`{ since, programme, byProgramme: [{ code, projects }], definition, totals:
 { projects, coordinators, ukrainianOrganisations, projectsCoordinatedFromUkraine }, coordinators: [{ organisation,
 projects, ukrainianOrganisations, lastYear, programmes, ukrainianParticipants: [{ organisation, projects }],
 recentProjects }], ukrainianOrganisations: [{ organisation, projects, coordinated, lastYear }], limits, sources }`.

@@ -3,7 +3,7 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { emptyProfile, isFinished, parsePct, parseProfile, toRequest, visibleCodes, withStatus, type Profile } from './profile';
+import { emptyProfile, exportProfile, firstStepToAnswer, importProfile, isFinished, parsePct, parseProfile, stepOfField, toRequest, unanswered, visibleCodes, withStatus, type Profile } from './profile';
 
 const ua: Profile = {
   ...emptyProfile(), step: 6, name: 'Secret Ltd', sizeClass: 'small', country: 'UA', legalForm: 'legal_person', control: 'no', uaOccupied: 'no', regime: 'dual_use',
@@ -84,4 +84,29 @@ assert.equal(ua.statuses['REQ-PIC'], undefined, 'the original is not changed');
 assert.equal(isFinished(ua), true);
 assert.equal(isFinished({ ...ua, step: 3 }), false);
 assert.equal(isFinished(null), false);
+
+// U7: what is still unanswered is named, in the order of the wizard, and "Change my answers" opens at the first of them.
+assert.deepEqual(unanswered(ua), [], 'a complete profile has nothing missing');
+assert.equal(firstStepToAnswer(ua), 1, 'nothing missing: the first step');
+const partial: Profile = { ...ua, step: 6, regime: '', restricted: '', classified: '' };
+assert.deepEqual(unanswered(partial).map((u) => u.step), [3, 3, 5]);
+assert.equal(firstStepToAnswer(partial), 3);
+assert.match(unanswered(partial)[1].question, /third country/);
+assert.equal(unanswered({ ...ua, control: '' })[0].step, 2);
+assert.deepEqual(unanswered(emptyProfile()).slice(0, 2).map((u) => u.step), [1, 1]);
+assert.ok(unanswered({ ...ua, country: 'UA', uaOccupied: '' }).some((u) => /area of Ukraine/.test(u.question)));
+assert.ok(!unanswered({ ...ua, country: 'PL', uaOccupied: '' }).some((u) => /area of Ukraine/.test(u.question)), 'only a Ukrainian company is asked');
+assert.deepEqual(['country', 'legal_form', 'third_country_control', 'safe_role', 'export_intent', 'something_else'].map(stepOfField), [1, 1, 2, 3, 5, 1]);
+
+// U7: the answers can be taken to another computer or kept for another client, and a block that is not ours is refused.
+const written = exportProfile(partial);
+const back = importProfile(written);
+assert.ok(back.ok);
+if (back.ok) assert.deepEqual({ ...back.profile, updatedAt: null }, { ...parseProfile(partial), updatedAt: null }, 'what was written is what is read back');
+assert.equal(importProfile('{"version":2}').ok, false);
+assert.equal(importProfile('[1,2]').ok, false);
+assert.equal(importProfile('not json').ok, false);
+assert.equal(importProfile('x'.repeat(30000)).ok, false, 'a size limit');
+const hostile = importProfile(JSON.stringify({ ...ua, country: 'ZZZ', control: 'maybe', statuses: { 'REQ-PIC': 'held', EVIL: 'held' }, __proto__: { polluted: 1 } }));
+assert.ok(hostile.ok && hostile.profile.country === '' && hostile.profile.control === '' && !('EVIL' in hostile.profile.statuses), 'every field is checked on the way in');
 console.log('profile.check ok');

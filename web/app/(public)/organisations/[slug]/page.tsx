@@ -15,7 +15,7 @@ import { Breadcrumbs, EmptyState, ErrorState, JsonLd } from '@/components/dg/fee
 import { Select } from '@/components/dg/form';
 import { Pagination } from '@/components/dg/pagination';
 import { Tag } from '@/components/dg/tag';
-import { DataSources, FundingChart, PartnerTable, ProjectTable, TabNav, TableBox, nameOf } from '@/components/networks/parts';
+import { CountryNote, DataSources, FundingChart, PartnerTable, ProjectTable, TabNav, TableBox, nameOf } from '@/components/networks/parts';
 import type { SearchParams } from '@/lib/filters';
 
 export const revalidate = 300;
@@ -99,6 +99,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
       {tab === 'projects' && <ProjectsTab slug={org.slug} sp={sp} page={page} base={base} />}
       {tab === 'aliases' && <AliasesTab org={org} />}
 
+      <CountryNote />
       <DataSources sources={org.sources} amountNote={org.amountNote} />
     </>
   );

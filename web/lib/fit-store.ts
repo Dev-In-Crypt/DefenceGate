@@ -18,7 +18,7 @@
  * so a profile changed on /readiness is seen after a client-side navigation.
  */
 import type { EligibilityFacts } from './eligibility-check';
-import { fitOf, fitsProfile, programmeFit, programmesOfCall, withProgramme, type Fit, type FitResult } from './fit';
+import { fitOf, fitsProfile, programmeFit, programmesOfCall, shownFit, withProgramme, type Fit, type FitResult } from './fit';
 import { PROFILE_KEY, loadProfile, toRequest, type Profile } from './profile';
 import { assess } from './readiness';
 import type { Assessment } from './readiness-types';
@@ -66,7 +66,7 @@ function codesOf(id: string): string[] {
 /** The fit of one call to the saved profile; `unknown` while its facts have not come. */
 export function fitFor(id: string): FitResult {
   const entry = entries.get(id);
-  const doc: FitResult = entry && entry.state === 'read' ? fitOf(entry.facts, profile) : { fit: 'unknown', result: null, conditions: [] };
+  const doc: FitResult = entry && entry.state === 'read' ? fitOf(entry.facts, profile) : { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
   return withProgramme(doc, programmeFit(programmes.data, codesOf(id)));
 }
 
@@ -84,7 +84,7 @@ function recount(): void {
   for (const id of mounted.keys()) {
     if (!isLoaded(id)) continue;
     loaded += 1;
-    counts[fitFor(id).fit] += 1;
+    counts[shownFit(fitFor(id))] += 1;      // a "yes" that carries a condition counts, and is shown, as "conditions to check"
   }
   snapshot = { ready: true, hasProfile: hasProfile(), onlyFits, counts, loaded, version: snapshot.version + 1 };
   for (const l of listeners) l();

@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getUkrainePartners } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
-import { yearsLabel } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_WORD, yearsLabel } from '@/lib/networks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { ErrorState } from '@/components/dg/feedback';
-import { DataSources, OrgLink, TableBox } from '@/components/networks/parts';
+import { CountryNote, DataSources, OrgLink, TableBox } from '@/components/networks/parts';
 import type { SearchParams } from '@/lib/filters';
 
 export const revalidate = 900;
@@ -18,19 +18,32 @@ function sinceOf(sp: SearchParams): number {
   return Number.isInteger(n) && n >= 2007 && n <= 2100 ? n : DEFAULT_SINCE;
 }
 
+/** `programme=all` switches the defence-relevant default off; any other list is passed on. */
+function programmesOf(sp: SearchParams): { codes: string[]; all: boolean } {
+  const raw = (Array.isArray(sp.programme) ? sp.programme[0] : sp.programme) ?? '';
+  const codes = raw.split(',').map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z0-9_-]{1,20}$/.test(c)).slice(0, 10);
+  if (codes.includes('ALL')) return { codes: [], all: true };
+  return { codes: codes.length ? codes : DEFENCE_PROGRAMMES, all: false };
+}
+
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const sp = await searchParams;
   return buildMetadata({
     title: 'Who partners with Ukrainian organisations in EU-funded projects',
     description: 'The coordinators of EU-funded defence and research projects that had a participant established in Ukraine, with the Ukrainian organisations and the projects as evidence. From CORDIS and the EDF project factsheets.',
     path: '/networks/ukraine-partners',
-    noindex: sinceOf(await searchParams) !== DEFAULT_SINCE,
+    noindex: sinceOf(sp) !== DEFAULT_SINCE || programmesOf(sp).all || Boolean(sp.programme),
   });
 }
 
 export default async function UkrainePartnersPage({ searchParams }: Props) {
-  const since = sinceOf(await searchParams);
+  const sp = await searchParams;
+  const since = sinceOf(sp);
+  const { codes, all } = programmesOf(sp);
   let data;
-  try { data = await getUkrainePartners(since); } catch { data = null; }
+  try { data = await getUkrainePartners(since, codes); } catch { data = null; }
+  const others = (data?.byProgramme ?? []).filter((b) => !codes.includes(b.code));
+  const base = `/networks/ukraine-partners?since=${since}`;
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Partners of Ukrainian organisations', href: '/networks/ukraine-partners' }]}
@@ -45,14 +58,26 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
               <input id="since" name="since" type="number" min={2007} max={2100} defaultValue={data.since}
                 className="h-11 w-32 rounded-md border-strong border-line bg-surface px-4 font-mono text-body text-ink" />
             </label>
+            {all && <input type="hidden" name="programme" value="all" />}
+            {!all && codes.join() !== DEFENCE_PROGRAMMES.join() && <input type="hidden" name="programme" value={codes.join(',')} />}
             <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
           </form>
+          <p role="status" className="m-0 max-w-[80ch] rounded-md bg-surface-inset px-4 py-3 text-body">
+            {all ? (
+              <>Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7. <Link href={base} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
+            ) : (
+              <>Showing <strong>{codes.map((c) => PROGRAMME_WORD[c] ?? c).join(', ')}</strong>
+                {codes.join() === DEFENCE_PROGRAMMES.join() ? ` (${DEFENCE_PROGRAMMES_WORDS}): the defence-relevant programmes` : ''}.
+                {others.length > 0 && <> All programmes together hold {others.reduce((n, b) => n + b.projects, 0)} more {others.reduce((n, b) => n + b.projects, 0) === 1 ? 'project' : 'projects'} with a Ukrainian participant, in {others.map((b) => PROGRAMME_WORD[b.code] ?? b.code).join(', ')}. </>}
+                <Link href={`${base}&programme=all`} className="font-semibold">Show all programmes</Link>.</>
+            )}
+          </p>
           <ContentSection title="What this counts">
             <p className="m-0 text-body">{data.definition}</p>
             <p className="m-0 text-body">
-              {data.totals.projects} projects since {data.since} had a Ukrainian participant; {data.totals.coordinators} coordinators led them
+              {data.totals.projects} {data.totals.projects === 1 ? 'project' : 'projects'} since {data.since} had a Ukrainian participant; {data.totals.coordinators} {data.totals.coordinators === 1 ? 'coordinator' : 'coordinators'} led {data.totals.projects === 1 ? 'it' : 'them'}
               {data.totals.projectsCoordinatedFromUkraine > 0 ? `, and ${data.totals.projectsCoordinatedFromUkraine} were led from Ukraine` : ''}.
-              {' '}{data.totals.ukrainianOrganisations} Ukrainian organisations took part.
+              {' '}{data.totals.ukrainianOrganisations} Ukrainian {data.totals.ukrainianOrganisations === 1 ? 'organisation' : 'organisations'} took part.
             </p>
           </ContentSection>
           <ContentSection title="Coordinators">
@@ -89,13 +114,14 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
           <ContentSection title="Ukrainian organisations in these projects">
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {data.ukrainianOrganisations.map((u) => (
-                <li key={u.organisation.id ?? u.organisation.name}><OrgLink org={u.organisation} /> <span className="text-ink-muted">{u.projects} projects, {u.coordinated} as coordinator</span></li>
+                <li key={u.organisation.id ?? u.organisation.name}><OrgLink org={u.organisation} /> <span className="text-ink-muted">{u.projects} {u.projects === 1 ? 'project' : 'projects'}, {u.coordinated} as coordinator</span></li>
               ))}
             </ul>
           </ContentSection>
           <ContentSection title="Limits">
             <ul className="m-0 pl-5 text-small">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
           </ContentSection>
+          <CountryNote />
           <DataSources sources={data.sources} />
         </>
       )}

@@ -171,14 +171,16 @@ export function projectHistory(slug: string): ProjectHistory | null {
   };
 }
 
-export function ukrainePartners(since: number): UkrainePartners {
+export function ukrainePartners(since: number, programmes: string[] = []): UkrainePartners {
+  // The one invented Ukrainian project is an H2020 one: a filter that leaves it out leaves nothing, and says what it left out.
+  const shown = programmes.length === 0 || programmes.includes('H2020');
   return {
-    since,
+    since, programme: programmes, byProgramme: [{ code: 'H2020', projects: 1 }],
     definition: 'A coordinator is the organisation that leads a funded project (the prime of its consortium). It is listed when a project it coordinated, started in or after the year given, had an active participant whose country of establishment, as the source states it, is Ukraine. Ukrainian coordinators are counted apart. This says who partnered with Ukrainian organisations, not who controls them or what they supplied.',
-    totals: { projects: 1, coordinators: 1, ukrainianOrganisations: 1, projectsCoordinatedFromUkraine: 0 },
-    coordinators: [{ organisation: ref(A), projects: 1, ukrainianOrganisations: 1, lastYear: 2019, programmes: ['H2020'],
-      ukrainianParticipants: [{ organisation: ref(C), projects: 1 }], recentProjects: [ref3(PROJECTS[0])] }],
-    ukrainianOrganisations: [{ organisation: ref(C), projects: 1, coordinated: 0, lastYear: 2019 }],
+    totals: shown ? { projects: 1, coordinators: 1, ukrainianOrganisations: 1, projectsCoordinatedFromUkraine: 0 } : { projects: 0, coordinators: 0, ukrainianOrganisations: 0, projectsCoordinatedFromUkraine: 0 },
+    coordinators: shown ? [{ organisation: ref(A), projects: 1, ukrainianOrganisations: 1, lastYear: 2019, programmes: ['H2020'],
+      ukrainianParticipants: [{ organisation: ref(C), projects: 1 }], recentProjects: [ref3(PROJECTS[0])] }] : [],
+    ukrainianOrganisations: shown ? [{ organisation: ref(C), projects: 1, coordinated: 0, lastYear: 2019 }] : [],
     limits: ['Country is the country of establishment that CORDIS or the EDF factsheet states for the participant.'],
     sources: SOURCES,
   };

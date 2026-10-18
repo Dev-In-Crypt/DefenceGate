@@ -719,8 +719,13 @@ def _org_rows(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
 
 @router.get("/v1/analytics/ukraine-partners")
 @cache_list("ukraine_partners", ttl=15 * 60)
-def ukraine_partners(since: int = Query(DEFAULT_SINCE, ge=1990, le=2100), conn=Depends(get_conn)):
+def ukraine_partners(
+    since: int = Query(DEFAULT_SINCE, ge=1990, le=2100),
+    programme: str | None = Query(None, max_length=100, description="comma-separated programme codes, e.g. EDF,EDIDP; empty: all"),
+    conn=Depends(get_conn),
+):
     """Coordinators (the prime of a funded project) whose project had a participant established in Ukraine."""
+    programmes = _codes(programme, "programme", pattern=PROGRAMME_CODE)
     # One row per (project, Ukrainian participant): a few thousand at most, aggregated here.
     pairs = conn.execute(
         f"""WITH ua AS MATERIALIZED (SELECT id FROM organisation WHERE country = 'UA' AND merged_into IS NULL AND NOT suppressed),
@@ -739,6 +744,14 @@ def ukraine_partners(since: int = Query(DEFAULT_SINCE, ge=1990, le=2100), conn=D
               LEFT JOIN participation c ON c.project_id = mine.project_id AND c.role = 'coordinator' AND c.active
               LEFT JOIN organisation_merged_live cl ON cl.id = c.organisation_id
              WHERE {YEAR} >= %s""", (since,)).fetchall()
+    # What each programme holds, before the filter: the page offers "all programmes" with these counts beside it (U10).
+    seen: dict[str, set[int]] = {}
+    for r in pairs:
+        seen.setdefault(r["programme"] or "", set()).add(r["project_id"])
+    by_programme = sorted(({"code": c, "projects": len(ids)} for c, ids in seen.items() if c),
+                          key=lambda x: (-x["projects"], x["code"]))
+    if programmes:
+        pairs = [r for r in pairs if r["programme"] in programmes]
     orgs = _org_rows(conn, {r["ua_org"] for r in pairs} | {r["coord"] for r in pairs if r["coord"]})
     projects: dict[int, dict[str, Any]] = {}
     by_coord: dict[int, dict[str, Any]] = {}
@@ -763,7 +776,7 @@ def ukraine_partners(since: int = Query(DEFAULT_SINCE, ge=1990, le=2100), conn=D
     ranked = [kv for kv in ranked if not orgs[kv[0]]["suppressed"]][:50]
     ua_ranked = sorted(by_ua.items(), key=lambda kv: (-len(kv[1]["projects"]), kv[0]))[:20]
     return {
-        "since": since,
+        "since": since, "programme": programmes, "byProgramme": by_programme,
         "definition": "A coordinator is the organisation that leads a funded project (the prime of its consortium). "
                       "It is listed when a project it coordinated, started in or after the year given, had an "
                       "active participant whose country of establishment, as the source states it, is Ukraine. "

@@ -13,9 +13,22 @@ const AUDIENCE_NAMES: Record<string, string> = {
 };
 const COUNTRY_NAMES: Record<string, string> = { ...AUDIENCE_NAMES, ...COUNTRIES };
 
-/** Name for any country code we show, funder or audience. Falls back to the code. */
+let regionNames: Intl.DisplayNames | null | undefined;
+/** The English name of an ISO 3166 code from the platform's own data (UX walk-through U9: "US, IL, CA" beside "Germany"). */
+function regionName(code: string): string | null {
+  if (!/^[A-Z]{2}$/.test(code) || code === 'XX') return null;
+  if (regionNames === undefined) {
+    try { regionNames = new Intl.DisplayNames(['en'], { type: 'region' }); } catch { regionNames = null; }
+  }
+  try {
+    const name = regionNames?.of(code);
+    return name && name !== code && !/^unknown/i.test(name) ? name : null;
+  } catch { return null; }
+}
+
+/** Name for any country code we show, funder or audience. Falls back to the platform's name for the code, then to the code. */
 export function countryName(code: string): string {
-  return COUNTRY_NAMES[code] ?? BUYER_COUNTRIES[code] ?? code;
+  return COUNTRY_NAMES[code] ?? BUYER_COUNTRIES[code] ?? regionName(code) ?? code;
 }
 
 /**
@@ -172,6 +185,7 @@ const CPV_LABELS: Record<string, string> = {
   '34': 'Transport equipment and auxiliary products to transportation',
   '35': 'Security, fire-fighting, police and defence equipment',
   '38': 'Laboratory, optical and precision equipments',
+  '37': 'Musical instruments, sport goods, games, toys, handicraft, art materials and accessories',   // titles of 37 and 92 verbatim from the CPV 2008 vocabulary (U9: they showed no name)
   '39': 'Furniture, furnishings, domestic appliances and cleaning products',
   '42': 'Industrial machinery',
   '43': 'Machinery for mining, quarrying, construction equipment',
@@ -195,6 +209,7 @@ const CPV_LABELS: Record<string, string> = {
   '80': 'Education and training services',
   '85': 'Health and social work services',
   '90': 'Sewage, refuse, cleaning and environmental services',
+  '92': 'Recreational, cultural and sporting services',
   '98': 'Other community, social and personal services',
   '351': 'Emergency and security equipment',
   '352': 'Police equipment',

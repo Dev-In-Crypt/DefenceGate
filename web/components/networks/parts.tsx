@@ -4,13 +4,14 @@ import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { PROGRAMME_CHOICES, PROGRAMME_WORD, fundingGroups, formatEur, methodWord, roleWord, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_CHOICES, PROGRAMME_WORD, effectiveProgrammes, fundingGroups, formatEur, methodWord, roleWord, toOrgQuery, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, PartnerRow, ProjectMember, SourceNote } from '@/lib/networks-types';
 import { Button } from '../dg/button';
 import { CountryLabel, FactCell } from '../dg/data-display';
 import { Choice, Fieldset, Select, TextInput } from '../dg/form';
 import { Icon } from '../dg/icon';
+import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
 
@@ -32,13 +33,9 @@ export function Country({ code }: { code: string | null }) {
   return code ? <CountryLabel code={code} /> : <span className="text-ink-muted">Not stated</span>;
 }
 
-/** A table that scrolls inside its own box at 375 px, reachable and labelled for the keyboard. */
+/** A table that scrolls inside its own box at 375 px, reachable and labelled for the keyboard, with a line that says there is more. */
 export function TableBox({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div role="region" aria-label={label} tabIndex={0} className="overflow-x-auto rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text">
-      {children}
-    </div>
-  );
+  return <ScrollBox label={label}>{children}</ScrollBox>;
 }
 
 export function OrgCard({ org }: { org: OrgListItem }) {
@@ -61,6 +58,39 @@ export function OrgCard({ org }: { org: OrgListItem }) {
   );
 }
 
+/**
+ * Which programmes the list shows, said above it with the switch to the other choice (U10: the directory used to open with the
+ * largest civil research bodies). `filters.programme` empty and no `allProgrammes`: the defence-relevant default.
+ */
+export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; basePath: string }) {
+  const chosen = filters.programme ?? [];
+  const link = (f: OrgFilters) => `${basePath}${toOrgQuery({ ...f, page: 1 })}`;
+  return (
+    <p role="status" className="m-0 max-w-[80ch] rounded-md bg-surface-inset px-4 py-3 text-body">
+      {filters.allProgrammes ? (
+        <>Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7.{' '}
+          <Link href={link({ ...filters, allProgrammes: false, programme: [] })} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
+      ) : chosen.length > 0 ? (
+        <>Showing <strong>{chosen.map((c) => PROGRAMME_WORD[c] ?? c).join(', ')}</strong>.{' '}
+          <Link href={link({ ...filters, allProgrammes: true, programme: [] })} className="font-semibold">Show all programmes</Link>.</>
+      ) : (
+        <>Showing <strong>{DEFENCE_PROGRAMMES_WORDS}</strong>: the defence-relevant programmes ({DEFENCE_PROGRAMMES.join(', ')}).{' '}
+          <Link href={link({ ...filters, allProgrammes: true, programme: [] })} className="font-semibold">Show all programmes</Link>, including civil research (Horizon Europe, Horizon 2020, FP7).</>
+      )}
+    </p>
+  );
+}
+
+/** What the country of an organisation means: one country per registration, and a multi-site body shows one of them (U10: CSIC under Italy). */
+export function CountryNote({ className }: { className?: string }) {
+  return (
+    <p className={cn('m-0 max-w-[80ch] text-small text-ink-muted', className)}>
+      The country is the one the source records for the organisation’s registration (its PIC). A body with sites in several countries is recorded under one
+      of them, which is not always its legal seat: the Spanish research council CSIC, for example, appears under Italy. The data holds no country per site, so we do not guess.
+    </p>
+  );
+}
+
 /** URL-synced filter form (GET) for /organisations; FilterPanel makes it live when scripts run. */
 export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; basePath: string }) {
   const countries = Object.entries({ UA: 'Ukraine', ...BUYER_COUNTRIES }).sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label: `${label} (${value})` }));
@@ -70,8 +100,9 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
         <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
         <Fieldset legend="Programme">
           {PROGRAMME_CHOICES.map((p) => (
-            <Choice key={p.value} name="programme" value={p.value} label={p.label} defaultChecked={filters.programme?.includes(p.value)} />
+            <Choice key={p.value} name="programme" value={p.value} label={p.label} defaultChecked={effectiveProgrammes(filters).includes(p.value)} />
           ))}
+          <Choice name="programme" value="all" label="All programmes (turns the others off)" defaultChecked={filters.allProgrammes} />
         </Fieldset>
         <Fieldset legend="Role">
           <Choice name="role" value="coordinator" label="Has coordinated a project" defaultChecked={filters.role?.includes('coordinator')} />

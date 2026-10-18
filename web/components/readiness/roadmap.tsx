@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
 import { withStatus, type Profile } from '@/lib/profile';
-import { CATEGORY_WORD, daysRange, formatDays, formatRange, isoDay, requirementSlug } from '@/lib/readiness';
+import { CATEGORY_WORD, daysRange, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug } from '@/lib/readiness';
 import type { Roadmap, RoadmapStep, RoadmapTotals } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
@@ -23,7 +23,7 @@ function Totals({ title, totals, id }: { title: string; totals: RoadmapTotals; i
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
         <dt className="text-ink-muted">Cost</dt><dd className="m-0 font-mono tabular-nums">{cost}</dd>
         <dt className="text-ink-muted">Time</dt>
-        <dd className="m-0 font-mono tabular-nums">{totals.days.max === 0 ? 'Immediate' : daysRange(totals.days.min, totals.days.max)}</dd>
+        <dd className="m-0 font-mono tabular-nums">{daysRange(totals.days.min, totals.days.max)}</dd>
       </dl>
     </div>
   );
@@ -52,7 +52,6 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
           <dd className="m-0 flex flex-col gap-0.5 text-body">
             <span className="font-mono tabular-nums">{formatRange(s.cost)}</span>
             {s.cost?.label && <span className="text-small font-bold">{s.cost.label}</span>}
-            {s.cost?.alt && <span className="text-small text-ink-muted">{s.cost.alt.text}</span>}
           </dd>
         </div>
         <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-3">
@@ -70,7 +69,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
             {s.issuers.map((i) => (
               <li key={i.name} className="flex flex-col text-body">
                 <span>
-                  {i.country !== '*' && <abbr title={countryName(i.country)} className="mr-1 font-mono no-underline">{i.country}</abbr>}
+                  {i.country !== '*' && <><abbr title={countryName(i.country)} className="font-mono no-underline">{i.country}</abbr>{' '}</>}
                   {safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}
                 </span>
                 {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
@@ -83,7 +82,14 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
       </div>
 
       {s.neededFor.filter((n) => n.rule).length > 0 && (
-        <p className="m-0 text-small text-ink-muted">Asked by: {s.neededFor.filter((n) => n.rule).map((n) => `${n.programme} (${n.title})`).join('; ')}</p>
+        s.optional ? (
+          // An optional step is a contract matter, not an eligibility condition: the line must not say the programme asks for it (U8).
+          <p className="m-0 text-small text-ink-muted">
+            Named by contracts under {joinWords([...new Set(s.neededFor.filter((n) => n.rule).map((n) => programmeName(n.programme)))])}. Whether you need it depends on the contract that names it; it is not a condition for applying to a programme.
+          </p>
+        ) : (
+          <p className="m-0 text-small text-ink-muted">Asked by: {s.neededFor.filter((n) => n.rule).map((n) => `${programmeName(n.programme)} (${n.title})`).join('; ')}</p>
+        )
       )}
       {s.prerequisites.length > 0 && (
         <p className="m-0 text-small text-ink-muted">
@@ -100,7 +106,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
       <div className="flex flex-wrap items-center gap-3">
         {s.status !== 'in_progress' && <Button variant="secondary" icon={Play} onClick={() => onMark(s.code, 'in_progress')} aria-label={`Mark as started: ${s.name}`}>Mark as started</Button>}
         <Button variant="secondary" icon={Check} onClick={() => onMark(s.code, 'held')} aria-label={`Mark as done: ${s.name}`}>Mark as done</Button>
-        <Link href={`/requirements/${requirementSlug(s.code)}`} className="inline-flex min-h-11 items-center text-small font-semibold">What is this?</Link>
+        <Link href={`/requirements/${requirementSlug(s.code)}`} aria-label={`What is ${s.name}?`} className="inline-flex min-h-11 items-center text-small font-semibold">What is this?</Link>
         <span className="text-small text-ink-muted">Reviewed {isoDay(s.lastReviewed)}</span>
       </div>
     </li>
@@ -127,7 +133,7 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
         {plan.steps.some((s) => s.optional) && <Totals id="with-optional" title="Including what only a contract might ask for" totals={plan.totalsWithOptional} />}
       </div>
       <Callout title="Read the ranges with care">
-        <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is never converted between currencies.</p>
+        <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is shown in the currency of the source and is never converted.</p>
         {plan.unknownCost.length > 0 && <p className="m-0">No cost is stated in the sources for: {plan.unknownCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
         {plan.unknownDuration.length > 0 && <p className="m-0">No time is stated in the sources for: {plan.unknownDuration.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
         {extraCost.length > 0 && <p className="m-0">The total that includes what only a contract might ask for has no cost for: {extraCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. The sources give none, so it is not counted and the total is not complete.</p>}

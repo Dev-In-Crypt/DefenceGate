@@ -79,6 +79,21 @@ function mockDetail(r: RawCall): Partial<Call> {
   if (r.ukraine !== undefined) {
     out.ukraineBasis = { reason: 'call_document', evidence: 'non-EU countries: − Ukraine' };
   }
+  if (r.topicId === 'EDF-2026-DA-MATCOMP-AMSP') {
+    // The demo call whose rules were read: the contradiction of call 193 (no consortium, and four countries), a general-annex quote with a
+    // footnote number glued to a word, and a country list. e2e/ux.spec.ts reads these.
+    const fact = (value: unknown, quote: string, note: string | null = null) => ({ value, note, quote, confidence: 1, scope: 'call_document' as const });
+    out.documentEligibility = {
+      documentUrl: null, extractedAt: '2026-10-17T10:00:00Z', basis: 'call_document', sources: [],
+      facts: {
+        eligible_countries: fact('Legal entities established in EU Member States', 'Applicants must be established in an EU Member State.'),
+        consortium_required: fact(false, 'A single applicant may apply only if it is a SEAP.', 'A single applicant only if it is a SEAP.'),
+        min_entities: fact(1, 'At least one legal entity.'),
+        min_countries: fact(4, 'Otherwise entities from at least four countries.'),
+        sme_only: fact(false, 'Small mid-caps up to 499 staff may apply under Horizon Europe202 rules.'),
+      },
+    };
+  }
   if (r.programme === 'EDF') {
     out.rulesApply = {
       regime: { code: 'EDF', name: 'European Defence Fund', why: 'The topic code starts with EDF- and the programme is the EDF.' },

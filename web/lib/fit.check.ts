@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import type { EligibilityFacts } from './eligibility-check';
-import { checkProfileOf, fitOf, fitsProfile, programmeFit, programmesOfCall, withProgramme } from './fit';
+import { checkProfileOf, conditionCount, fitLabel, fitOf, fitsProfile, linesSummary, programmeFit, programmesOfCall, shownFit, withProgramme } from './fit';
 import { emptyProfile, type Profile } from './profile';
 import type { ProgrammeAssessment, RoadmapStep } from './readiness-types';
 
@@ -126,4 +126,53 @@ assert.equal(withProgramme(fitOf(single, UA), programmeFit(ua, ['EDF'])).fit, 'c
 assert.equal(withProgramme(fitOf(smeOnly, LARGE_ES), usi).fit, 'no', 'the document excludes: the programme cannot lift it');
 assert.equal(withProgramme(docYes, null), docYes);
 assert.ok(withProgramme(docYes, usi).conditions[0].startsWith('Needs first'));
+// ---- U4: the badge says what is known, and never "eligible" where a condition exists
+// A consortium call: the document allows the profile, but a consortium is a condition. Shown as conditions to check, not as eligible.
+const withCondition = fitOf(consortium, ES);
+assert.equal(withCondition.fit, 'yes', 'the three-state logic is unchanged');
+assert.equal(shownFit(withCondition), 'check', 'but a "yes" that carries a condition is shown as one to check');
+assert.equal(conditionCount(withCondition), 1);
+assert.equal(fitLabel(withCondition).word, 'Nothing known blocks you, 1 condition to check');
+assert.ok(!/eligible/i.test(fitLabel(withCondition).word), 'the word "eligible" is not used where a condition exists');
+// No condition at all: eligible on the rules read.
+const clear = fitOf(single, ES);
+assert.equal(shownFit(clear), 'yes');
+assert.equal(fitLabel(clear).word, 'Eligible');
+assert.match(fitLabel(clear).detail, /Other conditions may apply/);
+// The programme's step first (a PIC) turns a document "yes" into a condition, named.
+const needPic = withProgramme(clear, programmeFit(ua, ['EDIP-USI']));
+assert.equal(shownFit(needPic), 'check');
+assert.equal(fitLabel(needPic).word, 'Nothing known blocks you, 1 condition to check');
+assert.match(fitLabel(needPic).detail, /Needs first: Participant Identification Code/);
+// A "check" from several lines counts them.
+const three = fitOf({ ...single, sme_only: f(true) }, profile({ country: 'ES', control: '' }));
+assert.equal(three.fit, 'check');
+assert.equal(fitLabel(three).word, `Nothing known blocks you, ${conditionCount(three)} ${conditionCount(three) === 1 ? 'condition' : 'conditions'} to check`);
+// A "no" names what blocks.
+const blocked = fitOf(smeOnly, LARGE_ES);
+assert.equal(fitLabel(blocked).word, 'Blocked by: Organisation size');
+assert.deepEqual(blocked.blockedBy, ['Organisation size']);
+const byProgramme = withProgramme(clear, noEdip);
+assert.equal(fitLabel(byProgramme).word, 'Blocked by: Established in the Union or an associated country', 'the rule, not the programme name');
+assert.match(fitLabel(byProgramme).detail, /Blocked by: EDIP: Established in the Union or an associated country\./, 'the tooltip keeps both');
+assert.equal(fitLabel({ ...byProgramme, blockedBy: ['a', 'b', 'c'] }).word, 'Blocked by: a and 2 more');
+assert.match(fitLabel(blocked).detail, /Blocked by: Organisation size/);
+// Not read.
+assert.equal(fitLabel(fitOf(null, ES)).word, 'Rules not read');
+assert.equal(shownFit(fitOf(null, ES)), 'unknown');
+// The filter keeps "yes" and "check" together, so the shown change does not move a call in or out of the list.
+assert.equal(fitsProfile(shownFit(withCondition)), fitsProfile(withCondition.fit));
+// A line summary above the lines.
+assert.equal(linesSummary([]), '');
+const uaLines = fitOf(consortium, UA).result!.lines;
+assert.equal(linesSummary(uaLines), `${uaLines.filter((l) => l.verdict === 'check').length} of ${uaLines.length} lines ${uaLines.filter((l) => l.verdict === 'check').length === 1 ? 'needs' : 'need'} your check; none is a no.`);
+assert.equal(linesSummary([{ key: 'a', label: 'A', verdict: 'check', reason: '' }]), 'The one line needs your check; it is not a no.');
+assert.match(linesSummary(blocked.result!.lines), /a no on your answers: read it first/);
+assert.equal(linesSummary([{ key: 'a', label: 'A', verdict: 'no', reason: '' }, { key: 'b', label: 'B', verdict: 'no', reason: '' }, { key: 'c', label: 'C', verdict: 'yes', reason: '' }]), '2 of 3 lines are a no on your answers: read them first.');
+assert.match(linesSummary(clear.result!.lines), /^(All \d+ lines are|The one line is) allowed/);
+// U5 in the badge: an unclear consortium is a condition, not a "yes".
+const unclear = fitOf({ ...single, consortium_required: f(false), min_entities: f(1), min_countries: f(4) }, ES);
+assert.equal(unclear.conditions.length, 1);
+assert.match(unclear.conditions[0], /unclear about a consortium.*at least 4 countries/);
+assert.equal(shownFit(unclear), 'check');
 console.log('fit checks passed');

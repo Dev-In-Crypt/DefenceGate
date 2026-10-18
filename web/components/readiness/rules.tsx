@@ -3,6 +3,8 @@ import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus 
 import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords, statusWords } from '@/lib/readiness';
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
+import { cleanQuote } from '@/lib/quote';
+import { stepOfField } from '@/lib/profile';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +45,7 @@ export function SourceNote({ source }: { source: RSource }) {
         <details>
           <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-ink">Show the text of the source</summary>
           <div className="flex flex-col gap-2 pb-2">
-            {passages.map((p, i) => <blockquote key={i} className="m-0 break-words border-l-2 border-line pl-3 text-ink">{p}</blockquote>)}
+            {passages.map((p, i) => <blockquote key={i} className="m-0 break-words border-l-2 border-line pl-3 text-ink">{cleanQuote(p)}</blockquote>)}
             <p className="m-0">{originWords(source)} {statusWords(source.verificationStatus, source.origin)}</p>
           </div>
         </details>
@@ -82,7 +84,8 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
   const blockers = a.rules.filter((r) => a.blocking.includes(r.rule));
   const conditions = a.rules.filter((r) => a.conditions.includes(r.rule));
   const toObtain = a.rules.filter((r) => a.toObtain.includes(r.rule));
-  const total = a.rules.length;
+  const applies = a.rules.filter((r) => r.outcome !== 'not_applicable');
+  const apart = a.rules.filter((r) => r.outcome === 'not_applicable');
   const todo = a.rules.filter((r) => r.outcome === 'not_met' || r.outcome === 'to_obtain');
   const id = `prog-${a.programme}`;
   return (
@@ -119,20 +122,36 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
         </div>
       )}
       {a.missing.length > 0 && (
-        <p className="m-0 text-small">
-          {a.missing.length === 1 ? '1 answer is missing' : `${a.missing.length} answers are missing`}.{' '}
-          <Link href="/readiness" className="font-semibold">Answer them in the questions</Link>
-        </p>
+        <div className="flex flex-col gap-1 text-small">
+          <p className="m-0 font-bold">{a.missing.length === 1 ? '1 answer is missing:' : `${a.missing.length} answers are missing:`}</p>
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {a.missing.map((m) => (
+              <li key={m.field}>
+                <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-8 items-center font-semibold">{m.question}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-      <details>
+      {applies.length > 0 && <details>
         <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold text-ink">
-          Show the {total} {total === 1 ? 'rule' : 'rules'} behind this
+          Show the {applies.length} {applies.length === 1 ? 'rule' : 'rules'} behind this{apart.length > 0 ? ' that apply to you' : ''}
         </summary>
-        <ul className="m-0 flex list-none flex-col p-0">{a.rules.map((r) => <RuleItem key={r.rule} rule={r} />)}</ul>
-      </details>
+        <ul className="m-0 flex list-none flex-col p-0">{applies.map((r) => <RuleItem key={r.rule} rule={r} />)}</ul>
+      </details>}
+      {apart.length > 0 && (
+        // A rule that does not apply to this company (a Spanish clearance for a Polish one) is kept apart, with its source, so that
+        // its text is not read as part of the company's verdict (U13).
+        <details>
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold text-ink">
+            {apart.length} {apart.length === 1 ? 'rule that does' : 'rules that do'} not apply to you
+          </summary>
+          <ul className="m-0 flex list-none flex-col p-0">{apart.map((r) => <RuleItem key={r.rule} rule={r} />)}</ul>
+        </details>
+      )}
       <p className="m-0 text-small text-ink-muted">
-        Legal basis: {a.legalBasis ?? 'none stated'}.{' '}
-        {safeHttpUrl(a.sourceUrl) && <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Open the legal text</a>}
+        {a.legalBasis ? <>Legal basis: {a.legalBasis}.</> : 'No legal basis is stated for this route.'}{' '}
+        {safeHttpUrl(a.sourceUrl) && <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">{a.legalBasis ? 'Open the legal text' : 'Open the page of the source'}</a>}
       </p>
     </article>
   );

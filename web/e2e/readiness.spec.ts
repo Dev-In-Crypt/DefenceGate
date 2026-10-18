@@ -237,11 +237,20 @@ test('the answers stay in this browser: a reload keeps them, nothing is sent but
   await page.reload();
   await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
   await page.goto('/readiness');
+  // U7: a finished profile with nothing unanswered is changed from the first step; any step is one click away.
+  await expect(page.getByText('Step 1 of 5: Your company')).toBeVisible();
+  await page.getByRole('button', { name: /^Go to step 5/ }).click();
   await expect(page.getByLabel('Yes, outside the EU')).toBeChecked();
   expect(await context.cookies()).toEqual([]);
   expect([...hosts].filter((h) => h !== origin && h !== new URL(page.url()).host)).toEqual([]);
 
+  // U7: clearing asks first, and "Keep my answers" leaves everything as it was.
   await page.getByRole('button', { name: 'Clear my answers' }).click();
+  await expect(page.getByRole('alertdialog', { name: 'Clear my answers' })).toBeVisible();
+  await page.getByRole('button', { name: 'Keep my answers' }).click();
+  expect(await page.evaluate(() => window.localStorage.getItem('dg.profile.v1'))).toContain('"country":"UA"');
+  await page.getByRole('button', { name: 'Clear my answers' }).click();
+  await page.getByRole('button', { name: 'Yes, clear them' }).click();
   expect(await page.evaluate(() => window.localStorage.getItem('dg.profile.v1'))).toBeNull();
   await page.goto('/readiness/results');
   await expect(page.getByText('No answers in this browser yet')).toBeVisible();

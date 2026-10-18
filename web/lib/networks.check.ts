@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-  activeOrgFilterCount, fundingGroups, isNetworkSlug, methodWord, orgApiQuery, parseOrgFilters, roleWord, toOrgQuery, yearsLabel,
+  DEFENCE_PROGRAMMES, EDF_CATEGORY_WORDS, GAP_PROGRAMMES, activeOrgFilterCount, effectiveProgrammes, fundingGroups, isNetworkSlug, methodWord, orgApiQuery, parseOrgFilters, roleWord, toOrgQuery, yearsLabel,
 } from './networks';
 
 // ---- the URL -----------------------------------------------------------------------------------------------------------
@@ -23,7 +23,22 @@ assert.equal(f.q, 'Thales');
 assert.equal(activeOrgFilterCount(f), 5);
 assert.equal(toOrgQuery(f), '?q=Thales&country=DE%2CFR%2CUA&programme=EDF%2CHORIZON&role=coordinator&min=5&sort=name&page=3');
 assert.equal(orgApiQuery(f), '?q=Thales&country=DE%2CFR%2CUA&programme=EDF%2CHORIZON&role=coordinator&sort=name&page=3&minProjects=5&pageSize=20');
-assert.equal(orgApiQuery(none), '?sort=projects&pageSize=20');
+assert.equal(orgApiQuery(none), '?programme=EDF%2CEDIDP%2CPADR&sort=projects&pageSize=20', 'U10: with no choice the API is asked for the defence-relevant programmes');
+assert.deepEqual(effectiveProgrammes(none), DEFENCE_PROGRAMMES);
+assert.equal(toOrgQuery(none), '', 'and the default stays out of the address');
+
+// U10: "all programmes" is one visible choice, kept in the address, and the API is then asked for none.
+const everything = parseOrgFilters({ programme: 'all' });
+assert.equal(everything.allProgrammes, true);
+assert.deepEqual(everything.programme, []);
+assert.equal(toOrgQuery(everything), '?programme=all');
+assert.equal(orgApiQuery(everything), '?sort=projects&pageSize=20', 'no programme filter at all');
+assert.deepEqual(effectiveProgrammes(everything), []);
+assert.equal(activeOrgFilterCount(everything), 1, 'a change from the default counts as a filter');
+assert.equal(parseOrgFilters({ programme: 'edf,all' }).allProgrammes, true, 'all wins over a list');
+assert.deepEqual(parseOrgFilters({ programme: 'h2020' }).programme, ['H2020']);
+assert.deepEqual(effectiveProgrammes(parseOrgFilters({ programme: 'h2020' })), ['H2020'], 'a chosen programme replaces the default');
+assert.equal('allProgrammes' in none, false, 'the key is absent unless chosen');
 
 for (const bad of ['0', '-3', 'abc', '1', '', '1e99999']) assert.equal(parseOrgFilters({ page: bad }).page, 1, `page ${bad}`);
 assert.equal(parseOrgFilters({ page: '99999' }).page, 1000);
@@ -70,5 +85,10 @@ assert.deepEqual(h.rows.map((r) => [r.year, r.width]), [[2019, 100], [2021, 25],
 assert.equal(h.totalEur, 500000);
 assert.equal(h.totalProjects, 3);
 assert.deepEqual(fundingGroups([]), []);
+
+// U11: the gap analysis explains its capability codes and offers only programmes it can run on.
+assert.equal(EDF_CATEGORY_WORDS.UWW, 'Underwater warfare');
+assert.ok(!('DS' in EDF_CATEGORY_WORDS), 'a code we cannot read with confidence has no words');
+assert.ok(GAP_PROGRAMMES.some((p) => p.value === 'EDF') && GAP_PROGRAMMES.every((p) => /^[A-Z0-9_-]{1,20}$/.test(p.value)));
 
 console.log('networks.check: ok');

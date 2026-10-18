@@ -22,12 +22,44 @@ export const PROGRAMME_CHOICES: { value: string; label: string }[] = [
 ];
 export const PROGRAMME_WORD: Record<string, string> = Object.fromEntries(PROGRAMME_CHOICES.map((p) => [p.value, p.label]));
 
+/**
+ * The programmes a defence reader means when none is chosen (U10 of the UX verification: the directory opened with CNRS and
+ * Oxford, and the Ukraine partners with a cultural-animation firm, because CORDIS is mostly civil research). "All programmes"
+ * is one visible choice away (`programme=all`).
+ */
+export const DEFENCE_PROGRAMMES = ['EDF', 'EDIDP', 'PADR'];
+export const DEFENCE_PROGRAMMES_WORDS = 'the European Defence Fund and its predecessors (EDIDP, PADR)';
+
+/** The programmes a request filters by: all of them (none), the ones chosen, or the defence-relevant ones. */
+export function effectiveProgrammes(f: Pick<OrgFilters, 'programme' | 'allProgrammes'>): string[] {
+  return f.allProgrammes ? [] : f.programme?.length ? f.programme : DEFENCE_PROGRAMMES;
+}
+
 export const ROLES = ['coordinator', 'participant', 'partner', 'associated_partner', 'international_partner', 'third_party'] as const;
 const ROLE_WORD: Record<string, string> = {
   coordinator: 'Coordinator', participant: 'Participant', partner: 'Partner', associated_partner: 'Associated partner',
   international_partner: 'International partner', third_party: 'Third party',
 };
 export const roleWord = (role: string) => ROLE_WORD[role] ?? role.replace(/_/g, ' ');
+
+/**
+ * The EDF capability categories are named by abbreviations in the Commission's own file names. These are our plain reading of the
+ * abbreviation (UX walk-through U11: the page listed SMERO 33, DIS 23 with no meaning); a category whose abbreviation we do not
+ * read with confidence has no entry and shows the code alone. The EDF work programme is authoritative.
+ */
+export const EDF_CATEGORY_WORDS: Record<string, string> = {
+  GROUND: 'Ground combat', CYBER: 'Cyber', SPACE: 'Space', NAVAL: 'Naval combat', AIR: 'Air combat', AIRDEF: 'Air defence',
+  UWW: 'Underwater warfare', SENS: 'Sensors', C4ISR: 'Command, control, communications, computers, intelligence, surveillance and reconnaissance',
+  MCBRN: 'Medical and CBRN', DIGIT: 'Digital', ENERENV: 'Energy and environment', MATCOMP: 'Materials and components',
+  PROTMOB: 'Protection and mobility', SIMTRAIN: 'Simulation and training', DIS: 'Disruptive technologies', SME: 'Small and medium enterprises',
+  SMERO: 'Small and medium enterprises and research organisations',
+};
+
+/** Programmes the consortium analysis can be run on. An EDF one needs no topic; any other needs the start of a topic code. */
+export const GAP_PROGRAMMES: { value: string; label: string }[] = [
+  { value: 'EDF', label: 'European Defence Fund (EDF)' }, { value: 'EDIDP', label: 'EDIDP' }, { value: 'PADR', label: 'PADR' },
+  { value: 'HORIZON', label: 'Horizon Europe (needs a topic code start)' }, { value: 'H2020', label: 'Horizon 2020 (needs a topic code start)' },
+];
 
 export const MIN_PROJECT_CHOICES = [2, 5, 10, 25];
 export const ORG_SORTS = ['projects', 'name'] as const;
@@ -59,10 +91,13 @@ export function parseOrgFilters(sp: SearchParams): OrgFilters {
   const q = Array.from((first(sp.q) ?? '').trim()).slice(0, MAX_QUERY).join('').trim();
   const sort = (ORG_SORTS as readonly string[]).includes(first(sp.sort) ?? '') ? (first(sp.sort) as 'projects' | 'name') : DEFAULT_ORG_SORT;
   const min = Number(first(sp.min));
+  const programmes = tokens(sp.programme, (c) => c.toUpperCase()).filter((c) => /^[A-Z0-9_-]{1,20}$/.test(c));
+  const all = programmes.includes('ALL');
   return {
     q: q || undefined,
     country: tokens(sp.country, (c) => c.toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)),
-    programme: tokens(sp.programme, (c) => c.toUpperCase()).filter((c) => /^[A-Z0-9_-]{1,20}$/.test(c)),
+    programme: all ? [] : programmes,
+    ...(all ? { allProgrammes: true } : {}),
     role: tokens(sp.role, (c) => c.toLowerCase()).filter((c) => (ROLES as readonly string[]).includes(c)),
     minProjects: Number.isFinite(min) && min >= 2 ? Math.min(Math.floor(min), 1000) : undefined,
     sort, page: pageOf(first(sp.page)), pageSize: ORG_PAGE_SIZE,
@@ -73,7 +108,8 @@ function params(f: OrgFilters): URLSearchParams {
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
   if (f.country?.length) p.set('country', f.country.join(','));
-  if (f.programme?.length) p.set('programme', f.programme.join(','));
+  if (f.allProgrammes) p.set('programme', 'all');
+  else if (f.programme?.length) p.set('programme', f.programme.join(','));
   if (f.role?.length) p.set('role', f.role.join(','));
   if (f.minProjects) p.set('min', String(f.minProjects));
   if (f.sort && f.sort !== DEFAULT_ORG_SORT) p.set('sort', f.sort);
@@ -90,6 +126,8 @@ export function toOrgQuery(f: OrgFilters): string {
 /** The query string the API takes (`minProjects`, and the page size). */
 export function orgApiQuery(f: OrgFilters): string {
   const p = params(f);
+  const programmes = effectiveProgrammes(f);
+  if (programmes.length) p.set('programme', programmes.join(',')); else p.delete('programme');
   if (p.has('min')) { p.set('minProjects', p.get('min') as string); p.delete('min'); }
   p.set('sort', f.sort ?? DEFAULT_ORG_SORT);
   p.set('pageSize', String(f.pageSize ?? ORG_PAGE_SIZE));
@@ -97,7 +135,7 @@ export function orgApiQuery(f: OrgFilters): string {
 }
 
 export function activeOrgFilterCount(f: OrgFilters): number {
-  return [f.q, f.country?.length, f.programme?.length, f.role?.length, f.minProjects].filter(Boolean).length;
+  return [f.q, f.country?.length, f.programme?.length || f.allProgrammes, f.role?.length, f.minProjects].filter(Boolean).length;
 }
 
 export function yearsLabel(first: number | null, last: number | null): string {

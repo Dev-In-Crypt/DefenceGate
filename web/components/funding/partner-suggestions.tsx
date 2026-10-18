@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { formatDateUtc, formatNumber } from '@/lib/format';
@@ -15,8 +15,12 @@ type State = { state: 'idle' } | { state: 'loading' } | { state: 'error'; messag
 
 /**
  * Partner suggestions for a call (WP-32): organisations that took part in earlier projects of the same area, from CORDIS
- * and the EDF factsheets. Nothing is fetched until the visitor asks, or has a saved profile (then the organisations of the
- * profile's country come first). The profile is only read here, to order the list: it is never sent.
+ * and the EDF factsheets. Nothing is fetched until the visitor asks, or has a saved profile (then the list loads by itself,
+ * with nothing about the profile in the request). The profile's country goes to the server only when the visitor presses
+ * "Put organisations from <country> first": the readiness page promises that the profile does not leave the browser except for
+ * the verdict, and a country code in a request is part of it. The server does the ordering (`prefer`): a browser can only
+ * re-sort the page it was given, and the organisations of a small country are never among the largest twenty of the whole
+ * area (U1 of the UX verification).
  */
 export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   const { profile, ready } = useProfile();
@@ -25,15 +29,18 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   const [result, setResult] = useState<State>({ state: 'idle' });
   const [attempt, setAttempt] = useState(0);
   const seq = useRef(0);
-  const own = ready && profile && profile.country && profile.country !== 'XX' ? profile.country : '';
-  const go = asked || own !== '';
+  const saved = ready && profile && profile.country && profile.country !== 'XX' ? profile.country : '';
+  // The country is sent only after the visitor chooses to (see the comment above).
+  const [mine, setMine] = useState(false);
+  const own = mine ? saved : '';
+  const go = asked || saved !== '';
 
   useEffect(() => {
     if (!go) return;
     const controller = new AbortController();
     const mine = ++seq.current;
     setResult((r) => (r.state === 'done' ? r : { state: 'loading' }));
-    fetch(`/api/funding/${encodeURIComponent(callSlug)}/partners${country ? `?country=${country}` : ''}`, {
+    fetch(`/api/funding/${encodeURIComponent(callSlug)}/partners${country ? `?country=${country}` : own ? `?prefer=${own}` : ''}`, {
       headers: { accept: 'application/json' }, credentials: 'omit', signal: controller.signal,
     }).then(async (res) => {
       if (!res.ok) throw new Error(res.status === 429 ? 'Too many requests. Wait a minute and try again.' : 'The suggestions could not be loaded. Try again in a moment.');
@@ -44,14 +51,10 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
       setResult({ state: 'error', message: e instanceof Error ? e.message : 'The suggestions could not be loaded.' });
     });
     return () => controller.abort();
-  }, [go, callSlug, country, attempt]);
+  }, [go, callSlug, country, own, attempt]);
 
-  // The profile's country first (a stable sort: the ranking of the API holds inside each group).
   const data = result.state === 'done' ? result.data : null;
-  const partners = useMemo(() => {
-    if (!data) return [];
-    return own && !country ? [...data.partners].sort((a, b) => Number(b.country === own) - Number(a.country === own)) : data.partners;
-  }, [data, own, country]);
+  const partners = data?.partners ?? [];
 
   if (!go) {
     return (
@@ -73,26 +76,52 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
 
   const d = result.data;
   const countries = [{ value: '', label: 'All countries' }, ...d.countries.map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})` }))];
+  // The call names no capability category (or the category is too small): the list is the whole programme's, and says so.
+  const wide = d.area !== null && (d.area.kind === 'edf' || d.area.kind === 'horizon-family');
+  const ownHere = own ? d.countries.find((c) => c.country === own)?.organisations ?? 0 : 0;
+  const hint = own && !country
+    ? ownHere > 0
+      ? `Organisations from ${countryName(own)}, the country of your saved profile, are listed first (${ownHere} in this area).`
+      : `No organisation from ${countryName(own)}, the country of your saved profile, took part in an earlier project of this area.`
+    : wide ? 'Start with your country: the unfiltered list is led by the largest organisations of the whole programme.' : undefined;
+  const picker = d.area !== null && d.countries.length > 1 && (
+    <div className="flex flex-col gap-1">
+      <Select label="Show organisations from" options={countries} value={country} onChange={(e) => setCountry(e.target.value)} className="sm:max-w-xs" hint={hint} />
+      {saved !== '' && !country && (
+        <p className="m-0 flex flex-col items-start gap-0.5 text-small text-ink-muted">
+          <button type="button" onClick={() => setMine(!mine)} className="inline-flex min-h-8 items-center border-0 bg-transparent p-0 text-left font-sans text-small font-semibold text-link underline">
+            {mine ? 'Show the largest organisations of all countries instead' : `Put organisations from ${countryName(saved)} first`}
+          </button>
+          {!mine && <span>Your saved profile stays in this browser. This sends only the country code, {saved}, to our server with the request.</span>}
+        </p>
+      )}
+    </div>
+  );
   return (
     <div className="flex flex-col gap-4">
       {d.area === null ? (
         <p className="m-0 text-body text-ink-muted">{d.note}</p>
       ) : (
         <>
-          <p className="m-0 text-body">
-            Compared with <strong>{d.area.label}</strong>. {d.area.rule}
-            {d.area.broaderThanCall && ' The narrower area of this call has too few organisations, so the wider one is used.'}
-          </p>
+          {wide ? (
+            <p className="m-0 text-body">
+              {d.area.broaderThanCall
+                ? 'The narrower area of this call has too few organisations, so this list is'
+                : d.area.kind === 'edf' ? 'The code of this call names no capability category, so this list is' : 'This list is'}
+              {' '}compared with the <strong>whole programme</strong>: {d.area.label}. {d.area.rule}
+              {' '}It is led by the largest organisations of the programme. Choose a country first to see organisations closer to you.
+            </p>
+          ) : (
+            <p className="m-0 text-body">Compared with <strong>{d.area.label}</strong>. {d.area.rule}</p>
+          )}
+          {wide && picker}
           <p className="m-0 text-small text-ink-muted">
             {d.area.projects === 0 ? 'No earlier project of this area is held yet.' : (
               <>{formatNumber(d.area.organisations)} organisations in {formatNumber(d.area.projects)} projects{d.area.firstYear ? `, ${d.area.firstYear} to ${d.area.lastYear}` : ''}.
                 {' '}Ranked by the number of these projects an organisation took part in, then by the latest year.</>
             )}
           </p>
-          {d.countries.length > 1 && (
-            <Select label="Show organisations from" options={countries} value={country} onChange={(e) => setCountry(e.target.value)} className="sm:max-w-xs"
-              hint={own && !country ? `Organisations from ${countryName(own)}, the country of your saved profile, come first.` : undefined} />
-          )}
+          {!wide && picker}
           {partners.length === 0 ? (
             <p className="m-0 text-body text-ink-muted">{d.note ?? (country ? `No organisation from ${countryName(country)} took part in an earlier project of this area.` : 'No organisation found.')}</p>
           ) : (

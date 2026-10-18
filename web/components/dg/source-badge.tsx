@@ -23,7 +23,7 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
       <div className={cn('flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-mono text-ink-muted', className)}>
         <span>{source.sourceName} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
         {url ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 ml-auto font-sans text-small font-bold text-link">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 ml-auto inline-flex min-h-6 items-center font-sans text-small font-bold text-link">
             View original<span className="sr-only"> at {source.sourceName} (opens in new tab)</span>
           </a>
         ) : (

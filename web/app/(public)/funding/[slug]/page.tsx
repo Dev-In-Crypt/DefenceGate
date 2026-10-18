@@ -64,11 +64,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
+/** The id a part of the page has: its title in lower case with dashes. The index at the top links to these, and so do the tests. */
+const panelId = (title: string) => title.toLowerCase().replace(/\W+/g, '-');
+
 function Panel({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
-  const id = title.toLowerCase().replace(/\W+/g, '-');
+  const id = panelId(title);
   return (
     <section aria-labelledby={id} className={cn('flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6', className)}>
-      <h2 id={id} className="m-0 text-h3">{title}</h2>
+      <h2 id={id} className="m-0 scroll-mt-4 text-h3">{title}</h2>
       {children}
     </section>
   );
@@ -97,6 +100,16 @@ export default async function CallDetailPage({ params }: Props) {
   const whoLabels = new Set(who.map((r) => r.label));
   const terms = call.eligibility.filter((r) => !whoLabels.has(r.label));
   const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
+  // The parts of the page that are present, in order: the index at the top links to them.
+  const canApply = Boolean(call.documentEligibility) || call.eligibilityState === 'not_read' || (call.programme === 'EDF' && !closed);
+  const part = (title: string, label = title) => ({ id: panelId(title), label });
+  const toc = [
+    hasScope && part('Scope'), part('Who can apply'), call.rulesApply && part('Rules that apply'), ukraine && part('Ukrainian participants'),
+    canApply && part('Can you apply?'), call.partnerArea && part('Partners from earlier projects'),
+    call.cascade !== null && call.cascade !== undefined && part('Financial support to third parties', 'Cascade funding'),
+    part('Terms'), documents.length > 0 && part('Official documents'), call.conditionsText && { id: 'conditions', label: 'Conditions as published' },
+    part('Source and attribution', 'Source'), related.length > 0 && { id: 'related', label: 'Related calls' },
+  ].filter((t): t is { id: string; label: string } => Boolean(t));
 
   return (
     <>
@@ -137,6 +150,16 @@ export default async function CallDetailPage({ params }: Props) {
 
           {/* Deadline (or opening date) first on mobile: the hero element */}
           <DeadlineBadge info={d} opening={opens} size="lg" className="w-full lg:hidden" />
+
+          {toc.length >= 5 && (
+            // A call page runs to some twenty screens at 375 px: the way to its parts is one tap from the top (U14).
+            <nav aria-label="On this page" className="flex flex-col gap-1 rounded-lg bg-surface px-5 py-3 sm:px-6">
+              <p className="m-0 text-label text-ink">On this page</p>
+              <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
+                {toc.map((t) => <li key={t.id}><a href={`#${t.id}`} className="inline-flex min-h-8 items-center text-small font-semibold">{t.label}</a></li>)}
+              </ul>
+            </nav>
+          )}
 
           <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
             <FactCell label="Budget">
@@ -319,7 +342,7 @@ export default async function CallDetailPage({ params }: Props) {
           )}
 
           {call.conditionsText && (
-            <details className="group rounded-lg bg-surface px-5 sm:px-6">
+            <details id="conditions" className="group scroll-mt-4 rounded-lg bg-surface px-5 sm:px-6">
               <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-body font-semibold [&::-webkit-details-marker]:hidden">
                 Conditions as published by the source
                 <Icon icon={Plus} className="shrink-0 text-ink-muted transition-transform duration-dg group-open:rotate-45" />
@@ -351,7 +374,7 @@ export default async function CallDetailPage({ params }: Props) {
 
       {related.length > 0 && (
         <section aria-labelledby="related" className="flex flex-col gap-4">
-          <h2 id="related" className="m-0 text-h2">Related calls</h2>
+          <h2 id="related" className="m-0 scroll-mt-4 text-h2">Related calls</h2>
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
             {related.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" /></li>)}
           </ul>

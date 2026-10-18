@@ -160,6 +160,23 @@ def test_the_country_filter_and_the_country_counts(client, conn, space):
     assert client.get(f"/v1/funding/{slug}/partners", params={"country": "Spain"}).status_code == 422
 
 
+def test_prefer_lists_that_countrys_organisations_first_and_keeps_the_others(client, conn, space):
+    # U1 of the UX verification: the page said the saved country comes first, but the browser only re-sorted the top
+    # `limit` organisations of the whole area, and an organisation from a small country is never among them.
+    _, slug = call(conn, "edf1", "EDF-2026-DA-SPACE-PRS-STEP")
+    plain = [p["name"] for p in partners(client, slug, limit=2)["partners"]]
+    assert plain == ["Alpha SA", "Bravo GmbH"], "without it, the largest of the area: no Swedish organisation in the first two"
+    body = partners(client, slug, prefer="se", limit=2)
+    assert [p["name"] for p in body["partners"]] == ["Echo AB", "Alpha SA"] and body["prefer"] == "SE"
+    assert body["total"] == 5, "nothing is filtered out"
+    # two from the preferred country, then the rest in the usual order
+    assert [p["name"] for p in partners(client, slug, prefer="ES")["partners"]] == ["Charlie SL", "Delta SA", "Alpha SA", "Bravo GmbH", "Echo AB"]
+    # a country with no organisation in the area changes nothing; a country filter wins over the preference
+    assert [p["name"] for p in partners(client, slug, prefer="PL")["partners"]] == [p["name"] for p in partners(client, slug)["partners"]]
+    assert [p["name"] for p in partners(client, slug, prefer="SE", country="ES")["partners"]] == ["Charlie SL", "Delta SA"]
+    assert client.get(f"/v1/funding/{slug}/partners", params={"prefer": "Spain"}).status_code == 422
+
+
 def test_the_limit_is_honoured_and_bounded(client, conn, space):
     _, slug = call(conn, "edf1", "EDF-2026-DA-SPACE-PRS-STEP")
     assert len(partners(client, slug, limit=2)["partners"]) == 2

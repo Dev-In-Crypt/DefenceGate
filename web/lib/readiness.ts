@@ -40,6 +40,20 @@ export function ruleSentence(texts: Record<string, string>): string {
   return texts.requires ?? texts.info ?? '';
 }
 
+/**
+ * The programme keys of the rules, in words (U13: "Appears in the rules of GENERAL", "NATO-SUPPLY", "EDIP-USI" were shown as they are
+ * stored). A key that is not here is shown as it is.
+ */
+export const PROGRAMME_NAME: Record<string, string> = {
+  EDF: 'EDF', EDIP: 'EDIP', 'EDIP-USI': 'EDIP Ukraine Support Instrument', SAFE: 'SAFE', 'NATO-SUPPLY': 'NATO and NSPA supply',
+  GENERAL: 'the general requirements',
+};
+export const programmeName = (code: string): string => PROGRAMME_NAME[code] ?? code;
+/** "A, B and C" */
+export function joinWords(items: string[]): string {
+  return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 export const OBLIGATION_WORD = { mandatory: 'Required', conditional: 'Only in some cases', recommended: 'Recommended' } as const;
 
 export const CATEGORY_WORD: Record<string, string> = {
@@ -57,14 +71,15 @@ export function formatRange(m: RMoney | null): string {
   return m.min === m.max ? `${cur} ${nf.format(m.min)}` : `${cur} ${nf.format(m.min)} to ${nf.format(m.max)}`;
 }
 
-/** Days as the sources speak: "immediate", "3 to 8 months", "4 to 20 days". */
+/** Days as the sources speak: "immediate", "3 to 8 months", "4 to 20 days"; when they give no words, "no time needed" for zero. */
 export function formatDays(s: RSpan | null): string {
   if (!s || s.min === null || s.max === null) return 'Not stated in the sources';
   return s.text ?? daysRange(s.min, s.max);
 }
 
+/** "0 to 0 days" read as a mistake (U8): a step that is issued at once needs no time. */
 export function daysRange(min: number, max: number): string {
-  if (max === 0) return 'immediate';
+  if (max === 0) return 'no time needed';
   const unit = (n: number) => (n >= 60 ? `${Math.round(n / 30)} months` : `${n} days`);
   if (min === max) return unit(max);
   return max >= 60 && min >= 60 ? `${Math.round(min / 30)} to ${Math.round(max / 30)} months` : `${min} to ${max} days`;

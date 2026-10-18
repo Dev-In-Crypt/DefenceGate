@@ -14,16 +14,16 @@
  * the verdict (it asks the same of every applicant); it is listed as a condition that comes with the verdict, in the
  * badge's tooltip and on the call page.
  */
-import { check, type EligibilityFacts, type Line, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
+import { check, consortiumUnclear, unclearConsortiumText, type EligibilityFacts, type Line, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
 import type { Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 
 export type Fit = Verdict | 'unknown';
 
-export const FIT_WORD: Record<Fit, string> = { yes: 'Eligible', check: 'Check', no: 'Not eligible', unknown: 'Unknown' };
+export const FIT_WORD: Record<Fit, string> = { yes: 'Eligible', check: 'Conditions to check', no: 'Blocked', unknown: 'Rules not read' };
 export const FIT_MEANING: Record<Fit, string> = {
-  yes: 'Your saved profile meets every rule read from the call’s document that concerns it. Other conditions may apply: open the call.',
-  check: 'Some rule needs a closer look, something must be obtained first, or it depends on an answer. Open the call to see what.',
+  yes: 'Your saved profile meets every rule read from the call’s document that concerns it, and none carries a condition. Other conditions may apply: open the call.',
+  check: 'No rule read excludes your saved profile, but something needs a closer look, must be obtained first, or depends on an answer. Open the call to see what.',
   no: 'A rule of the call’s document or of its programme excludes your saved profile.',
   unknown: 'No rule that can be compared with your profile has been read for this call.',
 };
@@ -47,12 +47,14 @@ export interface FitResult {
   result: Result | null;
   /** What the call asks of every applicant and the profile cannot answer: shown beside the verdict, never hidden by it. */
   conditions: string[];
+  /** The rules that exclude the profile (`fit` is `no`), in words. */
+  blockedBy: string[];
 }
 
 /** The fit of one call: its facts against the saved profile. `facts` null or empty: the rules were not read. */
 export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profile | null): FitResult {
   const cp = profile ? checkProfileOf(profile) : null;
-  if (!facts || !cp || Object.values(facts).every((f) => f === undefined)) return { fit: 'unknown', result: null, conditions: [] };
+  if (!facts || !cp || Object.values(facts).every((f) => f === undefined)) return { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
   const result = check(facts, cp);
   const lines: Line[] = [...result.lines];
   // What the form leaves out when the profile has no answer: an SME-only call and an unknown size.
@@ -60,15 +62,17 @@ export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profi
   if (sme && sme.value === true && !cp.orgType) {
     lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: 'The call is reserved for SMEs and your profile does not give a size class.', quote: sme.quote });
   }
-  if (lines.length === 0) return { fit: 'unknown', result: null, conditions: [] };
+  if (lines.length === 0) return { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
   const verdict = lines.reduce<Verdict>((v, l) => (v === 'no' || l.verdict === 'no' ? 'no' : v === 'check' || l.verdict === 'check' ? 'check' : 'yes'), 'yes');
   const conditions: string[] = [];
+  const n = facts.min_entities?.value;
+  const k = facts.min_countries?.value;
   if (facts.consortium_required?.value === true) {
-    const n = facts.min_entities?.value;
-    const k = facts.min_countries?.value;
     conditions.push(`A consortium is required: ${typeof n === 'number' ? `at least ${n} legal entities` : 'several legal entities'}${typeof k === 'number' ? ` from at least ${k} countries` : ''}. Your profile does not say whether you have partners.`);
+  } else if (consortiumUnclear(facts)) {
+    conditions.push(`The document is unclear about a consortium: ${unclearConsortiumText(facts)} Read it.`);
   }
-  return { fit: verdict, result: { verdict, lines }, conditions };
+  return { fit: verdict, result: { verdict, lines }, conditions, blockedBy: lines.filter((l) => l.verdict === 'no').map((l) => l.label) };
 }
 
 /** The calls of a list that the filter "Fits my profile" keeps: eligible, or worth a look. */
@@ -126,8 +130,58 @@ export function programmeFit(assessment: Pick<Assessment, 'assessments' | 'roadm
  */
 export function withProgramme(doc: FitResult, prog: ProgrammeFit | null): FitResult {
   if (!prog) return doc;
-  if (prog.fit === 'no') return { ...doc, fit: 'no', conditions: [...prog.because, ...doc.conditions] };
+  if (prog.fit === 'no') return { ...doc, fit: 'no', conditions: [...prog.because, ...doc.conditions], blockedBy: [...prog.because, ...doc.blockedBy] };
   if (doc.fit === 'unknown') return doc;
   const fit: Fit = prog.fit === 'check' && doc.fit === 'yes' ? 'check' : doc.fit;
   return { ...doc, fit, conditions: [...prog.because, ...doc.conditions] };
+}
+
+// ---------------------------------------------------------------- what the badge says (UX walk-through U4)
+
+/**
+ * The verdict as shown. A "yes" that comes with a condition (a consortium to form, an unclear passage, a step the programme
+ * asks first) is shown as "conditions to check", never as "eligible": the sorting of the list and the filter do not change,
+ * both keep "yes" and "check" together.
+ */
+export function shownFit(r: FitResult): Fit {
+  return r.fit === 'yes' && r.conditions.length > 0 ? 'check' : r.fit;
+}
+
+/** How many things the visitor still has to look at: the lines of the document that say "check" and the conditions. */
+export function conditionCount(r: FitResult): number {
+  return (r.result?.lines.filter((l) => l.verdict === 'check').length ?? 0) + r.conditions.length;
+}
+
+/**
+ * The badge in words, informative without deciding more than the data allows. `word` is short enough for a card;
+ * `detail` is the same with the reasons, for the tooltip and for a screen reader.
+ */
+export function fitLabel(r: FitResult): { word: string; detail: string } {
+  const fit = shownFit(r);
+  if (fit === 'no') {
+    // "European Defence Industry Programme (EDIP): the Programme: Established in the Union ..." is the programme and the rule; the card has room for the rule.
+    const rule = (b: string) => (b.includes(': ') ? b.slice(b.lastIndexOf(': ') + 2) : b);
+    const first = rule(r.blockedBy[0] ?? 'a rule of the call');
+    const more = r.blockedBy.length - 1;
+    return { word: `Blocked by: ${first}${more > 0 ? ` and ${more} more` : ''}`, detail: `${FIT_MEANING.no} Blocked by: ${r.blockedBy.join('; ') || first}.` };
+  }
+  if (fit === 'check') {
+    const n = conditionCount(r);
+    const word = n > 0 ? `Nothing known blocks you, ${n} ${n === 1 ? 'condition' : 'conditions'} to check` : 'Nothing known blocks you';
+    return { word, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
+  }
+  if (fit === 'yes') return { word: FIT_WORD.yes, detail: FIT_MEANING.yes };
+  return { word: FIT_WORD.unknown, detail: FIT_MEANING.unknown };
+}
+
+/** One sentence above a list of lines: how many need a look, and whether any is a plain no (UX walk-through U4). */
+export function linesSummary(lines: Line[]): string {
+  const n = lines.length;
+  const no = lines.filter((l) => l.verdict === 'no').length;
+  const check = lines.filter((l) => l.verdict === 'check').length;
+  if (n === 0) return '';
+  if (n === 1) return no ? 'The one line is a no on your answers: read it first.' : check ? 'The one line needs your check; it is not a no.' : 'The one line is allowed on your answers. The call’s other conditions still apply.';
+  if (no > 0) return `${no} of ${n} lines ${no === 1 ? 'is a no' : 'are a no'} on your answers: read ${no === 1 ? 'it' : 'them'} first.`;
+  if (check > 0) return `${check} of ${n} lines ${check === 1 ? 'needs' : 'need'} your check; none is a no.`;
+  return `All ${n} lines are allowed on your answers. The call’s other conditions still apply.`;
 }

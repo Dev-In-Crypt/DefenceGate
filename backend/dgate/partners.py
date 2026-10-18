@@ -184,9 +184,13 @@ def _evidence(conn, project_ids: list[int], heads: dict[int, list[int]]) -> dict
             for h, found in seen.items()}
 
 
-def partners_of(conn, topic_code: str | None, *, country: str | None = None, limit: int = 20) -> dict[str, Any]:
+def partners_of(conn, topic_code: str | None, *, country: str | None = None, prefer: str | None = None,
+                limit: int = 20) -> dict[str, Any]:
+    """`country` keeps only that country. `prefer` keeps every country but lists that one first (U1 of the UX
+    verification: the page promised the visitor's own country first, and a sort done by the browser over the 20
+    largest organisations of the whole area found none, because the Polish ones rank below the top 20)."""
     areas = areas_of(topic_code)
-    base: dict[str, Any] = {"area": None, "partners": [], "countries": [], "total": 0, "country": country}
+    base: dict[str, Any] = {"area": None, "partners": [], "countries": [], "total": 0, "country": country, "prefer": prefer}
     if not areas:
         base["note"] = ("No earlier projects can be compared with this call: the funding programmes of Digital Europe, "
                         "CEF and the national calls are not in the project data we hold.")
@@ -219,7 +223,8 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, lim
     for o in orgs:
         by_country[o["country"]] = by_country.get(o["country"], 0) + 1
     listed = sorted((o for o in orgs if not country or o["country"] == country),
-                    key=lambda o: (-o["projects"], -(o["last"] or 0), -o["coordinated"], o["id"]))[:limit]
+                    key=lambda o: (bool(prefer) and not country and o["country"] != prefer,
+                                   -o["projects"], -(o["last"] or 0), -o["coordinated"], o["id"]))[:limit]
     evidence = _evidence(conn, [r["id"] for r in found], {o["id"]: o["members"] for o in listed}) if listed else {}
     years = [r["year"] for r in found if r["year"]]
     return {
@@ -238,6 +243,7 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, lim
                       for c, n in sorted(by_country.items(), key=lambda kv: (-kv[1], kv[0]))[:40]],
         "total": by_country.get(country, 0) if country else len(orgs),
         "country": country,
+        "prefer": prefer,
         "note": None,
     }
 
@@ -263,6 +269,7 @@ def _id_of(slug: str) -> int:
 def get_partners(
     slug: str,
     country: str | None = Query(None, pattern=r"^[A-Za-z]{2}$"),
+    prefer: str | None = Query(None, pattern=r"^[A-Za-z]{2}$", description="list this country's organisations first"),
     limit: int = Query(20, ge=1, le=MAX_LIMIT),
     conn=Depends(get_conn),
 ):
@@ -272,7 +279,8 @@ def get_partners(
         raise HTTPException(404, "no such call")
     if row["suppressed"]:
         raise removed()
-    out = partners_of(conn, row["topic_code"], country=country.upper() if country else None, limit=limit)
+    out = partners_of(conn, row["topic_code"], country=country.upper() if country else None,
+                      prefer=prefer.upper() if prefer else None, limit=limit)
     out["call"] = {"id": str(row["id"]), "slug": make_slug(row["id"], row["title"]), "topic": row["topic_code"]}
     out["source"] = _sources_read_at(conn)
     return out

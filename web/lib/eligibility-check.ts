@@ -52,6 +52,33 @@ export function factText(f: EligibilityFact): string {
   return String(v);
 }
 
+/**
+ * "No consortium is required" next to a smallest number of entities or countries above one contradicts itself (call 193 of
+ * 18 October 2026: "No" and "at least 4 countries"; the note says a single applicant is allowed only in one case). The page
+ * must not print the bare "No": it says the document is unclear and where the numbers are.
+ */
+export function consortiumUnclear(facts: EligibilityFacts): boolean {
+  if (facts.consortium_required?.value !== false) return false;
+  const n = facts.min_entities?.value;
+  const k = facts.min_countries?.value;
+  return (typeof n === 'number' && n >= 2) || (typeof k === 'number' && k >= 2);
+}
+
+export function unclearConsortiumText(facts: EligibilityFacts): string {
+  const n = facts.min_entities?.value;
+  const k = facts.min_countries?.value;
+  const asks = [typeof n === 'number' && n >= 2 ? `at least ${n} legal entities` : null, typeof k === 'number' && k >= 2 ? `at least ${k} countries` : null].filter(Boolean).join(' and ');
+  return `it says no consortium is required and also asks for ${asks}.`;
+}
+
+/** The value of a fact as the page prints it: the bare words, except where they would mislead (see `consortiumUnclear`). */
+export function factDisplay(key: string, facts: EligibilityFacts): string {
+  const f = facts[key];
+  if (!f) return '';
+  if (key === 'consortium_required' && consortiumUnclear(facts)) return `The document is unclear, read it: ${unclearConsortiumText(facts)}`;
+  return factText(f);
+}
+
 const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? 'no' : a === 'check' || b === 'check' ? 'check' : 'yes');
 
 function withNote(line: Line, fact: EligibilityFact | undefined): Line {
@@ -118,7 +145,7 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     const need = `${typeof n === 'number' ? `at least ${n} legal entities` : 'a consortium'}${typeof k === 'number' ? ` from at least ${k} countries` : ''}`;
     if (cons.value === true && p.hasPartners === 'yes') lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: `A consortium is required: ${need}.`, quote: cons.quote }, cons));
     else if (cons.value === true) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `A consortium is required: ${need}. You would need to find partners first.`, quote: cons.quote });
-    else if (typeof n === 'number' && n >= 2) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `The call says no consortium is required, and also asks for at least ${n} legal entities${typeof k === 'number' ? ` from at least ${k} countries` : ''}. Check the document before you go on.${cons.note ? ` ${cons.note}` : ''}`, quote: cons.quote });
+    else if (consortiumUnclear(facts)) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `The document is unclear: ${unclearConsortiumText(facts)} Check the document before you go on.${cons.note ? ` ${cons.note}` : ''}`, quote: cons.quote });
     else lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: 'No consortium is required.', quote: cons.quote }, cons));
   }
 

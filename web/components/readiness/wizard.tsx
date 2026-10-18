@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { STATUS_LABEL, visibleCodes, type Profile, type Status } from '@/lib/profile';
+import { STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
@@ -45,20 +45,44 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
   const [step, setStep] = useState<number | null>(null);
   const [needCountry, setNeedCountry] = useState(false);
   const [needForm, setNeedForm] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [notice, setNotice] = useState('');
+  // After a step change or a refused "Next", focus goes where the visitor's attention must be (U16), not stays on the button.
+  const [focusTarget, setFocusTarget] = useState<'heading' | 'error' | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const clearRef = useRef<HTMLButtonElement>(null);
+  const keepRef = useRef<HTMLButtonElement>(null);
+
+  // `?step=3` (the link under "answers are missing" on the results) opens that step.
+  useEffect(() => {
+    const n = Number(new URLSearchParams(window.location.search).get('step'));
+    if (Number.isInteger(n) && n >= 1 && n <= 5) setStep(n);
+  }, []);
+  useEffect(() => {
+    if (focusTarget === null) return;
+    if (focusTarget === 'heading') headingRef.current?.focus();
+    else formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"], input[name="legal-form"]')?.focus();
+    setFocusTarget(null);
+  }, [focusTarget]);
+  useEffect(() => { if (confirmClear) keepRef.current?.focus(); }, [confirmClear]);
 
   if (!ready || profile === null) {
     return <p role="status" className="m-0 text-body text-ink-muted">Loading your saved answers from this browser…</p>;
   }
-  const current = step ?? Math.min(Math.max(profile.step, 1), 5);
+  const missing = unanswered(profile);
+  // A finished profile is changed where something is still unanswered; a profile in progress is resumed where it was left.
+  const current = step ?? (profile.step >= 6 ? firstStepToAnswer(profile) : Math.min(Math.max(profile.step, 1), 5));
   const set = <K extends keyof Profile>(key: K, value: Profile[K]) => update((p) => ({ ...p, [key]: value }));
   const go = (n: number) => {
     setNeedCountry(false);
     setNeedForm(false);
     setStep(n);
     update((p) => ({ ...p, step: Math.max(p.step, n) }));
+    setFocusTarget('heading');
   };
   const next = () => {
-    if (current === 1 && (!profile.country || !profile.legalForm)) { setNeedCountry(!profile.country); setNeedForm(!profile.legalForm); return; }
+    if (current === 1 && (!profile.country || !profile.legalForm)) { setNeedCountry(!profile.country); setNeedForm(!profile.legalForm); setFocusTarget('error'); return; }
     if (current === 5) {
       update((p) => ({ ...p, step: 6 }));
       router.push('/readiness/results');
@@ -74,12 +98,32 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
         <p className="m-0 text-small font-bold" aria-live="polite">Step {current} of 5: {STEPS[current - 1]}</p>
         <ol className="m-0 flex list-none gap-1 p-0" aria-label="Steps">
           {STEPS.map((title, i) => (
-            <li key={title} className="flex-1" aria-current={i + 1 === current ? 'step' : undefined}>
-              <span className={`block h-2 rounded-pill ${i + 1 < current ? 'bg-primary' : i + 1 === current ? 'bg-ink' : 'bg-surface-inset'}`} />
-              <span className="sr-only">{title}{i + 1 < current ? ' (done)' : i + 1 === current ? ' (current)' : ''}</span>
+            <li key={title} className="flex-1">
+              {/* A button 44 px high with the 8 px bar inside: any step can be reached, and the thin bar is not the only target. */}
+              <button type="button" onClick={() => go(i + 1)} aria-current={i + 1 === current ? 'step' : undefined}
+                className="flex min-h-11 w-full flex-col justify-center border-0 bg-transparent p-0">
+                <span className={`block h-2 w-full rounded-pill ${i + 1 < current ? 'bg-primary' : i + 1 === current ? 'bg-ink' : 'bg-surface-inset'}`} />
+                <span className="sr-only">Go to step {i + 1}: {title}{i + 1 < current ? ' (done)' : i + 1 === current ? ' (current)' : ''}</span>
+              </button>
             </li>
           ))}
         </ol>
+        {missing.length > 0 && profile.step >= 6 && (
+          <details className="text-small">
+            <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold">
+              {missing.length === 1 ? '1 question has no answer yet' : `${missing.length} questions have no answer yet`}
+            </summary>
+            <ul className="m-0 flex list-none flex-col gap-0.5 p-0 pb-2">
+              {missing.map((m) => (
+                <li key={m.question}>
+                  <button type="button" onClick={() => go(m.step)} className="inline-flex min-h-8 items-center border-0 bg-transparent p-0 text-left font-sans text-small text-link underline">
+                    Step {m.step}: {m.question}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </nav>
 
       {!stored && (
@@ -88,8 +132,8 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
         </p>
       )}
 
-      <form className="flex flex-col gap-6 rounded-lg bg-surface p-5 sm:p-6" onSubmit={(e) => { e.preventDefault(); next(); }} aria-label={STEPS[current - 1]}>
-        <h2 className="m-0 text-h3">{STEPS[current - 1]}</h2>
+      <form ref={formRef} className="flex flex-col gap-6 rounded-lg bg-surface p-5 sm:p-6" onSubmit={(e) => { e.preventDefault(); next(); }} aria-label={STEPS[current - 1]}>
+        <h2 ref={headingRef} tabIndex={-1} className="m-0 text-h3">{STEPS[current - 1]}</h2>
 
         {current === 1 && (
           <div className="flex flex-col gap-4">
@@ -216,13 +260,90 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
         </div>
       </form>
 
-      <p className="m-0 flex flex-wrap items-center gap-x-4 text-small text-ink-muted">
-        Answers are saved in this browser as you go.
-        <button type="button" onClick={() => { clear(); setStep(1); }}
-          className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent p-0 font-sans text-small font-bold text-link underline">
-          <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />Clear my answers
-        </button>
-      </p>
+      <div className="flex flex-col gap-3 text-small text-ink-muted">
+        <p className="m-0 flex flex-wrap items-center gap-x-4">
+          Answers are saved in this browser as you go.
+          {!confirmClear && (
+            <button ref={clearRef} type="button" onClick={() => setConfirmClear(true)}
+              className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent p-0 font-sans text-small font-bold text-link underline">
+              <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />Clear my answers
+            </button>
+          )}
+        </p>
+        {confirmClear && (
+          <div role="alertdialog" aria-label="Clear my answers" aria-describedby="clear-text" className="flex flex-col gap-2 rounded-md bg-surface-inset p-4 text-ink">
+            <p id="clear-text" className="m-0 font-semibold">Clear every answer saved in this browser? This cannot be undone. Save them to a file first if you may need them again.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" onClick={() => { clear(); setStep(1); setConfirmClear(false); setNotice('Your answers were cleared from this browser.'); setFocusTarget('heading'); }}>Yes, clear them</Button>
+              <button ref={keepRef} type="button" onClick={() => { setConfirmClear(false); window.setTimeout(() => clearRef.current?.focus(), 0); }}
+                className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 font-sans text-small font-bold text-ink">Keep my answers</button>
+            </div>
+          </div>
+        )}
+        {notice && <p role="status" className="m-0 font-semibold text-ink">{notice}</p>}
+        <Keep profile={profile} onImport={(p) => { update(() => p); setStep(null); setNotice('Answers loaded from the file. They replace the ones that were here.'); }} />
+      </div>
     </div>
+  );
+}
+
+/**
+ * Taking the answers elsewhere (U7): a consultant who checks a second client must not overwrite the first, and an answer set
+ * should survive a cleared browser. The text is the block the browser stores; a file or a paste is checked field by field on the way in.
+ */
+function Keep({ profile, onImport }: { profile: Profile; onImport: (p: Profile) => void }) {
+  const [text, setText] = useState('');
+  const [problem, setProblem] = useState('');
+  const [copied, setCopied] = useState(false);
+  const block = exportProfile(profile);
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([block], { type: 'application/json' }));
+    const a = document.createElement('a');
+    const who = profile.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+    a.href = url;
+    a.download = `defencegate-answers${who ? `-${who}` : ''}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const load = (raw: string) => {
+    const r = importProfile(raw);
+    if (!r.ok) { setProblem(r.reason); return; }
+    setProblem('');
+    setText('');
+    onImport(r.profile);
+  };
+  return (
+    <details>
+      <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold text-ink">Keep my answers in a file, or load answers from one</summary>
+      <div className="flex flex-col gap-3 pb-2">
+        <p className="m-0 max-w-[70ch]">
+          The file holds exactly what this browser holds, including the company name if you entered one. Use it to check another company without losing this one,
+          or to move to another computer. Nothing is sent to our server.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="secondary" icon={Download} onClick={download}>Download my answers</Button>
+          <Button type="button" variant="secondary" onClick={() => { void navigator.clipboard?.writeText(block).then(() => setCopied(true), () => setCopied(false)); }}>Copy my answers</Button>
+        </div>
+        {copied && <p role="status" className="m-0 font-semibold text-ink">Copied.</p>}
+        <label className="flex flex-col gap-1 text-label text-ink">Load answers from a file
+          <input type="file" accept="application/json,.json" className="min-h-11 font-sans text-small"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (!f) return;
+              if (f.size > 20_000) setProblem('That file is too large to be a set of answers from this site.');
+              else void f.text().then(load);
+            }} />
+        </label>
+        <label className="flex flex-col gap-1 text-label text-ink">Or paste the copied answers here
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={20_000} spellCheck={false}
+            className="rounded-md border-strong border-line bg-surface p-3 font-mono text-small text-ink" />
+        </label>
+        <div><Button type="button" variant="secondary" icon={Upload} onClick={() => load(text)} disabled={text.trim() === ''}>Load the pasted answers</Button></div>
+        {problem && <p role="alert" className="m-0 font-semibold text-alert">{problem}</p>}
+      </div>
+    </details>
   );
 }

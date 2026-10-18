@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, formatDays, formatRange, isoDay, requirementSlug } from '@/lib/readiness';
+import { CATEGORY_WORD, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug } from '@/lib/readiness';
 import type { RequirementSummary } from '@/lib/readiness-types';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { Button } from '@/components/dg/button';
@@ -29,7 +29,7 @@ function Card({ r }: { r: RequirementSummary }) {
         </dl>
       )}
       <p className="m-0 text-small text-ink-muted">
-        {r.programmes.length > 0 ? `Appears in the rules of ${r.programmes.join(', ')}. ` : ''}Last reviewed {isoDay(r.lastReviewed)}.
+        {r.programmes.length > 0 ? `Appears in the rules of ${joinWords(r.programmes.map(programmeName))}. ` : ''}Last reviewed {isoDay(r.lastReviewed)}.
       </p>
     </li>
   );
