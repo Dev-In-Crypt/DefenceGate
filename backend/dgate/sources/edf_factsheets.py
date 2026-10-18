@@ -37,6 +37,7 @@ from urllib.robotparser import RobotFileParser
 import httpx
 from pydantic import BaseModel
 
+from ..normalise import redact_emails
 from . import USER_AGENT, RateLimited, retry_after
 from .cordis import RobotsDisallowed
 
@@ -253,7 +254,7 @@ def read_pdf(content: bytes) -> FactsheetText:
             m = _DESCRIPTION.search(text)
             out.append(text[:m.start()] if m else text)
     return FactsheetText(hashlib.sha256(content).hexdigest(), len(reader.pages),
-                         "\n".join(layout), "\n".join(plain))
+                         redact_emails("\n".join(layout)), redact_emails("\n".join(plain)))
 
 
 # ------------------------------------------------------------------ what the model reports

@@ -37,7 +37,7 @@ import psycopg
 from . import db
 from .classify import CORE_SQL, military_cpv_codes
 from .config import settings
-from .normalise import _country2, normalise_identifier
+from .normalise import _country2, looks_like_contact, normalise_identifier, redact_emails
 from .rawstore import BundleWriter, build_store, storage_key
 from .resolution import Resolution, resolve
 from .resolution.cascade import add_review
@@ -195,6 +195,64 @@ def is_natural_person(name: str, identifier: str | None = None, country: str | N
     return person_reason(name, identifier, country) is not None
 
 
+# ----------------------------------------------------------------------------- names that are not a supplier
+#
+# WP-39 (verify2-abuse N8, 18 October 2026): the winner block of a notice also carries text that is no
+# organisation. Measured on production: a placeholder ("keine Angabe", DE0000000), a consortium written as
+# one string ("Lider konsorcjum: A, Partner konsorcjum: B": 109 organisations, 143 awards), one name with a
+# replacement character ("Zak¿ady") and, in principle, a telephone number or an address in the name field.
+# A role note after a single company ("Stekop S.A. - Lider") is removed and the company kept; a string that
+# still names a consortium or several parties afterwards is not a supplier. Skipped winners are counted.
+
+_PLACEHOLDERS = frozenset("""
+    keine angabe|keine angaben|ka|na|n a|none|nil|null|unknown|unbekannt|nicht angegeben|nicht bekannt|
+    not available|not applicable|not specified|not stated|not known|no data|no name|brak|brak danych|bez nazwy|
+    test|anonymous|anonym|anonyme|onbekend|niet bekend|inconnu|neant|non renseigne|non communique|sconosciuto|
+    desconocido|tbd|tba|various|diverse|other|others|sonstige|nn|n n
+""".replace("\n", "").split("|"))
+_PLACEHOLDERS = frozenset(p.strip() for p in _PLACEHOLDERS if p.strip())
+_ROLE_HEAD = re.compile(
+    r"^\s*(?:konsorcjum(?:\s+firm|\s+w\s+sk[lł]adzie)?\s*:\s*)?"
+    r"(?:(?:lider|partner|cz[lł]onek)\s+konsorcjum|lider|leader)\s*[:\-–—]\s*", re.IGNORECASE)
+_ROLE_TAIL = re.compile(
+    r"(?:\s*[-–—(,]\s*(?:lider|leader|partner|cz[lł]onek|mandataire|membre)"
+    r"(?:\s+(?:konsorcjum|du\s+groupement|groupement|consortium))?|\s+(?:mandataire|lider)(?:\s+groupement)?)"
+    r"\s*\)?\s*$", re.IGNORECASE)
+_CONSORTIUM = re.compile(
+    r"konsorcjum|konsortium|consortium|groupement|mandataire|cotraitant|bietergemeinschaft|"
+    r"arbeitsgemeinschaft|\barge\b|joint[- ]venture|cz[lł]onek\s+konsorcjum|\b(?:lider|partner)\s*[:\-–—]",
+    re.IGNORECASE)
+# U+FFFD, a "¿" inside a word (a code page lost a letter: "Zak¿ady"), UTF-8 read as Latin-1 ("Ã©", "Â ").
+_GARBLED = re.compile("\ufffd|(?<=\\w)\u00bf(?=\\w)|[\u00c3\u00c2][\u0080-\u00bf]")
+_PHONE_IN_NAME = re.compile(r"\+\d[\d\s().-]{6,}\d|\b(?:tel|fax|phone|tlf)\b\.?\s*:?\s*[\d(+]", re.IGNORECASE)
+
+
+def _fold_placeholder(name: str) -> str:
+    return " ".join(_words(name.replace("/", " ")))
+
+
+def clean_supplier_name(name: str) -> tuple[str | None, str]:
+    """(why this winner is not a supplier or None, the name to keep). Role notes are stripped; a name
+    that is a placeholder, a consortium, garbled or carries contact details is refused."""
+    raw = (name or "").strip()
+    folded = _fold_placeholder(raw)
+    if _GARBLED.search(raw):
+        return "garbled", raw
+    if redact_emails(raw) != raw or _PHONE_IN_NAME.search(raw):
+        return "contact_in_name", raw
+    if folded in _PLACEHOLDERS or len(re.findall(r"[^\W\d_]", raw)) < 2 or re.fullmatch(r"(.)\1{1,}", folded.replace(" ", "")):
+        return "placeholder", raw
+    cleaned = raw
+    for _ in range(3):                        # "Konsorcjum firm: Lider konsorcjum: X S.A. - lider": a few layers at most
+        stripped = _ROLE_TAIL.sub("", _ROLE_HEAD.sub("", cleaned))
+        if stripped == cleaned:
+            break
+        cleaned = stripped.strip(" ,;-–—")
+    if _CONSORTIUM.search(cleaned):
+        return "consortium_string", raw
+    return None, cleaned or raw
+
+
 # ----------------------------------------------------------------------------- reading a record
 
 @dataclass
@@ -261,7 +319,8 @@ def read_award(rec: dict[str, Any]) -> Read:
         country = countries[i] if len(countries) == n else one_country
         ident = idents[i] if len(idents) == n else (idents[0] if n == 1 and idents else None)
         reason = person_reason(name, ident, country)
-        if reason:
+        problem, cleaned = (None, name) if reason else clean_supplier_name(name)
+        if reason or problem == "contact_in_name":
             blank.add(i)
         if name not in won or (name, country) in seen:
             continue
@@ -270,20 +329,28 @@ def read_award(rec: dict[str, Any]) -> Read:
         if reason:
             out.counts["skipped_" + reason] += 1
             out.counts["skipped_person"] += 1
+        elif problem:
+            out.counts["skipped_" + problem] += 1
         elif not country:
             out.counts["skipped_no_country"] += 1
         else:
-            out.winners.append(Winner(name, country, ident or None))
+            # A telephone number or an address typed into the identifier field is contact data (4 of 4,186
+            # profiles, verify2-abuse N1): never read on. A word in the field is dropped when the row is stored.
+            out.winners.append(Winner(cleaned, country, None if looks_like_contact(ident) else (ident or None)))
     if not out.winners_seen:
         out.counts["winner_not_among_tenderers"] += 1
-    out.redacted = _redact(rec, names, blank, len(idents) == n)
+    out.redacted = _redact(rec, names, blank, idents, len(idents) == n)
     return out
 
 
-def _redact(rec: dict[str, Any], names: list[str], blank: set[int], ids_aligned: bool) -> dict[str, Any]:
-    """The record with the names (and numbers) of natural persons blanked, positions kept."""
+def _redact(rec: dict[str, Any], names: list[str], blank: set[int], idents: list[str],
+            ids_aligned: bool) -> dict[str, Any]:
+    """The record with the names (and numbers) of natural persons blanked, positions kept, and any contact
+    detail typed into an identifier field removed."""
     red = copy.deepcopy(rec)
-    if not blank:
+    contact = [i for i, x in enumerate(idents) if looks_like_contact(x)]
+    winner_ids = _flat(rec.get("winner-identifier"))
+    if not blank and not contact and not any(looks_like_contact(x) for x in winner_ids):
         return red
     bad = {names[i] for i in blank}
     for key in ("winner-name", "organisation-name-tenderer"):
@@ -294,9 +361,13 @@ def _redact(rec: dict[str, Any], names: list[str], blank: set[int], ids_aligned:
             red[key] = [PERSON_PLACEHOLDER if x in bad else x for x in v]
     ids = red.get("organisation-identifier-tenderer")
     if isinstance(ids, list):
+        drop = blank | set(contact)
         red["organisation-identifier-tenderer"] = (
-            ["" if i in blank else x for i, x in enumerate(ids)] if ids_aligned else [])
-    red.pop("winner-identifier", None)
+            ["" if i in drop else x for i, x in enumerate(ids)] if ids_aligned else [])
+    elif isinstance(ids, dict) and contact:
+        red["organisation-identifier-tenderer"] = {}
+    if blank or any(looks_like_contact(x) for x in winner_ids):
+        red.pop("winner-identifier", None)
     return red
 
 
@@ -307,6 +378,13 @@ def _main_cpv(codes: list[str] | None) -> str | None:
     mil = military_cpv_codes(codes)
     first = next((c for c in (codes or []) if c), None)
     return (mil[0] if mil else first) or None
+
+
+def stated_number(ident: str | None, country: str | None) -> str | None:
+    """The identifier as the notice states it, kept only when it is a registration or tax number (at most 60
+    characters). "Unknown", a company name or a telephone number typed into the field is not one: the profile
+    page showed such values as identifiers (verify2-abuse N1; 547 of 8,368 stored values were not numbers)."""
+    return ident[:60] if ident and normalise_identifier(ident, country) else None
 
 
 def _attach_reg(conn: psycopg.Connection, org_id: int, ident: str | None, country: str) -> None:
@@ -402,7 +480,7 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
                                   resolution_method, resolution_confidence)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (opportunity_id, organisation_id) DO NOTHING RETURNING id""",
-            (opp["id"], res.org_id, w.country, w.name[:300], (w.identifier or "")[:60] or None,
+            (opp["id"], res.org_id, w.country, w.name[:300], stated_number(w.identifier, w.country),
              read.winners_seen, _main_cpv(opp["cpv_codes"]), res.method, round(res.confidence, 2))).fetchone()
         c["awards_new"] += row is not None
         c["organisations_new"] += res.created

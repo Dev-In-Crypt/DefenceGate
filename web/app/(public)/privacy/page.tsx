@@ -21,7 +21,7 @@ export default function PrivacyPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
-      lead="Version 1.5, published 18 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
+      lead="Version 1.6, published [date to be set when it is approved]. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
     >
       <Callout title="In short">
         <ClauseList items={[
@@ -50,13 +50,15 @@ export default function PrivacyPage() {
       </Clause>
 
       <Clause n={4} title="Cookies and local storage">
-        <p className={P}>While you browse, the site sets no cookies. These are the only items it ever stores in your browser:</p>
+        <p className={P}>While you browse, the site sets no cookies. These are the items it stores in your browser:</p>
         <ClauseList items={[
           <><span className="font-mono">dg-theme</span> (local storage, your device only): your light or dark choice. Kept until you clear your browser data.</>,
+          <><span className="font-mono">dg.profile.v1</span> (local storage, your device only): only if you use the readiness check. Your answers about your company (country, size, ownership and control, products, certifications held, classified work and export intentions, and a company name if you type one), so that the check continues where you stopped. It stays on your device: there is no copy on our server, and the company name and size are never sent. You can erase it on the readiness page or by clearing your browser data.</>,
           <><span className="font-mono">__Host-dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it. Expires after 15 minutes.</>,
           <><span className="font-mono">__Host-dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
         ]} />
         <p className={P}>The two cookies are strictly necessary to provide the sign-in you asked for, so no consent banner is shown. They are never used for tracking.</p>
+        <p className={P}>The readiness profile reaches our server in two ways, and only while a profile is saved. The request that computes your verdict carries the answers the rules read (not the company name or size); the server computes the verdict, stores nothing and logs nothing of it. The funding, changes and digest pages ask for the public eligibility facts of the calls shown on the page, by call number, to mark which calls fit you, and a call page asks for the partner suggestions of that call; these requests carry no part of your profile, but they are made without being asked only when a profile is saved, so our server can tell that a visitor has one, not who.</p>
       </Clause>
 
       <Clause n={5} title="Accounts and alerts">
@@ -84,7 +86,8 @@ export default function PrivacyPage() {
       <Clause n={7} title="Personal data in public notices">
         <p className={P}>Public procurement notices and funding calls are published by public bodies and sometimes name a contact person. We republish them as business information about who buys and who funds what.</p>
         <ClauseList items={[
-          <><strong>What we hold.</strong> The notice fields. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business.</>,
+          <><strong>What we hold.</strong> The notice fields. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers, suppliers and project participants that are legal entities are shown by name; a sole trader’s or a freelancer’s name can be the name of the business.</>,
+          <><strong>Suppliers and project participants.</strong> The supplier map lists the winners named in public TED result notices (name, country, the registration number the buyer published, and the notices). The organisation directory lists the participants of EU-funded projects as CORDIS and the European Defence Fund project factsheets publish them (name, country, participant identification code, role and the EU amount). Neither source says whether a name is a person’s. We therefore leave out a winner or a participant whose name looks like a natural person’s and show nothing about what that person received. The rule works on the name alone: it can miss a person (we measured about one participant in a hundred that looks like a person; some will not be found) and it can hide a company by mistake. A telephone number or an e-mail address typed into a registration-number field is not shown. If a name that is shown is yours, or a business named after you, write to the contact in the <Link href="/imprint" className="font-semibold">imprint</Link> and we remove it from the site (section 9).</>,
           <><strong>Where it comes from.</strong> From the public source of the notice, never from you.</>,
           <><strong>Why and on what basis.</strong> To give businesses access to public procurement information in one place: our legitimate interest, and the interest of users and of the public in transparent public procurement (Art. 6(1)(f) GDPR).</>,
           <><strong>Who sees it.</strong> Anyone who visits the site; it is public by design. Our hosting provider processes it for us.</>,
@@ -100,7 +103,7 @@ export default function PrivacyPage() {
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
           'Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.',
           'The mail provider named in section 5, once sign-in opens.',
-          'OpenAI (USA), as a processor, for one purpose: to read the eligibility rules of funding calls. We send it the text of public call documents and topic texts, with e-mail addresses removed first, and our instructions. We send nothing about visitors or account holders. If a public call document names a person in its text other than by e-mail address, that name is part of what is sent.',
+          <>OpenAI (USA), as a processor, for two purposes: to read the eligibility rules of funding calls, and to read the list of participants in the project factsheets of the European Defence Fund. We send it the text of public call documents and topic texts, and the text of the factsheets (the table of the consortium, with the names of the participating organisations, without the technical description), with e-mail addresses removed first, and our instructions. The factsheets read before 18 October 2026 were sent without that removal. We send nothing about visitors or account holders. If a public document names a person in its text other than by e-mail address, that name is part of what is sent. The mechanism that permits the transfer to the United States is <Placeholder>to be confirmed with the lawyer</Placeholder>.</>,
         ]} />
         <p className={P}>We do not sell personal data. Apart from the domain name service and the language model provider above, we do not transfer personal data outside the European Economic Area as part of operating the site. We disclose data to an authority where the law requires it.</p>
       </Clause>

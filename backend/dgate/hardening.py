@@ -18,6 +18,7 @@ from __future__ import annotations
 import hmac
 import ipaddress
 import math
+import re
 import threading
 import time
 from collections.abc import Callable
@@ -82,6 +83,9 @@ HEAVY_PATHS["/v1/readiness/assess"] = 3
 # figures that cost seconds when cold. Public, so it is priced like the buyer list; the
 # container's own check comes from a local peer and is not charged.
 HEAVY_PATHS["/v1/health"] = 5
+# The slug lists are the whole catalogue of the networks (2,000 organisations, the EDF projects): like the others.
+HEAVY_PATHS["/v1/organisations/slugs"] = 20
+HEAVY_PATHS["/v1/projects/slugs"] = 20
 
 # Lists whose cost depends on their shape: each page evaluates the filtered set, and a
 # text search is a sequential scan of every notice (0.7 s), `status=all` and `scope=all`
@@ -91,6 +95,17 @@ HEAVY_PATHS["/v1/health"] = 5
 # connections.
 SHAPED_LISTS = {"/v1/tenders", "/v1/opportunities"}
 MAX_COST = 30
+
+# WP-39 (verify2-abuse N4, measured 18 October 2026 on the production host, the API role's budget being 5 s).
+# The routes added with the networks and the supplier map cost one token but not one token of database time:
+#   organisation partner tab   0.4 s warm, 1.3-5.0 s cold for the biggest organisation (4,336 projects)
+#   supplier list              0.5-1.1 s, 3.2 s with a search word on a deep page (now capped, `suppliers.MAX_OFFSET`)
+#   organisation / project     0.6-2.1 s cold
+#   analytics (Ukraine, gaps)  0.5-1.4 s cold, kept fifteen minutes
+#   /v1/changes                1.2-2.1 s cold (the archive's last 14 days; its answer is kept five minutes)
+# One address at the allowed two requests a second held three to ten of the API's thirty connections.
+PARTNER_PATH = re.compile(r"^/v1/organisations/[^/]+/partners$")
+ANALYTICS_PREFIX = "/v1/analytics/"
 
 
 def _int(value: str | None) -> int:
@@ -108,9 +123,19 @@ def request_cost(path: str, params: dict[str, str]) -> int:
     if path == "/v1/buyers" or (path.startswith("/v1/buyers/") and path.endswith("/profile")):
         # The buyer list re-aggregates the whole table; a profile is 0.2-0.5 s uncached.
         return 5 + (3 if (params.get("q") or "").strip() else 0)
+    if PARTNER_PATH.match(path):
+        return 5 + (2 if (params.get("country") or params.get("programme")) else 0)
+    if path.startswith(ANALYTICS_PREFIX):
+        return 8
+    if path == "/v1/suppliers":
+        # Every page aggregates the award table before it cuts the page; a name or a group filter also counts
+        # the group (the k rule) first.
+        return 3 + (2 if (params.get("q") or "").strip() else 0) + (2 if (params.get("country") or params.get("cpv")) else 0)
+    if path == "/v1/suppliers/summary" or path.startswith(("/v1/organisations", "/v1/projects/", "/v1/suppliers/")):
+        return 2
     # The change feed reads the archive's last 14 days and every page of it computes them
     # (its answer is kept five minutes): dearer than a plain page, as a list of its own.
-    cost = 3 if path == "/v1/changes" else 1
+    cost = 5 if path == "/v1/changes" else 1
     for key in ("limit", "pageSize"):
         if _int(params.get(key)) >= 100:
             cost = max(cost, 3)
@@ -270,6 +295,30 @@ class BodyLimit:
         response = JSONResponse({"error": "too_large", "message": "request body too large"},
                                 status_code=413)
         await response(scope, receive, send)
+
+
+class HeadAsGet:
+    """HEAD on a read route of `/v1` answers as GET does, without the body (verify2-abuse N10: every `/v1`
+    route answered a HEAD with 405, which link checkers and some clients take for a broken route). The route
+    runs as for a GET, so a HEAD costs what the GET costs and is charged the same by `RateLimit`. A route that
+    has no GET (the POSTs) still answers 405 with its `Allow` header."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http" or scope["method"] != "HEAD" or not scope["path"].startswith("/v1/"):
+            await self.app(scope, receive, send)
+            return
+
+        async def without_body(message) -> None:
+            if message["type"] == "http.response.body":
+                # The bytes go; the framing stays: a middleware that streams (BaseHTTPMiddleware) sends several
+                # body messages and ends with an empty one, and a second "final" message is an error.
+                message = {**message, "body": b""}
+            await send(message)
+
+        await self.app({**scope, "method": "GET"}, receive, without_body)
 
 
 class SecurityHeaders(BaseHTTPMiddleware):

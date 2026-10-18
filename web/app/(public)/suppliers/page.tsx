@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { getSuppliers, getSupplierSummary } from '@/lib/api';
+import { notFound, redirect } from 'next/navigation';
+import { ApiError, getSuppliers, getSupplierSummary } from '@/lib/api';
 import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
@@ -57,8 +57,17 @@ const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-norma
 export default async function SuppliersPage({ searchParams }: Props) {
   const f = parse(await searchParams);
   const filtered = Boolean(f.q || f.country || f.cpv);
-  const [result, summary] = await Promise.all([getSuppliers(f), f.page === 1 && !filtered ? getSupplierSummary() : Promise.resolve(null)]);
-  const last = lastPage(result.total, result.pageSize);
+  let result;
+  let summary;
+  try {
+    [result, summary] = await Promise.all([getSuppliers(f), f.page === 1 && !filtered ? getSupplierSummary() : Promise.resolve(null)]);
+  } catch (e) {
+    // The list serves only its first positions (`maxOffset`): a page past them is not there, which is an answer, not a fault.
+    if (e instanceof ApiError && e.status === 422) notFound();
+    throw e;
+  }
+  const reachable = Math.min(result.total, result.maxOffset ?? result.total);
+  const last = lastPage(reachable, result.pageSize);
   if (result.total > 0 && f.page > last) redirect(href(f, last));
   return (
     <>
@@ -93,7 +102,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <h2 id="aggregate" className="m-0 text-h2">By product group and country</h2>
           <p className="m-0 max-w-[75ch] text-small text-ink-muted">
             Counts of suppliers and wins. A group of fewer than {summary.kMin} suppliers is not shown ({formatNumber(summary.suppressedGroups)} groups are
-            held back), so that no figure describes one company. The map has no ranking of suppliers and no contract totals per supplier.
+            held back), so that no figure describes one company, and the same holds for a list narrowed by country or product group. The map states no contract value per supplier and ranks nobody by value; a supplier's wins are a count of notices, each with its link.
           </p>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={CARD}>
@@ -172,8 +181,10 @@ export default async function SuppliersPage({ searchParams }: Props) {
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
         </form>
         {result.total === 0 ? (
-          <EmptyState title="No suppliers match" action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
-            Only companies named as winners in a TED result notice of the defence-relevant scope are listed. Try a shorter name.
+          <EmptyState title={result.withheld ? 'This group is too small to list' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
+            {result.withheld
+              ? `A country or product group with fewer than ${summary?.kMin ?? 3} suppliers is not listed, so that nothing describes one or two companies. Widen the filter, or search by company name without it.`
+              : 'Only companies named as winners in a TED result notice of the defence-relevant scope are listed. Try a shorter name.'}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
@@ -192,7 +203,12 @@ export default async function SuppliersPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
-        <Pagination page={result.page} total={result.total} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
+        {result.maxOffset !== undefined && result.total > result.maxOffset && (
+          <p className="m-0 max-w-[75ch] text-small text-ink-muted">
+            The list shows the first {formatNumber(result.maxOffset)} of {formatNumber(result.total)}. Search by company name, or narrow by country or product group, to reach the others.
+          </p>
+        )}
+        <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
       </section>
     </>
   );

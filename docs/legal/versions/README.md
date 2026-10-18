@@ -14,5 +14,6 @@ and `TERMS_VERSION` / `PRIVACY_VERSION` in `backend/dgate/accounts.py`):
 2. Never edit a file once its version is published. A correction is a new version.
 
 Present: Terms 2.0 (14 Oct 2026), Privacy 1.3 (14 Oct 2026), Privacy 1.4 (15 Oct 2026). Privacy 1.5 (18 Oct 2026) names OpenAI as a processor; published on the owner's instruction, a lawyer's review is open (OPEN_ITEMS_FOR_LAWYER.md P7).
+Privacy 1.6 (written 18 Oct 2026, WP-39) is a DRAFT for the owner's approval and is **not published**: `privacy-v1.6-2026-10-18.md` is its static copy and the page source and `PRIVACY_VERSION` already carry it. Publishing it means setting the date (file name, first lines, the page's lead) and removing the draft sentence from the copy; until then 1.5 is the text in force.
 Terms 1.1 and earlier, Privacy 1.2 and earlier: texts are in git history only
 (`git log -- "web/app/(public)/terms/page.tsx"`), not copied here.

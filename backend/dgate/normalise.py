@@ -606,6 +606,17 @@ _ID_SCHEME = re.compile(
 _ID_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
 
 
+# A telephone number or an e-mail address typed into an identifier field (TED, 18 October 2026: 3 telephone
+# numbers and 1 address among 8,368 supplier identifiers). A number with a leading "+" or a "tel" label is a
+# contact detail, never a register number, whatever digits follow.
+_CONTACT_SHAPED = re.compile(r"@|^\s*\+|^\s*\(?\s*(?:tel|tlf|fax|phone|telefon|telefono|tél|mob|gsm)\b", re.IGNORECASE)
+
+
+def looks_like_contact(text: Any) -> bool:
+    """True for an e-mail address or a telephone number as opposed to a register or tax number."""
+    return bool(text) and bool(_CONTACT_SHAPED.search(str(text)))
+
+
 def normalise_identifier(raw: Any, country: str | None = None) -> str | None:
     """The comparable form of a buyer's registration or tax number, or None.
 
@@ -620,7 +631,7 @@ def normalise_identifier(raw: Any, country: str | None = None) -> str | None:
         return None
     text = str(raw).strip()
     if (not text or len(text) > 60 or "://" in text or ";" in text or "," in text
-            or _ID_UUID.search(text)):
+            or _ID_UUID.search(text) or looks_like_contact(text)):
         return None
     s = unicodedata.normalize("NFKD", text)
     s = "".join(c for c in s if not unicodedata.combining(c)).upper()

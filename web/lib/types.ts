@@ -209,6 +209,10 @@ export interface Paginated<T> {
   total: number;
   page: number;
   pageSize: number;
+  /** `/v1/suppliers`: the list serves no position beyond this (WP-39); absent on other lists. */
+  maxOffset?: number;
+  /** `/v1/suppliers`: the country or product group selects fewer suppliers than kMin, so none is listed. */
+  withheld?: boolean;
   search?: SearchInfo | null;
   /** `/v1/funding`: calls with cascade funding among those that match every filter but this one. Absent on older API builds. */
   cascadeTotal?: number | null;

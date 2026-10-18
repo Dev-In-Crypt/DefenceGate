@@ -157,9 +157,10 @@ def _organisations(conn, project_ids: list[int]) -> list[dict[str, Any]]:
                    array_agg(DISTINCT o.id) AS members
               FROM project pr
               JOIN participation pa ON pa.project_id = pr.id AND pa.active
-              JOIN organisation o ON o.id = pa.organisation_id AND NOT o.suppressed
+              JOIN organisation o ON o.id = pa.organisation_id AND NOT o.suppressed AND o.individual_reason IS NULL
               JOIN organisation head ON head.id = COALESCE(o.merged_into, o.id)
              WHERE pr.id = ANY(%s) AND head.merged_into IS NULL AND NOT head.suppressed
+               AND head.individual_reason IS NULL      -- a natural person is not a partner suggestion (WP-39, N2)
              GROUP BY head.id""", (project_ids,)).fetchall()
 
 

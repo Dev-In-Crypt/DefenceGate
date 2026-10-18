@@ -100,6 +100,11 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
       {tab === 'aliases' && <AliasesTab org={org} />}
 
       <DataSources sources={org.sources} amountNote={org.amountNote} />
+      <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+        Names are as CORDIS and the EDF project factsheets publish them. We do not list an organisation whose name looks like a natural person&rsquo;s.
+        If this entry is you, or a business named after you, and you want it removed, write to the contact in the <Link href="/imprint" className="font-semibold">imprint</Link>;
+        the <Link href="/privacy" className="font-semibold">privacy notice</Link> (sections 7 and 9) says how a request is handled.
+      </p>
     </>
   );
 }

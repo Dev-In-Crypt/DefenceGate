@@ -287,6 +287,19 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     return out, since, now
 
 
+def window_events(conn, scope: str | None, countries: list[str], goods: str | None):
+    """`build_events` for the page endpoints, kept five minutes per (scope, countries, goods): the 14-day
+    window costs 1.2-2.1 s on a miss (verify2-abuse N4, 18 October 2026), and the page, the page size and the
+    Atom feed (page 1 of 100) all read the same window, so each used to compute it again."""
+    from . import stats
+    from .config import settings
+
+    ttl = settings().list_cache_seconds
+    return stats.cached(("changes-window", scope, tuple(countries), goods),
+                        lambda: build_events(conn, scope=scope, countries=countries, goods=goods),
+                        0 if ttl <= 0 else 5 * 60, store=stats._list_cache, limit=stats.LIST_CACHED)
+
+
 @router.get("/v1/changes", response_model=ChangePage)
 @cache_list("changes", ttl=5 * 60)
 def list_changes(
@@ -299,7 +312,7 @@ def list_changes(
     with_meta=Depends(serves_meta),
 ):
     countries = T._split(country, "country", upper=True, max_length=2)
-    events, since, until = build_events(conn, scope=scope, countries=countries, goods=goods)
+    events, since, until = window_events(conn, scope, countries, goods)
     start = (page - 1) * pageSize
     shown = events[start:start + pageSize]
     ids = [e["id"] for e in shown]

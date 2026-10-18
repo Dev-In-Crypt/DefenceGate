@@ -13,8 +13,12 @@ touched. Adding or lifting an entry also drops the stored digest issues (`digest
 weeks ahead, with titles and buyer names) and the pre-computed list pages (`list_snapshot`, up to
 eight hours old): both are derived and replaceable, and neither was reading the flag. The digest
 is rebuilt at once; the list pages are served from the live query until the worker's next round
-(every four hours; `python -m dgate.ops.warm_lists --yes` does it now). What may still be shown
-from a cache: the API keeps a list a minute and an issue five minutes, the site's pages five
+(every four hours; `python -m dgate.ops.warm_lists --yes` does it now). An organisation entry also
+leaves the directory table `organisation_network` (the organisation list, its count, the sitemap and the
+partner lists): a database trigger on `organisation.suppressed` deletes the merge family's rows in the same
+transaction (migration 0080, verify2-abuse N3), and `lift` rebuilds the table, which puts the organisation
+back. What may still be shown from a cache: the API keeps a list a minute, an issue five minutes, an
+organisation list or partner tab five minutes and the Ukraine and gap analytics fifteen, the site's pages five
 minutes, its CSV export ten, and the Atom feeds are sent with `max-age=3600`, so a reader or a
 feed reader can hold a copy for an hour. Nothing needs a restart.
 """
@@ -91,6 +95,19 @@ LIST_HINT = ("list pages: closed and all-status tender lists use the live query 
              "`python -m dgate.ops.warm_lists --yes` runs or the worker's next round (within 4 hours)")
 
 
+def rebuild_directory(conn) -> str:
+    """Rebuild `organisation_network` from the participations (a lifted entry brings the organisation back
+    into the directory). A failure is reported, not raised: the entry is already committed."""
+    from .. import networks
+
+    try:
+        done = networks.refresh_organisation_network(conn)
+        return f"directory rebuilt: {done['organisations']} organisations"
+    except Exception as exc:  # noqa: BLE001 - the lift stands; the monthly refresh does it otherwise
+        conn.rollback()
+        return f"directory NOT rebuilt ({str(exc)[:200]}): the next CORDIS or EDF load rebuilds it"
+
+
 def rebuild_digest(conn) -> str:
     """Store the digest issues again from the rows as they now stand (the worker does it daily
     for the last two weeks and for missing weeks, eight a run). A failure is reported, not
@@ -150,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
             print("lifted" if ok else "no active entry with that id")
             if ok:
                 print(rebuild_digest(conn))
+                print(rebuild_directory(conn))
                 print(LIST_HINT)
             return 0 if ok else 1
         if args.kind == "organisation":
@@ -173,7 +191,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"refused: {exc}")
             return 1
         conn.commit()
-        print(f"entry {entry} written; stored digest issues and list pages dropped")
+        print(f"entry {entry} written; stored digest issues and list pages dropped"
+              + ("; the organisation and its merge family left the directory table" if args.kind == "organisation" else ""))
         print(rebuild_digest(conn))
         print(LIST_HINT)
     return 0

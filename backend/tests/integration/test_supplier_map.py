@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from dgate import api, awards, config, db
+from dgate import suppliers as suppliers_module
 from dgate.normalise import Opportunity
 from dgate.rawstore import build_store
 
@@ -195,8 +196,11 @@ def _slug(client, name_part: str) -> str:
     return items[0]["slug"]
 
 
-def test_the_list_filters_and_pages_and_says_what_it_counts(conn, env, client):
+def test_the_list_filters_and_pages_and_says_what_it_counts(conn, env, client, monkeypatch):
     run(scenario(conn))
+    # The three suppliers of this scenario are smaller than any group the list may show (WP-39: a filter that selects
+    # fewer than K_MIN suppliers is withheld, tests/integration/test_wp39.py); the filters themselves are tested here.
+    monkeypatch.setattr(suppliers_module, "K_MIN", 1)
     body = client.get("/v1/suppliers").json()
     assert body["total"] == 3 and body["page"] == 1
     assert [(i["name"], i["country"], i["awardCount"]) for i in body["items"]] == [

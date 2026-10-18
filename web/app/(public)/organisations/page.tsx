@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { ApiError } from '@/lib/api';
 import { getOrganisations } from '@/lib/networks-api';
 import { activeOrgFilterCount, DEFAULT_ORG_SORT, parseOrgFilters, toOrgQuery } from '@/lib/networks';
 import { lastPage, type SearchParams } from '@/lib/filters';
@@ -36,7 +37,9 @@ export default async function OrganisationsPage({ searchParams }: Props) {
   let result;
   try {
     result = await getOrganisations(filters);
-  } catch {
+  } catch (e) {
+    // The API serves no position beyond its cap (10,000): a page past it is not there, which is an answer, not a fault.
+    if (e instanceof ApiError && e.status === 422) notFound();
     return <ErrorState title="We could not load the organisations" retryHref="/organisations" />;
   }
   const last = lastPage(result.total, result.pageSize);
@@ -55,7 +58,7 @@ export default async function OrganisationsPage({ searchParams }: Props) {
         emptyTitle="No organisations match these filters"
         emptyText="Try a shorter name or fewer filters. Only organisations that took part in at least one project we hold are listed."
         hrefFor={(p) => `/organisations${toOrgQuery({ ...filters, page: p })}`}
-        footnote="Counts are projects with an active participant, as the sources list them today."
+        footnote="Counts are projects with an active participant, as the sources list them today. A name that looks like a natural person is not listed; to ask for a removal, write to the contact in the imprint (privacy notice, section 9)."
       >
         {result.items.map((o) => <li key={o.id}><OrgCard org={o} /></li>)}
       </ListPage>

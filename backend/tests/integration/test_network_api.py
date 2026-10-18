@@ -197,7 +197,9 @@ def test_directory_refuses_values_it_does_not_know(client, world):
 def test_an_organisation_removed_on_request_and_one_that_left_are_not_listed(conn, client, world):
     conn.execute("UPDATE organisation SET suppressed = true WHERE id = %s", (world.S,))
     conn.commit()
-    assert networks.refresh_organisation_network(conn)["removed"] == 1
+    # the flag itself cleared the derived row (migration 0080, WP-39 N3): the rebuild has nothing left to remove
+    assert conn.execute("SELECT count(*) AS n FROM organisation_network WHERE organisation_id = %s", (world.S,)).fetchone()["n"] == 0
+    assert networks.refresh_organisation_network(conn)["removed"] == 0
     assert "SECRET AB" not in [i["name"] for i in client.get("/v1/organisations?pageSize=100").json()["items"]]
     conn.execute("UPDATE participation SET active = false WHERE organisation_id = %s", (world.C,))
     conn.commit()
