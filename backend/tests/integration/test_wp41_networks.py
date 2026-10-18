@@ -116,6 +116,20 @@ def test_two_pics_two_numbers_two_legal_forms_and_buyer_only_groups_are_left_alo
     assert conn.execute("SELECT count(*) AS n FROM organisation WHERE merged_into IS NOT NULL").fetchone()["n"] == 0
 
 
+def test_the_project_page_says_why_an_amount_is_missing(conn, client):
+    host, tp = org(conn, "host university", "FR", "999000050", "HOST UNIVERSITY"), org(conn, "linked lab", "FR", "999000051", "LINKED LAB")
+    pid = project(conn, "9001", "H2020", "Gross project", eu=100)
+    conn.execute("INSERT INTO participation (project_id, organisation_id, role, contribution, contribution_note, resolution_method, resolution_confidence) "
+                 "VALUES (%s, %s, 'coordinator', 100, 'gross_of_third_parties', 'pic', 1)", (pid, host))
+    conn.execute("INSERT INTO participation (project_id, organisation_id, role, contribution, contribution_note, resolution_method, resolution_confidence) "
+                 "VALUES (%s, %s, 'third_party', NULL, 'linked_third_party', 'pic', 1)", (pid, tp))
+    conn.commit()
+    body = client.get(f"/v1/projects/{pid}").json()
+    notes = {m["organisation"]["name"]: (m["contribution"], m["contributionNote"]) for m in body["members"]}
+    assert notes == {"HOST UNIVERSITY": (100.0, "gross_of_third_parties"), "LINKED LAB": (None, "linked_third_party")}
+    assert "may include their share" in body["amountNote"]
+
+
 # ----------------------------------------------------------------- N5: the name families
 
 def _fraunhofer(conn):

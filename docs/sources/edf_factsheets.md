@@ -111,6 +111,9 @@ them), and a name the model copied glued from the layout became an organisation 
 * The rows of the table the answer lacks are read without a model (`table_entries`, `recover_missing`) and added by
   `python -m dgate.ops.edf_recover [--yes]` from the text still in the raw store; the same tool refiles an EDF project under
   the last capability category its topic code names (`EDF-2023-DA-DS-AIRDEF-EATMI` was DS).
+* Organisations that were made from a name the model copied glued get the spelling the plain text prints (24 on 17 October),
+  only for names that show glue (a word of 15 letters or more, a capital inside a word): the plain text has faults of its own
+  ("SAS" printed "SA S"). Where the glued row has a spaced twin, `python -m dgate.ops.org_dedupe` merges them by the key without spaces.
 * What the rule cannot recover (a table it cannot pair, a name the answer never had and the layout broke apart) is listed
   by the tool with the cost of a model re-read: about USD 0.0015 a sheet. A re-read needs the stored row of that sheet
   removed or `PROMPT_VERSION` raised, otherwise the loader finds the same file hash and asks nothing.

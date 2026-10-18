@@ -83,8 +83,8 @@ it. CSIC (418756) and the Spanish row without a PIC (32392: 5 projects, same key
 
 ## N5: merge and families
 
-**Merge (`ops/org_dedupe`).** Two rows of one country with the same key (`key_of`: accents, case, hyphens, ampersands, legal forms
-stripped) or, for keys of 12 characters or more, the same key without spaces, merged with `db.merge_organisations` (reversible:
+**Merge (`ops/org_dedupe`).** Rows that share a PIC or a registration number cannot exist (unique indexes); rows that share a VAT number: 3 groups of two, all with two different PICs, so none is merged. What joins rows is the name key. Two rows of one country with the same key (`key_of`: accents, case, hyphens, ampersands, legal forms
+stripped) or, for keys of 12 characters or more, the same key without spaces, merged with `db.merge_organisations` (the existing merge:
 the alias keeps `prev_organisation_id`; nothing deleted), method `name_key` 0.95 or `name_key_spaces` 0.90. Vetoes: two
 PICs, registration numbers or VAT numbers; two legal-form classes (RENK); a row removed on request. **Only groups that touch a project
 participant**: the first dry run over all organisations found 19,775 groups / 23,976 rows, 16,838 groups blocked by differing
@@ -191,3 +191,32 @@ by a test that fails without the fix:
 * The CORDIS monthly CSV package (which has the net figures) was not looked at: `/data/` is disallowed.
 * N3 and the stale pages (JOANNEUM, Granada, VTT) cannot be corrected from the open data.
 * Playwright specs: none written for the card line (one line of text); `tsc` only.
+
+## Production commands (for the orchestrator), in this order
+
+Deploy the branch first: migrations 0086 and 0087 apply at start (two `ADD COLUMN` without default, one `CHECK` over 386,000 rows
+(about 1 s), one `CREATE TABLE`). Every tool runs in the worker container as `python -m <module>`, writes only with `--yes`,
+is idempotent, and rebuilds the directory table (33 to 120 s) at the end of a write. None calls a model. Expected figures are those of
+the offline runs above; a dry run on production should print the same within a few rows (the order matters: the later tools see the
+earlier ones' rows).
+
+1. `dgate.ops.repair_contributions` then `--yes`: reads 382,153 rows (1 to 2 minutes), writes about 93,800 (13,701 third parties
+   to `NULL`, 9,997 `no_payment_stated`, 69,733 `gross_of_third_parties`, 391 withheld in 33 projects) and marks 4,040 EDF rows
+   `source_states_none`. Dead tuples and WAL about 100 MB.
+2. `dgate.pipeline cordis-countries` then `--yes`: 15 SPARQL requests, 1 to 4 minutes under load, lands 15 pages in the raw store
+   (about 5 MB). Expected: `organisations_seen 72534`, `countries_changed 2` (CSIC IT to ES; EurOcean gets `several`),
+   `names_refreshed 0`.
+3. `dgate.ops.edf_recover` then `--yes`: reads the 284 landed texts from the private store, no network. Expected:
+   `participants_recovered 36` on 27 sheets, `names_respaced` about 24, `projects_recategorised 1`, about 20 new organisation rows
+   (the recovered names whose break falls inside a word), `sheets_to_reread_with_the_model 0`.
+4. `dgate.ops.org_dedupe` then `--yes`: about 760 groups / 961 rows (a few more after step 3), 3 to 6 minutes, 100 to 300 MB of memory.
+   Undoing is the existing procedure of `db.merge_organisations` (the row keeps `merged_into`, `merge_method` and
+   `merge_confidence`; its aliases remember `prev_organisation_id`; participations were never re-pointed; a buyer notice the merge
+   pointed at the head stays there unless put back by hand).
+5. `dgate.ops.org_families --top 40` then `--yes`: 57 families / 60 variants (a few fewer after step 4 for pairs it closed). Undo:
+   `DELETE FROM organisation_family_member` and a rebuild.
+6. `dgate.ops.split_legal_forms` then `--yes`: RENK, and any other supplier whose awards state two legal forms with different numbers;
+   read the dry run first, it names each.
+
+The monthly CORDIS and EDF jobs need no change: the loader applies the same rules. Re-run steps 4 and 5 after a monthly load (they are
+cheap); they are not in the worker's job list because a merge in production is the owner's to start.

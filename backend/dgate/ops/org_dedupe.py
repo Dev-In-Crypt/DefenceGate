@@ -22,7 +22,7 @@ and none of these holds in the group (then it is left alone, for the family laye
 
 The head of a group is the row that holds a PIC, else one with a readable name, else the oldest. Each other row is merged with
 `db.merge_organisations` (method, confidence and evidence stored; aliases and notices re-pointed;
-nothing deleted; undone by clearing `merged_into`: the alias remembers `prev_organisation_id`).
+nothing deleted; the alias remembers `prev_organisation_id`, which is how the existing merge is undone).
 Open `resolution_review` pairs inside a merged group are closed as `merged`.
 
 Idempotent: a second run finds no group. No network, no language model.

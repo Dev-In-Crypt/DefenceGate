@@ -16,7 +16,7 @@ const SOURCES: SourceNote[] = [
     attribution: 'Source: European Commission, DG DEFIS, EDF results factsheets', readAt: '2026-10-17T21:00:00Z',
     note: 'European Defence Fund participants are read from the project factsheets that DG DEFIS publishes, by a language model; every name is checked against the factsheet text and a name that is not in it is dropped. The factsheets state no amount per participant.' },
 ];
-const AMOUNT_NOTE = 'EU contribution is the amount CORDIS states per participant. EDF factsheets state none per participant, so EDF projects count as projects but add nothing to the amounts.';
+const AMOUNT_NOTE = 'EU contribution is the amount the open data of CORDIS pays to the participant. For a participant with linked third parties it may include their share (the CORDIS page prints the net); an amount the data does not hold is left out, not counted as zero. EDF factsheets state none per participant, so EDF projects count as projects but add nothing to the amounts.';
 
 interface MockOrg { id: number; name: string; country: string; pic: string | null; slug: string }
 const org = (id: number, name: string, country: string, pic: string | null, slug: string): MockOrg => ({ id, name, country, pic, slug: `${id}-${slug}` });
