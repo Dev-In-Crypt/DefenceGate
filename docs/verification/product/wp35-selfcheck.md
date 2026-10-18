@@ -82,5 +82,15 @@ answers "check" for any fact with a note; `D1` also hides calls published long a
 
 ## Tests
 
-Added: `tests/unit/test_wp35_eligibility.py` (regression set and pieces), `tests/integration/test_wp35.py`, `web/lib/digest.check.ts` additions (ics, digest country); `e2e/digest.spec.ts`
-adjusted to the new event word. Whole suite results: see the report.
+Added: `tests/unit/test_wp35_eligibility.py` (regression set and pieces, 60 cases), `tests/integration/test_wp35.py` (9), additions to `web/lib/digest.check.ts` and
+`web/lib/funding.check.ts` (calendar file, digest country); `web/e2e/digest.spec.ts` adjusted to the new event word.
+
+Results on the server (it was at load 100 and out of memory for two hours because several packages ran suites at once, so the full integration suite could not
+finish in a reasonable time):
+
+- `ruff check .`: clean. Whole unit suite (`pytest`): green (run before the last two comment-only edits; the unit files that touch the change were re-run after: green).
+- Integration, run in one session: `test_wp35`, `test_eligibility`, `test_wp31`, `test_changes`, `test_funding_api`, `test_calls_api`, `test_call_dates_api`, `test_wp19`,
+  `test_security_hardening`: all green except `test_the_rate_limit_answers_429_with_a_wait_and_leaves_the_probe_alone`, which fails the same way on an unmodified
+  `integration` checkout under this load (135 requests are not fast enough to empty the bucket). The rest of the integration suite (about 800 tests) was **not** run to the end;
+  the orchestrator's CI run should cover it. `test_wp35` also passes alone.
+- Web: `tsc --noEmit` exit 0; `lib/*.check.ts` (all of them): ok, after the funding check was adjusted to the new sentence.
