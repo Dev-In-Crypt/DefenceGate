@@ -147,4 +147,5 @@ Web: `node scripts/run-checks.mjs` in `node:22-alpine` with typescript only: eve
 light container (TS2307 on `lib/api.ts` and `lib/seo.ts`); they fail the same way on the untouched `integration` tree, and CI (full `node_modules`) runs them. No full `tsc --noEmit` and no Playwright run
 (no `next`, no browser on the server).
 
-Scratch left on the server, to delete: `/root/dev-wp42`, `/root/run_wp42.sh`, `/tmp/wp42` (typescript install, JSON of production call facts, logs), databases `agent_wp42` and `agent_wp42_real` in `dgate-ci-db`.
+Scratch: deleted at the end, `agent_wp42_real` (the copy of three production tables) and `/tmp/wp42` (typescript install, JSON of production call facts, logs). Left for a re-run, to delete when the
+package is merged: `/root/dev-wp42`, `/root/run_wp42.sh`, database `agent_wp42` in `dgate-ci-db`.
