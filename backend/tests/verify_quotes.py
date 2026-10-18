@@ -17,6 +17,8 @@ from pathlib import Path
 def norm(text: str) -> str:
     text = text.replace("\xa0", " ").replace("’", "'").replace("‘", "'")
     text = re.sub(r"\*\*|\[[VSU]\]", "", text)
+    text = re.sub(r"\(\s*(\d{1,3})\s*\)", lambda m: "(" + m.group(1) + ")", text)  # footnote marks: "( 39 )" in the Journal text, "(39)" in a quote
+    text = re.sub(r"\s+,", ",", text)
     return re.sub(r"\s+", " ", text).strip().lower()
 
 

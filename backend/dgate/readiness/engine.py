@@ -20,6 +20,11 @@ unknown when an answer is missing, so a question left unanswered never reads as 
 A rule has up to three expressions: `applies_when` (false: the rule is not applicable), `condition`
 (true: met) and `conditional_when` (consulted only when the condition is false: true means a
 derogation may apply, so the outcome is "conditional" and not "not met").
+
+A mandatory rule of kind "registration" (the PIC, the NCAGE code) that is not met has the outcome
+`to_obtain`: it is something to obtain first, not a block. The verdict of a programme is `blocked` if a
+mandatory rule is not met, else `conditional` if a derogation or an answer is open, else `obtain` if only
+registrations are missing, else `eligible`.
 """
 
 from __future__ import annotations
@@ -39,12 +44,17 @@ OTHER_COUNTRY = "XX"      # a country that is not listed: the engine treats it a
 # that is shown when the answer is missing.
 FIELDS: dict[str, dict[str, Any]] = {
     "country": {"kind": "country", "label": "In which country is your company established?"},
+    "legal_form": {"kind": "enum", "values": ("legal_person", "natural_person", "no_legal_personality"),
+                   "label": "What is the legal form of your organisation: a legal person, a natural person (for example a sole trader), or an entity without legal personality?"},
     "executive_management_country": {"kind": "country", "label": "Where are your company's executive management structures established?"},
     "third_country_control": {"kind": "enum", "values": ("no", "ua_eea_only", "other"),
                               "label": "Is your company controlled by a country or an entity outside the EU?"},
     "ua_non_government_controlled_area": {"kind": "bool", "label": "Is your company established in an area of Ukraine that the Ukrainian government does not control?"},
     "non_eu_component_cost_pct": {"kind": "pct", "label": "What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine?"},
     "restricted_third_country_component": {"kind": "bool", "label": "Does any component of your end product come from a third country that contravenes the Union's security and defence interests?"},
+    "components_from_ua_or_eea_efta": {"kind": "bool", "label": "Do any components of your end product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"},
+    "safe_role": {"kind": "enum", "values": ("contractor", "subcontractor_involved", "other_supplier"),
+                  "label": "In a SAFE-supported procurement, would you be the contractor, a subcontractor that is allocated at least 15 % of the contract value, provides critical inputs and needs access to classified information, or another supplier?"},
     "handles_classified": {"kind": "bool", "label": "Will you handle classified information?"},
     "product_regime": {"kind": "enum", "values": ("none", "dual_use", "military", "unknown"),
                        "label": "Is your product in the dual-use regime, the military regime, or neither?"},
@@ -57,7 +67,7 @@ THRESHOLD_OPS = {
     "lte": lambda a, b: a <= b, "lt": lambda a, b: a < b,
     "gte": lambda a, b: a >= b, "gt": lambda a, b: a > b,
 }
-OUTCOMES = ("met", "not_met", "conditional", "unknown", "not_applicable", "info")
+OUTCOMES = ("met", "not_met", "to_obtain", "conditional", "unknown", "not_applicable", "info")
 GENERIC = {
     "unknown": "Answer the questions that are missing to see whether this applies to you.",
     "not_applicable": "This rule does not apply to your company.",
@@ -74,11 +84,14 @@ class ExprError(ValueError):
 class Profile:
     """What the engine reads of a company. A field that is None is unknown, not "no"."""
     country: str
+    legal_form: str | None = None
     executive_management_country: str | None = None
     third_country_control: str | None = None
     ua_non_government_controlled_area: bool | None = None
     non_eu_component_cost_pct: float | None = None
     restricted_third_country_component: bool | None = None
+    components_from_ua_or_eea_efta: bool | None = None
+    safe_role: str | None = None
     handles_classified: bool | None = None
     product_regime: str = "unknown"
     export_intent: str | None = None
@@ -241,11 +254,12 @@ class Assessment:
     programme: str
     name: str
     kind: str
-    verdict: str                           # eligible | blocked | conditional
+    verdict: str                           # eligible | obtain | conditional | blocked
     incomplete: bool                       # an answer is missing, so "eligible" or "blocked" may change
     rules: tuple[RuleResult, ...]
     blocking: tuple[str, ...] = ()         # rule codes
     conditions: tuple[str, ...] = ()
+    to_obtain: tuple[str, ...] = ()        # rule codes: a registration to obtain first (not a block)
     missing: tuple[str, ...] = ()          # profile fields to answer
     summary: dict[str, int] = field(default_factory=dict)
 
@@ -258,7 +272,8 @@ class Assessment:
 
 def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> RuleResult:
     outcome, asks = _outcome(rule, fields, statuses)
-    reason = rule.texts.get(outcome) or GENERIC.get(outcome, "")
+    # a registration that is missing is a to-do with the same words as "not met": the text says it is free
+    reason = rule.texts.get(outcome) or (rule.texts["not_met"] if outcome == "to_obtain" else GENERIC.get(outcome, ""))
     return RuleResult(
         rule=rule.code, title=rule.title, outcome=outcome, reason=reason, obligation=rule.obligation,
         kind=rule.kind, requirement=rule.requirement, note=rule.note, asks=tuple(asks),
@@ -276,7 +291,7 @@ def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str])
         if applies is False:
             return "not_applicable", []
         if applies is None:
-            return "unknown", missing(rule.applies_when)
+            return "unknown", missing(rule.applies_when, rule.condition)
     if rule.condition is None:
         return "info", []
     met = evaluate(rule.condition, fields, statuses)
@@ -290,7 +305,9 @@ def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str])
             return "conditional", []
         if derogation is None:
             return "unknown", missing(rule.conditional_when)
-    return "not_met", []
+    # D3: a registration that anybody can obtain (the PIC, the NCAGE code) is something to obtain first,
+    # not a reason to call the company blocked.
+    return ("to_obtain" if rule.kind == "registration" else "not_met"), []
 
 
 def assess(profile: Profile, statuses: Mapping[str, str], programme: Programme | str,
@@ -305,6 +322,7 @@ def assess(profile: Profile, statuses: Mapping[str, str], programme: Programme |
     mandatory = [r for r in results if r.obligation == "mandatory"]
     blocking = tuple(r.rule for r in mandatory if r.outcome == "not_met")
     conditions = tuple(r.rule for r in mandatory if r.outcome == "conditional")
+    to_obtain = tuple(r.rule for r in mandatory if r.outcome == "to_obtain")
     unknown = [r for r in mandatory if r.outcome == "unknown"]
     missing: list[str] = []
     for r in results:
@@ -315,10 +333,12 @@ def assess(profile: Profile, statuses: Mapping[str, str], programme: Programme |
         verdict = "blocked"
     elif conditions or unknown:
         verdict = "conditional"
+    elif to_obtain:
+        verdict = "obtain"
     else:
         verdict = "eligible"
     summary = {o: sum(1 for r in results if r.outcome == o) for o in OUTCOMES}
     return Assessment(
         programme=programme.code, name=programme.name, kind=programme.kind, verdict=verdict,
         incomplete=bool(unknown), rules=results, blocking=blocking, conditions=conditions,
-        missing=tuple(missing), summary=summary)
+        to_obtain=to_obtain, missing=tuple(missing), summary=summary)

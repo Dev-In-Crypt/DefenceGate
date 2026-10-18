@@ -21,18 +21,22 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
     def verdicts(key):
         body = json.loads((ROOT / "web" / "e2e" / "fixtures" / f"assess-{key}.json").read_text(encoding="utf-8"))
         return {a["programme"]: a["verdict"] for a in body["assessments"]}
-    expected = {"EDF": "blocked", "EDIP": "blocked", "EDIP-USI": "blocked", "SAFE": "eligible", "NATO-SUPPLY": "blocked"}
-    assert verdicts("ua") == verdicts("es") == expected
+    # the free PIC and NCAGE are "obtain first" (WP-33, D3), not blocks. EDIP the Programme: blocked for the Ukrainian
+    # company (Ukraine is not an associated country there), "obtain" for the Spanish one (only the PIC is missing).
+    expected = {"EDF": "obtain", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
+    assert verdicts("ua") == expected
+    assert verdicts("es") == {**expected, "EDIP": "obtain"}
     ua = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua.json").read_text(encoding="utf-8"))
     edip = next(a for a in ua["assessments"] if a["programme"] == "EDIP")
-    assert edip["blocking"] == ["EDIP-ESTABLISH", "EDIP-EXEC-MGMT", "EDIP-PIC"]      # Ukraine is not an associated country of the Programme
+    assert edip["blocking"] == ["EDIP-ESTABLISH", "EDIP-EXEC-MGMT"]      # Ukraine is not an associated country of the Programme
+    assert edip["toObtain"] == ["EDIP-PIC"]
     pic = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua-pic.json").read_text(encoding="utf-8"))
     assert {a["programme"]: a["verdict"] for a in pic["assessments"]} == {
-        "EDF": "eligible", "EDIP": "blocked", "EDIP-USI": "eligible", "SAFE": "eligible", "NATO-SUPPLY": "blocked"}
+        "EDF": "eligible", "EDIP": "blocked", "EDIP-USI": "eligible", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert "REQ-PIC" not in [s["code"] for s in pic["roadmap"]["steps"]]
     es = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-es.json").read_text(encoding="utf-8"))
     edip_es = next(a for a in es["assessments"] if a["programme"] == "EDIP")
-    assert edip_es["blocking"] == ["EDIP-PIC"]
+    assert edip_es["blocking"] == [] and edip_es["toObtain"] == ["EDIP-PIC"]
 
 
 def test_the_request_fixtures_are_what_the_api_accepts():

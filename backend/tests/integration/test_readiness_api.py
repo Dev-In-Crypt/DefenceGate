@@ -21,13 +21,13 @@ from dgate.readiness import seed
 pytestmark = pytest.mark.integration
 
 CONTENT = seed.load_file()
-UA = {"country": "UA", "executive_management_country": "UA", "third_country_control": "no",
+UA = {"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
       "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 12.345,
-      "restricted_third_country_component": False, "handles_classified": False,
-      "product_regime": "dual_use", "export_intent": "outside_eu"}
-ES = {"country": "ES", "executive_management_country": "ES", "third_country_control": "no",
-      "non_eu_component_cost_pct": 10, "restricted_third_country_component": False,
-      "handles_classified": True, "product_regime": "military", "export_intent": "outside_eu"}
+      "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False, "safe_role": "contractor",
+      "handles_classified": False, "product_regime": "dual_use", "export_intent": "outside_eu"}
+ES = {"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
+      "non_eu_component_cost_pct": 10, "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+      "safe_role": "contractor", "handles_classified": True, "product_regime": "military", "export_intent": "outside_eu"}
 
 
 @pytest.fixture()
@@ -221,7 +221,12 @@ def test_issuers_for_a_country_fall_back_to_the_all_country_body_and_say_when_no
     assert pic["issuers"][0]["country"] == "*"
     none = client.get("/v1/requirements/REQ-EXPORT/issuers?country=FR").json()
     assert none["issuers"] == [] and "not been collected" in none["note"]
-    assert len(client.get("/v1/requirements/REQ-NCAGE/issuers").json()["issuers"]) == 13
+    assert len(client.get("/v1/requirements/REQ-NCAGE/issuers").json()["issuers"]) == len(CONTENT.requirements["REQ-NCAGE"].issuers)
+    # D4: a NATO member without a row of its own is sent to its national bureau, not to NSPA
+    it = client.get("/v1/requirements/REQ-NCAGE/issuers?country=IT").json()
+    assert it["country"] == "IT" and it["issuers"][0]["country"] == "IT" and "NSPA" not in it["issuers"][0]["name"]
+    ch = client.get("/v1/requirements/REQ-NCAGE/issuers?country=CH").json()
+    assert ch["issuers"][0]["country"] == "*" and ch["issuers"][0]["name"].startswith("NSPA")
     assert client.get("/v1/requirements/REQ-NCAGE/issuers?country=ESP").status_code == 422
     assert client.get("/v1/requirements/REQ-NCAGE/issuers?country=1").status_code == 422
 
@@ -242,12 +247,13 @@ def test_the_rules_are_public_with_their_expressions_and_sources(client):
 
 def test_a_ukrainian_profile_gets_the_verdicts_the_rules_give(client):
     body = client.post("/v1/readiness/assess", json={"profile": UA, "statuses": {}}).json()
-    assert verdicts(body) == {"EDF": "blocked", "EDIP": "blocked", "EDIP-USI": "blocked", "SAFE": "eligible", "NATO-SUPPLY": "blocked"}
+    assert verdicts(body) == {"EDF": "obtain", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     edf = body["assessments"][0]
-    assert edf["blocking"] == ["EDF-PIC"] and not edf["incomplete"]
+    assert edf["blocking"] == [] and edf["toObtain"] == ["EDF-PIC"] and not edf["incomplete"]
     rules = {r["rule"]: r for r in edf["rules"]}
     assert rules["EDF-ESTABLISH"]["outcome"] == "met" and "Ukraine" in rules["EDF-ESTABLISH"]["reason"]
-    assert rules["EDF-PIC"]["outcome"] == "not_met" and rules["EDF-PIC"]["requirement"] == "REQ-PIC"
+    assert rules["EDF-PIC"]["outcome"] == "to_obtain" and rules["EDF-PIC"]["requirement"] == "REQ-PIC"
+    assert "free" in rules["EDF-PIC"]["reason"] and body["assessments"][0]["counts"]["to_obtain"] == 1
     assert rules["EDF-AQAP"]["outcome"] == "info"
     assert [s["code"] for s in body["roadmap"]["steps"]][:3] == ["REQ-PIC", "REQ-NCAGE", "REQ-EXPORT"]
     assert "not legal advice" in body["notice"] and body["rulesReviewed"] == "2026-10-17" and body["call"] is None
@@ -255,9 +261,14 @@ def test_a_ukrainian_profile_gets_the_verdicts_the_rules_give(client):
 
 def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_path(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {"REQ-ISO9001": "held"}}).json()
-    assert verdicts(body) == {"EDF": "blocked", "EDIP": "blocked", "EDIP-USI": "blocked", "SAFE": "eligible", "NATO-SUPPLY": "blocked"}
+    assert verdicts(body) == {"EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     steps = {s["code"]: s for s in body["roadmap"]["steps"]}
-    assert steps["REQ-AQAP2110"]["cost"]["max"] == 25000 and steps["REQ-AQAP2110"]["variantUsed"] == "REQ-ISO9001"
+    # D10: Spain's AQAP route is the state's own; no vendor price is shown for it
+    assert steps["REQ-AQAP2110"]["cost"] is None and "state issues this itself" in steps["REQ-AQAP2110"]["priceNote"]
+    pl = client.post("/v1/readiness/assess", json={"profile": {**ES, "country": "PL", "executive_management_country": "PL"},
+                                                    "statuses": {"REQ-ISO9001": "held"}}).json()
+    aqap = next(s for s in pl["roadmap"]["steps"] if s["code"] == "REQ-AQAP2110")
+    assert aqap["cost"]["max"] == 25000 and aqap["variantUsed"] == "REQ-ISO9001" and aqap["priceNote"] is None
     assert {s["code"] for s in body["roadmap"]["steps"]} == {"REQ-PIC", "REQ-NCAGE", "REQ-FSC-ES", "REQ-REOCE", "REQ-EXPORT", "REQ-AQAP2110"}
     held = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {
         "REQ-ISO9001": "held", "REQ-PIC": "held", "REQ-NCAGE": "held"}}).json()
@@ -267,7 +278,7 @@ def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_
 def test_every_line_of_an_assessment_has_its_source_and_a_date(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {}}).json()
     lines = [r for a in (*body["assessments"], *body["general"]) for r in a["rules"]]
-    assert len(lines) == 30
+    assert len(lines) == 41
     for r in lines:
         s = r["source"]
         assert s["url"].startswith("http") and s["text"].startswith("[") and s["ref"] and s["lastReviewed"], r["rule"]
@@ -291,7 +302,7 @@ def test_missing_answers_are_listed_with_the_question_and_do_not_read_as_no(clie
     body = client.post("/v1/readiness/assess", json={"profile": {"country": "PL"}}).json()
     safe = next(a for a in body["assessments"] if a["programme"] == "SAFE")
     assert safe["verdict"] == "conditional" and safe["incomplete"]
-    assert {m["field"] for m in safe["missing"]} == {"executive_management_country", "third_country_control",
+    assert {m["field"] for m in safe["missing"]} == {"safe_role", "executive_management_country", "third_country_control",
                                                     "non_eu_component_cost_pct", "restricted_third_country_component"}
     assert all(m["question"].endswith("?") for m in safe["missing"])
 
@@ -329,6 +340,25 @@ def test_a_refused_body_is_not_echoed_back_and_a_broken_one_gives_422(client):
     r = client.post("/v1/readiness/assess", content=b"{not json", headers={"content-type": "application/json"})
     assert r.status_code == 422
     assert client.get("/v1/readiness/assess").status_code == 405
+
+
+def test_an_unknown_key_is_refused_without_repeating_its_name(client):
+    # D11: the header of the module says nothing of the body is echoed; that includes the name of a key
+    r = client.post("/v1/readiness/assess", json={"profile": {**UA, "zzSecretMarker": 1}})
+    assert r.status_code == 422 and "zzSecretMarker" not in r.text and "(unknown field)" in r.text
+    r = client.post("/v1/readiness/assess", json={"profile": UA, "zzTopMarker": 1})
+    assert r.status_code == 422 and "zzTopMarker" not in r.text
+
+
+def test_el_and_uk_are_read_as_greece_and_the_united_kingdom_and_other_codes_are_checked(client):
+    greece = client.post("/v1/readiness/assess", json={"profile": {**ES, "country": "EL", "executive_management_country": "EL"},
+                                                      "statuses": {"REQ-PIC": "held", "REQ-NCAGE": "held"}}).json()
+    assert verdicts(greece)["EDF"] == "eligible" and verdicts(greece)["EDIP"] == "eligible"      # a Member State, not "outside"
+    uk = client.post("/v1/readiness/assess", json={"profile": {**ES, "country": "UK", "executive_management_country": "UK"}}).json()
+    assert verdicts(uk)["EDF"] == "blocked"                                                       # the United Kingdom is outside
+    assert client.post("/v1/readiness/assess", json={"profile": {**ES, "country": "ZZ"}}).status_code == 422
+    assert client.post("/v1/readiness/assess", json={"profile": {**ES, "legal_form": "sole_trader"}}).status_code == 422
+    assert client.post("/v1/readiness/assess", json={"profile": {**ES, "safe_role": "boss"}}).status_code == 422
 
 
 def test_a_body_over_the_limit_is_refused_with_413(client):

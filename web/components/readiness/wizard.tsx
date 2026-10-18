@@ -44,6 +44,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
   const { profile, ready, update, clear, stored } = useProfile();
   const [step, setStep] = useState<number | null>(null);
   const [needCountry, setNeedCountry] = useState(false);
+  const [needForm, setNeedForm] = useState(false);
 
   if (!ready || profile === null) {
     return <p role="status" className="m-0 text-body text-ink-muted">Loading your saved answers from this browser…</p>;
@@ -52,11 +53,12 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
   const set = <K extends keyof Profile>(key: K, value: Profile[K]) => update((p) => ({ ...p, [key]: value }));
   const go = (n: number) => {
     setNeedCountry(false);
+    setNeedForm(false);
     setStep(n);
     update((p) => ({ ...p, step: Math.max(p.step, n) }));
   };
   const next = () => {
-    if (current === 1 && !profile.country) { setNeedCountry(true); return; }
+    if (current === 1 && (!profile.country || !profile.legalForm)) { setNeedCountry(!profile.country); setNeedForm(!profile.legalForm); return; }
     if (current === 5) {
       update((p) => ({ ...p, step: 6 }));
       router.push('/readiness/results');
@@ -99,6 +101,15 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               options={COUNTRY_OPTIONS} value={profile.country} aria-required="true"
               error={needCountry ? 'Choose a country to go on.' : undefined}
               onChange={(e) => { setNeedCountry(false); set('country', e.target.value); }} />
+            <Radios legend="What is the legal form of your organisation?" name="legal-form" value={profile.legalForm}
+              hint="The regulations fund legal entities: legal persons, and entities without legal personality only on the conditions of the Financial Regulation."
+              options={[
+                { value: 'legal_person', label: 'A legal person, for example a company, a foundation or a public body' },
+                { value: 'natural_person', label: 'A natural person, for example a sole trader acting in their own name' },
+                { value: 'no_legal_personality', label: 'An entity without legal personality, for example some partnerships' },
+              ]}
+              onChange={(v) => { setNeedForm(false); set('legalForm', v); }} />
+            {needForm && <p role="alert" className="m-0 text-small font-bold">Choose the legal form to go on.</p>}
           </div>
         )}
 
@@ -150,6 +161,18 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
             <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
               hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
               value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />
+            <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua-eea-components"
+              hint="EDIP and the Ukraine Support Instrument count components from these places differently from SAFE, so the 35 % limit cannot be judged without this answer."
+              value={profile.uaEeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaEeaComponents', v)} />
+            <Radios legend="In a SAFE-supported procurement, what would your role be?" name="safe-role" value={profile.safeRole}
+              hint="SAFE binds the contractor and the subcontractors involved in the common procurement: those that provide critical inputs, are allocated at least 15 % of the value of the contract and need access to classified information. A supplier below that is not bound by its rules on establishment and control."
+              options={[
+                { value: 'contractor', label: 'We would be the contractor' },
+                { value: 'subcontractor_involved', label: 'We would be a subcontractor of that kind (critical inputs, at least 15 % of the contract value, access to classified information)' },
+                { value: 'other_supplier', label: 'We would supply components or services below that level' },
+                { value: 'unsure', label: 'I am not sure' },
+              ]}
+              onChange={(v) => set('safeRole', v)} />
           </div>
         )}
 

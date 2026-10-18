@@ -3,7 +3,7 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { daysRange, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug } from './readiness';
+import { OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, daysRange, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug, ruleSentence, statusWords } from './readiness';
 import type { RMoney, RequirementDetail, RSource } from './readiness-types';
 
 const usd: RMoney = { min: 17000, max: 48000, currency: 'USD', basis: 'vendor_range', text: 'USD 17,000-48,000', alt: null, label: 'vendor range, not a benchmark' };
@@ -38,6 +38,24 @@ assert.equal(isoDay('2026-10-17T12:00:00+00:00'), '2026-10-17');
 const notes: RSource = { url: 'https://example.test', ref: 'r', text: '[r] t', origin: 'notes', verificationStatus: 'V', lastReviewed: '2026-09-07' };
 assert.ok(originWords(notes).includes('research notes'));
 assert.ok(originWords({ ...notes, origin: 'primary' }).includes('Official Journal'));
+
+// D8: a line taken from the research notes is never said to have been fetched; a line checked against the Official Journal is.
+assert.ok(!statusWords('V', 'notes').includes('page was fetched'));
+assert.ok(statusWords('V', 'notes').includes('not checked again on this site'));
+assert.ok(statusWords('V', 'primary').includes('Official Journal'));
+assert.equal(statusWords('S', 'notes'), 'Seen in search results, not fetched directly.');
+assert.ok(statusWords('U', 'primary').startsWith('Unverified'));
+
+// D7: a requirement page prints what a rule asks, never the second-person "not met" sentence.
+assert.equal(ruleSentence({ requires: 'Recipients must be established in the Union.', not_met: 'Your company is controlled from a third country.' }), 'Recipients must be established in the Union.');
+assert.equal(ruleSentence({ info: 'AQAP is a contract matter.' }), 'AQAP is a contract matter.');
+assert.equal(ruleSentence({ not_met: 'Your company is controlled from a third country.' }), '');
+
+// D3: a registration that is missing is "Obtain first", not "Blocked", and "Eligible" says what it does not cover.
+assert.equal(VERDICT_WORD.obtain, 'Obtain first');
+assert.equal(OUTCOME_WORD.to_obtain, 'To obtain');
+assert.ok(VERDICT_MEANING.obtain.includes('registration you can obtain'));
+assert.ok(VERDICT_MEANING.eligible.includes('exclusion criteria') && VERDICT_MEANING.eligible.includes('conditions each call sets'));
 
 // The questions a requirement page answers are built from its data, and say what was not collected.
 const req = {

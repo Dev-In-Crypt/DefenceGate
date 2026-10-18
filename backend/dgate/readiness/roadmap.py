@@ -12,7 +12,9 @@ Nothing is estimated here beyond what the sources state:
   * steps that depend on nothing in common run in parallel: they are separate tracks, and the
     total time is that of the slowest track;
   * the ISO 9001 branch: the AQAP 2110 step uses the cost and time the source gives for a firm
-    that already holds ISO 9001 when the company marks ISO 9001 as held.
+    that already holds ISO 9001 when the company marks ISO 9001 as held;
+  * a requirement whose issuer in the company's country is the state itself (Spain's PECAL route)
+    has no price: the vendor ranges of the sources do not describe it.
 
 `call_timing` answers the cross-layer question "this call closes in N weeks: can I realistically
 take part, and if not, what is the fastest path?".
@@ -54,6 +56,7 @@ class _Node:
     needed_for: list[dict[str, str]]
     optional: bool
     level: int = 0
+    state_route: bool = False
 
 
 def _pick(req: Requirement, statuses: Mapping[str, str]) -> tuple[Money | None, Span | None, str | None]:
@@ -63,19 +66,32 @@ def _pick(req: Requirement, statuses: Mapping[str, str]) -> tuple[Money | None, 
     return req.cost, req.days, None
 
 
+def _state_route(content: Content, code: str, country: str | None) -> bool:
+    """Whether the only issuers collected for this country are the state itself: then the vendor price
+    ranges of the sources (quotes of commercial certification bodies) say nothing about the cost."""
+    rows = [i for i in content.requirements[code].issuers if country and i.country == country]
+    return bool(rows) and all(i.state_route for i in rows)
+
+
 def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str], content: Content,
                   country: str | None) -> dict[str, Any]:
     nodes: dict[str, _Node] = {}
+
+    def make(req: Requirement, status: str, optional: bool) -> _Node:
+        cost, days, used = _pick(req, statuses)
+        state = _state_route(content, req.code, country)
+        if state:
+            cost, days, used = None, None, None
+        return _Node(req, status, cost, days, used, [], [], optional, state_route=state)
 
     def need(code: str, *, optional: bool, programme: str, result: RuleResult) -> None:
         req = content.requirements[code]
         status = statuses.get(code, "not_held")
         if status in DONE:
             return
-        cost, days, used = _pick(req, statuses)
         node = nodes.get(code)
         if node is None:
-            node = nodes[code] = _Node(req, status, cost, days, used, [], [], optional)
+            node = nodes[code] = make(req, status, optional)
         node.optional = node.optional and optional
         if result.obligation == "mandatory" and not optional and programme not in node.blocking_for:
             node.blocking_for.append(programme)
@@ -85,7 +101,7 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
         for r in a.rules:
             if r.requirement is None:
                 continue
-            if r.outcome == "not_met":
+            if r.outcome in ("not_met", "to_obtain"):
                 need(r.requirement, optional=False, programme=a.programme, result=r)
             elif r.outcome == "info":
                 need(r.requirement, optional=True, programme=a.programme, result=r)
@@ -100,9 +116,7 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
             if relation != "before" or statuses.get(pre, "not_held") in DONE:
                 continue
             if pre not in nodes:
-                req = content.requirements[pre]
-                cost, days, used = _pick(req, statuses)
-                nodes[pre] = _Node(req, statuses.get(pre, "not_held"), cost, days, used, [], [], nodes[code].optional)
+                nodes[pre] = make(content.requirements[pre], statuses.get(pre, "not_held"), nodes[code].optional)
                 pending.append(pre)
             elif not nodes[code].optional:
                 nodes[pre].optional = False
@@ -135,8 +149,20 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
         "totalsWithOptional": _totals(ordered, edges),
         "unknownCost": [n.req.code for n in required if _unknown_cost(n)],
         "unknownDuration": [n.req.code for n in required if _unknown_days(n)],
+        # the same for the total that includes what only a contract might ask for (ISO 9001, with no stated cost)
+        "unknownCostWithOptional": [n.req.code for n in ordered if _unknown_cost(n)],
+        "unknownDurationWithOptional": [n.req.code for n in ordered if _unknown_days(n)],
+        # what a source says is on top of a range but gives no base for: shown, never added to a total
+        "notAdded": [{"code": n.req.code, "text": note} for n in ordered if (note := _not_added(n, statuses))],
         "label": VENDOR_LABEL,
     }
+
+
+def _not_added(n: _Node, statuses: Mapping[str, str]) -> str | None:
+    extra = n.req.extras.get("without_prerequisite")
+    if n.state_route or n.variant_used or not extra or statuses.get(extra["requirement"], "not_held") in DONE:
+        return None
+    return extra["text"]
 
 
 def _unknown_cost(n: _Node) -> bool:
@@ -227,6 +253,8 @@ def _step(n: _Node, position: dict[str, int], content: Content, country: str | N
         "issuers": [{"country": i.country, "name": i.name, "url": i.url, "notes": i.notes,
                      "status": i.status} for i in issuers],
         "issuerNote": None if issuers else "The body that issues this has not been collected for your country.",
+        "priceNote": ("In your country the state issues this itself, so the vendor price ranges in our sources do not apply "
+                      "and none is shown.") if n.state_route else None,
         "prerequisites": prerequisites, "parallelWith": parallel_with,
         "verificationStatus": req.status, "lastReviewed": req.last_reviewed,
         "sourceUrl": req.source_url,
@@ -253,7 +281,7 @@ def _branch_note(req: Requirement, n: _Node, statuses: Mapping[str, str], conten
     if n.variant_used:
         held = content.requirements[n.variant_used].name
         return f"You hold {held}, so the range the source gives for a firm that already holds it is used."
-    if extra and statuses.get(extra["requirement"], "not_held") not in DONE:
+    if extra and not n.state_route and statuses.get(extra["requirement"], "not_held") not in DONE:
         return extra["text"]
     return None
 

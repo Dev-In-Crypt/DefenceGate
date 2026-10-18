@@ -36,7 +36,19 @@ CODE = re.compile(r"^REQ-[A-Z0-9-]{1,30}$")
 MAX_STATUSES = 40
 NOTICE = ("This is a structured reading of the rules of each programme, with the text of the regulation "
           "beside every line. It is not legal advice and it does not replace the call text or the "
-          "contracting authority. The answers were not stored.")
+          "contracting authority. It does not cover the exclusion criteria and the financial and operational "
+          "capacity checks of the Financial Regulation, or the conditions each call sets. The answers were not stored.")
+# ISO 3166-1 alpha-2, as the profile takes it, and XX for a country that is not listed. "EL" (Greece in
+# EU usage) and "UK" are read as GR and GB: left alone they would be taken for countries outside the EU.
+ISO_COUNTRIES = frozenset((
+    "AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ "
+    "CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR "
+    "GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO "
+    "JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR "
+    "MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO "
+    "RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV "
+    "TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW XX").split())
+COUNTRY_ALIASES = {"EL": "GR", "UK": "GB"}
 MAX_BIGINT = 9_223_372_036_854_775_807
 
 
@@ -126,7 +138,7 @@ def _assessment(a: engine.Assessment, c: Content) -> dict[str, Any]:
     return {
         "programme": a.programme, "name": a.name, "kind": a.kind, "summary": p.summary, "legalBasis": p.legal_basis,
         "sourceUrl": p.source_url, "verdict": a.verdict, "incomplete": a.incomplete, "blocking": list(a.blocking),
-        "conditions": list(a.conditions), "counts": a.summary,
+        "conditions": list(a.conditions), "toObtain": list(a.to_obtain), "counts": a.summary,
         "missing": [{"field": f, "question": engine.FIELDS[f]["label"]} for f in a.missing],
         "rules": [_result(r) for r in a.rules],
     }
@@ -218,14 +230,25 @@ def list_programmes(conn=Depends(get_conn)):
 class ProfileIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     country: str = Field(pattern=r"^[A-Z]{2}$")
+    legal_form: Literal["legal_person", "natural_person", "no_legal_personality"] | None = None
     executive_management_country: str | None = Field(default=None, pattern=r"^[A-Z]{2}$")
     third_country_control: Literal["no", "ua_eea_only", "other"] | None = None
     ua_non_government_controlled_area: bool | None = None
     non_eu_component_cost_pct: float | None = Field(default=None, ge=0, le=100)
     restricted_third_country_component: bool | None = None
+    components_from_ua_or_eea_efta: bool | None = None
+    safe_role: Literal["contractor", "subcontractor_involved", "other_supplier"] | None = None
     handles_classified: bool | None = None
     product_regime: Literal["none", "dual_use", "military", "unknown"] = "unknown"
     export_intent: Literal["none", "within_eu", "outside_eu", "unsure"] | None = None
+
+    @field_validator("country", "executive_management_country")
+    @classmethod
+    def _known_country(cls, v: str | None) -> str | None:
+        v = COUNTRY_ALIASES.get(v, v) if v else v
+        if v is not None and v not in ISO_COUNTRIES:
+            raise ValueError("country: an ISO 3166-1 alpha-2 code, or XX for a country that is not listed")
+        return v
 
     def to_engine(self) -> engine.Profile:
         return engine.Profile(**self.model_dump())

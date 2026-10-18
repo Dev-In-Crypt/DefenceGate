@@ -30,20 +30,23 @@ ES_ONLY = ["REQ-REOCE", "REQ-FSC-ES"]
 
 # The answers a person gives in the wizard, for the two scenarios the e2e specs run.
 PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
-    "ua": ({"country": "UA", "executive_management_country": "UA", "third_country_control": "no",
+    "ua": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
             "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
-            "restricted_third_country_component": False, "handles_classified": False,
+            "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+            "safe_role": "contractor", "handles_classified": False,
             "product_regime": "dual_use", "export_intent": "outside_eu"},
            {code: "not_held" for code in STATUS_CODES}),
     # the Ukrainian company after it marked its PIC as done in the roadmap: the answer the page re-scores to
-    "ua-pic": ({"country": "UA", "executive_management_country": "UA", "third_country_control": "no",
+    "ua-pic": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
                 "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
-                "restricted_third_country_component": False, "handles_classified": False,
+                "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+                "safe_role": "contractor", "handles_classified": False,
                 "product_regime": "dual_use", "export_intent": "outside_eu"},
                {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "held"}),
-    "es": ({"country": "ES", "executive_management_country": "ES", "third_country_control": "no",
+    "es": ({"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
             "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": 10.0,
-            "restricted_third_country_component": False, "handles_classified": True,
+            "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+            "safe_role": "contractor", "handles_classified": True,
             "product_regime": "military", "export_intent": "outside_eu"},
            {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
 }

@@ -38,6 +38,7 @@ async function answerUkraine(page: Page) {
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await page.getByLabel('Company name (optional)').fill('Secret Works Ltd');
   await page.getByLabel('Country where your company is established').selectOption('UA');
+  await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
   await next(page);
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
   await group(page, /area of Ukraine that the Ukrainian government does not control/).getByLabel('No', { exact: true }).check();
@@ -45,6 +46,8 @@ async function answerUkraine(page: Page) {
   await page.getByLabel('Dual-use (on the Annex I list)').check();
   await page.getByLabel(/Share of component cost from outside the EU/).fill('20');
   await group(page, /component come from a third country/).getByLabel('No', { exact: true }).check();
+  await group(page, /originate in Ukraine or in an EEA EFTA state/).getByLabel('No', { exact: true }).check();
+  await group(page, /what would your role be/).getByLabel('We would be the contractor').check();
   await next(page);
   await next(page);       // certifications: nothing held
   await group(page, /handle classified information/).getByLabel('No', { exact: true }).check();
@@ -54,12 +57,15 @@ async function answerUkraine(page: Page) {
 async function answerSpain(page: Page) {
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await page.getByLabel('Country where your company is established').selectOption('ES');
+  await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
   await next(page);
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
   await next(page);
   await page.getByLabel('Military (on the Common Military List)').check();
   await page.getByLabel(/Share of component cost from outside the EU/).fill('10');
   await group(page, /component come from a third country/).getByLabel('No', { exact: true }).check();
+  await group(page, /originate in Ukraine or in an EEA EFTA state/).getByLabel('No', { exact: true }).check();
+  await group(page, /what would your role be/).getByLabel('We would be the contractor').check();
   await next(page);
   await page.getByLabel('ISO 9001 quality management certificate').selectOption({ label: 'We hold it' });
   await next(page);
@@ -122,11 +128,13 @@ test('a Ukrainian company: the wizard sends the answers the rules read and the p
   await page.getByRole('button', { name: 'See my results' }).click();
   await expect(page).toHaveURL(/\/readiness\/results$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your readiness results');
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Blocked');
+  // only the free PIC (EDF, Ukraine Support Instrument) or the NCAGE code (NATO) is missing: "Obtain first", not "Blocked"
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
+  // EDIP the Programme: Ukraine is not an associated country there, so the company is blocked whatever it obtains
   await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Blocked');
-  await expect(card(page, 'EDIP: Ukraine Support Instrument')).toContainText('Blocked');
+  await expect(card(page, 'EDIP: Ukraine Support Instrument')).toContainText('Obtain first');
   await expect(card(page, 'Security Action for Europe (SAFE)')).toContainText('Eligible');
-  await expect(card(page, 'NATO and NSPA supply')).toContainText('Blocked');
+  await expect(card(page, 'NATO and NSPA supply')).toContainText('Obtain first');
 
   // exactly the request the backend's fixture was made from, and nothing that identifies the company
   expect(posted.length).toBeGreaterThan(0);
@@ -143,7 +151,8 @@ test('a Ukrainian company: the wizard sends the answers the rules read and the p
   await expect(rule.getByRole('link', { name: 'Open the source' })).toHaveAttribute('href', 'http://data.europa.eu/eli/reg/2021/697/oj');
   await rule.getByText('Show the text of the source').click();
   await expect(rule).toContainText('Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.');
-  await expect(edf.locator('li[data-rule="EDF-PIC"]')).toContainText('Not met');
+  await expect(edf.locator('li[data-rule="EDF-PIC"]')).toContainText('To obtain');
+  await expect(edf.locator('li[data-rule="EDF-LEGAL-ENTITY"]')).toContainText('Met');
   await expect(edf.locator('li[data-rule="EDF-AQAP"]')).toContainText('For information');
   await pace(page);
 });
@@ -192,18 +201,20 @@ test('a Ukrainian company: the roadmap in order, with issuers and ranges, and ma
   await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Blocked');
 });
 
-test('a Spanish company with ISO 9001: the shorter AQAP path, the Spanish issuers and the verdicts', async ({ page }) => {
+test('a Spanish company with ISO 9001: no vendor price for the state AQAP route, the Spanish issuers and the verdicts', async ({ page }) => {
   const posted = await mockAssess(page);
   await answerSpain(page);
   await page.getByRole('button', { name: 'See my results' }).click();
   await expect(card(page, 'Security Action for Europe (SAFE)')).toContainText('Eligible');
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Blocked');
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
+  await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Obtain first');
   expect(posted[posted.length - 1]).toEqual(fixture('request-es.json'));
   await expect(page.getByRole('heading', { name: 'Other requirements that may apply to you' })).toBeVisible();
   await page.getByRole('link', { name: 'See my roadmap' }).click();
   const aqap = page.locator('li[data-step="REQ-AQAP2110"]');
-  await expect(aqap).toContainText('USD 17,000 to 25,000');
-  await expect(aqap).toContainText('You hold ISO 9001 quality management certificate');
+  // Spain's AQAP route is the state's own (PECAL): the vendor ranges of the sources do not describe it, so none is shown
+  await expect(aqap).toContainText('the state issues this itself');
+  await expect(aqap).not.toContainText('USD');
   await expect(page.locator('li[data-step="REQ-ISO9001"]')).toHaveCount(0);
   await expect(page.locator('li[data-step="REQ-REOCE"]')).toContainText('Secretaría de Estado de Comercio');
   await expect(page.locator('li[data-step="REQ-FSC-ES"]')).toContainText('Oficina Nacional de Seguridad');
@@ -224,7 +235,7 @@ test('the answers stay in this browser: a reload keeps them, nothing is sent but
   const stored = await page.evaluate(() => window.localStorage.getItem('dg.profile.v1'));
   expect(stored).toContain('"country":"UA"');
   await page.reload();
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Blocked');
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
   await page.goto('/readiness');
   await expect(page.getByLabel('Yes, outside the EU')).toBeChecked();
   expect(await context.cookies()).toEqual([]);
@@ -241,6 +252,7 @@ test('the first step needs a country, and a page of results without answers says
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await next(page);
   await expect(page.getByText('Choose a country to go on.')).toBeVisible();
+  await expect(page.getByText('Choose the legal form to go on.')).toBeVisible();
   await expect(page.getByText('Step 1 of 5: Your company')).toBeVisible();
 });
 
