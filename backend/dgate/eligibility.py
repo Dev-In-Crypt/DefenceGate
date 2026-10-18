@@ -552,9 +552,7 @@ def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | N
         conn.commit()
     answer, usage = llm.complete_json(
         conn, task=TASK, system=SYSTEM,
-        user=f"{USER_HEADERS[scope]}{topic_header(topic if code else None)}{DOC_BEGIN}
-{body}
-{DOC_END}",
+        user=f"{USER_HEADERS[scope]}{topic_header(topic if code else None)}{DOC_BEGIN}\n{body}\n{DOC_END}",
         schema=schema(), schema_name="eligibility", max_output_tokens=7000, client=llm_client)
     fields = annotate_scope(check_quotes(bound(answer), body, code), scope)
     from psycopg.types.json import Jsonb
