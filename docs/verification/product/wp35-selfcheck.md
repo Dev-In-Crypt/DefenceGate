@@ -82,7 +82,7 @@ answers "check" for any fact with a note; `D1` also hides calls published long a
 
 ## Tests
 
-Added: `tests/unit/test_wp35_eligibility.py` (regression set and pieces, 60 cases), `tests/integration/test_wp35.py` (9), additions to `web/lib/digest.check.ts` and
+Added: `tests/unit/test_wp35_eligibility.py` (regression set and pieces), `tests/integration/test_wp35.py` (9), additions to `web/lib/digest.check.ts` and
 `web/lib/funding.check.ts` (calendar file, digest country); `web/e2e/digest.spec.ts` adjusted to the new event word.
 
 Results on the server (it was at load 100 and out of memory for two hours because several packages ran suites at once, so the full integration suite could not
