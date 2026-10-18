@@ -43,9 +43,14 @@ function ConfidenceBadge({ view, lifted }: { view: ConfidenceView; lifted: boole
  * sure we are, and a line that says the classification is automatic, linked to the methodology. On a card the links
  * are lifted above the stretched title link with `lifted`.
  */
-export function BasisChips({ tender, lifted = false, className }: { tender: BasisInput; lifted?: boolean; className?: string }) {
+export function BasisChips({ tender, lifted = false, className, note = true }: {
+  tender: BasisInput; lifted?: boolean; className?: string;
+  /** The "Classified automatically ... see how" line. A list says it once for all its cards (`ClassifiedNote`) and passes false. */
+  note?: boolean;
+}) {
   const chips = basisChips(tender);
   const confidence = confidenceView(tender.confidence);
+  if (!note && chips.length === 0 && !confidence) return null;
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       {(chips.length > 0 || confidence) && (
@@ -61,9 +66,20 @@ export function BasisChips({ tender, lifted = false, className }: { tender: Basi
           {confidence && <ConfidenceBadge view={confidence} lifted={lifted} />}
         </div>
       )}
-      <p className="m-0 text-small text-ink-muted">
-        {CLASSIFIED_AUTOMATICALLY}{confidence ? ' (the confidence is a sample estimate)' : ''}; <Link href={confidence ? CONFIDENCE_HREF : '/methodology'} className={cn('font-semibold', lifted && 'relative z-10')}>see how</Link>
-      </p>
+      {note && <ClassifiedLine confidence={Boolean(confidence)} lifted={lifted} />}
     </div>
   );
+}
+
+function ClassifiedLine({ confidence, lifted = false }: { confidence: boolean; lifted?: boolean }) {
+  return (
+    <p className="m-0 text-small text-ink-muted">
+      {CLASSIFIED_AUTOMATICALLY}{confidence ? ' (the confidence is a sample estimate)' : ''}; <Link href={confidence ? CONFIDENCE_HREF : '/methodology'} className={cn('font-semibold', lifted && 'relative z-10')}>see how</Link>
+    </p>
+  );
+}
+
+/** The same line, once, above a list of notices whose cards do not repeat it. */
+export function ClassifiedNote({ tenders, className }: { tenders: BasisInput[]; className?: string }) {
+  return <div className={className}><ClassifiedLine confidence={tenders.some((t) => confidenceView(t.confidence))} /></div>;
 }

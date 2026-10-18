@@ -7,7 +7,10 @@ import { displayName } from '@/lib/display-name';
 import { formatDateUtc, variantsLine } from '@/lib/format';
 import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, type SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
-import { Breadcrumbs, EmptyState } from '@/components/dg/feedback';
+import { EmptyState } from '@/components/dg/feedback';
+import { PageHeader } from '@/components/dg/page-header';
+import { FactsGrid } from '@/components/dg/facts-grid';
+import { ClassifiedNote } from '@/components/dg/basis-chips';
 import { Tag } from '@/components/dg/tag';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { TenderCard } from '@/components/dg/cards';
@@ -70,16 +73,16 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
 
   return (
     <>
-      <Breadcrumbs items={[
-        { label: 'Home', href: '/' }, { label: 'Buyers', href: '/buyers' },
-        { label: name, href: `/buyers/${buyer.slug}` },
-      ]} />
-
-      <header className="flex flex-col gap-4">
-        {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
-        <h1 className="m-0 break-words page-title">{name}</h1>
+      <PageHeader
+        crumbs={[
+          { label: 'Home', href: '/' }, { label: 'Buyers', href: '/buyers' },
+          { label: name, href: `/buyers/${buyer.slug}` },
+        ]}
+        eyebrow={buyer.isDefenceBuyer ? <span className="self-start"><Tag>Defence body</Tag></span> : undefined}
+        title={name}
+      >
         <FollowButton kind="buyer" refId={buyer.id} label="Follow this buyer" />
-        <dl className="facts-grid m-0 border-b border-line">
+        <FactsGrid className="facts-grid--4">
           <FactCell label="Country">
             {buyer.country ? <CountryLabel code={buyer.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}
           </FactCell>
@@ -90,15 +93,17 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
               ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>
               : <span className="font-sans">Not stated</span>}
           </FactCell>
-        </dl>
-        {variantsLine(buyer.nameVariants) && <p className="m-0 text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
+        </FactsGrid>
+        {variantsLine(buyer.nameVariants) && <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
         <p className="m-0 max-w-prose text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
         {buyer.organisationSlug && (
           <p className="m-0 max-w-prose text-body">
             Also took part in funded projects: <Link href={`/organisations/${buyer.organisationSlug}`} className="font-semibold">see its projects, partners and EU funding</Link>.
           </p>
         )}
-      </header>
+        {/* Said once for every card below instead of on each of them. */}
+        {((open?.items.length ?? 0) > 0 || earlier.items.length > 0) && <ClassifiedNote tenders={[...(open?.items ?? []), ...earlier.items]} />}
+      </PageHeader>
 
       {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
 
@@ -108,7 +113,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           {open && open.items.length > 0 ? (
             <>
               <ul className="m-0 flex list-none flex-col gap-4 p-0">
-                {open.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" /></li>)}
+                {open.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
               </ul>
               {open.total > open.items.length && (
                 <p className="m-0 text-small text-ink-muted">Showing {open.items.length} of {open.total} open tenders.</p>
@@ -127,7 +132,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
         {earlier.items.length > 0 ? (
           <>
             <ul className="m-0 flex list-none flex-col gap-4 p-0">
-              {earlier.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" /></li>)}
+              {earlier.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
             </ul>
             <Pagination page={earlier.page} total={earlier.total} pageSize={earlier.pageSize}
               hrefFor={(p) => (p > 1 ? `/buyers/${buyer.slug}?page=${p}` : `/buyers/${buyer.slug}`)} />

@@ -11,7 +11,7 @@ const hasIssue = async (page: Page) => (await page.locator('#numbers').count()) 
 
 /** Below the `lg` breakpoint the filters sit behind a "Filters" button; open it so the controls are on screen. */
 async function openFilters(page: Page) {
-  const button = page.getByRole('button', { name: /^Filters/ });
+  const button = page.getByRole('button', { name: /^(Show|Hide) filters/ });
   if (await button.isVisible() && (await button.getAttribute('aria-expanded')) !== 'true') await button.click();
 }
 

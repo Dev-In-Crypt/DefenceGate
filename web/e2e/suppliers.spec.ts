@@ -3,7 +3,7 @@ import { pace, visit } from './helpers';
 
 /**
  * The supplier map (WP-37): /suppliers and a supplier's page. Read-only. The same file runs against a local build
- * with demo data (no suppliers there: the page says so) and against a real site, so it asks for shapes and checks
+ * with demo data (five invented suppliers, lib/mock/suppliers.ts) and against a real site, so it asks for shapes and checks
  * the content only where there is some.
  */
 

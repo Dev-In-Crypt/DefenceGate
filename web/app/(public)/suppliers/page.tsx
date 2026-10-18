@@ -12,7 +12,9 @@ import { PageHeader } from '@/components/dg/page-header';
 import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
 import { CountryLabel } from '@/components/dg/data-display';
-import { ScrollBox } from '@/components/dg/scroll-box';
+import { Card } from '@/components/dg/card';
+import { AutoGrid } from '@/components/dg/auto-grid';
+import { DataTable } from '@/components/dg/data-table';
 
 export const revalidate = 300;
 
@@ -67,7 +69,6 @@ function withProduct(f: ReturnType<typeof parse>) {
   return { match, none: match !== null && match.prefixes.length === 0, api: { ...f, cpv } };
 }
 
-const CARD = 'flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6';
 const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-normal';
 
 export default async function SuppliersPage({ searchParams }: Props) {
@@ -94,8 +95,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} title="Defence supplier map"
         lead="Which companies have won defence-relevant contracts that a buyer published in TED, where they are and how often. This is the open segment of the market, not all of it." />
 
-      <section aria-labelledby="coverage" className={`${CARD} max-w-prose`}>
-        <h2 id="coverage" className="m-0 text-h3">What this map covers</h2>
+      <Card title="What this map covers" id="coverage">
         <p className="m-0 text-body">
           The winners named in TED result notices that our archive holds in the defence-relevant scope, from 2023. TED holds only part of
           European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked that figure), and contracts awarded outside it are not here, so a company missing from this map may win many.
@@ -109,7 +109,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
             Source: TED, © European Union. Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).
           </p>
         )}
-      </section>
+      </Card>
 
       {summary && summary.byCpv.length > 0 && (
         <section aria-labelledby="aggregate" className="flex flex-col gap-4">
@@ -118,56 +118,50 @@ export default async function SuppliersPage({ searchParams }: Props) {
             Counts of suppliers and wins. A group of fewer than {summary.kMin} suppliers is not shown ({formatNumber(summary.suppressedGroups)} groups are
             held back), so that no figure describes one company, and the same holds for a list narrowed by country or product group. The map states no contract value per supplier and ranks nobody by value; a supplier's wins are a count of notices, each with its link.
           </p>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className={CARD}>
-              <ScrollBox label="By CPV division">
-                <table className="w-full min-w-[420px] border-collapse text-left text-small">
-                  <caption className="mb-2 text-left text-h3">By CPV division</caption>
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th scope="col" className="py-2 pr-4 font-semibold">Product group</th>
-                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Suppliers</th>
-                      <th scope="col" className="py-2 text-right font-semibold">Wins</th>
+          <AutoGrid min={420}>
+            <Card title="By CPV division" headingLevel="h3" className="self-start">
+              <DataTable label="By CPV division" minWidth={380}>
+                <thead>
+                  <tr>
+                    <th scope="col">Product group</th>
+                    <th scope="col" className="text-right">Suppliers</th>
+                    <th scope="col" className="text-right">Wins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.byCpv.map((g) => (
+                    <tr key={g.key}>
+                      <th scope="row" className="min-w-44 font-normal">
+                        <Link href={`/suppliers?cpv=${g.key}`}>{g.key} {cpvDivisionLabel(g.key) ?? ''}</Link>
+                      </th>
+                      <td className="text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
+                      <td className="text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {summary.byCpv.map((g) => (
-                      <tr key={g.key} className="border-b border-line last:border-0">
-                        <th scope="row" className="py-2 pr-4 font-normal">
-                          <Link href={`/suppliers?cpv=${g.key}`}>{g.key} {cpvDivisionLabel(g.key) ?? ''}</Link>
-                        </th>
-                        <td className="py-2 pr-4 text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
-                        <td className="py-2 text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </ScrollBox>
-            </div>
-            <div className={CARD}>
-              <ScrollBox label="By country of the supplier">
-                <table className="w-full min-w-[420px] border-collapse text-left text-small">
-                  <caption className="mb-2 text-left text-h3">By country of the supplier</caption>
-                  <thead>
-                    <tr className="border-b border-line">
-                      <th scope="col" className="py-2 pr-4 font-semibold">Country</th>
-                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Suppliers</th>
-                      <th scope="col" className="py-2 text-right font-semibold">Wins</th>
+                  ))}
+                </tbody>
+              </DataTable>
+            </Card>
+            <Card title="By country of the supplier" headingLevel="h3" className="self-start">
+              <DataTable label="By country of the supplier" minWidth={380}>
+                <thead>
+                  <tr>
+                    <th scope="col">Country</th>
+                    <th scope="col" className="text-right">Suppliers</th>
+                    <th scope="col" className="text-right">Wins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.byCountry.map((g) => (
+                    <tr key={g.key}>
+                      <th scope="row" className="min-w-44 font-normal"><Link href={`/suppliers?country=${g.key}`}>{countryName(g.key)}</Link></th>
+                      <td className="text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
+                      <td className="text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {summary.byCountry.map((g) => (
-                      <tr key={g.key} className="border-b border-line last:border-0">
-                        <th scope="row" className="py-2 pr-4 font-normal"><Link href={`/suppliers?country=${g.key}`}>{countryName(g.key)}</Link></th>
-                        <td className="py-2 pr-4 text-right font-mono tabular-nums">{formatNumber(g.suppliers)}</td>
-                        <td className="py-2 text-right font-mono tabular-nums">{formatNumber(g.awards)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </ScrollBox>
-            </div>
-          </div>
+                  ))}
+                </tbody>
+              </DataTable>
+            </Card>
+          </AutoGrid>
         </section>
       )}
 
@@ -230,7 +224,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {result.items.map((s) => (
               <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-4">
-                <Link href={`/suppliers/${s.slug}`} className="break-words text-h3 font-semibold">{s.name}</Link>
+                <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{s.name}</Link>
                 <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
                   <CountryLabel code={s.country} />
                   <span>

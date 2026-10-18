@@ -103,6 +103,8 @@
     display: grid; column-gap: 24px;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, max(220px, calc((100% - 48px) / 3 - 1px))), 1fr));
   }
+  /* Four short facts in one row (a profile head), two by two when narrow. */
+  .facts-grid.facts-grid--4 { grid-template-columns: repeat(auto-fit, minmax(min(100%, max(160px, calc((100% - 72px) / 4 - 1px))), 1fr)); }
   /* AutoGrid: as many columns as fit at --auto-min, a lone card takes the row. */
   .auto-grid {
     display: grid; gap: 16px;
@@ -122,6 +124,23 @@
       min-height: 0; padding: 0; border-bottom-width: 0;
     }
     .reading .card-titled > .card-body, .card-titled.split > .card-body { padding: 0; }
+  }
+  /* DetailLayout, a record page. One column on a phone (top, nav, facts, main, side in that order); from lg the text at the left and a
+     320 px side column (side, facts, nav, the nav sticky); from xl, with a nav, the nav is a 200 px column of its own at the left. */
+  .detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+  @media (min-width: 1024px) {
+    .detail { grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: auto auto auto 1fr; column-gap: 32px; }
+    .detail > .d-main { grid-column: 1; grid-row: 1 / -1; }
+    .detail > .d-side { grid-column: 2; grid-row: 1; }
+    .detail > .d-facts { grid-column: 2; grid-row: 2; }
+    .detail > .d-nav { grid-column: 2; grid-row: 3 / -1; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .detail > .d-top { display: none; }
+  }
+  @media (min-width: 1280px) {
+    .detail--nav { grid-template-columns: 200px minmax(0, 1fr) 320px; }
+    .detail--nav > .d-nav { grid-column: 1; grid-row: 1 / -1; }
+    .detail--nav > .d-main { grid-column: 2; }
+    .detail--nav > .d-side, .detail--nav > .d-facts { grid-column: 3; }
   }
   /* h1 of every page: 32/40 below md, 36/44 from md. */
   .page-title { @apply font-sans text-h1-sm md:text-h1; }

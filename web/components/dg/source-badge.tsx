@@ -34,7 +34,7 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
     );
   }
   return (
-    <div className={cn('flex flex-col gap-3 rounded-md bg-surface-inset p-4', className)}>
+    <div className={cn('flex flex-col gap-3', className)}>
       <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 font-mono text-[12px] leading-[18px] tabular-nums">
         <dt className="text-ink-muted">Source</dt><dd className="m-0 font-medium text-ink">{source.sourceName}</dd>
         <dt className="text-ink-muted">{retrievedLabel}</dt><dd className="m-0 text-ink"><time dateTime={source.retrievedAt}>{retrieved}</time></dd>

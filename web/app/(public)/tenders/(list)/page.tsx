@@ -10,6 +10,7 @@ import { listUpdatedAt, staleNote, valueMissingNote, valueMissingShares } from '
 import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
+import { ClassifiedNote } from '@/components/dg/basis-chips';
 import { ListPage } from '@/components/dg/list-page';
 import { TenderFilterBar } from '@/components/tenders/filter-bars';
 import { SaveSearch } from '@/components/account/save-search';
@@ -67,12 +68,13 @@ export default async function TendersPage({ searchParams }: Props) {
       sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: SORT_OPTIONS }}
       notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"
+      listNote={<ClassifiedNote tenders={result.items} />}
       emptyTitle="No tenders match these filters"
       emptyText="Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and a military product code bought by a municipality or a hospital (dual-use) is hidden unless you choose the scope All."
       hrefFor={(p) => `/tenders${toTenderQuery({ ...filters, page: p })}`}
       footnote="Amounts are shown in the currency the source states and are never converted or added up across currencies."
     >
-      {result.items.map((t) => <li key={t.id}><TenderCard tender={t} cpvFilter={filters.cpv} valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
+      {result.items.map((t) => <li key={t.id}><TenderCard tender={t} cpvFilter={filters.cpv} classifiedNote={false} valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
     </ListPage>
   );
 }

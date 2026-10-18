@@ -15,7 +15,7 @@ import { VersionTimeline } from '@/components/dg/version-timeline';
 import { AmountDisplay, CountryLabel, FactCell } from '@/components/dg/data-display';
 import { Breadcrumbs, CallCardSkeleton, ComingSoon, EmptyState, ErrorState, LockedFeature } from '@/components/dg/feedback';
 import { Pagination } from '@/components/dg/pagination';
-import { Choice, Select, TextInput } from '@/components/dg/form';
+import { Choice, FoldGroup, Select, TextInput } from '@/components/dg/form';
 import { Card, TextCard } from '@/components/dg/card';
 import { PageHeader } from '@/components/dg/page-header';
 import { FactsGrid } from '@/components/dg/facts-grid';
@@ -23,6 +23,7 @@ import { AutoGrid } from '@/components/dg/auto-grid';
 import { Prose } from '@/components/dg/prose';
 import { Details } from '@/components/dg/details';
 import { DataTable } from '@/components/dg/data-table';
+import { DetailLayout, SectionNav } from '@/components/dg/detail-layout';
 
 export const metadata: Metadata = { title: 'Styleguide', robots: { index: false, follow: false } };
 
@@ -174,6 +175,22 @@ export default async function StyleguidePage() {
             <thead><tr><th scope="col">Programme</th><th scope="col">Projects</th><th scope="col">EU contribution</th></tr></thead>
             <tbody><tr><td>EDF</td><td>12</td><td>EUR 41,000,000</td></tr><tr><td>EDIDP</td><td>4</td><td>EUR 9,500,000</td></tr></tbody>
           </DataTable>
+        </Specimen>
+        <Specimen label="DetailLayout and SectionNav: a record page. Text in one column, key facts and deadline in a side column, a sticky index (left from xl)">
+          <DetailLayout
+            nav={<SectionNav items={[{ id: 'layout', label: 'First part' }, { id: 'buttons', label: 'Second part' }]} />}
+            facts={<Card title="Key facts"><FactsGrid className="border-b-0 [&>div:first-child]:border-t-0" items={[{ label: 'Budget', value: 'EUR 25,000,000', mono: true }, { label: 'Funder', value: 'European Commission' }]} /></Card>}
+            side={<Card><p className="m-0 text-body">Deadline and actions.</p></Card>}
+          >
+            <Card title="A panel"><p className="m-0 text-body">The text column. Panels are cards with a title row.</p></Card>
+          </DetailLayout>
+        </Specimen>
+        <Specimen label="FoldGroup: a filter group that folds (native details, the options stay in the form); open, closed, with a chosen option">
+          <form className="flex max-w-xs flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
+            <FoldGroup legend="Status"><Choice type="radio" name="sg-status" value="open" label="Open" defaultChecked /><Choice type="radio" name="sg-status" value="closed" label="Closed" /></FoldGroup>
+            <FoldGroup legend="Country" open={false} count={1}><Choice name="sg-country" value="PL" label="Poland" defaultChecked /><Choice name="sg-country" value="DE" label="Germany" /></FoldGroup>
+            <FoldGroup legend="Budget" open={false}><Choice name="sg-budget" value="1" label="EUR 1M" /></FoldGroup>
+          </form>
         </Specimen>
       </Section>
 

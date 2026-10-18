@@ -25,7 +25,7 @@ function formToQuery(form: HTMLFormElement): string {
 /**
  * Progressive enhancement for the GET filter form: without JS the form submits normally;
  * with JS, checkbox/select/date changes update the URL immediately (shareable, no reload).
- * Below lg the panel collapses behind a "Filters" button.
+ * Below lg the panel collapses behind a "Show filters" button; from lg the column holding it is sticky (the page's list shell).
  */
 export function FilterPanel({ activeCount, children }: { activeCount: number; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -50,7 +50,7 @@ export function FilterPanel({ activeCount, children }: { activeCount: number; ch
       <button type="button" aria-expanded={open} aria-controls="filter-panel" onClick={() => setOpen(!open)}
         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink lg:hidden">
         <Icon icon={SlidersHorizontal} size="button" />
-        Filters{activeCount > 0 ? ` · ${activeCount} active` : ''}
+        {open ? 'Hide filters' : 'Show filters'}{activeCount > 0 ? ` · ${activeCount} active` : ''}
       </button>
       <div id="filter-panel" className={cn(open ? 'block' : 'hidden', 'lg:block')}>{children}</div>
     </div>

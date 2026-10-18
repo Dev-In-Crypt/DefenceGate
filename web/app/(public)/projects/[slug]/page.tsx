@@ -5,7 +5,9 @@ import { formatEur, isNetworkSlug, roleWord } from '@/lib/networks';
 import { getProject, getProjectHistory } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
-import { Breadcrumbs } from '@/components/dg/feedback';
+import { PageHeader } from '@/components/dg/page-header';
+import { Card } from '@/components/dg/card';
+import { FactsGrid } from '@/components/dg/facts-grid';
 import { Tag } from '@/components/dg/tag';
 import { ConsortiumTable, DataSources, OrgLink, SourceLink } from '@/components/networks/parts';
 
@@ -42,15 +44,18 @@ export default async function ProjectPage({ params }: Props) {
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label, href: `/projects/${p.slug}` }]} />
-      <header className="flex flex-col gap-4">
-        <p className="m-0 flex flex-wrap gap-2">
-          {p.programme && <Tag kind="programme">{p.programme.code}</Tag>}
-          {p.category && <Tag>{p.category}</Tag>}
-        </p>
-        <h1 className="m-0 break-words page-title">{label}</h1>
+      <PageHeader
+        crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label, href: `/projects/${p.slug}` }]}
+        eyebrow={(
+          <p className="m-0 flex flex-wrap gap-2">
+            {p.programme && <Tag kind="programme">{p.programme.code}</Tag>}
+            {p.category && <Tag>{p.category}</Tag>}
+          </p>
+        )}
+        title={label}
+      >
         {p.acronym && <p className="m-0 max-w-prose text-body text-ink-muted">{p.title}</p>}
-        <dl className="facts-grid m-0 border-b border-line">
+        <FactsGrid>
           <FactCell label="Programme"><span className="font-sans">{p.programme?.name ?? 'Not stated'}</span></FactCell>
           <FactCell label={edf ? 'Call year' : 'Started'}>{edf ? (p.callYear ?? 'Not stated') : day(p.startDate)}</FactCell>
           {!edf && <FactCell label="Ends">{day(p.endDate)}</FactCell>}
@@ -60,26 +65,24 @@ export default async function ProjectPage({ params }: Props) {
           <FactCell label="Participants"><span className="tabular-nums">{p.memberCount}</span> <span className="font-sans text-ink-muted">from {p.countryCount} countries</span></FactCell>
           {p.topic && <FactCell label="Topic">{p.topic}</FactCell>}
           {p.grantNumber && <FactCell label="Grant agreement">{p.grantNumber}</FactCell>}
-        </dl>
+        </FactsGrid>
         {p.coordinator && (
           <p className="m-0 text-body">
             Coordinated by <OrgLink org={p.coordinator} />{p.coordinator.country ? <> (<CountryLabel code={p.coordinator.country} />)</> : null}.
           </p>
         )}
-      </header>
+      </PageHeader>
 
-      <section aria-labelledby="consortium" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
-        <h2 id="consortium" className="m-0 text-h3">Consortium</h2>
-        <p className="m-0 max-w-prose text-small text-ink-muted">
+      <Card title="Consortium" id="consortium">
+        <p className="m-0 text-small text-ink-muted">
           {edf ? 'The factsheet states no amount per participant.' : 'EU contribution per participant as the open data of CORDIS states it; for a participant with linked third parties it may include their share, and a participant whose amount the data does not hold or cannot make consistent shows Not stated.'} A participant who left the project is not listed; see the history below.
         </p>
         <ConsortiumTable members={p.members} />
-      </section>
+      </Card>
 
       {p.factsheet && (
-        <section aria-labelledby="read" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
-          <h2 id="read" className="m-0 text-h3">How the participants were read</h2>
-          <p className="m-0 max-w-prose text-body">{p.factsheet.note}</p>
+        <Card title="How the participants were read" id="read">
+          <p className="m-0 text-body">{p.factsheet.note}</p>
           <p className="m-0 text-small text-ink-muted">Read on <time dateTime={p.factsheet.readAt}>{formatDateUtc(p.factsheet.readAt)}</time> from {p.factsheet.pages} pages.</p>
           {p.factsheet.dropped.length > 0 ? (
             <>
@@ -87,11 +90,10 @@ export default async function ProjectPage({ params }: Props) {
               <ul className="m-0 pl-5 text-small">{p.factsheet.dropped.map((d) => <li key={d.kind}>{d.count}: {d.meaning}</li>)}</ul>
             </>
           ) : <p className="m-0 text-small text-ink-muted">The checks removed or corrected nothing for this factsheet.</p>}
-        </section>
+        </Card>
       )}
 
-      <section aria-labelledby="history" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
-        <h2 id="history" className="m-0 text-h3">Changes of the consortium</h2>
+      <Card title="Changes of the consortium" id="history">
         {history ? (
           <>
             {history.firstObserved
@@ -111,10 +113,10 @@ export default async function ProjectPage({ params }: Props) {
                 ))}
               </ul>
             )}
-            <p className="m-0 max-w-prose text-small text-ink-muted">{history.note}</p>
+            <p className="m-0 text-small text-ink-muted">{history.note}</p>
           </>
         ) : <p className="m-0 text-ink-muted">The history could not be loaded.</p>}
-      </section>
+      </Card>
 
       <p className="m-0"><SourceLink url={p.source.url} label={p.source.urlLabel} /></p>
       <DataSources sources={[sourceNote]} amountNote={p.amountNote} />

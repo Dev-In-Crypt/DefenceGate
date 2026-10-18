@@ -15,7 +15,6 @@ import { cpvName } from '@/lib/cpv';
 import { isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { clearanceView, scopeGroupNote, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
-import { Breadcrumbs } from '@/components/dg/feedback';
 import { Tag } from '@/components/dg/tag';
 import { DeadlineBadge } from '@/components/dg/deadline-badge';
 import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/dg/data-display';
@@ -24,7 +23,10 @@ import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
 import { Card, slugId } from '@/components/dg/card';
 import { AlertsLine } from '@/components/dg/alerts-line';
-import { BasisChips } from '@/components/dg/basis-chips';
+import { BasisChips, ClassifiedNote } from '@/components/dg/basis-chips';
+import { PageHeader } from '@/components/dg/page-header';
+import { DetailLayout } from '@/components/dg/detail-layout';
+import { FactsGrid } from '@/components/dg/facts-grid';
 import { AnomalyNote, TenderCard, TenderStatusPills } from '@/components/dg/cards';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
@@ -32,7 +34,9 @@ export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
 const RELATED_LIMIT = 3;
-const ROW = 'grid gap-1 break-words py-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4';
+const ROW = 'grid gap-1 break-words py-2.5 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4';
+/** The facts grid inside a titled card: the card's own header rule stands in for the first hairline. */
+const IN_CARD = 'border-b-0 [&>div:first-child]:border-t-0';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tender = await getTender((await params).slug).catch(whenRemoved);
@@ -104,144 +108,93 @@ export default async function TenderDetailPage({ params }: Props) {
 
   return (
     <>
-      <Breadcrumbs items={[
-        { label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' },
-        { label: title, href: `/tenders/${tender.slug}` },
-      ]} />
+      <PageHeader
+        crumbs={[
+          { label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' },
+          { label: title, href: `/tenders/${tender.slug}` },
+        ]}
+        eyebrow={(
+          <div className="flex flex-wrap items-center gap-2">
+            {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
+            <TenderStatusPills tender={tender} />
+          </div>
+        )}
+        title={title}
+        titleProps={{ lang: nonEnglish ? (tender.titleLanguage ?? undefined) : undefined, className: closed ? 'text-ink-muted' : 'text-ink' }}
+      >
+        {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
+        {tender.originalTitle && (
+          <p className="m-0 max-w-prose text-body text-ink-muted">
+            <span lang={tender.originalLanguage ?? undefined}>{displayName(tender.originalTitle)}</span>
+            {' · '}<LangLabel kind="title" code={tender.originalLanguage} />
+          </p>
+        )}
+        <p className="m-0 max-w-prose text-body">
+          <span className="text-ink-muted">Buyer: </span>
+          {tender.buyerSlug
+            ? <Link href={`/buyers/${tender.buyerSlug}`} className="font-semibold">{buyer}</Link>
+            : <span className="font-semibold">{buyer}</span>}
+        </p>
+        <BasisChips tender={tender} />
+        {tender.scope === 'supply' && (
+          <p className="m-0 max-w-prose text-small text-ink-muted">{scopeGroupNote(tender.qualifiedBy) ?? TENDER_SCOPES.supply.hint}</p>
+        )}
+      </PageHeader>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <header className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-              <TenderStatusPills tender={tender} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <h1 lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined}
-                className={cn('m-0 break-words page-title', closed ? 'text-ink-muted' : 'text-ink')}>{title}</h1>
-              {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
-            </div>
-            {tender.originalTitle && (
-              <p className="m-0 text-body text-ink-muted">
-                <span lang={tender.originalLanguage ?? undefined}>{displayName(tender.originalTitle)}</span>
-                {' · '}<LangLabel kind="title" code={tender.originalLanguage} />
-              </p>
-            )}
-            <p className="m-0 text-body">
-              <span className="text-ink-muted">Buyer: </span>
-              {tender.buyerSlug
-                ? <Link href={`/buyers/${tender.buyerSlug}`} className="font-semibold">{buyer}</Link>
-                : <span className="font-semibold">{buyer}</span>}
-            </p>
-            <BasisChips tender={tender} />
-            {tender.scope === 'supply' && (
-              <p className="m-0 text-small text-ink-muted">{scopeGroupNote(tender.qualifiedBy) ?? TENDER_SCOPES.supply.hint}</p>
-            )}
-          </header>
-
-          {/* Deadline first on mobile: the hero element */}
-          <DeadlineBadge info={d} size="lg" className="w-full lg:hidden" local={local} />
-
-          <dl className="facts-grid m-0 border-b border-line">
-            <FactCell label="Estimated value">
-              <AmountDisplay money={tender.estimatedValue} size="lg" />
-              {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
-                <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}</div>
-              )}
-              {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && valueKindLabel(tender.valueKind) && (
-                <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
-              )}
-            </FactCell>
-            <FactCell label="Notice ID">{tender.noticeId}</FactCell>
-            <FactCell label={tender.publishedAt || !tender.noticeDate ? 'Published' : 'Notice date'}>
-              {tender.publishedAt
-                ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
-                : <span className="font-sans">{noticeDateLabel(tender) ?? 'Publication date not stated by the source'}</span>}
-            </FactCell>
-            <FactCell label="Procedure">
-              <span className="font-sans">{procedureEn ?? tender.procedure ?? 'Not available'}</span>
-              {tender.procedureFrom === 'ted_twin' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">Not stated in this notice; as given in the TED notice of the same procurement</div>}
-              {procedureEn && <div className="mt-1 font-sans text-small font-normal text-ink-muted">As stated: {tender.procedure}</div>}
-            </FactCell>
-            <FactCell label="Legal basis">
-              {tender.legalBasis ? (
-                legal ? (
-                  <>
-                    <span className="font-sans">{legal}</span>
-                    {tender.legalBasis.trim().toLowerCase() !== 'other' && (
-                      <div className="mt-1 font-mono text-small font-normal text-ink-muted">Code {tender.legalBasis}</div>
-                    )}
-                  </>
-                ) : <span className="font-sans">{tender.legalBasis}</span>
-              ) : <span className="font-sans">Not available</span>}
-            </FactCell>
-            <FactCell label="Buyer country">
-              {tender.country ? <CountryLabel code={tender.country} className="font-sans" /> : <span className="font-sans">Not available</span>}
-            </FactCell>
-            <FactCell label="Security clearance">
-              <span className="font-sans">{clearance.text}</span>
-              {clearance.hint && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{clearance.hint}</div>}
-            </FactCell>
-            <FactCell label="Subcontracting"><span className="font-sans">{subcontracting.text}</span></FactCell>
-            {/* Awarded, cancelled and planned are read from the type of notice (TED) or the source's own status; "Closing soon" is ours and is not shown here. */}
-            {sourceStatus && <FactCell label="Status read from the notice"><span className="font-sans">{sourceStatus}</span></FactCell>}
-            {typeof lots === 'number' && lots > 0 && <FactCell label="Lots">{lots}</FactCell>}
-          </dl>
-          <AnomalyNote tender={tender} />
-
-          {cpvCodes.length > 0 && (
-            <Panel title="CPV codes">
-              <ul className="m-0 flex list-none flex-col p-0">
-                {cpvCodes.map((code, i) => {
-                  const label = cpvName(code);
-                  return (
-                    <li key={code} className={cn(ROW, i < cpvCodes.length - 1 && 'border-b border-line')}>
-                      <span className="font-mono text-mono-strong tabular-nums">{code}{i === 0 && tender.cpv ? <span className="ml-2 font-sans text-label text-ink-muted">Main</span> : null}</span>
-                      <span className="text-body">
-                        {label ? (
-                          label.exact ? label.label : <><span className="text-ink-muted">Within: </span>{label.label}</>
-                        ) : <span className="text-ink-muted">Name not in our table</span>}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
-          )}
-
-          {tender.sameNotice.length > 0 && (
-            <Panel title="Same notice in other sources">
-              <ul className="m-0 flex list-none flex-col p-0">
-                {tender.sameNotice.map((n, i) => {
-                  const url = safeHttpUrl(n.url);
-                  const name = sourceNames.get(n.source) ?? n.source;
-                  return (
-                    <li key={`${n.source}-${i}`} className={cn('flex flex-wrap items-center justify-between gap-2 py-3', i < tender.sameNotice.length - 1 && 'border-b border-line')}>
-                      <span className="text-body font-semibold">{name}</span>
-                      {url && <Button href={url} external variant="text">View at {name}<span className="sr-only"> (opens in new tab)</span></Button>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Panel>
-          )}
-
-          <Panel title="Version history">
-            <p className="m-0 text-small text-ink-muted">
-              We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. Earlier versions are never overwritten or deleted. History starts when we first saw the notice; our archive began in September 2026.
-              {' '}{versions.length > 1 ? `${versions.length} versions observed.` : 'One version observed so far.'}
-            </p>
-            {versions.length > 0
-              ? <VersionTimeline versions={versions} />
-              : <p className="m-0 text-body text-ink-muted">The version history could not be read for this notice.</p>}
-          </Panel>
-
-          <Panel title="Source and attribution">
-            <SourceBadge source={tender.source} retrievedLabel={TENDER_CHANGED_LABEL} version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
-          </Panel>
-        </div>
-
-        <aside aria-label="Deadline and actions" className="flex flex-col gap-4 lg:sticky lg:top-4">
+      <DetailLayout
+        // Deadline first on mobile: the hero element.
+        top={<DeadlineBadge info={d} size="lg" className="w-full" local={local} />}
+        facts={(
+          <Card title="Key facts">
+            <FactsGrid className={IN_CARD}>
+              <FactCell label="Estimated value">
+                <AmountDisplay money={tender.estimatedValue} size="lg" />
+                {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
+                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}</div>
+                )}
+                {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && valueKindLabel(tender.valueKind) && (
+                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
+                )}
+              </FactCell>
+              <FactCell label="Notice ID">{tender.noticeId}</FactCell>
+              <FactCell label={tender.publishedAt || !tender.noticeDate ? 'Published' : 'Notice date'}>
+                {tender.publishedAt
+                  ? <time dateTime={tender.publishedAt}>{formatDateUtc(tender.publishedAt)} UTC</time>
+                  : <span className="font-sans">{noticeDateLabel(tender) ?? 'Publication date not stated by the source'}</span>}
+              </FactCell>
+              <FactCell label="Procedure">
+                <span className="font-sans">{procedureEn ?? tender.procedure ?? 'Not available'}</span>
+                {tender.procedureFrom === 'ted_twin' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">Not stated in this notice; as given in the TED notice of the same procurement</div>}
+                {procedureEn && <div className="mt-1 font-sans text-small font-normal text-ink-muted">As stated: {tender.procedure}</div>}
+              </FactCell>
+              <FactCell label="Legal basis">
+                {tender.legalBasis ? (
+                  legal ? (
+                    <>
+                      <span className="font-sans">{legal}</span>
+                      {tender.legalBasis.trim().toLowerCase() !== 'other' && (
+                        <div className="mt-1 font-mono text-small font-normal text-ink-muted">Code {tender.legalBasis}</div>
+                      )}
+                    </>
+                  ) : <span className="font-sans">{tender.legalBasis}</span>
+                ) : <span className="font-sans">Not available</span>}
+              </FactCell>
+              <FactCell label="Buyer country">
+                {tender.country ? <CountryLabel code={tender.country} className="font-sans" /> : <span className="font-sans">Not available</span>}
+              </FactCell>
+              <FactCell label="Security clearance">
+                <span className="font-sans">{clearance.text}</span>
+                {clearance.hint && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{clearance.hint}</div>}
+              </FactCell>
+              <FactCell label="Subcontracting"><span className="font-sans">{subcontracting.text}</span></FactCell>
+              {/* Awarded, cancelled and planned are read from the type of notice (TED) or the source's own status; "Closing soon" is ours and is not shown here. */}
+              {sourceStatus && <FactCell label="Status read from the notice"><span className="font-sans">{sourceStatus}</span></FactCell>}
+              {typeof lots === 'number' && lots > 0 && <FactCell label="Lots">{lots}</FactCell>}
+            </FactsGrid>
+            <AnomalyNote tender={tender} />
+          </Card>
+        )}
+        side={(
           <div className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
             <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" local={local} />
             <SaveButton kind="tender" refId={tender.id} />
@@ -252,8 +205,59 @@ export default async function TenderDetailPage({ params }: Props) {
             <Button href={`/tenders/${tender.slug}/evidence`} variant="text" icon={Printer} className="self-start">Print evidence</Button>
             <AlertsLine />
           </div>
-        </aside>
-      </div>
+        )}
+      >
+        {cpvCodes.length > 0 && (
+          <Panel title="CPV codes">
+            <ul className="m-0 flex list-none flex-col p-0">
+              {cpvCodes.map((code, i) => {
+                const label = cpvName(code);
+                return (
+                  <li key={code} className={cn(ROW, i > 0 && 'border-t border-line')}>
+                    <span className="font-mono text-mono-strong tabular-nums">{code}{i === 0 && tender.cpv ? <span className="ml-2 font-sans text-label text-ink-muted">Main</span> : null}</span>
+                    <span className="text-body">
+                      {label ? (
+                        label.exact ? label.label : <><span className="text-ink-muted">Within: </span>{label.label}</>
+                      ) : <span className="text-ink-muted">Name not in our table</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        )}
+
+        {tender.sameNotice.length > 0 && (
+          <Panel title="Same notice in other sources">
+            <ul className="m-0 flex list-none flex-col p-0">
+              {tender.sameNotice.map((n, i) => {
+                const url = safeHttpUrl(n.url);
+                const name = sourceNames.get(n.source) ?? n.source;
+                return (
+                  <li key={`${n.source}-${i}`} className={cn('flex flex-wrap items-center justify-between gap-2 py-2', i > 0 && 'border-t border-line')}>
+                    <span className="text-body font-semibold">{name}</span>
+                    {url && <Button href={url} external variant="text">View at {name}<span className="sr-only"> (opens in new tab)</span></Button>}
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        )}
+
+        <Panel title="Version history">
+          <p className="m-0 text-small text-ink-muted">
+            We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. Earlier versions are never overwritten or deleted. History starts when we first saw the notice; our archive began in September 2026.
+            {' '}{versions.length > 1 ? `${versions.length} versions observed.` : 'One version observed so far.'}
+          </p>
+          {versions.length > 0
+            ? <VersionTimeline versions={versions} />
+            : <p className="m-0 text-body text-ink-muted">The version history could not be read for this notice.</p>}
+        </Panel>
+
+        <Panel title="Source and attribution">
+          <SourceBadge source={tender.source} retrievedLabel={TENDER_CHANGED_LABEL} version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
+        </Panel>
+      </DetailLayout>
 
       {related.length > 0 && tender.buyerSlug && (
         <section aria-labelledby="related" className="flex flex-col gap-4">
@@ -261,8 +265,9 @@ export default async function TenderDetailPage({ params }: Props) {
             <h2 id="related" className="m-0 text-h2">More from this buyer</h2>
             <Link href={`/buyers/${tender.buyerSlug}`} className="inline-flex min-h-11 items-center text-small font-bold">All tenders from {buyer}</Link>
           </div>
-          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {related.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" /></li>)}
+          <ClassifiedNote tenders={related} />
+          <ul className="m-0 flex list-none flex-col gap-4 p-0">
+            {related.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
           </ul>
         </section>
       )}
