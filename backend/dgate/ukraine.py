@@ -17,9 +17,12 @@ sentence it rests on. In this order:
                       general annexes list Ukraine among the countries associated to Horizon Europe.
                       Two sentences we hold; true (V2-B9).
   6. `programme_rule` the regime's own Regulation decides: the Ukraine Support Instrument is open to
-                      Ukraine (Regulation (EU) 2025/2643, Article 26(1)). The EDIP Programme is closed to
-                      Ukrainian entities as recipients (Articles 9(1) and 2: its associated countries are EEA
-                      EFTA states); Ukraine can still take part in other ways, which the evidence says.
+                      Ukraine (Regulation (EU) 2025/2643, Article 26(1)). The EDIP Programme: recipients must be
+                      established in the Union or an associated country, and Ukraine is not one (Articles 9(1) and 2),
+                      but the call documents name Ukraine in other roles (a member of a SEAP, a state that designates a
+                      procurement agent, a recipient of additional quantities) and none says whether a Ukrainian
+                      entity may apply. A flag stronger than the document is not served (V3-A): it is unknown, with
+                      the Regulation's sentence as the evidence, unless the document itself says Ukraine is (not) eligible.
   7. `edf_association_unconfirmed`  an EDF call: Ukraine may take part as an associated country
                       "in accordance with the conditions laid down in the EU-Ukraine Association
                       Agreement" (Regulation (EU) 2021/697, Article 5, as replaced), the EDF call
@@ -51,10 +54,8 @@ USI_RULE = ("Only legal entities established in the Union or in Ukraine and havi
             "(Regulation (EU) 2025/2643, Article 26(1))")
 EDIP_RECIPIENTS = ("Recipients of EDIP funding must be established in the Union or in an associated country, and Ukraine "
                    "is not one (Regulation (EU) 2025/2643, Articles 9(1) and 2).")
-EDIP_RULE = ("Recipients of EDIP funding must be established in the Union or in an associated country (Article 9(1)); "
-             "‘associated countries’ means members of the European Free Trade Association which are members of the "
-             "European Economic Area that apply this Regulation in accordance with the Agreement on the European Economic "
-             "Area (Regulation (EU) 2025/2643, Article 2). Ukraine is not one.")
+EDIP_RULE = (f"{EDIP_RECIPIENTS} No sentence we hold says whether entities established in Ukraine may apply to this call: "
+             "its document names Ukraine only in other roles, if at all.")
 EDF_RULE = ("Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement. "
             "(Regulation (EU) 2021/697, Article 5, as replaced by Regulation (EU) 2025/2653)")
 # The footnote on "countries associated to the EDF Programme" in all 10 EDF call documents of 2026 read
@@ -148,7 +149,7 @@ def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, st
     if regime is USI:
         return True, "programme_rule", _clip(USI_RULE)
     if regime is EDIP:
-        return False, "programme_rule", _clip(EDIP_RULE)
+        return None, "programme_rule", _clip(EDIP_RULE)
     if regime is EDF:
         return None, "edf_association_unconfirmed", _clip(EDF_EVIDENCE)
     if regime is HORIZON:

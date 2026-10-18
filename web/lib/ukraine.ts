@@ -21,7 +21,8 @@ export function ukraineSentence(flag: boolean | null | undefined, reason: string
       + 'but the EDF call documents say that participation of entities established in Ukraine is pending the signature of that agreement, and we have found no official text that says it is in force. We do not mark this call open or closed.';
   }
   if (reason === 'programme_rule') {
-    return 'Neither. Recipients of EDIP funding must be established in the Union or in an EEA EFTA associated country, which Ukraine is not, but the call document names Ukraine in another role (for example as a member of a SEAP). We do not mark this call open or closed.';
+    return 'Not decided. Recipients of EDIP funding must be established in the Union or in an EEA EFTA associated country, which Ukraine is not. '
+      + 'No sentence we hold says whether entities established in Ukraine may apply to this call; where its document names Ukraine at all, it is in another role (for example as a member of a SEAP or as a state that designates a procurement agent). We do not mark this call open or closed.';
   }
   return null;
 }

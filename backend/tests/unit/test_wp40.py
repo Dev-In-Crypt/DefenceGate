@@ -178,12 +178,15 @@ CYBER = {20, 21, 22, 23, 28, 29, 144, 145, 146, 147, 148, 149, 150, 191, 192}
 HORIZON_ASSOCIATED = {30, 31, 32, 34, 35, 36, 37}
 
 
-def test_edip_calls_are_closed_to_ukrainian_recipients_and_the_evidence_says_why():
+def test_edip_calls_are_unknown_for_ukraine_and_the_evidence_gives_the_regulations_sentence():
+    """V3-A (verify3-fixes B9): the nine flags were "closed" from Articles 9(1) and 2 alone; the call documents of all nine name Ukraine as a
+    member of a SEAP, as a state that designates a procurement agent or as a recipient of additional quantities (stored text read on
+    18 October 2026) and none says a Ukrainian entity may not apply. The Regulation limits the recipients; the flag says unknown."""
     for cid in EDIP_CLOSED:
         flag, reason, evidence = ukraine_flag(cid)
-        assert (flag, reason) == (False, "programme_rule"), cid
+        assert (flag, reason) == (None, "programme_rule"), cid
         assert evidence.startswith("Recipients of EDIP funding must be established in the Union or in an associated country"), cid
-        assert "Ukraine is not one" in evidence
+        assert "Ukraine is not one" in evidence and "No sentence we hold says whether entities established in Ukraine may apply" in evidence, cid
 
 
 def test_a_document_that_names_ukraine_as_a_member_of_a_seap_does_not_make_an_edip_call_open_or_closed():

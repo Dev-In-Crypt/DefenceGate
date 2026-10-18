@@ -86,7 +86,9 @@ def test_aqap_is_never_an_eligibility_condition_of_edf_edip_or_safe():
                            non_eu_component_cost_pct=10, restricted_third_country_component=False,
                            components_from_ua_or_eea_efta=False, safe_role="contractor"),
                    {"REQ-PIC": "held", "REQ-NCAGE": "held"}, CONTENT.programmes[programme])
-        assert a.verdict == "eligible", programme       # holding no AQAP never blocks
+        # holding no AQAP never blocks; the Ukraine Support Instrument is conditional for a Spanish company for another reason (WP-42 R1)
+        assert a.verdict == ("conditional" if programme == "EDIP-USI" else "eligible"), programme
+        assert a.blocking == () and a.to_obtain == (), programme
 
 
 def test_pic_is_mandatory_for_edf_and_edip_and_not_for_safe():

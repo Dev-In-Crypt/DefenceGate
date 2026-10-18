@@ -26,7 +26,8 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
     # The EDF is "conditional" for the Ukrainian company: the EU-Ukraine association agreement is not confirmed (V2-B2).
     expected = {"EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert verdicts("ua") == expected
-    assert verdicts("es") == {**expected, "EDF": "obtain", "EDIP": "obtain"}
+    # the Spanish company also needs a Ukrainian applicant or partner for the Ukraine Support Instrument (WP-42 R1)
+    assert verdicts("es") == {**expected, "EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional"}
     ua = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua.json").read_text(encoding="utf-8"))
     edip = next(a for a in ua["assessments"] if a["programme"] == "EDIP")
     assert edip["blocking"] == ["EDIP-ESTABLISH", "EDIP-EXEC-MGMT"]      # Ukraine is not an associated country of the Programme

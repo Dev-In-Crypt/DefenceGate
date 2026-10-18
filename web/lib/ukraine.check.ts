@@ -17,8 +17,10 @@ assert.match(edip, /Ukraine is not an associated country of the Programme/);
 assert.match(edip, /designating a procurement agent or as a member of a SEAP/);
 // A call document that lists the eligible countries one by one without Ukraine.
 assert.match(ukraineSentence(false, 'call_document_closed_list')!, /Ukraine is not on the list/);
-// A document that names Ukraine in another role: neither.
-assert.match(ukraineSentence(null, 'programme_rule')!, /^Neither\./);
+// An EDIP Programme call (V3-A): the Regulation limits the recipients, the document is silent about Ukrainian entities: not decided, and no claim of "closed".
+assert.match(ukraineSentence(null, 'programme_rule')!, /^Not decided\. Recipients of EDIP funding/);
+assert.match(ukraineSentence(null, 'programme_rule')!, /No sentence we hold says whether entities established in Ukraine may apply/);
+assert.match(ukraineSentence(null, 'programme_rule')!, /We do not mark this call open or closed/);
 assert.equal(ukraineSentence(true, 'topic_text_associated'), 'Ukrainian entities may take part in this call.');
 assert.equal(ukraineSentence(null, 'not_stated'), null);
 console.log('ukraine checks passed');

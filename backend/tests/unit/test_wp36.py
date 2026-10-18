@@ -154,11 +154,21 @@ def test_the_usi_regulation_decides_without_any_document():
     assert (flag, reason) == (True, "programme_rule") and "Article 26(1)" in evidence and len(evidence) <= ukraine.EVIDENCE_MAX
 
 
-def test_an_edip_programme_call_is_not_open_to_ukraine_whatever_the_document_lists():
+def test_an_edip_programme_call_is_unknown_not_closed_when_its_document_is_silent_about_ukraine():
+    """V3-A: nine EDIP Programme calls were flagged "closed" from Articles 9(1) and 2 alone, while their call documents name Ukraine as a
+    member of a SEAP, as a state that designates a procurement agent and as a recipient of additional quantities, and none says a
+    Ukrainian entity may not apply. The Regulation's sentence stays as the evidence; the flag does not claim more than the document."""
     quote = "contracting authorities from EU Member States and EDIP associated countries (i.e. Norway)."
     for facts in ({}, {"eligible_countries": fact(quote)}):
         flag, reason, evidence = ukraine.decide(call("EDF", "EDF-EDIP-P-2026-FNLC-CPA-AMEW"), facts)
-        assert (flag, reason) == (False, "programme_rule") and "Article 2" in evidence
+        assert (flag, reason) == (None, "programme_rule") and "Articles 9(1) and 2" in evidence and "Ukraine is not one" in evidence
+        assert "No sentence we hold says whether entities established in Ukraine may apply" in evidence and len(evidence) <= ukraine.EVIDENCE_MAX
+
+
+def test_an_edip_call_whose_document_does_say_ukraine_is_not_eligible_is_still_closed():
+    quote = "Legal entities established in Ukraine are not eligible for funding under this call."
+    flag, reason, _ = ukraine.decide(call("EDF", "EDF-EDIP-P-2026-FNLC-CPA-AMEW"), {"eligible_countries": fact(quote)})
+    assert (flag, reason) == (False, "call_document")
 
 
 def test_an_edf_call_is_unknown_until_a_primary_text_says_the_association_is_in_force():

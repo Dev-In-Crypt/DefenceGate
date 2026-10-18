@@ -40,7 +40,7 @@ export function callSummary(fit: Fit | null, timings: CallTiming[]): string {
     case 'maybe':
       return `It works only if every missing step goes at the fast end.${doc} ${READ_THE_CALL}`;
     case 'depends':
-      return `No certificate is missing, but a guarantee or an answer is still needed.${doc} ${READ_THE_CALL}`;
+      return `${best.openConditions?.length ? `No certificate is missing, but a condition is still open: ${best.openConditions.join('; ')}.` : 'No certificate is missing, but a guarantee or an answer is still needed.'}${doc} ${READ_THE_CALL}`;
     case 'no':
       return `The missing steps take longer than the time left before the deadline.${doc} ${READ_THE_CALL}`;
     case 'not_possible':

@@ -264,7 +264,8 @@ def test_a_ukrainian_profile_gets_the_verdicts_the_rules_give(client):
 
 def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_path(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {"REQ-ISO9001": "held"}}).json()
-    assert verdicts(body) == {"EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
+    # WP-42 R1: the Ukraine Support Instrument also needs a Ukrainian applicant or partner, which a Spanish company's answers cannot supply
+    assert verdicts(body) == {"EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     steps = {s["code"]: s for s in body["roadmap"]["steps"]}
     # D10: Spain's AQAP route is the state's own; no vendor price is shown for it
     assert steps["REQ-AQAP2110"]["cost"] is None and "state issues this itself" in steps["REQ-AQAP2110"]["priceNote"]

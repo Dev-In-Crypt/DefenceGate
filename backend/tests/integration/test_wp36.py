@@ -76,13 +76,13 @@ def test_the_flag_is_decided_from_the_document_then_the_regulation_and_a_second_
     assert before["changed"] == 5 and before["calls"] == 5
     assert conn.execute("SELECT count(*) AS n FROM call WHERE open_to_ukraine_reason IS NOT NULL").fetchone()["n"] == 0, "a report writes nothing"
     done = ukraine.run(conn, write=True)
-    assert (done["yes"], done["no"], done["unknown"]) == (2, 1, 2)
+    assert (done["yes"], done["no"], done["unknown"]) == (2, 0, 3)
     got = {r["id"]: r for r in conn.execute("SELECT id, open_to_ukraine AS flag, open_to_ukraine_reason AS reason, "
                                             "open_to_ukraine_evidence AS evidence FROM call").fetchall()}
     assert (got[usi]["flag"], got[usi]["reason"]) == (True, "call_document")
     assert got[usi]["evidence"].endswith("Ukraine") and len(got[usi]["evidence"]) > 25, "the sentence the list item stands in, not one word"
     assert (got[usi_bare]["flag"], got[usi_bare]["reason"]) == (True, "programme_rule")
-    assert (got[edip]["flag"], got[edip]["reason"]) == (False, "programme_rule")
+    assert (got[edip]["flag"], got[edip]["reason"]) == (None, "programme_rule"), "V3-A: the Regulation limits recipients, the document is silent: unknown"
     assert (got[edf]["flag"], got[edf]["reason"]) == (None, "edf_association_unconfirmed"), "unknown is not no"
     assert (got[hz]["flag"], got[hz]["reason"]) == (None, "not_stated"), "the general annexes never decide it"
 
@@ -111,7 +111,8 @@ def test_the_list_filters_badges_and_counts_calls_open_to_ukraine(client, conn):
     assert only["total"] == 2 and {c["id"] for c in only["items"]} == {str(yes), str(closed_yes)}
     assert all(c["openToUkraine"] is True for c in only["items"])
     by_topic = {c["topicId"]: c["openToUkraine"] for c in everything["items"]}
-    assert by_topic["EDF-EDIP-P-2026-FNLC-CPA-C"] is False and by_topic["EDF-2026-DA-D"] is None, "false and unknown stay apart"
+    # V3-A: an EDIP Programme call is unknown, not closed: no sentence of its document says a Ukrainian entity may not apply
+    assert by_topic["EDF-EDIP-P-2026-FNLC-CPA-C"] is None and by_topic["EDF-2026-DA-D"] is None
     # The count follows the other filters; only `true` is a filter.
     openly = client.get("/v1/funding", params={"status": "open"}).json()
     assert openly["total"] == 3 and openly["ukraineTotal"] == 1

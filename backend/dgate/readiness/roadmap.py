@@ -308,6 +308,8 @@ def call_timing(assessment: Assessment, roadmap: Mapping[str, Any], deadline: da
         "steps": [s["code"] for s in steps],
         "fastestPathDays": {"min": totals["min"], "max": totals["max"]} if steps else {"min": 0, "max": 0},
         "notFixable": [{"rule": r.rule, "title": r.title, "reason": r.reason} for r in structural],
+        # a mandatory rule that is open, not failed (a derogation, a partner the answers do not mention): never "you can apply"
+        "openConditions": [r.title for r in assessment.rules if r.rule in assessment.conditions],
     }
     if days_left is not None and days_left < 0:
         out["realistic"] = "closed"
@@ -323,7 +325,9 @@ def call_timing(assessment: Assessment, roadmap: Mapping[str, Any], deadline: da
         out["text"] = "No blocking rule is open: you can apply now."
     elif not steps:
         out["realistic"] = "depends"
-        out["text"] = "No certificate is missing, but a guarantee or an answer is still needed."
+        open_ = out["openConditions"]
+        out["text"] = ("No certificate is missing, but a condition is still open: " + "; ".join(open_) + "."
+                       if open_ else "No certificate is missing, but a guarantee or an answer is still needed.")
     elif totals["max"] <= days_left:
         out["realistic"] = "yes"
         # "up to 0 days" read as a mistake (a PIC is issued at once): say that no time is needed.
@@ -341,5 +345,6 @@ def call_timing(assessment: Assessment, roadmap: Mapping[str, Any], deadline: da
     # (V2-B2: a Ukrainian company for the EDF has a PIC to obtain and an association agreement that is not confirmed).
     if out["realistic"] == "yes" and (assessment.conditions or assessment.incomplete):
         out["realistic"] = "depends"
-        out["text"] += " A condition or an answer is also still open in the rules, so this is not a plain yes."
+        named = f" ({'; '.join(out['openConditions'])})" if out["openConditions"] else ""
+        out["text"] += f" A condition or an answer is also still open in the rules{named}, so this is not a plain yes."
     return out
