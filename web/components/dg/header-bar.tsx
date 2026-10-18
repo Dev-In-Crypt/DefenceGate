@@ -21,8 +21,19 @@ export const MAIN_NAV: readonly NavItem[] = [
   { label: 'Funding', href: '/funding' },
   { label: 'Tenders', href: '/tenders' },
   { label: 'Buyers', href: '/buyers' },
+  // Layer 2: who is already inside. Layer 3: what it takes to qualify (the concept's three questions).
+  { label: 'Network', href: '/organisations', children: [
+    { label: 'Organisations', href: '/organisations' }, { label: 'Suppliers', href: '/suppliers' },
+    { label: 'Ukraine partners', href: '/networks/ukraine-partners' }, { label: 'Consortium gaps', href: '/networks/consortium-gaps' },
+  ] },
+  { label: 'Readiness', href: '/readiness', children: [
+    { label: 'Readiness check', href: '/readiness' }, { label: 'Requirements', href: '/requirements' }, { label: 'Regulatory tracker', href: '/regulation' },
+  ] },
   { label: 'Market', href: '/market' },
-  { label: 'Data', href: '/data', children: [{ label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' }] },
+  { label: 'Data', href: '/data', children: [
+    { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
+    { label: 'Weekly digest', href: '/digest' }, { label: 'Data sovereignty', href: '/data/sovereignty' },
+  ] },
   { label: 'Pricing', href: '/pricing' },
 ];
 /** Shown only once the API says accounts are open (layout reads /v1/account/status, 60 s cache). */

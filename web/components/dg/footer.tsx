@@ -7,10 +7,16 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   { title: 'Directory', links: [
     { label: 'Funding calls', href: '/funding' }, { label: 'Closing soon', href: '/funding?status=closing-soon' },
     { label: 'Tenders', href: '/tenders' }, { label: 'Buyers', href: '/buyers' },
+    { label: 'Organisations', href: '/organisations' }, { label: 'Suppliers', href: '/suppliers' },
     { label: 'Deadline calendar', href: '/calendar' }, { label: 'What changed', href: '/changes' },
+    { label: 'Weekly digest', href: '/digest' },
+  ] },
+  { title: 'Readiness', links: [
+    { label: 'Readiness check', href: '/readiness' }, { label: 'Requirements', href: '/requirements' },
+    { label: 'Regulatory tracker', href: '/regulation' }, { label: 'Ukraine partners', href: '/networks/ukraine-partners' },
   ] },
   { title: 'Data', links: [
-    { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
+    { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' }, { label: 'Data sovereignty', href: '/data/sovereignty' },
     { label: 'Market overview', href: '/market' }, { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
     { label: 'Alerts (not open yet)', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
     { label: 'Pricing', href: '/pricing' },
@@ -26,7 +32,7 @@ export async function Footer() {
   return (
     <footer className="page pb-8 print:hidden">
       <div className="flex flex-col gap-8 rounded-lg bg-surface p-6">
-        <div className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+        <div className="grid gap-8 md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
           <div className="flex flex-col gap-3">
             <Logo href="/" />
             <p className="m-0 max-w-[36ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>
