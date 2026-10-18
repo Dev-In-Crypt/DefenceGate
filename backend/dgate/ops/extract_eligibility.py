@@ -3,6 +3,7 @@
     python -m dgate.ops.extract_eligibility                    # list what would be read, nothing is sent
     python -m dgate.ops.extract_eligibility --yes --limit 3    # extract the first 3 (open calls first)
     python -m dgate.ops.extract_eligibility --yes --url URL --force
+    python -m dgate.ops.extract_eligibility --redact-stored [--yes]   # e-mail addresses in the kept texts
 
 What is read: the call documents; for calls without one, the work programme's general annexes
 (read once, shared by many calls) and each topic's own conditions text (WP-31). `--scope` narrows it.
@@ -30,9 +31,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--url", help="only this document (or topic key)")
     p.add_argument("--scope", choices=eligibility.SCOPES, help="only call documents, general annexes or topic texts")
     p.add_argument("--force", action="store_true", help="ask again even if held")
+    p.add_argument("--redact-stored", action="store_true",
+                   help="count (with --yes: redact) e-mail addresses in the stored texts; no model call")
     a = p.parse_args(argv)
     failed = 0
     with db.connect(settings().dsn) as conn:
+        if a.redact_stored:
+            print(eligibility.redact_stored(conn, write=a.yes), "redacted" if a.yes else "found (dry run, add --yes)")
+            return 0
         docs = eligibility.extraction_units(conn)
         if a.scope:
             docs = [d for d in docs if d["scope"] == a.scope]

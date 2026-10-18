@@ -33,8 +33,10 @@ dependencies = [
     # LLM enrichment (plan M1-04 onwards): translation, summaries, capability
     # classification, through the Messages and Message Batches APIs.
     "anthropic>=1.0",
-    # Text of the call documents (PDF) for eligibility extraction. Pure Python.
-    "pypdf>=4.0",
+    # Text of the call documents (PDF) for eligibility extraction. Pure Python. It parses files
+    # downloaded from the internet in the worker, so it is held to the major version in use
+    # (6.21 on 17 October 2026): a new major is read and tested before it is taken.
+    "pypdf>=6.0,<7",
 ]
 
 [project.optional-dependencies]

@@ -13,6 +13,6 @@ and `TERMS_VERSION` / `PRIVACY_VERSION` in `backend/dgate/accounts.py`):
    is a static copy and which commit it was taken from.
 2. Never edit a file once its version is published. A correction is a new version.
 
-Present: Terms 2.0 (14 Oct 2026), Privacy 1.3 (14 Oct 2026), Privacy 1.4 (15 Oct 2026).
+Present: Terms 2.0 (14 Oct 2026), Privacy 1.3 (14 Oct 2026), Privacy 1.4 (15 Oct 2026). Privacy 1.5 (17 Oct 2026) is a draft: it names OpenAI as a processor and waits for approval (`OPEN_ITEMS_FOR_LAWYER.md`, P7).
 Terms 1.1 and earlier, Privacy 1.2 and earlier: texts are in git history only
 (`git log -- "web/app/(public)/terms/page.tsx"`), not copied here.

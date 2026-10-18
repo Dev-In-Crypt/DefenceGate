@@ -22,7 +22,7 @@ Two deliberate design choices:
 
 from __future__ import annotations
 
-import time
+import functools
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -726,26 +726,47 @@ def resolve(name: str = Query(min_length=1, max_length=200),
     }
 
 
-_ARCHIVE_COUNTS: tuple[float, tuple[int, int, Any]] | None = None
+HEALTH_COUNTS_SECONDS = 600
 
 
-def _archive_counts(conn) -> tuple[int, int, Any]:
-    """(defence rows, archive versions, oldest observation), reused for the list cache's
-    lifetime: the three are scans (0.2-0.4 s) and the container health check asks every 30
-    seconds (internal audit L5). 0 seconds, as in the tests, reads them every time."""
-    global _ARCHIVE_COUNTS
-    ttl = settings().list_cache_seconds
-    now = time.monotonic()
-    if ttl > 0 and _ARCHIVE_COUNTS and now - _ARCHIVE_COUNTS[0] < ttl:
-        return _ARCHIVE_COUNTS[1]
-    got = (
-        conn.execute("SELECT count(*) AS n FROM opportunity "
-                     "WHERE is_defence AND NOT suppressed").fetchone()["n"],
-        conn.execute("SELECT count(*) AS n FROM opportunity_version").fetchone()["n"],
-        conn.execute("SELECT min(observed_at) AS t FROM opportunity_version").fetchone()["t"],
-    )
-    _ARCHIVE_COUNTS = (now, got)
-    return got
+def _read_archive_counts(conn) -> tuple[int | None, int | None, Any]:
+    """(defence rows, archive versions, oldest observation). Measured on production, 17 October
+    2026: counting the versions took 4.8 s and `min(observed_at)` 5.2 s (parallel scans of 650k
+    rows, both over the API role's 5 s budget on a busy host), the defence count 1.4 s. So the
+    versions are the planner's own estimate (`pg_class.reltuples`, kept current by autovacuum;
+    the exact count where the table was never analysed, which is a small table), and the oldest
+    observation reads the index of migration 0074."""
+    estimate = conn.execute(
+        "SELECT reltuples::bigint AS n FROM pg_class WHERE oid = 'opportunity_version'::regclass").fetchone()["n"]
+    versions = estimate if estimate >= 0 else conn.execute(
+        "SELECT count(*) AS n FROM opportunity_version").fetchone()["n"]
+    oldest = conn.execute("SELECT min(observed_at) AS t FROM opportunity_version").fetchone()["t"]
+    try:        # a sequential scan (1.4 s measured, over 5 s on a busy host): the one figure that may be missing
+        defence = conn.execute("SELECT count(*) AS n FROM opportunity "
+                               "WHERE is_defence AND NOT suppressed").fetchone()["n"]
+    except psycopg.errors.QueryCanceled:
+        conn.rollback()
+        defence = None
+    return defence, versions, oldest
+
+
+def _archive_counts(conn) -> tuple[int | None, int | None, Any]:
+    """The three figures of `_read_archive_counts`, kept for `HEALTH_COUNTS_SECONDS` and read by one
+    request at a time (`stats.cached`, single flight): a public endpoint must not turn into one
+    scan per caller, and the container health check asks every 30 seconds. A read that does not
+    finish in the API role's budget gives no figures (None) and is not tried again for
+    `RETRY_SECONDS`: the health report must not fail for want of its counts. 0 seconds, as in
+    the tests, reads them every time."""
+    from . import stats
+
+    ttl = HEALTH_COUNTS_SECONDS if settings().list_cache_seconds > 0 else 0
+    try:
+        return stats.cached("health-archive-counts", lambda: _read_archive_counts(conn), ttl)
+    except psycopg.errors.QueryCanceled:
+        conn.rollback()
+        with stats._lock:
+            stats._put("health-archive-counts", (None, None, None), stats.RETRY_SECONDS)
+        return None, None, None
 
 
 def _completeness_line(check: dict[str, Any]) -> dict[str, Any]:
@@ -869,8 +890,7 @@ app.include_router(_internal_router)
 app.add_exception_handler(AccountError, account_error_handler)
 
 # Layer 3, readiness (dgate/readiness): the public requirements catalogue and the stateless
-# assessment. A refused assessment body is not echoed back (the framework's own 422 repeats it).
-from fastapi.exception_handlers import request_validation_exception_handler  # noqa: E402
+# assessment. A refused request is not echoed back: see `_validation_error`.
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 
 from .readiness.api import router as _readiness_router  # noqa: E402
@@ -878,10 +898,40 @@ from .readiness.api import router as _readiness_router  # noqa: E402
 app.include_router(_readiness_router)
 
 
+@functools.lru_cache(maxsize=4)
+def _schema_names(application: FastAPI) -> frozenset[str]:
+    """Every name the API itself defines: the properties of its models and its parameters."""
+    names: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if isinstance(node.get("properties"), dict):
+                names.update(node["properties"])
+            if "in" in node and isinstance(node.get("name"), str):
+                names.add(node["name"])
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    try:
+        walk(application.openapi())
+    except Exception:  # noqa: BLE001 - no schema: every name is hidden, the refusal still answers
+        return frozenset()
+    return frozenset(names)
+
+
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):
-    if request.url.path.startswith("/v1/readiness"):
-        problems = [{"loc": list(e["loc"]), "msg": e["msg"]} for e in exc.errors()]
-        return JSONResponse({"detail": problems}, status_code=422)
-    return await request_validation_exception_handler(request, exc)
-
+    """The 422 for a refused request, on every route: where it was wrong and why, never what was
+    sent. The framework's own answer repeats the input (3,000 characters of a query value came
+    back, and with them anything a body held) and an unknown key of a body is part of its
+    location. Here a location keeps the names of the API's own fields and parameters and indexes;
+    any other name (a key someone invented, a key of a dictionary field) becomes `*`. The
+    readiness assessment takes the profile of a company, so for it this matters most
+    (WP-34 C6, verifier V-C)."""
+    known = _schema_names(request.app) | {"body", "query", "path", "header", "cookie"}
+    problems = [{"loc": [p if isinstance(p, int) or p in known else "*" for p in e["loc"]],
+                 "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
+    return JSONResponse({"detail": problems}, status_code=422)
