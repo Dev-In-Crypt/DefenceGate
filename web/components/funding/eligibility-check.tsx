@@ -21,16 +21,18 @@ const TYPES = [
 const TRI = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'Not sure' }];
 
 const VERDICT: Record<Verdict, { icon: typeof CircleCheck; word: string; cls: string }> = {
-  yes: { icon: CircleCheck, word: 'You can apply', cls: 'text-ink' },
+  yes: { icon: CircleCheck, word: 'Nothing in the document excludes you so far', cls: 'text-ink' },
   check: { icon: CircleAlert, word: 'Check before you apply', cls: 'text-ink' },
-  no: { icon: CircleX, word: 'You cannot apply', cls: 'text-ink' },
+  no: { icon: CircleX, word: 'The document appears to exclude you: read the quoted sentence', cls: 'text-ink' },
 };
 const WORD: Record<Verdict, string> = { yes: 'Allowed', check: 'Check', no: 'Not allowed' };
 
-export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId }: {
+export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId, closed = false }: {
   facts: EligibilityFacts; documentUrl: string | null; readAt: string; basis?: 'call_document' | 'work_programme'; sources?: EligibilitySourceInfo[];
   /** The call's id: with it, the panel also shows "Your readiness for this call" from the saved profile (WP-32). */
   callId?: string;
+  /** The call has closed: its rules are listed for reference and there is no verdict, no form and no readiness block. */
+  closed?: boolean;
 }) {
   const [p, setP] = useState<Profile>({ country: '', orgType: '', hasPartners: '', controlledAbroad: '' });
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => setP((x) => ({ ...x, [k]: v }));
@@ -72,6 +74,12 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
         })}
       </dl>
 
+      {closed ? (
+        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
+          This call is closed, so there is no verdict. The rules above are listed for reference, as read from the document.
+        </p>
+      ) : (
+        <>
       <form className="flex flex-col gap-3 rounded-md border border-line p-4" onSubmit={(e) => e.preventDefault()} aria-label="Check your company against this call">
         <h3 className="m-0 text-h4">Check your company</h3>
         <p className="m-0 text-small text-ink-muted">Your answers stay in this page. Nothing is sent or saved.</p>
@@ -105,6 +113,8 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
         <FactsContext.Provider value={facts}>
           <div className="border-t border-line pt-5"><CallReadiness callId={callId} /></div>
         </FactsContext.Provider>
+      )}
+        </>
       )}
 
       {fromProgramme ? (

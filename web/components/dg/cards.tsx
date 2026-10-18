@@ -39,7 +39,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
         <Tag>{REGIMES[call.regime]}</Tag>
         <Tag>{call.funderCountry}</Tag>
         {call.cascade === true && <Tag>Cascade funding</Tag>}
-        <FitBadge id={call.id} />
+        {!closed && <FitBadge id={call.id} />}
         <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
       </div>
       <div className="flex flex-col gap-1">

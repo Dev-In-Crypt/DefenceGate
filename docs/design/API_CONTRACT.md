@@ -697,8 +697,8 @@ no contact.
 
 Internal to the site (not in the public Caddy list): the facts the badge "fits my profile" compares, for up to 100 calls
 of one list page (422 for more, or an id that is not digits). `{ items: { "<id>": { state: read | not_read | no_source,
-basis, facts: { <name>: { value, note, scope } } } } }`; a call removed on request is absent. Only the seven facts the
-comparison reads (`eligible_countries`, `sme_only`, `natural_persons_allowed`, `consortium_required`, `min_entities`,
+basis, facts: { <name>: { value, note, scope } } } } }`; a call removed on request is absent. Only the eight facts the
+comparison reads (`eligible_countries`, `entity_types`, `sme_only`, `natural_persons_allowed`, `consortium_required`, `min_entities`,
 `min_countries`, `ownership_control_restriction`), no quote. The same facts and the same source rule (`eu_portal`,
 `se_vinnova` with `commercial_ok`) as `documentEligibility` on the call page.
 

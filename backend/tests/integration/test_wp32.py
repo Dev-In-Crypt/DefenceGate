@@ -12,10 +12,13 @@ from dgate import api, config, stats
 from dgate.funding import make_slug
 from dgate.readiness import api as readiness_api
 from dgate.readiness import seed
-from tests.integration.test_readiness_api import CONTENT, UA, service_roles  # noqa: F401 (a fixture)
+from tests.integration import test_readiness_api
+from tests.integration.test_readiness_api import CONTENT, UA
 from tests.integration.test_wp31 import doc, hold, put
 
 pytestmark = pytest.mark.integration
+
+service_roles = test_readiness_api.service_roles       # the fixture of the read-only roles, shared
 
 PARTNER_KEYS = {"organisationId", "slug", "name", "country", "projects", "coordinated", "firstYear", "lastYear", "evidence"}
 
@@ -38,11 +41,15 @@ def _source(conn, code):
 
 
 def project(conn, native, *, edf=True, category=None, topic=None, year=2024, acronym=None, title=None):
+    """An EDF project has a topic code made from its file name; a CORDIS one has the call code that the area is read
+    from (`HORIZON-CL3-2023-BM-01`) and a topic code with the prefix CORDIS puts on it (`HORIZON_HORIZON-CL3-2023-BM-01-02`)."""
+    call_code = None if edf or not topic else topic.rsplit("-", 1)[0]
     return conn.execute(
-        """INSERT INTO project (source_id, native_id, acronym, title, topic_code, category, call_year, start_date)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+        """INSERT INTO project (source_id, native_id, acronym, title, topic_code, call_code, category, call_year, start_date)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
         (_source(conn, "edf_factsheets" if edf else "cordis"), native, acronym or native.upper(),
-         title or f"Project {native}", topic, category, year, None if edf else f"{year}-03-01")).fetchone()["id"]
+         title or f"Project {native}", f"HORIZON_{topic}" if call_code else topic, call_code, category, year,
+         None if edf else f"{year}-03-01")).fetchone()["id"]
 
 
 def org(conn, name, country, *, suppressed=False, merged_into=None):
@@ -247,6 +254,7 @@ def test_fit_facts_serve_only_the_facts_the_badge_reads_and_no_quote(client, con
          cascade_funding=(True, "FSTP allowed.", None))
     body = client.get("/v1/fit/facts", params={"ids": str(read)}).json()["items"][str(read)]
     assert body["state"] == "read" and body["basis"] == "call_document"
+    assert body["programme"] == "HORIZON" and body["topic"] == "HORIZON-read"
     assert set(body["facts"]) == {"eligible_countries", "sme_only"}
     assert body["facts"]["sme_only"] == {"value": False, "note": "A bonus for SMEs.", "scope": "call_document"}
     assert all("quote" not in f for f in body["facts"].values())
@@ -260,7 +268,7 @@ def test_fit_facts_say_not_read_for_unread_calls_and_no_source_for_national_ones
     conn.commit()
     items = client.get("/v1/fit/facts", params={"ids": f"{unread},{national},{gone},4242"}).json()["items"]
     assert items[str(unread)]["state"] == "not_read" and items[str(unread)]["facts"] == {}
-    assert items[str(national)] == {"state": "no_source", "basis": None, "facts": {}}
+    assert items[str(national)] == {"state": "no_source", "basis": None, "facts": {}, "programme": "NATIONAL", "topic": "PL-NCBR-nat"}
     assert str(gone) not in items and "4242" not in items
 
 

@@ -17,13 +17,32 @@ const storage = new Map<string, string>();
   localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => { storage.set(k, v); } },
 };
 const requests: string[] = [];
+const posts: unknown[] = [];
 let failNext = false;
-const facts = (sme: boolean) => ({ state: 'read', basis: 'call_document', facts: {
+let failAssess = false;
+const facts = (sme: boolean, programme = 'HORIZON', topic = 'HORIZON-CL3-2026-01-BM-01') => ({ state: 'read', basis: 'call_document', programme, topic, facts: {
   eligible_countries: { value: 'EU Member States', note: null, scope: 'call_document' },
   consortium_required: { value: false, note: null, scope: 'call_document' },
   sme_only: { value: sme, note: null, scope: 'call_document' },
 } });
-(globalThis as unknown as { fetch: unknown }).fetch = async (url: string, init?: { body?: unknown }) => {
+// What the programmes' verdict says for a Spanish company: the EDIP Programme excludes it (as it would a company outside the
+// associated countries), the Ukraine Support Instrument needs only a PIC, the EDF has nothing against it.
+const rule = (code: string, requirement: string | null, title: string) => ({ rule: code, title, requirement });
+const ASSESSMENT = {
+  assessments: [
+    { programme: 'EDIP', name: 'EDIP', verdict: 'blocked', blocking: ['EDIP-ESTABLISH'], rules: [rule('EDIP-ESTABLISH', null, 'Established in the Union')] },
+    { programme: 'EDIP-USI', name: 'EDIP Ukraine Support Instrument', verdict: 'blocked', blocking: ['USI-PIC'], rules: [rule('USI-PIC', 'REQ-PIC', 'PIC')] },
+    { programme: 'EDF', name: 'EDF', verdict: 'eligible', blocking: [], rules: [] },
+  ],
+  roadmap: { steps: [{ code: 'REQ-PIC', name: 'PIC', blockingFor: ['EDIP-USI'] }] },
+};
+(globalThis as unknown as { fetch: unknown }).fetch = async (url: string, init?: { method?: string; body?: unknown }) => {
+  if (init?.method === 'POST') {
+    assert.equal(url, '/api/readiness/assess');
+    posts.push(JSON.parse(String(init.body)));
+    if (failAssess) return { ok: false, status: 503, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => ASSESSMENT };
+  }
   requests.push(url);
   assert.equal(init?.body, undefined, 'a GET with no body: the profile is not sent');
   if (failNext) { failNext = false; return { ok: false, status: 502, json: async () => ({}) }; }
@@ -33,7 +52,10 @@ const facts = (sme: boolean) => ({ state: 'read', basis: 'call_document', facts:
   for (const id of ids) {
     if (id === '1') items[id] = facts(true);
     else if (id === '2') items[id] = facts(false);
-    else if (id === '3') items[id] = { state: 'not_read', basis: null, facts: {} };
+    else if (id === '3') items[id] = { state: 'not_read', basis: null, programme: 'HORIZON', topic: 'HORIZON-X', facts: {} };
+    else if (id === '6') items[id] = facts(false, 'EDF', 'EDF-EDIP-P-2027-FNLC-CPA-AMDS');          // judged by the EDIP Programme
+    else if (id === '7') items[id] = facts(false, 'EDF', 'EDF-EDIP-USI-2027-LS-IRA-CUXS');          // judged by the Ukraine Support Instrument
+    else if (id === '8') items[id] = facts(false, 'EDF', 'EDF-2026-DA-SPACE-PRS-STEP');             // judged by the EDF
   }
   return { ok: true, status: 200, json: async () => ({ items }) };
 };
@@ -50,7 +72,7 @@ async function main() {
   // 1. No saved profile: the items mount, nothing is asked.
   store.mount('1'); store.mount('2'); store.mount('3');
   await sleep(120);
-  assert.deepEqual(requests, [], 'no request without a profile');
+  assert.equal(requests.length, 0, 'no request without a profile');
   assert.equal(store.getSnapshot().ready, true);
   assert.equal(store.getSnapshot().hasProfile, false);
   for (const id of ['1', '2', '3']) store.unmount(id);
@@ -103,7 +125,31 @@ async function main() {
   assert.equal(store.fitFor('1').fit, 'yes', 'a small company is allowed where the large one was not');
   store.unmount('1');
 
-  // 7. The profile is removed: the badges go.
+  // 7. Calls of a programme with rules: the programmes' verdict is asked once, with the profile, and counts.
+  const postsBefore = posts.length;
+  store.mount('6'); store.mount('7'); store.mount('8'); store.mount('2');
+  await sleep(150);
+  assert.equal(posts.length, postsBefore + 1, 'one request for the programmes, not one per call');
+  assert.equal((posts[posts.length - 1] as { profile: { country: string } }).profile.country, 'ES', 'the same request the readiness pages make');
+  assert.deepEqual(['6', '7', '8', '2'].map(verdict), ['no', 'check', 'yes', 'yes'], 'EDIP out, Ukraine instrument after a PIC, EDF open, a Horizon call by its document alone');
+  assert.match(store.fitFor('7').conditions[0], /Needs first: PIC/);
+  assert.ok(store.isLoaded('6') && store.isLoaded('8'));
+  store.mount('8');
+  await sleep(100);
+  assert.equal(posts.length, postsBefore + 1, 'and not asked again');
+  for (const id of ['6', '7', '8', '2', '8']) store.unmount(id);
+
+  // 8. A programme verdict that does not come: the document alone speaks, and the badge is shown all the same.
+  failAssess = true;
+  storage.set('dg.profile.v1', profile({ sizeClass: 'small', name: 'Another' }));
+  store.mount('6');
+  await sleep(150);
+  assert.equal(store.isLoaded('6'), true);
+  assert.equal(store.fitFor('6').fit, 'yes', 'no verdict, no exclusion');
+  store.unmount('6');
+  failAssess = false;
+
+  // 9. The profile is removed: the badges go.
   storage.delete('dg.profile.v1');
   store.mount('2');
   await sleep(120);

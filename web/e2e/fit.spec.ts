@@ -32,12 +32,12 @@ async function saveProfile(page: Page, p: Record<string, unknown> | null) {
 }
 
 const fact = (value: unknown, scope = 'call_document') => ({ value, note: null, scope });
-/** The facts of a call by its id: three kinds, so a list shows every verdict. */
+/** The facts of a call by its id: three kinds, so a list shows every verdict (the topic is a Horizon one: no programme rules to ask for). */
 function factsOf(id: number) {
   switch (id % 3) {
-    case 0: return { state: 'read', basis: 'call_document', facts: { eligible_countries: fact('EU Member States'), consortium_required: fact(false), sme_only: fact(false), ownership_control_restriction: fact(false) } };
-    case 1: return { state: 'read', basis: 'call_document', facts: { eligible_countries: fact('EU Member States'), consortium_required: fact(false), sme_only: fact(true) } };
-    default: return { state: 'not_read', basis: 'call_document', facts: {} };
+    case 0: return { state: 'read', basis: 'call_document', programme: 'HORIZON', topic: 'HORIZON-CL3-2026-01-BM-01', facts: { eligible_countries: fact('EU Member States'), consortium_required: fact(false), sme_only: fact(false), ownership_control_restriction: fact(false) } };
+    case 1: return { state: 'read', basis: 'call_document', programme: 'HORIZON', topic: 'HORIZON-CL3-2026-01-BM-01', facts: { eligible_countries: fact('EU Member States'), consortium_required: fact(false), sme_only: fact(true) } };
+    default: return { state: 'not_read', basis: 'call_document', programme: 'HORIZON', topic: 'HORIZON-CL3-2026-01-BM-01', facts: {} };
   }
 }
 

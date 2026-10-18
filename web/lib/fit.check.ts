@@ -4,8 +4,9 @@
  */
 import assert from 'node:assert/strict';
 import type { EligibilityFacts } from './eligibility-check';
-import { checkProfileOf, fitOf, fitsProfile } from './fit';
+import { checkProfileOf, fitOf, fitsProfile, programmeFit, programmesOfCall, withProgramme } from './fit';
 import { emptyProfile, type Profile } from './profile';
+import type { ProgrammeAssessment, RoadmapStep } from './readiness-types';
 
 const f = (value: unknown, note: string | null = null, scope: 'call_document' | 'general' | 'topic' = 'call_document') =>
   ({ value, note, quote: 'q', confidence: 1, scope });
@@ -16,7 +17,7 @@ const LARGE_ES = profile({ country: 'ES', sizeClass: 'large', control: 'no' });
 
 // The profile of the readiness check, as the form of the call page reads it.
 assert.equal(checkProfileOf(profile({})), null, 'no country, no verdict');
-assert.deepEqual(checkProfileOf(ES), { country: 'ES', orgType: 'sme', hasPartners: 'unsure', controlledAbroad: 'no' });
+assert.deepEqual(checkProfileOf(ES), { country: 'ES', orgType: 'sme', hasPartners: '', controlledAbroad: 'no' });
 assert.equal(checkProfileOf(LARGE_ES)!.orgType, 'large');
 assert.equal(checkProfileOf(profile({ country: 'ES' }))!.orgType, '');
 assert.equal(checkProfileOf(profile({ country: 'ES', control: 'other' }))!.controlledAbroad, 'yes');
@@ -31,10 +32,16 @@ const single: EligibilityFacts = {
 assert.equal(fitOf(single, ES).fit, 'yes');
 assert.equal(fitOf(single, UA).fit, 'check', 'Ukraine is not a Member State: the document decides');
 
-// A consortium call is never a plain yes: the profile does not say whether the company has partners.
+// A consortium call: the requirement is the same for every applicant, so it does not decide the verdict, but it always
+// comes with it as a condition, because the profile does not say whether the company has partners.
 const consortium: EligibilityFacts = { ...single, consortium_required: f(true), min_entities: f(3), min_countries: f(3) };
-assert.equal(fitOf(consortium, ES).fit, 'check');
-assert.match(fitOf(consortium, ES).result!.lines.find((l) => l.key === 'consortium')!.reason, /at least 3 legal entities from at least 3 countries/);
+assert.equal(fitOf(consortium, ES).fit, 'yes');
+assert.deepEqual(fitOf(consortium, ES).conditions.length, 1);
+assert.match(fitOf(consortium, ES).conditions[0], /at least 3 legal entities from at least 3 countries.*does not say whether you have partners/);
+assert.deepEqual(fitOf(single, ES).conditions, [], 'no consortium, no condition');
+assert.equal(fitOf(consortium, UA).fit, 'check', 'the condition does not hide a rule that needs a look');
+assert.equal(fitOf(consortium, LARGE_ES).fit, 'yes');
+assert.equal(fitOf({ ...consortium, sme_only: f(true) }, LARGE_ES).fit, 'no', 'and does not hide a rule that excludes');
 
 // A restriction on ownership control is a yes only when the profile says "not controlled from outside".
 const restricted: EligibilityFacts = { ...single, ownership_control_restriction: f(true) };
@@ -75,5 +82,48 @@ assert.deepEqual((['yes', 'check', 'no', 'unknown', undefined] as const).map(fit
 
 // The two profiles of the acceptance test see different verdicts on the same calls.
 const rows = [single, consortium, restricted, smeOnly, general].map((facts) => [fitOf(facts, ES).fit, fitOf(facts, UA).fit]);
-assert.deepEqual(rows, [['yes', 'check'], ['check', 'check'], ['yes', 'check'], ['yes', 'check'], ['check', 'check']]);
+assert.deepEqual(rows, [['yes', 'check'], ['yes', 'check'], ['yes', 'check'], ['yes', 'check'], ['check', 'check']]);
+
+// ---- the programme's rules: which programme judges a call, and what its verdict does to the badge
+assert.deepEqual(programmesOfCall('EDF', 'EDF-2026-DA-SPACE-PRS-STEP'), ['EDF']);
+assert.deepEqual(programmesOfCall('EDF', 'EDF-EDIP-P-2027-FNLC-CPA-AMDS'), ['EDIP'], 'filed under the EDF, judged by the EDIP');
+assert.deepEqual(programmesOfCall('EDF', 'EDF-EDIP-USI-2027-LS-IRA-CUXS'), ['EDIP-USI']);
+assert.deepEqual(programmesOfCall('EDIP', 'EDIP-2026-RAMPUP-COMP'), ['EDIP', 'EDIP-USI'], 'a code that says neither gets both');
+assert.deepEqual(programmesOfCall('HORIZON', 'HORIZON-CL3-2026-01-BM-01'), []);
+assert.deepEqual(programmesOfCall('NATIONAL', 'PL-NCBR-1'), []);
+
+const rule = (code: string, requirement: string | null, title: string) => ({ rule: code, title, outcome: 'not_met', reason: '', obligation: 'mandatory', kind: '', requirement, note: null, denominator: null, asks: [], source: {} });
+const programme = (code: string, name: string, verdict: string, blocking: string[], rules: ReturnType<typeof rule>[]) =>
+  ({ programme: code, name, kind: 'programme', summary: '', legalBasis: null, sourceUrl: '', verdict, incomplete: false, blocking, conditions: [], counts: {}, missing: [], rules } as unknown as ProgrammeAssessment);
+const step = (code: string, name: string, blockingFor: string[]) => ({ order: 1, code, name, blockingFor } as unknown as RoadmapStep);
+const EDIP_UA = programme('EDIP', 'EDIP', 'blocked', ['EDIP-ESTABLISH', 'EDIP-PIC'], [rule('EDIP-ESTABLISH', null, 'Established in the Union or an associated country'), rule('EDIP-PIC', 'REQ-PIC', 'PIC')]);
+const USI_UA = programme('EDIP-USI', 'EDIP Ukraine Support Instrument', 'blocked', ['USI-PIC'], [rule('USI-PIC', 'REQ-PIC', 'PIC')]);
+const EDF_ES = programme('EDF', 'EDF', 'eligible', [], []);
+const EDF_OPEN = programme('EDF', 'EDF', 'conditional', [], []);
+const pic = step('REQ-PIC', 'Participant Identification Code', ['EDIP', 'EDIP-USI', 'EDF']);
+const ua = { assessments: [EDIP_UA, USI_UA, EDF_ES], roadmap: { steps: [pic] } } as never;
+
+const noEdip = programmeFit(ua, ['EDIP'])!;
+assert.equal(noEdip.fit, 'no', 'a rule that no certificate fixes');
+assert.deepEqual(noEdip.because, ['EDIP: Established in the Union or an associated country']);
+const usi = programmeFit(ua, ['EDIP-USI'])!;
+assert.deepEqual([usi.fit, usi.because], ['check', ['Needs first: Participant Identification Code']], 'only the PIC is missing');
+assert.equal(programmeFit(ua, ['EDIP', 'EDIP-USI'])!.fit, 'check', 'a call that may belong to either part: the better one counts');
+assert.equal(programmeFit(ua, ['EDF'])!.fit, 'yes');
+assert.equal(programmeFit({ assessments: [EDF_OPEN], roadmap: { steps: [] } } as never, ['EDF'])!.fit, 'check');
+assert.equal(programmeFit(null, ['EDF']), null, 'no verdict asked or none came');
+assert.equal(programmeFit(ua, []), null, 'a programme with no rules');
+assert.equal(programmeFit(ua, ['SAFE']), null);
+
+const docYes = fitOf(single, ES);
+const docUnknown = fitOf(null, ES);
+assert.equal(withProgramme(docYes, noEdip).fit, 'no');
+assert.equal(withProgramme(docUnknown, noEdip).fit, 'no', 'a call whose rules were not read is still out of reach of a company the programme excludes');
+assert.deepEqual(withProgramme(docUnknown, usi).fit, 'unknown', 'but "something must be obtained" says nothing of a call whose rules were not read');
+assert.equal(withProgramme(docYes, usi).fit, 'check');
+assert.equal(withProgramme(fitOf(restricted, ES), programmeFit(ua, ['EDF'])).fit, 'yes');
+assert.equal(withProgramme(fitOf(single, UA), programmeFit(ua, ['EDF'])).fit, 'check');
+assert.equal(withProgramme(fitOf(smeOnly, LARGE_ES), usi).fit, 'no', 'the document excludes: the programme cannot lift it');
+assert.equal(withProgramme(docYes, null), docYes);
+assert.ok(withProgramme(docYes, usi).conditions[0].startsWith('Needs first'));
 console.log('fit checks passed');

@@ -145,8 +145,12 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
         ) : (
           <p className="m-0 text-small text-ink-muted">
             {facts ? 'None of the rules read from the document concerns what your profile says.' : 'The rules of this call have not been read, so there is nothing to compare your profile with. Read the source’s own text before you apply.'}
-            {' '}The profile does not say whether you already have partners, so a call that needs a consortium is never shown as a plain yes.
           </p>
+        )}
+        {doc && doc.conditions.length > 0 && (
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {doc.conditions.map((c) => <li key={c} className="text-body"><strong>Asked of every applicant.</strong> {c}</li>)}
+          </ul>
         )}
       </div>
 

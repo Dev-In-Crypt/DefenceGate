@@ -42,8 +42,8 @@ def test_a_horizon_call_has_a_destination_and_its_round_is_not_the_destination()
     narrow, wide = areas_of("HORIZON-CL3-2026-01-BM-01")
     assert (narrow.kind, wide.kind) == ("horizon-destination", "horizon-family")
     assert narrow.source == "cordis" and "destination BM" in narrow.label
-    # real topic codes of earlier calls have no round
-    for earlier in ("HORIZON-CL3-2023-BM-01-02", "HORIZON-CL3-2021-BM-01-01", "HORIZON-CL3-2026-02-BM-01-03"):
+    # the call codes of earlier projects in CORDIS (`HORIZON-CL3-2022-BM-01`) have no round
+    for earlier in ("HORIZON-CL3-2022-BM-01", "HORIZON-CL3-2021-BM-02", "HORIZON-CL3-2023-BM-01-02", "HORIZON-CL3-2026-02-BM-01-03"):
         assert re.search(narrow.regex, earlier), earlier
     for other in ("HORIZON-CL3-2023-BMX-01-02", "HORIZON-CL3-2023-FCT-01-02", "HORIZON-CL4-2023-BM-01-02",
                   "HORIZON-CL30-2023-BM-01-02", "H2020-CL3-2023-BM-01-02"):

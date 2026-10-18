@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
-import { FIT_MEANING, FIT_WORD, type Fit } from '@/lib/fit';
+import { FIT_MEANING, FIT_WORD } from '@/lib/fit';
 import { fitFor, hiddenByFilter, isLoaded, setOnlyFits, useFit, useFitState } from '@/lib/fit-store';
 import { cn } from '@/lib/utils';
 import { Choice } from '../dg/form';
@@ -18,9 +18,9 @@ const ICON = { yes: CircleCheck, check: CircleAlert, no: CircleX, unknown: Circl
 export function FitBadge({ id, className }: { id: string; className?: string }) {
   const s = useFit(id);
   if (!s.ready || !s.hasProfile || !isLoaded(id)) return null;
-  const fit: Fit = fitFor(id).fit;
+  const { fit, conditions } = fitFor(id);
   return (
-    <span title={FIT_MEANING[fit]}
+    <span title={[FIT_MEANING[fit], ...(fit === 'unknown' ? [] : conditions)].join(' ')}
       className={cn('inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface-inset px-2.5 py-[5px] font-sans text-label text-ink', className)}>
       <Icon icon={ICON[fit]} size="inline" />
       <span className="sr-only">Your saved profile: </span>
@@ -54,7 +54,7 @@ export function FitFilter({ className }: { className?: string }) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <Choice label="Fits my profile" checked={s.onlyFits} onChange={(e) => setOnlyFits(e.target.checked)}
-        hint="Keeps the calls on this page that are eligible or worth a look, judged on the rules read from each call’s document." />
+        hint="Keeps the calls on this page that are eligible or worth a look, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules." />
       <p role="status" className="m-0 text-small text-ink-muted">
         {s.loaded === 0 ? 'Checking the calls on this page…' : (
           <>

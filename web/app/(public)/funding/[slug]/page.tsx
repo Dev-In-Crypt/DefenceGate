@@ -213,7 +213,7 @@ export default async function CallDetailPage({ params }: Props) {
           {call.documentEligibility ? (
             <Panel title="Can you apply?">
               <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
-                basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} />
+                basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed} />
             </Panel>
           ) : call.eligibilityState === 'not_read' ? (
             <Panel title="Can you apply?">
@@ -232,9 +232,9 @@ export default async function CallDetailPage({ params }: Props) {
                   </li>
                 ))}
               </ul>
-              <div className="border-t border-line pt-5"><CallReadiness callId={call.id} /></div>
+              {!closed && <div className="border-t border-line pt-5"><CallReadiness callId={call.id} /></div>}
             </Panel>
-          ) : call.programme === 'EDF' ? (
+          ) : call.programme === 'EDF' && !closed ? (
             // EDF and EDIP calls have readiness rules even when no document was read (WP-29).
             <Panel title="Can you apply?">
               <CallReadiness callId={call.id} />
