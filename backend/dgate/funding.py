@@ -183,6 +183,9 @@ class FundingCall(BaseModel):
     # Financial support to third parties (cascade funding): true or false where a source we hold
     # says so, null where nothing does (dgate/cascade.py). Null is "not determined", not "no".
     cascade: bool | None = None
+    # Open to Ukrainian participants: true or false where a source we hold says so, null where nothing
+    # does (dgate/ukraine.py). Null is "unknown", not "no".
+    openToUkraine: bool | None = None
     publishedAt: datetime | None
     firstSeenAt: datetime
     lastSeenAt: datetime
@@ -242,6 +245,10 @@ class FundingCallDetail(FundingCall):
     eligibilitySources: list[EligibilitySource] = []
     # How `cascade` was decided and the sentence it rests on (null when it is not determined).
     cascadeBasis: CascadeBasis | None = None
+    # How `openToUkraine` was decided and the sentence it rests on (null when the call has no flag yet).
+    ukraineBasis: CascadeBasis | None = None
+    # The regime the call is under and its headline conditions, with the source of each (dgate/rules_apply.py).
+    rulesApply: dict[str, Any] | None = None
 
 
 def serves_meta() -> bool:
@@ -272,6 +279,8 @@ class FundingPage(BaseModel):
     search: SearchInfo | None = None
     # Calls with cascade funding among those that match every filter but this one (the filter bar's count).
     cascadeTotal: int | None = None
+    # Calls open to Ukrainian participants among those that match every filter but this one.
+    ukraineTotal: int | None = None
 
 
 class SourceHealth(BaseModel):
@@ -525,6 +534,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "scope": scope_keywords(prog, cond),
         "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
         "cascade": r.get("cascade"),
+        "openToUkraine": r.get("open_to_ukraine"),
         "publishedAt": _day(r.get("published_at")),
         "firstSeenAt": r["first_seen_at"],
         "lastSeenAt": r["last_seen_at"],
@@ -590,6 +600,8 @@ def list_funding(
     sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|budget-desc)$"),
     # Only `true` is a filter: calls that have cascade funding (financial support to third parties).
     cascade: str | None = Query(None, pattern="^true$"),
+    # Only `true` is a filter: calls the flag says are open to Ukrainian participants (unknown is not included).
+    ukraine: str | None = Query(None, pattern="^true$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
@@ -675,12 +687,17 @@ def list_funding(
             where.append("c.budget <= %s")
             params.append(max_)
 
-    # The count the filter bar shows: the calls with cascade funding among the other filters' matches.
-    cascade_total = conn.execute(
-        f"SELECT count(*) AS n FROM ({SELECT} WHERE {' AND '.join([*where, 'c.cascade IS TRUE'])}) c",
-        params).fetchone()["n"]
-    if cascade == "true":
-        where.append("c.cascade IS TRUE")
+    # The counts the filter bar shows: each is the number of calls that match every other filter, this one included
+    # as "yes" (cascade funding; open to Ukrainian participants), so the two counts follow each other's choice.
+    def count_with(*extra: str) -> int:
+        return conn.execute(f"SELECT count(*) AS n FROM ({SELECT} WHERE {' AND '.join([*where, *extra])}) c",
+                            params).fetchone()["n"]
+
+    cascade_clause = ["c.cascade IS TRUE"] if cascade == "true" else []
+    ukraine_clause = ["c.open_to_ukraine IS TRUE"] if ukraine == "true" else []
+    cascade_total = count_with(*ukraine_clause, "c.cascade IS TRUE")
+    ukraine_total = count_with(*cascade_clause, "c.open_to_ukraine IS TRUE")
+    where.extend([*cascade_clause, *ukraine_clause])
 
     clause = (" WHERE " + " AND ".join(where)) if where else ""
     total = conn.execute(
@@ -710,6 +727,7 @@ def list_funding(
 
     return {"items": [to_call(r) for r in rows], "total": total,
             "page": page, "pageSize": pageSize, "search": search, "cascadeTotal": cascade_total,
+            "ukraineTotal": ukraine_total,
             "meta": {"updatedAt": cached_last_run(conn, "grant") if with_meta is True else None}}
 
 
@@ -738,7 +756,23 @@ def get_funding(slug: str, conn=Depends(get_conn)):
         out["eligibilitySources"] = read["sources"]
     if row.get("cascade_reason") and row["cascade_reason"] != "not_stated":
         out["cascadeBasis"] = {"reason": row["cascade_reason"], "evidence": redact_emails(row.get("cascade_evidence"))}
+    if row.get("open_to_ukraine_reason"):
+        out["ukraineBasis"] = {"reason": row["open_to_ukraine_reason"], "evidence": redact_emails(row.get("open_to_ukraine_evidence"))}
+    out["rulesApply"] = _rules_apply(conn, row)
     return out
+
+
+def _rules_apply(conn, row: dict[str, Any]) -> dict[str, Any] | None:
+    """The "rules that apply" block (rules_apply.py). The readiness rules may not be loaded yet (a fresh
+    database): the block then names the regime and says no rules are encoded, it never fails the page."""
+    from . import rules_apply
+    from .readiness.api import content
+
+    try:
+        rules = content(conn)
+    except HTTPException:
+        rules = None
+    return rules_apply.build(rules, row["programme_code"], row.get("topic_code"))
 
 
 def eligibility_of(conn, row: dict[str, Any]) -> dict[str, Any]:

@@ -99,6 +99,11 @@ export interface Call {
    * nothing does. Null is "not determined", never "no". Absent on older API builds.
    */
   cascade?: boolean | null;
+  /**
+   * Open to Ukrainian participants: true or false where a source we hold says so, null where nothing does. Null is
+   * "unknown", never "no". Absent on older API builds.
+   */
+  openToUkraine?: boolean | null;
   /** The source's own date for the call, where it states one. */
   publishedAt: IsoDateTime | null;
   firstSeenAt: IsoDateTime;
@@ -121,6 +126,24 @@ export interface Call {
   eligibilitySources?: EligibilitySourceInfo[];
   /** Detail only: how `cascade` was decided and the sentence it rests on. Absent when it is not determined. */
   cascadeBasis?: { reason: string; evidence: string | null } | null;
+  /** Detail only: how `openToUkraine` was decided and the sentence it rests on. Absent when the call has no flag yet. */
+  ukraineBasis?: { reason: string; evidence: string | null } | null;
+  /** Detail only: the regime the call is under and its headline conditions, each with its source. Absent on older API builds. */
+  rulesApply?: RulesApply | null;
+}
+
+/** The "rules that apply" block of a call (GET /v1/funding/{slug} `rulesApply`). */
+export interface RulesApply {
+  regime: { code: string; name: string; why: string };
+  /** False: the regime is named but no rules of it are encoded. */
+  encoded: boolean;
+  programme?: { code: string; name: string; legalBasis: string | null };
+  rules: {
+    rule: string; title: string; kind: string; requirement: string | null;
+    source: { url: string; ref: string | null; text: string | null; origin: string; verificationStatus: string; lastReviewed: string };
+  }[];
+  alsoRead: { label: string; ref: string; text: string; url: string } | null;
+  notice: string;
 }
 
 /** Where some of a call's rules are written: its call document, the work programme's general annexes, or the topic's own text. */
@@ -167,6 +190,8 @@ export interface CallFilters {
   sort?: CallSort;
   /** Only calls with cascade funding (financial support to third parties). */
   cascade?: boolean;
+  /** Only calls open to Ukrainian participants (the flag is true; unknown is not included). */
+  ukraine?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -185,6 +210,8 @@ export interface Paginated<T> {
   search?: SearchInfo | null;
   /** `/v1/funding`: calls with cascade funding among those that match every filter but this one. Absent on older API builds. */
   cascadeTotal?: number | null;
+  /** `/v1/funding`: calls open to Ukrainian participants among those that match every filter but this one. Absent on older API builds. */
+  ukraineTotal?: number | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
   meta?: { updatedAt?: string | null } | null;
   /** Set by lib/api.ts, never by the API: the data service did not answer, and this is its last good answer, received at this time. */

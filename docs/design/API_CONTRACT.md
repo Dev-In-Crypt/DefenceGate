@@ -658,3 +658,43 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
 A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input. The limiter charges
 three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
 content policy allows connections to the site only); the verdict is the only thing that leaves the browser.
+
+
+## Changes of 18 October 2026 (WP-36: rules that apply, open to Ukraine, regulatory tracker)
+
+### `/v1/funding` and `/v1/funding/{slug}`
+
+- `ukraine` (query, optional): only `true` is accepted (`ukraine=false` is a 422). It keeps the calls the flag says are
+  open to Ukrainian participants; a call whose answer is unknown is not included.
+- Every call has `openToUkraine: true | false | null`. `null` is "unknown", never "no". It is set only where something
+  we hold says so (`dgate/ukraine.py`), in this order: the verified `eligible_countries` fact of the call document or
+  of the topic's own text, a sentence of the conditions text that names Ukraine, then the regime's own Regulation: the
+  Ukraine Support Instrument (topic codes `EDF-EDIP-USI-`) is open (Regulation (EU) 2025/2643, Article 26(1)); the
+  EDIP Programme (`EDF-EDIP-P-`) is not (Article 2 defines associated countries as EEA EFTA states). An EDF call is
+  `null` with reason `edf_association_unconfirmed`: no primary text read on 18 October 2026 says the association
+  agreement is in force. The work programme's general annexes never decide it.
+- The list has `ukraineTotal`: the calls open to Ukraine among those that match every filter but this one. `cascadeTotal`
+  now counts with the `ukraine` filter applied too, and `ukraineTotal` with the `cascade` filter.
+- The detail has `ukraineBasis: { reason, evidence } | null` (`call_document`, `topic_text`, `call_text`,
+  `programme_rule`, `edf_association_unconfirmed`, `not_stated`) and `rulesApply`:
+  `{ regime: { code, name, why }, encoded, programme?, rules[], alsoRead, notice }`. The regime is read from the
+  programme and the topic code (`dgate/regime.py`: `EDF`, `EDIP`, `EDIP-USI`, `HORIZON`, `DIGITAL`, `CEF`, `NATIONAL`);
+  `encoded: false` means no rules of the regime are in the readiness seed (Horizon, Digital Europe, CEF and the national
+  calls). `rules[]` are the active mandatory rules of kind establishment, control, threshold or categorical of the
+  matching readiness programme, each `{ rule, title, kind, requirement, source: { url, ref, text, origin,
+  verificationStatus, lastReviewed } }`. `alsoRead` is the 35 % component rule of EDIP and of the Ukraine Support
+  Instrument, shown only while the seed holds no threshold rule for that regime. No verdict is given here.
+
+### `GET /v1/regulation`
+
+`{ entries[], lastChecked, notice }`, newest event first. An entry is `{ code, instrument, title, whatChanged, eventDate,
+status, affected, source: { url, ref, quote }, checkedOn, links[] }`. `status` is `proposed`, `announced`, `agreed`,
+`adopted`, `in_force` or `unconfirmed`. `source.quote` is a sentence of the primary source copied word for word
+(`backend/tests/verify_regulation.py` checks it against the text). Content: `backend/seeds/regulation_tracker.json`,
+applied by the worker on start. Public, anonymous, read-only (the API role has `SELECT` only); added to the proxy's
+allow-list in `infra/Caddyfile`.
+
+### Site routes built on it
+
+`/regulation` and `/regulation.atom`, `/data/sovereignty` (copy), the "Rules that apply" and "Ukrainian participants"
+panels of `/funding/{slug}`, the Ukraine filter (`?ukraine=true`) and the badge "Open to Ukraine" on `/funding`.

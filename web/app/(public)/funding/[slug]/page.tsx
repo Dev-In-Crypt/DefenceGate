@@ -20,6 +20,7 @@ import { SourceBadge } from '@/components/dg/source-badge';
 import { Button } from '@/components/dg/button';
 import { CallCard } from '@/components/dg/cards';
 import { EligibilityCheck } from '@/components/funding/eligibility-check';
+import { RulesApplyBlock, UKRAINE_BASIS, ukraineSentence } from '@/components/funding/rules-apply';
 import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 
@@ -93,6 +94,7 @@ export default async function CallDetailPage({ params }: Props) {
   // The structured rows that already answer "who can apply" are not repeated under Terms.
   const whoLabels = new Set(who.map((r) => r.label));
   const terms = call.eligibility.filter((r) => !whoLabels.has(r.label));
+  const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
 
   return (
     <>
@@ -109,6 +111,7 @@ export default async function CallDetailPage({ params }: Props) {
               <Tag kind="programme">{programme.label}</Tag>
               <Tag>{REGIMES[call.regime]}</Tag>
               {call.cascade === true && <Tag>Cascade funding</Tag>}
+              {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
               <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
             </div>
             <div className="flex flex-col gap-2">
@@ -207,6 +210,27 @@ export default async function CallDetailPage({ params }: Props) {
               <p className="m-0 text-body text-ink-muted">The source gives no link to this call. Search for “{call.topicId}” at {call.source.sourceName}.</p>
             )}
           </Panel>
+
+          {call.rulesApply && (
+            <Panel title="Rules that apply">
+              <RulesApplyBlock block={call.rulesApply} />
+            </Panel>
+          )}
+
+          {ukraine && (
+            <Panel title="Ukrainian participants">
+              <p className="m-0 text-body">
+                {ukraine}{' '}
+                {call.openToUkraine === true && call.rulesApply?.regime.code === 'EDIP-USI' && 'Entities established in the non-government controlled areas of Ukraine are not eligible. '}
+                See the <Link href="/glossary#open-to-ukraine" className="font-semibold">glossary</Link>.
+              </p>
+              {call.ukraineBasis?.evidence && (
+                <p className="m-0 text-small text-ink-muted">
+                  {UKRAINE_BASIS[call.ukraineBasis.reason] ?? 'Source'}: <q className="italic">{call.ukraineBasis.evidence}</q>
+                </p>
+              )}
+            </Panel>
+          )}
 
           {call.documentEligibility ? (
             <Panel title="Can you apply?">

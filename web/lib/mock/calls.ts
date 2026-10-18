@@ -14,7 +14,7 @@ interface RawCall {
   budget: [number, CurrencyCode] | null; budgetScope?: 'call' | 'topic';
   actionType: string | null; fundingRate: string | null; scope: string[];
   sourceId: string; retrievedAt: string; publishedAt?: string; firstSeenAt?: string;
-  eligibility?: EligibilityItem[]; conditionsText?: string; cascade?: boolean;
+  eligibility?: EligibilityItem[]; conditionsText?: string; cascade?: boolean; ukraine?: boolean;
 }
 const data = raw as unknown as { eligibility: Record<string, EligibilityItem[]>; calls: RawCall[] };
 
@@ -43,6 +43,7 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
     actionType: r.actionType, fundingRate: r.fundingRate, scope: r.scope,
     eligibility: r.eligibility ?? data.eligibility[eligKey] ?? [],
     cascade: r.cascade ?? null,
+    openToUkraine: r.ukraine ?? null,
     publishedAt: r.publishedAt ?? null,
     firstSeenAt: r.firstSeenAt ?? FIRST_SEEN, lastSeenAt: r.retrievedAt,
     source: {
@@ -50,7 +51,31 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
       retrievedAt: r.retrievedAt, licence: src.licence, attribution: src.attribution,
     },
     ...(detail && r.conditionsText ? { conditionsText: r.conditionsText } : {}),
+    ...(detail ? mockDetail(r) : {}),
   };
+}
+
+/** The detail-only fields the demo shows: how the Ukraine flag was decided, and the rules block of an EDF call. */
+function mockDetail(r: RawCall): Partial<Call> {
+  const out: Partial<Call> = {};
+  if (r.ukraine !== undefined) {
+    out.ukraineBasis = { reason: 'call_document', evidence: 'non-EU countries: − Ukraine' };
+  }
+  if (r.programme === 'EDF') {
+    out.rulesApply = {
+      regime: { code: 'EDF', name: 'European Defence Fund', why: 'The topic code starts with EDF- and the programme is the EDF.' },
+      encoded: true,
+      programme: { code: 'EDF', name: 'European Defence Fund', legalBasis: 'Regulation (EU) 2021/697, as amended by Regulation (EU) 2025/2653' },
+      rules: [{
+        rule: 'EDF-ESTABLISH', title: 'Established in the Union or an associated country', kind: 'establishment', requirement: 'REQ-EDF-ELIG',
+        source: { url: 'http://data.europa.eu/eli/reg/2021/697/oj', ref: 'Regulation (EU) 2021/697, Article 9(1)', origin: 'primary', verificationStatus: 'V', lastReviewed: '2026-10-17',
+          text: '[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.' },
+      }],
+      alsoRead: null,
+      notice: 'Indicative, not legal advice. The call text and the contracting authority decide.',
+    };
+  }
+  return out;
 }
 
 export function allCalls(ref: Date = now(), detail = false): Call[] {
@@ -94,6 +119,8 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
   // The calls with cascade funding among those that match every other filter (the API's `cascadeTotal`).
   const cascadeTotal = items.filter((c) => c.cascade === true).length;
   if (f.cascade) items = items.filter((c) => c.cascade === true);
+  const ukraineTotal = items.length === 0 ? 0 : allCalls(ref).filter((c) => items.some((i) => i.id === c.id) && c.openToUkraine === true).length;
+  if (f.ukraine) items = items.filter((c) => c.openToUkraine === true);
 
   const sort = f.sort ?? defaultCallSort(status);
   items = items.sort((a, b) => {
@@ -114,7 +141,7 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
   const pageSize = f.pageSize ?? DEFAULT_PAGE_SIZE;
   const page = f.page ?? 1;
   return {
-    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, cascadeTotal,
+    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize, cascadeTotal, ukraineTotal,
     search: f.q ? { terms: query?.terms ?? [], alsoSearched: query?.alsoSearched ?? [] } : null,
   };
 }

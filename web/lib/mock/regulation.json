@@ -1,0 +1,386 @@
+{
+ "entries": [
+  {
+   "affected": "Ukrainian companies deciding whether to join a consortium for an EDF call, and EU coordinators who would take them in.",
+   "checkedOn": "2026-10-18",
+   "code": "edf-ukraine-in-force-unconfirmed",
+   "eventDate": "2026-10-18",
+   "instrument": "EDF",
+   "links": [
+    {
+     "code": "/glossary#open-to-ukraine",
+     "kind": "page",
+     "label": "Glossary: open to Ukraine"
+    },
+    {
+     "code": "/funding?status=all&programme=EDF",
+     "kind": "page",
+     "label": "EDF calls"
+    }
+   ],
+   "source": {
+    "quote": "Ukraine has been fully associated to the European Defence Fund (EDF) and to the European Defence Industry Programme (EDIP), enabling Ukrainian and EU companies to form consortia and participate together in collaborative defence.",
+    "ref": "European Commission, DG DEFIS, Support to Ukraine (page without a date; read on 18 October 2026)",
+    "url": "https://defence-industry-space.ec.europa.eu/support-ukraine_en"
+   },
+   "status": "unconfirmed",
+   "title": "EDF: Ukraine's association in force? (unconfirmed)",
+   "whatChanged": "The Commission's page on support to Ukraine says Ukraine \"has been fully associated\" to the European Defence Fund. The page carries no date, and it does not say that the agreement on Ukraine's participation has entered into force. Steps taken in Ukraine, as the press reports them, do not settle the EU side. We found no Official Journal text of the agreement, no Council decision on it and no notice of its entry into force, so the point is open. Until a primary text settles it, DefenceGate marks no European Defence Fund call as open to Ukraine or as closed to it."
+  },
+  {
+   "affected": "Contracting authorities and suppliers in defence and security procurement under Directive 2009/81/EC; transfers of defence products between Member States.",
+   "checkedOn": "2026-10-18",
+   "code": "defence-procurement-directive-adopted",
+   "eventDate": "2026-10-09",
+   "instrument": "Directive 2009/81/EC",
+   "links": [
+    {
+     "code": "/tenders",
+     "kind": "page",
+     "label": "Defence tenders"
+    }
+   ],
+   "source": {
+    "quote": "09/10/2026 Act adopted by Council after Parliament's 1st reading",
+    "ref": "European Parliament, Legislative Observatory, procedure 2025/0177(COD), key events",
+    "url": "https://oeil.europarl.europa.eu/oeil/en/procedure-file?reference=2025/0177(COD)"
+   },
+   "status": "adopted",
+   "title": "Defence procurement directive: the simplification amendment is adopted by Parliament and Council",
+   "whatChanged": "The directive amending Directives 2009/43/EC (transfers of defence products within the Union) and 2009/81/EC (defence and security procurement) passed the European Parliament at first reading on 16 September 2026 and was adopted by the Council on 9 October 2026. The Legislative Observatory lists it as awaiting signature. It is not yet published in the Official Journal and not in force. We have not compared the final text with the Commission's proposal."
+  },
+  {
+   "affected": "Canadian suppliers, who may take part in SAFE procurement on the agreement's terms, and EU suppliers competing with them.",
+   "checkedOn": "2026-10-18",
+   "code": "safe-canada",
+   "eventDate": "2026-06-15",
+   "instrument": "SAFE",
+   "links": [
+    {
+     "code": "SAFE",
+     "kind": "programme",
+     "label": "Readiness check: SAFE"
+    }
+   ],
+   "source": {
+    "quote": "The Agreement between the European Union and Canada laying down the conditions for the participation of Canadian legal entities and products originating in Canada to procurement under the SAFE Instrument is hereby approved.",
+    "ref": "Council Decision (EU) 2026/1381 of 15 June 2026, Article 1; Official Journal L, 18.6.2026",
+    "url": "https://publications.europa.eu/resource/celex/32026D1381"
+   },
+   "status": "adopted",
+   "title": "SAFE: the agreement with Canada is concluded",
+   "whatChanged": "The Council approved the agreement between the European Union and Canada on the participation of Canadian legal entities and Canadian products in SAFE procurement on 15 June 2026 (Decision (EU) 2026/1381, published 18 June 2026). According to that decision, the agreement was signed on 14 February 2026 and has been applied provisionally from 13 April 2026. The decision says the date of entry into force will be published in the Official Journal by the Council's General Secretariat; we have not found that notice. We have not summarised the agreement's own conditions."
+  },
+  {
+   "affected": "Suppliers in EDIP common procurement, industrial reinforcement and supporting actions, and Ukrainian and EU suppliers in the Ukraine Support Instrument.",
+   "checkedOn": "2026-10-18",
+   "code": "edip-in-force",
+   "eventDate": "2025-12-30",
+   "instrument": "EDIP",
+   "links": [
+    {
+     "code": "REQ-EDIP-ELIG",
+     "kind": "requirement",
+     "label": "EDIP eligibility rules"
+    },
+    {
+     "code": "EDIP",
+     "kind": "programme",
+     "label": "Readiness check: EDIP"
+    }
+   ],
+   "source": {
+    "quote": "The financial envelopes for the implementation of the Programme for the period from 30 December 2025 to 31 December 2027 shall be composed of: (a) EUR 1 200 000 000 in current prices; and (b) additional contributions in accordance with Article 5.",
+    "ref": "Regulation (EU) 2025/2643, Article 3(1); Official Journal L, 29.12.2025",
+    "url": "https://publications.europa.eu/resource/celex/32025R2643"
+   },
+   "status": "in_force",
+   "title": "EDIP Regulation in force: EUR 1.2 billion for the Programme and EUR 300 million for Ukraine",
+   "whatChanged": "Regulation (EU) 2025/2643 establishing the European Defence Industry Programme was adopted on 16 December 2025 and published on 29 December 2025, so it entered into force on 30 December 2025. For 30 December 2025 to 31 December 2027 the Programme has EUR 1 200 000 000 in current prices and the Ukraine Support Instrument EUR 300 000 000 in current prices (Article 3), plus additional contributions."
+  },
+  {
+   "affected": "Ukrainian and EU companies applying to calls of the Ukraine Support Instrument (their topic codes start with EDF-EDIP-USI).",
+   "checkedOn": "2026-10-18",
+   "code": "usi-open-to-ukraine",
+   "eventDate": "2025-12-30",
+   "instrument": "EDIP",
+   "links": [
+    {
+     "code": "EDIP-USI",
+     "kind": "programme",
+     "label": "Readiness check: Ukraine Support Instrument"
+    },
+    {
+     "code": "/funding?status=all&ukraine=true",
+     "kind": "page",
+     "label": "Funding calls open to Ukraine"
+    },
+    {
+     "code": "/glossary#open-to-ukraine",
+     "kind": "page",
+     "label": "Glossary: open to Ukraine"
+    }
+   ],
+   "source": {
+    "quote": "Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
+    "ref": "Regulation (EU) 2025/2643, Article 26(1)",
+    "url": "https://publications.europa.eu/resource/celex/32025R2643"
+   },
+   "status": "in_force",
+   "title": "Ukraine Support Instrument: open to entities established in Ukraine",
+   "whatChanged": "Under the Ukraine Support Instrument of EDIP only legal entities established in the Union or in Ukraine, with their executive management structures in the Union or in Ukraine, are eligible for funding. Entities established in the non-government-controlled areas of Ukraine are not. DefenceGate marks the funding calls of this instrument as open to Ukraine."
+  },
+  {
+   "affected": "Manufacturers and component suppliers in EDIP common procurement and industrial reinforcement actions.",
+   "checkedOn": "2026-10-18",
+   "code": "edip-origin-35",
+   "eventDate": "2025-12-30",
+   "instrument": "EDIP",
+   "links": [
+    {
+     "code": "REQ-EDIP-ELIG",
+     "kind": "requirement",
+     "label": "EDIP eligibility rules"
+    }
+   ],
+   "source": {
+    "quote": "For procurement carried out pursuant to Articles 11, 13 and 35 which is supported by Union funding, the cost of components originating outside the Union and associated countries shall not be higher than 35 % of the estimated cost of the components of the end product.",
+    "ref": "Regulation (EU) 2025/2643, Article 10(3)",
+    "url": "https://publications.europa.eu/resource/celex/32025R2643"
+   },
+   "status": "in_force",
+   "title": "EDIP: at most 35 % of component cost from outside the Union and associated countries",
+   "whatChanged": "For EDIP procurement supported by Union funding the cost of components originating outside the Union and associated countries may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 10(4) sets the same share for industrial reinforcement actions. This rule is not yet part of the readiness check."
+  },
+  {
+   "affected": "Manufacturers and component suppliers in calls of the Ukraine Support Instrument.",
+   "checkedOn": "2026-10-18",
+   "code": "usi-origin-35",
+   "eventDate": "2025-12-30",
+   "instrument": "EDIP",
+   "links": [
+    {
+     "code": "EDIP-USI",
+     "kind": "programme",
+     "label": "Readiness check: Ukraine Support Instrument"
+    }
+   ],
+   "source": {
+    "quote": "For procurement carried out pursuant to paragraph 1, points (a) and (c), which is supported by Union funding, the cost of components originating outside the Union and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.",
+    "ref": "Regulation (EU) 2025/2643, Article 27(3)",
+    "url": "https://publications.europa.eu/resource/celex/32025R2643"
+   },
+   "status": "in_force",
+   "title": "Ukraine Support Instrument: at most 35 % of component cost from outside the Union and Ukraine",
+   "whatChanged": "For procurement supported under the Ukraine Support Instrument the cost of components originating outside the Union and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 27(4) sets the same share for industrial reinforcement actions. This rule is not yet part of the readiness check."
+  },
+  {
+   "affected": "Ukrainian companies and EU companies that would form consortia with them in EDF calls.",
+   "checkedOn": "2026-10-18",
+   "code": "edf-ukraine-legal-basis",
+   "eventDate": "2025-12-23",
+   "instrument": "EDF",
+   "links": [
+    {
+     "code": "REQ-EDF-ELIG",
+     "kind": "requirement",
+     "label": "EDF eligibility rules"
+    },
+    {
+     "code": "EDF",
+     "kind": "programme",
+     "label": "Readiness check: EDF"
+    },
+    {
+     "code": "/glossary#open-to-ukraine",
+     "kind": "page",
+     "label": "Glossary: open to Ukraine"
+    }
+   ],
+   "source": {
+    "quote": "Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
+    "ref": "Regulation (EU) 2025/2653, Article 1(1), replacing Article 5 of Regulation (EU) 2021/697",
+    "url": "https://publications.europa.eu/resource/celex/32025R2653"
+   },
+   "status": "in_force",
+   "title": "EDF: Ukraine can be an associated country",
+   "whatChanged": "Regulation (EU) 2025/2653, published on 22 December 2025 and in force from 23 December 2025, replaced Article 5 of the European Defence Fund Regulation. The Fund is now open to the participation of EEA EFTA members, and of Ukraine in accordance with the conditions laid down in the EU-Ukraine Association Agreement. The text makes Ukraine's participation possible; it does not say that the conditions are met (next entry)."
+  },
+  {
+   "affected": "Contracting authorities and suppliers in defence and security procurement.",
+   "checkedOn": "2026-10-18",
+   "code": "defence-procurement-directive-revision",
+   "eventDate": "2025-11-25",
+   "instrument": "Directive 2009/81/EC",
+   "links": [],
+   "source": {
+    "quote": "the Defence Readiness Roadmap of October 2025 announced the upcoming revision of the legal framework.",
+    "ref": "European Commission, DG DEFIS, Simplifying EU rules on defence and sensitive security procurement, 25 November 2025",
+    "url": "https://defence-industry-space.ec.europa.eu/simplifying-eu-rules-defence-and-sensitive-security-procurement-2025-11-25_en"
+   },
+   "status": "announced",
+   "title": "Defence procurement directive: a fuller revision is announced",
+   "whatChanged": "The Commission says the Defence Readiness Roadmap of October 2025 announced the upcoming revision of the legal framework of Directive 2009/81/EC, a separate initiative from the simplification amendment above. We found no published proposal at the date checked, so we state neither its content nor whether it will include a preference for European products."
+  },
+  {
+   "affected": "United Kingdom suppliers, and EU suppliers that work with them in SAFE procurements.",
+   "checkedOn": "2026-10-18",
+   "code": "safe-uk-unconfirmed",
+   "eventDate": "2025-09-18",
+   "instrument": "SAFE",
+   "links": [
+    {
+     "code": "SAFE",
+     "kind": "programme",
+     "label": "Readiness check: SAFE"
+    }
+   ],
+   "source": {
+    "quote": "The Commission is authorised to open negotiations with the United Kingdom of Great Britain and Northern Ireland and with Canada, respectively, for agreements laying down the rules for the participation of entities established in such third countries and products originating in their territories in the procurements supported by the SAFE Instrument established by Regulation (EU) 2025/1106, pursuant to Article 17 of that Regulation.",
+    "ref": "Council Decision (EU) 2025/2134 of 18 September 2025, Article 1(1); Official Journal L, 20.10.2025",
+    "url": "https://publications.europa.eu/resource/celex/32025D2134"
+   },
+   "status": "unconfirmed",
+   "title": "SAFE: negotiations with the United Kingdom (outcome unconfirmed)",
+   "whatChanged": "On 18 September 2025 the Council authorised the Commission to open negotiations with the United Kingdom and with Canada on their participation in SAFE (Decision (EU) 2025/2134). For Canada they ended in the agreement above. For the United Kingdom we found no Official Journal text of an agreement, a signature or a conclusion, and no primary text on the state of the talks. Reports about the talks are not confirmed by a primary text we could read, and we do not repeat them. If no agreement is in force, Article 16 treats United Kingdom entities like those of any third country other than the EEA EFTA States and Ukraine."
+  },
+  {
+   "affected": "Contracting authorities and suppliers in defence and security procurement.",
+   "checkedOn": "2026-10-18",
+   "code": "defence-procurement-directive-proposal",
+   "eventDate": "2025-06-17",
+   "instrument": "Directive 2009/81/EC",
+   "links": [],
+   "source": {
+    "quote": "The rules governing framework procurement agreements will be clarified, and the maximum duration of a framework agreement will be extended from 7 to 10 years.",
+    "ref": "Commission proposal COM(2025) 823 final of 17 June 2025, explanatory memorandum; thresholds in the operative text",
+    "url": "https://publications.europa.eu/resource/celex/52025PC0823"
+   },
+   "status": "proposed",
+   "title": "Defence procurement directive: the Commission's proposal of 17 June 2025",
+   "whatChanged": "The Commission proposed to raise the thresholds of Directive 2009/81/EC (point (a) of Article 8 from EUR 443 000 to EUR 900 000, point (b) from EUR 5 538 000 to EUR 7 000 000) and to extend the maximum duration of a framework agreement from 7 to 10 years. These are the figures of the proposal; the adopted text may differ and we have not checked it."
+  },
+  {
+   "affected": "Member States that request SAFE loans, and the contractors and subcontractors in the common procurements those loans pay for.",
+   "checkedOn": "2026-10-18",
+   "code": "safe-in-force",
+   "eventDate": "2025-05-29",
+   "instrument": "SAFE",
+   "links": [
+    {
+     "code": "SAFE",
+     "kind": "programme",
+     "label": "Readiness check: SAFE"
+    },
+    {
+     "code": "REQ-SAFE-35",
+     "kind": "requirement",
+     "label": "SAFE component rule"
+    }
+   ],
+   "source": {
+    "quote": "This Regulation shall enter into force on the day following that of its publication in the Official Journal of the European Union.",
+    "ref": "Council Regulation (EU) 2025/1106, the final Article; Official Journal L, 28.5.2025",
+    "url": "https://publications.europa.eu/resource/celex/32025R1106"
+   },
+   "status": "in_force",
+   "title": "SAFE Regulation in force: EUR 150 billion of loans for common defence procurement",
+   "whatChanged": "Council Regulation (EU) 2025/1106 was adopted on 27 May 2025 and published in the Official Journal on 28 May 2025, so it entered into force on 29 May 2025. The maximum amount of financial assistance in the form of loans under SAFE is EUR 150 000 000 000."
+  },
+  {
+   "affected": "Every supplier or subcontractor in a SAFE-financed procurement, in particular companies owned from outside the Union, the EEA EFTA States and Ukraine.",
+   "checkedOn": "2026-10-18",
+   "code": "safe-establishment",
+   "eventDate": "2025-05-29",
+   "instrument": "SAFE",
+   "links": [
+    {
+     "code": "SAFE",
+     "kind": "programme",
+     "label": "Readiness check: SAFE"
+    }
+   ],
+   "source": {
+    "quote": "Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.",
+    "ref": "Council Regulation (EU) 2025/1106, Article 16(3)",
+    "url": "https://publications.europa.eu/resource/celex/32025R1106"
+   },
+   "status": "in_force",
+   "title": "SAFE: who may be a contractor or subcontractor",
+   "whatChanged": "Contractors and subcontractors involved in a SAFE common procurement must be established, and have their executive management, in the Union, an EEA EFTA State or Ukraine, and must not be controlled from another third country. Article 16(5) allows a derogation for an entity established in the Union that is controlled from elsewhere, if it was screened under the investment-screening Regulation or provides guarantees verified by the Member State."
+  },
+  {
+   "affected": "Manufacturers of end products sold in SAFE-financed procurements, and their component suppliers.",
+   "checkedOn": "2026-10-18",
+   "code": "safe-origin-35",
+   "eventDate": "2025-05-29",
+   "instrument": "SAFE",
+   "links": [
+    {
+     "code": "REQ-SAFE-35",
+     "kind": "requirement",
+     "label": "SAFE component rule"
+    },
+    {
+     "code": "SAFE",
+     "kind": "programme",
+     "label": "Readiness check: SAFE"
+    }
+   ],
+   "source": {
+    "quote": "The cost of components originating outside the Union, EEA EFTA States and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product. For the purpose of procurements supported by the SAFE instrument, no component shall be sourced from a third country that contravenes the security and defence interests of the Union and its Member States.",
+    "ref": "Council Regulation (EU) 2025/1106, Article 16(10)",
+    "url": "https://publications.europa.eu/resource/celex/32025R1106"
+   },
+   "status": "in_force",
+   "title": "SAFE: at most 35 % of component cost from outside the Union, EEA EFTA States and Ukraine",
+   "whatChanged": "In a SAFE-supported procurement the cost of components originating outside the Union, the EEA EFTA States and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may be sourced from a third country that contravenes the security and defence interests of the Union and its Member States. These are two rules: a threshold and a categorical exclusion."
+  },
+  {
+   "affected": "Suppliers from countries with a Security and Defence Partnership, and EU suppliers who would meet their competition in SAFE procurements.",
+   "checkedOn": "2026-10-18",
+   "code": "safe-art17-agreements",
+   "eventDate": "2025-05-29",
+   "instrument": "SAFE",
+   "links": [
+    {
+     "code": "SAFE",
+     "kind": "programme",
+     "label": "Readiness check: SAFE"
+    }
+   ],
+   "source": {
+    "quote": "The Union may conclude bilateral or multilateral agreements with acceding, potential candidate and candidate countries other than Ukraine and other third countries with which the Union has entered into a Security and Defence Partnership (NBI) in order to open the eligibility conditions referred to in Article 16 to those countries and their territories, in accordance with paragraphs 2 and 3 of this Article.",
+    "ref": "Council Regulation (EU) 2025/1106, Article 17(1)",
+    "url": "https://publications.europa.eu/resource/celex/32025R1106"
+   },
+   "status": "in_force",
+   "title": "SAFE can be opened to other third countries by agreement (Article 17)",
+   "whatChanged": "The Union may conclude agreements with acceding, candidate and potential candidate countries other than Ukraine, and with other third countries that have a Security and Defence Partnership with the Union, to open SAFE's eligibility conditions to them. Each agreement says how the conditions of Article 16 apply (location of management, control, location of infrastructure, share of components)."
+  },
+  {
+   "affected": "Exporters of dual-use items from the Union.",
+   "checkedOn": "2026-10-18",
+   "code": "dual-use-export-authorisation",
+   "eventDate": "2021-09-09",
+   "instrument": "Regulation (EU) 2021/821",
+   "links": [
+    {
+     "code": "REQ-EXPORT",
+     "kind": "requirement",
+     "label": "Export authorisation"
+    }
+   ],
+   "source": {
+    "quote": "An authorisation shall be required for the export of dual-use items listed in Annex I.",
+    "ref": "Regulation (EU) 2021/821, Article 3(1); Official Journal L 206, 11.6.2021",
+    "url": "https://publications.europa.eu/resource/celex/32021R0821"
+   },
+   "status": "in_force",
+   "title": "Dual-use export control: authorisation for items in Annex I (in force since 2021)",
+   "whatChanged": "Regulation (EU) 2021/821 requires an authorisation for the export of dual-use items listed in its Annex I. It was published on 11 June 2021 and entered into force on the ninetieth day after publication, 9 September 2021. We list it because the requirements catalogue relies on it; it is not a new change. Military goods fall under national rules and Directive 2009/43/EC, not under this Regulation."
+  }
+ ],
+ "lastChecked": "2026-10-18",
+ "notice": "Each entry gives the primary source and one sentence of it, copied word for word, and the day we last read it. It is a reading aid for suppliers, not legal advice. Where a point is not settled by a text we could read, the status says unconfirmed."
+}

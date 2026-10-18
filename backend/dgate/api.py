@@ -877,6 +877,11 @@ from .readiness.api import router as _readiness_router  # noqa: E402
 
 app.include_router(_readiness_router)
 
+# The regulatory tracker (dgate/regulation): sourced entries about the rules that matter to a supplier.
+from .regulation import router as _regulation_router  # noqa: E402
+
+app.include_router(_regulation_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

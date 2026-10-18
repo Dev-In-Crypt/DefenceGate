@@ -13,7 +13,7 @@ export const revalidate = 3600;
  * sitemap. Add them here when their noindex is removed. /alerts is indexable and listed. /changes is listed without its
  * filters (a filtered or paged view is noindex); /changes.atom is a feed, not a page, and is linked from the page's head.
  */
-const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/calendar', '/cpv', '/glossary', '/data', '/market', '/methodology', '/about', '/alerts', '/changes', '/digest'];
+const STATIC_PATHS = ['/', '/funding', '/tenders', '/buyers', '/calendar', '/cpv', '/glossary', '/data', '/market', '/methodology', '/about', '/alerts', '/changes', '/digest', '/regulation', '/data/sovereignty'];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Funding slugs are required (as before). The tender and buyer lists degrade to empty if their endpoints are

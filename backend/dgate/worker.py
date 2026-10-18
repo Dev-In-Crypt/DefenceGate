@@ -441,10 +441,12 @@ def job_cascade_flags() -> JobResult:
     counts: dict[str, int] = {}
 
     def _run() -> None:
-        from . import cascade
+        from . import cascade, ukraine
 
         with db.connect(settings().dsn) as conn:
             counts.update(cascade.run(conn, write=True))
+            # WP-36: the "open to Ukraine" flag is derived from the same facts, in the same pass.
+            counts.update({f"ukraine_{k}": v for k, v in ukraine.run(conn, write=True).items() if k != "calls"})
         log.info("cascade flags: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
 
     result = run_job("cascade_flags", _run)
@@ -778,6 +780,20 @@ def ensure_requirements() -> None:
     except Exception as exc:  # noqa: BLE001 - loud, but must not block start-up
         log.error("could not apply the readiness content: %s", exc)
         notify(f"[dgate] readiness content not applied: {exc}; the previous rules stay in place")
+
+
+def ensure_regulation() -> None:
+    """Apply the regulatory tracker (`seeds/regulation_tracker.json`) on every start, as the readiness
+    content is. Idempotent; a failure is reported and does not stop the worker."""
+    from .regulation import apply, load_file
+
+    try:
+        with db.connect(settings().dsn) as conn:
+            counts = apply(conn, load_file())
+        log.info("regulatory tracker applied: %s", counts)
+    except Exception as exc:  # noqa: BLE001 - loud, but must not block start-up
+        log.error("could not apply the regulatory tracker: %s", exc)
+        notify(f"[dgate] regulatory tracker not applied: {exc}; the previous entries stay in place")
 
 
 def ensure_buyer_list() -> None:
@@ -1232,6 +1248,7 @@ def main(argv: list[str] | None = None) -> int:
         close_interrupted_runs()
         ensure_buyer_list()
         ensure_requirements()
+        ensure_regulation()
     start_catch_up_thread(ready)
     build_scheduler().start()
     return 0
