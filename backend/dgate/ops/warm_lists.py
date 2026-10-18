@@ -27,7 +27,7 @@ import time
 from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
-from .. import db, tenders
+from .. import changes, db, tenders
 from ..config import settings
 from ..listcache import snapshot_key
 
@@ -37,6 +37,7 @@ TENDER_PAGE_SIZE = 10          # the page size of the site (web/lib/filters.ts)
 PAGES = (1, 2, 3)
 LIST_STATUSES = ("closed", "all")
 COUNT_STATUSES = ("open", "closed", "all")
+CHANGE_PAGE_SIZES = (25, 100)  # the page (web/lib/filters.ts CHANGE_PAGE_SIZE) and the Atom feed
 
 
 def _defaults(endpoint) -> dict:
@@ -67,6 +68,11 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
                 for page in PAGES:
                     kw2 = {**kw, "page": page, "pageSize": TENDER_PAGE_SIZE}
                     out.append((name, snapshot_key(name, kw2), kw2))
+    base = _defaults(changes.list_changes.__wrapped__)
+    base["with_meta"] = True
+    for size in CHANGE_PAGE_SIZES:
+        kw = {**base, "pageSize": size}
+        out.append(("changes", snapshot_key("changes", kw), kw))
     return out
 
 
@@ -81,7 +87,7 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
         kept.append(key)
         if not write:
             continue
-        fn = tenders.list_tenders if name == "tenders" else tenders.tender_scope_counts
+        fn = {"tenders": tenders.list_tenders, "changes": changes.list_changes}.get(name, tenders.tender_scope_counts)
         try:
             body = jsonable_encoder(fn.__wrapped__(**kw, conn=conn))
             conn.execute(

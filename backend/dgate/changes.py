@@ -301,7 +301,7 @@ def window_events(conn, scope: str | None, countries: list[str], goods: str | No
 
 
 @router.get("/v1/changes", response_model=ChangePage)
-@cache_list("changes", ttl=5 * 60)
+@cache_list("changes", ttl=5 * 60, snapshot=True)
 def list_changes(
     country: str | None = Query(None, max_length=200),
     scope: str | None = Query(None, pattern="^(relevant|core|supply|all)$"),
