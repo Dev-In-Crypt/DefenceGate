@@ -10,10 +10,10 @@ import { cn } from '@/lib/utils';
  *
  * `wide` makes one fact span the whole row (a long sentence). `mono` sets ids, dates and amounts in DM Mono.
  */
-export interface FactItem { label: string; value: React.ReactNode; mono?: boolean; wide?: boolean }
+export interface FactItem { label: React.ReactNode; value: React.ReactNode; mono?: boolean; wide?: boolean }
 
 export function Fact({ label, children, mono = false, wide = false, className }: {
-  label: string; children: React.ReactNode; mono?: boolean; wide?: boolean; className?: string;
+  label: React.ReactNode; children: React.ReactNode; mono?: boolean; wide?: boolean; className?: string;
 }) {
   return (
     <div className={cn('flex min-w-0 flex-col gap-1 border-t border-line py-3', wide && 'col-span-full', className)}>
@@ -26,7 +26,7 @@ export function Fact({ label, children, mono = false, wide = false, className }:
 export function FactsGrid({ items, children, className }: { items?: FactItem[]; children?: React.ReactNode; className?: string }) {
   return (
     <dl className={cn('facts-grid m-0 border-b border-line', className)}>
-      {items?.map((f) => <Fact key={f.label} label={f.label} mono={f.mono} wide={f.wide}>{f.value}</Fact>)}
+      {items?.map((f, i) => <Fact key={i} label={f.label} mono={f.mono} wide={f.wide}>{f.value}</Fact>)}
       {children}
     </dl>
   );

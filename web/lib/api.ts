@@ -14,6 +14,7 @@ import { recall, remember } from './last-good';
 import * as callsMock from './mock/calls';
 import * as sourcesMock from './mock/sources';
 import * as statsMock from './mock/stats';
+import * as supplierMock from './mock/suppliers';
 import * as tenderMock from './mock/tenders';
 
 const API_BASE = process.env.DG_API_URL;
@@ -314,9 +315,9 @@ export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<B
 
 const SUPPLIER_PAGE_SIZE = 20;
 
-/** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is empty: there is no mock supplier. */
+/** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is five invented companies (lib/mock/suppliers.ts). */
 export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem>> {
-  if (!API_BASE) return { items: [], total: 0, page: 1, pageSize: SUPPLIER_PAGE_SIZE };
+  if (!API_BASE) return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
   if (f.country) p.set('country', f.country);
@@ -330,7 +331,7 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
 
 /** The public aggregate (GET /v1/suppliers/summary). null when the API has no supplier map yet. */
 export async function getSupplierSummary(): Promise<SupplierSummary | null> {
-  if (!API_BASE) return null;
+  if (!API_BASE) return supplierMock.supplierSummary();
   try {
     return await http<SupplierSummary>('/v1/suppliers/summary', 'revalidate', DETAIL_REVALIDATE_SECONDS);
   } catch {
@@ -339,7 +340,8 @@ export async function getSupplierSummary(): Promise<SupplierSummary | null> {
 }
 
 export async function getSupplier(slug: string): Promise<Supplier | null> {
-  if (!isSupplierSlug(slug) || !API_BASE) return null;
+  if (!isSupplierSlug(slug)) return null;
+  if (!API_BASE) return supplierMock.findSupplier(slug);
   return http<Supplier>(`/v1/suppliers/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
 }
 

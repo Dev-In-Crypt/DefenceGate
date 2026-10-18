@@ -80,3 +80,29 @@ export function Fieldset({ legend, children, className }: { legend: string; chil
     </fieldset>
   );
 }
+
+/**
+ * A group of a filter form that folds away: the summary is the legend (with how many of its options are chosen), the options
+ * stay in the form whether it is open or not, so a closed group is still submitted. Native `<details>`: it works without
+ * script. A group with a chosen option opens by itself. `scroll` keeps a long list (31 countries) in a box of its own.
+ * Options are 36 px apart here (a filter column is dense); the label is the target, 36 px high.
+ */
+export function FoldGroup({ legend, children, className, open = true, count = 0, scroll = false }: {
+  legend: string; children: React.ReactNode; className?: string; open?: boolean; count?: number; scroll?: boolean;
+}) {
+  return (
+    <details open={open || count > 0 || undefined} className={cn('group/fg min-w-0 border-t border-line first:border-t-0', className)}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-label text-ink [&::-webkit-details-marker]:hidden">
+        <span>
+          {legend}
+          {count > 0 && <span className="ml-2 rounded-pill bg-surface-inset px-2 py-0.5 font-mono text-[12px] font-medium tabular-nums">{count}</span>}
+        </span>
+        <Icon icon={ChevronDown} size="inline" className="shrink-0 text-ink-muted transition-transform duration-dg group-open/fg:rotate-180" />
+      </summary>
+      <fieldset className="m-0 flex min-w-0 flex-col border-0 p-0 pb-2">
+        <legend className="sr-only">{legend}</legend>
+        <div className={cn('flex min-w-0 flex-col [&_label]:min-h-9 [&_label]:pt-1.5', scroll && 'max-h-64 overflow-y-auto pr-1')}>{children}</div>
+      </fieldset>
+    </details>
+  );
+}

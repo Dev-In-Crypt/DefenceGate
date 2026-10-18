@@ -74,8 +74,8 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
         {shown.map((k, i) => {
           const f = facts[k]!;
           return (
-            <div key={k} className={cn('flex flex-col gap-1 py-3 sm:flex-row sm:gap-6', i < shown.length - 1 && 'border-b border-line')}>
-              <dt className="text-body font-semibold sm:w-64 sm:shrink-0">{FACT_LABELS[k]}</dt>
+            <div key={k} className={cn('flex flex-col gap-1 py-3', i < shown.length - 1 && 'border-b border-line')}>
+              <dt className="text-body font-semibold">{FACT_LABELS[k]}</dt>
               <dd className="m-0 flex min-w-0 flex-col gap-1 text-body">
                 <span className={k === 'consortium_required' && consortiumUnclear(facts) ? 'font-semibold' : undefined}>{factDisplay(k, facts)}</span>
                 {fromProgramme && f.scope && <span className="text-label font-bold text-ink">{SCOPE_WORDS[f.scope]}</span>}

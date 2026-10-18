@@ -13,6 +13,7 @@ import { CallCard } from '../dg/cards';
 import { Pagination } from '../dg/pagination';
 import { Button } from '../dg/button';
 import { ResultTools } from '../dg/download-link';
+import { FILTER_COLUMN } from '../dg/list-page';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
@@ -73,7 +74,7 @@ export function CallListTemplate({
       )}
 
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className={FILTER_COLUMN}>
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} />
           {saveSearch}

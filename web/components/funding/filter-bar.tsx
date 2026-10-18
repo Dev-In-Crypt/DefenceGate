@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '../dg/button';
-import { Choice, Fieldset, Select, TextInput } from '../dg/form';
+import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FilterPanel } from './filter-panel';
 import { COUNTRIES, CURRENCIES, FUNDER_COUNTRIES, PROGRAMMES, PROGRAMME_CODES, REGIMES, REGIME_CODES } from '@/lib/taxonomy';
 import { DEFAULT_CURRENCY, MAX_QUERY_LENGTH, PARAM, activeFilterCount, defaultCallSort } from '@/lib/filters';
@@ -14,6 +14,9 @@ const STATUS_OPTIONS: { value: CallStatusFilter; label: string }[] = [
   { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' },
 ];
 /** Budget presets, as plain numbers: they apply in the selected currency. Nothing is converted. */
+/** A filter form: groups that fold, separated by hairlines; the buttons stay at the foot of the visible part. */
+const FORM = 'flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5';
+export const FORM_BUTTONS = 'sticky bottom-0 z-10 -mx-5 -mb-5 flex flex-wrap items-center gap-3 rounded-b-lg border-t border-line bg-surface px-5 py-3';
 const BUDGET_PRESETS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000];
 
 /**
@@ -35,70 +38,70 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   const budgetOptions = BUDGET_PRESETS.map((n) => ({ value: String(n), label: `${currency} ${n / 1_000_000}M` }));
   return (
     <FilterPanel activeCount={activeFilterCount(filters)}>
-      <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className="flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5">
+      <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className={FORM}>
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Whole words; counter-drone and counter drone are the same, and drone also finds unmanned." />
         {show('status') && (
-          <Fieldset legend="Status">
+          <FoldGroup legend="Status">
             {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? 'open') === o.value} />)}
-          </Fieldset>
+          </FoldGroup>
         )}
         {show('programme') && (
-          <Fieldset legend="Programme">
+          <FoldGroup legend="Programme" count={filters.programme?.length}>
             {/* EDIP calls are filed under EDF by the portal: an EDIP filter would always be empty. */}
             {PROGRAMME_CODES.filter((p) => p !== 'EDIP').map((p) => <Choice key={p} name={PARAM.programme} value={p} label={p === 'EDF' ? 'EDF (with EDIP)' : PROGRAMMES[p].label} defaultChecked={filters.programme?.includes(p)} />)}
-          </Fieldset>
+          </FoldGroup>
         )}
         {show('regime') && (
-          <Fieldset legend="Regime">
+          <FoldGroup legend="Regime" count={filters.regime?.length}>
             {REGIME_CODES.map((r) => <Choice key={r} name={PARAM.regime} value={r} label={REGIMES[r]} defaultChecked={filters.regime?.includes(r)} />)}
             <p className="m-0 text-small text-ink-muted">
               Dual-use is our label for calls under civil programmes we treat as dual-use. It is not the programme’s label.
               See the <Link href="/methodology#s-what-defence-and-dual-use-mean-here" className="font-semibold">rule</Link> and the <Link href="/glossary#dual-use" className="font-semibold">glossary</Link>.
             </p>
-          </Fieldset>
+          </FoldGroup>
         )}
         {show('country') && (
-          <Fieldset legend="Funder country">
+          <FoldGroup legend="Funder country" open={false} scroll count={filters.country?.length}>
             {countries.map((c) => (
               <Choice key={c} name={PARAM.country} value={c} defaultChecked={filters.country?.includes(c)}
                 label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span>{COUNTRIES[c]}</span>} />
             ))}
-          </Fieldset>
+          </FoldGroup>
         )}
         {show('cascade') && (
-          <Fieldset legend="Financial support to third parties">
+          <FoldGroup legend="Financial support to third parties" count={filters.cascade === true ? 1 : 0}>
             <Choice name={PARAM.cascade} value="true" defaultChecked={filters.cascade === true}
               label={`Only calls with cascade funding${typeof cascadeTotal === 'number' ? ` (${cascadeTotal})` : ''}`} />
             <p className="m-0 text-small text-ink-muted">
               The call passes part of its money to third parties, usually small firms, by calls of its own.
               A call is counted only where its text or document says so; see the <Link href="/glossary#cascade-funding" className="font-semibold">glossary</Link>.
             </p>
-          </Fieldset>
+          </FoldGroup>
         )}
         {show('ukraine') && (
-          <Fieldset legend="Ukrainian participants">
+          <FoldGroup legend="Ukrainian participants" count={filters.ukraine === true ? 1 : 0}>
             <Choice name={PARAM.ukraine} value="true" defaultChecked={filters.ukraine === true}
               label={`Only calls open to Ukraine${typeof ukraineTotal === 'number' ? ` (${ukraineTotal})` : ''}`} />
             <p className="m-0 text-small text-ink-muted">
               A call is counted only where its document, its text or its programme’s regulation says Ukrainian entities may take part.
               A call that is not counted may still be open: its answer is unknown. See the <Link href="/glossary#open-to-ukraine" className="font-semibold">glossary</Link>.
             </p>
-          </Fieldset>
+          </FoldGroup>
         )}
-        <Fieldset legend="Deadline between (UTC)" className="gap-2">
+        <FoldGroup legend="Deadline between (UTC)" open={false} count={(filters.deadlineFrom ? 1 : 0) + (filters.deadlineTo ? 1 : 0)}>
           <TextInput type="date" name={PARAM.from} aria-label="Deadline from" defaultValue={filters.deadlineFrom ?? ''} />
           <TextInput type="date" name={PARAM.to} aria-label="Deadline to" defaultValue={filters.deadlineTo ?? ''} />
-        </Fieldset>
-        <Fieldset legend="Budget" className="gap-2">
+        </FoldGroup>
+        <FoldGroup legend="Budget" open={false} count={(filters.budgetMin ? 1 : 0) + (filters.budgetMax ? 1 : 0)}>
           <Select name={PARAM.currency} aria-label="Budget currency" options={currencyOptions} defaultValue={currency} />
           <Select name={PARAM.min} aria-label="Minimum budget" placeholder="No minimum" options={budgetOptions} defaultValue={filters.budgetMin?.toString() ?? ''} />
           <Select name={PARAM.max} aria-label="Maximum budget" placeholder="No maximum" options={budgetOptions} defaultValue={filters.budgetMax?.toString() ?? ''} />
           <p className="m-0 text-small text-ink-muted">Amounts are shown and filtered in the currency the source states. Nothing is converted.</p>
-        </Fieldset>
+        </FoldGroup>
         {/* Only a sort the visitor chose travels on: the default depends on the status, which the form may change. */}
         {filters.sort && filters.sort !== defaultCallSort(filters.status) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
         {view && <input type="hidden" name={PARAM.view} value={view} />}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className={FORM_BUTTONS}>
           <Button type="submit">Apply filters</Button>
           <Link href={basePath} className="inline-flex min-h-11 items-center text-small font-bold">Clear all</Link>
         </div>

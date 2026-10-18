@@ -3,6 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { requirementSlug } from '@/lib/readiness';
 import { Icon } from '@/components/dg/icon';
+import { Details } from '@/components/dg/details';
 import type { RulesApply } from '@/lib/types';
 
 /** Where the Ukraine flag was read from, in words. */
@@ -16,6 +17,9 @@ export const UKRAINE_BASIS: Record<string, string> = {
   topic_text_associated: 'From the topic’s own conditions and the general annexes',
 };
 
+/** One rule: a hairline above it, no box (the card around the block is the only box). */
+const RULE = 'flex flex-col gap-1 border-t border-line py-4';
+
 /**
  * The regime a call is under and the headline conditions of that regime, each with the sentence of the regulation it
  * rests on. No verdict: the readiness check gives that, from the company's own answers.
@@ -28,17 +32,16 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
         This call falls under <strong>{block.regime.name}</strong>. <span className="text-ink-muted">{block.regime.why}</span>
       </p>
       {block.encoded ? (
-        <ul className="m-0 flex list-none flex-col gap-3 p-0">
+        <ul className="m-0 flex list-none flex-col p-0">
           {block.rules.map((r) => {
             const url = safeHttpUrl(r.source.url);
             return (
-              <li key={r.rule} className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
+              <li key={r.rule} className={RULE}>
                 <p className="m-0 text-body font-semibold">{r.title}</p>
                 {r.caveat && <p className="m-0 text-small">{r.caveat}</p>}
-                <details>
-                  <summary className="min-h-11 cursor-pointer py-2 text-small font-semibold">The sentence of the regulation</summary>
-                  <blockquote className="m-0 whitespace-pre-wrap break-words border-l-4 border-line pl-3 text-small">{r.source.text}</blockquote>
-                </details>
+                <Details summary="The sentence of the regulation">
+                  <blockquote className="m-0 whitespace-pre-wrap break-words border-l-4 border-line pl-3 text-small text-ink">{r.source.text}</blockquote>
+                </Details>
                 <p className="m-0 flex flex-wrap items-center gap-x-3 text-small text-ink-muted">
                   <span>{r.source.ref}</span>
                   {url && (
@@ -58,7 +61,7 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
         </p>
       )}
       {block.alsoRead && (
-        <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
+        <div className={RULE}>
           <p className="m-0 text-body font-semibold">{block.alsoRead.label}</p>
           <blockquote className="m-0 break-words border-l-4 border-line pl-3 text-small">{block.alsoRead.text}</blockquote>
           <p className="m-0 flex flex-wrap items-center gap-x-3 text-small text-ink-muted">

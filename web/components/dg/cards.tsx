@@ -10,7 +10,7 @@ import { cpvLabel } from '@/lib/taxonomy';
 import { matchedCpv } from '@/lib/tender-basis';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
-import { AmountDisplay, CountryLabel, FactCell, LIST_FACTS, LangLabel, ListFact } from './data-display';
+import { AmountDisplay, CountryLabel, LIST_FACTS, LangLabel, ListFact } from './data-display';
 import { Icon } from './icon';
 import { SourceBadge } from './source-badge';
 import { BasisChips } from './basis-chips';
@@ -21,8 +21,14 @@ const CARD = 'group relative flex flex-col gap-2 rounded-lg border border-edge b
 /** Card title: 20/28, two lines at most from md (three below); the whole title stays in the link text. */
 const CARD_TITLE = 'm-0 line-clamp-3 text-h3 md:line-clamp-2';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
-/** Text part at the left, facts at the right (from xl); one column below. */
-const CARD_BODY = 'grid gap-x-6 gap-y-3 xl:grid-cols-[minmax(0,1fr)_340px]';
+/**
+ * Text part at the left, facts at the right (from xl); one column below (text, facts, provenance). From xl the provenance
+ * row sits under the text, in the left column, so the facts column (the tallest part) sets the height of the card.
+ */
+export const CARD_BODY = 'grid gap-x-6 gap-y-3 xl:grid-cols-[minmax(0,1fr)_340px]';
+const CARD_BODY_PROVENANCE = `${CARD_BODY} xl:grid-rows-[1fr_auto]`;
+export const CARD_TEXT = 'flex min-w-0 flex-col gap-2 xl:col-start-1 xl:row-start-1';
+const CARD_PROVENANCE = 'xl:col-start-1 xl:row-start-2';
 
 /** The title in the original language, one line, with its label; nothing when there is none. */
 function OriginalTitle({ title, lang }: { title: string | null | undefined; lang: string | null | undefined }) {
@@ -50,8 +56,8 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
-      <div className={CARD_BODY}>
-        <div className="flex min-w-0 flex-col gap-2">
+      <div className={CARD_BODY_PROVENANCE}>
+        <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             <Tag kind="programme">{PROGRAMMES[call.programme].label}</Tag>
             <Tag>{REGIMES[call.regime]}</Tag>
@@ -79,7 +85,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             </p>
           )}
         </div>
-        <dl className={LIST_FACTS}>
+        <dl className={cn(LIST_FACTS, 'xl:col-start-2 xl:row-span-2 xl:row-start-1')}>
           <ListFact label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.rolling && d.iso ? (
               <>
@@ -112,8 +118,8 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
           </ListFact>
           <ListFact label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</ListFact>
         </dl>
+        <SourceBadge source={call.source} variant="inline" className={CARD_PROVENANCE} />
       </div>
-      <SourceBadge source={call.source} variant="inline" />
     </article>
   );
 }
@@ -146,8 +152,10 @@ export function AnomalyNote({ tender, className }: { tender: Pick<Tender, 'anoma
 }
 
 /** Whole card is one link (stretched title). The buyer link and "View original" sit above it. */
-export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }: {
+export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, classifiedNote = true }: {
   tender: Tender; headingLevel?: 'h2' | 'h3';
+  /** The "Classified automatically; see how" line on the card. A list that says it once (ClassifiedNote) passes false. */
+  classifiedNote?: boolean;
   /** The CPV prefixes the list is filtered by: a notice found through an additional code says so. */
   cpvFilter?: string[];
   /** Why the value is missing for this source ("Not stated by the buyer in 82 % of notices from this source"). */
@@ -164,8 +172,8 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
-      <div className={CARD_BODY}>
-        <div className="flex min-w-0 flex-col gap-2">
+      <div className={CARD_BODY_PROVENANCE}>
+        <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
             {mainName && <span title={mainName.label} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName.label}</span>}
@@ -190,9 +198,9 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }
             {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
           </p>
           <OriginalTitle title={tender.originalTitle} lang={tender.originalLanguage} />
-          <BasisChips tender={tender} lifted className="pt-1" />
+          <BasisChips tender={tender} lifted note={classifiedNote} />
         </div>
-        <dl className={LIST_FACTS}>
+        <dl className={cn(LIST_FACTS, 'xl:col-start-2 xl:row-span-2 xl:row-start-1')}>
           <ListFact label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.iso ? (
               <>
@@ -217,36 +225,40 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote }
           </ListFact>
           <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</ListFact>
         </dl>
+        <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>
+          <AnomalyNote tender={tender} />
+          <SourceBadge source={tender.source} variant="inline" retrievedLabel={TENDER_CHANGED_LABEL} />
+        </div>
       </div>
-      <AnomalyNote tender={tender} />
-      <SourceBadge source={tender.source} variant="inline" retrievedLabel={TENDER_CHANGED_LABEL} />
     </article>
   );
 }
 
-/** A procurement body. Counts are core-scope notices only (API_CONTRACT.md). */
+/** A procurement body. Counts are core-scope notices only (API_CONTRACT.md). Name at the left, three facts at the right (from xl). */
 export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headingLevel?: 'h2' | 'h3' }) {
   const H = headingLevel;
   const variants = variantsLine(buyer.nameVariants);
   return (
     <article className={cn(CARD, 'text-ink')}>
-      <div className="flex flex-col gap-2">
-        {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
-        <H className={CARD_TITLE}>
-          <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</Link>
-        </H>
-        {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
-        {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
+      <div className={CARD_BODY}>
+        <div className={CARD_TEXT}>
+          {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
+          <H className={CARD_TITLE}>
+            <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</Link>
+          </H>
+          {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
+          {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
+        </div>
+        <dl className={cn(LIST_FACTS, 'xl:col-start-2 xl:row-start-1')}>
+          <ListFact label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></ListFact>
+          <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></ListFact>
+          <ListFact label="Last published">
+            {buyer.lastPublishedAt
+              ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>
+              : <span className="font-sans">Not stated</span>}
+          </ListFact>
+        </dl>
       </div>
-      <dl className="facts-grid m-0 border-b border-line">
-        <FactCell label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></FactCell>
-        <FactCell label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></FactCell>
-        <FactCell label="Last published">
-          {buyer.lastPublishedAt
-            ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>
-            : <span className="font-sans">Not stated</span>}
-        </FactCell>
-      </dl>
     </article>
   );
 }
