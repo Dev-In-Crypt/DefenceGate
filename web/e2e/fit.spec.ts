@@ -217,6 +217,10 @@ test('partner suggestions load on request, are ranked with their evidence, and f
 test('with a profile the partner list loads by itself and puts the profile’s country first', async ({ page }) => {
   const asked = await mockPartners(page);
   await mockFacts(page);
+  // The saved profile also asks for the programme verdict: answer it (the CI site has no API behind it).
+  await page.route('**/api/readiness/assess', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture('assess-ua.json')) });
+  });
   await saveProfile(page, ES_SMALL);
   const href = await firstEdfCall(page);
   await visit(page, href, { title: /DefenceGate/, h1: /.+/ });
