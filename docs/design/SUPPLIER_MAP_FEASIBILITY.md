@@ -216,7 +216,8 @@ Question: what would the raw store let a text detector do, and how precise is it
 
 - All API reads: the TED search API (anonymous, the project's `User-Agent`, one request a second, about 200
   requests in total for the study: about 200 for the winners, about 50 for the full-text counts and samples), the GLEIF
-  golden-copy index (2 requests) and the LEI search (about 180 requests). No other site was contacted. No language
+  golden-copy index (2 requests), the LEI search (about 180 requests) and, for the build, the loader's own
+  run on the real candidate set (76 requests). No other site was contacted. No language
   model was called.
 - The raw store was read for 40,256 records (12 bundles) and for the source probes; the production database was read
   with `statement_timeout`, nothing written.
