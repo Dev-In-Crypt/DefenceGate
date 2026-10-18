@@ -143,8 +143,8 @@ def test_fields_in_lists_what_an_expression_reads_once_each_in_order():
 # --------------------------------------------------------------------- rules and verdicts
 
 def _rule(code="R", *, obligation="mandatory", condition=None, applies_when=None, conditional_when=None,
-          texts=None, requirement=None) -> Rule:
-    return Rule(programme="P", code=code, title=f"Rule {code}", obligation=obligation, kind="establishment",
+          texts=None, requirement=None, kind="establishment") -> Rule:
+    return Rule(programme="P", code=code, title=f"Rule {code}", obligation=obligation, kind=kind,
                 requirement=requirement, applies_when=applies_when, condition=condition,
                 conditional_when=conditional_when,
                 texts=texts or {"met": "m", "not_met": "n", "conditional": "c", "unknown": "u", "not_applicable": "na", "info": "i"},
@@ -213,6 +213,42 @@ def test_verdicts():
     assert verdict(_rule("A", condition=PL, obligation="conditional")) == ("eligible", False)
     assert verdict(_rule("A", condition=PL, obligation="recommended")) == ("eligible", False)
     assert verdict(_rule("A", condition=None)) == ("eligible", False)
+
+
+HELD = {"status": "REQ-PIC", "in": ["held", "not_applicable"]}
+
+
+def test_a_missing_registration_is_something_to_obtain_not_a_block():
+    # D3: only a mandatory rule of kind "registration" (the PIC, the NCAGE) gets this outcome
+    reg = _rule("PIC", condition=HELD, kind="registration", requirement="REQ-PIC")
+    a = assess(Profile(country="ES"), {}, _programme(reg))
+    assert (a.verdict, a.blocking, a.to_obtain, a.incomplete) == ("obtain", (), ("PIC",), False)
+    assert a.rules[0].outcome == "to_obtain" and a.rules[0].reason == "n"      # the text of "not met" says what to obtain
+    assert a.summary["to_obtain"] == 1 and a.summary["not_met"] == 0
+    assert assess(Profile(country="ES"), {"REQ-PIC": "held"}, _programme(reg)).verdict == "eligible"
+    assert assess(Profile(country="ES"), {"REQ-PIC": "in_progress"}, _programme(reg)).verdict == "obtain"
+    # any other kind that is not met is still a block
+    assert assess(Profile(country="ES"), {}, _programme(_rule("X", condition=HELD, kind="export"))).verdict == "blocked"
+
+
+def test_what_beats_what_between_blocked_conditional_obtain_and_eligible():
+    reg = _rule("PIC", condition=HELD, kind="registration")
+    guarantee = _rule("G", condition=PL, conditional_when=ES)
+    block = _rule("B", condition=PL)
+    unknown = _rule("U", condition={"field": "handles_classified", "is": True})
+    def verdict(*rules):
+        a = assess(Profile(country="ES"), {}, _programme(*rules))
+        return a.verdict, a.to_obtain
+    assert verdict(reg, guarantee) == ("conditional", ("PIC",))        # the to-do stays listed
+    assert verdict(reg, unknown) == ("conditional", ("PIC",))
+    assert verdict(reg, block) == ("blocked", ("PIC",))
+    assert verdict(_rule("PIC", condition=HELD, kind="registration", obligation="conditional")) == ("eligible", ())   # not mandatory
+
+
+def test_the_questions_of_a_rule_whose_applicability_is_unknown_include_those_of_its_condition():
+    rule = _rule(applies_when={"field": "safe_role", "in": ["contractor"]}, condition={"field": "third_country_control", "is": "no"})
+    result = assess(Profile(country="ES"), {}, _programme(rule)).rules[0]
+    assert result.outcome == "unknown" and result.asks == ("safe_role", "third_country_control")
 
 
 def test_assessment_carries_blocking_conditions_missing_summary_and_the_plans_explanation():

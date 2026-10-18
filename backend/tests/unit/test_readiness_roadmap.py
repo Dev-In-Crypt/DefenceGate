@@ -20,13 +20,26 @@ from dgate.readiness.seed import load_file
 CONTENT = load_file()
 NOW = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
 
-UA = Profile(country="UA", executive_management_country="UA", third_country_control="no",
+UA = Profile(country="UA", legal_form="legal_person", executive_management_country="UA", third_country_control="no",
              ua_non_government_controlled_area=False, non_eu_component_cost_pct=20,
-             restricted_third_country_component=False, handles_classified=False,
-             product_regime="dual_use", export_intent="outside_eu")
-ES = Profile(country="ES", executive_management_country="ES", third_country_control="no",
-             non_eu_component_cost_pct=10, restricted_third_country_component=False,
-             handles_classified=True, product_regime="military", export_intent="outside_eu")
+             restricted_third_country_component=False, components_from_ua_or_eea_efta=False, safe_role="contractor",
+             handles_classified=False, product_regime="dual_use", export_intent="outside_eu")
+ES = Profile(country="ES", legal_form="legal_person", executive_management_country="ES", third_country_control="no",
+             non_eu_component_cost_pct=10, restricted_third_country_component=False, components_from_ua_or_eea_efta=False,
+             safe_role="contractor", handles_classified=True, product_regime="military", export_intent="outside_eu")
+# Poland: a commercial route for AQAP (Spain's and Germany's is the state's own), so the vendor ranges apply
+PL = Profile(country="PL", legal_form="legal_person", executive_management_country="PL", third_country_control="no",
+             non_eu_component_cost_pct=10, restricted_third_country_component=False, components_from_ua_or_eea_efta=False,
+             safe_role="contractor", handles_classified=False, product_regime="military", export_intent="outside_eu")
+
+
+def co(country, **kw):
+    """A clean legal person established and managed in `country`; `kw` overrides single answers."""
+    base = dict(country=country, legal_form="legal_person", executive_management_country=country, third_country_control="no",
+                ua_non_government_controlled_area=False if country == "UA" else None, non_eu_component_cost_pct=10,
+                restricted_third_country_component=False, components_from_ua_or_eea_efta=False, safe_role="contractor")
+    base.update(kw)
+    return Profile(**base)
 
 
 def run(profile, statuses):
@@ -45,20 +58,22 @@ def outcomes(a):
 
 def test_ua_manufacturer_with_nothing_verdicts():
     by, general, _ = run(UA, {})
-    # EDF: Ukraine is an associated country since Regulation (EU) 2025/2653; only the PIC is missing
-    assert by["EDF"].verdict == "blocked" and by["EDF"].blocking == ("EDF-PIC",)
+    # EDF: Ukraine is an associated country since Regulation (EU) 2025/2653; only the PIC is missing: a free
+    # registration to obtain first (D3), not a block
+    assert by["EDF"].verdict == "obtain" and by["EDF"].blocking == () and by["EDF"].to_obtain == ("EDF-PIC",)
     assert outcomes(by["EDF"])["EDF-ESTABLISH"] == "met"
     # EDIP the Programme: Ukraine is not an associated country there (EEA EFTA members only)
     assert by["EDIP"].verdict == "blocked"
-    assert by["EDIP"].blocking == ("EDIP-ESTABLISH", "EDIP-EXEC-MGMT", "EDIP-PIC")
+    assert by["EDIP"].blocking == ("EDIP-ESTABLISH", "EDIP-EXEC-MGMT") and by["EDIP"].to_obtain == ("EDIP-PIC",)
     # the Ukraine Support Instrument is the route for a Ukrainian company: only the PIC is missing
-    assert by["EDIP-USI"].verdict == "blocked" and by["EDIP-USI"].blocking == ("USI-PIC",)
+    assert by["EDIP-USI"].verdict == "obtain" and by["EDIP-USI"].to_obtain == ("USI-PIC",)
     assert outcomes(by["EDIP-USI"])["USI-TERRITORY"] == "met"
     # SAFE: established in Ukraine, 20 % of component cost from outside: eligible
     assert by["SAFE"].verdict == "eligible" and not by["SAFE"].incomplete
-    assert by["NATO-SUPPLY"].verdict == "blocked" and by["NATO-SUPPLY"].blocking == ("NATO-NCAGE",)
+    assert by["NATO-SUPPLY"].verdict == "obtain" and by["NATO-SUPPLY"].to_obtain == ("NATO-NCAGE",)
     assert outcomes(general["GENERAL"]) == {
-        "G-REGIME": "not_applicable", "G-EXPORT": "not_met", "G-REOCE": "not_applicable",
+        "G-REGIME": "not_applicable", "G-EXPORT": "not_met", "G-EXPORT-INTRA-DU": "not_applicable",
+        "G-EXPORT-MIL": "not_applicable", "G-REOCE": "not_applicable",
         "G-HSEM": "not_applicable", "G-CLASSIFIED-OTHER": "not_applicable"}
 
 
@@ -96,6 +111,11 @@ def test_ua_manufacturer_with_nothing_roadmap():
     assert required["cost"] == [] and required["freeSteps"] == ["REQ-PIC", "REQ-NCAGE"]
     assert required["days"] == {"min": 5, "max": 20}
     assert plan["unknownCost"] == ["REQ-EXPORT"] and plan["unknownDuration"] == ["REQ-EXPORT"]
+    # D10: ISO 9001 has no stated cost or time either, and the total that includes it must say so
+    assert plan["unknownCostWithOptional"] == ["REQ-EXPORT", "REQ-ISO9001"]
+    assert plan["unknownDurationWithOptional"] == ["REQ-EXPORT", "REQ-ISO9001"]
+    # D10: the source's "+30-40 % and 1-2 months without ISO 9001" is shown, never added to a total
+    assert [n["code"] for n in plan["notAdded"]] == ["REQ-AQAP2110"] and "30-40 %" in plan["notAdded"][0]["text"]
 
 
 def test_ua_roadmap_total_with_aqap_equals_the_appendix_full_cycle_range():
@@ -112,11 +132,15 @@ STATUS_ES = {"REQ-ISO9001": "held"}
 
 def test_es_manufacturer_with_iso_9001_verdicts():
     by, general, _ = run(ES, STATUS_ES)
-    assert by["EDF"].blocking == ("EDF-PIC",) and by["EDIP"].blocking == ("EDIP-PIC",)
-    assert by["EDIP-USI"].blocking == ("USI-PIC",)
+    assert (by["EDF"].verdict, by["EDF"].to_obtain) == ("obtain", ("EDF-PIC",))
+    assert (by["EDIP"].verdict, by["EDIP"].to_obtain) == ("obtain", ("EDIP-PIC",))
+    assert (by["EDIP-USI"].verdict, by["EDIP-USI"].to_obtain) == ("obtain", ("USI-PIC",))
+    assert not by["EDF"].blocking and not by["EDIP"].blocking and not by["EDIP-USI"].blocking
     assert outcomes(by["EDIP-USI"])["USI-TERRITORY"] == "not_applicable"
     assert by["SAFE"].verdict == "eligible"
     assert outcomes(general["GENERAL"])["G-REOCE"] == "not_met" and outcomes(general["GENERAL"])["G-HSEM"] == "not_met"
+    # D6: a military product is under the military regime, not Regulation 2021/821
+    assert outcomes(general["GENERAL"])["G-EXPORT"] == "not_applicable" and outcomes(general["GENERAL"])["G-EXPORT-MIL"] == "not_met"
     assert outcomes(general["GENERAL"])["G-CLASSIFIED-OTHER"] == "not_applicable"
 
 
@@ -126,9 +150,9 @@ def test_es_manufacturer_with_iso_9001_roadmap():
     steps = {s["code"]: s for s in plan["steps"]}
     assert "REQ-ISO9001" not in steps                                    # held: not a step
     aqap = steps["REQ-AQAP2110"]
-    assert aqap["variantUsed"] == "REQ-ISO9001" and "ISO 9001" in aqap["branchNote"]
-    assert (aqap["cost"]["min"], aqap["cost"]["max"], aqap["cost"]["currency"]) == (17000, 25000, "USD")
-    assert (aqap["days"]["min"], aqap["days"]["max"]) == (90, 120)
+    # D10: in Spain the AQAP route is the state's own (PECAL), so the vendor price ranges say nothing about it
+    assert aqap["cost"] is None and aqap["days"] is None and aqap["variantUsed"] is None and aqap["branchNote"] is None
+    assert "state issues this itself" in aqap["priceNote"]
     assert aqap["prerequisites"] == [{"code": "REQ-ISO9001", "name": "ISO 9001 quality management certificate",
                                       "relation": "before", "status": "held", "step": None}]
     assert steps["REQ-NCAGE"]["issuers"][0]["name"].startswith("Unidad de Catalogación")
@@ -140,11 +164,32 @@ def test_es_manufacturer_with_iso_9001_roadmap():
     assert ["REQ-REOCE", "REQ-EXPORT"] in plan["tracks"]
     assert plan["totals"]["days"] == {"min": 5, "max": 20}
     assert sorted(plan["unknownCost"]) == ["REQ-EXPORT", "REQ-FSC-ES", "REQ-REOCE"]
+    assert "REQ-AQAP2110" in plan["unknownCostWithOptional"] and plan["notAdded"] == []
+    assert plan["totalsWithOptional"]["cost"] == []             # no price is invented for the state route
+    assert plan["totalsWithOptional"]["days"] == {"min": 5, "max": 20}
+
+
+def test_pl_manufacturer_with_iso_9001_roadmap_uses_the_small_firm_range_of_the_appendix():
+    """Poland has commercial certification bodies, so the vendor ranges apply (the Spanish route is the state's)."""
+    _, _, plan = run(PL, STATUS_ES)
+    steps = {s["code"]: s for s in plan["steps"]}
+    aqap = steps["REQ-AQAP2110"]
+    assert aqap["variantUsed"] == "REQ-ISO9001" and "ISO 9001" in aqap["branchNote"] and aqap["priceNote"] is None
+    assert (aqap["cost"]["min"], aqap["cost"]["max"], aqap["cost"]["currency"]) == (17000, 25000, "USD")
+    assert (aqap["days"]["min"], aqap["days"]["max"]) == (90, 120)
     # the AQAP total is inside the appendix's small-firm-with-ISO range and inside its full-cycle range
     total = plan["totalsWithOptional"]
     assert total["cost"] == [{"currency": "USD", "min": 17000, "max": 25000, "steps": ["REQ-AQAP2110"]}]
     assert total["days"] == {"min": 90, "max": 120}
     assert 17000 <= total["cost"][0]["min"] and total["cost"][0]["max"] <= 48000
+    assert plan["notAdded"] == []                                # ISO 9001 is held: nothing is left out
+
+
+def test_a_state_route_issuer_removes_the_price_and_germany_is_one_too():
+    de = co("DE", handles_classified=False, product_regime="none", export_intent="none")
+    _, _, plan = run(de, {})
+    aqap = next(s for s in plan["steps"] if s["code"] == "REQ-AQAP2110")
+    assert aqap["cost"] is None and aqap["priceNote"] and "REQ-AQAP2110" in plan["unknownCostWithOptional"]
 
 
 def test_a_requirement_in_progress_is_still_a_step_and_not_applicable_or_held_are_not():
@@ -160,10 +205,11 @@ def test_marking_everything_done_leaves_an_empty_roadmap_and_eligible_cards():
     assert [s["code"] for s in plan["steps"]] == []
     assert plan["totals"] == {"cost": [], "freeSteps": [], "days": {"min": 0, "max": 0}}
     assert by["EDF"].verdict == "eligible" and by["EDIP-USI"].verdict == "eligible" and by["EDIP"].verdict == "blocked"
+    assert by["NATO-SUPPLY"].verdict == "eligible" and by["EDF"].to_obtain == ()
 
 
 def test_iso_held_with_aqap_2110_in_progress_uses_the_iso_range():
-    _, _, plan = run(ES, {"REQ-ISO9001": "held", "REQ-AQAP2110": "in_progress"})
+    _, _, plan = run(PL, {"REQ-ISO9001": "held", "REQ-AQAP2110": "in_progress"})
     aqap = [s for s in plan["steps"] if s["code"] == "REQ-AQAP2110"][0]
     assert aqap["status"] == "in_progress" and aqap["cost"]["max"] == 25000
 
@@ -253,37 +299,33 @@ def test_call_timing_without_a_deadline_is_unknown():
     ("GB", "blocked"), ("XX", "blocked"), ("CH", "blocked"), ("TR", "blocked"), ("US", "blocked"),
 ])
 def test_edf_establishment_by_country(country, expected):
-    p = Profile(country=country, executive_management_country=country, third_country_control="no")
+    p = co(country)
     assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["EDF"]).verdict == expected
 
 
 @pytest.mark.parametrize("country,expected", [
     ("ES", "eligible"), ("NO", "conditional"), ("UA", "blocked"), ("GB", "blocked")])
 def test_edip_programme_establishment_by_country(country, expected):
-    p = Profile(country=country, executive_management_country=country, third_country_control="no")
+    p = co(country)
     assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["EDIP"]).verdict == expected
 
 
 @pytest.mark.parametrize("country,expected", [
     ("ES", "eligible"), ("UA", "eligible"), ("NO", "blocked"), ("GB", "blocked")])
 def test_edip_ukraine_support_instrument_establishment_by_country(country, expected):
-    p = Profile(country=country, executive_management_country=country, third_country_control="no",
-                ua_non_government_controlled_area=False)
+    p = co(country, ua_non_government_controlled_area=False)
     assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["EDIP-USI"]).verdict == expected
 
 
 def test_usi_excludes_a_company_in_a_non_government_controlled_area_of_ukraine():
-    p = Profile(country="UA", executive_management_country="UA", third_country_control="no",
-                ua_non_government_controlled_area=True)
+    p = co("UA", ua_non_government_controlled_area=True)
     a = assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["EDIP-USI"])
     assert a.verdict == "blocked" and a.blocking == ("USI-TERRITORY",)
 
 
 def test_control_by_a_third_country_is_conditional_where_the_regulation_has_a_derogation_and_blocked_where_it_has_none():
     def verdict(country, programme):
-        p = Profile(country=country, executive_management_country=country, third_country_control="other",
-                    ua_non_government_controlled_area=False, non_eu_component_cost_pct=0,
-                    restricted_third_country_component=False)
+        p = co(country, third_country_control="other", ua_non_government_controlled_area=False, non_eu_component_cost_pct=0)
         return assess(p, {"REQ-PIC": "held"}, CONTENT.programmes[programme]).verdict
     assert verdict("ES", "EDF") == verdict("ES", "EDIP") == verdict("ES", "EDIP-USI") == verdict("ES", "SAFE") == "conditional"
     # the Ukraine Support Instrument and SAFE give the exception to an entity established in the Union only
@@ -292,8 +334,7 @@ def test_control_by_a_third_country_is_conditional_where_the_regulation_has_a_de
 
 
 def test_control_from_ukraine_or_an_eea_efta_state_does_not_count_under_edf_and_safe_but_needs_a_check_under_edip_and_usi():
-    p = Profile(country="ES", executive_management_country="ES", third_country_control="ua_eea_only",
-                ua_non_government_controlled_area=False, non_eu_component_cost_pct=0, restricted_third_country_component=False)
+    p = co("ES", third_country_control="ua_eea_only", ua_non_government_controlled_area=False, non_eu_component_cost_pct=0)
     for programme in ("EDF", "SAFE"):
         assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes[programme]).verdict == "eligible", programme
     # EDIP: Ukraine is a non-associated country; an EEA EFTA state is associated only if it applies the Regulation.
@@ -304,8 +345,7 @@ def test_control_from_ukraine_or_an_eea_efta_state_does_not_count_under_edf_and_
 
 def test_safe_threshold_and_exclusion_are_separate_rules():
     def safe(pct, restricted):
-        p = Profile(country="PL", executive_management_country="PL", third_country_control="no",
-                    non_eu_component_cost_pct=pct, restricted_third_country_component=restricted)
+        p = co("PL", non_eu_component_cost_pct=pct, restricted_third_country_component=restricted)
         a = assess(p, {}, CONTENT.programmes["SAFE"])
         return a.verdict, a.blocking, a.incomplete
     assert safe(35, False) == ("eligible", (), False)                       # not higher than 35 %
@@ -318,5 +358,5 @@ def test_safe_threshold_and_exclusion_are_separate_rules():
 def test_unanswered_questions_are_listed_with_the_question_to_ask():
     a = assess(Profile(country="ES"), {}, CONTENT.programmes["SAFE"])
     assert a.incomplete and a.verdict == "conditional"
-    assert set(a.missing) == {"executive_management_country", "third_country_control",
+    assert set(a.missing) == {"safe_role", "executive_management_country", "third_country_control",
                               "non_eu_component_cost_pct", "restricted_third_country_component"}

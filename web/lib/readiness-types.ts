@@ -1,8 +1,8 @@
 /** The shapes of the readiness API (docs/design/API_CONTRACT.md, "Readiness"). */
 
 export type VerificationStatus = 'V' | 'S' | 'U';
-export type Verdict = 'eligible' | 'blocked' | 'conditional';
-export type Outcome = 'met' | 'not_met' | 'conditional' | 'unknown' | 'not_applicable' | 'info';
+export type Verdict = 'eligible' | 'obtain' | 'blocked' | 'conditional';
+export type Outcome = 'met' | 'not_met' | 'to_obtain' | 'conditional' | 'unknown' | 'not_applicable' | 'info';
 
 export interface RMoney {
   min: number | null; max: number | null; currency: string | null;
@@ -52,7 +52,7 @@ export interface RuleResult {
 
 export interface ProgrammeAssessment {
   programme: string; name: string; kind: 'programme' | 'route' | 'general'; summary: string; legalBasis: string | null;
-  sourceUrl: string; verdict: Verdict; incomplete: boolean; blocking: string[]; conditions: string[];
+  sourceUrl: string; verdict: Verdict; incomplete: boolean; blocking: string[]; conditions: string[]; toObtain: string[];
   counts: Record<Outcome, number>; missing: { field: string; question: string }[]; rules: RuleResult[];
 }
 
@@ -64,6 +64,8 @@ export interface RoadmapStep {
   cost: RMoney | null; days: RSpan | null; variantUsed: string | null; branchNote: string | null;
   issuers: { country: string; name: string; url: string | null; notes: string | null; status: VerificationStatus }[];
   issuerNote: string | null;
+  /** Why no price is shown (the issuer in the company's country is the state itself). */
+  priceNote: string | null;
   prerequisites: { code: string; name: string; relation: 'before' | 'before_or_with'; status: string; step: number | null }[];
   parallelWith: number[]; verificationStatus: VerificationStatus; lastReviewed: string; sourceUrl: string;
 }
@@ -75,7 +77,11 @@ export interface RoadmapTotals {
 
 export interface Roadmap {
   steps: RoadmapStep[]; tracks: string[][]; totals: RoadmapTotals; totalsWithOptional: RoadmapTotals;
-  unknownCost: string[]; unknownDuration: string[]; label: string;
+  unknownCost: string[]; unknownDuration: string[];
+  unknownCostWithOptional: string[]; unknownDurationWithOptional: string[];
+  /** What a source says is on top of a range but gives no base for: shown, never added to a total. */
+  notAdded: { code: string; text: string }[];
+  label: string;
 }
 
 export interface CallTiming {

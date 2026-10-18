@@ -616,19 +616,20 @@ clearance: rules that apply whichever route is taken, with no verdict of their o
 Body (JSON, at most 16 KiB at the API and 4 KiB through the proxy; unknown keys are refused):
 
 ```json
-{ "profile": { "country": "UA", "executive_management_country": "UA", "third_country_control": "no",
-               "ua_non_government_controlled_area": false, "non_eu_component_cost_pct": 20,
-               "restricted_third_country_component": false, "handles_classified": false,
+{ "profile": { "country": "UA", "legal_form": "legal_person", "executive_management_country": "UA",
+               "third_country_control": "no", "ua_non_government_controlled_area": false, "non_eu_component_cost_pct": 20,
+               "restricted_third_country_component": false, "components_from_ua_or_eea_efta": false,
+               "safe_role": "contractor", "handles_classified": false,
                "product_regime": "dual_use", "export_intent": "outside_eu" },
   "statuses": { "REQ-PIC": "held", "REQ-NCAGE": "not_held" },
   "programmes": ["SAFE"], "call": 123 }
 ```
 
 `country` and `executive_management_country` are ISO 3166-1 alpha-2 in capitals (`XX` for a country that is
-not listed); every other profile field may be `null`, which means unknown, never "no" (a missing answer is
+not listed; `EL` is read as `GR` and `UK` as `GB`, any other code that is not ISO 3166-1 is a 422); every other profile field may be `null`, which means unknown, never "no" (a missing answer is
 listed under `missing`, not guessed). `third_country_control`: `no` | `ua_eea_only` | `other`.
 `product_regime`: `none` | `dual_use` | `military` | `unknown`. `export_intent`: `none` | `within_eu` |
-`outside_eu` | `unsure`. `non_eu_component_cost_pct` is 0 to 100 and is the share of **the estimated cost of
+`outside_eu` | `unsure`. `legal_form` (WP-33): `legal_person` | `natural_person` | `no_legal_personality`. `safe_role`: `contractor` | `subcontractor_involved` | `other_supplier` (SAFE Article 16(12)). `components_from_ua_or_eea_efta`: any component from Ukraine or an EEA EFTA state (EDIP and the Ukraine Support Instrument count them differently from SAFE). `non_eu_component_cost_pct` is 0 to 100 and is the share of **the estimated cost of
 the components of the end product** (SAFE Article 16(10)), never of the contract value. `statuses` maps a
 requirement code to `held` | `in_progress` | `not_held` | `not_applicable`; a requirement not mentioned is
 not held. `programmes` limits the answer (default: all but `GENERAL`). `call` is a call id from `/v1/funding`:
@@ -637,15 +638,16 @@ the answer then says whether the company can take part before the call closes.
 Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, notice }`.
 
 - `assessments[]` and `general[]`: `{ programme, name, kind, summary, legalBasis, sourceUrl, verdict:
-  eligible | blocked | conditional, incomplete, blocking, conditions, counts, missing: [{ field, question }],
+  eligible | obtain | conditional | blocked, incomplete, blocking, conditions, toObtain, counts, missing: [{ field, question }],
   rules: [{ rule, title, outcome, reason, obligation, kind, requirement, note, denominator, asks, source }] }`.
-  `outcome`: `met` | `not_met` | `conditional` (a derogation exists: guarantees, a screening) | `unknown`
+  `outcome`: `met` | `not_met` | `to_obtain` (a registration anybody can obtain, the PIC or the NCAGE code, is missing) | `conditional` (a derogation exists: guarantees, a screening) | `unknown`
   (an answer is missing) | `not_applicable` | `info`. `verdict`: `blocked` if a mandatory rule is not met;
-  else `conditional` if a mandatory rule is conditional or unknown (`incomplete` says which); else `eligible`.
+  else `conditional` if a mandatory rule is conditional or unknown (`incomplete` says which); else `obtain` if only registrations are missing (`toObtain` lists them); else `eligible`. `eligible` does not cover the exclusion criteria and capacity checks of the Financial Regulation or the conditions of a call.
   A rule that is not mandatory (AQAP, export licence, clearance) never changes the verdict.
-- `roadmap`: `{ steps, tracks, totals, totalsWithOptional, unknownCost, unknownDuration, label }`. A step is
+- `roadmap`: `{ steps, tracks, totals, totalsWithOptional, unknownCost, unknownDuration,
+  unknownCostWithOptional, unknownDurationWithOptional, notAdded, label }`. A step is
   `{ order, code, name, status, optional, when, blockingFor, neededFor, cost, days, variantUsed, branchNote,
-  issuers, issuerNote, prerequisites, parallelWith, ... }`, ordered by the prerequisite graph, then cost, then
+  issuers, issuerNote, priceNote (no price where the issuer in the company's country is the state itself), prerequisites, parallelWith, ... }`, ordered by the prerequisite graph, then cost, then
   time; `tracks` are the groups of steps that depend on each other (the others run in parallel); `totals` are
   ranges per currency and the slowest track for time, over the required steps only; `totalsWithOptional` also
   counts what only a contract might ask for (AQAP). Where the company holds ISO 9001, the AQAP 2110 step uses
@@ -655,6 +657,6 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
   | unknown | closed, text }] }`. `not_possible`: a rule that no certificate fixes is not met. A call of a programme
   with no rules (Horizon) has `covered: false`. 404 for an unknown call, 410 for one removed on request.
 
-A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input. The limiter charges
+A refused body is a 422 with `{ detail: [{ loc, msg }] }` and never repeats the input, nor the name of an unknown key (`(unknown field)`). The limiter charges
 three tokens for an assessment. The site calls it through its own route `/api/readiness/assess` (the page's
 content policy allows connections to the site only); the verdict is the only thing that leaves the browser.

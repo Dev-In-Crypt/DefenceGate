@@ -39,3 +39,7 @@ agents. Anything that looks removable is listed here with why, and the owner dec
 | 2026-10-17 | `organisation.pic_method` / `pic_confidence` beside `identifier_method` / `identifier_confidence` | migration 0060 | the older pair describes how `national_reg_no` was found; the new one describes how `eu_pic` was. Two pairs of columns for two identifiers; a single `organisation_identifier` table would be tidier | none; a refactor for the owner to ask for |
 | 2026-10-17 | `db.resolve_organisation` and `dgate/resolution/cascade.resolve` | `backend/dgate/db.py`, `backend/dgate/resolution/` | two cascades: the buyer side keeps its own (its keys are stored; plan M2-07 said to move it, which would have changed them), the networks side has the new one, which also reads the old key. Merge them once the buyer side can be re-keyed in a migration | none; both are tested |
 
+
+## WP-33 (readiness fixes)
+
+- Scratch on the server, named here so the owner can delete them: `/root/dev-m` (the working copy, with `web/node_modules`, about 600 MB), `/root/dev-before` (the unmodified `integration` backend with the new tests, to show they fail before), the database `agent_m` in `dgate-ci-db`. The Official Journal texts used for the quote check are in `/root/dev-m/scratch/oj` (about 10 MB).

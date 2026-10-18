@@ -52,6 +52,7 @@ class Issuer:
     url: str | None
     notes: str | None
     status: str
+    state_route: bool = False        # the state itself issues it: commercial price ranges do not apply
 
 
 @dataclass(frozen=True)

@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, Minus } from 'lucide-react';
-import { OBLIGATION_WORD, OUTCOME_WORD, STATUS_EXPLAINED, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords } from '@/lib/readiness';
+import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus } from 'lucide-react';
+import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords, statusWords } from '@/lib/readiness';
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
 const OUTCOME_ICON = {
-  met: CircleCheck, not_met: CircleX, conditional: CircleAlert, unknown: CircleHelp, not_applicable: Minus, info: Info,
+  met: CircleCheck, not_met: CircleX, to_obtain: ListChecks, conditional: CircleAlert, unknown: CircleHelp, not_applicable: Minus, info: Info,
 } as const;
-const VERDICT_ICON = { eligible: CircleCheck, blocked: CircleX, conditional: CircleAlert } as const;
+const VERDICT_ICON = { eligible: CircleCheck, obtain: ListChecks, blocked: CircleX, conditional: CircleAlert } as const;
 
 /** A word and an icon, never a colour alone. */
 export function OutcomeBadge({ outcome }: { outcome: Outcome }) {
@@ -44,7 +44,7 @@ export function SourceNote({ source }: { source: RSource }) {
           <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-ink">Show the text of the source</summary>
           <div className="flex flex-col gap-2 pb-2">
             {passages.map((p, i) => <blockquote key={i} className="m-0 break-words border-l-2 border-line pl-3 text-ink">{p}</blockquote>)}
-            <p className="m-0">{originWords(source)} {STATUS_EXPLAINED[source.verificationStatus]}</p>
+            <p className="m-0">{originWords(source)} {statusWords(source.verificationStatus, source.origin)}</p>
           </div>
         </details>
       )}
@@ -67,7 +67,7 @@ export function RuleItem({ rule }: { rule: RuleResult }) {
           {rule.asks.map((a) => <li key={a.field}>To answer: {a.question}</li>)}
         </ul>
       )}
-      {rule.requirement && rule.outcome === 'not_met' && (
+      {rule.requirement && (rule.outcome === 'not_met' || rule.outcome === 'to_obtain') && (
         <p className="m-0 text-small"><Link href={`/readiness/roadmap`} className="font-semibold">See the step in your roadmap</Link></p>
       )}
       <SourceNote source={rule.source} />
@@ -81,8 +81,9 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
   const H = headingLevel;
   const blockers = a.rules.filter((r) => a.blocking.includes(r.rule));
   const conditions = a.rules.filter((r) => a.conditions.includes(r.rule));
+  const toObtain = a.rules.filter((r) => a.toObtain.includes(r.rule));
   const total = a.rules.length;
-  const todo = a.rules.filter((r) => r.outcome === 'not_met');
+  const todo = a.rules.filter((r) => r.outcome === 'not_met' || r.outcome === 'to_obtain');
   const id = `prog-${a.programme}`;
   return (
     <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg bg-surface p-5 sm:p-6" data-programme={a.programme} data-verdict={a.verdict}>
@@ -103,6 +104,12 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
         <div className="flex flex-col gap-1 text-small">
           <p className="m-0 font-bold">Not met:</p>
           <ul className="m-0 flex list-none flex-col gap-1 p-0">{blockers.map((r) => <li key={r.rule}>{r.title}</li>)}</ul>
+        </div>
+      )}
+      {toObtain.length > 0 && (
+        <div className="flex flex-col gap-1 text-small">
+          <p className="m-0 font-bold">To obtain first (see your roadmap):</p>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">{toObtain.map((r) => <li key={r.rule}>{r.title}</li>)}</ul>
         </div>
       )}
       {conditions.length > 0 && (

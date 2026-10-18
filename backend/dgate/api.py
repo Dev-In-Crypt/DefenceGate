@@ -881,7 +881,9 @@ app.include_router(_readiness_router)
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):
     if request.url.path.startswith("/v1/readiness"):
-        problems = [{"loc": list(e["loc"]), "msg": e["msg"]} for e in exc.errors()]
+        # an unknown key is the caller's text: say that there is one, not what it is
+        problems = [{"loc": list(e["loc"][:-1]) + ["(unknown field)"] if e["type"] == "extra_forbidden" else list(e["loc"]),
+                     "msg": e["msg"]} for e in exc.errors()]
         return JSONResponse({"detail": problems}, status_code=422)
     return await request_validation_exception_handler(request, exc)
 

@@ -82,8 +82,9 @@ def test_aqap_is_never_an_eligibility_condition_of_edf_edip_or_safe():
         assert r.obligation == "conditional" and r.condition is None and r.kind == "contract", r.code
         assert "contract" in r.texts["info"], r.code
     for programme in ("EDF", "EDIP", "EDIP-USI", "SAFE", "NATO-SUPPLY"):
-        a = assess(Profile(country="ES", executive_management_country="ES", third_country_control="no",
-                           non_eu_component_cost_pct=10, restricted_third_country_component=False),
+        a = assess(Profile(country="ES", legal_form="legal_person", executive_management_country="ES", third_country_control="no",
+                           non_eu_component_cost_pct=10, restricted_third_country_component=False,
+                           components_from_ua_or_eea_efta=False, safe_role="contractor"),
                    {"REQ-PIC": "held", "REQ-NCAGE": "held"}, CONTENT.programmes[programme])
         assert a.verdict == "eligible", programme       # holding no AQAP never blocks
 
@@ -117,7 +118,7 @@ def test_costs_are_vendor_ranges_labelled_with_their_currency_and_nothing_is_con
 
 
 def test_every_covered_country_has_the_ncage_and_pic_issuer_rows():
-    for country in ("ES", "UA", "DE", "PL", "NL", "FR", "RO", "CZ", "LT", "LV", "EE", "PT"):
+    for country in ("ES", "UA", "DE", "PL", "NL", "FR", "RO", "CZ", "LT", "LV", "EE", "PT", "IT", "SE", "FI", "GR", "BE"):
         for code in ("REQ-NCAGE", "REQ-PIC"):
             assert CONTENT.issuers_for(code, country), (country, code)
 
@@ -149,8 +150,11 @@ def test_the_seed_contains_no_e_mail_address_and_no_personal_data():
 def test_an_eligibility_rule_that_is_assessed_not_obtained_lists_the_rules_it_stands_for():
     def codes(requirement):
         return [r.code for r in CONTENT.rules_of(requirement)]
-    assert codes("REQ-EDF-ELIG") == ["EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
-    assert codes("REQ-EDIP-ELIG") == ["EDIP-ESTABLISH", "EDIP-EXEC-MGMT", "EDIP-CONTROL", "USI-ESTABLISH", "USI-EXEC-MGMT", "USI-TERRITORY", "USI-CONTROL"]
+    assert codes("REQ-EDF-ELIG") == ["EDF-LEGAL-ENTITY", "EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
+    assert codes("REQ-EDIP-ELIG") == [
+        "EDIP-LEGAL-ENTITY", "EDIP-ESTABLISH", "EDIP-EXEC-MGMT", "EDIP-CONTROL", "EDIP-ORIGIN-35", "EDIP-NO-RESTRICTED",
+        "EDIP-SUBCONTRACT-RELIEF", "USI-LEGAL-ENTITY", "USI-ESTABLISH", "USI-EXEC-MGMT", "USI-TERRITORY", "USI-CONTROL",
+        "USI-ORIGIN-35", "USI-NO-RESTRICTED", "USI-INVOLVES-UA"]
     assert codes("REQ-SAFE-35") == ["SAFE-ORIGIN-35", "SAFE-NO-RESTRICTED"]
     assert CONTENT.rules_of("REQ-NOPE") == []
 

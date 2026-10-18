@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { getRequirement } from '@/lib/readiness-api';
-import { CATEGORY_WORD, OBLIGATION_WORD, STATUS_EXPLAINED, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug } from '@/lib/readiness';
+import { CATEGORY_WORD, OBLIGATION_WORD, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug, ruleSentence, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -83,7 +83,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
           {r.mandatoryFor && <><dt className="font-bold">Needed for</dt><dd className="m-0">{r.mandatoryFor}</dd></>}
           {r.legalBasis && <><dt className="font-bold">Legal basis</dt><dd className="m-0">{r.legalBasis}</dd></>}
           <dt className="font-bold">Last reviewed</dt><dd className="m-0"><time dateTime={r.lastReviewed}>{isoDay(r.lastReviewed)}</time></dd>
-          <dt className="font-bold">Verification</dt><dd className="m-0">{STATUS_EXPLAINED[r.verificationStatus]}</dd>
+          <dt className="font-bold">Verification</dt><dd className="m-0">{statusWords(r.verificationStatus, r.source.origin)}</dd>
         </dl>
       </ContentSection>
 
@@ -116,7 +116,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
                   <span className="font-bold">{i.country === '*' ? 'Every country' : countryName(i.country)}</span>
                   <span>{safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}</span>
                   {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
-                  <span className="text-small text-ink-muted">{STATUS_EXPLAINED[i.verificationStatus]}</span>
+                  <span className="text-small text-ink-muted">{statusWords(i.verificationStatus, 'notes')}</span>
                 </li>
               ))}
             </ul>
@@ -131,7 +131,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
             {r.rules.map((x) => (
               <li key={`${x.programme}-${x.rule}`} className="flex flex-col gap-0.5">
                 <span><strong>{x.programmeName}</strong>: {x.title} <span className="text-small text-ink-muted">({OBLIGATION_WORD[x.obligation]})</span></span>
-                <span className="max-w-[80ch] text-body text-ink-muted">{x.texts.info ?? x.texts.not_met ?? x.texts.met}</span>
+                <span className="max-w-[80ch] text-body text-ink-muted">{ruleSentence(x.texts)}</span>
               </li>
             ))}
           </ul>

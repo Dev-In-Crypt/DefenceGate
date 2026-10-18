@@ -85,8 +85,7 @@ def parse(raw: dict[str, Any]) -> Content:
 
     issuers: dict[str, list[Issuer]] = {c: [] for c in codes}
     rows = list(raw["issuers"])
-    d = raw.get("issuer_defaults")
-    if d:
+    for d in raw.get("issuer_defaults", []):
         rows += [{"requirement": d["requirement"], "country": c, "name": d["name"], "url": None,
                   "status": d["status"], "notes": d["notes"]} for c in d["countries"]]
     for i in rows:
@@ -94,7 +93,8 @@ def parse(raw: dict[str, Any]) -> Content:
         _need(i["requirement"] in codes, f"{where}: unknown requirement")
         _need(bool(COUNTRY.match(i["country"])), f"{where}: country")
         _need(i["status"] in STATUSES, f"{where}: status")
-        issuers[i["requirement"]].append(Issuer(i["requirement"], i["country"], i["name"], i.get("url"), i.get("notes"), i["status"]))
+        issuers[i["requirement"]].append(Issuer(i["requirement"], i["country"], i["name"], i.get("url"), i.get("notes"),
+                                                i["status"], bool(i.get("state_route", False))))
 
     prereq: dict[str, list[tuple[str, str]]] = {c: [] for c in codes}
     for p in raw["prerequisites"]:
@@ -143,6 +143,8 @@ def parse(raw: dict[str, Any]) -> Content:
             _need(r.get("conditional_when") is None, f"{where}: conditional_when needs a condition")
         else:
             _need({"met", "not_met"} <= set(texts), f"{where}: texts needs met and not_met")
+            # the sentence a requirement page prints: what the rule asks, never the "not met" verdict (D7)
+            _need("requires" in texts, f"{where}: texts.requires is missing")
             # a condition that reads a profile field can be unknown; one that reads statuses cannot
             _need("unknown" in texts or not fields_in(r["condition"]), f"{where}: texts.unknown is missing")
         if r.get("conditional_when") is not None:
@@ -244,12 +246,13 @@ def apply(conn: psycopg.Connection, content: Content) -> dict[str, int]:
                       DO UPDATE SET relation = EXCLUDED.relation RETURNING (xmax = 0) AS inserted""",
                    (ids[r.code], ids[pre], relation))
         for i in r.issuers:
-            upsert("""INSERT INTO requirement_issuer (requirement_id, country, issuer_name, issuer_url, notes, verification_status, active)
-                      VALUES (%s,%s,%s,%s,%s,%s,TRUE)
+            upsert("""INSERT INTO requirement_issuer (requirement_id, country, issuer_name, issuer_url, notes, verification_status, state_route, active)
+                      VALUES (%s,%s,%s,%s,%s,%s,%s,TRUE)
                       ON CONFLICT (requirement_id, country, issuer_name) DO UPDATE SET issuer_url=EXCLUDED.issuer_url,
-                        notes=EXCLUDED.notes, verification_status=EXCLUDED.verification_status, active=TRUE
+                        notes=EXCLUDED.notes, verification_status=EXCLUDED.verification_status,
+                        state_route=EXCLUDED.state_route, active=TRUE
                       RETURNING (xmax = 0) AS inserted""",
-                   (ids[r.code], i.country, i.name, i.url, i.notes, i.status))
+                   (ids[r.code], i.country, i.name, i.url, i.notes, i.status, i.state_route))
     for p in content.programmes.values():
         for x in p.rules:
             upsert("""INSERT INTO programme_requirement
@@ -316,7 +319,8 @@ def read_content(conn: psycopg.Connection) -> Content:
     for i in conn.execute("SELECT * FROM requirement_issuer WHERE active ORDER BY country, id").fetchall():
         if i["requirement_id"] in by_id:
             code = by_id[i["requirement_id"]]
-            iss[code].append(Issuer(code, i["country"], i["issuer_name"], i["issuer_url"], i["notes"], i["verification_status"]))
+            iss[code].append(Issuer(code, i["country"], i["issuer_name"], i["issuer_url"], i["notes"], i["verification_status"],
+                                    i["state_route"]))
     requirements = {}
     for r in reqs:
         days = None

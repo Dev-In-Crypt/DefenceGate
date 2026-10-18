@@ -60,6 +60,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
           <dd className="m-0 font-mono text-body tabular-nums">{formatDays(s.days)}</dd>
         </div>
       </dl>
+      {s.priceNote && <p className="m-0 text-small font-bold">{s.priceNote}</p>}
       {s.branchNote && <p className="m-0 text-small">{s.branchNote}</p>}
 
       <div className="flex flex-col gap-1 text-body">
@@ -117,6 +118,8 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
   }
   const required = plan.steps.filter((s) => !s.optional).length;
   const parallel = plan.tracks.length > 1;
+  const extraCost = plan.unknownCostWithOptional.filter((c) => !plan.unknownCost.includes(c));
+  const extraTime = plan.unknownDurationWithOptional.filter((c) => !plan.unknownDuration.includes(c));
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 md:grid-cols-2">
@@ -127,6 +130,9 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
         <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is never converted between currencies.</p>
         {plan.unknownCost.length > 0 && <p className="m-0">No cost is stated in the sources for: {plan.unknownCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
         {plan.unknownDuration.length > 0 && <p className="m-0">No time is stated in the sources for: {plan.unknownDuration.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
+        {extraCost.length > 0 && <p className="m-0">The total that includes what only a contract might ask for has no cost for: {extraCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. The sources give none, so it is not counted and the total is not complete.</p>}
+        {extraTime.length > 0 && <p className="m-0">Nor a time for: {extraTime.map((c) => byCode.get(c)?.name ?? c).join('; ')}.</p>}
+        {plan.notAdded.map((n) => <p key={n.code} className="m-0">Not added to any total: {n.text}</p>)}
         {parallel && <p className="m-0">Steps in different tracks do not depend on each other, so the total time is that of the slowest track, not their sum.</p>}
       </Callout>
       <div className={parallel ? 'grid items-start gap-6 lg:grid-cols-2' : 'flex flex-col gap-6'}>

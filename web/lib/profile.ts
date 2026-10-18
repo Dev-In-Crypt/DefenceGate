@@ -6,7 +6,7 @@
  *   const p = loadProfile();            // null before the wizard has been started
  *   p?.country                          // 'UA', 'ES', ... or 'XX' for a country that is not listed
  *
- * What leaves the browser is `toRequest(profile)`: the answers the rules read (nine fields) and the
+ * What leaves the browser is `toRequest(profile)`: the answers the rules read (twelve fields) and the
  * status of each requirement, sent to POST /api/readiness/assess to compute the verdict. The company
  * name and the size class are kept here for the page and are never part of that request.
  *
@@ -22,6 +22,8 @@ export type Tri = 'yes' | 'no' | 'unsure' | '';
 export type Control = 'no' | 'ua_eea_only' | 'other' | 'unsure' | '';
 export type Regime = 'none' | 'dual_use' | 'military' | 'unknown' | '';
 export type ExportIntent = 'none' | 'within_eu' | 'outside_eu' | 'unsure' | '';
+export type LegalForm = 'legal_person' | 'natural_person' | 'no_legal_personality' | '';
+export type SafeRole = 'contractor' | 'subcontractor_involved' | 'other_supplier' | 'unsure' | '';
 export type Status = 'held' | 'in_progress' | 'not_held' | 'not_applicable';
 export type SizeClass = 'micro' | 'small' | 'medium' | 'large' | '';
 
@@ -34,6 +36,7 @@ export interface Profile {
   name: string;
   sizeClass: SizeClass;
   country: string;
+  legalForm: LegalForm;
   // step 2: ownership and control
   managementSameCountry: boolean;
   managementCountry: string;
@@ -43,6 +46,10 @@ export interface Profile {
   regime: Regime;
   componentPct: string;
   restricted: Tri;
+  /** Any component from Ukraine or an EEA EFTA state (EDIP and the Ukraine Support Instrument count them differently from SAFE). */
+  uaEeaComponents: Tri;
+  /** The role in a SAFE-supported procurement: the SAFE rules on establishment and control bind the contractor and the subcontractors involved. */
+  safeRole: SafeRole;
   // step 4: certifications held
   statuses: Record<string, Status>;
   // step 5: classified work and export intentions
@@ -67,8 +74,8 @@ export function visibleCodes(country: string): string[] {
 
 export function emptyProfile(): Profile {
   return {
-    version: 1, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', managementSameCountry: true, managementCountry: '',
-    control: '', uaOccupied: '', regime: '', componentPct: '', restricted: '', statuses: {}, classified: '', exportIntent: '',
+    version: 1, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', managementSameCountry: true, managementCountry: '',
+    control: '', uaOccupied: '', regime: '', componentPct: '', restricted: '', uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
   };
 }
 
@@ -97,6 +104,7 @@ export function parseProfile(raw: unknown): Profile {
     name: text(r.name, 120),
     sizeClass: oneOf(r.sizeClass, ['micro', 'small', 'medium', 'large', ''], ''),
     country: countryCode(r.country),
+    legalForm: oneOf(r.legalForm, ['legal_person', 'natural_person', 'no_legal_personality', ''], ''),
     managementSameCountry: r.managementSameCountry !== false,
     managementCountry: countryCode(r.managementCountry),
     control: oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], ''),
@@ -104,6 +112,8 @@ export function parseProfile(raw: unknown): Profile {
     regime: oneOf(r.regime, ['none', 'dual_use', 'military', 'unknown', ''], ''),
     componentPct: /^\d{0,3}([.,]\d{0,2})?$/.test(pct) ? pct : '',
     restricted: oneOf(r.restricted, ['yes', 'no', 'unsure', ''], ''),
+    uaEeaComponents: oneOf(r.uaEeaComponents, ['yes', 'no', 'unsure', ''], ''),
+    safeRole: oneOf(r.safeRole, ['contractor', 'subcontractor_involved', 'other_supplier', 'unsure', ''], ''),
     statuses,
     classified: oneOf(r.classified, ['yes', 'no', 'unsure', ''], ''),
     exportIntent: oneOf(r.exportIntent, ['none', 'within_eu', 'outside_eu', 'unsure', ''], ''),
@@ -115,11 +125,14 @@ export function parseProfile(raw: unknown): Profile {
 export interface AssessRequest {
   profile: {
     country: string;
+    legal_form: 'legal_person' | 'natural_person' | 'no_legal_personality' | null;
     executive_management_country: string | null;
     third_country_control: 'no' | 'ua_eea_only' | 'other' | null;
     ua_non_government_controlled_area: boolean | null;
     non_eu_component_cost_pct: number | null;
     restricted_third_country_component: boolean | null;
+    components_from_ua_or_eea_efta: boolean | null;
+    safe_role: 'contractor' | 'subcontractor_involved' | 'other_supplier' | null;
     handles_classified: boolean | null;
     product_regime: 'none' | 'dual_use' | 'military' | 'unknown';
     export_intent: 'none' | 'within_eu' | 'outside_eu' | 'unsure' | null;
@@ -143,11 +156,14 @@ export function toRequest(p: Profile): AssessRequest | null {
   return {
     profile: {
       country: p.country,
+      legal_form: p.legalForm === '' ? null : p.legalForm,
       executive_management_country: p.managementSameCountry ? p.country : p.managementCountry || null,
       third_country_control: p.control === 'no' || p.control === 'ua_eea_only' || p.control === 'other' ? p.control : null,
       ua_non_government_controlled_area: p.country === 'UA' ? tri(p.uaOccupied) : null,
       non_eu_component_cost_pct: parsePct(p.componentPct),
       restricted_third_country_component: tri(p.restricted),
+      components_from_ua_or_eea_efta: tri(p.uaEeaComponents),
+      safe_role: p.safeRole === '' || p.safeRole === 'unsure' ? null : p.safeRole,
       handles_classified: tri(p.classified),
       product_regime: p.regime === '' ? 'unknown' : p.regime,
       export_intent: p.exportIntent === '' ? null : p.exportIntent,

@@ -6,18 +6,18 @@ import assert from 'node:assert/strict';
 import { emptyProfile, isFinished, parsePct, parseProfile, toRequest, visibleCodes, withStatus, type Profile } from './profile';
 
 const ua: Profile = {
-  ...emptyProfile(), step: 6, name: 'Secret Ltd', sizeClass: 'small', country: 'UA', control: 'no', uaOccupied: 'no', regime: 'dual_use',
-  componentPct: '20', restricted: 'no', classified: 'no', exportIntent: 'outside_eu',
+  ...emptyProfile(), step: 6, name: 'Secret Ltd', sizeClass: 'small', country: 'UA', legalForm: 'legal_person', control: 'no', uaOccupied: 'no', regime: 'dual_use',
+  componentPct: '20', restricted: 'no', uaEeaComponents: 'no', safeRole: 'contractor', classified: 'no', exportIntent: 'outside_eu',
 };
 
 // Nothing can be asked before a country is chosen.
 assert.equal(toRequest(emptyProfile()), null);
 
-// The request holds the nine fields the rules read and the statuses; the name and the size never travel.
+// The request holds the twelve fields the rules read and the statuses; the name and the size never travel.
 const req = toRequest(ua)!;
 assert.deepEqual(req.profile, {
-  country: 'UA', executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
-  non_eu_component_cost_pct: 20, restricted_third_country_component: false, handles_classified: false,
+  country: 'UA', legal_form: 'legal_person', executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
+  non_eu_component_cost_pct: 20, restricted_third_country_component: false, components_from_ua_or_eea_efta: false, safe_role: 'contractor', handles_classified: false,
   product_regime: 'dual_use', export_intent: 'outside_eu',
 });
 assert.ok(!JSON.stringify(req).includes('Secret'), 'the company name must not leave the browser');
@@ -35,10 +35,17 @@ assert.equal(esReq.statuses['REQ-ISO9001'], 'held');
 assert.equal(Object.keys(esReq.statuses).length, 9);
 
 // "Not sure" and an empty answer are unknown (null), never "no".
-const unsure: Profile = { ...ua, control: 'unsure', restricted: 'unsure', classified: '', componentPct: '', exportIntent: '', regime: '' };
+const unsure: Profile = { ...ua, control: 'unsure', restricted: 'unsure', classified: '', componentPct: '', exportIntent: '', regime: '', uaEeaComponents: 'unsure', safeRole: 'unsure', legalForm: '' };
 const u = toRequest(unsure)!.profile;
-assert.deepEqual([u.third_country_control, u.restricted_third_country_component, u.handles_classified, u.non_eu_component_cost_pct, u.export_intent, u.product_regime],
-  [null, null, null, null, null, 'unknown']);
+assert.deepEqual([u.third_country_control, u.restricted_third_country_component, u.handles_classified, u.non_eu_component_cost_pct, u.export_intent, u.product_regime, u.components_from_ua_or_eea_efta, u.safe_role, u.legal_form],
+  [null, null, null, null, null, 'unknown', null, null, null]);
+
+// The legal form and the SAFE role are sent as given (D2, D5); a stored value that is not one of ours becomes the empty answer.
+assert.equal(toRequest({ ...ua, legalForm: 'natural_person' })!.profile.legal_form, 'natural_person');
+assert.equal(toRequest({ ...ua, safeRole: 'other_supplier' })!.profile.safe_role, 'other_supplier');
+assert.equal(parseProfile({ ...ua, legalForm: 'sole_trader', safeRole: 'boss' }).legalForm, '');
+assert.equal(parseProfile({ ...ua, legalForm: 'sole_trader', safeRole: 'boss' }).safeRole, '');
+assert.equal(parseProfile({ ...ua, uaEeaComponents: 'maybe' }).uaEeaComponents, '');
 
 // Executive management elsewhere is sent as that country; chosen but left empty it is unknown.
 assert.equal(toRequest({ ...ua, managementSameCountry: false, managementCountry: 'CH' })!.profile.executive_management_country, 'CH');
