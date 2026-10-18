@@ -71,7 +71,7 @@ export default async function ProjectPage({ params }: Props) {
       <section aria-labelledby="consortium" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
         <h2 id="consortium" className="m-0 text-h3">Consortium</h2>
         <p className="m-0 max-w-[80ch] text-small text-ink-muted">
-          {edf ? 'The factsheet states no amount per participant.' : 'EU contribution per participant as CORDIS states it.'} A participant who left the project is not listed; see the history below.
+          {edf ? 'The factsheet states no amount per participant.' : 'EU contribution per participant as the open data of CORDIS states it; for a participant with linked third parties it may include their share, and a participant whose amount the data does not hold or cannot make consistent shows Not stated.'} A participant who left the project is not listed; see the history below.
         </p>
         <ConsortiumTable members={p.members} />
       </section>

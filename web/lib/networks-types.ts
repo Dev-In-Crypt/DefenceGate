@@ -18,6 +18,8 @@ export interface OrgListItem {
   /** EUR, CORDIS only; null when the organisation took part only in EDF projects. */
   euContribution: number | null;
   firstYear: number | null; lastYear: number | null; programmes: string[];
+  /** Rows shown under this card (name variants that were not merged); the figures above count their projects. */
+  nameVariants?: number;
 }
 
 export interface OrgPage {
@@ -44,6 +46,10 @@ export interface OrgProfile {
   aliases: { total: number; items: { name: string; method: string; confidence: number | null; firstSeen: string; source: string | null }[] };
   /** How many other organisation rows were merged into this one. */
   mergedFrom: number;
+  /** Rows of this body under another spelling or registration, not merged; their projects are counted in `counts`. */
+  nameVariants?: { total: number; note: string; items: { organisation: OrgRef; projects: number; method: string; confidence: number | null }[] } | null;
+  /** Set when this profile is itself a name variant of another organisation. */
+  variantOf?: { organisation: OrgRef; method: string; confidence: number | null } | null;
   buyer: { slug: string; name: string; tenderCount: number } | null;
   sources: SourceNote[]; amountNote: string;
 }

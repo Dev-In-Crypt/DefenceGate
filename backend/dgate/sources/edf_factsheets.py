@@ -142,10 +142,18 @@ def _strip_version(s: str) -> str:
     return _VERSION.sub("", s.strip()).strip(" _-")
 
 
+def category_of(tokens: list[str]) -> str | None:
+    """The capability category a topic code names: the last category token. Codes carry more than one when a
+    qualifier is spelled like a category: EDF-2026-LS-DIS-RA-SMERO-NT is a call for SMEs and research
+    organisations (SMERO), EDF-2023-DA-DS-AIRDEF-EATMI one for air defence, and taking the first token
+    gave the disruptive-technologies category (DIS) to the first and DS to the second (WP-41, N8)."""
+    return next((t for t in reversed([t.upper() for t in tokens if t]) if t in CATEGORIES), None)
+
+
 def _decode(year: int, tokens: list[str], acronym: str, ga: str | None) -> FileInfo:
     toks = [t.upper() for t in tokens if t]
     action = next((t for t in toks if t in ACTIONS), None)
-    category = next((t for t in toks if t in CATEGORIES), None)
+    category = category_of(toks)
     code = f"EDF-{year}-" + "-".join(toks) if toks else None
     return FileInfo(year, acronym, ga, action, category, code,
                     "LS" in toks, "STEP" in toks)
@@ -322,21 +330,73 @@ def norm(text: str) -> str:
     return re.sub(r"\W+", " ", text.casefold()).strip()
 
 
+def fold(text: str) -> str:
+    """Letters and digits only. The factsheet table breaks and joins words at random: a name wrapped over
+    two lines ("PLIROF" / "ORIAS"), a layout that glues words ("STISTECHNOLOGIES"), a PDF that hyphenates
+    at a line end. The quote check compares in this form, where all of that is equal."""
+    return re.sub(r"\W+", "", text.casefold())
+
+
+_MIN_FOLD = 4
+
+
+def _fold_index(text: str) -> tuple[str, list[int]]:
+    """fold(text) and, for each of its characters, the position in `text` it came from."""
+    chars, where = [], []
+    for i, ch in enumerate(text):
+        for c in ch.casefold():                 # "ß" folds to two letters: both point at the one character
+            if re.match(r"\w", c):
+                chars.append(c)
+                where.append(i)
+    return "".join(chars), where
+
+
+def _looks_glued(name: str) -> bool:
+    """A word of 15 letters or more, or a lower-case letter followed by a capital inside a word
+    ("HelzelMesstechnik", "InstalazaSA"): the signs of words the layout ran together. The plain text has
+    its own faults ("SAS" printed "SA S"), so a spelling is taken from it only for a name that shows them."""
+    return (any(len(re.sub(r"\W", "", t)) >= 15 for t in name.split())
+            or re.search(r"[a-zà-ÿ][A-ZÀ-Þ]", name) is not None)
+
+
+def printed_spelling(name: str, source: str, *, wrapped: bool = False) -> str:
+    """The name as `source` (the plain text of the factsheet) prints it, spaces and all, when its letters
+    are there; else `name` unchanged.
+
+    The layout text collapses spaces ("UNIVERSITEDULUXEMBOURG", "DINAPOLI") and a model that copies it
+    stores a glued name that then becomes an organisation of its own. The plain text keeps the spaces.
+    A name that runs over two lines is printed with a line break that may fall inside a word, so such a
+    span is used only with `wrapped` (a name the model never gave); and a printed spelling replaces
+    `name` only if it has more spaces, so that a model that already repaired the glue is not undone."""
+    f = fold(name)
+    if len(f) < _MIN_FOLD or not (wrapped or _looks_glued(name)):
+        return name
+    folded, where = _fold_index(source)
+    at = folded.find(f)
+    if at < 0:
+        return name
+    span = source[where[at]:where[at + len(f) - 1] + 1]
+    if "\n" in span and not wrapped:
+        return name
+    printed = re.sub(r"\s+", " ", span).strip()
+    return printed if printed.count(" ") > name.count(" ") or wrapped else name
+
+
 _TABLE_HEADER = re.compile(r"^\s*(?:NAME\s+COUNTRY|OF\s*THE\s*ENTITY\s+COUNTRY)\s*$", re.I)
 _TABLE_NOISE = ("SELECTED PROJECTS", "EUROPEAN DEFENCE FUND", "MEMBERS OF THE CONSORTIUM", "MEMBERS OF THE",
                 "COUNTRY OF", "OF THE ENTITY", "OF THEENTITY", "AND", "COUNTRY")
 
 
-def table_rows(layout: str) -> list[tuple[str, str]]:
-    """(name as printed, country as printed) for each row of the consortium table, read from the
-    layout text without a model.
+def table_entries(layout: str) -> list[tuple[str, str, bool]]:
+    """(name as printed, country as printed, marked Coordinator) for each row of the consortium table, read
+    from the layout text without a model.
 
     The table has a name column and a country column; a row is a block of lines between blank lines,
     a name wrapped over two lines is one block, and the country is the last cell of one of its lines.
-    Used only to check the model's answer (its country for a name; names it left out): a layout this
-    does not recognise gives no rows and the check is silent.
-    """
-    rows: list[tuple[str, str]] = []
+    Used to check the model's answer (its country for a name; names it left out) and, by
+    `recover_missing`, to add the rows the answer lost: a layout this does not recognise gives no rows
+    and the check is silent."""
+    rows: list[tuple[str, str, bool]] = []
     block: list[str] = []
     in_table = False
 
@@ -349,9 +409,10 @@ def table_rows(layout: str) -> list[tuple[str, str]]:
                 country = cells[-1]
                 cells = cells[:-1]
             names.append(" ".join(cells))
-        name = re.sub(r"\s+", " ", re.sub(r"\(coordinator\)", "", " ".join(names), flags=re.I)).strip()
+        joined = " ".join(names)
+        name = re.sub(r"\s+", " ", re.sub(r"\(coordinator\)", "", joined, flags=re.I)).strip()
         if name and country:
-            rows.append((name, country))
+            rows.append((name, country, bool(re.search(r"\(coordinator\)", joined, re.I))))
         block = []
 
     for line in layout.splitlines():
@@ -371,6 +432,11 @@ def table_rows(layout: str) -> list[tuple[str, str]]:
     return rows
 
 
+def table_rows(layout: str) -> list[tuple[str, str]]:
+    """(name as printed, country as printed) for each row of the consortium table (see `table_entries`)."""
+    return [(n, c) for n, c, _ in table_entries(layout)]
+
+
 def check_names(answer: dict[str, Any], text: FactsheetText) -> tuple[dict[str, Any], dict[str, int]]:
     """Keep only the participants whose name is in the document; count what was dropped or corrected.
 
@@ -386,15 +452,15 @@ def check_names(answer: dict[str, Any], text: FactsheetText) -> tuple[dict[str, 
     the table the answer never mentions are counted (`missing_from_answer`). A layout the table
     reader does not recognise gives neither.
     """
-    haystacks = (norm(text.layout), norm(text.plain))
-    table = {norm(n): c for n, c in table_rows(text.layout)}
+    haystacks = (fold(text.layout), fold(text.plain))
+    table = {fold(n): c for n, c in table_rows(text.layout)}
     dropped = {"not_in_text": 0, "duplicate": 0, "no_country": 0, "country_corrected": 0,
                "missing_from_answer": 0}
     kept: list[dict[str, Any]] = []
     seen: set[tuple[str, str | None]] = set()
     for p in answer.get("participants") or []:
-        n = norm(p.get("name") or "")
-        if not n or not any(n in h for h in haystacks):
+        n = fold(p.get("name") or "")
+        if len(n) < _MIN_FOLD or not any(n in h for h in haystacks):
             dropped["not_in_text"] += 1
             continue
         iso = country_code(p.get("country"))
@@ -408,8 +474,8 @@ def check_names(answer: dict[str, Any], text: FactsheetText) -> tuple[dict[str, 
         seen.add((n, iso))
         if iso is None:
             dropped["no_country"] += 1
-        kept.append({**p, "country_iso": iso})
-    answered = {norm(p["name"]) for p in kept}
+        kept.append({**p, "name": printed_spelling(p["name"], text.plain), "country_iso": iso})
+    answered = {fold(p["name"]) for p in kept}
     dropped["missing_from_answer"] = sum(1 for n in table if n not in answered)
     if sum(1 for p in kept if p["role"] == "coordinator") > 1:
         # one project has one coordinator: more than one is a misreading, none is believed
@@ -419,6 +485,32 @@ def check_names(answer: dict[str, Any], text: FactsheetText) -> tuple[dict[str, 
         dropped["coordinator_doubtful"] = 1
     out = {**answer, "participants": kept}
     coord = answer.get("coordinator") or {}
-    if coord.get("name") and not any(norm(coord["name"]) in h for h in haystacks):
+    if coord.get("name") and not any(fold(coord["name"]) in h for h in haystacks):
         out["coordinator"] = None
     return out, dropped
+
+
+def recover_missing(participants: list[dict[str, Any]], text: FactsheetText) -> list[dict[str, Any]]:
+    """The rows of the consortium table that `participants` does not hold, read without a model: what the
+    quote check used to drop for a wrapped or glued name, and what the model left out. Each is a
+    participant dict like the model's, marked `recovered`, with the name as the plain text prints it
+    (a break inside a word stays a break: the organisation resolver folds spaces). The coordinator mark
+    is the table's own. Nothing is invented: a row is taken only if its letters are in the document."""
+    have = {fold(p.get("name") or "") for p in participants}
+    out: list[dict[str, Any]] = []
+    for name, country, is_coordinator in table_entries(text.layout):
+        f = fold(name)
+        if len(f) < _MIN_FOLD or f in have or not any(f in h for h in (fold(text.layout), fold(text.plain))):
+            continue
+        iso = country_code(country)
+        if iso is None:
+            continue
+        have.add(f)
+        out.append({"name": printed_spelling(name, text.plain, wrapped=True), "country": country,
+                    "country_iso": iso, "role": "coordinator" if is_coordinator else "participant",
+                    "is_sme": None, "recovered": True})
+    if sum(1 for p in participants if p["role"] == "coordinator") + sum(
+            1 for p in out if p["role"] == "coordinator") > 1:
+        for p in out:                    # one project has one coordinator: a second mark is a misreading
+            p["role"] = "participant"
+    return out

@@ -95,3 +95,23 @@ projects" is not stated anywhere read.
 | 10 | Retention limit | None seen |
 | 11 | Separate datasets | One page per call year |
 | 12 | Personal data | The factsheet names organisations only; the coordinator's contact person is not in the file read. The description (which can name a system) is cut before storage |
+
+## Wrapped and glued names (WP-41, 18 October 2026)
+
+The consortium table is typeset so that a name can wrap over two or three lines, break inside a word ("PLIROF" /
+"ORIAS", "ANGEWA" / "NDTEN"), and in the layout text spaces collapse at random ("UNIVERSITEDULUXEMBOURG", "DINAPOLI",
+"ISDLYSEIS"). The first reading compared words with spaces, so a name that the model wrote correctly was "not in the
+text" and was dropped (35 names and 43 rows left out of the answer, 31 of 283 sheets: ARCHER, EMISSARY, MARTE among
+them), and a name the model copied glued from the layout became an organisation of its own (10 participations).
+
+* The quote check compares **letters only** (`edf_factsheets.fold`), in the layout text and in the plain text. A name must
+  still be in the document; a name of fewer than four letters is never accepted.
+* A name the model copied glued is stored with the spacing the plain text prints on one line (`printed_spelling`); a
+  spelling that wraps is not used for a name the model gave.
+* The rows of the table the answer lacks are read without a model (`table_entries`, `recover_missing`) and added by
+  `python -m dgate.ops.edf_recover [--yes]` from the text still in the raw store; the same tool refiles an EDF project under
+  the last capability category its topic code names (`EDF-2023-DA-DS-AIRDEF-EATMI` was DS).
+* What the rule cannot recover (a table it cannot pair, a name the answer never had and the layout broke apart) is listed
+  by the tool with the cost of a model re-read: about USD 0.0015 a sheet. A re-read needs the stored row of that sheet
+  removed or `PROMPT_VERSION` raised, otherwise the loader finds the same file hash and asks nothing.
+

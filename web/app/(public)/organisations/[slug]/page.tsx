@@ -117,6 +117,8 @@ function Overview({ org }: { org: OrgProfile }) {
               ? <><span className="font-mono tabular-nums">{org.pic.value}</span>{org.pic.method ? <span className="text-ink-muted"> ({org.pic.method === 'source' ? 'given by the source' : `attached after matching by ${methodWord(org.pic.method)}`})</span> : null}</>
               : <span className="text-ink-muted">None held: the EDF factsheets state none.</span>}
           </dd>
+          {org.nameVariants && (<><dt className="font-bold">Name variants</dt><dd className="m-0">{org.nameVariants.total === 1 ? 'One other row carries' : `${org.nameVariants.total} other rows carry`} a name of this organisation that could not be proved to be the same legal body; they are not merged, and their projects are counted here. {org.nameVariants.items.map((v, i) => (<span key={v.organisation.id ?? i}>{i > 0 ? '; ' : ''}{v.organisation.slug ? <Link href={`/organisations/${v.organisation.slug}`} className="underline underline-offset-2">{v.organisation.name}</Link> : v.organisation.name} ({v.projects})</span>))}</dd></>)}
+          {org.variantOf && (<><dt className="font-bold">Name variant of</dt><dd className="m-0">This row is shown under {org.variantOf.organisation.slug ? <Link href={`/organisations/${org.variantOf.organisation.slug}`} className="underline underline-offset-2">{org.variantOf.organisation.name}</Link> : org.variantOf.organisation.name} in the directory; it is a separate row and is not merged.</dd></>)}
           {org.mergedFrom > 0 && (<><dt className="font-bold">Merged names</dt><dd className="m-0">{org.mergedFrom} other organisation {org.mergedFrom === 1 ? 'row was' : 'rows were'} merged into this one; their projects are counted here.</dd></>)}
         </dl>
       </section>

@@ -14,6 +14,10 @@ identifier, each with its method and confidence) and stops the cascade.
                   one. Two or more: the best known of them, at 0.80, and the pair goes to
                   `resolution_review`. An organisation that holds another PIC is a namesake,
                   not this one: a new organisation is made and the pair goes to review.
+     legal form   a name that states a legal form (AG, GmbH, SA, Ltd ...) is not the organisation that has
+                  stated another one under the same key: RENK AG and RENK GmbH are two bodies. The row is
+                  skipped, a new organisation is made if no row with this form exists, and the pair goes
+                  to `resolution_review` (method `legal_form_conflict`). WP-41, N11.
   3  candidates   trigram similarity of 0.85 or more within the country, same numbers in the
                   name, never across countries. They are written to `resolution_review` and
                   **never merged**: Thales SA and Thales Nederland B.V. are related, not one body.
@@ -34,7 +38,7 @@ from psycopg.types.json import Jsonb
 
 from .. import db
 from ..normalise import normalise_identifier
-from .names import key_of
+from .names import key_of, legal_form_of
 from .trigram import THRESHOLD, is_candidate
 
 log = logging.getLogger(__name__)
@@ -140,6 +144,21 @@ def _by_national_id(conn: psycopg.Connection, key: str, country: str, ids: dict[
     return None
 
 
+def _form_clash(conn: psycopg.Connection, org_id: int, name: str) -> bool:
+    """Whether `name` states a legal form and the organisation has been called, by that form's class,
+    only something else: its display name and the names of its aliases are the evidence. A name with no
+    form, or an organisation never seen with one, clashes with nothing."""
+    new = legal_form_of(name)
+    if new is None:
+        return False
+    names = [r["n"] for r in conn.execute(
+        """SELECT display_name AS n FROM organisation WHERE id = %s
+           UNION ALL (SELECT raw_name FROM organisation_alias WHERE organisation_id = %s LIMIT 50)""",
+        (org_id, org_id)).fetchall()]
+    have = {c for c in (legal_form_of(n or "") for n in names) if c}
+    return bool(have) and new not in have
+
+
 def resolve(conn: psycopg.Connection, name: str, country: str | None,
             identifiers: dict[str, Any] | None = None,
             context: dict[str, Any] | None = None) -> Resolution:
@@ -179,7 +198,8 @@ def resolve(conn: psycopg.Connection, name: str, country: str | None,
               AND o.country = %s
             ORDER BY a.confidence DESC, a.id LIMIT 1""",
         (list({key, legacy}), country, country)).fetchone()
-    if alias and not (pic and alias["eu_pic"] and alias["eu_pic"] != pic):
+    if alias and not (pic and alias["eu_pic"] and alias["eu_pic"] != pic) and not _form_clash(
+            conn, alias["organisation_id"], name):
         org_id = db._live(conn, alias["organisation_id"])
         if pic and alias["eu_pic"] is None:
             _attach_pic(conn, org_id, pic, "alias", float(alias["confidence"]), name, vat)
@@ -201,6 +221,8 @@ def resolve(conn: psycopg.Connection, name: str, country: str | None,
             ORDER BY id""", (country, list({key, legacy}))).fetchall()
     same = [r for r in rows if not (pic and r["eu_pic"] and r["eu_pic"] != pic)]
     other_pic = [r for r in rows if pic and r["eu_pic"] and r["eu_pic"] != pic]
+    other_form = [r for r in same if _form_clash(conn, r["id"], name)]
+    same = [r for r in same if r not in other_form]
     if len(same) == 1:
         org_id = same[0]["id"]
         if pic and same[0]["eu_pic"] is None:
@@ -227,6 +249,10 @@ def resolve(conn: psycopg.Connection, name: str, country: str | None,
         add_review(conn, org_id, r["id"], relation="same_name_other_pic", method="pic_conflict",
                    confidence=0.50,
                    evidence={"key": key, "country": country, "pics": [pic, r["eu_pic"]]})
+    for r in other_form:
+        add_review(conn, org_id, r["id"], relation="same_name_other_legal_form", method="legal_form_conflict",
+                   confidence=0.50,
+                   evidence={"key": key, "country": country, "form": legal_form_of(name)})
     found: list[dict[str, Any]] = []
     if ctx.get("candidates", True):
         found = propose_candidates(conn, org_id, key, country)

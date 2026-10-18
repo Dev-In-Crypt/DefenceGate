@@ -2481,6 +2481,12 @@ def main(argv: list[str] | None = None) -> int:
                          "(stage 3; about 40 ms an organisation, so 45 minutes on a first load; "
                          "`resolution-candidates` does it later, in chunks)")
 
+    cc = sub.add_parser("cordis-countries",
+                        help="read the CORDIS organisations again (about 15 requests) and settle the country "
+                             "and display name of those that hold their PIC (WP-41)")
+    cc.add_argument("--yes", action="store_true", help="write; without it only report")
+    cc.add_argument("--max-pages", type=int, default=None)
+
     ed = sub.add_parser("edf", help="load the EDF project factsheets (crawl, read, resolve)")
     ed.add_argument("--year", type=int, action="append", help="a call year; repeat (default: all)")
     ed.add_argument("--max-files", type=int, default=None, help="stop after this many factsheets")
@@ -2583,6 +2589,10 @@ def main(argv: list[str] | None = None) -> int:
 
         networks.run_cordis(programmes=set(a.programme) if a.programme else None,
                             max_pages=a.max_pages, candidates=not a.no_candidates)
+    elif a.cmd == "cordis-countries":
+        from . import networks
+
+        print(dict(networks.run_cordis_countries(apply=a.yes, max_pages=a.max_pages)))
     elif a.cmd == "edf":
         from . import networks
 

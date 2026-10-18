@@ -30,6 +30,7 @@ from .config import settings
 from .rawstore import BundleWriter, build_store, storage_key
 from .resolution import resolve
 from .resolution.cascade import propose_candidates
+from .resolution.names import key_of
 from .sources import USER_AGENT, RateLimited, cordis, ted
 from .sources import edf_factsheets as edf
 
@@ -108,20 +109,89 @@ def _upsert_project(conn: psycopg.Connection, src_id: int, native_id: str,
 
 def _upsert_participation(conn: psycopg.Connection, project_id: int, org_id: int, role: str,
                           contribution: float | None, method: str, confidence: float,
-                          existing: dict[str, Any] | None) -> tuple[int, str]:
+                          existing: dict[str, Any] | None, note: str | None = None,
+                          stated: float | None = None) -> tuple[int, str]:
     if existing is None:
         row = conn.execute(
             """INSERT INTO participation (project_id, organisation_id, role, contribution,
-                                          resolution_method, resolution_confidence)
-               VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
-            (project_id, org_id, role, contribution, method, round(confidence, 2))).fetchone()
+                                          resolution_method, resolution_confidence,
+                                          contribution_note, contribution_stated)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+            (project_id, org_id, role, contribution, method, round(confidence, 2), note,
+             stated)).fetchone()
         return row["id"], "new"
     if (existing["role"] == role and _same(existing["contribution"], contribution)
-            and existing["active"]):
+            and existing["active"] and existing.get("contribution_note") == note
+            and _same(existing.get("contribution_stated"), stated)):
         return existing["id"], "same"
-    conn.execute("UPDATE participation SET role = %s, contribution = %s, active = TRUE WHERE id = %s",
-                 (role, contribution, existing["id"]))
+    conn.execute(
+        """UPDATE participation SET role = %s, contribution = %s, contribution_note = %s,
+                  contribution_stated = %s, active = TRUE WHERE id = %s""",
+        (role, contribution, note, stated, existing["id"]))
     return existing["id"], "changed"
+
+
+# ------------------------------------------------------------------ what a contribution means
+
+# `participation.contribution` is the EU funding CORDIS's open data pays to the participant (the
+# grant payment of its role). It is NOT the "net EU contribution" the CORDIS web page prints: the
+# page deducts what the participant passes on to its linked third parties, and the open data does
+# not say which third party is linked to which beneficiary, nor what each was paid (it shows them
+# at 0). So:
+#   NULL      the amount is unknown; `contribution_note` says why
+#               no_payment_stated      the service holds no payment for this role (recent grants)
+#               linked_third_party     a third party, shown at 0: its share is inside another payment
+#               exceeds_project_total  the project's amounts add up to more than its EU contribution;
+#                                      none can be trusted, the figure as stated is in contribution_stated
+#               source_states_none     EDF factsheets state no amount per participant
+#   a number  the amount as stated; with the note `gross_of_third_parties` the project has third
+#             parties, so the amount may include their share
+#   0         stated as 0 (an associated partner, a partner organisation: not funded)
+OVERSUM_TOLERANCE = 1.0          # EUR per participant: CORDIS rounds each amount to the cent or the euro
+# ponytail: a flat 2 per cent of the project total is also allowed. An amendment moves a few thousand euro and the
+# open data keeps either figure; below 2 per cent no row is wrong by more than that (measured on 17 October:
+# project 241935, 148 participants, 0.2 per cent over, would have lost every amount). Raise or drop it when the
+# bulk package, which has the net figures, replaces the open data.
+OVERSUM_RELATIVE = 0.02
+NOTE_CODES = ("no_payment_stated", "linked_third_party", "exceeds_project_total",
+              "source_states_none", "gross_of_third_parties")
+
+
+def source_view(role: str, contribution: float | None, note: str | None,
+                stated: float | None) -> tuple[float | None, str | None]:
+    """What the source said about a participation, recovered from a stored row, so that
+    `settle_amounts` can be run again on rows written by an earlier version or by this one."""
+    if note == "exceeds_project_total":
+        return (None if stated is None else float(stated)), None
+    if note in ("no_payment_stated", "linked_third_party"):
+        return None, note
+    if note == "source_states_none":
+        return None, note
+    value = None if contribution is None else float(contribution)
+    if value == 0 and role == "third_party":
+        return None, "linked_third_party"
+    if value is None:
+        return None, "no_payment_stated"
+    return value, None
+
+
+def settle_amounts(members: list[tuple[str, float | None, str | None]], fund: float | None
+                   ) -> list[tuple[float | None, str | None, float | None]]:
+    """(contribution, note, stated) for each member of one project, given as (role, amount as the
+    source states it or None, note for a missing amount) and the project's EU contribution.
+
+    The amounts of a project cannot add up to more than its EU contribution. When they do, which of
+    them is wrong cannot be told (CORDIS pays an ERC grant that moved between two hosts to both in
+    full; amendments move money and the open data keeps the old figures), so none is shown: every
+    positive amount is withheld, kept in `stated`, and marked."""
+    positive = [a for _, a, _ in members if a is not None and a > 0]
+    if fund and fund > 0 and positive and sum(positive) > (
+            fund * (1 + OVERSUM_RELATIVE) + OVERSUM_TOLERANCE * (len(members) + 1)):
+        return [(None, "exceeds_project_total", a) if a is not None and a > 0 else (a, n, None)
+                for _, a, n in members]
+    has_tp = any(r == "third_party" for r, _, _ in members)
+    return [(a, "gross_of_third_parties" if a is not None and a > 0 and has_tp
+             and r in ("coordinator", "participant") else n, None) for r, a, n in members]
 
 
 def _known_hashes(conn: psycopg.Connection, src_id: int) -> set[str]:
@@ -134,6 +204,50 @@ def _switch_on(conn: psycopg.Connection, code: str) -> None:
     from then on `/v1/health` and the sources list report it, and a failed or partial month shows."""
     conn.execute("UPDATE source SET active = TRUE WHERE code = %s AND NOT active", (code,))
     conn.commit()
+
+
+def _settle_organisation(conn: psycopg.Connection, org_id: int, rec: cordis.OrgRecord, c: Counter) -> None:
+    """After the cascade, for an organisation that holds the PIC this record states: its country and
+    its name as CORDIS gives them now.
+
+    Country. The cascade finds an organisation by PIC and does not look at the country, and it
+    creates a new one with the country of the first record it meets. When the record's three signals
+    say another country than the one stored (`cordis.seat_country`: CSIC, address Trento, site
+    "Madrid ES", VAT ES), the stored country follows, with the basis and the countries seen, and the
+    organisation's aliases move with it. A record that is plain (basis None) never changes an
+    organisation whose stored basis is also None: its country may have come from the buyer side.
+
+    Name. CORDIS prints the current name; the display name follows it, and the name it replaces
+    stays an alias (it was recorded when the organisation first met it)."""
+    if not rec.pic:
+        return
+    row = conn.execute(
+        "SELECT country, country_basis, country_sites, display_name, eu_pic FROM organisation WHERE id = %s",
+        (org_id,)).fetchone()
+    if row is None or row["eu_pic"] != rec.pic:
+        return
+    have = (row["country"].strip(), row["country_basis"], list(row["country_sites"] or []))
+    want = (rec.country, rec.country_basis, list(rec.country_sites))
+    if rec.country and (rec.country_basis or row["country_basis"]) and have != want:
+        conn.execute(
+            "UPDATE organisation SET country = %s, country_basis = %s, country_sites = %s WHERE id = %s",
+            (rec.country, rec.country_basis, list(rec.country_sites) or None, org_id))
+        if have[0] != rec.country:
+            conn.execute(
+                """UPDATE organisation_alias a SET country_hint = %s
+                    WHERE a.organisation_id = %s AND a.country_hint = %s
+                      AND NOT EXISTS (SELECT 1 FROM organisation_alias b
+                                       WHERE b.normalised_name = a.normalised_name
+                                         AND b.country_hint = %s
+                                         AND b.source_id IS NOT DISTINCT FROM a.source_id)""",
+                (rec.country, org_id, have[0], rec.country))
+        c["countries_changed"] += 1
+    shown = " ".join((row["display_name"] or "").split())
+    # A rename, not a respelling: CORDIS prints names without accents and with its own punctuation (13 of the
+    # 72,534 differ that way on 17 October), and "Fundación" is not improved by "FUNDACION".
+    if not shown or key_of(rec.name)[0] != key_of(shown)[0]:
+        conn.execute("UPDATE organisation SET display_name = %s WHERE id = %s", (rec.name[:300], org_id))
+        c["names_refreshed"] += 1
 
 
 def _complete(c: Counter, kind: str, expected: int, max_pages: int | None) -> None:
@@ -182,6 +296,7 @@ def load_cordis(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWrite
                           {"source_id": src_id, "candidates": candidates})
             if res.org_id is None:
                 continue
+            _settle_organisation(conn, res.org_id, rec, c)
             org_map[rec.key] = (res.org_id, res.method, res.confidence)
             c[f"organisation_by_{res.method}"] += 1
             if res.created:
@@ -194,6 +309,7 @@ def load_cordis(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWrite
     programme_ids = {r["code"]: r["id"] for r in conn.execute(
         "SELECT code, id FROM programme WHERE code = ANY(%s)", (["H2020", "HORIZON", "FP7"],))}
     proj_map: dict[str, int] = {}
+    proj_fund: dict[int, float | None] = {}             # project id -> its EU contribution
     for page in pages("projects"):
         recs = []
         for row in page["rows"]:
@@ -215,6 +331,7 @@ def load_cordis(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWrite
                                           _project_values(rec, programme_ids),
                                           existing.get(rec.rcn))
             proj_map[rec.rcn] = pid
+            proj_fund[pid] = rec.eu_contribution
             if action != "same":
                 c[f"projects_{action}"] += 1
                 c["new" if action == "new" else "changed"] += 1
@@ -242,12 +359,15 @@ def load_cordis(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWrite
             pair = (project_id, org[0])
             held = pairs.get(pair)
             if held is None:
-                pairs[pair] = [rec.role, rec.contribution, org[1], org[2]]
+                pairs[pair] = [rec.role, rec.contribution, rec.note, org[1], org[2]]
             else:
                 c["roles_duplicate"] += 1
                 held[0] = _better_role(held[0], rec.role)
                 if held[1] is not None or rec.contribution is not None:
                     held[1] = (held[1] or 0) + (rec.contribution or 0)
+                    held[2] = None
+                elif held[2] is None:
+                    held[2] = rec.note
         _checkpoint(conn, writer, run_id, c)
     _complete(c, "roles", expected["roles"], max_pages)
 
@@ -260,12 +380,18 @@ def load_cordis(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWrite
     for i in range(0, len(project_ids), 2000):
         chunk = project_ids[i:i + 2000]
         existing = {(r["project_id"], r["organisation_id"]): r for r in conn.execute(
-            """SELECT id, project_id, organisation_id, role, contribution, active
+            """SELECT id, project_id, organisation_id, role, contribution, active,
+                      contribution_note, contribution_stated
                  FROM participation WHERE project_id = ANY(%s)""", (chunk,)).fetchall()}
         for project_id in chunk:
-            for org_id, (role, contribution, method, conf) in by_project[project_id]:
-                pid, action = _upsert_participation(conn, project_id, org_id, role, contribution,
-                                                    method, conf, existing.get((project_id, org_id)))
+            members = by_project[project_id]
+            settled = settle_amounts([(h[0], h[1], h[2]) for _, h in members], proj_fund.get(project_id))
+            if any(n == "exceeds_project_total" for _, n, _ in settled):
+                c["projects_amounts_withheld"] += 1
+            for (org_id, (role, _contribution, _note, method, conf)), (amount, note, stated) in zip(
+                    members, settled, strict=True):
+                pid, action = _upsert_participation(conn, project_id, org_id, role, amount, method,
+                                                    conf, existing.get((project_id, org_id)), note, stated)
                 touched.add(pid)
                 if action != "same":
                     c[f"participations_{action}"] += 1
@@ -286,6 +412,40 @@ def load_cordis(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWrite
                          (gone[i:i + 10000],))
         c["participations_deactivated"] = len(gone)
         conn.commit()
+    return c
+
+
+def reconcile_countries(conn: psycopg.Connection, sp: cordis.Sparql, writer: BundleWriter | None,
+                        src_id: int, *, apply: bool = False, max_pages: int | None = None) -> Counter:
+    """Read the organisations of CORDIS again (15 requests, no project and no participation) and bring
+    the country and display name of the organisations that hold their PIC in line with
+    `_settle_organisation`. `writer` lands the pages first (the pipeline rule); without `apply`
+    nothing is written (the transaction is rolled back and nothing is landed)."""
+    c: Counter = Counter()
+    known = _known_hashes(conn, src_id)
+    for n, page in enumerate(sp.pages("organisations")):
+        if max_pages is not None and n >= max_pages:
+            break
+        if apply and writer is not None:
+            _land(conn, writer, src_id, cordis.SOURCE_CODE, known, page,
+                  f"organisations:{page['after'] or 'start'}")
+        for row in page["rows"]:
+            c["organisations_seen"] += 1
+            rec = cordis.org_record(row)
+            if rec is None or rec.country is None or not rec.pic:
+                continue
+            holder = conn.execute("SELECT id FROM organisation WHERE eu_pic = %s", (rec.pic,)).fetchone()
+            if holder is None:
+                c["organisations_not_held"] += 1
+                continue
+            if rec.country_basis == "several":
+                c["organisations_several_countries"] += 1
+            elif rec.country_basis == "vote":
+                c["organisations_country_by_vote"] += 1
+            _settle_organisation(conn, holder["id"], rec, c)
+        if apply and writer is not None:
+            writer.drain()
+        conn.commit() if apply else conn.rollback()
     return c
 
 
@@ -377,11 +537,12 @@ def load_edf_factsheet(conn: psycopg.Connection, src_id: int, info: edf.FileInfo
         else:
             held[0] = _better_role(held[0], p["role"])
     existing_p = {r["organisation_id"]: r for r in conn.execute(
-        """SELECT id, organisation_id, role, contribution, active FROM participation
+        """SELECT id, organisation_id, role, contribution, active, contribution_note,
+                  contribution_stated FROM participation
             WHERE project_id = %s""", (project_id,)).fetchall()}
     for org_id, (role, method, conf) in members.items():
         _, act = _upsert_participation(conn, project_id, org_id, role, None, method, conf,
-                                       existing_p.get(org_id))
+                                       existing_p.get(org_id), "source_states_none")
         if act != "same":
             c[f"participations_{act}"] += 1
             c["new" if act == "new" else "changed"] += 1
@@ -660,32 +821,37 @@ YEAR_SQL = "COALESCE(extract(year FROM p.start_date)::int, p.call_year::int)"
 
 REFRESH_NETWORK_SQL = f"""
 WITH part AS (
-  SELECT COALESCE(l.live_id, pa.organisation_id) AS org, pa.project_id, pa.role, pa.contribution,
-         {YEAR_SQL} AS yr, pr.code AS prog
+  SELECT COALESCE(h.id, COALESCE(l.live_id, pa.organisation_id)) AS org,
+         COALESCE(l.live_id, pa.organisation_id) AS own, h.id IS NOT NULL AS in_family,
+         pa.project_id, pa.role, pa.contribution, {YEAR_SQL} AS yr, pr.code AS prog
     FROM participation pa
     JOIN project p ON p.id = pa.project_id
     LEFT JOIN programme pr ON pr.id = p.programme_id
     LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
+    LEFT JOIN organisation_family_member fm ON fm.org_id = COALESCE(l.live_id, pa.organisation_id)
+    LEFT JOIN organisation h ON h.id = fm.head_org_id AND h.merged_into IS NULL AND NOT h.suppressed
    WHERE pa.active AND NOT COALESCE(l.suppressed, FALSE)),
 agg AS (
   SELECT org, count(DISTINCT project_id) AS projects,
          count(DISTINCT project_id) FILTER (WHERE role = 'coordinator') AS coordinated,
          sum(contribution) AS eu, min(yr) AS y0, max(yr) AS y1,
          array_remove(array_agg(DISTINCT prog ORDER BY prog), NULL) AS progs,
-         array_agg(DISTINCT role ORDER BY role) AS roles
+         array_agg(DISTINCT role ORDER BY role) AS roles,
+         count(DISTINCT own) FILTER (WHERE in_family) AS variants
     FROM part GROUP BY org)
 INSERT INTO organisation_network (organisation_id, name, country, projects, coordinated,
                                   eu_contribution, first_year, last_year, programmes, roles,
-                                  refreshed_at)
+                                  family_variants, refreshed_at)
 SELECT a.org, COALESCE(o.display_name, o.canonical_name), o.country, a.projects, a.coordinated,
-       a.eu, a.y0, a.y1, a.progs, a.roles, now()
+       a.eu, a.y0, a.y1, a.progs, a.roles, a.variants, now()
   FROM agg a JOIN organisation o ON o.id = a.org
  WHERE NOT o.suppressed
 ON CONFLICT (organisation_id) DO UPDATE SET
   name = EXCLUDED.name, country = EXCLUDED.country, projects = EXCLUDED.projects,
   coordinated = EXCLUDED.coordinated, eu_contribution = EXCLUDED.eu_contribution,
   first_year = EXCLUDED.first_year, last_year = EXCLUDED.last_year,
-  programmes = EXCLUDED.programmes, roles = EXCLUDED.roles, refreshed_at = EXCLUDED.refreshed_at
+  programmes = EXCLUDED.programmes, roles = EXCLUDED.roles,
+  family_variants = EXCLUDED.family_variants, refreshed_at = EXCLUDED.refreshed_at
 """
 
 
@@ -700,3 +866,25 @@ def refresh_organisation_network(conn: psycopg.Connection) -> dict[str, int]:
     n = conn.execute("SELECT count(*) AS n FROM organisation_network").fetchone()["n"]
     conn.commit()
     return {"organisations": n, "removed": gone}
+
+
+def run_cordis_countries(*, apply: bool = False, max_pages: int | None = None,
+                         sparql: cordis.Sparql | None = None) -> Counter:
+    """`python -m dgate.pipeline cordis-countries [--yes]`: the targeted repair for N4 and N12. Reads the
+    organisations of CORDIS again (about 15 requests, one a second, robots.txt first), lands the pages,
+    and settles country and display name of the organisations that hold the PIC. No project, no
+    participation, no model."""
+    cfg = settings()
+    sp = sparql or cordis.Sparql()
+    try:
+        with db.connect(cfg.dsn) as conn, BundleWriter(build_store(), cordis.SOURCE_CODE) as writer:
+            sp.check_robots()
+            src_id = db.source_id(conn, cordis.SOURCE_CODE)
+            c = reconcile_countries(conn, sp, writer, src_id, apply=apply, max_pages=max_pages)
+            if apply:
+                c["directory_rows"] = refresh_organisation_network(conn)["organisations"]
+    finally:
+        if sparql is None:
+            sp.close()
+    log.info("cordis countries (%s): %s", "written" if apply else "dry run", dict(c))
+    return c

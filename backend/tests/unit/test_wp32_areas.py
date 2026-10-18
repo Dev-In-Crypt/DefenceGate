@@ -33,7 +33,7 @@ def test_an_edf_call_is_compared_first_with_its_capability_category_then_with_al
     assert category in narrow.label
 
 
-@pytest.mark.parametrize("topic", ["EDF-EDIP-P-2027-FNLC-CPA-AMDS", "EDF-EDIP-USI-2027-LS-IRA-CUXS", "EDF-EDIP-P-2026-2027-FNLC-SA-SEAP"])
+@pytest.mark.parametrize("topic", ["EDF-EDIP-P-2026-FNLC-CPA-CDS", "EDF-EDIP-USI-2027-LS-IRA-CUXS", "EDF-EDIP-P-2026-2027-FNLC-SA-SEAP"])
 def test_an_edip_call_names_no_category_so_it_is_compared_with_all_edf_projects(topic):
     assert kinds(topic) == ["edf"]
 

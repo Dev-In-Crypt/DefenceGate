@@ -92,6 +92,7 @@ def test_a_changed_amount_and_a_vanished_participant_are_recorded_not_deleted(co
     roles2[0]["amount"] = "310000"
     projects2 = copy.deepcopy(projects)
     projects2[0]["status"] = "CLOSED"
+    projects2[0]["fund"] = "810000"     # the project total follows the amount (WP-41: amounts may not exceed it)
     c = _run(FakeCordis(orgs, projects2, roles2))
     assert c["participations_changed"] == 1 and c["participations_deactivated"] == 1
     assert c["projects_changed"] == 1
@@ -110,6 +111,7 @@ def test_a_changed_amount_and_a_vanished_participant_are_recorded_not_deleted(co
 
 def test_the_same_organisation_twice_in_a_project_is_one_participation(conn, env):
     orgs, projects, roles = dataset()
+    projects[0]["fund"] = "800005"      # the project total covers the merged amounts (WP-41)
     roles = roles + [{"key": "r9", "project": "1001", "org": "o2", "role": "coordinator",
                       "amount": "5"}]
     c = _run(FakeCordis(orgs, projects, roles))

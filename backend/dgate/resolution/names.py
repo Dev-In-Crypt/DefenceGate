@@ -16,6 +16,7 @@ tries both, a new row is written with the new one.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from ..normalise import normalise_org_name
 
@@ -99,3 +100,71 @@ def key_of(raw: str) -> tuple[str, str]:
     key = re.sub(r"[-&]+", " ", key)
     key = _strip_extra_forms(re.sub(r"\s+", " ", key).strip())
     return key, legacy
+
+
+# ------------------------------------------------------------------ legal form (WP-41)
+
+# The legal form a raw name states, as a class: the spellings of one form are one class ("GmbH",
+# "G.m.b.H.", "Gesellschaft mit beschraenkter Haftung"), two different forms are two classes. A
+# company limited by shares and a limited company of the same group are different legal bodies even
+# when everything else of the name is equal (RENK AG, RENK GmbH): the key strips both, so the key
+# alone cannot tell them apart. Only the forms listed here count; any other name has no class and
+# is never kept apart by this rule. Token sequences of the *unstripped* name, folded as `key_of`
+# folds (accents, case, punctuation as spacing), at the end or at the start of the name.
+_FORM_CLASSES: dict[str, tuple[tuple[str, ...], ...]] = {
+    "gmbh_co_kg": (("gmbh", "co", "kg"), ("gmbh", "u", "co", "kg"), ("gmbh", "co", "ohg")),
+    "gmbh": (("gmbh",), ("g", "m", "b", "h"), ("mbh",), ("gesellschaft", "mit", "beschrankter", "haftung"),
+             ("gesellschaft", "mit", "beschraenkter", "haftung")),
+    "ag": (("ag",), ("aktiengesellschaft",)),
+    "se": (("se",),),
+    "kg": (("kg",), ("kommanditgesellschaft",)),
+    "ev": (("e", "v"), ("ev",), ("eingetragener", "verein")),
+    "sa": (("sa",), ("s", "a"), ("societe", "anonyme"), ("sociedad", "anonima"), ("sociedade", "anonima"),
+           ("spolka", "akcyjna"), ("s", "a", "u"), ("sau",)),
+    "sas": (("sas",), ("s", "a", "s"), ("societe", "par", "actions", "simplifiee")),
+    "sarl": (("sarl",), ("s", "a", "r", "l"), ("societe", "a", "responsabilite", "limitee")),
+    "sl": (("sl",), ("s", "l"), ("sociedad", "limitada"), ("slu",), ("s", "l", "u")),
+    "srl": (("srl",), ("s", "r", "l"), ("societa", "a", "responsabilita", "limitata")),
+    "spa": (("spa",), ("s", "p", "a"), ("societa", "per", "azioni")),
+    "bv": (("bv",), ("b", "v"), ("besloten", "vennootschap")),
+    "nv": (("nv",), ("n", "v"), ("naamloze", "vennootschap")),
+    "zoo": (("sp", "z", "o", "o"), ("spzoo",), ("spolka", "z", "ograniczona", "odpowiedzialnoscia")),
+    "oy": (("oy",), ("osakeyhtio",)),
+    "oyj": (("oyj",),),
+    "ab": (("ab",), ("aktiebolag",)),
+    "as": (("as",), ("a", "s"), ("aksjeselskap",), ("aktieselskab",)),
+    "aps": (("aps",),),
+    "ltd": (("ltd",), ("limited",)),
+    "plc": (("plc",),),
+    "llc": (("llc",), ("limited", "liability", "company")),
+    "inc": (("inc",), ("incorporated",)),
+    "sro": (("s", "r", "o"), ("sro",)),
+}
+_FORM_LOOKUP: list[tuple[tuple[str, ...], str]] = sorted(
+    ((seq, cls) for cls, seqs in _FORM_CLASSES.items() for seq in seqs),
+    key=lambda x: len(x[0]), reverse=True)
+
+
+def _form_tokens(raw: str) -> list[str]:
+    s = unicodedata.normalize("NFKD", transliterate(raw or ""))
+    s = "".join(c for c in s if not unicodedata.combining(c)).lower().replace("ß", "ss")
+    return re.findall(r"[a-z0-9]+", s)
+
+
+def legal_form_of(raw: str | None) -> str | None:
+    """The legal-form class a raw name states at its end or its start, or None."""
+    tokens = _form_tokens(raw or "")
+    if len(tokens) < 2:
+        return None
+    for seq, cls in _FORM_LOOKUP:
+        n = len(seq)
+        if len(tokens) > n and (tuple(tokens[-n:]) == seq or tuple(tokens[:n]) == seq):
+            return cls
+    return None
+
+
+def fold_key(key: str) -> str:
+    """The key with every space removed: names that differ only by where a space falls ("ANGEWA NDTEN"
+    against "ANGEWANDTEN", "UNIVERSITEDULUXEMBOURG") fold to one string. A weaker equality than the key
+    itself, used only by the merge tool and with its own, lower confidence."""
+    return re.sub(r"[\s.]+", "", key or "")
