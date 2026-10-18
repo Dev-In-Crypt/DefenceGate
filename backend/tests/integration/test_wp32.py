@@ -340,7 +340,8 @@ def test_an_edip_call_filed_under_the_edf_is_judged_by_the_edip_rules(conn):
 
         assert timings(edip) == {"EDIP": "not_possible"}, "a Ukrainian company is not eligible for the EDIP programme"
         assert timings(usi) == {"EDIP-USI": "yes"}
-        assert timings(plain) == {"EDF": "yes"}
+        # WP-40 (V2-B2): the EDF documents make a Ukrainian applicant conditional on the association agreement being signed.
+        assert timings(plain) == {"EDF": "depends"}
 
 
 # ------------------------------------------------------------------------------ the read-only role
