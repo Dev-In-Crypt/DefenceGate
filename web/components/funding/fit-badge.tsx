@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { FIT_MEANING, FIT_WORD } from '@/lib/fit';
-import { fitFor, hiddenByFilter, isLoaded, setOnlyFits, useFit, useFitState } from '@/lib/fit-store';
+import { useFit, useFitState } from '@/lib/fit-hooks';
+import { fitFor, hiddenByFilter, isLoaded, setOnlyFits } from '@/lib/fit-store';
 import { cn } from '@/lib/utils';
 import { Choice } from '../dg/form';
 import { Icon } from '../dg/icon';

@@ -12,11 +12,11 @@
  *      asked once per profile, `POST /api/readiness/assess`, the request the readiness pages make;
  *   4. the facts and the programme verdict are compared with the profile by lib/fit.ts and the badges re-render.
  *
+ * The React hooks are in lib/fit-hooks.ts (this file has no import of React, so lib/fit-store.check.ts can run it in node).
  * `useSyncExternalStore` keeps the first client render equal to the server's (no badge, nothing hidden), so there
  * is no hydration mismatch; badges appear after hydration. The profile is read again every time an item mounts,
  * so a profile changed on /readiness is seen after a client-side navigation.
  */
-import { useEffect, useSyncExternalStore } from 'react';
 import type { EligibilityFacts } from './eligibility-check';
 import { fitOf, fitsProfile, programmeFit, programmesOfCall, withProgramme, type Fit, type FitResult } from './fit';
 import { PROFILE_KEY, loadProfile, toRequest, type Profile } from './profile';
@@ -168,28 +168,16 @@ export function setOnlyFits(value: boolean): void {
   recount();
 }
 
-function subscribe(listener: () => void): () => void {
+export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
 }
 export const getSnapshot = (): FitSnapshot => snapshot;
-const getServerSnapshot = (): FitSnapshot => SERVER;
+export const getServerSnapshot = (): FitSnapshot => SERVER;
 
-/** For a badge or an item of a list: the state of the store, with the item registered while it is on the page. */
-export function useFit(id: string): FitSnapshot {
-  useEffect(() => {
-    mount(id);
-    return () => unmount(id);
-  }, [id]);
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
-/** For the filter: the state of the store, with no call registered. */
-export function useFitState(): FitSnapshot {
-  useEffect(() => {
-    if (readProfile()) recount();
-  }, []);
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+/** Read the profile again (the hook of the filter calls it once on mount). */
+export function refresh(): void {
+  if (readProfile()) recount();
 }
 
 /** An item is hidden by "Fits my profile" when its facts are in and it is neither eligible nor worth a look. */

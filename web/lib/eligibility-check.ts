@@ -64,10 +64,10 @@ const EXCEPTION = /guarantee|exempt|exception|unless|screening|derogat|approved 
 
 /** Applicant kinds a company (or other profile) is plainly covered by, when a call lists the kinds that may apply. */
 const COVERS: Record<OrgType, RegExp> = {
-  sme: /legal entit|private|compan|enterprise|business|firm|industr|smes?|start-?up|mid-?cap/i,
+  sme: /legal entit|private|compan|enterprise|business|firm|industr|\bsmes?\b|start-?up|mid-?cap/i,
   large: /legal entit|private|compan|enterprise|business|firm|industr/i,
   public: /legal entit|public|authorit|ministr|agenc|bod(?:y|ies)/i,
-  university: /legal entit|universit|research|academi|rtos?/i,
+  university: /legal entit|universit|research|academi|\brtos?\b/i,
   individual: /natural person|individual|sole trader/i,
 };
 
@@ -88,7 +88,7 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
   const c = facts.eligible_countries;
   if (c && p.country) {
     const text = String(c.value);
-    const eu = /member states|union|EU/i.test(text);
+    const eu = /member states|\bunion\b|\bEU\b/i.test(text);
     let line: Line;
     if (eu && EU27.has(p.country)) line = { key: 'country', label: 'Country', verdict: 'yes', reason: 'An EU Member State is eligible under this call.', quote: c.quote };
     else if (eu && EEA_EXTRA.has(p.country) && /EEA/i.test(text)) line = { key: 'country', label: 'Country', verdict: 'yes', reason: 'EEA countries are eligible under this call.', quote: c.quote };
