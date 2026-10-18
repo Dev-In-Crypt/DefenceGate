@@ -6,7 +6,7 @@
  *   const p = loadProfile();            // null before the wizard has been started
  *   p?.country                          // 'UA', 'ES', ... or 'XX' for a country that is not listed
  *
- * What leaves the browser is `toRequest(profile)`: the answers the rules read (twelve fields) and the
+ * What leaves the browser is `toRequest(profile)`: the answers the rules read (thirteen fields) and the
  * status of each requirement, sent to POST /api/readiness/assess to compute the verdict. The company
  * name and the size class are kept here for the page and are never part of that request.
  *
@@ -24,6 +24,8 @@ export type Regime = 'none' | 'dual_use' | 'military' | 'unknown' | '';
 export type ExportIntent = 'none' | 'within_eu' | 'outside_eu' | 'unsure' | '';
 export type LegalForm = 'legal_person' | 'natural_person' | 'no_legal_personality' | '';
 export type SafeRole = 'contractor' | 'subcontractor_involved' | 'other_supplier' | 'unsure' | '';
+/** What the applicant is. Only some EDIP calls care: common procurement is open to the last four kinds, not to a company (V2-B1). */
+export type ApplicantKind = 'company_or_research' | 'contracting_authority' | 'international_organisation' | 'seap' | 'eda' | '';
 export type Status = 'held' | 'in_progress' | 'not_held' | 'not_applicable';
 export type SizeClass = 'micro' | 'small' | 'medium' | 'large' | '';
 
@@ -37,6 +39,8 @@ export interface Profile {
   sizeClass: SizeClass;
   country: string;
   legalForm: LegalForm;
+  /** Optional: unanswered is unknown, never "a company". */
+  applicantKind: ApplicantKind;
   // step 2: ownership and control
   managementSameCountry: boolean;
   managementCountry: string;
@@ -74,7 +78,7 @@ export function visibleCodes(country: string): string[] {
 
 export function emptyProfile(): Profile {
   return {
-    version: 1, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', managementSameCountry: true, managementCountry: '',
+    version: 1, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', managementSameCountry: true, managementCountry: '',
     control: '', uaOccupied: '', regime: '', componentPct: '', restricted: '', uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
   };
 }
@@ -105,6 +109,7 @@ export function parseProfile(raw: unknown): Profile {
     sizeClass: oneOf(r.sizeClass, ['micro', 'small', 'medium', 'large', ''], ''),
     country: countryCode(r.country),
     legalForm: oneOf(r.legalForm, ['legal_person', 'natural_person', 'no_legal_personality', ''], ''),
+    applicantKind: oneOf(r.applicantKind, ['company_or_research', 'contracting_authority', 'international_organisation', 'seap', 'eda', ''], ''),
     managementSameCountry: r.managementSameCountry !== false,
     managementCountry: countryCode(r.managementCountry),
     control: oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], ''),
@@ -126,6 +131,7 @@ export interface AssessRequest {
   profile: {
     country: string;
     legal_form: 'legal_person' | 'natural_person' | 'no_legal_personality' | null;
+    applicant_kind: 'company_or_research' | 'contracting_authority' | 'international_organisation' | 'seap' | 'eda' | null;
     executive_management_country: string | null;
     third_country_control: 'no' | 'ua_eea_only' | 'other' | null;
     ua_non_government_controlled_area: boolean | null;
@@ -159,6 +165,7 @@ export function toRequest(p: Profile): AssessRequest | null {
     profile: {
       country: p.country,
       legal_form: p.legalForm === '' ? null : p.legalForm,
+      applicant_kind: p.applicantKind === '' ? null : p.applicantKind,
       executive_management_country: p.managementSameCountry ? p.country : p.managementCountry || null,
       third_country_control: p.control === 'no' || p.control === 'ua_eea_only' || p.control === 'other' ? p.control : null,
       ua_non_government_controlled_area: p.country === 'UA' ? tri(p.uaOccupied) : null,

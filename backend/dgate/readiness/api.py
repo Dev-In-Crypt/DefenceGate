@@ -14,6 +14,7 @@ Content (the rules) is read from the database, kept in memory for the list-cache
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import threading
 import time
@@ -26,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .. import db
 from ..config import settings
+from ..regime import action_of
 from ..suppress import removed
 from . import engine, roadmap
 from .content import Content, Money, Requirement, Rule
@@ -228,7 +230,8 @@ def programmes_payload(c: Content) -> dict[str, Any]:
             "code": p.code, "name": p.name, "summary": p.summary, "kind": p.kind, "legalBasis": p.legal_basis,
             "sourceUrl": p.source_url, "callProgramme": p.call_programme, "lastReviewed": p.last_reviewed,
             "rules": [_rule_public(x) for x in p.rules]} for p in sorted(c.programmes.values(), key=lambda p: (p.position, p.code))],
-        "fields": {k: {"kind": v["kind"], "question": v["label"], **({"values": list(v["values"])} if "values" in v else {})}
+        "fields": {k: {"kind": v["kind"], "question": v["label"], **({"values": list(v["values"])} if "values" in v else {}),
+                       **({"context": True} if v.get("context") else {})}
                    for k, v in engine.FIELDS.items()},
         "groups": {k: sorted(v) for k, v in engine.GROUPS.items()},
         "statuses": list(engine.STATUS_VALUES),
@@ -257,6 +260,7 @@ class ProfileIn(BaseModel):
     handles_classified: bool | None = None
     product_regime: Literal["none", "dual_use", "military", "unknown"] = "unknown"
     export_intent: Literal["none", "within_eu", "outside_eu", "unsure"] | None = None
+    applicant_kind: Literal["company_or_research", "contracting_authority", "international_organisation", "seap", "eda"] | None = None
 
     @field_validator("country", "executive_management_country")
     @classmethod
@@ -360,6 +364,10 @@ def _call(conn, c: Content, call_id: int, statuses, profile) -> dict[str, Any]:
                            "timings": []}
     now = datetime.now(timezone.utc)
     mapped = programmes_of_call(c, row["programme_code"], row.get("topic_code"))
+    # The kind of action decides which rules apply (only some EDIP calls are open to anybody but a company).
+    action = action_of(row["programme_code"], row.get("topic_code"))
+    profile = dataclasses.replace(profile, action=action)
+    out["action"] = action
     out["covered"] = bool(mapped)
     if not mapped:
         out["text"] = ("No readiness rules are encoded for the programme of this call, so no verdict is given.")

@@ -1,7 +1,8 @@
 """Checks every verbatim passage of seeds/requirements.json against its source text.
 
 Not a test of the suite (it needs the Official Journal texts, fetched from the Publications Office
-and saved as <CELEX>.txt in one directory, and the technical appendix): run it by hand when the
+and saved as <CELEX>.txt in one directory, the text of each call document a passage quotes, saved as
+<file name without .pdf>.txt in the same directory, and the technical appendix): run it by hand when the
 seed changes.
 
     python verify_quotes.py <seed.json> <directory with CELEX .txt files> <technical appendix .md>
@@ -33,7 +34,13 @@ def main(seed_path: str, texts_dir: str, appendix_path: str) -> int:
         nonlocal bad, checked
         text = norm(passage["text"])
         celex = passage.get("celex")
-        if celex:
+        document = passage.get("document")
+        if document:
+            # a passage quoted from a call document: the text of the PDF saved as <file name without .pdf>.txt in the same directory
+            stem = document.rsplit("/", 1)[-1].removesuffix(".pdf")
+            body = cache.setdefault(stem, norm((Path(texts_dir) / f"{stem}.txt").read_text(encoding="utf-8")))
+            where = f"call document {stem}"
+        elif celex:
             body = cache.setdefault(celex, norm((Path(texts_dir) / f"{celex}.txt").read_text(encoding="utf-8")))
             # a quote may drop the paragraph number and the "(a)" line breaks of the source
             where = f"OJ {celex}"

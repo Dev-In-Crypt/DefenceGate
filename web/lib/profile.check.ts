@@ -13,10 +13,10 @@ const ua: Profile = {
 // Nothing can be asked before a country is chosen.
 assert.equal(toRequest(emptyProfile()), null);
 
-// The request holds the twelve fields the rules read and the statuses; the name and the size never travel.
+// The request holds the thirteen fields the rules read and the statuses; the name and the size never travel.
 const req = toRequest(ua)!;
 assert.deepEqual(req.profile, {
-  country: 'UA', legal_form: 'legal_person', executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
+  country: 'UA', legal_form: 'legal_person', applicant_kind: null, executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
   non_eu_component_cost_pct: 20, restricted_third_country_component: false, components_from_ua_or_eea_efta: false, safe_role: 'contractor', handles_classified: false,
   product_regime: 'dual_use', export_intent: 'outside_eu',
 });
@@ -46,6 +46,13 @@ assert.equal(toRequest({ ...ua, safeRole: 'other_supplier' })!.profile.safe_role
 assert.equal(parseProfile({ ...ua, legalForm: 'sole_trader', safeRole: 'boss' }).legalForm, '');
 assert.equal(parseProfile({ ...ua, legalForm: 'sole_trader', safeRole: 'boss' }).safeRole, '');
 assert.equal(parseProfile({ ...ua, uaEeaComponents: 'maybe' }).uaEeaComponents, '');
+
+// V2-B1: what the organisation is. Unanswered is unknown (null), never "a company"; a stored value that is not one of ours is dropped.
+assert.equal(emptyProfile().applicantKind, '');
+assert.equal(toRequest({ ...ua, applicantKind: 'contracting_authority' })!.profile.applicant_kind, 'contracting_authority');
+assert.equal(toRequest({ ...ua, applicantKind: 'company_or_research' })!.profile.applicant_kind, 'company_or_research');
+assert.equal(parseProfile({ ...ua, applicantKind: 'ministry' }).applicantKind, '');
+assert.equal(parseProfile({ ...ua, applicantKind: 'seap' }).applicantKind, 'seap');
 
 // Executive management elsewhere is sent as that country; chosen but left empty it is unknown.
 assert.equal(toRequest({ ...ua, managementSameCountry: false, managementCountry: 'CH' })!.profile.executive_management_country, 'CH');

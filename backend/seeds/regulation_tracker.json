@@ -34,7 +34,7 @@
    "what_changed": "Contractors and subcontractors involved in a SAFE common procurement must be established, and have their executive management, in the Union, an EEA EFTA State or Ukraine, and must not be controlled from another third country. Article 16(5) allows a derogation for an entity established in the Union that is controlled from elsewhere, if it was screened under the investment-screening Regulation or provides guarantees verified by the Member State.",
    "event_date": "2025-05-29",
    "status": "in_force",
-   "affected": "Every supplier or subcontractor in a SAFE-financed procurement, in particular companies owned from outside the Union, the EEA EFTA States and Ukraine.",
+   "affected": "Contractors, and the subcontractors involved in a SAFE common procurement: legal entities that provide critical inputs, are allocated at least 15 % of the value of the contract and need access to classified information (Article 16(12)). Other suppliers are not bound by this paragraph, but the components they supply count towards the 35 % limit on the end product.",
    "source_url": "https://publications.europa.eu/resource/celex/32025R1106",
    "source_ref": "Council Regulation (EU) 2025/1106, Article 16(3)",
    "source_quote": "Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.",
@@ -96,12 +96,12 @@
    "code": "safe-canada",
    "instrument": "SAFE",
    "title": "SAFE: the agreement with Canada is concluded",
-   "what_changed": "The Council approved the agreement between the European Union and Canada on the participation of Canadian legal entities and Canadian products in SAFE procurement on 15 June 2026 (Decision (EU) 2026/1381, published 18 June 2026). According to that decision, the agreement was signed on 14 February 2026 and has been applied provisionally from 13 April 2026. The decision says the date of entry into force will be published in the Official Journal by the Council's General Secretariat; we have not found that notice. We have not summarised the agreement's own conditions.",
+   "what_changed": "The Council approved the agreement between the European Union and Canada on the participation of Canadian legal entities and Canadian products in SAFE procurement on 15 June 2026 (Decision (EU) 2026/1381, published 18 June 2026). According to that decision, the agreement was signed on 14 February 2026 and has been applied provisionally from 13 April 2026; the agreement itself is published as OJ L 2026/445 (3 March 2026). Its Article 5 sets the conditions: a Canadian legal entity must be established in Canada and have its executive management structures in Canada, the Union, an EEA EFTA State or Ukraine, and must not be controlled by a third country (a guarantee verified by a Member State is the derogation); components originating in Canada may exceed 35 % of the component cost, at least 20 % must originate in the Union, an EEA EFTA State or Ukraine, and the cost of components from third countries may not exceed the cost of those from the Union, an EEA EFTA State or Ukraine, and in any case 35 %. The decision says the date of entry into force will be published in the Official Journal by the Council's General Secretariat; we have not found that notice. The readiness check treats a Canadian company as conditional for SAFE on these terms.",
    "event_date": "2026-06-15",
    "status": "adopted",
    "affected": "Canadian suppliers, who may take part in SAFE procurement on the agreement's terms, and EU suppliers competing with them.",
    "source_url": "https://publications.europa.eu/resource/celex/32026D1381",
-   "source_ref": "Council Decision (EU) 2026/1381 of 15 June 2026, Article 1; Official Journal L, 18.6.2026",
+   "source_ref": "Council Decision (EU) 2026/1381 of 15 June 2026, Article 1 and recital (1); Official Journal L, 18.6.2026. The agreement: OJ L 2026/445, Article 5",
    "source_quote": "The Agreement between the European Union and Canada laying down the conditions for the participation of Canadian legal entities and products originating in Canada to procurement under the SAFE Instrument is hereby approved.",
    "links": [
     {
@@ -115,14 +115,14 @@
   {
    "code": "safe-uk-unconfirmed",
    "instrument": "SAFE",
-   "title": "SAFE: negotiations with the United Kingdom (outcome unconfirmed)",
-   "what_changed": "On 18 September 2025 the Council authorised the Commission to open negotiations with the United Kingdom and with Canada on their participation in SAFE (Decision (EU) 2025/2134). For Canada they ended in the agreement above. For the United Kingdom we found no Official Journal text of an agreement, a signature or a conclusion, and no primary text on the state of the talks. Reports about the talks are not confirmed by a primary text we could read, and we do not repeat them. If no agreement is in force, Article 16 treats United Kingdom entities like those of any third country other than the EEA EFTA States and Ukraine.",
-   "event_date": "2025-09-18",
+   "title": "SAFE: no agreement with the United Kingdom (UK government statement of 1 December 2025)",
+   "what_changed": "On 18 September 2025 the Council authorised the Commission to open negotiations with the United Kingdom and with Canada on their participation in SAFE (Decision (EU) 2025/2134). For Canada they ended in the agreement above. For the United Kingdom, a written statement of the UK government to Parliament on 1 December 2025 (HCWS1114) says the UK and the EU had not been able to conclude the negotiations with an agreement, and that UK companies continue to have access to SAFE under standard third-country terms, which the statement puts at up to 35 % of their content. That matches Article 16 of the SAFE Regulation, which treats United Kingdom entities like those of any other third country. We found no later primary text (an agreement, a signature or a new round), so what holds after 1 December 2025 is unconfirmed.",
+   "event_date": "2025-12-01",
    "status": "unconfirmed",
    "affected": "United Kingdom suppliers, and EU suppliers that work with them in SAFE procurements.",
-   "source_url": "https://publications.europa.eu/resource/celex/32025D2134",
-   "source_ref": "Council Decision (EU) 2025/2134 of 18 September 2025, Article 1(1); Official Journal L, 20.10.2025",
-   "source_quote": "The Commission is authorised to open negotiations with the United Kingdom of Great Britain and Northern Ireland and with Canada, respectively, for agreements laying down the rules for the participation of entities established in such third countries and products originating in their territories in the procurements supported by the SAFE Instrument established by Regulation (EU) 2025/1106, pursuant to Article 17 of that Regulation.",
+   "source_url": "https://questions-statements.parliament.uk/written-statements/detail/2025-12-01/hcws1114",
+   "source_ref": "UK Parliament, written statement HCWS1114, Statement on UK-EU Relations, Paymaster General and Minister for the Cabinet Office, 1 December 2025 (text read through the Parliament's public written-statements API on 18 October 2026; the web page itself is behind a bot check)",
+   "source_quote": "However, we have not been able to conclude these negotiations with an agreement.",
    "links": [
     {
      "kind": "programme",
@@ -191,7 +191,7 @@
    "code": "edip-origin-35",
    "instrument": "EDIP",
    "title": "EDIP: at most 35 % of component cost from outside the Union and associated countries",
-   "what_changed": "For EDIP procurement supported by Union funding the cost of components originating outside the Union and associated countries may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 10(4) sets the same share for industrial reinforcement actions. This rule is not yet part of the readiness check.",
+   "what_changed": "For EDIP procurement supported by Union funding the cost of components originating outside the Union and associated countries may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 10(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule EDIP-ORIGIN-35).",
    "event_date": "2025-12-30",
    "status": "in_force",
    "affected": "Manufacturers and component suppliers in EDIP common procurement and industrial reinforcement actions.",
@@ -211,7 +211,7 @@
    "code": "usi-origin-35",
    "instrument": "EDIP",
    "title": "Ukraine Support Instrument: at most 35 % of component cost from outside the Union and Ukraine",
-   "what_changed": "For procurement supported under the Ukraine Support Instrument the cost of components originating outside the Union and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 27(4) sets the same share for industrial reinforcement actions. This rule is not yet part of the readiness check.",
+   "what_changed": "For procurement supported under the Ukraine Support Instrument the cost of components originating outside the Union and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 27(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule USI-ORIGIN-35).",
    "event_date": "2025-12-30",
    "status": "in_force",
    "affected": "Manufacturers and component suppliers in calls of the Ukraine Support Instrument.",
@@ -236,7 +236,7 @@
    "status": "in_force",
    "affected": "Ukrainian companies and EU companies that would form consortia with them in EDF calls.",
    "source_url": "https://publications.europa.eu/resource/celex/32025R2653",
-   "source_ref": "Regulation (EU) 2025/2653, Article 1(1), replacing Article 5 of Regulation (EU) 2021/697",
+   "source_ref": "Regulation (EU) 2025/2653, Article 3(1), replacing Article 5 of Regulation (EU) 2021/697",
    "source_quote": "Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
    "links": [
     {
@@ -260,24 +260,34 @@
   {
    "code": "edf-ukraine-in-force-unconfirmed",
    "instrument": "EDF",
-   "title": "EDF: Ukraine's association in force? (unconfirmed)",
-   "what_changed": "The Commission's page on support to Ukraine says Ukraine \"has been fully associated\" to the European Defence Fund. The page carries no date, and it does not say that the agreement on Ukraine's participation has entered into force. Steps taken in Ukraine, as the press reports them, do not settle the EU side. We found no Official Journal text of the agreement, no Council decision on it and no notice of its entry into force, so the point is open. Until a primary text settles it, DefenceGate marks no European Defence Fund call as open to Ukraine or as closed to it.",
-   "event_date": "2026-10-18",
+   "title": "EDF: Ukraine's association is pending the signature of the agreement (not confirmed in force)",
+   "what_changed": "The EDF call documents of 2026 say, in a footnote to the list of countries associated to the EDF, that participation of entities established in Ukraine is pending the signature of the association agreement to the EDF (10 of 10 call documents read, the latest versions dated 8 September 2026). The Commission's page on support to Ukraine, which carries no date, says Ukraine \"has been fully associated\" to the European Defence Fund. We found no Official Journal text of the agreement, no Council decision on it and no notice of its entry into force, and steps taken in Ukraine, as the press reports them, do not settle the EU side. Until a primary text settles it, the readiness check treats a company established in Ukraine as conditional on the association agreement for the EDF, and DefenceGate marks no European Defence Fund call as open to Ukraine or as closed to it.",
+   "event_date": "2026-09-08",
    "status": "unconfirmed",
    "affected": "Ukrainian companies deciding whether to join a consortium for an EDF call, and EU coordinators who would take them in.",
-   "source_url": "https://defence-industry-space.ec.europa.eu/support-ukraine_en",
-   "source_ref": "European Commission, DG DEFIS, Support to Ukraine (page without a date; read on 18 October 2026)",
-   "source_quote": "Ukraine has been fully associated to the European Defence Fund (EDF) and to the European Defence Industry Programme (EDIP), enabling Ukrainian and EU companies to form consortia and participate together in collaborative defence.",
+   "source_url": "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-da_en.pdf",
+   "source_ref": "European Commission, EDF call document EDF-2026-DA (version 1.3 of 8 September 2026), section 6, footnote to \"Eligible participants\"; the same footnote is in the other nine EDF call documents of 2026. Also: European Commission, DG DEFIS, Support to Ukraine (page without a date; read on 18 October 2026)",
+   "source_quote": "Participation of entities established in Ukraine is pending the signature of the association agreement to EDF (see countries currently negotiating association agreements below).",
    "links": [
     {
-     "kind": "page",
-     "code": "/glossary#open-to-ukraine",
-     "label": "Glossary: open to Ukraine"
+     "kind": "requirement",
+     "code": "REQ-EDF-ELIG",
+     "label": "EDF eligibility rules"
+    },
+    {
+     "kind": "programme",
+     "code": "EDF",
+     "label": "Readiness check: EDF"
     },
     {
      "kind": "page",
      "code": "/funding?status=all&programme=EDF",
      "label": "EDF calls"
+    },
+    {
+     "kind": "page",
+     "code": "/glossary#open-to-ukraine",
+     "label": "Glossary: open to Ukraine"
     }
    ],
    "checked_on": "2026-10-18"
@@ -346,6 +356,31 @@
      "kind": "requirement",
      "code": "REQ-EXPORT",
      "label": "Export authorisation"
+    }
+   ],
+   "checked_on": "2026-10-18"
+  },
+  {
+   "code": "edip-common-procurement-applicants",
+   "instrument": "EDIP",
+   "title": "EDIP common procurement: only contracting authorities, international organisations, SEAPs and the EDA may apply",
+   "what_changed": "Under Article 11(2) of Regulation (EU) 2025/2643 only contracting authorities of Member States or associated countries, international organisations, SEAPs (structures for European armament programmes) and the European Defence Agency are eligible for common procurement actions. A company or a research body cannot apply to a call of that kind (the EDIP calls whose topic code contains CPA); it can take part in other roles, such as associated partner or subcontractor, as the call documents say. Industrial reinforcement actions (Article 12) are not under this rule.",
+   "event_date": "2025-12-30",
+   "status": "in_force",
+   "affected": "Companies that look at the EDIP common procurement calls (topic codes EDF-EDIP-P-...-FNLC-CPA-...) as applicants, and the contracting authorities that would lead them.",
+   "source_url": "https://publications.europa.eu/resource/celex/32025R2643",
+   "source_ref": "Regulation (EU) 2025/2643, Article 11(2); Official Journal L, 29.12.2025",
+   "source_quote": "Only the following legal entities shall be eligible for common procurement actions:",
+   "links": [
+    {
+     "kind": "requirement",
+     "code": "REQ-EDIP-ELIG",
+     "label": "EDIP eligibility rules"
+    },
+    {
+     "kind": "programme",
+     "code": "EDIP",
+     "label": "Readiness check: EDIP"
     }
    ],
    "checked_on": "2026-10-18"

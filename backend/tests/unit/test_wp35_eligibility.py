@@ -38,7 +38,7 @@ def _sources(call):
 
 def served(call_id: int) -> dict:
     call = CALLS[call_id]
-    return eligibility.assemble(_sources(call), _held(), call["topic"])
+    return eligibility.assemble(_sources(call), _held(), call["topic"], eligibility.action_kind(call["type"]))
 
 
 def before(call_id: int) -> dict[str, object]:
@@ -64,6 +64,8 @@ GONE = {
                                       19, 119},              # E3: high-risk suppliers, not a control restriction
     "single_applicant_allowed": {138, 140, 59, 33, 36,       # F3: RIA/IA consortium actions
                                  109, 110},                  # F5: only a SEAP may apply alone
+    # V2-B6: "up to 70 % for the EIC Accelerator grant component" is the rate of a grant scheme, not of the equity-only defence call
+    "funding_rate": {131},
 }
 
 
@@ -126,8 +128,9 @@ def test_a_sentence_that_names_this_topic_is_not_turned_into_a_no():
 @pytest.mark.parametrize("cid", [138, 140, 59, 33, 36])
 def test_a_consortium_action_does_not_also_allow_a_single_applicant(cid):
     got = served(cid)["facts"]
+    # V2-B5: the sentence that lets a single applicant apply is about Coordination and support actions, so it is not served
+    # for a research or innovation action in the first place (WP-35 settled the contradiction afterwards, with a note)
     assert got["consortium_required"]["value"] is True and "single_applicant_allowed" not in got
-    assert "single applicant may apply" in got["consortium_required"]["note"]
 
 
 def test_the_same_sentence_gives_the_same_answer_on_two_calls():

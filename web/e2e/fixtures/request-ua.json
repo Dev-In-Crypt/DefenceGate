@@ -1,5 +1,6 @@
 {
  "profile": {
+  "applicant_kind": "company_or_research",
   "components_from_ua_or_eea_efta": false,
   "country": "UA",
   "executive_management_country": "UA",

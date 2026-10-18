@@ -14,7 +14,7 @@ export interface RMoney {
 export interface RSpan { min: number | null; max: number | null; text: string | null; note: string | null }
 
 export interface RSource {
-  url: string; ref: string | null; text: string | null; origin: 'primary' | 'notes';
+  url: string; ref: string | null; text: string | null; origin: 'primary' | 'notes' | 'call_document';
   verificationStatus: VerificationStatus; lastReviewed: string;
 }
 
@@ -95,6 +95,8 @@ export interface CallTiming {
 export interface CallAnswer {
   id: string; title: string; programme: string; status: string; deadline: string | null;
   covered: boolean; timings: CallTiming[]; text?: string;
+  /** The kind of action of an EDIP call (common_procurement, seap_support, edpci_preparation, industrial_reinforcement), else null. */
+  action?: string | null;
 }
 
 export interface Assessment {

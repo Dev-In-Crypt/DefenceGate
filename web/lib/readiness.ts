@@ -25,8 +25,9 @@ export const OUTCOME_WORD: Record<Outcome, string> = {
  * research notes was marked verified when the notes were written; this site did not read its source again, and
  * says so instead of "the page was fetched".
  */
-export function statusWords(status: VerificationStatus, origin: 'primary' | 'notes'): string {
+export function statusWords(status: VerificationStatus, origin: 'primary' | 'notes' | 'call_document'): string {
   if (status === 'V') {
+    if (origin === 'call_document') return 'Verified: the sentence was checked against the Commission’s call document named in the reference, not against the Official Journal.';
     return origin === 'primary'
       ? 'Verified: the text was checked against the Official Journal text of the regulation.'
       : 'Marked verified in the DefenceGate research notes when they were written (7 September 2026); not checked again on this site.';
@@ -72,6 +73,7 @@ export function daysRange(min: number, max: number): string {
 
 /** The source line under a rule: where the text comes from, in words a visitor can check. */
 export function originWords(s: RSource): string {
+  if (s.origin === 'call_document') return 'Quoted from the Commission’s call document named in the reference; the Official Journal text does not say it.';
   return s.origin === 'primary'
     ? 'Quoted from the Official Journal text of the regulation.'
     : 'Quoted from the DefenceGate research notes of 7 September 2026; the primary page was not re-read for this line.';

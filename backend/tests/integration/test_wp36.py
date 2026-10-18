@@ -79,7 +79,8 @@ def test_the_flag_is_decided_from_the_document_then_the_regulation_and_a_second_
     assert (done["yes"], done["no"], done["unknown"]) == (2, 1, 2)
     got = {r["id"]: r for r in conn.execute("SELECT id, open_to_ukraine AS flag, open_to_ukraine_reason AS reason, "
                                             "open_to_ukraine_evidence AS evidence FROM call").fetchall()}
-    assert (got[usi]["flag"], got[usi]["reason"], got[usi]["evidence"]) == (True, "call_document", "Ukraine")
+    assert (got[usi]["flag"], got[usi]["reason"]) == (True, "call_document")
+    assert got[usi]["evidence"].endswith("Ukraine") and len(got[usi]["evidence"]) > 25, "the sentence the list item stands in, not one word"
     assert (got[usi_bare]["flag"], got[usi_bare]["reason"]) == (True, "programme_rule")
     assert (got[edip]["flag"], got[edip]["reason"]) == (False, "programme_rule")
     assert (got[edf]["flag"], got[edf]["reason"]) == (None, "edf_association_unconfirmed"), "unknown is not no"

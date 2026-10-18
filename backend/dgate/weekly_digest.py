@@ -214,7 +214,7 @@ def build_all(conn, week: str, *, now: datetime | None = None,
              "call-opened": [(r, []) for r in opened], "call-closing": [(r, []) for r in closing]}
     every = {r["id"]: r for items in lists.values() for r, _ in items}
     read = eligibility.read_many(
-        conn, [(i, r.get("conditions_raw") or {}, r.get("eligibility_text"), r.get("topic_code"))
+        conn, [(i, r.get("conditions_raw") or {}, r.get("eligibility_text"), r.get("topic_code"), r.get("type_of_action"))
                for i, r in every.items()])
     cascade_open = conn.execute(
         f"SELECT count(*) AS n FROM call c WHERE NOT c.suppressed AND c.cascade IS TRUE "

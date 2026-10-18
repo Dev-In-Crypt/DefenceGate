@@ -40,7 +40,7 @@ def test_every_rule_has_a_source_url_a_reference_a_verbatim_text_and_a_status():
             count += 1
             assert r.source_url.startswith("http"), r.code
             assert r.source_ref and r.source_text.startswith("["), r.code
-            assert r.text_origin in {"primary", "notes"} and r.status in {"V", "S", "U"}, r.code
+            assert r.text_origin in {"primary", "notes", "call_document"} and r.status in {"V", "S", "U"}, r.code
     assert count >= 30
 
 

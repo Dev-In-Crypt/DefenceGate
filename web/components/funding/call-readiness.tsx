@@ -49,6 +49,10 @@ const ROW = 'flex flex-col gap-0.5 text-body';
 function Timing({ t, a, data }: { t: CallTiming; a: ProgrammeAssessment | undefined; data: Assessment }) {
   const names = new Map(data.roadmap.steps.map((s) => [s.code, s]));
   const blocking = (a?.rules ?? []).filter((r) => a?.blocking.includes(r.rule));
+  // The rules that belong to the kind of action of this call (who may apply to common procurement) are judged with the call, so they
+  // are in `notFixable` and not in the assessment of the programme.
+  const known = new Set(blocking.map((r) => r.rule));
+  const ofThisCall = t.notFixable.filter((n) => !known.has(n.rule));
   const steps = t.steps.map((c) => names.get(c)).filter((s): s is NonNullable<typeof s> => Boolean(s));
   return (
     <li className="flex flex-col gap-2 rounded-md border border-line p-4">
@@ -57,9 +61,10 @@ function Timing({ t, a, data }: { t: CallTiming; a: ProgrammeAssessment | undefi
       {t.deadline && t.daysLeft !== null && t.daysLeft >= 0 && (
         <p className="m-0 text-small text-ink-muted">Deadline <time dateTime={t.deadline}>{formatDateUtc(t.deadline)}</time> UTC, about {Math.round(t.daysLeft)} days left.</p>
       )}
-      {blocking.length > 0 && (
+      {(blocking.length > 0 || ofThisCall.length > 0) && (
         <ul className="m-0 flex list-none flex-col gap-1 p-0">
           {blocking.map((r) => <li key={r.rule} className={ROW}><span><strong>{r.title}.</strong> {r.reason}</span></li>)}
+          {ofThisCall.map((n) => <li key={n.rule} className={ROW}><span><strong>{n.title}.</strong> {n.reason}</span></li>)}
         </ul>
       )}
       {steps.length > 0 && (

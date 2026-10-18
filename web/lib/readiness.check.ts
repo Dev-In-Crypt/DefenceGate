@@ -71,4 +71,8 @@ assert.equal(faq[2].a, '3-8 months.');
 assert.deepEqual(faqOf({ ...req, issuers: [], cost: null, days: null, mandatoryFor: null } as RequirementDetail).map((f) => f.a),
   ['The issuing body has not been collected for any country.', 'No cost is stated in the sources used.', 'No duration is stated in the sources used.']);
 assert.deepEqual(faqOf({ ...req, kind: 'rule', mandatoryFor: null } as RequirementDetail), []);
+// V2-B1: a rule quoted from a call document says so; it is neither "the Official Journal" nor "the research notes".
+assert.ok(originWords({ ...notes, origin: 'call_document' }).includes('call document'));
+assert.ok(!originWords({ ...notes, origin: 'call_document' }).includes('research notes'));
+assert.ok(statusWords('V', 'call_document').includes('call document') && !statusWords('V', 'call_document').includes('Official Journal text of the regulation'));
 console.log('readiness.check ok');

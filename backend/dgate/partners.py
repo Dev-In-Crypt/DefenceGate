@@ -290,12 +290,13 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
     if len(wanted) > MAX_FIT_IDS:
         raise HTTPException(422, f"at most {MAX_FIT_IDS} calls at a time")
     rows = conn.execute(
-        """SELECT c.id, c.topic_code, c.conditions_raw, c.eligibility_text, pr.code AS programme_code,
+        """SELECT c.id, c.topic_code, c.type_of_action, c.conditions_raw, c.eligibility_text, pr.code AS programme_code,
                   s.code AS source_code, s.commercial_ok
              FROM call c JOIN programme pr ON pr.id = c.programme_id LEFT JOIN source s ON s.id = c.source_id
             WHERE c.id = ANY(%s) AND NOT c.suppressed""", (wanted,)).fetchall()
     servable = [r for r in rows if r["source_code"] in SOURCE_TEXT_SOURCES and r["commercial_ok"] is True]
-    read = eligibility.read_many(conn, [(r["id"], r["conditions_raw"] or {}, r["eligibility_text"]) for r in servable]) \
+    read = eligibility.read_many(conn, [(r["id"], r["conditions_raw"] or {}, r["eligibility_text"], r["topic_code"], r["type_of_action"])
+                                       for r in servable]) \
         if servable else {}
     items: dict[str, Any] = {}
     for r in rows:

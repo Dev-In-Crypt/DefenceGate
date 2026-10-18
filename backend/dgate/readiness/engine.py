@@ -42,6 +42,8 @@ OTHER_COUNTRY = "XX"      # a country that is not listed: the engine treats it a
 
 # The profile fields a rule may read. kind: country | enum | bool | pct. The label is the question
 # that is shown when the answer is missing.
+APPLICANT_KINDS = ("company_or_research", "contracting_authority", "international_organisation", "seap", "eda")
+ACTIONS = ("common_procurement", "seap_support", "edpci_preparation", "industrial_reinforcement")
 FIELDS: dict[str, dict[str, Any]] = {
     "country": {"kind": "country", "label": "In which country is your company established?"},
     "legal_form": {"kind": "enum", "values": ("legal_person", "natural_person", "no_legal_personality"),
@@ -60,6 +62,13 @@ FIELDS: dict[str, dict[str, Any]] = {
                        "label": "Is your product in the dual-use regime, the military regime, or neither?"},
     "export_intent": {"kind": "enum", "values": ("none", "within_eu", "outside_eu", "unsure"),
                       "label": "Do you export or plan to export?"},
+    # Who the applicant is: only a few EDIP calls (common procurement) are open to anybody but a company or a
+    # research body. Asked once, in the first step of the wizard.
+    "applicant_kind": {"kind": "enum", "values": APPLICANT_KINDS,
+                       "label": "What kind of organisation are you: a company or research body, a contracting authority, an international organisation, a SEAP (structure for European armament programmes) or the European Defence Agency?"},
+    # Not a question: the kind of action of the call being judged (see `regime.action_of`). It is unknown outside a call,
+    # and a rule that applies to one kind of action then does not apply.
+    "action": {"kind": "enum", "context": True, "values": ACTIONS, "label": "The kind of action of the call"},
 }
 COUNTRY_FIELDS = frozenset(k for k, v in FIELDS.items() if v["kind"] == "country")
 STATUS_VALUES = ("held", "in_progress", "not_held", "not_applicable")
@@ -95,6 +104,8 @@ class Profile:
     handles_classified: bool | None = None
     product_regime: str = "unknown"
     export_intent: str | None = None
+    applicant_kind: str | None = None
+    action: str | None = None          # context of a call, never an answer of the company (the API does not take it)
 
     def fields(self) -> dict[str, Any]:
         return {name: getattr(self, name) for name in FIELDS}
@@ -284,13 +295,17 @@ def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, st
 
 def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> tuple[str, list[str]]:
     def missing(*exprs: Expr | None) -> list[str]:
-        return [f for e in exprs for f in fields_in(e) if fields.get(f) is None]
+        # the context of a call is not something the company can answer
+        return [f for e in exprs for f in fields_in(e) if fields.get(f) is None and not FIELDS[f].get("context")]
 
     if rule.applies_when is not None:
         applies = evaluate(rule.applies_when, fields, statuses)
         if applies is False:
             return "not_applicable", []
         if applies is None:
+            # no call is being judged: a rule for one kind of action is not asked here, whatever else is unanswered
+            if any(FIELDS[f].get("context") and fields.get(f) is None for f in fields_in(rule.applies_when)):
+                return "not_applicable", []
             return "unknown", missing(rule.applies_when, rule.condition)
     if rule.condition is None:
         return "info", []

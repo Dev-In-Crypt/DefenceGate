@@ -83,7 +83,10 @@ def test_d2_a_legal_entity_rule_for_edf_edip_and_usi_and_none_for_safe():
         assert "a legal person created and recognised as such" in rule.source_text
         assert "(b) natural persons" in rule.source_text and "(c) entities which do not have legal personality" in rule.source_text
         assert outcome(code, programme, clean(legal_form="legal_person")) == "met"
-        assert outcome(code, programme, clean(legal_form="natural_person")) == "not_met"
+        # V2-B4: the call documents allow self-employed persons, i.e. sole traders, whose company has no separate legal personality
+        assert outcome(code, programme, clean(legal_form="natural_person")) == "conditional"
+        conditional = next(r for r in CONTENT.programmes[programme].rules if r.code == code).texts["conditional"]
+        assert "sole traders" in conditional and "Natural persons are NOT eligible (with the exception of self-employed persons" in conditional
         assert outcome(code, programme, clean(legal_form="no_legal_personality")) == "conditional"
         assert outcome(code, programme, clean(legal_form=None)) == "unknown"
     assert not [r for r in CONTENT.programmes["SAFE"].rules if r.condition and "legal_form" in json.dumps(r.condition)]
@@ -208,7 +211,7 @@ def test_d11_el_and_uk_are_read_as_greece_and_the_united_kingdom_and_unknown_cod
 def test_d8_a_rule_quoted_from_the_research_notes_is_never_described_as_re_read_by_us():
     # the web words depend on text_origin ('notes' or 'primary'); the seed must therefore state it for every line
     for code, rule in RULES.items():
-        assert rule.text_origin in {"primary", "notes"}, code
+        assert rule.text_origin in {"primary", "notes", "call_document"}, code
     for req in CONTENT.requirements.values():
         assert req.text_origin in {"primary", "notes"}, req.code
     notes_only = [c for c, r in RULES.items() if r.text_origin == "notes"] + [c for c, q in CONTENT.requirements.items() if q.text_origin == "notes"]

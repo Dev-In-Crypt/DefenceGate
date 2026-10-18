@@ -139,7 +139,8 @@ def call(programme="HORIZON", topic="HORIZON-X-2026-01", text=None):
 def test_a_call_document_that_names_ukraine_among_the_eligible_countries_decides():
     quote = "be established in one of the eligible countries, i.e.: − EU Member States (including OCTs) − non-EU countries: − Ukraine"
     flag, reason, evidence = ukraine.decide(call("EDF", "EDF-EDIP-USI-2027-LS-IRA-CUXS"), {"eligible_countries": fact(quote)})
-    assert (flag, reason) == (True, "call_document") and evidence == "Ukraine"
+    # V2-B9: the evidence is the sentence the list item stands in, not the single word "Ukraine"
+    assert (flag, reason) == (True, "call_document") and evidence.endswith("Ukraine") and len(evidence) > 25
 
 
 def test_the_territorial_exclusion_is_not_a_refusal_of_ukraine():

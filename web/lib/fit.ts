@@ -14,8 +14,8 @@
  * the verdict (it asks the same of every applicant); it is listed as a condition that comes with the verdict, in the
  * badge's tooltip and on the call page.
  */
-import { check, type EligibilityFacts, type Line, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
-import type { Profile } from './profile';
+import { EU27, check, consortiumCondition, type EligibilityFacts, type Line, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
+import type { ApplicantKind, Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 
 export type Fit = Verdict | 'unknown';
@@ -28,12 +28,23 @@ export const FIT_MEANING: Record<Fit, string> = {
   unknown: 'No rule that can be compared with your profile has been read for this call.',
 };
 
+/**
+ * The kind of organisation the form compares with a call's named kinds: a natural person is an individual, a public buyer, an
+ * international organisation, a SEAP or the EDA are public bodies, a company or research body goes by its size class (the profile
+ * cannot tell a university from a company, so "universities only" stays a "check").
+ */
+export function orgTypeOf(p: Profile): OrgType | '' {
+  if (p.legalForm === 'natural_person') return 'individual';
+  if (p.applicantKind === 'contracting_authority' || p.applicantKind === 'international_organisation' || p.applicantKind === 'seap' || p.applicantKind === 'eda') return 'public';
+  return p.sizeClass === 'large' ? 'large' : p.sizeClass === '' ? '' : 'sme';
+}
+
 /** What the form of the call page asks, from the saved profile. Null while the country is not chosen. */
 export function checkProfileOf(p: Profile): CheckProfile | null {
   if (!p.country) return null;
   return {
     country: p.country,
-    orgType: p.sizeClass === 'large' ? 'large' : p.sizeClass === '' ? '' : 'sme',
+    orgType: orgTypeOf(p),
     // The profile has no question about partners: left unanswered, the consortium is a condition (see `fitOf`).
     hasPartners: '',
     // "Controlled from outside the EU or associated countries": only an explicit "no" settles it. Control by
@@ -59,6 +70,13 @@ export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profi
   const sme = facts.sme_only;
   if (sme && sme.value === true && !cp.orgType) {
     lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: 'The call is reserved for SMEs and your profile does not give a size class.', quote: sme.quote });
+  }
+  // A condition the document attaches to the consortium or to a single applicant (call 78: the proposal must use one of the specified
+  // mechanisms; call 118: a single applicant must be Ukrainian; call 14: specific conditions on the composition) keeps the badge from
+  // saying "Eligible", though the profile has no answer about partners (V2-B10).
+  const condition = consortiumCondition(facts);
+  if (condition && !lines.some((l) => l.key === 'consortium')) {
+    lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: condition, quote: (facts.consortium_required ?? facts.single_applicant_allowed)?.quote });
   }
   if (lines.length === 0) return { fit: 'unknown', result: null, conditions: [] };
   const verdict = lines.reduce<Verdict>((v, l) => (v === 'no' || l.verdict === 'no' ? 'no' : v === 'check' || l.verdict === 'check' ? 'check' : 'yes'), 'yes');
@@ -87,6 +105,50 @@ export function programmesOfCall(chip: string, topic: string): string[] {
     return after === 'USI' ? ['EDIP-USI'] : after === 'P' ? ['EDIP'] : ['EDIP', 'EDIP-USI'];
   }
   return chip === 'EDF' ? ['EDF'] : [];
+}
+
+/**
+ * The kind of action of an EDIP call, from its topic code, as the API reads it (`action_of` in backend/dgate/regime.py; both are
+ * tested against the same twelve topic codes). Null for any other call.
+ */
+export function actionOfCall(chip: string, topic: string): 'common_procurement' | 'seap_support' | 'edpci_preparation' | 'industrial_reinforcement' | null {
+  const t = topic.toUpperCase().split('-');
+  if ((chip !== 'EDF' && chip !== 'EDIP') || !t.includes('EDIP')) return null;
+  if (t.includes('CPA')) return 'common_procurement';
+  if (t.includes('SA') && t.includes('SEAP')) return 'seap_support';
+  if (t.includes('CSA') && t.includes('PREP')) return 'edpci_preparation';
+  if (t.includes('IRA')) return 'industrial_reinforcement';
+  return null;
+}
+
+/**
+ * Who may apply to the EDIP calls that are not open to a company (V2-B1): Regulation (EU) 2025/2643 Article 11(2) for common
+ * procurement, and the call documents for the calls that support SEAPs and prepare projects of common interest. The API judges the same
+ * with the rules EDIP-CPA-APPLICANT, EDIP-SEAP-APPLICANT and EDIP-PREP-APPLICANT; this mirror serves the badges of a list, where one
+ * request per call would be too many.
+ */
+const APPLICANTS: Record<string, { title: string; plain: ApplicantKind[]; maybe: ApplicantKind[] }> = {
+  common_procurement: {
+    title: 'Who may apply: contracting authorities, international organisations, SEAPs and the EDA',
+    plain: ['international_organisation', 'seap', 'eda'], maybe: ['contracting_authority'],
+  },
+  seap_support: { title: 'Who may apply: an established SEAP', plain: ['seap'], maybe: [] },
+  edpci_preparation: { title: 'Who may apply: a SEAP or a group of Member States', plain: ['seap'], maybe: ['contracting_authority'] },
+};
+
+/** What the kind of applicant says about a call of one of those actions. Null where every kind may apply. */
+export function applicantFit(chip: string, topic: string, profile: Profile | null): ProgrammeFit | null {
+  const action = actionOfCall(chip, topic);
+  const rule = action ? APPLICANTS[action] : undefined;
+  if (!rule || !profile || !profile.country) return null;
+  const kind = profile.applicantKind;
+  if (kind === '') return { fit: 'check', because: [`${rule.title}: say what kind of organisation you are`] };
+  if (rule.plain.includes(kind)) return { fit: 'yes', because: [] };
+  // A contracting authority of a Member State is plainly one of those Article 11(2) names; of an EEA EFTA state or a group, a check.
+  if (rule.maybe.includes(kind)) {
+    return action === 'common_procurement' && EU27.has(profile.country) ? { fit: 'yes', because: [] } : { fit: 'check', because: [`${rule.title}: check that your organisation meets it`] };
+  }
+  return { fit: 'no', because: [rule.title] };
 }
 
 export interface ProgrammeFit {

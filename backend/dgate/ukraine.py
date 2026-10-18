@@ -6,20 +6,31 @@ sentence it rests on. In this order:
 
   1. `call_document`  the verified fact `eligible_countries` read from the call's own document names
                       Ukraine as an eligible country (or says it is not).
-  2. `topic_text`     the same fact read from the topic's own conditions text.
-  3. `call_text`      a sentence of the call's conditions text that names Ukraine.
-  4. `programme_rule` the regime's own Regulation decides: the Ukraine Support Instrument is open to
-                      Ukraine (Regulation (EU) 2025/2643, Article 26(1)); the EDIP Programme is not,
-                      its associated countries being EEA EFTA states (Article 2).
-  5. `edf_association_unconfirmed`  an EDF call: Ukraine may take part as an associated country
+  2. `call_document_closed_list`  the call document lists the eligible countries one by one (Member
+                      States and the EEA countries Norway, Iceland, Liechtenstein) and does not name
+                      Ukraine or associated countries: Ukraine is not on the list. False (V2-B9: the
+                      Digital Europe cybersecurity calls).
+  3. `topic_text`     the same fact read from the topic's own conditions text.
+  4. `call_text`      a sentence of the call's conditions text that names Ukraine.
+  5. `topic_text_associated`  a Horizon Europe topic whose own conditions limit participation to
+                      "legal entities established in Member States and Associated Countries", and the
+                      general annexes list Ukraine among the countries associated to Horizon Europe.
+                      Two sentences we hold; true (V2-B9).
+  6. `programme_rule` the regime's own Regulation decides: the Ukraine Support Instrument is open to
+                      Ukraine (Regulation (EU) 2025/2643, Article 26(1)). The EDIP Programme is closed to
+                      Ukrainian entities as recipients (Articles 9(1) and 2: its associated countries are EEA
+                      EFTA states); Ukraine can still take part in other ways, which the evidence says.
+  7. `edf_association_unconfirmed`  an EDF call: Ukraine may take part as an associated country
                       "in accordance with the conditions laid down in the EU-Ukraine Association
-                      Agreement" (Regulation (EU) 2021/697, Article 5, as replaced), and no primary
-                      text read on 18 October 2026 says that agreement is in force. Unknown.
-  6. `not_stated`     nothing states it. Unknown.
+                      Agreement" (Regulation (EU) 2021/697, Article 5, as replaced), the EDF call
+                      documents say participation of entities established in Ukraine "is pending the
+                      signature of the association agreement", and no primary text read on 18 October 2026
+                      says that agreement is in force. Unknown, conditional on the agreement.
+  8. `not_stated`     nothing states it. Unknown.
 
-The work programme's general annexes never decide it (a topic may restrict who takes part), and a
-Horizon, Digital Europe or national call is decided from its own facts and text alone: no rule of
-those programmes is encoded. Derived data: `ops/ukraine_flags.py` fills it, idempotently.
+The work programme's general annexes never decide it alone (a topic may restrict who takes part): only
+together with a topic sentence that sends the call to the associated countries. Derived data:
+`ops/ukraine_flags.py` fills it, idempotently.
 """
 
 from __future__ import annotations
@@ -27,21 +38,33 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import cascade, eligibility
-from .regime import EDF, EDIP, USI, regime_of
+from . import eligibility
+from .regime import EDF, EDIP, HORIZON, USI, regime_of
 
-REASONS = ("call_document", "topic_text", "call_text", "programme_rule", "edf_association_unconfirmed", "not_stated")
-EVIDENCE_MAX = 300
+REASONS = ("call_document", "call_document_closed_list", "topic_text", "call_text", "topic_text_associated",
+           "programme_rule", "edf_association_unconfirmed", "not_stated")
+EVIDENCE_MAX = 450
 
 # Verbatim from the Official Journal text (CELLAR), read on 18 October 2026.
 USI_RULE = ("Only legal entities established in the Union or in Ukraine and having their executive management "
             "structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation. "
             "(Regulation (EU) 2025/2643, Article 26(1))")
-EDIP_RULE = ("‘associated countries’ means members of the European Free Trade Association which are members of the "
+EDIP_RECIPIENTS = ("Recipients of EDIP funding must be established in the Union or in an associated country, and Ukraine "
+                   "is not one (Regulation (EU) 2025/2643, Articles 9(1) and 2).")
+EDIP_RULE = ("Recipients of EDIP funding must be established in the Union or in an associated country (Article 9(1)); "
+             "‘associated countries’ means members of the European Free Trade Association which are members of the "
              "European Economic Area that apply this Regulation in accordance with the Agreement on the European Economic "
-             "Area; (Regulation (EU) 2025/2643, Article 2)")
+             "Area (Regulation (EU) 2025/2643, Article 2). Ukraine is not one.")
 EDF_RULE = ("Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement. "
             "(Regulation (EU) 2021/697, Article 5, as replaced by Regulation (EU) 2025/2653)")
+# The footnote on "countries associated to the EDF Programme" in all 10 EDF call documents of 2026 read
+# on 18 October 2026 (latest versions dated 8 September 2026), word for word.
+EDF_PENDING = ("Participation of entities established in Ukraine is pending the signature of the association "
+               "agreement to EDF (see countries currently negotiating association agreements below).")
+EDF_EVIDENCE = (f"EDF call documents, 2026: “{EDF_PENDING}” Regulation (EU) 2025/2653, Article 3(1): Ukraine "
+                "“in accordance with the conditions laid down in the EU-Ukraine Association Agreement”. "
+                "No text we could read says that agreement is in force.")
+HORIZON_ANNEX = "The general annexes of the Horizon Europe work programme list Ukraine among the countries associated to Horizon Europe."
 
 _UKRAINE = re.compile(r"\bUkrain\w*", re.I)
 _SENTENCE_END = re.compile(r"(?<=[.!?;])\s+|\s+[−–•]\s+|\n+")
@@ -52,7 +75,13 @@ _TERRITORY = re.compile(r"non[\s-]*government|occupied|temporarily", re.I)
 # A sentence that names Ukraine counts only when it is about who may take part ("to support Ukraine's
 # reconstruction" is a topic, not an eligibility rule).
 _CUE = re.compile(r"eligib|establish|particip|applican|apply|entit|countr|associated|beneficiar|recipient", re.I)
-_TOPIC_CODE = cascade._TOPIC_CODE
+# A list of eligible countries that names the EEA countries one by one and no associated countries or Ukraine.
+_EEA_NAMED = re.compile(r"\b(?:Norway|Iceland|Liechtenstein)\b")
+_ASSOCIATED = re.compile(r"associated|Ukrain", re.I)
+# "participation in this topic is limited to legal entities established in Member States and Associated Countries."
+# Not a list that adds or names other countries ("...and the following additional associated countries: Canada").
+_HORIZON_TOPIC = re.compile(
+    r"[^.]*\blimited\s+to\s+legal\s+entities\s+established\s+in\s+Member\s+States\s+and\s+Associated\s+Countries\s*\.", re.I)
 
 
 def _clip(text: str) -> str:
@@ -83,40 +112,61 @@ def _fact_answer(topic_code: str | None, fact: dict[str, Any]) -> tuple[bool, st
     value, sentence = text_statement(quote, about_participation=True)
     if value is None:
         return None
-    named = _TOPIC_CODE.findall(quote)
-    if named and not (topic_code and any(topic_code == t or topic_code.startswith(t) for t in named)):
+    if eligibility.names_other_topic(quote, topic_code):
         return None                       # the document names topics and this is not one of them
-    return value, sentence or ""
+    # A bare list item ("− Ukraine") is no evidence on its own: the list it stands in is.
+    return value, (sentence if sentence and len(sentence) >= 25 else _clip(quote))
+
+
+def _closed_list(fact: dict[str, Any]) -> str | None:
+    """The sentence of a call document that lists the eligible countries one by one without Ukraine or associated countries."""
+    quote = fact.get("quote") or ""
+    if fact.get("scope") == "call_document" and _EEA_NAMED.search(quote) and not _ASSOCIATED.search(quote):
+        return _clip(quote)
+    return None
 
 
 def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, str, str | None]:
     """(flag, reason, evidence) of one call. `facts` are its verified eligibility facts as served
     (`eligibility.read_many`); `call` has `programme_code`, `topic_code` and `eligibility_text`."""
+    regime = regime_of(call.get("programme_code") or "", call.get("topic_code"))
     fact = facts.get("eligible_countries")
     if fact and fact["scope"] != "general":
         answer = _fact_answer(call.get("topic_code"), fact)
+        if answer is not None and answer[0] and regime is EDIP:
+            # The document names Ukraine (as a possible member of a SEAP, say) but the recipients of EDIP
+            # funding are not Ukrainian entities: a participant is not a recipient (V2-B9). Neither yes nor no.
+            return None, "programme_rule", _clip(f"{EDIP_RECIPIENTS} The call document also says: “{answer[1]}”")
         if answer is not None:
             return answer[0], ("topic_text" if fact["scope"] == "topic" else "call_document"), answer[1]
+        listed = _closed_list(fact)
+        if listed:
+            return False, "call_document_closed_list", listed
     value, sentence = text_statement(call.get("eligibility_text"))
     if value is not None:
         return value, "call_text", sentence
-    regime = regime_of(call.get("programme_code") or "", call.get("topic_code"))
     if regime is USI:
         return True, "programme_rule", _clip(USI_RULE)
     if regime is EDIP:
         return False, "programme_rule", _clip(EDIP_RULE)
     if regime is EDF:
-        return None, "edf_association_unconfirmed", _clip(EDF_RULE)
+        return None, "edf_association_unconfirmed", _clip(EDF_EVIDENCE)
+    if regime is HORIZON:
+        topic = eligibility.topic_text(call.get("eligibility_text"))
+        m = _HORIZON_TOPIC.search(re.sub(r"\s+", " ", topic or ""))
+        if m:
+            return True, "topic_text_associated", _clip(f"Topic conditions: “{m.group(0).strip()}” {HORIZON_ANNEX}")
     return None, "not_stated", None
 
 
 def run(conn, *, write: bool = False) -> dict[str, int]:
     """Decide every call. Writes only the calls whose answer changed; a second run changes nothing."""
     rows = conn.execute(
-        """SELECT c.id, p.code AS programme_code, c.topic_code, c.conditions_raw, c.eligibility_text,
+        """SELECT c.id, p.code AS programme_code, c.topic_code, c.type_of_action, c.conditions_raw, c.eligibility_text,
                   c.open_to_ukraine, c.open_to_ukraine_reason, c.open_to_ukraine_evidence
              FROM call c JOIN programme p ON p.id = c.programme_id ORDER BY c.id""").fetchall()
-    served = eligibility.read_many(conn, [(r["id"], r["conditions_raw"], r["eligibility_text"]) for r in rows])
+    served = eligibility.read_many(
+        conn, [(r["id"], r["conditions_raw"], r["eligibility_text"], r["topic_code"], r["type_of_action"]) for r in rows])
     counts = {"calls": len(rows), "yes": 0, "no": 0, "unknown": 0, "changed": 0}
     for r in rows:
         flag, reason, evidence = decide(r, served[r["id"]]["facts"])

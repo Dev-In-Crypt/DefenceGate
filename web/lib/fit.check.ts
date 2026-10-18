@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import type { EligibilityFacts } from './eligibility-check';
-import { checkProfileOf, fitOf, fitsProfile, programmeFit, programmesOfCall, withProgramme } from './fit';
+import { actionOfCall, applicantFit, checkProfileOf, fitOf, fitsProfile, orgTypeOf, programmeFit, programmesOfCall, withProgramme } from './fit';
 import { emptyProfile, type Profile } from './profile';
 import type { ProgrammeAssessment, RoadmapStep } from './readiness-types';
 
@@ -126,4 +126,60 @@ assert.equal(withProgramme(fitOf(single, UA), programmeFit(ua, ['EDF'])).fit, 'c
 assert.equal(withProgramme(fitOf(smeOnly, LARGE_ES), usi).fit, 'no', 'the document excludes: the programme cannot lift it');
 assert.equal(withProgramme(docYes, null), docYes);
 assert.ok(withProgramme(docYes, usi).conditions[0].startsWith('Needs first'));
+
+// ---- WP-40 (V2-B10): a condition on the consortium or on a single applicant keeps the badge from saying "Eligible"
+// Call 78: the proposal must use one of the specified mechanisms (a note on the consortium fact).
+const mcp: EligibilityFacts = { ...single, consortium_required: f(true, 'The proposal must use one of the specified MCP implementation mechanisms.') };
+assert.equal(fitOf(mcp, ES).fit, 'check');
+assert.match(fitOf(mcp, ES).result!.lines.find((l) => l.key === 'consortium')!.reason, /condition to the consortium/);
+// Call 14: specific conditions on the consortium composition that are not read.
+const hubs: EligibilityFacts = { ...single, consortium_required: { ...f(true), quote: 'multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)' } };
+assert.equal(fitOf(hubs, ES).fit, 'check');
+// Call 118: no consortium is required, but a single applicant must be Ukrainian.
+const usiSingle: EligibilityFacts = { ...single, consortium_required: f(false), single_applicant_allowed: f(true, 'A single applicant must be a legal entity established and having its executive management structure in Ukraine.') };
+assert.equal(fitOf(usiSingle, ES).fit, 'check');
+assert.match(fitOf(usiSingle, ES).result!.lines.find((l) => l.key === 'consortium')!.reason, /single applicant may apply under a condition.*Ukraine/);
+// A plain consortium call, with no note and no hint of a condition, is still a yes with the consortium as a condition.
+assert.equal(fitOf(consortium, ES).fit, 'yes');
+
+// ---- the kind of organisation the form compares with a call's named kinds
+assert.equal(orgTypeOf(profile({ country: 'ES', applicantKind: 'contracting_authority', sizeClass: 'large' })), 'public');
+assert.equal(orgTypeOf(profile({ country: 'ES', legalForm: 'natural_person', sizeClass: 'small' })), 'individual');
+assert.equal(orgTypeOf(profile({ country: 'ES', applicantKind: 'company_or_research', sizeClass: 'large' })), 'large');
+assert.equal(orgTypeOf(profile({ country: 'ES' })), '');
+// U2 (call 131): a list of SME kinds does not cover a large company.
+const eic: EligibilityFacts = { ...single, entity_types: { ...f(['SME company', 'Small mid-cap company (up to 499 employees)']), scope: 'topic' } };
+assert.equal(fitOf(eic, LARGE_ES).fit, 'check');
+assert.equal(fitOf(eic, ES).fit, 'yes');
+
+// ---- V2-B1: who may apply to some EDIP calls. The same twelve topic codes as backend/tests/unit/test_wp40.py.
+const TOPICS: Record<string, string | null> = {
+  'EDF-EDIP-P-2026-FNLC-CPA-AMEW': 'common_procurement', 'EDF-EDIP-P-2026-FNLC-CPA-CDS': 'common_procurement',
+  'EDF-EDIP-P-2027-FNLC-CPA-AMDS': 'common_procurement', 'EDF-EDIP-P-2027-FNLC-CPA-C5ISRS': 'common_procurement',
+  'EDF-EDIP-P-2027-FNLC-CPA-GNPS': 'common_procurement', 'EDF-EDIP-P-2026-2027-FNLC-SA-SEAP': 'seap_support',
+  'EDF-EDIP-P-2026-FNLC-CSA-PREP': 'edpci_preparation', 'EDF-EDIP-P-2026-LS-IRA-EC': 'industrial_reinforcement',
+  'EDF-EDIP-P-2027-LS-IRA-KEC': 'industrial_reinforcement', 'EDF-EDIP-P-2027-LS-IRA-PE': 'industrial_reinforcement',
+  'EDF-EDIP-USI-2027-LS-IRA-CUXS': 'industrial_reinforcement', 'EDF-EDIP-USI-2026-LS-IRA-MAB': 'industrial_reinforcement',
+  'EDF-2026-DA-AIR-SPS': null,
+};
+for (const [topic, action] of Object.entries(TOPICS)) assert.equal(actionOfCall('EDF', topic), action, topic);
+assert.equal(actionOfCall('HORIZON', 'HORIZON-X-EDIP-CPA'), null);
+const CPA = 'EDF-EDIP-P-2027-FNLC-CPA-AMDS';
+const company = profile({ country: 'PL', applicantKind: 'company_or_research' });
+const ministry = profile({ country: 'PL', applicantKind: 'contracting_authority' });
+assert.equal(applicantFit('EDF', CPA, company)!.fit, 'no', 'Article 11(2): a company cannot apply to common procurement');
+assert.equal(applicantFit('EDF', CPA, ministry)!.fit, 'yes');
+assert.equal(applicantFit('EDF', CPA, profile({ country: 'NO', applicantKind: 'contracting_authority' }))!.fit, 'check', 'an EEA EFTA authority: associated only if it applies the Regulation');
+assert.equal(applicantFit('EDF', CPA, profile({ country: 'US', applicantKind: 'contracting_authority' }))!.fit, 'check', 'the establishment rules, not this one, block it');
+assert.equal(applicantFit('EDF', CPA, profile({ country: 'PL' }))!.fit, 'check', 'unanswered is unknown, never a company');
+assert.equal(applicantFit('EDF', 'EDF-EDIP-P-2027-LS-IRA-KEC', company), null, 'industrial reinforcement is open to companies');
+assert.equal(applicantFit('EDF', 'EDF-EDIP-P-2026-2027-FNLC-SA-SEAP', company)!.fit, 'no');
+assert.equal(applicantFit('EDF', 'EDF-EDIP-P-2026-2027-FNLC-SA-SEAP', profile({ country: 'PL', applicantKind: 'seap' }))!.fit, 'yes');
+assert.equal(applicantFit('EDF', 'EDF-EDIP-P-2026-FNLC-CSA-PREP', company)!.fit, 'no');
+assert.equal(applicantFit('EDF', CPA, null), null);
+// together with the document and the programme: never better than the worse
+const docYes2 = fitOf(single, profile({ country: 'PL', sizeClass: 'small', control: 'no', applicantKind: 'company_or_research' }));
+assert.equal(docYes2.fit, 'yes');
+assert.equal(withProgramme(docYes2, applicantFit('EDF', CPA, company)).fit, 'no');
+assert.deepEqual(withProgramme(docYes2, applicantFit('EDF', CPA, company)).conditions[0].startsWith('Who may apply'), true);
 console.log('fit checks passed');

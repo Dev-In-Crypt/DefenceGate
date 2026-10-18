@@ -240,12 +240,34 @@
    }
   ],
   "meta": {
-   "rulesReviewed": "2026-10-17"
+   "rulesReviewed": "2026-10-18"
   },
   "total": 12
  },
  "programmes": {
   "fields": {
+   "action": {
+    "context": true,
+    "kind": "enum",
+    "question": "The kind of action of the call",
+    "values": [
+     "common_procurement",
+     "seap_support",
+     "edpci_preparation",
+     "industrial_reinforcement"
+    ]
+   },
+   "applicant_kind": {
+    "kind": "enum",
+    "question": "What kind of organisation are you: a company or research body, a contracting authority, an international organisation, a SEAP (structure for European armament programmes) or the European Defence Agency?",
+    "values": [
+     "company_or_research",
+     "contracting_authority",
+     "international_organisation",
+     "seap",
+     "eda"
+    ]
+   },
    "components_from_ua_or_eea_efta": {
     "kind": "bool",
     "question": "Do any components of your end product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"
@@ -362,14 +384,14 @@
    ]
   },
   "meta": {
-   "rulesReviewed": "2026-10-17"
+   "rulesReviewed": "2026-10-18"
   },
   "programmes": [
    {
     "callProgramme": "EDF",
     "code": "EDF",
     "kind": "programme",
-    "lastReviewed": "2026-10-17",
+    "lastReviewed": "2026-10-18",
     "legalBasis": "Regulation (EU) 2021/697, as amended by Regulation (EU) 2025/2653",
     "name": "European Defence Fund (EDF)",
     "rules": [
@@ -381,11 +403,14 @@
       },
       "conditionalWhen": {
        "field": "legal_form",
-       "is": "no_legal_personality"
+       "in": [
+        "no_legal_personality",
+        "natural_person"
+       ]
       },
       "denominator": null,
       "kind": "establishment",
-      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is not settled by the regulation's words alone; the call and the Commission decide. This service reads only the definition.",
+      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
       "obligation": "mandatory",
       "programme": "EDF",
       "reads": [
@@ -394,7 +419,7 @@
       "requirement": null,
       "rule": "EDF-LEGAL-ENTITY",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2021/697, Article 2 (definition of 'legal entity') and Article 9(1)",
        "text": "[Regulation (EU) 2021/697, Article 2, definition of 'legal entity'] ‘legal entity’ means a legal person created and recognised as such under Union, national or international law, which has legal personality and the capacity to act in its own name, exercise rights and be subject to obligations, or an entity which does not have legal personality as referred to in point (c) of Article 197(2) of the Financial Regulation;\n\n[Regulation (EU, Euratom) 2018/1046 (the Financial Regulation that Regulation 2021/697 cites), Article 197(2)] 2. Any of the following applicants shall be eligible for participating in a call for proposals: (a) legal persons; (b) natural persons, in so far as this is required by the nature or characteristics of the action or the objective pursued by the applicant; (c) entities which do not have legal personality under the applicable national law, provided that their representatives have the capacity to undertake legal obligations on behalf of the entities and that the entities offer guarantees for the protection of the financial interests of the Union equivalent to those offered by legal persons.",
@@ -402,13 +427,13 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "conditional": "Your organisation has no legal personality. It counts as a legal entity only if it is an entity of the kind described in Article 197(2), point (c), of the Financial Regulation: its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The Commission assesses that in the call.",
+       "conditional": "Your organisation is a natural person or has no legal personality. The regulation's definition names a legal person, or an entity without legal personality as in point (c) of the Financial Regulation, Article 197(2): its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The call documents add, for natural persons: “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).” So a sole trader whose business has no legal personality separate from them may take part; any other natural person may not. The call and the Commission decide whether your case is accepted.",
        "met": "Your organisation is a legal person, which the regulation counts as a legal entity.",
-       "not_met": "A natural person, for example a sole trader acting in their own name, is not a legal entity as this regulation defines it. The definition names legal persons and, from the Financial Regulation, only entities without legal personality (point (c)). Natural persons are a separate category of the Financial Regulation (point (b)), which the definition does not cite. Take part through a legal person, or ask the contact point of the call whether your case is accepted.",
+       "not_met": "Your organisation is not a legal entity as this regulation defines it.",
        "requires": "A recipient must be a legal entity: a legal person, or an entity without legal personality that meets the conditions the Financial Regulation sets for such entities.",
        "unknown": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
       },
-      "title": "Legal entity: a legal person, not a natural person"
+      "title": "Legal entity: a legal person, or an entity without legal personality that is accepted"
      },
      {
       "appliesWhen": null,
@@ -416,14 +441,16 @@
        "field": "country",
        "in": [
         "EU",
-        "EEA_EFTA",
-        "UA"
+        "EEA_EFTA"
        ]
       },
-      "conditionalWhen": null,
+      "conditionalWhen": {
+       "field": "country",
+       "is": "UA"
+      },
       "denominator": null,
       "kind": "establishment",
-      "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine (under the EU-Ukraine Association Agreement).",
+      "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine under the conditions of the EU-Ukraine Association Agreement. That those conditions are met is not confirmed, so a company established in Ukraine is conditional here, not eligible. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF.",
       "obligation": "mandatory",
       "programme": "EDF",
       "reads": [
@@ -432,7 +459,7 @@
       "requirement": null,
       "rule": "EDF-ESTABLISH",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2021/697, Article 9(1) and Article 5 (as replaced by Regulation (EU) 2025/2653)",
        "text": "[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.\n\n[Regulation (EU) 2021/697, Article 5, as replaced by Regulation (EU) 2025/2653, Article 3(1)] The Fund shall be open to the participation of the following third countries (associated countries): (a) members of the European Free Trade Association which are members of the EEA, in accordance with the conditions laid down in the Agreement on the European Economic Area; (b) Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
@@ -440,9 +467,11 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "met": "Your company is established in an EU Member State, an EEA EFTA state or Ukraine. These are the Union and the associated countries of the EDF.",
-       "not_met": "Your company is established outside the EU, the EEA EFTA states and Ukraine. EDF recipients must be established in the Union or in an associated country.",
-       "requires": "Recipients and subcontractors involved in an action must be established in the Union or in an associated country: an EEA EFTA state, or Ukraine, on the conditions of the agreements that associate them.",
+       "caveat": "For an applicant established in Ukraine this is conditional on the EU-Ukraine association agreement, which is not confirmed: the EDF call documents say participation of entities established in Ukraine is pending its signature.",
+       "conditional": "Your company is established in Ukraine. Regulation (EU) 2025/2653 lists Ukraine among the associated countries of the EDF “in accordance with the conditions laid down in the EU-Ukraine Association Agreement”. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF. Treat your participation as conditional on that agreement, not confirmed, and ask the contact point of the call before you rely on it.",
+       "met": "Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.",
+       "not_met": "Your company is established outside the EU and the EEA EFTA states, and not in Ukraine. EDF recipients must be established in the Union or in an associated country.",
+       "requires": "Recipients and subcontractors involved in an action must be established in the Union or in an associated country: an EEA EFTA state, or Ukraine on the conditions of the association agreement, which is not confirmed.",
        "unknown": "Say in which country your company is established."
       },
       "title": "Established in the Union or an associated country"
@@ -453,11 +482,13 @@
        "field": "executive_management_country",
        "in": [
         "EU",
-        "EEA_EFTA",
-        "UA"
+        "EEA_EFTA"
        ]
       },
-      "conditionalWhen": null,
+      "conditionalWhen": {
+       "field": "executive_management_country",
+       "is": "UA"
+      },
       "denominator": null,
       "kind": "establishment",
       "note": "The same paragraph requires that the infrastructure, facilities, assets and resources used for the action are located in a Member State or an associated country for the whole duration of the action. This service does not ask about that.",
@@ -469,7 +500,7 @@
       "requirement": null,
       "rule": "EDF-EXEC-MGMT",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2021/697, Article 9(2)",
        "text": "[Regulation (EU) 2021/697, Article 9(2)] The infrastructure, facilities, assets and resources of the recipients and subcontractors involved in an action which are used for the purposes of an action supported by the Fund shall be located on the territory of a Member State or of an associated country for the entire duration of an action, and their executive management structures shall be established in the Union or in an associated country.",
@@ -477,9 +508,11 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "met": "Your executive management structures are in an EU Member State, an EEA EFTA state or Ukraine.",
-       "not_met": "Your executive management structures are outside the EU, the EEA EFTA states and Ukraine. EDF recipients must have them in the Union or in an associated country.",
-       "requires": "Their executive management structures must be established in the Union or in an associated country, and the infrastructure, facilities, assets and resources used for the action must be located there for the whole action.",
+       "caveat": "For executive management in Ukraine this is conditional on the EU-Ukraine association agreement, which is not confirmed.",
+       "conditional": "Your executive management structures are in Ukraine. They count as being in an associated country only if the EU-Ukraine association agreement applies to the EDF. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF. Treat it as conditional, not confirmed.",
+       "met": "Your executive management structures are in an EU Member State or an EEA EFTA state.",
+       "not_met": "Your executive management structures are outside the EU and the EEA EFTA states, and not in Ukraine. EDF recipients must have them in the Union or in an associated country.",
+       "requires": "Their executive management structures must be established in the Union or in an associated country (an EEA EFTA state, or Ukraine on the conditions of the association agreement, which is not confirmed), and the infrastructure, facilities, assets and resources used for the action must be located there for the whole action.",
        "unknown": "Say where your company's executive management structures are established."
       },
       "title": "Executive management in the Union or an associated country"
@@ -488,14 +521,14 @@
       "appliesWhen": null,
       "condition": {
        "field": "third_country_control",
-       "in": [
-        "no",
-        "ua_eea_only"
-       ]
+       "is": "no"
       },
       "conditionalWhen": {
        "field": "third_country_control",
-       "is": "other"
+       "in": [
+        "other",
+        "ua_eea_only"
+       ]
       },
       "denominator": null,
       "kind": "control",
@@ -508,7 +541,7 @@
       "requirement": null,
       "rule": "EDF-CONTROL",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2021/697, Article 9(3) and (4)",
        "text": "[Regulation (EU) 2021/697, Article 9(3)] For the purposes of an action supported by the Fund, the recipients and subcontractors involved in an action shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2021/697, Article 9(4), first sentence] By way of derogation from paragraph 3, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or a non-associated third-country entity shall be eligible to be a recipient or subcontractor involved in an action only if guarantees approved by the Member State or the associated country in which it is established in accordance with its national procedures are made available to the Commission.",
@@ -516,8 +549,8 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "conditional": "Your company is controlled from a non-associated third country. It can still be eligible, but only if guarantees approved by the Member State or associated country where it is established are made available to the Commission.",
-       "met": "Your company is not controlled from a non-associated third country. Control from an EEA EFTA state or Ukraine does not count against you under the EDF.",
+       "conditional": "Your company is controlled from outside the EU. Control from an EEA EFTA state is control from an associated country and does not count against you. Control from Ukraine counts as such only if the EU-Ukraine association agreement applies to the EDF, which is not confirmed (the EDF call documents say it is pending signature). Control from any other country is control by a non-associated third country: the company can still be eligible, but only if guarantees approved by the Member State or associated country where it is established are made available to the Commission.",
+       "met": "Your company is not controlled from outside the EU.",
        "not_met": "Your company is controlled from a non-associated third country.",
        "requires": "Recipients and subcontractors must not be subject to control by a non-associated third country or entity, unless guarantees approved by the Member State or associated country where they are established are made available to the Commission.",
        "unknown": "Say whether your company is controlled by a country or an entity outside the EU, the EEA EFTA states and Ukraine. If you do not know, find out who your ultimate owners are."
@@ -590,10 +623,84 @@
     "callProgramme": "EDIP",
     "code": "EDIP",
     "kind": "programme",
-    "lastReviewed": "2026-10-17",
+    "lastReviewed": "2026-10-18",
     "legalBasis": "Regulation (EU) 2025/2643",
     "name": "European Defence Industry Programme (EDIP): the Programme",
     "rules": [
+     {
+      "appliesWhen": {
+       "field": "action",
+       "is": "common_procurement"
+      },
+      "condition": {
+       "any": [
+        {
+         "field": "applicant_kind",
+         "in": [
+          "international_organisation",
+          "seap",
+          "eda"
+         ]
+        },
+        {
+         "all": [
+          {
+           "field": "applicant_kind",
+           "is": "contracting_authority"
+          },
+          {
+           "field": "country",
+           "in": [
+            "EU"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "conditionalWhen": {
+       "all": [
+        {
+         "field": "applicant_kind",
+         "is": "contracting_authority"
+        },
+        {
+         "field": "country",
+         "in": [
+          "EEA_EFTA"
+         ]
+        }
+       ]
+      },
+      "denominator": null,
+      "kind": "categorical",
+      "note": "The call documents of the common procurement calls say the same: “be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation”, and that the EDA and international organisations are eligible as beneficiaries if designated as procurement agent. Article 11(3) adds that a consortium needs at least three contracting authorities from three Member States or associated countries, at least two of them contracting authorities of Member States, unless a SEAP applies alone.",
+      "obligation": "mandatory",
+      "programme": "EDIP",
+      "reads": [
+       "applicant_kind",
+       "country"
+      ],
+      "requirement": null,
+      "rule": "EDIP-CPA-APPLICANT",
+      "source": {
+       "lastReviewed": "2026-10-18",
+       "origin": "primary",
+       "ref": "Regulation (EU) 2025/2643, Article 11(2) and (3)",
+       "text": "[Regulation (EU) 2025/2643, Article 11(2)] Only the following legal entities shall be eligible for common procurement actions: (a) contracting authorities of Member States or associated countries; (b) international organisations; (c) SEAPs; (d) the EDA.\n\n[Regulation (EU) 2025/2643, Article 11(3)] Common procurement actions shall be carried out by: (a) a consortium of legal entities as referred to in paragraph 2, including at least three entities referred to in paragraph 2, point (a), from at least three Member States or associated countries of which at least two shall be contracting authorities of two Member States; or (b) a SEAP.",
+       "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
+       "verificationStatus": "V"
+      },
+      "texts": {
+       "conditional": "Your organisation is a contracting authority of an EEA EFTA state. It is a contracting authority of an associated country only if that state applies the Regulation in accordance with the EEA Agreement. Check whether it does.",
+       "met": "You said you are one of the kinds of organisation that Article 11(2) names for common procurement actions.",
+       "not_applicable": "This rule applies to common procurement actions only. It is checked when you open a call of that kind.",
+       "not_met": "Common procurement actions are open only to contracting authorities of Member States or associated countries, international organisations, SEAPs and the EDA (Regulation (EU) 2025/2643, Article 11(2)). A company or a research body cannot apply to a call of this kind. The call documents say that other entities may take part in other roles, such as associated partners or subcontractors; those are not applicants.",
+       "requires": "Only contracting authorities of Member States or associated countries, international organisations, SEAPs (structures for European armament programmes) and the European Defence Agency are eligible for common procurement actions.",
+       "unknown": "Say which kind of organisation you are: a company or research body, a contracting authority, an international organisation, a SEAP or the EDA."
+      },
+      "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA"
+     },
      {
       "appliesWhen": null,
       "condition": {
@@ -602,11 +709,14 @@
       },
       "conditionalWhen": {
        "field": "legal_form",
-       "is": "no_legal_personality"
+       "in": [
+        "no_legal_personality",
+        "natural_person"
+       ]
       },
       "denominator": null,
       "kind": "establishment",
-      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is not settled by the regulation's words alone; the call and the Commission decide. This service reads only the definition.",
+      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
       "obligation": "mandatory",
       "programme": "EDIP",
       "reads": [
@@ -615,7 +725,7 @@
       "requirement": null,
       "rule": "EDIP-LEGAL-ENTITY",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 2 (definition of 'legal entity') and Article 9(1)",
        "text": "[Regulation (EU) 2025/2643, Article 2, definition of 'legal entity'] ‘legal entity’ means a legal person created and recognised as such under Union, national or international law, which has legal personality and the capacity to act in its own name, exercise rights and be subject to obligations, or an entity which does not have legal personality as referred to in Article 200(2), point (c), of the Financial Regulation;\n\n[Regulation (EU, Euratom) 2024/2509 (the Financial Regulation that Regulation 2025/2643 cites), Article 200(2)] 2. Any of the following applicants shall be eligible for participating in a call for proposals: (a) legal persons; (b) natural persons, in so far as this is required by the nature or characteristics of the action or the objective pursued by the applicant; (c) entities which do not have legal personality under the applicable national law, provided that their representatives have the capacity to undertake legal obligations on behalf of the entities and that the entities offer guarantees for the protection of the financial interests of the Union equivalent to those offered by legal persons.",
@@ -623,13 +733,91 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "conditional": "Your organisation has no legal personality. It counts as a legal entity only if it is an entity of the kind described in Article 200(2), point (c), of the Financial Regulation: its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The Commission assesses that in the call.",
+       "conditional": "Your organisation is a natural person or has no legal personality. The regulation's definition names a legal person, or an entity without legal personality as in point (c) of the Financial Regulation, Article 200(2): its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The call documents add, for natural persons: “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).” So a sole trader whose business has no legal personality separate from them may take part; any other natural person may not. The call and the Commission decide whether your case is accepted.",
        "met": "Your organisation is a legal person, which the regulation counts as a legal entity.",
-       "not_met": "A natural person, for example a sole trader acting in their own name, is not a legal entity as this regulation defines it. The definition names legal persons and, from the Financial Regulation, only entities without legal personality (point (c)). Natural persons are a separate category of the Financial Regulation (point (b)), which the definition does not cite. Take part through a legal person, or ask the contact point of the call whether your case is accepted.",
+       "not_met": "Your organisation is not a legal entity as this regulation defines it.",
        "requires": "A recipient must be a legal entity: a legal person, or an entity without legal personality that meets the conditions the Financial Regulation sets for such entities.",
        "unknown": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
       },
-      "title": "Legal entity: a legal person, not a natural person"
+      "title": "Legal entity: a legal person, or an entity without legal personality that is accepted"
+     },
+     {
+      "appliesWhen": {
+       "field": "action",
+       "is": "edpci_preparation"
+      },
+      "condition": {
+       "field": "applicant_kind",
+       "is": "seap"
+      },
+      "conditionalWhen": {
+       "field": "applicant_kind",
+       "is": "contracting_authority"
+      },
+      "denominator": null,
+      "kind": "categorical",
+      "note": "The source is the Commission's call document, not the Official Journal.",
+      "obligation": "mandatory",
+      "programme": "EDIP",
+      "reads": [
+       "applicant_kind"
+      ],
+      "requirement": null,
+      "rule": "EDIP-PREP-APPLICANT",
+      "source": {
+       "lastReviewed": "2026-10-18",
+       "origin": "call_document",
+       "ref": "Call document EDF-EDIP-P-2026-FNLC-CSA-PREP (EDIP/USI call document), section 6, Eligible participants",
+       "text": "[Call document EDF-EDIP-P-2026-FNLC-CSA-PREP, Eligible participants] be a SEAP or a group of at least 4 EU Member States and EDIP associated countries",
+       "url": "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-fnlc-csa_en.pdf",
+       "verificationStatus": "V"
+      },
+      "texts": {
+       "conditional": "You said you are a contracting authority. The call document admits a group of at least four Member States and EDIP associated countries that submitted a proposal in the call for expression of interest, not a single authority. Check that your group meets that description.",
+       "met": "You said you are a SEAP.",
+       "not_applicable": "This rule applies to the calls that prepare projects of common interest only. It is checked when you open a call of that kind.",
+       "not_met": "This call is for maturing projects for possible European Defence Projects of Common Interest, and the call document admits only a SEAP or a group of Member States and associated countries that took part in the earlier call for expression of interest. A company, a research body or an international organisation cannot apply to it.",
+       "requires": "Applicants must be a SEAP, or a group of at least four EU Member States and EDIP associated countries that submitted a proposal for a project of common interest in the Commission's call for expression of interest of February 2026.",
+       "unknown": "Say which kind of organisation you are: a company or research body, a contracting authority, an international organisation, a SEAP or the EDA."
+      },
+      "title": "Who may apply: a SEAP or a group of Member States"
+     },
+     {
+      "appliesWhen": {
+       "field": "action",
+       "is": "seap_support"
+      },
+      "condition": {
+       "field": "applicant_kind",
+       "is": "seap"
+      },
+      "conditionalWhen": null,
+      "denominator": null,
+      "kind": "categorical",
+      "note": "The source is the Commission's call document, not the Official Journal: Article 13(3) of Regulation (EU) 2025/2643 only says that such activities “may be carried out by a SEAP”.",
+      "obligation": "mandatory",
+      "programme": "EDIP",
+      "reads": [
+       "applicant_kind"
+      ],
+      "requirement": null,
+      "rule": "EDIP-SEAP-APPLICANT",
+      "source": {
+       "lastReviewed": "2026-10-18",
+       "origin": "call_document",
+       "ref": "Call document EDF-EDIP-P-2026-2027-FNLC-SA (EDIP/USI call document), section 6, Eligible participants and Consortium composition",
+       "text": "[Call document EDF-EDIP-P-2026-2027-FNLC-SA, Eligible participants] be an established SEAP within the meaning of Articles 40 to 51 of the EDIP Regulation, with at least 3 members from EU Member States, EDIP associated countries or Ukraine, of which at least 2 must be EU Member States\n\n[Call document EDF-EDIP-P-2026-2027-FNLC-SA, Consortium composition] Only single applications by a SEAP are allowed.",
+       "url": "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-2027-fnlc-sa_en.pdf",
+       "verificationStatus": "V"
+      },
+      "texts": {
+       "met": "You said you are a SEAP.",
+       "not_applicable": "This rule applies to the calls for support to SEAPs only. It is checked when you open a call of that kind.",
+       "not_met": "This call is for support to the functioning of SEAPs, and the call document admits only a SEAP as applicant. A company, a research body, a contracting authority or an international organisation cannot apply to it. A SEAP can have members from Ukraine, which does not make a Ukrainian entity an applicant.",
+       "requires": "Applicants must be an established SEAP (a structure for European armament programmes), or one in the process of being established that has applied to the Commission; only single applications by a SEAP are allowed.",
+       "unknown": "Say which kind of organisation you are: a company or research body, a contracting authority, an international organisation, a SEAP or the EDA."
+      },
+      "title": "Who may apply: an established SEAP"
      },
      {
       "appliesWhen": null,
@@ -656,7 +844,7 @@
       "requirement": null,
       "rule": "EDIP-ESTABLISH",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 9(1), Article 8 and the definition of 'associated countries' in Article 2",
        "text": "[Regulation (EU) 2025/2643, Article 9(1)] Only legal entities established in the Union or in an associated country and having their executive management structures in the Union or in an associated country shall be eligible to be recipients of Union funding under this Regulation.\n\n[Regulation (EU) 2025/2643, Article 2, definition of 'associated countries'] ‘associated countries’ means members of the European Free Trade Association which are members of the European Economic Area that apply this Regulation in accordance with the Agreement on the European Economic Area;\n\n[Regulation (EU) 2025/2643, Article 8] The Programme shall be open to the participation of associated countries, in accordance with the conditions laid down in the Agreement on the European Economic Area.",
@@ -697,7 +885,7 @@
       "requirement": null,
       "rule": "EDIP-EXEC-MGMT",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 9(1)",
        "text": "[Regulation (EU) 2025/2643, Article 9(1)] Only legal entities established in the Union or in an associated country and having their executive management structures in the Union or in an associated country shall be eligible to be recipients of Union funding under this Regulation.",
@@ -728,7 +916,7 @@
       },
       "denominator": null,
       "kind": "control",
-      "note": "Paragraph 6 of Article 9 lists what the guarantees must show.",
+      "note": "Paragraph 6 of Article 9 lists what the guarantees must show. Article 9(9) says paragraphs 5 and 6 do not apply to contracting authorities of Member States and associated countries, international organisations, SEAPs and the EDA; this service still asks the question of every applicant.",
       "obligation": "mandatory",
       "programme": "EDIP",
       "reads": [
@@ -737,14 +925,15 @@
       "requirement": null,
       "rule": "EDIP-CONTROL",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
-       "ref": "Regulation (EU) 2025/2643, Article 9(5) and (6)",
-       "text": "[Regulation (EU) 2025/2643, Article 9(5)] Recipients of Union funding under the Programme shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2025/2643, Article 9(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or by a non-associated third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State or associated country in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452 of the European Parliament and of the Council (39), are made available to the Commission.",
+       "ref": "Regulation (EU) 2025/2643, Article 9(5), (6) and (9)",
+       "text": "[Regulation (EU) 2025/2643, Article 9(5)] Recipients of Union funding under the Programme shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2025/2643, Article 9(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or by a non-associated third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State or associated country in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452 of the European Parliament and of the Council (39), are made available to the Commission.\n\n[Regulation (EU) 2025/2643, Article 9(9)] Paragraphs 5 and 6 shall not apply to: (a) contracting authorities of Member States and associated countries; (b) international organisations; (c) SEAPs; (d) the EDA.",
        "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
        "verificationStatus": "V"
       },
       "texts": {
+       "caveat": "Does not apply to contracting authorities of Member States and associated countries, international organisations, SEAPs and the EDA (Article 9(9)).",
        "conditional": "Your company is controlled from outside the EU. If the control is from a non-associated third country (under this Programme Ukraine is one; an EEA EFTA state that applies the Regulation is not), the company can still be eligible, but only if guarantees approved by the Member State or associated country where it is established, such as adequate measures after an investment screening, are made available to the Commission.",
        "met": "Your company is not controlled from a third country.",
        "not_met": "Your company is controlled from a non-associated third country.",
@@ -787,7 +976,7 @@
       "requirement": null,
       "rule": "EDIP-ORIGIN-35",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 10(3), first sentence, and Article 10(4), first sentence",
        "text": "[Regulation (EU) 2025/2643, Article 10(3), first sentence] For procurement carried out pursuant to Articles 11, 13 and 35 which is supported by Union funding, the cost of components originating outside the Union and associated countries shall not be higher than 35 % of the estimated cost of the components of the end product.\n\n[Regulation (EU) 2025/2643, Article 10(4), first sentence] For actions carried out pursuant to Article 12 and activities carried out pursuant to Article 35 other than procurement activities, the cost of components originating outside the Union and associated countries shall not be higher than 35 % of the estimated cost of the components of the product the increase in production capacity of which is supported by Union funding.",
@@ -821,7 +1010,7 @@
       "requirement": null,
       "rule": "EDIP-NO-RESTRICTED",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 10(3), second sentence, and Article 10(4), second sentence",
        "text": "[Regulation (EU) 2025/2643, Article 10(3), second sentence] No component shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.\n\n[Regulation (EU) 2025/2643, Article 10(4), second sentence] No component of the product the increase in production capacity of which is supported by Union funding shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.",
@@ -907,7 +1096,7 @@
       "requirement": null,
       "rule": "EDIP-SUBCONTRACT-RELIEF",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 11(7) and Article 2",
        "text": "[Regulation (EU) 2025/2643, Article 11(7)] By way of derogation from paragraph 6, in order to take into account industrial cooperation with non-associated third countries, common procurement that involves a subcontractor that is allocated between 15 % and 35 % of the value of the contract, and that is not established or does not have its executive management structures in the Union or in an associated country, shall be eligible for support under the Programme provided that a direct contractual relationship related to the defence product has been established between the contractor and that subcontractor prior to the date of entry into force of this Regulation.\n\n[Regulation (EU) 2025/2643, Article 2, definition of 'subcontractor'] ‘subcontractor’ means an economic operator that is proposed by a candidate, tenderer or contractor to perform specific tasks or services under the supervision of the main contractor, contributing to the design or manufacturing of a defence product, other than what is provided by suppliers to implement the contract, for which it is allocated at least 15 % of the value of the contract, and that needs access to classified information for the performance of that contract; for the purposes of this definition, ‘supplier’ shall be understood as an economic operator that delivers components of its own design or production to the contractor.",
@@ -921,13 +1110,13 @@
      }
     ],
     "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
-    "summary": "Union funding for the European defence industrial base. This card covers the Programme itself; the Ukraine Support Instrument has its own card."
+    "summary": "Union funding for the European defence industrial base. This card covers the Programme itself; the Ukraine Support Instrument has its own card. Not every call is open to a company: common procurement actions are open only to contracting authorities, international organisations, SEAPs and the European Defence Agency (Regulation (EU) 2025/2643, Article 11(2)), and two calls name a SEAP or a group of Member States in their call documents. That is checked when you open a call of that kind."
    },
    {
     "callProgramme": "EDIP",
     "code": "EDIP-USI",
     "kind": "programme",
-    "lastReviewed": "2026-10-17",
+    "lastReviewed": "2026-10-18",
     "legalBasis": "Regulation (EU) 2025/2643, Chapter on the Ukraine Support Instrument",
     "name": "EDIP: Ukraine Support Instrument",
     "rules": [
@@ -939,11 +1128,14 @@
       },
       "conditionalWhen": {
        "field": "legal_form",
-       "is": "no_legal_personality"
+       "in": [
+        "no_legal_personality",
+        "natural_person"
+       ]
       },
       "denominator": null,
       "kind": "establishment",
-      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is not settled by the regulation's words alone; the call and the Commission decide. This service reads only the definition.",
+      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
       "obligation": "mandatory",
       "programme": "EDIP-USI",
       "reads": [
@@ -952,7 +1144,7 @@
       "requirement": null,
       "rule": "USI-LEGAL-ENTITY",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 2 (definition of 'legal entity') and Article 26(1)",
        "text": "[Regulation (EU) 2025/2643, Article 2, definition of 'legal entity'] ‘legal entity’ means a legal person created and recognised as such under Union, national or international law, which has legal personality and the capacity to act in its own name, exercise rights and be subject to obligations, or an entity which does not have legal personality as referred to in Article 200(2), point (c), of the Financial Regulation;\n\n[Regulation (EU, Euratom) 2024/2509 (the Financial Regulation that Regulation 2025/2643 cites), Article 200(2)] 2. Any of the following applicants shall be eligible for participating in a call for proposals: (a) legal persons; (b) natural persons, in so far as this is required by the nature or characteristics of the action or the objective pursued by the applicant; (c) entities which do not have legal personality under the applicable national law, provided that their representatives have the capacity to undertake legal obligations on behalf of the entities and that the entities offer guarantees for the protection of the financial interests of the Union equivalent to those offered by legal persons.",
@@ -960,13 +1152,13 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "conditional": "Your organisation has no legal personality. It counts as a legal entity only if it is an entity of the kind described in Article 200(2), point (c), of the Financial Regulation: its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The Commission assesses that in the call.",
+       "conditional": "Your organisation is a natural person or has no legal personality. The regulation's definition names a legal person, or an entity without legal personality as in point (c) of the Financial Regulation, Article 200(2): its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The call documents add, for natural persons: “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).” So a sole trader whose business has no legal personality separate from them may take part; any other natural person may not. The call and the Commission decide whether your case is accepted.",
        "met": "Your organisation is a legal person, which the regulation counts as a legal entity.",
-       "not_met": "A natural person, for example a sole trader acting in their own name, is not a legal entity as this regulation defines it. The definition names legal persons and, from the Financial Regulation, only entities without legal personality (point (c)). Natural persons are a separate category of the Financial Regulation (point (b)), which the definition does not cite. Take part through a legal person, or ask the contact point of the call whether your case is accepted.",
+       "not_met": "Your organisation is not a legal entity as this regulation defines it.",
        "requires": "A recipient must be a legal entity: a legal person, or an entity without legal personality that meets the conditions the Financial Regulation sets for such entities.",
        "unknown": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
       },
-      "title": "Legal entity: a legal person, not a natural person"
+      "title": "Legal entity: a legal person, or an entity without legal personality that is accepted"
      },
      {
       "appliesWhen": null,
@@ -989,7 +1181,7 @@
       "requirement": null,
       "rule": "USI-ESTABLISH",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 26(1)",
        "text": "[Regulation (EU) 2025/2643, Article 26(1)] Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
@@ -1025,7 +1217,7 @@
       "requirement": null,
       "rule": "USI-EXEC-MGMT",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 26(1)",
        "text": "[Regulation (EU) 2025/2643, Article 26(1)] Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
@@ -1061,7 +1253,7 @@
       "requirement": null,
       "rule": "USI-TERRITORY",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 26(1), second subparagraph",
        "text": "[Regulation (EU) 2025/2643, Article 26(1), second subparagraph] Legal entities established in the non-government controlled areas of Ukraine shall not be eligible for funding under this Regulation.",
@@ -1116,7 +1308,7 @@
       "requirement": null,
       "rule": "USI-CONTROL",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 26(5) and (6)",
        "text": "[Regulation (EU) 2025/2643, Article 26(5)] For the purposes of an action supported by the Ukraine Support Instrument, the recipients of Union funding shall not be subject to control by a non-associated third country other than Ukraine or by another third-country entity.\n\n[Regulation (EU) 2025/2643, Article 26(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union and controlled by a non-associated third country other than Ukraine or by another third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452, are made available to the Commission.",
@@ -1166,7 +1358,7 @@
       "requirement": null,
       "rule": "USI-ORIGIN-35",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 27(3), first sentence, and Article 27(4), first sentence",
        "text": "[Regulation (EU) 2025/2643, Article 27(3), first sentence] For procurement carried out pursuant to paragraph 1, points (a) and (c), which is supported by Union funding, the cost of components originating outside the Union and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.\n\n[Regulation (EU) 2025/2643, Article 27(4), first sentence] For actions carried out pursuant to paragraph 1, point (b), the cost of components originating outside the Union and Ukraine shall not be higher than 35 % of the estimated cost of the components of the product the increase in production capacity of which is supported by Union funding.",
@@ -1200,7 +1392,7 @@
       "requirement": null,
       "rule": "USI-NO-RESTRICTED",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 27(3), second sentence, and Article 27(4), second sentence",
        "text": "[Regulation (EU) 2025/2643, Article 27(3), second sentence] No component shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.\n\n[Regulation (EU) 2025/2643, Article 27(4), second sentence] No component of the product the increase in production capacity of which is supported by Union funding shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.",
@@ -1261,7 +1453,7 @@
       "requirement": null,
       "rule": "USI-INVOLVES-UA",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2025/2643, Article 27(7)",
        "text": "[Regulation (EU) 2025/2643, Article 27(7)] Actions eligible for funding under the Ukraine Support Instrument shall be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established and having its executive management structure in Ukraine.",
@@ -1306,7 +1498,7 @@
     "callProgramme": null,
     "code": "SAFE",
     "kind": "programme",
-    "lastReviewed": "2026-10-17",
+    "lastReviewed": "2026-10-18",
     "legalBasis": "Council Regulation (EU) 2025/1106, Article 16",
     "name": "Security Action for Europe (SAFE)",
     "rules": [
@@ -1326,7 +1518,10 @@
         "UA"
        ]
       },
-      "conditionalWhen": null,
+      "conditionalWhen": {
+       "field": "country",
+       "is": "CA"
+      },
       "denominator": null,
       "kind": "establishment",
       "note": "Derogation for subcontractors: see the information line on the 15-35 % subcontractor allowance below. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -1338,17 +1533,18 @@
       "requirement": null,
       "rule": "SAFE-ESTABLISH",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
-       "ref": "Council Regulation (EU) 2025/1106, Article 16(3) and Article 16(12)",
-       "text": "[Council Regulation (EU) 2025/1106, Article 16(3), first sentence] Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.\n\n[Council Regulation (EU) 2025/1106, Article 16(12)] For the purposes of this Article, ‘subcontractors involved in the common procurement’ means any legal entity which provides critical inputs that possess unique attributes essential for the functioning of a product, which is allocated at least 15 % of the value of the contract, and which needs access to classified information for the performance of the contract.",
+       "ref": "Council Regulation (EU) 2025/1106, Article 16(3) and Article 16(12); Article 17 and the agreement with Canada (Decision (EU) 2026/1381, Agreement Article 5(2))",
+       "text": "[Council Regulation (EU) 2025/1106, Article 16(3), first sentence] Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.\n\n[Council Regulation (EU) 2025/1106, Article 16(12)] For the purposes of this Article, ‘subcontractors involved in the common procurement’ means any legal entity which provides critical inputs that possess unique attributes essential for the functioning of a product, which is allocated at least 15 % of the value of the contract, and which needs access to classified information for the performance of the contract.\n\n[Council Decision (EU) 2026/1381, recital (1)] was signed on 14 February 2026, subject to its conclusion at a later date, and has been applied on a provisional basis from 13 April 2026, pending its entry into force.\n\n[Agreement between the European Union and Canada, OJ L 2026/445, Article 5(2), first sentence] Canadian legal entities must be established in Canada and have their executive management structures in Canada, in the Union, in an EEA EFTA State, or in Ukraine.",
        "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
        "verificationStatus": "V"
       },
       "texts": {
+       "conditional": "Canadian legal entities may take part in SAFE procurement under the agreement between the EU and Canada (Council Decision (EU) 2026/1381 approved it on 15 June 2026; the agreement is published as OJ L 2026/445). The decision says it has been applied provisionally from 13 April 2026, pending its entry into force, and we found no notice of its entry into force. Under Article 5(2) of the agreement a Canadian legal entity must be established in Canada and have its executive management structures in Canada, the Union, an EEA EFTA State or Ukraine, and must not be subject to control by a third country. Conditional: read the agreement and the tender specifications.",
        "met": "Your company is established in an EU Member State, an EEA EFTA state or Ukraine.",
        "not_applicable": "You said you would be a supplier that is not a 'subcontractor involved in the common procurement' (a legal entity that provides critical inputs, is allocated at least 15 % of the value of the contract and needs access to classified information). This paragraph does not bind you. The components you supply may still count towards the 35 % limit on the end product.",
-       "not_met": "Your company is established outside the EU, the EEA EFTA states and Ukraine. The contractor, and a subcontractor involved in the common procurement as the regulation defines it, must be established there. Article 17 allows agreements that open the eligibility conditions to other countries; none is encoded here.",
+       "not_met": "Your company is established outside the EU, the EEA EFTA states and Ukraine. The contractor, and a subcontractor involved in the common procurement as the regulation defines it, must be established there. Article 17 allows agreements that open the eligibility conditions to other countries; only the agreement with Canada is encoded here, as a condition.",
        "requires": "The contractor, and any subcontractor involved in the common procurement, must be established and have its executive management structures in the Union, an EEA EFTA state or Ukraine.",
        "unknown": "Say in which country your company is established, and what your role in a SAFE-supported procurement would be."
       },
@@ -1370,7 +1566,18 @@
         "UA"
        ]
       },
-      "conditionalWhen": null,
+      "conditionalWhen": {
+       "all": [
+        {
+         "field": "country",
+         "is": "CA"
+        },
+        {
+         "field": "executive_management_country",
+         "is": "CA"
+        }
+       ]
+      },
       "denominator": null,
       "kind": "establishment",
       "note": "Paragraph 8 also requires the infrastructure, facilities, assets and resources used for the procurement to be located in a Member State, an EEA EFTA state or Ukraine, with a narrow exception where no alternative is readily available. This service does not ask about that. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -1382,14 +1589,15 @@
       "requirement": null,
       "rule": "SAFE-EXEC-MGMT",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Council Regulation (EU) 2025/1106, Article 16(3) and Article 16(12)",
-       "text": "[Council Regulation (EU) 2025/1106, Article 16(3), first sentence] Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.\n\n[Council Regulation (EU) 2025/1106, Article 16(12)] For the purposes of this Article, ‘subcontractors involved in the common procurement’ means any legal entity which provides critical inputs that possess unique attributes essential for the functioning of a product, which is allocated at least 15 % of the value of the contract, and which needs access to classified information for the performance of the contract.",
+       "text": "[Council Regulation (EU) 2025/1106, Article 16(3), first sentence] Contractors and subcontractors involved in the common procurement shall be established and have their executive management structures in the Union, in an EEA EFTA State or in Ukraine.\n\n[Council Regulation (EU) 2025/1106, Article 16(12)] For the purposes of this Article, ‘subcontractors involved in the common procurement’ means any legal entity which provides critical inputs that possess unique attributes essential for the functioning of a product, which is allocated at least 15 % of the value of the contract, and which needs access to classified information for the performance of the contract.\n\n[Council Decision (EU) 2026/1381, recital (1)] was signed on 14 February 2026, subject to its conclusion at a later date, and has been applied on a provisional basis from 13 April 2026, pending its entry into force.",
        "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
        "verificationStatus": "V"
       },
       "texts": {
+       "conditional": "Your company is established in Canada and has its executive management structures in Canada. Canadian legal entities may take part in SAFE procurement under the agreement between the EU and Canada (Council Decision (EU) 2026/1381 approved it on 15 June 2026; the agreement is published as OJ L 2026/445). The decision says it has been applied provisionally from 13 April 2026, pending its entry into force, and we found no notice of its entry into force. Article 5(2) of the agreement lets a Canadian legal entity have its executive management structures in Canada. Conditional: read the agreement and the tender specifications.",
        "met": "Your executive management structures are in an EU Member State, an EEA EFTA state or Ukraine.",
        "not_applicable": "You said you would be a supplier that is not a 'subcontractor involved in the common procurement' (a legal entity that provides critical inputs, is allocated at least 15 % of the value of the contract and needs access to classified information). This paragraph does not bind you. The components you supply may still count towards the 35 % limit on the end product.",
        "not_met": "Your executive management structures are outside the EU, the EEA EFTA states and Ukraine. For the contractor, and for a subcontractor involved in the common procurement as the regulation defines it, they must be in one of them.",
@@ -1438,7 +1646,7 @@
       "requirement": null,
       "rule": "SAFE-CONTROL",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Council Regulation (EU) 2025/1106, Article 16(3), (5) and (12)",
        "text": "[Council Regulation (EU) 2025/1106, Article 16(3), second sentence] They shall not be subject to control by a third country which is not an EEA EFTA State or Ukraine or by another third-country entity which is not established in the Union, in an EEA EFTA State or in Ukraine.\n\n[Council Regulation (EU) 2025/1106, Article 16(5), first sentence] By way of derogation from paragraph 3, a legal entity established in the Union and controlled by another third country or by another third-country entity may participate in the common procurement if it has been subject to screening within the meaning of Regulation (EU) 2019/452 and, where necessary, to appropriate mitigation measures, or if it provides guarantees verified by the Member State in which the contractor or subcontractor involved in the common procurement is established.\n\n[Council Regulation (EU) 2025/1106, Article 16(12)] For the purposes of this Article, ‘subcontractors involved in the common procurement’ means any legal entity which provides critical inputs that possess unique attributes essential for the functioning of a product, which is allocated at least 15 % of the value of the contract, and which needs access to classified information for the performance of the contract.",
@@ -1463,7 +1671,10 @@
         "lte": 35
        }
       },
-      "conditionalWhen": null,
+      "conditionalWhen": {
+       "field": "country",
+       "is": "CA"
+      },
       "denominator": "the estimated cost of the components of the end product",
       "kind": "threshold",
       "note": "The percentage is measured against the estimated cost of the components of the end product, not against the contract value. It is a property of the end product you would supply, so the answer is about one product.",
@@ -1475,14 +1686,15 @@
       "requirement": null,
       "rule": "SAFE-ORIGIN-35",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Council Regulation (EU) 2025/1106, Article 16(10), first sentence",
-       "text": "[Council Regulation (EU) 2025/1106, Article 16(10), first sentence] The cost of components originating outside the Union, EEA EFTA States and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.",
+       "text": "[Council Regulation (EU) 2025/1106, Article 16(10), first sentence] The cost of components originating outside the Union, EEA EFTA States and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.\n\n[Council Decision (EU) 2026/1381, recital (1)] was signed on 14 February 2026, subject to its conclusion at a later date, and has been applied on a provisional basis from 13 April 2026, pending its entry into force.\n\n[Agreement between the European Union and Canada, OJ L 2026/445, Article 5(8), first sentence] The cost of components originating in Canada may exceed 35 % of the estimated cost of the components of the end product.",
        "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
        "verificationStatus": "V"
       },
       "texts": {
+       "conditional": "More than 35 % of the estimated cost of the components comes from outside the Union, the EEA EFTA states and Ukraine. Canadian legal entities may take part in SAFE procurement under the agreement between the EU and Canada (Council Decision (EU) 2026/1381 approved it on 15 June 2026; the agreement is published as OJ L 2026/445). The decision says it has been applied provisionally from 13 April 2026, pending its entry into force, and we found no notice of its entry into force. For a Canadian legal entity the agreement lets components originating in Canada exceed 35 %, and sets other limits: at least 20 % of the component cost must originate in the Union, an EEA EFTA State or Ukraine, and the cost of components from third countries must not exceed the cost of those from the Union, an EEA EFTA State or Ukraine, and in any case 35 % (Article 5(8)). The answer you gave does not separate Canadian components from other third-country ones, so this is conditional.",
        "met": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 % of the estimated cost of the components of the end product.",
        "not_met": "More than 35 % of the estimated cost of the components of the end product comes from outside the Union, the EEA EFTA states and Ukraine.",
        "requires": "The cost of components originating outside the Union, the EEA EFTA states and Ukraine may be at most 35 % of the estimated cost of the components of the end product.",
@@ -1508,7 +1720,7 @@
       "requirement": null,
       "rule": "SAFE-NO-RESTRICTED",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Council Regulation (EU) 2025/1106, Article 16(10), second sentence",
        "text": "[Council Regulation (EU) 2025/1106, Article 16(10), second sentence] For the purpose of procurements supported by the SAFE instrument, no component shall be sourced from a third country that contravenes the security and defence interests of the Union and its Member States.",
@@ -1536,7 +1748,7 @@
       "requirement": null,
       "rule": "SAFE-SUBCONTRACT-RELIEF",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Council Regulation (EU) 2025/1106, Article 16(4)",
        "text": "[Council Regulation (EU) 2025/1106, Article 16(4), introductory words] By way of derogation from paragraph 3, in order to take into account industrial cooperation with non-EU partners, common procurements that involve a subcontractor which is allocated between 15 % and 35 % of the value of the contract, and that is not established or doesn’t have its executive management structures in the Union, EEA EFTA State or Ukraine, shall be eligible for support under the SAFE instrument providing that at least one of the following conditions are met:\n\n[Council Regulation (EU) 2025/1106, Article 16(4)(a)] a direct contractual relationship related to the defence product has been established between the contractor and that subcontractor prior to the date of entry into force of this Regulation;\n\n[Council Regulation (EU) 2025/1106, Article 16(4)(b)] the contractor commits to studying, within two years, the feasibility of replacing the input provided by that subcontractor with an alternative, restriction-free input originating in the Union, EEA EFTA States or Ukraine, and meeting technical and time requirements.",
@@ -1581,7 +1793,7 @@
     "callProgramme": null,
     "code": "NATO-SUPPLY",
     "kind": "route",
-    "lastReviewed": "2026-10-17",
+    "lastReviewed": "2026-10-18",
     "legalBasis": null,
     "name": "NATO and NSPA supply",
     "rules": [
@@ -1651,7 +1863,7 @@
     "callProgramme": null,
     "code": "GENERAL",
     "kind": "general",
-    "lastReviewed": "2026-10-17",
+    "lastReviewed": "2026-10-18",
     "legalBasis": null,
     "name": "Requirements that apply whichever route you take",
     "rules": [
@@ -1717,7 +1929,7 @@
       "requirement": "REQ-EXPORT",
       "rule": "G-EXPORT",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2021/821, Article 3(1)",
        "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
@@ -1756,7 +1968,7 @@
       "requirement": null,
       "rule": "G-EXPORT-INTRA-DU",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Regulation (EU) 2021/821, Article 11(1) and (2)",
        "text": "[Regulation (EU) 2021/821, Article 11(1), first sentence] An authorisation shall be required for intra-Union transfers of dual-use items listed in Annex IV.\n\n[Regulation (EU) 2021/821, Article 11(2), introductory words] A Member State may impose an authorisation requirement for the transfer of other dual-use items from its territory to another Member State in cases where at the time of transfer:",
@@ -1803,7 +2015,7 @@
       "requirement": "REQ-EXPORT",
       "rule": "G-EXPORT-MIL",
       "source": {
-       "lastReviewed": "2026-10-17",
+       "lastReviewed": "2026-10-18",
        "origin": "primary",
        "ref": "Directive 2009/43/EC, Article 4(1); Council Common Position 2008/944/CFSP, Article 1(2)",
        "text": "[Directive 2009/43/EC, Article 4(1), first sentence] The transfer of defence-related products between Member States shall be subject to prior authorisation.\n\n[Council Common Position 2008/944/CFSP, Article 1(2), last sentence] Member States’ legislation shall indicate in which case an export licence is required with respect to these applications.",
@@ -2280,13 +2492,13 @@
    "rules": [
     {
      "kind": "establishment",
-     "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is not settled by the regulation's words alone; the call and the Commission decide. This service reads only the definition.",
+     "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
      "obligation": "mandatory",
      "programme": "EDF",
      "programmeName": "European Defence Fund (EDF)",
      "rule": "EDF-LEGAL-ENTITY",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 2 (definition of 'legal entity') and Article 9(1)",
       "text": "[Regulation (EU) 2021/697, Article 2, definition of 'legal entity'] ‘legal entity’ means a legal person created and recognised as such under Union, national or international law, which has legal personality and the capacity to act in its own name, exercise rights and be subject to obligations, or an entity which does not have legal personality as referred to in point (c) of Article 197(2) of the Financial Regulation;\n\n[Regulation (EU, Euratom) 2018/1046 (the Financial Regulation that Regulation 2021/697 cites), Article 197(2)] 2. Any of the following applicants shall be eligible for participating in a call for proposals: (a) legal persons; (b) natural persons, in so far as this is required by the nature or characteristics of the action or the objective pursued by the applicant; (c) entities which do not have legal personality under the applicable national law, provided that their representatives have the capacity to undertake legal obligations on behalf of the entities and that the entities offer guarantees for the protection of the financial interests of the Union equivalent to those offered by legal persons.",
@@ -2294,23 +2506,23 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "conditional": "Your organisation has no legal personality. It counts as a legal entity only if it is an entity of the kind described in Article 197(2), point (c), of the Financial Regulation: its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The Commission assesses that in the call.",
+      "conditional": "Your organisation is a natural person or has no legal personality. The regulation's definition names a legal person, or an entity without legal personality as in point (c) of the Financial Regulation, Article 197(2): its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The call documents add, for natural persons: “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).” So a sole trader whose business has no legal personality separate from them may take part; any other natural person may not. The call and the Commission decide whether your case is accepted.",
       "met": "Your organisation is a legal person, which the regulation counts as a legal entity.",
-      "not_met": "A natural person, for example a sole trader acting in their own name, is not a legal entity as this regulation defines it. The definition names legal persons and, from the Financial Regulation, only entities without legal personality (point (c)). Natural persons are a separate category of the Financial Regulation (point (b)), which the definition does not cite. Take part through a legal person, or ask the contact point of the call whether your case is accepted.",
+      "not_met": "Your organisation is not a legal entity as this regulation defines it.",
       "requires": "A recipient must be a legal entity: a legal person, or an entity without legal personality that meets the conditions the Financial Regulation sets for such entities.",
       "unknown": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
      },
-     "title": "Legal entity: a legal person, not a natural person"
+     "title": "Legal entity: a legal person, or an entity without legal personality that is accepted"
     },
     {
      "kind": "establishment",
-     "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine (under the EU-Ukraine Association Agreement).",
+     "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine under the conditions of the EU-Ukraine Association Agreement. That those conditions are met is not confirmed, so a company established in Ukraine is conditional here, not eligible. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF.",
      "obligation": "mandatory",
      "programme": "EDF",
      "programmeName": "European Defence Fund (EDF)",
      "rule": "EDF-ESTABLISH",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 9(1) and Article 5 (as replaced by Regulation (EU) 2025/2653)",
       "text": "[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.\n\n[Regulation (EU) 2021/697, Article 5, as replaced by Regulation (EU) 2025/2653, Article 3(1)] The Fund shall be open to the participation of the following third countries (associated countries): (a) members of the European Free Trade Association which are members of the EEA, in accordance with the conditions laid down in the Agreement on the European Economic Area; (b) Ukraine, in accordance with the conditions laid down in the EU-Ukraine Association Agreement.",
@@ -2318,9 +2530,11 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "met": "Your company is established in an EU Member State, an EEA EFTA state or Ukraine. These are the Union and the associated countries of the EDF.",
-      "not_met": "Your company is established outside the EU, the EEA EFTA states and Ukraine. EDF recipients must be established in the Union or in an associated country.",
-      "requires": "Recipients and subcontractors involved in an action must be established in the Union or in an associated country: an EEA EFTA state, or Ukraine, on the conditions of the agreements that associate them.",
+      "caveat": "For an applicant established in Ukraine this is conditional on the EU-Ukraine association agreement, which is not confirmed: the EDF call documents say participation of entities established in Ukraine is pending its signature.",
+      "conditional": "Your company is established in Ukraine. Regulation (EU) 2025/2653 lists Ukraine among the associated countries of the EDF “in accordance with the conditions laid down in the EU-Ukraine Association Agreement”. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF. Treat your participation as conditional on that agreement, not confirmed, and ask the contact point of the call before you rely on it.",
+      "met": "Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.",
+      "not_met": "Your company is established outside the EU and the EEA EFTA states, and not in Ukraine. EDF recipients must be established in the Union or in an associated country.",
+      "requires": "Recipients and subcontractors involved in an action must be established in the Union or in an associated country: an EEA EFTA state, or Ukraine on the conditions of the association agreement, which is not confirmed.",
       "unknown": "Say in which country your company is established."
      },
      "title": "Established in the Union or an associated country"
@@ -2333,7 +2547,7 @@
      "programmeName": "European Defence Fund (EDF)",
      "rule": "EDF-EXEC-MGMT",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 9(2)",
       "text": "[Regulation (EU) 2021/697, Article 9(2)] The infrastructure, facilities, assets and resources of the recipients and subcontractors involved in an action which are used for the purposes of an action supported by the Fund shall be located on the territory of a Member State or of an associated country for the entire duration of an action, and their executive management structures shall be established in the Union or in an associated country.",
@@ -2341,9 +2555,11 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "met": "Your executive management structures are in an EU Member State, an EEA EFTA state or Ukraine.",
-      "not_met": "Your executive management structures are outside the EU, the EEA EFTA states and Ukraine. EDF recipients must have them in the Union or in an associated country.",
-      "requires": "Their executive management structures must be established in the Union or in an associated country, and the infrastructure, facilities, assets and resources used for the action must be located there for the whole action.",
+      "caveat": "For executive management in Ukraine this is conditional on the EU-Ukraine association agreement, which is not confirmed.",
+      "conditional": "Your executive management structures are in Ukraine. They count as being in an associated country only if the EU-Ukraine association agreement applies to the EDF. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF. Treat it as conditional, not confirmed.",
+      "met": "Your executive management structures are in an EU Member State or an EEA EFTA state.",
+      "not_met": "Your executive management structures are outside the EU and the EEA EFTA states, and not in Ukraine. EDF recipients must have them in the Union or in an associated country.",
+      "requires": "Their executive management structures must be established in the Union or in an associated country (an EEA EFTA state, or Ukraine on the conditions of the association agreement, which is not confirmed), and the infrastructure, facilities, assets and resources used for the action must be located there for the whole action.",
       "unknown": "Say where your company's executive management structures are established."
      },
      "title": "Executive management in the Union or an associated country"
@@ -2356,7 +2572,7 @@
      "programmeName": "European Defence Fund (EDF)",
      "rule": "EDF-CONTROL",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/697, Article 9(3) and (4)",
       "text": "[Regulation (EU) 2021/697, Article 9(3)] For the purposes of an action supported by the Fund, the recipients and subcontractors involved in an action shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2021/697, Article 9(4), first sentence] By way of derogation from paragraph 3, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or a non-associated third-country entity shall be eligible to be a recipient or subcontractor involved in an action only if guarantees approved by the Member State or the associated country in which it is established in accordance with its national procedures are made available to the Commission.",
@@ -2364,8 +2580,8 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "conditional": "Your company is controlled from a non-associated third country. It can still be eligible, but only if guarantees approved by the Member State or associated country where it is established are made available to the Commission.",
-      "met": "Your company is not controlled from a non-associated third country. Control from an EEA EFTA state or Ukraine does not count against you under the EDF.",
+      "conditional": "Your company is controlled from outside the EU. Control from an EEA EFTA state is control from an associated country and does not count against you. Control from Ukraine counts as such only if the EU-Ukraine association agreement applies to the EDF, which is not confirmed (the EDF call documents say it is pending signature). Control from any other country is control by a non-associated third country: the company can still be eligible, but only if guarantees approved by the Member State or associated country where it is established are made available to the Commission.",
+      "met": "Your company is not controlled from outside the EU.",
       "not_met": "Your company is controlled from a non-associated third country.",
       "requires": "Recipients and subcontractors must not be subject to control by a non-associated third country or entity, unless guarantees approved by the Member State or associated country where they are established are made available to the Commission.",
       "unknown": "Say whether your company is controlled by a country or an entity outside the EU, the EEA EFTA states and Ukraine. If you do not know, find out who your ultimate owners are."
@@ -2428,13 +2644,13 @@
    "rules": [
     {
      "kind": "establishment",
-     "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is not settled by the regulation's words alone; the call and the Commission decide. This service reads only the definition.",
+     "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
      "obligation": "mandatory",
      "programme": "EDIP",
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-LEGAL-ENTITY",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 2 (definition of 'legal entity') and Article 9(1)",
       "text": "[Regulation (EU) 2025/2643, Article 2, definition of 'legal entity'] ‘legal entity’ means a legal person created and recognised as such under Union, national or international law, which has legal personality and the capacity to act in its own name, exercise rights and be subject to obligations, or an entity which does not have legal personality as referred to in Article 200(2), point (c), of the Financial Regulation;\n\n[Regulation (EU, Euratom) 2024/2509 (the Financial Regulation that Regulation 2025/2643 cites), Article 200(2)] 2. Any of the following applicants shall be eligible for participating in a call for proposals: (a) legal persons; (b) natural persons, in so far as this is required by the nature or characteristics of the action or the objective pursued by the applicant; (c) entities which do not have legal personality under the applicable national law, provided that their representatives have the capacity to undertake legal obligations on behalf of the entities and that the entities offer guarantees for the protection of the financial interests of the Union equivalent to those offered by legal persons.",
@@ -2442,13 +2658,13 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "conditional": "Your organisation has no legal personality. It counts as a legal entity only if it is an entity of the kind described in Article 200(2), point (c), of the Financial Regulation: its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The Commission assesses that in the call.",
+      "conditional": "Your organisation is a natural person or has no legal personality. The regulation's definition names a legal person, or an entity without legal personality as in point (c) of the Financial Regulation, Article 200(2): its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The call documents add, for natural persons: “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).” So a sole trader whose business has no legal personality separate from them may take part; any other natural person may not. The call and the Commission decide whether your case is accepted.",
       "met": "Your organisation is a legal person, which the regulation counts as a legal entity.",
-      "not_met": "A natural person, for example a sole trader acting in their own name, is not a legal entity as this regulation defines it. The definition names legal persons and, from the Financial Regulation, only entities without legal personality (point (c)). Natural persons are a separate category of the Financial Regulation (point (b)), which the definition does not cite. Take part through a legal person, or ask the contact point of the call whether your case is accepted.",
+      "not_met": "Your organisation is not a legal entity as this regulation defines it.",
       "requires": "A recipient must be a legal entity: a legal person, or an entity without legal personality that meets the conditions the Financial Regulation sets for such entities.",
       "unknown": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
      },
-     "title": "Legal entity: a legal person, not a natural person"
+     "title": "Legal entity: a legal person, or an entity without legal personality that is accepted"
     },
     {
      "kind": "establishment",
@@ -2458,7 +2674,7 @@
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-ESTABLISH",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 9(1), Article 8 and the definition of 'associated countries' in Article 2",
       "text": "[Regulation (EU) 2025/2643, Article 9(1)] Only legal entities established in the Union or in an associated country and having their executive management structures in the Union or in an associated country shall be eligible to be recipients of Union funding under this Regulation.\n\n[Regulation (EU) 2025/2643, Article 2, definition of 'associated countries'] ‘associated countries’ means members of the European Free Trade Association which are members of the European Economic Area that apply this Regulation in accordance with the Agreement on the European Economic Area;\n\n[Regulation (EU) 2025/2643, Article 8] The Programme shall be open to the participation of associated countries, in accordance with the conditions laid down in the Agreement on the European Economic Area.",
@@ -2482,7 +2698,7 @@
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-EXEC-MGMT",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 9(1)",
       "text": "[Regulation (EU) 2025/2643, Article 9(1)] Only legal entities established in the Union or in an associated country and having their executive management structures in the Union or in an associated country shall be eligible to be recipients of Union funding under this Regulation.",
@@ -2500,20 +2716,21 @@
     },
     {
      "kind": "control",
-     "note": "Paragraph 6 of Article 9 lists what the guarantees must show.",
+     "note": "Paragraph 6 of Article 9 lists what the guarantees must show. Article 9(9) says paragraphs 5 and 6 do not apply to contracting authorities of Member States and associated countries, international organisations, SEAPs and the EDA; this service still asks the question of every applicant.",
      "obligation": "mandatory",
      "programme": "EDIP",
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-CONTROL",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
-      "ref": "Regulation (EU) 2025/2643, Article 9(5) and (6)",
-      "text": "[Regulation (EU) 2025/2643, Article 9(5)] Recipients of Union funding under the Programme shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2025/2643, Article 9(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or by a non-associated third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State or associated country in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452 of the European Parliament and of the Council (39), are made available to the Commission.",
+      "ref": "Regulation (EU) 2025/2643, Article 9(5), (6) and (9)",
+      "text": "[Regulation (EU) 2025/2643, Article 9(5)] Recipients of Union funding under the Programme shall not be subject to control by a non-associated third country or by a non-associated third-country entity.\n\n[Regulation (EU) 2025/2643, Article 9(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union or in an associated country and controlled by a non-associated third country or by a non-associated third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State or associated country in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452 of the European Parliament and of the Council (39), are made available to the Commission.\n\n[Regulation (EU) 2025/2643, Article 9(9)] Paragraphs 5 and 6 shall not apply to: (a) contracting authorities of Member States and associated countries; (b) international organisations; (c) SEAPs; (d) the EDA.",
       "url": "http://data.europa.eu/eli/reg/2025/2643/oj",
       "verificationStatus": "V"
      },
      "texts": {
+      "caveat": "Does not apply to contracting authorities of Member States and associated countries, international organisations, SEAPs and the EDA (Article 9(9)).",
       "conditional": "Your company is controlled from outside the EU. If the control is from a non-associated third country (under this Programme Ukraine is one; an EEA EFTA state that applies the Regulation is not), the company can still be eligible, but only if guarantees approved by the Member State or associated country where it is established, such as adequate measures after an investment screening, are made available to the Commission.",
       "met": "Your company is not controlled from a third country.",
       "not_met": "Your company is controlled from a non-associated third country.",
@@ -2530,7 +2747,7 @@
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-ORIGIN-35",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 10(3), first sentence, and Article 10(4), first sentence",
       "text": "[Regulation (EU) 2025/2643, Article 10(3), first sentence] For procurement carried out pursuant to Articles 11, 13 and 35 which is supported by Union funding, the cost of components originating outside the Union and associated countries shall not be higher than 35 % of the estimated cost of the components of the end product.\n\n[Regulation (EU) 2025/2643, Article 10(4), first sentence] For actions carried out pursuant to Article 12 and activities carried out pursuant to Article 35 other than procurement activities, the cost of components originating outside the Union and associated countries shall not be higher than 35 % of the estimated cost of the components of the product the increase in production capacity of which is supported by Union funding.",
@@ -2554,7 +2771,7 @@
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-NO-RESTRICTED",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 10(3), second sentence, and Article 10(4), second sentence",
       "text": "[Regulation (EU) 2025/2643, Article 10(3), second sentence] No component shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.\n\n[Regulation (EU) 2025/2643, Article 10(4), second sentence] No component of the product the increase in production capacity of which is supported by Union funding shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.",
@@ -2577,7 +2794,7 @@
      "programmeName": "European Defence Industry Programme (EDIP): the Programme",
      "rule": "EDIP-SUBCONTRACT-RELIEF",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 11(7) and Article 2",
       "text": "[Regulation (EU) 2025/2643, Article 11(7)] By way of derogation from paragraph 6, in order to take into account industrial cooperation with non-associated third countries, common procurement that involves a subcontractor that is allocated between 15 % and 35 % of the value of the contract, and that is not established or does not have its executive management structures in the Union or in an associated country, shall be eligible for support under the Programme provided that a direct contractual relationship related to the defence product has been established between the contractor and that subcontractor prior to the date of entry into force of this Regulation.\n\n[Regulation (EU) 2025/2643, Article 2, definition of 'subcontractor'] ‘subcontractor’ means an economic operator that is proposed by a candidate, tenderer or contractor to perform specific tasks or services under the supervision of the main contractor, contributing to the design or manufacturing of a defence product, other than what is provided by suppliers to implement the contract, for which it is allocated at least 15 % of the value of the contract, and that needs access to classified information for the performance of that contract; for the purposes of this definition, ‘supplier’ shall be understood as an economic operator that delivers components of its own design or production to the contractor.",
@@ -2591,13 +2808,13 @@
     },
     {
      "kind": "establishment",
-     "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is not settled by the regulation's words alone; the call and the Commission decide. This service reads only the definition.",
+     "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
      "obligation": "mandatory",
      "programme": "EDIP-USI",
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-LEGAL-ENTITY",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 2 (definition of 'legal entity') and Article 26(1)",
       "text": "[Regulation (EU) 2025/2643, Article 2, definition of 'legal entity'] ‘legal entity’ means a legal person created and recognised as such under Union, national or international law, which has legal personality and the capacity to act in its own name, exercise rights and be subject to obligations, or an entity which does not have legal personality as referred to in Article 200(2), point (c), of the Financial Regulation;\n\n[Regulation (EU, Euratom) 2024/2509 (the Financial Regulation that Regulation 2025/2643 cites), Article 200(2)] 2. Any of the following applicants shall be eligible for participating in a call for proposals: (a) legal persons; (b) natural persons, in so far as this is required by the nature or characteristics of the action or the objective pursued by the applicant; (c) entities which do not have legal personality under the applicable national law, provided that their representatives have the capacity to undertake legal obligations on behalf of the entities and that the entities offer guarantees for the protection of the financial interests of the Union equivalent to those offered by legal persons.",
@@ -2605,13 +2822,13 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "conditional": "Your organisation has no legal personality. It counts as a legal entity only if it is an entity of the kind described in Article 200(2), point (c), of the Financial Regulation: its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The Commission assesses that in the call.",
+      "conditional": "Your organisation is a natural person or has no legal personality. The regulation's definition names a legal person, or an entity without legal personality as in point (c) of the Financial Regulation, Article 200(2): its representatives can undertake legal obligations on its behalf and it offers guarantees for the protection of the Union's financial interests equivalent to those of a legal person. The call documents add, for natural persons: “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).” So a sole trader whose business has no legal personality separate from them may take part; any other natural person may not. The call and the Commission decide whether your case is accepted.",
       "met": "Your organisation is a legal person, which the regulation counts as a legal entity.",
-      "not_met": "A natural person, for example a sole trader acting in their own name, is not a legal entity as this regulation defines it. The definition names legal persons and, from the Financial Regulation, only entities without legal personality (point (c)). Natural persons are a separate category of the Financial Regulation (point (b)), which the definition does not cite. Take part through a legal person, or ask the contact point of the call whether your case is accepted.",
+      "not_met": "Your organisation is not a legal entity as this regulation defines it.",
       "requires": "A recipient must be a legal entity: a legal person, or an entity without legal personality that meets the conditions the Financial Regulation sets for such entities.",
       "unknown": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
      },
-     "title": "Legal entity: a legal person, not a natural person"
+     "title": "Legal entity: a legal person, or an entity without legal personality that is accepted"
     },
     {
      "kind": "establishment",
@@ -2621,7 +2838,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-ESTABLISH",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 26(1)",
       "text": "[Regulation (EU) 2025/2643, Article 26(1)] Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
@@ -2644,7 +2861,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-EXEC-MGMT",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 26(1)",
       "text": "[Regulation (EU) 2025/2643, Article 26(1)] Only legal entities established in the Union or in Ukraine and having their executive management structures in the Union or in Ukraine shall be eligible to be recipients of Union funding under this Regulation.",
@@ -2667,7 +2884,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-TERRITORY",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 26(1), second subparagraph",
       "text": "[Regulation (EU) 2025/2643, Article 26(1), second subparagraph] Legal entities established in the non-government controlled areas of Ukraine shall not be eligible for funding under this Regulation.",
@@ -2691,7 +2908,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-CONTROL",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 26(5) and (6)",
       "text": "[Regulation (EU) 2025/2643, Article 26(5)] For the purposes of an action supported by the Ukraine Support Instrument, the recipients of Union funding shall not be subject to control by a non-associated third country other than Ukraine or by another third-country entity.\n\n[Regulation (EU) 2025/2643, Article 26(6), first sentence] By way of derogation from paragraph 5 of this Article, a legal entity established in the Union and controlled by a non-associated third country other than Ukraine or by another third-country entity shall be eligible to be a recipient of Union funding if guarantees approved in accordance with the national procedures of a Member State in which it is established, such as adequate measures pursuant to screening, as defined in Article 2, point (3), of Regulation (EU) 2019/452, are made available to the Commission.",
@@ -2715,7 +2932,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-ORIGIN-35",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 27(3), first sentence, and Article 27(4), first sentence",
       "text": "[Regulation (EU) 2025/2643, Article 27(3), first sentence] For procurement carried out pursuant to paragraph 1, points (a) and (c), which is supported by Union funding, the cost of components originating outside the Union and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.\n\n[Regulation (EU) 2025/2643, Article 27(4), first sentence] For actions carried out pursuant to paragraph 1, point (b), the cost of components originating outside the Union and Ukraine shall not be higher than 35 % of the estimated cost of the components of the product the increase in production capacity of which is supported by Union funding.",
@@ -2739,7 +2956,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-NO-RESTRICTED",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 27(3), second sentence, and Article 27(4), second sentence",
       "text": "[Regulation (EU) 2025/2643, Article 27(3), second sentence] No component shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.\n\n[Regulation (EU) 2025/2643, Article 27(4), second sentence] No component of the product the increase in production capacity of which is supported by Union funding shall be sourced from third countries that contravene the security and defence interests of the Union and its Member States.",
@@ -2762,7 +2979,7 @@
      "programmeName": "EDIP: Ukraine Support Instrument",
      "rule": "USI-INVOLVES-UA",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2025/2643, Article 27(7)",
       "text": "[Regulation (EU) 2025/2643, Article 27(7)] Actions eligible for funding under the Ukraine Support Instrument shall be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established and having its executive management structure in Ukraine.",
@@ -2883,7 +3100,7 @@
      "programmeName": "Requirements that apply whichever route you take",
      "rule": "G-EXPORT",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/821, Article 3(1)",
       "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
@@ -2906,7 +3123,7 @@
      "programmeName": "Requirements that apply whichever route you take",
      "rule": "G-EXPORT-INTRA-DU",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Regulation (EU) 2021/821, Article 11(1) and (2)",
       "text": "[Regulation (EU) 2021/821, Article 11(1), first sentence] An authorisation shall be required for intra-Union transfers of dual-use items listed in Annex IV.\n\n[Regulation (EU) 2021/821, Article 11(2), introductory words] A Member State may impose an authorisation requirement for the transfer of other dual-use items from its territory to another Member State in cases where at the time of transfer:",
@@ -2927,7 +3144,7 @@
      "programmeName": "Requirements that apply whichever route you take",
      "rule": "G-EXPORT-MIL",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Directive 2009/43/EC, Article 4(1); Council Common Position 2008/944/CFSP, Article 1(2)",
       "text": "[Directive 2009/43/EC, Article 4(1), first sentence] The transfer of defence-related products between Member States shall be subject to prior authorisation.\n\n[Council Common Position 2008/944/CFSP, Article 1(2), last sentence] Member States’ legislation shall indicate in which case an export licence is required with respect to these applications.",
@@ -3724,14 +3941,15 @@
      "programmeName": "Security Action for Europe (SAFE)",
      "rule": "SAFE-ORIGIN-35",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Council Regulation (EU) 2025/1106, Article 16(10), first sentence",
-      "text": "[Council Regulation (EU) 2025/1106, Article 16(10), first sentence] The cost of components originating outside the Union, EEA EFTA States and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.",
+      "text": "[Council Regulation (EU) 2025/1106, Article 16(10), first sentence] The cost of components originating outside the Union, EEA EFTA States and Ukraine shall not be higher than 35 % of the estimated cost of the components of the end product.\n\n[Council Decision (EU) 2026/1381, recital (1)] was signed on 14 February 2026, subject to its conclusion at a later date, and has been applied on a provisional basis from 13 April 2026, pending its entry into force.\n\n[Agreement between the European Union and Canada, OJ L 2026/445, Article 5(8), first sentence] The cost of components originating in Canada may exceed 35 % of the estimated cost of the components of the end product.",
       "url": "http://data.europa.eu/eli/reg/2025/1106/oj",
       "verificationStatus": "V"
      },
      "texts": {
+      "conditional": "More than 35 % of the estimated cost of the components comes from outside the Union, the EEA EFTA states and Ukraine. Canadian legal entities may take part in SAFE procurement under the agreement between the EU and Canada (Council Decision (EU) 2026/1381 approved it on 15 June 2026; the agreement is published as OJ L 2026/445). The decision says it has been applied provisionally from 13 April 2026, pending its entry into force, and we found no notice of its entry into force. For a Canadian legal entity the agreement lets components originating in Canada exceed 35 %, and sets other limits: at least 20 % of the component cost must originate in the Union, an EEA EFTA State or Ukraine, and the cost of components from third countries must not exceed the cost of those from the Union, an EEA EFTA State or Ukraine, and in any case 35 % (Article 5(8)). The answer you gave does not separate Canadian components from other third-country ones, so this is conditional.",
       "met": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 % of the estimated cost of the components of the end product.",
       "not_met": "More than 35 % of the estimated cost of the components of the end product comes from outside the Union, the EEA EFTA states and Ukraine.",
       "requires": "The cost of components originating outside the Union, the EEA EFTA states and Ukraine may be at most 35 % of the estimated cost of the components of the end product.",
@@ -3747,7 +3965,7 @@
      "programmeName": "Security Action for Europe (SAFE)",
      "rule": "SAFE-NO-RESTRICTED",
      "source": {
-      "lastReviewed": "2026-10-17",
+      "lastReviewed": "2026-10-18",
       "origin": "primary",
       "ref": "Council Regulation (EU) 2025/1106, Article 16(10), second sentence",
       "text": "[Council Regulation (EU) 2025/1106, Article 16(10), second sentence] For the purpose of procurements supported by the SAFE instrument, no component shall be sourced from a third country that contravenes the security and defence interests of the Union and its Member States.",
