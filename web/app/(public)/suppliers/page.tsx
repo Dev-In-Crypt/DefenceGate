@@ -77,7 +77,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
   let summary;
   try {
     [result, summary] = await Promise.all([
-      none ? Promise.resolve({ items: [], total: 0, page: 1, pageSize: 20 }) : getSuppliers(api),
+      none ? Promise.resolve({ items: [], total: 0, page: 1, pageSize: 20 } as unknown as Awaited<ReturnType<typeof getSuppliers>>) : getSuppliers(api),
       f.page === 1 && !filtered ? getSupplierSummary() : Promise.resolve(null),
     ]);
   } catch (e) {
