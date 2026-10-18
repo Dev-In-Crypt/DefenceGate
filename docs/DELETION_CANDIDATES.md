@@ -42,4 +42,4 @@ agents. Anything that looks removable is listed here with why, and the owner dec
 
 ## WP-33 (readiness fixes)
 
-- Scratch on the server, named here so the owner can delete them: `/root/dev-m` (the working copy, with `web/node_modules`, about 600 MB), `/root/dev-before` (the unmodified `integration` backend with the new tests, to show they fail before), the database `agent_m` in `dgate-ci-db`. The Official Journal texts used for the quote check are in `/root/dev-m/scratch/oj` (about 10 MB).
+- Scratch on the server for the owner to delete: `/root/dev-m` (working copy, about 20 MB after `node_modules` and `.next` were removed; `scratch/oj` holds the Official Journal texts as .txt, about 8 MB) and the database `agent_m` in `dgate-ci-db`. `/root/dev-before` was removed.
