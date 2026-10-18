@@ -36,8 +36,7 @@ _TITLES = re.compile(
     r"Information\s+on\s+financial\s+support\s+to\s+third\s+parties(?:\s*\(HE\))?"
     r"|Guidelines\s+on\s+FSTP\s+implementation(?:\s*-\s*[A-Z0-9]+)?", re.I)
 _SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[(“\"])")
-_NEGATIVE = re.compile(r"\b(?:not\s+(?:allowed|permitted|possible|eligible)|may\s+not|must\s+not|cannot|can\s+not|"
-                       r"no\s+financial\s+support|not\s+foreseen|not\s+applicable)\b", re.I)
+_NEGATIVE = eligibility.NEGATIVE_WORDING
 _POSITIVE = re.compile(r"\b(?:may|must|shall|can|will|is\s+allowed|are\s+allowed|allowed|permitted|provide|"
                        r"included?|foreseen|required|envisaged)\b", re.I)
 _TOPIC_CODE = re.compile(r"\b[A-Z]{3,}(?:-[A-Z0-9]+){2,}\b")
@@ -81,9 +80,12 @@ def _document_answer(topic_code: str | None, fact: dict[str, Any]) -> tuple[bool
     return (bool(value), "call_document")
 
 
-def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, str, str | None]:
+def decide(call: dict[str, Any], facts: dict[str, Any],
+           other_topic: dict[str, str] | None = None) -> tuple[bool | None, str, str | None]:
     """(flag, reason, evidence) of one call. `facts` are its verified eligibility facts as served
-    (`eligibility.read_many`); `call` has `topic_code` and `eligibility_text`."""
+    (`eligibility.read_many`); `call` has `topic_code` and `eligibility_text`. `other_topic` are the
+    quotes of document facts left out because they are about another topic of the document: where
+    nothing else decides, the call is undecided with that reason (the document allows it elsewhere)."""
     fact = facts.get("cascade_funding")
     if fact and fact["scope"] != "general":
         if fact["scope"] == "topic":
@@ -95,6 +97,8 @@ def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, st
     value, sentence = text_statement(call.get("eligibility_text"))
     if value is not None:
         return value, "call_text", sentence
+    if other_topic and other_topic.get("cascade_funding"):
+        return None, "call_document_other_topic", other_topic["cascade_funding"][:EVIDENCE_MAX]
     return None, "not_stated", None
 
 
@@ -103,10 +107,11 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
     rows = conn.execute(
         """SELECT id, topic_code, conditions_raw, eligibility_text, cascade, cascade_reason, cascade_evidence
              FROM call ORDER BY id""").fetchall()
-    served = eligibility.read_many(conn, [(r["id"], r["conditions_raw"], r["eligibility_text"]) for r in rows])
+    served = eligibility.read_many(
+        conn, [(r["id"], r["conditions_raw"], r["eligibility_text"], r["topic_code"]) for r in rows])
     counts = {"calls": len(rows), "yes": 0, "no": 0, "undecided": 0, "changed": 0}
     for r in rows:
-        flag, reason, evidence = decide(r, served[r["id"]]["facts"])
+        flag, reason, evidence = decide(r, served[r["id"]]["facts"], served[r["id"]]["other_topic"])
         counts["yes" if flag is True else "no" if flag is False else "undecided"] += 1
         if (flag, reason, evidence) == (r["cascade"], r["cascade_reason"], r["cascade_evidence"]):
             continue

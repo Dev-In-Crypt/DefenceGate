@@ -5,8 +5,9 @@ same functions as `/v1/changes` and the funding list, not from queries of its ow
 
   tenders   new and amended defence-relevant notices of the week (`changes.build_events`
             over exactly that window, so the counts are the ones /changes gives for it)
-  calls     funding calls first collected in the week, calls whose opening or closing date the
-            source moved, calls that opened in it (`opens_at`), and calls closing in the 14 days
+  calls     funding calls first collected in the week and published (or opened) no earlier than two
+            days before it (a source's first load of old calls is not news), calls whose opening or
+            closing date the source moved, calls that opened in it (`opens_at`), and calls closing in the 14 days
             after it. Where the eligibility rules of a call were read, one line says what they
             are; where not, the issue says "not read".
   cascade   the calls of the lists above that have cascade funding (financial support to third
@@ -213,7 +214,8 @@ def build_all(conn, week: str, *, now: datetime | None = None,
              "call-opened": [(r, []) for r in opened], "call-closing": [(r, []) for r in closing]}
     every = {r["id"]: r for items in lists.values() for r, _ in items}
     read = eligibility.read_many(
-        conn, [(i, r.get("conditions_raw") or {}, r.get("eligibility_text")) for i, r in every.items()])
+        conn, [(i, r.get("conditions_raw") or {}, r.get("eligibility_text"), r.get("topic_code"))
+               for i, r in every.items()])
     cascade_open = conn.execute(
         f"SELECT count(*) AS n FROM call c WHERE NOT c.suppressed AND c.cascade IS TRUE "
         f"AND {EFFECTIVE_STATUS} = 'open'").fetchone()["n"]

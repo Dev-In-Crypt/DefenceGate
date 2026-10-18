@@ -1,0 +1,1695 @@
+{
+ "about": "Stored eligibility facts (verified ones only, as of 17 Oct 2026, prompt v3) of the 30 calls V-B read against their documents. Quotes are the documents' sentences. WP-35 regression set.",
+ "documents": {
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-ai-09_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "The Cancer solutions topic gives SMEs a higher funding rate, but the call does not make applicants generally SME-only.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities",
+      "Public bodies",
+      "Private bodies"
+     ],
+     "n": "Special cases and exclusions apply, including the stated exception for self-employed sole traders among natural persons.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "This is the lowest stated minimum. Other topics require 4, 5, or 7 independent applicants.",
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities)."
+    },
+    "min_countries": {
+     "v": 3,
+     "n": "Three countries are required for several topics; other topics require 5 or 7. No minimum country count is stated for ECAVA.",
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries ."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties is not allowed."
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Applies to all listed topics; the required consortium composition varies by topic.",
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons/sole traders where the company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)"
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": null,
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Applies to DS-HEALTH-TOOL, DS-HEALTH-STORAGE, SOLUTIONS-CANCER-STEP, ECAVA, and AUTOMOTIVE, not all topics.",
+     "q": "Entities must not be directly or indirectly controlled from a country that is not an eligible country unless the granting authority agrees to allow for exceptional participation on the basis of a guarantee (ownership control restriction)."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2025/call-fiche_digital-2025-bestuse-tech-09_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities",
+      "Public bodies",
+      "Private bodies",
+      "Self-employed persons (sole traders)"
+     ],
+     "n": "Natural persons are generally ineligible, except self-employed persons who are sole traders where the company does not have legal personality separate from the natural person. Entities without legal personality may exceptionally participate under the stated conditions; international organisations are eligible only if they are International Organisations of European Interest.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "50%",
+     "n": "Applies to both topics.",
+     "q": "Simple Grants — 50% funding rate"
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "This is the minimum for the MDL topic. The WALLET topic requires at least 5 independent applicants.",
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "min_countries": {
+     "v": 2,
+     "n": "This is the minimum for the WALLET topic. The MDL topic requires applicants from at least 3 different eligible countries.",
+     "q": "minimum 5 independent applicants (beneficiaries; not affiliated entities) from 2 different eligible countries"
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories), listed EEA countries, and countries associated to the Digital Europe Programme.",
+     "n": null,
+     "q": "EU Member States (including overseas countries and territories (OCTs))\n− non-EU countries:\n− listed EEA countries and countries associated to the Digital Europe Programme (list of participating countries)"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Applies to both topics.",
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons who are sole traders where the company does not have legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Applies to both topics.",
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Applies to both topics and specifically excludes assessed high-risk suppliers of mobile network communication equipment and entities they own or control.",
+     "q": "Entities that are assessed as high -risk suppliers of mobile network communication equipment (and any entities they own or control) are not eligible to participate in any capacity, including as beneficiaries, affiliated entities, associated partners, third parties giving in-kind contributions, su bcontractors or recipients of financial support to third parties (if any)."
+    }
+   }
+  },
+  "https://cybersecurity-centre.europa.eu/document/d3dec6b2-4b27-4a52-adca-57c4efe1b789_en": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "The call is not limited to SMEs; NCH applicants must be designated National SOCs and CBCH stakeholders are public bodies acting as National Cyber Hubs.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "50%",
+     "n": "Applies to both topics.",
+     "q": "Simple Grants — 50% funding rate"
+    },
+    "min_entities": {
+     "v": 1,
+     "n": "For new CBCH proposals, beneficiaries must come from at least 3 eligible countries; the call does not state a separate minimum entity count for enlargement proposals.",
+     "q": "For the topic DIGITAL-ECCC-2026-DEPLOY-CYBER-10-NCH — National Cyber Hubs : only entities designated at Member State level as National SOCs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "min_countries": {
+     "v": 1,
+     "n": "For new CBCH proposals, beneficiaries must come from at least 3 eligible countries. The minimum of 1 reflects the NCH mono-beneficiary case.",
+     "q": "For the topic DIGITAL-ECCC-2026-DEPLOY-CYBER-10-NCH — National Cyber Hubs : only entities designated at Member State level as National SOCs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including OCTs) and EEA countries (Norway, Iceland, Liechtenstein); participants must also meet the call’s eligible-country control restriction.",
+     "n": "All topics also restrict participation to entities established in and controlled from eligible countries.",
+     "q": "EU Member States (including overseas countries and territories (OCTs)) − EEA countries (Norway, Iceland, Liechtenstein)"
+    },
+    "consortium_required": {
+     "v": false,
+     "n": "NCH is mono-beneficiary. New CBCH proposals require a consortium with beneficiaries from at least 3 eligible countries; enlargement of an ongoing CBCH grant has a different composition rule.",
+     "q": "For the topic DIGITAL-ECCC-2026-DEPLOY-CYBER-10-NCH — National Cyber Hubs : only entities designated at Member State level as National SOCs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "Only for NCH; new CBCH proposals require a consortium.",
+     "q": "For the topic DIGITAL-ECCC-2026-DEPLOY-CYBER-10-NCH — National Cyber Hubs : only entities designated at Member State level as National SOCs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": null,
+     "q": "All topics of this call are subject to restrictions due to security, therefore entities must not be directly or indirectly controlled from a country that is not an eligible country."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf": {
+   "scope": "general",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it.",
+     "q": "Any legal entity, regardless of its place of establishment, including legal entities from nonassociated third countries or international organisations (including international European research organisations) is eligible to participate (whether it is eligible for funding or not), provided that the conditions laid down in the Horizon Europe Regulation have been met, along with any other conditions laid down in the specific call/topic."
+    },
+    "entity_types": {
+     "v": [
+      "Natural persons who qualify as legal entities under the stated definition",
+      "Legal persons",
+      "Entities without legal personality, exceptionally",
+      "International organisations, subject to funding-specific conditions"
+     ],
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Entities without legal personality may participate only exceptionally, subject to conditions. Funding eligibility for international organisations depends on their type or the call/topic conditions.",
+     "q": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name, exercise rights and be subject to obligations, or an entity without legal personality."
+    },
+    "funding_rate": {
+     "v": "Maximum rates vary by action: RIA 100%; IA 70% (up to 100% for non-profit legal entities); CSA 100%; Programme co-fund 30%–70%; IMDA 70% (up to 100% for non-profit legal entities); TMA 100%; PCP 100%; PPI 50%. Specific call/topic conditions may set other rates.",
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Rates depend on action type; other rates may be set in the specific call/topic conditions.",
+     "q": "The maximum Horizon Europe funding rates are as follows: – Research and innovation action: 100% – Innovation action: 70% (except for non-profit legal entities, where a rate of up to 100% applies) – Coordination and support action: 100%"
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. This is the default minimum. Training and Mobility, Programme co-fund, and Coordination and Support actions may be submitted by one or more legal entities.",
+     "q": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes, as beneficiaries, three legal entities independent from each other and each established in a different country as follows:"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. This is the default minimum. Single-entity applications are permitted for certain action types.",
+     "q": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes, as beneficiaries, three legal entities independent from each other and each established in a different country as follows:"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Only where the specific call/topic conditions allow financial support to third parties.",
+     "q": "Where the specific call/topic conditions allow for financial support to third parties, the applicants must clearly describe in their proposal the objectives and the expected results, including the elements listed in the application template."
+    },
+    "eligible_countries": {
+     "v": "EU Member States, their linked Overseas Countries and Territories, Horizon Europe Associated Countries, and the listed low- and middle-income countries. Other countries may qualify if the specific call/topic conditions provide for it or the granting authority considers their participation essential.",
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. The country lists and exceptions are set out in the General Annexes; specific call/topic conditions may add or otherwise provide for eligibility.",
+     "q": "To be eligible for funding, applicants must be established in one of the following countries:"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Exceptions allow applications by one or more legal entities for Training and Mobility, Programme co-fund, and Coordination and Support actions.",
+     "q": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes, as beneficiaries, three legal entities independent from each other and each established in a different country as follows:"
+    },
+    "natural_persons_allowed": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Natural persons are included only when they meet the document’s definition of a legal entity.",
+     "q": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name, exercise rights and be subject to obligations, or an entity without legal personality."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Coordination and Support actions may also be submitted by one or more legal entities, subject to the stated establishment conditions.",
+     "q": "Applications for ‘Training and mobility’ actions and for ‘Programme co-fund’ actions may be submitted by one or more legal entities, provided that one of those legal entities is established in a Member State or an Associated Country."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. This applies only where the specific call/topic conditions impose such a restriction; other specified restrictions also apply to particular actions or entities.",
+     "q": "In addition, for duly justified and exceptional reasons, to guarantee the protection of the strategic interests of the EU and its Member States, the specific call/topic conditions may also exclude the participation of legal entities directly or indirectly controlled by non-eligible third countries or by legal entities of non-eligible third countries (or make their participation subject to specific conditions)."
+    }
+   }
+  },
+  "call-text:4f24b080b7a01dc3070eaa8f": {
+   "scope": "topic",
+   "facts": {
+    "entity_types": {
+     "v": [
+      "Legal entities"
+     ],
+     "n": "Stated in this topic's own conditions. This topic only; entities must also be established in an eligible country.",
+     "q": "For this reason, participation is limited to legal entities established in Member States, Iceland and Norway, associated countries, OECD countries and MERCOSUR countries."
+    },
+    "eligible_countries": {
+     "v": "Member States, Iceland and Norway, associated countries, OECD countries and MERCOSUR countries",
+     "n": "Stated in this topic's own conditions. This topic only; applicants must be legal entities established in one of the listed countries.",
+     "q": "For this reason, participation is limited to legal entities established in Member States, Iceland and Norway, associated countries, OECD countries and MERCOSUR countries."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Stated in this topic's own conditions. This topic only; participation is limited to legal entities.",
+     "q": "For this reason, participation is limited to legal entities established in Member States, Iceland and Norway, associated countries, OECD countries and MERCOSUR countries."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. This topic only; the restriction excludes entities controlled by a non-eligible country or entity.",
+     "q": "entities established in an eligible country listed above, but which are directly or indirectly controlled by a non-eligible country or by a non-eligible country entity, shall not participate in the action."
+    }
+   }
+  },
+  "call-text:c2da816ce8c2600c941e62e3": {
+   "scope": "topic",
+   "facts": {
+    "entity_types": {
+     "v": [
+      "legal entities"
+     ],
+     "n": "Stated in this topic's own conditions.",
+     "q": "In order to achieve the expected outcomes, and safeguard the Union’s strategic assets, interests, autonomy, and security, participation in this topic is limited to legal entities established in Member States and Associated Countries."
+    },
+    "eligible_countries": {
+     "v": "Member States and Associated Countries",
+     "n": "Stated in this topic's own conditions.",
+     "q": "In order to achieve the expected outcomes, and safeguard the Union’s strategic assets, interests, autonomy, and security, participation in this topic is limited to legal entities established in Member States and Associated Countries."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Stated in this topic's own conditions.",
+     "q": "In order to achieve the expected outcomes, and safeguard the Union’s strategic assets, interests, autonomy, and security, participation in this topic is limited to legal entities established in Member States and Associated Countries."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Stated in this topic's own conditions.",
+     "q": "In order to guarantee the protection of the strategic interests of the Union and its Member States, entities established in an eligible country listed above, but which are directly or indirectly controlled by a non-eligible country or by a non-eligible country entity, shall not participate in the action."
+    }
+   }
+  },
+  "call-text:9e7f2a68d190dba2a17b28e1": {
+   "scope": "topic",
+   "facts": {
+    "entity_types": {
+     "v": [
+      "Border or Coast Guard Authorities"
+     ],
+     "n": "Stated in this topic's own conditions. The stated participant requirement is for these authorities to be beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated Countries."
+    },
+    "min_entities": {
+     "v": 2,
+     "n": "Stated in this topic's own conditions. At least 2 Border or Coast Guard Authorities are required as beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated Countries."
+    },
+    "min_countries": {
+     "v": 2,
+     "n": "Stated in this topic's own conditions.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated Countries."
+    },
+    "eligible_countries": {
+     "v": "EU Member States or Associated Countries",
+     "n": "Stated in this topic's own conditions. Applies to the required Border or Coast Guard Authority participants.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated Countries."
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Stated in this topic's own conditions.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated Countries."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Stated in this topic's own conditions.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated Countries."
+    }
+   }
+  },
+  "call-text:b74b94c3255a09d116916ad9": {
+   "scope": "topic",
+   "facts": {
+    "consortium_required": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. Topic-specific requirement for at least 3 relevant practitioner beneficiaries; the text does not state a general consortium rule.",
+     "q": "This topic requires involvement as beneficiaries of at least 3 relevant practitioners from EU Member States or Associated Countries."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf": {
+   "scope": "general",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. The general eligibility rule is not limited to SMEs; specific conditions may add requirements.",
+     "q": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name, exercise rights and be subject to obligations, or an entity without legal personality6."
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities, including natural persons who meet the definition",
+      "International organisations, subject to the funding rules",
+      "Entities without legal personality, exceptionally"
+     ],
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Entities without legal personality may participate only exceptionally, subject to the stated requirements for their representatives and guarantees.",
+     "q": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name, exercise rights and be subject to obligations, or an entity without legal personality6."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. This is the general rule; some action types may be submitted by one or more legal entities.",
+     "q": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes , as beneficiaries, three legal entities independent from each other and each established in a different country as follows:"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. This is the general consortium rule and may be varied by specific call/topic conditions or the stated action-type exceptions.",
+     "q": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes , as beneficiaries, three legal entities independent from each other and each established in a different country as follows:"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Only where the specific call/topic conditions allow financial support to third parties.",
+     "q": "Where the specific call /topic conditions allow for financial support to third parties, the applicants must clearly describe in their proposal the objectives and the expected results, including the elements listed in the application template."
+    },
+    "eligible_countries": {
+     "v": "EU Member States, linked Overseas Countries and Territories, Horizon Europe associated countries, and the listed low- and middle-income countries. Other countries may qualify under the stated exceptions.",
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. The document lists the countries in these groups. Other countries qualify if the specific call/topic provides for it or the granting authority considers their participation essential.",
+     "q": "To be eligible for funding, applicants must be established in one of the following countries:"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Exceptions include Training and mobility, Programme co-fund, and Coordination and support actions, which may allow one or more legal entities.",
+     "q": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes , as beneficiaries, three legal entities independent from each other and each established in a different country as follows:"
+    },
+    "natural_persons_allowed": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. A natural person must meet the document’s definition of a legal entity.",
+     "q": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name, exercise rights and be subject to obligations, or an entity without legal personality6."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Also allowed for Coordination and support actions, subject to their stated establishment conditions and any specific call/topic conditions.",
+     "q": "Applications for ‘Training and mobility’ actions and for ‘Programme co -fund’ actions may be submitted by one or more legal entities, provided that one of those legal entities is established in a Member State or an Associated Country."
+    },
+    "ownership_control_restriction": {
+     "v": false,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. The general rule has no stated blanket ownership-control restriction, but specific restrictions apply to certain actions and entities; exceptions may be available in some cases.",
+     "q": "Entities that are assessed as high -risk suppliers of mobile network communication equipment (and any entities they own or control) are not eligible to participate as beneficiaries, affiliated entities and associated partners."
+    }
+   }
+  },
+  "call-text:912f78d13866714c8a007ccb": {
+   "scope": "topic",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "Stated in this topic's own conditions. At least 2 SMEs are required, and at least 50% of the proposed budget must be allocated to SMEs.",
+     "q": "Participation of non-SME industries and Research and Technology Organisations (RTOs) is not excluded, but it must be limited to 15% of the proposed budget."
+    },
+    "entity_types": {
+     "v": [
+      "SMEs",
+      "end-user organisations",
+      "non-SME industries",
+      "Research and Technology Organisations (RTOs)"
+     ],
+     "n": "Stated in this topic's own conditions. Consortia must include the specified SMEs and an end-user organisation; non-SME industries and RTOs are permitted subject to the stated budget limit.",
+     "q": "At least 2 SMEs[[See Commission Recommendation 2003/361/EC concerning the definition of micro, small and medium-sized enterprises, as well as the User Guide for SME definition.]] from 2 different Member States. - At least 1 end-user organisation in the areas addressed by the proposal, namely one of the following options: Option A \"Fighting Organised Crime and Terrorism’’ Option B ‘\"Disaster-Resilient Society’’ Option C \"Resilient Infrastructure’’ and Option D ‘\"Border Management’’. Participation of non-SME industries and Research and Technology Organisations (RTOs) is not excluded, but it must be limited to 15% of the proposed budget."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "Stated in this topic's own conditions.",
+     "q": "A minimum of three (3) to a maximum of seven (7) partners."
+    },
+    "min_countries": {
+     "v": 2,
+     "n": "Stated in this topic's own conditions. The two-country minimum is stated for the required SMEs.",
+     "q": "At least 2 SMEs[[See Commission Recommendation 2003/361/EC concerning the definition of micro, small and medium-sized enterprises, as well as the User Guide for SME definition.]] from 2 different Member States."
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Stated in this topic's own conditions.",
+     "q": "Consortia must include, as beneficiaries:"
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Stated in this topic's own conditions.",
+     "q": "Consortia must include, as beneficiaries: - A minimum of three (3) to a maximum of seven (7) partners."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. Applies to entities established in an eligible country that are directly or indirectly controlled by China or by a legal entity established in China.",
+     "q": "In line with the “ restriction on control in innovation actions in critical technology areas ” delineated in General Annex B of the General Annexes, entities established in an eligible country but which are directly or indirectly controlled by China or by a legal entity established in China are not eligible to participate in the action."
+    }
+   }
+  },
+  "call-text:afe8609b192b50261fe027b7": {
+   "scope": "topic",
+   "facts": {
+    "entity_types": {
+     "v": [
+      "practitioners",
+      "public procurers",
+      "private procurers",
+      "NGOs providing similar services of public interest as the public procurers"
+     ],
+     "n": "Stated in this topic's own conditions. Private procurers or qualifying NGOs may serve as the third procurer.",
+     "q": "This topic requires the participation[[See General Annexes page 12 on the Consortium Composition as regards Public procurement of innovative solutions.]], as beneficiaries, of at least 3 practitioners and 3 public procurers. Among the public procurers[[Under this topic, the participation is required of minimum three procurers as beneficiaries in the buyer’s group for the PPI. The third procurer in the buyer’s group can be a private procurer or an NGO that provides similar services of public interest as the public procurers.]], minimum two must be independent legal entities that are public procurers, each established in a different Member State or Associated Country and with at least one of them established in a Member State."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "Stated in this topic's own conditions. At least three procurers are required; one organisation may also count in both the practitioner and public-procurer roles.",
+     "q": "Under this topic, the participation is required of minimum three procurers as beneficiaries in the buyer’s group for the PPI."
+    },
+    "min_countries": {
+     "v": 3,
+     "n": "Stated in this topic's own conditions.",
+     "q": "These beneficiaries must be from at least 3 different EU Member States or Associated Countries."
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. Support may only be provided in the form of grants or prizes.",
+     "q": "Beneficiaries may provide financial support to third parties."
+    },
+    "eligible_countries": {
+     "v": "EU Member States and Associated Countries",
+     "n": "Stated in this topic's own conditions. Applies to the required beneficiaries.",
+     "q": "These beneficiaries must be from at least 3 different EU Member States or Associated Countries."
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Stated in this topic's own conditions.",
+     "q": "This topic requires the participation[[See General Annexes page 12 on the Consortium Composition as regards Public procurement of innovative solutions.]], as beneficiaries, of at least 3 practitioners and 3 public procurers."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Stated in this topic's own conditions. An organisation may count in both roles, but the topic requires participation by multiple beneficiaries.",
+     "q": "This topic requires the participation[[See General Annexes page 12 on the Consortium Composition as regards Public procurement of innovative solutions.]], as beneficiaries, of at least 3 practitioners and 3 public procurers."
+    }
+   }
+  },
+  "call-text:90f45941a1ef7e2dc786d1aa": {
+   "scope": "topic",
+   "facts": {
+    "entity_types": {
+     "v": [
+      "Border Authorities",
+      "Coast Guard Authorities",
+      "Customs Authorities"
+     ],
+     "n": "Stated in this topic's own conditions. At least two of these authorities must participate as beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border, Coast Guard or Customs Authorities from at least 2 different EU Member States or Associated countries."
+    },
+    "min_entities": {
+     "v": 2,
+     "n": "Stated in this topic's own conditions. Applies to the required Border, Coast Guard or Customs Authority beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border, Coast Guard or Customs Authorities from at least 2 different EU Member States or Associated countries."
+    },
+    "min_countries": {
+     "v": 2,
+     "n": "Stated in this topic's own conditions. Applies to the required authority beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border, Coast Guard or Customs Authorities from at least 2 different EU Member States or Associated countries."
+    },
+    "eligible_countries": {
+     "v": "EU Member States or Associated countries",
+     "n": "Stated in this topic's own conditions. This country condition is stated for the required authority beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border, Coast Guard or Customs Authorities from at least 2 different EU Member States or Associated countries."
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. The requirement is for at least two authorities as beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border, Coast Guard or Customs Authorities from at least 2 different EU Member States or Associated countries."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Stated in this topic's own conditions. The topic requires at least two authority beneficiaries.",
+     "q": "This topic requires the active involvement, as beneficiaries, of at least 2 Border, Coast Guard or Customs Authorities from at least 2 different EU Member States or Associated countries."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-bestuse-mcp-09_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities that are public or private bodies",
+      "Self-employed persons (sole traders), where the company does not have legal personality separate from the natural person",
+      "International organisations of European Interest",
+      "Entities without legal personality, exceptionally and subject to conditions"
+     ],
+     "n": "Entities without legal personality and international organisations are eligible only under the stated conditions.",
+     "q": "In order to be eligible, the applicants (beneficiaries and affiliated entities) must:\n− be legal entities (public or private bodies)\nNatural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).\nInternational organisations are NOT eligible, unless they are International organisations of European Interest within the meaning of Article 2 of the Digital Europe Regulation (i.e. international organisations the majority of whose members are Member States or whose headquarters are in a Member State).\nEntities which do not have legal personality under their national law may exceptionally participate, provided that their representatives have the capacity to undertake legal obligations on their behalf, and offer guarantees for the protection of the EU financial interests equivalent to that offered by legal persons."
+    },
+    "funding_rate": {
+     "v": "50%",
+     "n": null,
+     "q": "Simple Grants — 50% funding rate"
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories (OCTs)), listed EEA countries, and countries associated to the Digital Europe Programme.",
+     "n": null,
+     "q": "EU Member States (including overseas countries and territories (OCTs))\nnon-EU countries:\nlisted EEA countries and countries associated to the Digital Europe Programme (list of participating countries)"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) where the company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ls-ra-challenge_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "SME status is not stated as an applicant eligibility requirement; FSTP recipients should in principle be SMEs.",
+     "q": "In order to be eligible, all applicants (beneficiaries and affiliated entities) must cumulatively: − be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities (public bodies)",
+      "Legal entities (private bodies)"
+     ],
+     "n": "International organisations are eligible only if their members are exclusively Member States or EDF associated countries and their executive management structure is in one of those countries. Entities without legal personality may participate only exceptionally.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "100%",
+     "n": "Applies to the Research Actions covered by this call.",
+     "q": "Lump Sum Grants for Research Actions are managed as contributions on the basis of an estimated project budget where each activity will be reimbursed at the funding rate that applies to Research Actions (100%)."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "The minimum counts independent beneficiary applicants, not affiliated entities.",
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "Subject to Annex 4 conditions, including its funding ceiling and recipient eligibility rules.",
+     "q": "Financial support to third parties is allowed in all topics under this call for grants or similar forms of support under the conditions set out in Annex 4."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories), and non-EU listed EEA countries and countries associated to the EDF Programme.",
+     "n": null,
+     "q": "EU Member States (including overseas countries and territories (OCTs)); non-EU countries: listed EEA countries and countries associated to the EDF Programme (‘EDF associated countries’; list of participating countries)"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) where the company has no separate legal personality.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Approved guarantees may allow an exception.",
+     "q": "not be subject to control by a non-associated third country or non-associated third-country entity (unless they can provide guarantees – see Annex 2 – approved by the Member State or EDF associated country where they are established)"
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ra_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities (public or private bodies)"
+     ],
+     "n": "Entities without legal personality may exceptionally participate if their representatives can undertake legal obligations on their behalf and they offer equivalent guarantees for protecting EU financial interests.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "100%",
+     "n": null,
+     "q": "Research Actions are reimbursed at a funding rate of 100%."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "The minimum is for independent applicants that are beneficiaries; affiliated entities do not count.",
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "Subject to Annex 4 conditions, including a maximum of EUR 60,000 per third party and an overall ceiling of 5% of the requested EU contribution.",
+     "q": "Financial support to third parties is allowed in all topics under this call for grants or similar forms of support under the conditions set out in Annex 4."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories (OCTs)); listed EEA countries and countries associated to the EDF Programme (EDF associated countries)",
+     "n": "Applicants must also have their executive management structure established in eligible countries.",
+     "q": "be established in one of the eligible countries, i.e.: − EU Member States (including overseas countries and territories (OCTs)) − non-EU countries: − listed EEA countries and countries associated to the EDF Programme (‘EDF associated countries’; list of participating countries)"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) may apply where the company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "The restriction may be met by providing guarantees approved by the Member State or EDF associated country where the entity is established.",
+     "q": "not be subject to control by a non-associated third country or non-associated third-country entity (unless they can provide guarantees – see Annex 2 – approved by the Member State or EDF associated country where they are established)"
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ls-ra-si_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "funding_rate": {
+     "v": "100%",
+     "n": "The call topics are Lump Sum Grants for Research Actions.",
+     "q": "Research Actions are reimbursed at a funding rate of 100%."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "The minimum is for independent applicants who are beneficiaries; affiliated entities do not count.",
+     "q": "Proposals must be submitted by:\n− minimum 3 independent applicants (beneficiaries; not affiliated entities) from\n3 different eligible countries"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": null,
+     "q": "Proposals must be submitted by:\n− minimum 3 independent applicants (beneficiaries; not affiliated entities) from\n3 different eligible countries"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "It is optional and subject to Annex 4 conditions, including a ceiling on the total amount and limits on each recipient.",
+     "q": "Financial support to third parties is allowed in all topics under this call for grants or similar forms of support under the conditions set out in Annex 4."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including OCTs), listed EEA countries and countries associated to the EDF Programme; applicants’ executive management structure must also be established in an eligible country.",
+     "n": "Entities from countries negotiating association agreements may participate if the stated conditions are met before grant signature.",
+     "q": "− EU Member States (including overseas countries and territories (OCTs))\n− non-EU countries :\n− listed EEA countries and countries associated to the EDF Programme (‘EDF associated countries’; list of participating countries)\n− have their executive management structure established in eligible countries"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": null,
+     "q": "Proposals must be submitted by:\n− minimum 3 independent applicants (beneficiaries; not affiliated entities) from\n3 different eligible countries"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+     "q": "Natural persons — Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": null,
+     "q": "Proposals must be submitted by:\n− minimum 3 independent applicants (beneficiaries; not affiliated entities) from\n3 different eligible countries"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Exception: participation may be allowed if the required guarantees are approved by the Member State or EDF associated country where the entity is established.",
+     "q": "not be subject to control by a non-associated third country or non-associated third-country entity (unless they can provide guarantees – see Annex 2 – approved by the Member State or EDF associated country where they are established)"
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-da_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "legal entities (public or private bodies)",
+      "self-employed persons/sole traders, as an exception",
+      "entities without legal personality, exceptionally",
+      "international organisations whose members are exclusively Member States or EDF associated countries, with executive management in one of those countries"
+     ],
+     "n": "Exceptions and conditions apply to sole traders, entities without legal personality, and international organisations.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "Variable by activity and participant, with applicable bonuses.",
+     "n": "Financial support to third parties is funded at 100%; other activity rates vary.",
+     "q": "Funding rate: variable per activity (rates depend on activity and bonuses for SME and mid-cap participation and PESCO)"
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "The minimum is for independent applicants acting as beneficiaries; affiliated entities do not count.",
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": null,
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "Subject to Annex 4 conditions, including a maximum of EUR 60,000 per third party.",
+     "q": "Financial support to third parties is allowed in all topics under this call for grants or similar forms of support under the conditions set out in Annex 4."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including OCTs), and non-EU countries that are listed EEA countries or associated to the EDF Programme. Countries negotiating association may participate only if the agreement is concluded before grant signature and covers the call.",
+     "n": "Non-EU eligible countries are limited to the listed EEA countries and EDF associated countries; participation from countries negotiating association is conditional.",
+     "q": "EU Member States (including overseas countries and territories (OCTs))"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons/sole traders where the company does not have legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": null,
+     "q": "Proposals must be submitted by: − minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Participation may be exceptionally permitted if approved guarantees are provided.",
+     "q": "not be subject to control by a non -associated third country or non -associated third-country entity (unless they can provide guarantees – see Annex 2 – approved by the Member State or EDF associated country where they are established)"
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-fnlc-cpa_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "In order to be eligible, the applicants (beneficiaries and affiliated entities) must: − be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation."
+    },
+    "entity_types": {
+     "v": [
+      "Contracting authorities",
+      "International organisations",
+      "Structures for European Armament Programme (SEAPs)",
+      "European Defence Agency (EDA)"
+     ],
+     "n": "EDA and international organisations are eligible as beneficiaries only if designated as procurement agent.",
+     "q": "In order to be eligible, the applicants (beneficiaries and affiliated entities) must: − be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation."
+    },
+    "funding_rate": {
+     "v": "Baseline up to 15%; with incentive bonuses and ceilings, up to 25%.",
+     "n": null,
+     "q": "The EU grant will be a percentage of the estimated value of the common procurement (baseline of up to 15%) with incentive bonuses and ceilings (up to 25%) (see section 6)."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "This minimum applies to consortia; a single applicant may apply only if it is a SEAP.",
+     "q": "Consortia must be composed of at least 3 contracting authorities from 3 different EU Member States or EDIP associated countries, of which at least 2 must be contracting authorities from 2 EU Member States (only beneficiaries count; not affiliated entities)."
+    },
+    "min_countries": {
+     "v": 3,
+     "n": "This minimum applies to consortia; a single applicant may apply only if it is a SEAP.",
+     "q": "Consortia must be composed of at least 3 contracting authorities from 3 different EU Member States or EDIP associated countries, of which at least 2 must be contracting authorities from 2 EU Member States (only beneficiaries count; not affiliated entities)."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties (FSTP) is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States and EDIP associated countries (the document gives Norway as an example).",
+     "n": null,
+     "q": "Common Procurement Actions (CPA) contribute a fixed amount (FNLC) to a common procurement which is carried out by a consortium of contracting authorities from EU Member States and EDIP associated countries (i.e. Norway)."
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Single applicants may apply if they are a SEAP.",
+     "q": "Consortia must be composed of at least 3 contracting authorities from 3 different EU Member States or EDIP associated countries, of which at least 2 must be contracting authorities from 2 EU Member States (only beneficiaries count; not affiliated entities)."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) where the company does not have legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "Only SEAPs may apply alone.",
+     "q": "Single applicants may apply only if they are a SEAP."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Entities may exceptionally participate if they have undergone qualifying FDI screening with adequate measures, or provide guarantees approved by the country where they are established.",
+     "q": "Thus, for the purposes of participating in EDIP actions, beneficiaries and affiliated entities must not be subject to control by a non-associated third country or non-associated third-country entity and undergo an ownership control assessment procedure (template*) before grant signature."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2027/call-fiche_edf-edip-p-2027-fnlc-cpa_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "In order to be eligible, the applicants (beneficiaries and affiliated entities) must: − be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation."
+    },
+    "entity_types": {
+     "v": [
+      "contracting authorities",
+      "international organisations",
+      "Structures for European Armament Programme (SEAPs)",
+      "European Defence Agency (EDA)"
+     ],
+     "n": "EDA and international organisations are eligible as beneficiaries if designated as the procurement agent.",
+     "q": "In order to be eligible, the applicants (beneficiaries and affiliated entities) must: − be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation."
+    },
+    "funding_rate": {
+     "v": "Baseline up to 15%; with incentive bonuses and ceilings, up to 25%.",
+     "n": "Common Procurement Actions; bonuses and ceilings are subject to the conditions set out in the call.",
+     "q": "The EU grant will be a percentage of the estimated value of the common procurement (baseline of up to 15%) with incentive bonuses and ceilings (up to 25%) (see section 6)."
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "Applies to consortia; a single applicant may apply only if it is a SEAP.",
+     "q": "Consortia must be composed of at least 3 contracting authorities from 3 different EU Member States or EDIP associated countries, of which at least 2 must be contracting authorities from 2 EU Member States (only beneficiaries count; not affiliated entities)."
+    },
+    "min_countries": {
+     "v": 3,
+     "n": "At least 2 of the 3 countries must be EU Member States.",
+     "q": "Consortia must be composed of at least 3 contracting authorities from 3 different EU Member States or EDIP associated countries, of which at least 2 must be contracting authorities from 2 EU Member States (only beneficiaries count; not affiliated entities)."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties (FSTP) is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States and EDIP associated countries",
+     "n": null,
+     "q": "Consortia must be composed of at least 3 contracting authorities from 3 different EU Member States or EDIP associated countries, of which at least 2 must be contracting authorities from 2 EU Member States (only beneficiaries count; not affiliated entities)."
+    },
+    "consortium_required": {
+     "v": false,
+     "n": "A single applicant is permitted only if it is a SEAP; otherwise applicants must form a consortium.",
+     "q": "Single applicants may apply only if they are a SEAP."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons who are sole traders, where the company has no separate legal personality.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "Only a SEAP may apply as a single applicant.",
+     "q": "Single applicants may apply only if they are a SEAP."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Entities that do not meet this requirement may exceptionally participate if they have undergone qualifying FDI screening or provide guarantees approved by the EU Member State or EDIP associated country where they are established.",
+     "q": "Thus, for the purposes of participating in EDIP actions, beneficiaries and affiliated entities must not be subject to control by a non -associated third country or non -associated third -country entity and undergo an ownership control assessment procedure (template*) before grant signature."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-ls-ira_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities (public or private bodies)",
+      "Self-employed persons (sole traders)",
+      "International organisations whose members are exclusively EU Member States or EDIP associated countries and whose executive management structure is in a Member State or EDIP associated country",
+      "Structures for European Armament Programme (SEAPs)",
+      "Entities without legal personality (exceptionally)",
+      "Associations and interest groupings"
+     ],
+     "n": "Self-employed persons are eligible only as sole traders; entities without legal personality may participate exceptionally if stated conditions are met. International organisations are eligible only in the stated circumstances.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "35% baseline; bonuses of up to 15% may apply.",
+     "n": null,
+     "q": "Industrial Reinforcement Actions (EDIP-IRA) are managed as a lump sum contribution on the basis of an estimated project budget where the activities will be reimbursed at the EDIP baseline funding rate (35%) plus bonuses (up to 15%) (see section 10)."
+    },
+    "min_entities": {
+     "v": 1,
+     "n": "For activities within Article 12(1)(d) of the EDIP Regulation, where no SEAP participates, the consortium must have at least 3 independent entities.",
+     "q": "Single applicants or consortia may apply."
+    },
+    "min_countries": {
+     "v": 1,
+     "n": "For activities within Article 12(1)(d) of the EDIP Regulation, where no SEAP participates, the consortium must include entities from 2 different EU Member States.",
+     "q": "Single applicants or consortia may apply."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties (FSTP) is not allowed."
+    },
+    "consortium_required": {
+     "v": false,
+     "n": null,
+     "q": "Single applicants or consortia may apply."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons acting as sole traders, where the company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": null,
+     "q": "Single applicants or consortia may apply."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Exceptions may be approved where the entity has undergone FDI screening with adequate measures or provides guarantees approved by its EU Member State or EDIP associated country.",
+     "q": "beneficiaries and affiliated entities must not be subject to control by a non-associated third country or non-associated third-country entity and undergo an ownership control assessment procedure (template*) before grant signature."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-usi-2026-ls-ira_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Public bodies",
+      "Private bodies"
+     ],
+     "n": "Natural persons are generally ineligible, with an exception for self-employed persons (sole traders). Entities without legal personality may exceptionally participate if they meet the stated conditions.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "100%",
+     "n": null,
+     "q": "Industrial Reinforcement Actions (USI IRA) are managed as lump sum contributions on the basis of an estimated project budget where the activities will be reimbursed at the funding rate that applies to USI Industrial Reinforcement Actions (100%)."
+    },
+    "min_entities": {
+     "v": 1,
+     "n": "For certain activities where no SEAP participates, the proposal must be submitted by a consortium of at least 3 independent entities.",
+     "q": "Single applicants or consortia may apply."
+    },
+    "min_countries": {
+     "v": 1,
+     "n": "For certain activities where no SEAP participates, the consortium must include entities from 2 different EU Member States or Ukraine.",
+     "q": "If a single applicant, it must be a legal entity established and having its executive management structure in Ukraine."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties (FSTP) is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including OCTs) and Ukraine. Legal entities established in non-government-controlled areas of Ukraine are not eligible for funding.",
+     "n": "Applicants must also have their executive management structure established in an eligible country.",
+     "q": "− EU Member States (including overseas countries and territories (OCTs)) − non-EU countries: − Ukraine Legal entities established in the non -government controlled areas of Ukraine are not eligible for funding."
+    },
+    "consortium_required": {
+     "v": false,
+     "n": null,
+     "q": "Single applicants or consortia may apply."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons who are sole traders, where the company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "A single applicant must be a legal entity established in Ukraine and have its executive management structure there.",
+     "q": "Single applicants or consortia may apply."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Ukraine is excepted from the stated third-country control restriction. An exemption or approved guarantees, including adequate FDI-screening mitigation measures, may also permit participation.",
+     "q": "not be subject to control by a non -associated third country other than Ukraine or by a non -associated third-country entity (unless they are exempted under Article 26(9) of the EDIP Regulation or provide guarantees , including adequate mitigation measures pursuant to a FDI screening , approved by the EU Member State where they are established; see Annex 2)."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-ai-data-10_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "entity_types": {
+     "v": [
+      "Legal entities (public or private bodies)"
+     ],
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "50%",
+     "n": null,
+     "q": "Lump Sum Grants —50% funding rate"
+    },
+    "min_entities": {
+     "v": 3,
+     "n": "The minimum applies to independent beneficiaries; affiliated entities do not count.",
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "min_countries": {
+     "v": 3,
+     "n": null,
+     "q": "minimum 3 independent applicants (beneficiaries; not affiliated entities) from 3 different eligible countries"
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "for lump sums based on estimated project budgets: costs for financial support to third parties: not allowed"
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories (OCTs)), listed EEA countries, and countries associated to the Digital Europe Programme.",
+     "n": null,
+     "q": "be established in one of the eligible countries, i.e.: − EU Member States (including overseas countries and territories (OCTs)) − non-EU countries: − listed EEA countries and countries associated to the Digital Europe Programme (list of participating countries)"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": null,
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": null,
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Applies to entities assessed as high-risk suppliers and entities they own or control.",
+     "q": "Entities that are assessed as high -risk suppliers of mobile network communication equipment (and any entities they own or control) are not eligible to participate in any capacity, including as beneficiaries, affiliated entities, associated partners, third parties giving in-kind contributions, subcontractors or recipients of financial support to third parties (if any)."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-bestuse-10_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "The consortium can include public and private entities such as (but not limited to): public administrations and Member State authorities (e.g. national contact points for eHealth, ministries of health , digital health authorities); hospitals, medical centres and other healthcare providers; industry (e.g. developers of EHR systems, IT consulting firms) and SMEs; research institutions and academia; and not -for-profit organisations (such as patients and healthcare professionals organisations)."
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities (public or private bodies)",
+      "Public administrations and authorities",
+      "Healthcare providers",
+      "Industry and SMEs",
+      "Research institutions and academia",
+      "Not-for-profit organisations",
+      "NGOs",
+      "Government bodies/agencies",
+      "Private sector organisations"
+     ],
+     "n": "The examples differ by topic; NETWORKSICs applicants must be consortia consisting of NGOs, government bodies/agencies, and/or private sector organisations.",
+     "q": "In order to be eligible, the applicants (beneficiaries and affiliated entities) must: − be legal entities (public or private bodies)"
+    },
+    "min_entities": {
+     "v": 5,
+     "n": "Applies to EHDS only. No numeric consortium minimum is stated for NETWORKSICs.",
+     "q": "minimum 5 independent applicants (beneficiaries; not affiliated entities) from 5 different eligible countries."
+    },
+    "min_countries": {
+     "v": 5,
+     "n": "Applies to EHDS only. No numeric country minimum is stated for NETWORKSICs.",
+     "q": "minimum 5 independent applicants (beneficiaries; not affiliated entities) from 5 different eligible countries."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": "Allowed for EHDS; the document does not state that it is allowed for NETWORKSICs.",
+     "q": "Financial support to third parties is allowed in DIGITAL-2026-BESTUSE-10-EHDS, for grants or similar forms of support under the following conditions:"
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories), listed EEA countries, and countries associated to the Digital Europe Programme.",
+     "n": "For NETWORKSICs, applicants must be from eligible countries not previously funded under DIGITAL-2025-BESTUSE-08-NETWORKSICs.",
+     "q": "EU Member States (including overseas countries and territories (OCTs))\nnon-EU countries:\nlisted EEA countries and countries associated to the Digital Europe Programme (list of participating countries)"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "EHDS requires multi-beneficiary applications; NETWORKSICs applicants must be consortia.",
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)\nApplicant consortia consisting of NGOs, government bodies/agencies, and/or private sector organisations, from eligible countries previously not funded under the Call DIGITAL-2025-BESTUSE-08-NETWORKSICs."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Both topics require a consortium; EHDS specifically requires a multi-beneficiary application.",
+     "q": "For this topic, multi-beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)\nApplicant consortia consisting of NGOs, government bodies/agencies, and/or private sector organisations, from eligible countries previously not funded under the Call DIGITAL-2025-BESTUSE-08-NETWORKSICs."
+    }
+   }
+  },
+  "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-skills-10_en.pdf": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities that are public or private bodies",
+      "Self-employed persons (sole traders)",
+      "Entities without legal personality, exceptionally and subject to stated conditions"
+     ],
+     "n": "Natural persons are not eligible except self-employed persons/sole traders. Entities without legal personality may exceptionally participate if their representatives can undertake legal obligations on their behalf and they offer equivalent guarantees for protection of EU financial interests.",
+     "q": "be legal entities (public or private bodies)"
+    },
+    "min_entities": {
+     "v": 4,
+     "n": "This is the minimum for Digital Health and EdTech. National Coalitions requires at least 5 independent applicants, including at least 4 specified National Coalitions.",
+     "q": "minimum of 4 independent applicants (beneficiaries; not affiliated entities) from at least 4 different eligible countries."
+    },
+    "min_countries": {
+     "v": 4,
+     "n": "National Coalitions also requires at least 4 applicants from eligible countries; the additional applicant-type condition is stated in the consortium composition rules.",
+     "q": "minimum of 4 independent applicants (beneficiaries; not affiliated entities) from at least 4 different eligible countries."
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "Allowed for National Coalitions and EdTech only, subject to the stated conditions; it is not allowed for Digital Health.",
+     "q": "Financial support to third parties is allowed in DIGITAL-2026-SKILLS-10-NATIONAL-COALITIONS and DIGITAL-2026-SKILLS-10-EDTECH for grants or similar forms of support and prizes under the following conditions:"
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including OCTs), listed EEA countries, and countries associated to the Digital Europe Programme",
+     "n": "The specific list of participating non-EU countries is referenced but not reproduced in the provided text.",
+     "q": "EU Member States (including overseas countries and territories (OCTs))\nnon-EU countries:\nlisted EEA countries and countries associated to the Digital Europe Programme (list of participating countries)"
+    },
+    "consortium_required": {
+     "v": true,
+     "n": "Applies to all three topics.",
+     "q": "For this topic, multi -beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons who are sole traders, where the company has no separate legal personality.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": false,
+     "n": "Applies to all three topics.",
+     "q": "For this topic, multi -beneficiary applications are mandatory and specific conditions for the consortium composition apply (see section 6)"
+    }
+   }
+  },
+  "https://eic.ec.europa.eu/document/download/52598755-1351-4b54-b46b-e2682d0a3aec_en?filename=EIC-Work-Programme-2026.pdf": {
+   "scope": "general",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Some calls are limited to SMEs and/or small mid-caps; applicant types vary by call.",
+     "q": "The legal entities may for example be universities, research organisations, SMEs, startups, industrial partners or natural persons."
+    },
+    "entity_types": {
+     "v": [
+      "universities",
+      "research organisations",
+      "SMEs",
+      "startups",
+      "industrial partners",
+      "natural persons",
+      "small mid-caps"
+     ],
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Eligibility depends on the call: some calls restrict applicant types or exclude larger companies, while others include small mid-caps or individuals intending to establish a company.",
+     "q": "The legal entities may for example be universities, research organisations, SMEs, startups, industrial partners or natural persons."
+    },
+    "funding_rate": {
+     "v": "Up to 70% for the EIC Accelerator grant component.",
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Funding rates vary by scheme: some grant calls state a 100% rate, while STEP Scale Up and STEP Defence provide equity-only support.",
+     "q": "Eligible costs for the grant component are reimbursed up to a maximum of 70% within the ceiling of the maximum grant amount, i.e. EUR 2 499 999), but for blended finance the grant component may be for a higher amount in exceptional and well justified cases."
+    },
+    "min_entities": {
+     "v": 1,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Single applicants are permitted in some calls; consortium calls set higher minimums, including three entities for EIC Pathfinder Open.",
+     "q": "The EIC Pathfinder Challenges can support projects from consortia or from single legal entities."
+    },
+    "min_countries": {
+     "v": 1,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Consortium calls may require entities from multiple countries.",
+     "q": "If the proposal is from one single legal entity, this entity must be established in a Member State or an Associated Country (unless stated otherwise in the specific Challenge chapter)."
+    },
+    "eligible_countries": {
+     "v": "EU Member States and countries associated to Horizon Europe, with call-specific exceptions.",
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Country rules vary by call. For example, STEP Defence includes Ukraine and certain EEA-associated countries, while some Accelerator applicants may be established in a non-associated third country if they meet relocation or establishment conditions.",
+     "q": "If the proposal is from one single legal entity, this entity must be established in a Member State or an Associated Country (unless stated otherwise in the specific Challenge chapter)."
+    },
+    "consortium_required": {
+     "v": false,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Consortium requirements vary by call; EIC Pathfinder Open requires a consortium.",
+     "q": "The EIC Pathfinder Challenges can support projects from consortia or from single legal entities."
+    },
+    "natural_persons_allowed": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Natural persons are eligible only under applicable call conditions; some calls require or contemplate establishing a company.",
+     "q": "The legal entities may for example be universities, research organisations, SMEs, startups, industrial partners or natural persons."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "General rule of the work programme annexes; the topic or the type of action may add or change it. Not permitted for EIC Pathfinder Open, which requires a consortium.",
+     "q": "The EIC Pathfinder Challenges can support projects from consortia or from single legal entities."
+    }
+   }
+  },
+  "call-text:290127e91027840d3cd9fa98": {
+   "scope": "topic",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": "Stated in this topic's own conditions. Small mid-caps are also eligible.",
+     "q": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2)."
+    },
+    "entity_types": {
+     "v": [
+      "SME",
+      "small mid-cap (up to 499 employees)",
+      "investor submitting a proposal on behalf of an eligible SME or small mid-cap"
+     ],
+     "n": "Stated in this topic's own conditions. An investor may submit on behalf of an eligible company if a prior agreement exists with it.",
+     "q": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2)."
+    },
+    "min_entities": {
+     "v": 1,
+     "n": "Stated in this topic's own conditions.",
+     "q": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2)."
+    },
+    "eligible_countries": {
+     "v": "Union, Ukraine, or an EEA member associated to Horizon Europe",
+     "n": "Stated in this topic's own conditions.",
+     "q": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2)."
+    },
+    "consortium_required": {
+     "v": false,
+     "n": "Stated in this topic's own conditions.",
+     "q": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. An investor may also submit on behalf of an eligible company if a prior agreement exists.",
+     "q": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2)."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Stated in this topic's own conditions. For applicants under this third-country-control condition, guarantees are required; failure to submit them as specified can make the application non-eligible.",
+     "q": "Should the applicant consider to be directly or indirectly controlled by a third country other than Ukraine or an EEA member associated to Horizon Europe or by legal entities of such a third country then the following steps should be taken:"
+    }
+   }
+  },
+  "call-text:b501b1424892181aa6e193e4": {
+   "scope": "topic",
+   "facts": {}
+  },
+  "https://cybersecurity-centre.europa.eu/document/8e1d6074-95ed-4b23-8bd3-2ca42b096411_en": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "be legal entities (public or private bodies)"
+    },
+    "cascade_funding": {
+     "v": true,
+     "n": "Allowed for the NCC topic only.",
+     "q": "Financial support to third parties is allowed in topic DIGITAL-ECCC-2027-DEPLOY-CYBER-11-NCC for grants under the following conditions:"
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including OCTs) and EEA countries (Norway, Iceland, Liechtenstein)",
+     "n": "All participants must also be established in and controlled from an eligible country.",
+     "q": "EU Member States (including overseas countries and territories (OCTs)); EEA countries (Norway, Iceland, Liechtenstein)"
+    },
+    "consortium_required": {
+     "v": false,
+     "n": "Regional Cable Hubs requires a multi-beneficiary consortium.",
+     "q": "Unless otherwise specified, there is no minimum consortium composition requirement."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) whose company does not have legal personality separate from them.",
+     "q": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Participation in any capacity is limited to entities established in and controlled from eligible countries.",
+     "q": "Please be aware that all topics of this call are subject to restrictions due to security, therefore entities must not be directly or indirectly controlled from a country that is not an eligible country."
+    }
+   }
+  },
+  "https://cybersecurity-centre.europa.eu/document/a435bd6f-9841-4153-ac3a-9395fe29499e_en": {
+   "scope": "call_document",
+   "facts": {
+    "sme_only": {
+     "v": false,
+     "n": null,
+     "q": "− be legal entities (public or private bodies)"
+    },
+    "entity_types": {
+     "v": [
+      "Legal entities",
+      "Public bodies",
+      "Private bodies"
+     ],
+     "n": "For National Cyber Hubs, only entities designated at Member State level as National Cyber Hubs may apply; the Cross-Border topic identifies public bodies acting as National Cyber Hubs.",
+     "q": "− be legal entities (public or private bodies)"
+    },
+    "funding_rate": {
+     "v": "50%",
+     "n": null,
+     "q": "Simple Grants — 50% funding rate"
+    },
+    "min_entities": {
+     "v": 1,
+     "n": "For new Cross-Border Cyber Hubs, beneficiaries must come from at least 3 eligible countries; enlargement of an ongoing grant follows a different composition rule.",
+     "q": "For the topic DIGITAL-ECCC-2027-DEPLOY-CYBER-12-NCH — National Cyber Hubs: only entities designated at Member State level as National Cyber Hubs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "min_countries": {
+     "v": 1,
+     "n": "New Cross-Border Cyber Hubs require beneficiaries from at least 3 eligible countries.",
+     "q": "For the topic DIGITAL-ECCC-2027-DEPLOY-CYBER-12-NCH — National Cyber Hubs: only entities designated at Member State level as National Cyber Hubs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "cascade_funding": {
+     "v": false,
+     "n": null,
+     "q": "Financial support to third parties is not allowed."
+    },
+    "eligible_countries": {
+     "v": "EU Member States (including overseas countries and territories (OCTs)); EEA countries (Norway, Iceland, Liechtenstein)",
+     "n": "Participants must also be established in and controlled from eligible countries.",
+     "q": "− be established in one of the eligible countries, i.e.: − EU Member States (including overseas countries and territories (OCTs)) − EEA countries (Norway, Iceland, Liechtenstein)"
+    },
+    "consortium_required": {
+     "v": false,
+     "n": "The Cross-Border Cyber Hubs topic requires a consortium of beneficiaries from at least 3 eligible countries for new hubs.",
+     "q": "For the topic DIGITAL-ECCC-2027-DEPLOY-CYBER-12-NCH — National Cyber Hubs: only entities designated at Member State level as National Cyber Hubs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "natural_persons_allowed": {
+     "v": false,
+     "n": "Exception: self-employed persons (sole traders) where the company has no separate legal personality.",
+     "q": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)."
+    },
+    "single_applicant_allowed": {
+     "v": true,
+     "n": "Only for the National Cyber Hubs topic.",
+     "q": "For the topic DIGITAL-ECCC-2027-DEPLOY-CYBER-12-NCH — National Cyber Hubs: only entities designated at Member State level as National Cyber Hubs are allowed to apply for funding and the project should be mono-beneficiary."
+    },
+    "ownership_control_restriction": {
+     "v": true,
+     "n": "Participation is limited to entities established in and controlled from eligible countries.",
+     "q": "Please be aware that all topics of this call are subject to restrictions due to security, therefore entities must not be directly or indirectly controlled from a country that is not an eligible country."
+    }
+   }
+  }
+ },
+ "calls": [
+  {
+   "id": 6,
+   "topic": "DIGITAL-2026-AI-09-GENAI-PA",
+   "title": "Apply AI: GenAI for the public administrations",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-ai-09_en.pdf"
+   ]
+  },
+  {
+   "id": 19,
+   "topic": "DIGITAL-2025-BESTUSE-TECH-09-MDL",
+   "title": "Support the roll-out of EU Mobile Driving Licences",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2025/call-fiche_digital-2025-bestuse-tech-09_en.pdf"
+   ]
+  },
+  {
+   "id": 28,
+   "topic": "DIGITAL-ECCC-2026-DEPLOY-CYBER-10-NCH",
+   "title": "National Cyber Hubs",
+   "documents": [
+    "https://cybersecurity-centre.europa.eu/document/d3dec6b2-4b27-4a52-adca-57c4efe1b789_en"
+   ]
+  },
+  {
+   "id": 33,
+   "topic": "HORIZON-CL4-2027-05-DIGITAL-EMERGING-03",
+   "title": "Advanced integrated photonic devices for extended features and ultra-low power consumption (RIA) (Photonics Partnership)",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
+    "call-text:4f24b080b7a01dc3070eaa8f"
+   ]
+  },
+  {
+   "id": 36,
+   "topic": "HORIZON-CL3-2027-02-CS-ECCC-02",
+   "title": "Secure Computing Continuum (IoT, Edge, Cloud, Data spaces)",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
+    "call-text:c2da816ce8c2600c941e62e3"
+   ]
+  },
+  {
+   "id": 43,
+   "topic": "HORIZON-CL3-2026-01-BM-03",
+   "title": "Reliability of age assessment methods in the context of security and border management",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
+    "call-text:9e7f2a68d190dba2a17b28e1"
+   ]
+  },
+  {
+   "id": 59,
+   "topic": "HORIZON-CL3-2026-01-INFRA-02",
+   "title": "Security challenges of the green transition in urban und peri urban areas",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
+    "call-text:b74b94c3255a09d116916ad9"
+   ]
+  },
+  {
+   "id": 60,
+   "topic": "HORIZON-CL3-2027-01-SSRI-01",
+   "title": "Accelerating uptake through open proposals for advanced SME innovation",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf",
+    "call-text:912f78d13866714c8a007ccb"
+   ]
+  },
+  {
+   "id": 63,
+   "topic": "HORIZON-CL3-2027-01-SSRI-03",
+   "title": "Demand-led innovation in security",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf",
+    "call-text:afe8609b192b50261fe027b7"
+   ]
+  },
+  {
+   "id": 69,
+   "topic": "HORIZON-CL3-2027-01-BM-01",
+   "title": "Open topic on research and innovation for effective management of EU external borders that promotes fundamental rights and EU values",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf",
+    "call-text:90f45941a1ef7e2dc786d1aa"
+   ]
+  },
+  {
+   "id": 78,
+   "topic": "DIGITAL-2026-BESTUSE-MCP-09-INNOV-ADMIN",
+   "title": "MCP on Innovative and Connected Public Administrations",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-bestuse-mcp-09_en.pdf"
+   ]
+  },
+  {
+   "id": 81,
+   "topic": "EDF-2026-LS-RA-CHALLENGE-DIGIT-AISAO",
+   "title": "AI-based tactical situational awareness using swarms of small robots and drones – organisation of a  technological challenge\"",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ls-ra-challenge_en.pdf"
+   ]
+  },
+  {
+   "id": 85,
+   "topic": "EDF-2026-RA-PROTMOB-FMLA",
+   "title": "Future multirole light aircraft",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ra_en.pdf"
+   ]
+  },
+  {
+   "id": 88,
+   "topic": "EDF-2026-RA-CYBER-QSTN",
+   "title": "Quantum secured tactical networks",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ra_en.pdf"
+   ]
+  },
+  {
+   "id": 91,
+   "topic": "EDF-2026-RA-SI-UWW-CSBI-STEP",
+   "title": "Layered critical seabed infrastructure protection",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ls-ra-si_en.pdf"
+   ]
+  },
+  {
+   "id": 96,
+   "topic": "EDF-2026-DA-ENERENV-AWC-STEP",
+   "title": "Ammunition Waste Collection and Disposal Unmanned Platform",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-da_en.pdf"
+   ]
+  },
+  {
+   "id": 101,
+   "topic": "EDF-2026-DA-SENS-CEW-STEP",
+   "title": "Enhanced cognitive EW system with intelligent RESM CESM signal analysis",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-da_en.pdf"
+   ]
+  },
+  {
+   "id": 109,
+   "topic": "EDF-EDIP-P-2026-FNLC-CPA-CDS",
+   "title": "Counter-drone systems",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-fnlc-cpa_en.pdf"
+   ]
+  },
+  {
+   "id": 110,
+   "topic": "EDF-EDIP-P-2027-FNLC-CPA-AMDS",
+   "title": "Air and missile defence systems",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2027/call-fiche_edf-edip-p-2027-fnlc-cpa_en.pdf"
+   ]
+  },
+  {
+   "id": 115,
+   "topic": "EDF-EDIP-P-2026-LS-IRA-EC",
+   "title": "Energetic components",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-ls-ira_en.pdf"
+   ]
+  },
+  {
+   "id": 118,
+   "topic": "EDF-EDIP-USI-2026-LS-IRA-MAB",
+   "title": "Missiles, ammunition and bombs",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-usi-2026-ls-ira_en.pdf"
+   ]
+  },
+  {
+   "id": 119,
+   "topic": "DIGITAL-2026-AI-DATA-10-COMPLIANCE",
+   "title": "Digital solutions for regulatory compliance  through data",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-ai-data-10_en.pdf"
+   ]
+  },
+  {
+   "id": 123,
+   "topic": "DIGITAL-2026-BESTUSE-10-EHDS",
+   "title": "Building capacity to deploy the EEHRxF and digital  health services and systems to support the rights of  citizens and reuse of health data under EHDS",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-bestuse-10_en.pdf"
+   ]
+  },
+  {
+   "id": 126,
+   "topic": "DIGITAL-2026-SKILLS-10-NATIONAL-COALITIONS",
+   "title": "Digital Skills and Jobs Platform: The National Coalitions for Digital Skills and Jobs",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-skills-10_en.pdf"
+   ]
+  },
+  {
+   "id": 131,
+   "topic": "HORIZON-EIC-2026-DEFENCE-01",
+   "title": "EIC defence call",
+   "documents": [
+    "https://eic.ec.europa.eu/document/download/52598755-1351-4b54-b46b-e2682d0a3aec_en?filename=EIC-Work-Programme-2026.pdf",
+    "call-text:290127e91027840d3cd9fa98"
+   ]
+  },
+  {
+   "id": 138,
+   "topic": "HORIZON-JU-EUROHPC-2026-SPT-10-01",
+   "title": "Superconducting Platform Technologies",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf"
+   ]
+  },
+  {
+   "id": 140,
+   "topic": "HORIZON-JU-EUROHPC-2026-NQKD-12-01",
+   "title": "Next-Generation QKD Systems",
+   "documents": [
+    "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
+    "call-text:b501b1424892181aa6e193e4"
+   ]
+  },
+  {
+   "id": 144,
+   "topic": "DIGITAL-ECCC-2027-DEPLOY-CYBER-11-REGCABH",
+   "title": "Regional Cable Hubs",
+   "documents": [
+    "https://cybersecurity-centre.europa.eu/document/8e1d6074-95ed-4b23-8bd3-2ca42b096411_en"
+   ]
+  },
+  {
+   "id": 145,
+   "topic": "DIGITAL-ECCC-2027-DEPLOY-CYBER-11-COORDPREP",
+   "title": "Coordinated preparedness testing and other preparedness actions",
+   "documents": [
+    "https://cybersecurity-centre.europa.eu/document/8e1d6074-95ed-4b23-8bd3-2ca42b096411_en"
+   ]
+  },
+  {
+   "id": 191,
+   "topic": "DIGITAL-ECCC-2027-DEPLOY-CYBER-12-NATCH",
+   "title": "National Cyber Hubs",
+   "documents": [
+    "https://cybersecurity-centre.europa.eu/document/a435bd6f-9841-4153-ac3a-9395fe29499e_en"
+   ]
+  }
+ ]
+}

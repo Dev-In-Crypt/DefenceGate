@@ -4,7 +4,8 @@
     python -m dgate.ops.extract_eligibility --yes --limit 3    # extract the first 3 (open calls first)
     python -m dgate.ops.extract_eligibility --yes --url URL --force
 
-What is read: the call documents; for calls without one, the work programme's general annexes
+What is read: the call documents, once per topic (the model is told which topic the call is, since
+one document covers many); for calls without one, the work programme's general annexes
 (read once, shared by many calls) and each topic's own conditions text (WP-31). `--scope` narrows it.
 Stops at the monthly cap (DGATE_LLM_MONTHLY_CAP_USD). A document that cannot be fetched or
 answered is reported and skipped; the others go on.
@@ -37,18 +38,20 @@ def main(argv: list[str] | None = None) -> int:
         if a.scope:
             docs = [d for d in docs if d["scope"] == a.scope]
         if a.url:
-            docs = [d for d in docs if d["url"] == a.url] or [
-                {"url": a.url, "scope": "call_document", "calls": 0, "open_calls": 0, "text": None}]
+            docs = [d for d in docs if a.url in (d["url"], d["key"])] or [
+                {"url": a.url, "key": a.url, "scope": "call_document", "calls": 0, "open_calls": 0, "text": None,
+                 "topic": None}]
         if a.limit:
             docs = docs[:a.limit]
         print(f"{len(docs)} documents; month spent {llm.month_spent(conn):.3f} USD, "
               f"cap {settings().llm_monthly_cap_usd:.2f}")
         for d in docs:
             if not a.yes:
-                print(f"  {d['open_calls']:2d} open / {d['calls']:2d} calls  {d['scope']:13s} {d['url']}")
+                print(f"  {d['open_calls']:2d} open / {d['calls']:2d} calls  {d['scope']:13s} {d['key']}")
                 continue
             try:
-                print(eligibility.extract_one(conn, d["url"], force=a.force, scope=d["scope"], text=d["text"]))
+                print(eligibility.extract_one(conn, d["url"], force=a.force, scope=d["scope"], text=d["text"],
+                                               topic=d["topic"]))
             except llm.CapReached as exc:
                 print("STOP:", exc)
                 return 2

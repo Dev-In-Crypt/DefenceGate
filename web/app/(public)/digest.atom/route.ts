@@ -1,6 +1,6 @@
 import { getDigest, getDigestWeeks } from '@/lib/api';
 import { etagOf } from '@/lib/atom';
-import { buildDigestAtom, parseDigestFilters } from '@/lib/digest';
+import { buildDigestAtom, parseDigestFilters, unknownDigestCountry } from '@/lib/digest';
 import { searchParamsOf } from '@/lib/export';
 import { SITE } from '@/lib/seo';
 import type { Digest } from '@/lib/types';
@@ -14,7 +14,15 @@ const FEED_ISSUES = 4;
  * (ETag and Last-Modified) and is kept an hour.
  */
 export async function GET(request: Request): Promise<Response> {
-  const filters = parseDigestFilters(searchParamsOf(new URL(request.url)));
+  const sp = searchParamsOf(new URL(request.url));
+  // A feed that quietly returned every country for a mistyped one would mislead a subscriber.
+  const unknown = unknownDigestCountry(sp);
+  if (unknown) {
+    return new Response(`Unknown country: ${unknown}. Use a two-letter code the digest page lists, or leave it out.`, {
+      status: 400, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    });
+  }
+  const filters = parseDigestFilters(sp);
   const weeks = await getDigestWeeks(FEED_ISSUES).catch(() => null);
   if (!weeks) return unavailable();
   const got = await Promise.all(weeks.map((w) => getDigest(w.week, filters.country).catch(() => null)));

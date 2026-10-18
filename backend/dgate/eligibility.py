@@ -23,7 +23,19 @@ Calls with no call document (most Horizon topics) have their rules in two other 
 
 Each row of `call_eligibility` records which of the three it is (`scope`), and the note of a
 fact read from a general or topic source says so, so the site never presents a general rule as
-the topic's own. The prompt for a call document is unchanged (`PROMPT_VERSION` stays).
+the topic's own.
+
+WP-35 (verifier V-B, 17 October 2026). A call document often covers several topics, so the model is
+told which topic a call is (code and title) and the answer is stored per (document, topic): the key
+of such a row is `<document url>#<topic code>`. What the model says is then checked in code, after
+the answer and again when it is served, so that rows read earlier are covered too:
+
+  * a quote that names another topic's code and not this one is refused (`names_other_topic`);
+  * a general-annex sentence about FSTP or an ownership-control restriction is conditional on the
+    topic ("where the topic allows"), never a Yes of the call (`CONDITIONAL_ON_TOPIC`);
+  * an exclusion of high-risk suppliers of network equipment is not an ownership-control
+    restriction (`is_supplier_exclusion`);
+  * facts that contradict each other are reconciled with a note (`reconcile`).
 """
 
 from __future__ import annotations
@@ -43,7 +55,7 @@ from .config import settings
 from .enrichment.base import strict_schema
 
 TASK = "call_eligibility"
-PROMPT_VERSION = 3
+PROMPT_VERSION = 4
 MAX_PDF_BYTES = 40 * 1024 * 1024
 MAX_CHARS = 350_000          # about 90,000 tokens: the longest call documents are cut here
 UNVERIFIED_CAP = 0.3
@@ -107,7 +119,18 @@ SYSTEM = (
     "note names the exception). If the document states a rule only for one topic or one type of "
     "action, or the rule differs between them, say so in the note and report the lowest or most "
     "general case in the value. Eligibility and funding conditions only; do not describe the "
-    "technical content of the work."
+    "technical content of the work. "
+    "A call document often covers several topics. When you are told which topic the call is (code and "
+    "title), report the rules of that topic only. A sentence that names other topics and not this "
+    "one is not a fact about this call; where the document gives a different value for this topic "
+    "(a number of applicants or countries, a consortium rule), use the sentence that names this topic. "
+    "A rule that the text makes conditional on the topic or the call (\"where the topic conditions "
+    "allow\", \"the specific call conditions may exclude\") is not stated for this call: return null "
+    "unless a sentence says it holds for this topic. "
+    "ownership_control_restriction is only about entities controlled from non-eligible countries; "
+    "the exclusion of high-risk suppliers of network equipment is not that, return null for it. "
+    "single_applicant_allowed is true only if the text says one entity may submit alone; when a "
+    "consortium is required it is false, or true with the condition (for example \"only a SEAP\") in the note."
 )
 
 
@@ -157,9 +180,72 @@ def _norm(s: str) -> str:
     return re.sub(r"\W+", " ", s.casefold()).strip()
 
 
-def check_quotes(answer: dict[str, Any], text: str) -> dict[str, Any]:
+# A topic code as the portal writes it (HORIZON-CL3-2026-01-BM-03) or a call document shortens it
+# (BESTUSE-TECH-09-MDL): three or more hyphenated parts of which at least two are plain words. An
+# ISO standard (ISO-9001-2015) has only one, so it is not taken for a topic.
+_TOPIC_CODE = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+){2,}\b")
+NEGATIVE_WORDING = re.compile(
+    r"\b(?:not\s+(?:allowed|permitted|possible|eligible)|may\s+not|must\s+not|cannot|can\s+not|"
+    r"no\s+financial\s+support|not\s+foreseen|not\s+applicable)\b", re.I)
+
+
+def topic_codes(text: str | None) -> list[str]:
+    return [c for c in _TOPIC_CODE.findall(text or "")
+            if sum(1 for part in c.split("-") if part.isalpha() and len(part) >= 2) >= 2]
+
+
+_YEAR = re.compile(r"^(?:19|20)\d\d$")
+
+
+def _years(code: str) -> set[str]:
+    return {part for part in code.split("-") if _YEAR.match(part)}
+
+
+def _subsequence(short: str, long: str) -> bool:
+    it = iter(long)
+    return all(ch in it for ch in short)
+
+
+def _same_topic(mine: str, other: str) -> bool:
+    """`other` is this topic: the same code, its call-level prefix, its short form without the
+    programme prefix, an abbreviation of its last part (a document may write NCH for NATCH), or a
+    code of another year's call (the document refers to the previous call, not to another topic)."""
+    a, b = mine.upper(), other.upper()
+    if a == b or a.startswith(b + "-") or b.startswith(a + "-") or a.endswith("-" + b) or b.endswith("-" + a):
+        return True
+    if _years(a) and _years(b) and not _years(a) & _years(b):
+        return True
+    (pa, _, la), (pb, _, lb) = a.rpartition("-"), b.rpartition("-")
+    short, long = sorted((la, lb), key=len)
+    return pa == pb and len(short) >= 3 and _subsequence(short, long)
+
+
+def names_other_topic(quote: str | None, topic_code: str | None) -> bool:
+    """The quote names topic codes and none of them is this call's: it is a sentence about other topics."""
+    named = topic_codes(quote)
+    return bool(topic_code and named and not any(_same_topic(topic_code, c) for c in named))
+
+
+_HIGH_RISK = re.compile(r"high\W*risk\W+suppliers?", re.I)
+_CONTROLLED_FROM = re.compile(r"\bcontrolled\s+(?:from|by)\b|\bnon-?eligible\s+(?:third\s+)?countr", re.I)
+
+
+def is_supplier_exclusion(quote: str | None) -> bool:
+    """The sentence excludes high-risk suppliers of network equipment and says nothing of control from
+    a non-eligible country: not an ownership-control restriction (V-B E3: calls 19, 63, 69, 119)."""
+    return bool(_HIGH_RISK.search(quote or "") and not _CONTROLLED_FROM.search(quote or ""))
+
+
+# The general annexes say these only conditionally ("where the specific call/topic conditions allow
+# financial support to third parties", "may also exclude ... controlled by non-eligible third
+# countries"): that is a possibility the topic decides, never a Yes or a No of the call (V-B F1, F2).
+CONDITIONAL_ON_TOPIC = ("cascade_funding", "ownership_control_restriction")
+
+
+def check_quotes(answer: dict[str, Any], text: str, topic_code: str | None = None) -> dict[str, Any]:
     """Add `verified` to every fact: whether its quote is in the document text. A stated fact
-    without a found quote keeps its value but its confidence is capped."""
+    without a found quote keeps its value but its confidence is capped. With the call's topic code,
+    a quote that names another topic and not this one is refused the same way (`other_topic`)."""
     haystack = _norm(text)
     out: dict[str, Any] = {}
 
@@ -173,6 +259,8 @@ def check_quotes(answer: dict[str, Any], text: str) -> dict[str, Any]:
         stated = fact["value"] is not None
         quote = (fact.get("quote") or "").strip()
         fact["verified"] = bool(stated and found(quote))
+        if fact["verified"] and names_other_topic(quote, topic_code):
+            fact["verified"], fact["other_topic"] = False, True
         if stated and not fact["verified"]:
             fact["confidence"] = min(float(fact["confidence"]), UNVERIFIED_CAP)
         out[name] = fact
@@ -202,6 +290,17 @@ USER_HEADERS = {
               "the work programme annexes and are not part of this text:\n\n"),
 }
 
+
+
+def topic_header(topic: tuple[str, str] | None) -> str:
+    """Said to the model before the text: which topic of the document this call is."""
+    if not topic:
+        return ""
+    code, title = topic
+    return (f"This call is the topic {code}" + (f" ({' '.join(title.split())[:200]})" if title else "") +
+            ". Report the rules of this topic only.\n\n")
+
+
 _SECTION_3 = re.compile(r"\b3\.\s+Other\s+Eligib\w*\s+Conditions?\b(.*?)(?=\b4\.\s+Financial\b|\Z)", re.I | re.S)
 _SECTION_6 = re.compile(r"\b6\.\s+Legal\s+and\s+financial\s+set-?up\b(.*?)(?=Application\s+and\s+evaluation\s+forms|\Z)",
                         re.I | re.S)
@@ -218,6 +317,19 @@ class Source:
     key: str
     label: str
     text: str | None = None
+    # The PDF a call-document row is read from (its key adds '#<topic code>'; see `document_key`).
+    document: str | None = None
+    topic: str | None = None
+
+    @property
+    def url(self) -> str | None:
+        """Where a reader can open the source: the PDF; none for a topic's text held by us."""
+        return self.document or (self.key if self.key.startswith("https://") else None)
+
+
+def document_key(url: str, topic_code: str | None) -> str:
+    """The key of a call-document row: one per (document, topic) when the call has a topic code."""
+    return f"{url}#{topic_code}" if topic_code else url
 
 
 def topic_text(eligibility_text: str | None) -> str | None:
@@ -261,16 +373,19 @@ def _general_annex(urls: list[str]) -> str | None:
     return best[1] if best else None
 
 
-def sources_of(cond: dict[str, Any] | None, eligibility_text: str | None) -> list[Source]:
+def sources_of(cond: dict[str, Any] | None, eligibility_text: str | None,
+               topic_code: str | None = None) -> list[Source]:
     """The sources of a call's eligibility rules, from what the portal listed with it. A call with
     a call document is read from that document alone. Without one: the general annexes (or the EIC
     work programme) when the portal lists them, and the topic's own text when it says more than a
-    pointer. Nothing is guessed from the call's name."""
+    pointer. Nothing is guessed from the call's name. With the call's topic code a call-document
+    source is keyed per topic: one document serves many topics and its rules differ between them."""
     docs = [d for d in (cond or {}).get("documents") or []
             if isinstance(d, dict) and isinstance(d.get("url"), str) and d["url"].startswith("https://")]
     calls = [d for d in docs if str(d.get("label", "")).lower().startswith("call document")]
     if calls:
-        return [Source("call_document", d["url"], str(d.get("label") or "Call document")) for d in calls]
+        return [Source("call_document", document_key(d["url"], topic_code), str(d.get("label") or "Call document"),
+                       document=d["url"], topic=topic_code) for d in calls]
     out: list[Source] = []
     general = _general_annex([d["url"] for d in docs])
     if general:
@@ -311,33 +426,41 @@ def call_documents(conn) -> list[dict[str, Any]]:
 
 
 def extraction_units(conn) -> list[dict[str, Any]]:
-    """Everything to read, once each: call documents, general annexes and topic texts, with the
-    number of EU calls (and open ones) each serves, open calls first."""
+    """Everything to read, once each: call documents (once per topic), general annexes and topic
+    texts, with the number of EU calls (and open ones) each serves, open calls first. `url` is what
+    `extract_one` takes (the document, or the topic text's key), `key` what is stored, `topic` the
+    (code, title) the model is told for a call document."""
     rows = conn.execute(
-        """SELECT c.status, c.conditions_raw, c.eligibility_text
+        """SELECT c.status, c.conditions_raw, c.eligibility_text, c.topic_code, c.title
              FROM call c JOIN source s ON s.id = c.source_id WHERE s.code = 'eu_portal'""").fetchall()
     units: dict[tuple[str, str], dict[str, Any]] = {}
     for r in rows:
-        for src in sources_of(r["conditions_raw"], r["eligibility_text"]):
+        for src in sources_of(r["conditions_raw"], r["eligibility_text"], r["topic_code"]):
             u = units.setdefault((src.scope, src.key), {
-                "url": src.key, "scope": src.scope, "label": src.label, "text": src.text,
+                "url": src.document or src.key, "key": src.key, "scope": src.scope, "label": src.label,
+                "text": src.text, "topic": (src.topic, r["title"] or "") if src.topic else None,
                 "calls": 0, "open_calls": 0})
             u["calls"] += 1
             u["open_calls"] += 1 if r["status"] == "open" else 0
-    return sorted(units.values(), key=lambda u: (-u["open_calls"], -u["calls"], u["url"]))
+    return sorted(units.values(), key=lambda u: (-u["open_calls"], -u["calls"], u["key"]))
 
 
 def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | None = None,
                 llm_client: httpx.Client | None = None, scope: str = "call_document",
-                text: str | None = None) -> dict[str, Any]:
+                text: str | None = None, topic: tuple[str, str] | None = None) -> dict[str, Any]:
     """Fetch (if not held), ask, check the quotes, store. Returns a short report.
-    `text` is a topic's own conditions: it is kept as the document and nothing is fetched."""
+    `text` is a topic's own conditions: it is kept as the document and nothing is fetched.
+    `topic` is (code, title) of the call a call document is read for: the model is told which
+    topic it is, a quote naming another topic is refused, and the row is stored under
+    `document_key(url, code)`."""
     if scope not in SCOPES:
         raise ValueError(f"unknown scope {scope!r}")
+    code = topic[0] if topic and scope == "call_document" else None
+    key = document_key(url, code)
     held = conn.execute("SELECT 1 FROM call_eligibility WHERE url = %s AND prompt_version = %s",
-                        (url, PROMPT_VERSION)).fetchone()
+                        (key, PROMPT_VERSION)).fetchone()
     if held and not force:
-        return {"url": url, "status": "held"}
+        return {"url": key, "status": "held"}
     doc = conn.execute("SELECT text FROM call_document_text WHERE url = %s", (url,)).fetchone()
     if text is not None:
         digest, pages, body = hashlib.sha256(text.encode("utf-8")).hexdigest(), 1, text
@@ -357,85 +480,149 @@ def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | N
             (url, digest, pages, len(body), truncated, body))
         conn.commit()
     answer, usage = llm.complete_json(
-        conn, task=TASK, system=SYSTEM, user=f"{USER_HEADERS[scope]}{body}", schema=schema(),
-        schema_name="eligibility", max_output_tokens=7000, client=llm_client)
-    fields = annotate_scope(check_quotes(answer, body), scope)
+        conn, task=TASK, system=SYSTEM, user=f"{USER_HEADERS[scope]}{topic_header(topic if code else None)}{body}",
+        schema=schema(), schema_name="eligibility", max_output_tokens=7000, client=llm_client)
+    fields = annotate_scope(check_quotes(answer, body, code), scope)
     from psycopg.types.json import Jsonb
 
     conn.execute(
-        """INSERT INTO call_eligibility (url, fields, model, prompt_version, input_tokens, output_tokens, cost_usd, scope)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """INSERT INTO call_eligibility (url, fields, model, prompt_version, input_tokens, output_tokens, cost_usd,
+                                        scope, document_url)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (url) DO UPDATE SET fields = EXCLUDED.fields, model = EXCLUDED.model,
              prompt_version = EXCLUDED.prompt_version, input_tokens = EXCLUDED.input_tokens,
              output_tokens = EXCLUDED.output_tokens, cost_usd = EXCLUDED.cost_usd, scope = EXCLUDED.scope,
-             extracted_at = now()""",
-        (url, Jsonb(fields), settings().openai_model, PROMPT_VERSION,
-         usage["input_tokens"], usage["output_tokens"], usage["cost_usd"], scope))
+             document_url = EXCLUDED.document_url, extracted_at = now()""",
+        (key, Jsonb(fields), settings().openai_model, PROMPT_VERSION,
+         usage["input_tokens"], usage["output_tokens"], usage["cost_usd"], scope, url))
     conn.commit()
     stated = sum(1 for f in fields.values() if f["value"] is not None)
     verified = sum(1 for f in fields.values() if f["verified"])
-    return {"url": url, "status": "done", "scope": scope, "stated": stated, "verified": verified, **usage}
+    return {"url": key, "status": "done", "scope": scope, "stated": stated, "verified": verified, **usage}
 
 
 # ----------------------------------------------------------------- what the site serves
 
-def _served_fact(fact: dict[str, Any], scope: str) -> dict[str, Any] | None:
+_CONDITION = re.compile(r"\b(?:only|unless|except|provided|if\s+(?:the|they|it)\b)", re.I)
+CONFLICT = "The document also states that a single applicant may apply ({}): check the call document."
+
+
+def _served_fact(fact: dict[str, Any], scope: str, name: str = "", topic_code: str | None = None) -> dict[str, Any] | None:
+    """The fact as the site serves it, or None when it is not a statement about this call. Besides a
+    verified quote (the model's answer is never shown on its own), the checks of WP-35 run here as
+    well as at extraction, so that rows read before them are covered: see the module doc."""
     from .normalise import redact_emails
 
     if not (fact.get("verified") and fact.get("value") is not None and fact.get("quote")):
         return None
-    return {"value": fact["value"], "note": redact_emails(fact["note"]) if fact.get("note") else None,
-            "quote": redact_emails(fact["quote"]), "confidence": fact["confidence"], "scope": scope}
+    quote, value = fact["quote"], fact["value"]
+    if scope == "general" and name in CONDITIONAL_ON_TOPIC:
+        return None
+    if name == "ownership_control_restriction" and is_supplier_exclusion(quote):
+        return None
+    if scope == "call_document" and names_other_topic(quote, topic_code):
+        return None
+    if scope == "call_document" and name == "cascade_funding" and topic_code:
+        named = set(topic_codes(quote))
+        # "FSTP is allowed in <this topic>": a No beside that sentence is the model's slip.
+        if len(named) == 1 and _same_topic(topic_code, next(iter(named))):
+            value = not NEGATIVE_WORDING.search(quote)
+    return {"value": value, "note": redact_emails(fact["note"]) if fact.get("note") else None,
+            "quote": redact_emails(quote), "confidence": fact["confidence"], "scope": scope}
 
 
-def read_many(conn, calls: list[tuple[Any, dict[str, Any] | None, str | None]]) -> dict[Any, dict[str, Any]]:
-    """What is known of the eligibility of each call, for (id, conditions_raw, eligibility_text)
-    triples, in one query. Per call: `state` is `read` (verified facts), `not_read` (its sources are
-    known and none has been read) or `no_source` (the portal lists nothing we can read); `sources`
-    are the places the rules are written, `facts` the verified ones. A call-document fact stands
-    alone; otherwise a topic's own fact wins over the general annexes' one, and each fact says
-    which it is (`scope`)."""
-    mapped = {cid: sources_of(cond, text) for cid, cond, text in calls}
-    keys = sorted({s.key for srcs in mapped.values() for s in srcs})
+def reconcile(facts: dict[str, Any]) -> dict[str, Any]:
+    """Facts that cannot all be true are settled in code, with a note, so that two calls with the same
+    sentence get the same answer (V-B F3, F5). `facts` are served facts; a new dict is returned.
+
+      * a consortium is required and a single applicant is allowed: the single-applicant fact goes
+        and its note moves to the consortium fact;
+      * a single applicant is allowed only under a condition and consortia have a stated minimum of
+        two or more: everyone else must form one, so the consortium is required, with the condition;
+      * no consortium is required but a minimum of two or more entities is stated and no single
+        applicant is allowed: the consortium fact is not served (the two disagree)."""
+    out = dict(facts)
+    c, s, m = out.get("consortium_required"), out.get("single_applicant_allowed"), out.get("min_entities")
+    n = m["value"] if m and isinstance(m["value"], int) and not isinstance(m["value"], bool) else 0
+
+    single = s is not None and s["value"] is True
+    condition = ((s or {}).get("note") or "").rstrip(". ")
+    if single and c is not None and c["value"] is True:
+        del out["single_applicant_allowed"]
+        said = CONFLICT.format(condition or "no condition given")
+        out["consortium_required"] = {**c, "note": f"{c['note']} {said}" if c.get("note") else said}
+    elif single and _CONDITION.search(condition) and n >= 2 and (c is None or c["value"] is False):
+        del out["single_applicant_allowed"]
+        out["consortium_required"] = {
+            "value": True, "quote": s["quote"], "scope": s["scope"], "confidence": min(s["confidence"], m["confidence"]),
+            "note": f"{condition}. Consortia need at least {n} entities, so every other applicant must form one."}
+    elif c is not None and c["value"] is False and n >= 2 and not single:
+        del out["consortium_required"]
+    return out
+
+
+def read_many(conn, calls: list[tuple[Any, ...]]) -> dict[Any, dict[str, Any]]:
+    """What is known of the eligibility of each call, for (id, conditions_raw, eligibility_text
+    [, topic_code]) tuples, in one query. Per call: `state` is `read` (verified facts), `not_read`
+    (its sources are known and none has been read) or `no_source` (the portal lists nothing we can
+    read); `sources` are the places the rules are written, `facts` the verified ones. A call-document
+    fact stands alone; otherwise a topic's own fact wins over the general annexes' one, and each
+    fact says which it is (`scope`). `other_topic` has the quotes of facts left out because they are
+    about another topic of the document."""
+    mapped = {cid: (sources_of(cond, text, rest[0] if rest else None), rest[0] if rest else None)
+              for cid, cond, text, *rest in calls}
+    keys = sorted({k for srcs, _ in mapped.values() for s in srcs for k in (s.key, s.document) if k})
     held = {r["url"]: r for r in conn.execute(
         "SELECT url, fields, extracted_at FROM call_eligibility WHERE url = ANY(%s)", (keys,)).fetchall()} if keys else {}
-    out: dict[Any, dict[str, Any]] = {}
-    for cid, srcs in mapped.items():
-        if not srcs:
-            out[cid] = {"state": "no_source", "basis": None, "sources": [], "facts": {}}
-            continue
-        read = [(s, held[s.key]) for s in srcs if s.key in held]
-        if srcs[0].scope == "call_document":
-            read = sorted(read, key=lambda p: p[1]["extracted_at"], reverse=True)[:1]   # the latest document read
-        facts: dict[str, Any] = {}
-        for s, row in sorted(read, key=lambda p: SCOPES.index(p[0].scope)):   # general first, so that the topic's own wins
-            for name, fact in row["fields"].items():
-                served = _served_fact(fact, s.scope)
-                if served:
-                    facts[name] = served
-        sources = [{"scope": s.scope, "label": s.label,
-                    "url": s.key if s.key.startswith("https://") else None,
-                    "extractedAt": held[s.key]["extracted_at"] if s.key in held else None} for s in srcs]
-        out[cid] = {"state": "read" if facts else "not_read",
-                    "basis": "call_document" if srcs[0].scope == "call_document" else "work_programme",
-                    "sources": sources, "facts": facts}
-    return out
+    return {cid: assemble(srcs, held, topic) for cid, (srcs, topic) in mapped.items()}
+
+
+def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: str | None) -> dict[str, Any]:
+    """One call's eligibility from its sources and the rows held (by key). A call-document source falls
+    back to the document-level row read before rows were kept per topic, until its topic is read."""
+    if not srcs:
+        return {"state": "no_source", "basis": None, "sources": [], "facts": {}, "other_topic": {}}
+    rows = {s.key: held.get(s.key) or (held.get(s.document) if s.document else None) for s in srcs}
+    read = [(s, rows[s.key]) for s in srcs if rows[s.key]]
+    if srcs[0].scope == "call_document":
+        read = sorted(read, key=lambda p: p[1]["extracted_at"], reverse=True)[:1]   # the latest document read
+    facts: dict[str, Any] = {}
+    other_topic: dict[str, str] = {}
+    for s, row in sorted(read, key=lambda p: SCOPES.index(p[0].scope)):   # general first, so that the topic's own wins
+        for name, fact in row["fields"].items():
+            served = _served_fact(fact, s.scope, name, topic_code)
+            if served:
+                facts[name] = served
+            elif (s.scope == "call_document" and fact.get("value") is not None and fact.get("quote")
+                  and names_other_topic(fact["quote"], topic_code)):
+                other_topic[name] = fact["quote"]
+    facts = reconcile(facts)
+    sources = [{"scope": s.scope, "label": s.label, "url": s.url,
+                "extractedAt": rows[s.key]["extracted_at"] if rows[s.key] else None} for s in srcs]
+    return {"state": "read" if facts else "not_read",
+            "basis": "call_document" if srcs[0].scope == "call_document" else "work_programme",
+            "sources": sources, "facts": facts, "other_topic": other_topic}
 
 
 def summary_line(facts: dict[str, Any]) -> str | None:
     """One line for a list or a digest, only from verified facts. Never a verdict."""
+    def firm(name: str) -> bool:
+        # A general-annex sentence is conditional on the topic: a list never repeats it as a Yes.
+        f = facts.get(name)
+        return bool(f) and f["value"] is True and f["scope"] != "general"
+
     parts = []
     n, k = facts.get("min_entities"), facts.get("min_countries")
-    if n and isinstance(n["value"], int):
+    if n and isinstance(n["value"], int) and n["value"] >= 2:      # one entity is not a consortium
         parts.append(f"consortium of at least {n['value']} entities" +
-                     (f" from {k['value']} countries" if k and isinstance(k["value"], int) else ""))
+                     (f" from {k['value']} countries" if k and isinstance(k["value"], int) and k["value"] >= 2 else ""))
     elif facts.get("single_applicant_allowed", {}).get("value") is True:
         parts.append("a single applicant may apply")
     if facts.get("sme_only", {}).get("value") is True:
         parts.append("SMEs only")
-    if facts.get("ownership_control_restriction", {}).get("value") is True:
+    if firm("ownership_control_restriction"):
         parts.append("ownership control restriction")
-    if facts.get("cascade_funding", {}).get("value") is True:
+    if firm("cascade_funding"):
         parts.append("financial support to third parties")
     if not parts:
         return None

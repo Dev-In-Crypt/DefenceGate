@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getDigest, getDigestWeeks } from '@/lib/api';
-import { digestQuery, isWeek, parseDigestFilters, weekLabel } from '@/lib/digest';
+import { digestQuery, isWeek, parseDigestFilters, unknownDigestCountry, weekLabel } from '@/lib/digest';
 import { formatDateTimeUtc } from '@/lib/format';
 import type { SearchParams } from '@/lib/filters';
 import { staleNote } from '@/lib/source-status';
@@ -29,13 +29,18 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 /** One earlier issue of the weekly digest. A week outside the archive, or not ended yet, is a 404. */
 export default async function DigestWeekPage({ params, searchParams }: Props) {
   const { week } = await params;
-  const filters = parseDigestFilters(await searchParams);
+  const sp = await searchParams;
+  const filters = parseDigestFilters(sp);
+  const unknown = unknownDigestCountry(sp);
   if (!isWeek(week)) notFound();
   const [issue, weeks] = await Promise.all([getDigest(week, filters.country).catch(() => null), getDigestWeeks().catch(() => [])]);
   if (!issue) notFound();
   return (
     <>
       <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Weekly digest', href: '/digest' }, { label: weekLabel(week), href: `/digest/${week}${digestQuery(filters)}` }]} />
+      {unknown && (
+        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
+      )}
       {issue.staleAsOf && (
         <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
       )}
