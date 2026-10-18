@@ -853,6 +853,11 @@ from .weekly_digest import router as _digest_router  # noqa: E402
 
 app.include_router(_digest_router)
 
+# Partner suggestions for a funding call and the document facts of the fit badge (partners.py, WP-32).
+from .partners import router as _partners_router  # noqa: E402
+
+app.include_router(_partners_router)
+
 # Market overview and the buyer profile: cached counts of notices (stats.py).
 from .stats import router as _stats_router  # noqa: E402
 

@@ -1,0 +1,129 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Users } from 'lucide-react';
+import { formatDateUtc, formatNumber } from '@/lib/format';
+import { countryName } from '@/lib/taxonomy';
+import type { PartnersAnswer } from '@/lib/types';
+import { Button } from '@/components/dg/button';
+import { Select } from '@/components/dg/form';
+import { Skeleton } from '@/components/dg/feedback';
+import { useProfile } from '@/components/readiness/use-readiness';
+
+type State = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; data: PartnersAnswer };
+
+/**
+ * Partner suggestions for a call (WP-32): organisations that took part in earlier projects of the same area, from CORDIS
+ * and the EDF factsheets. Nothing is fetched until the visitor asks, or has a saved profile (then the organisations of the
+ * profile's country come first). The profile is only read here, to order the list: it is never sent.
+ */
+export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
+  const { profile, ready } = useProfile();
+  const [asked, setAsked] = useState(false);
+  const [country, setCountry] = useState('');
+  const [result, setResult] = useState<State>({ state: 'idle' });
+  const [attempt, setAttempt] = useState(0);
+  const seq = useRef(0);
+  const own = ready && profile && profile.country && profile.country !== 'XX' ? profile.country : '';
+  const go = asked || own !== '';
+
+  useEffect(() => {
+    if (!go) return;
+    const controller = new AbortController();
+    const mine = ++seq.current;
+    setResult((r) => (r.state === 'done' ? r : { state: 'loading' }));
+    fetch(`/api/funding/${encodeURIComponent(callSlug)}/partners${country ? `?country=${country}` : ''}`, {
+      headers: { accept: 'application/json' }, credentials: 'omit', signal: controller.signal,
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(res.status === 429 ? 'Too many requests. Wait a minute and try again.' : 'The suggestions could not be loaded. Try again in a moment.');
+      const data = (await res.json()) as PartnersAnswer;
+      if (mine === seq.current) setResult({ state: 'done', data });
+    }).catch((e: unknown) => {
+      if (controller.signal.aborted || mine !== seq.current) return;
+      setResult({ state: 'error', message: e instanceof Error ? e.message : 'The suggestions could not be loaded.' });
+    });
+    return () => controller.abort();
+  }, [go, callSlug, country, attempt]);
+
+  // The profile's country first (a stable sort: the ranking of the API holds inside each group).
+  const data = result.state === 'done' ? result.data : null;
+  const partners = useMemo(() => {
+    if (!data) return [];
+    return own && !country ? [...data.partners].sort((a, b) => Number(b.country === own) - Number(a.country === own)) : data.partners;
+  }, [data, own, country]);
+
+  if (!go) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="m-0 text-body">
+          Organisations that took part in earlier funded projects of the same area as this call, from CORDIS and the EDF project factsheets, with the projects as evidence.
+          They are loaded when you ask.
+        </p>
+        <Button type="button" variant="secondary" icon={Users} onClick={() => setAsked(true)} className="self-start">Show organisations from earlier projects</Button>
+      </div>
+    );
+  }
+  if (result.state === 'loading' || result.state === 'idle') {
+    return <div role="status" aria-label="Loading partner suggestions" className="flex flex-col gap-3"><Skeleton className="h-6 w-72" /><Skeleton className="h-32" /></div>;
+  }
+  if (result.state === 'error') {
+    return <p role="alert" className="m-0 text-body">{result.message} <button type="button" onClick={() => setAttempt((n) => n + 1)} className="font-semibold underline">Try again</button></p>;
+  }
+
+  const d = result.data;
+  const countries = [{ value: '', label: 'All countries' }, ...d.countries.map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})` }))];
+  return (
+    <div className="flex flex-col gap-4">
+      {d.area === null ? (
+        <p className="m-0 text-body text-ink-muted">{d.note}</p>
+      ) : (
+        <>
+          <p className="m-0 text-body">
+            Compared with <strong>{d.area.label}</strong>. {d.area.rule}
+            {d.area.broaderThanCall && ' The narrower area of this call has too few organisations, so the wider one is used.'}
+          </p>
+          <p className="m-0 text-small text-ink-muted">
+            {d.area.projects === 0 ? 'No earlier project of this area is held yet.' : (
+              <>{formatNumber(d.area.organisations)} organisations in {formatNumber(d.area.projects)} projects{d.area.firstYear ? `, ${d.area.firstYear} to ${d.area.lastYear}` : ''}.
+                {' '}Ranked by the number of these projects an organisation took part in, then by the latest year.</>
+            )}
+          </p>
+          {d.countries.length > 1 && (
+            <Select label="Show organisations from" options={countries} value={country} onChange={(e) => setCountry(e.target.value)} className="sm:max-w-xs"
+              hint={own && !country ? `Organisations from ${countryName(own)}, the country of your saved profile, come first.` : undefined} />
+          )}
+          {partners.length === 0 ? (
+            <p className="m-0 text-body text-ink-muted">{d.note ?? (country ? `No organisation from ${countryName(country)} took part in an earlier project of this area.` : 'No organisation found.')}</p>
+          ) : (
+            <ol className="m-0 flex list-none flex-col gap-3 p-0">
+              {partners.map((p) => (
+                <li key={p.organisationId} className="flex flex-col gap-1 rounded-md border border-line p-4">
+                  <p className="m-0 text-body font-semibold break-words">
+                    <Link href={`/organisations/${p.slug}`}>{p.name}</Link>
+                    <span className="ml-2 font-normal text-ink-muted">{countryName(p.country)}</span>
+                  </p>
+                  <p className="m-0 text-small">
+                    {p.projects} {p.projects === 1 ? 'project' : 'projects'} in this area{p.coordinated > 0 ? `, ${p.coordinated} as coordinator` : ''}
+                    {p.lastYear ? `, latest ${p.lastYear}` : ''}.
+                  </p>
+                  {p.evidence.length > 0 && (
+                    <p className="m-0 break-words text-small text-ink-muted">
+                      Projects: {p.evidence.map((e) => `${e.acronym ?? e.title}${e.year ? ` (${e.year}${e.role === 'coordinator' ? ', coordinator' : ''})` : e.role === 'coordinator' ? ' (coordinator)' : ''}`).join('; ')}
+                      {p.projects > p.evidence.length ? '; and others' : ''}.
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
+      <p className="m-0 text-small text-ink-muted">
+        An organisation that took part in an earlier project is not necessarily looking for partners, or a fit for this call: this is who has worked in the same area,
+        not a recommendation. Sources: {d.source?.sources.join(' and ') ?? 'CORDIS and the EDF factsheets'}{d.source?.readAt ? `, read ${formatDateUtc(d.source.readAt)}` : ''}.
+        The EDF participants were read from the factsheets (PDF) by a language model and checked against their text; the original factsheet is authoritative.
+        {d.source?.licence ? ` Licence: ${d.source.licence}.` : ''}      </p>
+    </div>
+  );
+}

@@ -85,8 +85,14 @@ export interface CallTiming {
   realistic: 'yes' | 'maybe' | 'no' | 'not_possible' | 'depends' | 'unknown' | 'closed'; text: string;
 }
 
+/** What `POST /v1/readiness/assess` says about the call whose id was sent: `covered` false when no rules are encoded for its programme. */
+export interface CallAnswer {
+  id: string; title: string; programme: string; status: string; deadline: string | null;
+  covered: boolean; timings: CallTiming[]; text?: string;
+}
+
 export interface Assessment {
   generatedAt: string; rulesReviewed: string;
   assessments: ProgrammeAssessment[]; general: ProgrammeAssessment[];
-  roadmap: Roadmap; call: unknown; notice: string;
+  roadmap: Roadmap; call: CallAnswer | null; notice: string;
 }

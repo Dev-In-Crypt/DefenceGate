@@ -292,6 +292,20 @@ def assess(body: AssessIn, conn=Depends(get_conn)):
     return out
 
 
+def programmes_of_call(c: Content, programme_code: str, topic_code: str | None) -> list:
+    """The programmes whose rules govern a call. The portal files the EDIP calls (topic codes
+    EDF-EDIP-P-... and EDF-EDIP-USI-...) under the EDF, so the programme of the row is not enough:
+    an EDIP call is judged by the EDIP rules, and one of the Ukraine Support Instrument by those of
+    the instrument alone (a Ukrainian company is blocked in the first and not in the second). A code that
+    says neither gets both."""
+    tokens = (topic_code or "").upper().split("-")
+    if programme_code in ("EDF", "EDIP") and "EDIP" in tokens:
+        after = tokens[tokens.index("EDIP") + 1:][:1]
+        wanted = ["EDIP-USI"] if after == ["USI"] else ["EDIP"] if after == ["P"] else ["EDIP", "EDIP-USI"]
+        return [c.programmes[w] for w in wanted if w in c.programmes]
+    return [p for p in c.programmes.values() if p.call_programme == programme_code]
+
+
 def _call(conn, c: Content, call_id: int, statuses, profile) -> dict[str, Any]:
     """The cross-layer question: can I take part in this call before it closes, and if not, what is the
     fastest path? Reads one call; the rest is the pure engine and roadmap."""
@@ -306,7 +320,7 @@ def _call(conn, c: Content, call_id: int, statuses, profile) -> dict[str, Any]:
                            "status": row["effective_status"], "deadline": row["deadline_at"].isoformat() if row["deadline_at"] else None,
                            "timings": []}
     now = datetime.now(timezone.utc)
-    mapped = [p for p in c.programmes.values() if p.call_programme == row["programme_code"]]
+    mapped = programmes_of_call(c, row["programme_code"], row.get("topic_code"))
     out["covered"] = bool(mapped)
     if not mapped:
         out["text"] = ("No readiness rules are encoded for the programme of this call, so no verdict is given.")

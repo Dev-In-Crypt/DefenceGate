@@ -16,6 +16,7 @@ import { Icon } from '@/components/dg/icon';
 import { Pagination } from '@/components/dg/pagination';
 import { ChangeEntry } from '@/components/changes/change-entry';
 import { FundingChangeEntry } from '@/components/changes/funding-change-entry';
+import { FitFilter, FitItem } from '@/components/funding/fit-badge';
 
 export const revalidate = 60;
 
@@ -138,8 +139,9 @@ export default async function ChangesPage({ searchParams }: Props) {
             A call is new on the day we first collected it. A date moved is a closing or opening date the source changed on a call we already held.
             See all <Link href="/funding" className="font-semibold">funding calls</Link>.
           </p>
+          <FitFilter />
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {data.funding?.map((f) => <li key={f.id}><FundingChangeEntry change={f} /></li>)}
+            {data.funding?.map((f) => <FitItem key={f.id} id={f.call.id}><FundingChangeEntry change={f} /></FitItem>)}
           </ul>
         </section>
       )}

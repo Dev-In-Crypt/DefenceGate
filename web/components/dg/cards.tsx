@@ -14,6 +14,7 @@ import { AmountDisplay, CountryLabel, FactCell, LangLabel } from './data-display
 import { Icon } from './icon';
 import { SourceBadge } from './source-badge';
 import { BasisChips } from './basis-chips';
+import { FitBadge } from '../funding/fit-badge';
 
 const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted sm:p-6';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
@@ -38,6 +39,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
         <Tag>{REGIMES[call.regime]}</Tag>
         <Tag>{call.funderCountry}</Tag>
         {call.cascade === true && <Tag>Cascade funding</Tag>}
+        {!closed && <FitBadge id={call.id} />}
         <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
       </div>
       <div className="flex flex-col gap-1">

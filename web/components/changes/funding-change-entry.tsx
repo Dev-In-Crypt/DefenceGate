@@ -4,6 +4,7 @@ import { formatDateTimeUtc, funderLine } from '@/lib/format';
 import { PROGRAMMES } from '@/lib/taxonomy';
 import type { FundingChange } from '@/lib/types';
 import { Tag } from '../dg/tag';
+import { FitBadge } from '../funding/fit-badge';
 import { describeChange } from '../dg/version-timeline';
 
 /** One funding call that is new in the window, or whose closing or opening date the source moved. */
@@ -15,6 +16,7 @@ export function FundingChangeEntry({ change }: { change: FundingChange }) {
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{isNew ? 'New call' : 'Date moved'}</Tag>
         <Tag>{PROGRAMMES[c.programme].label}</Tag>
+        <FitBadge id={c.id} />
         <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
       </div>
       <h3 className="m-0 break-words text-[20px] font-bold leading-[28px] tracking-[-0.4px]">

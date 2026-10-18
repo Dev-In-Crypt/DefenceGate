@@ -59,16 +59,40 @@ function withNote(line: Line, fact: EligibilityFact | undefined): Line {
   return line;
 }
 
+/** Words in a fact's note or quote that name a way round a restriction: a guarantee, a screening, an exemption, a narrower scope. */
+const EXCEPTION = /guarantee|exempt|exception|unless|screening|derogat|approved by|china|high[- ]risk|only (?:applies|if|for)|limited to/i;
+
+/** Applicant kinds a company (or other profile) is plainly covered by, when a call lists the kinds that may apply. */
+const COVERS: Record<OrgType, RegExp> = {
+  sme: /legal entit|private|compan|enterprise|business|firm|industr|\bsmes?\b|start-?up|mid-?cap/i,
+  large: /legal entit|private|compan|enterprise|business|firm|industr/i,
+  public: /legal entit|public|authorit|ministr|agenc|bod(?:y|ies)/i,
+  university: /legal entit|universit|research|academi|\brtos?\b/i,
+  individual: /natural person|individual|sole trader/i,
+};
+
 export function check(facts: EligibilityFacts, p: Profile): Result {
   const lines: Line[] = [];
+
+  // Who may apply: a call that names the kinds of applicant it is open to is not open to a profile that is not
+  // plainly one of them (call 78 of 17 October 2026: an EDIC or a government-appointed mechanism only). A list is read
+  // as possibly partial, so the verdict is "check", never "no".
+  const types = facts.entity_types;
+  if (types && Array.isArray(types.value) && types.value.length > 0) {
+    const kinds = types.value.map(String);
+    if (!p.orgType) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Check that your organisation is one of them.`, quote: types.quote });
+    else if (!kinds.some((k) => COVERS[p.orgType as OrgType].test(k))) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Nothing in that list says a company like yours may. Check the document before you go on.`, quote: types.quote });
+    else lines.push(withNote({ key: 'entity', label: 'Who may apply', verdict: 'yes', reason: `The call names who may apply (${kinds.join('; ')}) and your organisation is covered by it.`, quote: types.quote }, types));
+  }
 
   const c = facts.eligible_countries;
   if (c && p.country) {
     const text = String(c.value);
-    const eu = /member states/i.test(text);
+    const eu = /member states|\bunion\b|\bEU\b/i.test(text);
     let line: Line;
     if (eu && EU27.has(p.country)) line = { key: 'country', label: 'Country', verdict: 'yes', reason: 'An EU Member State is eligible under this call.', quote: c.quote };
     else if (eu && EEA_EXTRA.has(p.country) && /EEA/i.test(text)) line = { key: 'country', label: 'Country', verdict: 'yes', reason: 'EEA countries are eligible under this call.', quote: c.quote };
+    else if (EU27.has(p.country)) line = { key: 'country', label: 'Country', verdict: 'check', reason: 'The document lists the eligible countries in its own words, and they are not simply the Member States. Check that your country is among them.', quote: c.quote };
     else line = { key: 'country', label: 'Country', verdict: 'check', reason: 'Your country is not an EU Member State. Check the list of eligible and associated countries in the document.', quote: c.quote };
     lines.push(withNote(line, c));
   }
@@ -94,28 +118,39 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     const need = `${typeof n === 'number' ? `at least ${n} legal entities` : 'a consortium'}${typeof k === 'number' ? ` from at least ${k} countries` : ''}`;
     if (cons.value === true && p.hasPartners === 'yes') lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: `A consortium is required: ${need}.`, quote: cons.quote }, cons));
     else if (cons.value === true) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `A consortium is required: ${need}. You would need to find partners first.`, quote: cons.quote });
+    else if (typeof n === 'number' && n >= 2) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `The call says no consortium is required, and also asks for at least ${n} legal entities${typeof k === 'number' ? ` from at least ${k} countries` : ''}. Check the document before you go on.${cons.note ? ` ${cons.note}` : ''}`, quote: cons.quote });
     else lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: 'No consortium is required.', quote: cons.quote }, cons));
   }
 
   const own = facts.ownership_control_restriction;
   if (own && p.controlledAbroad) {
     if (own.value !== true) lines.push(withNote({ key: 'control', label: 'Ownership control', verdict: 'yes', reason: 'No ownership control restriction is stated.', quote: own.quote }, own));
-    else if (p.controlledAbroad === 'yes') lines.push({ key: 'control', label: 'Ownership control', verdict: 'no', reason: 'Entities controlled from outside the eligible countries are excluded, unless the document allows a guarantee.', quote: own.quote });
+    else if (p.controlledAbroad === 'yes') {
+      // "No" only for a restriction the document states without a way round it. A guarantee, a screening, an exemption or a
+      // narrower scope in its note or sentence makes it "check", with that wording shown.
+      const way = `${own.note ?? ''} ${own.quote}`;
+      lines.push(EXCEPTION.test(way)
+        ? { key: 'control', label: 'Ownership control', verdict: 'check', reason: `The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction${own.note ? `: ${own.note}` : ''}. Read it before you decide.`, quote: own.quote }
+        : { key: 'control', label: 'Ownership control', verdict: 'no', reason: 'Entities controlled from outside the eligible countries are excluded, and the document names no exception.', quote: own.quote });
+    }
     else if (p.controlledAbroad === 'unsure') lines.push({ key: 'control', label: 'Ownership control', verdict: 'check', reason: 'Entities controlled from outside the eligible countries are excluded. Find out who controls your company.', quote: own.quote });
     else lines.push(withNote({ key: 'control', label: 'Ownership control', verdict: 'yes', reason: 'The restriction applies, and your company is not controlled from outside the eligible countries.', quote: own.quote }, own));
   }
 
-  // A general rule of the work programme annexes is never a "no": the topic may change it.
-  const settled = lines.map((l): Line => (l.verdict === 'no' && facts[LINE_FACT[l.key] ?? '']?.scope === 'general'
-    ? { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule; the topic may differ, so check its own conditions.` }
-    : l));
+  // A general rule of the work programme annexes is neither a firm "no" nor a plain "yes": the topic may change it.
+  const settled = lines.map((l): Line => {
+    if (facts[LINE_FACT[l.key] ?? '']?.scope !== 'general') return l;
+    if (l.verdict === 'no') return { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule; the topic may differ, so check its own conditions.` };
+    if (l.verdict === 'yes') return { ...l, verdict: 'check', reason: `${l.reason} This is the work programme's general rule, and the topic may add conditions: check its own.` };
+    return l;
+  });
   return { verdict: settled.reduce<Verdict>((v, l) => worst(v, l.verdict), 'yes'), lines: settled };
 }
 
 /** The fact each line of the verdict rests on. */
-const LINE_FACT: Record<string, string> = {
+export const LINE_FACT: Record<string, string> = {
   country: 'eligible_countries', sme: 'sme_only', person: 'natural_persons_allowed',
-  consortium: 'consortium_required', control: 'ownership_control_restriction',
+  consortium: 'consortium_required', control: 'ownership_control_restriction', entity: 'entity_types',
 };
 
 export const SCOPE_WORDS = { call_document: 'Call document', general: 'General rule (work programme annexes)', topic: 'This topic' } as const;
