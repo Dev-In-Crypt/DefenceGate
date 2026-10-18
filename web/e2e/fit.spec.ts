@@ -130,6 +130,8 @@ test('a call page without a profile shows the way to the readiness check and no 
 });
 
 test('a call page with a profile shows the document rules, the programme rules and the time left', async ({ page }) => {
+  await mockFacts(page);
+  await mockPartners(page);
   const posted: { call?: number; profile: { country: string } }[] = [];
   await page.route('**/api/readiness/assess', async (route) => {
     const body = route.request().postDataJSON() as { call?: number; profile: { country: string } };
@@ -214,6 +216,7 @@ test('partner suggestions load on request, are ranked with their evidence, and f
 
 test('with a profile the partner list loads by itself and puts the profile’s country first', async ({ page }) => {
   const asked = await mockPartners(page);
+  await mockFacts(page);
   await saveProfile(page, ES_SMALL);
   const href = await firstEdfCall(page);
   await visit(page, href, { title: /DefenceGate/, h1: /.+/ });

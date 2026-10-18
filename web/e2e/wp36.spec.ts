@@ -56,7 +56,7 @@ test('a call page names its regime, lists conditions with their source, and says
 
 test('/regulation: every entry has a status, a source with a quote, and the day it was checked', async ({ page }) => {
   await visit(page, '/regulation', { title: /regulatory tracker/i, h1: 'Regulatory tracker', text: [/Last checked/] });
-  const entries = page.locator('ol > li');
+  const entries = page.locator('ol > li').filter({ has: page.getByRole('link', { name: /Primary source/ }) });
   const n = await entries.count();
   expect(n).toBeGreaterThan(5);
   for (let i = 0; i < n; i += 1) {

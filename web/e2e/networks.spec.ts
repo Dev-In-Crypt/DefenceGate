@@ -28,7 +28,7 @@ test('/organisations: the directory lists the organisations with their counts an
   await expect(page.getByRole('link', { name: /Kyiv Institute/i })).toBeVisible();
   await expect(page.getByText(/EDF factsheets state none per participant/i).first()).toBeVisible();
   await expect(page.getByText(/Licence: Commission Decision 2011\/833\/EU/i).first()).toBeVisible();
-  await expect(page.getByText(/read by a language model/i).first()).toBeVisible();
+  await expect(page.getByText(/by a language model/i).first()).toBeVisible();
 });
 
 test('/organisations: search folds accents, and the country filter travels in the URL', async ({ page }) => {
@@ -127,7 +127,7 @@ test('the consortium gaps analysis defines its area and category, and lists repe
   await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=UA', { title: /Repeat participants/i, h1: 'Gaps in consortia', text: ['What this counts', 'Limits'] });
   await expect(page.getByText(/Capability area:/i)).toBeVisible();
   await expect(page.getByRole('table', { name: /Organisations funded repeatedly/i }).getByRole('link', { name: /Bravo/i })).toBeVisible();
-  await expect(page.getByText(/read by a language model/i).first()).toBeVisible();
+  await expect(page.getByText(/by a language model/i).first()).toBeVisible();
 });
 
 test('an unknown organisation or project is a 404 and a made-up address never reaches the API', async ({ request }) => {

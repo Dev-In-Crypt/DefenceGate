@@ -60,7 +60,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
           Organisations that took part in earlier funded projects of the same area as this call, from CORDIS and the EDF project factsheets, with the projects as evidence.
           They are loaded when you ask.
         </p>
-        <Button type="button" variant="secondary" icon={Users} onClick={() => setAsked(true)} className="self-start">Show organisations from earlier projects</Button>
+        <Button type="button" variant="secondary" icon={Users} onClick={() => setAsked(true)} className="self-start whitespace-normal text-left">Show organisations from earlier projects</Button>
       </div>
     );
   }
