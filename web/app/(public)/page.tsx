@@ -127,13 +127,22 @@ export default async function LandingPage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      {/* Hero: copy and the finder at the left, the figures at the right, both starting at the top of the card (one grid, one height). */}
+      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the finder and the links run under both, full width. */}
       <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10 lg:p-10 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <div className="flex min-w-0 flex-col gap-5">
           <h1 id="hero" className="m-0 text-[36px] font-extrabold leading-10 tracking-[-1px] md:text-display-sm">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
+        </div>
+        <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-x-6 gap-y-4">
+          <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
+          <Counter label="Current notices" value={current ? formatNumber(current.total) : null} asOf={current?.staleAsOf} sub="including some without a stated deadline" />
+          <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} />
+          <Counter label="Sources" value={stats ? String(stats.sources) : null} />
+          <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
+        </dl>
+        <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
           <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface-inset p-4">
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
               <Select name="country" label="Country of the buyer" placeholder="Any country"
@@ -167,13 +176,6 @@ export default async function LandingPage() {
             <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
           </div>
         </div>
-        <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-x-6 gap-y-4 lg:h-full lg:grid-rows-3 lg:gap-y-0">
-          <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
-          <Counter label="Current notices" value={current ? formatNumber(current.total) : null} asOf={current?.staleAsOf} sub="including some without a stated deadline" />
-          <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} />
-          <Counter label="Sources" value={stats ? String(stats.sources) : null} />
-          <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
-        </dl>
       </section>
 
       {/* The three parts: one block (the hero tiles and this section said the same thing). */}

@@ -12,13 +12,16 @@ const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
 const box = (page: Page, selector: string) =>
   page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { top: r.top + window.scrollY, left: r.left, width: r.width, height: r.height }; });
 
-test('home: the figures sit at the top of the hero, to the right of the copy, and the hero is not taller than 640 px', async ({ page }) => {
+test('home: the figures sit at the top of the hero, to the right of the copy, the finder runs full width under both, and the hero is not taller than 760 px', async ({ page }) => {
   test.skip(isMobile(page), 'the hero is one column on a phone');
   await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
   const hero = await box(page, 'section[aria-labelledby="hero"]');
   const h1 = await box(page, '#hero');
   const figures = await box(page, 'dl[aria-label="Live data"]');
-  expect(hero.height, 'hero height').toBeLessThanOrEqual(640);
+  const form = await box(page, 'section[aria-labelledby="hero"] form[role="search"]');
+  expect(hero.height, 'hero height').toBeLessThanOrEqual(760);
+  expect(form.width, 'the finder spans the module (under the copy and the figures)').toBeGreaterThan(hero.width * 0.8);
+  expect(form.top, 'the finder is under the figures').toBeGreaterThan(figures.top + figures.height - 1);
   expect(figures.left, 'the figures are right of the headline').toBeGreaterThan(h1.left + h1.width / 2);
   expect(figures.top - hero.top, 'the figures start at the top of the hero, not 600 px down').toBeLessThanOrEqual(60);
 });
