@@ -205,7 +205,21 @@ def test_a_plain_record_never_changes_the_country_of_an_organisation_held_by_the
     conn.commit()
     projects = [_project("p1", "2001", 100)]
     roles = [_role("r1", "2001", "o1", "coordinator", 100)]
+    # the record agrees with the stored country: it stays, and the basis says what it rests on (WP-43)
     _run(FakeCordis([_org("o1", "111111111", "ALPHA UNIVERSITE", "BE")], projects, roles))
+    assert conn.execute("SELECT country, country_basis FROM organisation WHERE id = %s", (org,)).fetchone() == {
+        "country": "BE", "country_basis": "address"}
+
+
+def test_an_undisputed_address_that_differs_from_a_country_without_a_basis_changes_nothing(conn, env):
+    org = conn.execute("INSERT INTO organisation (canonical_name, country, eu_pic, pic_method) "
+                       "VALUES ('alpha universite', 'BE', '111111111', 'source') "
+                       "RETURNING id").fetchone()["id"]
+    conn.commit()
+    projects = [_project("p1", "2001", 100)]
+    roles = [_role("r1", "2001", "o1", "coordinator", 100)]
+    c = _run(FakeCordis([_org("o1", "111111111", "ALPHA UNIVERSITE", "FR")], projects, roles))
+    assert c["address_differs_kept"] == 1 and c["countries_changed"] == 0
     assert conn.execute("SELECT country, country_basis FROM organisation WHERE id = %s", (org,)).fetchone() == {
         "country": "BE", "country_basis": None}
 

@@ -832,9 +832,14 @@ Rules that hold for every endpoint:
 The directory: one row per live organisation with at least one active participation. `country`, `programme` (`EDF`,
 `HORIZON`, `H2020`, `FP7`) and `role` (`coordinator`, `participant`, `partner`, `associated_partner`,
 `international_partner`, `third_party`) take comma-separated values; `q` is the folded, word-initial search of the
-tender and buyer lists (accents ignored); `sort` is `projects` (default; most first) or `name`; `pageSize` up to 100.
-`{ items: [{ id, slug, name, country, projects, coordinated, euContribution, firstYear, lastYear, programmes, nameVariants }], total,
-totalExact, page, pageSize, meta: { updatedAt, sources, amountNote } }`. `total` stops at 10,000 (`totalExact: false`):
+tender and buyer lists (accents ignored); `sort` is `projects` (every programme, most first), `defence` (defence projects, then
+all projects) or `name`; when `sort` is not given it is `defence` if `programme` is given and holds only defence programmes
+(`EDF`, `EDIDP`, `PADR`), else `projects` (WP-43: the all-programme total put CNRS, 4,336 projects of which 10 in the EDF, above
+the organisations that build defence projects); `pageSize` up to 100.
+`{ items: [{ id, slug, name, country, projects, defenceProjects, coordinated, euContribution, firstYear, lastYear, programmes, nameVariants }], total,
+totalExact, page, pageSize, meta: { updatedAt, sources, amountNote, sort, defenceProgrammes, countsNote } }`. `defenceProjects`
+counts the projects of the defence programmes only; `projects`, `coordinated` and `euContribution` count every programme
+(`countsNote` says so; `meta.sort` is the order applied). `total` stops at 10,000 (`totalExact: false`):
 counting every match of a broad word took 1.5 s. A year is the year the project started (the call year for EDF).
 `nameVariants` (WP-41): how many other rows with a participation the card stands for. They carry a name of the same body
 that no rule could prove to be one legal body (another spelling, or the same name under another PIC): they are **not
@@ -845,7 +850,7 @@ The rule and the stored method and confidence are in `organisation_family_member
 `[{ slug, updatedAt }]`: the 2,000 organisations with the most projects (three or more), for the sitemap.
 
 ### `GET /v1/organisations/{slug}`
-The profile: `{ id, slug, name, country, pic: { value, method, confidence } | null, counts: { projects, participations,
+The profile: `{ id, slug, name, country, countryBasis, countrySites, pic: { value, method, confidence } | null, counts: { projects, participations,
 coordinated, euContribution, firstYear, lastYear }, programmes: [{ code, name, projects,
 euContribution, firstYear, lastYear }], resolution: { note, participations: { <method>: n }, lowestConfidence },
 aliases: { total, items: [{ name, method, confidence, firstSeen, source }] }, mergedFrom,
@@ -853,7 +858,10 @@ nameVariants: { total, note, items: [{ organisation, projects, method, confidenc
 variantOf: { organisation, method, confidence } | null, buyer: { slug, name,
 tenderCount } | null, sources, amountNote }`. For the head of a name family `counts` and every tab include the variants'
 participations (a project counted once), so the profile equals the directory card; `variantOf` is set on a profile that is
-itself a variant (its own figures only). The PIC is the only identifier served. `resolution.note` is one
+itself a variant (its own figures only). `countryBasis` (WP-43) says what `country` rests on: `address` (one address country
+in the source record, nothing contradicts it), `vote` (the record's site name and VAT number agree on another country than its
+address; CSIC: address Italy, shown under Spain), `several` (sites in several countries, nothing decides: the first in
+alphabetical order is `country`, all are in `countrySites`) or `null` (not looked at). The PIC is the only identifier served. `resolution.note` is one
 sentence on how the participations were matched ("matched by its PIC", "by its exact normalised name within the
 country", ...). `buyer` is the buyer page of the same body when it has defence notices in scope (`/v1/buyers/{slug}`
 answers the other way round with `organisationSlug`). 404 for an organisation with no participation, 410 when removed.

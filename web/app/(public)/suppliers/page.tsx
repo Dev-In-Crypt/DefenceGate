@@ -203,8 +203,9 @@ export default async function SuppliersPage({ searchParams }: Props) {
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
         </form>
         <p id="product-help" className="m-0 max-w-[75ch] text-small text-ink-muted">
-          A product word is matched to the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>, and suppliers are
-          listed that won notices whose main CPV code starts with one of them. Not sure of the word? Browse the finder and copy a code into the CPV box.
+          A product word is read as CPV codes, from a short list of words for the main defence products (drone, explosives, body armour, tank, and a few more)
+          and otherwise from the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>; suppliers are
+          listed that won notices whose main CPV code starts with one of them. The page shows the codes it used. Not sure of the word? Browse the finder and copy a code into the CPV box.
         </p>
         <p id="order-help" className="m-0 max-w-[75ch] text-small text-ink-muted">
           “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
@@ -214,7 +215,12 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <p role="status" className="m-0 max-w-[75ch] rounded-md bg-surface-inset px-4 py-3 text-small">
             {match.prefixes.length === 0
               ? <>No code in the CPV finder has “{f.product}” in its title. Try a shorter or more general word, or browse the <Link href="/cpv" className="font-semibold">CPV finder</Link>.</>
-              : <>“{f.product}” matches {match.matched} {match.matched === 1 ? 'code' : 'codes'} of the finder, for example {match.codes.slice(0, 3).map((c) => `${c.code} ${c.title}`).join('; ')}.
+              : match.via === 'keyword'
+                ? <>“{f.product}” is read as {match.codes.map((c) => `${c.code} ${c.title}`).join('; ')} (our list of product words, with the codes and titles of the CPV vocabulary).
+                  {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length})` : ''}.
+                  {match.note ? ` ${match.note}` : ''}
+                  {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>
+                : <>“{f.product}” matches {match.matched} {match.matched === 1 ? 'code' : 'codes'} of the finder, for example {match.codes.slice(0, 3).map((c) => `${c.code} ${c.title}`).join('; ')}.
                 {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length}; use a narrower word for the rest)` : ''}.
                 {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>}
           </p>

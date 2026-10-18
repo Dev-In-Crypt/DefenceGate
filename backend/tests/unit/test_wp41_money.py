@@ -154,7 +154,7 @@ def test_org_record_reads_the_grouped_fields_and_the_old_single_ones():
                              "vats": "ESQ2818002D"})
     assert (rec.country, rec.country_basis, rec.country_sites) == ("ES", "vote", ("ES", "IT"))
     old = cordis.org_record({"key": "k", "pic": "111111111", "name": "ACME", "country": "UK"})
-    assert (old.country, old.country_basis) == ("GB", None)
+    assert (old.country, old.country_basis) == ("GB", "address")      # WP-43: an undisputed address is a basis too
 
 
 def test_the_organisation_query_asks_for_the_sites_and_the_vat_numbers_and_nothing_personal():

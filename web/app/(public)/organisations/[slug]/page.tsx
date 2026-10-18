@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { formatDateUtc, formatNumber } from '@/lib/format';
-import { PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, formatEur, isNetworkSlug, methodWord, yearsLabel } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, formatEur, isNetworkSlug, methodWord, yearsLabel } from '@/lib/networks';
 import { getOrganisation, getOrganisationFunding, getOrganisationProjects, getPartners } from '@/lib/networks-api';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
@@ -76,8 +76,12 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
         <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p.code || 'none'} kind="programme">{p.code || 'Programme not stated'}</Tag>)}</p>
         <h1 className="m-0 break-words text-[32px] font-extrabold leading-10 tracking-[-1px] md:text-h1">{name}</h1>
         <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-          <FactCell label="Country"><CountryLabel code={org.country} className="font-sans" /></FactCell>
-          <FactCell label="Projects"><span className="tabular-nums">{org.counts.projects}</span></FactCell>
+          <FactCell label="Country">
+            <CountryLabel code={org.country} className="font-sans" />
+            {countryBasisNote(org) && <span className="block font-sans text-small font-normal text-ink-muted">{countryBasisNote(org)}</span>}
+          </FactCell>
+          <FactCell label="Defence projects"><span className="tabular-nums">{defenceProjectsOf(org)}</span></FactCell>
+          <FactCell label="Projects, all programmes"><span className="tabular-nums">{org.counts.projects}</span></FactCell>
           <FactCell label="As coordinator"><span className="tabular-nums">{org.counts.coordinated}</span></FactCell>
           <FactCell label="EU contribution (CORDIS)">
             {org.counts.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(org.counts.euContribution)}
@@ -108,6 +112,18 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
       </p>
     </>
   );
+}
+
+/** Projects of the defence programmes (EDF, EDIDP, PADR): a project has one programme, so the rows add up. */
+function defenceProjectsOf(org: OrgProfile): number {
+  return org.programmes.filter((p) => DEFENCE_PROGRAMMES.includes(p.code)).reduce((n, p) => n + p.projects, 0);
+}
+
+/** What the country rests on, said only where it is not the plain address. */
+function countryBasisNote(org: OrgProfile): string | null {
+  if (org.countryBasis === 'vote') return 'The site name and the VAT number in the record agree on this country; its recorded address is elsewhere.';
+  if (org.countryBasis === 'several') return `Sites in ${(org.countrySites ?? []).join(', ')}; the first is shown.`;
+  return null;
 }
 
 function Overview({ org }: { org: OrgProfile }) {

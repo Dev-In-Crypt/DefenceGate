@@ -231,7 +231,7 @@ test('U10: the directory opens on the defence programmes and one visible link sh
   await expect(page).toHaveURL(/programme=all/);
   await expect(main.getByRole('link', { name: /Kyiv Institute/i })).toBeVisible();
   await expect(main.getByRole('link', { name: /Show only the European Defence Fund/ })).toBeVisible();
-  await expect(main.getByText(/appears under Italy/)).toBeVisible();
+  await expect(main.getByText(/shown under Spain although its address is recorded in Italy/)).toBeVisible();
 });
 
 test('U10: the Ukraine partners analysis opens on the defence programmes and says what the others hold', async ({ page }) => {

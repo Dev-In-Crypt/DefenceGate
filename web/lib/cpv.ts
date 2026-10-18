@@ -3,6 +3,7 @@
  * from the Publications Office's codelist; none is written by us). Only codes in that file are listed.
  */
 import data from './data/cpv.json';
+import keywordData from './data/product-keywords.json';
 import { cpvDivisionLabel, cpvLabel } from './taxonomy';
 
 const CODES = data.codes as Record<string, string>;
@@ -124,16 +125,58 @@ export interface ProductMatch {
   matched: number;
   /** More prefixes matched than `max`: the filter holds the first `max` only. */
   truncated: boolean;
+  /** How the codes were found: from the curated product words (`keyword`) or from the titles of the finder (`title`). */
+  via?: 'keyword' | 'title';
+  /** For a keyword match, a word of explanation the entry carries (an ambiguous word says what it is read as). */
+  note?: string;
+}
+
+interface KeywordEntry { words: string[]; codes: { code: string; title: string }[]; note?: string }
+export const PRODUCT_KEYWORDS = keywordData.entries as KeywordEntry[];
+
+/** Lower-case words without accents or punctuation: "Bullet-proof" and "bullet proof" are the same phrase. */
+const wordsOf = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').split(/[^a-z0-9]+/).filter(Boolean);
+
+/**
+ * The curated product words (lib/data/product-keywords.json). The whole query must be made of listed phrases, otherwise null and
+ * the titles of the finder are searched as before: "drone zzzz" is not read as "drone". The codes are the official ones, with their titles.
+ */
+function keywordMatch(query: string, max: number): ProductMatch | null {
+  const q = wordsOf(query);
+  if (q.length === 0) return null;
+  const used = q.map(() => false);
+  const hit: KeywordEntry[] = [];
+  for (const entry of PRODUCT_KEYWORDS) {
+    for (const phrase of entry.words) {
+      const t = wordsOf(phrase);
+      for (let i = 0; i + t.length <= q.length; i++) {
+        if (!t.every((w, j) => q[i + j] === w)) continue;
+        t.forEach((_, j) => { used[i + j] = true; });
+        if (!hit.includes(entry)) hit.push(entry);
+      }
+    }
+  }
+  if (hit.length === 0 || !used.every(Boolean)) return null;
+  const codes = [...new Map(hit.flatMap((e) => e.codes).map((c) => [c.code, c])).values()];
+  const all = [...new Set(codes.map((c) => cpvPrefix(c.code)))].sort((a, b) => a.length - b.length || a.localeCompare(b));
+  const kept: string[] = [];
+  for (const p of all) if (!kept.some((k) => p.startsWith(k))) kept.push(p);
+  const note = hit.map((e) => e.note).filter(Boolean).join(' ');
+  return { prefixes: kept.slice(0, max), truncated: kept.length > max, matched: codes.length, codes: codes.slice(0, 6), via: 'keyword', ...(note ? { note } : {}) };
 }
 
 /**
  * The CPV codes of the finder (this file's selection of the official vocabulary) whose title holds every word asked for,
  * as prefixes for a filter. "ammunition" gives the codes whose title begins so; a prefix that is already covered by a shorter one
  * is dropped, so a group and its members count once. Nothing here is a title of ours (U9: a product search for the supplier map).
+ * A curated list of product words comes first (WP-43): the finder matches titles only, so "drone", "explosives" and "body armour" found nothing
+ * and "tank" found heating tanks.
  */
 export function cpvForWords(words: string, max = 20): ProductMatch {
+  const curated = keywordMatch(words, max);
+  if (curated) return curated;
   const ws = words.toLowerCase().split(/\s+/).filter((w) => w.length >= 3).slice(0, 5);
-  if (ws.length === 0) return { prefixes: [], codes: [], matched: 0, truncated: false };
+  if (ws.length === 0) return { prefixes: [], codes: [], matched: 0, truncated: false, via: 'title' };
   const found = Object.entries(CODES).filter(([, title]) => { const t = title.toLowerCase(); return ws.every((w) => t.includes(w)); });
   // Titles that begin with the word are the thing itself ("Ammunition"); a title that only lists it ("Weapons, ammunition and associated
   // parts") would pull in the whole group. The headwords are used when there are any.
@@ -143,7 +186,7 @@ export function cpvForWords(words: string, max = 20): ProductMatch {
   const kept: string[] = [];
   for (const p of all) if (!kept.some((k) => p.startsWith(k))) kept.push(p);
   return {
-    prefixes: kept.slice(0, max), truncated: kept.length > max, matched: hits.length,
+    prefixes: kept.slice(0, max), truncated: kept.length > max, matched: hits.length, via: 'title',
     codes: hits.slice(0, 6).map(([code, title]) => ({ code, title })),
   };
 }

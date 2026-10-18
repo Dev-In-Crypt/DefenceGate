@@ -44,6 +44,17 @@ test('a supplier page: its notices, the coverage caveat and no ranking, when the
   await pace(page);
 });
 
+// WP-43 (verification 3): "drone", "explosives" and "body armour" found nothing; "tank" found heating tanks.
+for (const [word, code, title] of [['drone', '35613000', 'Unmanned aerial vehicles'], ['explosives', '24600000', 'Explosives'],
+  ['body armour', '35815000', 'Garments for anti-ballistic protection'], ['tank', '35411000', 'Battle tanks']] as const) {
+  test(`/suppliers?product=${word}: the word is read as CPV codes and the page shows which`, async ({ page }) => {
+    await visit(page, `/suppliers?product=${encodeURIComponent(word)}`, { title: /supplier map/i, h1: 'Defence supplier map' });
+    const status = page.locator('#main').getByRole('status').filter({ hasText: /is read as/ });
+    await expect(status).toContainText(`${code} ${title}`);
+    await expect(page.locator('#main').getByText(/No code in the CPV finder has/)).toHaveCount(0);
+  });
+}
+
 test('an address that is not a supplier is a 404', async ({ page }) => {
   const response = await page.goto('/suppliers/999999999-nobody');
   expect(response!.status()).toBe(404);

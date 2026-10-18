@@ -140,6 +140,9 @@ CIVIL_DIRECTIVE_SQL = (
     "(o.sig_legal_basis AND NOT o.sig_cpv_military AND NOT o.sig_buyer"
     " AND NOT o.sig_linked_defence AND o.buyer_class IS NOT NULL"
     " AND o.buyer_class NOT IN ('defence', 'security'))")
+# The funding programmes whose projects count as defence-relevant in the organisation directory
+# (`organisation_network.defence_projects`; web/lib/networks.ts keeps the same list).
+DEFENCE_PROGRAMMES = ("EDF", "EDIDP", "PADR")
 SECURITY_CPV_SQL = (
     "(o.sig_cpv_military AND NOT o.sig_legal_basis AND NOT o.dual_use AND NOT o.sig_buyer"
     " AND NOT o.sig_linked_defence AND o.buyer_class IS NOT DISTINCT FROM 'security')")

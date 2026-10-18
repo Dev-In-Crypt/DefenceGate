@@ -45,6 +45,7 @@ function item(o: MockOrg): OrgListItem {
   const years = ps.map((p) => p.year);
   return {
     id: String(o.id), slug: o.slug, name: o.name, country: o.country, projects: ps.length,
+    defenceProjects: ps.filter((p) => ['EDF', 'EDIDP', 'PADR'].includes(p.programme)).length,
     coordinated: ps.filter((p) => p.members.some(([m, r]) => m.id === o.id && r === 'coordinator')).length,
     euContribution: amounts.length ? amounts.reduce((a, b) => a + b, 0) : null,
     firstYear: Math.min(...years), lastYear: Math.max(...years), programmes: [...new Set(ps.map((p) => p.programme))].sort(),
@@ -63,11 +64,13 @@ export function queryOrgs(f: OrgFilters): OrgPage {
     && (!f.programme?.length || f.programme.some((p) => i.programmes.includes(p)))
     && (!f.role?.length || ORGS.some((o) => o.id === Number(i.id) && projectsOf(o).some((p) => p.members.some(([m, r]) => m.id === o.id && f.role?.includes(r)))))
     && (!q || i.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q.normalize('NFD').replace(/[̀-ͯ]/g, ''))));
-  items = f.sort === 'name' ? items.sort((a, b) => a.name.localeCompare(b.name)) : items.sort((a, b) => b.projects - a.projects || a.name.localeCompare(b.name));
+  items = f.sort === 'name' ? items.sort((a, b) => a.name.localeCompare(b.name))
+    : f.sort === 'defence' ? items.sort((a, b) => b.defenceProjects - a.defenceProjects || b.projects - a.projects || a.name.localeCompare(b.name))
+      : items.sort((a, b) => b.projects - a.projects || a.name.localeCompare(b.name));
   const size = f.pageSize ?? 20;
   const page = f.page ?? 1;
   return { items: items.slice((page - 1) * size, page * size), total: items.length, totalExact: true, page, pageSize: size,
-    meta: { updatedAt: '2026-10-17T21:30:00Z', sources: SOURCES, amountNote: AMOUNT_NOTE } };
+    meta: { updatedAt: '2026-10-17T21:30:00Z', sources: SOURCES, amountNote: AMOUNT_NOTE, sort: f.sort ?? 'projects', defenceProgrammes: ['EDF', 'EDIDP', 'PADR'] } };
 }
 
 export function orgProfile(slug: string): OrgProfile | null {

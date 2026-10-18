@@ -37,7 +37,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from .classify import CORE_SQL
+from .classify import CORE_SQL, DEFENCE_PROGRAMMES
 from .funding import get_conn, make_slug
 from .listcache import cache_list
 from .normalise import http_url, redact_emails
@@ -116,6 +116,11 @@ def _codes(value: str | None, name: str, *, pattern: re.Pattern[str] | None = No
     return out
 
 
+# What the numbers of a directory row are: `defenceProjects` counts the defence programmes only, the others all.
+COUNTS_NOTE = ("defenceProjects counts the projects of the defence programmes (European Defence Fund, EDIDP, PADR); "
+               "projects, coordinated and euContribution count every programme, civil research included.")
+
+
 def _sources(conn, codes: tuple[str, ...] = SOURCES) -> list[dict[str, Any]]:
     """Where the data comes from and when it was last read (the newest finished run)."""
     rows = conn.execute(
@@ -151,6 +156,21 @@ def _directory_where(country: str | None, programme: str | None, role: str | Non
     return " AND ".join(where), params
 
 
+def directory_sort(sort: str | None, programme: str | None) -> str:
+    """The order of the directory. Asked for outright: `projects` (all programmes), `defence`, `name`. Not asked
+    for: by the defence-relevant count when the list is limited to the defence programmes, which is what it is
+    about (the all-programme total put CNRS, 4,336 projects of which 10 in the EDF, above the firms that build
+    defence projects); otherwise by all projects."""
+    if sort:
+        return sort
+    chosen = _codes(programme, "programme", pattern=PROGRAMME_CODE)
+    return "defence" if chosen and set(chosen) <= set(DEFENCE_PROGRAMMES) else "projects"
+
+
+ORDER = {"name": "name, organisation_id", "projects": "projects DESC, organisation_id",
+         "defence": "defence_projects DESC, projects DESC, organisation_id"}
+
+
 @router.get("/v1/organisations")
 @cache_list("organisations", ttl=5 * 60)
 def list_organisations(
@@ -159,7 +179,9 @@ def list_organisations(
     role: str | None = Query(None, max_length=200, description="coordinator, participant, partner, ..."),
     q: str | None = Query(None, max_length=100),
     minProjects: int = Query(1, ge=1, le=100_000),
-    sort: str = Query("projects", pattern="^(projects|name)$"),
+    sort: str | None = Query(None, pattern="^(projects|defence|name)$",
+                             description="projects = all programmes; defence = EDF, EDIDP, PADR projects; "
+                                         "default: defence when the programme filter is defence-only, else projects"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
     conn=Depends(get_conn),
@@ -167,9 +189,10 @@ def list_organisations(
     if (page - 1) * pageSize > MAX_OFFSET:
         raise _bad(f"page: results beyond the first {MAX_OFFSET:,} are not served; narrow the filters")
     where, params = _directory_where(country, programme, role, q, minProjects)
-    order = "name, organisation_id" if sort == "name" else "projects DESC, organisation_id"
+    sort = directory_sort(sort, programme)
+    order = ORDER[sort]
     rows = conn.execute(
-        f"""SELECT organisation_id, name, country, projects, coordinated, eu_contribution, first_year,
+        f"""SELECT organisation_id, name, country, projects, defence_projects, coordinated, eu_contribution, first_year,
                    last_year, programmes, family_variants, refreshed_at
               FROM organisation_network WHERE {where}
              ORDER BY {order} LIMIT %s OFFSET %s""", params + [pageSize, (page - 1) * pageSize]).fetchall()
@@ -189,13 +212,14 @@ def list_organisations(
             "id": str(r["organisation_id"]),
             "slug": make_slug(r["organisation_id"], _clean(r["name"])),
             "name": _clean(r["name"]), "country": r["country"], "projects": r["projects"],
-            "coordinated": r["coordinated"], "euContribution": _num(r["eu_contribution"]),
+            "defenceProjects": r["defence_projects"], "coordinated": r["coordinated"], "euContribution": _num(r["eu_contribution"]),
             "firstYear": r["first_year"], "lastYear": r["last_year"], "programmes": r["programmes"],
             "nameVariants": r["family_variants"],
         } for r in rows],
         "total": min(total, COUNT_CAP), "totalExact": exact, "page": page, "pageSize": pageSize,
         "meta": {"updatedAt": refreshed["refreshed_at"] if refreshed else None,
-                 "sources": _sources(conn), "amountNote": AMOUNT_NOTE},
+                 "sources": _sources(conn), "amountNote": AMOUNT_NOTE, "sort": sort,
+                 "defenceProgrammes": list(DEFENCE_PROGRAMMES), "countsNote": COUNTS_NOTE},
     }
 
 
@@ -217,8 +241,8 @@ def live_organisation(conn, slug: str) -> dict[str, Any]:
     404 when there is none or it has no participation; 410 when it was removed on request or is a natural person."""
     org_id = _id_of(slug, "organisation")
     row = conn.execute(
-        """SELECT o.id, o.canonical_name, o.display_name, o.country, o.eu_pic, o.pic_method,
-                  o.pic_confidence, o.suppressed, o.individual_reason
+        """SELECT o.id, o.canonical_name, o.display_name, o.country, o.country_basis, o.country_sites, o.eu_pic,
+                  o.pic_method, o.pic_confidence, o.suppressed, o.individual_reason
              FROM organisation o WHERE o.id = dgate_live_org(%s)""", (org_id,)).fetchone()
     if not row:
         raise HTTPException(404, "no such organisation")
@@ -374,6 +398,7 @@ def get_organisation(slug: str, conn=Depends(get_conn)):
             WHERE pa.organisation_id = ANY(%s) AND pa.active""", (fam,)).fetchall()]
     return {
         "id": str(org["id"]), "slug": make_slug(org["id"], name), "name": name, "country": org["country"],
+        "countryBasis": org["country_basis"], "countrySites": [c.strip() for c in org["country_sites"] or []],
         "pic": pic,
         "counts": {"projects": totals["projects"], "participations": totals["participations"],
                    "coordinated": totals["coordinated"], "euContribution": _num(totals["eu"]),
