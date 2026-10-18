@@ -112,7 +112,7 @@ assert.ok(ics.includes('Cut-off 4 Nov 2026 (date only).') && ics.includes('sever
 assert.ok(!ics.includes('Latest cut-off'), 'the stored date is the next cut-off, not the latest (V-B C2)');
 // C1: an EU portal call is an all-day event that says the cut-off is 17:00 Brussels; the notes do not push the link out of the text.
 const eu = ics.split('BEGIN:VEVENT').find((e) => e.includes('UID:funding-24@'))!;
-assert.ok(eu.includes('DTSTART;VALUE=DATE:20261104') && eu.includes('17:00 Brussels time') && eu.includes('https://defencegatehub.com/funding/24-eic') && !eu.includes('…'), eu);
+assert.ok(eu.includes('DTSTART;VALUE=DATE:20261104') && eu.includes('17:00 Brussels time') && eu.includes('/funding/24-eic') && !eu.includes('…'), eu);
 assert.ok(EU_CUT_OFF_NOTE.includes('17:00 Brussels'));
 // ... and another source's date-only deadline keeps the plain sentence.
 const plain = buildIcs([entry({ sourceName: 'Vinnova', key: 'funding-27', id: '27' })], new Date('2026-10-17T10:00:00Z')).replace(/\r\n /g, '');

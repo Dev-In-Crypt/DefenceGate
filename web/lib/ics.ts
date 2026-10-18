@@ -17,7 +17,7 @@ export const ROLLING_NOTE = 'Continuous submission or several cut-offs: this is 
 export const EU_CUT_OFF_NOTE = 'No time is published; the call documents we have read set the cut-off at 17:00 Brussels time, so the call may close earlier that day.';
 const isEuPortal = (e: CalendarEntry) => /funding\s*(?:&|and)\s*tenders/i.test(e.sourceName);
 const SUMMARY_MAX = 120;
-const DESCRIPTION_MAX = 1000;
+const DESCRIPTION_MAX = 700;
 const UID_DOMAIN = 'defencegatehub.com';
 const EVENT_MINUTES = 30;
 const encoder = new TextEncoder();
