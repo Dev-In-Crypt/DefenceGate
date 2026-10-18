@@ -73,7 +73,7 @@ test('the funding section draws bars and gives the same figures as a table', asy
 });
 
 test('the partners section ranks partners by shared projects and links to their projects', async ({ page }) => {
-  await visit(page, `${ALPHA}?tab=partners`, { title: /Alpha Systems/i, h1: /Alpha Systems/i, text: ['Partners'] });
+  await visit(page, `${ALPHA}?tab=partners`, { title: /Alpha Systems/i, h1: /Alpha Systems/i, text: [/^Partners$/] });
   const table = page.getByRole('table', { name: /Partners, most shared projects first/i });
   const rows = table.getByRole('row');
   await expect(rows.nth(1)).toContainText(/Bravo/i);
@@ -100,7 +100,7 @@ test('the projects section leads to a project page with its consortium', async (
 });
 
 test('a project page: facts, consortium, history and the source', async ({ page }) => {
-  await visit(page, '/projects/201-alpha', { title: /ALPHA/, h1: 'ALPHA', text: ['Consortium', 'Changes of the consortium', 'Where this comes from'] });
+  await visit(page, '/projects/201-alpha', { title: /ALPHA/, h1: 'ALPHA', text: [/^Consortium$/, 'Changes of the consortium', 'Where this comes from'] });
   await expect(page.getByText(/Coordinated by/i)).toContainText(/Alpha Systems/i);
   await expect(page.getByText(/First seen on/i)).toBeVisible();
   await expect(page.getByRole('link', { name: /Project page on CORDIS/i })).toHaveAttribute('href', /cordis\.europa\.eu\/project\/id\//);
