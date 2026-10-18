@@ -97,11 +97,12 @@ function mockDetail(r: RawCall): Partial<Call> {
   if (r.programme === 'EDF') {
     out.rulesApply = {
       regime: { code: 'EDF', name: 'European Defence Fund', why: 'The topic code starts with EDF- and the programme is the EDF.' },
-      encoded: true,
+      encoded: true, action: null,
       programme: { code: 'EDF', name: 'European Defence Fund', legalBasis: 'Regulation (EU) 2021/697, as amended by Regulation (EU) 2025/2653' },
       rules: [{
         rule: 'EDF-ESTABLISH', title: 'Established in the Union or an associated country', kind: 'establishment', requirement: 'REQ-EDF-ELIG',
-        source: { url: 'http://data.europa.eu/eli/reg/2021/697/oj', ref: 'Regulation (EU) 2021/697, Article 9(1)', origin: 'primary', verificationStatus: 'V', lastReviewed: '2026-10-17',
+        caveat: 'For an applicant established in Ukraine this is conditional on the EU-Ukraine association agreement, which is not confirmed: the EDF call documents say participation of entities established in Ukraine is pending its signature.',
+        source: { url: 'http://data.europa.eu/eli/reg/2021/697/oj', ref: 'Regulation (EU) 2021/697, Article 9(1)', origin: 'primary', verificationStatus: 'V', lastReviewed: '2026-10-18',
           text: '[Regulation (EU) 2021/697, Article 9(1)] Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.' },
       }],
       alsoRead: null,

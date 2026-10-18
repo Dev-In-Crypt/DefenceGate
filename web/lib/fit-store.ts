@@ -18,7 +18,7 @@
  * so a profile changed on /readiness is seen after a client-side navigation.
  */
 import type { EligibilityFacts } from './eligibility-check';
-import { fitOf, fitsProfile, programmeFit, programmesOfCall, shownFit, withProgramme, type Fit, type FitResult } from './fit';
+import { applicantFit, fitOf, fitsProfile, programmeFit, programmesOfCall, shownFit, withProgramme, type Fit, type FitResult } from './fit';
 import { PROFILE_KEY, loadProfile, toRequest, type Profile } from './profile';
 import { assess } from './readiness';
 import type { Assessment } from './readiness-types';
@@ -67,7 +67,9 @@ function codesOf(id: string): string[] {
 export function fitFor(id: string): FitResult {
   const entry = entries.get(id);
   const doc: FitResult = entry && entry.state === 'read' ? fitOf(entry.facts, profile) : { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
-  return withProgramme(doc, programmeFit(programmes.data, codesOf(id)));
+  const withRules = withProgramme(doc, programmeFit(programmes.data, codesOf(id)));
+  // Who may apply to some EDIP calls (common procurement is not open to a company): the rules of the API need the call, a badge does not have it.
+  return entry ? withProgramme(withRules, applicantFit(entry.programme, entry.topic, profile)) : withRules;
 }
 
 /**

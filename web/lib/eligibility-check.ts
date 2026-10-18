@@ -98,6 +98,44 @@ const COVERS: Record<OrgType, RegExp> = {
   individual: /natural person|individual|sole trader/i,
 };
 
+/** What the API puts before the note of a fact read from the annexes or from a topic's own text (`SCOPE_NOTES` in eligibility.py): it says where, not a condition. */
+const SCOPE_PREFIX = /^(?:General rule of the work programme annexes; the topic or the type of action may add or change it\.|Stated in this topic[’']s own conditions\.)\s*/;
+function ownNote(f: EligibilityFact | undefined): string {
+  return (f?.note ?? '').replace(SCOPE_PREFIX, '').trim();
+}
+
+/** Words that name a size class below "large": a list of kinds that only has these does not cover a large company (V2-C U2, call 131). */
+const SMALL_ONLY = /\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?/i;
+
+/** Whether one kind of applicant named by a call plainly covers a profile (V2-C U2: "SME company" and "Small mid-cap company (up to 499 employees)" do not cover a large company). */
+export function covers(org: OrgType, kind: string): boolean {
+  if (org === 'large' && SMALL_ONLY.test(kind) && !/\blarge\b/i.test(kind)) return false;
+  return COVERS[org].test(kind);
+}
+
+/**
+ * A condition the document attaches to who applies together with whom, as one sentence, or null. A consortium that is "not required" is still
+ * not "no consortium is required" when a single applicant must meet a condition (call 118: a single applicant must be Ukrainian), and a
+ * consortium whose composition is left to specific conditions is not a plain "yes" (call 14).
+ */
+export function singleApplicantCondition(facts: EligibilityFacts): string | null {
+  const single = facts.single_applicant_allowed;
+  const note = ownNote(single);
+  return single?.value === true && note ? `A single applicant may apply under a condition: ${note}` : null;
+}
+
+export function consortiumCondition(facts: EligibilityFacts): string | null {
+  const cons = facts.consortium_required;
+  const consNote = ownNote(cons);
+  const single = singleApplicantCondition(facts);
+  if (single) return single;
+  if (consNote) return `The call attaches a condition to the consortium: ${consNote}`;
+  if (cons?.value === true && /specific conditions|conditions for the consortium|composition/i.test(cons.quote)) {
+    return 'The call sets specific conditions on who may form the consortium that are not read here; check its section on consortium composition.';
+  }
+  return null;
+}
+
 export function check(facts: EligibilityFacts, p: Profile): Result {
   const lines: Line[] = [];
 
@@ -108,7 +146,7 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
   if (types && Array.isArray(types.value) && types.value.length > 0) {
     const kinds = types.value.map(String);
     if (!p.orgType) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Check that your organisation is one of them.`, quote: types.quote });
-    else if (!kinds.some((k) => COVERS[p.orgType as OrgType].test(k))) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Nothing in that list says a company like yours may. Check the document before you go on.`, quote: types.quote });
+    else if (!kinds.some((k) => covers(p.orgType as OrgType, k))) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Nothing in that list says a company like yours may. Check the document before you go on.`, quote: types.quote });
     else lines.push(withNote({ key: 'entity', label: 'Who may apply', verdict: 'yes', reason: `The call names who may apply (${kinds.join('; ')}) and your organisation is covered by it.`, quote: types.quote }, types));
   }
 
@@ -146,7 +184,12 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     if (cons.value === true && p.hasPartners === 'yes') lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: `A consortium is required: ${need}.`, quote: cons.quote }, cons));
     else if (cons.value === true) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `A consortium is required: ${need}. You would need to find partners first.`, quote: cons.quote });
     else if (consortiumUnclear(facts)) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `The document is unclear: ${unclearConsortiumText(facts)} Check the document before you go on.${cons.note ? ` ${cons.note}` : ''}`, quote: cons.quote });
-    else lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: 'No consortium is required.', quote: cons.quote }, cons));
+    else {
+      const condition = singleApplicantCondition(facts);       // a note on the consortium fact itself is shown by `withNote`
+      lines.push(condition
+        ? { key: 'consortium', label: 'Partners', verdict: 'check', reason: `No consortium is required, but ${condition.charAt(0).toLowerCase()}${condition.slice(1)}`, quote: cons.quote }
+        : withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: 'No consortium is required.', quote: cons.quote }, cons));
+    }
   }
 
   const own = facts.ownership_control_restriction;

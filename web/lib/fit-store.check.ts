@@ -141,11 +141,19 @@ async function main() {
 
   // 8. A programme verdict that does not come: the document alone speaks, and the badge is shown all the same.
   failAssess = true;
-  storage.set('dg.profile.v1', profile({ sizeClass: 'small', name: 'Another' }));
+  // Call 6 is a common procurement call of the EDIP: who may apply is part of its badge since WP-40 (V2-B1), so the profile says it is a contracting authority.
+  storage.set('dg.profile.v1', profile({ sizeClass: 'small', name: 'Another', applicantKind: 'contracting_authority' }));
   store.mount('6');
   await sleep(150);
   assert.equal(store.isLoaded('6'), true);
   assert.equal(store.fitFor('6').fit, 'yes', 'no verdict, no exclusion');
+  store.unmount('6');
+  // ... and a company is excluded from that call without the programme's verdict: Article 11(2), mirrored in lib/fit.ts
+  storage.set('dg.profile.v1', profile({ sizeClass: 'small', name: 'Another', applicantKind: 'company_or_research' }));
+  store.mount('6');
+  await sleep(150);
+  assert.equal(store.fitFor('6').fit, 'no', 'a company cannot apply to common procurement');
+  assert.match(store.fitFor('6').conditions[0], /^Who may apply/);
   store.unmount('6');
   failAssess = false;
 

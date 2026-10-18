@@ -154,6 +154,16 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               ]}
               onChange={(v) => { setNeedForm(false); set('legalForm', v); }} />
             {needForm && <p role="alert" className="m-0 text-small font-bold">Choose the legal form to go on.</p>}
+            <Radios legend="What kind of organisation are you? (optional)" name="applicant-kind" value={profile.applicantKind}
+              hint="Only a few calls care: EDIP calls for common procurement are open to contracting authorities, international organisations, SEAPs and the European Defence Agency, not to companies. Leave it empty if you do not know; it is then never read as “a company”."
+              options={[
+                { value: 'company_or_research', label: 'A company or a research body, including a university' },
+                { value: 'contracting_authority', label: 'A contracting authority, for example a ministry or a procurement agency' },
+                { value: 'international_organisation', label: 'An international organisation' },
+                { value: 'seap', label: 'A SEAP (structure for European armament programmes)' },
+                { value: 'eda', label: 'The European Defence Agency' },
+              ]}
+              onChange={(v) => set('applicantKind', v)} />
           </div>
         )}
 

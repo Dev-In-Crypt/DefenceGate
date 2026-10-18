@@ -337,4 +337,9 @@ def call_timing(assessment: Assessment, roadmap: Mapping[str, Any], deadline: da
         out["realistic"] = "no"
         out["text"] = (f"The missing steps take at least {totals['min']} days; the call closes in "
                        f"{round(days_left)} days.")
+    # A guarantee, a condition or an answer that is still open is not fixed by a certificate: "the steps fit" is not "yes"
+    # (V2-B2: a Ukrainian company for the EDF has a PIC to obtain and an association agreement that is not confirmed).
+    if out["realistic"] == "yes" and (assessment.conditions or assessment.incomplete):
+        out["realistic"] = "depends"
+        out["text"] += " A condition or an answer is also still open in the rules, so this is not a plain yes."
     return out

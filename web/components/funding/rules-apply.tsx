@@ -11,7 +11,9 @@ export const UKRAINE_BASIS: Record<string, string> = {
   topic_text: 'From the topic’s own conditions',
   call_text: 'From the call’s conditions text',
   programme_rule: 'From the regulation of this regime',
-  edf_association_unconfirmed: 'From the European Defence Fund regulation',
+  edf_association_unconfirmed: 'From the EDF call documents and the regulation',
+  call_document_closed_list: 'From the call document’s list of eligible countries',
+  topic_text_associated: 'From the topic’s own conditions and the general annexes',
 };
 
 /**
@@ -32,6 +34,7 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
             return (
               <li key={r.rule} className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
                 <p className="m-0 text-body font-semibold">{r.title}</p>
+                {r.caveat && <p className="m-0 text-small">{r.caveat}</p>}
                 <details>
                   <summary className="min-h-11 cursor-pointer py-2 text-small font-semibold">The sentence of the regulation</summary>
                   <blockquote className="m-0 whitespace-pre-wrap break-words border-l-4 border-line pl-3 text-small">{r.source.text}</blockquote>
@@ -77,16 +80,4 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
   );
 }
 
-/** What the Ukraine flag says, in a sentence. Null: nothing to show. */
-export function ukraineSentence(flag: boolean | null | undefined, reason: string | undefined): string | null {
-  if (flag === true) return 'Ukrainian entities may take part in this call.';
-  if (flag === false) {
-    return reason === 'programme_rule'
-      ? 'The regulation of this regime does not list Ukraine among the countries whose entities may take part. Ukrainian entities are served by the Ukraine Support Instrument instead.'
-      : 'The source says Ukrainian entities may not take part in this call.';
-  }
-  if (reason === 'edf_association_unconfirmed') {
-    return 'Unknown. Ukraine may take part in the European Defence Fund as an associated country, under the EU-Ukraine association agreement. We have found no official text that says that agreement is in force, so we do not mark this call.';
-  }
-  return null;
-}
+export { ukraineSentence } from '@/lib/ukraine';

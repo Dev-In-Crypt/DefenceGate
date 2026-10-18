@@ -58,10 +58,13 @@ def outcomes(a):
 
 def test_ua_manufacturer_with_nothing_verdicts():
     by, general, _ = run(UA, {})
-    # EDF: Ukraine is an associated country since Regulation (EU) 2025/2653; only the PIC is missing: a free
-    # registration to obtain first (D3), not a block
-    assert by["EDF"].verdict == "obtain" and by["EDF"].blocking == () and by["EDF"].to_obtain == ("EDF-PIC",)
-    assert outcomes(by["EDF"])["EDF-ESTABLISH"] == "met"
+    # EDF: Regulation (EU) 2025/2653 lets Ukraine be an associated country "in accordance with the conditions laid down in the
+    # EU-Ukraine Association Agreement"; the EDF call documents say that participation is pending the signature of the
+    # agreement and no primary text says it applies (V2-B2), so the establishment rules are conditional, and the PIC
+    # (a free registration to obtain first, D3) stays on the list.
+    assert by["EDF"].verdict == "conditional" and by["EDF"].blocking == () and by["EDF"].to_obtain == ("EDF-PIC",)
+    assert outcomes(by["EDF"])["EDF-ESTABLISH"] == outcomes(by["EDF"])["EDF-EXEC-MGMT"] == "conditional"
+    assert by["EDF"].conditions == ("EDF-ESTABLISH", "EDF-EXEC-MGMT")
     # EDIP the Programme: Ukraine is not an associated country there (EEA EFTA members only)
     assert by["EDIP"].verdict == "blocked"
     assert by["EDIP"].blocking == ("EDIP-ESTABLISH", "EDIP-EXEC-MGMT") and by["EDIP"].to_obtain == ("EDIP-PIC",)
@@ -204,7 +207,8 @@ def test_marking_everything_done_leaves_an_empty_roadmap_and_eligible_cards():
     by, _, plan = run(UA, held)
     assert [s["code"] for s in plan["steps"]] == []
     assert plan["totals"] == {"cost": [], "freeSteps": [], "days": {"min": 0, "max": 0}}
-    assert by["EDF"].verdict == "eligible" and by["EDIP-USI"].verdict == "eligible" and by["EDIP"].verdict == "blocked"
+    # the Ukrainian company stays conditional for the EDF whatever it holds: the association agreement is not confirmed (V2-B2)
+    assert by["EDF"].verdict == "conditional" and by["EDIP-USI"].verdict == "eligible" and by["EDIP"].verdict == "blocked"
     assert by["NATO-SUPPLY"].verdict == "eligible" and by["EDF"].to_obtain == ()
 
 
@@ -249,7 +253,7 @@ def timing(profile, statuses, programme, days_left):
 
 
 def test_call_timing_yes_when_the_slowest_path_fits():
-    t = timing(UA, {}, "EDF", 42)
+    t = timing(PL, {}, "EDF", 42)
     assert t["realistic"] == "yes" and t["steps"] == ["REQ-PIC"] and t["fastestPathDays"] == {"min": 0, "max": 0}
     assert t["daysLeft"] == 42.0
     # U8: a PIC is issued at once, so the sentence must not say "up to 0 days".
@@ -257,8 +261,16 @@ def test_call_timing_yes_when_the_slowest_path_fits():
 
 
 def test_call_timing_when_nothing_is_missing_you_can_apply_now():
-    t = timing(UA, {"REQ-PIC": "held"}, "EDF", 3)
+    t = timing(PL, {"REQ-PIC": "held"}, "EDF", 3)
     assert t["realistic"] == "yes" and t["text"].startswith("No blocking rule is open")
+
+
+def test_call_timing_is_not_a_yes_while_a_condition_is_open_even_if_the_steps_fit():
+    # V2-B2: the Ukrainian company's PIC takes no time, but the EU-Ukraine association agreement is not confirmed
+    t = timing(UA, {}, "EDF", 42)
+    assert t["realistic"] == "depends" and t["steps"] == ["REQ-PIC"] and "not a plain yes" in t["text"]
+    t = timing(UA, {"REQ-PIC": "held"}, "EDF", 3)
+    assert t["realistic"] == "depends" and t["verdict"] == "conditional"
 
 
 def test_call_timing_maybe_and_no_for_a_certificate_that_takes_weeks():
@@ -297,7 +309,8 @@ def test_call_timing_without_a_deadline_is_unknown():
 # --------------------------------------------------------------------- the real-world checks of the rules
 
 @pytest.mark.parametrize("country,expected", [
-    ("ES", "eligible"), ("PL", "eligible"), ("NO", "eligible"), ("UA", "eligible"),
+    ("ES", "eligible"), ("PL", "eligible"), ("NO", "eligible"),
+    ("UA", "conditional"),           # Ukraine's association to the EDF is not confirmed (V2-B2)
     ("GB", "blocked"), ("XX", "blocked"), ("CH", "blocked"), ("TR", "blocked"), ("US", "blocked"),
 ])
 def test_edf_establishment_by_country(country, expected):
@@ -332,16 +345,16 @@ def test_control_by_a_third_country_is_conditional_where_the_regulation_has_a_de
     assert verdict("ES", "EDF") == verdict("ES", "EDIP") == verdict("ES", "EDIP-USI") == verdict("ES", "SAFE") == "conditional"
     # the Ukraine Support Instrument and SAFE give the exception to an entity established in the Union only
     assert verdict("UA", "EDIP-USI") == "blocked" and verdict("UA", "SAFE") == "blocked"
-    assert verdict("UA", "EDF") == "conditional"          # EDF Article 9(4): any entity in the Union or an associated country
+    assert verdict("UA", "EDF") == "conditional"          # EDF Article 9(4): any entity in the Union or an associated country (and Ukraine's association is not confirmed)
 
 
-def test_control_from_ukraine_or_an_eea_efta_state_does_not_count_under_edf_and_safe_but_needs_a_check_under_edip_and_usi():
+def test_control_from_ukraine_or_an_eea_efta_state_does_not_count_under_safe_but_needs_a_check_under_edf_edip_and_usi():
     p = co("ES", third_country_control="ua_eea_only", ua_non_government_controlled_area=False, non_eu_component_cost_pct=0)
-    for programme in ("EDF", "SAFE"):
-        assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes[programme]).verdict == "eligible", programme
+    assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["SAFE"]).verdict == "eligible"
+    # EDF: an EEA EFTA state is an associated country, Ukraine only if its association agreement applies (not confirmed, V2-B2).
     # EDIP: Ukraine is a non-associated country; an EEA EFTA state is associated only if it applies the Regulation.
     # The answer cannot tell the two apart, so it is a condition to check, not a pass and not a block.
-    for programme in ("EDIP", "EDIP-USI"):
+    for programme in ("EDF", "EDIP", "EDIP-USI"):
         assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes[programme]).verdict == "conditional", programme
 
 

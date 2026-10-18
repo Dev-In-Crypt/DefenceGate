@@ -3,7 +3,7 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { check, consortiumUnclear, factDisplay, unclearConsortiumText, type EligibilityFacts, type Profile } from './eligibility-check';
+import { check, consortiumCondition, consortiumUnclear, covers, factDisplay, unclearConsortiumText, type EligibilityFacts, type Profile } from './eligibility-check';
 
 const f = (value: unknown, note: string | null = null) => ({ value, note, quote: 'q', confidence: 1 });
 const edf: EligibilityFacts = {
@@ -105,4 +105,30 @@ assert.match(line193.reason, /document is unclear/);
 assert.match(line193.reason, /SEAP/, 'the note is carried');
 // the same with a minimum number of entities only
 assert.equal(consortiumUnclear({ ...edf, consortium_required: q(false, 'q'), min_entities: q(2, 'q'), min_countries: undefined }), true);
+
+// ---- WP-40 (V2-C U2, V2-B10)
+// U2, call 131: a list of SME kinds does not cover a large company ("Nothing in that list says a company like yours may").
+const smeKinds: EligibilityFacts = { ...edf, entity_types: q(['SME company', 'Small mid-cap company (up to 499 employees)'], 'q') };
+const largeCo = { ...base, orgType: 'large' as const };
+assert.equal(check(smeKinds, largeCo).lines.find((l) => l.key === 'entity')!.verdict, 'check');
+assert.match(check(smeKinds, largeCo).lines.find((l) => l.key === 'entity')!.reason, /Nothing in that list says a company like yours may/);
+assert.equal(check(smeKinds, base).lines.find((l) => l.key === 'entity')!.verdict, 'yes', 'an SME is covered');
+assert.equal(check({ ...edf, entity_types: q(['Large companies and SMEs'], 'q') }, largeCo).lines.find((l) => l.key === 'entity')!.verdict, 'yes', 'a list that names large companies covers them');
+assert.equal(check({ ...edf, entity_types: q(['Legal entities (public or private bodies)'], 'q') }, largeCo).lines.find((l) => l.key === 'entity')!.verdict, 'yes');
+assert.equal(covers('large', 'Small mid-cap company'), false);
+assert.equal(covers('sme', 'Small mid-cap company'), true);
+// call 118: "No consortium is required" is not the whole story when a single applicant must be Ukrainian.
+const usiFacts: EligibilityFacts = { ...edf, consortium_required: q(false, 'Single applicants or consortia may apply.'), min_entities: q(1, 'q'), min_countries: undefined,
+  single_applicant_allowed: q(true, 'q', 'A single applicant must be a legal entity established and having its executive management structure in Ukraine.') };
+const usiLine = check(usiFacts, companyOnly).lines.find((l) => l.key === 'consortium')!;
+assert.equal(usiLine.verdict, 'check');
+assert.ok(!/^No consortium is required\.$/.test(usiLine.reason));
+assert.match(usiLine.reason, /No consortium is required, but a single applicant may apply under a condition: A single applicant must be.*Ukraine/);
+assert.equal(consortiumCondition(edf), null);
+// a note that only says where the fact was read (the annexes, the topic's own text) is not a condition
+const annexNote = 'General rule of the work programme annexes; the topic or the type of action may add or change it.';
+assert.equal(consortiumCondition({ ...edf, consortium_required: { ...q(true, 'q', annexNote), scope: 'general' as const } }), null);
+assert.equal(consortiumCondition({ ...edf, consortium_required: q(true, 'q', "Stated in this topic's own conditions.") }), null);
+assert.match(consortiumCondition({ ...edf, consortium_required: q(true, 'q', `${annexNote} Only a SEAP may apply alone.`) })!, /condition to the consortium: Only a SEAP may apply alone\./);
+assert.equal(consortiumCondition({ ...edf, single_applicant_allowed: q(true, 'q', "Stated in this topic's own conditions.") }), null);
 console.log('eligibility-check checks passed');

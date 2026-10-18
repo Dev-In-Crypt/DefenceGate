@@ -928,3 +928,48 @@ placeholder amount; otherwise it is null (a value shared by several winners belo
 per supplier, no share, no rank and no "single source" flag, on purpose (the mosaic effect: the module docstring of
 `dgate/suppliers.py`). 404 for an unknown supplier or a malformed slug, 410 for one removed on request.
 
+
+## Changes of 18 October 2026 (WP-40: rules and facts, round 2)
+
+### `POST /v1/readiness/assess`
+
+- The profile takes `applicant_kind`: `company_or_research` | `contracting_authority` | `international_organisation` |
+  `seap` | `eda` | `null` (unknown, never "a company"). Only rules scoped to a kind of action read it (below).
+- With `call`, the answer has `call.action`: the kind of action of an EDIP call, read from the topic code
+  (`dgate/regime.py: action_of`): `common_procurement` (`-CPA-`), `seap_support` (`-SA-SEAP`), `edpci_preparation`
+  (`-CSA-PREP`), `industrial_reinforcement` (`-IRA-`), else `null`. The rules `EDIP-CPA-APPLICANT` (Regulation (EU)
+  2025/2643, Article 11(2): only contracting authorities of Member States or associated countries, international
+  organisations, SEAPs and the EDA), `EDIP-SEAP-APPLICANT` and `EDIP-PREP-APPLICANT` (the call documents) apply to their
+  kind of action only: a company is `blocked` there (`realistic: not_possible`, the rule in `notFixable`), unchanged for
+  industrial reinforcement. Without `call` the rules are `not_applicable` ("checked when you open a call of that kind").
+  `action` is context, not an answer: a body that sets it is a 422; `GET /v1/readiness/programmes` marks it
+  `"context": true` in `fields`.
+- The EDF treats Ukraine as conditional, not associated: `EDF-ESTABLISH` and `EDF-EXEC-MGMT` are `conditional` for
+  `UA` (the EDF call documents say participation of entities established in Ukraine is pending the signature of the
+  association agreement; no primary text says it applies), `EDF-CONTROL` is `conditional` for `ua_eea_only`. SAFE: a
+  Canadian company is `conditional` (agreement with Canada applied provisionally since 13 April 2026, Decision (EU)
+  2026/1381). A natural person is `conditional` for the EDF, EDIP and the Ukraine Support Instrument (the call documents
+  allow sole traders without separate legal personality), no longer `blocked`.
+- A rule may have `source.origin: "call_document"` (migration 0084): quoted from the Commission's call document.
+- `call.timings[].realistic` is `depends`, not `yes`, when the missing steps fit the deadline but a condition or an
+  answer is still open.
+
+### `/v1/funding/{slug}`
+
+- `rulesApply` has `action` and, per rule, `caveat` (a sentence that qualifies the rule for some applicants: Ukraine and
+  the EDF; Article 9(9) of Regulation 2025/2643). A rule scoped to a kind of action is listed on the calls of that kind only.
+- `ukraineBasis.reason` also takes `call_document_closed_list` (the call document lists the eligible countries one by
+  one, without Ukraine: `openToUkraine: false`) and `topic_text_associated` (a Horizon topic limited to "Member States
+  and Associated Countries", and the general annexes list Ukraine among the associated countries: `true`). An EDIP call
+  is `false` with `programme_rule` (recipients must be established in the Union or an associated country), or `null`
+  with `programme_rule` when the call document names Ukraine in another role (a SEAP member). EDF calls stay `null`
+  with `edf_association_unconfirmed`, and the evidence is the sentence of the call documents.
+- Eligibility facts: a general-annex sentence about Coordination and support, Training and mobility or Programme co-fund
+  actions is not served for another type of action; for research and innovation actions the minimum of three entities
+  from three countries is the floor (a topic that asks for two authorities adds to it); the Accelerator's 70 % is
+  served for the Accelerator only. `cascade` follows the sentence, not the model's note (28 became 38 calls).
+
+### `GET /v1/regulation`
+
+17 entries (one new: `edip-common-procurement-applicants`). `safe-uk-unconfirmed` now rests on the UK government's
+written statement HCWS1114 of 1 December 2025; `edf-ukraine-in-force-unconfirmed` on the EDF call documents.

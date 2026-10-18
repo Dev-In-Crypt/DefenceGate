@@ -1448,7 +1448,8 @@
    "title": "Apply AI: GenAI for the public administrations",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-ai-09_en.pdf"
-   ]
+   ],
+   "type": "DIGITAL-CSA"
   },
   {
    "id": 19,
@@ -1456,7 +1457,8 @@
    "title": "Support the roll-out of EU Mobile Driving Licences",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2025/call-fiche_digital-2025-bestuse-tech-09_en.pdf"
-   ]
+   ],
+   "type": "DIGITAL-SIMPLE"
   },
   {
    "id": 28,
@@ -1464,7 +1466,8 @@
    "title": "National Cyber Hubs",
    "documents": [
     "https://cybersecurity-centre.europa.eu/document/d3dec6b2-4b27-4a52-adca-57c4efe1b789_en"
-   ]
+   ],
+   "type": "DIGITAL-JU-SIMPLE"
   },
   {
    "id": 33,
@@ -1473,7 +1476,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
     "call-text:4f24b080b7a01dc3070eaa8f"
-   ]
+   ],
+   "type": "HORIZON-RIA"
   },
   {
    "id": 36,
@@ -1482,7 +1486,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
     "call-text:c2da816ce8c2600c941e62e3"
-   ]
+   ],
+   "type": "HORIZON-IA"
   },
   {
    "id": 43,
@@ -1491,7 +1496,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
     "call-text:9e7f2a68d190dba2a17b28e1"
-   ]
+   ],
+   "type": "HORIZON-CSA"
   },
   {
    "id": 59,
@@ -1500,7 +1506,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
     "call-text:b74b94c3255a09d116916ad9"
-   ]
+   ],
+   "type": "HORIZON-RIA"
   },
   {
    "id": 60,
@@ -1509,7 +1516,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf",
     "call-text:912f78d13866714c8a007ccb"
-   ]
+   ],
+   "type": "HORIZON-IA"
   },
   {
    "id": 63,
@@ -1518,7 +1526,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf",
     "call-text:afe8609b192b50261fe027b7"
-   ]
+   ],
+   "type": "HORIZON-PCP"
   },
   {
    "id": 69,
@@ -1527,7 +1536,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2025/wp-14-general-annexes_horizon-2025_en.pdf",
     "call-text:90f45941a1ef7e2dc786d1aa"
-   ]
+   ],
+   "type": "HORIZON-RIA"
   },
   {
    "id": 78,
@@ -1535,7 +1545,8 @@
    "title": "MCP on Innovative and Connected Public Administrations",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-bestuse-mcp-09_en.pdf"
-   ]
+   ],
+   "type": "DIGITAL-SIMPLE"
   },
   {
    "id": 81,
@@ -1543,7 +1554,8 @@
    "title": "AI-based tactical situational awareness using swarms of small robots and drones – organisation of a  technological challenge\"",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ls-ra-challenge_en.pdf"
-   ]
+   ],
+   "type": "EDF-LS"
   },
   {
    "id": 85,
@@ -1551,7 +1563,8 @@
    "title": "Future multirole light aircraft",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ra_en.pdf"
-   ]
+   ],
+   "type": "EDF-RA"
   },
   {
    "id": 88,
@@ -1559,7 +1572,8 @@
    "title": "Quantum secured tactical networks",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ra_en.pdf"
-   ]
+   ],
+   "type": "EDF-RA"
   },
   {
    "id": 91,
@@ -1567,7 +1581,8 @@
    "title": "Layered critical seabed infrastructure protection",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-ls-ra-si_en.pdf"
-   ]
+   ],
+   "type": "EDF-LS"
   },
   {
    "id": 96,
@@ -1575,7 +1590,8 @@
    "title": "Ammunition Waste Collection and Disposal Unmanned Platform",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-da_en.pdf"
-   ]
+   ],
+   "type": "EDF-DA"
   },
   {
    "id": 101,
@@ -1583,7 +1599,8 @@
    "title": "Enhanced cognitive EW system with intelligent RESM CESM signal analysis",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-2026-da_en.pdf"
-   ]
+   ],
+   "type": "EDF-DA"
   },
   {
    "id": 109,
@@ -1591,7 +1608,8 @@
    "title": "Counter-drone systems",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-fnlc-cpa_en.pdf"
-   ]
+   ],
+   "type": "EDF-LS"
   },
   {
    "id": 110,
@@ -1599,7 +1617,8 @@
    "title": "Air and missile defence systems",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2027/call-fiche_edf-edip-p-2027-fnlc-cpa_en.pdf"
-   ]
+   ],
+   "type": "EDF-LS"
   },
   {
    "id": 115,
@@ -1607,7 +1626,8 @@
    "title": "Energetic components",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-p-2026-ls-ira_en.pdf"
-   ]
+   ],
+   "type": "EDF-LS"
   },
   {
    "id": 118,
@@ -1615,7 +1635,8 @@
    "title": "Missiles, ammunition and bombs",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/edf/wp-call/2026/call-fiche_edf-edip-usi-2026-ls-ira_en.pdf"
-   ]
+   ],
+   "type": "EDF-LS"
   },
   {
    "id": 119,
@@ -1623,7 +1644,8 @@
    "title": "Digital solutions for regulatory compliance  through data",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-ai-data-10_en.pdf"
-   ]
+   ],
+   "type": "DIGITAL-LS"
   },
   {
    "id": 123,
@@ -1631,7 +1653,8 @@
    "title": "Building capacity to deploy the EEHRxF and digital  health services and systems to support the rights of  citizens and reuse of health data under EHDS",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-bestuse-10_en.pdf"
-   ]
+   ],
+   "type": "DIGITAL-GFS"
   },
   {
    "id": 126,
@@ -1639,7 +1662,8 @@
    "title": "Digital Skills and Jobs Platform: The National Coalitions for Digital Skills and Jobs",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/digital/wp-call/2026/call-fiche_digital-2026-skills-10_en.pdf"
-   ]
+   ],
+   "type": "DIGITAL-CSA"
   },
   {
    "id": 131,
@@ -1648,7 +1672,8 @@
    "documents": [
     "https://eic.ec.europa.eu/document/download/52598755-1351-4b54-b46b-e2682d0a3aec_en?filename=EIC-Work-Programme-2026.pdf",
     "call-text:290127e91027840d3cd9fa98"
-   ]
+   ],
+   "type": "HORIZON-EIC-EQU"
   },
   {
    "id": 138,
@@ -1656,7 +1681,8 @@
    "title": "Superconducting Platform Technologies",
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf"
-   ]
+   ],
+   "type": "HORIZON-JU-RIA"
   },
   {
    "id": 140,
@@ -1665,7 +1691,8 @@
    "documents": [
     "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/horizon/wp-call/2026-2027/wp-15-general-annexes_horizon-2026-2027_en.pdf",
     "call-text:b501b1424892181aa6e193e4"
-   ]
+   ],
+   "type": "HORIZON-JU-RIA"
   },
   {
    "id": 144,
@@ -1673,7 +1700,8 @@
    "title": "Regional Cable Hubs",
    "documents": [
     "https://cybersecurity-centre.europa.eu/document/8e1d6074-95ed-4b23-8bd3-2ca42b096411_en"
-   ]
+   ],
+   "type": "DIGITAL-JU-SIMPLE"
   },
   {
    "id": 145,
@@ -1681,7 +1709,8 @@
    "title": "Coordinated preparedness testing and other preparedness actions",
    "documents": [
     "https://cybersecurity-centre.europa.eu/document/8e1d6074-95ed-4b23-8bd3-2ca42b096411_en"
-   ]
+   ],
+   "type": "DIGITAL-JU-SIMPLE"
   },
   {
    "id": 191,
@@ -1689,7 +1718,8 @@
    "title": "National Cyber Hubs",
    "documents": [
     "https://cybersecurity-centre.europa.eu/document/a435bd6f-9841-4153-ac3a-9395fe29499e_en"
-   ]
+   ],
+   "type": "DIGITAL-JU-SIMPLE"
   }
  ]
 }

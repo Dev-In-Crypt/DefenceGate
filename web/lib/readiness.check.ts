@@ -82,4 +82,8 @@ for (const k of ['EDF', 'EDIP', 'EDIP-USI', 'SAFE', 'NATO-SUPPLY', 'GENERAL']) a
 assert.equal(joinWords(['a']), 'a');
 assert.equal(joinWords(['a', 'b']), 'a and b');
 assert.equal(joinWords(['a', 'b', 'c']), 'a, b and c');
+// V2-B1: a rule quoted from a call document says so; it is neither "the Official Journal" nor "the research notes".
+assert.ok(originWords({ ...notes, origin: 'call_document' }).includes('call document'));
+assert.ok(!originWords({ ...notes, origin: 'call_document' }).includes('research notes'));
+assert.ok(statusWords('V', 'call_document').includes('call document') && !statusWords('V', 'call_document').includes('Official Journal text of the regulation'));
 console.log('readiness.check ok');

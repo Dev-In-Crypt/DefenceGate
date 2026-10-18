@@ -39,7 +39,11 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z\[(“\"])")
 _NEGATIVE = eligibility.NEGATIVE_WORDING
 _POSITIVE = re.compile(r"\b(?:may|must|shall|can|will|is\s+allowed|are\s+allowed|allowed|permitted|provide|"
                        r"included?|foreseen|required|envisaged)\b", re.I)
-_TOPIC_CODE = re.compile(r"\b[A-Z]{3,}(?:-[A-Z0-9]+){2,}\b")
+# "For this topic, ... is allowed": the document's own statement for the call's topic, whatever the model's note adds.
+_THIS_TOPIC = re.compile(r"\b(?:for|in|under)\s+this\s+topic\b", re.I)
+# "only" that limits how much or on what terms, not which calls: "allowed, but only within the set ceiling".
+_ONLY_ON_TERMS = re.compile(r"\bonly\s+(?:within|up\s+to|under|subject|if|where|when|as|in\s+accordance|after|with)\b", re.I)
+_ONLY = re.compile(r"\bonly\b", re.I)
 
 
 def text_statement(text: str | None) -> tuple[bool | None, str | None]:
@@ -63,19 +67,24 @@ def text_statement(text: str | None) -> tuple[bool | None, str | None]:
 
 def _document_answer(topic_code: str | None, fact: dict[str, Any]) -> tuple[bool | None, str] | None:
     """What a fact read from a call document says about this call: (answer, reason), or None when
-    it is not an answer for this call (a qualification), so that the next source is tried."""
+    it is not an answer for this call (a qualification), so that the next source is tried.
+
+    The sentence decides. The model's note is free text: "only within the set ceiling" must give the
+    same flag as the same sentence with another note (V2-B3: 10 calls fell from yes to undecided on that
+    word), so a note limits the answer only when it limits it to some calls and the sentence itself does
+    not say "for this topic"."""
     quote = fact.get("quote") or ""
-    named = _TOPIC_CODE.findall(quote)
+    note = fact.get("note") or ""
     negative = bool(_NEGATIVE.search(quote))
-    if named:
-        mine = bool(topic_code) and any(topic_code == t or topic_code.startswith(t) for t in named)
+    if eligibility.topic_codes(quote):
+        mine = not eligibility.names_other_topic(quote, topic_code)
         if negative:
             return (False, "call_document") if mine else None
         return (True, "call_document") if mine else (None, "call_document_other_topic")
     value = fact.get("value")
-    if value is True and re.search(r"\bonly\b", fact.get("note") or "", re.I):
+    if value is True and not _THIS_TOPIC.search(quote) and _ONLY.search(_ONLY_ON_TERMS.sub("", note)):
         return None
-    if value is False and fact.get("note"):
+    if value is False and note:
         return None
     return (bool(value), "call_document")
 

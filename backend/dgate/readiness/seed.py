@@ -32,7 +32,7 @@ RULE_KINDS = {"threshold", "categorical", "establishment", "control", "declarati
 CATEGORIES = {"identification", "registration", "quality", "export_control", "security", "integrity",
               "admission", "origin"}
 STATUSES = {"V", "S", "U"}
-ORIGINS = {"primary", "notes"}
+ORIGINS = {"primary", "notes", "call_document"}
 RELATIONS = {"before", "before_or_with"}
 COUNTRY = re.compile(r"^(\*|[A-Z]{2})$")
 

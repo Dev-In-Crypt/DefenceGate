@@ -39,6 +39,7 @@ async function answerUkraine(page: Page) {
   await page.getByLabel('Company name (optional)').fill('Secret Works Ltd');
   await page.getByLabel('Country where your company is established').selectOption('UA');
   await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
+  await group(page, /What kind of organisation are you/).getByLabel(/^A company or a research body/).check();
   await next(page);
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
   await group(page, /area of Ukraine that the Ukrainian government does not control/).getByLabel('No', { exact: true }).check();
@@ -58,6 +59,7 @@ async function answerSpain(page: Page) {
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await page.getByLabel('Country where your company is established').selectOption('ES');
   await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
+  await group(page, /What kind of organisation are you/).getByLabel(/^A company or a research body/).check();
   await next(page);
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
   await next(page);
@@ -128,8 +130,9 @@ test('a Ukrainian company: the wizard sends the answers the rules read and the p
   await page.getByRole('button', { name: 'See my results' }).click();
   await expect(page).toHaveURL(/\/readiness\/results$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your readiness results');
-  // only the free PIC (EDF, Ukraine Support Instrument) or the NCAGE code (NATO) is missing: "Obtain first", not "Blocked"
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
+  // only the free PIC (Ukraine Support Instrument) or the NCAGE code (NATO) is missing: "Obtain first", not "Blocked".
+  // The EDF is "Conditional": Ukraine's association agreement to the EDF is pending signature and not confirmed (V2-B2).
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Conditional');
   // EDIP the Programme: Ukraine is not an associated country there, so the company is blocked whatever it obtains
   await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Blocked');
   await expect(card(page, 'EDIP: Ukraine Support Instrument')).toContainText('Obtain first');
@@ -146,8 +149,9 @@ test('a Ukrainian company: the wizard sends the answers the rules read and the p
   await edf.getByText(/Show the \d+ rules behind this/).click();
   const rule = edf.locator('li[data-rule="EDF-ESTABLISH"]');
   await expect(rule).toContainText('Established in the Union or an associated country');
-  await expect(rule).toContainText('Met');
-  await expect(rule).toContainText('Last reviewed 2026-10-17');
+  await expect(rule).toContainText('Conditional');
+  await expect(rule).toContainText('pending the signature of the association agreement to EDF');
+  await expect(rule).toContainText('Last reviewed 2026-10-18');
   await expect(rule.getByRole('link', { name: 'Open the source' })).toHaveAttribute('href', 'http://data.europa.eu/eli/reg/2021/697/oj');
   await rule.getByText('Show the text of the source').click();
   await expect(rule).toContainText('Recipients and subcontractors involved in an action shall be established in the Union or in an associated country.');
@@ -196,7 +200,7 @@ test('a Ukrainian company: the roadmap in order, with issuers and ranges, and ma
   expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('dg.profile.v1') ?? '{}').statuses['REQ-PIC'])).toBe('held');
 
   await page.getByRole('link', { name: 'My results' }).click();
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Eligible');
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Conditional');
   await expect(card(page, 'EDIP: Ukraine Support Instrument')).toContainText('Eligible');
   await expect(card(page, 'European Defence Industry Programme (EDIP): the Programme')).toContainText('Blocked');
 });
@@ -235,7 +239,7 @@ test('the answers stay in this browser: a reload keeps them, nothing is sent but
   const stored = await page.evaluate(() => window.localStorage.getItem('dg.profile.v1'));
   expect(stored).toContain('"country":"UA"');
   await page.reload();
-  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Obtain first');
+  await expect(card(page, 'European Defence Fund (EDF)')).toContainText('Conditional');
   await page.goto('/readiness');
   // U7: a finished profile with nothing unanswered is changed from the first step; any step is one click away.
   await expect(page.getByText('Step 1 of 5: Your company')).toBeVisible();

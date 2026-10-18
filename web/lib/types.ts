@@ -140,8 +140,12 @@ export interface RulesApply {
   /** False: the regime is named but no rules of it are encoded. */
   encoded: boolean;
   programme?: { code: string; name: string; legalBasis: string | null };
+  /** The kind of action of an EDIP call, which decides which rules are listed (who may apply to common procurement), else null. */
+  action?: string | null;
   rules: {
     rule: string; title: string; kind: string; requirement: string | null;
+    /** A sentence that qualifies the rule for some applicants (Ukraine and the EDF; the exemption of Article 9(9)), or null. */
+    caveat?: string | null;
     source: { url: string; ref: string | null; text: string | null; origin: string; verificationStatus: string; lastReviewed: string };
   }[];
   alsoRead: { label: string; ref: string; text: string; url: string } | null;

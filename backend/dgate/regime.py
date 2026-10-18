@@ -57,6 +57,27 @@ def regime_of(programme_code: str, topic_code: str | None) -> Regime | None:
     return BY_PROGRAMME.get(programme_code)
 
 
+def action_of(programme_code: str, topic_code: str | None) -> str | None:
+    """The kind of action of an EDIP call, from its topic code, or None when the code says none. The Regulation (and
+    the call documents) open different kinds of action to different applicants, so the readiness rules that depend on
+    it are scoped to it (`seed` rules with `applies_when` on the field `action`). Read from all twelve EDIP topic
+    codes of 18 October 2026: `-FNLC-CPA-` common procurement (Article 11), `-FNLC-SA-SEAP` support for SEAPs
+    (Article 13(1)(g)), `-FNLC-CSA-PREP` preparation of projects of common interest (Article 35), `-LS-IRA-`
+    industrial reinforcement (Article 12)."""
+    tokens = (topic_code or "").upper().split("-")
+    if programme_code not in ("EDF", "EDIP") or "EDIP" not in tokens:
+        return None
+    if "CPA" in tokens:
+        return "common_procurement"
+    if "SA" in tokens and "SEAP" in tokens:
+        return "seap_support"
+    if "CSA" in tokens and "PREP" in tokens:
+        return "edpci_preparation"
+    if "IRA" in tokens:
+        return "industrial_reinforcement"
+    return None
+
+
 # What the Regulation says beyond the rules the readiness seed encodes, verbatim from the Official
 # Journal text (CELLAR, read on 18 October 2026). Shown only while the seed has no rule of kind
 # `threshold` for the regime, so that the seed stays the single place a rule is kept once it is added.

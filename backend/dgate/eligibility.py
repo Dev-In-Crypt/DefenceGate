@@ -311,6 +311,66 @@ def is_supplier_exclusion(quote: str | None) -> bool:
 # countries"): that is a possibility the topic decides, never a Yes or a No of the call (V-B F1, F2).
 CONDITIONAL_ON_TOPIC = ("cascade_funding", "ownership_control_restriction")
 
+# WP-40 (V2-B5, B6): the type of action of a call decides which sentence of the general annexes is about it.
+# "Applications for 'Coordination and support' actions may be submitted by one or more legal entities" is a
+# rule for CSA calls, not for a research or innovation action that happens to share the annexes.
+_KINDS = (
+    ("CSA", re.compile(r"-CSA$")), ("TMA", re.compile(r"-TMA(?:-|$)")), ("COFUND", re.compile(r"COFUND")),
+    ("PCP", re.compile(r"-PCP$")), ("PPI", re.compile(r"-PPI$")), ("ACC", re.compile(r"-EIC-ACC$")),
+    ("RIA", re.compile(r"-(?:JU-)?RIA$")), ("IA", re.compile(r"-(?:JU-)?IA$")),
+)
+_SENTENCE_KINDS = (
+    ("CSA", re.compile(r"coordination\s+and\s+support\W{0,3}\s+actions?", re.I)),
+    ("TMA", re.compile(r"training\s+and\s+mobility\W{0,3}\s+actions?", re.I)),
+    ("COFUND", re.compile(r"programme\s+co\W?\s*fund\W{0,3}\s+actions?", re.I)),
+)
+CONSORTIUM_FACTS = ("single_applicant_allowed", "consortium_required", "min_entities", "min_countries")
+# The general consortium sentence of the Horizon Europe general annexes (work programmes 2023-2024, 2025,
+# 2026-2027), word for word; checked against the stored annexes on 18 October 2026.
+GENERAL_CONSORTIUM = (
+    "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium "
+    "are eligible to participate in actions provided that the consortium includes, as beneficiaries, three legal "
+    "entities independent from each other and each established in a different country as follows:")
+_ONLY_CONSORTIUM = re.compile(r"only\s+legal\s+entities\s+forming\s+a\s+consortium", re.I)
+EXEMPT_FROM_CONSORTIUM = ("CSA", "TMA", "COFUND")      # the same annexes let one entity apply for these
+
+
+def action_kind(type_of_action: str | None) -> str | None:
+    """CSA, TMA, COFUND, PCP, PPI, ACC, RIA or IA from the portal's type of action ("HORIZON-CSA HORIZON
+    Coordination and Support Actions"), or None for any other (an EIC grant, a Digital Europe action)."""
+    code = (type_of_action or "").split(" ")[0].upper()
+    return next((kind for kind, pattern in _KINDS if pattern.search(code)), None)
+
+
+def names_other_action(quote: str | None, action: str | None) -> bool:
+    """The sentence is about an action type (Coordination and support, Training and mobility, Programme
+    co-fund) and none of those is this call's."""
+    named = {kind for kind, pattern in _SENTENCE_KINDS if pattern.search(quote or "")}
+    return bool(action and named and action not in named) or bool(named and not action)
+
+
+def consortium_floor(facts: dict[str, Any], action: str | None, general_read: bool) -> dict[str, Any]:
+    """A research or innovation action needs three independent entities from three countries (the general
+    consortium sentence above) whatever the topic adds: a topic that asks for "at least 2 Police Authorities from
+    2 countries" asks for more than the minimum, it does not lower it (V2-B6: calls 39, 42, 45, 55, 60, 61, 62,
+    64, 69). Applies only where the general annexes were read for the call (`general_read`) and the topic does
+    not itself say that no consortium is needed or that a single applicant may apply. A topic's own number of 3 or more stands; a smaller one, or
+    none, is replaced by the general rule, with the topic's sentence in the note."""
+    required, single = facts.get("consortium_required"), facts.get("single_applicant_allowed")
+    topic_says_otherwise = (required is not None and required["value"] is False) or (single is not None and single["value"] is True)
+    if action not in ("RIA", "IA") or not general_read or topic_says_otherwise:
+        return facts
+    out = dict(facts)
+    for name, value in (("consortium_required", True), ("min_entities", 3), ("min_countries", 3)):
+        have = out.get(name)
+        if have is not None and (name == "consortium_required" or (isinstance(have["value"], int) and have["value"] >= 3)):
+            continue
+        extra = f" The topic's own conditions add: {have['quote']}" if have and have["scope"] != "general" else ""
+        out[name] = {"value": value, "quote": GENERAL_CONSORTIUM, "confidence": 1.0, "scope": "general",
+                     "note": f"{SCOPE_NOTES['general']} For research and innovation actions the general rule is three "
+                             f"independent legal entities from three countries.{extra}"}
+    return out
+
 
 def check_quotes(answer: dict[str, Any], text: str, topic_code: str | None = None) -> dict[str, Any]:
     """Add `verified` to every fact: whether its quote is in the document text. A stated fact
@@ -600,7 +660,8 @@ _CONDITION = re.compile(r"\b(?:only|unless|except|provided|if\s+(?:the|they|it)\
 CONFLICT = "The document also states that a single applicant may apply ({}): check the call document."
 
 
-def _served_fact(fact: dict[str, Any], scope: str, name: str = "", topic_code: str | None = None) -> dict[str, Any] | None:
+def _served_fact(fact: dict[str, Any], scope: str, name: str = "", topic_code: str | None = None,
+                 action: str | None = None) -> dict[str, Any] | None:
     """The fact as the site serves it, or None when it is not a statement about this call. Besides a
     verified quote (the model's answer is never shown on its own), the checks of WP-35 run here as
     well as at extraction, so that rows read before them are covered: see the module doc."""
@@ -615,6 +676,13 @@ def _served_fact(fact: dict[str, Any], scope: str, name: str = "", topic_code: s
         return None
     if scope == "call_document" and names_other_topic(quote, topic_code):
         return None
+    if scope == "general" and name in CONSORTIUM_FACTS:
+        # V2-B5: a sentence about Coordination and support actions is no fact of a research action, and the
+        # general consortium sentence is no fact of an action type the same annexes exempt from it.
+        if names_other_action(quote, action) or (action in EXEMPT_FROM_CONSORTIUM and _ONLY_CONSORTIUM.search(quote)):
+            return None
+    if scope == "general" and name == "funding_rate" and action != "ACC" and "accelerator" in f"{value} {fact.get('note') or ''}".lower():
+        return None          # V2-B6: the Accelerator's 70 % is not the rate of a Pathfinder Challenge
     if scope == "call_document" and name == "cascade_funding" and topic_code:
         named = set(topic_codes(quote))
         # "FSTP is allowed in <this topic>": a No beside that sentence is the model's slip.
@@ -656,23 +724,26 @@ def reconcile(facts: dict[str, Any]) -> dict[str, Any]:
 
 def read_many(conn, calls: list[tuple[Any, ...]]) -> dict[Any, dict[str, Any]]:
     """What is known of the eligibility of each call, for (id, conditions_raw, eligibility_text
-    [, topic_code]) tuples, in one query. Per call: `state` is `read` (verified facts), `not_read`
+    [, topic_code [, type_of_action]]) tuples, in one query. Per call: `state` is `read` (verified facts), `not_read`
     (its sources are known and none has been read) or `no_source` (the portal lists nothing we can
     read); `sources` are the places the rules are written, `facts` the verified ones. A call-document
     fact stands alone; otherwise a topic's own fact wins over the general annexes' one, and each
     fact says which it is (`scope`). `other_topic` has the quotes of facts left out because they are
     about another topic of the document."""
-    mapped = {cid: (sources_of(cond, text, rest[0] if rest else None), rest[0] if rest else None)
+    mapped = {cid: (sources_of(cond, text, rest[0] if rest else None), rest[0] if rest else None,
+                    action_kind(rest[1]) if len(rest) > 1 else None)
               for cid, cond, text, *rest in calls}
-    keys = sorted({k for srcs, _ in mapped.values() for s in srcs for k in (s.key, s.document) if k})
+    keys = sorted({k for srcs, _, _ in mapped.values() for s in srcs for k in (s.key, s.document) if k})
     held = {r["url"]: r for r in conn.execute(
         "SELECT url, fields, extracted_at FROM call_eligibility WHERE url = ANY(%s)", (keys,)).fetchall()} if keys else {}
-    return {cid: assemble(srcs, held, topic) for cid, (srcs, topic) in mapped.items()}
+    return {cid: assemble(srcs, held, topic, action) for cid, (srcs, topic, action) in mapped.items()}
 
 
-def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: str | None) -> dict[str, Any]:
+def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: str | None,
+             action: str | None = None) -> dict[str, Any]:
     """One call's eligibility from its sources and the rows held (by key). A call-document source falls
-    back to the document-level row read before rows were kept per topic, until its topic is read."""
+    back to the document-level row read before rows were kept per topic, until its topic is read.
+    `action` is the kind of action (`action_kind`): it decides which sentence of the general annexes is about the call."""
     if not srcs:
         return {"state": "no_source", "basis": None, "sources": [], "facts": {}, "other_topic": {}}
     rows = {s.key: held.get(s.key) or (held.get(s.document) if s.document else None) for s in srcs}
@@ -683,13 +754,13 @@ def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: st
     other_topic: dict[str, str] = {}
     for s, row in sorted(read, key=lambda p: SCOPES.index(p[0].scope)):   # general first, so that the topic's own wins
         for name, fact in row["fields"].items():
-            served = _served_fact(fact, s.scope, name, topic_code)
+            served = _served_fact(fact, s.scope, name, topic_code, action)
             if served:
                 facts[name] = served
             elif (s.scope == "call_document" and fact.get("value") is not None and fact.get("quote")
                   and names_other_topic(fact["quote"], topic_code)):
                 other_topic[name] = fact["quote"]
-    facts = reconcile(facts)
+    facts = reconcile(consortium_floor(facts, action, any(s.scope == "general" for s, _ in read)))
     sources = [{"scope": s.scope, "label": s.label, "url": s.url,
                 "extractedAt": rows[s.key]["extracted_at"] if rows[s.key] else None} for s in srcs]
     return {"state": "read" if facts else "not_read",

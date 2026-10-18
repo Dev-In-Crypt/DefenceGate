@@ -788,7 +788,8 @@ def eligibility_of(conn, row: dict[str, Any]) -> dict[str, Any]:
     from . import eligibility
 
     got = eligibility.read_many(
-        conn, [(row["id"], row.get("conditions_raw") or {}, row.get("eligibility_text"), row.get("topic_code"))])[row["id"]]
+        conn, [(row["id"], row.get("conditions_raw") or {}, row.get("eligibility_text"), row.get("topic_code"),
+                row.get("type_of_action"))])[row["id"]]
     read_at = [s["extractedAt"] for s in got["sources"] if s["extractedAt"]]
     doc = None
     if got["facts"]:

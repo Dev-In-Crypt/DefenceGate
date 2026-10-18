@@ -124,6 +124,8 @@ export default async function CallDetailPage({ params }: Props) {
           <header className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <Tag kind="programme">{programme.label}</Tag>
+              {/* The portal files the EDIP calls under the EDF; the rules that apply, and the Ukraine flag, are those of the instrument (V2-C U3). */}
+              {call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') && <Tag>{call.rulesApply.regime.name}</Tag>}
               <Tag>{REGIMES[call.regime]}</Tag>
               {call.cascade === true && <Tag>Cascade funding</Tag>}
               {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
@@ -180,7 +182,12 @@ export default async function CallDetailPage({ params }: Props) {
             </FactCell>
             {call.issuer && <FactCell label="Issued by"><span className="font-sans">{call.issuer}</span></FactCell>}
             <FactCell label="Funder"><span className="font-sans">{call.funder}</span></FactCell>
-            <FactCell label="Programme"><span className="font-sans">{call.programmeName}</span></FactCell>
+            <FactCell label="Programme">
+              <span className="font-sans">
+                {call.programmeName}
+                {call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') && ` (filed here by the portal; the call is under ${call.rulesApply.regime.name})`}
+              </span>
+            </FactCell>
             <FactCell label="Funder country"><CountryLabel code={call.funderCountry} className="font-sans" /></FactCell>
             {call.fundingRate && <FactCell label="Funding rate"><span className="font-sans">{call.fundingRate}</span></FactCell>}
             {call.publishedAt && (

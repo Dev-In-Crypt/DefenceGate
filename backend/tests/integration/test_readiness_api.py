@@ -176,7 +176,7 @@ def test_before_the_rules_are_loaded_the_answer_is_503_never_an_empty_assessment
 def test_the_catalogue_lists_every_requirement_with_its_source(client):
     body = client.get("/v1/requirements").json()
     assert body["total"] == 12 == len(body["items"])
-    assert body["meta"]["rulesReviewed"] == "2026-10-17"
+    assert body["meta"]["rulesReviewed"] == "2026-10-18"
     for item in body["items"]:
         assert item["sourceUrl"].startswith("http") and item["lastReviewed"] and item["verificationStatus"] in {"V", "S", "U"}
     aqap = next(i for i in body["items"] if i["code"] == "REQ-AQAP2110")
@@ -247,16 +247,19 @@ def test_the_rules_are_public_with_their_expressions_and_sources(client):
 
 def test_a_ukrainian_profile_gets_the_verdicts_the_rules_give(client):
     body = client.post("/v1/readiness/assess", json={"profile": UA, "statuses": {}}).json()
-    assert verdicts(body) == {"EDF": "obtain", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
+    # EDF "conditional": the EU-Ukraine association agreement is not confirmed (V2-B2)
+    assert verdicts(body) == {"EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     edf = body["assessments"][0]
     assert edf["blocking"] == [] and edf["toObtain"] == ["EDF-PIC"] and not edf["incomplete"]
+    assert edf["conditions"] == ["EDF-ESTABLISH", "EDF-EXEC-MGMT"]
     rules = {r["rule"]: r for r in edf["rules"]}
-    assert rules["EDF-ESTABLISH"]["outcome"] == "met" and "Ukraine" in rules["EDF-ESTABLISH"]["reason"]
+    # conditional on the association agreement (V2-B2): the reason says what the call documents say
+    assert rules["EDF-ESTABLISH"]["outcome"] == "conditional" and "pending the signature of the association agreement" in rules["EDF-ESTABLISH"]["reason"]
     assert rules["EDF-PIC"]["outcome"] == "to_obtain" and rules["EDF-PIC"]["requirement"] == "REQ-PIC"
     assert "free" in rules["EDF-PIC"]["reason"] and body["assessments"][0]["counts"]["to_obtain"] == 1
     assert rules["EDF-AQAP"]["outcome"] == "info"
     assert [s["code"] for s in body["roadmap"]["steps"]][:3] == ["REQ-PIC", "REQ-NCAGE", "REQ-EXPORT"]
-    assert "not legal advice" in body["notice"] and body["rulesReviewed"] == "2026-10-17" and body["call"] is None
+    assert "not legal advice" in body["notice"] and body["rulesReviewed"] == "2026-10-18" and body["call"] is None
 
 
 def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_path(client):
@@ -278,7 +281,7 @@ def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_
 def test_every_line_of_an_assessment_has_its_source_and_a_date(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {}}).json()
     lines = [r for a in (*body["assessments"], *body["general"]) for r in a["rules"]]
-    assert len(lines) == 41
+    assert len(lines) == 44          # 41 and the three rules of who may apply to an EDIP call of one kind of action (V2-B1)
     for r in lines:
         s = r["source"]
         assert s["url"].startswith("http") and s["text"].startswith("[") and s["ref"] and s["lastReviewed"], r["rule"]
@@ -401,13 +404,16 @@ def _call(conn, native_id, programme, days, title="A call"):
 
 def test_this_call_closes_in_six_weeks_can_i_take_part_and_if_not_what_is_the_fastest_path(client, conn):
     edf = _call(conn, "c1", "EDF", 42)
-    body = client.post("/v1/readiness/assess", json={"profile": UA, "call": edf}).json()
+    body = client.post("/v1/readiness/assess", json={"profile": ES, "call": edf}).json()
     call = body["call"]
     assert call["id"] == str(edf) and call["covered"] and call["programme"] == "EDF"
     (timing,) = call["timings"]
     assert timing["programme"] == "EDF" and timing["realistic"] == "yes"
     assert timing["steps"] == ["REQ-PIC"] and timing["fastestPathDays"] == {"min": 0, "max": 0}
     assert 41 < timing["daysLeft"] <= 42
+    # a Ukrainian company has the same PIC to obtain, but the association agreement is not confirmed: not a plain yes (V2-B2)
+    (timing,) = client.post("/v1/readiness/assess", json={"profile": UA, "call": edf}).json()["call"]["timings"]
+    assert timing["realistic"] == "depends" and timing["steps"] == ["REQ-PIC"]
     # a company that cannot be fixed by a certificate is told so
     edip = _call(conn, "c2", "EDIP", 60)
     call = client.post("/v1/readiness/assess", json={"profile": UA, "call": edip}).json()["call"]
