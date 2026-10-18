@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { getBuyer, getBuyerProfile, getTenders, isBuyerSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
@@ -92,6 +93,11 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
         </dl>
         {variantsLine(buyer.nameVariants) && <p className="m-0 text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
         <p className="m-0 max-w-[62ch] text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
+        {buyer.organisationSlug && (
+          <p className="m-0 max-w-[62ch] text-body">
+            Also took part in funded projects: <Link href={`/organisations/${buyer.organisationSlug}`} className="font-semibold">see its projects, partners and EU funding</Link>.
+          </p>
+        )}
       </header>
 
       {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}

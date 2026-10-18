@@ -312,6 +312,7 @@ def run_cordis(*, programmes: set[str] | None = None, max_pages: int | None = No
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["new"],
                               changed=c["changed"], status="failed", error=str(exc)[:500])
                 raise
+            refresh_organisation_network(conn)
     finally:
         if sparql is None:
             sp.close()
@@ -566,6 +567,7 @@ def run_edf(*, years: set[int] | None = None, max_files: int | None = None, http
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["new"],
                               changed=c["changed"], status="failed", error=str(exc)[:500])
                 raise
+            refresh_organisation_network(conn)
     finally:
         if own:
             http.close()
@@ -647,5 +649,54 @@ def snapshot_consortia(conn: psycopg.Connection, day: date | None = None) -> dic
 def run_snapshot() -> dict[str, int]:
     with db.connect(settings().dsn) as conn:
         out = snapshot_consortia(conn)
+        out["directory"] = refresh_organisation_network(conn)["organisations"]
     log.info("consortium snapshot: %s", out)
     return out
+
+
+# ================================================================== the directory (WP-28)
+
+YEAR_SQL = "COALESCE(extract(year FROM p.start_date)::int, p.call_year::int)"
+
+REFRESH_NETWORK_SQL = f"""
+WITH part AS (
+  SELECT COALESCE(l.live_id, pa.organisation_id) AS org, pa.project_id, pa.role, pa.contribution,
+         {YEAR_SQL} AS yr, pr.code AS prog
+    FROM participation pa
+    JOIN project p ON p.id = pa.project_id
+    LEFT JOIN programme pr ON pr.id = p.programme_id
+    LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
+   WHERE pa.active AND NOT COALESCE(l.suppressed, FALSE)),
+agg AS (
+  SELECT org, count(DISTINCT project_id) AS projects,
+         count(DISTINCT project_id) FILTER (WHERE role = 'coordinator') AS coordinated,
+         sum(contribution) AS eu, min(yr) AS y0, max(yr) AS y1,
+         array_remove(array_agg(DISTINCT prog ORDER BY prog), NULL) AS progs,
+         array_agg(DISTINCT role ORDER BY role) AS roles
+    FROM part GROUP BY org)
+INSERT INTO organisation_network (organisation_id, name, country, projects, coordinated,
+                                  eu_contribution, first_year, last_year, programmes, roles,
+                                  refreshed_at)
+SELECT a.org, COALESCE(o.display_name, o.canonical_name), o.country, a.projects, a.coordinated,
+       a.eu, a.y0, a.y1, a.progs, a.roles, now()
+  FROM agg a JOIN organisation o ON o.id = a.org
+ WHERE NOT o.suppressed
+ON CONFLICT (organisation_id) DO UPDATE SET
+  name = EXCLUDED.name, country = EXCLUDED.country, projects = EXCLUDED.projects,
+  coordinated = EXCLUDED.coordinated, eu_contribution = EXCLUDED.eu_contribution,
+  first_year = EXCLUDED.first_year, last_year = EXCLUDED.last_year,
+  programmes = EXCLUDED.programmes, roles = EXCLUDED.roles, refreshed_at = EXCLUDED.refreshed_at
+"""
+
+
+def refresh_organisation_network(conn: psycopg.Connection) -> dict[str, int]:
+    """Rebuild the directory table (migration 0068) from the participations: one row per live,
+    unsuppressed organisation with an active participation. Rows of an organisation that no longer
+    qualifies (merged away since, suppressed, all its participations inactive) are deleted: the table
+    is derived, the participations are the record. One transaction (`now()` is its start), so a reader
+    sees the old table or the new one."""
+    conn.execute(REFRESH_NETWORK_SQL)
+    gone = conn.execute("DELETE FROM organisation_network WHERE refreshed_at < now()").rowcount
+    n = conn.execute("SELECT count(*) AS n FROM organisation_network").fetchone()["n"]
+    conn.commit()
+    return {"organisations": n, "removed": gone}

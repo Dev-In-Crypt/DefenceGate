@@ -55,7 +55,7 @@ export class ApiError extends Error {
  * `revalidate`: shared fetch cache (ISR). `no-store`: used for list requests shaped by visitor input,
  * so arbitrary query strings cannot fill the cache.
  */
-type CacheMode = 'revalidate' | 'no-store';
+export type CacheMode = 'revalidate' | 'no-store';
 
 /**
  * What the API needs to charge a request to the visitor and not to the site's one shared bucket (external audit
@@ -76,7 +76,7 @@ async function visitorHeaders(): Promise<Record<string, string>> {
 /** A request the data service has not answered by now is given up: the page then shows its last good answer, or says so. */
 const HTTP_TIMEOUT_MS = 20_000;
 
-async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
+export async function http<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T | null> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { accept: 'application/json', ...(mode === 'no-store' ? await visitorHeaders() : {}) },
     signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
@@ -94,7 +94,7 @@ export function whenRemoved(e: unknown): typeof REMOVED {
   if (e instanceof ApiError && e.status === 410) return REMOVED;
   throw e;
 }
-async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T> {
+export async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate', seconds: number = REVALIDATE_SECONDS): Promise<T> {
   const r = await http<T>(path, mode, seconds);
   if (r === null) throw new ApiError(404, `GET ${path} returned 404`);
   return r;

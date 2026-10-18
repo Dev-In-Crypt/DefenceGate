@@ -781,3 +781,104 @@ panels of `/funding/{slug}`, the Ukraine filter (`?ukraine=true`) and the badge 
   the UTC day of the notice's first reading is not an amendment.
 - The digest's eligibility line says "a single applicant may apply" for one entity, and "consortium of at least N
   entities" only from N = 2; it never repeats a general-annex Yes.
+## Networks: organisations, projects, partners (added 17 October 2026, WP-28)
+
+Layer 2 for the user: who took part in which funded project, with whom, for how much money. All GET, JSON,
+anonymous, rate limited like the other public endpoints. Code: `backend/dgate/network_api.py`; the directory
+reads `organisation_network` (migration 0068, rebuilt by `networks.refresh_organisation_network()` at the end of
+`dgate pipeline cordis`, `edf` and `consortium-snapshot`), everything else reads `participation` itself.
+
+Rules that hold for every endpoint:
+
+- **Organisation-level facts only**: a name, a country, the PIC, a role, an amount, a year. No person, no contact.
+  A name that carries an e-mail address is redacted; an alias that looks like it carries a telephone number is not listed.
+- **Live organisations.** A participation is not re-pointed when two organisations are merged, so every reader
+  follows `organisation.merged_into` (`organisation_merged_live`, `dgate_live_org`). The slug of a merged-away
+  organisation answers with the live organisation (its `slug` is the canonical one: the site redirects to it).
+- **Removed on request** (`organisation.suppressed`, also when set on a duplicate row merged into another): the
+  profile and its tabs answer **410**; the organisation is left out of the directory, the partners and the analyses;
+  inside a project's consortium it is `{ id: null, slug: null, name: "Name withheld on request", country: null }`.
+- Only `participation.active` counts: a participant a later load no longer finds is history (`/history`), not a member.
+- `OrgRef` = `{ id, slug, name, country }`. `slug` = `<id>-<words>` (`make_slug`), only the leading id is read.
+- `SourceNote` = `{ code, name, licence, attribution, readAt, note }`: every list and page says where the data comes
+  from (CORDIS; EDF project factsheets), its licence and when the newest finished run ended. EDF participants are read
+  from the factsheets by a language model; the note says so.
+- **Amounts.** `contribution` is the EU contribution CORDIS states per participant, in EUR. The EDF factsheets state none
+  per participant: it is `null`, EDF projects count as projects and add nothing to a sum (`amountNote` says so).
+- A list parameter that is not valid (`role`, `country`, `programme`, `sort`, a page deeper than 10,000 results) is a 422.
+
+### `GET /v1/organisations?country=&programme=&role=&q=&minProjects=&sort=&page=&pageSize=`
+The directory: one row per live organisation with at least one active participation. `country`, `programme` (`EDF`,
+`HORIZON`, `H2020`, `FP7`) and `role` (`coordinator`, `participant`, `partner`, `associated_partner`,
+`international_partner`, `third_party`) take comma-separated values; `q` is the folded, word-initial search of the
+tender and buyer lists (accents ignored); `sort` is `projects` (default; most first) or `name`; `pageSize` up to 100.
+`{ items: [{ id, slug, name, country, projects, coordinated, euContribution, firstYear, lastYear, programmes }], total,
+totalExact, page, pageSize, meta: { updatedAt, sources, amountNote } }`. `total` stops at 10,000 (`totalExact: false`):
+counting every match of a broad word took 1.5 s. A year is the year the project started (the call year for EDF).
+
+### `GET /v1/organisations/slugs`
+`[{ slug, updatedAt }]`: the 2,000 organisations with the most projects (three or more), for the sitemap.
+
+### `GET /v1/organisations/{slug}`
+The profile: `{ id, slug, name, country, pic: { value, method, confidence } | null, counts: { projects, participations,
+coordinated, euContribution, firstYear, lastYear }, programmes: [{ code, name, projects,
+euContribution, firstYear, lastYear }], resolution: { note, participations: { <method>: n }, lowestConfidence },
+aliases: { total, items: [{ name, method, confidence, firstSeen, source }] }, mergedFrom, buyer: { slug, name,
+tenderCount } | null, sources, amountNote }`. The PIC is the only identifier served. `resolution.note` is one
+sentence on how the participations were matched ("matched by its PIC", "by its exact normalised name within the
+country", ...). `buyer` is the buyer page of the same body when it has defence notices in scope (`/v1/buyers/{slug}`
+answers the other way round with `organisationSlug`). 404 for an organisation with no participation, 410 when removed.
+
+### `GET /v1/organisations/{slug}/funding`
+`{ organisation, rows: [{ programme, year, projects, euContribution, projectsWithoutAmount }], totals: { projects,
+euContribution }, amountNote }`, oldest year first.
+
+### `GET /v1/organisations/{slug}/partners?country=&programme=&page=&pageSize=`
+Neighbours: the live organisations that were active in a project this one was active in. `{ organisation, items:
+[{ organisation, shared, firstYear, lastYear, programmes, projects: [{ slug, acronym, title, programme, year }] }],
+total, countries, page, pageSize, note }`, most shared projects first, then most recent year. `total` and `countries` (how many countries the partners are established in) are for all pages as filtered. `shared` counts projects;
+`projects` are the five most recent (the evidence). `programme` restricts the projects counted.
+
+### `GET /v1/organisations/{slug}/projects?programme=&role=&page=&pageSize=`
+`{ organisation, items: [{ slug, acronym, title, programme, year, role, contribution, status, topic, category,
+totalCost, projectEuContribution }], total, page, pageSize }`, newest first.
+
+### `GET /v1/projects/{slug}`
+`{ id, slug, acronym, title, programme: { code, name }, grantNumber, call, topic, actionType, category, callYear,
+status, startDate, endDate, durationMonths, totalCost, euContribution, coordinator, members: [{ organisation, role,
+contribution, resolution: { method, confidence } }], memberCount, countryCount, source: { code, name, licence,
+attribution, url, urlLabel }, factsheet, readAt, amountNote }`. Members: coordinator first, then by country and
+name. `source.url` is the CORDIS project page or the EDF factsheet. `factsheet` (EDF only) =
+`{ readBy: "language model", readAt, pages, dropped: [{ kind, count, meaning }], note }`: what the quote check removed
+or corrected for this factsheet (`project_factsheet.dropped`). 404 for an unknown project.
+
+### `GET /v1/projects/{slug}/history`
+`{ project, firstObserved: { observedAt, memberCount, countryCount } | null, changes: [{ observedAt, added, removed,
+coordinatorBefore, coordinatorAfter }], note }`: the `consortium_change` rows (the monthly snapshots that differed),
+newest first, at most 50.
+
+### `GET /v1/projects/slugs`
+`[{ slug, updatedAt }]`: the EDF projects, for the sitemap (the 80,000 CORDIS projects are not listed).
+
+### `GET /v1/analytics/ukraine-partners?since=YYYY`
+Coordinators (the prime of a project) whose project, started in or after `since` (default 2021), had an active
+participant whose **country of establishment, as the source states it, is Ukraine**. `{ since, definition, totals:
+{ projects, coordinators, ukrainianOrganisations, projectsCoordinatedFromUkraine }, coordinators: [{ organisation,
+projects, ukrainianOrganisations, lastYear, programmes, ukrainianParticipants: [{ organisation, projects }],
+recentProjects }], ukrainianOrganisations: [{ organisation, projects, coordinated, lastYear }], limits, sources }`.
+Ukrainian coordinators are counted apart, not listed as primes. It does not say who controls an organisation or what it supplied.
+
+### `GET /v1/analytics/consortium-gaps?programme=EDF&topic=&lacking=UA&minProjects=2`
+**Capability area** = the projects of `programme`, narrowed by `topic`: the EDF capability category (`CYBER`,
+`GROUND`, ...: `project.category`, from the factsheet file name) or the start of a topic code (`EDF-2023`,
+`HORIZON-CL4-2023`). The data holds no finer taxonomy. **Category** = the country of establishment of a participant
+(`lacking`, ISO-2). The answer is the organisations that took part in at least `minProjects` (2 to 50) projects of the
+area, **none** of which had a participant established in `lacking`. Consortia as such are not listed: the data does not
+identify one beyond the projects its members share. `topic` is required for any programme other than EDF/EDIDP/PADR, and an
+area larger than 4,000 projects is refused (422). `{ programme, topic, lacking, minProjects, projectsInArea, definition,
+items: [{ organisation, projects, partnerCountries, recentProjects }], areas: [{ code, projects }], limits, sources }`.
+
+### Site routes built on it
+`/organisations` (directory with filters), `/organisations/{slug}` (`?tab=funding|partners|projects|aliases`),
+`/projects/{slug}`, `/networks/ukraine-partners`, `/networks/consortium-gaps`. The buyer page links to the profile
+when `organisationSlug` is set. Navigation entries are the orchestrator's (header and footer are not edited here).

@@ -1,0 +1,296 @@
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { displayName } from '@/lib/display-name';
+import { formatDateUtc, formatNumber } from '@/lib/format';
+import { safeHttpUrl } from '@/lib/safe-url';
+import { PROGRAMME_CHOICES, PROGRAMME_WORD, fundingGroups, formatEur, methodWord, roleWord, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
+import { BUYER_COUNTRIES } from '@/lib/taxonomy';
+import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, PartnerRow, ProjectMember, SourceNote } from '@/lib/networks-types';
+import { Button } from '../dg/button';
+import { CountryLabel, FactCell } from '../dg/data-display';
+import { Choice, Fieldset, Select, TextInput } from '../dg/form';
+import { Icon } from '../dg/icon';
+import { Tag } from '../dg/tag';
+import { FilterPanel } from '../funding/filter-panel';
+
+const CARD = 'group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted sm:p-6';
+const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
+const TH = 'py-2 pr-4 align-bottom font-semibold';
+const TD = 'py-2 pr-4 align-top';
+
+/** The name of an organisation as a person reads it. */
+export const nameOf = (name: string) => displayName(name, 'title');
+
+/** An organisation in someone else's list: a link to its profile, or, when it was removed on request, just the neutral text. */
+export function OrgLink({ org }: { org: OrgRef }) {
+  if (!org.slug) return <span>{org.name}</span>;
+  return <Link href={`/organisations/${org.slug}`} className="font-semibold">{nameOf(org.name)}</Link>;
+}
+
+export function Country({ code }: { code: string | null }) {
+  return code ? <CountryLabel code={code} /> : <span className="text-ink-muted">Not stated</span>;
+}
+
+/** A table that scrolls inside its own box at 375 px, reachable and labelled for the keyboard. */
+export function TableBox({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div role="region" aria-label={label} tabIndex={0} className="overflow-x-auto rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text">
+      {children}
+    </div>
+  );
+}
+
+export function OrgCard({ org }: { org: OrgListItem }) {
+  return (
+    <article className={cn(CARD, 'text-ink')}>
+      <div className="flex flex-col gap-2">
+        <h2 className="m-0 text-[22px] font-bold leading-[30px] tracking-[-0.5px] sm:text-h2">
+          <Link href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</Link>
+        </h2>
+        <span className="text-small text-ink-muted"><CountryLabel code={org.country} /></span>
+        <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{p}</Tag>)}</p>
+      </div>
+      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
+        <FactCell label="Projects"><span className="tabular-nums">{org.projects}</span></FactCell>
+        <FactCell label="As coordinator"><span className="tabular-nums">{org.coordinated}</span></FactCell>
+        <FactCell label="EU contribution">{org.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(org.euContribution)}</FactCell>
+        <FactCell label="Active"><span>{yearsLabel(org.firstYear, org.lastYear)}</span></FactCell>
+      </dl>
+    </article>
+  );
+}
+
+/** URL-synced filter form (GET) for /organisations; FilterPanel makes it live when scripts run. */
+export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; basePath: string }) {
+  const countries = Object.entries({ UA: 'Ukraine', ...BUYER_COUNTRIES }).sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label: `${label} (${value})` }));
+  return (
+    <FilterPanel activeCount={activeOrgFilterCount(filters)}>
+      <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-6 rounded-lg bg-surface p-5">
+        <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
+        <Fieldset legend="Programme">
+          {PROGRAMME_CHOICES.map((p) => (
+            <Choice key={p.value} name="programme" value={p.value} label={p.label} defaultChecked={filters.programme?.includes(p.value)} />
+          ))}
+        </Fieldset>
+        <Fieldset legend="Role">
+          <Choice name="role" value="coordinator" label="Has coordinated a project" defaultChecked={filters.role?.includes('coordinator')} />
+        </Fieldset>
+        <Select name="country" label="Country of the organisation" placeholder="Any country" options={countries} defaultValue={filters.country?.[0] ?? ''} />
+        <Select name="min" label="Projects" placeholder="Any number" options={[2, 5, 10, 25].map((n) => ({ value: String(n), label: `At least ${n}` }))}
+          defaultValue={filters.minProjects ? String(filters.minProjects) : ''} />
+        {filters.sort && filters.sort !== 'projects' && <input type="hidden" name="sort" value={filters.sort} />}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit">Apply filters</Button>
+          <Link href={basePath} className="inline-flex min-h-11 items-center text-small font-bold">Clear all</Link>
+        </div>
+      </form>
+    </FilterPanel>
+  );
+}
+
+/** Where the data comes from, its licence and the day it was read. On every page of this layer. */
+export function DataSources({ sources, amountNote, only }: { sources: SourceNote[]; amountNote?: string; only?: string[] }) {
+  const shown = only ? sources.filter((s) => only.includes(s.code)) : sources;
+  return (
+    <section aria-labelledby="data-sources" className="flex flex-col gap-3 rounded-lg bg-surface p-5 sm:p-6">
+      <h2 id="data-sources" className="m-0 text-h3">Where this comes from</h2>
+      <ul className="m-0 flex list-none flex-col gap-3 p-0">
+        {shown.map((s) => (
+          <li key={s.code} className="flex flex-col gap-1">
+            <span className="font-semibold">{s.name}</span>
+            <span className="text-small text-ink-muted">
+              {s.readAt ? <>Last read on <time dateTime={s.readAt}>{formatDateUtc(s.readAt)}</time>. </> : 'Not read yet. '}
+              Licence: {s.licence}. {s.attribution}.
+            </span>
+            {s.note && <span className="max-w-[80ch] text-small">{s.note}</span>}
+          </li>
+        ))}
+      </ul>
+      {amountNote && <p className="m-0 max-w-[80ch] text-small text-ink-muted">{amountNote}</p>}
+      <p className="m-0 max-w-[80ch] text-small text-ink-muted">
+        Organisation-level facts only: a name, a country, a role, an amount, a year. A participant is recognised by its PIC where the source gives one,
+        otherwise by name; the page says which. <Link href="/methodology" className="font-semibold">How the data is built</Link>.
+      </p>
+    </section>
+  );
+}
+
+/** Sections of a profile as links (each is a page of its own, so it can be shared and read without scripts). */
+export function TabNav({ base, current, tabs }: { base: string; current: string; tabs: { id: string; label: string }[] }) {
+  return (
+    <nav aria-label="Sections of this profile">
+      <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {tabs.map((t) => (
+          <li key={t.id}>
+            <Link href={t.id === tabs[0].id ? base : `${base}?tab=${t.id}`} aria-current={t.id === current ? 'page' : undefined}
+              className={cn('inline-flex min-h-11 items-center rounded-pill px-4 text-small font-bold no-underline hover:no-underline',
+                t.id === current ? 'bg-primary text-on-primary' : 'bg-surface text-ink hover:bg-surface-inset')}>
+              {t.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Funding by programme and year. Each programme is a table whose last column is a bar: the numbers are text, the bar repeats
+ * them for the eye and is hidden from assistive technology. Which programme a row belongs to is its heading, never a colour.
+ */
+export function FundingChart({ rows }: { rows: FundingRow[] }) {
+  const groups = fundingGroups(rows);
+  return (
+    <div className="flex flex-col gap-6">
+      {groups.map((g) => (
+        <section key={g.programme || 'none'} aria-labelledby={`fund-${g.programme || 'none'}`} className="flex flex-col gap-2">
+          <h3 id={`fund-${g.programme || 'none'}`} className="m-0 text-body font-bold">
+            {PROGRAMME_WORD[g.programme] ?? (g.programme || 'Programme not stated')}
+          </h3>
+          <p className="m-0 text-small text-ink-muted">
+            {g.totalProjects} {g.totalProjects === 1 ? 'project' : 'projects'}
+            {g.totalEur !== null ? `, ${formatEur(g.totalEur)} EU contribution.` : '. This programme states no amount per participant, so the bars show projects.'}
+          </p>
+          <TableBox label={`Funding by year, ${PROGRAMME_WORD[g.programme] ?? g.programme}`}>
+            <table className="w-full border-collapse text-left text-small">
+              <caption className="sr-only">{PROGRAMME_WORD[g.programme] ?? g.programme}: projects and EU contribution per year</caption>
+              <thead>
+                <tr className="border-b border-line">
+                  <th scope="col" className={TH}>Year</th>
+                  <th scope="col" className={cn(TH, 'text-right')}>Projects</th>
+                  <th scope="col" className={cn(TH, 'text-right')}>EU contribution</th>
+                  <th scope="col" className="w-1/3 min-w-24 py-2 font-semibold"><span className="sr-only">Bar, {g.measure === 'eur' ? 'EU contribution' : 'projects'}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.rows.map((r) => (
+                  <tr key={r.year ?? 'none'} className="border-b border-line last:border-0">
+                    <th scope="row" className={cn(TD, 'font-normal tabular-nums')}>{r.year ?? 'Year not stated'}</th>
+                    <td className={cn(TD, 'text-right font-mono tabular-nums')}>{formatNumber(r.projects)}</td>
+                    <td className={cn(TD, 'text-right font-mono tabular-nums')}>{r.euContribution === null ? 'Not stated' : formatEur(r.euContribution)}</td>
+                    <td aria-hidden="true" className="py-2">
+                      {r.width > 0 && <div className="h-3 rounded-sm bg-primary" style={{ width: `${r.width}%` }} />}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableBox>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+export function PartnerTable({ items }: { items: PartnerRow[] }) {
+  return (
+    <TableBox label="Partners, most shared projects first">
+      <table className="w-full min-w-[640px] border-collapse text-left text-small">
+        <caption className="sr-only">Partners, most shared projects first</caption>
+        <thead>
+          <tr className="border-b border-line">
+            <th scope="col" className={TH}>Organisation</th>
+            <th scope="col" className={TH}>Country</th>
+            <th scope="col" className={cn(TH, 'text-right')}>Shared projects</th>
+            <th scope="col" className={TH}>Years</th>
+            <th scope="col" className={TH}>Latest shared projects</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((p, i) => (
+            <tr key={p.organisation.id ?? `w${i}`} className="border-b border-line last:border-0">
+              <th scope="row" className={cn(TD, 'font-normal')}><OrgLink org={p.organisation} /></th>
+              <td className={TD}><Country code={p.organisation.country} /></td>
+              <td className={cn(TD, 'text-right font-mono tabular-nums')}>{p.shared}</td>
+              <td className={cn(TD, 'whitespace-nowrap font-mono tabular-nums')}>{yearsLabel(p.firstYear, p.lastYear)}</td>
+              <td className={TD}>
+                <ul className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0">
+                  {p.projects.map((pr) => (
+                    <li key={pr.slug}><Link href={`/projects/${pr.slug}`}>{pr.acronym ?? pr.title}</Link>{pr.year ? <span className="text-ink-muted"> {pr.year}</span> : null}</li>
+                  ))}
+                </ul>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableBox>
+  );
+}
+
+export function ProjectTable({ items }: { items: OrgProjectRow[] }) {
+  return (
+    <TableBox label="Projects, newest first">
+      <table className="w-full min-w-[640px] border-collapse text-left text-small">
+        <caption className="sr-only">Projects, newest first</caption>
+        <thead>
+          <tr className="border-b border-line">
+            <th scope="col" className={TH}>Project</th>
+            <th scope="col" className={TH}>Programme</th>
+            <th scope="col" className={TH}>Year</th>
+            <th scope="col" className={TH}>Role</th>
+            <th scope="col" className={cn(TH, 'text-right')}>EU contribution</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((p) => (
+            <tr key={p.slug} className="border-b border-line last:border-0">
+              <th scope="row" className={cn(TD, 'font-normal')}>
+                <Link href={`/projects/${p.slug}`} className="font-semibold">{p.acronym ?? p.title}</Link>
+                {p.acronym && <span className="block max-w-[48ch] text-ink-muted">{p.title}</span>}
+              </th>
+              <td className={TD}>{p.programme ?? 'Not stated'}</td>
+              <td className={cn(TD, 'font-mono tabular-nums')}>{p.year ?? 'Not stated'}</td>
+              <td className={TD}>{roleWord(p.role)}</td>
+              <td className={cn(TD, 'text-right font-mono tabular-nums')}>{p.contribution === null ? 'Not stated' : formatEur(p.contribution)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableBox>
+  );
+}
+
+export function ConsortiumTable({ members }: { members: ProjectMember[] }) {
+  return (
+    <TableBox label="Members of the consortium">
+      <table className="w-full min-w-[640px] border-collapse text-left text-small">
+        <caption className="sr-only">Members of the consortium, coordinator first</caption>
+        <thead>
+          <tr className="border-b border-line">
+            <th scope="col" className={TH}>Organisation</th>
+            <th scope="col" className={TH}>Country</th>
+            <th scope="col" className={TH}>Role</th>
+            <th scope="col" className={cn(TH, 'text-right')}>EU contribution</th>
+            <th scope="col" className={TH}>Recognised by</th>
+          </tr>
+        </thead>
+        <tbody>
+          {members.map((m, i) => (
+            <tr key={m.organisation.id ?? `w${i}`} className="border-b border-line last:border-0">
+              <th scope="row" className={cn(TD, 'font-normal')}><OrgLink org={m.organisation} /></th>
+              <td className={TD}><Country code={m.organisation.country} /></td>
+              <td className={TD}>{roleWord(m.role)}</td>
+              <td className={cn(TD, 'text-right font-mono tabular-nums')}>{m.contribution === null ? 'Not stated' : formatEur(m.contribution)}</td>
+              <td className={TD}>
+                {methodWord(m.resolution.method)}{m.resolution.confidence !== null ? <span className="font-mono tabular-nums text-ink-muted"> ({m.resolution.confidence.toFixed(2)})</span> : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableBox>
+  );
+}
+
+/** A link out to the source's own record. Only http(s) becomes a link. */
+export function SourceLink({ url, label }: { url: string | null; label: string }) {
+  const safe = safeHttpUrl(url);
+  if (!safe) return <span className="text-small text-ink-muted">The source gives no link to this record.</span>;
+  return (
+    <a href={safe} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-small font-bold">
+      {label}<Icon icon={ExternalLink} size="inline" /><span className="sr-only"> (opens in new tab)</span>
+    </a>
+  );
+}

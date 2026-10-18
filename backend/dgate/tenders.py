@@ -213,6 +213,8 @@ class Buyer(BaseModel):
     # Other organisation rows of the same body shown under this buyer (WP-22, migration
     # 0055): 0 when it has none.
     nameVariants: int = 0
+    # The profile of the same body in the networks layer (WP-28), when it took part in funded projects.
+    organisationSlug: str | None = None
 
 
 class BuyerPage(BaseModel):
@@ -1381,4 +1383,8 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
                         (org_id,)).fetchone():
             raise removed()
         raise HTTPException(404, "no such buyer")
-    return _buyer(row, _buyer_names(conn, [row["id"]]))
+    out = _buyer(row, _buyer_names(conn, [row["id"]]))
+    from .network_api import network_slug_of_buyer
+    out["organisationSlug"] = network_slug_of_buyer(
+        conn, conn.execute("SELECT dgate_family_ids(%s) AS ids", (row["id"],)).fetchone()["ids"])
+    return out

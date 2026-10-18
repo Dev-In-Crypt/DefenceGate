@@ -509,6 +509,8 @@ export interface Buyer {
   isDefenceBuyer: boolean;
   /** Other organisation rows of the same body shown under this buyer (0 when none). */
   nameVariants: number;
+  /** The profile of the same body in the networks layer (/organisations/<slug>), when it took part in funded projects. */
+  organisationSlug?: string | null;
 }
 
 /** GET /v1/stats/market: counts of core-scope notices published. Never spend, never market size. */
