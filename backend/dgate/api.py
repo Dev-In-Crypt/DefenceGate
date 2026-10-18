@@ -951,8 +951,10 @@ async def _validation_error(request: Request, exc: RequestValidationError):
     known = _schema_names(request.app) | {"body", "query", "path", "header", "cookie"}
     def where(e):
         loc = [p if isinstance(p, int) or p in known else "*" for p in e["loc"]]
-        # An unknown key of a body: say that there is one, never what it is.
-        return loc[:-1] + ["(unknown field)"] if e["type"] == "extra_forbidden" else loc
+        # The readiness assessment takes a company's profile: an unknown key there is named as such.
+        if e["type"] == "extra_forbidden" and request.url.path.startswith("/v1/readiness"):
+            return loc[:-1] + ["(unknown field)"]
+        return loc
 
     problems = [{"loc": where(e), "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
     return JSONResponse({"detail": problems}, status_code=422)

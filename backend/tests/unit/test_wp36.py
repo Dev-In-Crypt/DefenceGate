@@ -78,7 +78,9 @@ def block(programme, topic, content=None):
 def test_an_edf_call_lists_the_headline_rules_each_with_its_verbatim_source():
     b = block("EDF", "EDF-2026-DA-GROUND-MBT")
     assert b["encoded"] and b["regime"]["code"] == "EDF"
-    assert [r["rule"] for r in b["rules"]] == ["EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
+    # WP-33 added the legal-entity rule (D2); the block lists whatever establishment, control, threshold and
+    # categorical rules the seed holds.
+    assert [r["rule"] for r in b["rules"]] == ["EDF-LEGAL-ENTITY", "EDF-ESTABLISH", "EDF-EXEC-MGMT", "EDF-CONTROL"]
     for r in b["rules"]:
         assert r["source"]["url"].startswith("http") and r["source"]["ref"] and len(r["source"]["text"]) > 40
         assert r["source"]["lastReviewed"] and r["requirement"] == "REQ-EDF-ELIG"
@@ -87,14 +89,15 @@ def test_an_edf_call_lists_the_headline_rules_each_with_its_verbatim_source():
     assert not {"EDF-PIC", "EDF-AQAP"} & {r["rule"] for r in b["rules"]}
 
 
-def test_the_usi_block_has_the_territory_rule_and_the_origin_share_the_seed_does_not_yet_hold():
+def test_the_usi_and_edip_blocks_show_the_territory_and_origin_rules_the_seed_now_holds():
+    """WP-33 put the 35 % origin rules in the seed (verifier D1), so the Official Journal supplement
+    (`alsoRead`) is no longer needed for them."""
     b = block("EDF", "EDF-EDIP-USI-2026-LS-IRA-MAB")
     assert b["regime"]["code"] == "EDIP-USI"
-    assert "USI-TERRITORY" in [r["rule"] for r in b["rules"]]
-    assert b["alsoRead"]["ref"].startswith("Regulation (EU) 2025/2643, Article 27(3)")
-    assert "35 %" in b["alsoRead"]["text"] and "outside the Union and Ukraine" in b["alsoRead"]["text"]
+    codes = [r["rule"] for r in b["rules"]]
+    assert "USI-TERRITORY" in codes and "USI-ORIGIN-35" in codes and b["alsoRead"] is None
     edip = block("EDF", "EDF-EDIP-P-2026-FNLC-CPA-CDS")
-    assert edip["alsoRead"]["ref"].startswith("Regulation (EU) 2025/2643, Article 10(3)")
+    assert "EDIP-ORIGIN-35" in [r["rule"] for r in edip["rules"]] and edip["alsoRead"] is None
 
 
 def test_the_origin_share_is_not_shown_twice_once_the_seed_has_it_as_a_rule():
