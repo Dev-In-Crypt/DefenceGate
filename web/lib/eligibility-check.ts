@@ -82,7 +82,10 @@ export function factDisplay(key: string, facts: EligibilityFacts): string {
 const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? 'no' : a === 'check' || b === 'check' ? 'check' : 'yes');
 
 function withNote(line: Line, fact: EligibilityFact | undefined): Line {
-  if (line.verdict === 'yes' && fact?.note) return { ...line, verdict: 'check', reason: `${line.reason} A condition applies: ${fact.note}` };
+  // The note without the words that only say where the fact was read (`ownNote`): "Stated in this topic's own conditions." is no condition (V3-B: it
+  // turned every "yes" read from a topic's own text into a "check"; 59 of the 185 stored readings are of that kind).
+  const note = ownNote(fact);
+  if (line.verdict === 'yes' && note) return { ...line, verdict: 'check', reason: `${line.reason} A condition applies: ${note}` };
   return line;
 }
 
@@ -111,6 +114,14 @@ const SMALL_ONLY = /\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?/i;
 export function covers(org: OrgType, kind: string): boolean {
   if (org === 'large' && SMALL_ONLY.test(kind) && !/\blarge\b/i.test(kind)) return false;
   return COVERS[org].test(kind);
+}
+
+/** The kinds a call names when every one of them is a size class below "large" (call 131: "SME company", "Small mid-cap company (up to 499 employees)"), else null. */
+export function smallKindsOnly(facts: EligibilityFacts): string[] | null {
+  const v = facts.entity_types?.value;
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const kinds = v.map(String);
+  return kinds.every((k) => SMALL_ONLY.test(k) && !/\blarge\b/i.test(k)) ? kinds : null;
 }
 
 /**
@@ -166,7 +177,11 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
   if (sme && p.orgType) {
     if (sme.value === true && p.orgType !== 'sme') lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: 'The call is reserved for SMEs.', quote: sme.quote });
     else if (sme.value === true) lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is reserved for SMEs and you are one.', quote: sme.quote }, sme));
-    else lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is not reserved for SMEs.', quote: sme.quote }, sme));
+    else if (p.orgType === 'large' && smallKindsOnly(facts)) {
+      // The flag says "not reserved for SMEs" (small mid-caps are also eligible), but the call names no kind bigger than that: the same
+      // "check" as the "Who may apply" line, in words that do not contradict it (V3-B, call 131).
+      lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${smallKindsOnly(facts)!.join('; ')}. It does not name a large company, so check your size class against the document before you go on.`, quote: sme.quote });
+    } else lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is not reserved for SMEs.', quote: sme.quote }, sme));
   }
 
   const np = facts.natural_persons_allowed;
@@ -204,7 +219,12 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
         : { key: 'control', label: 'Ownership control', verdict: 'no', reason: 'Entities controlled from outside the eligible countries are excluded, and the document names no exception.', quote: own.quote });
     }
     else if (p.controlledAbroad === 'unsure') lines.push({ key: 'control', label: 'Ownership control', verdict: 'check', reason: 'Entities controlled from outside the eligible countries are excluded. Find out who controls your company.', quote: own.quote });
-    else lines.push(withNote({ key: 'control', label: 'Ownership control', verdict: 'yes', reason: 'The restriction applies, and your company is not controlled from outside the eligible countries.', quote: own.quote }, own));
+    else {
+      // A note that describes a way round the restriction (a guarantee, an exemption, a screening) is about entities that are controlled from
+      // outside: it is no condition on a company that says it is not (V3-B: 4 of the 14 "check" lines of the four EDIP/USI calls open to a company).
+      const line: Line = { key: 'control', label: 'Ownership control', verdict: 'yes', reason: 'The restriction applies, and your company is not controlled from outside the eligible countries.', quote: own.quote };
+      lines.push(EXCEPTION.test(ownNote(own)) ? line : withNote(line, own));
+    }
   }
 
   // A general rule of the work programme annexes is neither a firm "no" nor a plain "yes": the topic may change it.

@@ -653,8 +653,11 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
   counts what only a contract might ask for (AQAP). Where the company holds ISO 9001, the AQAP 2110 step uses
   the range the source gives for a firm that already holds it (`variantUsed`).
 - `call` (when asked for): `{ id, title, programme, status, deadline, covered, timings: [{ programme,
-  verdict, daysLeft, steps, fastestPathDays, notFixable, realistic: yes | maybe | no | not_possible | depends
-  | unknown | closed, text }] }`. `not_possible`: a rule that no certificate fixes is not met. A call of a programme
+  verdict, daysLeft, steps, fastestPathDays, notFixable, openConditions, realistic: yes | maybe | no | not_possible | depends
+  | unknown | closed, text }] }`. `not_possible`: a rule that no certificate fixes is not met. `openConditions`: the titles
+  of the mandatory rules that are open, not failed (WP-42: a company outside Ukraine on a Ukraine Support Instrument call, whose
+  action needs a Ukrainian applicant or partner the answers cannot show); while one is open `realistic` is never `yes`
+  and the text is never "you can apply now". A call of a programme
   with no rules (Horizon) has `covered: false`. 404 for an unknown call, 410 for one removed on request.
 
 A refused request, on any route, is a 422 with `{ detail: [{ loc, msg, type }] }` and never repeats the input: no `input`, no `ctx`, and in `loc` any name that is not a field or parameter of the API (an invented key, a key of a dictionary field) is shown as `*` (WP-34). The limiter charges An invented key is shown as `(unknown field)`, never by name.

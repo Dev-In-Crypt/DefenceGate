@@ -33,6 +33,10 @@ assert.match(callSummary('yes', [t('no')]), /longer than the time left/);
 assert.match(callSummary('yes', [t('not_possible')]), /no certificate can fix/);
 assert.match(callSummary('yes', [t('depends')]), /guarantee or an answer/);
 assert.match(callSummary('yes', [t('unknown')]), /no deadline/);
+// WP-42 (R1): an open mandatory rule is named, and the sentence is never the plain "no rule of the programme blocks you".
+const usi = { ...t('depends', 'conditional', 'EDIP-USI'), openConditions: ['The action involves Ukraine'] };
+assert.match(callSummary('check', [usi]), /^No certificate is missing, but a condition is still open: The action involves Ukraine\./);
+assert.doesNotMatch(callSummary('check', [usi]), /No rule of the programme blocks you/);
 
 // No sentence promises eligibility without the caveat.
 for (const fit of ['yes', 'check', 'unknown', null] as const) {

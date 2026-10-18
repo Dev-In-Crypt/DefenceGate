@@ -111,6 +111,12 @@ assert.deepEqual([usi.fit, usi.because], ['check', ['Needs first: Participant Id
 assert.equal(programmeFit(ua, ['EDIP', 'EDIP-USI'])!.fit, 'check', 'a call that may belong to either part: the better one counts');
 assert.equal(programmeFit(ua, ['EDF'])!.fit, 'yes');
 assert.equal(programmeFit({ assessments: [EDF_OPEN], roadmap: { steps: [] } } as never, ['EDF'])!.fit, 'check');
+// WP-42 (R1): the programme says "conditional" for a company outside Ukraine on a Ukraine Support Instrument call (the action needs a
+// Ukrainian applicant or partner); the badge follows, whatever the facts of the document say, and never reads "Eligible".
+const USI_PL = programme('EDIP-USI', 'EDIP Ukraine Support Instrument', 'conditional', [], []);
+const usiPl = programmeFit({ assessments: [USI_PL], roadmap: { steps: [] } } as never, ['EDIP-USI'])!;
+assert.equal(usiPl.fit, 'check');
+assert.equal(shownFit(withProgramme(fitOf(single, ES), usiPl)), 'check', 'even when the document facts carry no condition of their own');
 assert.equal(programmeFit(null, ['EDF']), null, 'no verdict asked or none came');
 assert.equal(programmeFit(ua, []), null, 'a programme with no rules');
 assert.equal(programmeFit(ua, ['SAFE']), null);

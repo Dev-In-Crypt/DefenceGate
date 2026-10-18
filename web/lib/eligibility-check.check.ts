@@ -115,6 +115,27 @@ assert.match(check(smeKinds, largeCo).lines.find((l) => l.key === 'entity')!.rea
 assert.equal(check(smeKinds, base).lines.find((l) => l.key === 'entity')!.verdict, 'yes', 'an SME is covered');
 assert.equal(check({ ...edf, entity_types: q(['Large companies and SMEs'], 'q') }, largeCo).lines.find((l) => l.key === 'entity')!.verdict, 'yes', 'a list that names large companies covers them');
 assert.equal(check({ ...edf, entity_types: q(['Legal entities (public or private bodies)'], 'q') }, largeCo).lines.find((l) => l.key === 'entity')!.verdict, 'yes');
+// V3-B (call 131): the flag says "not reserved for SMEs" (small mid-caps are also eligible) while the list names SMEs and small mid-caps only. A large
+// company read "Who may apply: Check" next to "Organisation size: The call is not reserved for SMEs": the two lines now agree, and neither is a yes or a no.
+const lines131 = check(smeKinds, largeCo).lines;
+assert.equal(lines131.find((l) => l.key === 'sme')!.verdict, 'check');
+assert.doesNotMatch(lines131.find((l) => l.key === 'sme')!.reason, /not reserved for SMEs/);
+assert.match(lines131.find((l) => l.key === 'sme')!.reason, /SME company; Small mid-cap company \(up to 499 employees\).*does not name a large company/);
+assert.equal(check(smeKinds, largeCo).verdict, 'check');
+assert.equal(check(smeKinds, base).lines.find((l) => l.key === 'sme')!.reason, 'The call is not reserved for SMEs.', 'an SME is unaffected');
+assert.equal(check(edf, largeCo).lines.find((l) => l.key === 'sme')!.reason, 'The call is not reserved for SMEs.', 'a call with no list of small kinds is unaffected');
+assert.equal(check({ ...edf, entity_types: q(['SME company', 'Large company'], 'q') }, largeCo).lines.find((l) => l.key === 'sme')!.verdict, 'yes', 'a list that names large companies');
+// V3-B: a note that describes a way round the ownership restriction is no condition on a company that is not controlled from outside.
+const exemption = 'Exceptions may apply under Article 26(9) or where approved guarantees, including adequate FDI-screening mitigation measures, are provided.';
+assert.equal(check({ ...edf, ownership_control_restriction: f(true, exemption) }, base).lines.find((l) => l.key === 'control')!.verdict, 'yes');
+assert.equal(check({ ...edf, ownership_control_restriction: f(true, exemption) }, { ...base, controlledAbroad: 'yes' }).lines.find((l) => l.key === 'control')!.verdict, 'check', 'a controlled company still has to read it');
+assert.equal(check({ ...edf, ownership_control_restriction: f(true, 'Applicants must also declare their ultimate owners to the granting authority.') }, base).lines.find((l) => l.key === 'control')!.verdict, 'check', 'a note that is not an exemption still counts');
+// V3-B: the words the API puts before the note of a fact read from a topic's own text say where it was read, not a condition: a "yes" stays a "yes".
+const topicNote = "Stated in this topic's own conditions.";
+const topicFacts: EligibilityFacts = { ...edf, eligible_countries: { ...q('EU Member States', 'q', topicNote), scope: 'topic' as const }, sme_only: { ...q(false, 'q', topicNote), scope: 'topic' as const } };
+assert.equal(check(topicFacts, base).lines.find((l) => l.key === 'country')!.verdict, 'yes');
+assert.equal(check(topicFacts, base).lines.find((l) => l.key === 'sme')!.verdict, 'yes');
+assert.equal(check({ ...topicFacts, sme_only: { ...q(false, 'q', `${topicNote} Small mid-caps are also eligible.`), scope: 'topic' as const } }, base).lines.find((l) => l.key === 'sme')!.verdict, 'check', 'a real condition after the words still counts');
 assert.equal(covers('large', 'Small mid-cap company'), false);
 assert.equal(covers('sme', 'Small mid-cap company'), true);
 // call 118: "No consortium is required" is not the whole story when a single applicant must be Ukrainian.

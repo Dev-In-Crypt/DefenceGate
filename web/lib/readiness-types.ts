@@ -89,6 +89,8 @@ export interface CallTiming {
   steps: string[]; fastestPathDays: { min: number; max: number };
   notFixable: { rule: string; title: string; reason: string }[];
   realistic: 'yes' | 'maybe' | 'no' | 'not_possible' | 'depends' | 'unknown' | 'closed'; text: string;
+  /** Mandatory rules that are open, not failed (a Ukrainian partner the answers do not mention): never "you can apply". */
+  openConditions?: string[];
 }
 
 /** What `POST /v1/readiness/assess` says about the call whose id was sent: `covered` false when no rules are encoded for its programme. */

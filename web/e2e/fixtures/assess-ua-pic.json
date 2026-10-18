@@ -421,8 +421,8 @@
    "conditions": [],
    "counts": {
     "conditional": 0,
-    "info": 2,
-    "met": 8,
+    "info": 1,
+    "met": 9,
     "not_applicable": 0,
     "not_met": 0,
     "to_obtain": 0,
@@ -598,11 +598,11 @@
     {
      "asks": [],
      "denominator": null,
-     "kind": "information",
+     "kind": "establishment",
      "note": null,
-     "obligation": "conditional",
-     "outcome": "info",
-     "reason": "An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there. If your company is not established in Ukraine, the action you join needs such a partner.",
+     "obligation": "mandatory",
+     "outcome": "met",
+     "reason": "Your company is established in Ukraine, so it can be the Ukrainian entity this rule asks for (its executive management structure must be in Ukraine too: see the rule on executive management).",
      "requirement": null,
      "rule": "USI-INVOLVES-UA",
      "source": {

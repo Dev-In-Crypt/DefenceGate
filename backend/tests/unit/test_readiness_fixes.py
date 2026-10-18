@@ -65,13 +65,30 @@ def test_d1_the_edip_and_usi_denominators_differ_from_safes_and_a_possibly_wrong
     assert outcome("SAFE-ORIGIN-35", "SAFE", clean(non_eu_component_cost_pct=20, components_from_ua_or_eea_efta=True)) == "met"
 
 
-def test_d1_the_edip_subcontractor_allowance_and_the_ukraine_involvement_are_information_lines():
+def test_d1_the_edip_subcontractor_allowance_is_an_information_line():
     relief = RULES["EDIP-SUBCONTRACT-RELIEF"]
     assert relief.condition is None and relief.obligation == "conditional" and "Article 11(7)" in relief.source_ref
     assert "between 15 % and 35 %" in relief.source_text and "29 December 2025" in relief.texts["info"]
+
+
+def test_wp42_r1_the_ukraine_involvement_is_a_mandatory_rule_not_an_information_line():
+    """The call documents of the Ukraine Support Instrument say the same as Article 27(7): a single applicant must be Ukrainian and
+    a consortium must include a Ukrainian entity. A company from elsewhere was told "no blocking rule is open: you can apply now"."""
     ukraine = RULES["USI-INVOLVES-UA"]
-    assert ukraine.condition is None and "Article 27(7)" in ukraine.source_ref
+    assert ukraine.obligation == "mandatory" and ukraine.condition is not None and "Article 27(7)" in ukraine.source_ref
     assert "with the involvement of, at a minimum, Ukraine" in ukraine.source_text
+    assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="PL", executive_management_country="PL")) == "conditional"
+    assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="UA", executive_management_country="UA")) == "met"
+    held = {"REQ-PIC": "held"}
+    for country in ("PL", "DE", "ES"):
+        a = assess(clean(country=country, executive_management_country=country), held, CONTENT.programmes["EDIP-USI"])
+        assert a.verdict == "conditional" and "USI-INVOLVES-UA" in a.conditions, country
+        # it is a condition that is open, not a rule that is failed: the company is never "blocked" by it
+        assert "USI-INVOLVES-UA" not in a.blocking
+    ua = assess(clean(country="UA", executive_management_country="UA", ua_non_government_controlled_area=False), held, CONTENT.programmes["EDIP-USI"])
+    assert ua.verdict == "eligible"
+    # the EDIP Programme has no such rule
+    assert "USI-INVOLVES-UA" not in [r.rule for r in assess(clean(country="PL"), held, CONTENT.programmes["EDIP"]).rules]
 
 
 # --------------------------------------------------------------------------- D2: legal entity

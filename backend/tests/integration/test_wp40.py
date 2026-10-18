@@ -109,3 +109,15 @@ def test_the_rules_block_of_the_call_detail_follows_the_kind_of_action_and_carri
 
     caveats = {r["rule"]: r["caveat"] for r in client.get(f"/v1/funding/{edf}").json()["rulesApply"]["rules"] if r["caveat"]}
     assert set(caveats) == {"EDF-ESTABLISH", "EDF-EXEC-MGMT"} and all("not confirmed" in c for c in caveats.values())
+
+
+def test_wp42_r1_the_ukraine_support_instrument_calls_do_not_say_you_can_apply_now_to_a_company_outside_ukraine(client, conn):
+    usi = put(conn, "usi", programme="EDF", topic="EDF-EDIP-USI-2026-LS-IRA-MAB", days=20)
+    body = client.post("/v1/readiness/assess", json={"profile": PL, "statuses": HELD, "call": usi}).json()
+    (t,) = body["call"]["timings"]
+    assert t["programme"] == "EDIP-USI" and t["verdict"] == "conditional" and t["realistic"] == "depends"
+    assert t["openConditions"] == ["The action involves Ukraine"] and "apply now" not in t["text"]
+    assert "USI-INVOLVES-UA" in [r["rule"] for r in client.get(f"/v1/funding/{usi}").json()["rulesApply"]["rules"]]
+    ua = {**PL, "country": "UA", "executive_management_country": "UA", "ua_non_government_controlled_area": False}
+    (t,) = client.post("/v1/readiness/assess", json={"profile": ua, "statuses": HELD, "call": usi}).json()["call"]["timings"]
+    assert t["verdict"] == "eligible" and t["realistic"] == "yes" and t["openConditions"] == []

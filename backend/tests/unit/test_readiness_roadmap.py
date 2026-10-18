@@ -137,7 +137,8 @@ def test_es_manufacturer_with_iso_9001_verdicts():
     by, general, _ = run(ES, STATUS_ES)
     assert (by["EDF"].verdict, by["EDF"].to_obtain) == ("obtain", ("EDF-PIC",))
     assert (by["EDIP"].verdict, by["EDIP"].to_obtain) == ("obtain", ("EDIP-PIC",))
-    assert (by["EDIP-USI"].verdict, by["EDIP-USI"].to_obtain) == ("obtain", ("USI-PIC",))
+    # WP-42 R1: the PIC is still the only thing to obtain, but the action also needs a Ukrainian applicant or partner: conditional, not "obtain"
+    assert (by["EDIP-USI"].verdict, by["EDIP-USI"].to_obtain, by["EDIP-USI"].conditions) == ("conditional", ("USI-PIC",), ("USI-INVOLVES-UA",))
     assert not by["EDF"].blocking and not by["EDIP"].blocking and not by["EDIP-USI"].blocking
     assert outcomes(by["EDIP-USI"])["USI-TERRITORY"] == "not_applicable"
     assert by["SAFE"].verdict == "eligible"
@@ -296,6 +297,21 @@ def test_call_timing_depends_when_only_a_guarantee_or_an_answer_is_missing():
     assert t["verdict"] == "conditional" and t["realistic"] == "depends" and t["steps"] == []
 
 
+def test_wp42_r1_a_company_outside_ukraine_is_never_told_it_can_apply_now_to_a_ukraine_support_instrument_call():
+    # calls 118 and 113 (18 October 2026): the call document needs a Ukrainian applicant or partner; the answers of the profile cannot say.
+    t = timing(PL, {"REQ-PIC": "held"}, "EDIP-USI", 20)
+    assert t["verdict"] == "conditional" and t["realistic"] == "depends"
+    assert "you can apply now" not in t["text"] and t["openConditions"] == ["The action involves Ukraine"]
+    assert t["text"] == "No certificate is missing, but a condition is still open: The action involves Ukraine."
+    # with the PIC still to obtain the steps fit, and the same condition keeps it from a plain yes, by name
+    t = timing(PL, {}, "EDIP-USI", 20)
+    assert t["realistic"] == "depends" and "(The action involves Ukraine)" in t["text"] and "not a plain yes" in t["text"]
+    # the Ukrainian company that holds its PIC is the one that may apply now
+    t = timing(UA, {"REQ-PIC": "held"}, "EDIP-USI", 20)
+    assert t["verdict"] == "eligible" and t["realistic"] == "yes" and t["openConditions"] == []
+    assert t["text"].startswith("No blocking rule is open")
+
+
 def test_call_timing_after_the_deadline_is_closed_whatever_the_rules_say():
     t = timing(UA, {}, "EDF", -3)
     assert t["realistic"] == "closed" and t["text"] == "The deadline has passed." and t["daysLeft"] == -3.0
@@ -326,7 +342,7 @@ def test_edip_programme_establishment_by_country(country, expected):
 
 
 @pytest.mark.parametrize("country,expected", [
-    ("ES", "eligible"), ("UA", "eligible"), ("NO", "blocked"), ("GB", "blocked")])
+    ("ES", "conditional"), ("UA", "eligible"), ("NO", "blocked"), ("GB", "blocked")])     # WP-42 R1: a Ukrainian applicant or partner is needed
 def test_edip_ukraine_support_instrument_establishment_by_country(country, expected):
     p = co(country, ua_non_government_controlled_area=False)
     assert assess(p, {"REQ-PIC": "held"}, CONTENT.programmes["EDIP-USI"]).verdict == expected
