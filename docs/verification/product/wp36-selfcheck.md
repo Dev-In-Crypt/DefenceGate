@@ -16,7 +16,7 @@ the change: an independent verifier is to check it again. A criterion that was n
   every quote against the source text.
 - Web: panels "Rules that apply" and "Ukrainian participants" on `/funding/{slug}`, filter and badge on `/funding`,
   glossary entry `open-to-ukraine`, `/regulation`, `/regulation.atom`, `/data/sovereignty`, sitemap entries, mock data.
-- Tests: 35 unit tests (`tests/unit/test_wp36.py`), 14 integration tests (`tests/integration/test_wp36.py`), a web
+- Tests: 51 unit test cases (`tests/unit/test_wp36.py`, 35 functions), 14 integration tests (`tests/integration/test_wp36.py`), a web
   self-check (`lib/regulation.check.ts`), 6 Playwright tests (`web/e2e/wp36.spec.ts`).
 - Touched files of other packages, additively: `funding.py` (fields, one filter, the two counts), `accounts.py` (one
   keyword), `api.py` (one router), `worker.py` (one call in the cascade job, `ensure_regulation`), `infra/Caddyfile` (one
@@ -25,11 +25,16 @@ the change: an independent verifier is to check it again. A criterion that was n
 
 ## Test results (on the server, test database `agent_p`)
 
+- Web: `tsc --noEmit` clean; `npm run check` ok (13 self-checks, 1 new).
 - `ruff check .`: clean.
-- Unit suite: **2279 passed, 0 failed**, run on the branch before the last documentation edits (35 of them new).
-- Integration, new file: **14 passed**. A targeted run of the files that touch the same code (`test_wp31`, `test_funding_api`,
-  `test_accounts`, `test_readiness_api`, `test_security_hardening`, `test_calls_api`, `test_list_cache_and_scope`, `test_health`):
-  see "Could not check": the full integration suite did not finish on this server (below).
+- Unit suite: **2279 passed, 0 failed** (51 of them new), run on the branch; the tracker seed and its mock were regenerated afterwards (one source reference) and `test_wp36.py` re-run: 51 passed.
+- Integration, new file: **14 passed**. A targeted run of the new file and the files that touch the same code (`test_wp31`,
+  `test_funding_api`, `test_accounts`, `test_readiness_api`, `test_security_hardening`, `test_calls_api`,
+  `test_list_cache_and_scope`, `test_health`): **228 passed, 1 failed**. The failure is
+  `test_security_hardening.py::test_the_rate_limit_answers_429_with_a_wait_and_leaves_the_probe_alone`, the load-sensitive test
+  that WP-29 recorded as failing the same way on unmodified `integration` (it sends 135 requests and expects the bucket to run dry;
+  the server's load average was 11 to 50). The backup test (`test_the_worker_role_can_read_every_table_so_pg_dump_can`) passes
+  with the new table. The full integration suite did not finish (below).
 - Quotes of the tracker: `python tests/verify_regulation.py regulation_tracker.json <dir>`: **16 of 16 found** word for
   word in the Official Journal texts (CELLAR), the Legislative Observatory page and the two Commission pages.
 
@@ -197,17 +202,19 @@ Pages: the new pages were not built on the server. For reference, the deployed c
 
 ## Could not check, and not met
 
-- **The Playwright specs were not run**, and `tsc --noEmit`, `npm run check` and `next build` were started in a container on the server and
-  killed by the memory limit (the server had 100 MB free with five suites running). They are for CI. I read the markup against
-  the locators; expect to adjust one.
+- **The Playwright specs were not run** and `next build` was not run (a browser and a build need about 1 GB; the server had 100 MB free
+  with five suites running). `tsc --noEmit` is clean and `npm run check` passes (13 self-checks, the new `regulation.check.ts`
+  among them), run in a container with 1.1 GB. I read the markup against the locators; expect to adjust one in CI.
 - **The full integration suite did not finish on this server** (five other implementers' full suites were running against the same
-  database server; 36 tests in 40 minutes). The new file passes (14), and the unit suite passes (2279). The targeted
-  run of the neighbouring integration files was started last; its result is in the report, if it finished.
+  database server; 36 tests in 40 minutes, so I stopped it and ran the 9 files above). The other 58 files were not run here;
+  CI runs them.
 - The 35 % component rule of EDIP and USI is shown but not part of the readiness check (the seed holds no rule for it).
 - No Official Journal text of the EU-Ukraine EDF agreement, no notice of entry into force of the SAFE-Canada agreement and no text
   on the UK talks were found; the Council's press pages cannot be read by a program. The three points are in the tracker as unconfirmed or as
   "we have not found".
 - The browser's network trace was done with the performance entries of the page (all resources of the load), not with a recording of
   every request including those blocked by the policy; the policy itself and the HTML were read as well.
-- Nothing was written to production. The scratch database `agent_p_real` and the files in `/root/dev-p/scratch` are listed in
-  `docs/DELETION_CANDIDATES.md`.
+- Nothing was written to production. Scratch removed at the end: database `agent_p_real` (a copy of production's `programme`,
+  `source`, `call`, `call_eligibility`, `call_document_text`; 7 MB dump), the downloaded Official Journal texts and pages
+  (about 15 MB). Kept for the verifier: `/root/dev-p` (16 MB: the branch's backend and web, the scripts, the extracted texts of the sources and
+  `/root/run_p.sh`) and database `agent_p`; both are in `docs/DELETION_CANDIDATES.md`.
