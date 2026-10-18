@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { ArrowRight, BellRing, Bookmark, CalendarDays, Clock, Download, GitCompare, Link2, Rss } from 'lucide-react';
 import { buildMetadata } from '@/lib/seo';
 import { getAccountStatus } from '@/lib/account';
-import { BenefitGrid, Callout } from '@/components/dg/blocks';
+import { BenefitGrid } from '@/components/dg/blocks';
+import { Fact } from '@/components/dg/facts-grid';
 import { Button } from '@/components/dg/button';
-import { ContentPage } from '@/components/dg/content-page';
-import { WaitlistForm } from '@/components/landing/waitlist-form';
+import { ContentPage, ContentSection } from '@/components/dg/content-page';
 
 export const revalidate = 60;
 
@@ -51,22 +51,13 @@ export default async function AlertsPage() {
         </div>
       </section>
 
-      <section aria-labelledby="features" className="flex flex-col gap-4">
-        <h2 id="features" className="m-0 text-h2">{open ? 'What you get' : 'What is planned'}</h2>
-        <BenefitGrid items={FEATURES} columns={2} />
-      </section>
-
-      <Callout title="Good to know">
-        <p className="m-0">Browsing tenders, buyers and funding calls is free and needs no account. Alerts are best effort and do not replace checking the original notice. Sign-in is by a one-time link sent to your e-mail: there is no password.</p>
-      </Callout>
-
-      {!open && (
-        <section aria-labelledby="waitlist" className="flex max-w-[860px] flex-col gap-3">
-          <h2 id="waitlist" className="m-0 text-h2">Waitlist</h2>
-          <p className="m-0 text-body text-ink-muted">The waitlist is not open. The form below checks your answers but stores and sends nothing, and we will not contact you, so there is nothing to sign up to yet: use the feed above, or check back.</p>
-          <WaitlistForm />
-        </section>
-      )}
+      {/* One compact block for what is not open (four icon cards, a callout and a dead waitlist form before). */}
+      <ContentSection title={open ? 'What you get' : 'What is planned'}>
+        <dl className="m-0 flex flex-col">
+          {FEATURES.map((f) => <Fact key={f.title} label={f.title}>{f.body}</Fact>)}
+        </dl>
+        <p className="m-0 text-small text-ink-muted">Browsing tenders, buyers and funding calls is free and needs no account. Alerts are best effort and do not replace checking the original notice. Sign-in is by a one-time link sent to your e-mail: there is no password.</p>
+      </ContentSection>
     </ContentPage>
   );
 }

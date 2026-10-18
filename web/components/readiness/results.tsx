@@ -6,6 +6,7 @@ import { countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
+import { AutoGrid } from '@/components/dg/auto-grid';
 import { ProgrammeCard } from './rules';
 import { useAssessment, useProfile } from './use-readiness';
 
@@ -14,7 +15,7 @@ function Loading() {
   return (
     <div role="status" aria-label="Computing your results" className="flex flex-col gap-4">
       <Skeleton className="h-6 w-64" />
-      <div className="grid gap-4 lg:grid-cols-2">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-56" />)}</div>
+      <AutoGrid fill min={400}>{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-56" />)}</AutoGrid>
     </div>
   );
 }
@@ -52,9 +53,9 @@ export function ResultsView() {
         <>
           <section aria-labelledby="programmes" className="flex flex-col gap-4">
             <h2 id="programmes" className="m-0 text-h2">Where you stand, programme by programme</h2>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <AutoGrid fill min={400}>
               {result.data.assessments.map((a) => <ProgrammeCard key={a.programme} a={a} />)}
-            </div>
+            </AutoGrid>
           </section>
           {result.data.general.map((a) => (
             <section key={a.programme} aria-labelledby="general" className="flex flex-col gap-4">

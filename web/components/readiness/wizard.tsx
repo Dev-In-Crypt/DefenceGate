@@ -6,7 +6,9 @@ import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import { STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
+import { cn } from '@/lib/utils';
 import { Callout } from '@/components/dg/blocks';
+import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
 import { useProfile } from './use-readiness';
@@ -132,16 +134,20 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
         </p>
       )}
 
-      <form ref={formRef} className="flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5 sm:p-6" onSubmit={(e) => { e.preventDefault(); next(); }} aria-label={STEPS[current - 1]}>
-        <h2 ref={headingRef} tabIndex={-1} className="m-0 text-h3">{STEPS[current - 1]}</h2>
+      {/* The shape of a titled Card (step name in its own column from lg, the questions in one reading measure beside it); a form cannot be a Card, and the heading takes focus. */}
+      <form ref={formRef} className={cn('card-titled min-w-0', CARD_SURFACE)} onSubmit={(e) => { e.preventDefault(); next(); }} aria-label={STEPS[current - 1]}>
+        <div className="card-head flex min-h-14 items-center border-b border-line px-5 py-3 sm:px-6">
+          <h2 ref={headingRef} tabIndex={-1} className="m-0 text-h3">{STEPS[current - 1]}</h2>
+        </div>
+        <div className={cn('card-body flex min-w-0 flex-col gap-6', CARD_PADDING)}>
 
         {current === 1 && (
           <div className="flex flex-col gap-4">
-            <TextInput label="Company name (optional)" hint="Shown on your results page. It never leaves this browser." maxLength={120}
+            <TextInput className="max-w-form" label="Company name (optional)" hint="Shown on your results page. It never leaves this browser." maxLength={120}
               value={profile.name} onChange={(e) => set('name', e.target.value)} autoComplete="organization" />
-            <Select label="Size of the company (optional)" hint="Kept for your own summary. No rule reads it." placeholder="Choose" options={SIZE_OPTIONS}
+            <Select className="max-w-form" label="Size of the company (optional)" hint="Kept for your own summary. No rule reads it." placeholder="Choose" options={SIZE_OPTIONS}
               value={profile.sizeClass} onChange={(e) => set('sizeClass', e.target.value as Profile['sizeClass'])} />
-            <Select label="Country where your company is established" hint="Where it is registered. Most rules start here." placeholder="Choose a country"
+            <Select className="max-w-form" label="Country where your company is established" hint="Where it is registered. Most rules start here." placeholder="Choose a country"
               options={COUNTRY_OPTIONS} value={profile.country} aria-required="true"
               error={needCountry ? 'Choose a country to go on.' : undefined}
               onChange={(e) => { setNeedCountry(false); set('country', e.target.value); }} />
@@ -175,7 +181,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               options={[{ value: 'same', label: 'In the country where the company is established' }, { value: 'other', label: 'In another country' }]}
               onChange={(v) => set('managementSameCountry', v === 'same')} />
             {!profile.managementSameCountry && (
-              <Select label="Country of the executive management" placeholder="Choose a country" options={COUNTRY_OPTIONS}
+              <Select className="max-w-form" label="Country of the executive management" placeholder="Choose a country" options={COUNTRY_OPTIONS}
                 value={profile.managementCountry} onChange={(e) => set('managementCountry', e.target.value)} />
             )}
             <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control"
@@ -209,7 +215,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 { value: 'unknown', label: 'I do not know yet' },
               ]}
               onChange={(v) => set('regime', v)} />
-            <TextInput label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={6}
+            <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={6}
               hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. Leave empty if you do not know."
               value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value.replace(/[^0-9.,]/g, ''))}
               error={profile.componentPct && !(Number(profile.componentPct.replace(',', '.')) <= 100) ? 'Enter a number from 0 to 100.' : undefined} />
@@ -238,7 +244,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               const r = byCode.get(code);
               return (
                 <div key={code} className="flex flex-col gap-1">
-                  <Select label={r?.name ?? code} hint={r?.summary} options={(Object.keys(STATUS_LABEL) as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+                  <Select className="max-w-form" label={r?.name ?? code} hint={r?.summary} options={(Object.keys(STATUS_LABEL) as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
                     value={profile.statuses[code] ?? 'not_held'}
                     onChange={(e) => update((p) => ({ ...p, statuses: { ...p.statuses, [code]: e.target.value as Status } }))} />
                   <a href={`/requirements/${requirementSlug(code)}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-small font-semibold">
@@ -268,6 +274,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
         <div className="flex flex-wrap items-center justify-between gap-3">
           {current > 1 ? <Button variant="secondary" icon={ArrowLeft} onClick={() => go(current - 1)}>Back</Button> : <span />}
           <Button type="submit" iconRight={ArrowRight}>{current === 5 ? 'See my results' : 'Next'}</Button>
+        </div>
         </div>
       </form>
 
@@ -350,7 +357,7 @@ function Keep({ profile, onImport }: { profile: Profile; onImport: (p: Profile) 
         </label>
         <label className="flex flex-col gap-1 text-label text-ink">Or paste the copied answers here
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={20_000} spellCheck={false}
-            className="rounded-md border-strong border-line bg-surface p-3 font-mono text-small text-ink" />
+            className="max-w-form rounded-md border-strong border-line bg-surface p-3 font-mono text-small text-ink" />
         </label>
         <div><Button type="button" variant="secondary" icon={Upload} onClick={() => load(text)} disabled={text.trim() === ''}>Load the pasted answers</Button></div>
         {problem && <p role="alert" className="m-0 font-semibold text-alert">{problem}</p>}

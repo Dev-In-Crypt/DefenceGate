@@ -10,6 +10,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
 import { Callout } from '@/components/dg/blocks';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
+import { AutoGrid } from '@/components/dg/auto-grid';
 import { NoProfile } from './results';
 import { useAssessment, useProfile } from './use-readiness';
 
@@ -128,10 +129,10 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
   const extraTime = plan.unknownDurationWithOptional.filter((c) => !plan.unknownDuration.includes(c));
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <AutoGrid min={320}>
         <Totals id="required" title={`What you need now (${required} ${required === 1 ? 'step' : 'steps'})`} totals={plan.totals} />
         {plan.steps.some((s) => s.optional) && <Totals id="with-optional" title="Including what only a contract might ask for" totals={plan.totalsWithOptional} />}
-      </div>
+      </AutoGrid>
       <Callout title="Read the ranges with care">
         <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is shown in the currency of the source and is never converted.</p>
         {plan.unknownCost.length > 0 && <p className="m-0">No cost is stated in the sources for: {plan.unknownCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}

@@ -3,7 +3,7 @@ import { Bell } from 'lucide-react';
 import { buildMetadata } from '@/lib/seo';
 import { Button } from '@/components/dg/button';
 import { ComingSoon } from '@/components/dg/feedback';
-import { Callout, ClauseList } from '@/components/dg/blocks';
+import { ClauseList } from '@/components/dg/blocks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
@@ -15,6 +15,7 @@ export const metadata: Metadata = buildMetadata({
   noindex: true,
 });
 
+/** One short block: the status, what it is meant to contain, what it will not be (two cards and a box before). */
 export default function PackPage() {
   return (
     <ContentPage
@@ -27,20 +28,16 @@ export default function PackPage() {
         <p className="m-0 text-body text-ink-muted">
           The pack is planned. It cannot be ordered today and we do not give a date or a price.
         </p>
-        <Button href="/alerts" variant="secondary" icon={Bell} className="self-start">What is planned for alerts</Button>
-      </ContentSection>
-
-      <ContentSection title="What it is meant to contain">
+        <h3 className="m-0 text-h4">What it is meant to contain</h3>
         <ClauseList items={[
           'The open tenders and funding calls that match a company profile.',
           'The buyers behind them and their other current notices.',
           'The deadlines, in one list, with a link to the source of every item.',
         ]} />
+        <h3 className="m-0 text-h4">What it will not be</h3>
+        <p className="m-0 text-body text-ink-muted">Not a guarantee of fit, eligibility or success, and not legal or bidding advice. The contents may change before it is offered.</p>
+        <Button href="/alerts" variant="secondary" icon={Bell} className="self-start">What is planned for alerts</Button>
       </ContentSection>
-
-      <Callout title="What it will not be">
-        <p className="m-0">Not a guarantee of fit, eligibility or success, and not legal or bidding advice. The contents may change before it is offered.</p>
-      </Callout>
     </ContentPage>
   );
 }

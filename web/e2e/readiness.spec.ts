@@ -172,6 +172,24 @@ test('the SAFE card shows the two rules of Article 16(10) and says what the 35 %
   await expect(safe.locator('li[data-rule="SAFE-NO-RESTRICTED"]')).toContainText('No component from a third country that contravenes');
 });
 
+test('WP-46: the programme cards fill their rows and the cards of a row are equally tall', async ({ page }) => {
+  await mockAssess(page);
+  await answerUkraine(page);
+  await page.getByRole('button', { name: 'See my results' }).click();
+  await expect(card(page, 'European Defence Fund (EDF)')).toBeVisible();
+  const rows = await page.locator('section[aria-labelledby="programmes"]').evaluate((section) => {
+    const outer = section.getBoundingClientRect();
+    const by = new Map<number, DOMRect[]>();
+    for (const a of section.querySelectorAll('article')) { const r = a.getBoundingClientRect(); const k = Math.round(r.top); by.set(k, [...(by.get(k) ?? []), r]); }
+    return { width: outer.width, rows: [...by.values()].map((row) => ({ n: row.length, heights: row.map((r) => Math.round(r.height)), span: Math.max(...row.map((r) => r.right)) - Math.min(...row.map((r) => r.left)) })) };
+  });
+  expect(rows.rows.reduce((n, r) => n + r.n, 0)).toBe(5);
+  for (const r of rows.rows) {
+    expect(Math.max(...r.heights) - Math.min(...r.heights), 'cards of one row have one height').toBeLessThanOrEqual(1);
+    expect(Math.abs(r.span - rows.width), 'a row spans the section: no empty cell').toBeLessThanOrEqual(2);
+  }
+});
+
 test('a Ukrainian company: the roadmap in order, with issuers and ranges, and marking a step done re-scores', async ({ page }) => {
   const posted = await mockAssess(page);
   await answerUkraine(page);

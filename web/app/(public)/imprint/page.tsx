@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { buildMetadata } from '@/lib/seo';
 import { ContentPage, ContentSection, Placeholder } from '@/components/dg/content-page';
+import { Fact } from '@/components/dg/facts-grid';
 
 export const revalidate = 3600;
 
@@ -23,12 +24,10 @@ export default function ImprintPage() {
       lead="The provider details are not filled in yet."
     >
       <ContentSection title="Provider">
-        <dl className="m-0 flex flex-col">
+        {/* Seven rows in two columns, the last across both: every value is still the owner's to fill. */}
+        <dl className="m-0 grid gap-x-8 border-b border-line sm:grid-cols-2">
           {FIELDS.map((f, i) => (
-            <div key={f} className={`grid gap-1 py-3 sm:grid-cols-[200px_1fr] sm:gap-4${i < FIELDS.length - 1 ? ' border-b border-line' : ''}`}>
-              <dt className="text-body font-semibold">{f}</dt>
-              <dd className="m-0 text-body"><Placeholder>to be provided</Placeholder></dd>
-            </div>
+            <Fact key={f} label={f} wide={i === FIELDS.length - 1}><Placeholder>to be provided</Placeholder></Fact>
           ))}
         </dl>
       </ContentSection>

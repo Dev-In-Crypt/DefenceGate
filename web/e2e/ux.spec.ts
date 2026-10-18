@@ -299,8 +299,14 @@ test('U15: the home page names the three parts in the first screen', async ({ pa
   await expect(parts).toBeVisible();
   for (const name of [/1\. What is open to me\?/, /2\. Who is already inside\?/, /3\. What do I need to qualify\?/]) await expect(parts.getByText(name)).toBeVisible();
   await expect(parts.getByRole('link', { name: 'Readiness check' })).toHaveAttribute('href', '/readiness');
+  // WP-46: the hero tiles and the "Three questions" section were one message twice; the section is now the only block and
+  // starts right under the hero. On a desktop screen the list is in the first screen; on a phone (hero = copy, finder, figures)
+  // it is within the first two screens, and in both before "What is in here".
   const top = await parts.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-  expect(top, 'in the first screen and a half, above the tender form').toBeLessThan(isMobile(page) ? 900 : 700);
+  const height = page.viewportSize()!.height;
+  expect(top, 'in the first screen (two on a phone)').toBeLessThan(isMobile(page) ? 2 * height : height);
+  const inHere = await page.getByRole('heading', { name: 'What is in here' }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  expect(top, 'before "What is in here"').toBeLessThan(inHere);
 });
 
 test('U16: a small menu opens from a button that says it is open, and closes with Escape', async ({ page }) => {

@@ -4,6 +4,7 @@ import { getUkrainePartners } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
 import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_WORD, yearsLabel } from '@/lib/networks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
+import { AutoGrid } from '@/components/dg/auto-grid';
 import { ErrorState } from '@/components/dg/feedback';
 import { CountryNote, DataSources, OrgLink, TableBox } from '@/components/networks/parts';
 import type { SearchParams } from '@/lib/filters';
@@ -39,9 +40,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function UkrainePartnersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const since = sinceOf(sp);
-  const { codes, all } = programmesOf(sp);
+  const chosen = programmesOf(sp);
+  let { codes, all } = chosen;
   let data;
   try { data = await getUkrainePartners(since, codes); } catch { data = null; }
+  // The defence-programme default can be empty (no EDF, EDIDP or PADR project has a Ukrainian participant yet) while the other
+  // programmes hold hundreds: open on those, with a line that says so, instead of an empty headline view. A programme the visitor
+  // chose stays as chosen.
+  let fellBack = false;
+  if (data && !sp.programme && data.totals.projects === 0 && data.byProgramme?.some((b) => b.projects > 0)) {
+    try {
+      const wide = await getUkrainePartners(since, []);
+      if (wide.totals.projects > 0) { data = wide; codes = []; all = true; fellBack = true; }
+    } catch { /* keep the empty defence view and its link to all programmes */ }
+  }
   const others = (data?.byProgramme ?? []).filter((b) => !codes.includes(b.code));
   const base = `/networks/ukraine-partners?since=${since}`;
   return (
@@ -62,9 +74,9 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
             {!all && codes.join() !== DEFENCE_PROGRAMMES.join() && <input type="hidden" name="programme" value={codes.join(',')} />}
             <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
           </form>
-          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-body">
+          <p role="status" className="m-0 max-w-prose rounded-lg border border-edge bg-surface p-4 text-body">
             {all ? (
-              <>Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7. <Link href={base} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
+              <>{fellBack && <>No project of {DEFENCE_PROGRAMMES_WORDS} started in or after {data.since} has a Ukrainian participant. </>}Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7. <Link href={base} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
             ) : (
               <>Showing <strong>{codes.map((c) => PROGRAMME_WORD[c] ?? c).join(', ')}</strong>
                 {codes.join() === DEFENCE_PROGRAMMES.join() ? ` (${DEFENCE_PROGRAMMES_WORDS}): the defence-relevant programmes` : ''}.
@@ -72,6 +84,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
                 <Link href={`${base}&programme=all`} className="font-semibold">Show all programmes</Link>.</>
             )}
           </p>
+          <AutoGrid min={420}>
           <ContentSection title="What this counts">
             <p className="m-0 text-body">{data.definition}</p>
             <p className="m-0 text-body">
@@ -80,6 +93,10 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
               {' '}{data.totals.ukrainianOrganisations} Ukrainian {data.totals.ukrainianOrganisations === 1 ? 'organisation' : 'organisations'} took part.
             </p>
           </ContentSection>
+          <ContentSection title="Limits">
+            <ul className="m-0 pl-5 text-small">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
+          </ContentSection>
+          </AutoGrid>
           <ContentSection title="Coordinators">
             {data.coordinators.length === 0 ? <p className="m-0">No project started in or after {data.since} matches.</p> : (
               <TableBox label="Coordinators with a Ukrainian participant">
@@ -112,14 +129,11 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
             )}
           </ContentSection>
           <ContentSection title="Ukrainian organisations in these projects">
-            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            <ul className="m-0 list-none p-0 [column-gap:2rem] [column-width:22rem] [&>li]:mb-1 [&>li]:break-inside-avoid">
               {data.ukrainianOrganisations.map((u) => (
                 <li key={u.organisation.id ?? u.organisation.name}><OrgLink org={u.organisation} /> <span className="text-ink-muted">{u.projects} {u.projects === 1 ? 'project' : 'projects'}, {u.coordinated} as coordinator</span></li>
               ))}
             </ul>
-          </ContentSection>
-          <ContentSection title="Limits">
-            <ul className="m-0 pl-5 text-small">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
           </ContentSection>
           <CountryNote />
           <DataSources sources={data.sources} />

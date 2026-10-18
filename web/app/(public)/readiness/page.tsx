@@ -30,7 +30,7 @@ export default async function ReadinessPage() {
       lead="Five short sets of questions about your company. For each programme you get a verdict, and for each rule the reason and the text of the source. Then an ordered list of what to obtain, who issues it, and what it costs."
     >
       <Callout title="Your answers stay in this browser">
-        <p className="m-0">They are saved in your browser&rsquo;s local storage (the key is <code>dg.profile.v1</code>). There is no account and no copy on our server.</p>
+        <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server.</p>
         <p className="m-0">The only thing that leaves your browser is the request that computes the verdict: your answers to the questions the rules read, sent to the rules engine. The server does not store or log them. The company name and size you may enter below are never sent.</p>
       </Callout>
 

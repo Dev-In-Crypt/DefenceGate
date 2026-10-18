@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { buildMetadata } from '@/lib/seo';
 import { ContentPage } from '@/components/dg/content-page';
+import { Card } from '@/components/dg/card';
+import { DataTable } from '@/components/dg/data-table';
 
 export const revalidate = 3600;
 
@@ -22,26 +24,28 @@ const PLANS: { name: string; price: string; status: string; note: string }[] = [
 export default function PricingPage() {
   return (
     <ContentPage
-      wide
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Pricing', href: '/pricing' }]}
       title="Pricing"
       lead="Pricing is not announced. Browsing is free today. Anything beyond that will be announced with its terms before it is offered."
     >
-      <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2 xl:grid-cols-4">
-        {PLANS.map((p) => (
-          <li key={p.name} className="min-w-0">
-            <article className="flex h-full flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
-              <h2 className="m-0 text-h3">{p.name}</h2>
-              <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
-                <span className="text-label text-ink-muted">Price</span>
-                <span className="font-mono text-mono-strong">{p.price}</span>
-              </div>
-              <p className="m-0 text-small font-bold">{p.status}</p>
-              <p className="m-0 text-body text-ink-muted">{p.note}</p>
-            </article>
-          </li>
-        ))}
-      </ul>
+      {/* One table, not four cards of which three said "Not announced". */}
+      <Card>
+        <DataTable label="Plans, prices and status" minWidth={560}>
+          <thead>
+            <tr><th scope="col">Plan</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col">Note</th></tr>
+          </thead>
+          <tbody>
+            {PLANS.map((p) => (
+              <tr key={p.name}>
+                <th scope="row" className="whitespace-nowrap">{p.name}</th>
+                <td className="whitespace-nowrap font-mono">{p.price}</td>
+                <td className="whitespace-nowrap font-bold">{p.status}</td>
+                <td className="text-ink-muted">{p.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      </Card>
     </ContentPage>
   );
 }

@@ -149,7 +149,7 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
           <ul className="m-0 flex list-none flex-col p-0">{apart.map((r) => <RuleItem key={r.rule} rule={r} />)}</ul>
         </details>
       )}
-      <p className="m-0 text-small text-ink-muted">
+      <p className="m-0 mt-auto pt-2 text-small text-ink-muted">
         {a.legalBasis ? <>Legal basis: {a.legalBasis}.</> : 'No legal basis is stated for this route.'}{' '}
         {safeHttpUrl(a.sourceUrl) && <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">{a.legalBasis ? 'Open the legal text' : 'Open the page of the source'}</a>}
       </p>

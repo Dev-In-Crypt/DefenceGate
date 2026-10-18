@@ -44,6 +44,8 @@ const config: Config = {
       fontFamily: { sans: [v('font-sans')], mono: [v('font-mono')] },
       fontSize: {
         display: ['56px', { lineHeight: '60px', letterSpacing: '-2px', fontWeight: '800' }],
+        /** The home headline beside its figures (the 56 px display wraps to three lines in a two-column hero). */
+        'display-sm': ['44px', { lineHeight: '48px', letterSpacing: '-1.5px', fontWeight: '800' }],
         // Page title: `h1-sm` below md, `h1` from md up (the `.page-title` class in globals.css picks).
         h1: ['36px', { lineHeight: '44px', letterSpacing: '-0.5px', fontWeight: '700' }],
         'h1-sm': ['32px', { lineHeight: '40px', letterSpacing: '-0.5px', fontWeight: '700' }],

@@ -42,7 +42,7 @@ const SIGN_IN = { label: 'Sign in', href: '/signin' } as const;
 function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {
   return (
     <Link href={href} onClick={onClick} aria-current={active ? 'page' : undefined}
-      className={cn('inline-flex min-h-11 items-center px-1 text-body font-semibold no-underline decoration-accent-text decoration-2 underline-offset-[6px] transition-colors duration-dg hover:underline',
+      className={cn('inline-flex min-h-11 items-center whitespace-nowrap px-1 text-body font-semibold no-underline decoration-accent-text decoration-2 underline-offset-[6px] transition-colors duration-dg hover:underline',
         active ? 'text-accent-text' : 'text-ink')}>
       {label}
     </Link>
@@ -85,7 +85,7 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
               <NavLink href={n.href} label={n.label} active={isActive(n.href) || n.children.some((c) => isActive(c.href))} />
               <button type="button" aria-expanded={sub === n.href} aria-controls={`sub-${n.label}`} aria-label={`${n.label}: more pages`}
                 onClick={() => setSub(sub === n.href ? null : n.href)}
-                className="inline-flex min-h-11 w-7 items-center justify-center border-0 bg-transparent p-0 text-ink">
+                className="inline-flex min-h-11 w-8 items-center justify-center border-0 bg-transparent p-0 text-ink">
                 <Icon icon={ChevronDown} size="inline" className={cn('transition-transform duration-dg', sub === n.href && 'rotate-180')} />
               </button>
               <div id={`sub-${n.label}`} className={cn('absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg border border-edge bg-surface px-4 py-2 shadow-lg group-hover:visible', sub === n.href ? 'visible' : 'invisible')}>

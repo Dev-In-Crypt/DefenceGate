@@ -42,7 +42,7 @@ export default async function NotFound() {
             The address may be mistyped, or the notice or call may no longer be listed. Try the search on one of the lists below.
           </p>
         </header>
-        <AutoGrid as="ul" min={280}>
+        <AutoGrid as="ul" fill min={340}>
           {LINKS.map((l) => (
             <li key={l.href} className="flex min-w-0 flex-col gap-1 rounded-lg border border-edge bg-surface p-5">
               <Link href={l.href} className="text-body font-bold">{l.label}</Link>

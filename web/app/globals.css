@@ -108,7 +108,10 @@
     display: grid; gap: 16px;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--auto-min, 320px)), 1fr));
   }
-  @media (min-width: 1024px) { .auto-grid { gap: 24px; } }
+  /* AutoGrid fill: the same, but a short last row is shared by its cards. */
+  .auto-fill { display: flex; flex-wrap: wrap; gap: 16px; }
+  .auto-fill > * { flex: 1 1 min(100%, var(--auto-min, 320px)); min-width: 0; }
+  @media (min-width: 1024px) { .auto-grid { gap: 24px; } .auto-fill { gap: 24px; } }
   /* Reading pages and TextCard: from lg a titled card puts its title (sticky) in a 220 px column and the text beside it. */
   @media (min-width: 1024px) {
     .reading .card-titled, .card-titled.split {

@@ -14,6 +14,8 @@ import { Select, TextInput } from '@/components/dg/form';
 import { AudienceGrid, BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
 import { CallCard, TenderCard } from '@/components/dg/cards';
 import { EmptyState, JsonLd } from '@/components/dg/feedback';
+import { AutoGrid } from '@/components/dg/auto-grid';
+import { CARD_PADDING, CARD_SURFACE, Card } from '@/components/dg/card';
 import { Icon } from '@/components/dg/icon';
 
 export const revalidate = 60;
@@ -76,9 +78,9 @@ const faqItems = (portals: { count: string; names: string }): FaqItem[] => [
  * so in words. It is never a dash, which read as "zero" or as a broken page (UX walk-throughs of 16 October 2026).
  * `asOf`: the figure is the last good one, from that time.
  */
-function Counter({ label, value, sub, asOf }: { label: string; value: string | null; sub?: string; asOf?: string }) {
+function Counter({ label, value, sub, asOf, wide = false }: { label: string; value: string | null; sub?: string; asOf?: string; wide?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4">
+    <div className={`flex min-w-0 flex-col gap-1 border-t border-line pt-3 ${wide ? 'col-span-full' : ''}`}>
       <dt className="text-label text-ink-muted">{label}</dt>
       {value === null
         ? <dd className="m-0 text-body text-ink-muted">Not available right now</dd>
@@ -125,44 +127,27 @@ export default async function LandingPage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      <section aria-labelledby="hero" className="grid items-end gap-6 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-16 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-5">
-          <h1 id="hero" className="m-0 text-[40px] font-extrabold leading-[44px] tracking-[-1.5px] md:text-display">Defence and dual-use tenders and funding, in one place.</h1>
-          <p className="m-0 max-w-[52ch] text-body text-ink-muted md:text-h3 md:font-normal">
+      {/* Hero: copy and the finder at the left, the figures at the right, both starting at the top of the card (one grid, one height). */}
+      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10 lg:p-10 ${CARD_SURFACE} ${CARD_PADDING}`}>
+        <div className="flex min-w-0 flex-col gap-5">
+          <h1 id="hero" className="m-0 text-[36px] font-extrabold leading-10 tracking-[-1px] md:text-display-sm">Defence and dual-use tenders and funding, in one place.</h1>
+          <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
-          {/* The three layers, in the hero (U15: they started 1,849 px down, after the whole tender form). */}
-          <ol aria-label="The three parts of DefenceGate" className="m-0 grid list-none gap-2 p-0 md:grid-cols-3">
-            <li className="flex flex-col rounded-md bg-surface-inset p-3">
-              <span className="text-label text-ink">1. What is open to me?</span>
-              <span className="flex flex-wrap gap-x-4 text-small font-bold">
-                <Link href="/tenders" className="inline-flex min-h-12 items-center">Tenders</Link>
-                <Link href="/funding" className="inline-flex min-h-12 items-center">Funding calls</Link>
-              </span>
-            </li>
-            <li className="flex flex-col rounded-md bg-surface-inset p-3">
-              <span className="text-label text-ink">2. Who is already inside?</span>
-              <Link href="/organisations" className="inline-flex min-h-12 items-center text-small font-bold">Organisations in funded projects</Link>
-            </li>
-            <li className="flex flex-col rounded-md bg-surface-inset p-3">
-              <span className="text-label text-ink">3. What do I need to qualify?</span>
-              <Link href="/readiness" className="inline-flex min-h-12 items-center text-small font-bold">Readiness check</Link>
-            </li>
-          </ol>
           <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface-inset p-4">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
               <Select name="country" label="Country of the buyer" placeholder="Any country"
                 options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
               <TextInput name="cpv" label="Product code (CPV)" placeholder="For example 35 or 35120000" maxLength={200} inputMode="numeric" />
+              <TextInput search name="q" label="Or a word in the title or the name of the buyer" placeholder="For example uniforms" maxLength={100} />
             </div>
-            <TextInput search name="q" label="Or a word in the title or the name of the buyer" placeholder="For example uniforms" maxLength={100} />
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               <Button type="submit" iconRight={ArrowRight}>Find tenders</Button>
               <Link href="/cpv" className="inline-flex min-h-11 items-center text-small font-bold">Not sure of the code? CPV finder</Link>
             </div>
           </form>
           {examples.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-x-5">
               <p className="m-0 text-small text-ink-muted">Open now, for example:</p>
               <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
                 {examples.map((e) => (
@@ -179,25 +164,72 @@ export default async function LandingPage() {
             <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
             <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
             <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
+            <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
           </div>
-          <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
         </div>
-        <dl aria-label="Live data" className="m-0 grid grid-cols-2 gap-3">
+        <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-x-6 gap-y-4 lg:h-full lg:grid-rows-3 lg:gap-y-0">
           <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
           <Counter label="Current notices" value={current ? formatNumber(current.total) : null} asOf={current?.staleAsOf} sub="including some without a stated deadline" />
           <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} />
           <Counter label="Sources" value={stats ? String(stats.sources) : null} />
-          <div className="col-span-2"><Counter label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} /></div>
+          <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
         </dl>
       </section>
 
-      <section aria-labelledby="inside" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
+      {/* The three parts: one block (the hero tiles and this section said the same thing). */}
+      <section aria-labelledby="layers" className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <h2 id="layers" className="m-0 text-h2">Three questions, three parts</h2>
+          <p className="m-0 max-w-prose text-body text-ink-muted">
+            A supplier asks the same three things in turn. Each part below answers one of them from public sources, and says where the answer comes from.
+          </p>
+        </div>
+        <AutoGrid as="ol" min={300} aria-label="The three parts of DefenceGate">
+          <Card as="li" className="gap-2">
+            <h3 className="m-0 text-h4">1. What is open to me?</h3>
+            <p className="m-0 text-body">
+              Procurement notices from TED and the national portals, and EU and national funding calls, with their deadlines. A funding call whose rules we have read
+              shows what its document says about who may apply.
+            </p>
+            <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
+              <Link href="/tenders" className="inline-flex min-h-11 items-center">Tenders</Link>
+              <Link href="/funding" className="inline-flex min-h-11 items-center">Funding calls</Link>
+            </p>
+          </Card>
+          <Card as="li" className="gap-2">
+            <h3 className="m-0 text-h4">2. Who is already inside?</h3>
+            <p className="m-0 text-body">
+              Who took part in funded projects, in which role and with whom: Horizon Europe, Horizon 2020 and FP7 projects from CORDIS, and European Defence Fund projects
+              from the Commission’s factsheets, which a language model reads. A funding call page lists organisations from earlier projects of the same area.
+            </p>
+            <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
+              <Link href="/organisations" className="inline-flex min-h-11 items-center">Organisations in funded projects</Link>
+            </p>
+          </Card>
+          <Card as="li" className="gap-2">
+            <h3 className="m-0 text-h4">3. What do I need to qualify?</h3>
+            <p className="m-0 text-body">
+              Five short questions about your company, kept in your browser, give a verdict for the European Defence Fund, EDIP and SAFE, the steps you would still need,
+              and, on a call page, whether you can get them before the deadline. Each rule shows the text it rests on.
+            </p>
+            <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
+              <Link href="/readiness" className="inline-flex min-h-11 items-center">Readiness check</Link>
+              <Link href="/requirements" className="inline-flex min-h-11 items-center">Requirements</Link>
+            </p>
+          </Card>
+        </AutoGrid>
+        <p className="m-0 max-w-prose text-small text-ink-muted">
+          None of this is legal advice or a promise of eligibility: the call text and the contracting authority decide.
+        </p>
+      </section>
+
+      <section aria-labelledby="inside" className={`flex flex-col gap-4 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <h2 id="inside" className="m-0 text-h2">What is in here</h2>
         {stale && <p role="status" className="m-0 text-small text-ink-muted">{staleNote(stale, formatDateTimeUtc)}</p>}
-        <p className="m-0 max-w-[70ch] text-body text-ink-muted">
+        <p className="m-0 max-w-prose text-body text-ink-muted">
           Open tenders, by the scope names of the tender filter. The first is the default list: the other two together.
         </p>
-        <dl className="m-0 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <AutoGrid as="dl" min={240} className="gap-y-4">
           <Counter label={SCOPE_CHOICES.relevant.short} value={counts ? formatNumber(counts.relevant) : null} sub={`Open tenders. ${SCOPE_CHOICES.relevant.hint}`} />
           <Counter label={SCOPE_CHOICES.core.short} value={counts ? formatNumber(counts.core) : null}
             sub={`${SCOPE_CHOICES.core.hint}${showGoods || goodsOpen === null ? '' : ' The “Defence goods only” switch gives the same list.'}`} />
@@ -205,10 +237,9 @@ export default async function LandingPage() {
             <Counter label="Core, defence goods only" value={formatNumber(goodsOpen.total)} sub="Of the core notices, those that state the directive or a military product code themselves: the “Defence goods only” switch." />
           )}
           <Counter label={SCOPE_CHOICES.supply.short} value={counts ? formatNumber(counts.supply) : null} sub={SCOPE_CHOICES.supply.hint} />
-          <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} sub="EU and national programmes, searched separately from tenders." />
-        </dl>
-        <p className="m-0 max-w-[70ch] text-small text-ink-muted">{TENDER_SCOPES.supply.also}</p>
-        <p className="m-0 max-w-[70ch] text-small text-ink-muted">
+        </AutoGrid>
+        <p className="m-0 max-w-prose text-small text-ink-muted">{TENDER_SCOPES.supply.also}</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted">
           Not in these counts: notices that are only dual-use (reachable with the scope &ldquo;All&rdquo;) and closed notices. We read the national portals and feeds of {portals.names}; every
           other country appears through TED only. The{' '}
           <Link href="/data" className="font-semibold">status page</Link> lists every source, its span of dates and the known gaps; the{' '}
@@ -216,59 +247,17 @@ export default async function LandingPage() {
         </p>
       </section>
 
-      <section aria-labelledby="layers" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
-        <h2 id="layers" className="m-0 text-h2">Three questions, three parts</h2>
-        <p className="m-0 max-w-[70ch] text-body text-ink-muted">
-          A supplier asks the same three things in turn. Each part below answers one of them from public sources, and says where the answer comes from.
-        </p>
-        <ol className="m-0 grid list-none gap-3 p-0 md:grid-cols-3">
-          <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-5">
-            <h3 className="m-0 text-h4">1. What is open to me?</h3>
-            <p className="m-0 text-body">
-              Procurement notices from TED and the national portals, and EU and national funding calls, with their deadlines. A funding call whose rules we have read
-              shows what its document says about who may apply.
-            </p>
-            <p className="m-0 flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/tenders" className="inline-flex min-h-11 items-center">Tenders</Link>
-              <Link href="/funding" className="inline-flex min-h-11 items-center">Funding calls</Link>
-            </p>
-          </li>
-          <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-5">
-            <h3 className="m-0 text-h4">2. Who is already inside?</h3>
-            <p className="m-0 text-body">
-              Who took part in funded projects, in which role and with whom: Horizon Europe, Horizon 2020 and FP7 projects from CORDIS, and European Defence Fund projects
-              from the Commission’s factsheets, which a language model reads. A funding call page lists organisations from earlier projects of the same area.
-            </p>
-            <p className="m-0 flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/organisations" className="inline-flex min-h-11 items-center">Organisations in funded projects</Link>
-            </p>
-          </li>
-          <li className="flex flex-col gap-2 rounded-md bg-surface-inset p-5">
-            <h3 className="m-0 text-h4">3. What do I need to qualify?</h3>
-            <p className="m-0 text-body">
-              Five short questions about your company, kept in your browser, give a verdict for the European Defence Fund, EDIP and SAFE, the steps you would still need,
-              and, on a call page, whether you can get them before the deadline. Each rule shows the text it rests on.
-            </p>
-            <p className="m-0 flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/readiness" className="inline-flex min-h-11 items-center">Readiness check</Link>
-              <Link href="/requirements" className="inline-flex min-h-11 items-center">Requirements</Link>
-            </p>
-          </li>
-        </ol>
-        <p className="m-0 max-w-[70ch] text-small text-ink-muted">
-          None of this is legal advice or a promise of eligibility: the call text and the contracting authority decide.
-        </p>
-      </section>
-
       {changes && (
-        <section aria-labelledby="changed" className="flex flex-col items-start gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
-          <h2 id="changed" className="m-0 text-h2">What changed in the last {changes.windowDays} days</h2>
-          <p className="m-0 max-w-[70ch] text-body text-ink-muted">
-            <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.new)}</span> new notices and{' '}
-            <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.amended)}</span> amendments to a deadline, value, status or procedure,
-            from our archive. There is an Atom feed of the same list: no account needed.
-          </p>
-          <div className="flex flex-wrap items-center gap-x-5">
+        <section aria-labelledby="changed" className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8 ${CARD_SURFACE} ${CARD_PADDING}`}>
+          <div className="flex min-w-0 flex-col gap-3">
+            <h2 id="changed" className="m-0 text-h2">What changed in the last {changes.windowDays} days</h2>
+            <p className="m-0 max-w-prose text-body text-ink-muted">
+              <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.new)}</span> new notices and{' '}
+              <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.amended)}</span> amendments to a deadline, value, status or procedure,
+              from our archive. There is an Atom feed of the same list: no account needed.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-x-5">
             <Button href="/changes" variant="secondary">See what changed</Button>
             <a href="/changes.atom" className="inline-flex min-h-11 items-center text-small font-bold">Atom feed</a>
           </div>
@@ -327,19 +316,21 @@ export default async function LandingPage() {
         )}
       </section>
 
-      <section aria-labelledby="next" className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:p-12">
-        <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Clock} /></span>
-        <h2 id="next" className="m-0 text-h2">{accountsOpen ? 'Save searches and keep a shortlist' : 'Alerts and a personal workspace are being prepared'}</h2>
-        <p className="m-0 max-w-[62ch] text-body text-ink-muted">
-          {accountsOpen
-            ? 'Sign in with your e-mail to save a search, follow buyers and programmes, and keep a shortlist for your own bids. Browsing stays free.'
-            : 'Saved searches with alerts for new matches, followed buyers and programmes, and a shortlist for your own bids. They are not open yet. Browsing stays free.'}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-5">
-          <Button href={accountsOpen ? '/signin' : '/alerts'} variant="secondary">{accountsOpen ? 'Sign in' : 'What is planned and what works today'}</Button>
-          {!accountsOpen && <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed (works today)</Link>}
-        </div>
-      </section>
+      {/* Only a block that does something: while accounts are closed it only promised (the FAQ and /alerts say what is planned). */}
+      {accountsOpen && (
+        <section aria-labelledby="next" className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8 ${CARD_SURFACE} ${CARD_PADDING}`}>
+          <div className="flex min-w-0 items-start gap-4">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Clock} /></span>
+            <div className="flex min-w-0 flex-col gap-2">
+              <h2 id="next" className="m-0 text-h2">Save searches and keep a shortlist</h2>
+              <p className="m-0 max-w-prose text-body text-ink-muted">
+                Sign in with your e-mail to save a search, follow buyers and programmes, and keep a shortlist for your own bids. Browsing stays free.
+              </p>
+            </div>
+          </div>
+          <Button href="/signin" variant="secondary" className="shrink-0 self-start md:self-center">Sign in</Button>
+        </section>
+      )}
 
       <Callout title="Please note">
         <p className="m-0">DefenceGate is an information service, not an official source and not advice. The original publication is authoritative; check it before you act. See the <Link href="/terms" className="font-semibold">terms</Link>.</p>
