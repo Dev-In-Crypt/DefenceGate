@@ -63,7 +63,9 @@ test('/regulation: every entry has a status, a source with a quote, and the day 
     const e = entries.nth(i);
     await expect(e.getByRole('link', { name: /Primary source/ })).toHaveAttribute('href', /^https?:\/\//);
     await expect(e.locator('blockquote')).not.toBeEmpty();
-    await expect(e.getByText(/^Last checked \d{1,2} \w+ \d{4}\.$/)).toBeVisible();
+    // the quote and the citation are in a disclosure (collapsed); the day we last read the source is a fact beside the summary
+    await expect(e.locator('dt', { hasText: 'Last checked' }).locator('xpath=following-sibling::dd[1]')).toHaveText(/^\d{1,2} \w+ \d{4}$/);
+    await expect(e.locator('dt', { hasText: 'Last checked' })).toBeVisible();
   }
   await expect(page.locator('#main').getByRole('link', { name: /Atom feed/ })).toHaveAttribute('href', '/regulation.atom');
   await pace(page);

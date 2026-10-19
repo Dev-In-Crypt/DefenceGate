@@ -1,3 +1,4 @@
+import { Children, cloneElement, isValidElement } from 'react';
 import { Info, Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from './icon';
@@ -37,8 +38,26 @@ export function BenefitGrid({ items, columns = 3 }: { items: Benefit[]; columns?
   );
 }
 
-/** Numbered steps. */
-export function Steps({ items }: { items: { title: string; body: string }[] }) {
+/**
+ * Numbered steps. `rows` = one card with a hairline between the steps and the number in its own column (for a narrow column of
+ * long sentences: three cards side by side would hold twelve-line paragraphs in 220 px).
+ */
+export function Steps({ items, rows = false }: { items: { title: string; body: string }[]; rows?: boolean }) {
+  if (rows) {
+    return (
+      <ol className={cn('m-0 flex list-none flex-col p-0', CARD_SURFACE)}>
+        {items.map((s, i) => (
+          <li key={s.title} className="grid gap-x-6 gap-y-1 border-t border-line p-5 first:border-t-0 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:p-6">
+            <span className="font-mono text-mono text-ink-muted">Step {i + 1}</span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <h3 className="m-0 text-h3">{s.title}</h3>
+              <p className="m-0 text-body text-ink-muted">{s.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    );
+  }
   return (
     <AutoGrid as="ol" min={280}>
       {items.map((s, i) => (
@@ -89,12 +108,33 @@ export function Faq({ items }: { items: FaqItem[] }) {
  * One numbered clause of a legal text. `id` is the anchor, so a clause can be linked.
  * Paragraphs are separate strings: a clause is never one block of prose.
  */
-export function Clause({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+export function Clause({ n, title, children, bare = false }: { n: number; title: string; children: React.ReactNode; bare?: boolean }) {
   const id = `c${n}`;
+  if (bare) {
+    // inside a ClauseGroup: a section of one card, a hairline above it, the number in mono before the title
+    return (
+      <section id={id} aria-labelledby={`${id}-h`} className="flex min-w-0 scroll-mt-4 flex-col gap-3 border-t border-line pt-6 first:border-t-0 first:pt-0">
+        <h2 id={`${id}-h`} className="m-0 text-h3"><span className="mr-2 font-mono text-mono text-ink-muted">{n}.</span>{title}</h2>
+        <div className="flex flex-col gap-3 text-body text-ink-muted">{children}</div>
+      </section>
+    );
+  }
   return (
     <Card anchor={id} id={`${id}-h`} className="scroll-mt-4"
       title={<><span className="mr-2 font-mono text-mono text-ink-muted">{n}.</span>{title}</>}>
       <div className="flex flex-col gap-3 text-body text-ink-muted">{children}</div>
+    </Card>
+  );
+}
+
+/**
+ * The numbered clauses of a legal text as one card: a section per clause with a hairline between, instead of 24 cards of a header row
+ * and a body each (that was 1,400 px more on the terms, for no more information). Every clause keeps its `#cN` anchor.
+ */
+export function ClauseGroup({ children }: { children: React.ReactNode }) {
+  return (
+    <Card className="gap-6">
+      {Children.map(children, (c) => (isValidElement(c) ? cloneElement(c as React.ReactElement<{ bare?: boolean }>, { bare: true }) : c))}
     </Card>
   );
 }

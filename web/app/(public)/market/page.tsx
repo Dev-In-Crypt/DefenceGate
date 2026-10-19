@@ -9,6 +9,7 @@ import { cpvGroupName } from '@/lib/cpv';
 import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
 import { daysText, monthLabel, percentText } from '@/lib/market';
 import { buildMetadata } from '@/lib/seo';
+import { AutoGrid } from '@/components/dg/auto-grid';
 import { BarChart, RankTable } from '@/components/market/charts';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
@@ -75,7 +76,7 @@ export default async function MarketPage({ searchParams }: Props) {
     >
       {selectors}
 
-      <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg border border-edge bg-surface p-4 lg:grid-cols-3">
+      <dl className="facts-grid m-0 border-b border-line">
         <FactCell label={`Notices, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
         <FactCell label={yearOf ? `Notices, ${yearOf}, by month below` : 'Notices, last 36 months'}>{formatNumber(inMonths)}</FactCell>
         <FactCell label="Sources that published them">{stats.sourceCount}</FactCell>
@@ -104,7 +105,7 @@ export default async function MarketPage({ searchParams }: Props) {
         <p className={BASIS}>{stats.basis.months}</p>
       </ContentSection>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <AutoGrid min={460}>
         <ContentSection title="By country">
           <RankTable
             caption={`Notices published by buyer country, ${from} to ${to}`}
@@ -146,7 +147,7 @@ export default async function MarketPage({ searchParams }: Props) {
             Titles are from the <Link href="/cpv" className={LINK}>CPV vocabulary</Link>. Groups are the first three digits of a code.
           </p>
         </ContentSection>
-      </div>
+      </AutoGrid>
 
       <ContentSection title="By source">
         <RankTable
@@ -158,7 +159,7 @@ export default async function MarketPage({ searchParams }: Props) {
         <p className={BASIS}>{stats.basis.sources}</p>
       </ContentSection>
 
-      <ContentSection title="Reading these figures">
+      <ContentSection title="Reading these figures" split>
         <ul className="m-0 flex list-disc flex-col gap-2 pl-5 text-body text-ink-muted">
           <li>They are counts of notices published. A notice can be a call for tender, a correction or an award; none states how much is spent.</li>
           <li>Only notices that state the defence and security directive, or carry a military product code, are counted. A military code bought by a municipal, health, education or fire body is not, and neither are notices listed only because their buyer is a defence body, notices whose only signal is the defence directive from a civil buyer, or notices whose only signal is a military product code from a police, prison, border, customs or tax body.</li>

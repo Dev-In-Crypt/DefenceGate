@@ -1,5 +1,6 @@
 import { barLayout, percentText, shareOf } from '@/lib/market';
 import { formatNumber } from '@/lib/format';
+import { DataTable } from '@/components/dg/data-table';
 
 /**
  * Plain SVG bar chart of counts of notices. No chart library: the drawing carries no text, so it scales
@@ -69,30 +70,29 @@ export function BarChart({ id, title, summary, bars, primaryName, secondaryName,
         </span>
         {bars.some((b) => b.partial) && <span>The lighter bar is a period that is not over yet.</span>}
       </figcaption>
-      <details open={bars.length <= 12} className="rounded-md bg-surface-inset p-3">
+      <details open={bars.length <= 12} className="border-t border-line">
         <summary className="inline-flex min-h-11 cursor-pointer items-center text-small font-semibold">Figures as a table</summary>
-        <div className="mt-3 max-h-80 overflow-auto">
-          <table className="w-full min-w-[440px] border-collapse text-left text-small">
-            <caption className="sr-only">{title}</caption>
+        <div className="max-h-80 overflow-y-auto">
+          <DataTable label={title} minWidth={320}>
             <thead>
-              <tr className="border-b border-line">
-                <th scope="col" className="py-1 pr-4 font-semibold">{labelHeader}</th>
-                <th scope="col" className="py-1 pr-4 text-right font-semibold">{primaryName}</th>
-                {stacked && <th scope="col" className="py-1 pr-4 text-right font-semibold">{secondaryName}</th>}
-                {stacked && <th scope="col" className="py-1 text-right font-semibold">All</th>}
+              <tr>
+                <th scope="col">{labelHeader}</th>
+                <th scope="col" className="text-right">{primaryName}</th>
+                {stacked && <th scope="col" className="text-right">{secondaryName}</th>}
+                {stacked && <th scope="col" className="text-right">All</th>}
               </tr>
             </thead>
             <tbody>
               {bars.map((b) => (
-                <tr key={b.label} className="border-b border-line last:border-0">
-                  <th scope="row" className="py-1 pr-4 font-normal">{b.label}{b.partial ? ' (not complete)' : ''}</th>
-                  <td className="py-1 pr-4 text-right font-mono tabular-nums">{formatNumber(b.primary)}</td>
-                  {stacked && <td className="py-1 pr-4 text-right font-mono tabular-nums">{formatNumber(b.secondary ?? 0)}</td>}
-                  {stacked && <td className="py-1 text-right font-mono tabular-nums">{formatNumber(b.primary + (b.secondary ?? 0))}</td>}
+                <tr key={b.label}>
+                  <th scope="row">{b.label}{b.partial ? ' (not complete)' : ''}</th>
+                  <td className="text-right font-mono tabular-nums">{formatNumber(b.primary)}</td>
+                  {stacked && <td className="text-right font-mono tabular-nums">{formatNumber(b.secondary ?? 0)}</td>}
+                  {stacked && <td className="text-right font-mono tabular-nums">{formatNumber(b.primary + (b.secondary ?? 0))}</td>}
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
       </details>
     </figure>
@@ -110,30 +110,28 @@ export function RankTable({ caption, labelHeader, rows, total, unit = 'Notices' 
 }) {
   const top = Math.max(1, ...rows.map((r) => r.count));
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[440px] border-collapse text-left text-small">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr className="border-b border-line">
-            <th scope="col" className="py-2 pr-4 font-semibold">{labelHeader}</th>
-            <th scope="col" className="py-2 pr-4 text-right font-semibold">{unit}</th>
-            {total !== undefined && <th scope="col" className="py-2 pr-4 text-right font-semibold">Share</th>}
-            <th scope="col" className="w-1/3 py-2 font-semibold"><span className="sr-only">Bar</span></th>
+    // The bar column is for the eye only (the numbers are in the table), so below sm it is dropped and the table fits a phone.
+    <DataTable label={caption} minWidth={280}>
+      <thead>
+        <tr>
+          <th scope="col">{labelHeader}</th>
+          <th scope="col" className="text-right">{unit}</th>
+          {total !== undefined && <th scope="col" className="text-right">Share</th>}
+          <th scope="col" className="hidden w-1/3 sm:table-cell"><span className="sr-only">Bar</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.key}>
+            <th scope="row">{r.label}</th>
+            <td className="text-right font-mono tabular-nums">{formatNumber(r.count)}</td>
+            {total !== undefined && <td className="text-right font-mono tabular-nums">{percentText(shareOf(r.count, total))}</td>}
+            <td aria-hidden="true" className="hidden sm:table-cell">
+              <div className="h-3 rounded-sm bg-primary" style={{ width: `${Math.max(1, (r.count / top) * 100)}%` }} />
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key} className="border-b border-line last:border-0">
-              <th scope="row" className="py-2 pr-4 font-normal">{r.label}</th>
-              <td className="py-2 pr-4 text-right font-mono tabular-nums">{formatNumber(r.count)}</td>
-              {total !== undefined && <td className="py-2 pr-4 text-right font-mono tabular-nums">{percentText(shareOf(r.count, total))}</td>}
-              <td aria-hidden="true" className="py-2">
-                <div className="h-3 rounded-sm bg-primary" style={{ width: `${Math.max(1, (r.count / top) * 100)}%` }} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </DataTable>
   );
 }

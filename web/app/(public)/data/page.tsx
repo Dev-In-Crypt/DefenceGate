@@ -9,7 +9,9 @@ import { portalWords } from '@/lib/coverage-copy';
 import Link from 'next/link';
 import type { SourceHealth, SourceType } from '@/lib/types';
 import { ClauseList } from '@/components/dg/blocks';
-import { ContentPage, ContentSection } from '@/components/dg/content-page';
+import { AutoGrid } from '@/components/dg/auto-grid';
+import { ContentPage, PageSection } from '@/components/dg/content-page';
+import { Card } from '@/components/dg/card';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { EmptyState } from '@/components/dg/feedback';
 import { RunStatusPill } from '@/components/dg/tag';
@@ -35,34 +37,33 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
   const span = heldSpan(s.heldFrom, s.heldTo);
   const noun = s.type === 'grants' ? 'Calls' : 'Notices';
   return (
-    <article className="flex min-w-0 flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    // One surface: the facts are hairline rows on the card (no inset box inside it, no card inside a card).
+    <Card as="article" className="h-full">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="m-0 min-w-0 text-h3">{s.name}</h3>
         <RunStatusPill status={fresh.kind} />
       </div>
       {s.country && <span className="text-small"><CountryLabel code={s.country} /></span>}
       {fresh.note && <p className="m-0 text-small font-semibold">{fresh.note}</p>}
-      <dl className="facts-grid m-0 border-b border-line">
-        <FactCell label="Last run">
+      <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-x-4 border-b border-line">
+        <FactCell label="Last run" className="py-2">
           {s.lastRunAt ? <time dateTime={s.lastRunAt}>{formatDateTimeUtc(s.lastRunAt)}</time> : <span className="font-sans">Never</span>}
         </FactCell>
-        <FactCell label="Records in last run">{s.lastRunAt ? formatNumber(s.records) : <span className="font-sans">None</span>}</FactCell>
-        <FactCell label="Met expected minimum"><span className="font-sans">{minimumMet(s.coverage)}</span></FactCell>
-      </dl>
-      {held && (
-        <dl className="facts-grid m-0 border-b border-line">
-          <FactCell label="Publication dates held">
-            {span ? <span>{span}</span> : <span className="font-sans">Not stated by the source</span>}
-          </FactCell>
-          <FactCell label={`${noun} held`}>{formatNumber(s.heldCount ?? 0)}</FactCell>
-        </dl>
-      )}
-      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-md bg-surface-inset p-4 font-mono text-[12px] leading-[18px]">
-        <dt className="text-ink-muted">Licence</dt><dd className="m-0 break-words text-ink">{s.licence}</dd>
-        <dt className="text-ink-muted">Attribution</dt><dd className="m-0 break-words text-ink">{s.attribution}</dd>
+        <FactCell label="Records in last run" className="py-2">{s.lastRunAt ? formatNumber(s.records) : <span className="font-sans">None</span>}</FactCell>
+        <FactCell label="Met expected minimum" className="py-2"><span className="font-sans">{minimumMet(s.coverage)}</span></FactCell>
+        {held && (
+          <>
+            <FactCell label="Publication dates held" className="py-2">
+              {span ? <span>{span}</span> : <span className="font-sans">Not stated by the source</span>}
+            </FactCell>
+            <FactCell label={`${noun} held`} className="py-2">{formatNumber(s.heldCount ?? 0)}</FactCell>
+          </>
+        )}
+        <FactCell label="Licence" className="col-span-full py-2"><span className="font-sans text-body">{s.licence}</span></FactCell>
+        <FactCell label="Attribution" className="col-span-full py-2"><span className="font-sans text-body">{s.attribution}</span></FactCell>
       </dl>
       {url && <Button href={url} external variant="text" className="self-start">Open {s.name}<span className="sr-only"> (opens in new tab)</span></Button>}
-    </article>
+    </Card>
   );
 }
 
@@ -76,6 +77,7 @@ export default async function DataPage() {
   return (
     <ContentPage
       wide
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Source status', href: '/data' }]}
       title="Source status"
       lead="Every source we collect from and when it last ran. Met expected minimum compares what a run fetched with the minimum we expect from that source; it is not a share of everything the source publishes."
@@ -85,7 +87,7 @@ export default async function DataPage() {
         Sources are collected once a day, so an older run means missed runs. It does not mean the source is fully collected. A run older than that is shown as stale, a load made once as a one-off load, and a source that failed or has never run as such.
       </p>
 
-      <dl className="m-0 grid grid-cols-2 gap-3 rounded-lg border border-edge bg-surface p-4 lg:grid-cols-3">
+      <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Sources">{health.sources.length}</FactCell>
         <FactCell label={`OK (run in the last ${STALE_AFTER_DAYS} days)`}>{count('ok')}</FactCell>
         <FactCell label={`Stale (last run over ${STALE_AFTER_DAYS} days ago)`}>{count('stale')}</FactCell>
@@ -102,17 +104,16 @@ export default async function DataPage() {
           if (items.length === 0) return null;
           const id = `group-${g.type}`;
           return (
-            <section key={g.type} aria-labelledby={id} className="flex flex-col gap-4">
-              <h2 id={id} className="m-0 text-h2">{g.title}</h2>
-              <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">
+            <PageSection key={g.type} id={id} title={g.title}>
+              <AutoGrid as="ul" min={440} pairs>
                 {items.map((s) => <li key={s.id} className="min-w-0"><SourceCard s={s} asOf={ref} /></li>)}
-              </ul>
-            </section>
+              </AutoGrid>
+            </PageSection>
           );
         })
       )}
 
-      <ContentSection title="Known gaps">
+      <PageSection title="Known gaps">
         <p className="m-0 text-body text-ink-muted">
           The per-source lines are worked out from what we hold on <time dateTime={health.generatedAt}>{formatDateTimeUtc(health.generatedAt)}</time>, month by month,
           and change as the history loads. The first and the last month of a source are left out (they are partial). The rest do not change with the date.
@@ -127,9 +128,9 @@ export default async function DataPage() {
           'Germany: federal funding announcements are not collected automatically. They can be added by hand, so a German call may be missing.',
           ...health.sources.filter((s) => s.type === 'tenders').map((s) => gapSentence(s)).filter((t): t is string => t !== null),
         ]} />
-      </ContentSection>
+      </PageSection>
 
-      <ContentSection title="Using the data">
+      <PageSection title="Using the data">
         <ClauseList items={[
           'CSV: the Download CSV button under the filters of Tenders and of Funding gives the public fields of the current result, with the source, licence and attribution on every row. A tenders file holds at most 2,000 rows (1,000 when the status is All); a result cut at the limit holds the most recently added notices in the order you chose, and every row then says result_truncated = true. The last column of a tenders file, confidence, is the notice’s level (high, medium or low; see Methodology, “How sure are we”).',
           'Atom: What changed has a feed (/changes.atom) of the same list, with the same country and scope choices. No account is needed.',
@@ -142,9 +143,9 @@ export default async function DataPage() {
           (the selection and arrangement, the normalisation, the defence label and the links between sources, the version archive and our texts) is ours, all rights reserved; the{' '}
           <Link href="/terms" className="font-semibold">terms</Link> let you use extracts for your own internal business purposes and say what is not allowed. If you cite a number or a notice, name DefenceGate, the source of the notice and the date you read it.
         </p>
-      </ContentSection>
+      </PageSection>
 
-      <ContentSection title="What is and is not covered">
+      <PageSection title="What is and is not covered">
         <p className="m-0 text-body text-ink-muted">
           We cover the sources listed above and nothing else. A source that is not listed is not collected, and a listed source may publish more than we have collected.
         </p>
@@ -152,7 +153,7 @@ export default async function DataPage() {
           Publication dates held are the earliest and latest date the source gives for what we hold, so a source that starts late shows it; they are not the span of everything the source has published.
           Where we have set no minimum, it is not measured. Amounts are shown in the currency the source states and are never converted. All times are UTC.
         </p>
-      </ContentSection>
+      </PageSection>
     </ContentPage>
   );
 }

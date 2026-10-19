@@ -40,10 +40,10 @@ export default async function DigestWeekPage({ params, searchParams }: Props) {
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Weekly digest', href: '/digest' }, { label: weekLabel(week), href: `/digest/${week}${digestQuery(filters)}` }]}
         notices={<>
         {unknown && (
-          <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
+          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{`Ignored filter: country=${unknown} (not a country we list); showing every country.`}</p>
         )}
         {issue.staleAsOf && (
-          <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
+          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(issue.staleAsOf, formatDateTimeUtc)}</p>
         )}
       </>} />
       <WeekList weeks={weeks} current={issue.week} filters={filters} />

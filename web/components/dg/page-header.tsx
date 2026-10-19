@@ -30,7 +30,7 @@ export function PageHeader({ crumbs, title, sub, lead, meta, actions, children, 
       {crumbs && <Breadcrumbs items={crumbs} />}
       <header className="flex flex-col gap-3">
         <h1 lang={titleProps?.lang} className={cn('page-title m-0 break-words', titleProps?.className)}>{title}</h1>
-        {sub && <p className="m-0 text-h3">{sub}</p>}
+        {sub && <p className="m-0 max-w-prose text-h3">{sub}</p>}
         {lead && <p className="lead m-0 max-w-prose">{lead}</p>}
         {meta && <p className="m-0 font-mono text-mono text-ink-muted">{meta}</p>}
         {children}

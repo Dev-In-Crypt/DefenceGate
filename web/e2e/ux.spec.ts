@@ -272,6 +272,9 @@ test('U12: every tracker entry has a permalink and a line to cite, newest event 
   const first = entries.first();
   const code = await first.getAttribute('id');
   await expect(first.getByRole('link', { name: /^Link to this entry/ })).toHaveAttribute('href', `#${code}`);
+  // the line to cite sits in a disclosure, collapsed until it is opened; it is in the page either way
+  await expect(first.getByText('Cite this entry:')).toBeHidden();
+  await first.locator('summary').click();
   await expect(first.getByText('Cite this entry:')).toBeVisible();
   await expect(first).toContainText(`/regulation#${code}`);
   const dates = await entries.evaluateAll((els) => els.map((e) => e.querySelector('time')?.getAttribute('datetime') ?? ''));

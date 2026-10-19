@@ -117,7 +117,7 @@ export default async function CalendarPage({ searchParams }: Props) {
             <a href={subscribe} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
               <Icon icon={CalendarPlus} size="inline" />Subscribe in your calendar app
             </a>
-            <code className="break-all rounded-md bg-surface-inset px-3 py-2 font-mono text-mono">{absoluteUrl(feed)}</code>
+            <code className="break-all font-mono text-mono text-ink-muted">{absoluteUrl(feed)}</code>
             <a href={feed} download className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
               <Icon icon={Download} size="inline" />Download .ics
             </a>
@@ -167,7 +167,7 @@ export default async function CalendarPage({ searchParams }: Props) {
             <>
               <FilterNotices notices={notices} />
               {(!data.tendersOk || !data.callsOk) && (
-                <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
+                <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
                   {!data.tendersOk ? 'Tenders could not be loaded just now; only funding calls are listed.' : 'Funding calls could not be loaded just now; only tenders are listed.'}
                 </p>
               )}
@@ -181,7 +181,7 @@ export default async function CalendarPage({ searchParams }: Props) {
                 <Agenda entries={shown} />
               )}
               {p.view === 'month' && total > shown.length && (
-                <p className="m-0 text-small text-ink-muted">
+                <p className="m-0 max-w-prose text-small text-ink-muted">
                   Showing the first {shown.length} of {total}. Narrow the filters to see the rest.
                 </p>
               )}
@@ -196,7 +196,7 @@ export default async function CalendarPage({ searchParams }: Props) {
             </>
           )}
 
-          <p className="m-0 text-small text-ink-muted">
+          <p className="m-0 max-w-prose text-small text-ink-muted">
             Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed here; the calendar file has the opening days of the calls that have not opened.
             {data.tendersOk && data.tendersTotal > data.tendersHeld && (
               <> The calendar holds the {data.tendersHeld} open tenders with the earliest deadlines of {data.tendersTotal}; later ones are on the <Link href="/tenders" className="font-semibold">tenders list</Link>.</>
