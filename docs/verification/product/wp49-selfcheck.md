@@ -5,9 +5,11 @@ Source: `docs/verification/product/investigate-ux4.md` (its server timings were 
 
 Results of the checks that ran on the server:
 
-- `ruff check .`: clean. Unit suite and integration suite: RESULT_SUITE.
-- `tsc --noEmit`, `npm run check` (all `lib/*.check.ts`, among them the new `wp49.check.ts` and the changed `wp20.check.ts`): green. `next build` (demo data, `node:22-alpine`): RESULT_BUILD.
+- `ruff check .`: clean. Unit suite and integration suite: green: the final full run after the fix above (unit, then integration, about 1,150 tests in all) ended with no failure.
+- `tsc --noEmit`, `npm run check` (all `lib/*.check.ts`, among them the new `wp49.check.ts` and the changed `wp20.check.ts`): green. `next build` (demo data, `node:22-alpine`, `next.config.ts` with the new `experimental` options): compiled, no warning, all routes listed.
 - Playwright: **not run** (it does not run on the server). `e2e/wp49.spec.ts` (7 tests) is new and unrun; see "Not run".
+- **A real browser on the final build** (built-in browser pane, the demo build served from the server through an SSH tunnel, stopped afterwards): see "Checked in a browser" below. This is what stands in for the e2e of section 3.
+- The first full integration run had one failure, `test_a_long_closed_result_pages_inside_the_api_roles_five_seconds`: it passed `currency="EUR"` to `export_tenders` as a stand-in for the default, and an explicit EUR is now a filter (those notices state no value). It now passes `None`, the default; the behaviour change is the intended one and the test still checks what it checked (paging under the 5 s budget).
 
 ## 1. Empty budgets and empty values say why, from data we hold
 
@@ -116,7 +118,7 @@ Measured on production, the same seven requests with the code in the image (befo
 | `country=PL` again | 1.8 s | 0.63 s |
 | `country=SE` | 1.7 s | 0.15 s |
 
-The totals of the five requests that answered in both runs are equal (PL 136, FR 327, `q` 209, `hasOpen` 130, SE 24). `hasOpen` after is slower than its siblings; I could not tell load noise from a plan difference (a second run is in the next section if it was made). A warm repeat is also served by the existing `cache_list` for five minutes.
+The totals of the five requests that answered in both runs are equal (PL 136, FR 327, `q` 209, `hasOpen` 130, SE 24). `hasOpen` after is slower than its siblings; I could not tell load noise from a plan difference and did not repeat it. A warm repeat is also served by the existing `cache_list` for five minutes.
 
 Test: `test_the_buyer_aggregate_is_computed_once_for_every_filter_and_the_filters_still_work` (five distinct queries, one pass; the cache is reset after the test so it cannot reach the next one), and the existing buyer tests (`test_buyer_families`, `test_wp20`, `test_tenders_api`, `test_suppression`, `test_stats`) run unchanged on the new path.
 
@@ -131,16 +133,25 @@ Change:
 - Why the home page said "The list could not be loaded": it catches every error of its lists and renders that sentence. In a fresh build container `withLastGood` holds nothing, and its key for "closing tenders" carries today's date, so a failure at the wrong minute had no last good answer; the page, prerendered with the sentence, was served until the next revalidation (60 s). Now the home page **throws** when the two closing lists did not come: a build tries the page again and then fails, and a revalidation that fails keeps the last page that rendered (Next's behaviour for ISR). The two error branches of the page were removed with it.
 - Tests: `tests/unit/test_wp49.py` (a request over the bound waits then is refused and never connects, a slot is returned when the work fails, a waiting request gets the slot when it is freed, two DSNs are counted apart); `tests/integration/test_wp49.py` (the one slot taken: `/v1/sources` answers 503 with `Retry-After: 2`, `/v1/health` still 200, then 200 again; 16 requests over a bound of 2 are all served).
 
+## Checked in a browser (demo build, final code)
+
+- `/tenders`, two checkboxes (PL, DE) clicked in one tick: the address was still clean 150 ms later, `?country=DE%2CPL` after, history length +1, 4 cards. Back: address clean, both boxes unchecked, 10 cards. Forward: both boxes checked again, 4 cards.
+- Currency select set to PLN: `?currency=PLN`, 2 cards, both stating PLN and none EUR, the "Estimated value" group shows `1`; Back: address clean, select back to "Any currency", 10 cards.
+- With the page's `fetch` delayed by 1.5 s, one radio click (`status=closed`): 0.7 s later the results section carried `data-busy`/`aria-busy`, the filter panel `aria-busy="true"` and the status line said "Updating the results"; at the end the address was `?status=closed` and all of it was cleared.
+- With the page's `fetch` delayed by 2 s, a click on a card title: 0.7 s later the card held the spinner and the screen-reader text "Opening" while the page was still `/tenders`; then the notice page opened.
+- The call with no budget (Spanish, demo data) reads "The source states no budget" in the Budget cell of its card.
+- Not looked at: how it looks (the screenshot of the pane timed out twice and the opacity transition does not run while the pane is not painting; the built CSS contains `.opacity-50` and the `:has([data-link-pending])` rule), a phone width, dark theme.
+
 ## Hostile review of my own diff
 
-Found and fixed during the work (8): (1) the buyer-base cache outlived the test that filled it and fed the next test a stale aggregate, and `ttl 0` still read the entry: the cache is bypassed when the list caches are off and the test resets it; (2) a `sent` marker in the filter hook could stay set when a navigation finished without ever showing `pending`, and then hide the same filter chosen again after Back: it is reset when a new page arrives; (3) `formToQuery` was exported from a client file and not testable: the pure part moved to `lib/filter-query.ts`; (4) ruff import layout of the unit test; (5) `getRelatedCalls` became dead and was removed; (6) the first design added `loading.tsx` as asked and the WP-43 comment in the funding layout and its tests contradict it: not added; (7) the buyer cache first used the list TTL of 0 in tests and returned a stale aggregate to the next test; (8) the wp20 check asserted the old sentence.
+Found and fixed during the work (8): (1) the buyer-base cache outlived the test that filled it and fed the next test a stale aggregate, and a TTL of 0 still read the entry: the cache is bypassed when the list caches are off and the test resets it; (2) a `sent` marker in the filter hook could stay set when a navigation finished without ever showing `pending`, and then hide the same filter chosen again after Back: it is reset when a new page arrives; (3) `formToQuery` was in a client file and not testable: the pure part moved to `lib/filter-query.ts`; (4) ruff import layout of the unit test; (5) `getRelatedCalls` became dead and was removed; (6) `loading.tsx` as asked contradicts the WP-43 finding recorded in the funding layout and its tests: not added; (7) the long "no usable value" sentence would have wrapped to five lines in a home card: the card says the short sentence, the notice page adds what it counts; (8) the export test that modelled the default with `"EUR"` (above), found by the full run; and the e2e for the call with no budget first looked at page 1 of all calls, where that call is not (it is Spanish: the test filters by country).
 
 Known and left: the debounce applies to checkboxes only (a radio and a select are one deliberate choice); a rebuild of the form after Back closes the folded groups the visitor had opened; the mobile panel stays open after a change (the list is below it, the button shows the spinner); the three `/v1/buyers/{slug}` calls still run the whole aggregate per slug (not touched); `has-[...]` needs a browser with `:has()` (all current ones) and degrades to no dimming.
 
 ## Not run
 
-- Playwright, any spec (the existing 300 and the 7 new). The new ones were written against the markup and the demo data; the likeliest to need a fix in CI are the Back test (it relies on the form being rebuilt after `goBack`), the history-length assertion, and the option click of the currency list on desktop.
-- A real browser of any kind on the final code (see RESULT_BROWSER).
+- Playwright, any spec (the existing ones and the 7 new). The new ones were written against the markup and the demo data; the likeliest to need a fix in CI are the Back test (it relies on the form being rebuilt after `goBack`), the history-length assertion, and the option click of the currency list on desktop.
+- A phone width, the dark theme and the look of the dimmed list in a browser.
 - The `has-[...]` dimming, the `useLinkStatus` spinner, `staticGenerationMaxConcurrency` taking effect (`next build` accepted the options; the number of concurrent API requests during the build was not counted).
 - The effect of `Retry-After` on the browser or on Next's fetch: the web does not honour it; its own retry is the build's `staticGenerationRetryCount`.
 - A load test of the pool against the live API (not allowed on production); the test uses a bound of 1 and 2.
@@ -148,10 +159,10 @@ Known and left: the debounce applies to checkboxes only (a radio and a select ar
 ## Production commands (for the orchestrator; none changes data)
 
 1. Deploy the backend image and rebuild the web image as usual (no migration).
-2. After the API restart, once: `docker compose ... exec worker python -m dgate.ops.warm_lists --yes` (rewrites the list snapshots under the new key; about 15 minutes of one core, the job the worker runs every 4 hours).
+2. After the API restart, once: `docker compose ... exec worker python -m dgate.ops.warm_lists --yes` (rewrites the list snapshots under the new key; it is the job the worker runs every 4 hours, its duration not measured by me).
 3. Optional, to be explicit about the bound: nothing to set; the defaults are 24 / 8 / 3000 ms. To change: `DGATE_API_CONNECTIONS`, `DGATE_APP_CONNECTIONS`, `DGATE_POOL_WAIT_MS` in `infra/.env`.
 4. No ops module for data was written: the budget and value wording needs no data change, and the value reading of `pl_ezam`, `nl_tenderned` and TED is documented, not built (section 1c).
 
-## Scratch to delete (also in `docs/DELETION_CANDIDATES.md`)
+## Scratch
 
-`/root/dev-w49` (about 700 MB, mostly hard-linked `node_modules` of `/root/dev-w48`), `/root/run_w49.sh`, `/root/run_w49_only.sh`, `/root/w49_suite.log`, `/root/w49_time.py`, `/root/w49_time2.py`, database `agent_wp49` in `dgate-ci-db`; in `dgate-worker-1:/tmp` `w49_nl.py` and `w49_ez.py` (read-only helpers the container user may not delete).
+Deleted by me at the end: `/root/dev-w49` (with the hard-linked `node_modules`, the demo build and the scripts), `/root/run_w49*.sh`, `/root/w49_*.py`, the suite log, the database `agent_wp49`, the container `w49-site`. Left (the container user may not delete them): `dgate-worker-1:/tmp/w49_nl.py` and `w49_ez.py`, read-only helpers; they go with the next container recreate.

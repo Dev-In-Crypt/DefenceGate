@@ -101,7 +101,7 @@ def test_a_long_closed_result_pages_inside_the_api_roles_five_seconds(conn, sche
     parts = urlsplit(schema)
     dsn = urlunsplit(parts._replace(netloc=f"dgate_api:api-test-password-1@{parts.hostname}:{parts.port}"))
     base = dict(q=None, country=None, cpv=None, status="closed", scope="core", goods=None, buyer=None,
-                from_=None, to=None, min_=None, max_=None, currency="EUR")
+                from_=None, to=None, min_=None, max_=None, currency=None)   # None: the default, no currency filter (WP-49)
     with psycopg.connect(dsn, row_factory=dict_row, autocommit=True) as c:
         assert c.execute("SHOW statement_timeout").fetchone()["statement_timeout"] == "5s"
         got, cursor, slowest = [], None, 0.0

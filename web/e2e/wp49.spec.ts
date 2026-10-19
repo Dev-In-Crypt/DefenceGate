@@ -102,7 +102,7 @@ test('funding: a currency alone lists the calls that state a budget in it', asyn
 });
 
 test('a call with no budget says why on the list and on its page, and no card says "Not available" for it', async ({ page }) => {
-  await visit(page, '/funding?status=all', FUNDING);
+  await visit(page, '/funding?status=all&country=ES', FUNDING);   // the one call of the demo data without a budget is Spanish
   const card = page.locator('article', { hasText: 'The source states no budget' });
   await expect(card).toHaveCount(1);
   await expect(card).not.toContainText('Not available');
