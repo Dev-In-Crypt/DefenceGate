@@ -26,10 +26,10 @@ function EntryRow({ e }: { e: CalendarEntry }) {
         <span className="font-mono text-mono text-ink-muted">{e.when}</span>
       </div>
       <Link href={e.href}
-        className="break-words py-1 text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
+        className="[overflow-wrap:anywhere] py-1 text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
         {displayName(e.title)}
       </Link>
-      <span className="break-words text-small text-ink-muted">{displayName(e.who, 'title')} · {e.sourceName}</span>
+      <span className="[overflow-wrap:anywhere] text-small text-ink-muted">{displayName(e.who, 'title')} · {e.sourceName}</span>
       {e.note && (
         <p className="m-0 flex items-start gap-1.5 text-small text-ink-muted">
           <Icon icon={TriangleAlert} size="inline" className="mt-0.5 shrink-0" /><span>{e.note}</span>
@@ -88,7 +88,7 @@ export function MonthGrid({ month, label, entries, today }: { month: string; lab
                       {items.slice(0, CELL_ENTRIES).map((e) => (
                         <Link key={e.key} href={e.href} title={displayName(e.title)}
                           aria-label={`${e.kind === 'tender' ? 'Tender' : 'Funding call'}: ${displayName(e.title)}`}
-                          className="block min-h-8 break-words rounded-sm px-1 py-2 text-label text-ink">
+                          className="block min-h-8 [overflow-wrap:anywhere] rounded-sm px-1 py-2 text-label text-ink">
                           {truncateTitle(displayName(e.title))}
                         </Link>
                       ))}

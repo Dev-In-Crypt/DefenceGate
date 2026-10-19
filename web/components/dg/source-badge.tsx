@@ -35,13 +35,13 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
   }
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 font-mono text-[12px] leading-[18px] tabular-nums">
-        <dt className="text-ink-muted">Source</dt><dd className="m-0 font-medium text-ink">{source.sourceName}</dd>
-        <dt className="text-ink-muted">{retrievedLabel}</dt><dd className="m-0 text-ink"><time dateTime={source.retrievedAt}>{retrieved}</time></dd>
-        {source.checkedAt && (<><dt className="text-ink-muted">{TENDER_CHECKED_LABEL}</dt><dd className="m-0 text-ink"><time dateTime={source.checkedAt}>{formatDateTimeUtc(source.checkedAt)}</time></dd></>)}
-        <dt className="text-ink-muted">Licence</dt><dd className="m-0 text-ink">{source.licence}</dd>
-        <dt className="text-ink-muted">Attribution</dt><dd className="m-0 text-ink">{source.attribution}</dd>
-        {version && (<><dt className="text-ink-muted">Version</dt><dd className="m-0 text-ink">{version}</dd></>)}
+      <dl className="m-0 grid grid-cols-1 gap-x-4 gap-y-0 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-y-1 font-mono text-[12px] leading-[18px] tabular-nums">
+        <dt className="text-ink-muted">Source</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 font-medium text-ink">{source.sourceName}</dd>
+        <dt className="text-ink-muted">{retrievedLabel}</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink"><time dateTime={source.retrievedAt}>{retrieved}</time></dd>
+        {source.checkedAt && (<><dt className="text-ink-muted">{TENDER_CHECKED_LABEL}</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink"><time dateTime={source.checkedAt}>{formatDateTimeUtc(source.checkedAt)}</time></dd></>)}
+        <dt className="text-ink-muted">Licence</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink">{source.licence}</dd>
+        <dt className="text-ink-muted">Attribution</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink">{source.attribution}</dd>
+        {version && (<><dt className="text-ink-muted">Version</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink">{version}</dd></>)}
       </dl>
       {url ? (
         <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 self-start font-sans text-small font-bold text-link">

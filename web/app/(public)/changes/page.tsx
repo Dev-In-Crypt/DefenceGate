@@ -63,7 +63,7 @@ export default async function ChangesPage({ searchParams }: Props) {
   );
   const country = filters.country?.[0] ?? '';
   const filterForm = (
-    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:items-end">
+    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end">
       <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={country} className="sm:min-w-56"
         options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
       <Select name={PARAM.scope} label="What to include" placeholder={SCOPE_CHOICES.relevant.label} defaultValue={filters.scope ?? ''}

@@ -28,7 +28,7 @@ function ConfidenceBadge({ view, lifted }: { view: ConfidenceView; lifted: boole
         {view.sentence && (
           <span
             aria-hidden="true"
-            className="invisible absolute left-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-4rem)] whitespace-normal rounded-lg border border-edge bg-surface px-3 py-2 text-small font-normal text-ink shadow-lg group-focus-within/conf:visible group-hover/conf:visible"
+            className="hidden absolute left-0 top-full z-20 mt-1 w-72 max-w-[calc(100vw-4rem)] whitespace-normal rounded-lg border border-edge bg-surface px-3 py-2 text-small font-normal text-ink shadow-lg group-focus-within/conf:block group-hover/conf:block"
           >
             {view.sentence}
           </span>
