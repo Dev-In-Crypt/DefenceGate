@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope, DM_Mono } from 'next/font/google';
 import { SITE } from '@/lib/seo';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
+import { ThemeSync } from '@/components/dg/theme-sync';
 import './globals.css';
 
 const manrope = Manrope({ subsets: ['latin', 'latin-ext', 'cyrillic'], variable: '--font-manrope', display: 'swap' });
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <ThemeSync />
+        {children}
+      </body>
     </html>
   );
 }
