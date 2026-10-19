@@ -49,7 +49,7 @@ for (const [name, head] of [['light', ':root {'], ['dark', '[data-theme="dark"] 
 assert.ok(ratio(tokens('[data-theme="dark"] {').surface, tokens('[data-theme="dark"] {').bg) >= 1.25);
 
 // One reading measure, one content box, gutters 16 / 24 / 32.
-assert.match(css, /--measure:\s*680px/);
+assert.match(css, /--measure:\s*100%/);
 assert.match(css, /--content-max:\s*1296px/);
 assert.match(css, /--gutter:\s*16px/);
 assert.match(css, /min-width: 640px\) \{ :root \{ --gutter: 24px/);

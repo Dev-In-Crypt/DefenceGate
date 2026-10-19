@@ -35,7 +35,7 @@ const config: Config = {
       maxWidth: {
         /** The content box of a data page (the container adds the gutters). */
         content: v('content-max'),
-        /** The ONE reading measure (about 68 characters of Manrope at 16 px). Replaces every ad hoc `ch` cap. */
+        /** The ONE reading measure: the whole content box (was 680 px). Replaces every ad hoc `ch` cap. */
         prose: v('measure'),
         /** A reading page: title column, gap, one measure, padding. */
         reading: v('reading-max'),

@@ -87,7 +87,7 @@ export default async function ProjectPage({ params }: Props) {
           {p.factsheet.dropped.length > 0 ? (
             <>
               <p className="m-0 text-small font-semibold">What the checks removed or corrected for this factsheet:</p>
-              <ul className="m-0 pl-5 text-small">{p.factsheet.dropped.map((d) => <li key={d.kind}>{d.count}: {d.meaning}</li>)}</ul>
+              <ul className="m-0 list-disc pl-5 text-small">{p.factsheet.dropped.map((d) => <li key={d.kind}>{d.count}: {d.meaning}</li>)}</ul>
             </>
           ) : <p className="m-0 text-small text-ink-muted">The checks removed or corrected nothing for this factsheet.</p>}
         </Card>

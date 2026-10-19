@@ -110,7 +110,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
             )}
           </ContentSection>
           <ContentSection title="Limits">
-            <ul className="m-0 pl-5 text-small">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
+            <ul className="m-0 list-disc pl-5 text-body [&>li+li]:mt-1">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
           </ContentSection>
           <DataSources sources={data.sources} />
         </>
