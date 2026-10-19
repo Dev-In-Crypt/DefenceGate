@@ -2,10 +2,10 @@ import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
-import { TENDER_CHANGED_LABEL, anomalyNotes, isLongRunning, tenderStatusView } from '@/lib/tender-status';
+import { anomalyNotes, isLongRunning, tenderChangedLabel, tenderStatusView } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
-import { cpvLabel } from '@/lib/taxonomy';
+import { cpvOwnName } from '@/lib/cpv';
 import { matchedCpv } from '@/lib/tender-basis';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
@@ -169,7 +169,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
   const d = getTenderDeadline(tender);
   const local = d.state === 'closed' ? null : localDeadline(d.iso, tender.country, d.dateOnly);
   const matched = matchedCpv(tender, cpvFilter);
-  const mainName = tender.cpv ? cpvLabel(tender.cpv) : null;
+  const mainName = tender.cpv ? cpvOwnName(tender.cpv) : null;
   const closed = d.state === 'closed';
   const soon = d.state === 'soon' || d.state === 'urgent';
   const longRunning = isLongRunning(tender) && !closed;
@@ -181,14 +181,14 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
         <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
-            {mainName && <span title={mainName.label} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName.label}</span>}
+            {mainName && <span title={mainName} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName}</span>}
             {tender.country && <Tag>{tender.country}</Tag>}
             <span className="ml-auto flex shrink-0 flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
           </div>
           {matched.length > 0 && (
             <p className="m-0 text-small text-ink-muted">
               Matches your code filter through {matched.length === 1 ? 'an additional code' : 'additional codes'}:{' '}
-              {matched.map((c, i) => <span key={c}>{i > 0 && ', '}<span className="font-mono text-mono-strong">{c}</span>{cpvLabel(c) ? ` (${cpvLabel(c)?.label})` : ''}</span>)}
+              {matched.map((c, i) => <span key={c}>{i > 0 && ', '}<span className="font-mono text-mono-strong">{c}</span>{cpvOwnName(c) ? ` (${cpvOwnName(c)})` : ''}</span>)}
             </p>
           )}
           <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className={CARD_TITLE}>
@@ -232,7 +232,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
         </dl>
         <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>
           <AnomalyNote tender={tender} />
-          <SourceBadge source={tender.source} variant="inline" retrievedLabel={TENDER_CHANGED_LABEL} />
+          <SourceBadge source={tender.source} variant="inline" retrievedLabel={tenderChangedLabel(tender.source)} />
         </div>
       </div>
     </article>

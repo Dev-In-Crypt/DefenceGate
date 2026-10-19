@@ -1,8 +1,9 @@
 import { sourceById } from './sources';
 import { now } from '../deadline';
+import { weekMonday } from '../digest';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE } from '../filters';
 import type {
-  Buyer, BuyerFilters, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
+  Buyer, BuyerFilters, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
   TenderVersion,
 } from '../types';
 
@@ -62,7 +63,7 @@ const RAW: RawTender[] = [
     title: 'Printing of training materials', buyer: 5, cpvCodes: ['22000000'], procedure: 'Open procedure', legalBasis: '32009L0081',
     deadline: '2026-08-31T00:00:00Z', publishedAt: '2026-07-10T00:00:00Z', native: 'cancelled' },
   { words: 'laboratory-consumables-supply', noticeId: '605113-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
-    title: 'Laboratory consumables', buyer: 2, cpvCodes: ['33790000'], procedure: 'Open procedure', legalBasis: '32014L0024',
+    title: 'Laboratory consumables', buyer: 4, cpvCodes: ['33790000'], procedure: 'Open procedure', legalBasis: '32014L0024',
     deadline: '2026-11-18T00:00:00Z', publishedAt: '2026-10-09T00:00:00Z', value: [420_000, 'SEK'], scope: 'supply' },
   { words: 'station-cleaning-services', noticeId: '598871-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
     title: 'Cleaning services for the regional fire and rescue stations', buyer: 6, cpvCodes: ['90910000'], procedure: 'Open procedure', legalBasis: '32014L0024',
@@ -77,6 +78,10 @@ const RAW: RawTender[] = [
   { words: 'warehouse-racking-supply-and-installation', noticeId: '608821-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
     title: 'Warehouse racking: supply and installation', buyer: 1, cpvCodes: ['39150000', '45223000'], procedure: 'Open procedure', legalBasis: '32009L0081',
     deadline: '2026-11-09T00:00:00Z', publishedAt: '2026-10-10T00:00:00Z', value: [1_800_000, 'EUR'], subcontracting: true },
+  // A prior information notice: planned, no deadline (WP-52, T8). It is neither open nor closed; first seen before the 14-day window of the change list.
+  { words: 'vehicle-spare-parts-framework-prior-information', noticeId: '611904-2026', sourceId: 'eu-ted', retrievedAt: '2026-09-20T06:20:00Z',
+    title: 'Prior information: vehicle spare parts framework for 2027', buyer: 3, cpvCodes: ['34300000'], procedure: 'Open procedure', legalBasis: '32009L0081',
+    deadline: null, publishedAt: '2026-09-18T00:00:00Z', native: 'forthcoming' },
 ];
 
 /** Two to three observed versions on the notices that were amended (newest first). */
@@ -99,7 +104,8 @@ const RAW_VERSIONS: Record<string, TenderVersion[]> = {
 const buyerId = (i: number) => String(i + 1);
 
 function isClosed(r: RawTender, ref: Date): boolean {
-  if (r.native === 'awarded' || r.native === 'cancelled') return true;
+  // The API's `status` is open | closed: a planned (forthcoming) notice is not open, so it reads closed there; `statusNative` says planned.
+  if (r.native === 'awarded' || r.native === 'cancelled' || r.native === 'forthcoming') return true;
   return r.deadline !== null && new Date(r.deadline).getTime() <= ref.getTime();
 }
 
@@ -123,7 +129,8 @@ function toTender(r: RawTender, index: number, ref: Date): Tender {
     sameNotice: r.sameNotice ?? [],
     source: {
       sourceId: src.id, sourceName: src.name, url: src.url ? `${src.url}/${r.noticeId.replace(/\W+/g, '-').toLowerCase()}` : null,
-      retrievedAt: r.retrievedAt, licence: src.licence, attribution: src.attribution,
+      retrievedAt: r.retrievedAt, lastChangeKind: (versions?.length ?? 1) > 1 ? 'amendment' : 'first_seen',
+      licence: src.licence, attribution: src.attribution,
     },
   };
 }
@@ -140,7 +147,9 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   const scope = f.scope ?? 'relevant';
   const currency = f.currency ?? 'EUR';
   let items = allTenders(ref).filter((t) => {
-    if (status !== 'all' && t.status !== status) return false;
+    // Like the API: a planned notice is neither open nor closed; `all` has them.
+    const planned = t.statusNative === 'forthcoming';
+    if (status === 'planned' ? !planned : status === 'closed' ? t.status !== 'closed' || planned : status === 'open' && t.status !== 'open') return false;
     if (scope !== 'all' && scope !== 'relevant' && t.scope !== scope) return false;
     if (f.buyer && t.buyerId !== f.buyer) return false;
     if (f.cpv?.length && !t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) return false;
@@ -173,16 +182,36 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   }
   const pageSize = f.pageSize ?? TENDER_PAGE_SIZE;
   const page = f.page ?? 1;
-  return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+  return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, totalCapped: false, page, pageSize, asOf: ref.toISOString() };
+}
+
+/** What GET /v1/tenders/calendar answers: the open notices that state a deadline, soonest first, with what a calendar draws. */
+export function queryCalendar(ref: Date = now()): CalendarPage {
+  const items: CalendarItem[] = allTenders(ref)
+    .filter((t) => t.status === 'open' && t.deadline !== null)
+    .sort((a, b) => time(a.deadline!) - time(b.deadline!))
+    .map((t) => ({
+      id: t.id, slug: t.slug, noticeId: t.noticeId, title: t.title, buyerName: t.buyerName, country: t.country, deadline: t.deadline!,
+      deadlineFrom: null, scope: t.scope, status: t.status, statusNative: t.statusNative, anomalies: t.anomalies ?? [], sourceName: t.source.sourceName,
+    }));
+  return { items, total: items.length, truncated: false, asOf: ref.toISOString() };
 }
 
 const CHANGE_WINDOW_DAYS = 14;
 /** The fields an amendment is listed for (the API's allow-list, in the mock's own field names). */
 const CHANGE_FIELDS = new Set(['deadline', 'estimated_value', 'status', 'procedure']);
 
+/** Whether the API would answer `week`: the archive began in 2026-W37, and a week that has not ended is not an issue yet. */
+export function weekAvailable(week: string, ref: Date = now()): boolean {
+  return week >= '2026-W37' && weekMonday(week).getTime() + 7 * 86_400_000 <= ref.getTime();
+}
+
 /** What the API's /v1/changes answers, built from the mock versions: a notice first seen in the window is new. */
 export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
-  const since = ref.getTime() - CHANGE_WINDOW_DAYS * 86_400_000;
+  // `week` is a week of the digest instead of the last 14 days (weekAvailable says whether the API would answer it).
+  const weekStart = f.week ? weekMonday(f.week).getTime() : null;
+  const since = weekStart ?? ref.getTime() - CHANGE_WINDOW_DAYS * 86_400_000;
+  const end = weekStart !== null ? weekStart + 7 * 86_400_000 - 1 : ref.getTime();
   const all: Change[] = [];
   for (const t of allTenders(ref)) {
     if (f.country?.length && (!t.country || !f.country.includes(t.country))) continue;
@@ -190,7 +219,7 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
     const versions = [...(tenderVersions(t.slug) ?? [])].sort((a, b) => a.version - b.version);
     versions.forEach((v, i) => {
       const at = new Date(v.detectedAt);
-      if (at.getTime() < since || at.getTime() > ref.getTime()) return;
+      if (at.getTime() < since || at.getTime() > end) return;
       const lines = v.changes.filter((c) => CHANGE_FIELDS.has(c.field));
       if (i > 0 && lines.length === 0) return;
       const day = v.detectedAt.slice(0, 10);
@@ -198,11 +227,12 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
     });
   }
   all.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt) || b.id.localeCompare(a.id));
+  const shown = f.kind ? all.filter((c) => c.kind === f.kind) : all;
   const pageSize = f.pageSize ?? 25;
   const page = f.page ?? 1;
   return {
-    items: all.slice((page - 1) * pageSize, page * pageSize), total: all.length, page, pageSize,
-    windowDays: CHANGE_WINDOW_DAYS, windowFrom: new Date(since).toISOString(), windowTo: ref.toISOString(),
+    items: shown.slice((page - 1) * pageSize, page * pageSize), total: shown.length, page, pageSize,
+    windowDays: weekStart !== null ? 7 : CHANGE_WINDOW_DAYS, windowFrom: new Date(since).toISOString(), windowTo: new Date(end + (weekStart !== null ? 1 : 0)).toISOString(),
     counts: { new: all.filter((c) => c.kind === 'new').length, amended: all.filter((c) => c.kind === 'amended').length },
   };
 }

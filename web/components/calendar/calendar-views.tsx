@@ -62,7 +62,11 @@ export function Agenda({ entries }: { entries: CalendarEntry[] }) {
  * The month as a table, Monday first, from md. Below md it is not shown and the agenda carries the same
  * entries. A cell lists up to three entries and links to the rest in the agenda under it.
  */
-export function MonthGrid({ month, label, entries, today }: { month: string; label: string; entries: CalendarEntry[]; today: string }) {
+export function MonthGrid({ month, label, entries, today, moreHref }: {
+  month: string; label: string; entries: CalendarEntry[]; today: string;
+  /** Where "+N more" of a day leads: the agenda page that holds that day's entries (the agenda is paged). */
+  moreHref?: (day: string) => string;
+}) {
   const byDay = new Map<string, CalendarEntry[]>();
   for (const e of entries) {
     const k = dayOf(e.deadline);
@@ -93,7 +97,7 @@ export function MonthGrid({ month, label, entries, today }: { month: string; lab
                         </Link>
                       ))}
                       {items.length > CELL_ENTRIES && (
-                        <a href={`#d-${day}`} className="block min-h-8 px-1 py-2 text-label">+{items.length - CELL_ENTRIES} more</a>
+                        <a href={moreHref ? moreHref(day) : `#d-${day}`} className="block min-h-8 px-1 py-2 text-label">+{items.length - CELL_ENTRIES} more</a>
                       )}
                     </div>
                   </td>

@@ -3,47 +3,16 @@
  * calls that have a deadline, from the public API helpers only. Nothing is converted or invented: an entry is
  * the notice's own deadline.
  */
-import { getCalls, getTenders, isCallSlug, isTenderSlug } from './api';
-import { getCallDeadline, getTenderDeadline, now } from './deadline';
+import { getCalls, getTenderCalendar, isCallSlug, isTenderSlug } from './api';
+import { entryFromItem, type CalendarEntry } from './calendar-tenders';
+import { getCallDeadline, now } from './deadline';
 import { formatDateLabelledUtc } from './format';
 import { ROLLING_NOTE } from './ics';
-import { anomalyNotes, isLongRunning, tenderStatusView } from './tender-status';
 import type { SearchParams } from './filters';
 
-export type CalendarKind = 'tender' | 'funding';
+export type { CalendarEntry, CalendarEvent, CalendarKind } from './calendar-tenders';
 export type KindFilter = 'all' | 'tenders' | 'funding';
 export type CalendarView = 'list' | 'month';
-
-/** A deadline, or the day a funding call opens (only in the calendar file: the page lists deadlines). */
-export type CalendarEvent = 'deadline' | 'opens';
-
-export interface CalendarEntry {
-  /** `<kind>-<id>` (`funding-<id>-opens` for an opening): also the stable part of the calendar-file UID. */
-  key: string;
-  kind: CalendarKind;
-  event: CalendarEvent;
-  /** A funding call that has not opened yet: its deadline is the source's planned one. */
-  planned?: boolean;
-  /** A funding call that takes submissions continuously or in several cut-offs: its date is the latest cut-off, not the end. */
-  rolling?: boolean;
-  id: string;
-  title: string;
-  /** Site path of the detail page. */
-  href: string;
-  /** ISO UTC. For an opening, the opening day. */
-  deadline: string;
-  /** The source gives a date, not a time of day. */
-  dateOnly: boolean;
-  /** "13 Oct 2026 (date only)" or "13 Oct 2026, 16:00 UTC". */
-  when: string;
-  /** The buyer, or the funder of a call. */
-  who: string;
-  /** ISO-2 of the buyer; the funder country (or EU) of a call. */
-  country: string | null;
-  sourceName: string;
-  /** A known anomaly of the source's dates, in words. */
-  note: string | null;
-}
 
 export interface CalendarData {
   entries: CalendarEntry[];
@@ -58,40 +27,26 @@ export interface CalendarData {
   longRunning: number;
 }
 
-const TENDER_PAGE = 100;
-const TENDER_PAGES = 5;
 const CALL_PAGE = 500;
 
 const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
+/**
+ * The open tenders with a deadline, all of them in one read (GET /v1/tenders/calendar). The calendar used to read five
+ * pages of the list, the 500 earliest of 1,529, and November showed none of its 593 (UX audit T9).
+ */
 async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number }> {
-  const base = { status: 'open', scope: 'relevant', sort: 'deadline-asc', pageSize: TENDER_PAGE } as const;
-  const first = await getTenders({ ...base, page: 1 }, { cacheable: true });
-  const items = [...first.items];
-  const size = Math.max(1, first.pageSize || TENDER_PAGE);
-  const pages = Math.min(TENDER_PAGES, Math.ceil(first.total / size));
-  if (pages > 1) {
-    const rest = await Promise.all(
-      Array.from({ length: pages - 1 }, (_, i) => getTenders({ ...base, page: i + 2 }, { cacheable: true })),
-    );
-    for (const r of rest) items.push(...r.items);
-  }
+  const page = await getTenderCalendar();
   const entries: CalendarEntry[] = [];
   let longRunning = 0;
-  for (const t of items) {
-    const view = tenderStatusView(t, ref);
-    if (view.kind !== 'open' && view.kind !== 'soon') continue;
+  for (const item of page.items) {
+    if (!isTenderSlug(item.slug)) continue;
+    const r = entryFromItem(item, ref);
     // A deadline 2030 to 2034 is a notice that stays open, not a date to plan around (site-qa2:N7).
-    if (isLongRunning(t)) { longRunning += 1; continue; }
-    const d = getTenderDeadline(t, ref);
-    if (!d.iso || d.state === 'closed' || !isTenderSlug(t.slug)) continue;
-    entries.push({
-      key: `tender-${t.id}`, kind: 'tender', event: 'deadline', id: t.id, title: t.title, href: `/tenders/${t.slug}`,
-      deadline: d.iso, dateOnly: d.dateOnly === true, when: d.utc,
-      who: t.buyerName, country: t.country, sourceName: t.source.sourceName, note: anomalyNotes(t)[0] ?? null,
-    });
+    if (r.long) longRunning += 1;
+    else if (r.entry) entries.push(r.entry);
   }
-  return { entries, total: first.total, held: items.length, longRunning };
+  return { entries, total: Math.max(page.total, page.items.length), held: page.items.length, longRunning };
 }
 
 /** Calls that have not opened yet (`Opens soon`): the opening day, still to come, and the planned deadline. */

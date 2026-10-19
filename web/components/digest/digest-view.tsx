@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Rss } from 'lucide-react';
-import { DIGEST_COUNTRIES, SECTIONS, countsSentence, digestPath, truncation, weekLabel, type DigestFilters } from '@/lib/digest';
+import { DIGEST_COUNTRIES, SECTIONS, countsSentence, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, type DigestFilters } from '@/lib/digest';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
@@ -61,6 +61,7 @@ function TenderItem({ t }: { t: DigestTender }) {
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{t.kind === 'new' ? 'New notice' : 'Amended notice'}</Tag>
         {t.country && <Tag>{t.country}</Tag>}
+        {repeatsLabel(t.repeats) && <Tag><span aria-hidden="true">{repeatsLabel(t.repeats)}</span><span className="sr-only">{t.repeats} identical notices</span></Tag>}
         <time dateTime={t.day} className="ml-auto font-mono text-mono text-ink-muted">{formatDateUtc(`${t.day}T00:00:00Z`)}</time>
       </div>
       <h3 className="m-0 break-words text-h3"><Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link></h3>
@@ -162,8 +163,9 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
       {SECTIONS.map((s) => {
         const items = issue[s.list] as (DigestCall | DigestTender)[];
         const n = c[s.count];
-        const cut = truncation(items.length, n);
         const isTender = s.list === 'tendersNew' || s.list === 'tendersAmended';
+        // A row that stands for 13 identical notices is 13 of the count (the API merges them; `repeats` says how many).
+        const cut = truncation(isTender ? noticesIn(items as DigestTender[]) : items.length, n);
         return (
           <section key={s.id} id={s.id} aria-labelledby={`${s.id}-h`} className="flex flex-col gap-3">
             <h2 id={`${s.id}-h`} className="m-0 text-h3">{s.title} <span className="font-mono tabular-nums text-ink-muted">({formatNumber(n)})</span></h2>
@@ -184,7 +186,9 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
             )}
             {cut && (
               <p className="m-0 text-small text-ink-muted">
-                {cut} {isTender ? <>The <Link href="/tenders" className="font-semibold">tender list</Link> has the rest.</> : <>The <Link href="/funding" className="font-semibold">funding list</Link> has the rest.</>}
+                {cut} {isTender
+                  ? <>The <Link href={restOfTendersHref(issue.week, s.list === 'tendersNew' ? 'new' : 'amended', filters.country)} className="font-semibold">list of changes of this week</Link> has the rest.</>
+                  : <>The <Link href="/funding" className="font-semibold">funding list</Link> has the rest.</>}
               </p>
             )}
           </section>

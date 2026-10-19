@@ -6,6 +6,7 @@ import {
   activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
+import { countsAsOf, cutSentence, reachableTotal, totalWords } from '@/lib/list-count';
 import { listUpdatedAt, staleNote, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
@@ -48,23 +49,28 @@ export default async function TendersPage({ searchParams }: Props) {
   const missing = valueMissingNotes(health.sources);
   const stale = staleNote(result.staleAsOf, formatDateTimeUtc);
   // A page past the end is the last page, not an empty list.
-  const last = lastPage(result.total, result.pageSize);
-  if (result.total > 0 && (filters.page ?? 1) > last) redirect(`/tenders${toTenderQuery({ ...filters, page: last })}`);
+  // The list serves no position past `maxOffset`, so the last page is the last one it can show (and never a 503).
+  const reachable = reachableTotal(result);
+  const last = lastPage(reachable, result.pageSize);
+  if (reachable > 0 && (filters.page ?? 1) > last) redirect(`/tenders${toTenderQuery({ ...filters, page: last })}`);
   const tenderSources = health.sources.filter((s) => s.type === 'tenders').length;
   // The time of the data (`meta.updatedAt`), never the render time; the line is left out when the API does not send it.
   const updated = listUpdatedAt(result);
+  const countedAt = countsAsOf(result.asOf);
   return (
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' }]}
       title="Tenders"
       intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and changes to dates, values and status are kept in its version history."
-      meta={`${tenderSources} tender sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`}
+      meta={`${tenderSources} tender sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}${countedAt ? ` · ${countedAt}` : ''}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} />}
-      filterExtra={<SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
+      // The accounts service keeps open, closed and all; a saved search for Planned would be refused.
+      filterExtra={filters.status === 'planned' ? undefined : <SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
       // Every status and scope with nothing to narrow them is refused by the export (400): no link to a refusal.
       exportHref={tooBroad(filters) ? undefined : `/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}
       exportStatus={filters.status}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
+      totalText={totalWords(result)} reachable={reachable} limitNote={cutSentence(result)}
       sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: SORT_OPTIONS }}
       notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"

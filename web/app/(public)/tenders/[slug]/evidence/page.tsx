@@ -8,7 +8,7 @@ import { getTenderDeadline } from '@/lib/deadline';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
-import { TENDER_CHANGED_LABEL, TENDER_CHECKED_LABEL, anomalyNotes, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
+import { TENDER_CHECKED_LABEL, anomalyNotes, tenderChangedLabel, tenderStatusView, valueKindLabel } from '@/lib/tender-status';
 import { cpvName } from '@/lib/cpv';
 import { TENDER_SCOPES, countryName, isNonEnglish, languageName, legalBasisLabel, procedureLabel } from '@/lib/taxonomy';
 import { basisChips, clearanceView, subcontractingView } from '@/lib/tender-basis';
@@ -179,7 +179,7 @@ export default async function TenderEvidencePage({ params }: Props) {
           <Row label="Original notice">
             {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="break-all font-mono text-mono">{sourceUrl}</a> : <NotStated />}
           </Row>
-          <Row label={TENDER_CHANGED_LABEL}><Mono>{formatStamp(tender.source.retrievedAt)}</Mono></Row>
+          <Row label={tenderChangedLabel(tender.source)}><Mono>{formatStamp(tender.source.retrievedAt)}</Mono></Row>
           {tender.source.checkedAt && <Row label={TENDER_CHECKED_LABEL}><Mono>{formatStamp(tender.source.checkedAt)}</Mono></Row>}
           <Row label="Licence">{tender.source.licence}</Row>
           <Row label="Attribution">{tender.source.attribution}</Row>

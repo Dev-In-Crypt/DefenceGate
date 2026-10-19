@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Rss } from 'lucide-react';
 import { getChanges } from '@/lib/api';
+import { weekLabel } from '@/lib/digest';
 import { lastPage, parseChangeFilters, toChangeQuery, PARAM, type SearchParams } from '@/lib/filters';
 import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
@@ -31,7 +32,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: 'What changed in the last 14 days',
     description: 'New defence and dual-use notices and the amendments to their deadline, value, status or procedure, taken from our archive of observed changes. With an Atom feed.',
     path: '/changes',
-    noindex: toChangeQuery({ country: f.country, scope: f.scope, page: f.page }) !== '',
+    noindex: toChangeQuery({ country: f.country, scope: f.scope, week: f.week, kind: f.kind, page: f.page }) !== '',
   });
   return { ...meta, alternates: { ...meta.alternates, types: { 'application/atom+xml': '/changes.atom' } } };
 }
@@ -57,7 +58,9 @@ export default async function ChangesPage({ searchParams }: Props) {
   const header = (
     <PageHeader crumbs={crumbs} title="What changed"
       lead={<>
-        New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value.
+        {filters.week
+          ? `New notices and amendments seen in ${weekLabel(filters.week)}. An amendment is a deadline, value, status or procedure that moved, with the old and the new value.`
+          : 'New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value.'}{' '}
         No account is needed, and the Atom feed does what an alert would.
       </>} />
   );
@@ -68,12 +71,16 @@ export default async function ChangesPage({ searchParams }: Props) {
         options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
       <Select name={PARAM.scope} label="What to include" placeholder={SCOPE_CHOICES.relevant.label} defaultValue={filters.scope ?? ''}
         className="sm:min-w-72" options={SCOPE_OPTIONS} />
+      {filters.week && <input type="hidden" name="week" value={filters.week} />}
+      {filters.kind && <input type="hidden" name="kind" value={filters.kind} />}
       <div className="flex items-center gap-3">
         <Button type="submit">Apply</Button>
         <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
       </div>
     </form>
   );
+  // A week outside the archive, or not yet ended, is a 404 of the API: not a fault of the list.
+  if (!data && filters.week) notFound();
   if (!data) {
     // The filters stay (a visitor who picked a country should not start over), and the way out is a retry.
     return (
@@ -91,6 +98,8 @@ export default async function ChangesPage({ searchParams }: Props) {
   const last = lastPage(data.total, data.pageSize);
   if (data.total > 0 && (filters.page ?? 1) > last) redirect(`/changes${toChangeQuery({ ...filters, page: last })}`);
   const feedHref = `/changes.atom${toChangeQuery({ country: filters.country, scope: filters.scope })}`;
+  // A rolling window ends now; a week ends at the next Monday 00:00 (exclusive), so its last day is the second before.
+  const windowLast = filters.week ? new Date(new Date(data.windowTo).getTime() - 1000).toISOString() : data.windowTo;
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;
   const to = Math.min(data.total, data.page * data.pageSize);
   return (
@@ -103,12 +112,20 @@ export default async function ChangesPage({ searchParams }: Props) {
       {/* Text at the left (one measure), the ways to follow the list at the right: the card is filled, not a strip of text in a wide box. */}
       <section aria-labelledby="window" className="grid gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="flex min-w-0 flex-col gap-3">
-          <h2 id="window" className="m-0 text-h3">The last {data.windowDays} days</h2>
+          <h2 id="window" className="m-0 text-h3">{filters.week ? weekLabel(filters.week) : <>The last {data.windowDays} days</>}</h2>
           <p className="m-0 max-w-prose text-body">
             <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices and{' '}
             <span className="font-mono tabular-nums">{formatNumber(data.counts.amended)}</span> amendments, from{' '}
-            <time dateTime={data.windowFrom}>{formatDateUtc(data.windowFrom)}</time> to <time dateTime={data.windowTo}>{formatDateUtc(data.windowTo)}</time> (UTC).
+            <time dateTime={data.windowFrom}>{formatDateUtc(data.windowFrom)}</time> to{' '}
+            <time dateTime={windowLast}>{formatDateUtc(windowLast)}</time> (UTC).
           </p>
+          {(filters.week || filters.kind) && (
+            <p className="m-0 max-w-prose text-body">
+              {filters.kind ? `Only the ${filters.kind === 'new' ? 'new notices' : 'amendments'} are listed. ` : ''}
+              {filters.week && <>This is the list behind <Link href={`/digest/${filters.week}`} className="font-semibold">the weekly digest of this week</Link>. </>}
+              <Link href="/changes" className="font-semibold">{filters.week ? 'Show the last 14 days' : 'Show all changes'}</Link>
+            </p>
+          )}
           {(data.fundingTotal ?? 0) > 0 && (
             <p className="m-0 max-w-prose text-body">
               <span className="font-mono tabular-nums">{formatNumber(data.fundingTotal ?? 0)}</span> funding calls are new or had a date moved by the source; they are listed{' '}

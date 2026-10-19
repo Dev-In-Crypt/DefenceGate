@@ -10,7 +10,7 @@ import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
-import { TENDER_CHANGED_LABEL, sourceStatusWord, valueKindLabel } from '@/lib/tender-status';
+import { sourceStatusWord, tenderChangedLabel, valueKindLabel } from '@/lib/tender-status';
 import { cpvName } from '@/lib/cpv';
 import { isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { clearanceView, scopeGroupNote, subcontractingView } from '@/lib/tender-basis';
@@ -260,7 +260,7 @@ export default async function TenderDetailPage({ params }: Props) {
         </Panel>
 
         <Panel title="Source and attribution">
-          <SourceBadge source={tender.source} retrievedLabel={TENDER_CHANGED_LABEL} version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
+          <SourceBadge source={tender.source} retrievedLabel={tenderChangedLabel(tender.source)} version={tender.versionCount > 1 ? `v${tender.versionCount}` : undefined} />
         </Panel>
       </DetailLayout>
 

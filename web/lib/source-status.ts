@@ -19,23 +19,55 @@ export interface Freshness {
   note: string | null;
 }
 
+/**
+ * What the API says about a source's rhythm (`/v1/sources`, 19 October 2026): how often it is collected, after how many
+ * hours a run is late for that, and whether it is (`stale`: null when the source has no rhythm, undefined on an older API).
+ */
+export interface SourceRhythm { updateFreq?: string | null; staleAfterHours?: number | null; stale?: boolean | null }
+
 export function sourceFreshness(
-  s: { id: string; status: 'ok' | 'partial' | 'failed' | 'never'; lastRunAt: string | null },
+  s: { id: string; status: 'ok' | 'partial' | 'failed' | 'never'; lastRunAt: string | null } & SourceRhythm,
   ref: Date,
 ): Freshness {
   if (s.lastRunAt === null || s.status === 'never') return { kind: 'never', note: null };
   const last = new Date(s.lastRunAt);
   if (Number.isNaN(last.getTime())) return { kind: s.status, note: null };
-  if (ONE_OFF_SOURCES.includes(s.id)) {
+  if (ONE_OFF_SOURCES.includes(s.id) || (s.updateFreq ?? '').trim().toLowerCase() === 'one-off') {
     const day = `${last.getUTCDate()} ${MONTHS[last.getUTCMonth()]} ${last.getUTCFullYear()}`;
     return { kind: s.status === 'ok' ? 'one-off' : s.status, note: `One-off load, last run ${day}` };
   }
   const age = ref.getTime() - last.getTime();
-  if (age > STALE_AFTER_DAYS * DAY_MS) {
-    const days = Math.floor(age / DAY_MS);
-    return { kind: s.status === 'ok' ? 'stale' : s.status, note: `Stale: last ran ${days} days ago` };
+  const days = Math.floor(age / DAY_MS);
+  // The API says whether a run is late for the source's own rhythm: a monthly source is not stale after three days
+  // (CORDIS and EDF were, UX audit T16). Only an API that does not send `stale` falls back to the daily rule.
+  const late = s.stale !== undefined ? s.stale === true : age > STALE_AFTER_DAYS * DAY_MS;
+  if (late) return { kind: s.status === 'ok' ? 'stale' : s.status, note: `Stale: last ran ${days} days ago` };
+  const monthly = (s.updateFreq ?? '').trim().toLowerCase() === 'monthly';
+  return { kind: s.status, note: monthly && age > STALE_AFTER_DAYS * DAY_MS ? `Collected monthly, last ran ${days} days ago` : null };
+}
+
+/**
+ * Why a run that is not `ok` is not, in the API's own fixed sentence (`statusReason`, T18): a run can be Partial with
+ * "Met expected minimum: Yes" because it was cut short for another reason. null for a run that is ok or has no reason.
+ */
+export function statusReasonLine(s: { status: string; statusReason?: string | null }): string | null {
+  const reason = (s.statusReason ?? '').trim();
+  if (!reason || s.status === 'ok' || s.status === 'never') return null;
+  return `${s.status === 'failed' ? 'Why the last run failed' : 'Why the last run is partial'}: ${reason}${/[.!?]$/.test(reason) ? '' : '.'}`;
+}
+
+/**
+ * When a run counts as late, in the API's words: "a daily source after 3 days, a monthly one after 40 days". null when
+ * the API sends no rhythm (an older build): the page then keeps the daily rule.
+ */
+export function lateRuleSentence(sources: { updateFreq?: string | null; staleAfterHours?: number | null }[]): string | null {
+  const by = new Map<string, number>();
+  for (const s of sources) {
+    const f = (s.updateFreq ?? '').trim().toLowerCase();
+    if (f && typeof s.staleAfterHours === 'number' && s.staleAfterHours > 0) by.set(f, Math.round(s.staleAfterHours / 24));
   }
-  return { kind: s.status, note: null };
+  const parts = [...by.entries()].sort((a, b) => a[1] - b[1]).map(([f, d]) => `a ${f} source after ${d} ${d === 1 ? 'day' : 'days'}`);
+  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 /**

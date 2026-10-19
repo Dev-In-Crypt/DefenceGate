@@ -46,6 +46,15 @@ export function tagId(origin: string, ...parts: string[]): string {
   return `tag:${host},2026:${parts.join(':')}`;
 }
 
+/**
+ * The feed's subtitle. It promises the whole window; when the feed holds fewer entries than the window has (the cap
+ * of the paged read), it says how many and that they are the newest, and nothing is said when it holds them all.
+ */
+export function feedSubtitle(windowDays: number, total: number, held: number): string {
+  const base = `New defence and dual-use notices and amendments to their deadline, value, status or procedure, and new funding calls and moved funding dates, from the last ${windowDays} days. Our archive began in September 2026.`;
+  return held < total ? `${base} This feed holds the newest ${held.toLocaleString('en-GB')} of the ${total.toLocaleString('en-GB')} changes; the page lists them all.` : base;
+}
+
 function summary(c: Change): string {
   const t = c.tender;
   const where = t.country ? `${t.buyerName} (${t.country})` : t.buyerName;

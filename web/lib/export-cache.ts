@@ -98,7 +98,7 @@ export function tooBroad(f: {
 export function listOrder<T extends { deadline: string | null; publishedAt?: string | null }>(
   items: T[], status: string | undefined, sort?: string,
 ): T[] {
-  const by = sort ?? (status === 'closed' ? 'deadline-desc' : 'deadline-asc');
+  const by = sort ?? (status === 'closed' || status === 'planned' ? 'deadline-desc' : 'deadline-asc');
   const sign = by === 'deadline-asc' ? 1 : -1;
   const at = (t: T) => Date.parse((by === 'published-desc' ? t.publishedAt : t.deadline) ?? '');
   return [...items].sort((a, b) => {

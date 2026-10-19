@@ -43,6 +43,12 @@ export function formatDateTimeUtc(iso: IsoDateTime): string {
   return `${formatDateUtc(iso)}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
 }
 
+/** "11:05 UTC": the time of day of a stamp (a count, a snapshot), never "time not stated". */
+export function formatTimeUtc(iso: IsoDateTime): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
 /**
  * The opening of a call that has not opened. A planned date that has already passed is
  * said to be a plan: the source still lists the call as forthcoming, so it is not open.

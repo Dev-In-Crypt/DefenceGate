@@ -5,7 +5,8 @@
  * Endpoints and shapes (funding, tenders, buyers): docs/design/API_CONTRACT.md.
  */
 import { headers } from 'next/headers';
-import type { Buyer, BuyerFilters, BuyerProfile, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
+import { TtlCache } from './export-cache';
+import type { Buyer, BuyerFilters, BuyerProfile, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
@@ -214,10 +215,22 @@ export async function getTenderScopeCounts(filters: TenderFilters = {}): Promise
     const all = tenderMock.queryTenders({ ...filters, scope: 'all', page: 1, pageSize: 100000 }).items;
     const core = all.filter((t) => t.scope === 'core').length;
     const supply = all.filter((t) => t.scope === 'supply').length;
-    return { relevant: core + supply, core, supply };
+    return { relevant: core + supply, core, supply, overlap: 0, capped: false, asOf: now().toISOString() };
   } catch {
     return null;
   }
+}
+
+/**
+ * Every open notice that states a deadline, for the deadline calendar (GET /v1/tenders/calendar, up to 3,000, soonest
+ * first). It replaces five pages of the list, which held the 500 earliest of 1,529 (UX audit T9).
+ */
+export async function getTenderCalendar(): Promise<CalendarPage> {
+  if (API_BASE) {
+    const path = '/v1/tenders/calendar';
+    return withLastGood(`calendar:${path}`, () => httpOrThrow<CalendarPage>(path, 'revalidate', LIST_REVALIDATE_SECONDS), { persist: true });
+  }
+  return tenderMock.queryCalendar();
 }
 
 /**
@@ -278,7 +291,41 @@ export async function getChanges(filters: ChangeFilters = {}): Promise<ChangePag
     }, { persist: shared });
     return got === NO_ENDPOINT ? null : (got as ChangePage);
   }
+  // Like the API: a week outside the archive, or not yet ended, is not there.
+  if (filters.week && !tenderMock.weekAvailable(filters.week)) return null;
   return tenderMock.queryChanges(filters);
+}
+
+/** The Atom feed holds the newest entries of the window up to this many: 12 pages of 200 (the API's largest page). */
+export const FEED_PAGE_SIZE = 200;
+export const FEED_MAX_ENTRIES = 2400;
+const feedCache = new TtlCache<ChangePage & { held: number }>(5 * 60_000, 20);
+
+/**
+ * The whole change window for the Atom feed, as far as the API gives it: page after page until the window is read or
+ * FEED_MAX_ENTRIES entries are held. `total` is the whole window, `held` how many entries are in `items`; the feed
+ * says so in its subtitle when `held < total`. A page that fails fails the feed: a feed silently cut short is worse
+ * than one the reader fetches again. Kept five minutes per query in this process: one feed is up to 12 requests.
+ */
+export async function getChangesForFeed(filters: ChangeFilters): Promise<(ChangePage & { held: number }) | null> {
+  const key = toChangeQuery({ ...filters, page: 1 });
+  const hit = feedCache.get(key);
+  if (hit) return hit;
+  const first = await getChanges({ ...filters, page: 1, pageSize: FEED_PAGE_SIZE });
+  if (!first) return null;
+  const pages = Math.min(Math.ceil(first.total / FEED_PAGE_SIZE), FEED_MAX_ENTRIES / FEED_PAGE_SIZE);
+  const all = [...first.items];
+  for (let page = 2; page <= pages; page += 1) {
+    const next = await getChanges({ ...filters, page, pageSize: FEED_PAGE_SIZE });
+    if (!next) throw new ApiError(404, `GET /v1/changes page ${page} returned 404`);
+    all.push(...next.items);
+  }
+  // Pages read a minute apart can overlap when the window moved between them: an entry is in the feed once (its id is its identity).
+  const seen = new Set<string>();
+  const items = all.filter((c) => !seen.has(c.id) && seen.add(c.id));
+  const whole = { ...first, items, held: items.length };
+  feedCache.set(key, whole);
+  return whole;
 }
 
 /**

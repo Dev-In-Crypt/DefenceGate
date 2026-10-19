@@ -9,6 +9,7 @@ import { toTenderQuery } from '@/lib/filters';
 import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
 import { BUYER_COUNTRIES, SCOPE_CHOICES, TENDER_SCOPES, cpvDivisionLabel } from '@/lib/taxonomy';
+import { countsNote } from '@/lib/list-count';
 import { Button } from '@/components/dg/button';
 import { Select, TextInput } from '@/components/dg/form';
 import { AudienceGrid, BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
@@ -246,6 +247,7 @@ export default async function LandingPage() {
           )}
           <Counter label={SCOPE_CHOICES.supply.short} value={counts ? formatNumber(counts.supply) : null} sub={SCOPE_CHOICES.supply.hint} />
         </AutoGrid>
+        {countsNote(counts) && <p className="m-0 max-w-prose text-small text-ink-muted">{countsNote(counts)}</p>}
         <p className="m-0 max-w-prose text-small text-ink-muted">{TENDER_SCOPES.supply.also}</p>
         <p className="m-0 max-w-prose text-small text-ink-muted">
           Not in these counts: notices that are only dual-use (reachable with the scope &ldquo;All&rdquo;) and closed notices. We read the national portals and feeds of {portals.names}; every

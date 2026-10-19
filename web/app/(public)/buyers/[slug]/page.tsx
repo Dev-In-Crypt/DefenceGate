@@ -55,11 +55,15 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
 
   const page = pageOf(sp);
   // Two fixed queries on the id the API gave us: open tenders first, then the history. No ordering across them is assumed.
-  const [open, earlier, profile] = await Promise.all([
+  // All of them in the scope the counts above are in (`core`: the notice itself is defence). The lists used the site's default,
+  // `relevant`, while "Open now" counted `core`, so a buyer could list more open tenders than it said it had (UX audit T14).
+  const [open, planned, earlier, profile] = await Promise.all([
     page === 1 && buyer.openCount > 0
-      ? getTenders({ buyer: buyer.id, status: 'open', pageSize: OPEN_LIMIT }, { cacheable: true })
+      ? getTenders({ buyer: buyer.id, status: 'open', scope: 'core', pageSize: OPEN_LIMIT }, { cacheable: true })
       : Promise.resolve(null),
-    getTenders({ buyer: buyer.id, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 }),
+    // A planned notice (prior information) is neither open nor closed since 19 October 2026; it is counted in "Tenders in archive".
+    page === 1 ? getTenders({ buyer: buyer.id, status: 'planned', scope: 'core', pageSize: OPEN_LIMIT }, { cacheable: true }).catch(() => null) : Promise.resolve(null),
+    getTenders({ buyer: buyer.id, status: 'closed', scope: 'core', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 }),
     // The profile is an extra: a buyer page still renders when the API cannot answer it.
     page === 1 && buyer.tenderCount > 0 ? getBuyerProfile(buyer) : Promise.resolve(null),
   ]);
@@ -102,7 +106,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           </p>
         )}
         {/* Said once for every card below instead of on each of them. */}
-        {((open?.items.length ?? 0) > 0 || earlier.items.length > 0) && <ClassifiedNote tenders={[...(open?.items ?? []), ...earlier.items]} />}
+        {((open?.items.length ?? 0) > 0 || earlier.items.length > 0) && <ClassifiedNote tenders={[...(open?.items ?? []), ...(planned?.items ?? []), ...earlier.items]} />}
       </PageHeader>
 
       {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
@@ -123,6 +127,18 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
             <EmptyState title="No open tenders" action={<Button variant="secondary" href="/tenders">Browse current tenders</Button>}>
               This buyer has no open defence tender in our archive at the moment.
             </EmptyState>
+          )}
+        </section>
+      )}
+
+      {page === 1 && planned && planned.items.length > 0 && (
+        <section aria-labelledby="planned-tenders" className="flex flex-col gap-4">
+          <h2 id="planned-tenders" className="m-0 text-h2">Planned tenders</h2>
+          <ul className="m-0 flex list-none flex-col gap-4 p-0">
+            {planned.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
+          </ul>
+          {planned.total > planned.items.length && (
+            <p className="m-0 text-small text-ink-muted">Showing {planned.items.length} of {planned.total} planned tenders.</p>
           )}
         </section>
       )}

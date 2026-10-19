@@ -49,6 +49,17 @@ export function cpvName(code: string): { label: string; exact: boolean } | null 
   return own ? { label: own, exact: true } : cpvLabel(code);
 }
 
+/**
+ * The name a card prints beside a CPV chip: the code's own title and nothing else. A code outside the 366-code selection
+ * has no title of its own here, and the title of its group or division is not its name: 39225500 (Pyrotechnics, on a
+ * grenade tender) was printed as "Furniture, furnishings, domestic appliances and cleaning products", the title of
+ * division 39 (UX audit T17). The detail page says "Within: ..." for those, which is true; a card has no room to.
+ */
+export function cpvOwnName(code: string): string | null {
+  const name = cpvName(code);
+  return name?.exact ? name.label : null;
+}
+
 /** A 3-digit group's title for the market tables; the division's title, said to be one, where the group is not held. */
 export function cpvGroupName(group: string): string | null {
   const own = cpvGroupTitle(group);
