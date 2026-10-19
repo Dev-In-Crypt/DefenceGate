@@ -145,7 +145,8 @@ test('the header has Market, and Methodology under Data', async ({ page, isMobil
 test('/market: a year and a country can be chosen, and the country rows lead to the tenders', async ({ page }) => {
   await visit(page, '/market?year=2025&country=PL', { title: /market overview/i, h1: 'Market overview' });
   await expect(page.getByLabel('Year of publication')).toHaveValue('2025');
-  await expect(page.getByLabel('Buyer country')).toHaveValue('PL');
+  // exact: the table under the filters is a region whose label also says "buyer country"
+  await expect(page.getByLabel('Buyer country', { exact: true })).toHaveValue('PL');
   await visit(page, '/market', { title: /market overview/i, h1: 'Market overview' });
   const row = page.locator('a[href^="/tenders?country="]').first();
   await expect(row).toHaveAttribute('href', /status=all&scope=core/);

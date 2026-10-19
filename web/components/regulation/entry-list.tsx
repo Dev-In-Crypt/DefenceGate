@@ -35,7 +35,7 @@ export function EntryList({ chips, items }: { chips: StatusChip[]; items: EntryI
       <ol className="m-0 flex list-none flex-col gap-4 p-0">
         {items.map((i) => (
           <li key={i.code} id={i.code} hidden={status !== null && i.status !== status}
-            className={cn('grid min-w-0 scroll-mt-4 gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_460px]',
+            className={cn('grid min-w-0 scroll-mt-4 gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_460px]',
               status !== null && i.status !== status && 'hidden')}>
             {i.node}
           </li>

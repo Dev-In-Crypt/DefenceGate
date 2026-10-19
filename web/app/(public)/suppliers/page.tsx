@@ -187,7 +187,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </label>
           <label className="flex flex-col gap-1 text-small font-semibold">Order
             <span className={cn(boxCls(), 'relative text-small font-normal')}>
-              <ListboxSelect fit name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order" controlClassName="text-small font-normal"
+              <ListboxSelect name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order"
                 className="text-small font-normal"
                 options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }]} />
             </span>

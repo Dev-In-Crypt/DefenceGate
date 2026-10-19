@@ -8,24 +8,28 @@ import { Icon } from './icon';
 import { CONTROL } from './field';
 
 /**
- * The branded select: a listbox of our own (WAI-ARIA select-only combobox) over the native `<select>`, which stays in the form.
+ * The branded select: the native `<select>` stays THE control (one element: label, name, value, focus, form field, `change`),
+ * and with a mouse its opened list is a listbox of our own (WAI-ARIA select-only combobox pattern, the native select being the
+ * combobox) instead of the system menu.
  *
- * Why the native select stays: the form posts it (GET filters, server actions), `change` on it is what filter forms listen
- * to, labels point at it, and the end-to-end tests set it. The custom control writes its value and fires a bubbling `change`.
+ * Why one element and not a hidden select plus a button: a second element needs its own accessible name, and then every label
+ * lookup (a screen reader's, a test's `getByLabel`) finds two controls; a script that moves focus to "the field" (the wizard
+ * focuses the first `aria-invalid`) would land on the hidden one. The native select is first in the DOM, labelled by its
+ * `<label>`, and styled as the branded box in every case, so the closed control looks the same with and without script.
  *
- *   - No script: the native select is the control (it is rendered first, visible).
- *   - A touch screen (`pointer: coarse`): the native select stays the control. The system picker is a wheel or a full-screen
- *     list with its own search, reads well with VoiceOver and TalkBack and is never clipped by a small viewport; ours would
- *     be a second, worse picker on a 375 px screen. Its options carry our surface and ink colours, and the page sets
- *     `color-scheme`, so the opened list is dark in the dark theme.
- *   - Otherwise: the native select is hidden (`sr-only`, not focusable, not in the accessibility tree) and a button with
- *     `role="combobox"` opens a listbox. The listbox is a fixed-position portal on `document.body`, so no scroll box or
- *     sticky column clips it; it flips above the button when the space below is short and scrolls inside itself.
+ *   - No script: the system select.
+ *   - A touch screen (`pointer: coarse`): the system select. The system picker is a wheel or a full-screen list with its own
+ *     search, reads well with VoiceOver and TalkBack and is never clipped by a small viewport; ours would be a second, worse
+ *     picker on a 375 px screen. Its options carry our surface and ink colours, and the page sets `color-scheme`, so the opened
+ *     list is dark in the dark theme.
+ *   - Otherwise (after mount): a press on the select does not open the system menu; it opens ours, a fixed-position portal on
+ *     `document.body`, so no scroll box or sticky column clips it; it flips above the select when the space below is short and
+ *     scrolls inside itself. The select gets `aria-expanded`, `aria-controls` and `aria-activedescendant`.
  *
  * Keys: Down/Up/Enter/Space open; Home/End first/last; typing jumps to the option that starts with the letters (repeat a
  * letter to step through those that share it); while open Up/Down/Home/End/PageUp/PageDown move, Enter/Space choose,
- * Escape closes, Tab chooses and moves on. Focus never leaves the button (aria-activedescendant), so it is "returned" by design.
- * The button's name is its label (hidden text) plus the shown value; `data-value` holds the value.
+ * Escape closes, Tab chooses and moves on. Focus never leaves the select (aria-activedescendant), so it is "returned" by design.
+ * `data-value` holds the value.
  */
 export interface SelectOption { value: string; label: string }
 type NativeProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'children'>;
@@ -36,19 +40,14 @@ const PAGE = 8;
 
 interface Pos { left: number; top?: number; bottom?: number; minWidth: number; maxWidth: number; maxHeight: number }
 
-export function ListboxSelect({ options, placeholder, accessibleName, controlClassName, fit, ...rest }: NativeProps & {
+export function ListboxSelect({ options, placeholder, accessibleName, ...rest }: NativeProps & {
   options: SelectOption[]; placeholder?: string;
-  /** What a screen reader says before the value (the visible label's text). */
+  /** The name of the opened list (the visible label's text). */
   accessibleName?: string;
-  /** Classes of the button (font size and weight of the shown value). */
-  controlClassName?: string;
-  /** The button is as wide as the longest option, so the box does not change width with the choice (a select that is not full width). */
-  fit?: boolean;
 }) {
   const auto = useId();
   const baseId = rest.id ?? auto;
   const selectRef = useRef<HTMLSelectElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const typed = useRef<{ buf: string; timer?: ReturnType<typeof setTimeout> }>({ buf: '' });
   const items = useMemo<SelectOption[]>(() => (placeholder ? [{ value: '', label: placeholder }, ...options] : options), [options, placeholder]);
@@ -60,7 +59,6 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
   const [pos, setPos] = useState<Pos | null>(null);
 
   const selIdx = Math.max(0, items.findIndex((i) => i.value === current));
-  const shown = items[selIdx]?.label ?? '';
 
   // After mount, and only without a touch screen, the custom control takes over from the native one.
   useEffect(() => { setCustom(!window.matchMedia('(pointer: coarse)').matches); }, []);
@@ -82,7 +80,7 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
   }, []);
 
   const place = useCallback(() => {
-    const b = btnRef.current;
+    const b = selectRef.current;
     if (!b) return;
     const r = b.getBoundingClientRect();
     const vh = window.innerHeight; const vw = window.innerWidth;
@@ -105,7 +103,7 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
       setCurrent(it.value);
     }
     setOpen(false);
-    btnRef.current?.focus();
+    s?.focus();
   };
 
   // While open: follow the window, close on a press outside, keep the active option in view.
@@ -113,10 +111,10 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
     if (!open) return;
     const away = (e: Event) => {
       const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !btnRef.current?.contains(t)) setOpen(false);
+      if (!menuRef.current?.contains(t) && !selectRef.current?.contains(t)) setOpen(false);
     };
     document.addEventListener('pointerdown', away, true);
-    // The menu follows the button when the window or a scroll box under it moves; its own scrolling is left alone.
+    // The menu follows the select when the window or a scroll box under it moves; its own scrolling is left alone.
     const follow = (e: Event) => { if (!menuRef.current?.contains(e.target as Node)) place(); };
     window.addEventListener('resize', place);
     window.addEventListener('scroll', follow, true);
@@ -159,17 +157,14 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
     const k = e.key; const n = items.length;
     // A space is a letter of the search while one is going on ("united k"), otherwise it opens or chooses.
     const printable = k.length === 1 && (k !== ' ' || typed.current.buf !== '');
+    // The select must not change its own value on a key: we do it, with a change event, when a choice is made.
+    if (printable || k.startsWith('Arrow') || k === 'Home' || k === 'End' || k === 'PageUp' || k === 'PageDown' || k === ' ' || k === 'Enter') e.preventDefault();
     if (!open) {
-      if (['ArrowDown', 'ArrowUp', 'Enter', ' ', 'Home', 'End'].includes(k) && !printable) {
-        e.preventDefault();
-        openAt(k === 'Home' ? 0 : k === 'End' ? n - 1 : selIdx);
-      } else if (printable) {
-        const i = lookup(k, selIdx);
-        if (i >= 0) { e.preventDefault(); openAt(i); }
-      }
+      if (printable) { const i = lookup(k, selIdx); if (i >= 0) openAt(i); }
+      else if (['ArrowDown', 'ArrowUp', 'Enter', ' ', 'Home', 'End'].includes(k)) openAt(k === 'Home' ? 0 : k === 'End' ? n - 1 : selIdx);
       return;
     }
-    const go = (i: number) => { e.preventDefault(); setActive(Math.max(0, Math.min(n - 1, i))); };
+    const go = (i: number) => setActive(Math.max(0, Math.min(n - 1, i)));
     if (k === 'ArrowDown') go(active + 1);
     else if (k === 'ArrowUp') go(active - 1);
     else if (k === 'Home') go(0);
@@ -178,8 +173,8 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
     else if (k === 'PageUp') go(active - PAGE);
     else if (k === 'Escape') { e.preventDefault(); setOpen(false); }
     else if (k === 'Tab') { if (active !== selIdx) choose(active); else setOpen(false); }
-    else if (printable) { const i = lookup(k, active); if (i >= 0) { e.preventDefault(); setActive(i); } }
-    else if (k === 'Enter' || k === ' ') { e.preventDefault(); choose(active); }
+    else if (printable) { const i = lookup(k, active); if (i >= 0) setActive(i); }
+    else if (k === 'Enter' || k === ' ') choose(active);
   };
 
   const { className: nativeClass, ...nativeRest } = rest;
@@ -190,72 +185,56 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
         {...nativeRest}
         ref={selectRef}
         id={baseId}
-        {...(custom ? { 'aria-hidden': true, tabIndex: -1, 'aria-label': undefined, onFocus: () => btnRef.current?.focus() } : {})}
-        className={custom ? 'sr-only' : cn(CONTROL, 'cursor-pointer appearance-none pr-7', nativeClass)}
+        {...(custom ? {
+          'aria-haspopup': 'listbox' as const,
+          'aria-expanded': open,
+          'aria-controls': open ? `${baseId}-menu` : undefined,
+          'aria-activedescendant': open ? `${baseId}-o${active}` : undefined,
+          'data-value': current,
+          // The press that would open the system menu opens ours; the select still takes focus.
+          onMouseDown: (e: React.MouseEvent<HTMLSelectElement>) => {
+            if (e.button !== 0 || rest.disabled) return;
+            e.preventDefault();
+            e.currentTarget.focus();
+            if (open) setOpen(false); else openAt(selIdx);
+          },
+          onKeyDown,
+          // A space opens on keydown; the click-like keyup (Firefox) would close it again.
+          onKeyUp: (e: React.KeyboardEvent) => { if (e.key === ' ') e.preventDefault(); },
+        } : {})}
+        className={cn(CONTROL, 'cursor-pointer appearance-none pr-7', nativeClass)}
       >
         {items.map((o) => <option key={o.value} value={o.value} className="bg-surface text-ink">{o.label}</option>)}
       </select>
-      {custom ? (
-        <>
-          <button
-            ref={btnRef}
-            type="button"
-            role="combobox"
-            aria-haspopup="listbox"
-            aria-expanded={open}
-            aria-controls={open ? `${baseId}-menu` : undefined}
-            aria-activedescendant={open ? `${baseId}-o${active}` : undefined}
-            aria-describedby={rest['aria-describedby']}
-            aria-invalid={rest['aria-invalid']}
-            disabled={rest.disabled}
-            data-value={current}
-            onClick={() => (open ? setOpen(false) : openAt(selIdx))}
-            onKeyDown={onKeyDown}
-            // A space opens on keydown; the click a button makes on keyup (Firefox) would close it again.
-            onKeyUp={(e) => { if (e.key === ' ') e.preventDefault(); }}
-            className={cn(CONTROL, 'flex cursor-pointer items-center pr-7 text-left', controlClassName)}
+      <Icon icon={ChevronDown} className={cn('pointer-events-none absolute right-3.5 text-ink-muted transition-transform duration-dg', custom && open && 'rotate-180')} />
+      {custom && open && pos && createPortal(
+          <div
+            ref={menuRef}
+            id={`${baseId}-menu`}
+            role="listbox"
+            aria-label={accessibleName}
+            onMouseDown={(e) => e.preventDefault()}
+            style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight }}
+            className="z-[60] w-max overflow-y-auto overscroll-contain rounded-md border border-edge bg-surface p-1 font-sans text-body text-ink shadow-[var(--shadow-menu)]"
           >
-            {accessibleName && <span className="sr-only">{accessibleName}, </span>}
-            {fit ? (
-              <span className="grid min-w-0">
-                <span className="col-start-1 row-start-1 truncate">{shown}</span>
-                {items.map((o) => <span key={o.value} aria-hidden="true" className="invisible col-start-1 row-start-1 h-0 overflow-hidden whitespace-nowrap">{o.label}</span>)}
-              </span>
-            ) : <span className="min-w-0 truncate">{shown}</span>}
-          </button>
-          <Icon icon={ChevronDown} className={cn('pointer-events-none absolute right-3.5 text-ink-muted transition-transform duration-dg', open && 'rotate-180')} />
-          {open && pos && createPortal(
-            <div
-              ref={menuRef}
-              id={`${baseId}-menu`}
-              role="listbox"
-              aria-label={accessibleName}
-              onMouseDown={(e) => e.preventDefault()}
-              style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight }}
-              className="z-[60] w-max overflow-y-auto overscroll-contain rounded-md border border-edge bg-surface p-1 font-sans text-body text-ink shadow-[var(--shadow-menu)]"
-            >
-              {items.map((o, i) => (
-                <div
-                  key={o.value}
-                  id={`${baseId}-o${i}`}
-                  role="option"
-                  aria-selected={i === selIdx}
-                  data-value={o.value}
-                  data-active={i === active ? '' : undefined}
-                  onMouseMove={() => { if (i !== active) setActive(i); }}
-                  onClick={() => choose(i)}
-                  className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-[10px] px-3 py-2 data-[active]:bg-surface-inset aria-selected:font-bold"
-                >
-                  <span className="min-w-0 break-words">{o.label}</span>
-                  {i === selIdx && <Icon icon={Check} className="shrink-0 text-accent-text" />}
-                </div>
-              ))}
-            </div>,
-            document.body,
-          )}
-        </>
-      ) : (
-        <Icon icon={ChevronDown} className="pointer-events-none absolute right-3.5 text-ink-muted" />
+            {items.map((o, i) => (
+              <div
+                key={o.value}
+                id={`${baseId}-o${i}`}
+                role="option"
+                aria-selected={i === selIdx}
+                data-value={o.value}
+                data-active={i === active ? '' : undefined}
+                onMouseMove={() => { if (i !== active) setActive(i); }}
+                onClick={() => choose(i)}
+                className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-[10px] px-3 py-2 data-[active]:bg-surface-inset aria-selected:font-bold"
+              >
+                <span className="min-w-0 break-words">{o.label}</span>
+                {i === selIdx && <Icon icon={Check} className="shrink-0 text-accent-text" />}
+              </div>
+            ))}
+          </div>,
+        document.body,
       )}
     </>
   );
