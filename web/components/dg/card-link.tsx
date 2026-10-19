@@ -17,10 +17,10 @@ function Pending() {
 }
 
 /**
- * A card's link. Not prefetched: the prefetch of a dynamic page is only its layout shell (214 bytes, measured), so twenty cards
+ * A card's link. `title` is the whole title for a card that clips it (a hover tooltip; the link text itself is never shortened). Not prefetched: the prefetch of a dynamic page is only its layout shell (214 bytes, measured), so twenty cards
  * on a list sent forty requests that warmed nothing. The click shows at once that it was taken (WP-49): the spinner here and
  * the card dimmed (`has-[[data-link-pending]]` on the card), instead of a list that looks dead for the 0.3 to 1.5 s the page takes.
  */
-export function CardLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
-  return <Link href={href} prefetch={false} className={className}>{children}<Pending /></Link>;
+export function CardLink({ href, className, title, children }: { href: string; className?: string; title?: string; children: React.ReactNode }) {
+  return <Link href={href} prefetch={false} className={className} title={title}>{children}<Pending /></Link>;
 }

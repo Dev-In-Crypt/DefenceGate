@@ -9,7 +9,7 @@ import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, PartnerRow, ProjectMember, SourceNote } from '@/lib/networks-types';
 import { Button } from '../dg/button';
 import { DataTable } from '../dg/data-table';
-import { CARD_BODY, CARD_TEXT } from '../dg/cards';
+import { CARD_BODY, CARD_TEXT, CARD_TITLE } from '../dg/cards';
 import { CardLink } from '../dg/card-link';
 import { CountryLabel, FactCell } from '../dg/data-display';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
@@ -52,8 +52,8 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
     <article className={cn(CARD, 'text-ink')}>
       <div className={cn(CARD_BODY, 'cqw:grid-cols-[minmax(0,1fr)_560px]')}>
         <div className={CARD_TEXT}>
-          <h2 className="m-0 line-clamp-3 text-h3 md:line-clamp-2">
-            <CardLink href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</CardLink>
+          <h2 className={CARD_TITLE}>
+            <CardLink href={`/organisations/${org.slug}`} className={TITLE_LINK} title={nameOf(org.name)}>{nameOf(org.name)}</CardLink>
           </h2>
           <span className="text-small text-ink-muted"><CountryLabel code={org.country} /></span>
           {org.nameVariants ? <span className="text-small text-ink-muted">Includes {org.nameVariants} name {org.nameVariants === 1 ? 'variant' : 'variants'}</span> : null}

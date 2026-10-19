@@ -18,8 +18,13 @@ import { FitBadge } from '../funding/fit-badge';
 
 /** A list card: the surface, the edge, 20 px padding, 12 px between its parts. Call cards are about 215 px tall at 1280 px and wider, tender cards about 260 px. */
 const CARD = '[container-type:inline-size] group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
-/** Card title: 20/28, two lines at most from md (three below); the whole title stays in the link text. */
-const CARD_TITLE = 'm-0 line-clamp-3 text-h3 md:line-clamp-2';
+/**
+ * Card title: 20/28. The clamp follows the card's own width (it is a size container), not the window's: four lines in a narrow card, three when the
+ * facts column takes 340 px of a wide one (it was three and two, set by the window: on the live site 7 of 10 tender titles were cut at 1440 px, 9 of 10
+ * at 768 px, 5 of 20 buyer names at 768 px). A longer title is still cut, and an extra line costs about 28 px of card, so the whole title is also in the
+ * link's `title` (a tooltip) and always in the link text itself, which the clamp only hides.
+ */
+export const CARD_TITLE = 'm-0 line-clamp-4 text-h3 cq:line-clamp-3';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 /**
  * Text part at the left, facts at the right (from xl); one column below (text, facts, provenance). From xl the provenance
@@ -68,7 +73,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
           </div>
           <H lang={nonEnglish ? call.titleLanguage : undefined} className={CARD_TITLE}>
-            <CardLink href={`/funding/${call.slug}`} className={TITLE_LINK}>{displayName(call.title)}</CardLink>
+            <CardLink href={`/funding/${call.slug}`} className={TITLE_LINK} title={displayName(call.title)}>{displayName(call.title)}</CardLink>
           </H>
           <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-small text-ink-muted">
             <span>{funderLine(call)}</span>
@@ -187,7 +192,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
             </p>
           )}
           <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className={CARD_TITLE}>
-            <CardLink href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</CardLink>
+            <CardLink href={`/tenders/${tender.slug}`} className={TITLE_LINK} title={displayName(tender.title)}>{displayName(tender.title)}</CardLink>
           </H>
           <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-small">
             {tender.buyerSlug ? (
@@ -244,7 +249,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
         <div className={CARD_TEXT}>
           {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
           <H className={CARD_TITLE}>
-            <CardLink href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</CardLink>
+            <CardLink href={`/buyers/${buyer.slug}`} className={TITLE_LINK} title={displayName(buyer.name, 'title')}>{displayName(buyer.name, 'title')}</CardLink>
           </H>
           {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
           {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
