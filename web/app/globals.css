@@ -84,6 +84,10 @@
       --link: #1F5A3F; color-scheme: light;
     }
     a { text-decoration: underline; }
+    /* Light text on a coloured box (the urgent deadline, the programme tags, the current page) is white on white when the
+       browser leaves backgrounds out, which is its default: print it in the ink colour with a border instead (WP-54, R5). */
+    .text-on-urgent, .text-on-primary { color: var(--ink) !important; }
+    .bg-urgent, .bg-primary.text-on-primary { background: none !important; border: 1.5px solid var(--ink) !important; }
   }
 }
 
