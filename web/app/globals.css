@@ -18,6 +18,8 @@
     --primary-hover: #1C4A39; --primary-press: #0C2A20;
 
     --radius-md: 14px; --radius-lg: 20px; --radius-pill: 999px;
+    /* The open list of a select (select.tsx): a soft shadow in the ink colour, deeper in the dark theme. */
+    --shadow-menu: 0 8px 24px rgb(18 55 42 / 0.18);
     --duration: 120ms; --ease: ease; --transition: 120ms ease;
     /* Layout. Content box of a data page 1296 px; the container adds the gutters (16 / 24 / 32). */
     --content-max: 1296px;
@@ -55,6 +57,7 @@
     --link: #8FC4A6; --open-bg: #25503F; --open-fg: #B6E0C8; --soon-bg: #4A2C1B; --soon-fg: #F5B48C;
     --closed-bg: #2F4238; --closed-fg: #B9C2BC; --alert: #F08A8A;
     --primary-hover: #C9D8CD; --primary-press: #B8CABD;
+    --shadow-menu: 0 8px 24px rgb(0 0 0 / 0.5);
     color-scheme: dark;
   }
 

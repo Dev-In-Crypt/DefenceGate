@@ -127,13 +127,19 @@ export default async function LandingPage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the finder and the links run under both, full width. */}
+      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the links under the lead; the finder runs under both, full width. */}
       <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10 lg:p-10 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <div className="flex min-w-0 flex-col gap-5">
           <h1 id="hero" className="m-0 text-[36px] font-extrabold leading-10 tracking-[-1px] md:text-display-sm">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
+          <div className="flex flex-wrap items-center gap-x-5">
+            <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
+            <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
+            <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
+            <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
+          </div>
         </div>
         <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-x-6 gap-y-4">
           <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
@@ -169,12 +175,6 @@ export default async function LandingPage() {
               </ul>
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-x-5">
-            <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
-            <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
-            <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
-            <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
-          </div>
         </div>
       </section>
 

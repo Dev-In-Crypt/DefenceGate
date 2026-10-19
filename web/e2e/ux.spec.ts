@@ -234,9 +234,16 @@ test('U10: the directory opens on the defence programmes and one visible link sh
   await expect(main.getByText(/shown under Spain although its address is recorded in Italy/)).toBeVisible();
 });
 
-test('U10: the Ukraine partners analysis opens on the defence programmes and says what the others hold', async ({ page }) => {
+test('U10: the Ukraine partners analysis says what the defence programmes hold and what the others hold', async ({ page }) => {
+  // WP-46: when the defence programmes have no project with a Ukrainian participant the page opens on all programmes, says so, and keeps the link back.
   await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations' });
   const main = page.locator('#main');
+  const opened = main.getByRole('status').filter({ hasText: /Showing all programmes/ });
+  await expect(opened).toContainText('No project of the European Defence Fund and its predecessors (EDIDP, PADR) started in or after 2021 has a Ukrainian participant');
+  await expect(opened.getByRole('link', { name: /Show only the European Defence Fund and its predecessors/ })).toBeVisible();
+  await expect(main.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
+  // a programme the visitor chose stays as chosen, and the page says what all the others hold
+  await visit(page, '/networks/ukraine-partners?programme=EDF', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations' });
   await expect(main.getByRole('status').filter({ hasText: /Showing .*European Defence Fund/ })).toContainText('All programmes together hold 1 more project');
   await main.getByRole('link', { name: 'Show all programmes' }).click();
   await expect(page).toHaveURL(/programme=all/);

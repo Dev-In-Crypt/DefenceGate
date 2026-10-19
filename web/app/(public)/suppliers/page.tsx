@@ -15,6 +15,9 @@ import { CountryLabel } from '@/components/dg/data-display';
 import { Card } from '@/components/dg/card';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { DataTable } from '@/components/dg/data-table';
+import { boxCls } from '@/components/dg/field';
+import { ListboxSelect } from '@/components/dg/select';
+import { cn } from '@/lib/utils';
 
 export const revalidate = 300;
 
@@ -183,10 +186,11 @@ export default async function SuppliersPage({ searchParams }: Props) {
             <input name="cpv" defaultValue={f.cpv} maxLength={40} className={`${INPUT} w-40`} />
           </label>
           <label className="flex flex-col gap-1 text-small font-semibold">Order
-            <select name="sort" defaultValue={f.sort} className={INPUT} aria-describedby="order-help">
-              <option value="awards">Most wins first</option>
-              <option value="name">Name, A to Z</option>
-            </select>
+            <span className={cn(boxCls(), 'relative text-small font-normal')}>
+              <ListboxSelect fit name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order" controlClassName="text-small font-normal"
+                className="text-small font-normal"
+                options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }]} />
+            </span>
           </label>
           <Button type="submit" variant="primary">Search</Button>
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
