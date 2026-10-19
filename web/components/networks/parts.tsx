@@ -10,6 +10,7 @@ import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, Partne
 import { Button } from '../dg/button';
 import { DataTable } from '../dg/data-table';
 import { CARD_BODY, CARD_TEXT } from '../dg/cards';
+import { CardLink } from '../dg/card-link';
 import { CountryLabel, FactCell } from '../dg/data-display';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FORM_BUTTONS } from '../funding/filter-bar';
@@ -18,7 +19,7 @@ import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
 
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 
 /** The name of an organisation as a person reads it. */
@@ -52,7 +53,7 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
       <div className={cn(CARD_BODY, 'cqw:grid-cols-[minmax(0,1fr)_560px]')}>
         <div className={CARD_TEXT}>
           <h2 className="m-0 line-clamp-3 text-h3 md:line-clamp-2">
-            <Link href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</Link>
+            <CardLink href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</CardLink>
           </h2>
           <span className="text-small text-ink-muted"><CountryLabel code={org.country} /></span>
           {org.nameVariants ? <span className="text-small text-ink-muted">Includes {org.nameVariants} name {org.nameVariants === 1 ? 'variant' : 'variants'}</span> : null}
@@ -118,7 +119,8 @@ export function CountryNote({ className }: { className?: string }) {
 export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; basePath: string }) {
   const countries = Object.entries({ UA: 'Ukraine', ...BUYER_COUNTRIES }).sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label: `${label} (${value})` }));
   return (
-    <FilterPanel activeCount={activeOrgFilterCount(filters)}>
+    <FilterPanel activeCount={activeOrgFilterCount(filters)}
+      defaults={{ programme: PROGRAMME_CHOICES.map((p) => p.value).filter((v) => DEFENCE_PROGRAMMES.includes(v)).join(',') }}>
       <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
         <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
         <FoldGroup legend="Programme" count={filters.programme?.length}>

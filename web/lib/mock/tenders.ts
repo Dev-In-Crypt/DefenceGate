@@ -150,10 +150,11 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
       if (f.deadlineFrom && time(t.deadline) < time(`${f.deadlineFrom}T00:00:00Z`)) return false;
       if (f.deadlineTo && time(t.deadline) > time(`${f.deadlineTo}T23:59:59Z`)) return false;
     }
-    if (f.valueMin !== undefined || f.valueMax !== undefined) {
-      // A range selects the one currency: values in another currency are never compared with it.
+    if (f.valueMin !== undefined || f.valueMax !== undefined || f.currency) {
+      // A currency alone lists the notices that state a value in it; a range is read in it (EUR when none is given).
+      // Values in another currency are never compared with it.
       const v = t.estimatedValue;
-      if (!v || v.currency !== currency) return false;
+      if (!v || v.amount <= 1 || v.currency !== currency) return false;
       if (f.valueMin !== undefined && v.amount < f.valueMin) return false;
       if (f.valueMax !== undefined && v.amount > f.valueMax) return false;
     }

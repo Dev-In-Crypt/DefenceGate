@@ -17,6 +17,8 @@ import { AutoGrid } from '@/components/dg/auto-grid';
 import { DataTable } from '@/components/dg/data-table';
 import { boxCls } from '@/components/dg/field';
 import { ListboxSelect } from '@/components/dg/select';
+import { LiveListScope, ResultsRegion } from '@/components/dg/live-list';
+import { LiveForm } from '@/components/funding/filter-panel';
 import { cn } from '@/lib/utils';
 
 export const revalidate = 300;
@@ -168,10 +170,12 @@ export default async function SuppliersPage({ searchParams }: Props) {
         </section>
       )}
 
+      <LiveListScope>
       <section aria-labelledby="results-heading" className="flex flex-col gap-4">
         <h2 id="results-heading" className="m-0 text-h2">
           {result.total === 0 ? 'No suppliers' : `Suppliers (${formatNumber(result.total)})`}
         </h2>
+        <LiveForm defaults={{ sort: 'awards' }}>
         <form method="get" action="/suppliers" role="search" aria-label="Find suppliers" className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-small font-semibold">Company name
             <input name="q" defaultValue={f.q} maxLength={100} className={INPUT} />
@@ -195,6 +199,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <Button type="submit" variant="primary">Search</Button>
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
         </form>
+        </LiveForm>
         <p id="product-help" className="m-0 max-w-prose text-small text-ink-muted">
           A product word is read as CPV codes, from a short list of words for the main defence products (drone, explosives, body armour, tank, and a few more)
           and otherwise from the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>; suppliers are
@@ -218,6 +223,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
                 {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>}
           </p>
         )}
+        <ResultsRegion className="flex flex-col gap-4">
         {result.total === 0 ? (
           <EmptyState title={result.withheld ? 'This group is too small to list' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
             {result.withheld
@@ -247,7 +253,9 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
         )}
         <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
+        </ResultsRegion>
       </section>
+      </LiveListScope>
     </>
   );
 }

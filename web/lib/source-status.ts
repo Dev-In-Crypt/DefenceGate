@@ -128,22 +128,34 @@ export function sourcePage(id: string, stored: string | null | undefined): strin
 }
 
 /**
- * Per source id: the share, in whole percent, of its held notices that state no estimated value (a placeholder
- * amount counts as not stated). Only for a source with at least 20 notices and a count from the API.
+ * What to say under an empty estimated value, per source id. A source whose connector never reads a value
+ * (`valueRead` false: eZamowienia, TenderNed) says so, whatever the count: the buyer may well have stated one.
+ * Any other source gets the share, in whole percent, of its held notices with no usable value (a placeholder amount
+ * counts as none), only with at least 20 notices and a count from the API. That share mixes three causes (the notice
+ * states none, a placeholder, or a kind of amount we do not read), so it does not say the buyer stated nothing.
  */
-export function valueMissingShares(sources: { id: string; heldCount?: number | null; valueStatedCount?: number | null }[]): Record<string, number> {
-  const out: Record<string, number> = {};
+export function valueMissingNotes(
+  sources: { id: string; heldCount?: number | null; valueStatedCount?: number | null; valueRead?: boolean | null }[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const s of sources) {
+    if (s.valueRead === false) {
+      out[s.id] = 'Not collected from this source: we do not read estimated values from its notices yet.';
+      continue;
+    }
     if (typeof s.heldCount !== 'number' || typeof s.valueStatedCount !== 'number' || s.heldCount < 20) continue;
-    out[s.id] = Math.min(100, Math.max(0, Math.round((1 - s.valueStatedCount / s.heldCount) * 100)));
+    const pct = Math.min(100, Math.max(0, Math.round((1 - s.valueStatedCount / s.heldCount) * 100)));
+    out[s.id] = `No usable estimated value in ${pct} % of notices from this source.`;
   }
   return out;
 }
 
-/** "Not stated by the buyer in 82 % of notices from this source." Null when the share is not known. */
-export function valueMissingNote(shares: Record<string, number>, sourceId: string | null | undefined): string | null {
-  const pct = sourceId ? shares[sourceId] : undefined;
-  return pct === undefined ? null : `Not stated by the buyer in ${pct} % of notices from this source.`;
+/** What "no usable value" counts, said on the notice's own page under the note (a card has no room for it). */
+export const VALUE_MISSING_MEANS = 'That counts a notice that states none, one that states a placeholder such as 0 or 1, and one that states a kind of amount we do not read yet (a framework maximum, the values of lot awards).';
+
+/** The note for one source, or null when there is none to give. */
+export function valueMissingNote(notes: Record<string, string>, sourceId: string | null | undefined): string | null {
+  return (sourceId ? notes[sourceId] : undefined) ?? null;
 }
 
 /** "Showing the last answer received at 12 Oct 2026, 09:14 UTC: the data service is slow right now." */

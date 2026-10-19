@@ -19,6 +19,7 @@ import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
 import { FitFilter, FitItem } from './fit-badge';
 import { SortSelect } from './filter-panel';
+import { LiveListScope, ResultsRegion } from '../dg/live-list';
 import { CallCalendar } from './call-calendar';
 
 const SORT_OPTIONS = [
@@ -73,6 +74,7 @@ export function CallListTemplate({
         </nav>
       )}
 
+      <LiveListScope>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
@@ -81,7 +83,7 @@ export function CallListTemplate({
           {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" total={result.total} status={filters.status} />}
         </div>
 
-        <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
+        <ResultsRegion aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} calls` : `Showing ${from}–${to} of ${result.total} calls`}
@@ -132,8 +134,9 @@ export function CallListTemplate({
           )}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
           {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="lg:hidden" total={result.total} status={filters.status} />}
-        </section>
+        </ResultsRegion>
       </div>
+      </LiveListScope>
     </>
   );
 }

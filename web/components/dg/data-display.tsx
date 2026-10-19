@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { formatMoney, isPlaceholderAmount } from '@/lib/format';
 import { countryName, languageName } from '@/lib/taxonomy';
-import type { Money } from '@/lib/types';
+import type { BudgetNote, Money } from '@/lib/types';
 
 /** "EUR 25,000,000" in DM Mono. A missing amount, or a placeholder (0, 0.01, 1), says so instead of showing it. */
 export function AmountDisplay({ money, size = 'md', className }: { money: Money | null; size?: 'md' | 'lg'; className?: string }) {
@@ -10,6 +10,28 @@ export function AmountDisplay({ money, size = 'md', className }: { money: Money 
     <data value={`${money.amount} ${money.currency}`} className={cn('font-mono tabular-nums', size === 'lg' ? 'text-figure' : 'text-mono-strong', className)}>
       {formatMoney(money)}
     </data>
+  );
+}
+
+/**
+ * A call's budget. With no figure it says why, from the data we hold (`budgetNote`): the short line on a card, the full
+ * sentence on the call page (`long`). A per-project ceiling the source states is shown as that, never as the budget.
+ */
+export function BudgetDisplay({ money, note, size = 'md', long = false, className }: {
+  money: Money | null; note?: BudgetNote | null; size?: 'md' | 'lg'; long?: boolean; className?: string;
+}) {
+  if (money && !isPlaceholderAmount(money.amount)) return <AmountDisplay money={money} size={size} className={className} />;
+  if (!note) return <AmountDisplay money={null} className={className} />;
+  return (
+    <>
+      <span className={cn('font-sans text-body text-ink-muted', className)}>{note.short}</span>
+      {note.perProject && !isPlaceholderAmount(note.perProject.amount) && (
+        <div className="mt-1 font-sans text-small font-normal text-ink-muted">
+          Ceiling per project: <AmountDisplay money={note.perProject} className="text-mono" />
+        </div>
+      )}
+      {long && <div className="mt-1 font-sans text-small font-normal text-ink-muted">{note.text}</div>}
+    </>
   );
 }
 

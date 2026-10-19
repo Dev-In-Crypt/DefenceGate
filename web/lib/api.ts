@@ -153,10 +153,12 @@ export async function getCall(slug: string): Promise<Call | null> {
   return callsMock.findCall(slug);
 }
 
-/** Same programme first, then same funder country; open calls only. */
-export async function getRelatedCalls(call: Call): Promise<Call[]> {
-  const { items } = await getCalls({ status: 'open', pageSize: 50 });
-  const others = items.filter((c) => c.id !== call.id);
+/** The open calls a call page picks its related ones from. Start it before the call itself is read: it does not depend on it. */
+export const getOpenCallsForRelated = () => getCalls({ status: 'open', pageSize: 50 });
+
+/** The related calls of a call, from the open calls: same programme first, then same funder country. */
+export function relatedCallsFrom(call: Call, open: Call[]): Call[] {
+  const others = open.filter((c) => c.id !== call.id);
   const score = (c: Call) => (c.programme === call.programme ? 2 : 0) + (c.funderCountry === call.funderCountry ? 1 : 0);
   // A call that shares neither the programme nor the funder country is not related (site-qa2:N15: a Polish, a
   // Swedish and an EU call under a French one): fewer than three, or none, is the honest answer.

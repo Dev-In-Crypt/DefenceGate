@@ -6,7 +6,7 @@ import { PROGRAMMES, isNonEnglish } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import type { Call } from '@/lib/types';
 import { StatusPill, Tag } from '../dg/tag';
-import { AmountDisplay, LangLabel } from '../dg/data-display';
+import { BudgetDisplay, LangLabel } from '../dg/data-display';
 
 const DATE_TONE = {
   normal: 'bg-surface-inset text-ink', soon: 'bg-soon-bg text-soon-fg', urgent: 'bg-urgent text-on-urgent',
@@ -37,7 +37,7 @@ function Row({ c }: { c: Call }) {
         </span>
       )}
       <div className="flex min-w-0 flex-col gap-1">
-        <Link href={`/funding/${c.slug}`} lang={nonEnglish ? c.titleLanguage : undefined}
+        <Link href={`/funding/${c.slug}`} prefetch={false} lang={nonEnglish ? c.titleLanguage : undefined}
           className="text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">{displayName(c.title)}</Link>
         <div className="flex flex-wrap items-center gap-2">
           <Tag kind="programme">{PROGRAMMES[c.programme].label}</Tag>
@@ -51,7 +51,7 @@ function Row({ c }: { c: Call }) {
         ) : d.countdown ? (
           <span className={cn('text-small font-bold', d.state === 'closed' ? 'text-ink-muted' : d.state === 'normal' ? 'text-accent-text' : 'text-soon-fg')}>{d.countdown}</span>
         ) : null}
-        <AmountDisplay money={c.budget} className="text-mono text-ink-muted" />
+        <BudgetDisplay money={c.budget} note={c.budgetNote} className="text-mono text-ink-muted" />
         {(d.state === 'closed' || upcoming) && <StatusPill status={callStatusKind(c.status, d.state, c.openingDate)} />}
       </div>
     </li>

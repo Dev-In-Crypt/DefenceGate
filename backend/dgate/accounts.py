@@ -163,7 +163,7 @@ def _client_ip(value: str | None) -> str:
 # ------------------------------------------------------------------ plumbing
 def get_conn():
     cfg = settings()
-    with db.connect(cfg.app_dsn or cfg.dsn) as conn:
+    with db.bounded_connect(cfg.app_dsn or cfg.dsn, cfg.app_connections, cfg.pool_wait_ms / 1000) as conn:
         yield conn
 
 
@@ -692,7 +692,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
         "to": date.fromisoformat(f["to"]) if "to" in f else None,
         "min_": float(f["min"]) if "min" in f else None,
         "max_": float(f["max"]) if "max" in f else None,
-        "currency": f.get("currency", "EUR"), "page": 1,
+        "currency": f.get("currency"), "page": 1,
     }
     if kind == "tender":
         base.update(cpv=f.get("cpv"), status=f.get("status", "open"), scope=f.get("scope", "relevant"),

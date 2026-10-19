@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ExternalLink, Plus } from 'lucide-react';
-import { getCall, getRelatedCalls, REMOVED, whenRemoved } from '@/lib/api';
+import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
@@ -14,7 +14,7 @@ import { JsonLd } from '@/components/dg/feedback';
 import { AlertsLine } from '@/components/dg/alerts-line';
 import { Tag, StatusPill } from '@/components/dg/tag';
 import { DeadlineBadge } from '@/components/dg/deadline-badge';
-import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/dg/data-display';
+import { BudgetDisplay, CountryLabel, FactCell, LangLabel } from '@/components/dg/data-display';
 import { SourceBadge } from '@/components/dg/source-badge';
 import { Button } from '@/components/dg/button';
 import { Card } from '@/components/dg/card';
@@ -79,13 +79,16 @@ function Panel({ title, children, className }: { title: string; children: React.
 
 export default async function CallDetailPage({ params }: Props) {
   const { slug } = await params;
+  // The list the related calls come from does not depend on the call: read together, not after it (a cold page was two steps).
+  const openCalls = getOpenCallsForRelated();
+  openCalls.catch(() => undefined); // handled below if it is used; not an unhandled rejection if the page ends first
   const call = await getCall(slug).catch(whenRemoved);
   if (call === REMOVED) return <RemovedOnRequest what="call" />;
   if (!call) notFound();
   // The API looks up the leading id only; a changed title must not break a link.
   if (call.slug !== slug) permanentRedirect(`/funding/${call.slug}`);
 
-  const related = await getRelatedCalls(call);
+  const related = relatedCallsFrom(call, (await openCalls).items);
   const d = getCallDeadline(call);
   const closed = d.state === 'closed';
   const upcoming = call.status === 'forthcoming';
@@ -158,7 +161,7 @@ export default async function CallDetailPage({ params }: Props) {
           <Card title="Key facts">
             <FactsGrid className={IN_CARD}>
               <FactCell label="Budget">
-                <AmountDisplay money={call.budget} size="lg" />
+                <BudgetDisplay money={call.budget} note={call.budgetNote} size="lg" long />
                 {call.budget && call.budgetScope === 'call' && (
                   <div className="mt-1 font-sans text-small font-normal text-ink-muted">Shared across several topics of the same call</div>
                 )}

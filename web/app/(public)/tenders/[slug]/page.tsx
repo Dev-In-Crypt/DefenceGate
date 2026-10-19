@@ -5,7 +5,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { getTenderDeadline, localDeadline } from '@/lib/deadline';
-import { valueMissingNote, valueMissingShares } from '@/lib/source-status';
+import { VALUE_MISSING_MEANS, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -69,6 +69,11 @@ export default async function TenderDetailPage({ params }: Props) {
   const { slug } = await params;
   // A slug that cannot be a tender never reaches the API.
   if (!isTenderSlug(slug)) notFound();
+  // The archive and the source list need only the slug: read together with the notice, not after it.
+  const versionsRead = getTenderVersions(slug);
+  const healthRead = getHealth();
+  versionsRead.catch(() => undefined); // handled below if they are used; not an unhandled rejection if the page ends first
+  healthRead.catch(() => undefined);
   const tender = await getTender(slug).catch(whenRemoved);
   if (tender === REMOVED) return <RemovedOnRequest what="notice" />;
   if (!tender) notFound();
@@ -76,8 +81,8 @@ export default async function TenderDetailPage({ params }: Props) {
   if (tender.slug !== slug && isTenderSlug(tender.slug)) permanentRedirect(`/tenders/${tender.slug}`);
 
   const [versions, health, sameBuyer] = await Promise.all([
-    getTenderVersions(tender.slug),
-    getHealth(),
+    versionsRead,
+    healthRead,
     tender.buyerId
       ? getTenders({ buyer: tender.buyerId, status: 'open', pageSize: RELATED_LIMIT + 1 }, { cacheable: true }).then((r) => r.items).catch(() => [])
       : Promise.resolve([]),
@@ -90,7 +95,7 @@ export default async function TenderDetailPage({ params }: Props) {
 
   const d = getTenderDeadline(tender);
   const local = d.state === 'closed' ? null : localDeadline(d.iso, tender.country, d.dateOnly);
-  const missingNote = valueMissingNote(valueMissingShares(health.sources), tender.source.sourceId);
+  const missingNote = valueMissingNote(valueMissingNotes(health.sources), tender.source.sourceId);
   const closed = d.state === 'closed';
   const nonEnglish = isNonEnglish(tender.titleLanguage);
   const sourceUrl = safeHttpUrl(tender.source.url);
@@ -150,7 +155,7 @@ export default async function TenderDetailPage({ params }: Props) {
               <FactCell label="Estimated value">
                 <AmountDisplay money={tender.estimatedValue} size="lg" />
                 {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
-                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}</div>
+                  <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}{missingNote.startsWith('No usable') && <> {VALUE_MISSING_MEANS}</>}</div>
                 )}
                 {tender.estimatedValue && !isPlaceholderAmount(tender.estimatedValue.amount) && valueKindLabel(tender.valueKind) && (
                   <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>

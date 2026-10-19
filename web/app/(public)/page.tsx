@@ -4,7 +4,7 @@ import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, S
 import { getAccountStatus } from '@/lib/account';
 import { getCalls, getChanges, getHealth, getSiteStats, getTenderScopeCounts, getTenders, lastDataUpdate } from '@/lib/api';
 import { portalWords } from '@/lib/coverage-copy';
-import { staleNote, valueMissingNote, valueMissingShares } from '@/lib/source-status';
+import { staleNote, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { toTenderQuery } from '@/lib/filters';
 import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
@@ -114,11 +114,17 @@ export default async function LandingPage() {
     getChanges({ pageSize: 1 }).catch(() => null),
     Promise.all(EXAMPLES.map((e) => getTenders({ country: [e.country], cpv: [e.cpv], pageSize: 1 }, { cacheable: true }).then((r) => r.total).catch(() => 0))),
   ]);
+  // A list that did not come is not an empty list, and not a page to keep. This page is prerendered and revalidated every minute
+  // (`revalidate`): an error thrown here fails the build (which tries a page again, next.config.ts) or the revalidation, and Next
+  // goes on serving the last page that rendered. Rendering "could not be loaded" instead baked that sentence into the page until the
+  // next revalidation (18 October 2026, a build while the API's database role was exhausted). `withLastGood` cannot help in a fresh
+  // build container (nothing is held yet), and its key for the closing-tenders list carries today's date.
+  if (dated === null || closingCalls === null) throw new Error('home: the data service did not answer for the closing lists');
   const examples = EXAMPLES.map((e, i) => ({ ...e, open: exampleCounts[i] })).filter((e) => e.open > 0).slice(0, EXAMPLES_SHOWN);
   const closingTenders = dated;
-  const closingCallItems = closingCalls?.items ?? [];
+  const closingCallItems = closingCalls.items;
   const budgetRepeats = repeatedCallBudgets(closingCallItems);
-  const missing = valueMissingShares(health?.sources ?? []);
+  const missing = valueMissingNotes(health?.sources ?? []);
   const stale = [current, dated].map((r) => r?.staleAsOf).find(Boolean);
   // The goods tile earns its place only when its number differs from core's (it was 300 = 300 on 16 October 2026).
   const showGoods = goodsOpen !== null && counts !== null && goodsOpen.total !== counts.core;
@@ -286,12 +292,7 @@ export default async function LandingPage() {
           <h2 id="closing-tenders" className="m-0 text-h2">Tenders closing next</h2>
           <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
         </div>
-        {!closingTenders ? (
-          // The data service did not answer and no earlier answer is held: say that, not "no tenders".
-          <EmptyState title="The list could not be loaded just now" action={<Button variant="secondary" href="/tenders">Open the tender list</Button>}>
-            The data service is slow at the moment. This is not an empty market: reload in a minute, or open the full list.
-          </EmptyState>
-        ) : closingTenders.items.length === 0 ? (
+        {closingTenders.items.length === 0 ? (
           <EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />
         ) : (
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
@@ -305,11 +306,7 @@ export default async function LandingPage() {
           <h2 id="closing" className="m-0 text-h2">Funding calls closing soon</h2>
           <Link href="/funding?status=closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
         </div>
-        {closingCalls === null ? (
-          <EmptyState title="The list could not be loaded just now" action={<Button variant="secondary" href="/funding">Open the funding list</Button>}>
-            The data service is slow at the moment. This is not an empty list: reload in a minute.
-          </EmptyState>
-        ) : closingCallItems.length === 0 ? (
+        {closingCallItems.length === 0 ? (
           <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
         ) : (
           <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">

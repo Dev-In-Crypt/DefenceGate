@@ -6,6 +6,7 @@ import { Button } from './button';
 import { ResultTools } from './download-link';
 import { FilterNotices } from './filter-notices';
 import { SortSelect } from '../funding/filter-panel';
+import { LiveListScope, ResultsRegion } from './live-list';
 
 /** The filter column: from lg it stays on screen while the results scroll (and scrolls itself when it is taller than the window). */
 export const FILTER_COLUMN = 'flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:-m-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:p-1 lg:[scrollbar-width:thin]';
@@ -46,12 +47,13 @@ export function ListPage({
     <>
       <PageHeader crumbs={crumbs} title={title} lead={intro} meta={meta} />
 
+      <LiveListScope>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
           {filterBar}{filterExtra}
           {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" total={total} status={exportStatus} />}
         </div>
-        <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
+        <ResultsRegion aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           {scope}
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
@@ -70,8 +72,9 @@ export function ListPage({
           {footnote && <p className="m-0 max-w-prose text-small text-ink-muted">{footnote}</p>}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
           {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" total={total} status={exportStatus} />}
-        </section>
+        </ResultsRegion>
       </div>
+      </LiveListScope>
     </>
   );
 }

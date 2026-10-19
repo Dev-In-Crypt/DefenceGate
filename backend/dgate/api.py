@@ -75,6 +75,13 @@ def _bad_value(_: Request, __: psycopg.errors.DataError) -> JSONResponse:
     return JSONResponse({"detail": "invalid value in request"}, status_code=422)
 
 
+@app.exception_handler(db.PoolBusy)
+@app.exception_handler(psycopg.errors.TooManyConnections)
+def _busy(_: Request, __: Exception) -> JSONResponse:
+    # Every connection of this process (or the role) is taken: a retry in a moment finds one. Not a 500.
+    return JSONResponse({"detail": "the service is busy; retry shortly"}, status_code=503, headers={"Retry-After": "2"})
+
+
 @app.exception_handler(psycopg.errors.QueryCanceled)
 def _too_slow(_: Request, __: psycopg.errors.QueryCanceled) -> JSONResponse:
     return JSONResponse({"detail": "the query took too long; narrow the request"},
@@ -119,7 +126,16 @@ def _attribution(row: dict[str, Any], default: str = "") -> str:
 
 
 def get_conn():
-    # The API's own, read-only role when one is configured (migration 0024).
+    # The API's own, read-only role when one is configured (migration 0024). At most `api_connections` at once in this
+    # process; a request over that waits `pool_wait_ms`, then is answered 503 (`_busy`).
+    cfg = settings()
+    with db.bounded_connect(cfg.api_dsn or cfg.dsn, cfg.api_connections, cfg.pool_wait_ms / 1000) as conn:
+        yield conn
+
+
+def get_conn_reserved():
+    """For the health check: it uses the headroom the bound leaves in the role, so a saturated pool cannot make the
+    container look dead (and a restart then drop the requests that were waiting)."""
     cfg = settings()
     with db.connect(cfg.api_dsn or cfg.dsn) as conn:
         yield conn
@@ -781,7 +797,7 @@ def _completeness_line(check: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.get("/v1/health")
-def health(conn=Depends(get_conn)):
+def health(conn=Depends(get_conn_reserved)):
     """Coverage health, not just liveness.
 
     Reports the last run per source and flags anything not successful. A green

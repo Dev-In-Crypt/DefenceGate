@@ -6,7 +6,7 @@ import {
   activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
-import { listUpdatedAt, staleNote, valueMissingNote, valueMissingShares } from '@/lib/source-status';
+import { listUpdatedAt, staleNote, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
@@ -28,7 +28,7 @@ type Props = { searchParams: Promise<SearchParams> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parseTenderFilters(await searchParams);
   // Filtered, sorted or paged views are shareable but canonicalise to /tenders and stay out of the index.
-  let noindex = activeTenderFilterCount(f) > 0 || (f.page ?? 1) > 1 || f.sort !== defaultTenderSort(f.status) || f.currency !== 'EUR';
+  let noindex = activeTenderFilterCount(f) > 0 || (f.page ?? 1) > 1 || f.sort !== defaultTenderSort(f.status);
   if (!noindex) {
     // The default list is also what the page renders (same cached fetch); a thin one is not indexed.
     try { noindex = (await getTenders(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
@@ -45,7 +45,7 @@ export default async function TendersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseTenderFilters(sp);
   const [result, health, scopeCounts] = await Promise.all([getTenders(filters), getHealth(), getTenderScopeCounts(filters)]);
-  const missing = valueMissingShares(health.sources);
+  const missing = valueMissingNotes(health.sources);
   const stale = staleNote(result.staleAsOf, formatDateTimeUtc);
   // A page past the end is the last page, not an empty list.
   const last = lastPage(result.total, result.pageSize);

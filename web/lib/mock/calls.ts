@@ -57,6 +57,8 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
     status, sourceStatus: status, openingDate: r.opening, deadline: r.deadline,
     budget: r.budget ? { amount: r.budget[0], currency: r.budget[1] } : null,
     budgetScope: r.budget ? (r.budgetScope ?? 'topic') : null,
+    // The API's reason for a call with no budget (backend/dgate/funding.py budget_note).
+    budgetNote: r.budget ? null : { reason: 'source_none', short: 'The source states no budget', text: 'The source states no budget for this call.' },
     actionType: r.actionType, fundingRate: r.fundingRate, scope: r.scope,
     eligibility: r.eligibility ?? data.eligibility[eligKey] ?? [],
     cascade: r.cascade ?? null,
@@ -141,7 +143,8 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
       if (f.deadlineFrom && time(c.deadline) < time(`${f.deadlineFrom}T00:00:00Z`)) return false;
       if (f.deadlineTo && time(c.deadline) > time(`${f.deadlineTo}T23:59:59Z`)) return false;
     }
-    if (f.budgetMin !== undefined || f.budgetMax !== undefined) {
+    // The API's rule: a currency alone lists the calls that state a budget in it; a range is read in it (EUR when none is given).
+    if (f.budgetMin !== undefined || f.budgetMax !== undefined || f.currency) {
       const amount = amountIn(c);
       if (amount === null) return false;
       if (f.budgetMin !== undefined && amount < f.budgetMin) return false;

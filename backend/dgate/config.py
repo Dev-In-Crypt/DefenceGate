@@ -217,6 +217,14 @@ class Settings:
     # The account endpoints' own role (migration 0027): it alone may read and write the
     # app_* tables. Unset means `dsn`, as for the API role.
     app_dsn: str | None = field(repr=False, default_factory=lambda: os.environ.get("DGATE_APP_DSN") or None)
+    # How many database connections one API process holds at once, per role, and how long a request waits for a free
+    # one before it is answered 503 with Retry-After (db.bounded_connect). The roles allow 30 (dgate_api) and 10
+    # (dgate_app), migrations 0024 and 0027; the API runs one process with a pool of 40 threads, so without a bound a
+    # burst of 40 requests exceeded the role ("too many connections for role dgate_api", 18 October 2026) and pages
+    # said "could not be loaded". The rest of the role's limit is left to the health check and an operator's psql.
+    api_connections: int = field(default_factory=lambda: _env_int("DGATE_API_CONNECTIONS", 24))
+    app_connections: int = field(default_factory=lambda: _env_int("DGATE_APP_CONNECTIONS", 8))
+    pool_wait_ms: int = field(default_factory=lambda: _env_int("DGATE_POOL_WAIT_MS", 3000))
     # Shared secret of the site's server and the account API: the site sends it in
     # `X-DG-Internal`, and the API refuses an account or counter call without it, so the
     # network boundary is not the only control. Unset (tests, development) keeps the

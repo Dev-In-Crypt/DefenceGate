@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { localDeadline } from './deadline';
 import { matchedCpv } from './tender-basis';
-import { sourcePage, staleNote, valueMissingNote, valueMissingShares } from './source-status';
+import { sourcePage, staleNote, valueMissingNote, valueMissingNotes } from './source-status';
 import { listWords, nationalCountries, portalWords } from './coverage-copy';
 import { DEFAULT_TENDER_SCOPE, parseChangeFilters, parseMarketFilters, parseTenderFilters, toChangeQuery, toTenderQuery } from './filters';
 import { MAX_STALE_MS, recall, remember, resetLastGood } from './last-good';
@@ -34,16 +34,24 @@ assert.deepEqual(matchedCpv(t, undefined), []);
 assert.deepEqual(matchedCpv(t, []), []);
 assert.deepEqual(matchedCpv(t, ['99']), []);
 
-// Why a value is missing: a share of the source's notices, only with enough notices to say so.
-const shares = valueMissingShares([
-  { id: 'pl_ezam', heldCount: 1000, valueStatedCount: 150 },
+// Why a value is missing: a share of the source's notices, only with enough notices to say so; and a source whose
+// connector reads no value at all (WP-49) says "not collected", never "not stated by the buyer".
+const notes = valueMissingNotes([
+  { id: 'ted', heldCount: 1000, valueStatedCount: 150, valueRead: true },
   { id: 'tiny', heldCount: 10, valueStatedCount: 1 },
   { id: 'old_api', heldCount: 500 },
+  { id: 'pl_ezam', heldCount: 52251, valueStatedCount: 0, valueRead: false },
+  { id: 'nl_tenderned', heldCount: 5, valueStatedCount: 0, valueRead: false },
 ]);
-assert.deepEqual(shares, { pl_ezam: 85 });
-assert.equal(valueMissingNote(shares, 'pl_ezam'), 'Not stated by the buyer in 85 % of notices from this source.');
-assert.equal(valueMissingNote(shares, 'tiny'), null);
-assert.equal(valueMissingNote(shares, null), null);
+assert.deepEqual(Object.keys(notes).sort(), ['nl_tenderned', 'pl_ezam', 'ted']);
+assert.equal(valueMissingNote(notes, 'ted'), 'No usable estimated value in 85 % of notices from this source.');
+assert.doesNotMatch(valueMissingNote(notes, 'ted') ?? '', /by the buyer/);
+assert.match(valueMissingNote(notes, 'pl_ezam') ?? '', /^Not collected from this source/);
+assert.doesNotMatch(valueMissingNote(notes, 'pl_ezam') ?? '', /\d %|buyer/, 'a source that reads no value has no share to quote');
+assert.match(valueMissingNote(notes, 'nl_tenderned') ?? '', /^Not collected from this source/, 'whatever the count');
+assert.equal(valueMissingNote(notes, 'tiny'), null);
+assert.equal(valueMissingNote(notes, 'old_api'), null);
+assert.equal(valueMissingNote(notes, null), null);
 assert.equal(staleNote(undefined, String), null);
 assert.match(staleNote('2026-10-16T10:00:00Z', (s) => `<${s}>`) ?? '', /last answer, as of <2026-10-16T10:00:00Z>/);
 

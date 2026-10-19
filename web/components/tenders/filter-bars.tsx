@@ -44,7 +44,7 @@ export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: T
   // A value typed into the URL that is not a preset stays selectable, so the form never silently drops it.
   const withCurrent = (v: number | undefined) => (v === undefined || VALUE_PRESETS.includes(v) ? valueOptions : [...valueOptions, { value: String(v), label: `${currency} ${v}` }]);
   return (
-    <FilterPanel activeCount={activeTenderFilterCount(filters)}>
+    <FilterPanel activeCount={activeTenderFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_TENDER_STATUS, [PARAM.scope]: DEFAULT_TENDER_SCOPE }}>
       <form method="get" action={basePath} role="search" aria-label="Filter tenders" className={FORM}>
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or notice number" defaultValue={filters.q ?? ''} />
         <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
@@ -72,11 +72,14 @@ export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: T
           <TextInput type="date" name={PARAM.from} aria-label="Deadline from" defaultValue={filters.deadlineFrom ?? ''} />
           <TextInput type="date" name={PARAM.to} aria-label="Deadline to" defaultValue={filters.deadlineTo ?? ''} />
         </FoldGroup>
-        <FoldGroup legend="Estimated value" open={false} count={(filters.valueMin ? 1 : 0) + (filters.valueMax ? 1 : 0)}>
-          <Select name={PARAM.currency} aria-label="Value currency" options={currencyOptions} defaultValue={currency} />
+        <FoldGroup legend="Estimated value" open={false} count={(filters.currency ? 1 : 0) + (filters.valueMin ? 1 : 0) + (filters.valueMax ? 1 : 0)}>
+          <Select name={PARAM.currency} aria-label="Value currency" placeholder="Any currency" options={currencyOptions} defaultValue={filters.currency ?? ''} />
           <Select name={PARAM.min} aria-label="Minimum value" placeholder="No minimum" options={withCurrent(filters.valueMin)} defaultValue={filters.valueMin?.toString() ?? ''} />
           <Select name={PARAM.max} aria-label="Maximum value" placeholder="No maximum" options={withCurrent(filters.valueMax)} defaultValue={filters.valueMax?.toString() ?? ''} />
-          <p className="m-0 text-small text-ink-muted">A value range selects notices stated in that one currency. Nothing is converted.</p>
+          <p className="m-0 text-small text-ink-muted">
+            A currency alone lists the notices that state a value in it. A minimum or maximum is read in that currency (EUR when none is chosen) and
+            leaves out notices with no stated value. Nothing is converted.
+          </p>
         </FoldGroup>
         {/* Only a sort that was asked for travels with the form: the default follows the status (a closed list runs newest first). */}
         {filters.sort && filters.sort !== defaultTenderSort(filters.status) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}

@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import socket
+import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict, fields, replace
@@ -241,6 +242,36 @@ def connect(dsn: str) -> Iterator[psycopg.Connection]:
         raise
     finally:
         conn.close()
+
+
+class PoolBusy(Exception):
+    """Every connection this process may hold for the role is in use, and none was freed within the wait.
+    The API answers 503 with Retry-After (api.py), instead of opening one more and exhausting the role."""
+
+
+_gates: dict[tuple[str, int], threading.BoundedSemaphore] = {}
+_gates_lock = threading.Lock()
+
+
+def bounded_connect(dsn: str, size: int, wait: float):
+    """`connect`, with at most `size` connections open at once in this process for this DSN. A caller over the bound waits
+    up to `wait` seconds for one to close (the queue), then gets `PoolBusy`. A connection is still opened per use: the
+    bound is what protects the role's limit, a pool of kept connections would add reuse and not safety.
+    ponytail: one semaphore per (dsn, size); a pool (psycopg_pool, not a dependency) if connect time ever matters."""
+    with _gates_lock:
+        gate = _gates.setdefault((dsn, size), threading.BoundedSemaphore(size))
+    return _bounded(gate, dsn, wait)
+
+
+@contextmanager
+def _bounded(gate: threading.BoundedSemaphore, dsn: str, wait: float) -> Iterator[psycopg.Connection]:
+    if not gate.acquire(timeout=wait):
+        raise PoolBusy("no database connection was free in time")
+    try:
+        with connect(dsn) as conn:
+            yield conn
+    finally:
+        gate.release()
 
 
 def source_id(conn: psycopg.Connection, code: str) -> int:

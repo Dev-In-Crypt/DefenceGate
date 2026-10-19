@@ -767,10 +767,11 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         # a timestamptz in the session's time zone, so the bound moved with the server.
         where.append("o.deadline_at <= %s")
         params.append(datetime.combine(to, time.max, tzinfo=timezone.utc))
-    if min_ is not None or max_ is not None:
-        # A placeholder (0, 0.01, 1) is "not stated" and must not match "up to EUR 100,000".
+    if min_ is not None or max_ is not None or currency:
+        # A currency alone selects the notices that state a value in it; a range is read in it, EUR when none
+        # is given. A placeholder (0, 0.01, 1) is "not stated" and must not match "up to EUR 100,000".
         where.append("o.value_currency = %s AND o.value_amount > %s")
-        params += [currency.upper(), PLACEHOLDER_VALUE_MAX]
+        params += [(currency or "EUR").upper(), PLACEHOLDER_VALUE_MAX]
         if min_ is not None:
             where.append("o.value_amount >= %s")
             params.append(min_)
@@ -805,7 +806,7 @@ def list_tenders(
     to: date | None = None,
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
-    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
@@ -874,7 +875,7 @@ def export_tenders(
     to: date | None = None,
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
-    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     cursor: str | None = Query(None, pattern="^[0-9]{1,18}$"),
     limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_MAX_LIMIT),
     conn=Depends(get_conn),
@@ -914,7 +915,7 @@ def tender_scope_counts(
     to: date | None = None,
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
-    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     conn=Depends(get_conn),
 ):
     """How many notices the list would show under each scope for the same other filters, with
@@ -1292,6 +1293,32 @@ def _buyer(r: dict[str, Any], names: dict[int, str]) -> dict[str, Any]:
     }
 
 
+BUYER_BASE_SECONDS = 5 * 60
+# The aggregate as a table the filters can read: its rows travel as arrays, in this order and with these types.
+_BASE_TYPES = ("bigint", "bigint", "bigint", "date", "bigint")
+_BASE_FROM = ("SELECT t.org_id, t.n, t.open_n, t.last_published, t.variants FROM unnest("
+              + ", ".join(f"%s::{t}[]" for t in _BASE_TYPES)
+              + ") AS t(org_id, n, open_n, last_published, variants)")
+
+
+def buyer_base(conn) -> list[list[Any]]:
+    """The buyer aggregate, as five columns of values (`_BASE_TYPES`). It does not depend on any filter of the
+    list (they run over its rows afterwards), but it reads every core notice (1.2 to 2 s on 14 October 2026, for
+    1,972 families), and used to be run again for every distinct filter: `/v1/buyers?country=PL` took 5 s cold.
+    Kept for `BUYER_BASE_SECONDS` in memory, one computation shared by the callers that arrive meanwhile; a failure
+    is not kept. The filters, the order and the page run over the cached rows, as arrays in the same SQL."""
+    from . import stats
+    from .config import settings
+
+    def compute() -> list[list[Any]]:
+        rows = conn.execute(aggregate_sql()).fetchall()
+        return [[r[k] for r in rows] for k in ("org_id", "n", "open_n", "last_published", "variants")]
+
+    if settings().list_cache_seconds <= 0:          # 0 turns the list caches off, this one too
+        return compute()
+    return stats.cached(("buyer-base",), compute, BUYER_BASE_SECONDS, store=stats._list_cache, limit=stats.LIST_CACHED)
+
+
 @router.get("/v1/buyers", response_model=BuyerPage)
 @cache_list("buyers", ttl=5 * 60)
 def list_buyers(
@@ -1303,7 +1330,8 @@ def list_buyers(
     pageSize: int = Query(20, ge=1, le=100),
     conn=Depends(get_conn),
 ):
-    agg = aggregate_sql()
+    agg = _BASE_FROM
+    base_args = buyer_base(conn)
     where: list[str] = []
     params: list[Any] = []
     text = (q or "").replace("\x00", "").strip()
@@ -1343,13 +1371,13 @@ def list_buyers(
                    org.n, org.open_n, org.last_published, org.variants,
                    count(*) OVER () AS total_rows {base}
              ORDER BY {order} LIMIT %s OFFSET %s""",
-        params + [pageSize, (page - 1) * pageSize]).fetchall()
+        base_args + params + [pageSize, (page - 1) * pageSize]).fetchall()
     if rows:
         total = rows[0]["total_rows"]
     elif page == 1:
         total = 0
     else:
-        total = conn.execute(f"{with_a}SELECT count(*) AS n {base}", params).fetchone()["n"]
+        total = conn.execute(f"{with_a}SELECT count(*) AS n {base}", base_args + params).fetchone()["n"]
     names = _buyer_names(conn, [r["id"] for r in rows])
     return {"items": [_buyer(r, names) for r in rows], "total": total,
             "page": page, "pageSize": pageSize}

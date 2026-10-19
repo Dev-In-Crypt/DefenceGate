@@ -83,7 +83,8 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     deadlineTo: to && isDay(to) ? to : undefined,
     budgetMin: num(first(sp[PARAM.min])),
     budgetMax: num(first(sp[PARAM.max])),
-    currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
+    // Only a currency the visitor chose: alone it lists the calls that state a budget in it; with a range it is the unit.
+    currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : undefined,
     sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? defaultCallSort(status),
     cascade: first(sp[PARAM.cascade]) === 'true' ? true : undefined,
     ukraine: first(sp[PARAM.ukraine]) === 'true' ? true : undefined,
@@ -108,7 +109,7 @@ export function toQuery(f: CallFilters, extra: Partial<Record<string, string | u
   if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
   if (f.budgetMin !== undefined) p.set(PARAM.min, String(f.budgetMin));
   if (f.budgetMax !== undefined) p.set(PARAM.max, String(f.budgetMax));
-  if (f.currency && f.currency !== DEFAULT_CURRENCY) p.set(PARAM.currency, f.currency);
+  if (f.currency) p.set(PARAM.currency, f.currency);
   if (f.sort && f.sort !== defaultCallSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.cascade) p.set(PARAM.cascade, 'true');
   if (f.ukraine) p.set(PARAM.ukraine, 'true');
@@ -122,7 +123,7 @@ export function activeFilterCount(f: CallFilters): number {
   return [
     f.q, f.programme?.length, f.regime?.length, f.country?.length,
     f.status !== DEFAULT_STATUS ? f.status : undefined,
-    f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax, f.cascade ? 'cascade' : undefined, f.ukraine ? 'ukraine' : undefined,
+    f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax, f.currency, f.cascade ? 'cascade' : undefined, f.ukraine ? 'ukraine' : undefined,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
 
@@ -142,6 +143,7 @@ export function describeCallFilters(f: CallFilters): string[] {
   if (f.country?.length) out.push(`funder country ${f.country.join(', ')}`);
   if (f.deadlineFrom || f.deadlineTo) out.push(`deadline ${f.deadlineFrom ?? '…'} to ${f.deadlineTo ?? '…'}`);
   if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push(`budget ${f.budgetMin ?? 0} to ${f.budgetMax ?? '∞'} ${f.currency ?? DEFAULT_CURRENCY}`);
+  else if (f.currency) out.push(`a budget stated in ${f.currency}`);
   if (f.cascade) out.push('financial support to third parties');
   if (f.ukraine) out.push('open to Ukrainian participants');
   return out;
@@ -220,7 +222,8 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
     deadlineTo: to && isDay(to) ? to : undefined,
     valueMin: num(first(sp[PARAM.min])),
     valueMax: num(first(sp[PARAM.max])),
-    currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : DEFAULT_CURRENCY,
+    // Only a currency the visitor chose: alone it lists the notices that state a value in it; with a range it is the unit.
+    currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : undefined,
     sort: oneOf(first(sp[PARAM.sort]), TENDER_SORTS) ?? defaultTenderSort(status),
     page: pageOf(first(sp[PARAM.page])),
     pageSize: TENDER_PAGE_SIZE,
@@ -241,7 +244,7 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
   if (f.valueMin !== undefined) p.set(PARAM.min, String(f.valueMin));
   if (f.valueMax !== undefined) p.set(PARAM.max, String(f.valueMax));
-  if (f.currency && f.currency !== DEFAULT_CURRENCY) p.set(PARAM.currency, f.currency);
+  if (f.currency) p.set(PARAM.currency, f.currency);
   if (f.sort && f.sort !== defaultTenderSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   const s = p.toString();
@@ -254,7 +257,7 @@ export function activeTenderFilterCount(f: TenderFilters): number {
     f.status !== DEFAULT_TENDER_STATUS ? f.status : undefined,
     f.scope !== DEFAULT_TENDER_SCOPE ? f.scope : undefined,
     f.goods,
-    f.deadlineFrom, f.deadlineTo, f.valueMin, f.valueMax,
+    f.deadlineFrom, f.deadlineTo, f.valueMin, f.valueMax, f.currency,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
 

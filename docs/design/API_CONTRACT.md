@@ -35,7 +35,7 @@ Query parameters (all optional; names are the design's URL keys):
 | `status` | `open` (default) `forthcoming` `closing-soon` `closed` `all` | `closing-soon` = open with deadline within 30 days |
 | `from`, `to` | `YYYY-MM-DD` | deadline range, inclusive, UTC |
 | `min`, `max` | number | budget range, in `currency` |
-| `currency` | ISO 4217, default `EUR` | the currency `min`, `max` and `sort=budget-desc` refer to |
+| `currency` | ISO 4217 | with no `min`/`max`: only the calls that state a budget in that currency. With `min`/`max` (or `sort=budget-desc`): the currency they are read in, `EUR` when none is given. Absent: no currency filter (WP-49; it used to act only together with a range) |
 | `sort` | `deadline-asc` (default, but `deadline-desc` when `status=closed`) `deadline-desc` `budget-desc` | closed calls always last; calls without a deadline after those with one |
 | `page`, `pageSize` | 1.., pageSize <= 500 | |
 
@@ -87,6 +87,8 @@ interface Call {
   deadline: IsoDateTime | null;       // null: no stated deadline (a standing call)
   budget: { amount: number; currency: CurrencyCode } | null;
   budgetScope: 'call' | 'topic' | null;   // 'call': the pot several topics share
+  // Only when `budget` is null (WP-49): why there is none, from what the source states. Never a number of ours.
+  budgetNote?: { reason: string; short: string; text: string; perProject?: { amount: number; currency: CurrencyCode } | null } | null;
   actionType: string | null;
   fundingRate: string | null;  // not collected yet; always null
   scope: string[];             // keywords the source publishes; may be empty
@@ -143,8 +145,9 @@ Query (all optional): `q` (title, buyer or notice number), `country` (comma ISO-
 `cpv` (comma prefixes, at most 20), `status` (`open` default | `closed` | `all`),
 `scope` (`relevant` default since 16 October 2026: `core` and `supply` together | `core`: the notice itself is defence | `supply`: only the buyer is a
 defence body, or one of the two groups of 14 October 2026 | `all`; see "Changes of 16 October 2026"), `goods` (`defence`: of the chosen scope, only notices that say defence themselves, i.e. `legal_basis` or `military_cpv` in `qualifiedBy`, not kept by a listed buyer alone; absent by default; the same parameter on `/v1/changes`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
-UTC), `min` / `max` (estimated value) with `currency` (ISO 4217, default `EUR`: a range
-selects that one currency), `confidence` (`high`, `medium`, `low`, comma list; absent or all three: no filter; another word: 422), `sort` (`deadline-asc` default | `published-desc`), `page`
+UTC), `min` / `max` (estimated value) and `currency` (ISO 4217: alone it lists the notices that state a value in that
+currency, a placeholder amount excluded; with a range it is the currency the range is read in, `EUR` when absent;
+absent with no range: no filter), `confidence` (`high`, `medium`, `low`, comma list; absent or all three: no filter; another word: 422), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).
 Returns `{ items: Tender[], total, page, pageSize, meta }`. A national notice whose TED twin is
 in the same result is shown once (the TED one); `sameNotice` lists the other copies.
@@ -493,7 +496,10 @@ All additive, except the first point, which corrects a status.
   `country` (ISO-2); the response carries `year` and `country`, `windowFrom`/`windowTo` are the year's, and the
   `months` series is that year's twelve months. Without them: unchanged (rolling 12 months, 36-month series).
 - **`GET /v1/sources`**: `valueStatedCount` (tender sources): how many of the held notices state a value (a
-  placeholder amount does not count). The site says "Not stated by the buyer in N % of notices from this source".
+  placeholder amount does not count). `valueRead` (tender sources, WP-49): `false` where the connector never reads an
+  estimated value (`pl_ezam`, `nl_tenderned`: the value is on the notice document, a separate fetch), so an empty value
+  there says nothing about the buyer; the site then says "Not collected from this source". For the others the site says
+  "No usable estimated value in N % of notices from this source" (none stated, a placeholder, or a kind of amount we do not read).
 - CSV of tenders (site): the `sort` parameter is honoured; the file is rectangular: columns `scope`, `why_listed`,
   `versions` and `result_truncated` (`true` on every row when the result was cut at the limit, which then holds the
   most recently added notices, in the order chosen); no note row in the data.
@@ -1017,6 +1023,22 @@ per supplier, no share, no rank and no "single source" flag, on purpose (the mos
   actions is not served for another type of action; for research and innovation actions the minimum of three entities
   from three countries is the floor (a topic that asks for two authorities adds to it); the Accelerator's 70 % is
   served for the Accelerator only. `cascade` follows the sentence, not the model's note (28 became 38 calls).
+
+### Changes of 19 October 2026 (WP-49)
+
+- `currency` on `/v1/tenders`, `/v1/tenders/export`, `/v1/tenders/scope-counts` and `/v1/funding`: see the parameter tables.
+  A request with `currency=EUR` and no range now lists only the notices (calls) stated in EUR; before, it listed everything.
+- `/v1/funding` and `/v1/funding/{slug}`: `budgetNote` when `budget` is null. `reason` is one of `portal_zero` (the EU portal's
+  topic data states a budget of 0), `portal_empty` (its budget map for the topic is empty), `portal_no_line` (no line for the
+  topic), `source_no_field` (Vinnova's register has no budget field), `source_no_total` (the French agency's page states no
+  total; `perProject` is its stated ceiling per project, where it states one), `source_none` (any other national source).
+  `short` is one line for a card, `text` the sentence for the call page.
+- `/v1/sources`: `valueRead` (above).
+- Busy: when the API process has no free database connection within `DGATE_POOL_WAIT_MS` (3 s) or the role refuses one, the
+  answer is `503` `{ "detail": "the service is busy; retry shortly" }` with `Retry-After: 2`. `/v1/health` is exempt (it uses the
+  headroom the bound leaves in the role). `DGATE_API_CONNECTIONS` (24, role limit 30) and `DGATE_APP_CONNECTIONS` (8, role limit 10)
+  set the bound per process.
+- `/v1/buyers`: unchanged in shape. The aggregate over all notices is read once per five minutes and shared by every filter.
 
 ### `GET /v1/regulation`
 

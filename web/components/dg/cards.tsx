@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
@@ -10,14 +9,15 @@ import { cpvLabel } from '@/lib/taxonomy';
 import { matchedCpv } from '@/lib/tender-basis';
 import type { Buyer, Call, Tender } from '@/lib/types';
 import { Tag, StatusPill } from './tag';
-import { AmountDisplay, CountryLabel, LIST_FACTS, LangLabel, ListFact } from './data-display';
+import { CardLink } from './card-link';
+import { AmountDisplay, BudgetDisplay, CountryLabel, LIST_FACTS, LangLabel, ListFact } from './data-display';
 import { Icon } from './icon';
 import { SourceBadge } from './source-badge';
 import { BasisChips } from './basis-chips';
 import { FitBadge } from '../funding/fit-badge';
 
 /** A list card: the surface, the edge, 20 px padding, 12 px between its parts. Call cards are about 215 px tall at 1280 px and wider, tender cards about 260 px. */
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
 /** Card title: 20/28, two lines at most from md (three below); the whole title stays in the link text. */
 const CARD_TITLE = 'm-0 line-clamp-3 text-h3 md:line-clamp-2';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
@@ -68,7 +68,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             <span className="ml-auto"><StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} /></span>
           </div>
           <H lang={nonEnglish ? call.titleLanguage : undefined} className={CARD_TITLE}>
-            <Link href={`/funding/${call.slug}`} className={TITLE_LINK}>{displayName(call.title)}</Link>
+            <CardLink href={`/funding/${call.slug}`} className={TITLE_LINK}>{displayName(call.title)}</CardLink>
           </H>
           <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-small text-ink-muted">
             <span>{funderLine(call)}</span>
@@ -109,7 +109,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
               <span className="font-sans text-body text-ink-muted">Shared with the other topics of this call</span>
             ) : (
               <>
-                <AmountDisplay money={call.budget} />
+                <BudgetDisplay money={call.budget} note={call.budgetNote} />
                 {call.budget && call.budgetScope === 'call' && (
                   <div className="font-sans text-small font-normal text-ink-muted">Shared by several topics of this call</div>
                 )}
@@ -158,7 +158,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
   classifiedNote?: boolean;
   /** The CPV prefixes the list is filtered by: a notice found through an additional code says so. */
   cpvFilter?: string[];
-  /** Why the value is missing for this source ("Not stated by the buyer in 82 % of notices from this source"). */
+  /** Why the value is missing for this source ("Not collected from this source" or "No usable estimated value in 82 % of notices from this source."). */
   valueNote?: string | null;
 }) {
   const d = getTenderDeadline(tender);
@@ -187,11 +187,11 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
             </p>
           )}
           <H lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} className={CARD_TITLE}>
-            <Link href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</Link>
+            <CardLink href={`/tenders/${tender.slug}`} className={TITLE_LINK}>{displayName(tender.title)}</CardLink>
           </H>
           <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-small">
             {tender.buyerSlug ? (
-              <Link href={`/buyers/${tender.buyerSlug}`} className="relative z-10 inline-flex min-h-8 items-center font-semibold">{displayName(tender.buyerName, 'title')}</Link>
+              <CardLink href={`/buyers/${tender.buyerSlug}`} className="relative z-10 inline-flex min-h-8 items-center font-semibold">{displayName(tender.buyerName, 'title')}</CardLink>
             ) : (
               <span className="font-semibold">{displayName(tender.buyerName, 'title')}</span>
             )}
@@ -244,7 +244,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
         <div className={CARD_TEXT}>
           {buyer.isDefenceBuyer && <span className="self-start"><Tag>Defence body</Tag></span>}
           <H className={CARD_TITLE}>
-            <Link href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</Link>
+            <CardLink href={`/buyers/${buyer.slug}`} className={TITLE_LINK}>{displayName(buyer.name, 'title')}</CardLink>
           </H>
           {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
           {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}

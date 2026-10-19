@@ -151,7 +151,7 @@ def cached(key: Any, compute, ttl: float = CACHE_SECONDS, *,
 def _connection():
     """The API's own role, opened only when something has to be computed."""
     cfg = settings()
-    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
+    with db.bounded_connect(cfg.api_dsn or cfg.dsn, cfg.api_connections, cfg.pool_wait_ms / 1000) as conn:
         yield conn
 
 
@@ -583,7 +583,8 @@ def source_spans(conn) -> dict[str, dict[str, Any]]:
                          ("call", "WHERE NOT c.suppressed")):
         alias = table[0]
         # How many notices state a value at all (a placeholder amount is "not stated"): the
-        # site says "not stated by the buyer in N % of notices from this source" from it.
+        # site says "no usable estimated value in N % of notices from this source" from it, and
+        # "not collected from this source" for a connector that reads none (normalise.VALUE_NOT_READ_SOURCES).
         stated = (f", count(*) FILTER (WHERE o.value_amount > {PLACEHOLDER_VALUE_MAX}) AS stated"
                   if table == "opportunity" else "")
         rows = conn.execute(

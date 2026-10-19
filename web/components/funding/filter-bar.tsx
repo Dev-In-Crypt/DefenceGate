@@ -3,7 +3,7 @@ import { Button } from '../dg/button';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FilterPanel } from './filter-panel';
 import { COUNTRIES, CURRENCIES, FUNDER_COUNTRIES, PROGRAMMES, PROGRAMME_CODES, REGIMES, REGIME_CODES } from '@/lib/taxonomy';
-import { DEFAULT_CURRENCY, MAX_QUERY_LENGTH, PARAM, activeFilterCount, defaultCallSort } from '@/lib/filters';
+import { DEFAULT_CURRENCY, DEFAULT_STATUS, MAX_QUERY_LENGTH, PARAM, activeFilterCount, defaultCallSort } from '@/lib/filters';
 import type { CallFilters, CallStatusFilter, CountryCode } from '@/lib/types';
 
 export type FilterGroup = 'status' | 'programme' | 'regime' | 'country' | 'cascade' | 'ukraine';
@@ -37,7 +37,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   const currencyOptions = (CURRENCIES.includes(currency) ? [...CURRENCIES] : [...CURRENCIES, currency]).map((c) => ({ value: c, label: c }));
   const budgetOptions = BUDGET_PRESETS.map((n) => ({ value: String(n), label: `${currency} ${n / 1_000_000}M` }));
   return (
-    <FilterPanel activeCount={activeFilterCount(filters)}>
+    <FilterPanel activeCount={activeFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_STATUS }}>
       <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className={FORM}>
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Whole words; counter-drone and counter drone are the same, and drone also finds unmanned." />
         {show('status') && (
@@ -92,11 +92,14 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
           <TextInput type="date" name={PARAM.from} aria-label="Deadline from" defaultValue={filters.deadlineFrom ?? ''} />
           <TextInput type="date" name={PARAM.to} aria-label="Deadline to" defaultValue={filters.deadlineTo ?? ''} />
         </FoldGroup>
-        <FoldGroup legend="Budget" open={false} count={(filters.budgetMin ? 1 : 0) + (filters.budgetMax ? 1 : 0)}>
-          <Select name={PARAM.currency} aria-label="Budget currency" options={currencyOptions} defaultValue={currency} />
+        <FoldGroup legend="Budget" open={false} count={(filters.currency ? 1 : 0) + (filters.budgetMin ? 1 : 0) + (filters.budgetMax ? 1 : 0)}>
+          <Select name={PARAM.currency} aria-label="Budget currency" placeholder="Any currency" options={currencyOptions} defaultValue={filters.currency ?? ''} />
           <Select name={PARAM.min} aria-label="Minimum budget" placeholder="No minimum" options={budgetOptions} defaultValue={filters.budgetMin?.toString() ?? ''} />
           <Select name={PARAM.max} aria-label="Maximum budget" placeholder="No maximum" options={budgetOptions} defaultValue={filters.budgetMax?.toString() ?? ''} />
-          <p className="m-0 text-small text-ink-muted">Amounts are shown and filtered in the currency the source states. Nothing is converted.</p>
+          <p className="m-0 text-small text-ink-muted">
+            A currency alone lists the calls that state a budget in it. A minimum or maximum is read in that currency (EUR when none is chosen) and
+            leaves out calls with no stated budget. Nothing is converted.
+          </p>
         </FoldGroup>
         {/* Only a sort the visitor chose travels on: the default depends on the status, which the form may change. */}
         {filters.sort && filters.sort !== defaultCallSort(filters.status) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}

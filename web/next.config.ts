@@ -61,6 +61,15 @@ export default function config(phase: string): NextConfig {
     poweredByHeader: false,
     // A self-contained server.js for the runtime image (web/Dockerfile).
     output: 'standalone',
+    experimental: {
+      // The build prerenders pages from the API, each page asking it for several lists at once. At the default of 8
+      // pages at a time per worker that was some forty requests in a second, and the API's database role (30
+      // connections) was exhausted: the home page was baked with "The list could not be loaded" (18 October 2026).
+      // Three at a time is about a dozen requests; a page that still fails is tried again (the API answers 503 with
+      // Retry-After when it is busy, see backend/dgate/db.py bounded_connect) before the build gives up.
+      staticGenerationMaxConcurrency: 3,
+      staticGenerationRetryCount: 3,
+    },
     async headers() {
       return [
         {

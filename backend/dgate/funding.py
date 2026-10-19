@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from . import db, textsearch
 from .config import settings
-from .normalise import http_url, redact_emails
+from .normalise import VALUE_NOT_READ_SOURCES, http_url, redact_emails
 from .suppress import removed
 
 router = APIRouter()
@@ -31,7 +31,7 @@ router = APIRouter()
 
 def get_conn():
     cfg = settings()
-    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
+    with db.bounded_connect(cfg.api_dsn or cfg.dsn, cfg.api_connections, cfg.pool_wait_ms / 1000) as conn:
         yield conn
 
 
@@ -94,6 +94,15 @@ class Budget(BaseModel):
 class Row(BaseModel):
     label: str
     value: str
+
+
+class BudgetNote(BaseModel):
+    """Why a call has no budget figure, from what we hold of it (`budget_note`). Never a number
+    of our own: `perProject` is a ceiling the source states per project, not the call's budget."""
+    reason: str
+    short: str
+    text: str
+    perProject: Budget | None = None
 
 
 class Document(BaseModel):
@@ -176,6 +185,8 @@ class FundingCall(BaseModel):
     anomalies: list[str] = []
     budget: Budget | None
     budgetScope: str | None
+    # Set only when `budget` is null: why there is none (the source gives none, the portal states 0...).
+    budgetNote: BudgetNote | None = None
     actionType: str | None
     fundingRate: str | None
     scope: list[str]
@@ -306,6 +317,9 @@ class SourceHealth(BaseModel):
     # Of a tender source: how many of the held notices state an estimated value (a placeholder
     # amount does not count). Null for a grant source.
     valueStatedCount: int | None = None
+    # Of a tender source: false when our connector never reads an estimated value from its notices
+    # (`normalise.VALUE_NOT_READ_SOURCES`), so a missing value is not the buyer's doing. Null for a grant source.
+    valueRead: bool | None = None
     # Of a tender source: the usual notices per month (median) and the months, as
     # `YYYY-MM`, well below it (stats.month_gaps). Null where it was not worked out.
     monthlyMedian: int | None = None
@@ -497,6 +511,52 @@ def documents_of(cond: dict[str, Any]) -> list[dict[str, str]]:
     return out[:MAX_DOCUMENTS]
 
 
+def _year_total(line: dict[str, Any]) -> float:
+    total = 0.0
+    for amount in (line.get("budgetYearMap") or {}).values():
+        try:
+            total += float(amount)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+def budget_note(programme_code: str, cond: dict[str, Any]) -> dict[str, Any]:
+    """The reason a call without a budget has none, as far as the data we hold says. Only the
+    source's own statements are used: the EU portal's stored budget line (a 0 or an empty map
+    is the portal's word, not ours), Vinnova's register having no budget field (the connector
+    reads none; `sources/vinnova.py`), the French agency's per-project ceiling where the page
+    states one. No figure is estimated or read from prose here."""
+    docs = " ".join(str(d.get("label") or "") for d in cond.get("documents") or [] if isinstance(d, dict)).lower()
+    where = " It is linked under Documents." if "work programme" in docs else ""
+    if not NATIONAL_PROGRAMME.match(programme_code):
+        line = cond.get("budget_line")
+        if isinstance(line, dict) and line and "budgetYearMap" in line:
+            if _year_total(line) == 0 and line.get("budgetYearMap"):
+                return {"reason": "portal_zero", "short": "The portal states 0 for this topic",
+                        "text": "The portal's topic data states a budget of 0 for this topic. That is not a budget: "
+                                "the programme's work programme is where the amount is set." + where}
+            return {"reason": "portal_empty", "short": "The portal gives no figure for this topic",
+                    "text": "The portal's budget table for this topic is empty. The programme's work programme "
+                            "is where to look for the amount." + where}
+        return {"reason": "portal_no_line", "short": "The portal gives no figure for this topic",
+                "text": "The portal's budget table has no line for this topic, so we hold no figure for it." + where}
+    if programme_code == "SE-VINNOVA":
+        return {"reason": "source_no_field", "short": "Vinnova publishes no budget field",
+                "text": "Vinnova's call register has no budget field. Amounts, where there are any, are in the call "
+                        "text or the call document, and are usually limits per project, not a total for the call."}
+    if programme_code == "FR-AID":
+        per = cond.get("max_aid_eur_per_project")
+        out: dict[str, Any] = {"reason": "source_no_total", "short": "No total stated by the agency",
+                               "text": "The agency's page for this call states no total budget."}
+        if per:
+            out["perProject"] = {"amount": float(per), "currency": "EUR"}
+            out["text"] += " It states a ceiling for each project."
+        return out
+    return {"reason": "source_none", "short": "The source states no budget",
+            "text": "The source states no budget for this call."}
+
+
 def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
     from .api import _attribution  # api includes this router, so import it late
 
@@ -532,6 +592,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "budget": ({"amount": float(r["budget"]), "currency": r["currency"] or "EUR"}
                    if r.get("budget") is not None else None),
         "budgetScope": r.get("budget_scope"),
+        "budgetNote": budget_note(prog, cond) if r.get("budget") is None else None,
         "actionType": r.get("type_of_action"),
         "fundingRate": None,
         "scope": scope_keywords(prog, cond),
@@ -598,7 +659,7 @@ def list_funding(
     to: date | None = None,
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
-    currency: str = Query("EUR", pattern="^[A-Za-z]{3}$"),
+    currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     # Soonest first, except on a closed list: its soonest is the oldest, so the newest leads (F13).
     sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|budget-desc)$"),
     # Only `true` is a filter: calls that have cascade funding (financial support to third parties).
@@ -677,10 +738,11 @@ def list_funding(
         where.append("c.deadline_at < %s::date + 1")
         params.append(to)
 
-    cur = currency.upper()
-    if min_ is not None or max_ is not None:
-        # An amount is only comparable with another in the same currency, so the
-        # range selects that currency and says nothing about the others.
+    cur = (currency or "EUR").upper()
+    if min_ is not None or max_ is not None or currency:
+        # An amount is only comparable with another in the same currency, so the range selects that
+        # currency and says nothing about the others. A currency alone selects the calls that state
+        # a budget in it; without one a range is read in EUR.
         where.append("c.currency = %s AND c.budget IS NOT NULL")
         params.append(cur)
         if min_ is not None:
@@ -826,6 +888,7 @@ def list_sources(conn=Depends(get_conn)):
             "coverage": min(1.0, fetched / floor) if floor else None,
             "licence": r["licence"] or "", "attribution": _attribution(
                 {"source_attribution": r["attribution"], "source_code": r["code"]}),
+            **({"valueRead": r["code"] not in VALUE_NOT_READ_SOURCES} if r["kind"] != "grant" else {}),
             # A source with nothing held reads 0; no entry at all means the read was skipped.
             **(spans.get(r["code"], {"heldFrom": None, "heldTo": None, "heldCount": 0})
                if spans else {}),

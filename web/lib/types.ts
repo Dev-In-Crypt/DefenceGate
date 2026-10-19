@@ -87,6 +87,8 @@ export interface Call {
   budget: Money | null;
   /** 'call': the pot several topics share. */
   budgetScope: 'call' | 'topic' | null;
+  /** Only when `budget` is null: why there is none, from what the source states (never a number of ours). Absent on older API builds. */
+  budgetNote?: BudgetNote | null;
   actionType: string | null;
   /** Not collected yet; always null. */
   fundingRate: string | null;
@@ -132,6 +134,16 @@ export interface Call {
   ukraineBasis?: { reason: string; evidence: string | null } | null;
   /** Detail only: the regime the call is under and its headline conditions, each with its source. Absent on older API builds. */
   rulesApply?: RulesApply | null;
+}
+
+/** Why a call has no budget figure (GET /v1/funding `budgetNote`). `perProject` is a ceiling the source states per project, not a budget. */
+export interface BudgetNote {
+  reason: string;
+  /** One line for a list card. */
+  short: string;
+  /** The full sentence for the call page. */
+  text: string;
+  perProject?: Money | null;
 }
 
 /** The "rules that apply" block of a call (GET /v1/funding/{slug} `rulesApply`). */
@@ -595,6 +607,8 @@ export interface SourceHealth {
   heldCount?: number | null;
   /** Of a tender source: how many of the held notices state an estimated value. */
   valueStatedCount?: number | null;
+  /** Of a tender source: false when our connector never reads an estimated value from its notices. Absent on older API builds. */
+  valueRead?: boolean | null;
   /** Of a tender source: the usual notices per month (median) and the months, `YYYY-MM`, well below it. */
   monthlyMedian?: number | null;
   gapMonths?: string[] | null;

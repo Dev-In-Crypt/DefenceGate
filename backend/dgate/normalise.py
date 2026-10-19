@@ -772,6 +772,13 @@ def _lot_count(g) -> int | None:
     return max(sizes) if sizes and max(sizes) > 0 else None
 
 
+# The tender sources whose connector never reads an estimated value, so an empty value there says nothing
+# about the buyer: the BZP board listing (`from_ezamowienia`) and the TenderNed listing and detail
+# (`from_tenderned`) carry none; it is on the notice document, a separate fetch per notice (WP-49 checked
+# 20 current eZamowienia records: `htmlBody` null in all, and no value field in the TenderNed detail). The
+# site words these "not collected from this source", not "not stated by the buyer".
+VALUE_NOT_READ_SOURCES = frozenset({"pl_ezam", "nl_tenderned"})
+
 # TED states 0, 0.01, 1 and -1 where the buyer did not know an amount (5,771 of the 95,000 TED
 # notices with a value on 13 October 2026: 0.01 on 4,407, 0.00 on 822, 1.00 on 512, -1.00 on
 # 30), and a few notices a figure no contract has (50 above ten billion, with lot values of
