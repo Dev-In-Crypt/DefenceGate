@@ -18,7 +18,7 @@ import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
 
-const CARD = 'group relative flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 
 /** The name of an organisation as a person reads it. */
@@ -49,7 +49,7 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
   const num = (n: number) => <span className="tabular-nums">{n}</span>;
   return (
     <article className={cn(CARD, 'text-ink')}>
-      <div className={cn(CARD_BODY, 'xl:grid-cols-[minmax(0,1fr)_560px]')}>
+      <div className={cn(CARD_BODY, 'cqw:grid-cols-[minmax(0,1fr)_560px]')}>
         <div className={CARD_TEXT}>
           <h2 className="m-0 line-clamp-3 text-h3 md:line-clamp-2">
             <Link href={`/organisations/${org.slug}`} className={TITLE_LINK}>{nameOf(org.name)}</Link>
@@ -58,7 +58,7 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
           {org.nameVariants ? <span className="text-small text-ink-muted">Includes {org.nameVariants} name {org.nameVariants === 1 ? 'variant' : 'variants'}</span> : null}
           <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{p}</Tag>)}</p>
         </div>
-        <dl className="facts-grid facts-grid--4 m-0 border-b border-line xl:col-start-2 xl:row-start-1 xl:self-start">
+        <dl className="facts-grid facts-grid--4 m-0 border-b border-line cqw:col-start-2 cqw:row-start-1 cqw:self-start">
           {defence ? (
             <>
               <FactCell label="Defence projects">{num(org.defenceProjects)}</FactCell>

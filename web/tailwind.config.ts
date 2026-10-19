@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 /** Every value points at a DefenceGate CSS variable defined in app/globals.css. */
 const v = (name: string) => `var(--${name})`;
@@ -68,7 +69,14 @@ const config: Config = {
       outlineOffset: { focus: '2px' },
     },
   },
-  plugins: [],
+  plugins: [
+    // Variants on the width of the list card itself (the card is a size container): its text/facts columns depend on the card, not on the
+    // viewport (a card in a 3-column grid on the home page is 400 px wide on a 1333 px screen).
+    plugin(({ addVariant }) => {
+      addVariant('cq', '@container (min-width: 664px)');
+      addVariant('cqw', '@container (min-width: 884px)');
+    }),
+  ],
 };
 
 export default config;

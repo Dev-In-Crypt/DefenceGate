@@ -17,7 +17,7 @@ import { BasisChips } from './basis-chips';
 import { FitBadge } from '../funding/fit-badge';
 
 /** A list card: the surface, the edge, 20 px padding, 12 px between its parts. Call cards are about 215 px tall at 1280 px and wider, tender cards about 260 px. */
-const CARD = 'group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted';
 /** Card title: 20/28, two lines at most from md (three below); the whole title stays in the link text. */
 const CARD_TITLE = 'm-0 line-clamp-3 text-h3 md:line-clamp-2';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
@@ -25,10 +25,10 @@ const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline
  * Text part at the left, facts at the right (from xl); one column below (text, facts, provenance). From xl the provenance
  * row sits under the text, in the left column, so the facts column (the tallest part) sets the height of the card.
  */
-export const CARD_BODY = 'grid gap-x-6 gap-y-3 xl:grid-cols-[minmax(0,1fr)_340px]';
-const CARD_BODY_PROVENANCE = `${CARD_BODY} xl:grid-rows-[1fr_auto]`;
-export const CARD_TEXT = 'flex min-w-0 flex-col gap-2 xl:col-start-1 xl:row-start-1';
-const CARD_PROVENANCE = 'xl:col-start-1 xl:row-start-2';
+export const CARD_BODY = 'grid gap-x-6 gap-y-3 cq:grid-cols-[minmax(0,1fr)_340px]';
+const CARD_BODY_PROVENANCE = `${CARD_BODY} cq:grid-rows-[1fr_auto]`;
+export const CARD_TEXT = 'flex min-w-0 flex-col gap-2 cq:col-start-1 cq:row-start-1';
+const CARD_PROVENANCE = 'cq:col-start-1 cq:row-start-2';
 
 /** The title in the original language, one line, with its label; nothing when there is none. */
 function OriginalTitle({ title, lang }: { title: string | null | undefined; lang: string | null | undefined }) {
@@ -85,7 +85,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             </p>
           )}
         </div>
-        <dl className={cn(LIST_FACTS, 'xl:col-start-2 xl:row-span-2 xl:row-start-1')}>
+        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-span-2 cq:row-start-1')}>
           <ListFact label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.rolling && d.iso ? (
               <>
@@ -200,7 +200,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
           <OriginalTitle title={tender.originalTitle} lang={tender.originalLanguage} />
           <BasisChips tender={tender} lifted note={classifiedNote} />
         </div>
-        <dl className={cn(LIST_FACTS, 'xl:col-start-2 xl:row-span-2 xl:row-start-1')}>
+        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-span-2 cq:row-start-1')}>
           <ListFact label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.iso ? (
               <>
@@ -249,7 +249,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
           {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
           {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
         </div>
-        <dl className={cn(LIST_FACTS, 'xl:col-start-2 xl:row-start-1')}>
+        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-start-1')}>
           <ListFact label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></ListFact>
           <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></ListFact>
           <ListFact label="Last published">
