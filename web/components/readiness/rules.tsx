@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus } from 'lucide-react';
-import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords, statusWords } from '@/lib/readiness';
+import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords, publicPassage, publicRef, statusWords } from '@/lib/readiness';
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
@@ -33,11 +33,11 @@ export function VerdictBadge({ verdict, className }: { verdict: Verdict; classNa
 /** The source of a rule: where it is from, the link, the date, and the verbatim text on request. */
 export function SourceNote({ source }: { source: RSource }) {
   const url = safeHttpUrl(source.url);
-  const passages = (source.text ?? '').split('\n\n').filter(Boolean);
+  const passages = (source.text ?? '').split('\n\n').filter(Boolean).map(publicPassage);
   return (
     <div className="flex flex-col gap-2 text-small text-ink-muted">
       <p className="m-0">
-        Source: {source.ref ?? 'see the link'}
+        Source: {publicRef(source.ref) ?? 'see the link'}
         {url && <> · <a href={url} target="_blank" rel="noopener noreferrer" className="font-semibold">Open the source</a></>}
         {' '}· Last reviewed {isoDay(source.lastReviewed)}
       </p>

@@ -75,7 +75,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
   const status = oneOf(first(sp[PARAM.status]), STATUSES) ?? DEFAULT_STATUS;
   return {
     q: searchText(first(sp[PARAM.q])),
-    programme: list<ProgrammeCode>(sp[PARAM.programme], PROGRAMME_CODES),
+    programme: list<ProgrammeCode>(sp[PARAM.programme], PROGRAMME_CODES, upper),
     regime: list<Regime>(sp[PARAM.regime], REGIME_CODES),
     country: list<CountryCode>(sp[PARAM.country], Object.keys(COUNTRIES) as CountryCode[], upper),
     status,

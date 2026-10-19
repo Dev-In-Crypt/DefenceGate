@@ -5,24 +5,29 @@ import { CARD_SURFACE } from './card';
 import { getHealth, lastDataUpdate } from '@/lib/api';
 import { formatDateTimeUtc } from '@/lib/format';
 
-/** `long`: nine links, set in two columns at every width; the short groups are one column. */
+/** `long`: eight links, set in two columns at every width; the short groups are one column. */
 const COLUMNS: { title: string; long?: boolean; links: { label: string; href: string }[] }[] = [
+  // The groups are the header's (components/dg/header-bar.tsx): a destination the header lists is under the same name here.
+  // "Directory" holds the header's top-level pages and the lists only the footer carries.
   { title: 'Directory', long: true, links: [
     { label: 'Funding calls', href: '/funding' }, { label: 'Closing soon', href: '/funding?status=closing-soon' },
     { label: 'Tenders', href: '/tenders' }, { label: 'Buyers', href: '/buyers' },
-    { label: 'Organisations', href: '/organisations' }, { label: 'Suppliers', href: '/suppliers' },
     { label: 'Deadline calendar', href: '/calendar' }, { label: 'What changed', href: '/changes' },
-    { label: 'Weekly digest', href: '/digest' },
+    { label: 'Market', href: '/market' }, { label: 'Pricing', href: '/pricing' },
+  ] },
+  { title: 'Network', links: [
+    { label: 'Organisations', href: '/organisations' }, { label: 'Suppliers', href: '/suppliers' },
+    { label: 'Ukraine partners', href: '/networks/ukraine-partners' }, { label: 'Consortium gaps', href: '/networks/consortium-gaps' },
   ] },
   { title: 'Readiness', links: [
     { label: 'Readiness check', href: '/readiness' }, { label: 'Requirements', href: '/requirements' },
-    { label: 'Regulatory tracker', href: '/regulation' }, { label: 'Ukraine partners', href: '/networks/ukraine-partners' },
+    { label: 'Regulatory tracker', href: '/regulation' },
   ] },
   { title: 'Data', long: true, links: [
-    { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' }, { label: 'Data sovereignty', href: '/data/sovereignty' },
-    { label: 'Market overview', href: '/market' }, { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
-    { label: 'Alerts (not open yet)', href: '/alerts' }, { label: 'Opportunity pack', href: '/pack' },
-    { label: 'Pricing', href: '/pricing' },
+    { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
+    { label: 'Weekly digest', href: '/digest' }, { label: 'Data sovereignty', href: '/data/sovereignty' },
+    { label: 'CPV finder', href: '/cpv' }, { label: 'Glossary', href: '/glossary' },
+    { label: 'Opportunity pack', href: '/pack' }, { label: 'Alerts (not open yet)', href: '/alerts' },
   ] },
   { title: 'About and legal', links: [
     { label: 'About', href: '/about' }, { label: 'Privacy', href: '/privacy' },
@@ -43,7 +48,7 @@ export async function Footer() {
   return (
     <footer className="page pb-4 print:hidden">
       <div className={cn(CARD_SURFACE, 'flex flex-col gap-4 p-5 sm:px-6')}>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2.1fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,2.1fr)_minmax(0,0.9fr)] lg:gap-x-6">
           <div className="col-span-2 flex flex-col items-start gap-2 sm:col-span-1">
             <Logo href="/" />
             <p className="m-0 max-w-[30ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>

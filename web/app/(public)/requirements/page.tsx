@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug } from '@/lib/readiness';
+import { CATEGORY_WORD, formatDays, formatRange, joinWords, programmeName, requirementSlug, siteDay } from '@/lib/readiness';
 import type { RequirementSummary } from '@/lib/readiness-types';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
@@ -34,7 +34,7 @@ function RequirementCard({ r }: { r: RequirementSummary }) {
         ]} />
       )}
       <p className={document ? 'm-0 text-small text-ink-muted' : 'm-0 mt-auto text-small text-ink-muted'}>
-        {r.programmes.length > 0 ? `Appears in the rules of ${joinWords(r.programmes.map(programmeName))}. ` : ''}Last reviewed {isoDay(r.lastReviewed)}.
+        {r.programmes.length > 0 ? `Appears in the rules of ${joinWords(r.programmes.map(programmeName))}. ` : ''}Last reviewed {siteDay(r.lastReviewed)}.
       </p>
     </Card>
   );

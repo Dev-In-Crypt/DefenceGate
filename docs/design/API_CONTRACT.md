@@ -42,8 +42,9 @@ Query parameters (all optional; names are the design's URL keys):
 Response: `{ "items": [Call], "total": int, "page": int, "pageSize": int, "meta": {...}, "search": { "terms": [str], "alsoSearched": [str] } | null }`.
 `search` is null without `q`; `alsoSearched` lists the synonyms searched beyond the typed words.
 
-`sort=budget-desc` lists calls whose budget is in `currency` first, largest first, then
-the rest by deadline. It never orders across currencies.
+`sort=budget-desc` lists calls whose budget is in `currency` first, largest first, then the amounts in
+other currencies (each currency on its own, in currency-code order, largest first within it), then the
+calls without a budget, ties by deadline. It never orders across currencies (WP-56). Closed calls stay last, as for every sort.
 
 ### `/v1/funding/{slug}`
 
@@ -466,7 +467,7 @@ All additive, except the first point, which corrects a status.
   national source names no issuer, otherwise `European Commission` (the operator of the portal EU
   calls are read from) (F6). `programmeName` stays the programme in full.
 - `/v1/funding/{slug}` also has `whoCanApply` (`{label, value}[]`: the eligible-countries and
-  other-eligibility sections of the source's own conditions, and the applicants/beneficiaries of
+  other-eligibility sections of the source's own conditions, served whole (not cut; WP-56), and the applicants/beneficiaries of
   a national call; empty when the source says nothing) and `documents` (`{label, url}[]`: the
   documents the conditions link, https on `europa.eu` hosts only), both withdrawn with
   `conditionsText` when the source's `commercial_ok` is not true (F2, F9).

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { requirementSlug } from '@/lib/readiness';
+import { publicPassage, publicRef, requirementSlug, siteDay } from '@/lib/readiness';
 import { Icon } from '@/components/dg/icon';
 import { Details } from '@/components/dg/details';
 import type { RulesApply } from '@/lib/types';
@@ -24,7 +24,7 @@ const RULE = 'flex flex-col gap-1 border-t border-line py-4';
  * The regime a call is under and the headline conditions of that regime, each with the sentence of the regulation it
  * rests on. No verdict: the readiness check gives that, from the company's own answers.
  */
-export function RulesApplyBlock({ block }: { block: RulesApply }) {
+export function RulesApplyBlock({ block, canApplyPanel = false }: { block: RulesApply; canApplyPanel?: boolean }) {
   const reviewed = block.rules.map((r) => r.source.lastReviewed).sort().pop();
   return (
     <>
@@ -40,10 +40,10 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
                 <p className="m-0 text-body font-semibold">{r.title}</p>
                 {r.caveat && <p className="m-0 text-small">{r.caveat}</p>}
                 <Details summary="The sentence of the regulation">
-                  <blockquote className="m-0 whitespace-pre-wrap break-words border-l-4 border-line pl-3 text-small text-ink">{r.source.text}</blockquote>
+                  <blockquote className="m-0 whitespace-pre-wrap break-words border-l-4 border-line pl-3 text-small text-ink">{(r.source.text ?? '').split('\n\n').map(publicPassage).join('\n\n')}</blockquote>
                 </Details>
                 <p className="m-0 flex flex-wrap items-center gap-x-3 text-small text-ink-muted">
-                  <span>{r.source.ref}</span>
+                  <span>{publicRef(r.source.ref)}</span>
                   {url && (
                     <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 font-semibold">
                       Official Journal<Icon icon={ExternalLink} size="inline" /><span className="sr-only">(opens in new tab)</span>
@@ -57,7 +57,8 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
         </ul>
       ) : (
         <p className="m-0 text-body text-ink-muted">
-          No rules of this regime are encoded in our readiness check, so none are listed here. Its conditions are in the documents under “Can you apply?” and in the official call text.
+          No rules of this regime are encoded in our readiness check, so none are listed here. Its conditions are in
+          {canApplyPanel ? <> the documents under <a href="#can-you-apply-" className="font-semibold">“Can you apply?”</a> and in</> : ''} the official call text.
         </p>
       )}
       {block.alsoRead && (
@@ -76,7 +77,7 @@ export function RulesApplyBlock({ block }: { block: RulesApply }) {
         </div>
       )}
       <p className="m-0 text-small text-ink-muted">
-        {block.notice}{reviewed ? ` Rules last reviewed ${reviewed}.` : ''}{' '}
+        {block.notice}{reviewed ? ` Rules last reviewed ${siteDay(reviewed)}.` : ''}{' '}
         {block.encoded && <>Check your own company in the <Link href="/readiness" className="font-semibold">readiness check</Link>, or read <Link href="/requirements" className="font-semibold">all requirements</Link>.</>}
       </p>
     </>

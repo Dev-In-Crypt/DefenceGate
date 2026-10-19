@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
-import { getRequirement } from '@/lib/readiness-api';
-import { CATEGORY_WORD, OBLIGATION_WORD, faqOf, formatDays, formatRange, isoDay, originWords, requirementCode, requirementSlug, ruleSentence, statusWords } from '@/lib/readiness';
+import { getRequirement, getRequirements } from '@/lib/readiness-api';
+import { CATEGORY_WORD, OBLIGATION_WORD, faqOf, formatDays, formatRange, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -43,7 +43,12 @@ export default async function RequirementPage({ params }: { params: Params }) {
   if (slug !== requirementSlug(r.code)) permanentRedirect(`/requirements/${requirementSlug(r.code)}`);
   const path = `/requirements/${requirementSlug(r.code)}`;
   const faq = faqOf(r);
-  const passages = (r.source.text ?? '').split('\n\n').filter(Boolean);
+  // Our own working document is not named on a public page: a quote shows the body it comes from, or none.
+  const passages = (r.source.text ?? '').split('\n\n').filter(Boolean).map(publicPassage);
+  const sourceRef = publicRef(r.source.ref);
+  const { singles, groups } = groupIssuers(r.issuers);
+  // The requirements that need this one are named, not shown by their code.
+  const names = new Map((await getRequirements().catch(() => ({ items: [] }))).items.map((x) => [x.code, x.name]));
   const sourceUrl = safeHttpUrl(r.source.url);
   const article = {
     '@context': 'https://schema.org', '@type': 'Article', headline: r.name, description: r.summary,
@@ -82,7 +87,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
           )}
           {r.mandatoryFor && <Fact label="Needed for">{r.mandatoryFor}</Fact>}
           {r.legalBasis && <Fact label="Legal basis">{r.legalBasis}</Fact>}
-          <Fact label="Last reviewed"><time dateTime={r.lastReviewed}>{isoDay(r.lastReviewed)}</time></Fact>
+          <Fact label="Last reviewed"><time dateTime={r.lastReviewed}>{siteDay(r.lastReviewed)}</time></Fact>
           <Fact label="Verification">{statusWords(r.verificationStatus, r.source.origin)}</Fact>
         </FactsGrid>
       </ContentSection>
@@ -111,12 +116,20 @@ export default async function RequirementPage({ params }: { params: Params }) {
         <ContentSection title="Who issues it">
           {r.issuers.length > 0 ? (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
-              {r.issuers.map((i) => (
+              {singles.map((i) => (
                 <li key={`${i.country}-${i.name}`} className="flex flex-col gap-0.5">
                   <span className="font-bold">{i.country === '*' ? 'Every country' : countryName(i.country)}</span>
                   <span>{safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}</span>
                   {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
                   <span className="text-small text-ink-muted">{statusWords(i.verificationStatus, 'notes')}</span>
+                </li>
+              ))}
+              {groups.map((g) => (
+                <li key={g.name} className="flex flex-col gap-0.5">
+                  <span className="font-bold">{g.name}: {g.countries.length} countries</span>
+                  <span className="max-w-prose">{g.countries.join(', ')}</span>
+                  {g.notes && <span className="text-small text-ink-muted">{g.notes}</span>}
+                  <span className="text-small text-ink-muted">{statusWords(g.verificationStatus, 'notes')}</span>
                 </li>
               ))}
             </ul>
@@ -131,7 +144,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
             {r.rules.map((x) => (
               <li key={`${x.programme}-${x.rule}`} className="flex flex-col gap-0.5">
                 <span><strong>{x.programmeName}</strong>: {x.title} <span className="text-small text-ink-muted">({OBLIGATION_WORD[x.obligation]})</span></span>
-                <span className="max-w-prose text-body text-ink-muted">{ruleSentence(x.texts)}</span>
+                {ruleSentence(x.texts) && <span className="max-w-prose text-body text-ink-muted">{ruleSentence(x.texts)}</span>}
               </li>
             ))}
           </ul>
@@ -146,7 +159,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
             </p>
           ))}
           {r.requiredBy.map((c) => (
-            <p key={c} className="m-0 text-body text-ink-muted">Needed before <Link href={`/requirements/${requirementSlug(c)}`} className="font-semibold">{c}</Link>.</p>
+            <p key={c} className="m-0 text-body text-ink-muted">Needed before <Link href={`/requirements/${requirementSlug(c)}`} className="font-semibold">{names.get(c) ?? requirementSlug(c).toUpperCase()}</Link>.</p>
           ))}
         </ContentSection>
       )}
@@ -166,11 +179,11 @@ export default async function RequirementPage({ params }: { params: Params }) {
 
       <ContentSection title="Source">
         <p className="m-0 text-body text-ink-muted">
-          {r.source.ref ?? 'See the link'}
+          {sourceRef ?? 'See the link'}
           {sourceUrl && <> · <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Open the source</a></>}
         </p>
         {passages.map((p, i) => <blockquote key={i} className="m-0 break-words border-l-2 border-line pl-3 text-body">{p}</blockquote>)}
-        <p className="m-0 text-small text-ink-muted">{originWords(r.source)} Last reviewed {isoDay(r.lastReviewed)}.</p>
+        <p className="m-0 text-small text-ink-muted">{originWords(r.source)} Last reviewed {siteDay(r.lastReviewed)}.</p>
       </ContentSection>
 
       <div className="flex flex-wrap gap-3">

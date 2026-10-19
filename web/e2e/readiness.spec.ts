@@ -86,7 +86,7 @@ test('/requirements lists the requirements with their cost, time and source date
   await expect(page.getByRole('link', { name: 'NCAGE code' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'AQAP 2110 quality assurance certification' })).toBeVisible();
   await expect(page.getByText('vendor range, not a benchmark').first()).toBeVisible();
-  await expect(page.getByText(/Last reviewed 2026-/).first()).toBeVisible();
+  await expect(page.getByText(/Last reviewed \d{1,2} [A-Z][a-z]{2} 2026/).first()).toBeVisible();
 });
 
 test('a requirement page says what it is, who issues it, the cost and time, the programmes and the source', async ({ page }) => {
@@ -100,7 +100,7 @@ test('a requirement page says what it is, who issues it, the cost and time, the 
   await expect(page.getByText(/not a condition for applying to the EDF/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Source', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open the source' })).toHaveAttribute('href', /^https:\/\//);
-  await expect(page.getByText(/Last reviewed 2026-09-07/).first()).toBeVisible();
+  await expect(page.getByText(/Last reviewed 7 Sep 2026/).first()).toBeVisible();
 });
 
 test('a requirement page carries structured data that repeats what the page says', async ({ page }) => {

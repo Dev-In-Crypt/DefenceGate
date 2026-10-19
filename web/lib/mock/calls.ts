@@ -96,6 +96,29 @@ function mockDetail(r: RawCall): Partial<Call> {
       },
     };
   }
+  // The regimes with no rules encoded (backend/dgate/regime.py): the block names the regime and says so.
+  const NOT_ENCODED: Partial<Record<ProgrammeCode, { code: string; name: string; why: string }>> = {
+    HORIZON: { code: 'HORIZON', name: 'Horizon Europe', why: 'A Horizon Europe call: its eligibility rules are in the work programme annexes and the topic, and no Horizon rules are encoded here.' },
+    DIGITAL: { code: 'DIGITAL', name: 'Digital Europe Programme', why: 'A Digital Europe call: its rules are in the call document, and none are encoded here.' },
+    NATIONAL: { code: 'NATIONAL', name: 'National programme', why: 'A national call: its rules are the national funder’s, and none are encoded here.' },
+  };
+  const regime = NOT_ENCODED[r.programme];
+  if (regime) out.rulesApply = { regime, encoded: false, rules: [], alsoRead: null, notice: 'Indicative, not legal advice. The call text and the contracting authority decide.' };
+  // Horizon topic 7 stands for a call whose rules have not been read (a "Can you apply?" panel exists); topic 8 for the long source texts of WP-56.
+  if (r.topicId === 'HORIZON-CL3-2026-INFRA-01-02') {
+    out.eligibilityState = 'not_read';
+    out.eligibilitySources = [];
+    out.eligibility = [{ label: 'Decision expected', value: '2026-12-15' }, { label: 'Project start', value: '2027-01-04 to 2027-01-11' }];
+  }
+  if (r.topicId === 'HORIZON-CL4-2026-MAT-03-11') {
+    const countries = Array.from({ length: 60 }, (_, i) => `Country${String(i).padStart(2, '0')}`).join('; ');
+    out.whoCanApply = [
+      { label: 'Eligible countries', value: `Participating States are ${countries}.` },
+      { label: 'Other eligibility conditions', value: 'Described in section 6 of the call document.' },
+      { label: 'Applicants', value: 'Described in section 6 of the call document.' },
+    ];
+    out.conditionsText = Array.from({ length: 80 }, (_, i) => `Condition ${i} of the call text is published by the source.`).join(' ');
+  }
   if (r.programme === 'EDF') {
     out.rulesApply = {
       regime: { code: 'EDF', name: 'European Defence Fund', why: 'The topic code starts with EDF- and the programme is the EDF.' },
@@ -168,6 +191,14 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
       const x = amountIn(a), y = amountIn(b);
       if ((x === null) !== (y === null)) return x === null ? 1 : -1;
       if (x !== null && y !== null && x !== y) return y - x;
+      // The API's rule (WP-56): then the amounts in other currencies, one currency at a time and largest first within it, then no budget.
+      if (x === null && y === null) {
+        if ((a.budget === null) !== (b.budget === null)) return a.budget === null ? 1 : -1;
+        if (a.budget && b.budget) {
+          if (a.budget.currency !== b.budget.currency) return a.budget.currency < b.budget.currency ? -1 : 1;
+          if (a.budget.amount !== b.budget.amount) return b.budget.amount - a.budget.amount;
+        }
+      }
     }
     const da = a.deadline, db = b.deadline;
     if ((da === null) !== (db === null)) return da === null ? 1 : -1;

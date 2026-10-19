@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { Call, Tender } from './types';
 import { safeHttpUrl } from './safe-url';
+import { DESCRIPTION_MAX, TITLE_MAX, trimAtWord } from './seo-trim';
 
 export const SITE = {
   name: 'DefenceGate',
@@ -32,8 +33,11 @@ export function absoluteUrl(path: string): string {
   return new URL(path, SITE.url).toString();
 }
 
-export function buildMetadata({ title, description, path, noindex = false }: { title: string; description: string; path: string; noindex?: boolean }): Metadata {
+export function buildMetadata({ title: fullTitle, description: fullDescription, path, noindex = false }: { title: string; description: string; path: string; noindex?: boolean }): Metadata {
   const url = absoluteUrl(path);
+  // The one place the length rule lives: a title with the site template fits 60 characters, a description 160 (lib/seo-trim.ts).
+  const title = trimAtWord(fullTitle, TITLE_MAX);
+  const description = trimAtWord(fullDescription, DESCRIPTION_MAX);
   return {
     title,
     description,

@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { ExternalLink, Plus } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
-import { formatDateUtc, formatMoney, funderLine, openingPhrase } from '@/lib/format';
+import { formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
@@ -28,6 +28,8 @@ import { PartnerSuggestions } from '@/components/funding/partner-suggestions';
 import { RulesApplyBlock, UKRAINE_BASIS, ukraineSentence } from '@/components/funding/rules-apply';
 import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
+import { LongText } from '@/components/funding/long-text';
+import { mergeSameText } from '@/lib/long-text';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -101,7 +103,10 @@ export default async function CallDetailPage({ params }: Props) {
   const documents = call.documents ?? [];
   // The structured rows that already answer "who can apply" are not repeated under Terms.
   const whoLabels = new Set(who.map((r) => r.label));
-  const terms = call.eligibility.filter((r) => !whoLabels.has(r.label));
+  // Dates the source gave as 2026-12-15 read like every other date on the site (15 Dec 2026).
+  const terms = call.eligibility.filter((r) => !whoLabels.has(r.label)).map((r) => ({ ...r, value: isoDatesToSite(r.value) }));
+  // Two rows with the same sentence ("Described in section 6 of the call document.") are one row.
+  const whoRows = mergeSameText(who);
   const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
   const edip = call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') ? call.rulesApply.regime.name : null;
   // The parts of the page that are present, in order: the index links to them.
@@ -229,7 +234,7 @@ export default async function CallDetailPage({ params }: Props) {
         <Panel title="Who can apply">
           {who.length > 0 ? (
             <>
-              <FactsGrid className={IN_CARD} items={who.map((e) => ({ label: e.label, value: e.value, wide: isLong(e.value) }))} />
+              <FactsGrid className={IN_CARD} items={whoRows.map((e) => ({ label: e.label, value: <LongText text={e.value} />, wide: isLong(e.value) }))} />
               <p className="m-0 text-small text-ink-muted">In the source’s own words. The official call text is authoritative.</p>
             </>
           ) : (
@@ -244,7 +249,7 @@ export default async function CallDetailPage({ params }: Props) {
 
         {call.rulesApply && (
           <Panel title="Rules that apply">
-            <RulesApplyBlock block={call.rulesApply} />
+            <RulesApplyBlock block={call.rulesApply} canApplyPanel={canApply} />
           </Panel>
         )}
 
@@ -342,14 +347,10 @@ export default async function CallDetailPage({ params }: Props) {
         )}
 
         {call.conditionsText && (
-          <details id="conditions" className="group scroll-mt-4 rounded-lg border border-edge bg-surface px-5 sm:px-6">
-            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-body font-semibold [&::-webkit-details-marker]:hidden">
-              Conditions as published by the source
-              <Icon icon={Plus} className="shrink-0 text-ink-muted transition-transform duration-dg group-open:rotate-45" />
-            </summary>
-            {/* The source's own text, unedited. Not prose of ours. */}
-            <p className="m-0 max-w-prose whitespace-pre-wrap pb-5 text-body">{call.conditionsText}</p>
-          </details>
+          // The source's own text, unedited. Not prose of ours. The first ~600 characters are on the page, the whole text is one tap away.
+          <Card title="Conditions as published by the source" anchor="conditions" id="conditions-heading" className="scroll-mt-4">
+            <LongText text={call.conditionsText} pre />
+          </Card>
         )}
 
         <Panel title="Source and attribution">

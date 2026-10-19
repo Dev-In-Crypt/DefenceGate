@@ -490,14 +490,15 @@ _WHO_SECTIONS = (
     ("Other eligibility conditions", re.compile(
         r"(?:^|\s)3\.\s+(?i:other\s+eligib\w+\s+conditions)\s+(.*?)" + _NEXT_HEADING, re.S)),
 )
-WHO_MAX_CHARS = 700
 # The labels of a national call's structured fields that say who may apply.
 WHO_LABELS = ("Applicants", "Beneficiaries")
 MAX_DOCUMENTS = 12
 
 
 def who_can_apply(conditions_text: str | None, terms: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Label/value rows answering "who can apply", only from what the source states."""
+    """Label/value rows answering "who can apply", only from what the source states. A section is
+    served whole: it was cut at 700 characters until WP-56, which hid the end of a country list
+    behind an ellipsis (UX audit T20); the page shortens what it shows and offers the rest."""
     out = [dict(r) for r in terms if r["label"] in WHO_LABELS]
     for label, pattern in _WHO_SECTIONS:
         m = pattern.search(conditions_text or "")
@@ -506,8 +507,6 @@ def who_can_apply(conditions_text: str | None, terms: list[dict[str, str]]) -> l
         value = re.sub(r"\s+([.,;:])", lambda g: g.group(1), re.sub(r"\s+", " ", m.group(1))).strip()
         if len(value) < 3:
             continue
-        if len(value) > WHO_MAX_CHARS:
-            value = value[:WHO_MAX_CHARS].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
         out.append({"label": label, "value": value[0].upper() + value[1:]})
     return out
 
@@ -788,8 +787,12 @@ def list_funding(
     closed_last = (f"({EFFECTIVE_STATUS} = 'closed') ASC, "
                    f"({EFFECTIVE_STATUS} = 'open' AND c.deadline_at < now()) ASC")
     if sort == "budget-desc":
+        # The chosen currency first, largest first; then the amounts in other currencies, each currency
+        # on its own and largest first within it (never compared across currencies: nothing is
+        # converted); then the calls without a budget. Ties fall back to the deadline (WP-56, T24).
         order = (f"{closed_last}, (c.currency = %s AND c.budget IS NOT NULL) DESC, "
                  "CASE WHEN c.currency = %s THEN c.budget END DESC NULLS LAST, "
+                 "(c.budget IS NULL) ASC, c.currency ASC NULLS LAST, c.budget DESC NULLS LAST, "
                  "c.deadline_at ASC NULLS LAST, c.id")
         order_params = [cur, cur]
     elif sort == "deadline-desc":

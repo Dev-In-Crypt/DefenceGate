@@ -42,10 +42,14 @@ def test_no_text_or_no_such_section_is_an_empty_answer_not_a_guess():
     assert funding.who_can_apply("Conditions: see the call.", []) == []
 
 
-def test_a_long_section_is_cut_at_a_word_with_an_ellipsis():
-    text = "2. Eligible countries " + "word " * 400 + "3. Other eligibility conditions x"
+def test_a_long_section_is_served_whole_not_cut_with_an_ellipsis():
+    """WP-56 (UX audit T20): 46 Horizon calls showed a country list ending in an ellipsis as if complete.
+    The section is served whole up to the next heading; the page decides how much of it to show."""
+    words = " ".join(f"Country{i}" for i in range(400))
+    text = "2. Eligible countries " + words + " 3. Other eligibility conditions x"
     value = funding.who_can_apply(text, [])[0]["value"]
-    assert len(value) <= funding.WHO_MAX_CHARS + 1 and value.endswith("…")
+    assert len(value) > 700 and value.endswith("Country399") and "…" not in value
+    assert value == words
 
 
 def test_the_applicants_of_a_national_call_come_from_its_structured_rows():

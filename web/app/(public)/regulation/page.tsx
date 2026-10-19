@@ -92,7 +92,7 @@ export default async function RegulationPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Regulatory tracker', href: '/regulation' }]}
       title="Regulatory tracker"
-      lead="What changed in the rules that decide who may supply European defence programmes. Each entry gives the official source, one sentence of it copied word for word, and the day we last read it."
+      lead="What changed in the rules that decide who may supply European defence programmes."
       wide
     >
       <div className="flex max-w-prose flex-col gap-2">

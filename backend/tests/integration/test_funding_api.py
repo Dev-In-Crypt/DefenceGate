@@ -116,6 +116,19 @@ def test_budget_order_puts_the_chosen_currency_first_and_never_mixes_amounts(cli
     assert _ids(client, sort="budget-desc", currency="PLN")[0] == "big_pln"
 
 
+def test_budget_order_keeps_each_other_currency_in_amount_order_and_puts_no_budget_last(client, conn):
+    """UX audit T24 (F-06): amounts in other currencies used to rank as "no budget" and came out in deadline order."""
+    _put(conn, "nobudget", days=5)
+    _put(conn, "pln_small", programme="PL-NCBR", source="pl_ncbr", country="PL", budget=15_000_000, currency="PLN", days=1)
+    _put(conn, "sek_big", programme="SE-VINNOVA", source="se_vinnova", country="SE", budget=90_000_000, currency="SEK", days=2)
+    _put(conn, "pln_big", programme="PL-NCBR", source="pl_ncbr", country="PL", budget=350_000_000, currency="PLN", days=30)
+    _put(conn, "sek_small", programme="SE-VINNOVA", source="se_vinnova", country="SE", budget=20_000_000, currency="SEK", days=3)
+    _put(conn, "eur", budget=1_000, currency="EUR", days=60)
+    assert _ids(client, sort="budget-desc") == ["eur", "pln_big", "pln_small", "sek_big", "sek_small", "nobudget"]
+    # a currency in the request selects the calls that state a budget in it
+    assert _ids(client, sort="budget-desc", currency="SEK") == ["sek_big", "sek_small"]
+
+
 def test_a_national_call_is_national_and_eu_is_the_funder_when_there_is_no_country(client, conn):
     _put(conn, "eu")
     _put(conn, "es", programme="ES-BDNS", source="es_bdns", country="ES",

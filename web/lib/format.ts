@@ -12,6 +12,17 @@ export function formatDateUtc(iso: IsoDateTime): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/**
+ * A day written 2026-12-15 inside a text (the source's own terms: "Project start 2027-01-04 to 2027-01-11") is written the way
+ * the rest of the site writes a day: 15 Dec 2026. Anything that is not a real calendar day is left as it is.
+ */
+export function isoDatesToSite(text: string): string {
+  return text.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m, y: string, mo: string, d: string) => {
+    const t = new Date(`${m}T00:00:00Z`);
+    return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === `${y}-${mo}-${d}` ? formatDateUtc(m) : m;
+  });
+}
+
 const NOTICE_KIND_LABELS: Record<string, string> = {
   call: 'Call notice', prior: 'Prior information notice', award: 'Award notice',
   formalisation: 'Contract formalisation notice', cancellation: 'Cancellation notice', update: 'Notice',

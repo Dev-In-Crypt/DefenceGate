@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CalendarDays, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTimeUtc, repeatedCallBudgets } from '@/lib/format';
-import { PARAM, describeCallFilters, toQuery } from '@/lib/filters';
+import { DEFAULT_CURRENCY, PARAM, describeCallFilters, toQuery } from '@/lib/filters';
 import { listUpdatedAt } from '@/lib/source-status';
 import { fundersWithCoverage } from '@/lib/taxonomy';
 import type { CallFilters, Health, ListView, Paginated, Call } from '@/lib/types';
@@ -22,10 +22,10 @@ import { SortSelect } from './filter-panel';
 import { LiveListScope, ResultsRegion } from '../dg/live-list';
 import { CallCalendar } from './call-calendar';
 
-const SORT_OPTIONS = [
+const sortOptions = (currency: string) => [
   { value: 'deadline-asc', label: 'Deadline, soonest first' },
   { value: 'deadline-desc', label: 'Deadline, latest first' },
-  { value: 'budget-desc', label: 'Budget, largest first' },
+  { value: 'budget-desc', label: `Budget, largest first (${currency} first)` },
 ];
 
 export interface EntryChip { label: string; href: string }
@@ -88,7 +88,7 @@ export function CallListTemplate({
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} calls` : `Showing ${from}–${to} of ${result.total} calls`}
             </Count>
-            {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={SORT_OPTIONS} />}
+            {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={sortOptions(filters.currency ?? DEFAULT_CURRENCY)} />}
             <div role="group" aria-label="View" className="flex rounded-pill border border-edge bg-surface p-1">
               {(['list', 'calendar'] as const).map((v) => (
                 <Link key={v} href={viewHref(v)} aria-current={view === v ? 'true' : undefined}

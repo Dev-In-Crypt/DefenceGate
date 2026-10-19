@@ -5,7 +5,8 @@
  */
 import type { AssessRequest } from './profile';
 import { countryName } from './taxonomy';
-import type { Assessment, Outcome, RMoney, RSource, RSpan, RequirementDetail, RoadmapTotals, Verdict, VerificationStatus } from './readiness-types';
+import { formatDateUtc } from './format';
+import type { Assessment, Outcome, RIssuer, RMoney, RSource, RSpan, RequirementDetail, RoadmapTotals, Verdict, VerificationStatus } from './readiness-types';
 
 export const VERDICT_WORD: Record<Verdict, string> = { eligible: 'Eligible', obtain: 'Obtain first', blocked: 'Blocked', conditional: 'Conditional' };
 export const VERDICT_MEANING: Record<Verdict, string> = {
@@ -38,7 +39,15 @@ export function statusWords(status: VerificationStatus, origin: 'primary' | 'not
 
 /** The sentence a requirement page prints for a rule: what it asks (never the "not met" verdict text). */
 export function ruleSentence(texts: Record<string, string>): string {
-  return texts.requires ?? texts.info ?? '';
+  return withoutAnswerEcho(texts.requires ?? texts.info ?? '');
+}
+
+/**
+ * A static page speaks to nobody who has answered anything: a leading sentence that repeats an answer ("You said you move dual-use
+ * items to other EU countries.") is left out of the text a requirement page prints; the rest of the text is unchanged.
+ */
+export function withoutAnswerEcho(text: string): string {
+  return text.replace(/^(?:You said[^.]*\.\s*)+/, '');
 }
 
 /**
@@ -120,6 +129,60 @@ export function isoDay(value: string): string {
   return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : value;
 }
 
+/** A day the way the rest of the site writes it: "7 Sep 2026" (a value that is not a day is shown as it is). */
+export function siteDay(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(value) ? formatDateUtc(value.slice(0, 10)) : value;
+}
+
+/**
+ * The name of a source without the name of our own working document. A reference such as "NSPA, quoted in the DefenceGate technical
+ * appendix, NCAGE" is shown as "NSPA"; one that is only the document and a section of it ("DefenceGate technical appendix, Export
+ * control") has no name left and is null: the page shows the link to the source instead. Anything else is returned as it is.
+ */
+export function publicRef(ref: string | null): string | null {
+  if (!ref) return ref;
+  const at = ref.indexOf('DefenceGate technical appendix');
+  if (at < 0) return ref;
+  const head = ref.slice(0, at).replace(/[,\s]*(?:quoted in the)?\s*$/i, '').trim();
+  return head || null;
+}
+
+/** One verbatim passage as stored, "[reference] text": the reference is shown by its public name, or not at all. */
+export function publicPassage(passage: string): string {
+  const m = /^\[([^\]]*)\]\s*([\s\S]*)$/.exec(passage);
+  if (!m) return passage;
+  const ref = publicRef(m[1]);
+  return ref === m[1] ? passage : ref ? `[${ref}] ${m[2]}` : m[2];
+}
+
+/**
+ * The issuers of a requirement as the public page lists them. Rows that carry the same body, note, link and status (50 country rows of
+ * NCAGE say "National codification bureau of the country, UNVERIFIED ...") are one group with a count and the countries by name; every
+ * row's country is kept. A group needs `GROUP_MIN` rows. The rest are single rows: the row for every country first, then by country name.
+ */
+export const GROUP_MIN = 3;
+export interface IssuerGroup { name: string; notes: string | null; url: string | null; verificationStatus: VerificationStatus; countries: string[] }
+export function groupIssuers(issuers: RIssuer[]): { singles: RIssuer[]; groups: IssuerGroup[] } {
+  const by = new Map<string, RIssuer[]>();
+  for (const i of issuers) {
+    const key = JSON.stringify([i.name, i.notes, i.url, i.verificationStatus]);
+    by.set(key, [...(by.get(key) ?? []), i]);
+  }
+  const singles: RIssuer[] = [];
+  const groups: IssuerGroup[] = [];
+  for (const rows of by.values()) {
+    if (rows.length >= GROUP_MIN && rows.every((r) => r.country !== '*')) {
+      const [first] = rows;
+      groups.push({ name: first.name, notes: first.notes, url: first.url, verificationStatus: first.verificationStatus,
+        countries: rows.map((r) => countryName(r.country)).sort((a, b) => a.localeCompare(b, 'en')) });
+    } else singles.push(...rows);
+  }
+  const label = (i: RIssuer) => (i.country === '*' ? '' : countryName(i.country));
+  singles.sort((a, b) => label(a).localeCompare(label(b), 'en'));
+  groups.sort((a, b) => b.countries.length - a.countries.length || a.name.localeCompare(b.name, 'en'));
+  return { singles, groups };
+}
+
 /** The slug of a requirement page: `REQ-AQAP2110` is `/requirements/aqap2110`. */
 export function requirementSlug(code: string): string {
   return code.replace(/^REQ-/, '').toLowerCase();
@@ -149,11 +212,11 @@ export async function assess(request: AssessRequest, signal?: AbortSignal): Prom
 export function faqOf(r: RequirementDetail): { q: string; a: string }[] {
   const out: { q: string; a: string }[] = [];
   if (r.kind === 'document') {
-    const named = r.issuers.filter((i) => i.country !== '*');
-    const everywhere = r.issuers.filter((i) => i.country === '*');
+    const { singles, groups } = groupIssuers(r.issuers);
     const parts = [
-      ...everywhere.map((i) => `${i.name} (the same body for every country)`),
-      ...named.map((i) => `${countryName(i.country)}: ${i.name}`),
+      ...singles.filter((i) => i.country === '*').map((i) => `${i.name} (the same body for every country)`),
+      ...singles.filter((i) => i.country !== '*').map((i) => `${countryName(i.country)}: ${i.name}`),
+      ...groups.map((g) => `${g.name}: ${joinWords(g.countries)}`),
     ];
     out.push({
       q: `Who issues ${r.name}?`,
