@@ -8,11 +8,11 @@ import {
   DEFAULT_CURRENCY, DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, MAX_QUERY_LENGTH, PARAM, activeBuyerFilterCount, activeTenderFilterCount,
   defaultTenderSort,
 } from '@/lib/filters';
-import { formatNumber } from '@/lib/format';
+import { countsAsOf, overlapNote, scopeCountText } from '@/lib/list-count';
 import type { BuyerFilters, ScopeCounts, TenderFilters, TenderScopeFilter, TenderStatusFilter } from '@/lib/types';
 
 const STATUS_OPTIONS: { value: TenderStatusFilter; label: string }[] = [
-  { value: 'open', label: 'Open' }, { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' },
+  { value: 'open', label: 'Open' }, { value: 'planned', label: 'Planned' }, { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' },
 ];
 /** The scope choices, in the order of the glossary (lib/taxonomy.ts SCOPE_CHOICES); `all` is the escape hatch. */
 const SCOPE_OPTIONS: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
@@ -43,6 +43,8 @@ export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: T
   const valueOptions = VALUE_PRESETS.map((n) => ({ value: String(n), label: `${currency} ${formatPreset(n)}` }));
   // A value typed into the URL that is not a preset stays selectable, so the form never silently drops it.
   const withCurrent = (v: number | undefined) => (v === undefined || VALUE_PRESETS.includes(v) ? valueOptions : [...valueOptions, { value: String(v), label: `${currency} ${v}` }]);
+  const asOf = countsAsOf(scopeCounts?.asOf);
+  const overlap = overlapNote(scopeCounts);
   return (
     <FilterPanel activeCount={activeTenderFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_TENDER_STATUS, [PARAM.scope]: DEFAULT_TENDER_SCOPE }}>
       <form method="get" action={basePath} role="search" aria-label="Filter tenders" className={FORM}>
@@ -57,12 +59,12 @@ export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: T
             const n = o === 'all' ? undefined : scopeCounts?.[o];
             return (
               <Choice key={o} type="radio" name={PARAM.scope} value={o}
-                label={<span>{SCOPE_CHOICES[o].label}{n !== undefined && <span className="font-mono text-mono-strong tabular-nums"> ({formatNumber(n)})</span>}</span>}
+                label={<span>{SCOPE_CHOICES[o].label}{n !== undefined && <span className="font-mono text-mono-strong tabular-nums">{scopeCountText(n, scopeCounts?.capped)}</span>}</span>}
                 defaultChecked={(filters.scope ?? DEFAULT_TENDER_SCOPE) === o} />
             );
           })}
           <p className="m-0 pt-1 text-small text-ink-muted">
-            Counts are for the other filters as they are now. <Link href="/glossary#scope" className="font-semibold">What the scopes mean</Link>
+            {asOf ? `${asOf}, for the other filters as they are now.` : 'Counts are for the other filters as they are now.'} {overlap && <>{overlap} </>}<Link href="/glossary#scope" className="font-semibold">What the scopes mean</Link>
           </p>
           <Choice name={PARAM.goods} value="defence" label="Defence goods only" defaultChecked={filters.goods === 'defence'}
             hint="Narrows the scope you chose to notices that say defence themselves: the directive or a military product code." />

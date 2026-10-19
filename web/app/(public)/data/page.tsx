@@ -4,7 +4,7 @@ import { now } from '@/lib/deadline';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata } from '@/lib/seo';
-import { gapSentence, heldSpan, minimumMet, sourceFreshness, sourcePage, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
+import { gapSentence, heldSpan, lateRuleSentence, minimumMet, sourceFreshness, sourcePage, statusReasonLine, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
 import { portalWords } from '@/lib/coverage-copy';
 import Link from 'next/link';
 import type { SourceHealth, SourceType } from '@/lib/types';
@@ -33,6 +33,7 @@ const GROUPS: { type: SourceType; title: string }[] = [
 function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
   const url = safeHttpUrl(sourcePage(s.id, s.url));
   const fresh = sourceFreshness(s, asOf);
+  const reason = statusReasonLine(s);
   const held = typeof s.heldCount === 'number';
   const span = heldSpan(s.heldFrom, s.heldTo);
   const noun = s.type === 'grants' ? 'Calls' : 'Notices';
@@ -45,6 +46,7 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
       </div>
       {s.country && <span className="text-small"><CountryLabel code={s.country} /></span>}
       {fresh.note && <p className="m-0 text-small font-semibold">{fresh.note}</p>}
+      {reason && <p className="m-0 text-small font-semibold">{reason}</p>}
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-x-4 border-b border-line">
         <FactCell label="Last run" className="py-2">
           {s.lastRunAt ? <time dateTime={s.lastRunAt}>{formatDateTimeUtc(s.lastRunAt)}</time> : <span className="font-sans">Never</span>}
@@ -71,6 +73,7 @@ export default async function DataPage() {
   const health = await getHealth();
   const ref = now();
   const kinds = health.sources.map((s) => sourceFreshness(s, ref).kind);
+  const lateRule = lateRuleSentence(health.sources);
   const portals = portalWords(health.sources);
   const germany = health.sources.find((s) => s.id === 'de_bkms');
   const count = (...k: FreshnessKind[]) => kinds.filter((x) => k.includes(x)).length;
@@ -83,14 +86,15 @@ export default async function DataPage() {
       lead="Every source we collect from and when it last ran. Met expected minimum compares what a run fetched with the minimum we expect from that source; it is not a share of everything the source publishes."
     >
       <p className="m-0 max-w-prose text-body text-ink-muted">
-        <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was within the last {STALE_AFTER_DAYS} days.
-        Sources are collected once a day, so an older run means missed runs. It does not mean the source is fully collected. A run older than that is shown as stale, a load made once as a one-off load, and a source that failed or has never run as such.
+        <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was not late for how often that source is collected
+        ({lateRule ? `a run is late for ${lateRule}` : `a run is late after ${STALE_AFTER_DAYS} days`}). It does not mean the source is fully collected. A late run is shown as stale, a load made once as a one-off load,
+        and a source that failed or has never run as such. A run that finished with a problem is partial, and its card says why, also when it fetched the minimum.
       </p>
 
       <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Sources">{health.sources.length}</FactCell>
-        <FactCell label={`OK (run in the last ${STALE_AFTER_DAYS} days)`}>{count('ok')}</FactCell>
-        <FactCell label={`Stale (last run over ${STALE_AFTER_DAYS} days ago)`}>{count('stale')}</FactCell>
+        <FactCell label="OK (run on time)">{count('ok')}</FactCell>
+        <FactCell label="Stale (run late)">{count('stale')}</FactCell>
         <FactCell label="One-off loads">{count('one-off')}</FactCell>
         <FactCell label="Partial, failed or never run">{count('partial', 'failed', 'never')}</FactCell>
         <FactCell label="Status as of"><time dateTime={health.generatedAt}>{formatDateTimeUtc(health.generatedAt)}</time></FactCell>

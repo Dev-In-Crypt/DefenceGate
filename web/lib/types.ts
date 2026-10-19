@@ -339,7 +339,8 @@ export interface Tender {
   source: SourceAttribution;
 }
 
-export type TenderStatusFilter = 'open' | 'closed' | 'all';
+/** `planned` (19 October 2026): a prior information notice whose deadline, if it states one, is ahead. `closed` no longer holds them. */
+export type TenderStatusFilter = 'open' | 'closed' | 'planned' | 'all';
 /** `relevant` (the default since 16 October 2026): core and supply together. See SCOPE_CHOICES in lib/taxonomy.ts. */
 export type TenderScopeFilter = 'relevant' | 'core' | 'supply' | 'all';
 /** GET /v1/tenders/scope-counts: what each scope choice leads to, for the other filters as given. */
@@ -376,6 +377,33 @@ export interface TenderFilters {
   sort?: TenderSort;
   page?: number;
   pageSize?: number;
+}
+
+/**
+ * GET /v1/tenders/calendar: every open notice that states a deadline, with what a calendar draws and nothing else.
+ * `deadline` is the one the notice's page shows (`deadlineFrom: 'ted_twin'` when it is the TED twin's).
+ */
+export interface CalendarItem {
+  id: string;
+  slug: string;
+  noticeId: string;
+  title: string;
+  buyerName: string;
+  country: string | null;
+  deadline: IsoDateTime;
+  deadlineFrom?: string | null;
+  scope: TenderScope;
+  status: TenderStatus;
+  statusNative: string | null;
+  anomalies?: string[];
+  sourceName: string;
+}
+export interface CalendarPage {
+  items: CalendarItem[];
+  /** Open notices with a deadline in all; `truncated` when `items` holds fewer (maxItems). */
+  total: number;
+  truncated: boolean;
+  asOf?: IsoDateTime;
 }
 
 /** GET /v1/tenders/{slug}/versions, newest first. */
@@ -527,6 +555,9 @@ export interface ChangeFilters {
   country?: string[];
   scope?: TenderScopeFilter;
   goods?: 'defence';
+  /** An ISO week of the digest (`2026-W42`) instead of the last 14 days, and one kind of change in it: where the digest's "the list has the rest" leads. */
+  week?: string;
+  kind?: ChangeKind;
   page?: number;
   pageSize?: number;
 }

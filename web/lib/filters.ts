@@ -178,13 +178,13 @@ export const BUYER_PAGE_SIZE = 20;
 export const DEFAULT_TENDER_STATUS: TenderStatusFilter = 'open';
 export const DEFAULT_TENDER_SCOPE: TenderScopeFilter = 'relevant';
 export const DEFAULT_TENDER_SORT: TenderSort = 'deadline-asc';
-/** Soonest deadline first, except on a closed list: its soonest is years old, so the newest deadline leads. */
+/** Soonest deadline first, except on a closed or planned list (the API's own default): the newest deadline leads. */
 export function defaultTenderSort(status: TenderStatusFilter | undefined): TenderSort {
-  return status === 'closed' ? 'deadline-desc' : DEFAULT_TENDER_SORT;
+  return status === 'closed' || status === 'planned' ? 'deadline-desc' : DEFAULT_TENDER_SORT;
 }
 export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
 
-const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'all'];
+const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'planned', 'all'];
 const TENDER_SCOPES: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
 const GOODS = ['defence'] as const;
 const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'deadline-desc', 'published-desc'];
@@ -290,16 +290,24 @@ export function activeBuyerFilterCount(f: BuyerFilters): number {
 /* ---- What changed (/changes): country and scope only; 14 days is the API's window ---- */
 
 export const CHANGE_PAGE_SIZE = 25;
+/** An ISO week as the digest names it. The API settles whether the week exists (404). */
+const WEEK_RE = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
+const CHANGE_KINDS = ['new', 'amended'] as const;
 
 export function parseChangeFilters(sp: SearchParams): ChangeFilters {
   // `relevant` is the API's default for the change list too: left out, like the tender list does.
   const asked = oneOf(first(sp[PARAM.scope]), TENDER_SCOPES);
   const scope = asked === DEFAULT_TENDER_SCOPE ? undefined : asked;
   const goods = oneOf(first(sp[PARAM.goods]), GOODS);
+  const week = first(sp.week);
+  const kind = oneOf(first(sp.kind), CHANGE_KINDS);
   return {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     scope,
     ...(goods ? { goods } : {}),
+    // A week of the digest, and one kind of change in it. `kind` alone is read too: the last 14 days, new or amended only.
+    ...(week && WEEK_RE.test(week) ? { week } : {}),
+    ...(kind ? { kind } : {}),
     page: pageOf(first(sp[PARAM.page])),
     pageSize: CHANGE_PAGE_SIZE,
   };
@@ -311,6 +319,8 @@ export function toChangeQuery(f: ChangeFilters): string {
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
   if (f.scope) p.set(PARAM.scope, f.scope);
   if (f.goods) p.set(PARAM.goods, f.goods);
+  if (f.week) p.set('week', f.week);
+  if (f.kind) p.set('kind', f.kind);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   const s = p.toString();
   return s ? `?${s}` : '';

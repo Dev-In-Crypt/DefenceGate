@@ -6,7 +6,18 @@ import { getTenderDeadline, now } from './deadline';
  * re-readings of the same payload, `checkedAt` the end of the newest collection run of that source.
  */
 export const TENDER_CHANGED_LABEL = 'Last change seen at the source';
+/** For a notice with no change seen: `retrievedAt` is the time we first collected it, not something the source did. */
+export const TENDER_FIRST_SEEN_LABEL = 'First seen by us';
 export const TENDER_CHECKED_LABEL = 'Source last collected';
+
+/**
+ * What the first stamp of a tender's source badge is. "Last change seen at the source" only when the API says the stamp
+ * is an amendment (`lastChangeKind`); otherwise it is when we first collected the notice, which is what 65 % of the
+ * pages showed under the old label (UX audit T11). An API build that does not send the kind gets the careful label.
+ */
+export function tenderChangedLabel(source: Pick<Tender['source'], 'lastChangeKind'>): string {
+  return source.lastChangeKind === 'amendment' ? TENDER_CHANGED_LABEL : TENDER_FIRST_SEEN_LABEL;
+}
 
 /** What a tender's status reads as. `word` is the plain one for exports ("Open" even when closing soon). */
 export interface TenderStatusView { kind: StatusKind; label: string; word: string }

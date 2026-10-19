@@ -85,6 +85,26 @@ export function truncation(shown: number, counted: number): string | null {
   return counted > shown ? `Showing the first ${shown} of ${counted}.` : null;
 }
 
+/** How many notices a list of rows stands for: a row with `repeats` stands for that many identical ones (the counts count every notice). */
+export function noticesIn(rows: { repeats?: number }[]): number {
+  return rows.reduce((n, r) => n + Math.max(1, Math.floor(r.repeats ?? 1)), 0);
+}
+
+/** "×13" for a row that stands for 13 identical notices; null for a single one. */
+export function repeatsLabel(repeats: number | undefined): string | null {
+  return repeats !== undefined && repeats > 1 ? `×${Math.floor(repeats)}` : null;
+}
+
+/**
+ * Where a tender section's "has the rest" leads: the change list of that week and kind (`/changes?week=2026-W42&kind=new`,
+ * API `/v1/changes?week=&kind=`), with the digest's country when it is a buyer country (`EU` is the Commission's own calls: no notice has it).
+ */
+export function restOfTendersHref(week: string, kind: 'new' | 'amended', country?: string): string {
+  const q = new URLSearchParams({ week, kind });
+  if (country && Object.hasOwn(BUYER_COUNTRIES, country)) q.set('country', country);
+  return `/changes?${q.toString()}`;
+}
+
 export function totalItems(d: Digest): number {
   const c = d.counts;
   // The cascade calls are also in the lists above: they are not added twice.
@@ -99,7 +119,7 @@ function callHeadline(c: DigestCall): string {
 /** At most `n` plain lines for a feed entry: the calls first, then the notices. */
 export function headlines(d: Digest, n = 8): string[] {
   const calls = [...d.callsNew, ...d.callsOpened, ...d.callsAmended, ...d.callsClosing].map(callHeadline);
-  const tenders = [...d.tendersNew, ...d.tendersAmended].map((t: DigestTender) => `${t.kind === 'new' ? 'New notice' : 'Amended notice'}: ${t.title}`);
+  const tenders = [...d.tendersNew, ...d.tendersAmended].map((t: DigestTender) => `${t.kind === 'new' ? 'New notice' : 'Amended notice'}: ${t.title}${repeatsLabel(t.repeats) ? ` (${repeatsLabel(t.repeats)})` : ''}`);
   return [...calls, ...tenders].slice(0, n);
 }
 

@@ -8,6 +8,7 @@ import {
   calendarQuery, dayOf, filterEntries, loadCalendar, monthOf, pageOf, parseCalendarParams, resolveMonth, shiftMonth,
   type CalendarParams, type KindFilter,
 } from '@/lib/calendar';
+import { pageOfDay } from '@/lib/calendar-tenders';
 import type { SearchParams } from '@/lib/filters';
 import { buildMetadata } from '@/lib/seo';
 import { countryName } from '@/lib/taxonomy';
@@ -24,9 +25,8 @@ import { Agenda, MonthGrid } from '@/components/calendar/calendar-views';
 
 export const revalidate = 60;
 
-/** Entries per page of the list view; the month view lists a month's entries up to MONTH_CAP. */
+/** Entries per page of the agenda, in the list and in the month view. */
 const LIST_PAGE = 100;
-const MONTH_CAP = 300;
 const MONTHS_AHEAD = 24;
 const KINDS: { value: KindFilter; label: string }[] = [
   { value: 'all', label: 'Tenders and funding calls' },
@@ -61,10 +61,12 @@ export default async function CalendarPage({ searchParams }: Props) {
   const countries = [...new Set([...data.entries.map((e) => e.country), ...p.countries].filter((c): c is string => Boolean(c)))].sort();
   const entries = filterEntries(data.entries, p);
   const inMonth = entries.filter((e) => dayOf(e.deadline).startsWith(month));
-  const paged = pageOf(entries, p.page, LIST_PAGE);
-  if (p.view === 'list' && p.page > paged.pages) redirect(`/calendar${calendarQuery({ ...p, page: paged.pages })}`);
-  const shown = p.view === 'month' ? inMonth.slice(0, MONTH_CAP) : paged.items;
-  const total = p.view === 'month' ? inMonth.length : entries.length;
+  // Both views list their entries a page at a time (100): a month of 593 tenders is six pages, not one page of 600 cards.
+  const listed = p.view === 'month' ? inMonth : entries;
+  const paged = pageOf(listed, p.page, LIST_PAGE);
+  if (p.page > paged.pages) redirect(`/calendar${calendarQuery({ ...p, month: p.view === 'month' ? month : null, page: paged.pages })}`);
+  const shown = paged.items;
+  const total = listed.length;
   const firstShown = (paged.page - 1) * LIST_PAGE + 1;
   const Count = total === 0 ? 'p' : 'h2';
   const notices = [
@@ -146,7 +148,10 @@ export default async function CalendarPage({ searchParams }: Props) {
                   {!data.tendersOk ? 'Tenders could not be loaded just now; only funding calls are listed.' : 'Funding calls could not be loaded just now; only tenders are listed.'}
                 </p>
               )}
-              {p.view === 'month' && <MonthGrid month={month} label={formatMonthUtc(`${month}-01T00:00:00Z`)} entries={inMonth} today={today} />}
+              {p.view === 'month' && (
+                <MonthGrid month={month} label={formatMonthUtc(`${month}-01T00:00:00Z`)} entries={inMonth} today={today}
+                  moreHref={(day) => `${href({ page: pageOfDay(inMonth, day, LIST_PAGE) })}#d-${day}`} />
+              )}
               {total === 0 ? (
                 <EmptyState title={p.view === 'month' ? 'No deadlines in this month' : 'No upcoming deadlines match'}
                   action={<Button variant="secondary" href="/calendar">Clear filters</Button>}>
@@ -155,15 +160,10 @@ export default async function CalendarPage({ searchParams }: Props) {
               ) : (
                 <Agenda entries={shown} />
               )}
-              {p.view === 'month' && total > shown.length && (
-                <p className="m-0 max-w-prose text-small text-ink-muted">
-                  Showing the first {shown.length} of {total}. Narrow the filters to see the rest.
-                </p>
-              )}
-              {p.view === 'list' && total > LIST_PAGE && (
+              {total > LIST_PAGE && (
                 <>
                   <p className="m-0 text-small text-ink-muted">
-                    Showing {firstShown}–{firstShown + shown.length - 1} of {total} deadlines.
+                    Showing {firstShown}–{firstShown + shown.length - 1} of {total} deadlines{p.view === 'month' ? ' in this month' : ''}.
                   </p>
                   <Pagination page={paged.page} total={total} pageSize={LIST_PAGE} hrefFor={(n) => href({ page: n })} />
                 </>

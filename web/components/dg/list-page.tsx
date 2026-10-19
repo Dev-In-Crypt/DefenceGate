@@ -1,3 +1,4 @@
+import { formatNumber } from '@/lib/format';
 import type { Crumb } from '@/lib/seo';
 import { EmptyState } from './feedback';
 import { PageHeader } from './page-header';
@@ -16,7 +17,7 @@ export const FILTER_COLUMN = 'flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, children,
+  crumbs, title, intro, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, children,
 }: {
   crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
   /** Said above the results: what the list shows when that is a default the visitor did not choose. */
@@ -35,8 +36,12 @@ export function ListPage({
   footnote?: string;
   /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
   notices?: string[];
-  /** The total as words when it is not an exact count ("10,000 or more"). */
+  /** The total as words when it is not an exact count ("10,000 or more", "at least 10,000"). */
   totalText?: string;
+  /** How many results the pager can reach when the list stops short of its total (`maxOffset`); the total when absent. */
+  reachable?: number;
+  /** Said above the pager when the list stops short of its results (lib/list-count.ts cutSentence). */
+  limitNote?: string | null;
   children: React.ReactNode;
 }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -51,13 +56,13 @@ export function ListPage({
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
           {filterBar}{filterExtra}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" total={total} status={exportStatus} />}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </div>
         <ResultsRegion aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
           {scope}
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
-              {total === 0 ? `No ${noun}` : `Showing ${from}–${to} of ${totalText ?? total} ${noun}`}
+              {total === 0 ? `No ${noun}` : `Showing ${formatNumber(from)}–${formatNumber(to)} of ${totalText ?? formatNumber(total)} ${noun}`}
             </Count>
             <SortSelect value={sort.value} options={sort.options} />
           </div>
@@ -68,10 +73,11 @@ export function ListPage({
           ) : (
             <ul className="m-0 flex list-none flex-col gap-4 p-0">{children}</ul>
           )}
-          <Pagination page={page} total={total} pageSize={pageSize} hrefFor={hrefFor} />
+          {limitNote && <p className="m-0 max-w-prose text-small text-ink-muted">{limitNote}</p>}
+          <Pagination page={page} total={reachable ?? total} pageSize={pageSize} hrefFor={hrefFor} />
           {footnote && <p className="m-0 max-w-prose text-small text-ink-muted">{footnote}</p>}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" total={total} status={exportStatus} />}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </ResultsRegion>
       </div>
       </LiveListScope>

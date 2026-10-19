@@ -2,6 +2,7 @@ import { permanentRedirect } from 'next/navigation';
 import { getTenders } from '@/lib/api';
 import { lastPage, parseTenderFilters, toTenderQuery } from '@/lib/filters';
 import { forwardedSearch } from '@/lib/list-bounds';
+import { reachableTotal } from '@/lib/list-count';
 
 /**
  * A page past the end answers 308 to the last page here, before the page renders. The fetch is the page's own
@@ -19,8 +20,10 @@ export default async function TendersListLayout({ children }: { children: React.
     let target: string | null = null;
     try {
       const result = await getTenders(filters);
-      const last = lastPage(result.total, result.pageSize);
-      if (result.total > 0 && (filters.page ?? 1) > last) target = `/tenders${toTenderQuery({ ...filters, page: last })}`;
+      // The list serves no position past `maxOffset`: the last page is the last one it can show (WP-52).
+      const reachable = reachableTotal(result);
+      const last = lastPage(reachable, result.pageSize);
+      if (reachable > 0 && (filters.page ?? 1) > last) target = `/tenders${toTenderQuery({ ...filters, page: last })}`;
     } catch {
       target = null;
     }

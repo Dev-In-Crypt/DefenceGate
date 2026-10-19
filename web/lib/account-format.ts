@@ -57,7 +57,7 @@ export function searchHref(kind: SearchKind, filters: SearchFilters): string {
 }
 
 const STATUS_WORDS: Record<string, string> = {
-  open: 'Open', closed: 'Closed', all: 'Any status', forthcoming: 'Opens soon', 'closing-soon': 'Closing soon',
+  open: 'Open', closed: 'Closed', planned: 'Planned', all: 'Any status', forthcoming: 'Opens soon', 'closing-soon': 'Closing soon',
 };
 const SCOPE_WORDS: Record<string, string> = { relevant: SCOPE_CHOICES.relevant.short, core: SCOPE_CHOICES.core.short, supply: SCOPE_CHOICES.supply.short, all: SCOPE_CHOICES.all.short };
 
