@@ -24,11 +24,12 @@
     /* Layout. Content box of a data page 1296 px; the container adds the gutters (16 / 24 / 32). */
     --content-max: 1296px;
     --gutter: 16px;
-    /* The one reading measure: about 68 characters of Manrope at 16 px. */
-    --measure: 680px;
+    /* The one reading measure: the whole content box. It was 680 px (about 68 characters) and left half of a 1296 px page empty;
+       text now runs the width of its box and is justified from md (see .justify-text). */
+    --measure: 100%;
     --form-max: 560px;
-    /* A reading page: title column 220 + gap 40 + text 680 + card padding 2 x 24. */
-    --reading-max: calc(220px + 40px + var(--measure) + 48px);
+    /* A reading page: as wide as the content box. */
+    --reading-max: 100%;
 
     /* next/font injects --font-manrope / --font-dm-mono on <html> */
     --font-sans: var(--font-manrope), system-ui, sans-serif;
