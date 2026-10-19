@@ -36,6 +36,9 @@ const PROJECTS: MockProject[] = [
   { id: 203, slug: '203-charlie', acronym: 'CHARLIE', title: 'Charlie cyber shield', programme: 'EDF', year: 2024, edf: true,
     members: [[B, 'coordinator', null], [A, 'participant', null], [E, 'participant', null]] },
 ];
+// A project whose source names no coordinator (UX audit M9: CORDIS 55762); kept out of PROJECTS so no count above changes.
+const NO_COORDINATOR: MockProject = { id: 299, slug: '299-delta', acronym: 'DELTA', title: 'Delta consortium without a stated coordinator', programme: 'HORIZON', year: 2022, edf: false,
+  members: [[A, 'participant', 100000], [B, 'participant', null]] };
 const ref3 = (p: MockProject): ProjectRef => ({ slug: p.slug, acronym: p.acronym, title: p.title, programme: p.programme, year: p.year });
 const projectsOf = (o: MockOrg) => PROJECTS.filter((p) => p.members.some(([m]) => m.id === o.id));
 
@@ -142,7 +145,7 @@ export function orgProjects(slug: string, f: { programme?: string; page: number;
 }
 
 export function projectDetail(slug: string): ProjectDetail | null {
-  const p = PROJECTS.find((x) => x.slug === slug || slug.startsWith(`${x.id}-`));
+  const p = [...PROJECTS, NO_COORDINATOR].find((x) => x.slug === slug || slug.startsWith(`${x.id}-`));
   if (!p) return null;
   const members = [...p.members].sort((a, b) => Number(b[1] === 'coordinator') - Number(a[1] === 'coordinator') || a[0].country.localeCompare(b[0].country));
   const coordinator = members.find(([, r]) => r === 'coordinator');
@@ -164,7 +167,7 @@ export function projectDetail(slug: string): ProjectDetail | null {
 }
 
 export function projectHistory(slug: string): ProjectHistory | null {
-  const p = PROJECTS.find((x) => x.slug === slug || slug.startsWith(`${x.id}-`));
+  const p = [...PROJECTS, NO_COORDINATOR].find((x) => x.slug === slug || slug.startsWith(`${x.id}-`));
   if (!p) return null;
   return {
     project: { slug: p.slug, acronym: p.acronym, title: p.title },

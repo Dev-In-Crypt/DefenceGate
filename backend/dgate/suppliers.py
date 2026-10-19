@@ -32,6 +32,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .classify import CORE_SQL
+from .countries import to_iso2
 from .funding import get_conn, make_slug
 from .listcache import cache_list
 from .normalise import (
@@ -177,7 +178,13 @@ def _group_filters(country: str | None, cpv: str | None) -> tuple[list[str], lis
     """The country and product-group part of the filters: the group whose size the k rule is about."""
     where: list[str] = []
     params: list[Any] = []
-    countries = _split(country, "country", upper=True, max_length=2)
+    countries: list[str] = []
+    for given in _split(country, "country", max_length=60):
+        # A code (DE), a three-letter code (DEU) or an English name (Germany): all read as the alpha-2 code stored.
+        iso2 = to_iso2(given)
+        if iso2 is None:
+            raise HTTPException(422, f"country: '{given[:40]}' is not a country; use a code (DE, DEU) or an English name (Germany)")
+        countries.append(iso2)
     if countries:
         where.append("a.supplier_country = ANY(%s)")
         params.append(countries)

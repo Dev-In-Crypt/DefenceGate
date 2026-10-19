@@ -66,10 +66,13 @@ export default async function ProjectPage({ params }: Props) {
           {p.topic && <FactCell label="Topic">{p.topic}</FactCell>}
           {p.grantNumber && <FactCell label="Grant agreement">{p.grantNumber}</FactCell>}
         </FactsGrid>
-        {p.coordinator && (
+        {p.coordinator ? (
           <p className="m-0 text-body">
             Coordinated by <OrgLink org={p.coordinator} />{p.coordinator.country ? <> (<CountryLabel code={p.coordinator.country} />)</> : null}.
           </p>
+        ) : (
+          // The source returned no coordinator (project 55762 RAMSSES, UX audit M9): say so, never leave the line out.
+          <p className="m-0 text-body text-ink-muted">Coordinator not stated.</p>
         )}
       </PageHeader>
 
