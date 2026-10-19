@@ -62,6 +62,9 @@ export function CallListTemplate({
       <PageHeader crumbs={crumbs} title={title} lead={intro}
         meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`} />
 
+      {/* Before the chips and the filters: from the top of the page to the first call in a few stops (WP-58). */}
+      <SkipToResults />
+
       {chips.length > 0 && (
         <nav aria-label="Browse funding" className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0">
           <ul className="m-0 flex w-max list-none gap-2 p-0 md:w-auto md:flex-wrap">
@@ -77,7 +80,6 @@ export function CallListTemplate({
       <LiveListScope>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
-          <SkipToResults />
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} />
           {saveSearch}

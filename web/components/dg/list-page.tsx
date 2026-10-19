@@ -13,8 +13,9 @@ import { LiveListScope, ResultsRegion } from './live-list';
 export const FILTER_COLUMN = 'flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:-m-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:p-1 lg:[scrollbar-width:thin]';
 
 /**
- * The first stop of the filter column for a keyboard: past the filters to the results (WP-58; 59 Tab presses to the first call on
- * /funding before). Hidden until it has focus; the results come after the filters in the DOM so the reading order stays.
+ * A keyboard's way past the filters to the results (WP-58; 59 Tab presses to the first call on /funding before): the first stop of
+ * the filter column here, before the chips on the call lists. Hidden until it has focus; the results stay after the filters in the
+ * DOM, so the reading order and the layout do not change.
  */
 export function SkipToResults() {
   return (

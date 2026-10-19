@@ -29,7 +29,10 @@ import { CONTROL } from './field';
  *
  * Keys: Down/Up/Enter/Space open; Home/End first/last; typing jumps to the option that starts with the letters (repeat a
  * letter to step through those that share it); while open Up/Down/Home/End/PageUp/PageDown move, Enter/Space choose,
- * Escape closes, Tab chooses and moves on. Focus never leaves the select (aria-activedescendant), so it is "returned" by design.
+ * Escape closes, Tab chooses and moves on. While the list is open focus is on the list, as in the system menu: Chromium reports the
+ * expanded state of a <select> from its own popup whatever the attributes say (measured with role=combobox too, wp58-selfcheck.md),
+ * so a select that kept focus was announced "collapsed" over an open list. The focused listbox names its active option with
+ * aria-activedescendant; Escape, a choice and Tab put focus back on the select.
  * `data-value` holds the value.
  */
 export interface SelectOption { value: string; label: string }
@@ -125,6 +128,8 @@ export function ListboxSelect({ options, placeholder, accessibleName, ...rest }:
       window.removeEventListener('scroll', follow, true);
     };
   }, [open, place]);
+  // The opened list takes focus (see above); it gives it back to the select when it closes by key or by a choice.
+  useEffect(() => { if (open) menuRef.current?.focus({ preventScroll: true }); }, [open]);
   useEffect(() => {
     if (!open) return;
     const m = menuRef.current; const el = m?.children[active] as HTMLElement | undefined;
@@ -172,8 +177,9 @@ export function ListboxSelect({ options, placeholder, accessibleName, ...rest }:
     else if (k === 'End') go(n - 1);
     else if (k === 'PageDown') go(active + PAGE);
     else if (k === 'PageUp') go(active - PAGE);
-    else if (k === 'Escape') { e.preventDefault(); setOpen(false); }
-    else if (k === 'Tab') { if (active !== selIdx) choose(active); else setOpen(false); }
+    else if (k === 'Escape') { e.preventDefault(); setOpen(false); selectRef.current?.focus(); }
+    // Focus is back on the select before the browser acts on the key, so Tab and Shift+Tab go on from the select, not from the list.
+    else if (k === 'Tab') { if (active !== selIdx) choose(active); else { setOpen(false); selectRef.current?.focus(); } }
     else if (printable) { const i = lookup(k, active); if (i >= 0) setActive(i); }
     else if (k === 'Enter' || k === ' ') choose(active);
   };
@@ -187,13 +193,9 @@ export function ListboxSelect({ options, placeholder, accessibleName, ...rest }:
         ref={selectRef}
         id={baseId}
         {...(custom ? {
-          // The explicit role makes Chromium read `aria-expanded` from us: for a plain <select> it reports the state of the system
-          // popup, which never opens here, so the open list was announced "collapsed" (UX audit M5; measured in wp58-selfcheck.md).
-          role: 'combobox',
           'aria-haspopup': 'listbox' as const,
           'aria-expanded': open,
           'aria-controls': open ? `${baseId}-menu` : undefined,
-          'aria-activedescendant': open ? `${baseId}-o${active}` : undefined,
           'data-value': current,
           // The press that would open the system menu opens ours; the select still takes focus.
           onMouseDown: (e: React.MouseEvent<HTMLSelectElement>) => {
@@ -217,6 +219,12 @@ export function ListboxSelect({ options, placeholder, accessibleName, ...rest }:
             id={`${baseId}-menu`}
             role="listbox"
             aria-label={accessibleName}
+            tabIndex={-1}
+            aria-activedescendant={`${baseId}-o${active}`}
+            onKeyDown={onKeyDown}
+            onKeyUp={(e) => { if (e.key === ' ') e.preventDefault(); }}
+            // Focus that leaves for anything but the select (another window, a click that lands elsewhere) closes the list.
+            onBlur={(e) => { const to = e.relatedTarget as Node | null; if (!menuRef.current?.contains(to) && to !== selectRef.current) setOpen(false); }}
             onMouseDown={(e) => e.preventDefault()}
             style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight }}
             className="z-[60] w-max overflow-y-auto overscroll-contain rounded-md border border-edge bg-surface p-1 font-sans text-body text-ink shadow-[var(--shadow-menu)]"

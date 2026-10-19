@@ -10,42 +10,64 @@ import { visit } from './helpers';
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
 const CHANGES = { title: /what changed/i, h1: 'What changed' };
 
-/** The accessibility tree's view of the control named `name` (Chromium's, through the DevTools protocol). */
-async function axCombobox(page: Page, name: string) {
+type AxNode = { role?: { value: string }; name?: { value: string }; properties?: { name: string; value: { value?: unknown; relatedNodes?: { idref?: string }[] } }[] };
+/** What the accessibility tree (Chromium's, through the DevTools protocol) says about the focused node. */
+async function axFocused(page: Page) {
   const cdp = await page.context().newCDPSession(page);
-  const { nodes } = await cdp.send('Accessibility.getFullAXTree') as { nodes: { role?: { value: string }; name?: { value: string }; properties?: { name: string; value: { value?: unknown } }[] }[] };
-  const n = nodes.find((x) => x.role?.value === 'combobox' && x.name?.value === name);
+  const { nodes } = await cdp.send('Accessibility.getFullAXTree') as { nodes: AxNode[] };
   await cdp.detach();
-  return n ? Object.fromEntries((n.properties ?? []).map((p) => [p.name, p.value.value])) : null;
+  const props = (n: AxNode): Record<string, unknown> => Object.fromEntries((n.properties ?? []).map((p) => [p.name, p.value.value ?? p.value.relatedNodes?.map((r) => r.idref)]));
+  // The document is "focused" too; the element with focus is the other one.
+  const n = nodes.find((x) => props(x).focused === true && x.role?.value !== 'RootWebArea');
+  const out: Record<string, unknown> | null = n ? { ...props(n), role: n.role?.value, name: n.name?.value } : null;
+  return out;
 }
 
-test('the branded select: expanded while its list is open, the active option is the descendant, Escape closes and keeps focus', async ({ page }) => {
+test('the branded select: while open the list has focus and names its active option; Escape closes and returns focus', async ({ page }) => {
   test.skip(isMobile(page), 'a touch screen keeps the system picker (select.tsx)');
   await visit(page, '/changes', CHANGES);
   const combo = page.getByRole('combobox', { name: 'Buyer country' });
   await combo.focus();
-  expect((await axCombobox(page, 'Buyer country'))?.expanded ?? false, 'closed: not expanded').toBe(false);
   await page.keyboard.press('ArrowDown');
   const list = page.getByRole('listbox', { name: 'Buyer country' });
   await expect(list).toBeVisible();
-  expect((await axCombobox(page, 'Buyer country'))?.expanded, 'open: the accessibility tree says expanded').toBe(true);
+  await expect(list).toBeFocused();
+  await expect(combo).toHaveAttribute('aria-expanded', 'true');
+  await expect(combo).toHaveAttribute('aria-controls', (await list.getAttribute('id'))!);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
-  // aria-controls names the list, aria-activedescendant the option that is marked active.
-  const ids = await page.evaluate(() => {
-    const el = document.activeElement as HTMLElement;
-    const owner = el.getAttribute('aria-activedescendant') ? el : document.querySelector('[aria-activedescendant]') as HTMLElement;
-    const active = document.querySelector('[role=listbox] [data-active]');
-    return { controls: document.querySelector('[aria-controls][aria-expanded="true"][role=combobox], select[aria-expanded="true"]')?.getAttribute('aria-controls'), listId: document.querySelector('[role=listbox]')?.id, descendant: owner?.getAttribute('aria-activedescendant'), activeId: active?.id, activeRole: active?.getAttribute('role') };
-  });
-  expect(ids.controls).toBe(ids.listId);
-  expect(ids.descendant).toBe(ids.activeId);
-  expect(ids.activeRole).toBe('option');
+  const activeId = await list.locator('[data-active]').getAttribute('id');
+  await expect(list.locator('[data-active]')).toHaveAttribute('role', 'option');
+  await expect(list).toHaveAttribute('aria-activedescendant', activeId!);
+  // The tree a screen reader reads: a focused listbox with the control's name, whose active descendant is that option.
+  const ax = await axFocused(page);
+  expect(ax?.role).toBe('listbox');
+  expect(ax?.name).toBe('Buyer country');
+  expect(ax?.activedescendant).toEqual([activeId]);
   await page.keyboard.press('Escape');
   await expect(list).toHaveCount(0);
   await expect(combo).toBeFocused();
   await expect(combo).toHaveAttribute('aria-expanded', 'false');
-  expect((await axCombobox(page, 'Buyer country'))?.expanded ?? false).toBe(false);
+  expect((await axFocused(page))?.role).toBe('combobox');
+});
+
+test('the branded select: Tab from the open list chooses and moves on from the select, Shift+Tab goes back before it', async ({ page }) => {
+  test.skip(isMobile(page), 'a touch screen keeps the system picker (select.tsx)');
+  await visit(page, '/changes', CHANGES);
+  const combo = page.getByRole('combobox', { name: 'Buyer country' });
+  const order = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('#main a[href], #main button, #main input, #main select')].filter((e) => e.offsetParent !== null).map((e) => e.outerHTML.slice(0, 60)));
+  const at = order.findIndex((h) => h.startsWith('<select'));
+  await combo.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  expect(await combo.getAttribute('data-value'), 'Tab chose the active option').not.toBe('');
+  expect(await page.evaluate(() => document.activeElement!.outerHTML.slice(0, 60)), 'focus moved on from the select').toBe(order[at + 1]);
+  await combo.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Shift+Tab');
+  expect(await page.evaluate(() => document.activeElement!.outerHTML.slice(0, 60))).toBe(order[at - 1]);
 });
 
 test('Escape on a link of a header menu returns focus to its button', async ({ page }) => {
@@ -100,7 +122,7 @@ test('filtered and paged list views have titles of their own', async ({ page }) 
     ['/funding?q=drone', /^Funding calls: “drone” · DefenceGate$/],
     ['/buyers?country=PL', /^Buyers in Poland · DefenceGate$/],
     ['/organisations?country=DE', /^Organisations in Germany · DefenceGate$/],
-    ['/suppliers?country=DE', /^Suppliers in Germany · DefenceGate$/],
+    ['/suppliers?country=DE', /^Supplier map in Germany · DefenceGate$/],
   ];
   for (const [url, title] of cases) {
     await page.goto(url);
@@ -157,4 +179,10 @@ test('the empty-state link of /digest is underlined like any link in running tex
     return getComputedStyle(a).textDecorationLine;
   });
   expect(line).toBe('underline');
+});
+
+test('the buyer link of a tender page is a 32 px target (it follows "Buyer:", so the stand-alone rule of WP-55 missed it)', async ({ page }) => {
+  await page.goto('/tenders/1-framework-agreement-machined-aluminium-housings');
+  const h = await page.locator('#main p', { hasText: 'Buyer:' }).getByRole('link').first().evaluate((el) => el.getBoundingClientRect().height);
+  expect(h).toBeGreaterThanOrEqual(32);
 });

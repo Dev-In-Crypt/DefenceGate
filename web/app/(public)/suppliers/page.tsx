@@ -59,7 +59,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: listViewTitle('Defence supplier map', 'Suppliers', {
+    title: listViewTitle('Defence supplier map', 'Supplier map', {
       page: f.page, countries: parseCountries(f.country).codes, q: f.q, filters: [f.q, f.country, f.cpv, f.product].filter(Boolean).length,
     }),
     description: 'Companies named as winners in TED result notices of defence-relevant contracts since 2023: where they are, what they won and who bought it. The open segment only.',
