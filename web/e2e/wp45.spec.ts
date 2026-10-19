@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { visit } from './helpers';
+import { paragraphsOutsideFrame, visit } from './helpers';
 
 /**
  * Page-level layout of WP-45 (docs/verification/product/wp45-selfcheck.md): the tracker entry, the requirement cards, the reading
@@ -25,14 +25,12 @@ const PAGES: { path: string; title: RegExp; h1: string | RegExp }[] = [
   { path: '/calendar', title: /calendar/i, h1: 'Deadline calendar' },
 ];
 
-test('no paragraph on these pages is wider than the reading measure (680 px), and nothing scrolls sideways', async ({ page }) => {
+test('no paragraph on these pages leaves the content frame (the measure is the full width), and nothing scrolls sideways', async ({ page }) => {
   for (const p of PAGES) {
+    // `visit` checks that nothing scrolls sideways.
     await visit(page, p.path, { title: p.title, h1: p.h1 });
-    const wide = await page.evaluate(() => [...document.querySelectorAll('main p')]
-      .filter((e) => e.getClientRects().length > 0)
-      .map((e) => ({ w: e.getBoundingClientRect().width, t: (e.textContent ?? '').trim().slice(0, 40) }))
-      .filter((e) => e.w > 681));
-    expect(wide, `${p.path}: paragraphs wider than 680 px`).toEqual([]);
+    // WP-51: the measure is the whole content box (owner's change 77ca9c6, was 680 px): a paragraph may be as wide as the frame, not wider.
+    expect(await paragraphsOutsideFrame(page), `${p.path}: paragraphs outside the header's left and right edges`).toEqual([]);
   }
 });
 
@@ -98,7 +96,7 @@ test('/requirements: a group with one card gives it the whole row, and Cost and 
   if (!isMobile(page)) await expect(page.getByRole('navigation', { name: 'Contents' }).getByRole('link').first()).toBeVisible();
 });
 
-test('reading pages have a sticky contents list from lg, at the left of a 680 px column, and none on a phone', async ({ page }) => {
+test('reading pages have a sticky contents list from lg, at the left of the text column, and none on a phone', async ({ page }) => {
   for (const path of ['/privacy', '/terms', '/methodology', '/about', '/glossary', '/data']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
     const toc = page.getByRole('navigation', { name: 'Contents' });

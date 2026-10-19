@@ -43,7 +43,7 @@ test('tenders: a currency alone lists the notices stated in it, counts as a filt
   // Every card that is left states its value in PLN, and there are fewer than before.
   await expect.poll(async () => {
     const cards = await page.locator('article').allInnerTexts();
-    return cards.length > 0 && cards.length < before && cards.every((t) => /PLN [\d,]/.test(t) && !/EUR [\d,]/.test(t));
+    return cards.length > 0 && cards.length < before && cards.every((t) => /\bPLN [\d,]/.test(t) && !/\bEUR [\d,]/.test(t));
   }).toBe(true);
   // The group says it holds a filter (a currency alone used to count as none).
   await expect(page.locator('summary', { hasText: 'Estimated value' })).toContainText('1');
@@ -59,7 +59,7 @@ test('tenders: EUR is a choice like any other and stays in the address', async (
   await openGroup(page, 'Estimated value');
   await choose(page, 'Value currency', 'EUR');
   await expect.poll(() => param(page, 'currency')).toBe('EUR');
-  await expect.poll(async () => (await page.locator('article').allInnerTexts()).every((t) => !/(PLN|SEK) [\d,]/.test(t))).toBe(true);
+  await expect.poll(async () => (await page.locator('article').allInnerTexts()).every((t) => !/\b(PLN|SEK) [\d,]/.test(t))).toBe(true);
 });
 
 test('a run of ticks is one request and one history entry; one tick waits for the next', async ({ page }) => {
@@ -96,7 +96,7 @@ test('funding: a currency alone lists the calls that state a budget in it', asyn
   await expect.poll(() => param(page, 'currency')).toBe('SEK');
   await expect.poll(async () => {
     const cards = await page.locator('article').allInnerTexts();
-    return cards.length > 0 && cards.every((t) => /SEK [\d,]/.test(t));
+    return cards.length > 0 && cards.every((t) => /\bSEK [\d,]/.test(t));
   }).toBe(true);
   await expect(page.locator('summary', { hasText: 'Budget' })).toContainText('1');
 });

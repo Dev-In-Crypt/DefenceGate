@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { visit } from './helpers';
+import { paragraphsOutsideFrame, visit } from './helpers';
 
 /**
  * Page-level layout of the record and list pages (WP-47, docs/verification/product/wp47-selfcheck.md): a call and a tender page with a
@@ -119,14 +119,12 @@ test('the funding filters fold too, and the cascade and Ukraine filters stay in 
   expect(height, 'the folded filter form (2,100 px before)').toBeLessThanOrEqual(1700);
 });
 
-test('no paragraph of a list or record page is wider than the reading measure', async ({ page }) => {
+test('no paragraph of a list or record page leaves the content frame (the measure is the full width)', async ({ page }) => {
   for (const path of ['/funding', '/tenders', '/organisations', CALL, TENDER, '/organisations/101-alpha-systems-gmbh']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
-    const wide = await page.evaluate(() => [...document.querySelectorAll('main p')]
-      .filter((p) => !p.closest('table, nav, [role=region], article, .reading'))
-      .map((p) => ({ w: p.getBoundingClientRect().width, t: (p.textContent ?? '').trim().slice(0, 30), n: (p.textContent ?? '').length }))
-      .filter((p) => p.n > 120 && p.w > 681));
-    expect(wide, `${path}: paragraphs wider than 680 px`).toEqual([]);
+    // WP-51: the measure is the whole content box (owner's change 77ca9c6, was 680 px): long paragraphs may be as wide as the frame, not wider.
+    const wide = await paragraphsOutsideFrame(page, { skip: 'table, nav, [role=region], article, .reading', minLength: 121 });
+    expect(wide, `${path}: paragraphs outside the header's left and right edges`).toEqual([]);
   }
 });
 

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { visit } from './helpers';
+import { paragraphsOutsideFrame, visit } from './helpers';
 
 /**
  * The layout foundation of WP-44 (docs/verification/product/wp44-selfcheck.md): one measure, the page-header scale, a card that reads as a
@@ -48,15 +48,12 @@ test('text-h4 is defined: the three questions on the home page are headings, not
   expect(Number(style.weight)).toBeGreaterThanOrEqual(600);
 });
 
-test('no paragraph of a reading page is wider than the reading measure (680 px), and the page is a centred column', async ({ page }) => {
+test('no paragraph of a reading page leaves the content frame (the measure is the full width), and the page is a centred column', async ({ page }) => {
   for (const path of ['/about', '/methodology', '/privacy', '/glossary']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
-    const wide = await page.evaluate(() => [...document.querySelectorAll('main p')]
-      .map((p) => ({ w: p.getBoundingClientRect().width, t: (p.textContent ?? '').trim().slice(0, 30) }))
-      .filter((p) => p.w > 681));
-    expect(wide, `${path}: paragraphs wider than 680 px`).toEqual([]);
-    // WP-45: the page frame is exactly as wide as the header pill (a 988 px column left the page narrower than the header);
-    // only the running text keeps the 680 px measure (checked above).
+    // WP-51: the measure is the whole content box (owner's change 77ca9c6, was 680 px): a paragraph may be as wide as the frame, not wider.
+    expect(await paragraphsOutsideFrame(page), `${path}: paragraphs outside the header's left and right edges`).toEqual([]);
+    // WP-45: the page frame is exactly as wide as the header pill (a 988 px column left the page narrower than the header).
     const col = await page.evaluate(() => {
       const r = document.querySelector('main h1')!.closest('div')!.getBoundingClientRect();
       const h = document.querySelector('header')!.getBoundingClientRect();

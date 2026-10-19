@@ -59,3 +59,18 @@ export async function visit(page: Page, path: string, want: Expect): Promise<Res
   await pace(page);
   return response!;
 }
+
+/**
+ * The reading rule since the owner's change "text runs the full content width" (--measure is 100%, commit 77ca9c6; it was 680 px): a
+ * paragraph of `main` may be as wide as the content frame, never outside the header's left and right edges (the frame equals the header).
+ * Returns the visible paragraphs that break it. `skip` leaves out paragraphs inside those selectors, `minLength` short ones.
+ */
+export function paragraphsOutsideFrame(page: Page, opts: { skip?: string; minLength?: number } = {}) {
+  return page.evaluate(({ skip, minLength }) => {
+    const h = document.querySelector('header')!.getBoundingClientRect();
+    return [...document.querySelectorAll('main p')]
+      .filter((p) => p.getClientRects().length > 0 && !(skip && p.closest(skip)) && (p.textContent ?? '').length >= minLength)
+      .map((p) => ({ left: p.getBoundingClientRect().left, right: p.getBoundingClientRect().right, t: (p.textContent ?? '').trim().slice(0, 30) }))
+      .filter((p) => p.left < h.left - 1 || p.right > h.right + 1);
+  }, { skip: opts.skip, minLength: opts.minLength ?? 0 });
+}
