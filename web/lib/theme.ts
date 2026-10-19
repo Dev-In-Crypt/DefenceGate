@@ -22,7 +22,9 @@ export const THEME_SCRIPT =
   `try{var s=null;try{s=localStorage.getItem('${THEME_STORAGE_KEY}')}catch(e){}` +
   `var d=s==='dark'||(s!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches);` +
   `if(d)document.documentElement.dataset.theme='dark';` +
-  `var ms=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<ms.length;i++)ms[i].setAttribute('content',d?'${THEME_COLOR.dark}':'${THEME_COLOR.light}')}catch(e){}`;
+  `var ms=document.querySelectorAll('meta[name="theme-color"]');` +
+  `if(!ms.length){var m=document.createElement('meta');m.setAttribute('name','theme-color');document.head.appendChild(m);ms=[m]}` +
+  `for(var i=0;i<ms.length;i++)ms[i].setAttribute('content',d?'${THEME_COLOR.dark}':'${THEME_COLOR.light}')}catch(e){}`;
 
 /** Browser side: the metas follow the theme that is on <html> now (the toggle and ThemeSync call this). */
 export function syncThemeColor(theme: Theme): void {

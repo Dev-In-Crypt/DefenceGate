@@ -97,6 +97,8 @@ test('a list card title is clamped by the card, not the window, and the whole ti
 // R5
 test('the urgent deadline and the filled tags print dark on white: no light text is left for a printer that drops backgrounds', async ({ page }) => {
   await page.goto('/tenders');
+  // The probes go into the page once it has settled (hydrated and any client re-render done), or a re-render removes them.
+  await page.waitForLoadState('networkidle');
   await page.evaluate(() => {
     const box = document.createElement('div');
     box.id = 'print-probe';

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Manrope, DM_Mono } from 'next/font/google';
 import { SITE } from '@/lib/seo';
-import { THEME_COLOR, THEME_SCRIPT } from '@/lib/theme';
+import { THEME_SCRIPT } from '@/lib/theme';
 import { ThemeSync } from '@/components/dg/theme-sync';
 import './globals.css';
 
@@ -15,14 +15,12 @@ export const metadata: Metadata = {
   icons: { icon: '/brand/favicon.svg', apple: '/brand/app-icon.svg' },
 };
 
-export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: THEME_COLOR.light },
-    { media: '(prefers-color-scheme: dark)', color: THEME_COLOR.dark },
-  ],
-};
+// No `themeColor` here: Next streams viewport metas and may insert them after the theme script ran, with the per-scheme colours,
+// so the browser bar would disagree with a saved choice. The theme script creates the one meta itself (React does not own it, so
+// hydration cannot reset it).
+export const viewport: Viewport = {};
 
-// Applies the theme before paint: the saved choice, else the system's scheme (lib/theme.ts). The theme-color metas follow the same choice.
+// Applies the theme before paint: the saved choice, else the system's scheme (lib/theme.ts). The theme-color meta follows the same choice.
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
