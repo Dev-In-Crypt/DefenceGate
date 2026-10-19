@@ -17,7 +17,7 @@ const LARGE_ES = profile({ country: 'ES', sizeClass: 'large', control: 'no' });
 
 // The profile of the readiness check, as the form of the call page reads it.
 assert.equal(checkProfileOf(profile({})), null, 'no country, no verdict');
-assert.deepEqual(checkProfileOf(ES), { country: 'ES', orgType: 'sme', hasPartners: '', controlledAbroad: 'no' });
+assert.deepEqual(checkProfileOf(ES), { country: 'ES', orgType: 'sme', hasPartners: '', controlledAbroad: 'no', more: { legalPerson: false, company: false, managementCountry: '', uaOccupied: '', uaPartner: '', seapPartner: '' } });
 assert.equal(checkProfileOf(LARGE_ES)!.orgType, 'large');
 assert.equal(checkProfileOf(profile({ country: 'ES' }))!.orgType, '');
 assert.equal(checkProfileOf(profile({ country: 'ES', control: 'other' }))!.controlledAbroad, 'yes');

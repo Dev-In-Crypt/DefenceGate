@@ -17,11 +17,30 @@ export type EligibilityFacts = Record<string, EligibilityFact | undefined>;
 
 export type OrgType = 'sme' | 'large' | 'public' | 'university' | 'individual';
 export type Tri = 'yes' | 'no' | 'unsure';
+/**
+ * What only the saved profile of the readiness check knows (WP-53, T21). The form on the call page leaves it out, and every line then
+ * reads as before: a note stays a condition, and a condition on partners stays a "check".
+ */
+export interface More {
+  /** The legal form was answered "a legal person". */
+  legalPerson: boolean;
+  /** The applicant kind was answered "a company or a research body". */
+  company: boolean;
+  /** Where the executive management is, '' while not answered. */
+  managementCountry: string;
+  uaOccupied: Tri | '';
+  /** A legal entity established in Ukraine takes part in the planned consortium. */
+  uaPartner: Tri | '';
+  /** A SEAP takes part in the planned consortium. */
+  seapPartner: Tri | '';
+}
+
 export interface Profile {
   country: string;            // ISO 3166-1 alpha-2, '' when not chosen
   orgType: OrgType | '';
   hasPartners: Tri | '';
   controlledAbroad: Tri | '';
+  more?: More;
 }
 
 export type Verdict = 'yes' | 'check' | 'no';
@@ -81,10 +100,9 @@ export function factDisplay(key: string, facts: EligibilityFacts): string {
 
 const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? 'no' : a === 'check' || b === 'check' ? 'check' : 'yes');
 
-function withNote(line: Line, fact: EligibilityFact | undefined): Line {
+function withNote(line: Line, fact: EligibilityFact | undefined, note: string = ownNote(fact)): Line {
   // The note without the words that only say where the fact was read (`ownNote`): "Stated in this topic's own conditions." is no condition (V3-B: it
   // turned every "yes" read from a topic's own text into a "check"; 59 of the 185 stored readings are of that kind).
-  const note = ownNote(fact);
   if (line.verdict === 'yes' && note) return { ...line, verdict: 'check', reason: `${line.reason} A condition applies: ${note}` };
   return line;
 }
@@ -147,6 +165,103 @@ export function consortiumCondition(facts: EligibilityFacts): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------- notes that do not concern the profile, and conditions on partners (WP-53, T21)
+
+/** The sentences of a note. */
+const sentencesOf = (note: string): string[] => (note.match(/[^.;!?]+[.;!?]*/g) ?? []).map((s) => s.trim()).filter(Boolean);
+
+/**
+ * The note of a "Who may apply" fact without the sentences that are exceptions for kinds of applicant the saved profile is plainly not
+ * (call 118: "Entities without legal personality may exceptionally participate ... International organisations are eligible only if ...").
+ * A sentence goes only when it names such kinds and every kind it names is one the profile excludes; anything else stays a condition.
+ */
+export function entityNote(fact: EligibilityFact | undefined, more: More | undefined): string {
+  const note = ownNote(fact);
+  if (!more) return note;
+  return sentencesOf(note).filter((s) => {
+    if (s.length > 260 || /companies|company (?:must|shall|with|that|of|has)\b|enterprise|\bSMEs?\b|employee|turnover|private|your/i.test(s)) return true;
+    const kinds = [
+      /natural persons?|sole traders?|self-employed|without (?:a )?(?:separate )?legal personality/i.test(s) ? more.legalPerson : null,
+      /international organisations?/i.test(s) ? more.company : null,
+      /\bSEAPs?\b/.test(s) ? more.company : null,
+    ].filter((k) => k !== null);
+    return kinds.length === 0 || kinds.includes(false);
+  }).join(' ');
+}
+
+/**
+ * The note of an "Eligible countries" fact without what the saved profile answers: the non-government-controlled areas of Ukraine (nothing for
+ * a company established elsewhere, or that said it is not in one), and "executive management established in an eligible country" (met when
+ * the executive management is in a country the fact names).
+ */
+export function countryNote(fact: EligibilityFact | undefined, country: string, more: More | undefined): string {
+  const note = ownNote(fact);
+  if (!more || !fact) return note;
+  const text = String(fact.value);
+  const m = more.managementCountry;
+  const named = m !== '' && ((/member states|\bunion\b|\bEU\b/i.test(text) && EU27.has(m)) || (EEA_EXTRA.has(m) && /EEA/i.test(text)) || (m === 'UA' && /ukrain/i.test(text)));
+  return sentencesOf(note).filter((s) => {
+    if (/non-government[- ]controlled areas? of Ukraine/i.test(s)) return !(country !== '' && (country !== 'UA' || more.uaOccupied === 'no'));
+    if (/executive management structures? (?:\w+ ){0,4}established in an eligible country/i.test(s)) return !named;
+    return true;
+  }).join(' ');
+}
+
+type PartnerKind = 'ukraine' | 'seap' | 'harmless' | 'other';
+
+/** What one sentence of a note on the consortium or the single applicant asks of the partners, when it is one of the two conditions the profile can answer. */
+export function partnerKind(sentence: string): PartnerKind {
+  if (/^this is the minimum for the topic[.;]?$/i.test(sentence)) return 'harmless';
+  if (/\bukrain/i.test(sentence) && /single applicant|consorti|must include/i.test(sentence) && /established|executive management/i.test(sentence)) return 'ukraine';
+  if (/\bSEAPs?\b/.test(sentence) && /(?:no|without a) SEAP (?:participates|takes part)|unless a SEAP (?:participates|takes part)/i.test(sentence)) return 'seap';
+  return 'other';
+}
+
+/**
+ * The conditions on partners that a call's notes state: an entity established in Ukraine (calls 118, 113), or a SEAP unless three independent
+ * entities take part (calls 116, 117, 118). `other`: a note on the single applicant or the consortium says something else, which the profile cannot answer.
+ */
+export function partnerNeeds(facts: EligibilityFacts): { ukraine: boolean; seap: boolean; other: boolean } {
+  const out = { ukraine: false, seap: false, other: false };
+  for (const key of ['single_applicant_allowed', 'consortium_required', 'min_entities', 'min_countries'] as const) {
+    for (const s of sentencesOf(ownNote(facts[key]))) {
+      const k = partnerKind(s);
+      if (k === 'ukraine' || k === 'seap') out[k] = true;
+      else if (k === 'other' && (key === 'single_applicant_allowed' || key === 'consortium_required')) out.other = true;
+    }
+  }
+  return out;
+}
+
+/**
+ * The "Partners" line for a call whose document attaches a condition to who applies with whom (`consortiumCondition`). "Check", as before, unless
+ * every condition is one of the two the saved profile can answer and its answers meet it: then "yes", and the line says which answers did.
+ * Never "no": a partner can be found.
+ */
+export function partnerLine(facts: EligibilityFacts, p: Profile): Line | null {
+  const base = consortiumCondition(facts);
+  if (!base) return null;
+  const quote = (facts.consortium_required ?? facts.single_applicant_allowed)?.quote;
+  const needs = partnerNeeds(facts);
+  const more = p.more;
+  if (!more || needs.other || (!needs.ukraine && !needs.seap)) return { key: 'consortium', label: 'Partners', verdict: 'check', reason: base, quote };
+  const met: string[] = [];
+  const unmet: string[] = [];
+  if (needs.ukraine) {
+    // the call asks for an entity established in Ukraine with its executive management structure there: a Ukrainian company is that entity only if it says so
+    if (p.country === 'UA' && more.managementCountry === 'UA') met.push('your company is established in Ukraine, with its executive management there');
+    else if (more.uaPartner === 'yes' && p.country !== 'UA') met.push('you said a legal entity established in Ukraine takes part in your consortium');
+    else if (p.country === 'UA') unmet.push('Your answers do not place your executive management in Ukraine.');
+    else unmet.push(more.uaPartner === 'no' ? 'You said no legal entity established in Ukraine takes part in your consortium.' : 'Your answers do not say whether a legal entity established in Ukraine takes part in your consortium.');
+  }
+  if (needs.seap) {
+    if (more.seapPartner === 'yes') met.push('you said a SEAP takes part in your consortium');
+    else unmet.push(more.seapPartner === 'no' ? 'You said no SEAP takes part in your consortium.' : 'Your answers do not say whether a SEAP takes part in your consortium.');
+  }
+  if (unmet.length > 0) return { key: 'consortium', label: 'Partners', verdict: 'check', reason: `${base} ${unmet.join(' ')}`, quote };
+  return { key: 'consortium', label: 'Partners', verdict: 'yes', reason: `The call attaches conditions to who applies with whom, and your answers meet them: ${met.join('; ')}.`, quote };
+}
+
 export function check(facts: EligibilityFacts, p: Profile): Result {
   const lines: Line[] = [];
 
@@ -158,7 +273,7 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     const kinds = types.value.map(String);
     if (!p.orgType) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Check that your organisation is one of them.`, quote: types.quote });
     else if (!kinds.some((k) => covers(p.orgType as OrgType, k))) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Nothing in that list says a company like yours may. Check the document before you go on.`, quote: types.quote });
-    else lines.push(withNote({ key: 'entity', label: 'Who may apply', verdict: 'yes', reason: `The call names who may apply (${kinds.join('; ')}) and your organisation is covered by it.`, quote: types.quote }, types));
+    else lines.push(withNote({ key: 'entity', label: 'Who may apply', verdict: 'yes', reason: `The call names who may apply (${kinds.join('; ')}) and your organisation is covered by it.`, quote: types.quote }, types, entityNote(types, p.more)));
   }
 
   const c = facts.eligible_countries;
@@ -170,7 +285,7 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
     else if (eu && EEA_EXTRA.has(p.country) && /EEA/i.test(text)) line = { key: 'country', label: 'Country', verdict: 'yes', reason: 'EEA countries are eligible under this call.', quote: c.quote };
     else if (EU27.has(p.country)) line = { key: 'country', label: 'Country', verdict: 'check', reason: 'The document lists the eligible countries in its own words, and they are not simply the Member States. Check that your country is among them.', quote: c.quote };
     else line = { key: 'country', label: 'Country', verdict: 'check', reason: 'Your country is not an EU Member State. Check the list of eligible and associated countries in the document.', quote: c.quote };
-    lines.push(withNote(line, c));
+    lines.push(withNote(line, c, countryNote(c, p.country, p.more)));
   }
 
   const sme = facts.sme_only;

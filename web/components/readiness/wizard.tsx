@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
+import { STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, pctProblem, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
 import { cn } from '@/lib/utils';
 import { Callout } from '@/components/dg/blocks';
@@ -47,6 +47,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
   const [step, setStep] = useState<number | null>(null);
   const [needCountry, setNeedCountry] = useState(false);
   const [needForm, setNeedForm] = useState(false);
+  const [needManagement, setNeedManagement] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [notice, setNotice] = useState('');
   // After a step change or a refused "Next", focus goes where the visitor's attention must be (U16), not stays on the button.
@@ -79,12 +80,16 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
   const go = (n: number) => {
     setNeedCountry(false);
     setNeedForm(false);
+    setNeedManagement(false);
     setStep(n);
     update((p) => ({ ...p, step: Math.max(p.step, n) }));
     setFocusTarget('heading');
   };
   const next = () => {
     if (current === 1 && (!profile.country || !profile.legalForm)) { setNeedCountry(!profile.country); setNeedForm(!profile.legalForm); setFocusTarget('error'); return; }
+    // An answer that cannot be used is refused here, with its reason beside the field, and not dropped later (WP-53, T6).
+    if (current === 2 && profile.management === 'other' && !profile.managementCountry) { setNeedManagement(true); setFocusTarget('error'); return; }
+    if (current === 3 && pctProblem(profile.componentPct)) { setFocusTarget('error'); return; }
     if (current === 5) {
       update((p) => ({ ...p, step: 6 }));
       router.push('/readiness/results');
@@ -177,12 +182,14 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
           <div className="flex flex-col gap-5">
             <Radios legend="Where are your company's executive management structures?" name="management"
               hint="The place from which the company is actually run."
-              value={profile.managementSameCountry ? 'same' : 'other'}
+              value={profile.management}
               options={[{ value: 'same', label: 'In the country where the company is established' }, { value: 'other', label: 'In another country' }]}
-              onChange={(v) => set('managementSameCountry', v === 'same')} />
-            {!profile.managementSameCountry && (
+              onChange={(v) => { setNeedManagement(false); set('management', v); }} />
+            {profile.management === 'other' && (
               <Select className="max-w-form" label="Country of the executive management" placeholder="Choose a country" options={COUNTRY_OPTIONS}
-                value={profile.managementCountry} onChange={(e) => set('managementCountry', e.target.value)} />
+                value={profile.managementCountry} aria-required="true"
+                error={needManagement && !profile.managementCountry ? 'Choose the country of the executive management to go on.' : undefined}
+                onChange={(e) => { setNeedManagement(false); set('managementCountry', e.target.value); }} />
             )}
             <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control"
               hint="Think of the ultimate owners, not only the first shareholder. Control from an EEA EFTA state or Ukraine is treated differently by each programme."
@@ -198,6 +205,14 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               <Radios legend="Is your company established in an area of Ukraine that the Ukrainian government does not control?" name="occupied"
                 value={profile.uaOccupied} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaOccupied', v)} />
             )}
+            {profile.country !== 'UA' && (
+              <Radios legend="Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?" name="ua-partner"
+                hint="The Ukraine Support Instrument asks for one: an action must be carried out by, or with the involvement of, Ukraine or such an entity. Leave it empty if you do not know yet; it is then never read as “no”."
+                value={profile.uaPartner} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaPartner', v)} />
+            )}
+            <Radios legend="Does a SEAP (structure for European armament programmes) take part in your planned consortium?" name="seap-partner"
+              hint="Some EDIP calls for industrial reinforcement ask for at least three independent entities unless a SEAP takes part. Leave it empty if you do not know yet; it is then never read as “no”."
+              value={profile.seapPartner} options={[...YES_NO_UNSURE]} onChange={(v) => set('seapPartner', v)} />
           </div>
         )}
 
@@ -215,10 +230,10 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 { value: 'unknown', label: 'I do not know yet' },
               ]}
               onChange={(v) => set('regime', v)} />
-            <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={6}
+            <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={12}
               hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. Leave empty if you do not know."
-              value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value.replace(/[^0-9.,]/g, ''))}
-              error={profile.componentPct && !(Number(profile.componentPct.replace(',', '.')) <= 100) ? 'Enter a number from 0 to 100.' : undefined} />
+              value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value)}
+              error={pctProblem(profile.componentPct) ?? undefined} />
             <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
               hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
               value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />
@@ -239,7 +254,9 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
 
         {current === 4 && (
           <div className="flex flex-col gap-4">
-            <p className="m-0 max-w-prose text-small text-ink-muted">Say what you already hold. Anything you leave as it is counts as not held.</p>
+            <p className="m-0 max-w-prose text-small text-ink-muted">
+              Say what you already hold. Anything you leave as it is counts as not held. “Not applicable to us” leaves that rule out of your result; it does not count as holding it.
+            </p>
             {visibleCodes(profile.country).map((code) => {
               const r = byCode.get(code);
               return (

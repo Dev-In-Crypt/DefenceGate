@@ -261,6 +261,7 @@ class ProfileIn(BaseModel):
     product_regime: Literal["none", "dual_use", "military", "unknown"] = "unknown"
     export_intent: Literal["none", "within_eu", "outside_eu", "unsure"] | None = None
     applicant_kind: Literal["company_or_research", "contracting_authority", "international_organisation", "seap", "eda"] | None = None
+    ua_partner: bool | None = None
 
     @field_validator("country", "executive_management_country")
     @classmethod

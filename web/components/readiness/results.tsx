@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowRight, Pencil } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
+import { answerProblems } from '@/lib/profile';
+import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
@@ -28,6 +30,23 @@ export function NoProfile() {
   );
 }
 
+/**
+ * An answer that is in the profile and cannot be used (a share of 150 %, a country left unchosen) is treated as not given. The pages that
+ * show a result say so here and say why, instead of only counting a missing answer (WP-53, T6).
+ */
+export function AnswerProblems({ problems }: { problems: { step: number; text: string }[] }) {
+  if (problems.length === 0) return null;
+  return (
+    <Callout title={problems.length === 1 ? 'One of your answers is not used' : `${problems.length} of your answers are not used`}>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0">
+        {problems.map((p) => (
+          <li key={p.text}>{p.text}{' '}<Link href={`/readiness?step=${p.step}`} className="inline-flex min-h-11 items-center font-semibold">Change it</Link></li>
+        ))}
+      </ul>
+    </Callout>
+  );
+}
+
 export function ResultsView() {
   const { profile, ready } = useProfile();
   const result = useAssessment(profile);
@@ -47,6 +66,7 @@ export function ResultsView() {
         </div>
       </div>
 
+      <AnswerProblems problems={answerProblems(profile)} />
       {(result.state === 'loading' || result.state === 'idle') && <Loading />}
       {result.state === 'error' && <ErrorState title="The check could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && (

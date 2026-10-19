@@ -3,21 +3,21 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { emptyProfile, exportProfile, firstStepToAnswer, importProfile, isFinished, parsePct, parseProfile, stepOfField, toRequest, unanswered, visibleCodes, withStatus, type Profile } from './profile';
+import { PROFILE_KEY, answerProblems, emptyProfile, exportProfile, firstStepToAnswer, importProfile, isFinished, managementCountryOf, parsePct, parseProfile, pctProblem, stepOfField, toRequest, unanswered, visibleCodes, withStatus, type Profile } from './profile';
 
 const ua: Profile = {
-  ...emptyProfile(), step: 6, name: 'Secret Ltd', sizeClass: 'small', country: 'UA', legalForm: 'legal_person', control: 'no', uaOccupied: 'no', regime: 'dual_use',
+  ...emptyProfile(), step: 6, management: 'same', name: 'Secret Ltd', sizeClass: 'small', country: 'UA', legalForm: 'legal_person', control: 'no', uaOccupied: 'no', regime: 'dual_use',
   componentPct: '20', restricted: 'no', uaEeaComponents: 'no', safeRole: 'contractor', classified: 'no', exportIntent: 'outside_eu',
 };
 
 // Nothing can be asked before a country is chosen.
 assert.equal(toRequest(emptyProfile()), null);
 
-// The request holds the thirteen fields the rules read and the statuses; the name and the size never travel.
+// The request holds the fourteen fields the rules read and the statuses; the name and the size never travel.
 const req = toRequest(ua)!;
 assert.deepEqual(req.profile, {
   country: 'UA', legal_form: 'legal_person', applicant_kind: null, executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
-  non_eu_component_cost_pct: 20, restricted_third_country_component: false, components_from_ua_or_eea_efta: false, safe_role: 'contractor', handles_classified: false,
+  non_eu_component_cost_pct: 20, restricted_third_country_component: false, components_from_ua_or_eea_efta: false, ua_partner: null, safe_role: 'contractor', handles_classified: false,
   product_regime: 'dual_use', export_intent: 'outside_eu',
 });
 assert.ok(!JSON.stringify(req).includes('Secret'), 'the company name must not leave the browser');
@@ -55,8 +55,45 @@ assert.equal(parseProfile({ ...ua, applicantKind: 'ministry' }).applicantKind, '
 assert.equal(parseProfile({ ...ua, applicantKind: 'seap' }).applicantKind, 'seap');
 
 // Executive management elsewhere is sent as that country; chosen but left empty it is unknown.
-assert.equal(toRequest({ ...ua, managementSameCountry: false, managementCountry: 'CH' })!.profile.executive_management_country, 'CH');
-assert.equal(toRequest({ ...ua, managementSameCountry: false })!.profile.executive_management_country, null);
+assert.equal(toRequest({ ...ua, management: 'other', managementCountry: 'CH' })!.profile.executive_management_country, 'CH');
+assert.equal(toRequest({ ...ua, management: 'other' })!.profile.executive_management_country, null);
+
+// WP-53, T5: no radio is ticked for the visitor. An empty answer is unknown (null), asked for, and never "the same country".
+assert.equal(emptyProfile().management, '');
+assert.equal(toRequest({ ...ua, management: '' })!.profile.executive_management_country, null);
+assert.equal(toRequest({ ...ua, management: 'same' })!.profile.executive_management_country, 'UA');
+assert.equal(managementCountryOf({ ...ua, management: '' }), null);
+assert.ok(unanswered({ ...ua, management: '' }).some((u) => u.step === 2 && /executive management/.test(u.question)), 'the unanswered question is listed');
+assert.ok(!unanswered(ua).some((u) => /executive management/.test(u.question)));
+assert.ok(unanswered({ ...ua, management: 'other', managementCountry: '' }).some((u) => u.question === 'Country of the executive management'));
+
+// WP-53: the stored block of version 1 is read, and a stored "same country" is not trusted (it is what the pre-ticked radio left behind).
+const legacy = { ...JSON.parse(JSON.stringify(ua)), version: 1, managementSameCountry: true };
+delete legacy.management;
+assert.equal(parseProfile(legacy).management, '', 'a version 1 "same country" cannot be told from the radio that was ticked for the visitor');
+assert.equal(parseProfile({ ...legacy, managementSameCountry: false, managementCountry: 'CH' }).management, 'other');
+assert.equal(parseProfile({ ...legacy, managementSameCountry: false, managementCountry: 'CH' }).managementCountry, 'CH');
+assert.equal(parseProfile(legacy).version, 2, 'it is written back as version 2');
+assert.equal(parseProfile(legacy).country, 'UA', 'the other answers are kept');
+assert.equal(parseProfile(legacy).uaPartner, '');
+assert.equal(parseProfile({ ...ua, management: 'sideways' }).management, '');
+assert.equal(PROFILE_KEY, 'dg.profile.v1', 'the key keeps its name; the version is inside the block');
+const imported = importProfile(JSON.stringify(legacy));
+assert.ok(imported.ok && imported.profile.management === '' && imported.profile.version === 2, 'a version 1 file can still be loaded');
+
+// WP-53, T21: the partner questions. Unanswered and "not sure" are unknown (null), never "no"; a Ukrainian company is not asked.
+const pl: Profile = { ...ua, country: 'PL', uaOccupied: '' };
+assert.equal(emptyProfile().uaPartner, '');
+assert.equal(toRequest(pl)!.profile.ua_partner, null);
+assert.equal(toRequest({ ...pl, uaPartner: 'yes' })!.profile.ua_partner, true);
+assert.equal(toRequest({ ...pl, uaPartner: 'no' })!.profile.ua_partner, false);
+assert.equal(toRequest({ ...pl, uaPartner: 'unsure' })!.profile.ua_partner, null);
+assert.equal(toRequest({ ...ua, uaPartner: 'yes' })!.profile.ua_partner, null, 'a Ukrainian company is the entity itself: a leftover answer is not sent');
+assert.ok(!unanswered(pl).some((u) => /takes part/.test(u.question)), 'optional: the USI card asks for it itself, and the list of unanswered questions stays what it was');
+assert.equal(stepOfField('ua_partner'), 2);
+assert.equal(parseProfile({ ...ua, uaPartner: 'maybe', seapPartner: 'yes' }).uaPartner, '');
+assert.equal(parseProfile({ ...ua, uaPartner: 'maybe', seapPartner: 'yes' }).seapPartner, 'yes');
+assert.equal(JSON.stringify(toRequest({ ...pl, seapPartner: 'yes' })).includes('seap'), false, 'no rule of the programmes reads the SEAP answer: it stays in the browser');
 
 // A share is a number from 0 to 100.
 assert.equal(parsePct('35'), 35);
@@ -66,13 +103,37 @@ assert.equal(parsePct(''), null);
 assert.equal(parsePct('101'), null);
 assert.equal(parsePct('abc'), null);
 assert.equal(parsePct('-1'), null);
+assert.equal(parsePct('100'), 100);
+assert.equal(parsePct('99.99'), 99.99);
+assert.equal(parsePct('.5'), 0.5);
+
+// WP-53, T6: a value that is not a number from 0 to 100 has a reason, blocks the step, and is named wherever it is treated as missing.
+for (const bad of ['150', '100.5', '1,5,5', '.', 'abc', '-5', '12345678', '1e2', '0x10', '1 000']) {
+  assert.equal(pctProblem(bad), 'Enter a number from 0 to 100.', bad);
+  assert.equal(toRequest({ ...ua, componentPct: bad })!.profile.non_eu_component_cost_pct, null, `${bad} is not sent`);
+  const problems = answerProblems({ ...ua, componentPct: bad });
+  assert.equal(problems.length, 1, bad);
+  assert.equal(problems[0].step, 3);
+  assert.match(problems[0].text, /not a number from 0 to 100, so it is treated as not given/);
+  assert.ok(problems[0].text.includes(bad.trim()), 'the text quotes what was entered');
+}
+for (const fine of ['', '  ', '0', '100', '12,5', '99.99', '7.']) {
+  assert.equal(pctProblem(fine), null, JSON.stringify(fine));
+  assert.deepEqual(answerProblems({ ...ua, componentPct: fine }), [], JSON.stringify(fine));
+}
+assert.equal(parseProfile({ ...ua, componentPct: '150' }).componentPct, '150', 'kept as typed, so that its problem can be shown');
+assert.equal(parseProfile({ ...ua, componentPct: 'x'.repeat(40) }).componentPct.length, 12);
+assert.equal(answerProblems({ ...ua, management: 'other', managementCountry: '' })[0].step, 2, 'another country chosen but not named is also said');
+assert.match(answerProblems({ ...ua, management: 'other', managementCountry: '' })[0].text, /did not choose which one, so that answer is treated as not given/);
+assert.deepEqual(answerProblems(ua), []);
 
 // Whatever is in storage is read field by field: junk becomes the empty answer.
 assert.deepEqual(parseProfile(null), emptyProfile());
 assert.deepEqual(parseProfile('x'), emptyProfile());
 assert.deepEqual(parseProfile([]), emptyProfile());
-assert.deepEqual(parseProfile({ version: 2, country: 'UA' }), emptyProfile());
-const read = parseProfile({ ...ua, country: 'ukraine', control: 'maybe', componentPct: '1e9', step: 99, statuses: { 'REQ-PIC': 'held', 'REQ-NOPE': 'held', 'REQ-NCAGE': 'done' }, name: 'x'.repeat(500) });
+assert.deepEqual(parseProfile({ version: 3, country: 'UA' }), emptyProfile());
+assert.deepEqual(parseProfile({ version: 0, country: 'UA' }), emptyProfile());
+const read = parseProfile({ ...ua, country: 'ukraine', control: 'maybe', componentPct: '', step: 99, statuses: { 'REQ-PIC': 'held', 'REQ-NOPE': 'held', 'REQ-NCAGE': 'done' }, name: 'x'.repeat(500) });
 assert.equal(read.country, '');
 assert.equal(read.control, '');
 assert.equal(read.componentPct, '');
@@ -110,7 +171,8 @@ const written = exportProfile(partial);
 const back = importProfile(written);
 assert.ok(back.ok);
 if (back.ok) assert.deepEqual({ ...back.profile, updatedAt: null }, { ...parseProfile(partial), updatedAt: null }, 'what was written is what is read back');
-assert.equal(importProfile('{"version":2}').ok, false);
+assert.equal(importProfile('{"version":3}').ok, false);
+assert.equal(importProfile('{}').ok, false);
 assert.equal(importProfile('[1,2]').ok, false);
 assert.equal(importProfile('not json').ok, false);
 assert.equal(importProfile('x'.repeat(30000)).ok, false, 'a size limit');

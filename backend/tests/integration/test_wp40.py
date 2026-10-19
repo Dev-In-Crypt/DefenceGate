@@ -116,6 +116,10 @@ def test_wp42_r1_the_ukraine_support_instrument_calls_do_not_say_you_can_apply_n
     body = client.post("/v1/readiness/assess", json={"profile": PL, "statuses": HELD, "call": usi}).json()
     (t,) = body["call"]["timings"]
     assert t["programme"] == "EDIP-USI" and t["verdict"] == "conditional" and t["realistic"] == "depends"
+    # WP-53 (T21): the profile can now say whether a Ukrainian partner takes part. Unsaid, the answer is missing; "no" leaves the condition open.
+    assert t["openConditions"] == [] and "apply now" not in t["text"] and "answer is still needed" in t["text"]
+    (t,) = client.post("/v1/readiness/assess", json={"profile": {**PL, "ua_partner": False}, "statuses": HELD, "call": usi}).json()["call"]["timings"]
+    assert t["verdict"] == "conditional" and t["realistic"] == "depends"
     assert t["openConditions"] == ["The action involves Ukraine"] and "apply now" not in t["text"]
     assert "USI-INVOLVES-UA" in [r["rule"] for r in client.get(f"/v1/funding/{usi}").json()["rulesApply"]["rules"]]
     ua = {**PL, "country": "UA", "executive_management_country": "UA", "ua_non_government_controlled_area": False}

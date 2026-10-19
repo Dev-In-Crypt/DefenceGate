@@ -1,0 +1,608 @@
+{
+ "118": {
+  "topic": "EDF-EDIP-USI-2026-LS-IRA-MAB",
+  "facts": {
+   "sme_only": {
+    "value": false,
+    "note": null,
+    "quote": "be legal entities (public or private bodies)",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "entity_types": {
+    "value": [
+     "legal entities (public bodies)",
+     "legal entities (private bodies)"
+    ],
+    "note": "Entities without legal personality may exceptionally participate if the stated conditions are met. International organisations are eligible only if their members are exclusively EU Member States or Ukraine and their executive management structure is in a Member State or Ukraine.",
+    "quote": "be legal entities (public or private bodies)",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 1,
+    "note": "For proposals including activities within the meaning of Article 12(1)(d) where no SEAP participates, at least 3 independent entities are required; only beneficiaries count.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_countries": {
+    "value": 1,
+    "note": "This is the minimum for the topic; consortia must include at least one legal entity established and having its executive management structures in Ukraine.",
+    "quote": "If a single applicant, it must be a legal entity established",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States (including overseas countries and territories (OCTs)) and Ukraine",
+    "note": "Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding.",
+    "quote": "be established in one of the eligible countries, i.e.: − EU ",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": false,
+    "note": null,
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "single_applicant_allowed": {
+    "value": true,
+    "note": "A single applicant must be a legal entity established and having its executive management structure in Ukraine.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "The eligibility section specifies control by a non-associated third country other than Ukraine or by a non-associated third-country entity; exemptions or approved guarantees, including adequate FDI-screening mitigation measures, may apply.",
+    "quote": "Thus, for the purposes of participating in EDIP actions, ben",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "114": {
+  "topic": "EDF-EDIP-P-2026-2027-FNLC-SA-SEAP",
+  "facts": {
+   "entity_types": {
+    "value": [
+     "Established SEAP",
+     "SEAP in the process of being established, with an application for establishment already submitted to the Commission"
+    ],
+    "note": null,
+    "quote": "be an established SEAP within the meaning of Articles 40 to ",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 3,
+    "note": "This is the minimum number of SEAP members; the grant application itself is a single application by the SEAP.",
+    "quote": "The SEAP must have at least 3 members from EU Member States,",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States, EDIP associated countries, and Ukraine",
+    "note": "At least 2 SEAP members must be from EU Member States.",
+    "quote": "The SEAP must have at least 3 members from EU Member States,",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": true,
+    "note": "The application is made by a SEAP, which must meet the stated membership requirements. The document also states that a single applicant may apply (Only a SEAP may submit a single application): check the call document.",
+    "quote": "Only single applications by a SEAP are allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "193": {
+  "topic": "EDF-EDIP-P-2026-FNLC-CSA-PREP",
+  "facts": {
+   "min_countries": {
+    "value": 4,
+    "note": "The four countries must have already participated in the proposal submitted to the call for expression of interests.",
+    "quote": "Consortia must be composed of at least 4 EU Member States or",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States and EDIP associated countries",
+    "note": "Applicants must be a SEAP or a group connected to an EDPCI proposal submitted to the February 2026 call for expression of interest that was not identified as an EDPCI in Decision COM(2026)358.",
+    "quote": "The minimum number of EU Member States and EDIP associated c",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": false,
+    "note": "A single applicant must be a SEAP; otherwise, the application must be a consortium meeting the four-country requirement.",
+    "quote": "Single applicants may apply only if they are a SEAP",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) where the company has no legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "single_applicant_allowed": {
+    "value": true,
+    "note": "Only a SEAP may apply as a single applicant; it must meet the stated minimum country composition.",
+    "quote": "Single applicants may apply only if they are a SEAP",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Entities may exceptionally participate if they meet the stated FDI-screening or guarantee conditions.",
+    "quote": "Thus, for the purposes of participating in EDIP actions, ben",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "110": {
+  "topic": "EDF-EDIP-P-2027-FNLC-CPA-AMDS",
+  "facts": {
+   "sme_only": {
+    "value": false,
+    "note": null,
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "entity_types": {
+    "value": [
+     "Contracting authorities",
+     "International organisations",
+     "Structures for European Armament Programme (SEAPs)",
+     "European Defence Agency (EDA)"
+    ],
+    "note": null,
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 3,
+    "note": "These must be contracting authorities; only beneficiaries count. A single applicant may apply if it is a SEAP.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_countries": {
+    "value": 3,
+    "note": "At least 2 of the countries must be EU Member States.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States and EDIP associated countries (i.e. Norway)",
+    "note": null,
+    "quote": "Common Procurement Actions (CPA) contribute a fixed amount (",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": true,
+    "note": "A single applicant may apply if it is a SEAP. The document also states that a single applicant may apply (Only a SEAP may apply as a single applicant): check the call document.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) where the company has no legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Entities that do not meet this requirement may exceptionally participate if they have undergone FDI screening with adequate measures, or provide guarantees approved by the EU Member State or EDIP associated country where they are established.",
+    "quote": "Thus, for the purposes of participating in EDIP actions, ben",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "111": {
+  "topic": "EDF-EDIP-P-2027-FNLC-CPA-C5ISRS",
+  "facts": {
+   "entity_types": {
+    "value": [
+     "contracting authorities",
+     "international organisations",
+     "Structures for European Armament Programme (SEAPs)",
+     "European Defence Agency (EDA)"
+    ],
+    "note": "Applicants as beneficiaries or affiliated entities must be one of these entity types.",
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 3,
+    "note": "At least 3 contracting authorities must participate as beneficiaries.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_countries": {
+    "value": 3,
+    "note": "At least 2 of the 3 countries must be EU Member States.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States and EDIP associated countries; the consortium must include at least 2 EU Member States.",
+    "note": null,
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": true,
+    "note": "A single applicant is allowed only if it is a SEAP. The document also states that a single applicant may apply (Only a SEAP may apply as a single applicant): check the call document.",
+    "quote": "Single applicants may apply only if they are a SEAP.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) where the company does not have legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Entities may exceptionally participate if they meet the stated FDI-screening or guarantee conditions.",
+    "quote": "All calls under the EDIP Programme and the Ukraine Supportin",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "112": {
+  "topic": "EDF-EDIP-P-2027-FNLC-CPA-GNPS",
+  "facts": {
+   "sme_only": {
+    "value": false,
+    "note": null,
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "entity_types": {
+    "value": [
+     "contracting authorities",
+     "international organisations",
+     "SEAPs",
+     "European Defence Agency (EDA)"
+    ],
+    "note": null,
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 3,
+    "note": "Single applicants may apply only if they are a SEAP.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_countries": {
+    "value": 3,
+    "note": "At least 2 must be EU Member States; a single SEAP may apply.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States and EDIP associated countries",
+    "note": "At least 2 participating countries must be EU Member States.",
+    "quote": "Consortia must be composed of at least 3 contracting authori",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": true,
+    "note": "A single applicant is allowed only if it is a SEAP. The document also states that a single applicant may apply (Only a SEAP may apply alone): check the call document.",
+    "quote": "Single applicants may apply only if they are a SEAP.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) where the company has no legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Entities that do not meet this requirement may exceptionally participate if they have undergone FDI screening with adequate measures or provide guarantees approved by the country where they are established.",
+    "quote": "Thus, for the purposes of participating in EDIP actions, ben",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "113": {
+  "topic": "EDF-EDIP-USI-2027-LS-IRA-CUXS",
+  "facts": {
+   "sme_only": {
+    "value": false,
+    "note": null,
+    "quote": "be legal entities (public or private bodies)",
+    "confidence": 0.8,
+    "scope": "call_document"
+   },
+   "entity_types": {
+    "value": [
+     "Public bodies",
+     "Private bodies"
+    ],
+    "note": null,
+    "quote": "be legal entities (public or private bodies)",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 1,
+    "note": null,
+    "quote": "If a single applicant, it must be a legal entity established",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_countries": {
+    "value": 1,
+    "note": null,
+    "quote": "If a single applicant, it must be a legal entity established",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States (including overseas countries and territories (OCTs)); Ukraine",
+    "note": "Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding.",
+    "quote": "be established in one of the eligible countries, i.e.: − EU ",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": false,
+    "note": null,
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) may apply where the company does not have legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "single_applicant_allowed": {
+    "value": true,
+    "note": "The single applicant must be established and have its executive management structure in Ukraine.",
+    "quote": "If a single applicant, it must be a legal entity established",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Exceptions may apply under Article 26(9) of the EDIP Regulation or where approved guarantees, including adequate FDI-screening mitigation measures, are provided.",
+    "quote": "not be subject to control by a non-associated third country ",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "116": {
+  "topic": "EDF-EDIP-P-2027-LS-IRA-KEC",
+  "facts": {
+   "sme_only": {
+    "value": false,
+    "note": null,
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "entity_types": {
+    "value": [
+     "Legal entities (public or private bodies)",
+     "SEAPs"
+    ],
+    "note": "Natural persons are not eligible except self-employed persons (sole traders) whose company does not have separate legal personality. Additional eligibility conditions apply to SEAPs.",
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 1,
+    "note": "For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, at least 3 independent entities are required.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": false,
+    "note": "For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) whose company does not have legal personality separate from the natural person.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "single_applicant_allowed": {
+    "value": true,
+    "note": "For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, a single applicant cannot apply unless a SEAP participates.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Exceptions may apply where the entity is exempted under Article 9(9), or provides approved guarantees, including adequate mitigation measures pursuant to an FDI screening.",
+    "quote": "not be subject to control by a non -associated third country",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ },
+ "117": {
+  "topic": "EDF-EDIP-P-2027-LS-IRA-PE",
+  "facts": {
+   "sme_only": {
+    "value": false,
+    "note": null,
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 0.9,
+    "scope": "call_document"
+   },
+   "entity_types": {
+    "value": [
+     "Legal entities (public or private bodies)"
+    ],
+    "note": "The document also provides limited exceptions for sole traders, qualifying international organisations and certain entities without legal personality.",
+    "quote": "In order to be eligible, the applicants (beneficiaries and a",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "min_entities": {
+    "value": 1,
+    "note": "At least 3 independent entities are required for actions within Article 12(1)(d) of the EDIP Regulation when no SEAP participates.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "cascade_funding": {
+    "value": false,
+    "note": null,
+    "quote": "Financial support to third parties (FSTP) is not allowed.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "eligible_countries": {
+    "value": "EU Member States (including OCTs), listed EEA countries and countries associated to the EDIP Programme.",
+    "note": "Applicants must also have their executive management structure established in an eligible country.",
+    "quote": "− EU Member States (including overseas countries and territo",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "consortium_required": {
+    "value": false,
+    "note": "For actions within Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "natural_persons_allowed": {
+    "value": false,
+    "note": "Exception: self-employed persons (sole traders) whose company has no separate legal personality.",
+    "quote": "Natural persons are NOT eligible (with the exception of self",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "single_applicant_allowed": {
+    "value": true,
+    "note": "Not for actions within Article 12(1)(d) of the EDIP Regulation when no SEAP participates.",
+    "quote": "Single applicants or consortia may apply.",
+    "confidence": 1.0,
+    "scope": "call_document"
+   },
+   "ownership_control_restriction": {
+    "value": true,
+    "note": "Exceptions may apply where an FDI screening with adequate measures has taken place or approved guarantees are provided.",
+    "quote": "Thus, for the purposes of participating in EDIP actions, ben",
+    "confidence": 1.0,
+    "scope": "call_document"
+   }
+  }
+ }
+}

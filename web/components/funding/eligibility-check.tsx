@@ -48,7 +48,8 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
     if (held && !edited) setP((x) => ({ ...held, hasPartners: x.hasPartners }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the fields, not the object, are what changes
   }, [held?.country, held?.orgType, held?.controlledAbroad, edited]);
-  const set = <K extends keyof Profile>(k: K, v: Profile[K]) => { setEdited(true); setP((x) => ({ ...x, [k]: v })); };
+  // An edited form is another case: what only the saved profile knows (`more`: legal form, executive management, partners) no longer applies to it (WP-53).
+  const set = <K extends keyof Profile>(k: K, v: Profile[K]) => { setEdited(true); setP((x) => ({ ...x, [k]: v, more: undefined })); };
   const result = check(facts, p);
   const answered = result.lines.length > 0;
   const shown = Object.keys(FACT_LABELS).filter((k) => facts[k]);

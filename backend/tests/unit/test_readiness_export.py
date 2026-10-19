@@ -36,6 +36,12 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
     assert {a["programme"]: a["verdict"] for a in pic["assessments"]} == {
         "EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "eligible", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert "REQ-PIC" not in [s["code"] for s in pic["roadmap"]["steps"]]
+    # WP-53 (T4): "Not applicable to us" for the PIC is neither "met" nor a step: the rule is left out of the programmes' cards
+    na = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua-pic-na.json").read_text(encoding="utf-8"))
+    for programme, code in (("EDF", "EDF-PIC"), ("EDIP", "EDIP-PIC"), ("EDIP-USI", "USI-PIC")):
+        rule = next(r for a in na["assessments"] if a["programme"] == programme for r in a["rules"] if r["rule"] == code)
+        assert rule["outcome"] == "not_applicable" and "You have a PIC" not in rule["reason"]
+    assert "REQ-PIC" not in [s["code"] for s in na["roadmap"]["steps"]]
     es = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-es.json").read_text(encoding="utf-8"))
     edip_es = next(a for a in es["assessments"] if a["programme"] == "EDIP")
     assert edip_es["blocking"] == [] and edip_es["toObtain"] == ["EDIP-PIC"]
@@ -44,6 +50,6 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
 def test_the_request_fixtures_are_what_the_api_accepts():
     from dgate.readiness.api import AssessIn
 
-    for key in ("ua", "es", "ua-pic"):
+    for key in ("ua", "es", "ua-pic", "ua-pic-na"):
         body = json.loads((ROOT / "web" / "e2e" / "fixtures" / f"request-{key}.json").read_text(encoding="utf-8"))
         AssessIn.model_validate(body)

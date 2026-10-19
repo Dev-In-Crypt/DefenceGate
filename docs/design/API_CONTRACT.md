@@ -1044,3 +1044,17 @@ per supplier, no share, no rank and no "single source" flag, on purpose (the mos
 
 17 entries (one new: `edip-common-procurement-applicants`). `safe-uk-unconfirmed` now rests on the UK government's
 written statement HCWS1114 of 1 December 2025; `edf-ukraine-in-force-unconfirmed` on the EDF call documents.
+
+### Changes of 19 October 2026 (WP-53: readiness correctness)
+
+#### `POST /v1/readiness/assess`
+
+- The profile takes `ua_partner`: `true` | `false` | `null` (not said; never read as "no"). It means "a legal entity established in Ukraine,
+  with its executive management structure there, takes part in the planned consortium". Only the rule `USI-INVOLVES-UA` reads it:
+  Ukrainian company `met`; any other company `met` with `true`, `conditional` with `false`, `unknown` (an answer is missing, `missing` has
+  `ua_partner`) with `null`. A non-boolean is a 422. `GET /v1/readiness/programmes` lists the field.
+- A status of `not_applicable` ("Not applicable to us") for the requirement a rule is about (the PIC, the NCAGE code, the export
+  authorisations, the Spanish clearance) gives the rule outcome `not_applicable` with the reason "You answered “Not applicable to us” for
+  this requirement, so this rule is left out of your result. It is not counted as met. ...". Before, it gave `met` with the text of a held
+  requirement ("You have a PIC."). The rule is left out of the verdict and of `summary.met`; the roadmap has no step for it, as before.
+  The seed conditions on a status now read `{"status": "REQ-PIC", "is": "held"}`.

@@ -77,14 +77,22 @@ def test_wp42_r1_the_ukraine_involvement_is_a_mandatory_rule_not_an_information_
     ukraine = RULES["USI-INVOLVES-UA"]
     assert ukraine.obligation == "mandatory" and ukraine.condition is not None and "Article 27(7)" in ukraine.source_ref
     assert "with the involvement of, at a minimum, Ukraine" in ukraine.source_text
-    assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="PL", executive_management_country="PL")) == "conditional"
+    # WP-53 (T21): the profile now has the question, so "we do not know" is an unanswered question and "no" is a condition that is open
+    assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="PL", executive_management_country="PL")) == "unknown"
+    assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="PL", executive_management_country="PL", ua_partner=False)) == "conditional"
+    assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="PL", executive_management_country="PL", ua_partner=True)) == "met"
     assert outcome("USI-INVOLVES-UA", "EDIP-USI", clean(country="UA", executive_management_country="UA")) == "met"
     held = {"REQ-PIC": "held"}
     for country in ("PL", "DE", "ES"):
         a = assess(clean(country=country, executive_management_country=country), held, CONTENT.programmes["EDIP-USI"])
+        assert a.verdict == "conditional" and a.incomplete and a.missing == ("ua_partner",), country
+        a = assess(clean(country=country, executive_management_country=country, ua_partner=False), held, CONTENT.programmes["EDIP-USI"])
         assert a.verdict == "conditional" and "USI-INVOLVES-UA" in a.conditions, country
         # it is a condition that is open, not a rule that is failed: the company is never "blocked" by it
         assert "USI-INVOLVES-UA" not in a.blocking
+        # and with the Ukrainian partner named, nothing is open any more
+        a = assess(clean(country=country, executive_management_country=country, ua_partner=True), held, CONTENT.programmes["EDIP-USI"])
+        assert a.verdict == "eligible" and a.conditions == () and not a.incomplete, country
     ua = assess(clean(country="UA", executive_management_country="UA", ua_non_government_controlled_area=False), held, CONTENT.programmes["EDIP-USI"])
     assert ua.verdict == "eligible"
     # the EDIP Programme has no such rule
