@@ -128,7 +128,7 @@ export default async function LandingPage() {
       <JsonLd data={faqJsonLd(faq)} />
 
       {/* Hero: the copy at the left and the figures at the right start at the top of the card; the links under the lead; the finder runs under both, full width. */}
-      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10 lg:p-10 ${CARD_SURFACE} ${CARD_PADDING}`}>
+      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-x-10 lg:gap-y-6 lg:p-8 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <div className="flex min-w-0 flex-col gap-5">
           <h1 id="hero" className="m-0 text-[36px] font-extrabold leading-10 tracking-[-1px] md:text-display-sm">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
