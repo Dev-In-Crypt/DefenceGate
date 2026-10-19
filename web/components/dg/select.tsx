@@ -24,7 +24,8 @@ import { CONTROL } from './field';
  *     list is dark in the dark theme.
  *   - Otherwise (after mount): a press on the select does not open the system menu; it opens ours, a fixed-position portal on
  *     `document.body`, so no scroll box or sticky column clips it; it flips above the select when the space below is short and
- *     scrolls inside itself. The select gets `aria-expanded`, `aria-controls` and `aria-activedescendant`.
+ *     scrolls inside itself. The select gets `role="combobox"` (so the browser reports our `aria-expanded`, not the closed system
+ *     popup), `aria-expanded`, `aria-controls` and `aria-activedescendant`.
  *
  * Keys: Down/Up/Enter/Space open; Home/End first/last; typing jumps to the option that starts with the letters (repeat a
  * letter to step through those that share it); while open Up/Down/Home/End/PageUp/PageDown move, Enter/Space choose,
@@ -186,6 +187,9 @@ export function ListboxSelect({ options, placeholder, accessibleName, ...rest }:
         ref={selectRef}
         id={baseId}
         {...(custom ? {
+          // The explicit role makes Chromium read `aria-expanded` from us: for a plain <select> it reports the state of the system
+          // popup, which never opens here, so the open list was announced "collapsed" (UX audit M5; measured in wp58-selfcheck.md).
+          role: 'combobox',
           'aria-haspopup': 'listbox' as const,
           'aria-expanded': open,
           'aria-controls': open ? `${baseId}-menu` : undefined,
