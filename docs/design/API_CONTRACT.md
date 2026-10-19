@@ -955,6 +955,11 @@ filter that selects fewer than `kMin` suppliers answers `items: [], total: 0, wi
 group rule of the summary, judged on the country and product group alone, so a `q` inside a large group works. A winner
 string that is no supplier (`award.excluded_reason`) is not listed.
 
+WP-57 (19 October 2026): each `country` value is a two-letter code (`DE`), a three-letter code (`DEU`) or an English name
+(`Germany`, `Czech Republic`, `UK`), without regard to case, and is read as the two-letter code the list stores
+(`dgate/countries.py`). A two-letter value is a code as written, so a code nobody holds (`ZZ`) is an empty group, as before.
+A value that is none of the three answers 422 with `country: '<value>' is not a country; ...`.
+
 `GET /v1/suppliers/summary` is the public aggregate:
 
     { kMin: 3, since, noticesRead, noticesWithSupplier, suppliers, awards, skippedNaturalPersons,

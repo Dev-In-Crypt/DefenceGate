@@ -27,7 +27,7 @@ export const nameOf = (name: string) => displayName(name, 'title');
 
 /** An organisation in someone else's list: a link to its profile, or, when it was removed on request, just the neutral text. */
 export function OrgLink({ org }: { org: OrgRef }) {
-  if (!org.slug) return <span>{org.name}</span>;
+  if (!org.slug) return <span>{nameOf(org.name)}</span>;
   return <Link href={`/organisations/${org.slug}`} className="font-semibold">{nameOf(org.name)}</Link>;
 }
 

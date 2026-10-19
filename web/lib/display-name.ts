@@ -22,11 +22,35 @@ const KNOWN = [
 ];
 const KNOWN_BY_KEY = new Map(KNOWN.map((k) => [k.toLowerCase(), k]));
 
+/**
+ * The names of organisations (`kind` 'title') also keep these: research bodies and companies the sources write in capitals or in
+ * lower case ("CNRS", "inria"), and the legal forms that are not also a word. Chosen from the names the directory holds on
+ * 19 October 2026 (WP-57); a short word that is also a word of some language ("mit", "foi") is not here.
+ */
+const NAME_KNOWN = [
+  'CNRS', 'TNO', 'VTT', 'INRIA', 'EDF', 'CEA', 'DLR', 'AIT', 'SINTEF', 'NLR', 'ONERA', 'CSIC', 'CNR', 'ENEA', 'GTS', 'MBDA',
+  'KNDS', 'BAE', 'OHB', 'GMV', 'ISD', 'DNV', 'GKN', 'ICT', 'INESC', 'INEGI', 'IMDEA', 'FFI', 'DTU', 'KTH', 'NTNU', 'EPFL', 'NOAA',
+  'UNESCO', 'OECD', 'CERN', 'JRC', 'TUBITAK',
+  // legal forms that are no word
+  'SAS', 'SARL', 'SRO', 'DOO', 'UAB', 'SIA', 'ASA', 'EOOD', 'OOD', 'JSC', 'CLG', 'LBG', 'EEIG', 'ASBL', 'ETS', 'SLU', 'SAU',
+  'IKE', 'SCPA', 'SNC', 'AIE', 'GIE', 'ApS', 'Kft', 'Lda', 'ehf', 'mbH', 'gGmbH',
+  'GmbH', 'Ltd', 'LLC', 'PLC', 'NV', 'BV', 'SRL', 'OYJ',
+];
+const NAME_KNOWN_BY_KEY = new Map(NAME_KNOWN.map((k) => [k.toLowerCase(), k]));
+/**
+ * Legal forms that are also words ("as", "ab", "sa", "ag", "ou"): read as the form only as the last word of a name, where
+ * they are one ("Nammo Raufoss As" is "AS"; "As Good As Gold" keeps its words).
+ */
+const FINAL_FORMS = new Map<string, string>([
+  ['as', 'AS'], ['ab', 'AB'], ['sa', 'SA'], ['ag', 'AG'], ['ad', 'AD'], ['ae', 'AE'], ['se', 'SE'], ['kg', 'KG'], ['sl', 'SL'],
+  ['oy', 'OY'], ['spa', 'SpA'], ['ou', 'OÜ'], ['ev', 'e.V.'],
+]);
+
 /** Lower case in a name, unless it opens it (articles, prepositions and particles of the languages we meet). */
 const SMALL = new Set([
   'of', 'the', 'and', 'for', 'in', 'on', 'at', 'to', 'de', 'la', 'le', 'les', 'du', 'des', 'del', 'della', 'di', 'da', 'do', 'dos',
   'das', 'van', 'von', 'der', 'den', 'het', 'een', 'en', 'y', 'e', 'et', 'i', 'a', 'o', 'za', 'na', 'w', 'z', 'ze', 'v', 'k', 'pro',
-  'und', 'für', 'och', 'av', 'og', 'af',
+  'und', 'für', 'och', 'av', 'og', 'af', 'fur', 'fuer', 'zur', 'zum', 'u', 'voor',
 ]);
 
 /** Words after which a lone "I" is a numeral ("Phase I"), not the Polish "and". */
@@ -83,7 +107,7 @@ function word(w: string, first: boolean, prev: string, kind: NameKind): string {
   if (!LETTER.test(w)) return w;
   if (LOWER.test(w)) return w;      // a word with a lower-case letter is not shouted: "France", "honey", "BAAINBw"
   const key = w.toLowerCase().replace(/\.$/, '');
-  const known = KNOWN_BY_KEY.get(key);
+  const known = (kind === 'title' ? NAME_KNOWN_BY_KEY.get(key) : undefined) ?? KNOWN_BY_KEY.get(key);
   if (known) return known;
   if (/^\p{L}(?:\.\p{L})+$/u.test(w)) return w;                              // S.A  U.S.A  (the last dot is peeled off)
   if (w.length === 1 ? w === 'I' && NUMBERED.test(prev) : ROMAN.test(w)) return w;   // Roman numerals
@@ -126,12 +150,55 @@ function shout(text: string, kind: NameKind): string {
  * mostly upper case is returned unchanged, and so is a single short word (an acronym). Stretches between
  * " - " are read one by one: each opens a sentence, and a stretch that is one short word ("BNT" in
  * "2024-ESID-TLN-0046 - BNT - ASSISTANCE A MAITRISE D'OUVRAGE") is a code and stays.
+ *
+ * A name (`kind` 'title') is also tidied (WP-57): a name with no capital at all is cased as a name ("ministere des armees"),
+ * and the acronyms and legal forms of NAME_KNOWN / FINAL_FORMS are written as such wherever they stand in the source's own
+ * case ("Cnrs", "Sas", "Gmbh" -> "CNRS", "SAS", "GmbH"). Only the case of letters changes, never the letters; the stored name is
+ * not touched.
  */
 export function displayName(text: string, kind: NameKind = 'sentence'): string {
-  if (!text || upperShare(text) < 0.6 || capitalWordShare(text) < 0.75) return text;
+  if (!text) return text;
+  if (kind === 'title') return tidyName(text);
+  return shoutCase(text, kind);
+}
+
+function shoutCase(text: string, kind: NameKind): string {
+  if (upperShare(text) < 0.6 || capitalWordShare(text) < 0.75) return text;
   return text.split(/(\s+[-–—]\s+)/).map((part, i) => {
     if (i % 2 === 1 || !part.trim()) return part;
     if (part.trim().split(/\s+/).length === 1 && letterCount(part) <= 4) return part;
     return shout(part, kind);
   }).join('');
+}
+
+/** Upper case that never turns one letter into two ("ß" stays one letter, so the letters of a name are the same). */
+const upperLetters = (s: string) => Array.from(s, (c) => (c === 'ß' ? 'ẞ' : c.toUpperCase().length === 1 ? c.toUpperCase() : c)).join('');
+const HAS_UPPER = /\p{Lu}/u;
+
+/** A letter that comes back as itself after upper and lower case ("ı" does not: it would come back as "i"). */
+const roundTrips = (c: string) => c === 'ß' || c.toUpperCase().toLowerCase() === c;
+
+function tidyName(text: string): string {
+  // A name with no capital is cased as a name, unless some letter would change on the way ("kızılay": the Turkish dotless i).
+  const noCapital = LETTER.test(text) && !HAS_UPPER.test(text) && Array.from(text).every(roundTrips);
+  return tidyForms(shoutCase(noCapital ? upperLetters(text) : text, 'title'));
+}
+
+/** The case of the acronyms and legal forms of a name, token by token; a token with its own mixed case ("GmbH", "iXblue") is left. */
+function tidyForms(input: string): string {
+  const name = input.replace(/(\S)\s[Ee]\s[Vv]$/, '$1 e.V.');      // "gesellschaft e v" (the source dropped the dots)
+  const tokens = name.match(/\S+/g) ?? [];
+  const last = tokens.length - 1;
+  let at = -1;
+  return name.replace(/\S+/g, (token) => {
+    at += 1;
+    const core = /^([^\p{L}\p{N}]*)(\p{L}+)([^\p{L}\p{N}]*)$/u.exec(token);
+    if (!core) return token;
+    const [, head, body, tail] = core;
+    const shape = body === body.toLowerCase() || body === body.toUpperCase() || body === capitalise(body.toLowerCase());
+    if (!shape) return token;
+    const key = body.toLowerCase();
+    const form = NAME_KNOWN_BY_KEY.get(key) ?? (at === last && at > 0 ? FINAL_FORMS.get(key) : undefined);
+    return form ? `${head}${form}${tail}` : token;
+  });
 }
