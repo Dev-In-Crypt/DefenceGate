@@ -170,12 +170,13 @@ test('a check that gets no answer shows the standard error, not the browser\'s w
 });
 
 test('the empty-state link of /digest is underlined like any link in running text', async ({ page }) => {
-  await page.goto('/styleguide');
+  await page.goto('/digest');
+  await page.waitForLoadState('networkidle');
   // The empty state's text is a div of running text: its links are underlined (WP-55 rule, `.run-text`).
   const line = await page.evaluate(() => {
     const d = document.createElement('div'); d.className = 'run-text';
     const a = document.createElement('a'); a.href = '/changes'; a.className = 'font-semibold'; a.textContent = 'What changed';
-    d.append(a); document.querySelector('main')!.append(d);
+    d.append(a); (document.querySelector('main') ?? document.body).append(d);
     return getComputedStyle(a).textDecorationLine;
   });
   expect(line).toBe('underline');
