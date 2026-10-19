@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Label-above-value facts in a hairline grid (the layout of the EU Funding & Tenders "general information" block):
- * at most 3 columns, fewer when the box is narrow, a 1px `--line` rule above every row, no tinted cells. Replaces
+ * at most 3 columns, fewer when the box is narrow, a 1px `--line` rule above every row (not above the first row of a grid inside a card), no tinted cells. Replaces
  * hand-written `dl` grids of equal two-column cells, where a long value wrapped into four short lines.
  *
  *   <FactsGrid items={[{ label: 'Cost', value: 'Free' }, { label: 'Time', value: 'Up to 14 working days', wide: true }]} />
@@ -25,7 +25,8 @@ export function Fact({ label, children, mono = false, wide = false, className }:
 
 export function FactsGrid({ items, children, className }: { items?: FactItem[]; children?: React.ReactNode; className?: string }) {
   return (
-    <dl className={cn('facts-grid m-0 border-b border-line', className)}>
+    // `border-b-0` is how a page says "inside a card" (no closing rule): that grid also loses the top rule of its whole first row.
+    <dl className={cn('facts-grid m-0 border-b border-line', className?.includes('border-b-0') && 'facts-grid--flush', className)}>
       {items?.map((f, i) => <Fact key={i} label={f.label} mono={f.mono} wide={f.wide}>{f.value}</Fact>)}
       {children}
     </dl>

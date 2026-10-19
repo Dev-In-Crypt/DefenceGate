@@ -20,4 +20,4 @@ export function Field({ id, label, hint, error, className, children }: FieldProp
 }
 
 export const boxCls = (error?: string, disabled?: boolean, pill?: boolean) =>
-  cn(BOX, pill ? 'rounded-pill' : 'rounded-md', error ? 'border-alert' : 'border-line', disabled && 'bg-surface-inset');
+  cn(BOX, pill ? 'rounded-pill' : 'rounded-md', error ? 'border-alert' : 'border-input-edge', disabled && 'bg-surface-inset');

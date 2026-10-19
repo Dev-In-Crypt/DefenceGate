@@ -50,7 +50,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
       <form method="get" action="/networks/consortium-gaps" aria-label="Choose the area and the country" className="flex flex-wrap items-end gap-3">
         <Select name="programme" label="Programme" options={GAP_PROGRAMMES} defaultValue={GAP_PROGRAMMES.some((p) => p.value === q.programme) ? q.programme : 'EDF'} className="w-64" />
         <label className="flex flex-col gap-1 text-label" htmlFor="topic">Capability category or topic code start
-          <input id="topic" name="topic" defaultValue={q.topic ?? ''} maxLength={60} placeholder="For example CYBER" className="h-11 w-56 rounded-md border-strong border-line bg-surface px-4 font-mono text-body text-ink" />
+          <input id="topic" name="topic" defaultValue={q.topic ?? ''} maxLength={60} placeholder="For example CYBER" className="h-11 w-56 rounded-md border-strong border-input-edge bg-surface px-4 font-mono text-body text-ink" />
         </label>
         <Select name="lacking" label="With no participant from" options={COUNTRIES.some((c) => c.value === q.lacking) ? COUNTRIES : [...COUNTRIES, { value: q.lacking, label: `${countryName(q.lacking)} (${q.lacking})` }]} defaultValue={q.lacking} className="w-56"
           hint="Ukraine unless you choose another country." />

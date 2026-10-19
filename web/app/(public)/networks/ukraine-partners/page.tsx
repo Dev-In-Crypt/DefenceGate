@@ -68,7 +68,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
           <form method="get" action="/networks/ukraine-partners" aria-label="Choose the first year" className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-label" htmlFor="since">Projects started in or after
               <input id="since" name="since" type="number" min={2007} max={2100} defaultValue={data.since}
-                className="h-11 w-32 rounded-md border-strong border-line bg-surface px-4 font-mono text-body text-ink" />
+                className="h-11 w-32 rounded-md border-strong border-input-edge bg-surface px-4 font-mono text-body text-ink" />
             </label>
             {all && <input type="hidden" name="programme" value="all" />}
             {!all && codes.join() !== DEFENCE_PROGRAMMES.join() && <input type="hidden" name="programme" value={codes.join(',')} />}

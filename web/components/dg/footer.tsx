@@ -63,7 +63,7 @@ export async function Footer() {
           <p className="m-0 max-w-3xl text-small text-ink-muted">
             DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
           </p>
-          <div className="flex flex-col gap-0.5 font-mono text-mono text-ink-muted lg:text-right">
+          <div className="flex flex-col gap-0.5 font-sans text-small text-ink-muted lg:text-right">
             <span>{health.sources.length} sources · Last collection run {formatDateTimeUtc(lastDataUpdate(health))}</span>
             <span>All dates in UTC · <a href="/changes.atom" className="inline-flex min-h-9 items-center font-semibold text-ink lg:min-h-8">Atom feed of changes</a></span>
           </div>

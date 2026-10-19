@@ -79,7 +79,7 @@ function withProduct(f: ReturnType<typeof parse>) {
   return { match, unknown, none: (match !== null && match.prefixes.length === 0) || unknown.length > 0, api: { ...f, cpv, country: codes.join(',') } };
 }
 
-const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-normal';
+const INPUT = 'min-h-11 rounded-md border border-input-edge bg-surface px-3 font-normal';
 
 export default async function SuppliersPage({ searchParams }: Props) {
   const f = parse(await searchParams);

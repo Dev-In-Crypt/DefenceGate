@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
-import { THEME_STORAGE_KEY, type Theme } from '@/lib/theme';
+import { THEME_STORAGE_KEY, syncThemeColor, type Theme } from '@/lib/theme';
 import { Icon } from './icon';
 
 export function ThemeToggle() {
@@ -15,6 +15,7 @@ export function ThemeToggle() {
     setTheme(next);
     if (next === 'dark') document.documentElement.dataset.theme = 'dark';
     else delete document.documentElement.dataset.theme;
+    syncThemeColor(next);
     try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch { /* storage unavailable */ }
   };
   return (

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Manrope, DM_Mono } from 'next/font/google';
 import { SITE } from '@/lib/seo';
-import { THEME_STORAGE_KEY } from '@/lib/theme';
+import { THEME_COLOR, THEME_SCRIPT } from '@/lib/theme';
 import { ThemeSync } from '@/components/dg/theme-sync';
 import './globals.css';
 
@@ -17,19 +17,18 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F4F1EA' },
-    { media: '(prefers-color-scheme: dark)', color: '#0F1D17' },
+    { media: '(prefers-color-scheme: light)', color: THEME_COLOR.light },
+    { media: '(prefers-color-scheme: dark)', color: THEME_COLOR.dark },
   ],
 };
 
-// Applies a saved theme before paint. Light is the default.
-const themeScript = `try{var t=localStorage.getItem('${THEME_STORAGE_KEY}');if(t==='dark')document.documentElement.dataset.theme='dark'}catch(e){}`;
+// Applies the theme before paint: the saved choice, else the system's scheme (lib/theme.ts). The theme-color metas follow the same choice.
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${manrope.variable} ${dmMono.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
         <ThemeSync />

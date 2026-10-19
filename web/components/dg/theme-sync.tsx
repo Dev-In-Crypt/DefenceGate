@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { THEME_STORAGE_KEY } from '@/lib/theme';
+import { THEME_STORAGE_KEY, pickTheme, syncThemeColor } from '@/lib/theme';
 
 /**
  * Puts the saved theme back if the page lost it. The pre-paint script in app/layout.tsx sets `data-theme` on <html> before the first
@@ -11,10 +11,11 @@ import { THEME_STORAGE_KEY } from '@/lib/theme';
  */
 export function ThemeSync() {
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved === 'dark' && document.documentElement.dataset.theme !== 'dark') document.documentElement.dataset.theme = 'dark';
-    } catch { /* storage unavailable: the page keeps what it has */ }
+    let saved: string | null = null;
+    try { saved = localStorage.getItem(THEME_STORAGE_KEY); } catch { /* storage unavailable: the system's scheme decides */ }
+    const theme = pickTheme(saved, window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (theme === 'dark' && document.documentElement.dataset.theme !== 'dark') document.documentElement.dataset.theme = 'dark';
+    syncThemeColor(theme);
   }, []);
   return null;
 }

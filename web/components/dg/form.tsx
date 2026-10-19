@@ -78,7 +78,7 @@ export function FoldGroup({ legend, children, className, open = true, count = 0,
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-label text-ink [&::-webkit-details-marker]:hidden">
         <span>
           {legend}
-          {count > 0 && <span className="ml-2 rounded-pill bg-surface-inset px-2 py-0.5 font-mono text-[12px] font-medium tabular-nums">{count}</span>}
+          {count > 0 && <span className="ml-2 rounded-pill bg-surface-inset px-2 py-0.5 font-mono text-label font-medium tabular-nums">{count}</span>}
         </span>
         <Icon icon={ChevronDown} size="inline" className="shrink-0 text-ink-muted transition-transform duration-dg group-open/fg:rotate-180" />
       </summary>
