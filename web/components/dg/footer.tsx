@@ -34,8 +34,8 @@ const COLUMNS: { title: string; long?: boolean; links: { label: string; href: st
 const LINK = 'inline-flex min-h-9 items-center text-small font-semibold text-ink lg:min-h-8';
 
 /**
- * One compact card (about 300 px from lg): the brand and the two feeds, four link groups side by side (the two long ones in two
- * columns), then the legal line at the left and the source line at the right. The same links as before; the "source status"
+ * One compact card (about 300 px from lg): the brand, four link groups side by side (the two long ones in two
+ * columns), then the legal line at the left and the source line (with the Atom feed) at the right. The same links as before; the "source status"
  * box said what the Data column's first link says.
  */
 export async function Footer() {
@@ -47,11 +47,6 @@ export async function Footer() {
           <div className="col-span-2 flex flex-col items-start gap-2 sm:col-span-1">
             <Logo href="/" />
             <p className="m-0 max-w-[30ch] text-small text-ink-muted">Defence and dual-use tenders and funding calls, in one place.</p>
-            <nav aria-label="Follow" className="flex flex-wrap items-center gap-x-4">
-              <span className="text-label text-ink-muted">Follow</span>
-              <a href="/changes.atom" className={LINK}>Atom feed</a>
-              <a href="/calendar.ics" className={LINK}>Calendar (.ics)</a>
-            </nav>
           </div>
           {COLUMNS.map((col) => (
             <nav key={col.title} aria-label={col.title} className={cn('flex min-w-0 flex-col', col.long ? 'col-span-2 sm:col-span-1' : 'max-lg:order-3', col.title === 'Directory' && 'max-lg:order-1', col.title === 'Data' && 'max-lg:order-2')}>
@@ -70,7 +65,7 @@ export async function Footer() {
           </p>
           <div className="flex flex-col gap-0.5 font-mono text-mono text-ink-muted lg:text-right">
             <span>{health.sources.length} sources · Last collection run {formatDateTimeUtc(lastDataUpdate(health))}</span>
-            <span>All dates in UTC</span>
+            <span>All dates in UTC · <a href="/changes.atom" className="inline-flex min-h-9 items-center font-semibold text-ink lg:min-h-8">Atom feed of changes</a></span>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, List } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { now } from '@/lib/deadline';
 import { formatMonthUtc } from '@/lib/format';
 import {
@@ -9,7 +9,7 @@ import {
   type CalendarParams, type KindFilter,
 } from '@/lib/calendar';
 import type { SearchParams } from '@/lib/filters';
-import { absoluteUrl, buildMetadata } from '@/lib/seo';
+import { buildMetadata } from '@/lib/seo';
 import { countryName } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
@@ -41,7 +41,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const p = parseCalendarParams(await searchParams);
   return buildMetadata({
     title: 'Deadline calendar for defence tenders and funding calls',
-    description: 'Upcoming deadlines of open defence tenders and funding calls in one calendar, in UTC, each linked to its record. Also as an iCalendar feed.',
+    description: 'Upcoming deadlines of open defence tenders and funding calls in one calendar, in UTC, each linked to its record.',
     path: '/calendar',
     // Filtered and month views share the canonical page and stay out of the index.
     noindex: p.kind !== 'all' || p.countries.length > 0 || p.view !== 'list' || p.month !== null || p.page > 1,
@@ -75,10 +75,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   ];
 
   const href = (over: Partial<CalendarParams>) => `/calendar${calendarQuery({ ...p, page: 1, month: p.view === 'month' ? month : null, ...over })}`;
-  const feed = `/calendar.ics${calendarQuery({ kind: p.kind, countries: p.countries })}`;
   const bothDown = !data.tendersOk && !data.callsOk;
-  // The same address for a calendar app that subscribes: `webcal://` opens it there instead of downloading a file.
-  const subscribe = absoluteUrl(feed).replace(/^https?:/, 'webcal:');
 
   return (
     <>
@@ -108,28 +105,6 @@ export default async function CalendarPage({ searchParams }: Props) {
               </div>
             </form>
           </FilterPanel>
-
-          <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5">
-            <h2 id="feed-heading" className="m-0 text-body font-bold">Calendar feed</h2>
-            <p className="m-0 text-small text-ink-muted">
-              Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.
-            </p>
-            <a href={subscribe} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
-              <Icon icon={CalendarPlus} size="inline" />Subscribe in your calendar app
-            </a>
-            <code className="break-all font-mono text-mono text-ink-muted">{absoluteUrl(feed)}</code>
-            <a href={feed} download className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
-              <Icon icon={Download} size="inline" />Download .ics
-            </a>
-            <details className="text-small text-ink-muted">
-              <summary className="min-h-11 cursor-pointer py-2 font-bold text-ink">If the subscribe link does nothing</summary>
-              <ul className="m-0 flex list-none flex-col gap-1 p-0 pt-1">
-                <li><span className="font-semibold text-ink">Google Calendar:</span> Other calendars, From URL, paste the address above.</li>
-                <li><span className="font-semibold text-ink">Outlook:</span> Add calendar, Subscribe from web, paste the address.</li>
-                <li><span className="font-semibold text-ink">Apple Calendar:</span> File, New Calendar Subscription, paste the address.</li>
-              </ul>
-            </details>
-          </section>
         </div>
 
         <section aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">

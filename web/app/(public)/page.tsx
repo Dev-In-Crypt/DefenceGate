@@ -256,12 +256,11 @@ export default async function LandingPage() {
             <p className="m-0 max-w-prose text-body text-ink-muted">
               <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.new)}</span> new notices and{' '}
               <span className="font-mono tabular-nums text-ink">{formatNumber(changes.counts.amended)}</span> amendments to a deadline, value, status or procedure,
-              from our archive. There is an Atom feed of the same list: no account needed.
+              from our archive.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-x-5">
             <Button href="/changes" variant="secondary">See what changed</Button>
-            <a href="/changes.atom" className="inline-flex min-h-11 items-center text-small font-bold">Atom feed</a>
           </div>
         </section>
       )}

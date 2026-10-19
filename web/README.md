@@ -90,7 +90,7 @@ Added with the same tokens: `Footer`, `TenderCard`, `BuyerCard`, `TenderStatusPi
 
 ## Tools and reference pages
 
-- `/calendar` (month and list) and `/calendar.ics`: open tenders and funding calls with a deadline, built in `lib/calendar.ts` from `getTenders` / `getCalls` only; the feed is `lib/ics.ts` (RFC 5545, at most 500 events, UID `<kind>-<id>@defencegatehub.com`, cached an hour).
+- `/calendar` (month and list): open tenders and funding calls with a deadline, built in `lib/calendar.ts` from `getTenders` / `getCalls` only. The `.ics` feed was withdrawn on 2026-10-19; `lib/ics.ts` stays only for the helpers `lib/calendar.ts` and the checks still import.
 - `/tenders/export.csv`, `/funding/export.csv`: the public fields of the current list result (same query keys as the pages), at most 2,000 rows, formula-safe cells (`lib/csv.ts`, `lib/export.ts`).
 - `/tenders/<slug>/evidence`: printable record with source, licence, retrieval time, version shown and the full version timeline; `noindex`. Print CSS hides the header and footer (`print:hidden`).
 - `/cpv`: selection of the official CPV 2008 vocabulary in `lib/data/cpv.json` (source and licence in the file's `_source` and `_licence`). `/glossary`: entries in `lib/glossary.ts`.
