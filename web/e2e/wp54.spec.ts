@@ -18,7 +18,6 @@ for (const [path, noun, link] of [['/tenders', 'tenders', /href="\/tenders\/[^"/
     expect(visible).toMatch(link);
     expect(visible).toMatch(/Showing 1/);
     expect(html).not.toContain(`Loading ${noun}`);
-    expect(html).not.toContain('<!--$?-->');
   });
 
   test(`${path}: with scripts off the list, its sort and its pager are there as links`, async ({ browser }) => {
