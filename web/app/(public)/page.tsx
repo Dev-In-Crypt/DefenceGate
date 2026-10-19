@@ -127,13 +127,19 @@ export default async function LandingPage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the finder and the links run under both, full width. */}
-      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10 lg:p-10 ${CARD_SURFACE} ${CARD_PADDING}`}>
+      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the links under the lead; the finder runs under both, full width. */}
+      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-x-10 lg:gap-y-5 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <div className="flex min-w-0 flex-col gap-5">
           <h1 id="hero" className="m-0 text-[36px] font-extrabold leading-10 tracking-[-1px] md:text-display-sm">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
+          <div className="flex flex-wrap items-center gap-x-5">
+            <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
+            <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
+            <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
+            <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
+          </div>
         </div>
         <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-x-6 gap-y-4">
           <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
@@ -143,37 +149,31 @@ export default async function LandingPage() {
           <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
         </dl>
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
-          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface-inset p-4">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
+          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="rounded-lg border border-edge bg-surface-inset p-4">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] md:items-end">
               <Select name="country" label="Country of the buyer" placeholder="Any country"
                 options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
               <TextInput name="cpv" label="Product code (CPV)" placeholder="For example 35 or 35120000" maxLength={200} inputMode="numeric" />
               <TextInput search name="q" label="Or a word in the title or the name of the buyer" placeholder="For example uniforms" maxLength={100} />
-            </div>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-              <Button type="submit" iconRight={ArrowRight}>Find tenders</Button>
-              <Link href="/cpv" className="inline-flex min-h-11 items-center text-small font-bold">Not sure of the code? CPV finder</Link>
+              <Button type="submit" iconRight={ArrowRight} className="justify-self-start">Find tenders</Button>
             </div>
           </form>
-          {examples.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-5">
-              <p className="m-0 text-small text-ink-muted">Open now, for example:</p>
-              <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
-                {examples.map((e) => (
-                  <li key={`${e.country}-${e.cpv}`}>
-                    <Link href={`/tenders${toTenderQuery({ country: [e.country], cpv: [e.cpv] })}`} className="inline-flex min-h-11 items-center text-small font-bold">
-                      {BUYER_COUNTRIES[e.country] ?? e.country}, {cpvDivisionLabel(e.cpv)?.toLowerCase() ?? `CPV ${e.cpv}`}: {formatNumber(e.open)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <div className="flex flex-wrap items-center gap-x-5">
-            <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
-            <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
-            <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
-            <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
+            {examples.length > 0 && (
+              <>
+                <p className="m-0 text-small text-ink-muted">Open now, for example:</p>
+                <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0">
+                  {examples.map((e) => (
+                    <li key={`${e.country}-${e.cpv}`}>
+                      <Link href={`/tenders${toTenderQuery({ country: [e.country], cpv: [e.cpv] })}`} className="inline-flex min-h-11 items-center text-small font-bold">
+                        {BUYER_COUNTRIES[e.country] ?? e.country}, {cpvDivisionLabel(e.cpv)?.toLowerCase() ?? `CPV ${e.cpv}`}: {formatNumber(e.open)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <Link href="/cpv" className="inline-flex min-h-11 items-center text-small font-bold">Not sure of the code? CPV finder</Link>
           </div>
         </div>
       </section>

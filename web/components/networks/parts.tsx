@@ -206,7 +206,7 @@ export function FundingChart({ rows }: { rows: FundingRow[] }) {
             {g.totalProjects} {g.totalProjects === 1 ? 'project' : 'projects'}
             {g.totalEur !== null ? `, ${formatEur(g.totalEur)} EU contribution.` : '. This programme states no amount per participant, so the bars show projects.'}
           </p>
-          <DataTable label={`Funding by year, ${PROGRAMME_WORD[g.programme] ?? g.programme}`} minWidth={520}>
+          <DataTable label={`Funding by year, ${PROGRAMME_WORD[g.programme] ?? g.programme}`} caption={`${PROGRAMME_WORD[g.programme] ?? g.programme}: projects and EU contribution per year`} minWidth={520}>
             <thead>
               <tr>
                 <th scope="col" className="whitespace-nowrap">Year</th>

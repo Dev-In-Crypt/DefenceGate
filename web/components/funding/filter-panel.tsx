@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from '../dg/icon';
+import { boxCls } from '../dg/field';
+import { ListboxSelect } from '../dg/select';
 
 /** Turns form data into a clean query string (drops empty values and the default currency, joins repeats with commas). */
 function formToQuery(form: HTMLFormElement): string {
@@ -64,13 +66,14 @@ export function SortSelect({ value, options }: { value: string; options: { value
   return (
     <label className="flex items-center gap-2 text-small font-semibold">
       <span>Sort</span>
-      <select value={value} onChange={(e) => {
-        const p = new URLSearchParams(window.location.search);
-        p.set('sort', e.target.value); p.delete('page');
-        router.replace(`${pathname}?${p}`, { scroll: false });
-      }} className="h-11 cursor-pointer rounded-pill border-strong border-line bg-surface px-4 font-sans text-small font-semibold text-ink">
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      <span className={cn(boxCls(undefined, false, true), 'relative')}>
+        <ListboxSelect fit value={value} options={options} accessibleName="Sort" controlClassName="text-small font-semibold"
+          className="text-small font-semibold" onChange={(e) => {
+            const p = new URLSearchParams(window.location.search);
+            p.set('sort', e.target.value); p.delete('page');
+            router.replace(`${pathname}?${p}`, { scroll: false });
+          }} />
+      </span>
     </label>
   );
 }

@@ -30,7 +30,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
 
   if (opening) {
     return (
-      <div className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md bg-surface-inset p-4', className)}>
+      <div data-deadline="" className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md bg-surface-inset p-4', className)}>
         <span className="text-label text-ink-muted">{openingPhrase(opening, now()).lead}</span>
         <span className={cn('font-sans font-extrabold text-ink', dateSize)}>
           <time dateTime={opening}>{openingPhrase(opening, now()).date}</time>
@@ -44,7 +44,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
 
   if (d.state === 'none') {
     return (
-      <div className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
+      <div data-deadline="" className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
         <span className={cn('text-label', t.label)}>Deadline</span>
         <span className={cn('font-sans font-extrabold', dateSize, t.count)}>{d.label}</span>
       </div>
@@ -54,7 +54,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
   if (d.rolling) {
     // Open past its last cut-off: the call takes submissions continuously or in several cut-offs.
     return (
-      <div className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
+      <div data-deadline="" className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
         <span className={cn('text-label', t.label)}>Submission</span>
         <span className={cn('font-sans font-extrabold', lg ? 'text-h2' : 'text-[20px] leading-[26px] tracking-[-0.5px]', t.count)}>{d.label}</span>
         <span className={cn('font-mono tabular-nums', lg ? 'text-mono-strong' : 'text-[12px] leading-4', t.date)}>
@@ -67,7 +67,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
   // A closed deadline reads "Deadline / Closed / 27 Jul 2026": the word "Closed" is said once.
   const heading = d.state === 'closed' ? 'Deadline' : d.label;
   return (
-    <div className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
+    <div data-deadline="" className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
       <span className={cn('text-label', t.label)}>{heading}</span>
       <span className={cn('font-sans font-extrabold', lg ? 'text-h1' : 'text-[24px] leading-[30px] tracking-[-0.5px]', t.count)}>
         <time dateTime={d.iso ?? undefined}>{d.countdown}</time>
