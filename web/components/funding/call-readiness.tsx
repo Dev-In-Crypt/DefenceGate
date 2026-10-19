@@ -8,11 +8,11 @@ import { callSummary } from '@/lib/call-readiness';
 import { cleanQuote } from '@/lib/quote';
 import { fitLabel, fitOf, linesSummary, type Fit } from '@/lib/fit';
 import { isFinished, toRequest } from '@/lib/profile';
-import { VERDICT_WORD, assess, daysRange, formatRange } from '@/lib/readiness';
+import { ASSESS_FAILED, AssessError, VERDICT_WORD, assess, daysRange, formatRange } from '@/lib/readiness';
 import type { Assessment, CallTiming, ProgrammeAssessment } from '@/lib/readiness-types';
 import { formatDateUtc } from '@/lib/format';
 import { Button } from '@/components/dg/button';
-import { Skeleton } from '@/components/dg/feedback';
+import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { useProfile } from '@/components/readiness/use-readiness';
 
 /**
@@ -37,7 +37,7 @@ function useCallAssessment(callId: string, enabled: boolean, key: string): State
       (data) => { if (mine === seq.current) setResult({ state: 'done', data }); },
       (e: unknown) => {
         if (controller.signal.aborted || mine !== seq.current) return;
-        setResult({ state: 'error', message: e instanceof Error ? e.message : 'The check could not be computed.' });
+        setResult({ state: 'error', message: e instanceof AssessError ? e.message : ASSESS_FAILED });
       },
     );
     return () => controller.abort();
@@ -167,7 +167,7 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
         <h4 className="m-0 text-label">The programme’s rules, and the time left</h4>
         {(result.state === 'loading' || result.state === 'idle') && <Loading />}
         {result.state === 'error' && (
-          <p role="alert" className="m-0 text-body">{result.message} <button type="button" onClick={result.retry} className="font-semibold underline">Try again</button></p>
+          <ErrorState level="h5" title="The check could not be computed" onRetry={result.retry}>{result.message}</ErrorState>
         )}
         {result.state === 'done' && answer && (
           answer.covered && timings.length > 0 ? (

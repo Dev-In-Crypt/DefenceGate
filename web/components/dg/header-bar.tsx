@@ -65,6 +65,9 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (open) { setOpen(false); toggleRef.current?.focus(); }
+      // Escape on a link of a small menu: the menu hides, so focus goes back to its button, not to the page (WP-58).
+      const panel = (document.activeElement as HTMLElement | null)?.closest('[id^="sub-"]');
+      if (panel) document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(panel.id)}"]`)?.focus();
       setSub(null);
     };
     document.addEventListener('keydown', onKey);

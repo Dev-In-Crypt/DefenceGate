@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc } from '@/lib/format';
 import type { Change } from '@/lib/types';
@@ -24,7 +25,7 @@ export function ChangeEntry({ change }: { change: Change }) {
         <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
       </div>
       <h3 className="m-0 break-words text-h3">
-        <Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link>
+        <Link href={`/tenders/${t.slug}`} lang={isNonEnglish(t.titleLanguage) ? (t.titleLanguage ?? undefined) : undefined}>{displayName(t.title)}</Link>
       </h3>
       <p className="m-0 text-small font-semibold">
         {t.buyerSlug ? <Link href={`/buyers/${t.buyerSlug}`} className="inline-flex min-h-8 items-center">{displayName(t.buyerName, 'title')}</Link> : displayName(t.buyerName, 'title')}

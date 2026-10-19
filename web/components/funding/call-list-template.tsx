@@ -13,7 +13,7 @@ import { CallCard } from '../dg/cards';
 import { Pagination } from '../dg/pagination';
 import { Button } from '../dg/button';
 import { ResultTools } from '../dg/download-link';
-import { FILTER_COLUMN } from '../dg/list-page';
+import { FILTER_COLUMN, SkipToResults } from '../dg/list-page';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
@@ -77,13 +77,14 @@ export function CallListTemplate({
       <LiveListScope>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
+          <SkipToResults />
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} />
           {saveSearch}
           {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" total={result.total} status={filters.status} />}
         </div>
 
-        <ResultsRegion aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
+        <ResultsRegion id="results" tabIndex={-1} aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4 outline-none">
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} calls` : `Showing ${from}–${to} of ${result.total} calls`}

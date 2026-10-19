@@ -25,15 +25,15 @@ const SIZE_OPTIONS = [
 ];
 const STEPS = ['Your company', 'Ownership and control', 'Products and regime', 'Certifications held', 'Classified work and exports'] as const;
 
-/** Three radios in a fieldset: the shape of most questions. */
-function Radios<T extends string>({ legend, hint, name, value, options, onChange }: {
-  legend: string; hint?: string; name: string; value: T | ''; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void;
+/** Three radios in a fieldset: the shape of most questions. An `error` is tied to the group and marks its radios invalid. */
+function Radios<T extends string>({ legend, hint, name, value, options, onChange, error }: {
+  legend: string; hint?: string; name: string; value: T | ''; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void; error?: string;
 }) {
   return (
-    <Fieldset legend={legend}>
-      {hint && <p className="m-0 max-w-prose text-small text-ink-muted">{hint}</p>}
+    <Fieldset id={`q-${name}`} legend={legend} hint={hint} error={error}>
       {options.map((o) => (
-        <Choice key={o.value} type="radio" name={name} label={o.label} hint={o.hint} checked={value === o.value} onChange={() => onChange(o.value)} />
+        <Choice key={o.value} type="radio" name={name} label={o.label} hint={o.hint} checked={value === o.value} onChange={() => onChange(o.value)}
+          aria-invalid={error ? true : undefined} />
       ))}
     </Fieldset>
   );
@@ -163,8 +163,8 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 { value: 'natural_person', label: 'A natural person, for example a sole trader acting in their own name' },
                 { value: 'no_legal_personality', label: 'An entity without legal personality, for example some partnerships' },
               ]}
+              error={needForm ? 'Choose the legal form to go on.' : undefined}
               onChange={(v) => { setNeedForm(false); set('legalForm', v); }} />
-            {needForm && <p role="alert" className="m-0 text-small font-bold">Choose the legal form to go on.</p>}
             <Radios legend="What kind of organisation are you? (optional)" name="applicant-kind" value={profile.applicantKind}
               hint="Only a few calls care: EDIP calls for common procurement are open to contracting authorities, international organisations, SEAPs and the European Defence Agency, not to companies. Leave it empty if you do not know; it is then never read as “a company”."
               options={[

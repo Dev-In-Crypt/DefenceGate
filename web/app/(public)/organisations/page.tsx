@@ -4,7 +4,7 @@ import { ApiError } from '@/lib/api';
 import { getOrganisations } from '@/lib/networks-api';
 import { activeOrgFilterCount, defaultOrgSort, parseOrgFilters, toOrgQuery } from '@/lib/networks';
 import { lastPage, type SearchParams } from '@/lib/filters';
-import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
+import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { ErrorState } from '@/components/dg/feedback';
 import { ListPage } from '@/components/dg/list-page';
 import { CountryNote, DataSources, OrgCard, OrgFilterBar, ProgrammeScope } from '@/components/networks/parts';
@@ -26,7 +26,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getOrganisations(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: 'Organisations in EU-funded defence and research projects',
+    title: listViewTitle('Organisations in EU-funded defence and research projects', 'Organisations', { page: f.page, countries: f.country, q: f.q, filters: activeOrgFilterCount(f) }),
     description: 'Who has taken part in the European Defence Fund, Horizon Europe, Horizon 2020 and FP7 projects: each organisation with its projects, partners, countries and EU funding, from CORDIS and the EDF project factsheets.',
     path: '/organisations',
     noindex,

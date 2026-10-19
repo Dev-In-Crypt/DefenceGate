@@ -19,9 +19,9 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
           return (
             <li key={c.href} className="inline-flex min-w-0 items-center gap-1">
               {last ? (
-                <span aria-current="page" className="max-w-[40ch] truncate text-ink-muted">{c.label}</span>
+                <span aria-current="page" lang={c.lang} className="max-w-[40ch] truncate text-ink-muted">{c.label}</span>
               ) : (
-                <><Link href={c.href} className="inline-flex min-h-8 items-center font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
+                <><Link href={c.href} lang={c.lang} className="inline-flex min-h-8 items-center font-semibold">{c.label}</Link><Icon icon={ChevronRight} size="inline" className="text-ink-muted" /></>
               )}
             </li>
           );
@@ -31,13 +31,15 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
   );
 }
 
-function StateShell({ icon, title, children, action, tone = 'default' }: { icon: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode; tone?: 'default' | 'error' }) {
+type Level = 'h2' | 'h3' | 'h4' | 'h5';
+
+function StateShell({ icon, title, children, action, tone = 'default', level: H = 'h2' }: { icon: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode; tone?: 'default' | 'error'; level?: Level }) {
   return (
     <div role={tone === 'error' ? 'alert' : 'status'} className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
       <span className={cn('flex size-11 items-center justify-center rounded-pill bg-surface-inset', tone === 'error' ? 'text-alert' : 'text-ink')}>{icon}</span>
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 text-h3">{title}</h2>
-        {children && <div className="m-0 max-w-prose text-body text-ink-muted">{children}</div>}
+        <H className="m-0 text-h3">{title}</H>
+        {children && <div className="run-text m-0 max-w-prose text-body text-ink-muted">{children}</div>}
       </div>
       {action}
     </div>
@@ -49,10 +51,10 @@ export function EmptyState({ title, children, action }: { title: string; childre
 }
 
 /** `onRetry` works from client error boundaries; `retryHref` from server components. */
-export function ErrorState({ title = 'We could not load this data', children, onRetry, retryHref }: { title?: string; children?: React.ReactNode; onRetry?: () => void; retryHref?: string }) {
+export function ErrorState({ title = 'We could not load this data', children, onRetry, retryHref, level }: { title?: string; children?: React.ReactNode; onRetry?: () => void; retryHref?: string; level?: Level }) {
   const action = onRetry ? <Button variant="secondary" icon={RotateCcw} onClick={onRetry}>Try again</Button>
     : retryHref ? <Button variant="secondary" icon={RotateCcw} href={retryHref}>Try again</Button> : undefined;
-  return <StateShell tone="error" icon={<Icon icon={CircleAlert} />} title={title} action={action}>{children ?? 'The source may be temporarily unavailable. Your filters are kept in the address bar.'}</StateShell>;
+  return <StateShell tone="error" icon={<Icon icon={CircleAlert} />} title={title} action={action} level={level}>{children ?? 'The source may be temporarily unavailable. Your filters are kept in the address bar.'}</StateShell>;
 }
 
 export function Skeleton({ className }: { className?: string }) {

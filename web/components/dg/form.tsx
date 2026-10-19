@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, CircleAlert, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Icon } from './icon';
 import { CONTROL, Field, boxCls, type FieldProps } from './field';
@@ -55,10 +55,20 @@ export function Choice({ type = 'checkbox', label, hint, ...rest }: { type?: 'ch
   );
 }
 
-export function Fieldset({ legend, children, className }: { legend: string; children: React.ReactNode; className?: string }) {
+/**
+ * A group of radios or checkboxes under one question. With `id`, a `hint` and an `error` are tied to the group (`aria-describedby`
+ * on the fieldset, read when focus enters it) and the error is shown inside it, as for a single field (WP-58).
+ */
+export function Fieldset({ legend, hint, error, id, children, className }: {
+  legend: string; hint?: string; error?: string; id?: string; children: React.ReactNode; className?: string;
+}) {
+  const hintId = id && hint ? `${id}-hint` : undefined;
+  const errorId = id && error ? `${id}-error` : undefined;
   return (
-    <fieldset className={cn('m-0 flex min-w-0 flex-col border-0 p-0', className)}>
+    <fieldset aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined} className={cn('m-0 flex min-w-0 flex-col border-0 p-0', className)}>
       <legend className="mb-1 p-0 text-label text-ink">{legend}</legend>
+      {hint && <p id={hintId} className="m-0 max-w-prose text-small text-ink-muted">{hint}</p>}
+      {error && <p id={errorId} className="m-0 flex items-center gap-1 text-small font-bold text-alert"><Icon icon={CircleAlert} size="inline" />{error}</p>}
       {children}
     </fieldset>
   );
