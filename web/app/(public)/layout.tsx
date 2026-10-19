@@ -2,6 +2,7 @@ import { HeaderBar } from '@/components/dg/header-bar';
 import { Footer } from '@/components/dg/footer';
 import { getAccountStatus } from '@/lib/account';
 import { AccountsOpenProvider } from '@/components/account/accounts-open';
+import { RouteFocus } from '@/components/dg/route-focus';
 
 /**
  * Reads no cookie, so public pages stay statically renderable. The status call is cached for 60 seconds and any
@@ -21,6 +22,7 @@ export default async function PublicLayout({ children }: { children: React.React
         <AccountsOpenProvider open={open}>{children}</AccountsOpenProvider>
       </main>
       <Footer />
+      <RouteFocus />
     </>
   );
 }

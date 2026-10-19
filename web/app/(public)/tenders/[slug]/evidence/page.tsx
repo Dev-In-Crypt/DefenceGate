@@ -80,7 +80,7 @@ export default async function TenderEvidencePage({ params }: Props) {
       <div className="print:hidden">
         <Breadcrumbs items={[
           { label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' },
-          { label: tender.title, href: pagePath }, { label: 'Evidence record', href: `${pagePath}/evidence` },
+          { label: tender.title, href: pagePath, lang: isNonEnglish(tender.titleLanguage) ? (tender.titleLanguage ?? undefined) : undefined }, { label: 'Evidence record', href: `${pagePath}/evidence` },
         ]} />
       </div>
 

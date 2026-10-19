@@ -126,7 +126,7 @@ export default async function CallDetailPage({ params }: Props) {
       <PageHeader
         crumbs={[
           { label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' },
-          { label: displayName(call.title), href: `/funding/${call.slug}` },
+          { label: displayName(call.title), href: `/funding/${call.slug}`, lang: nonEnglish ? call.titleLanguage : undefined },
         ]}
         eyebrow={(
           <div className="flex flex-wrap items-center gap-2">

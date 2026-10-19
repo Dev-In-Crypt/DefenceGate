@@ -195,13 +195,19 @@ export class AssessError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
+export const ASSESS_FAILED = 'The check could not be computed. Try again in a moment.';
+
 /** Compute the verdict: the one call that leaves the browser. Nothing is kept by the server. */
 export async function assess(request: AssessRequest, signal?: AbortSignal): Promise<Assessment> {
   const res = await fetch('/api/readiness/assess', {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(request), signal, cache: 'no-store', credentials: 'omit',
+  }).catch((e: unknown) => {
+    // No answer at all (offline, blocked): the browser's own words ("Failed to fetch") are not shown, ours are (WP-58).
+    if (signal?.aborted) throw e;
+    throw new AssessError(0, ASSESS_FAILED);
   });
-  if (!res.ok) throw new AssessError(res.status, res.status === 429 ? 'Too many requests. Wait a minute and try again.' : 'The check could not be computed. Try again in a moment.');
+  if (!res.ok) throw new AssessError(res.status, res.status === 429 ? 'Too many requests. Wait a minute and try again.' : ASSESS_FAILED);
   return (await res.json()) as Assessment;
 }
 

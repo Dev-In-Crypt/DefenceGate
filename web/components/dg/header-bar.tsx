@@ -39,9 +39,9 @@ export const MAIN_NAV: readonly NavItem[] = [
 /** Shown only once the API says accounts are open (layout reads /v1/account/status, 60 s cache). */
 const SIGN_IN = { label: 'Sign in', href: '/signin' } as const;
 
-function NavLink({ href, label, active, onClick }: { href: string; label: string; active: boolean; onClick?: () => void }) {
+function NavLink({ href, label, active, onClick, prefetch }: { href: string; label: string; active: boolean; onClick?: () => void; prefetch?: false }) {
   return (
-    <Link href={href} onClick={onClick} aria-current={active ? 'page' : undefined}
+    <Link href={href} onClick={onClick} prefetch={prefetch} aria-current={active ? 'page' : undefined}
       className={cn('inline-flex min-h-11 items-center whitespace-nowrap px-1 text-body font-semibold no-underline decoration-accent-text decoration-2 underline-offset-[6px] transition-colors duration-dg hover:underline',
         active ? 'text-accent-text' : 'text-ink')}>
       {label}
@@ -65,6 +65,9 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (open) { setOpen(false); toggleRef.current?.focus(); }
+      // Escape on a link of a small menu: the menu hides, so focus goes back to its button, not to the page (WP-58).
+      const panel = (document.activeElement as HTMLElement | null)?.closest('[id^="sub-"]');
+      if (panel) document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(panel.id)}"]`)?.focus();
       setSub(null);
     };
     document.addEventListener('keydown', onKey);
@@ -89,7 +92,8 @@ export function HeaderBar({ accountsOpen = false }: { accountsOpen?: boolean }) 
                 <Icon icon={ChevronDown} size="inline" className={cn('transition-transform duration-dg', sub === n.href && 'rotate-180')} />
               </button>
               <div id={`sub-${n.label}`} className={cn('absolute left-0 top-full z-20 flex min-w-44 flex-col rounded-lg border border-edge bg-surface px-4 py-2 shadow-lg group-hover:visible', sub === n.href ? 'visible' : 'invisible')}>
-                {n.children.map((c) => <NavLink key={c.href} href={c.href} label={c.label} active={pathname === c.href} />)}
+                {/* Not prefetched: the menu is hidden until opened, and its 8 pages were half of the 16 prefetches of every page load (WP-58). */}
+                {n.children.map((c) => <NavLink key={c.href} href={c.href} label={c.label} active={pathname === c.href} prefetch={false} />)}
               </div>
             </div>
           ) : <NavLink key={n.href} href={n.href} label={n.label} active={isActive(n.href)} />)}

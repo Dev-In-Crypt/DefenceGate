@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearProfile, emptyProfile, loadProfile, saveProfile, toRequest, type Profile } from '@/lib/profile';
-import { assess } from '@/lib/readiness';
+import { ASSESS_FAILED, AssessError, assess } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 
 /**
@@ -57,7 +57,7 @@ export function useAssessment(profile: Profile | null): AssessState & { retry: (
       (data) => { if (mine === seq.current) setResult({ state: 'done', data }); },
       (e: unknown) => {
         if (controller.signal.aborted || mine !== seq.current) return;
-        setResult({ state: 'error', message: e instanceof Error ? e.message : 'The check could not be computed.' });
+        setResult({ state: 'error', message: e instanceof AssessError ? e.message : ASSESS_FAILED });
       },
     );
     return () => controller.abort();

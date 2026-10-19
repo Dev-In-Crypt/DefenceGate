@@ -5,7 +5,7 @@ import { ApiError, getSuppliers, getSupplierSummary } from '@/lib/api';
 import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
-import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
+import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { cpvForWords } from '@/lib/cpv';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
@@ -59,7 +59,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: 'Defence supplier map',
+    title: listViewTitle('Defence supplier map', 'Supplier map', {
+      page: f.page, countries: parseCountries(f.country).codes, q: f.q, filters: [f.q, f.country, f.cpv, f.product].filter(Boolean).length,
+    }),
     description: 'Companies named as winners in TED result notices of defence-relevant contracts since 2023: where they are, what they won and who bought it. The open segment only.',
     path: '/suppliers',
     noindex,
@@ -130,7 +132,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
           <AutoGrid min={420}>
             <Card title="By CPV division" headingLevel="h3" className="self-start">
-              <DataTable label="By CPV division" minWidth={380}>
+              <DataTable label="Suppliers and wins per CPV division" minWidth={380}>
                 <thead>
                   <tr>
                     <th scope="col">Product group</th>
@@ -152,7 +154,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
               </DataTable>
             </Card>
             <Card title="By country of the supplier" headingLevel="h3" className="self-start">
-              <DataTable label="By country of the supplier" minWidth={380}>
+              <DataTable label="Suppliers and wins per country of the supplier" minWidth={380}>
                 <thead>
                   <tr>
                     <th scope="col">Country</th>

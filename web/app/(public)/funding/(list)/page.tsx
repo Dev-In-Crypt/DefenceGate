@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getCalls, getHealth } from '@/lib/api';
 import { filtersFromQuery } from '@/lib/account-format';
 import { activeFilterCount, broadenings, ignoredFilters, lastPage, parseCallFilters, parseView, toQuery, type SearchParams } from '@/lib/filters';
-import { buildMetadata } from '@/lib/seo';
+import { buildMetadata, listViewTitle } from '@/lib/seo';
 import { CallListTemplate, type EntryChip } from '@/components/funding/call-list-template';
 import { SaveSearch } from '@/components/account/save-search';
 
@@ -34,7 +34,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const f = parseCallFilters(await searchParams);
   // Filtered views are shareable but canonicalise to /funding and stay out of the index.
   return buildMetadata({
-    title: 'Defence and dual-use funding calls',
+    title: listViewTitle('Defence and dual-use funding calls', 'Funding calls', { page: f.page, countries: f.country, q: f.q, filters: activeFilterCount(f) }),
     description: 'Open EU and national funding calls for defence and dual-use projects: EDF (including its EDIP calls), Horizon Europe, Digital Europe and national programmes. Deadlines in UTC, collected daily.',
     path: '/funding',
     noindex: activeFilterCount(f) > 0 || (f.page ?? 1) > 1,

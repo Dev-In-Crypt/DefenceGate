@@ -123,7 +123,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
           </ListFact>
           <ListFact label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</ListFact>
         </dl>
-        <SourceBadge source={call.source} variant="inline" className={CARD_PROVENANCE} />
+        <SourceBadge source={call.source} variant="inline" className={CARD_PROVENANCE} subject={displayName(call.title)} subjectLang={nonEnglish ? call.titleLanguage : undefined} />
       </div>
     </article>
   );
@@ -232,7 +232,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
         </dl>
         <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>
           <AnomalyNote tender={tender} />
-          <SourceBadge source={tender.source} variant="inline" retrievedLabel={tenderChangedLabel(tender.source)} />
+          <SourceBadge source={tender.source} variant="inline" retrievedLabel={tenderChangedLabel(tender.source)} subject={displayName(tender.title)} subjectLang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} />
         </div>
       </div>
     </article>

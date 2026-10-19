@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { Call, Tender } from './types';
 import { safeHttpUrl } from './safe-url';
 import { DESCRIPTION_MAX, TITLE_MAX, trimAtWord } from './seo-trim';
+import { countryName } from './taxonomy';
 
 export const SITE = {
   name: 'DefenceGate',
@@ -49,7 +50,25 @@ export function buildMetadata({ title: fullTitle, description: fullDescription, 
   };
 }
 
-export interface Crumb { label: string; href: string }
+/**
+ * The title of a list view (WCAG 2.4.2: a filtered or later page is not announced as the same page). The list's own title on its
+ * unfiltered first page; otherwise what the view is, short first so the trim of `buildMetadata` keeps it: "Tenders in Germany",
+ * "Tenders, page 3", "Funding calls (filtered), page 2: “drone”". `filters` is the list's count of active filters (country and
+ * search included); a sort is not a filter.
+ */
+export function listViewTitle(full: string, short: string, v: { page?: number; countries?: readonly string[]; q?: string; filters?: number }): string {
+  const page = v.page ?? 1;
+  const countries = (v.countries ?? []).filter(Boolean);
+  const q = v.q?.trim();
+  const others = (v.filters ?? 0) - (countries.length > 0 ? 1 : 0) - (q ? 1 : 0);
+  if (page <= 1 && countries.length === 0 && !q && others <= 0) return full;
+  const where = countries.length === 0 ? ''
+    : countries.length <= 2 ? ` in ${countries.map(countryName).join(' and ')}` : ` in ${countries.length} countries`;
+  return `${short}${where}${others > 0 ? ' (filtered)' : ''}${page > 1 ? `, page ${page}` : ''}${q ? `: “${q}”` : ''}`;
+}
+
+/** `lang`: the language of the label when it is not English (a notice title). */
+export interface Crumb { label: string; href: string; lang?: string }
 
 export function breadcrumbJsonLd(items: Crumb[]) {
   return {

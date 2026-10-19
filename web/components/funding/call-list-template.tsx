@@ -13,7 +13,7 @@ import { CallCard } from '../dg/cards';
 import { Pagination } from '../dg/pagination';
 import { Button } from '../dg/button';
 import { ResultTools } from '../dg/download-link';
-import { FILTER_COLUMN } from '../dg/list-page';
+import { FILTER_COLUMN, SkipToResults } from '../dg/list-page';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
@@ -62,6 +62,9 @@ export function CallListTemplate({
       <PageHeader crumbs={crumbs} title={title} lead={intro}
         meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`} />
 
+      {/* Before the chips and the filters: from the top of the page to the first call in a few stops (WP-58). */}
+      <SkipToResults />
+
       {chips.length > 0 && (
         <nav aria-label="Browse funding" className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0">
           <ul className="m-0 flex w-max list-none gap-2 p-0 md:w-auto md:flex-wrap">
@@ -83,7 +86,7 @@ export function CallListTemplate({
           {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" className="hidden lg:flex" total={result.total} status={filters.status} />}
         </div>
 
-        <ResultsRegion aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
+        <ResultsRegion id="results" tabIndex={-1} aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4 outline-none">
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} calls` : `Showing ${from}–${to} of ${result.total} calls`}

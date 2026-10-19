@@ -116,7 +116,7 @@ export default async function TenderDetailPage({ params }: Props) {
       <PageHeader
         crumbs={[
           { label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' },
-          { label: title, href: `/tenders/${tender.slug}` },
+          { label: title, href: `/tenders/${tender.slug}`, lang: nonEnglish ? (tender.titleLanguage ?? undefined) : undefined },
         ]}
         eyebrow={(
           <div className="flex flex-wrap items-center gap-2">
@@ -137,7 +137,7 @@ export default async function TenderDetailPage({ params }: Props) {
         <p className="m-0 max-w-prose text-body">
           <span className="text-ink-muted">Buyer: </span>
           {tender.buyerSlug
-            ? <Link href={`/buyers/${tender.buyerSlug}`} className="font-semibold">{buyer}</Link>
+            ? <Link href={`/buyers/${tender.buyerSlug}`} className="py-2 font-semibold">{buyer}</Link>
             : <span className="font-semibold">{buyer}</span>}
         </p>
         <BasisChips tender={tender} />

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, funderLine } from '@/lib/format';
-import { PROGRAMMES } from '@/lib/taxonomy';
+import { PROGRAMMES, isNonEnglish } from '@/lib/taxonomy';
 import type { FundingChange } from '@/lib/types';
 import { Card } from '../dg/card';
 import { Tag } from '../dg/tag';
@@ -22,7 +22,7 @@ export function FundingChangeEntry({ change }: { change: FundingChange }) {
         <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
       </div>
       <h3 className="m-0 break-words text-h3">
-        <Link href={`/funding/${c.slug}`}>{displayName(c.title)}</Link>
+        <Link href={`/funding/${c.slug}`} lang={isNonEnglish(c.titleLanguage) ? c.titleLanguage : undefined}>{displayName(c.title)}</Link>
       </h3>
       <p className="m-0 text-small font-semibold">{funderLine(c)}</p>
       {isNew ? (

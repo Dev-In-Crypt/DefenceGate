@@ -11,8 +11,10 @@ import { Icon } from './icon';
  * "View original" sits above stretched card links (relative z-10).
  * The link is rendered only for an http(s) URL; otherwise the source name stays as text.
  */
-export function SourceBadge({ source, variant = 'full', version, retrievedLabel = 'Retrieved', className }: {
+export function SourceBadge({ source, variant = 'full', version, retrievedLabel = 'Retrieved', className, subject, subjectLang }: {
   source: SourceAttribution; variant?: 'inline' | 'full'; version?: string; className?: string;
+  /** Inline only: what the record is (its title), added to the link's hidden text so ten "View original" links on a list differ. */
+  subject?: string; subjectLang?: string;
   /** What `retrievedAt` means for this record: "Retrieved" for a call (last seen at the source), the last change seen at the source for a tender. */
   retrievedLabel?: string;
 }) {
@@ -25,7 +27,7 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
         <span className="min-w-0 flex-1 basis-64 [overflow-wrap:anywhere]">{source.sourceName} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
         {url ? (
           <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 inline-flex min-h-8 items-center text-small font-bold text-link">
-            View original<span className="sr-only"> at {source.sourceName} (opens in new tab)</span>
+            View original<span className="sr-only">{subject && <>: <span lang={subjectLang}>{subject}</span>,</>} at {source.sourceName} (opens in new tab)</span>
           </a>
         ) : (
           <span className="text-small">The source gives no link to this record</span>

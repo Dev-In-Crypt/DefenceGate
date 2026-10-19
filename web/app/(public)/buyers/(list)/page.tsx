@@ -4,7 +4,7 @@ import { getBuyers } from '@/lib/api';
 import {
   activeBuyerFilterCount, DEFAULT_BUYER_SORT, ignoredFilters, lastPage, parseBuyerFilters, toBuyerQuery, type SearchParams,
 } from '@/lib/filters';
-import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
+import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { BuyerCard } from '@/components/dg/cards';
 import { ListPage } from '@/components/dg/list-page';
 import { BuyerFilterBar } from '@/components/tenders/filter-bars';
@@ -25,7 +25,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getBuyers(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: 'Defence buyers',
+    title: listViewTitle('Defence buyers', 'Buyers', { page: f.page, countries: f.country, q: f.q, filters: activeBuyerFilterCount(f) }),
     description: 'Directory of the procurement bodies behind defence and dual-use tenders: how many notices each has published, how many are open now and when it last published.',
     path: '/buyers',
     noindex,

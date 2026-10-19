@@ -9,7 +9,7 @@ import { formatDateTimeUtc } from '@/lib/format';
 import { countsAsOf, cutSentence, reachableTotal, totalWords } from '@/lib/list-count';
 import { listUpdatedAt, staleNote, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
-import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
+import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
 import { ClassifiedNote } from '@/components/dg/basis-chips';
 import { ListPage } from '@/components/dg/list-page';
@@ -35,7 +35,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getTenders(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: 'Defence and dual-use tenders',
+    title: listViewTitle('Defence and dual-use tenders', 'Tenders', { page: f.page, countries: f.country, q: f.q, filters: activeTenderFilterCount(f) }),
     description: 'Open procurement notices from defence buyers across Europe, from TED and national portals. Deadlines in UTC, every notice linked to its source and its version history.',
     path: '/tenders',
     noindex,

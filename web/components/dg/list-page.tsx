@@ -13,6 +13,19 @@ import { LiveListScope, ResultsRegion } from './live-list';
 export const FILTER_COLUMN = 'flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:-m-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:p-1 lg:[scrollbar-width:thin]';
 
 /**
+ * A keyboard's way past the filters to the results (WP-58; 59 Tab presses to the first call on /funding before): the first stop of
+ * the filter column here, before the chips on the call lists. Hidden until it has focus; the results stay after the filters in the
+ * DOM, so the reading order and the layout do not change.
+ */
+export function SkipToResults() {
+  return (
+    <a href="#results" className="sr-only focus:not-sr-only focus:inline-flex focus:min-h-11 focus:items-center focus:self-start focus:rounded-pill focus:bg-surface focus:px-5 focus:font-bold">
+      Skip to results
+    </a>
+  );
+}
+
+/**
  * Shared shell of the tenders and buyers directories, the same layout as /funding: breadcrumbs, header,
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
@@ -55,10 +68,11 @@ export function ListPage({
       <LiveListScope>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
         <div className={FILTER_COLUMN}>
+          <SkipToResults />
           {filterBar}{filterExtra}
           {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </div>
-        <ResultsRegion aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4">
+        <ResultsRegion id="results" tabIndex={-1} aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4 outline-none">
           {scope}
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">

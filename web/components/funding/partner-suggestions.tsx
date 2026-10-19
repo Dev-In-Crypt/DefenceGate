@@ -8,8 +8,11 @@ import { countryName } from '@/lib/taxonomy';
 import type { PartnersAnswer } from '@/lib/types';
 import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
-import { Skeleton } from '@/components/dg/feedback';
+import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { useProfile } from '@/components/readiness/use-readiness';
+
+/** A failure we word ourselves; any other (no answer, unreadable JSON) gets the standard sentence, never the browser's. */
+class LoadError extends Error {}
 
 type State = { state: 'idle' } | { state: 'loading' } | { state: 'error'; message: string } | { state: 'done'; data: PartnersAnswer };
 
@@ -43,12 +46,12 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
     fetch(`/api/funding/${encodeURIComponent(callSlug)}/partners${country ? `?country=${country}` : own ? `?prefer=${own}` : ''}`, {
       headers: { accept: 'application/json' }, credentials: 'omit', signal: controller.signal,
     }).then(async (res) => {
-      if (!res.ok) throw new Error(res.status === 429 ? 'Too many requests. Wait a minute and try again.' : 'The suggestions could not be loaded. Try again in a moment.');
+      if (!res.ok) throw new LoadError(res.status === 429 ? 'Too many requests. Wait a minute and try again.' : 'The suggestions could not be loaded. Try again in a moment.');
       const data = (await res.json()) as PartnersAnswer;
       if (mine === seq.current) setResult({ state: 'done', data });
     }).catch((e: unknown) => {
       if (controller.signal.aborted || mine !== seq.current) return;
-      setResult({ state: 'error', message: e instanceof Error ? e.message : 'The suggestions could not be loaded.' });
+      setResult({ state: 'error', message: e instanceof LoadError ? e.message : 'The suggestions could not be loaded. Try again in a moment.' });
     });
     return () => controller.abort();
   }, [go, callSlug, country, own, attempt]);
@@ -71,7 +74,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
     return <div role="status" aria-label="Loading partner suggestions" className="flex flex-col gap-3"><Skeleton className="h-6 w-72" /><Skeleton className="h-32" /></div>;
   }
   if (result.state === 'error') {
-    return <p role="alert" className="m-0 text-body">{result.message} <button type="button" onClick={() => setAttempt((n) => n + 1)} className="font-semibold underline">Try again</button></p>;
+    return <ErrorState level="h3" title="The suggestions could not be loaded" onRetry={() => setAttempt((n) => n + 1)}>{result.message}</ErrorState>;
   }
 
   const d = result.data;
