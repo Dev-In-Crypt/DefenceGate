@@ -117,10 +117,14 @@ def test_scope_counts_are_the_totals_the_choices_lead_to(client, conn):
     _put(conn, "CORE")
     _put(conn, "SUPPLY", sig_cpv=False, sig_buyer=True, cpv=("15000000",))
     _put(conn, "SUPPLY-2", sig_cpv=False, sig_buyer=True, cpv=("15000000",))
-    assert client.get("/v1/tenders/scope-counts").json() == {"relevant": 3, "core": 1, "supply": 2}
+    def counts(**params):
+        body = client.get("/v1/tenders/scope-counts", params=params).json()
+        assert body["capped"] is False and body["asOf"]                      # WP-52: the counts say when and how far
+        return {k: body[k] for k in ("relevant", "core", "supply")}
+
+    assert counts() == {"relevant": 3, "core": 1, "supply": 2}
     # the other filters apply to every count
-    got = client.get("/v1/tenders/scope-counts", params={"cpv": "15"}).json()
-    assert got == {"relevant": 2, "core": 0, "supply": 2}
+    assert counts(cpv="15") == {"relevant": 2, "core": 0, "supply": 2}
 
 
 def test_an_english_title_leads_and_the_original_is_kept_beneath(client, conn):

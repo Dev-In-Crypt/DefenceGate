@@ -895,19 +895,22 @@ def _calls_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
 
 def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
-    from .tenders import _buyer, _buyer_names, aggregate_sql
+    from .tenders import _buyer, _buyer_names, buyer_base
 
     if not ids:
         return {}
-    agg = aggregate_sql()
     # A followed buyer may be a member of a family: it shows the family (migration 0055).
     heads = {r["id"]: r["h"] for r in conn.execute(
         "SELECT i AS id, dgate_buyer_head(i) AS h FROM unnest(%s::bigint[]) AS i", (ids,)).fetchall()}
-    rows = conn.execute(
-        f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
-                   a.n, a.open_n, a.last_published, a.variants
-              FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
-             WHERE org.id = ANY(%s)""", (sorted(set(heads.values())),)).fetchall()
+    # The counts are the buyer list's (kept and shared: the aggregate is a pass over every core notice).
+    org_ids, totals, open_n, last_published, variants = buyer_base(conn)
+    at = {org: i for i, org in enumerate(org_ids)}
+    found = conn.execute(
+        """SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer
+             FROM organisation org WHERE org.id = ANY(%s)""",
+        ([h for h in sorted(set(heads.values())) if h in at],)).fetchall()
+    rows = [{**r, "n": totals[at[r["id"]]], "open_n": open_n[at[r["id"]]],
+             "last_published": last_published[at[r["id"]]], "variants": variants[at[r["id"]]]} for r in found]
     names = _buyer_names(conn, [r["id"] for r in rows])
     by_head = {r["id"]: _buyer(r, names) for r in rows}
     return {str(i): by_head[h] for i, h in heads.items() if h in by_head}

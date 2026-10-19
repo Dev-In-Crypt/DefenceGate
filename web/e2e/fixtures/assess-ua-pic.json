@@ -602,7 +602,7 @@
      "note": null,
      "obligation": "mandatory",
      "outcome": "met",
-     "reason": "Your company is established in Ukraine, so it can be the Ukrainian entity this rule asks for (its executive management structure must be in Ukraine too: see the rule on executive management).",
+     "reason": "The action involves a legal entity established in Ukraine: your company, if it is established there, or the partner you named in your planned consortium. Its executive management structure must be in Ukraine too (see the rule on executive management).",
      "requirement": null,
      "rule": "USI-INVOLVES-UA",
      "source": {

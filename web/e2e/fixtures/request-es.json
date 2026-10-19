@@ -12,7 +12,8 @@
   "restricted_third_country_component": false,
   "safe_role": "contractor",
   "third_country_control": "no",
-  "ua_non_government_controlled_area": null
+  "ua_non_government_controlled_area": null,
+  "ua_partner": null
  },
  "statuses": {
   "REQ-AQAP2110": "not_held",

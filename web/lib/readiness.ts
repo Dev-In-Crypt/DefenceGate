@@ -5,7 +5,7 @@
  */
 import type { AssessRequest } from './profile';
 import { countryName } from './taxonomy';
-import type { Assessment, Outcome, RMoney, RSource, RSpan, RequirementDetail, Verdict, VerificationStatus } from './readiness-types';
+import type { Assessment, Outcome, RMoney, RSource, RSpan, RequirementDetail, RoadmapTotals, Verdict, VerificationStatus } from './readiness-types';
 
 export const VERDICT_WORD: Record<Verdict, string> = { eligible: 'Eligible', obtain: 'Obtain first', blocked: 'Blocked', conditional: 'Conditional' };
 export const VERDICT_MEANING: Record<Verdict, string> = {
@@ -84,6 +84,28 @@ export function daysRange(min: number, max: number): string {
   const unit = (n: number) => (n >= 60 ? `${Math.round(n / 30)} months` : `${n} days`);
   if (min === max) return unit(max);
   return max >= 60 && min >= 60 ? `${Math.round(min / 30)} to ${Math.round(max / 30)} months` : `${min} to ${max} days`;
+}
+
+const stepsWord = (n: number): string => `${n} ${n === 1 ? 'step' : 'steps'}`;
+
+/**
+ * The cost in the headline of the roadmap, from the cost data of its steps (WP-53, T7). "Free" only when every step states that it is free;
+ * a plan in which some steps state no cost never reads as a complete or a free plan: it says how many are free, how many have no stated
+ * cost, and the sum of the ones that state a price. `steps`: how many steps the total is over; `unknown`: how many of them state no cost.
+ */
+export function costHeadline(totals: RoadmapTotals, steps: number, unknown: number): string {
+  const money = totals.cost.map((c) => `${c.currency} ${c.min.toLocaleString('en-GB')} to ${c.max.toLocaleString('en-GB')}`).join(' and ');
+  if (unknown <= 0) return money || (totals.freeSteps.length > 0 && totals.freeSteps.length >= steps ? 'Free' : totals.freeSteps.length > 0 ? `${stepsWord(totals.freeSteps.length)} free` : 'Nothing is stated');
+  const free = totals.freeSteps.length;
+  const parts = [money, free > 0 ? `${stepsWord(free)} free` : '', free > 0 ? `${unknown} with no stated cost` : `${stepsWord(unknown)} with no stated cost`].filter(Boolean);
+  return parts.join(', ');
+}
+
+/** The time in the headline: the range of the steps that state one, and how many state none (a plan of unknown time is not "no time needed"). */
+export function timeHeadline(days: { min: number; max: number }, steps: number, unknown: number): string {
+  if (unknown <= 0) return daysRange(days.min, days.max);
+  if (unknown >= steps) return `${stepsWord(unknown)} with no stated time`;
+  return `${daysRange(days.min, days.max)}, ${unknown} with no stated time`;
 }
 
 /** The source line under a rule: where the text comes from, in words a visitor can check. */

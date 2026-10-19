@@ -19,7 +19,7 @@ import { visit } from './helpers';
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
 
 const PROFILE_BASE = {
-  version: 1, step: 6, updatedAt: '2026-10-17T10:00:00.000Z', name: '', managementSameCountry: true, managementCountry: '',
+  version: 2, step: 6, updatedAt: '2026-10-17T10:00:00.000Z', name: '', management: 'same', managementCountry: '',
   uaOccupied: '', regime: 'dual_use', componentPct: '10', restricted: 'no', statuses: {}, classified: 'no', exportIntent: 'none',
 };
 const profile = (over: Record<string, unknown>) => ({ ...PROFILE_BASE, sizeClass: 'small', control: 'no', ...over });

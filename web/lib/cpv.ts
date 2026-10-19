@@ -138,24 +138,35 @@ export const PRODUCT_KEYWORDS = keywordData.entries as KeywordEntry[];
 const wordsOf = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').split(/[^a-z0-9]+/).filter(Boolean);
 
 /**
+ * `word` as written in a title: the word itself, its plural or its past form ("rocket"/"rockets", "armour"/"armoured", "battery"/"batteries").
+ * Never a piece of a longer word: a substring match read "gun" in "Gunmetal" and "fuel" in "fuelled" (UX audit M7, 19 October 2026).
+ */
+export function isForm(titleWord: string, word: string): boolean {
+  if (!titleWord || !word) return false;
+  if (titleWord === word || titleWord === `${word}s` || titleWord === `${word}es` || titleWord === `${word}ed`) return true;
+  return word.endsWith('y') && titleWord === `${word.slice(0, -1)}ies`;
+}
+
+/**
  * The curated product words (lib/data/product-keywords.json). The whole query must be made of listed phrases, otherwise null and
  * the titles of the finder are searched as before: "drone zzzz" is not read as "drone". The codes are the official ones, with their titles.
  */
 function keywordMatch(query: string, max: number): ProductMatch | null {
   const q = wordsOf(query);
   if (q.length === 0) return null;
-  const used = q.map(() => false);
-  const hit: KeywordEntry[] = [];
+  const found: { entry: KeywordEntry; from: number; to: number }[] = [];
   for (const entry of PRODUCT_KEYWORDS) {
     for (const phrase of entry.words) {
       const t = wordsOf(phrase);
       for (let i = 0; i + t.length <= q.length; i++) {
-        if (!t.every((w, j) => q[i + j] === w)) continue;
-        t.forEach((_, j) => { used[i + j] = true; });
-        if (!hit.includes(entry)) hit.push(entry);
+        if (t.every((w, j) => q[i + j] === w)) found.push({ entry, from: i, to: i + t.length });
       }
     }
   }
+  // The longest phrase wins: "body armour" is one phrase, not "body" and "armour", and "armoured vehicles" is not "armoured" as well.
+  const longest = found.filter((a) => !found.some((b) => b !== a && b.from <= a.from && b.to >= a.to && b.to - b.from > a.to - a.from));
+  const used = q.map((_, i) => longest.some((m) => m.from <= i && i < m.to));
+  const hit = [...new Set(longest.map((m) => m.entry))];
   if (hit.length === 0 || !used.every(Boolean)) return null;
   const codes = [...new Map(hit.flatMap((e) => e.codes).map((c) => [c.code, c])).values()];
   const all = [...new Set(codes.map((c) => cpvPrefix(c.code)))].sort((a, b) => a.length - b.length || a.localeCompare(b));
@@ -175,12 +186,13 @@ function keywordMatch(query: string, max: number): ProductMatch | null {
 export function cpvForWords(words: string, max = 20): ProductMatch {
   const curated = keywordMatch(words, max);
   if (curated) return curated;
-  const ws = words.toLowerCase().split(/\s+/).filter((w) => w.length >= 3).slice(0, 5);
+  const ws = wordsOf(words).filter((w) => w.length >= 3).slice(0, 5);
   if (ws.length === 0) return { prefixes: [], codes: [], matched: 0, truncated: false, via: 'title' };
-  const found = Object.entries(CODES).filter(([, title]) => { const t = title.toLowerCase(); return ws.every((w) => t.includes(w)); });
+  // A word of the title, not a piece of one (WP-57): "gun" is not in "Gunmetal pipe fittings" and "fuel" is not in "nuclear fuelled".
+  const found = Object.entries(CODES).filter(([, title]) => { const t = wordsOf(title); return ws.every((w) => t.some((x) => isForm(x, w))); });
   // Titles that begin with the word are the thing itself ("Ammunition"); a title that only lists it ("Weapons, ammunition and associated
   // parts") would pull in the whole group. The headwords are used when there are any.
-  const heads = found.filter(([, title]) => title.toLowerCase().startsWith(ws[0]));
+  const heads = found.filter(([, title]) => isForm(wordsOf(title)[0] ?? '', ws[0]));
   const hits = (heads.length > 0 ? heads : found).sort(([a], [b]) => a.localeCompare(b));
   const all = [...new Set(hits.map(([code]) => cpvPrefix(code)))].sort((a, b) => a.length - b.length || a.localeCompare(b));
   const kept: string[] = [];

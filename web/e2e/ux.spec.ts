@@ -13,8 +13,8 @@ import { visit } from './helpers';
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
 
 const PROFILE = {
-  version: 1, step: 6, updatedAt: '2026-10-18T10:00:00.000Z', name: '', sizeClass: 'small', country: 'ES', legalForm: 'legal_person',
-  managementSameCountry: true, managementCountry: '', control: 'no', uaOccupied: '', regime: 'dual_use', componentPct: '10', restricted: 'no',
+  version: 2, step: 6, updatedAt: '2026-10-18T10:00:00.000Z', name: '', sizeClass: 'small', country: 'ES', legalForm: 'legal_person',
+  management: 'same', managementCountry: '', control: 'no', uaOccupied: '', regime: 'dual_use', componentPct: '10', restricted: 'no',
   uaEeaComponents: 'no', safeRole: 'contractor', statuses: {}, classified: 'no', exportIntent: 'none',
 };
 const saveProfile = (page: Page, p: Record<string, unknown> | null) =>

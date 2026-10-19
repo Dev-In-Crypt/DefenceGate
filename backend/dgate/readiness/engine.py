@@ -62,6 +62,9 @@ FIELDS: dict[str, dict[str, Any]] = {
                        "label": "Is your product in the dual-use regime, the military regime, or neither?"},
     "export_intent": {"kind": "enum", "values": ("none", "within_eu", "outside_eu", "unsure"),
                       "label": "Do you export or plan to export?"},
+    # A partner in the planned consortium (WP-53). Unanswered is unknown, never "no": the Ukraine Support Instrument asks for a Ukrainian
+    # entity that the company itself may not be, and only the company can say whether it has one.
+    "ua_partner": {"kind": "bool", "label": "Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?"},
     # Who the applicant is: only a few EDIP calls (common procurement) are open to anybody but a company or a
     # research body. Asked once, in the first step of the wizard.
     "applicant_kind": {"kind": "enum", "values": APPLICANT_KINDS,
@@ -81,6 +84,10 @@ GENERIC = {
     "unknown": "Answer the questions that are missing to see whether this applies to you.",
     "not_applicable": "This rule does not apply to your company.",
 }
+# The company answered "Not applicable to us" for the requirement a rule reads (WP-53, T4). That is neither held nor missing:
+# the rule is left out of the verdict, and the words say so instead of "You have a PIC".
+DECLARED_NOT_APPLICABLE = ("You answered “Not applicable to us” for this requirement, so this rule is left out of your result. "
+                           "It is not counted as met. If it does apply to you, change the answer.")
 
 
 class ExprError(ValueError):
@@ -105,6 +112,7 @@ class Profile:
     product_regime: str = "unknown"
     export_intent: str | None = None
     applicant_kind: str | None = None
+    ua_partner: bool | None = None
     action: str | None = None          # context of a call, never an answer of the company (the API does not take it)
 
     def fields(self) -> dict[str, Any]:
@@ -183,6 +191,20 @@ def fields_in(expr: Expr | None) -> list[str]:
     if expr:
         walk(expr)
     return found
+
+
+def reads_status(expr: Expr | None, code: str) -> bool:
+    """Whether an expression reads the company's status of a requirement."""
+    if not expr:
+        return False
+    if expr.get("status") == code:
+        return True
+    return any(reads_status(sub, code) for key in ("all", "any") for sub in expr.get(key, [])) or reads_status(expr.get("not"), code)
+
+
+def declared_not_applicable(rule: Rule, statuses: Mapping[str, str]) -> bool:
+    """The company said "Not applicable to us" for the requirement this rule's condition is about."""
+    return bool(rule.requirement) and statuses.get(rule.requirement or "") == "not_applicable" and reads_status(rule.condition, rule.requirement or "")
 
 
 # --------------------------------------------------------------------------- evaluation
@@ -282,9 +304,11 @@ class Assessment:
 
 
 def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> RuleResult:
-    outcome, asks = _outcome(rule, fields, statuses)
+    outcome, asks, declared = _outcome(rule, fields, statuses)
     # a registration that is missing is a to-do with the same words as "not met": the text says it is free
     reason = rule.texts.get(outcome) or (rule.texts["not_met"] if outcome == "to_obtain" else GENERIC.get(outcome, ""))
+    if declared:
+        reason = DECLARED_NOT_APPLICABLE
     return RuleResult(
         rule=rule.code, title=rule.title, outcome=outcome, reason=reason, obligation=rule.obligation,
         kind=rule.kind, requirement=rule.requirement, note=rule.note, asks=tuple(asks),
@@ -293,7 +317,8 @@ def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, st
         last_reviewed=rule.last_reviewed, denominator=rule.denominator)
 
 
-def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> tuple[str, list[str]]:
+def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> tuple[str, list[str], bool]:
+    """(outcome, the fields still to answer, whether the outcome is the company's own "Not applicable to us")."""
     def missing(*exprs: Expr | None) -> list[str]:
         # the context of a call is not something the company can answer
         return [f for e in exprs for f in fields_in(e) if fields.get(f) is None and not FIELDS[f].get("context")]
@@ -301,28 +326,31 @@ def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str])
     if rule.applies_when is not None:
         applies = evaluate(rule.applies_when, fields, statuses)
         if applies is False:
-            return "not_applicable", []
+            return "not_applicable", [], False
         if applies is None:
             # no call is being judged: a rule for one kind of action is not asked here, whatever else is unanswered
             if any(FIELDS[f].get("context") and fields.get(f) is None for f in fields_in(rule.applies_when)):
-                return "not_applicable", []
-            return "unknown", missing(rule.applies_when, rule.condition)
+                return "not_applicable", [], False
+            return "unknown", missing(rule.applies_when, rule.condition), False
+    # "Not applicable to us" is a third state, not "held" (WP-53, T4): the rule is left out, and it never reads as met.
+    if declared_not_applicable(rule, statuses):
+        return "not_applicable", [], True
     if rule.condition is None:
-        return "info", []
+        return "info", [], False
     met = evaluate(rule.condition, fields, statuses)
     if met is True:
-        return "met", []
+        return "met", [], False
     if met is None:
-        return "unknown", missing(rule.condition)
+        return "unknown", missing(rule.condition), False
     if rule.conditional_when is not None:
         derogation = evaluate(rule.conditional_when, fields, statuses)
         if derogation is True:
-            return "conditional", []
+            return "conditional", [], False
         if derogation is None:
-            return "unknown", missing(rule.conditional_when)
+            return "unknown", missing(rule.conditional_when), False
     # D3: a registration that anybody can obtain (the PIC, the NCAGE code) is something to obtain first,
     # not a reason to call the company blocked.
-    return ("to_obtain" if rule.kind == "registration" else "not_met"), []
+    return ("to_obtain" if rule.kind == "registration" else "not_met"), [], False
 
 
 def assess(profile: Profile, statuses: Mapping[str, str], programme: Programme | str,

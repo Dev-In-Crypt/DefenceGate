@@ -1,30 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
-import { withStatus, type Profile } from '@/lib/profile';
-import { CATEGORY_WORD, daysRange, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug } from '@/lib/readiness';
+import { answerProblems, withStatus, type Profile } from '@/lib/profile';
+import { CATEGORY_WORD, costHeadline, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug, timeHeadline } from '@/lib/readiness';
 import type { Roadmap, RoadmapStep, RoadmapTotals } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
 import { Callout } from '@/components/dg/blocks';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
-import { NoProfile } from './results';
+import { AnswerProblems, NoProfile } from './results';
 import { useAssessment, useProfile } from './use-readiness';
 
-function Totals({ title, totals, id }: { title: string; totals: RoadmapTotals; id: string }) {
-  const cost = totals.cost.length === 0
-    ? (totals.freeSteps.length > 0 ? 'Free' : 'Nothing is stated')
-    : totals.cost.map((c) => `${c.currency} ${c.min.toLocaleString('en-GB')} to ${c.max.toLocaleString('en-GB')}`).join(' and ');
+/** `steps`: how many steps the figures are over; `noCost` and `noTime`: how many of them state none (T7: the headline never reads as a complete or free plan when some do not). */
+function Totals({ title, totals, id, steps, noCost, noTime }: { title: string; totals: RoadmapTotals; id: string; steps: number; noCost: number; noTime: number }) {
+  const cost = costHeadline(totals, steps, noCost);
   return (
     <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4" data-totals={id}>
       <h3 className="m-0 text-body font-bold">{title}</h3>
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
         <dt className="text-ink-muted">Cost</dt><dd className="m-0 font-mono tabular-nums">{cost}</dd>
         <dt className="text-ink-muted">Time</dt>
-        <dd className="m-0 font-mono tabular-nums">{daysRange(totals.days.min, totals.days.max)}</dd>
+        <dd className="m-0 font-mono tabular-nums">{timeHeadline(totals.days, steps, noTime)}</dd>
       </dl>
     </div>
   );
@@ -37,7 +37,8 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
       <div className="flex flex-wrap items-start gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-pill bg-primary font-mono text-mono-strong text-on-primary" aria-hidden="true">{s.order}</span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h3 className="m-0 text-h4"><span className="sr-only">Step {s.order}: </span>{s.name}</h3>
+          {/* tabIndex -1: after a step is marked, focus moves to the heading of the step that takes its place (WP-53) */}
+          <h3 tabIndex={-1} data-step-heading={s.code} className="m-0 text-h4"><span className="sr-only">Step {s.order}: </span>{s.name}</h3>
           <p className="m-0 flex flex-wrap gap-x-3 text-small text-ink-muted">
             <span>{CATEGORY_WORD[s.category] ?? s.category}</span>
             {s.status === 'in_progress' && <span className="font-bold text-ink">In progress</span>}
@@ -106,7 +107,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
 
       <div className="flex flex-wrap items-center gap-3">
         {s.status !== 'in_progress' && <Button variant="secondary" icon={Play} onClick={() => onMark(s.code, 'in_progress')} aria-label={`Mark as started: ${s.name}`}>Mark as started</Button>}
-        <Button variant="secondary" icon={Check} onClick={() => onMark(s.code, 'held')} aria-label={`Mark as done: ${s.name}`}>Mark as done</Button>
+        <Button variant="secondary" icon={Check} onClick={() => onMark(s.code, 'held')} aria-label={`Mark as done: ${s.name}`} data-mark-done={s.code}>Mark as done</Button>
         <Link href={`/requirements/${requirementSlug(s.code)}`} aria-label={`What is ${s.name}?`} className="inline-flex min-h-11 items-center text-small font-semibold">What is this?</Link>
         <span className="text-small text-ink-muted">Reviewed {isoDay(s.lastReviewed)}</span>
       </div>
@@ -118,9 +119,11 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
   const byCode = new Map(plan.steps.map((s) => [s.code, s]));
   if (plan.steps.length === 0) {
     return (
-      <EmptyState title="Nothing left to obtain" action={<Button href="/readiness/results" iconRight={ArrowRight}>Back to my results</Button>}>
-        On your answers, no requirement is missing. Your results page still lists what each programme asks.
-      </EmptyState>
+      <div data-roadmap-empty>
+        <EmptyState title="Nothing left to obtain" action={<Button href="/readiness/results" iconRight={ArrowRight}>Back to my results</Button>}>
+          On your answers, no requirement is missing. Your results page still lists what each programme asks.
+        </EmptyState>
+      </div>
     );
   }
   const required = plan.steps.filter((s) => !s.optional).length;
@@ -130,8 +133,12 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
   return (
     <div className="flex flex-col gap-6">
       <AutoGrid min={320}>
-        <Totals id="required" title={`What you need now (${required} ${required === 1 ? 'step' : 'steps'})`} totals={plan.totals} />
-        {plan.steps.some((s) => s.optional) && <Totals id="with-optional" title="Including what only a contract might ask for" totals={plan.totalsWithOptional} />}
+        <Totals id="required" title={`What you need now (${required} ${required === 1 ? 'step' : 'steps'})`} totals={plan.totals}
+          steps={required} noCost={plan.unknownCost.length} noTime={plan.unknownDuration.length} />
+        {plan.steps.some((s) => s.optional) && (
+          <Totals id="with-optional" title="Including what only a contract might ask for" totals={plan.totalsWithOptional}
+            steps={plan.steps.length} noCost={plan.unknownCostWithOptional.length} noTime={plan.unknownDurationWithOptional.length} />
+        )}
       </AutoGrid>
       <Callout title="Read the ranges with care">
         <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is shown in the currency of the source and is never converted.</p>
@@ -156,19 +163,56 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
   );
 }
 
+/** A step the visitor just marked, waiting for the re-scored plan to show it (the assessment is asked again after every change). */
+interface Marked { code: string; name: string; status: 'held' | 'in_progress'; order: string[] }
+
 export function RoadmapView() {
   const { profile, ready, update } = useProfile();
   const result = useAssessment(profile);
+  const [marked, setMarked] = useState<Marked | null>(null);
+  const [message, setMessage] = useState('');
+  const plan = result.state === 'done' ? result.data.roadmap : null;
+
+  // After "Mark as done" (WP-53): the card is gone once the plan is re-scored, so focus moves to the heading of the step that follows it (the one
+  // before it if it was the last, the link back to the results if none is left) and the change is announced. "Mark as started" keeps the card:
+  // focus goes to its "Mark as done" button, because the button that was pressed is gone.
+  useEffect(() => {
+    if (result.state === 'error') setMarked(null);       // the plan will not arrive: do not move focus later, on an unrelated update
+    if (!marked || !plan) return;
+    const now = plan.steps.find((s) => s.code === marked.code);
+    if (marked.status === 'held' ? now : now?.status !== 'in_progress') return;
+    const left = plan.steps.map((s) => s.code);
+    let target: Element | null;
+    if (marked.status === 'held') {
+      const at = marked.order.indexOf(marked.code);
+      const next = marked.order.slice(at + 1).find((c) => left.includes(c)) ?? marked.order.slice(0, at).reverse().find((c) => left.includes(c));
+      target = next ? document.querySelector(`[data-step-heading="${next}"]`) : document.querySelector('[data-roadmap-empty] a');
+      setMessage(`${marked.name} is marked as done. ${left.length === 0 ? 'No step is left.' : left.length === 1 ? '1 step is left.' : `${left.length} steps are left.`} Your results are re-scored.`);
+    } else {
+      target = document.querySelector(`[data-mark-done="${marked.code}"]`);
+      setMessage(`${marked.name} is marked as started. Your results are re-scored.`);
+    }
+    if (target instanceof HTMLElement) target.focus();
+    setMarked(null);
+  }, [marked, plan, result.state]);
+
   if (!ready || profile === null) return <Skeleton className="h-56" />;
   if (!profile.country) return <NoProfile />;
-  const mark = (code: string, status: 'held' | 'in_progress') => update((p) => withStatus(p, code, status));
+  const mark = (code: string, status: 'held' | 'in_progress') => {
+    setMessage('');
+    setMarked({ code, name: plan?.steps.find((s) => s.code === code)?.name ?? code, status, order: plan?.steps.map((s) => s.code) ?? [] });
+    update((p) => withStatus(p, code, status));
+  };
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-5">
         <p className="m-0 text-body">Steps in order, for a company established in <strong>{countryName(profile.country)}</strong>. Marking a step re-scores your results.</p>
         <Button href="/readiness/results" variant="secondary">My results</Button>
+        {/* Always in the page, so that a screen reader announces the text when it is set. */}
+        <p role="status" aria-live="polite" className={message ? 'm-0 w-full text-small font-semibold' : 'sr-only'}>{message}</p>
       </div>
+      <AnswerProblems problems={answerProblems(profile)} />
       {(result.state === 'loading' || result.state === 'idle') && <div role="status" aria-label="Computing your roadmap"><Skeleton className="h-56" /></div>}
       {result.state === 'error' && <ErrorState title="The roadmap could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && <RoadmapBody plan={result.data.roadmap} profile={profile} onMark={mark} />}

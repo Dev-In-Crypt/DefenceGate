@@ -7,6 +7,8 @@ import { formatDateUtc, formatNumber } from '@/lib/format';
 import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata } from '@/lib/seo';
 import { cpvForWords } from '@/lib/cpv';
+import { parseCountries } from '@/lib/country-input';
+import { displayName } from '@/lib/display-name';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { Pagination } from '@/components/dg/pagination';
@@ -29,7 +31,8 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 
 function parse(sp: SearchParams) {
   const q = first(sp.q).slice(0, 100).trim();
-  const country = first(sp.country).toUpperCase().replace(/[^A-Z,]/g, '').slice(0, 20);
+  // A code, a three-letter code or an English name, as typed (lib/country-input.ts reads it); the API is asked with the codes.
+  const country = first(sp.country).replace(/[^\p{L}\p{M}\s,.'’&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const cpv = first(sp.cpv).replace(/[^0-9,]/g, '').slice(0, 40);
   const product = first(sp.product).replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
   const sort = first(sp.sort) === 'name' ? ('name' as const) : ('awards' as const);
@@ -71,7 +74,9 @@ function withProduct(f: ReturnType<typeof parse>) {
   const match = f.product ? cpvForWords(f.product) : null;
   // A product word takes the place of the typed codes (the page says so): an intersection of two lists of prefixes is not what anyone means.
   const cpv = match ? match.prefixes.join(',') : f.cpv;
-  return { match, none: match !== null && match.prefixes.length === 0, api: { ...f, cpv } };
+  // A country that is none of the three forms is an answer ("not a country"), never a 404 page and never the unfiltered list.
+  const { codes, unknown } = parseCountries(f.country);
+  return { match, unknown, none: (match !== null && match.prefixes.length === 0) || unknown.length > 0, api: { ...f, cpv, country: codes.join(',') } };
 }
 
 const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-normal';
@@ -79,7 +84,7 @@ const INPUT = 'min-h-11 rounded-md border border-line bg-surface px-3 font-norma
 export default async function SuppliersPage({ searchParams }: Props) {
   const f = parse(await searchParams);
   const filtered = Boolean(f.q || f.country || f.cpv || f.product);
-  const { match, none, api } = withProduct(f);
+  const { match, unknown, none, api } = withProduct(f);
   let result;
   let summary;
   try {
@@ -225,16 +230,18 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         <ResultsRegion className="flex flex-col gap-4">
         {result.total === 0 ? (
-          <EmptyState title={result.withheld ? 'This group is too small to list' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
-            {result.withheld
-              ? `A country or product group with fewer than ${summary?.kMin ?? 3} suppliers is not listed, so that nothing describes one or two companies. Widen the filter, or search by company name without it.`
-              : 'Only companies named as winners in a TED result notice of the defence-relevant scope are listed. Try a shorter name.'}
+          <EmptyState title={unknown.length > 0 ? 'Not a country' : result.withheld ? 'This group is too small to list' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
+            {unknown.length > 0
+              ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
+              : result.withheld
+                ? `A country or product group with fewer than ${summary?.kMin ?? 3} suppliers is not listed, so that nothing describes one or two companies. Widen the filter, or search by company name without it.`
+                : 'Only companies named as winners in a TED result notice of the defence-relevant scope are listed. Try a shorter name.'}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {result.items.map((s) => (
               <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-4">
-                <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{s.name}</Link>
+                <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{displayName(s.name, 'title')}</Link>
                 <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
                   <CountryLabel code={s.country} />
                   <span>

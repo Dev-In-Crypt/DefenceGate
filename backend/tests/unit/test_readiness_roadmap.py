@@ -9,6 +9,7 @@ The roadmap totals are compared with the ranges the technical appendix states (P
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -138,7 +139,7 @@ def test_es_manufacturer_with_iso_9001_verdicts():
     assert (by["EDF"].verdict, by["EDF"].to_obtain) == ("obtain", ("EDF-PIC",))
     assert (by["EDIP"].verdict, by["EDIP"].to_obtain) == ("obtain", ("EDIP-PIC",))
     # WP-42 R1: the PIC is still the only thing to obtain, but the action also needs a Ukrainian applicant or partner: conditional, not "obtain"
-    assert (by["EDIP-USI"].verdict, by["EDIP-USI"].to_obtain, by["EDIP-USI"].conditions) == ("conditional", ("USI-PIC",), ("USI-INVOLVES-UA",))
+    assert (by["EDIP-USI"].verdict, by["EDIP-USI"].to_obtain, by["EDIP-USI"].missing) == ("conditional", ("USI-PIC",), ("ua_partner",))
     assert not by["EDF"].blocking and not by["EDIP"].blocking and not by["EDIP-USI"].blocking
     assert outcomes(by["EDIP-USI"])["USI-TERRITORY"] == "not_applicable"
     assert by["SAFE"].verdict == "eligible"
@@ -299,13 +300,20 @@ def test_call_timing_depends_when_only_a_guarantee_or_an_answer_is_missing():
 
 def test_wp42_r1_a_company_outside_ukraine_is_never_told_it_can_apply_now_to_a_ukraine_support_instrument_call():
     # calls 118 and 113 (18 October 2026): the call document needs a Ukrainian applicant or partner; the answers of the profile cannot say.
+    # WP-53 (T21): without the answer about a Ukrainian partner the answer is missing; with "no" the condition is open; with "yes" it is met
     t = timing(PL, {"REQ-PIC": "held"}, "EDIP-USI", 20)
+    assert t["verdict"] == "conditional" and t["realistic"] == "depends"
+    assert "you can apply now" not in t["text"] and t["text"] == "No certificate is missing, but a guarantee or an answer is still needed."
+    t = timing(replace(PL, ua_partner=False), {"REQ-PIC": "held"}, "EDIP-USI", 20)
     assert t["verdict"] == "conditional" and t["realistic"] == "depends"
     assert "you can apply now" not in t["text"] and t["openConditions"] == ["The action involves Ukraine"]
     assert t["text"] == "No certificate is missing, but a condition is still open: The action involves Ukraine."
     # with the PIC still to obtain the steps fit, and the same condition keeps it from a plain yes, by name
-    t = timing(PL, {}, "EDIP-USI", 20)
+    t = timing(replace(PL, ua_partner=False), {}, "EDIP-USI", 20)
     assert t["realistic"] == "depends" and "(The action involves Ukraine)" in t["text"] and "not a plain yes" in t["text"]
+    # a Ukrainian partner named, a PL company holding its PIC may apply now
+    t = timing(replace(PL, ua_partner=True), {"REQ-PIC": "held"}, "EDIP-USI", 20)
+    assert t["verdict"] == "eligible" and t["realistic"] == "yes" and t["openConditions"] == []
     # the Ukrainian company that holds its PIC is the one that may apply now
     t = timing(UA, {"REQ-PIC": "held"}, "EDIP-USI", 20)
     assert t["verdict"] == "eligible" and t["realistic"] == "yes" and t["openConditions"] == []

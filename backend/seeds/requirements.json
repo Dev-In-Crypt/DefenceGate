@@ -464,7 +464,7 @@
       "code": "EDF-PIC", "programmes": ["EDF"], "position": 4,
       "title": "PIC registered on the Funding and Tenders Portal",
       "obligation": "mandatory", "kind": "registration", "requirement": "REQ-PIC",
-      "condition": {"status": "REQ-PIC", "in": ["held", "not_applicable"]},
+      "condition": {"status": "REQ-PIC", "is": "held"},
       "texts": {
         "requires": "An applicant needs a PIC, issued when the organisation registers on the Funding and Tenders Portal.",
         "met": "You have a PIC.",
@@ -596,7 +596,7 @@
       "code": "EDIP-PIC", "programmes": ["EDIP"], "position": 6,
       "title": "PIC registered on the Funding and Tenders Portal",
       "obligation": "mandatory", "kind": "registration", "requirement": "REQ-PIC",
-      "condition": {"status": "REQ-PIC", "in": ["held", "not_applicable"]},
+      "condition": {"status": "REQ-PIC", "is": "held"},
       "texts": {
         "requires": "An applicant needs a PIC, issued when the organisation registers on the Funding and Tenders Portal.",
         "met": "You have a PIC.",
@@ -715,7 +715,7 @@
       "code": "USI-PIC", "programmes": ["EDIP-USI"], "position": 6,
       "title": "PIC registered on the Funding and Tenders Portal",
       "obligation": "mandatory", "kind": "registration", "requirement": "REQ-PIC",
-      "condition": {"status": "REQ-PIC", "in": ["held", "not_applicable"]},
+      "condition": {"status": "REQ-PIC", "is": "held"},
       "texts": {
         "requires": "An applicant needs a PIC, issued when the organisation registers on the Funding and Tenders Portal.",
         "met": "You have a PIC.",
@@ -1082,7 +1082,7 @@
       "code": "NATO-NCAGE", "programmes": ["NATO-SUPPLY"], "position": 1,
       "title": "NCAGE code",
       "obligation": "mandatory", "kind": "registration", "requirement": "REQ-NCAGE",
-      "condition": {"status": "REQ-NCAGE", "in": ["held", "not_applicable"]},
+      "condition": {"status": "REQ-NCAGE", "is": "held"},
       "texts": {
         "requires": "Supply through NSPA, and the assignment of NATO stock numbers, need an NCAGE code.",
         "met": "You have an NCAGE code.",
@@ -1157,15 +1157,11 @@
         ]
       },
       "condition": {
-        "status": "REQ-EXPORT",
-        "in": [
-          "held",
-          "not_applicable"
-        ]
+        "status": "REQ-EXPORT", "is": "held"
       },
       "texts": {
         "requires": "An authorisation is required for the export of dual-use items listed in Annex I of Regulation (EU) 2021/821.",
-        "met": "You hold the export authorisation you need, or have said none is needed.",
+        "met": "You hold the export authorisation you need.",
         "not_met": "You export, or may export, dual-use items outside the Union. Items listed in Annex I of Regulation (EU) 2021/821 need an export authorisation. Your competent authority decides whether your product is listed.",
         "not_applicable": "This concerns dual-use items that are exported outside the Union. You said your product is not dual-use, or that you do not export it outside the EU."
       },
@@ -1237,11 +1233,7 @@
         ]
       },
       "condition": {
-        "status": "REQ-REOCE",
-        "in": [
-          "held",
-          "not_applicable"
-        ]
+        "status": "REQ-REOCE", "is": "held"
       },
       "texts": {
         "requires": "Spanish exporters of controlled items must be registered in REOCE, before or together with the licence application.",
@@ -1270,10 +1262,10 @@
         {"field": "country", "is": "ES"},
         {"field": "handles_classified", "is": true}
       ]},
-      "condition": {"status": "REQ-FSC-ES", "in": ["held", "not_applicable"]},
+      "condition": {"status": "REQ-FSC-ES", "is": "held"},
       "texts": {
         "requires": "A Spanish company that handles classified information needs the HSEM facility security clearance from the Oficina Nacional de Seguridad.",
-        "met": "You hold the HSEM or have said none is needed.",
+        "met": "You hold the HSEM.",
         "not_met": "To handle classified information a Spanish company needs the HSEM facility security clearance from the Oficina Nacional de Seguridad. How long it takes is not published.",
         "not_applicable": "This applies to Spanish companies that handle classified information."
       },
@@ -1682,14 +1674,14 @@
       "obligation": "mandatory",
       "kind": "establishment",
       "requirement": null,
-      "condition": {"field": "country", "is": "UA"},
+      "condition": {"any": [{"field": "country", "is": "UA"}, {"field": "ua_partner", "is": true}]},
       "conditional_when": {"not": {"field": "country", "is": "UA"}},
       "texts": {
         "requires": "An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there.",
-        "met": "Your company is established in Ukraine, so it can be the Ukrainian entity this rule asks for (its executive management structure must be in Ukraine too: see the rule on executive management).",
-        "conditional": "Your company is not established in Ukraine. An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there, so you can take part only with such a partner. The call documents add that a single applicant must itself be established in Ukraine. This check does not know whether you have a Ukrainian partner: it never reads as a plain yes.",
+        "met": "The action involves a legal entity established in Ukraine: your company, if it is established there, or the partner you named in your planned consortium. Its executive management structure must be in Ukraine too (see the rule on executive management).",
+        "conditional": "Your company is not established in Ukraine, and you said that no legal entity established in Ukraine takes part in your planned consortium. An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there, so you can take part only with such a partner. The call documents add that a single applicant must itself be established in Ukraine.",
         "not_met": "No entity established in Ukraine is involved in the action, so it cannot be funded under the Ukraine Support Instrument.",
-        "unknown": "Say in which country your company is established."
+        "unknown": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
       },
       "note": null,
       "source_url": "http://data.europa.eu/eli/reg/2025/2643/oj",
@@ -1778,15 +1770,11 @@
         ]
       },
       "condition": {
-        "status": "REQ-EXPORT",
-        "in": [
-          "held",
-          "not_applicable"
-        ]
+        "status": "REQ-EXPORT", "is": "held"
       },
       "texts": {
         "requires": "Transfers of defence-related products between Member States are subject to prior authorisation, and Member States' legislation indicates in which cases an export licence is required for military technology and equipment.",
-        "met": "You hold the authorisation you need for military goods, or have said none is needed.",
+        "met": "You hold the authorisation you need for military goods.",
         "not_met": "You move, or may move, military goods to another EU country, or export them. Transfers between Member States are subject to prior authorisation unless the Member State exempts them, and national law says in which cases an export licence is required. Ask the authority of your Member State.",
         "not_applicable": "This concerns military goods that are moved to another EU country or exported. You said your product is not in the military regime, or that you do not export it."
       },

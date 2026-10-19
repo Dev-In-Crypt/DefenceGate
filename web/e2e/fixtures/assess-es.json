@@ -416,22 +416,25 @@
   },
   {
    "blocking": [],
-   "conditions": [
-    "USI-INVOLVES-UA"
-   ],
+   "conditions": [],
    "counts": {
-    "conditional": 1,
+    "conditional": 0,
     "info": 1,
     "met": 6,
     "not_applicable": 1,
     "not_met": 0,
     "to_obtain": 1,
-    "unknown": 0
+    "unknown": 1
    },
-   "incomplete": false,
+   "incomplete": true,
    "kind": "programme",
    "legalBasis": "Regulation (EU) 2025/2643, Chapter on the Ukraine Support Instrument",
-   "missing": [],
+   "missing": [
+    {
+     "field": "ua_partner",
+     "question": "Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?"
+    }
+   ],
    "name": "EDIP: Ukraine Support Instrument",
    "programme": "EDIP-USI",
    "rules": [
@@ -596,13 +599,18 @@
      "title": "PIC registered on the Funding and Tenders Portal"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "ua_partner",
+       "question": "Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?"
+      }
+     ],
      "denominator": null,
      "kind": "establishment",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "conditional",
-     "reason": "Your company is not established in Ukraine. An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there, so you can take part only with such a partner. The call documents add that a single applicant must itself be established in Ukraine. This check does not know whether you have a Ukrainian partner: it never reads as a plain yes.",
+     "outcome": "unknown",
+     "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes.",
      "requirement": null,
      "rule": "USI-INVOLVES-UA",
      "source": {

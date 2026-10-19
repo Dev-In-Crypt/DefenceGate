@@ -41,6 +41,7 @@ async function answerUkraine(page: Page) {
   await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
   await group(page, /What kind of organisation are you/).getByLabel(/^A company or a research body/).check();
   await next(page);
+  await group(page, /executive management structures/).getByLabel('In the country where the company is established').check();
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
   await group(page, /area of Ukraine that the Ukrainian government does not control/).getByLabel('No', { exact: true }).check();
   await next(page);
@@ -61,6 +62,7 @@ async function answerSpain(page: Page) {
   await group(page, /legal form of your organisation/).getByLabel(/^A legal person/).check();
   await group(page, /What kind of organisation are you/).getByLabel(/^A company or a research body/).check();
   await next(page);
+  await group(page, /executive management structures/).getByLabel('In the country where the company is established').check();
   await group(page, /controlled by a country or an entity outside the EU/).getByLabel('No', { exact: true }).check();
   await next(page);
   await page.getByLabel('Military (on the Common Military List)').check();
@@ -211,9 +213,16 @@ test('a Ukrainian company: the roadmap in order, with issuers and ranges, and ma
   await expect(page.getByText(/different tracks do not depend on each other/)).toBeVisible();
   await expect(page.locator('[data-totals="required"]')).toContainText('5 to 20 days');
   await expect(page.locator('[data-totals="with-optional"]')).toContainText('USD 17,000 to 48,000');
+  // WP-53 (T7): two of the three steps are free and one states no cost: the headline says so and never reads "Free"
+  await expect(page.locator('[data-totals="required"] dd').first()).toHaveText('2 steps free, 1 with no stated cost');
+  await expect(page.locator('[data-totals="required"] dd').nth(1)).toHaveText('5 to 20 days, 1 with no stated time');
+  await expect(page.locator('[data-totals="with-optional"] dd').first()).toHaveText('USD 17,000 to 48,000, 2 steps free, 2 with no stated cost');
 
   await page.getByRole('button', { name: 'Mark as done: PIC (Participant Identification Code)' }).click();
   await expect(page.locator('li[data-step="REQ-PIC"]')).toHaveCount(0);
+  // WP-53: the card that held the focus is gone; focus moves to the heading of the step that follows it, and the change is announced
+  await expect(page.locator('[data-step-heading="REQ-NCAGE"]')).toBeFocused();
+  await expect(page.getByRole('status').filter({ hasText: 'is marked as done' })).toHaveText('PIC (Participant Identification Code) is marked as done. 4 steps are left. Your results are re-scored.');
   expect(posted[posted.length - 1].statuses['REQ-PIC']).toBe('held');
   expect(await page.evaluate(() => JSON.parse(window.localStorage.getItem('dg.profile.v1') ?? '{}').statuses['REQ-PIC'])).toBe('held');
 

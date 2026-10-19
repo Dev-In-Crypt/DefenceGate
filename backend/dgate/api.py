@@ -305,13 +305,18 @@ OPEN_WITHOUT_DEADLINE_DAYS = 365
 SUPERSEDED_SQL = ("dgate_superseded(o.id, o.source_id, o.native_id, o.ted_ref, "
                   "o.procedure_identifier, o.published_at)")
 
+# A planned notice (`forthcoming`: a prior information notice) is not closed while its deadline, if it
+# states one, is ahead (WP-52, T8): it is neither open for tenders nor closed, so it is listed under
+# `status=planned` and `all`, and a passed deadline makes it `expired` like any other.
 EFFECTIVE_STATUS_SQL = f"""(CASE
     WHEN o.status = 'open' AND (
          o.deadline_at < now()
       OR (o.deadline_at IS NULL
           AND (o.published_at < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')
                OR {SUPERSEDED_SQL})))
-    THEN 'expired' ELSE o.status END)"""
+    THEN 'expired'
+    WHEN o.status = 'forthcoming' AND o.deadline_at < now() THEN 'expired'
+    ELSE o.status END)"""
 
 
 def effective_status(status: str | None, deadline_at: datetime | None,
@@ -320,9 +325,11 @@ def effective_status(status: str | None, deadline_at: datetime | None,
     """The Python twin of EFFECTIVE_STATUS_SQL, for a row already fetched. `superseded`
     is SUPERSEDED_SQL for that row (it needs the other rows, so the caller asks the
     database); it only counts for a notice with no deadline of its own."""
+    now = now or datetime.now(timezone.utc)
+    if status == "forthcoming":
+        return "expired" if deadline_at is not None and deadline_at < now else status
     if status != "open":
         return status
-    now = now or datetime.now(timezone.utc)
     if deadline_at is not None:
         return "expired" if deadline_at < now else "open"
     if superseded:

@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { cpvDivisionLabel } from '@/lib/taxonomy';
+import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { buildMetadata } from '@/lib/seo';
 import { PageHeader } from '@/components/dg/page-header';
@@ -19,9 +20,10 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const s = await getSupplier(slug).catch(whenRemoved);
-  if (s === REMOVED) return { title: 'Removed on request', robots: { index: false } };
-  if (!s) return { title: 'Supplier not found', robots: { index: false } };
+  const got = await getSupplier(slug).catch(whenRemoved);
+  if (got === REMOVED) return { title: 'Removed on request', robots: { index: false } };
+  if (!got) return { title: 'Supplier not found', robots: { index: false } };
+  const s = { ...got, name: displayName(got.name, 'title') };
   return buildMetadata({
     title: s.name,
     description: `${s.name} (${s.country}): ${s.noticeCount} defence-relevant TED result notices naming it as a winner. The open segment of the market only.`,
@@ -33,9 +35,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function SupplierPage({ params }: Props) {
   const { slug } = await params;
   if (!isSupplierSlug(slug)) notFound();
-  const s = await getSupplier(slug).catch(whenRemoved);
-  if (s === REMOVED) return <RemovedOnRequest what="supplier" />;
-  if (!s) notFound();
+  const got = await getSupplier(slug).catch(whenRemoved);
+  if (got === REMOVED) return <RemovedOnRequest what="supplier" />;
+  if (!got) notFound();
+  const s = { ...got, name: displayName(got.name, 'title') };      // the case of the name is for the eye; the stored name is not changed
   if (s.slug !== slug && isSupplierSlug(s.slug)) permanentRedirect(`/suppliers/${s.slug}`);
   return (
     <>

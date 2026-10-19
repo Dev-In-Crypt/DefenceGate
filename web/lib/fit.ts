@@ -10,12 +10,13 @@
  *     class, control);
  *   - "unknown" where there is nothing to compare: the call's rules were not read, or none of the facts
  *     read concerns what the profile says. Never a guess.
- * The profile does not say whether the company has partners. A consortium requirement therefore does not decide
- * the verdict (it asks the same of every applicant); it is listed as a condition that comes with the verdict, in the
- * badge's tooltip and on the call page.
+ * A consortium requirement does not decide the verdict (it asks the same of every applicant); it is listed as a condition that
+ * comes with the verdict, in the badge's tooltip and on the call page. Since WP-53 the profile can say two things about the partners
+ * (a legal entity established in Ukraine, a SEAP): a condition of exactly those two kinds is met by the answer, and only then is the
+ * line "yes". Without the answer, or with another condition on partners, it stays "check".
  */
-import { EU27, check, consortiumCondition, consortiumUnclear, unclearConsortiumText, type EligibilityFacts, type Line, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
-import type { ApplicantKind, Profile } from './profile';
+import { EU27, check, consortiumUnclear, partnerLine, unclearConsortiumText, type EligibilityFacts, type Line, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
+import { managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 
 export type Fit = Verdict | 'unknown';
@@ -45,11 +46,16 @@ export function checkProfileOf(p: Profile): CheckProfile | null {
   return {
     country: p.country,
     orgType: orgTypeOf(p),
-    // The profile has no question about partners: left unanswered, the consortium is a condition (see `fitOf`).
+    // The profile says nothing about a consortium in general: a requirement of one is a condition (see `fitOf`). What it says about
+    // partners (a Ukrainian entity, a SEAP) is in `more`.
     hasPartners: '',
     // "Controlled from outside the EU or associated countries": only an explicit "no" settles it. Control by
     // Ukraine or the EEA is associated for some calls and not for others, so it is a question for the document.
     controlledAbroad: p.control === 'no' ? 'no' : p.control === 'other' ? 'yes' : 'unsure',
+    more: {
+      legalPerson: p.legalForm === 'legal_person', company: p.applicantKind === 'company_or_research', managementCountry: managementCountryOf(p) ?? '',
+      uaOccupied: p.uaOccupied, uaPartner: p.uaPartner, seapPartner: p.seapPartner,
+    },
   };
 }
 
@@ -75,11 +81,9 @@ export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profi
   }
   // A condition the document attaches to the consortium or to a single applicant (call 78: the proposal must use one of the specified
   // mechanisms; call 118: a single applicant must be Ukrainian; call 14: specific conditions on the composition) keeps the badge from
-  // saying "Eligible", though the profile has no answer about partners (V2-B10).
-  const condition = consortiumCondition(facts);
-  if (condition && !lines.some((l) => l.key === 'consortium')) {
-    lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: condition, quote: (facts.consortium_required ?? facts.single_applicant_allowed)?.quote });
-  }
+  // saying "Eligible" (V2-B10), unless it is one the profile answers and meets (WP-53, T21: `partnerLine`).
+  const partner = partnerLine(facts, cp);
+  if (partner && !lines.some((l) => l.key === 'consortium')) lines.push(partner);
   if (lines.length === 0) return { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
   const verdict = lines.reduce<Verdict>((v, l) => (v === 'no' || l.verdict === 'no' ? 'no' : v === 'check' || l.verdict === 'check' ? 'check' : 'yes'), 'yes');
   const conditions: string[] = [];

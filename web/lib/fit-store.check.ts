@@ -62,7 +62,7 @@ const ASSESSMENT = {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const profile = (over: object) => JSON.stringify({
-  version: 1, step: 6, updatedAt: null, name: 'Secret Works', sizeClass: 'large', country: 'ES', managementSameCountry: true, managementCountry: '',
+  version: 2, step: 6, updatedAt: null, name: 'Secret Works', sizeClass: 'large', country: 'ES', management: 'same', managementCountry: '',
   control: 'no', uaOccupied: '', regime: 'none', componentPct: '', restricted: '', statuses: {}, classified: '', exportIntent: '', ...over,
 });
 

@@ -107,7 +107,7 @@ def test_the_attribution_and_the_url_reach_the_api(conn, fs_store, monkeypatch):
         french = client.get("/v1/calls?country=FR").json()
         assert [c["native_id"] for c in french] == ["astrid-2026"]
         call = french[0]
-        assert call["attribution"].startswith("Source : Agence de l'innovation de defense")
+        assert call["attribution"].startswith("Source : Agence de l'innovation de défense")   # accents kept (migration 0091)
         assert call["issuer"].startswith("Agence de l'innovation de defense")
         assert call["source_url"].endswith("/aid/appels-projets/cours/astrid-2026")
         one = client.get(f"/v1/calls/{call['id']}").json()
