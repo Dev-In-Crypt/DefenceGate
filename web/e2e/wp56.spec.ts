@@ -41,12 +41,12 @@ test('T20b and C6: a long source text is whole behind "Show full text", the same
   await expect(who.getByText('Described in section 6 of the call document.')).toHaveCount(1);
   const more = who.locator('summary', { hasText: /^Show full text, [\d,]+ characters$/ });
   await expect(more).toHaveCount(1);
-  await expect(who.getByText('Country59.')).toBeHidden();
+  await expect(who.getByText('Country119.')).toBeHidden();
   await more.click();
-  await expect(who.getByText(/Country59\./)).toBeVisible();
+  await expect(who.getByText(/Country119\./)).toBeVisible();
   // the conditions as published: the start is on the page, the whole is one tap away
   const conditions = page.locator('#conditions');
-  await expect(conditions.getByText(/^Condition 0 of the call text/)).toBeVisible();
+  await expect(conditions.getByText(/^Condition 0 of the call text/).first()).toBeVisible();
   await expect(conditions.getByText('Condition 79 of the call text is published by the source.')).toBeHidden();
   await conditions.locator('summary', { hasText: /Show full text, [\d,]+ characters/ }).click();
   await expect(conditions.getByText(/Condition 79 of the call text is published by the source\./)).toBeVisible();

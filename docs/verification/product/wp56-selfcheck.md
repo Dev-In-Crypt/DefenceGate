@@ -142,6 +142,44 @@ Deleted:
 
 Changed format only: ISO dates to "7 Sep 2026".
 
-## Tests and checks
+## Tests and checks (run on the server, own dirs `/root/dev-w56`, `/root/dev-w56-web`, database `agent_wp56`)
 
-(see the end of this file; filled after the run)
+- Backend: `ruff check .` clean; unit suite and integration suite (`/root/run_w56.sh`): no failure. Tests changed or added:
+  `test_a_long_section_is_served_whole_not_cut_with_an_ellipsis` (replaces the cut test, see item 2),
+  `test_budget_order_keeps_each_other_currency_in_amount_order_and_puts_no_budget_last` (new). `test_budget_order_puts_the_chosen_currency_first_and_never_mixes_amounts`
+  is unchanged and green. The first full run failed five tests only because my dir lacked `web/` and `infra/` (tests that read them); with
+  both present the suite is green. No assertion weakened, `addopts` untouched.
+- Web: `tsc --noEmit` clean; `npm run check`: every `lib/*.check.ts` ok, including the new `lib/wp56.check.ts` (it first failed on my own
+  title-trim expectation; the trim now keeps a whole word that is followed by a comma); `next build` green.
+- Playwright (`--workers=1`, desktop and mobile-375, against the mock build). Run 1 (`wp56`, `readiness`, `funding`): 57 passed, 1 skipped,
+  2 failed (my new long-text test: the mock text was too short to need the Details; mock list made longer). Run 2 (`wp56`, `wp46`, `routes`,
+  `ux`, `layout`): 133 passed, 5 skipped (the skips were there before, plus the footer-group test, which is desktop only), 2 failed (my own
+  test again: a locator that matched the start of the conditions twice, once in the page and once inside the Details; fixed with `.first()`).
+  `wp56` re-run alone after the fixes: 17 passed, 1 skipped. The other specs were not re-run after those test-only fixes.
+- E2E expectations I changed: `readiness.spec.ts` lines 89 and 103 expected the ISO date "Last reviewed 2026-..." on `/requirements`; they now
+  expect "Last reviewed 7 Sep 2026" (same strength, new site format). Line 156 (readiness rule source, ISO) is unchanged.
+- Mock data (`lib/mock/calls.ts`) extended so the new behaviour has something to show: non-encoded regimes for Horizon, Digital and national
+  calls, a "not read" Horizon call with ISO dates in its terms, a Horizon call with a 120-country list, a repeated sentence and a long conditions text.
+  The mock budget sort mirrors the API rule.
+
+## What I could not run or measure
+
+- Production count of the calls whose list was cut (the audit says 46 calls, 48 rows). A read-only production query was refused by the
+  permission system, so there is no new measurement. Command for the orchestrator (read-only, no change): after the deploy, for the ids
+  of the audit (for example 140, 142, 131, 54) `GET /v1/funding/<id>` must give a `whoCanApply` value longer than 700 characters without a final "…".
+  Before the deploy, the count: select `id, eligibility_text` of `call` (not suppressed) and apply `funding.who_can_apply` of this branch;
+  the number of calls with a value over 700 characters is the number that were cut.
+- Not run: the other Playwright specs (`fit`, `changes`, `digest`, `networks`, `suppliers`, `wp36`, `wp45`, `wp47`-`wp49`, `wp53`, `wp54`, `wp57`) and
+  the axe/a11y scripts; the specs were not run against production data (mock only). No screenshot comparison of the new six-column footer was made:
+  `wp46` (height at most 360 px from lg, links at least 32 px) passes, the look was not inspected by eye.
+- Production data was not changed and no `ops/` module was needed.
+
+## Left for the owner or other packages
+
+- Wording, not touched: "Cascade funding" (index) against "Financial support to third parties" (panel title); "(the same body for every
+  country)" in the NCAGE answer; "Appears in the rules of the general requirements."; the provenance sentences that name the "DefenceGate research notes";
+  "Not stated in the sources" (kept).
+- The long dates ("18 October 2026") on `/privacy`, `/terms`, `/methodology`, `/data/sovereignty`; ISO dates in the readiness roadmap and rule sources.
+- Title trimming is global (every `buildMetadata` call, including tender and call pages: WP-52b should know that a long tender title now ends in "…").
+- Header menus still omit Glossary, CPV finder, Alerts, Opportunity pack, About and the legal pages (footer only).
+- Deadline sort label (F-07) and "closed calls last" for the budget sort are unchanged, documented in `API_CONTRACT.md`.

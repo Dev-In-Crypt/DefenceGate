@@ -111,7 +111,7 @@ function mockDetail(r: RawCall): Partial<Call> {
     out.eligibility = [{ label: 'Decision expected', value: '2026-12-15' }, { label: 'Project start', value: '2027-01-04 to 2027-01-11' }];
   }
   if (r.topicId === 'HORIZON-CL4-2026-MAT-03-11') {
-    const countries = Array.from({ length: 60 }, (_, i) => `Country${String(i).padStart(2, '0')}`).join('; ');
+    const countries = Array.from({ length: 120 }, (_, i) => `Country${String(i).padStart(3, "0")}`).join('; ');
     out.whoCanApply = [
       { label: 'Eligible countries', value: `Participating States are ${countries}.` },
       { label: 'Other eligibility conditions', value: 'Described in section 6 of the call document.' },
