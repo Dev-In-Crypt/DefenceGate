@@ -5,7 +5,7 @@ import { portalWords } from '@/lib/coverage-copy';
 import { SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
 import { Callout, ClauseList, Steps } from '@/components/dg/blocks';
-import { ContentPage, ContentSection } from '@/components/dg/content-page';
+import { ContentPage, ContentSection, PageSection } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
 
@@ -25,14 +25,14 @@ export default async function MethodologyPage() {
   const portals = portalWords((await getHealth()).sources);
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Methodology', href: '/methodology' }]}
       title="How we collect and classify"
       lead="What happens to a notice between the source and this site, and where the limits are."
     >
-      <section aria-labelledby="flow" className="flex flex-col gap-4">
-        <h2 id="flow" className="m-0 text-h2">From source to screen</h2>
-        <Steps items={PIPELINE} />
-      </section>
+      <PageSection id="flow" title="From source to screen">
+        <Steps rows items={PIPELINE} />
+      </PageSection>
 
       <ContentSection title="What is versioned">
         <p className="m-0 text-body text-ink-muted">

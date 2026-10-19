@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { dayOf, groupByDay, monthWeeks, truncateTitle, type CalendarEntry } from '@/lib/calendar';
 import { displayName } from '@/lib/display-name';
 import { dayParts, formatDateUtc } from '@/lib/format';
+import { Card } from '../dg/card';
 import { Icon } from '../dg/icon';
 import { Tag } from '../dg/tag';
 
@@ -38,17 +39,20 @@ function EntryRow({ e }: { e: CalendarEntry }) {
   );
 }
 
-/** Entries grouped by day, each day a card. Every day has an anchor (`#d-YYYY-MM-DD`) the month grid links to. */
+/**
+ * Entries grouped by day, each day a card with the date in its own column (from lg) and the entries beside it: a day with one
+ * deadline is one short row, not a full-width box. Every day has an anchor (`#d-YYYY-MM-DD`) the month grid links to.
+ */
 export function Agenda({ entries }: { entries: CalendarEntry[] }) {
   return (
     <div className="flex flex-col gap-4">
       {groupByDay(entries).map(({ day, items }) => (
-        <section key={day} id={`d-${day}`} aria-labelledby={`h-${day}`} className="flex scroll-mt-4 flex-col gap-1 rounded-lg border border-edge bg-surface p-5 sm:p-6">
-          <h3 id={`h-${day}`} className="m-0 text-h3"><time dateTime={day}>{dayLabel(day)}</time></h3>
+        <Card key={day} anchor={`d-${day}`} id={`h-${day}`} headingLevel="h3" className="split scroll-mt-4 [&>.card-body]:pt-2 [&>.card-head]:min-h-0 [&>.card-head]:border-b-0 [&>.card-head]:pb-0 [&>.card-head]:pt-5"
+          title={<time dateTime={day}>{dayLabel(day)}</time>}>
           <ul className="m-0 flex list-none flex-col p-0">
             {items.map((e) => <EntryRow key={e.key} e={e} />)}
           </ul>
-        </section>
+        </Card>
       ))}
     </div>
   );
@@ -78,18 +82,18 @@ export function MonthGrid({ month, label, entries, today }: { month: string; lab
                 if (!day) return <td key={j} className="rounded-md" aria-hidden="true" />;
                 const items = byDay.get(day) ?? [];
                 return (
-                  <td key={day} className={cn('h-28 min-w-0 rounded-md bg-surface-inset p-2 align-top', day === today && 'outline outline-2 -outline-offset-2 outline-accent-text')}>
-                    <div className="flex flex-col gap-1">
-                      <span className="font-mono text-mono-strong tabular-nums">{Number(day.slice(8))}</span>
+                  <td key={day} className={cn('h-28 min-w-0 rounded-md bg-surface-inset p-1.5 align-top', day === today && 'outline outline-2 -outline-offset-2 outline-accent-text')}>
+                    <div className="flex flex-col">
+                      <span className="px-1 font-mono text-mono-strong tabular-nums">{Number(day.slice(8))}</span>
                       {items.slice(0, CELL_ENTRIES).map((e) => (
                         <Link key={e.key} href={e.href} title={displayName(e.title)}
                           aria-label={`${e.kind === 'tender' ? 'Tender' : 'Funding call'}: ${displayName(e.title)}`}
-                          className="block break-words rounded-sm text-[12px] font-semibold leading-4 text-ink">
+                          className="block min-h-8 break-words rounded-sm px-1 py-2 text-label text-ink">
                           {truncateTitle(displayName(e.title))}
                         </Link>
                       ))}
                       {items.length > CELL_ENTRIES && (
-                        <a href={`#d-${day}`} className="text-[12px] font-bold leading-4">+{items.length - CELL_ENTRIES} more</a>
+                        <a href={`#d-${day}`} className="block min-h-8 px-1 py-2 text-label">+{items.length - CELL_ENTRIES} more</a>
                       )}
                     </div>
                   </td>

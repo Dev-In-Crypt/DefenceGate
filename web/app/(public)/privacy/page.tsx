@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo';
-import { Callout, Clause, ClauseList } from '@/components/dg/blocks';
+import { Callout, Clause, ClauseGroup, ClauseList } from '@/components/dg/blocks';
 import { ContentPage, Placeholder } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
@@ -19,6 +19,7 @@ const P = 'm-0';
 export default function PrivacyPage() {
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Privacy notice', href: '/privacy' }]}
       title="Privacy notice"
       lead="Version 1.5, published 18 October 2026. It says what happens today and what will apply once sign-in opens. It is updated before anything that changes it goes live."
@@ -34,6 +35,7 @@ export default function PrivacyPage() {
         ]} />
       </Callout>
 
+      <ClauseGroup>
       <Clause n={1} title="Who is responsible">
         <p className={P}>The controller is the operator identified in the <Link href="/imprint" className="font-semibold">imprint</Link>. The imprint is where the name, address and contact for privacy matters are given and, where one is required, the representative in the Union and the data protection officer.</p>
       </Clause>
@@ -117,6 +119,7 @@ export default function PrivacyPage() {
       <Clause n={11} title="Changes">
         <p className={P}>We update this notice when the site changes. The version and date are at the top, and earlier versions are kept and available on request. Material changes for account holders are also sent by e-mail.</p>
       </Clause>
+      </ClauseGroup>
     </ContentPage>
   );
 }

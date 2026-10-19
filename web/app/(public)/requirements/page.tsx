@@ -5,9 +5,12 @@ import { getRequirements } from '@/lib/readiness-api';
 import { CATEGORY_WORD, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug } from '@/lib/readiness';
 import type { RequirementSummary } from '@/lib/readiness-types';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
+import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
-import { ContentPage, ContentSection } from '@/components/dg/content-page';
+import { Card } from '@/components/dg/card';
+import { ContentPage, ContentSection, PageSection } from '@/components/dg/content-page';
 import { ErrorState, JsonLd } from '@/components/dg/feedback';
+import { FactsGrid } from '@/components/dg/facts-grid';
 
 export const revalidate = 3600;
 
@@ -17,21 +20,23 @@ export const metadata: Metadata = buildMetadata({
   path: '/requirements',
 });
 
-function Card({ r }: { r: RequirementSummary }) {
+/** One requirement: name, summary, then Cost and Time as facts (label above value) pinned to the bottom, so the cards of a row line up. */
+function RequirementCard({ r }: { r: RequirementSummary }) {
+  const document = r.kind === 'document';
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <Card as="li" className="gap-3">
       <h3 className="m-0 text-h3"><Link href={`/requirements/${requirementSlug(r.code)}`} className="text-inherit">{r.name}</Link></h3>
       <p className="m-0 text-body text-ink-muted">{r.summary}</p>
-      {r.kind === 'document' && (
-        <dl className="m-0 grid gap-x-6 gap-y-1 text-small sm:grid-cols-2">
-          <div><dt className="inline font-bold">Cost: </dt><dd className="m-0 inline">{formatRange(r.cost)}{r.cost?.label ? ` (${r.cost.label})` : ''}</dd></div>
-          <div><dt className="inline font-bold">Time: </dt><dd className="m-0 inline">{formatDays(r.days)}</dd></div>
-        </dl>
+      {document && (
+        <FactsGrid className="mt-auto" items={[
+          { label: 'Cost', value: `${formatRange(r.cost)}${r.cost?.label ? ` (${r.cost.label})` : ''}` },
+          { label: 'Time', value: formatDays(r.days) },
+        ]} />
       )}
-      <p className="m-0 text-small text-ink-muted">
+      <p className={document ? 'm-0 text-small text-ink-muted' : 'm-0 mt-auto text-small text-ink-muted'}>
         {r.programmes.length > 0 ? `Appears in the rules of ${joinWords(r.programmes.map(programmeName))}. ` : ''}Last reviewed {isoDay(r.lastReviewed)}.
       </p>
-    </li>
+    </Card>
   );
 }
 
@@ -52,6 +57,7 @@ export default async function RequirementsPage() {
   };
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Requirements', href: '/requirements' }]}
       title="Requirements for EU defence programmes"
       lead="What separates a company from taking part: the codes, registrations, certificates and licences, and the eligibility rules. For each one: who issues it (in the countries covered so far), what it costs and how long it takes, with the source and the date it was last reviewed."
@@ -59,17 +65,15 @@ export default async function RequirementsPage() {
       {failed && <ErrorState title="The catalogue could not be loaded" retryHref="/requirements" />}
       {items.length > 0 && <JsonLd data={list} />}
       {categories.map((c) => (
-        <section key={c} aria-labelledby={`cat-${c}`} className="flex flex-col gap-4">
-          <h2 id={`cat-${c}`} className="m-0 text-h2">{CATEGORY_WORD[c] ?? c}</h2>
-          <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">{documents.filter((r) => r.category === c).map((r) => <Card key={r.code} r={r} />)}</ul>
-        </section>
+        <PageSection key={c} id={`cat-${c}`} title={CATEGORY_WORD[c] ?? c}>
+          <AutoGrid as="ul" min={400} pairs>{documents.filter((r) => r.category === c).map((r) => <RequirementCard key={r.code} r={r} />)}</AutoGrid>
+        </PageSection>
       ))}
       {rules.length > 0 && (
-        <section aria-labelledby="cat-rules" className="flex flex-col gap-4">
-          <h2 id="cat-rules" className="m-0 text-h2">Eligibility rules of the programmes</h2>
-          <p className="m-0 max-w-[70ch] text-body text-ink-muted">These are not documents to obtain. They are conditions the programme sets on a company, read from the regulation.</p>
-          <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">{rules.map((r) => <Card key={r.code} r={r} />)}</ul>
-        </section>
+        <PageSection id="cat-rules" title="Eligibility rules of the programmes"
+          intro="These are not documents to obtain. They are conditions the programme sets on a company, read from the regulation.">
+          <AutoGrid as="ul" min={400} pairs>{rules.map((r) => <RequirementCard key={r.code} r={r} />)}</AutoGrid>
+        </PageSection>
       )}
       <ContentSection title="About the costs">
         <p className="m-0 text-body text-ink-muted">

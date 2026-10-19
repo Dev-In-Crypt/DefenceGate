@@ -31,6 +31,7 @@ const RESOURCES = [
 export default function AboutPage() {
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }]}
       title="About DefenceGate"
       lead="Public notices about defence and dual-use work are spread over many portals, formats and languages. We bring them into one place and make them easy to check."

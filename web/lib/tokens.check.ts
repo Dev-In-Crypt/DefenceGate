@@ -73,4 +73,14 @@ for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd
 }
 for (const u of used) assert.ok(sizes.has(u), `text-${u} is used but not defined`);
 
+// No ad hoc line-length cap: running text takes the one measure (`max-w-prose`). The breadcrumb (40ch), the footer (36/34ch) are not prose;
+// the home page keeps its own until the home layout work (WP-46) replaces them. WP-45 removed the ones on /regulation and /requirements.
+const ALLOWED_CH = ['components/dg/feedback.tsx', 'components/dg/footer.tsx', 'app/(public)/page.tsx'];
+for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd(), 'components'))]) {
+  const rel = f.slice(process.cwd().length + 1).replaceAll('\\', '/');
+  if (ALLOWED_CH.includes(rel)) continue;
+  const bad = readFileSync(f, 'utf8').match(/max-w-\[\d+ch\]/);
+  assert.ok(!bad, `${rel}: ${bad?.[0]} is an ad hoc measure, use max-w-prose`);
+}
+
 console.log('tokens: ok');

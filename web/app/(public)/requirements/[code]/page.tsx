@@ -10,6 +10,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { JsonLd } from '@/components/dg/feedback';
+import { Fact, FactsGrid } from '@/components/dg/facts-grid';
 
 export const revalidate = 3600;
 
@@ -53,6 +54,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
 
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Requirements', href: '/requirements' }, { label: r.name, href: path }]}
       title={r.name}
       lead={r.summary}
@@ -63,28 +65,26 @@ export default async function RequirementPage({ params }: { params: Params }) {
       )}
 
       <ContentSection title="At a glance">
-        <dl className="m-0 grid gap-x-12 gap-y-3 sm:grid-cols-[max-content_1fr]">
-          <dt className="font-bold">Kind</dt><dd className="m-0">{CATEGORY_WORD[r.category] ?? r.category}{r.kind === 'rule' ? ' (assessed, not obtained)' : ''}</dd>
+        <FactsGrid>
+          <Fact label="Kind">{CATEGORY_WORD[r.category] ?? r.category}{r.kind === 'rule' ? ' (assessed, not obtained)' : ''}</Fact>
           {r.kind === 'document' && (
             <>
-              <dt className="font-bold">Cost</dt>
-              <dd className="m-0 flex flex-col">
-                <span className="font-mono tabular-nums">{r.cost?.text ?? formatRange(r.cost)}</span>
-                {r.vendorRangeLabel && <span className="text-small font-bold">{r.vendorRangeLabel}</span>}
-                {r.cost?.alt && <span className="text-small text-ink-muted">{r.cost.alt.text}</span>}
-              </dd>
-              <dt className="font-bold">Time</dt>
-              <dd className="m-0 flex flex-col">
-                <span className="font-mono tabular-nums">{formatDays(r.days)}</span>
-                {r.durationNote && <span className="text-small text-ink-muted">{r.durationNote}</span>}
-              </dd>
+              <Fact label="Cost">
+                <span className="block font-mono tabular-nums">{r.cost?.text ?? formatRange(r.cost)}</span>
+                {r.vendorRangeLabel && <span className="block text-small font-bold">{r.vendorRangeLabel}</span>}
+                {r.cost?.alt && <span className="block text-small text-ink-muted">{r.cost.alt.text}</span>}
+              </Fact>
+              <Fact label="Time">
+                <span className="block font-mono tabular-nums">{formatDays(r.days)}</span>
+                {r.durationNote && <span className="block text-small text-ink-muted">{r.durationNote}</span>}
+              </Fact>
             </>
           )}
-          {r.mandatoryFor && <><dt className="font-bold">Needed for</dt><dd className="m-0">{r.mandatoryFor}</dd></>}
-          {r.legalBasis && <><dt className="font-bold">Legal basis</dt><dd className="m-0">{r.legalBasis}</dd></>}
-          <dt className="font-bold">Last reviewed</dt><dd className="m-0"><time dateTime={r.lastReviewed}>{isoDay(r.lastReviewed)}</time></dd>
-          <dt className="font-bold">Verification</dt><dd className="m-0">{statusWords(r.verificationStatus, r.source.origin)}</dd>
-        </dl>
+          {r.mandatoryFor && <Fact label="Needed for">{r.mandatoryFor}</Fact>}
+          {r.legalBasis && <Fact label="Legal basis">{r.legalBasis}</Fact>}
+          <Fact label="Last reviewed"><time dateTime={r.lastReviewed}>{isoDay(r.lastReviewed)}</time></Fact>
+          <Fact label="Verification">{statusWords(r.verificationStatus, r.source.origin)}</Fact>
+        </FactsGrid>
       </ContentSection>
 
       {r.description && (
@@ -131,7 +131,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
             {r.rules.map((x) => (
               <li key={`${x.programme}-${x.rule}`} className="flex flex-col gap-0.5">
                 <span><strong>{x.programmeName}</strong>: {x.title} <span className="text-small text-ink-muted">({OBLIGATION_WORD[x.obligation]})</span></span>
-                <span className="max-w-[80ch] text-body text-ink-muted">{ruleSentence(x.texts)}</span>
+                <span className="max-w-prose text-body text-ink-muted">{ruleSentence(x.texts)}</span>
               </li>
             ))}
           </ul>
@@ -157,7 +157,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
             {faq.map((f) => (
               <div key={f.q} className="flex flex-col gap-0.5">
                 <dt className="font-bold">{f.q}</dt>
-                <dd className="m-0 max-w-[80ch] text-body text-ink-muted">{f.a}</dd>
+                <dd className="m-0 text-body text-ink-muted">{f.a}</dd>
               </div>
             ))}
           </dl>
@@ -169,7 +169,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
           {r.source.ref ?? 'See the link'}
           {sourceUrl && <> · <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Open the source</a></>}
         </p>
-        {passages.map((p, i) => <blockquote key={i} className="m-0 max-w-[80ch] break-words border-l-2 border-line pl-3 text-body">{p}</blockquote>)}
+        {passages.map((p, i) => <blockquote key={i} className="m-0 break-words border-l-2 border-line pl-3 text-body">{p}</blockquote>)}
         <p className="m-0 text-small text-ink-muted">{originWords(r.source)} Last reviewed {isoDay(r.lastReviewed)}.</p>
       </ContentSection>
 

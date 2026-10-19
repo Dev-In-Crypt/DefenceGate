@@ -9,13 +9,15 @@ import { staleNote } from '@/lib/source-status';
 import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
 import type { Change } from '@/lib/types';
+import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { Select } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
 import { Pagination } from '@/components/dg/pagination';
-import { ChangeEntry } from '@/components/changes/change-entry';
+import { Tag } from '@/components/dg/tag';
+import { ChangeEntry, FIRST_COLLECTED } from '@/components/changes/change-entry';
 import { FundingChangeEntry } from '@/components/changes/funding-change-entry';
 import { FitFilter, FitItem } from '@/components/funding/fit-badge';
 
@@ -95,36 +97,39 @@ export default async function ChangesPage({ searchParams }: Props) {
     <>
       {header}
       {data.staleAsOf && (
-        <p role="status" className="m-0 rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(data.staleAsOf, formatDateTimeUtc)}</p>
+        <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(data.staleAsOf, formatDateTimeUtc)}</p>
       )}
 
-      <section aria-labelledby="window" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
-        <h2 id="window" className="m-0 text-h3">The last {data.windowDays} days</h2>
-        <p className="m-0 text-body">
-          <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices and{' '}
-          <span className="font-mono tabular-nums">{formatNumber(data.counts.amended)}</span> amendments, from{' '}
-          <time dateTime={data.windowFrom}>{formatDateUtc(data.windowFrom)}</time> to <time dateTime={data.windowTo}>{formatDateUtc(data.windowTo)}</time> (UTC).
-        </p>
-        {(data.fundingTotal ?? 0) > 0 && (
-          <p className="m-0 text-body">
-            <span className="font-mono tabular-nums">{formatNumber(data.fundingTotal ?? 0)}</span> funding calls are new or had a date moved by the source; they are listed{' '}
-            <a href="#funding-heading" className="font-semibold">below</a>, apart from the notices.
+      {/* Text at the left (one measure), the ways to follow the list at the right: the card is filled, not a strip of text in a wide box. */}
+      <section aria-labelledby="window" className="grid gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="flex min-w-0 flex-col gap-3">
+          <h2 id="window" className="m-0 text-h3">The last {data.windowDays} days</h2>
+          <p className="m-0 max-w-prose text-body">
+            <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices and{' '}
+            <span className="font-mono tabular-nums">{formatNumber(data.counts.amended)}</span> amendments, from{' '}
+            <time dateTime={data.windowFrom}>{formatDateUtc(data.windowFrom)}</time> to <time dateTime={data.windowTo}>{formatDateUtc(data.windowTo)}</time> (UTC).
           </p>
-        )}
-        <p className="m-0 text-small text-ink-muted">
-          Taken from our own archive, which began in September 2026: an amendment is a change we observed in a source, on the day we saw it, which may be
-          later than the day the buyer made it. Our own corrections and re-readings are never listed, nor are changes we only learned of by loading a
-          source&rsquo;s older notices (a notice&rsquo;s own page lists those as earlier changes). A notice counts as new only if it was published in these
-          days. A notice published in several places is listed once. One entry is one notice on one day.
-        </p>
-        <div className="flex flex-wrap gap-x-6">
+          {(data.fundingTotal ?? 0) > 0 && (
+            <p className="m-0 max-w-prose text-body">
+              <span className="font-mono tabular-nums">{formatNumber(data.fundingTotal ?? 0)}</span> funding calls are new or had a date moved by the source; they are listed{' '}
+              <a href="#funding-heading" className="font-semibold">below</a>, apart from the notices.
+            </p>
+          )}
+          <p className="m-0 max-w-prose text-small text-ink-muted">
+            Taken from our own archive, which began in September 2026: an amendment is a change we observed in a source, on the day we saw it, which may be
+            later than the day the buyer made it. Our own corrections and re-readings are never listed, nor are changes we only learned of by loading a
+            source&rsquo;s older notices (a notice&rsquo;s own page lists those as earlier changes). A notice counts as new only if it was published in these
+            days. A notice published in several places is listed once. One entry is one notice on one day.
+          </p>
+        </div>
+        <nav aria-label="Follow this list" className="flex flex-col lg:border-l lg:border-line lg:pl-6">
           <a href={feedHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
             <Icon icon={Rss} size="inline" />Atom feed of this list
           </a>
           <Link href="/calendar" className="inline-flex min-h-11 items-center text-small font-bold">Deadline calendar</Link>
           <Link href="/digest" className="inline-flex min-h-11 items-center text-small font-bold">Weekly digest</Link>
           <Link href="/alerts" className="inline-flex min-h-11 items-center text-small font-bold">E-mail alerts (not open yet)</Link>
-        </div>
+        </nav>
       </section>
 
       {filterForm}
@@ -137,9 +142,10 @@ export default async function ChangesPage({ searchParams }: Props) {
             See all <Link href="/funding" className="font-semibold">funding calls</Link>.
           </p>
           <FitFilter />
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {data.funding?.map((f) => <FitItem key={f.id} id={f.call.id}><FundingChangeEntry change={f} /></FitItem>)}
-          </ul>
+          <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New call</Tag>{FIRST_COLLECTED}</p>
+          <AutoGrid as="ul" min={420} pairs>
+            {data.funding?.map((f) => <FitItem key={f.id} id={f.call.id} className="min-w-0"><FundingChangeEntry change={f} /></FitItem>)}
+          </AutoGrid>
         </section>
       )}
 
@@ -152,14 +158,17 @@ export default async function ChangesPage({ searchParams }: Props) {
             Try another country or a wider choice of what to include. Notices are collected once a day, so a quiet day is possible.
           </EmptyState>
         ) : (
-          byDay(data.items).map((g) => (
+          <>
+          <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New</Tag>{FIRST_COLLECTED}</p>
+          {byDay(data.items).map((g) => (
             <div key={g.day} className="flex flex-col gap-3">
               <h2 className="m-0 text-h3"><time dateTime={g.day}>{formatDateUtc(`${g.day}T00:00:00Z`)}</time></h2>
-              <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {g.items.map((c) => <li key={c.id}><ChangeEntry change={c} /></li>)}
-              </ul>
+              <AutoGrid as="ul" min={420} pairs>
+                {g.items.map((c) => <li key={c.id} className="min-w-0"><ChangeEntry change={c} /></li>)}
+              </AutoGrid>
             </div>
-          ))
+          ))}
+          </>
         )}
         <Pagination page={data.page} total={data.total} pageSize={data.pageSize} hrefFor={(p) => `/changes${toChangeQuery({ ...filters, page: p })}`} />
       </section>

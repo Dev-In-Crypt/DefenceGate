@@ -11,7 +11,7 @@ export function Prose({ as = 'div', muted = false, className, children }: {
   const As = as;
   return (
     <As className={cn(
-      'max-w-prose text-body [&>*+*]:mt-4 [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li+li]:mt-1',
+      'justify-text max-w-prose text-body [&>*+*]:mt-4 [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li+li]:mt-1',
       muted ? 'text-ink-muted' : 'text-ink', className)}>
       {children}
     </As>

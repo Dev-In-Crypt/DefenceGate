@@ -114,10 +114,12 @@
   .auto-fill { display: flex; flex-wrap: wrap; gap: 16px; }
   .auto-fill > * { flex: 1 1 min(100%, var(--auto-min, 320px)); min-width: 0; }
   @media (min-width: 1024px) { .auto-grid { gap: 24px; } .auto-fill { gap: 24px; } }
+  /* AutoGrid pairs: an odd last card takes the row (one column: no change; two: no card alone in the left half). */
+  .auto-grid-pairs > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   /* Reading pages and TextCard: from lg a titled card puts its title (sticky) in a 220 px column and the text beside it. */
   @media (min-width: 1024px) {
     .reading .card-titled, .card-titled.split {
-      display: grid; grid-template-columns: 220px minmax(0, var(--measure)); column-gap: 40px; align-items: start; padding: 24px;
+      display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 40px; align-items: start; padding: 24px;
     }
     .reading .card-titled > .card-head, .card-titled.split > .card-head {
       position: sticky; top: 16px; flex-direction: column; align-items: flex-start; justify-content: flex-start;
@@ -141,6 +143,18 @@
     .detail--nav > .d-nav { grid-column: 1; grid-row: 1 / -1; }
     .detail--nav > .d-main { grid-column: 2; }
     .detail--nav > .d-side, .detail--nav > .d-facts { grid-column: 3; }
+  }
+  /* A page with a contents list (ContentPage toc): the title of a card sits right above its text, no header row and hairline. */
+  .toc-page .card-titled > .card-head { min-height: 0; padding-top: 20px; padding-bottom: 0; border-bottom-width: 0; }
+  .toc-page .card-titled > .card-body { padding-top: 12px; }
+  /*
+   * Justified running text (WP-45): paragraphs only, from md (768 px; a phone column keeps its left edge, justifying it makes rivers), hyphenated
+   * (html lang is en). `.justify-text` on a wrapper = every paragraph in it; `.justify-p` = one paragraph. Not headings, lists of short items,
+   * table cells, tags, buttons or captions, and not the paragraphs of a card grid (a 350 px column is about 40 characters).
+   */
+  @media (min-width: 768px) {
+    .justify-text p, .justify-p { text-align: justify; hyphens: auto; }
+    .justify-text .auto-grid p, .justify-text dl p, .justify-text [role="note"], .justify-text figcaption { text-align: left; hyphens: manual; }
   }
   /* h1 of every page: 32/40 below md, 36/44 from md. */
   .page-title { @apply font-sans text-h1-sm md:text-h1; }

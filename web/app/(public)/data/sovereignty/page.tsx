@@ -59,14 +59,15 @@ const OUTSIDE_THE_EU: Row[] = [
 
 function Table({ rows }: { rows: Row[] }) {
   return (
-    <ul className="m-0 flex list-none flex-col gap-3 p-0">
+    // One card per group, one row per service with a hairline between: no box inside the box.
+    <ul className="m-0 flex list-none flex-col p-0">
       {rows.map((r) => (
-        <li key={r.what} className="flex min-w-0 flex-col gap-1 rounded-md bg-surface-inset p-4">
+        <li key={r.what} className="flex min-w-0 flex-col gap-2 border-t border-line py-4 first:border-t-0 first:pt-0 last:pb-0">
           <p className="m-0 text-body font-semibold">{r.what}</p>
-          <dl className="m-0 grid gap-1 text-small sm:grid-cols-[120px_minmax(0,1fr)]">
-            <dt className="font-semibold">Provider</dt><dd className="m-0">{r.who}</dd>
-            <dt className="font-semibold">Where</dt><dd className="m-0">{r.where}</dd>
-            <dt className="font-semibold">In the EU</dt><dd className="m-0">{r.eu}</dd>
+          <dl className="m-0 grid gap-x-4 gap-y-1 text-small sm:grid-cols-[6rem_minmax(0,1fr)]">
+            <dt className="text-label text-ink-muted sm:pt-0.5">Provider</dt><dd className="m-0">{r.who}</dd>
+            <dt className="text-label text-ink-muted sm:pt-0.5">Where</dt><dd className="m-0">{r.where}</dd>
+            <dt className="text-label text-ink-muted sm:pt-0.5">In the EU</dt><dd className="m-0 font-semibold">{r.eu}</dd>
           </dl>
           <p className="m-0 text-small text-ink-muted">{r.note}</p>
         </li>
@@ -78,6 +79,7 @@ function Table({ rows }: { rows: Row[] }) {
 export default function SovereigntyPage() {
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Source status', href: '/data' }, { label: 'Where the data runs', href: '/data/sovereignty' }]}
       title="Where the data runs"
       lead={`What DefenceGate runs where, as read on ${CHECKED}. The site and its data are on servers in the EU. Some services we depend on are not: they are listed below, with what each one sees.`}

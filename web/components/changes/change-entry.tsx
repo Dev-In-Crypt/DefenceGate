@@ -2,8 +2,12 @@ import Link from 'next/link';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc } from '@/lib/format';
 import type { Change } from '@/lib/types';
+import { Card } from '../dg/card';
 import { StatusPill, Tag } from '../dg/tag';
 import { describeChange } from '../dg/version-timeline';
+
+/** The sentence a "new" entry carries. The list says it once, in the legend; each entry keeps it for a screen reader. */
+export const FIRST_COLLECTED = 'First collected by DefenceGate on this day.';
 
 /**
  * One change: a notice that is new, or that was amended, on one day. The lines under the title say what moved
@@ -13,7 +17,7 @@ export function ChangeEntry({ change }: { change: Change }) {
   const t = change.tender;
   const isNew = change.kind === 'new';
   return (
-    <article className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
+    <Card as="article" className="h-full gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {isNew ? <Tag kind="programme">New</Tag> : <StatusPill status="amended" />}
         {t.country && <Tag>{t.country}</Tag>}
@@ -23,15 +27,15 @@ export function ChangeEntry({ change }: { change: Change }) {
         <Link href={`/tenders/${t.slug}`}>{displayName(t.title)}</Link>
       </h3>
       <p className="m-0 text-small font-semibold">
-        {t.buyerSlug ? <Link href={`/buyers/${t.buyerSlug}`}>{displayName(t.buyerName, 'title')}</Link> : displayName(t.buyerName, 'title')}
+        {t.buyerSlug ? <Link href={`/buyers/${t.buyerSlug}`} className="inline-flex min-h-8 items-center">{displayName(t.buyerName, 'title')}</Link> : displayName(t.buyerName, 'title')}
       </p>
       {isNew ? (
-        <p className="m-0 text-body text-ink-muted">First collected by DefenceGate on this day.</p>
+        <p className="sr-only">{FIRST_COLLECTED}</p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-1 p-0">
           {change.changes.map((c, i) => <li key={`${c.field}-${i}`} className="min-w-0 text-body">{describeChange(c)}</li>)}
         </ul>
       )}
-    </article>
+    </Card>
   );
 }

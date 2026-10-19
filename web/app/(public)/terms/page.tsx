@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo';
-import { Callout, Clause, ClauseList } from '@/components/dg/blocks';
+import { Callout, Clause, ClauseGroup, ClauseList } from '@/components/dg/blocks';
 import { ContentPage } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
@@ -19,6 +19,7 @@ const P = 'm-0';
 export default function TermsPage() {
   return (
     <ContentPage
+      toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Terms of use', href: '/terms' }]}
       title="Terms of use"
       lead="Version 2.0, published 14 October 2026. The short version comes first; the numbered terms below are the binding text. They replace version 1.1 of 13 October 2026; earlier versions are kept and available on request."
@@ -35,6 +36,7 @@ export default function TermsPage() {
         ]} />
       </Callout>
 
+      <ClauseGroup>
       <Clause n={1} title="Who provides the service and what applies">
         <p className={P}>DefenceGate is provided by the operator identified in the <Link href="/imprint" className="font-semibold">imprint</Link> (“we”, “us”). These terms govern your use of the website and of any account (“the service”). The data endpoints that serve this site are not a supported programming interface and may change or be withdrawn without notice; term 13 applies to automated use.</p>
         <p className={P}>By using the service you accept these terms. If you do not accept them, do not use the service. These terms do not create rights for anyone who is not a party to them, and they do not limit the rights of people whose personal data we process (term 20).</p>
@@ -176,6 +178,7 @@ export default function TermsPage() {
       <Clause n={24} title="General">
         <p className={P}>If a provision is invalid, the rest remains in force and the invalid part is replaced by the valid provision closest to its purpose. Our failure to enforce a right is not a waiver. These terms are the whole agreement on the service; a written agreement signed by us takes priority over them to the extent it says so. Notices to you may be given by e-mail or on this page. The English text prevails over any translation. We may transfer our rights and duties to a successor of the service.</p>
       </Clause>
+      </ClauseGroup>
     </ContentPage>
   );
 }

@@ -55,14 +55,15 @@ test('no paragraph of a reading page is wider than the reading measure (680 px),
       .map((p) => ({ w: p.getBoundingClientRect().width, t: (p.textContent ?? '').trim().slice(0, 30) }))
       .filter((p) => p.w > 681));
     expect(wide, `${path}: paragraphs wider than 680 px`).toEqual([]);
+    // WP-45: the page frame is exactly as wide as the header pill (a 988 px column left the page narrower than the header);
+    // only the running text keeps the 680 px measure (checked above).
     const col = await page.evaluate(() => {
       const r = document.querySelector('main h1')!.closest('div')!.getBoundingClientRect();
-      return { w: r.width, left: r.left, right: document.documentElement.clientWidth - r.right };
+      const h = document.querySelector('header')!.getBoundingClientRect();
+      return { left: r.left, right: r.right, headerLeft: h.left, headerRight: h.right };
     });
-    if (!isMobile(page)) {
-      expect(col.w, `${path}: the reading column`).toBeLessThanOrEqual(990);
-      expect(Math.abs(col.left - col.right), `${path}: the column is centred`).toBeLessThanOrEqual(2);
-    }
+    expect(Math.abs(col.left - col.headerLeft), `${path}: frame left against the header`).toBeLessThanOrEqual(1);
+    expect(Math.abs(col.right - col.headerRight), `${path}: frame right against the header`).toBeLessThanOrEqual(1);
   }
 });
 
