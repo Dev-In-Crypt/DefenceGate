@@ -44,7 +44,7 @@ export function ListFact({ label, children, tone = 'default' }: { label: string;
   return (
     <div className={cn(
       'grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-3 border-t border-line py-2 first:border-t-0 sm:block sm:border-t-0 sm:py-0 xl:grid xl:border-t xl:py-2 xl:first:border-t-0',
-      tone === 'soon' && 'rounded-md bg-soon-bg px-3 sm:py-2 xl:my-0.5 xl:border-t-0')}>
+      tone === 'soon' && 'mb-4 mt-4 rounded-md bg-soon-bg px-3 first:mt-0 sm:my-0 sm:py-2 xl:my-4 xl:border-t-0')}>
       <dt className={cn('text-label', tone === 'soon' ? 'text-soon-fg' : 'text-ink-muted')}>{label}</dt>
       <dd className={cn('m-0 break-words font-mono text-mono font-medium tabular-nums', tone === 'soon' ? 'text-soon-fg' : tone === 'closed' ? 'text-ink-muted' : 'text-ink')}>{children}</dd>
     </div>
@@ -58,7 +58,7 @@ export function ListFact({ label, children, tone = 'default' }: { label: string;
  */
 export function FactCell({ label, children, tone = 'default', className }: { label: string; children: React.ReactNode; tone?: 'default' | 'soon' | 'closed'; className?: string }) {
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1 py-3', tone === 'soon' ? 'rounded-md bg-soon-bg px-3' : 'border-t border-line', className)}>
+    <div className={cn('flex min-w-0 flex-col gap-1 py-3', tone === 'soon' ? 'mb-4 mt-4 rounded-md bg-soon-bg px-3 first:mt-0' : 'border-t border-line', className)}>
       <dt className={cn('text-label', tone === 'soon' ? 'text-soon-fg' : 'text-ink-muted')}>{label}</dt>
       <dd className={cn('m-0 break-words font-mono text-mono-strong tabular-nums', tone === 'soon' ? 'text-soon-fg' : tone === 'closed' ? 'text-ink-muted' : 'text-ink')}>{children}</dd>
     </div>

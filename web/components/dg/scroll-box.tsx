@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
  * A box that scrolls sideways (a wide table at 375 px) and says so: a line above it while there is more to the right or
  * the left, gone when everything fits (UX walk-through U14: a 640 px table in a 303 px frame gave no cue). The box is a
  * labelled region the keyboard can reach and scroll. Without scripts it still scrolls, only without the line.
+ * The box is `relative` so that a screen-reader-only (absolutely positioned) cell text inside a wide table is clipped with the table
+ * and does not widen the page (396 px of scroll at 375 on the funding tab of a profile).
  */
 export function ScrollBox({ label, children, className }: { label?: string; children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -27,7 +29,7 @@ export function ScrollBox({ label, children, className }: { label?: string; chil
     <div className="flex flex-col gap-1">
       {hint && <p role="note" className="m-0 text-small font-semibold text-ink-muted">{hint}</p>}
       <div ref={ref} {...(label ? { role: 'region', 'aria-label': label, tabIndex: 0 } : {})}
-        className={cn('overflow-x-auto rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text',
+        className={cn('relative overflow-x-auto rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text',
           more.right && 'shadow-[inset_-12px_0_8px_-8px_rgba(0,0,0,0.25)]', more.left && !more.right && 'shadow-[inset_12px_0_8px_-8px_rgba(0,0,0,0.25)]', className)}>
         {children}
       </div>
