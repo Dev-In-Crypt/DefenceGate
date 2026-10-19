@@ -118,6 +118,9 @@ class SourceAttribution(BaseModel):
     # When the source's collection run that holds this record last finished (tenders only):
     # `retrievedAt` is when the notice last CHANGED, this is when we last looked at the source.
     checkedAt: datetime | None = None
+    # Tenders only: what `retrievedAt` is. `amendment`: the newest change we saw the source make to the
+    # notice; `first_seen`: no change seen, it is when we first collected the notice. Null for a call.
+    lastChangeKind: str | None = None
     licence: str
     attribution: str
 
@@ -324,6 +327,17 @@ class SourceHealth(BaseModel):
     # `YYYY-MM`, well below it (stats.month_gaps). Null where it was not worked out.
     monthlyMedian: int | None = None
     gapMonths: list[str] | None = None
+    # How often the source is collected (`source.update_freq`: daily, monthly, one-off, on demand), after how
+    # many hours a run counts as late for that rhythm (null: it has none, a one-off load is not late), and
+    # whether the last run is later than that. A monthly source is not stale after three days (WP-52, T16).
+    updateFreq: str | None = None
+    staleAfterHours: int | None = None
+    stale: bool | None = None
+    # Why a run that is not `ok` is not, in a fixed sentence (never the run's own error text), and its kind:
+    # `below_minimum`, `stale_feed`, `unreadable`, `quarantined`, `failed`, `other`. A run can be `partial` with
+    # the expected minimum met: the minimum measures how much arrived, not whether all of it could be used (T18).
+    statusReason: str | None = None
+    statusReasonKind: str | None = None
 
 
 class Health(BaseModel):
@@ -861,6 +875,40 @@ def eligibility_of(conn, row: dict[str, Any]) -> dict[str, Any]:
     return {"state": got["state"], "sources": got["sources"], "documentEligibility": doc}
 
 
+# After how long a run is late, by the rhythm the source is collected in. Daily: the site's three days (a
+# missed weekend). Monthly: the month, and ten days for the run that is late or runs again after a failure.
+STALE_AFTER_HOURS_BY_FREQ = {"daily": 3 * 24, "monthly": 40 * 24}
+RUN_REASONS = {
+    "below_minimum": "The run fetched fewer records than the minimum expected from this source.",
+    "stale_feed": "The source's live feed had published nothing new for longer than expected when the run ended.",
+    "quarantined": "Some records were set aside for review and are not shown.",
+    "failed": "The last run did not finish.",
+    "other": "The run finished with a problem; the records it did read are kept.",
+}
+_UNREADABLE = re.compile(r"^(\d{1,6}) (\w+) could not be read$")
+
+
+def run_reason(status: str | None, fetched: int, floor: int | None,
+               message: str | None) -> tuple[str | None, str | None]:
+    """(kind, sentence) for a run that is not `success`. The sentence is chosen here, from the kind: the
+    run's own message is an exception text and stays in the table."""
+    if status == "failed":
+        return "failed", RUN_REASONS["failed"]
+    if status != "partial":
+        return None, None
+    text = (message or "").strip()
+    if floor and fetched < floor:
+        return "below_minimum", RUN_REASONS["below_minimum"]
+    if text.startswith("live feed stale"):
+        return "stale_feed", RUN_REASONS["stale_feed"]
+    m = _UNREADABLE.match(text)
+    if m:
+        return "unreadable", f"{m.group(1)} {m.group(2)} could not be read; the rest of the run is kept."
+    if "quarantined" in text:
+        return "quarantined", RUN_REASONS["quarantined"]
+    return "other", RUN_REASONS["other"]
+
+
 @router.get("/v1/sources", response_model=Health)
 def list_sources(conn=Depends(get_conn)):
     from .api import _attribution  # api includes this router, so import it late
@@ -870,15 +918,23 @@ def list_sources(conn=Depends(get_conn)):
     rows = conn.execute(
         """SELECT DISTINCT ON (s.code)
                   s.code, s.name, s.country, s.kind, s.base_url, s.licence, s.attribution,
-                  r.status, r.finished_at, r.records_fetched, r.expected_min
+                  s.update_freq, r.status, r.finished_at, r.records_fetched, r.expected_min,
+                  r.error_message
              FROM source s
              LEFT JOIN ingest_run r ON r.source_id = s.id AND r.finished_at IS NOT NULL
             WHERE s.active
             ORDER BY s.code, r.started_at DESC NULLS LAST""").fetchall()
     sources = []
+    now = datetime.now(timezone.utc)
     for r in rows:
         floor, fetched = r["expected_min"], r["records_fetched"] or 0
+        after = STALE_AFTER_HOURS_BY_FREQ.get((r["update_freq"] or "").strip().lower())
+        kind, reason = run_reason(r["status"], fetched, floor, r["error_message"])
         sources.append({
+            "updateFreq": r["update_freq"], "staleAfterHours": after,
+            "stale": None if after is None or r["finished_at"] is None
+            else (now - r["finished_at"]) > timedelta(hours=after),
+            "statusReason": reason, "statusReasonKind": kind,
             "id": r["code"], "name": r["name"], "country": r["country"],
             "type": "grants" if r["kind"] == "grant" else "tenders",
             "url": r["base_url"], "lastRunAt": r["finished_at"],
@@ -893,5 +949,5 @@ def list_sources(conn=Depends(get_conn)):
             **(spans.get(r["code"], {"heldFrom": None, "heldTo": None, "heldCount": 0})
                if spans else {}),
         })
-    return {"generatedAt": datetime.now(timezone.utc), "sources": sources}
+    return {"generatedAt": now, "sources": sources}
 

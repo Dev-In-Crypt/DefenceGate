@@ -142,15 +142,16 @@ never converted, no personal data, every record carries its `source`.
 
 ### `/v1/tenders`
 Query (all optional): `q` (title, buyer or notice number), `country` (comma ISO-2),
-`cpv` (comma prefixes, at most 20), `status` (`open` default | `closed` | `all`),
+`cpv` (comma prefixes, at most 20), `status` (`open` default | `closed` | `planned` | `all`; `planned` since 19 October 2026),
 `scope` (`relevant` default since 16 October 2026: `core` and `supply` together | `core`: the notice itself is defence | `supply`: only the buyer is a
 defence body, or one of the two groups of 14 October 2026 | `all`; see "Changes of 16 October 2026"), `goods` (`defence`: of the chosen scope, only notices that say defence themselves, i.e. `legal_basis` or `military_cpv` in `qualifiedBy`, not kept by a listed buyer alone; absent by default; the same parameter on `/v1/changes`), `buyer` (organisation id), `from` / `to` (deadline, `YYYY-MM-DD`
 UTC), `min` / `max` (estimated value) and `currency` (ISO 4217: alone it lists the notices that state a value in that
 currency, a placeholder amount excluded; with a range it is the currency the range is read in, `EUR` when absent;
 absent with no range: no filter), `confidence` (`high`, `medium`, `low`, comma list; absent or all three: no filter; another word: 422), `sort` (`deadline-asc` default | `published-desc`), `page`
 (1..1000), `pageSize` (1..250, default 20).
-Returns `{ items: Tender[], total, page, pageSize, meta }`. A national notice whose TED twin is
-in the same result is shown once (the TED one); `sameNotice` lists the other copies.
+Returns `{ items: Tender[], total, totalCapped, page, pageSize, maxOffset, meta }`. A national notice whose TED twin is
+in the same result is shown once (the TED one); `sameNotice` lists the other copies. Since 19 October 2026 the work of a
+page is bounded: see "Changes of 19 October 2026 (WP-52)" (`totalCapped`, `maxOffset`, `status=planned`, `asOf`).
 
 ### `/v1/tenders/{slug}`
 `<id>-<words>`, resolved by the leading integer. Returns `Tender`; 404 otherwise.
@@ -170,13 +171,24 @@ between calls; a caller de-duplicates by `id`. Not cached.
 
 ### `/v1/tenders/slugs`
 `[{ slug, updatedAt }]` for the sitemap: open notices and those published in the last
-12 months, core scope only, at most 5,000.
+12 months, core scope only, at most 5,000. Kept in memory and in the worker's snapshot (`list_snapshot`, key
+`tender-slugs?`), so it answers inside the budget; `updatedAt` is the newest observed version in the snapshot (the worker
+reads the version table, 5 s) and the publication date when the API works the answer out itself.
+
+### `/v1/tenders/calendar`
+`?country=&scope=&from=&to=&maxItems=` (`scope` default `relevant`, `maxItems` at most 3,000, default 3,000). Every
+open notice that states a deadline, soonest first, as `{ items: CalendarItem[], total, truncated, asOf }`;
+`CalendarItem` is `{ id, slug, noticeId, title, buyerName, country, deadline, deadlineFrom, scope, status, statusNative,
+anomalies, sourceName }` and nothing else: the calendar needs no twins, versions or values. The list collapse rules
+apply, and `deadline` is the one the notice's page shows (a national deadline 90 days or more from its TED twin's is
+the twin's, `deadlineFrom: "ted_twin"`). The list endpoint serves 250 a page and the calendar read five pages of it, the
+500 earliest of 1,529: November had no tender (T9).
 
 ### `/v1/buyers`
 Query: `q` (name), `country` (comma ISO-2), `hasOpen` (`true`: only buyers with an open
 tender), `sort` (`tenders` default | `name`), `page`, `pageSize` (1..100, default 20).
 Returns `{ items: Buyer[], total, page, pageSize }`. Only buyers with at least one
-core-scope notice are listed.
+core-scope notice are listed (a tender whose buyer has none has `buyerSlug: null`).
 
 ### `/v1/buyers/{slug}`
 `<id>-<words>`. Returns `Buyer`; 404 otherwise. Its tenders are `/v1/tenders?buyer=<id>`.
@@ -1044,3 +1056,35 @@ per supplier, no share, no rank and no "single source" flag, on purpose (the mos
 
 17 entries (one new: `edip-common-procurement-applicants`). `safe-uk-unconfirmed` now rests on the UK government's
 written statement HCWS1114 of 1 December 2025; `edf-ukraine-in-force-unconfirmed` on the EDF call documents.
+
+### Changes of 19 October 2026 (WP-52: UX audit T2, T3, T8-T18)
+
+- **Bounded lists (T2, T3).** `GET /v1/tenders` reads its page `LIMIT`-first in the order of an index (migration 0091) and no longer
+  counts the whole result in a window function. `maxOffset` (10,000) is the deepest position served: a page past it has no
+  `items` and the same `total` (the suppliers list does the same). `total` is counted up to 10,000, and `totalCapped: true` says it
+  stopped there ("10,000 or more"); when even a smaller count did not finish in about a second (a search word that matches a fifth of
+  the archive, on the closed lists) `total` is the number read plus one more page and `totalCapped` is true: "at least". A short last
+  page is exact. The worker's snapshots of the closed and all lists hold the exact total, and a deeper page of the same filters repeats it.
+  `status=all` with no sort or `deadline-asc` is the open notices (soonest deadline first) and then the rest, as before.
+- **Planned (T8).** A `forthcoming` notice is `planned` while its deadline, if it states one, is ahead: `status=planned` lists them,
+  `closed` no longer does, `all` does. `statusNative` stays `forthcoming`; `status` stays `open` | `closed`. After its deadline it is
+  `expired` like any other.
+- **Counts that match (T13).** `GET /v1/tenders/scope-counts` adds `overlap` (core + supply - relevant: the supply notices that are the
+  national copy of a core notice, shown once in `relevant`), `capped` and `asOf`; `asOf` on the lists says when a list was worked
+  out. The open counts are no longer taken from the worker's snapshot: they are read live, like the open list.
+- **Which time (T11).** `source.lastChangeKind` on a tender: `amendment` (`retrievedAt` is the newest change we saw the source make)
+  or `first_seen` (no change seen: `retrievedAt` is when we first collected it).
+- **Digest and changes (T10).** `DigestTender.repeats`: identical notices (source, buyer, title, publication date, kind) are listed
+  once and `repeats` says how many; the counts still count every notice. `GET /v1/changes?week=2026-W42&kind=new|amended` lists the
+  events of a digest week (404 for a week outside the archive or not yet ended; `windowDays` 7); that is where "the list has the rest" leads.
+- **Version history (T12).** A `remapped` version (our own corrected reading of a payload) is still not an amendment, but it now
+  corrects the line an earlier entry drew from the old reading, so the history ends in the status and the publication date the
+  notice shows.
+- **Buyers (T14).** `Buyer.tenderCount` equals `/v1/tenders?buyer=<id>&status=all&scope=core` and `openCount` the same with
+  `status=open` once the worker has stored the aggregate (`warm_lists`, key `buyer-base`); until then the plain count is served.
+  `Tender.buyerSlug` is null when the buyer has no page (supply notices only), so the site names it without a link.
+- **Sources (T16, T18).** `/v1/sources` adds `updateFreq`, `staleAfterHours` (72 for daily, 960 for monthly, null for one-off and
+  on demand), `stale` (null when the source has no rhythm), and for a run that is not `ok` `statusReason` (a fixed sentence) and
+  `statusReasonKind` (`below_minimum`, `stale_feed`, `unreadable`, `quarantined`, `failed`, `other`). A run can be `partial` with its
+  expected minimum met. The names of seven sources carry their accents again (migration 0091).
+
