@@ -301,7 +301,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
           {!confirmClear && (
             <button ref={clearRef} type="button" onClick={() => setConfirmClear(true)}
               className="inline-flex min-h-11 items-center gap-1 border-0 bg-transparent p-0 font-sans text-small font-bold text-link underline">
-              <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />Clear my answers
+              <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />Clear my answers
             </button>
           )}
         </p>
@@ -374,7 +374,7 @@ function Keep({ profile, onImport }: { profile: Profile; onImport: (p: Profile) 
         </label>
         <label className="flex flex-col gap-1 text-label text-ink">Or paste the copied answers here
           <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} maxLength={20_000} spellCheck={false}
-            className="max-w-form rounded-md border-strong border-line bg-surface p-3 font-mono text-small text-ink" />
+            className="max-w-form rounded-md border-strong border-input-edge bg-surface p-3 font-mono text-small text-ink" />
         </label>
         <div><Button type="button" variant="secondary" icon={Upload} onClick={() => load(text)} disabled={text.trim() === ''}>Load the pasted answers</Button></div>
         {problem && <p role="alert" className="m-0 font-semibold text-alert">{problem}</p>}

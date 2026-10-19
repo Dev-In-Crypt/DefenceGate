@@ -81,7 +81,7 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
                 <span className={k === 'consortium_required' && consortiumUnclear(facts) ? 'font-semibold' : undefined}>{factDisplay(k, facts)}</span>
                 {fromProgramme && f.scope && <span className="text-label font-bold text-ink">{SCOPE_WORDS[f.scope]}</span>}
                 {f.note && <span className="text-small text-ink-muted">{f.note}</span>}
-                <q className="text-small italic text-ink-muted">{cleanQuote(f.quote)}</q>
+                <q className="text-small text-ink-muted">{cleanQuote(f.quote)}</q>
               </dd>
             </div>
           );
@@ -118,7 +118,7 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
               {result.lines.map((l) => (
                 <li key={l.key} className="flex flex-col gap-0.5 text-body">
                   <span><strong>{l.label}: {WORD[l.verdict]}.</strong> {l.reason}</span>
-                  {l.quote && <q className="text-small italic text-ink-muted">{cleanQuote(l.quote)}</q>}
+                  {l.quote && <q className="text-small text-ink-muted">{cleanQuote(l.quote)}</q>}
                 </li>
               ))}
             </ul>

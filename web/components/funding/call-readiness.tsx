@@ -146,7 +146,7 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
               {doc.result.lines.map((l) => (
                 <li key={l.key} className={ROW}>
                   <span><strong>{l.label}: {l.verdict === 'yes' ? 'Allowed' : l.verdict === 'no' ? 'Not allowed' : 'Check'}.</strong> {l.reason}</span>
-                  {l.quote && <q className="text-small italic text-ink-muted">{cleanQuote(l.quote)}</q>}
+                  {l.quote && <q className="text-small text-ink-muted">{cleanQuote(l.quote)}</q>}
                 </li>
               ))}
             </ul>

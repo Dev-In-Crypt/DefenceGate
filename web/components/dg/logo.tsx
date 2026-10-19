@@ -1,12 +1,17 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
-/** Mark geometry copied from public/brand/*.svg. Logo colours are fixed and do not follow theme. */
+/**
+ * Mark geometry copied from public/brand/*.svg. The colours of every variant but `reversed` are the `--logo-*` tokens of
+ * globals.css: the brand book's own light colours, and in the dark theme its dark ones ("bone disc, pine posts", "Gate" #F09A62);
+ * with the pine disc of the light theme the mark was 1.02:1 on the dark header. `reversed` is fixed (for a pine background).
+ */
+const T = { disc: 'var(--logo-disc)', post: 'var(--logo-post)', chev: 'var(--logo-chev)' } as const;
 const MARKS = {
-  default: { disc: '#12372A', post: '#F4F1EA', chev: '#E07A3A', posts: [[11, 14, 5, 20], [32, 14, 5, 20]], d: 'M20 16.5 L27.5 24 L20 31.5', sw: 4.5 },
+  default: { ...T, posts: [[11, 14, 5, 20], [32, 14, 5, 20]], d: 'M20 16.5 L27.5 24 L20 31.5', sw: 4.5 },
   reversed: { disc: '#F4F1EA', post: '#12372A', chev: '#C4581F', posts: [[11, 14, 5, 20], [32, 14, 5, 20]], d: 'M20 16.5 L27.5 24 L20 31.5', sw: 4.5 },
-  small: { disc: '#12372A', post: '#F4F1EA', chev: '#E07A3A', posts: [[10, 13, 6, 22], [32, 13, 6, 22]], d: 'M20 16 L28 24 L20 32', sw: 5.5 },
-  favicon: { disc: '#12372A', post: '#F4F1EA', chev: '#E07A3A', posts: [], d: 'M18 13 L29 24 L18 35', sw: 8 },
+  small: { ...T, posts: [[10, 13, 6, 22], [32, 13, 6, 22]], d: 'M20 16 L28 24 L20 32', sw: 5.5 },
+  favicon: { ...T, posts: [], d: 'M18 13 L29 24 L18 35', sw: 8 },
 } as const;
 type MarkVariant = keyof typeof MARKS;
 
@@ -21,18 +26,18 @@ export function LogoMark({ variant = 'default', size = 48, title }: { variant?: 
   const m = MARKS[variant];
   return (
     <svg viewBox="0 0 48 48" width={size} height={size} role={title ? 'img' : undefined} aria-label={title} aria-hidden={title ? undefined : true} className="block shrink-0">
-      <circle cx="24" cy="24" r="24" fill={m.disc} />
-      {m.posts.map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} rx="1.5" fill={m.post} />)}
-      <path d={m.d} fill="none" stroke={m.chev} strokeWidth={m.sw} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="24" cy="24" r="24" style={{ fill: m.disc }} />
+      {m.posts.map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} rx="1.5" style={{ fill: m.post }} />)}
+      <path d={m.d} fill="none" style={{ stroke: m.chev }} strokeWidth={m.sw} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-/** "Defence" in ink + "Gate" in accent, Manrope 800. Live text. */
+/** "Defence" in ink + "Gate" in the logo accent (`--logo-gate`: copper, #F09A62 in the dark theme), Manrope 800. Live text. */
 export function Wordmark({ size, reversed = false }: { size: number; reversed?: boolean }) {
   return (
     <span className={cn('whitespace-nowrap font-sans font-extrabold leading-none tracking-[-0.033em]', reversed ? 'text-[#F4F1EA]' : 'text-ink')} style={{ fontSize: size }}>
-      Defence<span className={reversed ? 'text-[#F09A62]' : 'text-accent'}>Gate</span>
+      Defence<span className={reversed ? 'text-[#F09A62]' : 'text-[color:var(--logo-gate)]'}>Gate</span>
     </span>
   );
 }

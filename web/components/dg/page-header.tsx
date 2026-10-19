@@ -3,7 +3,7 @@ import type { Crumb } from '@/lib/seo';
 import { Breadcrumbs } from './feedback';
 
 /**
- * The head of every page: breadcrumbs, h1, lead, optional mono meta line, optional actions. One unit with its own
+ * The head of every page: breadcrumbs, h1, lead, optional meta line (a sentence: body font; ids and dates inside it are not set apart), optional actions. One unit with its own
  * rhythm (12 px between the parts), so the breadcrumb sits with the title and not a whole section away from it; the
  * page (`main`) puts 32 px (48 from md) between this block and what follows.
  *
@@ -35,7 +35,7 @@ export function PageHeader({ crumbs, eyebrow, title, sub, lead, meta, actions, c
         <h1 lang={titleProps?.lang} className={cn('page-title m-0 break-words', titleProps?.className)}>{title}</h1>
         {sub && <p className="m-0 max-w-prose text-h3">{sub}</p>}
         {lead && <p className="lead m-0 max-w-prose">{lead}</p>}
-        {meta && <p className="m-0 font-mono text-mono text-ink-muted">{meta}</p>}
+        {meta && <p className="m-0 font-sans text-small text-ink-muted">{meta}</p>}
         {children}
         {actions && <div className="flex flex-wrap items-center gap-3 pt-1">{actions}</div>}
       </header>

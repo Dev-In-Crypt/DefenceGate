@@ -7,7 +7,7 @@ const v = (name: string) => `var(--${name})`;
 const DG_COLORS = [
   'bg', 'surface', 'surface-inset', 'line', 'ink', 'ink-muted', 'primary', 'on-primary',
   'accent', 'accent-text', 'urgent', 'on-urgent', 'link', 'open-bg', 'open-fg', 'soon-bg',
-  'soon-fg', 'closed-bg', 'closed-fg', 'alert', 'primary-hover', 'primary-press', 'edge',
+  'soon-fg', 'closed-bg', 'closed-fg', 'alert', 'primary-hover', 'primary-press', 'edge', 'input-edge',
 ] as const;
 
 const config: Config = {
