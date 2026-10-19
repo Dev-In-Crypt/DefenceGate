@@ -38,6 +38,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
@@ -90,6 +91,16 @@ MAX_LIST_ITEMS = 20
 SLUG_WINDOW_DAYS = 365
 TENDER_SLUG_LIMIT = 5000
 BUYER_SLUG_LIMIT = 2000
+# The deepest list position `/v1/tenders` serves (WP-52, T3): 287,634 closed notices were 28,764 pages
+# and only the first three could be read before the 5 s budget ran out. A position past it answers with
+# no items and says so (`maxOffset`, as `/v1/suppliers` does); narrowing the filters is the way to the rest.
+MAX_OFFSET = 10_000
+# A count stops here. `total` is then this number and `totalCapped` is true ("10,000 or more"): the
+# work of a count is bounded, not the answer made up. A snapshot of the unfiltered views (ops/warm_lists)
+# keeps the exact figure, which a deep page of the same filters then repeats.
+TOTAL_CAP = 10_000
+# The page size of the site's lists: the snapshots are built for it (ops/warm_lists.TENDER_PAGE_SIZE).
+SNAPSHOT_PAGE_SIZE = 10
 
 # A version the archive recorded wrongly is annotated, never removed (migration 0006).
 # `remapped` (migration 0028): appended by a bulk re-derivation from the same source
@@ -177,8 +188,16 @@ class Tender(BaseModel):
 class TenderPage(BaseModel):
     items: list[Tender]
     total: int
+    # True when the count stopped at `TOTAL_CAP`: `total` is then "at least this many".
+    totalCapped: bool = False
     page: int
     pageSize: int
+    # The list serves no position beyond this (a page past it has no items).
+    maxOffset: int = MAX_OFFSET
+    # When this page was worked out (a list kept in a snapshot or in memory says when, not when it was asked
+    # for): the counts beside a list (`scope-counts`) carry theirs too, so a difference between the two can be
+    # read as one of time (WP-52, T13).
+    asOf: datetime | None = None
     meta: ListMeta = ListMeta()
 
 
@@ -440,7 +459,9 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
               first_seen: datetime | None = None,
               twin_extra: dict[str, Any] | None = None,
               checked: datetime | None = None,
-              amended: bool | None = None) -> dict[str, Any]:
+              amended: bool | None = None,
+              buyer_page: bool = True,
+              last_change_kind: str | None = None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -494,7 +515,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "originalTitle": other,
         "originalLanguage": r.get("original_language") if other else None,
         "buyerId": str(org_id) if org_id else None,
-        "buyerSlug": make_slug(org_id, org_name) if org_id else None,
+        # Null when the buyer has no page (`buyers_with_page`): a link to a 404 is worse than a name.
+        "buyerSlug": make_slug(org_id, org_name) if org_id and buyer_page else None,
         "buyerName": buyer_name,
         "buyerCanonicalName": org_name if org_id else None,
         "country": r.get("country"),
@@ -540,6 +562,10 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
             "url": http_url(r.get("source_url")),
             "retrievedAt": observed or datetime.now(timezone.utc),
             "checkedAt": checked,
+            # What `retrievedAt` is: `amendment` (the newest change to the notice that we saw it make) or
+            # `first_seen` (we have seen no change, so it is when we first collected the notice). The label
+            # "last change seen at the source" is true of the first only (WP-52, T11).
+            "lastChangeKind": last_change_kind,
             "licence": r["source_licence"] or "",
             "attribution": api._attribution(r),
         },
@@ -621,14 +647,40 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
     borrowed = _twin_values(conn, rows)
     extras = _twin_extras(conn, rows)
     runs = _source_runs(conn) if checked else {}
-    return [to_tender(r, names, versions, twins.get(r["id"], []),
-                      info.get(r["id"], (0, None, 0))[1] or span.get(r["id"], (None, None))[1],
-                      superseded=r["id"] in over, twin_value=borrowed.get(r["id"]),
-                      first_seen=span.get(r["id"], (None, None))[0],
-                      twin_extra=extras.get(r["id"]),
-                      checked=runs.get(r["source_code"]),
-                      amended=info[r["id"]][2] > 0 if r["id"] in info else None)
-            for r in rows]
+    paged = buyers_with_page(conn, rows)
+    out = []
+    for r in rows:
+        seen = info.get(r["id"], (0, None, 0))
+        amended = seen[2] > 0 if r["id"] in info else None
+        out.append(to_tender(
+            r, names, versions, twins.get(r["id"], []),
+            seen[1] or span.get(r["id"], (None, None))[1],
+            superseded=r["id"] in over, twin_value=borrowed.get(r["id"]),
+            first_seen=span.get(r["id"], (None, None))[0], twin_extra=extras.get(r["id"]),
+            checked=runs.get(r["source_code"]), amended=amended,
+            buyer_page=r.get("buyer_org_id") in paged,
+            last_change_kind="amendment" if amended else "first_seen"))
+    return out
+
+
+def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
+    """Of the buyers of these notices, the ones that have a buyer page. A page exists for a buyer family
+    with at least one core notice (`aggregate_sql`); a buyer that only supplies (the armed forces buying
+    food) has none, and a link to it was a 404 for 73 of the 389 buyers of the open list (WP-52, T14).
+    A core notice settles it for its own buyer; the others are asked of the database in one query."""
+    ids = {r["buyer_org_id"] for r in rows if r.get("buyer_org_id") and not r.get("buyer_withheld")}
+    known = {r["buyer_org_id"] for r in rows
+             if r.get("buyer_org_id") in ids and _api().row_scope(r) == "core"}
+    ask = sorted(ids - known)
+    if not ask:
+        return known
+    got = conn.execute(
+        f"""SELECT x.id FROM unnest(%s::bigint[]) AS x(id)
+             WHERE EXISTS (SELECT 1 FROM opportunity o
+                            WHERE o.buyer_org_id = ANY(dgate_family_ids(x.id))
+                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld AND {CORE})""",
+        (ask,)).fetchall()
+    return known | {r["id"] for r in got}
 
 
 def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
@@ -691,18 +743,30 @@ def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
 
 # -------------------------------------------------------------- endpoints
 
+# Orders a list can run in. Each is the order of a btree index (migration 0091), so a page of any
+# depth is a walk that stops after `offset + limit` rows instead of a sort of the whole result.
+ORDER_DEADLINE_ASC = "o.deadline_at ASC NULLS LAST, o.id ASC"
+# The same order, written so that no index can serve it. For the open notices (2,600 rows, found by
+# `opp_open_candidates`) the planner would otherwise walk `opp_list_deadline_asc` from the oldest deadline,
+# through 350,000 closed notices, to find the first ten that are open: 2 to 7 s against 0.4 s.
+ORDER_OPEN_DEADLINE = "(o.deadline_at IS NULL), o.deadline_at ASC, o.id ASC"
+ORDER_DEADLINE_DESC = "o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST, o.id DESC"
+ORDER_PUBLISHED_DESC = "coalesce(o.published_at, o.notice_date) DESC NULLS LAST, o.id DESC"
+
+
 def tender_order(sort: str | None, status: str, eff: str) -> str:
-    """The ORDER BY of a tenders list. With no sort asked for, open and all notices run
-    soonest deadline first (open ones before the rest); closed ones run the other way,
-    newest deadline first, then newest publication: the soonest of a closed list is a
-    notice from years ago. A sort that was asked for is always honoured."""
+    """The ORDER BY of a tenders list. With no sort asked for, open notices run soonest deadline
+    first; closed ones the other way, newest deadline first, then newest publication: the soonest of
+    a closed list is a notice from years ago. A sort that was asked for is always honoured. (`all`
+    with no sort asked for is an open part and the rest: `list_tenders` runs them one after the
+    other, so no "open first" key is part of the order.)"""
     if sort == "published-desc":
         # A folder with only its award has no publication date: it sorts by the date of
         # that notice, and the site labels it as such.
-        return "coalesce(o.published_at, o.notice_date) DESC NULLS LAST, o.id DESC"
-    if sort == "deadline-desc" or (sort is None and status == "closed"):
-        return "o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST, o.id DESC"
-    return f"({eff} <> 'open') ASC, o.deadline_at IS NULL, o.deadline_at ASC, o.id"
+        return ORDER_PUBLISHED_DESC
+    if sort == "deadline-desc" or (sort is None and status in ("closed", "planned")):
+        return ORDER_DEADLINE_DESC
+    return ORDER_OPEN_DEADLINE if status == "open" else ORDER_DEADLINE_ASC
 
 
 SEARCH_SEPARATORS = re.compile(r"[\s\-–—/_.,;:()\"'’]+")
@@ -715,6 +779,24 @@ def search_words(text: str) -> list[str]:
     return [w for w in SEARCH_SEPARATORS.split(text or "") if w][:MAX_SEARCH_WORDS]
 
 
+def status_conditions(status: str, eff: str) -> list[str]:
+    """The conditions of a status filter. `open`: effectively open, and (redundant, but the planner can
+    use them) the stored status is `open` and the deadline is ahead or not stated: that is 2,600 of 357,000
+    rows, found by index, where the expression alone made it read every notice of a search word.
+    `closed` is everything that is no longer taking tenders and is not planned; `planned` a notice that
+    announces one (`api.EFFECTIVE_STATUS_SQL`); `rest` (internal) is everything but open."""
+    if status == "open":
+        return [f"{eff} = 'open'", "o.status = 'open'",
+                "(o.deadline_at >= now() OR o.deadline_at IS NULL)"]
+    if status == "closed":
+        return [f"{eff} NOT IN ('open', 'forthcoming')"]
+    if status == "planned":
+        return [f"{eff} = 'forthcoming'", "o.status = 'forthcoming'"]
+    if status == "rest":
+        return [f"{eff} <> 'open'"]
+    return []
+
+
 def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency):
     """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
     list or export applies: one place, so the list and the export can never disagree."""
@@ -725,10 +807,7 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         where.append(api.GOODS_SQL[goods])
     params: list[Any] = []
 
-    if status == "open":
-        where.append(f"{eff} = 'open'")
-    elif status == "closed":
-        where.append(f"{eff} <> 'open'")
+    where += status_conditions(status, eff)
 
     text = (q or "").replace("\x00", "").strip()
     words = search_words(text)
@@ -792,13 +871,100 @@ def _confidence_levels(text: str | None) -> list[str]:
     return [] if len(levels) == len(LEVELS) else levels
 
 
+STATUS_PATTERN = "^(open|closed|planned|all)$"
+
+# ops/warm_lists sets this: its snapshots hold the exact total of the views it computes.
+EXACT_TOTALS: ContextVar[bool] = ContextVar("tender_exact_totals", default=False)
+
+
+# A count is worked out in two steps, each in a time box. The first stops at SMALL_CAP rows and is cheap
+# wherever the filters are selective (most searches); the second goes on to TOTAL_CAP. The second is where
+# a search word that matches a fifth of the archive (Bundeswehr: 19,000 notices, each one re-tested against
+# its twins) costs 25 s: it gives up after COUNT_BUDGET_MS and the list says "at least SMALL_CAP".
+SMALL_CAP = 200
+COUNT_BUDGET_MS = 1200
+
+
+def _count_up_to(conn, cond: str, where: list[str], params: list[Any], cap: int, budget_ms: int) -> int | None:
+    """How many rows the list has, counting no further than `cap + 1`; None when `budget_ms` ran out."""
+    import psycopg
+
+    sql = (f"SELECT count(*) AS n FROM (SELECT 1 FROM opportunity o WHERE {cond} AND {collapse_clauses(where)} "
+           "LIMIT %s) c")
+    kept = conn.execute("SELECT current_setting('statement_timeout') AS t").fetchone()["t"]
+    try:
+        # A savepoint when the caller is in a transaction: the cancelled query takes back its own work and the
+        # local setting, and nothing the caller did before is lost.
+        with conn.transaction():
+            conn.execute("SELECT set_config('statement_timeout', %s, true)", (f"{budget_ms}ms",))
+            n = conn.execute(sql, params * 4 + [cap + 1]).fetchone()["n"]
+            conn.execute("SELECT set_config('statement_timeout', %s, true)", (kept,))
+    except psycopg.errors.QueryCanceled:
+        return None
+    return n
+
+
+def _count(conn, where: list[str], params: list[Any], extra: list[str] | None = None) -> tuple[int, bool]:
+    """(how many notices the list holds, whether that is only "at least"). The collapse rules are the
+    list's; `extra` are conditions that are not part of what a twin has to match (the open part of `all`).
+    The scan stops after `TOTAL_CAP + 1` rows and after `COUNT_BUDGET_MS`, so the work is bounded."""
+    cond = " AND ".join([*where, *(extra or [])])
+    if EXACT_TOTALS.get():                  # the worker's snapshot: no cap, no time box
+        n = conn.execute(f"SELECT count(*) AS n FROM opportunity o WHERE {cond} AND {collapse_clauses(where)}",
+                         params * 4).fetchone()["n"]
+        return n, False
+    small = _count_up_to(conn, cond, where, params, SMALL_CAP, COUNT_BUDGET_MS)
+    if small is None:
+        return 0, True                      # not even that in time: the caller knows what it has read
+    if small <= SMALL_CAP:
+        return small, False
+    big = _count_up_to(conn, cond, where, params, TOTAL_CAP, COUNT_BUDGET_MS)
+    if big is None:
+        return SMALL_CAP, True
+    return min(big, TOTAL_CAP), big > TOTAL_CAP
+
+
+def _rows(conn, where: list[str], params: list[Any], extra: list[str], order: str,
+          limit: int, offset: int) -> list[dict[str, Any]]:
+    """`limit` notices from position `offset` of one part of a list, in `order`."""
+    cond = " AND ".join([*where, *extra])
+    return conn.execute(
+        f"{TENDER_SELECT} WHERE {cond} AND {collapse_clauses(where)} ORDER BY {order} LIMIT %s OFFSET %s",
+        params * 4 + [limit, offset]).fetchall()
+
+
+def _snapshot_total(conn, asked: dict[str, Any]) -> tuple[int, bool] | None:
+    """The total the worker stored for the first page of the same filters, if it is recent: a deep page of
+    "Closed" then says what page 1 says (287,634), not "10,000 or more". None when there is none."""
+    from .listcache import SNAPSHOT_HOURS, snapshot_key
+
+    key = snapshot_key("tenders", {**asked, "page": 1, "pageSize": SNAPSHOT_PAGE_SIZE, "with_meta": True})
+    try:
+        with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
+            row = conn.execute(
+                "SELECT (body->>'total')::bigint AS total, body->>'totalCapped' AS capped FROM list_snapshot "
+                "WHERE key = %s AND computed_at > now() - make_interval(hours => %s)",
+                (key, SNAPSHOT_HOURS)).fetchone()
+    except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+        return None
+    if not row or row["capped"] == "true":
+        return None
+    return int(row["total"]), False
+
+
+def _kept_in_snapshot(kwargs: dict[str, Any]) -> bool:
+    """The worker keeps the closed and all views; the open ones are read live, so that the counts beside a
+    list and the list are of the same moment (a stored open view is up to 8 hours behind the deadlines)."""
+    return kwargs.get("status") != "open"
+
+
 @router.get("/v1/tenders", response_model=TenderPage)
-@cache_list("tenders", ttl=5 * 60, snapshot=True)
+@cache_list("tenders", ttl=5 * 60, snapshot=_kept_in_snapshot)
 def list_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=400),
-    status: str = Query("open", pattern="^(open|closed|all)$"),
+    status: str = Query("open", pattern=STATUS_PATTERN),
     scope: str = Query("relevant", pattern="^(relevant|core|supply|all)$"),
     goods: str | None = Query(None, pattern="^defence$"),
     buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
@@ -814,31 +980,70 @@ def list_tenders(
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
+    """A page of the list and its total, with the work bounded (WP-52, T2 and T3):
+
+      - the rows are read `LIMIT`-first in the order of an index, with no window count over the whole
+        result, so a page at any depth costs the rows up to it; a position past `MAX_OFFSET` has no items
+      - the total is counted up to `TOTAL_CAP`; a longer list says `totalCapped` (or repeats the exact
+        total a snapshot holds for the same filters)
+      - `all` with no sort, or sorted by deadline, is the open notices (soonest deadline first) and then
+        the rest, as two reads: the open part is a few thousand rows, found by index"""
     where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
                                          to, min_, max_, currency)
     levels = _confidence_levels(confidence)
     if levels:
         where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
-    clause = (" WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where))
-    args = params + params + params + params
+    asked = {"q": q, "country": country, "cpv": cpv, "status": status, "scope": scope, "goods": goods,
+             "buyer": buyer, "from_": from_, "to": to, "min_": min_, "max_": max_, "currency": currency,
+             "sort": sort, "confidence": confidence}
+    start = (page - 1) * pageSize
+    served = start < MAX_OFFSET
+    if status == "all" and sort in (None, "deadline-asc"):
+        parts = [(status_conditions("open", eff), ORDER_OPEN_DEADLINE),
+                 (status_conditions("rest", eff), ORDER_DEADLINE_ASC)]
+    else:
+        parts = [([], tender_order(sort, status, eff))]
 
-    order = tender_order(sort, status, eff)
-    # The total rides on the same pass (a window count), so the table is read once.
-    rows = conn.execute(
-        f"{TENDER_SELECT.replace(TENDER_COLUMNS, TENDER_COLUMNS + ', count(*) OVER () AS total_rows', 1)}"
-        f"{clause} ORDER BY {order} LIMIT %s OFFSET %s",
-        args + [pageSize, (page - 1) * pageSize]).fetchall()
-    if rows:
-        total = rows[0]["total_rows"]
-    elif page == 1:
-        total = 0
-    else:                       # a page past the end still reports how many there are
-        total = conn.execute(
-            f"SELECT count(*) AS n FROM opportunity o{clause}", args).fetchone()["n"]
+    rows: list[dict[str, Any]] = []
+    total, capped = 0, False
+    if len(parts) == 2:
+        (open_extra, open_order), (rest_extra, rest_order) = parts
+        n_open, _ = _count(conn, where, params, open_extra)
+        if served and start < n_open:
+            rows = _rows(conn, where, params, open_extra, open_order, pageSize, start)
+        want = pageSize - len(rows)
+        got_rest: list[dict[str, Any]] | None = None
+        rest_start = max(0, start - n_open)
+        if served and want > 0:
+            got_rest = _rows(conn, where, params, rest_extra, rest_order, want, rest_start)
+            rows += got_rest
+        if got_rest is not None and len(got_rest) < want and (got_rest or rest_start == 0):
+            n_rest, capped = rest_start + len(got_rest), False       # the end of the list was read
+        else:
+            n_rest, capped = _count(conn, where, params, rest_extra)
+        total = n_open + n_rest
+    else:
+        extra, order = parts[0]
+        fetched = False
+        if served:
+            rows = _rows(conn, where, params, extra, order, pageSize, start)
+            fetched = True
+        if fetched and len(rows) < pageSize and (rows or start == 0):
+            total = start + len(rows)                                # the end of the list was read
+        else:
+            total, capped = _count(conn, where, params, extra)
+    if capped and with_meta is True:
+        exact = _snapshot_total(conn, asked)
+        if exact is not None:
+            total, capped = exact
+    if capped and rows:
+        # "At least": never fewer than what has been read, and a full page may be followed by another.
+        total = max(total, start + len(rows) + (1 if len(rows) >= pageSize else 0))
     from .stats import cached_last_run  # stats imports this module
 
     return {"items": _present(conn, rows, checked=with_meta is True), "total": total,
-            "page": page, "pageSize": pageSize,
+            "totalCapped": capped, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
+            "asOf": datetime.now(timezone.utc),
             "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None}}
 
 
@@ -867,7 +1072,7 @@ def export_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=400),
-    status: str = Query("open", pattern="^(open|closed|all)$"),
+    status: str = Query("open", pattern=STATUS_PATTERN),
     scope: str = Query("relevant", pattern="^(relevant|core|supply|all)$"),
     goods: str | None = Query(None, pattern="^defence$"),
     buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
@@ -900,15 +1105,23 @@ class ScopeCounts(BaseModel):
     relevant: int
     core: int
     supply: int
+    # core + supply - relevant: the supply notices that are the national copy of a core notice. The union is
+    # shown once (a twin is collapsed when its replacement is in the result), the two lists each count
+    # their own, so the three numbers do not add up by exactly this much.
+    overlap: int = 0
+    # True when a count stopped at `TOTAL_CAP`: the figures are then "at least".
+    capped: bool = False
+    # When the counts were worked out (a snapshot says when it was made).
+    asOf: datetime | None = None
 
 
 @router.get("/v1/tenders/scope-counts", response_model=ScopeCounts)
-@cache_list("tender-scope-counts", ttl=5 * 60, snapshot=True)
+@cache_list("tender-scope-counts", ttl=5 * 60, snapshot=_kept_in_snapshot)
 def tender_scope_counts(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=400),
-    status: str = Query("open", pattern="^(open|closed|all)$"),
+    status: str = Query("open", pattern=STATUS_PATTERN),
     goods: str | None = Query(None, pattern="^defence$"),
     buyer: int | None = Query(None, ge=1, le=MAX_BIGINT),
     from_: date | None = Query(None, alias="from"),
@@ -920,32 +1133,125 @@ def tender_scope_counts(
 ):
     """How many notices the list would show under each scope for the same other filters, with
     the list's own collapse rules, so the counts next to the scope choices are the totals the
-    choices lead to. (`all` is not counted: it is not a choice the site offers.)"""
-    out: dict[str, int] = {}
+    choices lead to (the same predicate, `_count`; `asOf` says when). `all` is not counted: it is not
+    a choice the site offers."""
+    out: dict[str, Any] = {}
+    capped = False
     for scope in ("relevant", "core", "supply"):
         where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
                                            to, min_, max_, currency)
-        clause = " WHERE " + " AND ".join(where) + " AND " + collapse_clauses(where)
-        out[scope] = conn.execute(f"SELECT count(*) AS n FROM opportunity o{clause}",
-                                  params * 4).fetchone()["n"]
+        out[scope], c = _count(conn, where, params)
+        if c and out[scope] == 0:
+            # Not even a lower bound in the time allowed (a search word that matches a fifth of the archive,
+            # on the closed lists): no numbers is the honest answer, and the site shows the labels without.
+            raise HTTPException(503, "the count took too long; narrow the request")
+        capped = capped or c
+    out["overlap"] = 0 if capped else max(0, out["core"] + out["supply"] - out["relevant"])
+    out["capped"] = capped
+    out["asOf"] = datetime.now(timezone.utc)
     return out
 
 
+CALENDAR_LIMIT = 3000
+
+
+class CalendarItem(BaseModel):
+    id: str
+    slug: str
+    noticeId: str
+    title: str
+    buyerName: str
+    country: str | None
+    deadline: datetime
+    # True when `deadline` is the TED notice's because the national notice's own is 90 days or more from it.
+    deadlineFrom: str | None = None
+    scope: str
+    status: str
+    statusNative: str | None
+    anomalies: list[str] = []
+    sourceName: str
+
+
+class CalendarPage(BaseModel):
+    items: list[CalendarItem]
+    # Every open notice that states a deadline in the range, and whether `items` holds them all.
+    total: int
+    truncated: bool
+    asOf: datetime
+
+
+@router.get("/v1/tenders/calendar", response_model=CalendarPage)
+@cache_list("tender-calendar", ttl=5 * 60)
+def tender_calendar(
+    country: str | None = Query(None, max_length=200),
+    scope: str = Query("relevant", pattern="^(relevant|core|supply|all)$"),
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    maxItems: int = Query(CALENDAR_LIMIT, ge=1, le=CALENDAR_LIMIT),
+    conn=Depends(get_conn),
+):
+    """The open notices that state a deadline, soonest first, with nothing but what a calendar draws
+    (WP-52, T9). The list endpoint serves 250 notices a page and the calendar read five pages of it: the 500
+    earliest of 1,529, so November had no tender. This is the whole range in one answer, in the list's own
+    status, scope and collapse rules and with the same deadline the notice's page shows (a national deadline
+    90 days or more from its TED twin's is replaced by the twin's)."""
+    where, params, eff = _tender_filters(None, country, None, "open", scope, None, None, from_, to,
+                                         None, None, None)
+    where.append("o.deadline_at IS NOT NULL")
+    rows = _rows(conn, where, params, [], ORDER_OPEN_DEADLINE, maxItems + 1, 0)
+    truncated = len(rows) > maxItems
+    rows = rows[:maxItems]
+    api = _api()
+    extras = _twin_extras(conn, rows)
+    names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
+    items = []
+    for r in rows:
+        deadline, deadline_from = r["deadline_at"], None
+        twin = (extras.get(r["id"]) or {}).get("deadline")
+        if twin is not None and abs(deadline - twin) > timedelta(days=TWIN_DEADLINE_DIFFERS_DAYS):
+            deadline, deadline_from = twin, "ted_twin"
+        eff_status = api.effective_status(r.get("status"), deadline, r.get("published_at"))
+        notes = anomalies(deadline, r.get("published_at"))
+        if deadline_from:
+            notes.append("deadline-differs-from-ted-twin")
+        if "deadline-more-than-3y" not in notes and deadline > datetime.now(timezone.utc) + timedelta(
+                days=TENDER_DEADLINE_HORIZON_DAYS):
+            notes.append("deadline-more-than-1y")
+        title = redact_emails(r.get("title_en")) or redact_emails(r["title_original"])
+        withheld = bool(r.get("buyer_withheld"))
+        items.append({
+            "id": str(r["id"]), "slug": make_slug(r["id"], title), "noticeId": r["native_id"], "title": title,
+            "buyerName": WITHHELD_NAME if withheld else (
+                clean_buyer_name(r["buyer_name_raw"]) or names.get(r.get("buyer_org_id")) or ""),
+            "country": r.get("country"), "deadline": deadline, "deadlineFrom": deadline_from,
+            "scope": api.row_scope(r), "status": "open" if eff_status == "open" else "closed",
+            "statusNative": eff_status, "anomalies": notes, "sourceName": r["source_name"],
+        })
+    total = _count(conn, where, params)[0] if truncated else len(items)
+    return {"items": items, "total": total, "truncated": truncated, "asOf": datetime.now(timezone.utc)}
+
+
 @router.get("/v1/tenders/slugs")
+@cache_list("tender-slugs", ttl=15 * 60, snapshot=True)
 def tender_slugs(conn=Depends(get_conn)):
+    """The notices a sitemap lists: the open ones and the core ones published in the last year, newest first,
+    at most `TENDER_SLUG_LIMIT`. `updatedAt` is when the newest version was observed: the worker works that out
+    for the snapshot (3,644 of the 5,000 notices have more than one version, and reading them is 5 s on
+    production, the whole of the API's budget); an answer the API works out itself says the publication date,
+    which is what the sitemap's last-modified needs to be when the version table is not read (T15)."""
     api = _api()
     since = datetime.now(timezone.utc) - timedelta(days=SLUG_WINDOW_DAYS)
     rows = conn.execute(
-        f"""SELECT o.id, COALESCE(o.title_en, o.title_original) AS title,
-                   (SELECT max(v.observed_at) FROM opportunity_version v
-                     WHERE v.opportunity_id = o.id) AS updated
+        f"""SELECT o.id, COALESCE(o.title_en, o.title_original) AS title, o.published_at, o.current_version
               FROM opportunity o
              WHERE o.is_defence AND NOT o.suppressed AND {api.SCOPE_SQL['core']}
                AND ({api.EFFECTIVE_STATUS_SQL} = 'open' OR o.published_at >= %s)
              ORDER BY o.published_at DESC NULLS LAST, o.id DESC
              LIMIT {TENDER_SLUG_LIMIT}""", (since.date(),)).fetchall()
+    seen = _observed(conn, [r["id"] for r in rows if (r["current_version"] or 1) > 1]) if EXACT_TOTALS.get() else {}
+    now = datetime.now(timezone.utc)
     return [{"slug": make_slug(r["id"], redact_emails(r["title"]) or ""),
-             "updatedAt": r["updated"] or datetime.now(timezone.utc)} for r in rows]
+             "updatedAt": seen.get(r["id"]) or _day(r["published_at"]) or now} for r in rows]
 
 
 def _id_of(slug: str, what: str) -> int:
@@ -1146,6 +1452,30 @@ TIMELINE_SQL = """
      ORDER BY v.opportunity_id, v.version"""
 
 
+def _fold_remap(out: list[dict[str, Any]], before: dict[str, Any], after: dict[str, Any],
+                changed: list[str]) -> None:
+    """A `remapped` version is our own corrected reading of a payload we already had: the publisher
+    amended nothing, so it is not listed. But a line that an earlier entry drew from the old reading
+    (notice 235: "Status changed from Open to Awarded", when the corrected reading is Cancelled, and the
+    publication date the feed stamp had moved) would then contradict the notice's headline. The line is
+    corrected where it stands: its `after` becomes the corrected value; a line that now says nothing is
+    removed, and an entry left with no line, or only the publication date, goes with it (WP-52, T12)."""
+    for field in changed:
+        if field not in FIELD_LABELS or field == "source_url" or same_value(field, before.get(field), after.get(field)):
+            continue
+        for entry in reversed(out):
+            line = next((c for c in entry["changes"] if c["field"] == field), None)
+            if line is None:
+                continue
+            code = after.get("value_currency") or before.get("value_currency")
+            line["after"] = _human(field, after.get(field), code)
+            if line["before"] == line["after"]:
+                entry["changes"].remove(line)
+            break
+    out[:] = [e for e in out if e["version"] == out[0]["version"]
+              or any(c["field"] != "published_at" for c in e["changes"])]
+
+
 def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The amendments of one notice, oldest first, from its version rows in order.
 
@@ -1168,7 +1498,9 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if previous is None:
             out.append({"version": r["version"], "detectedAt": r["observed_at"],
                         "historic": HISTORIC_KIND in kinds, "changes": []})
-        elif REMAPPED_KIND not in kinds:
+        elif REMAPPED_KIND in kinds:
+            _fold_remap(out, previous, payload, r["changed_fields"] or [])
+        else:
             changes = []
             for field in r["changed_fields"] or []:
                 if field not in FIELD_LABELS:
@@ -1238,47 +1570,65 @@ AGGREGATE = f"""
 """  # not used since the family aggregate (WP-22); see DELETION_CANDIDATES.md
 
 
-def aggregate_sql() -> str:
+def aggregate_sql(*, exact: bool = False) -> str:
     """The buyer aggregate (`org_id`, `n`, `open_n`, `last_published`, `variants`), one row
     per buyer FAMILY (`org_id` is the head's id: migration 0055, `buyer_family_member`; a
-    buyer with no family is its own head), with `open_n` counted as the buyer's own list
-    counts it: the same status rule, and the same collapse (a national
-    notice and its TED twin, a rectificatif and its parent, a re-publication: one each). 201
-    against 169 listed on 14 October 2026. Two aggregates, so that the one over every core
-    notice stays free of sub-queries (they hold a scan back from running in parallel) and the
-    collapse is tested only on the few hundred notices that are open. The family is a LEFT
-    JOIN to a table of some hundreds of rows, so the scan stays as it was."""
-    eff = _api().EFFECTIVE_STATUS_SQL
-    where = ["o.is_defence = TRUE", "NOT o.suppressed", "NOT o.buyer_withheld", CORE,
-             f"{eff} = 'open'"]
-    # Counted per organisation first (a plain column, whose statistics give the planner the
-    # right number of groups: a few thousand), then per family. Grouping by the COALESCE
-    # directly made it expect 220,000 groups and join them to `organisation` by a hash.
-    fam = ("LEFT JOIN buyer_family_member m ON m.org_id = x.org_id")
+    buyer with no family is its own head).
+
+    `open_n` is counted as the buyer's own list counts it: the same scope (core) and collapse (a national
+    notice and its TED twin, a rectificatif and its parent, a re-publication: one each), so it equals
+    `/v1/tenders?buyer=&status=open&scope=core`. `n`, with `exact=True`, is counted the same way, and equals
+    `status=all`: the 3,329 the list shows for the largest buyer, where the plain count said 5,366 (WP-52, T14).
+    The collapse is tested for each of the 68,000 core notices, which is 8 s on an idle server and over 30 s
+    on a busy one: the worker runs it (`ops/warm_lists`, stored as `list_snapshot` key `buyer-base`) and the
+    API reads that. Without a stored result the API runs the plain count (`exact=False`: 1.2 to 2 s, every core
+    notice once, a twin counted twice), which is what it always did. The family is a LEFT JOIN to a table of
+    some hundreds of rows, so the scan stays as it was."""
     return f"""
     SELECT t.org_id, t.n, COALESCE(op.open_n, 0) AS open_n, t.last_published,
            COALESCE(v.variants, 0) AS variants
-      FROM (SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS n,
-                   max(x.last_published) AS last_published
-              FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n,
-                           max(o.published_at) AS last_published
-                      FROM opportunity o
-                     WHERE o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld
-                       AND {CORE} AND o.buyer_org_id IS NOT NULL
-                     GROUP BY o.buyer_org_id) x
-              {fam}
-             GROUP BY COALESCE(m.head_org_id, x.org_id)) t
-      LEFT JOIN (SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS open_n
-                   FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n
-                           FROM opportunity o
-                          WHERE {" AND ".join(where)} AND o.buyer_org_id IS NOT NULL
-                            AND {collapse_clauses(where, same_buyer=True)}
-                          GROUP BY o.buyer_org_id) x
-                   {fam}
-                  GROUP BY COALESCE(m.head_org_id, x.org_id)) op ON op.org_id = t.org_id
+      FROM ({_totals_sql(exact)}) t
+      LEFT JOIN ({_open_sql()}) op ON op.org_id = t.org_id
       LEFT JOIN (SELECT head_org_id, count(*) AS variants
                    FROM buyer_family_member GROUP BY head_org_id) v ON v.head_org_id = t.org_id
     """
+
+
+def _core_where() -> list[str]:
+    return ["o.is_defence = TRUE", "NOT o.suppressed", "NOT o.buyer_withheld", CORE,
+            "o.buyer_org_id IS NOT NULL"]
+
+
+# Counted per organisation first (a plain column, whose statistics give the planner the right number of
+# groups: a few thousand), then per family. Grouping by the COALESCE directly made it expect 220,000 groups
+# and join them to `organisation` by a hash.
+_FAMILY = "LEFT JOIN buyer_family_member m ON m.org_id = x.org_id"
+
+
+def _totals_sql(exact: bool = False) -> str:
+    base = _core_where()
+    collapse = f" AND {collapse_clauses(base, same_buyer=True)}" if exact else ""
+    return f"""
+    SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS n,
+           max(x.last_published) AS last_published
+      FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n, max(o.published_at) AS last_published
+              FROM opportunity o
+             WHERE {" AND ".join(base)}{collapse}
+             GROUP BY o.buyer_org_id) x
+      {_FAMILY}
+     GROUP BY COALESCE(m.head_org_id, x.org_id)"""
+
+
+def _open_sql() -> str:
+    opened = [*_core_where(), f"{_api().EFFECTIVE_STATUS_SQL} = 'open'"]
+    return f"""
+    SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS open_n
+      FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n
+              FROM opportunity o
+             WHERE {" AND ".join(opened)} AND {collapse_clauses(opened, same_buyer=True)}
+             GROUP BY o.buyer_org_id) x
+      {_FAMILY}
+     GROUP BY COALESCE(m.head_org_id, x.org_id)"""
 
 
 def _buyer(r: dict[str, Any], names: dict[int, str]) -> dict[str, Any]:
@@ -1301,18 +1651,55 @@ _BASE_FROM = ("SELECT t.org_id, t.n, t.open_n, t.last_published, t.variants FROM
               + ") AS t(org_id, n, open_n, last_published, variants)")
 
 
+BASE_COLUMNS = ("org_id", "n", "open_n", "last_published", "variants")
+BUYER_BASE_KEY = "buyer-base"
+
+
+def compute_buyer_base(conn, *, exact: bool = False) -> list[list[Any]]:
+    """The aggregate, run: five columns of values (`_BASE_TYPES`). With `exact` (the worker, which stores it:
+    `ops/warm_lists`) the totals are the list's own counts, and take seconds."""
+    rows = conn.execute(aggregate_sql(exact=True) if exact else aggregate_sql()).fetchall()
+    return [[r[k] for r in rows] for k in BASE_COLUMNS]
+
+
+def _stored_buyer_base(conn) -> list[list[Any]] | None:
+    """The aggregate as the worker stored it (`list_snapshot`, at most `SNAPSHOT_HOURS` old), or None."""
+    from .listcache import SNAPSHOT_HOURS, restored
+
+    try:
+        with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
+            row = conn.execute("SELECT body FROM list_snapshot WHERE key = %s "
+                               "AND computed_at > now() - make_interval(hours => %s)",
+                               (BUYER_BASE_KEY, SNAPSHOT_HOURS)).fetchone()
+    except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+        return None
+    cols = restored(row["body"]) if row else None
+    if not isinstance(cols, list) or len(cols) != len(BASE_COLUMNS):
+        return None
+    cols[3] = [date.fromisoformat(d) if isinstance(d, str) else d for d in cols[3]]
+    return cols
+
+
 def buyer_base(conn) -> list[list[Any]]:
     """The buyer aggregate, as five columns of values (`_BASE_TYPES`). It does not depend on any filter of the
-    list (they run over its rows afterwards), but it reads every core notice (1.2 to 2 s on 14 October 2026, for
-    1,972 families), and used to be run again for every distinct filter: `/v1/buyers?country=PL` took 5 s cold.
-    Kept for `BUYER_BASE_SECONDS` in memory, one computation shared by the callers that arrive meanwhile; a failure
-    is not kept. The filters, the order and the page run over the cached rows, as arrays in the same SQL."""
+    list (they run over its rows afterwards), but it reads every core notice and tests the list's collapse
+    rules on each (seconds), and used to be run again for every distinct filter: `/v1/buyers?country=PL` took 5 s
+    cold. So the worker computes it (`list_snapshot`, key `buyer-base`, renewed every 4 hours with the other
+    snapshots) and the API reads that; with none it runs the query itself. Kept for `BUYER_BASE_SECONDS` in memory,
+    one computation shared by the callers that arrive meanwhile; a failure is not kept. The filters, the order
+    and the page run over the cached rows, as arrays in the same SQL."""
     from . import stats
     from .config import settings
 
     def compute() -> list[list[Any]]:
-        rows = conn.execute(aggregate_sql()).fetchall()
-        return [[r[k] for r in rows] for k in ("org_id", "n", "open_n", "last_published", "variants")]
+        stored = _stored_buyer_base(conn)
+        if stored is None:
+            return compute_buyer_base(conn)
+        # The totals are the worker's; the open counts are a few thousand notices and are read now, so
+        # "Open now" is the list's own count (the totals move slowly, the open set by the hour).
+        live = {r["org_id"]: r["open_n"] for r in conn.execute(_open_sql()).fetchall()}
+        stored[2] = [live.get(org, 0) for org in stored[0]]
+        return stored
 
     if settings().list_cache_seconds <= 0:          # 0 turns the list caches off, this one too
         return compute()
@@ -1384,33 +1771,39 @@ def list_buyers(
 
 
 @router.get("/v1/buyers/slugs")
+@cache_list("buyer-slugs", ttl=15 * 60, snapshot=True)
 def buyer_slugs(conn=Depends(get_conn)):
-    agg = aggregate_sql()
-    rows = conn.execute(
-        f"""SELECT org.id, org.canonical_name, a.last_published
-              FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
-             WHERE a.open_n > 0
-             ORDER BY a.open_n DESC, org.id LIMIT {BUYER_SLUG_LIMIT}""").fetchall()
-    names = _buyer_names(conn, [r["id"] for r in rows])
-    return [{"slug": make_slug(r["id"], names.get(r["id"]) or r["canonical_name"]),
-             "updatedAt": _day(r["last_published"]) or datetime.now(timezone.utc)} for r in rows]
+    """The buyers with an open notice, most first, for the sitemap: read from the aggregate `buyer_base` keeps
+    (the per-request aggregate was a 2 s query, and the sitemap went without buyers when it was slow)."""
+    org_ids, _, open_n, last_published, _ = buyer_base(conn)
+    wanted = sorted((i for i in range(len(org_ids)) if open_n[i]), key=lambda i: (-open_n[i], org_ids[i]))
+    wanted = wanted[:BUYER_SLUG_LIMIT]
+    ids = [org_ids[i] for i in wanted]
+    canonical = {r["id"]: r["canonical_name"] for r in conn.execute(
+        "SELECT id, canonical_name FROM organisation WHERE id = ANY(%s)", (ids,)).fetchall()} if ids else {}
+    names = _buyer_names(conn, ids)
+    now = datetime.now(timezone.utc)
+    return [{"slug": make_slug(org_ids[i], names.get(org_ids[i]) or canonical.get(org_ids[i]) or ""),
+             "updatedAt": _day(last_published[i]) or now} for i in wanted if org_ids[i] in canonical]
 
 
 @router.get("/v1/buyers/{slug}", response_model=Buyer)
 def get_buyer(slug: str, conn=Depends(get_conn)):
     org_id = _id_of(slug, "buyer")
-    agg = aggregate_sql()
     # An old link to a member of a family shows the family (migration 0055).
+    head = conn.execute("SELECT dgate_buyer_head(%s) AS head", (org_id,)).fetchone()["head"]
+    org_ids, counts, open_n, last_published, variants = buyer_base(conn)
+    at = org_ids.index(head) if head in org_ids else None
     row = conn.execute(
-        f"""SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
-                   a.n, a.open_n, a.last_published, a.variants
-              FROM organisation org JOIN ({agg}) a ON a.org_id = org.id
-             WHERE org.id = dgate_buyer_head(%s)""", (org_id,)).fetchone()
+        "SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer FROM organisation org "
+        "WHERE org.id = %s", (head,)).fetchone() if at is not None else None
     if not row:
         if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
                         (org_id,)).fetchone():
             raise removed()
         raise HTTPException(404, "no such buyer")
+    row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
+           "variants": variants[at]}
     out = _buyer(row, _buyer_names(conn, [row["id"]]))
     from .network_api import network_slug_of_buyer
     out["organisationSlug"] = network_slug_of_buyer(

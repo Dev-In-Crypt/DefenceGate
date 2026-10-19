@@ -16,6 +16,18 @@ _SCALARS = (str, int, float, bool, date, datetime, type(None))
 
 
 SNAPSHOT_HOURS = 8       # a snapshot older than this is ignored (the worker renews them every 4 hours)
+LIST_KEY = "__list__"
+
+
+def stored(body: Any) -> Any:
+    """A response as `list_snapshot.body` holds it: an object. A list (the sitemap's slugs) is wrapped, so that
+    every body of the table is an object and a statement that reads or edits a key of it works on every row."""
+    return {LIST_KEY: body} if isinstance(body, list) else body
+
+
+def restored(body: Any) -> Any:
+    """The response a stored body was made from (the inverse of `stored`)."""
+    return body[LIST_KEY] if isinstance(body, dict) and set(body) == {LIST_KEY} else body
 
 
 def snapshot_key(name: str, kwargs: dict[str, Any]) -> str:
@@ -41,11 +53,12 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
     endpoint's globals, or `date | None` would be looked up in this module.
 
     `snapshot=True`: when the memory has no answer, a response the worker pre-computed
-    (`list_snapshot`, at most `SNAPSHOT_HOURS` old) is used before the query is run. The
-    original function stays at `.__wrapped__` for the worker."""
+    (`list_snapshot`, at most `SNAPSHOT_HOURS` old) is used before the query is run. It may also be a
+    function of the request's arguments (WP-52: the open lists are read live, only the closed and all are
+    kept). The original function stays at `.__wrapped__` for the worker."""
     def wrap(fn):
         # Free variables: `inner` is rebuilt on the endpoint's globals, not this module's.
-        scalars, key_of, hours = _SCALARS, snapshot_key, SNAPSHOT_HOURS
+        scalars, key_of, hours, restore = _SCALARS, snapshot_key, SNAPSHOT_HOURS, restored
 
         def inner(*args: Any, **kwargs: Any):
             from . import stats
@@ -59,7 +72,7 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
 
             def compute():
                 conn = kwargs.get("conn")
-                if snapshot and default > 0 and hasattr(conn, "execute"):
+                if (snapshot(kwargs) if callable(snapshot) else snapshot) and default > 0 and hasattr(conn, "execute"):
                     try:
                         row = conn.execute(
                             "SELECT body FROM list_snapshot WHERE key = %s "
@@ -69,7 +82,7 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
                         conn.rollback()
                         row = None
                     if row:
-                        return row["body"]
+                        return restore(row["body"])
                 return fn(*args, **kwargs)
 
             frozen = tuple(sorted(

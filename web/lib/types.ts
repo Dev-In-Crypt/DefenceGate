@@ -34,6 +34,8 @@ export interface SourceAttribution {
   retrievedAt: IsoDateTime;
   /** A tender: when the source's newest collection run finished (we last looked); absent for a call. */
   checkedAt?: IsoDateTime | null;
+  /** A tender: what `retrievedAt` is. `amendment` = the newest change we saw the source make; `first_seen` = no change seen, it is when we first collected the notice. Absent on older API builds. */
+  lastChangeKind?: 'amendment' | 'first_seen' | null;
   licence: string;
   attribution: string;
 }
@@ -225,8 +227,10 @@ export interface Paginated<T> {
   total: number;
   page: number;
   pageSize: number;
-  /** `/v1/suppliers`: the list serves no position beyond this (WP-39); absent on other lists. */
+  /** `/v1/suppliers` and `/v1/tenders`: the list serves no position beyond this (WP-39, WP-52); absent on other lists. */
   maxOffset?: number;
+  /** `/v1/tenders`: the count stopped at its cap, so `total` is "at least this many". Absent on older API builds. */
+  totalCapped?: boolean;
   /** `/v1/suppliers`: the country or product group selects fewer suppliers than kMin, so none is listed. */
   withheld?: boolean;
   search?: SearchInfo | null;
@@ -236,6 +240,8 @@ export interface Paginated<T> {
   ukraineTotal?: number | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
   meta?: { updatedAt?: string | null } | null;
+  /** `/v1/tenders`: when this page was worked out (a kept page says when it was made). Absent on older API builds. */
+  asOf?: IsoDateTime;
   /** Set by lib/api.ts, never by the API: the data service did not answer, and this is its last good answer, received at this time. */
   staleAsOf?: IsoDateTime;
 }
@@ -337,7 +343,17 @@ export type TenderStatusFilter = 'open' | 'closed' | 'all';
 /** `relevant` (the default since 16 October 2026): core and supply together. See SCOPE_CHOICES in lib/taxonomy.ts. */
 export type TenderScopeFilter = 'relevant' | 'core' | 'supply' | 'all';
 /** GET /v1/tenders/scope-counts: what each scope choice leads to, for the other filters as given. */
-export interface ScopeCounts { relevant: number; core: number; supply: number }
+export interface ScopeCounts {
+  relevant: number;
+  core: number;
+  supply: number;
+  /** core + supply - relevant: supply notices that are the national copy of a core one (shown once in `relevant`). Absent on older API builds. */
+  overlap?: number;
+  /** A count stopped at its cap: the figures are "at least". */
+  capped?: boolean;
+  /** When the counts were worked out. */
+  asOf?: IsoDateTime;
+}
 export type TenderSort = 'deadline-asc' | 'deadline-desc' | 'published-desc';
 export interface TenderFilters {
   q?: string;
@@ -442,6 +458,8 @@ export interface DigestTender {
   deadline: IsoDateTime | null;
   estimatedValue: Money | null;
   changes: FieldChange[];
+  /** How many notices of the week this row stands for (identical title, buyer, date and kind are listed once). Absent on older issues. */
+  repeats?: number;
 }
 export type DigestCallKind = 'call-new' | 'call-amended' | 'call-opened' | 'call-closing';
 export interface DigestCall {
@@ -612,6 +630,13 @@ export interface SourceHealth {
   /** Of a tender source: the usual notices per month (median) and the months, `YYYY-MM`, well below it. */
   monthlyMedian?: number | null;
   gapMonths?: string[] | null;
+  /** How often the source is collected (daily, monthly, one-off, on demand), after how many hours a run is late for that, and whether it is. Absent on older API builds. */
+  updateFreq?: string | null;
+  staleAfterHours?: number | null;
+  stale?: boolean | null;
+  /** Why a run that is not `ok` is not (a fixed sentence) and its kind. */
+  statusReason?: string | null;
+  statusReasonKind?: string | null;
 }
 export interface Health {
   generatedAt: IsoDateTime;

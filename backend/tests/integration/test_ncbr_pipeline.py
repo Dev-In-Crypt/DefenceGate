@@ -135,7 +135,7 @@ def test_the_country_the_currency_and_the_attribution_reach_the_api(conn, fs_sto
         assert [c["native_id"] for c in polish] == ["/web/ncbr/smart-26"]
         call = polish[0]
         assert (call["country"], call["currency"], call["budget"]) == ("PL", "PLN", 350_000_000.0)
-        assert call["attribution"].startswith("Zrodlo: Narodowe Centrum Badan i Rozwoju")
+        assert call["attribution"].startswith("Źródło: Narodowe Centrum Badań i Rozwoju")   # accents kept (migration 0091)
         assert call["source_url"] == "https://www.gov.pl/web/ncbr/smart-26"
         assert client.get("/v1/calls?country=ES").json() == []
         one = client.get(f"/v1/calls/{call['id']}").json()

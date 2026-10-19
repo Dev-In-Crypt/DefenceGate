@@ -36,7 +36,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from . import tenders as T
@@ -287,16 +287,25 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     return out, since, now
 
 
-def window_events(conn, scope: str | None, countries: list[str], goods: str | None):
-    """`build_events` for the page endpoints, kept five minutes per (scope, countries, goods): the 14-day
+def window_events(conn, scope: str | None, countries: list[str], goods: str | None,
+                  week: str | None = None):
+    """`build_events` for the page endpoints, kept five minutes per (scope, countries, goods, week): the 14-day
     window costs 1.2-2.1 s on a miss (verify2-abuse N4, 18 October 2026), and the page, the page size and the
-    Atom feed (page 1 of 100) all read the same window, so each used to compute it again."""
+    Atom feed (page 1 of 100) all read the same window, so each used to compute it again. `week` (an ISO week,
+    `2026-W42`) is that week of the digest instead of the last 14 days: the same events the issue counts, which
+    is where the digest's "the list has the rest" leads (WP-52, T10)."""
     from . import stats
     from .config import settings
+    from .weekly_digest import week_bounds  # weekly_digest imports this module
+
+    def compute():
+        if week is None:
+            return build_events(conn, scope=scope, countries=countries, goods=goods)
+        return build_events(conn, scope=scope, countries=countries, goods=goods,
+                            now=week_bounds(week)[1], days=7, bounded=True)
 
     ttl = settings().list_cache_seconds
-    return stats.cached(("changes-window", scope, tuple(countries), goods),
-                        lambda: build_events(conn, scope=scope, countries=countries, goods=goods),
+    return stats.cached(("changes-window", scope, tuple(countries), goods, week), compute,
                         0 if ttl <= 0 else 5 * 60, store=stats._list_cache, limit=stats.LIST_CACHED)
 
 
@@ -308,18 +317,38 @@ def list_changes(
     goods: str | None = Query(None, pattern="^defence$"),
     page: int = Query(1, ge=1, le=100),
     pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    week: str | None = Query(None, pattern=r"^\d{4}-W\d{2}$"),
+    kind: str | None = Query(None, pattern="^(new|amended)$"),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
+    """`week` is an ISO week of the archive (`2026-W42`, as the digest's) instead of the last 14 days; `kind`
+    lists only the new or only the amended notices. `counts` always count both kinds of the window."""
     countries = T._split(country, "country", upper=True, max_length=2)
-    events, since, until = window_events(conn, scope, countries, goods)
+    if week is not None:
+        from .weekly_digest import all_weeks, week_bounds
+
+        try:
+            week_bounds(week)
+        except ValueError:
+            raise HTTPException(404, "no such week") from None
+        if week not in all_weeks(datetime.now(timezone.utc)):
+            raise HTTPException(404, "no such week")      # not in the archive, or not ended
+    events, since, until = window_events(conn, scope, countries, goods, week)
+    everything = events
+    if kind:
+        events = [e for e in events if e["kind"] == kind]
     start = (page - 1) * pageSize
     shown = events[start:start + pageSize]
     ids = [e["id"] for e in shown]
     rows = conn.execute(f"{T.TENDER_SELECT} WHERE o.id = ANY(%s)", (ids,)).fetchall() if ids else []
     tenders = {t["id"]: t for t in T._present(conn, rows, checked=with_meta is True)}
     # The tender scope filters do not apply to funding calls; a country does (the funder's).
-    calls = funding_events(conn, countries=countries) if scope in (None, "core", "all") and not goods else []
+    if scope in (None, "core", "all") and not goods and not kind:
+        calls = (funding_events(conn, countries=countries) if week is None else
+                 funding_events(conn, countries=countries, now=until, days=7, bounded=True))
+    else:
+        calls = []
     funding = [{
         "id": f"call-{e['row']['id']}-{e['day']:%Y%m%d}", "kind": e["kind"], "day": e["day"],
         "detectedAt": e["at"], "changes": e["changes"], "call": to_call(e["row"]),
@@ -332,9 +361,9 @@ def list_changes(
 
     return {
         "items": items, "total": len(events), "page": page, "pageSize": pageSize,
-        "windowDays": WINDOW_DAYS, "windowFrom": since, "windowTo": until,
-        "counts": {"new": sum(1 for e in events if e["kind"] == "new"),
-                   "amended": sum(1 for e in events if e["kind"] == "amended")},
+        "windowDays": WINDOW_DAYS if week is None else 7, "windowFrom": since, "windowTo": until,
+        "counts": {"new": sum(1 for e in everything if e["kind"] == "new"),
+                   "amended": sum(1 for e in everything if e["kind"] == "amended")},
         "funding": funding, "fundingTotal": len(calls),
         "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None},
     }

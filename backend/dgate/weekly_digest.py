@@ -93,6 +93,10 @@ class DigestTender(BaseModel):
     deadline: datetime | None
     estimatedValue: dict[str, Any] | None
     changes: list[T.FieldChange] = []
+    # How many notices of the week this row stands for: several notices of one buyer with the same title,
+    # publication date and kind (a Polish unit's 13 notices for 13 sites, 12 Czech lots) are listed once.
+    # 1 for a row that stands for itself. The counts above still count every notice.
+    repeats: int = 1
 
 
 class DigestCall(BaseModel):
@@ -158,18 +162,37 @@ class WeekSummary(BaseModel):
 
 # ------------------------------------------------------------------ building an issue
 
+def distinct_events(conn, events: list[dict[str, Any]]) -> list[tuple[dict[str, Any], int]]:
+    """The events with identical-looking ones merged, in order: (the first of them, how many). Notices of one
+    source and buyer with the same title, publication date, kind and changes read as one row (the digest of
+    week 42 listed one Polish title 13 times). They stay separate notices: each has its own page, and the
+    counts of the issue count them all (WP-52, T10)."""
+    if not events:
+        return []
+    keys = {r["id"]: (r["source_id"], r["buyer_org_id"] or r["buyer_name_raw"], r["title_original"], r["published_at"])
+            for r in conn.execute(
+                "SELECT id, source_id, buyer_org_id, buyer_name_raw, title_original, published_at "
+                "FROM opportunity WHERE id = ANY(%s)", ([e["id"] for e in events],)).fetchall()}
+    groups: dict[tuple, list[dict[str, Any]]] = {}
+    for e in events:
+        key = (keys.get(e["id"], e["id"]), e["kind"], e["day"],
+               tuple((c["field"], c["before"], c["after"]) for c in e["changes"]))
+        groups.setdefault(key, []).append(e)
+    return [(g[0], len(g)) for g in groups.values()]
+
+
 def _tenders(conn, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    shown = events[:SECTION_LIMIT]
-    ids = [e["id"] for e in shown]
+    shown = distinct_events(conn, events)[:SECTION_LIMIT]
+    ids = [e["id"] for e, _ in shown]
     rows = conn.execute(f"{T.TENDER_SELECT} WHERE o.id = ANY(%s)", (ids,)).fetchall() if ids else []
     by_id = {t["id"]: t for t in T._present(conn, rows, checked=False)}
     out = []
-    for e in shown:
+    for e, repeats in shown:
         t = by_id.get(str(e["id"]))
         if t:
             out.append({"id": t["id"], "slug": t["slug"], "kind": e["kind"], "day": e["day"], "title": t["title"],
                         "buyerName": t["buyerName"], "country": t["country"], "deadline": t["deadline"],
-                        "estimatedValue": t["estimatedValue"], "changes": e["changes"]})
+                        "estimatedValue": t["estimatedValue"], "changes": e["changes"], "repeats": repeats})
     return out
 
 
