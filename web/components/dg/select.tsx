@@ -211,6 +211,8 @@ export function ListboxSelect({ options, placeholder, accessibleName, controlCla
             data-value={current}
             onClick={() => (open ? setOpen(false) : openAt(selIdx))}
             onKeyDown={onKeyDown}
+            // A space opens on keydown; the click a button makes on keyup (Firefox) would close it again.
+            onKeyUp={(e) => { if (e.key === ' ') e.preventDefault(); }}
             className={cn(CONTROL, 'flex cursor-pointer items-center pr-7 text-left', controlClassName)}
           >
             {accessibleName && <span className="sr-only">{accessibleName}, </span>}
