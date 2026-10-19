@@ -131,7 +131,7 @@ export function SortSelect({ value, options }: { value: string; options: { value
     <label className="flex items-center gap-2 text-small font-semibold">
       <span>Sort</span>
       <span className={cn(boxCls(undefined, false, true), 'relative')}>
-        <ListboxSelect fit value={value} options={options} accessibleName="Sort" controlClassName="text-small font-semibold"
+        <ListboxSelect value={value} options={options} accessibleName="Sort"
           className="text-small font-semibold" onChange={(e) => {
             const p = new URLSearchParams(window.location.search);
             p.set('sort', e.target.value); p.delete('page');

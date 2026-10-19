@@ -49,7 +49,7 @@ export default async function RegulationPage() {
               <a href={`#${e.code}`} aria-label={`Link to this entry: ${e.title}`} title="Link to this entry"
                 className="-mr-2 -mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-inset hover:text-ink"><Icon icon={Link2} size="inline" /></a>
             </h2>
-            <p className="justify-p m-0 text-body">{e.whatChanged}</p>
+            <p className="justify-p m-0 text-body max-sm:leading-6">{e.whatChanged}</p>
             <Details summary="Quote, source, status and how to cite">
               <p className="m-0"><span className="font-semibold text-ink">{STATUS_WORD[e.status]}. </span>{STATUS_MEANING[e.status]}</p>
               <figure className="m-0 flex flex-col gap-2">
@@ -62,21 +62,22 @@ export default async function RegulationPage() {
               </p>
             </Details>
           </div>
+          {/* On a phone the facts are packed: the status is the tag above (so its fact is dropped there), the day we checked and the source share a row, the rest take a row each. */}
           <dl className="m-0 grid h-fit grid-cols-2 gap-x-6 border-b border-line">
-            <Fact label="Status" className="py-2">
+            <Fact label="Status" className="py-2 max-sm:hidden">
               <span className="font-semibold">{STATUS_WORD[e.status]}</span>
             </Fact>
-            <Fact label="Last checked" className="py-2"><time dateTime={e.checkedOn}>{formatDateUtc(e.checkedOn)}</time></Fact>
-            <Fact label="Who is affected" wide className="py-2">{e.affected}</Fact>
+            <Fact label="Last checked" className="py-2 max-sm:order-1"><time dateTime={e.checkedOn}>{formatDateUtc(e.checkedOn)}</time></Fact>
+            <Fact label="Who is affected" wide className="py-2 max-sm:order-3">{e.affected}</Fact>
             {url && (
-              <Fact label="Source" wide={e.links.length > 1} className="py-2">
+              <Fact label="Source" wide={e.links.length > 1} className="py-2 max-sm:order-2 max-sm:col-auto">
                 <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-8 items-center gap-1 font-semibold">
                   Primary source<Icon icon={ExternalLink} size="inline" /><span className="sr-only">(opens in new tab)</span>
                 </a>
               </Fact>
             )}
             {e.links.length > 0 && (
-              <Fact label="On this site" wide={e.links.length > 1} className="py-2">
+              <Fact label="On this site" wide={e.links.length > 1} className="py-2 max-sm:order-4 max-sm:col-span-full">
                 <span className="flex flex-wrap gap-x-4">
                   {e.links.map((l) => <Link key={`${l.kind}:${l.code}`} href={linkHref(l)} className="inline-flex min-h-8 items-center font-semibold">{l.label}</Link>)}
                 </span>

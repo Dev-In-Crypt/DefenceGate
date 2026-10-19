@@ -18,9 +18,8 @@ export function TextInput({ label, hint, error, className, search, ...rest }: Fi
 }
 
 /**
- * The branded select. With script it is a listbox of our own (`ListboxSelect`, select.tsx); the native `<select>` stays in the
- * form, hidden, and carries the value (GET forms, server actions, tests); without script, and on a phone, the native select
- * is the control. The label points at the native select.
+ * The branded select: the native `<select>` is the control and the one element the label points at; with script and a mouse
+ * its opened list is a listbox of our own (`ListboxSelect`, select.tsx), on a phone and without script the system picker.
  */
 export function Select({ label, hint, error, className, options, placeholder, ...rest }: FieldProps & { options: { value: string; label: string }[]; placeholder?: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   const auto = useId(); const id = rest.id ?? auto;
