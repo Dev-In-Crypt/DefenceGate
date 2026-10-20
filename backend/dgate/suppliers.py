@@ -32,6 +32,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .classify import CORE_SQL
+from .config import settings
 from .countries import to_iso2
 from .funding import get_conn, make_slug
 from .listcache import cache_list
@@ -65,7 +66,18 @@ FROM = """FROM award a
 # garbled text; migration 0080, `ops/clean_suppliers.py`). `individual_reason`: an organisation the directory
 # treats as a natural person (`individuals.py`): never listed, as in the directory.
 SCOPE = (f"o.is_defence AND NOT o.suppressed AND {CORE_SQL} AND NOT org.suppressed AND NOT raw_org.suppressed "
-         "AND a.excluded_reason IS NULL AND org.individual_reason IS NULL AND raw_org.individual_reason IS NULL")
+         "AND a.excluded_reason IS NULL AND org.individual_reason IS NULL AND raw_org.individual_reason IS NULL "
+         "AND a.superseded_at IS NULL")
+# PLACSP winners (WP-60) are stored and not served until DGATE_PLACSP_AWARDS_PUBLIC is true: the owner has to
+# decide on the reuse terms (docs/sources/es_placsp.md) first.
+PLACSP_SOURCES = ("es_placsp", "es_placsp_agg")
+NOT_PLACSP = ("o.source_id NOT IN (SELECT id FROM source WHERE code IN ("
+              + ", ".join(f"'{c}'" for c in PLACSP_SOURCES) + "))")
+
+
+def scope() -> str:
+    """The rows the map serves: SCOPE, and without the PLACSP winners unless they are switched on."""
+    return SCOPE if settings().placsp_awards_public else f"{SCOPE} AND {NOT_PLACSP}"
 
 
 class SupplierItem(BaseModel):
@@ -238,14 +250,14 @@ def list_suppliers(
         # The k rule of the summary, held for a filtered list too: a country or product group with fewer than
         # K_MIN suppliers is not listed, so a filter cannot turn the aggregate into a view of one or two firms.
         # The group is the country / CPV part alone, so a name search inside a large group still works.
-        size = conn.execute(f"SELECT count(DISTINCT org.id) AS n {FROM} WHERE {' AND '.join([SCOPE] + gwhere)}",
+        size = conn.execute(f"SELECT count(DISTINCT org.id) AS n {FROM} WHERE {' AND '.join([scope()] + gwhere)}",
                             gparams).fetchone()["n"]
         if size < K_MIN:
             # A group with no supplier at all is simply empty: "withheld" is for a group that exists and is small.
             return {"items": [], "total": 0, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
                     "withheld": size > 0}
     where, params = _filters(q, country, cpv)
-    cond = " AND ".join([SCOPE] + where)
+    cond = " AND ".join([scope()] + where)
     order = "canonical_name, id" if sort == "name" else "n DESC, canonical_name, id"
     # The page is cut first and the shown spelling asked for its 20 rows only (asked before the cut it took a
     # second at page 40: 4,188 suppliers on 18 October 2026).
@@ -275,14 +287,16 @@ def supplier_summary(conn=Depends(get_conn)):
     head = conn.execute(
         f"""SELECT count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
                    count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p
-              {FROM} WHERE {SCOPE}""").fetchone()
+              {FROM} WHERE {scope()}""").fetchone()
     read = conn.execute(
-        """SELECT count(*) AS n, COALESCE(sum(skipped_person), 0) AS persons FROM award_notice""").fetchone()
+        f"""SELECT count(*) AS n, COALESCE(sum(n.skipped_person), 0) AS persons FROM award_notice n
+              JOIN opportunity o ON o.id = n.opportunity_id
+             WHERE {'TRUE' if settings().placsp_awards_public else NOT_PLACSP}""").fetchone()
 
     def groups(expr: str) -> tuple[list[dict[str, Any]], int]:
         rows = conn.execute(
             f"""SELECT {expr} AS key, count(DISTINCT org.id) AS suppliers, count(*) AS awards
-                  {FROM} WHERE {SCOPE} AND a.cpv_main IS NOT NULL
+                  {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
                  GROUP BY 1 ORDER BY 3 DESC, 1""").fetchall()
         kept = [r for r in rows if r["suppliers"] >= K_MIN and r["key"]]
         return kept, len(rows) - len(kept)
@@ -292,11 +306,11 @@ def supplier_summary(conn=Depends(get_conn)):
     cells = conn.execute(
         f"""SELECT left(a.cpv_main, 2) AS division, a.supplier_country AS country,
                    count(DISTINCT org.id) AS suppliers, count(*) AS awards
-              {FROM} WHERE {SCOPE} AND a.cpv_main IS NOT NULL
+              {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
              GROUP BY 1, 2 HAVING count(DISTINCT org.id) >= %s
              ORDER BY 3 DESC, 4 DESC, 1, 2 LIMIT 300""", (K_MIN,)).fetchall()
     total_cells = conn.execute(
-        f"""SELECT count(*) AS n FROM (SELECT 1 {FROM} WHERE {SCOPE} AND a.cpv_main IS NOT NULL
+        f"""SELECT count(*) AS n FROM (SELECT 1 {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
              GROUP BY left(a.cpv_main, 2), a.supplier_country) t""").fetchone()["n"]
     return {
         "kMin": K_MIN, "since": SINCE, "noticesRead": read["n"],
@@ -326,7 +340,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         raise removed()
     if org and org["individual_reason"]:
         raise not_published()
-    base = f"{FROM} WHERE {SCOPE} AND org.id = %s"
+    base = f"{FROM} WHERE {scope()} AND org.id = %s"
     head = conn.execute(
         f"""SELECT count(DISTINCT a.opportunity_id) AS n,
                    extract(year FROM min(o.published_at))::int AS first_year,

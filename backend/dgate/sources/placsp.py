@@ -25,11 +25,12 @@ from __future__ import annotations
 import logging
 import pickle
 import re
+import shutil
 import tempfile
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Iterator
+from typing import Any, Iterator
 from xml.etree import ElementTree as ET
 from zoneinfo import ZoneInfo
 
@@ -413,6 +414,69 @@ def _no_winner(cfs: ET.Element) -> bool:
     return bool(codes) and all(c in _NO_AWARD_RESULT_CODES for c in codes)
 
 
+def _int(raw: str | None) -> int | None:
+    try:
+        return int(float(raw)) if raw else None
+    except ValueError:
+        return None
+
+
+def parse_results(cfs: ET.Element) -> list[dict]:
+    """The award results of a folder, one per `cac:TenderResult` (in practice one per lot), as stated.
+
+    Read into a payload of their own and never into the `Opportunity`: every PLACSP content hash is
+    taken over `opportunity_payload`, so an award field there would move the hash of every held
+    record and archive about 30,000 false "changed" versions. Paths measured on the live feed of
+    20 October 2026 (85 results): `WinningParty` with `PartyIdentification/ID` (`schemeName` NIF or
+    OTROS; a natural person's NIF arrives masked by the publisher, "***1234**"), `PartyName/Name`
+    and `PhysicalLocation/Address/Country/IdentificationCode`. The result's free-text `Description`,
+    the winner's street, city and postcode are not read: nothing here needs them, and a sole
+    trader's address is personal data. What is returned still holds persons' names and numbers;
+    `dgate.placsp_awards.redact` blanks them before anything is landed.
+    """
+    out: list[dict] = []
+    for tr in _findall(cfs, "cac:TenderResult"):
+        project = _find(tr, "cac:AwardedTenderedProject")
+        total = _find(project, "cac:LegalMonetaryTotal")
+        net = _find(total, "cbc:TaxExclusiveAmount")
+        winners = []
+        for party in _findall(tr, "cac:WinningParty"):
+            ident = _find(party, "cac:PartyIdentification/cbc:ID")
+            winners.append({
+                "name": _text(party, "cac:PartyName/cbc:Name"),
+                "identifier": (ident.text or "").strip() or None if ident is not None else None,
+                "scheme": ident.get("schemeName") if ident is not None else None,
+                "country": _text(party, "cac:PhysicalLocation/cac:Address/cac:Country/cbc:IdentificationCode"),
+            })
+        out.append({
+            "result_code": _text(tr, "cbc:ResultCode"),
+            "lot_id": _text(project, "cbc:ProcurementProjectLotID"),
+            "award_date": _text(tr, "cbc:AwardDate"),
+            "received_tenders": _int(_text(tr, "cbc:ReceivedTenderQuantity")),
+            "sme_awarded": _text(tr, "cbc:SMEAwardedIndicator"),
+            "owner_nationality": _text(tr, "cbc:AwardedOwnerNationalityCode"),
+            "value": _float(net.text) if net is not None else None,
+            "value_with_vat": _float(_text(total, "cbc:PayableAmount")),
+            "currency": (net.get("currencyID") or "EUR") if net is not None and net.text else None,
+            "winners": winners,
+        })
+    return out
+
+
+def award_payload(entry: ET.Element, source_code: str = "es_placsp") -> dict | None:
+    """The award results of one entry with what places them (folder, status, update stamp), or None
+    when the entry states no result. Personal data is still in it: see `parse_results`."""
+    cfs = _folder(entry)
+    if cfs is None:
+        return None
+    results = parse_results(cfs)
+    if not results:
+        return None
+    return {"source": source_code, "folder_id": _text(cfs, "cbc:ContractFolderID"),
+            "status_native": _text(cfs, "cbc-place-ext:ContractFolderStatusCode"),
+            "updated": _text(entry, "atom:updated"), "results": results}
+
+
 _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
@@ -445,15 +509,19 @@ def _instant(stamp: str | None) -> datetime | None:
 
 # ---------------------------------------------------------------- parsing
 
-def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunity | None:
-    """Map one ATOM entry containing a CODICE ContractFolderStatus."""
+def _folder(entry: ET.Element) -> ET.Element | None:
     cfs = _find(entry, ".//cac-place-ext:ContractFolderStatus")
     if cfs is None:
         # Some entries wrap the payload without the ext namespace prefix.
         for child in entry:
             if child.tag.endswith("ContractFolderStatus"):
-                cfs = child
-                break
+                return child
+    return cfs
+
+
+def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunity | None:
+    """Map one ATOM entry containing a CODICE ContractFolderStatus."""
+    cfs = _folder(entry)
     if cfs is None:
         return None
 
@@ -535,11 +603,14 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
 
 
 def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
-               *, stamps: list[str] | None = None) -> tuple[list[Opportunity], str | None]:
+               *, stamps: list[str] | None = None,
+               results: list[dict | None] | None = None) -> tuple[list[Opportunity], str | None]:
     """Parse one ATOM file. Returns (opportunities, next_url).
 
     Pass `stamps` to collect each parsed entry's full `atom:updated` alongside,
-    in the same order; `published_at` keeps only the date.
+    in the same order; `published_at` keeps only the date. Pass `results` to collect
+    each parsed entry's award payload (`award_payload`, None for an entry without one)
+    the same way.
     """
     root = ET.fromstring(xml_bytes)
     out: list[Opportunity] = []
@@ -547,9 +618,12 @@ def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
         try:
             opp = parse_entry(entry, source_code)
             if opp:
+                award = award_payload(entry, source_code) if results is not None else None
                 out.append(opp)
                 if stamps is not None:
                     stamps.append(_text(entry, "atom:updated") or "")
+                if results is not None:
+                    results.append(award)
         except Exception as exc:  # one bad entry must not kill the batch
             log.warning("PLACSP entry parse failed: %s", exc)
 
@@ -714,11 +788,26 @@ def _updated_key(stamp: str) -> datetime:
 MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
 
 
-def _download(client: httpx.Client, url: str, what: str):
+class DiskLow(RuntimeError):
+    """Free space on the temporary directory's disk fell under the floor a caller set."""
+
+
+def check_disk(min_free_bytes: int | None, what: str) -> None:
+    if min_free_bytes is None:
+        return
+    free = shutil.disk_usage(tempfile.gettempdir()).free
+    if free < min_free_bytes:
+        raise DiskLow(f"{what}: {free / 2**30:.2f} GiB free, under the floor of "
+                      f"{min_free_bytes / 2**30:.2f} GiB")
+
+
+def _download(client: httpx.Client, url: str, what: str, min_free_bytes: int | None = None):
     """The response body of `url` in an anonymous temporary file, rewound.
 
     Counted as it arrives (decoded), so a body that passes MAX_ARCHIVE_BYTES is cut off
-    and the file is closed -- and with it removed -- rather than filling the disk.
+    and the file is closed -- and with it removed -- rather than filling the disk. With
+    `min_free_bytes` the free space is checked every 64 MiB as well, and the download
+    stops the same way (`DiskLow`) when it falls under that floor.
     Retried like every other request; each attempt starts a new file.
     """
     def fetch():
@@ -732,6 +821,8 @@ def _download(client: httpx.Client, url: str, what: str):
                     if total > MAX_ARCHIVE_BYTES:
                         raise ResponseTooLarge(
                             f"{what}: body passed {MAX_ARCHIVE_BYTES} bytes")
+                    if total % (64 * 1024 * 1024) < len(chunk):
+                        check_disk(min_free_bytes, what)
                     out.write(chunk)
             out.seek(0)
             return out
@@ -745,13 +836,19 @@ def _download(client: httpx.Client, url: str, what: str):
 def fetch_archive(
     url: str, dataset: Dataset = MAIN, *, client: httpx.Client | None = None,
     observe: dict | None = None, since: datetime | None = None,
-) -> Iterator[Opportunity]:
+    with_results: bool = False, min_free_bytes: int | None = None,
+) -> Iterator[Any]:
     """Download and walk one annual or monthly ZIP.
 
     Per the spec the package must be read starting from
     licitacionesPerfilesContratanteCompleto3.atom, with each file linking on to
     the next. In practice reading every .atom member and deduplicating upstream
     is more robust than trusting the chain inside a downloaded archive.
+
+    With `with_results` each item is `(opportunity, award payload or None)`: the award
+    results travel next to the record, never inside it (see `parse_results`).
+    `min_free_bytes` stops the walk with `DiskLow` before the disk under the temporary
+    files falls below it (checked while downloading and while spooling).
     """
     owns = client is None
     # Plain httpx, not `new_client`: its response hook reads the body into memory under the
@@ -767,7 +864,7 @@ def fetch_archive(
     dropped = 0
     name_tail = url.rsplit("/", 1)[-1]
     try:
-        with _download(client, url, f"archive {url[-12:]}") as archive, \
+        with _download(client, url, f"archive {url[-12:]}", min_free_bytes) as archive, \
                 zipfile.ZipFile(archive) as zf:
             names = [n for n in zf.namelist() if n.endswith(".atom")]
             if len(names) > MAX_ARCHIVE_MEMBERS:
@@ -778,11 +875,15 @@ def fetch_archive(
                     continue
                 try:
                     stamps: list[str] = []
-                    opps, _ = parse_feed(zf.read(name), dataset.source_code, stamps=stamps)
+                    found: list[dict | None] | None = [] if with_results else None
+                    opps, _ = parse_feed(zf.read(name), dataset.source_code, stamps=stamps,
+                                         results=found)
                 except Exception as exc:
                     log.warning("PLACSP archive member %s failed: %s", name, exc)
                     continue
-                for stamp, opp in zip(stamps, opps, strict=True):
+                check_disk(min_free_bytes, f"archive {name_tail}")
+                awards = found if found is not None else [None] * len(opps)
+                for stamp, opp, award in zip(stamps, opps, awards, strict=True):
                     key = _updated_key(stamp)
                     # The publisher's monthly archives are assembled by a filename
                     # match, and the match is loose: both the August and September 2026
@@ -794,7 +895,8 @@ def fetch_archive(
                         dropped += 1
                         continue
                     index.append((key, spool.tell()))
-                    pickle.dump(opp, spool, protocol=pickle.HIGHEST_PROTOCOL)
+                    pickle.dump((opp, award) if with_results else opp, spool,
+                                protocol=pickle.HIGHEST_PROTOCOL)
         log.info("%s archive %s: %s entries", dataset.source_code, name_tail,
                  len(index) + dropped)
         if dropped:

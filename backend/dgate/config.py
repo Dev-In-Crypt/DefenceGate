@@ -238,6 +238,10 @@ class Settings:
     # Interactive API docs and the OpenAPI document are off unless asked for: they
     # describe every parameter to anyone, which is wanted in development only.
     docs_enabled: bool = field(default_factory=lambda: os.environ.get("DGATE_DOCS") == "1")
+    # PLACSP award winners (WP-60) are stored, not served, until the owner has read the reuse terms
+    # (docs/sources/es_placsp.md) and decided: the supplier map leaves them out unless this is "true".
+    placsp_awards_public: bool = field(
+        default_factory=lambda: os.environ.get("DGATE_PLACSP_AWARDS_PUBLIC", "false").strip().lower() == "true")
     # Separate DSN for tests. Unset means integration tests skip themselves
     # rather than silently pointing at a real database.
     test_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_TEST_DSN"))
