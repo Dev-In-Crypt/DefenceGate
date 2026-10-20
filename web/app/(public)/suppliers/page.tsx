@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ApiError, getSuppliers, getSupplierSummary } from '@/lib/api';
 import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
-import { formatDateUtc, formatNumber } from '@/lib/format';
+import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
+import { staleNote } from '@/lib/source-status';
 import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { cpvForWords } from '@/lib/cpv';
@@ -106,6 +107,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
     <>
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} title="Defence supplier map"
         lead="Which companies have won defence-relevant contracts that a buyer published in TED, where they are and how often. This is the open segment of the market, not all of it." />
+      {result.staleAsOf && <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(result.staleAsOf, formatDateTimeUtc)}</p>}
 
       <Card title="What this map covers" id="coverage">
         <p className="m-0 text-body">
@@ -115,9 +117,9 @@ export default async function SuppliersPage({ searchParams }: Props) {
         </p>
         {summary && (
           <p className="m-0 text-small text-ink-muted">
-            {formatNumber(summary.suppliers)} suppliers and {formatNumber(summary.awards)} wins in {formatNumber(summary.noticesWithSupplier)} notices
+            {formatNumber(summary.suppliers)} {plural(summary.suppliers, 'supplier')} and {formatNumber(summary.awards)} {plural(summary.awards, 'win')} in {formatNumber(summary.noticesWithSupplier)} {plural(summary.noticesWithSupplier, 'notice')}
             {summary.firstPublished && summary.lastPublished ? `, published ${formatDateUtc(summary.firstPublished)} to ${formatDateUtc(summary.lastPublished)} UTC` : ''}.
-            {' '}{formatNumber(summary.skippedNaturalPersons)} winners that are natural persons (sole traders under their own name) are left out.
+            {' '}{formatNumber(summary.skippedNaturalPersons)} {summary.skippedNaturalPersons === 1 ? 'winner that is a natural person (a sole trader under their own name) is' : 'winners that are natural persons (sole traders under their own name) are'} left out.
             Source: TED, © European Union. Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).
           </p>
         )}
@@ -127,7 +129,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         <section aria-labelledby="aggregate" className="flex flex-col gap-4">
           <h2 id="aggregate" className="m-0 text-h2">By product group and country</h2>
           <p className="m-0 max-w-prose text-small text-ink-muted">
-            Counts of suppliers and wins. A group of fewer than {summary.kMin} suppliers is not shown ({formatNumber(summary.suppressedGroups)} groups are
+            Counts of suppliers and wins. A group of fewer than {summary.kMin} suppliers is not shown ({formatNumber(summary.suppressedGroups)} {summary.suppressedGroups === 1 ? 'group is' : 'groups are'}
             held back), so that no figure describes one company, and the same holds for a list narrowed by country or product group. The map states no contract value per supplier and ranks nobody by value; a supplier's wins are a count of notices, each with its link.
           </p>
           <AutoGrid min={420}>

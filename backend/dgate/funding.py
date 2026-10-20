@@ -906,7 +906,11 @@ def run_reason(status: str | None, fetched: int, floor: int | None,
         return "stale_feed", RUN_REASONS["stale_feed"]
     m = _UNREADABLE.match(text)
     if m:
-        return "unreadable", f"{m.group(1)} {m.group(2)} could not be read; the rest of the run is kept."
+        # Runs store "1 factsheets could not be read"; the sentence says "1 factsheet".
+        n, noun = m.group(1), m.group(2)
+        if n == "1" and noun.endswith("s"):
+            noun = noun[:-1]
+        return "unreadable", f"{n} {noun} could not be read; the rest of the run is kept."
     if "quarantined" in text:
         return "quarantined", RUN_REASONS["quarantined"]
     return "other", RUN_REASONS["other"]

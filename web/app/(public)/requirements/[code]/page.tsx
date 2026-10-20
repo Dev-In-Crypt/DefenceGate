@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { getRequirement, getRequirements } from '@/lib/readiness-api';
 import { CATEGORY_WORD, OBLIGATION_WORD, faqOf, formatDays, formatRange, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
+import { plural } from '@/lib/format';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const what = r.kind === 'document' ? 'who issues it, cost and time' : 'what the rule says';
   return buildMetadata({
     title: `${r.name}: ${what}`,
-    description: r.summary.length > 200 ? `${r.summary.slice(0, 197)}...` : r.summary,
+    description: r.summary,
     path: `/requirements/${requirementSlug(r.code)}`,
   });
 }
@@ -118,7 +119,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {singles.map((i) => (
                 <li key={`${i.country}-${i.name}`} className="flex flex-col gap-0.5">
-                  <span className="font-bold">{i.country === '*' ? 'Every country' : countryName(i.country)}</span>
+                  <span className="font-bold">{i.country !== '*' ? countryName(i.country) : r.issuers.some((x) => x.country !== '*') ? 'Every other country' : 'Every country'}</span>
                   <span>{safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}</span>
                   {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
                   <span className="text-small text-ink-muted">{statusWords(i.verificationStatus, 'notes')}</span>
@@ -126,7 +127,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
               ))}
               {groups.map((g) => (
                 <li key={g.name} className="flex flex-col gap-0.5">
-                  <span className="font-bold">{g.name}: {g.countries.length} countries</span>
+                  <span className="font-bold">{g.name}: {g.countries.length} {plural(g.countries.length, 'country', 'countries')}</span>
                   <span className="max-w-prose">{g.countries.join(', ')}</span>
                   {g.notes && <span className="text-small text-ink-muted">{g.notes}</span>}
                   <span className="text-small text-ink-muted">{statusWords(g.verificationStatus, 'notes')}</span>
@@ -134,7 +135,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
               ))}
             </ul>
           ) : <p className="m-0 text-body text-ink-muted">No issuing body has been collected.</p>}
-          <p className="m-0 text-small text-ink-muted">For a country that is not listed, the issuing body has not been collected. We list none rather than guess.</p>
+          {!r.issuers.some((i) => i.country === '*') && <p className="m-0 text-small text-ink-muted">For a country that is not listed, the issuing body has not been collected. We list none rather than guess.</p>}
         </ContentSection>
       )}
 

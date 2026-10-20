@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
-import { formatDateUtc, formatNumber } from '@/lib/format';
+import { formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
 import type { PartnersAnswer } from '@/lib/types';
 import { Button } from '@/components/dg/button';
@@ -120,7 +120,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
           {wide && picker}
           <p className="m-0 text-small text-ink-muted">
             {d.area.projects === 0 ? 'No earlier project of this area is held yet.' : (
-              <>{formatNumber(d.area.organisations)} organisations in {formatNumber(d.area.projects)} projects{d.area.firstYear ? `, ${d.area.firstYear} to ${d.area.lastYear}` : ''}.
+              <>{formatNumber(d.area.organisations)} {plural(d.area.organisations, 'organisation')} in {formatNumber(d.area.projects)} {plural(d.area.projects, 'project')}{d.area.firstYear ? `, ${d.area.firstYear} to ${d.area.lastYear}` : ''}.
                 {' '}Ranked by the number of these projects an organisation took part in, then by the latest year.</>
             )}
           </p>

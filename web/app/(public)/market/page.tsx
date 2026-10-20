@@ -6,7 +6,7 @@ import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
 import { cpvGroupName } from '@/lib/cpv';
-import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
+import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { daysText, monthLabel, percentText } from '@/lib/market';
 import { buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
@@ -82,11 +82,11 @@ export default async function MarketPage({ searchParams }: Props) {
         <FactCell label="Sources that published them">{stats.sourceCount}</FactCell>
         <FactCell label="Typical response window">
           <span>{daysText(w.median)}</span>
-          {w.p25 !== null && w.p75 !== null && <span className="block font-sans text-small font-normal text-ink-muted">Middle half: {w.p25} to {w.p75} days</span>}
+          {w.p25 !== null && w.p75 !== null && <span className="block font-sans text-small font-normal text-ink-muted">Middle half: {w.p25} to {w.p75} {plural(w.p75, 'day')}</span>}
         </FactCell>
         <FactCell label="With an amendment">
           <span>{percentText(a.share)}</span>
-          <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} notices</span>
+          <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}</span>
           <span className="block font-sans text-small font-normal text-ink-muted">Counted only from when we first saw each notice (September 2026 at the earliest), so it will rise as the archive ages.</span>
         </FactCell>
         <FactCell label="Figures as of"><time dateTime={stats.asOf}>{formatDateTimeUtc(stats.asOf)}</time></FactCell>
@@ -96,7 +96,7 @@ export default async function MarketPage({ searchParams }: Props) {
         <BarChart
           id="months"
           title={monthsTitle}
-          summary={`Bars for ${monthLabel(months[0]?.month ?? '')} to ${monthLabel(months[months.length - 1]?.month ?? '')}, ${formatNumber(inMonths)} notices in all. TED notices and notices from national sources are stacked.`}
+          summary={`Bars for ${monthLabel(months[0]?.month ?? '')} to ${monthLabel(months[months.length - 1]?.month ?? '')}, ${formatNumber(inMonths)} ${plural(inMonths, 'notice')} in all. TED notices and notices from national sources are stacked.`}
           bars={months.map((m) => ({ label: monthLabel(m.month), primary: m.ted, secondary: Math.max(0, m.count - m.ted), partial: m.partial }))}
           primaryName="TED"
           secondaryName="National sources"

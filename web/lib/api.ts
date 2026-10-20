@@ -109,7 +109,7 @@ export async function httpOrThrow<T>(path: string, mode: CacheMode = 'revalidate
  * list. A refusal (4xx) and a read that must be live (`allowStale: false`, the CSV export) are never softened.
  * `persist`: also kept on disk, for the answers every visitor shares (default lists, counters, source status).
  */
-async function withLastGood<T extends object>(
+export async function withLastGood<T extends object>(
   key: string, fetcher: () => Promise<T>, opts: { persist?: boolean; allowStale?: boolean } = {},
 ): Promise<T & { staleAsOf?: string }> {
   try {
@@ -355,9 +355,12 @@ function buyersQuery(f: BuyerFilters): string {
   return `?${p.toString()}`;
 }
 
-export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<Buyer>> {
+export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<Buyer> & { staleAsOf?: string }> {
   if (API_BASE) {
-    return httpOrThrow<Paginated<Buyer>>(`/v1/buyers${buyersQuery(filters)}`, toBuyerQuery(filters) === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+    // The last good answer when the service does not answer (re-audit of 20 Oct, N2: /buyers?country=DE failed under light load).
+    const shared = toBuyerQuery(filters) === '';
+    const path = `/v1/buyers${buyersQuery(filters)}`;
+    return withLastGood(`buyers:${path}`, () => httpOrThrow<Paginated<Buyer>>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS), { persist: shared });
   }
   return tenderMock.queryBuyers(filters);
 }
@@ -365,7 +368,7 @@ export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<B
 const SUPPLIER_PAGE_SIZE = 20;
 
 /** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is five invented companies (lib/mock/suppliers.ts). */
-export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem>> {
+export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string }> {
   if (!API_BASE) return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
@@ -375,7 +378,8 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
   if (f.page && f.page > 1) p.set('page', String(f.page));
   const filtered = p.size > 0;
   p.set('pageSize', String(f.pageSize ?? SUPPLIER_PAGE_SIZE));
-  return httpOrThrow<Paginated<SupplierItem>>(`/v1/suppliers?${p.toString()}`, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS);
+  const path = `/v1/suppliers?${p.toString()}`;
+  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem>>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
 }
 
 /** The public aggregate (GET /v1/suppliers/summary). null when the API has no supplier map yet. */

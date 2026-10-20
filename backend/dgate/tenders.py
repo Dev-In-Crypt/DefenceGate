@@ -217,6 +217,9 @@ class TenderVersion(BaseModel):
     # True for a version a history load wrote: `detectedAt` is the day we read it, the
     # change itself was published earlier.
     historic: bool = False
+    # True for our own corrected reading of a payload we already held (`remapped`): a state
+    # the archive holds, shown as such, and never counted as the publisher's amendment.
+    correction: bool = False
     changes: list[FieldChange]
 
 
@@ -730,13 +733,20 @@ def collapse_clauses(where: list[str], *, same_buyer: bool = False) -> str:
     # procedure identifier: only the newest of the same status that matches these filters
     # is shown. (Award notices of a procedure have another status, so they are not hidden
     # by the call for competition, and the reverse.)
+    # A national row linked by procedure identifier is also dropped when ANY TED notice of its procedure with
+    # its status is in the result, not only the newest one its `ted_ref` names: in Closed the newest TED stage
+    # may still be open (deadline 2 Nov) while the stage the national row copies (deadline 20 Oct) is closed,
+    # and the two copies stood side by side (re-audit of the data pages, NEW-3, procedure ef67494e-...).
     rep_where = [re.sub(r"\bo\.", "r.", clause_) for clause_ in where] + extra("r")
     not_republished = ("NOT EXISTS (SELECT 1 FROM opportunity r "
                        "WHERE o.procedure_identifier IS NOT NULL "
                        "AND r.procedure_identifier = o.procedure_identifier "
-                       "AND r.source_id = o.source_id AND r.status = o.status AND r.id <> o.id "
+                       "AND r.status = o.status AND r.id <> o.id "
+                       "AND ((r.source_id = o.source_id "
                        "AND (coalesce(r.published_at, 'epoch'::date), r.id) "
-                       "> (coalesce(o.published_at, 'epoch'::date), o.id) AND "
+                       "> (coalesce(o.published_at, 'epoch'::date), o.id)) "
+                       "OR (o.twin_method = 'procedure_id' AND r.source_id <> o.source_id "
+                       "AND r.source_id = (SELECT id FROM source WHERE code = 'ted'))) AND "
                        + " AND ".join(rep_where) + ")")
     return " AND ".join((not_collapsed, not_rectified, not_republished))
 
@@ -1008,9 +1018,16 @@ def list_tenders(
     total, capped = 0, False
     if len(parts) == 2:
         (open_extra, open_order), (rest_extra, rest_order) = parts
-        n_open, _ = _count(conn, where, params, open_extra)
-        if served and start < n_open:
+        n_open, open_capped = _count(conn, where, params, open_extra)
+        if served and (open_capped or start < n_open):
             rows = _rows(conn, where, params, open_extra, open_order, pageSize, start)
+            if open_capped and len(rows) < pageSize and (rows or start == 0):
+                n_open, open_capped = start + len(rows), False        # the end of the open part was read
+            elif open_capped:
+                # The open part is longer than its count could say in time ("at least"): this page is all open
+                # notices, and the total is never below them (re-audit of the data pages, NEW-2: "at least 112"
+                # for Bundeswehr while the open notices alone were 116).
+                n_open = max(n_open, start + len(rows) + 1)
         want = pageSize - len(rows)
         got_rest: list[dict[str, Any]] | None = None
         rest_start = max(0, start - n_open)
@@ -1021,7 +1038,17 @@ def list_tenders(
             n_rest, capped = rest_start + len(got_rest), False       # the end of the list was read
         else:
             n_rest, capped = _count(conn, where, params, rest_extra)
-        total = n_open + n_rest
+        total, capped = n_open + n_rest, capped or open_capped
+        if capped:
+            # "At least" is never below the Open list of the same filters (re-audit of the data pages, NEW-2:
+            # "at least 112" for Bundeswehr, Open alone 116). The Open list collapses twins among open notices
+            # only; here an open notice whose twin is closed is counted in the rest, which the time box did not
+            # finish. Each notice of the Open list is in this list or stands for its twin here, so its count holds.
+            o_where, o_params, _ = _tender_filters(q, country, cpv, "open", scope, goods, buyer, from_,
+                                                   to, min_, max_, currency)
+            if levels:
+                o_where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
+            total = max(total, _count(conn, o_where, o_params)[0])
     else:
         extra, order = parts[0]
         fetched = False
@@ -1476,7 +1503,7 @@ def _fold_remap(out: list[dict[str, Any]], before: dict[str, Any], after: dict[s
               or any(c["field"] != "published_at" for c in e["changes"])]
 
 
-def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def timeline(rows: list[dict[str, Any]], *, corrections: bool = False) -> list[dict[str, Any]]:
     """The amendments of one notice, oldest first, from its version rows in order.
 
     The first version is the notice as first seen. A later version is listed only if it
@@ -1487,6 +1514,14 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         re-ordered, the same deadline written with another UTC offset)
       - a version left with no line, or only the publication date, is not an amendment:
         1,292 of 1,693 were the PLACSP feed stamp moving
+
+    A `remapped` version (our own corrected reading) is never an amendment. For the counts
+    (`corrections` False) it is folded into the line it corrects (`_fold_remap`, WP-52 T12).
+    For the version history a reader sees (`corrections` True) it is an entry of its own,
+    dated when we re-read the notice and marked `correction`, so that every state the archive
+    holds is shown and no change is dated before it was observed (re-audit of the data pages,
+    NEW-1: notice 235 dated its cancellation of 15 Oct on 30 Sep and lost the Awarded state;
+    notice 6 hid the deadline it corrected on 12 Oct).
     """
     out: list[dict[str, Any]] = []
     previous: dict[str, Any] | None = None
@@ -1495,10 +1530,11 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if kinds & SKIPPED_KINDS:
             continue
         payload = r["payload"] or {}
+        remapped = REMAPPED_KIND in kinds
         if previous is None:
             out.append({"version": r["version"], "detectedAt": r["observed_at"],
-                        "historic": HISTORIC_KIND in kinds, "changes": []})
-        elif REMAPPED_KIND in kinds:
+                        "historic": HISTORIC_KIND in kinds, "correction": False, "changes": []})
+        elif remapped and not corrections:
             _fold_remap(out, previous, payload, r["changed_fields"] or [])
         else:
             changes = []
@@ -1532,7 +1568,8 @@ def timeline(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                                 "before": human_before, "after": human_after})
             if any(c["field"] != "published_at" for c in changes):
                 out.append({"version": r["version"], "detectedAt": r["observed_at"],
-                            "historic": HISTORIC_KIND in kinds, "changes": changes})
+                            "historic": HISTORIC_KIND in kinds, "correction": remapped,
+                            "changes": changes})
         previous = payload
     for number, entry in enumerate(out, 1):
         entry["sequence"] = number
@@ -1550,7 +1587,7 @@ def tender_versions(slug: str, conn=Depends(get_conn)):
         raise removed()
     rows = conn.execute(TIMELINE_SQL.format(where="v.opportunity_id = %s"),
                         (tender_id,)).fetchall()
-    out = list(reversed(timeline(rows)))
+    out = list(reversed(timeline(rows, corrections=True)))
     if held["buyer_withheld"]:      # a line about the buyer's name would say the name
         for entry in out:
             entry["changes"] = [c for c in entry["changes"] if c["field"] != "buyer_name_raw"]

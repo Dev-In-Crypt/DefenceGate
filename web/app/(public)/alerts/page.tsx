@@ -48,6 +48,7 @@ export default async function AlertsPage() {
         <div className="flex flex-wrap items-center gap-x-5">
           <Button href="/changes" iconRight={ArrowRight}>See what changed</Button>
           <a href="/changes.atom" className="inline-flex min-h-11 items-center text-small font-bold">Atom feed</a>
+          <a href="/calendar#feed-heading" className="inline-flex min-h-11 items-center text-small font-bold">Calendar feed</a>
         </div>
       </section>
 

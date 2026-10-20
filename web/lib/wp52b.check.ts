@@ -50,8 +50,8 @@ assert.equal(overlapNote({ overlap: 0 }), null);
 assert.equal(overlapNote({}), null);
 assert.match(overlapNote({ overlap: 46 }) ?? '', /^Core and supplies add up to 46 more than the first count: 46 supply notices are the national copy of a core notice/);
 assert.match(overlapNote({ overlap: 1 }) ?? '', /1 supply notice is the national copy/);
-assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z', overlap: 46 })?.startsWith('Counts as of 11:05 UTC. Core and supplies add up to 46 more'), true);
-assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z' }), 'Counts as of 11:05 UTC.');
+assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z', overlap: 46 })?.startsWith('Counts as of 19 Oct 2026, 11:05 UTC. Core and supplies add up to 46 more'), true);
+assert.equal(countsNote({ asOf: '2026-10-19T11:05:00Z' }), 'Counts as of 19 Oct 2026, 11:05 UTC.', 'the home stamp has its date (WP-59, NEW-13)');
 assert.equal(countsNote(null), null);
 // 1,522 = 294 + 1,274 - 46: the three counts and the note agree.
 assert.equal(294 + 1274 - 46, 1522);

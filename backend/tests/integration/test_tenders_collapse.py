@@ -96,6 +96,23 @@ def test_an_award_is_not_hidden_under_an_expired_call_of_the_same_procedure(clie
     assert ids(client) == ["100-2026", "NAT-1"]
 
 
+def test_a_national_copy_of_an_older_ted_stage_collapses_into_that_stage(client, conn):
+    """WP-59 (re-audit of the data pages, NEW-3): the national row's `ted_ref` names the newest TED notice of the
+    procedure, still open; the stage it copies is closed. In Closed the two copies stood side by side."""
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    put(conn, "708324-2026", procedure="proc-h", deadline=past, published=date(2026, 10, 14))
+    put(conn, "713394-2026", procedure="proc-h", published=date(2026, 10, 15))
+    nat = put(conn, "NAT-H", source="de_bkms", procedure="proc-h", deadline=past, published=date(2026, 10, 13))
+    conn.execute("UPDATE opportunity SET ted_ref = '713394-2026', twin_method = 'procedure_id' WHERE id = %s", (nat,))
+    conn.commit()
+    assert ids(client, status="closed") == ["708324-2026"]
+    assert ids(client, status="open") == ["713394-2026"]
+    # a national row linked some other way keeps the old rule: only the TED notice it names replaces it
+    conn.execute("UPDATE opportunity SET twin_method = 'heuristic' WHERE id = %s", (nat,))
+    conn.commit()
+    assert ids(client, status="closed", pageSize=50) == ["708324-2026", "NAT-H"]     # another key than the cached answer
+
+
 def test_only_the_newest_republication_of_a_procedure_is_shown(client, conn):
     put(conn, "100-2026", procedure="proc-1", published=date(2026, 9, 1))
     put(conn, "200-2026", procedure="proc-1", published=date(2026, 10, 1))

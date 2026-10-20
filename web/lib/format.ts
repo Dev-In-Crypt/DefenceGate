@@ -118,6 +118,11 @@ export function formatNumber(n: number): string {
   return amountFormat.format(n);
 }
 
+/** The noun that goes with a count: plural(1, 'factsheet') is "factsheet", plural(2, 'factsheet') "factsheets". */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return n === 1 ? one : many;
+}
+
 export function formatPercent(share: number): string {
   return `${Math.round(share * 100)}%`;
 }

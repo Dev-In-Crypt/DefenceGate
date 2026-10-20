@@ -148,6 +148,33 @@ def test_a_real_amendment_after_a_remap_is_measured_from_the_corrected_reading()
     assert [c["field"] for c in entries[2]["changes"]] == ["deadline_at"]
 
 
+def test_the_version_history_shows_every_state_and_dates_a_correction_when_it_was_made():
+    """WP-59 (re-audit of the data pages, NEW-1): the history a reader sees keeps the Awarded state of 30 Sep and shows
+    the re-reading of 15 Oct as a correction of its own, on its own date; the counts still fold it (above)."""
+    entries = timeline(_notice_235(), corrections=True)
+    assert [(e["version"], e["correction"]) for e in entries] == [(1, False), (3, False), (4, True), (5, True)]
+    awarded = {c["field"]: c for c in entries[1]["changes"]}["status"]
+    assert (awarded["before"], awarded["after"]) == ("Open", "Awarded")
+    assert entries[1]["detectedAt"] == AT + timedelta(days=3)
+    cancelled = {c["field"]: c for c in entries[3]["changes"]}["status"]
+    assert (cancelled["before"], cancelled["after"]) == ("Awarded", "Cancelled")
+    assert entries[3]["detectedAt"] == AT + timedelta(days=5)        # not the date of the award
+    assert [e["sequence"] for e in entries] == [1, 2, 3, 4]
+
+
+def test_a_corrected_deadline_is_in_the_history_although_it_is_no_amendment():
+    """Notice 6: one publisher version, then a re-reading of 12 Oct that moved the deadline 19 Oct 23:59 to 13:00."""
+    rows = [
+        _row(1, [], status="open", published_at="2026-09-04", deadline_at="2026-10-19T23:59:00+02:00"),
+        _row(2, ["procedure_type", "published_at", "deadline_at"], ("remapped",), status="open",
+             published_at="2026-09-07", deadline_at="2026-10-19T13:00:00+02:00", procedure_type="open"),
+    ]
+    assert [e["version"] for e in timeline(rows)] == [1]                  # not counted as an amendment
+    shown = timeline(rows, corrections=True)
+    assert [(e["version"], e["correction"]) for e in shown] == [(1, False), (2, True)]
+    assert "deadline_at" in [c["field"] for c in shown[1]["changes"]]
+
+
 def test_every_body_of_the_snapshot_table_is_an_object():
     """A statement that edits a key of every row (`jsonb_set(body, '{total}', ...)`) must work on the rows that
     hold a list, the sitemap's slugs and the buyer aggregate."""
@@ -172,7 +199,8 @@ def test_a_partial_run_says_why_in_a_fixed_sentence():
     assert run_reason("success", 100, 10, None) == (None, None)
     assert run_reason("partial", 100, 10, "live feed stale: newest entry 2026-10-17T19:50:06+02:00, older than 36h")[0] == "stale_feed"
     kind, text = run_reason("partial", 284, 150, "1 factsheets could not be read")
-    assert kind == "unreadable" and text.startswith("1 factsheets could not be read")
+    assert kind == "unreadable" and text == "1 factsheet could not be read; the rest of the run is kept."
+    assert run_reason("partial", 284, 150, "3 factsheets could not be read")[1].startswith("3 factsheets could not be read;")
     assert run_reason("partial", 5, 400, "x")[0] == "below_minimum"
     assert run_reason("partial", 400, 400, "1 records quarantined: ? (UniqueViolation)")[0] == "quarantined"
     assert run_reason("partial", 400, 400, "unmapped TED notice types: brin-ecs (1)")[0] == "other"

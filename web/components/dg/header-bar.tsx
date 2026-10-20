@@ -32,7 +32,7 @@ export const MAIN_NAV: readonly NavItem[] = [
   { label: 'Market', href: '/market' },
   { label: 'Data', href: '/data', children: [
     { label: 'Source status', href: '/data' }, { label: 'Methodology', href: '/methodology' },
-    { label: 'Weekly digest', href: '/digest' }, { label: 'Data sovereignty', href: '/data/sovereignty' },
+    { label: 'Weekly digest', href: '/digest' }, { label: 'Where the data runs', href: '/data/sovereignty' },
   ] },
   { label: 'Pricing', href: '/pricing' },
 ];

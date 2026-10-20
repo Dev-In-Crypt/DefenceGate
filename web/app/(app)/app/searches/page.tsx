@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
 import { dataOrNull, listSearches } from '@/lib/account';
 import { CADENCE_LABEL, KIND_LABEL, describeFilters, searchHref } from '@/lib/account-format';
-import { formatDateUtc, formatNumber } from '@/lib/format';
+import { formatDateUtc, formatNumber, plural } from '@/lib/format';
 import type { Cadence } from '@/lib/types';
 import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
@@ -43,7 +43,7 @@ export default async function SearchesPage({ searchParams }: Props) {
                   {describeFilters(s.kind, s.filters ?? {}).map((d) => <li key={d}>{d}</li>)}
                 </ul>
                 <p className="m-0 font-mono text-mono text-ink-muted">
-                  {formatNumber(s.matchCount)} matches · {formatNumber(s.newCount)} new since your last visit
+                  {formatNumber(s.matchCount)} {plural(s.matchCount, 'match', 'matches')} · {formatNumber(s.newCount)} new since your last visit
                   {s.lastMatchAt ? ` · latest ${formatDateUtc(s.lastMatchAt)}` : ''}
                 </p>
               </div>

@@ -179,12 +179,12 @@
       "name": "AQAP 2110 quality assurance certification",
       "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",
       "description": "AQAP 2110 Edition D Version 1 was promulgated by the NATO Standardization Office on 24 June 2016 and is still in force in 2026. AQAP 2210 (software quality requirements) is layered on AQAP 2110 or 2310 and is not standalone. AQAP 2120 no longer exists separately: it was folded into AQAP 2110 when Edition D was issued in 2016, so anyone still asking for AQAP 2120 is working from stale guidance.\n\nDo you need it for EDF? Not to apply, but likely to deliver. No blanket AQAP requirement appears in the EDF, EDIP or SAFE regulations as an eligibility condition (those regulate control, establishment and component origin). It enters when a prime contractor or a national buyer names it in a contract, and it then cascades down to subcontractors.\n\nIssued by national defence authorities (Government Quality Assurance) or by accredited certification bodies, depending on the country. Certificates run for three years with annual surveillance audits.",
-      "cost": {"min": 17000, "max": 48000, "currency": "USD", "basis": "vendor_range", "text": "USD 17,000-48,000 for a full cycle at a firm of 30-80 employees (vendor quote)", "alt": {"min": 15700, "max": 44200, "currency": "EUR", "text": "about EUR 15,700-44,200, as converted in the research notes"}},
+      "cost": {"min": 17000, "max": 48000, "currency": "USD", "basis": "vendor_range", "text": "USD 17,000 to 48,000 for a full cycle at a firm of 30-80 employees (vendor quote)", "alt": {"min": 15700, "max": 44200, "currency": "EUR", "text": "about EUR 15,700 to 44,200, as converted in the research notes"}},
       "days": {"min": 90, "max": 240, "text": "3-8 months", "note": "Months are counted as 30 days."},
       "variants": [
         {
           "when_held": "REQ-ISO9001",
-          "cost": {"min": 17000, "max": 25000, "currency": "USD", "basis": "vendor_range", "text": "USD 17,000-25,000 for a small firm that already holds ISO 9001 (vendor quote)"},
+          "cost": {"min": 17000, "max": 25000, "currency": "USD", "basis": "vendor_range", "text": "USD 17,000 to 25,000 for a small firm that already holds ISO 9001 (vendor quote)"},
           "days": {"min": 90, "max": 120, "text": "3-4 months"},
           "passages": [{"ref": "Ekontrol (Bureau Veritas partner, Ukraine), 2026, quoted in the DefenceGate technical appendix", "text": "Small firm with existing ISO 9001 | USD 17,000-25,000 | 3-4 months"}]
         }

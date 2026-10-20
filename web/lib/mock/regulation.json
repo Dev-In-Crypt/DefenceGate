@@ -160,7 +160,7 @@
    },
    "status": "in_force",
    "title": "EDIP: at most 35 % of component cost from outside the Union and associated countries",
-   "whatChanged": "For EDIP procurement supported by Union funding the cost of components originating outside the Union and associated countries may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 10(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule EDIP-ORIGIN-35)."
+   "whatChanged": "For EDIP procurement supported by Union funding the cost of components originating outside the Union and associated countries may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 10(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule “Components from outside the Union and associated countries: at most 35 % of component cost”)."
   },
   {
    "affected": "Manufacturers and component suppliers in calls of the Ukraine Support Instrument.",
@@ -182,7 +182,7 @@
    },
    "status": "in_force",
    "title": "Ukraine Support Instrument: at most 35 % of component cost from outside the Union and Ukraine",
-   "whatChanged": "For procurement supported under the Ukraine Support Instrument the cost of components originating outside the Union and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 27(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule USI-ORIGIN-35)."
+   "whatChanged": "For procurement supported under the Ukraine Support Instrument the cost of components originating outside the Union and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 27(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule “Components from outside the Union and Ukraine: at most 35 % of component cost”)."
   },
   {
    "affected": "Companies that look at the EDIP common procurement calls (topic codes EDF-EDIP-P-...-FNLC-CPA-...) as applicants, and the contracting authorities that would lead them.",

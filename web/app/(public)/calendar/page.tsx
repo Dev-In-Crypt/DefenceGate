@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, List } from 'lucide-react';
 import { now } from '@/lib/deadline';
-import { formatMonthUtc } from '@/lib/format';
+import { formatMonthUtc, plural } from '@/lib/format';
 import {
   calendarQuery, dayOf, filterEntries, loadCalendar, monthOf, pageOf, parseCalendarParams, resolveMonth, shiftMonth,
   type CalendarParams, type KindFilter,
@@ -188,7 +188,7 @@ export default async function CalendarPage({ searchParams }: Props) {
               {total > LIST_PAGE && (
                 <>
                   <p className="m-0 text-small text-ink-muted">
-                    Showing {firstShown}–{firstShown + shown.length - 1} of {total} deadlines{p.view === 'month' ? ' in this month' : ''}.
+                    Showing {firstShown}–{firstShown + shown.length - 1} of {total} {plural(total, 'deadline')}{p.view === 'month' ? ' in this month' : ''}.
                   </p>
                   <Pagination page={paged.page} total={total} pageSize={LIST_PAGE} hrefFor={(n) => href({ page: n })} />
                 </>
@@ -197,7 +197,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           )}
 
           <p className="m-0 max-w-prose text-small text-ink-muted">
-            Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed here; the calendar file has the opening days of the calls that have not opened.
+            Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed here; the calendar feed has the opening days of the calls that have not opened.
             {data.tendersOk && data.tendersTotal > data.tendersHeld && (
               <> The calendar holds the {data.tendersHeld} open tenders with the earliest deadlines of {data.tendersTotal}; later ones are on the <Link href="/tenders" className="font-semibold">tenders list</Link>.</>
             )}

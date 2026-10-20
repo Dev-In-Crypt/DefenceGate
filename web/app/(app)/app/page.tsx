@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { dataOrNull, getCurrentUser, getDashboard } from '@/lib/account';
 import { STATUS_LABEL, STATUS_ORDER, followHref, itemHref } from '@/lib/account-format';
-import { formatDateUtc, formatNumber, formatPercent } from '@/lib/format';
+import { formatDateUtc, formatNumber, formatPercent, plural } from '@/lib/format';
 import type { Dashboard } from '@/lib/types';
 import { Callout } from '@/components/dg/blocks';
 import { FactCell } from '@/components/dg/data-display';
@@ -29,7 +29,7 @@ function NewForSearches({ d }: { d: Dashboard }) {
             <li key={m.search.id} className="flex flex-col gap-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4">
                 <h3 className="m-0 break-words text-body font-bold">{m.search.name}</h3>
-                <span className="font-mono text-mono text-ink-muted">{formatNumber(m.newCount)} new · {formatNumber(m.totalCount)} matches</span>
+                <span className="font-mono text-mono text-ink-muted">{formatNumber(m.newCount)} new · {formatNumber(m.totalCount)} {plural(m.totalCount, 'match', 'matches')}</span>
               </div>
               {m.items.length > 0 ? (
                 <ul className={LIST}>{m.items.map((i) => <ItemRow key={i.id} kind={m.search.kind} item={i} />)}</ul>

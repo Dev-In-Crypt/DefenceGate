@@ -7,6 +7,7 @@
  * else is "check", with the reason and the document's own sentence beside it. A fact that was
  * not read, or whose quote was not found in the document, is never in the data (the API drops it).
  */
+import { plural } from './format';
 
 export interface EligibilityFact {
   value: unknown; note?: string | null; quote: string; confidence: number;
@@ -310,7 +311,7 @@ export function check(facts: EligibilityFacts, p: Profile): Result {
   if (cons && p.hasPartners) {
     const n = facts.min_entities?.value;
     const k = facts.min_countries?.value;
-    const need = `${typeof n === 'number' ? `at least ${n} legal entities` : 'a consortium'}${typeof k === 'number' ? ` from at least ${k} countries` : ''}`;
+    const need = `${typeof n === 'number' ? `at least ${n} ${plural(n, 'legal entity', 'legal entities')}` : 'a consortium'}${typeof k === 'number' ? ` from at least ${k} ${plural(k, 'country', 'countries')}` : ''}`;
     if (cons.value === true && p.hasPartners === 'yes') lines.push(withNote({ key: 'consortium', label: 'Partners', verdict: 'yes', reason: `A consortium is required: ${need}.`, quote: cons.quote }, cons));
     else if (cons.value === true) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `A consortium is required: ${need}. You would need to find partners first.`, quote: cons.quote });
     else if (consortiumUnclear(facts)) lines.push({ key: 'consortium', label: 'Partners', verdict: 'check', reason: `The document is unclear: ${unclearConsortiumText(facts)} Check the document before you go on.${cons.note ? ` ${cons.note}` : ''}`, quote: cons.quote });

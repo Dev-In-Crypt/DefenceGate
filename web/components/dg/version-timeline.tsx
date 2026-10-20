@@ -36,11 +36,16 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
             </div>
             <div className={cn('flex min-w-0 flex-col gap-0.5', !last && 'pb-5')}>
               <span className="font-mono text-mono text-ink-muted">
-                Version {seq} · {ver.historic ? 'Read by DefenceGate on' : 'Detected'} <time dateTime={ver.detectedAt}>{formatDateUtc(ver.detectedAt)}</time>
+                Version {seq} · {ver.historic ? 'Read by DefenceGate on' : ver.correction ? 'Corrected by DefenceGate on' : 'Detected'} <time dateTime={ver.detectedAt}>{formatDateUtc(ver.detectedAt)}</time>
               </span>
               {ver.historic && (
                 <span className="text-small text-ink-muted">
                   We read this from the source&rsquo;s older notices when we loaded its history: the change itself was published before this date, and it is not counted as a new change.
+                </span>
+              )}
+              {ver.correction && (
+                <span className="text-small text-ink-muted">
+                  We read the notice we already held again with a corrected reading: the publisher did not change it on this date, and it is not counted as a change.
                 </span>
               )}
               {ver.changes.length === 0 ? (

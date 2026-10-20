@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getBuyers } from '@/lib/api';
+import { formatDateTimeUtc } from '@/lib/format';
+import { staleNote } from '@/lib/source-status';
 import {
   activeBuyerFilterCount, DEFAULT_BUYER_SORT, ignoredFilters, lastPage, parseBuyerFilters, toBuyerQuery, type SearchParams,
 } from '@/lib/filters';
@@ -48,7 +50,7 @@ export default async function BuyersPage({ searchParams }: Props) {
       noun="buyers" page={result.page} pageSize={result.pageSize} total={result.total}
       sort={{ value: filters.sort ?? DEFAULT_BUYER_SORT, options: SORT_OPTIONS }}
       clearHref="/buyers"
-      notices={ignoredFilters(sp, 'buyers')}
+      notices={[...(result.staleAsOf ? [staleNote(result.staleAsOf, formatDateTimeUtc) as string] : []), ...ignoredFilters(sp, 'buyers')]}
       emptyTitle="No buyers match these filters"
       emptyText="Try a shorter name or fewer countries. Only buyers with at least one defence notice in our archive are listed."
       hrefFor={(p) => `/buyers${toBuyerQuery({ ...filters, page: p })}`}

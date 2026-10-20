@@ -7,10 +7,13 @@ import { join } from 'node:path';
 
 const files = readdirSync('lib').filter((f) => f.endsWith('.check.ts')).sort();
 const out = mkdtempSync(join(tmpdir(), 'dgchk-'));
+// On Windows `npx` is a .cmd script, which runs only through a shell; the shell then needs paths quoted.
+const win = process.platform === 'win32';
+const arg = (s) => (win ? `"${s}"` : s);
 let failed = false;
 for (const f of files) {
-  const tsc = spawnSync('npx', ['tsc', join('lib', f), '--outDir', out, '--module', 'commonjs', '--target', 'es2022',
-    '--skipLibCheck', '--esModuleInterop', '--resolveJsonModule'], { stdio: 'inherit' });
+  const tsc = spawnSync('npx', ['tsc', arg(join('lib', f)), '--outDir', arg(out), '--module', 'commonjs', '--target', 'es2022',
+    '--skipLibCheck', '--esModuleInterop', '--resolveJsonModule'], { stdio: 'inherit', shell: win });
   const js = join(out, f.replace(/\.ts$/, '.js'));
   const run = tsc.status === 0 ? spawnSync('node', [js], { stdio: 'inherit' }) : tsc;
   console.log(`${run.status === 0 ? 'ok  ' : 'FAIL'} ${f}`);

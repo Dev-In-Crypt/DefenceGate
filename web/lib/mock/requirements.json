@@ -146,14 +146,14 @@
       "currency": "EUR",
       "max": 44200,
       "min": 15700,
-      "text": "about EUR 15,700-44,200, as converted in the research notes"
+      "text": "about EUR 15,700 to 44,200, as converted in the research notes"
      },
      "basis": "vendor_range",
      "currency": "USD",
      "label": "vendor range, not a benchmark",
      "max": 48000,
      "min": 17000,
-     "text": "USD 17,000-48,000 for a full cycle at a firm of 30-80 employees (vendor quote)"
+     "text": "USD 17,000 to 48,000 for a full cycle at a firm of 30-80 employees (vendor quote)"
     },
     "days": {
      "max": 240,
@@ -2214,14 +2214,14 @@
      "currency": "EUR",
      "max": 44200,
      "min": 15700,
-     "text": "about EUR 15,700-44,200, as converted in the research notes"
+     "text": "about EUR 15,700 to 44,200, as converted in the research notes"
     },
     "basis": "vendor_range",
     "currency": "USD",
     "label": "vendor range, not a benchmark",
     "max": 48000,
     "min": 17000,
-    "text": "USD 17,000-48,000 for a full cycle at a firm of 30-80 employees (vendor quote)"
+    "text": "USD 17,000 to 48,000 for a full cycle at a firm of 30-80 employees (vendor quote)"
    },
    "days": {
     "max": 240,
@@ -2413,7 +2413,7 @@
       "label": "vendor range, not a benchmark",
       "max": 25000,
       "min": 17000,
-      "text": "USD 17,000-25,000 for a small firm that already holds ISO 9001 (vendor quote)"
+      "text": "USD 17,000 to 25,000 for a small firm that already holds ISO 9001 (vendor quote)"
      },
      "days": {
       "max": 120,

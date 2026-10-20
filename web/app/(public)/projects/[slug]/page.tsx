@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { formatDateUtc } from '@/lib/format';
+import { formatDateUtc, plural } from '@/lib/format';
 import { formatEur, isNetworkSlug, roleWord } from '@/lib/networks';
 import { getProject, getProjectHistory } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const label = p.acronym ?? p.title;
   return buildMetadata({
     title: `${label}: consortium and EU funding`,
-    description: `${label}${p.acronym ? `: ${p.title}` : ''}. ${p.memberCount} participants from ${p.countryCount} countries${p.programme ? `, ${p.programme.name}` : ''}${p.callYear ? `, ${p.callYear}` : ''}. From ${p.source.name}.`.slice(0, 300),
+    description: `${label}${p.acronym ? `: ${p.title}` : ''}. ${p.memberCount} ${plural(p.memberCount, 'participant')} from ${p.countryCount} ${plural(p.countryCount, 'country', 'countries')}${p.programme ? `, ${p.programme.name}` : ''}${p.callYear ? `, ${p.callYear}` : ''}. From ${p.source.name}.`.slice(0, 300),
     path: `/projects/${p.slug}`,
   });
 }
@@ -59,10 +59,10 @@ export default async function ProjectPage({ params }: Props) {
           <FactCell label="Programme"><span className="font-sans">{p.programme?.name ?? 'Not stated'}</span></FactCell>
           <FactCell label={edf ? 'Call year' : 'Started'}>{edf ? (p.callYear ?? 'Not stated') : day(p.startDate)}</FactCell>
           {!edf && <FactCell label="Ends">{day(p.endDate)}</FactCell>}
-          {p.durationMonths !== null && <FactCell label="Duration">{p.durationMonths} months</FactCell>}
+          {p.durationMonths !== null && <FactCell label="Duration">{p.durationMonths} {plural(p.durationMonths, 'month')}</FactCell>}
           <FactCell label="Total cost">{p.totalCost === null ? <span className="font-sans">Not stated</span> : formatEur(p.totalCost)}</FactCell>
           <FactCell label="EU contribution">{p.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(p.euContribution)}</FactCell>
-          <FactCell label="Participants"><span className="tabular-nums">{p.memberCount}</span> <span className="font-sans text-ink-muted">from {p.countryCount} countries</span></FactCell>
+          <FactCell label="Participants"><span className="tabular-nums">{p.memberCount}</span> <span className="font-sans text-ink-muted">from {p.countryCount} {plural(p.countryCount, 'country', 'countries')}</span></FactCell>
           {p.topic && <FactCell label="Topic">{p.topic}</FactCell>}
           {p.grantNumber && <FactCell label="Grant agreement">{p.grantNumber}</FactCell>}
         </FactsGrid>
@@ -86,7 +86,7 @@ export default async function ProjectPage({ params }: Props) {
       {p.factsheet && (
         <Card title="How the participants were read" id="read">
           <p className="m-0 text-body">{p.factsheet.note}</p>
-          <p className="m-0 text-small text-ink-muted">Read on <time dateTime={p.factsheet.readAt}>{formatDateUtc(p.factsheet.readAt)}</time> from {p.factsheet.pages} pages.</p>
+          <p className="m-0 text-small text-ink-muted">Read on <time dateTime={p.factsheet.readAt}>{formatDateUtc(p.factsheet.readAt)}</time> from {p.factsheet.pages} {plural(p.factsheet.pages, 'page')}.</p>
           {p.factsheet.dropped.length > 0 ? (
             <>
               <p className="m-0 text-small font-semibold">What the checks removed or corrected for this factsheet:</p>
@@ -100,7 +100,7 @@ export default async function ProjectPage({ params }: Props) {
         {history ? (
           <>
             {history.firstObserved
-              ? <p className="m-0">First seen on <time dateTime={history.firstObserved.observedAt}>{formatDateUtc(history.firstObserved.observedAt)}</time> with {history.firstObserved.memberCount} participants from {history.firstObserved.countryCount} countries.</p>
+              ? <p className="m-0">First seen on <time dateTime={history.firstObserved.observedAt}>{formatDateUtc(history.firstObserved.observedAt)}</time> with {history.firstObserved.memberCount} {plural(history.firstObserved.memberCount, 'participant')} from {history.firstObserved.countryCount} {plural(history.firstObserved.countryCount, 'country', 'countries')}.</p>
               : <p className="m-0 text-ink-muted">No monthly snapshot of this consortium has been taken yet.</p>}
             {history.changes.length > 0 && (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">

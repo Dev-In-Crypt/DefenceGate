@@ -5,7 +5,7 @@ import { Rss } from 'lucide-react';
 import { getChanges } from '@/lib/api';
 import { weekLabel } from '@/lib/digest';
 import { lastPage, parseChangeFilters, toChangeQuery, PARAM, type SearchParams } from '@/lib/filters';
-import { formatDateTimeUtc, formatDateUtc, formatNumber } from '@/lib/format';
+import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
@@ -168,7 +168,7 @@ export default async function ChangesPage({ searchParams }: Props) {
 
       <section aria-labelledby="entries" className="flex flex-col gap-6">
         <h2 id="entries" className="m-0 text-body font-semibold" aria-live="polite">
-          {data.total === 0 ? 'No changes in this window' : `Showing ${from}–${to} of ${formatNumber(data.total)} changes`}
+          {data.total === 0 ? 'No changes in this window' : `Showing ${from}–${to} of ${formatNumber(data.total)} ${plural(data.total, 'change')}`}
         </h2>
         {data.total === 0 ? (
           <EmptyState title="Nothing changed in these filters" action={<Button variant="secondary" href="/changes">Clear filters</Button>}>

@@ -8,6 +8,7 @@ Every test here fails on the code before this package.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -333,7 +334,12 @@ def test_a_sole_trader_is_conditional_with_the_wording_of_the_call_documents(pro
 def test_the_tracker_no_longer_says_a_rule_is_missing_from_the_readiness_check_that_is_in_it():
     for e in TRACKER.values():
         assert "not yet part of the readiness check" not in e["what_changed"], e["code"]
-    assert "rule EDIP-ORIGIN-35" in TRACKER["edip-origin-35"]["what_changed"] and "rule USI-ORIGIN-35" in TRACKER["usi-origin-35"]["what_changed"]
+    # The rule is named as the readiness check shows it (its title), never by its internal code (WP-59).
+    assert f"rule “{rule('EDIP', 'EDIP-ORIGIN-35').title}”" in TRACKER["edip-origin-35"]["what_changed"]
+    assert f"rule “{rule('EDIP-USI', 'USI-ORIGIN-35').title}”" in TRACKER["usi-origin-35"]["what_changed"]
+    for e in TRACKER.values():
+        for key in ("title", "what_changed", "affected"):
+            assert not re.search(r"\b[A-Z]{2,}-[A-Z]{2,}-\d+\b", e[key]), (e["code"], key)
     assert {r.code for p in CONTENT.programmes.values() for r in p.rules} >= {"EDIP-ORIGIN-35", "USI-ORIGIN-35"}
 
 

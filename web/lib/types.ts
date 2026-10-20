@@ -420,6 +420,8 @@ export interface TenderVersion {
   sequence?: number;
   /** A history load wrote this version: `detectedAt` is when we read the change, not when it was published. */
   historic?: boolean;
+  /** Our own corrected reading of a notice we already held (`remapped`): shown, not counted as the publisher's change. */
+  correction?: boolean;
   /** When we first saw this version. */
   detectedAt: IsoDateTime;
   changes: FieldChange[];

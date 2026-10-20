@@ -149,8 +149,9 @@ def test_a_remapped_version_is_not_counted_or_listed_as_an_amendment(client, con
 
     tender = _tender(client, opp_id)
     assert (tender["versionCount"], tender["amended"]) == (1, False)
+    # The history still shows the state the archive holds, marked as our correction (WP-59, data re-audit NEW-1).
     versions = client.get(f"/v1/tenders/{opp_id}/versions").json()
-    assert [v["version"] for v in versions] == [1]
+    assert [(v["version"], v["correction"]) for v in versions] == [(2, True), (1, False)]
 
 
 def test_a_feed_date_move_is_not_an_amendment_and_the_count_agrees(client, conn):

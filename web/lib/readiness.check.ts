@@ -67,7 +67,10 @@ const req = {
 } as unknown as RequirementDetail;
 const faq = faqOf(req);
 assert.equal(faq.length, 4);
-assert.ok(faq[0].a.includes('Everywhere body (the same body for every country)') && faq[0].a.includes('Spain: Body ES') && faq[0].a.includes('not been collected'));
+// WP-59 (re-audit NEW-7): a row for every country next to country rows is "every other country", and nothing is then "not collected".
+assert.equal(faq[0].a, 'Spain: Body ES. Every other country: Everywhere body.');
+assert.equal(faqOf({ ...req, issuers: [req.issuers[1]] } as RequirementDetail)[0].a, 'Everywhere body (the same body for every country).');
+assert.equal(faqOf({ ...req, issuers: [req.issuers[0]] } as RequirementDetail)[0].a, 'Spain: Body ES. The body has not been collected for the countries not listed.');
 assert.ok(faq[1].a.includes('vendor range, not a benchmark'));
 assert.equal(faq[2].a, '3-8 months.');
 assert.deepEqual(faqOf({ ...req, issuers: [], cost: null, days: null, mandatoryFor: null } as RequirementDetail).map((f) => f.a),

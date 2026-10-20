@@ -3,7 +3,7 @@
  * at its cap is "at least", the list serves no position past `maxOffset`, the scope counts say when they were worked
  * out and how many notices two of them share. Pure and import-light: lib/wp52b.check.ts runs it on its own.
  */
-import { formatNumber, formatTimeUtc } from './format';
+import { formatDateUtc, formatNumber, formatTimeUtc } from './format';
 import type { ScopeCounts } from './types';
 
 interface Bounded { total: number; totalCapped?: boolean; maxOffset?: number }
@@ -40,9 +40,13 @@ export function countsAsOf(asOf: string | null | undefined): string | null {
   return t ? `Counts as of ${t}` : null;
 }
 
-/** The two notes together, for a place that shows the three counts without a filter: "Counts as of 11:05 UTC. Core and supplies ...". null when there is neither. */
+/**
+ * The two notes together, for a place that shows the three counts without a filter (the home page, beside tiles that carry a date):
+ * "Counts as of 19 Oct 2026, 11:05 UTC. Core and supplies ...". null when there is neither.
+ */
 export function countsNote(c: Pick<ScopeCounts, 'asOf' | 'overlap'> | null | undefined): string | null {
-  const parts = [countsAsOf(c?.asOf) ? `${countsAsOf(c?.asOf)}.` : null, overlapNote(c)].filter((s): s is string => s !== null);
+  const at = c?.asOf && countsAsOf(c.asOf) ? `Counts as of ${formatDateUtc(c.asOf)}, ${formatTimeUtc(c.asOf)}.` : null;
+  const parts = [at, overlapNote(c)].filter((s): s is string => s !== null);
   return parts.length > 0 ? parts.join(' ') : null;
 }
 

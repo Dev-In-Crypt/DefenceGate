@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { cpvGroupName } from '@/lib/cpv';
-import { formatNumber } from '@/lib/format';
+import { formatNumber, plural } from '@/lib/format';
 import { daysText, percentText } from '@/lib/market';
 import type { BuyerProfile } from '@/lib/types';
 import { FactCell } from '@/components/dg/data-display';
@@ -36,7 +36,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
         <FactCell label="With an amendment">
           <span>{percentText(a.share)}</span>
           <span className="block font-sans text-small font-normal text-ink-muted">
-            {formatNumber(a.amended)} of {formatNumber(a.notices)} notices, counted from when we first saw each one (September 2026 at the earliest).
+            {formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}, counted from when we first saw each one (September 2026 at the earliest).
           </span>
         </FactCell>
       </dl>
@@ -47,7 +47,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
           <BarChart
             id="buyer-years"
             title={`Notices published per year by ${name}`}
-            summary={`${formatNumber(years.reduce((n, y) => n + y.count, 0))} notices over the last ${years.length} years.`}
+            summary={`${formatNumber(years.reduce((n, y) => n + y.count, 0))} ${plural(years.reduce((n, y) => n + y.count, 0), 'notice')} over the last ${years.length} ${plural(years.length, 'year')}.`}
             bars={years.map((y) => ({ label: String(y.year), primary: y.count, partial: y.year === lastYear }))}
             primaryName="Notices"
             labelHeader="Year"

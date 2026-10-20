@@ -5,7 +5,7 @@
  */
 import type { AssessRequest } from './profile';
 import { countryName } from './taxonomy';
-import { formatDateUtc } from './format';
+import { formatDateUtc, plural } from './format';
 import type { Assessment, Outcome, RIssuer, RMoney, RSource, RSpan, RequirementDetail, RoadmapTotals, Verdict, VerificationStatus } from './readiness-types';
 
 export const VERDICT_WORD: Record<Verdict, string> = { eligible: 'Eligible', obtain: 'Obtain first', blocked: 'Blocked', conditional: 'Conditional' };
@@ -31,7 +31,7 @@ export function statusWords(status: VerificationStatus, origin: 'primary' | 'not
     if (origin === 'call_document') return 'Verified: the sentence was checked against the Commission’s call document named in the reference, not against the Official Journal.';
     return origin === 'primary'
       ? 'Verified: the text was checked against the Official Journal text of the regulation.'
-      : 'Marked verified in the DefenceGate research notes when they were written (7 September 2026); not checked again on this site.';
+      : 'Marked verified in the DefenceGate research notes when they were written (7 September 2026); not checked again on this site.';
   }
   if (status === 'S') return 'Seen in search results, not fetched directly.';
   return 'Unverified: a lead to check, not a fact.';
@@ -90,7 +90,7 @@ export function formatDays(s: RSpan | null): string {
 /** "0 to 0 days" read as a mistake (U8): a step that is issued at once needs no time. */
 export function daysRange(min: number, max: number): string {
   if (max === 0) return 'no time needed';
-  const unit = (n: number) => (n >= 60 ? `${Math.round(n / 30)} months` : `${n} days`);
+  const unit = (n: number) => (n >= 60 ? `${Math.round(n / 30)} months` : `${n} ${plural(n, 'day')}`);
   if (min === max) return unit(max);
   return max >= 60 && min >= 60 ? `${Math.round(min / 30)} to ${Math.round(max / 30)} months` : `${min} to ${max} days`;
 }
@@ -147,12 +147,17 @@ export function publicRef(ref: string | null): string | null {
   return head || null;
 }
 
-/** One verbatim passage as stored, "[reference] text": the reference is shown by its public name, or not at all. */
+/**
+ * One verbatim passage as stored, "[reference] text": the reference is shown by its public name, or not at all. A text that starts
+ * inside a sentence ("register the organisation ...", the reference was its subject) opens with an ellipsis, and a table row
+ * quoted from the appendix ("AQAP 2310 | Edition B ...") shows its cells separated by " · " instead of pipes.
+ */
 export function publicPassage(passage: string): string {
   const m = /^\[([^\]]*)\]\s*([\s\S]*)$/.exec(passage);
   if (!m) return passage;
   const ref = publicRef(m[1]);
-  return ref === m[1] ? passage : ref ? `[${ref}] ${m[2]}` : m[2];
+  const text = m[2].replace(/ \| /g, ' · ').replace(/^(?=\p{Ll})/u, '…');
+  return ref ? `[${ref}] ${text}` : text;
 }
 
 /**
@@ -219,14 +224,18 @@ export function faqOf(r: RequirementDetail): { q: string; a: string }[] {
   const out: { q: string; a: string }[] = [];
   if (r.kind === 'document') {
     const { singles, groups } = groupIssuers(r.issuers);
-    const parts = [
-      ...singles.filter((i) => i.country === '*').map((i) => `${i.name} (the same body for every country)`),
+    // A row for every country ('*') covers the countries not listed: alone it is the one body, next to country rows it is the rest.
+    const every = singles.filter((i) => i.country === '*');
+    const listed = [
       ...singles.filter((i) => i.country !== '*').map((i) => `${countryName(i.country)}: ${i.name}`),
       ...groups.map((g) => `${g.name}: ${joinWords(g.countries)}`),
     ];
+    const parts = listed.length === 0
+      ? every.map((i) => `${i.name} (the same body for every country)`)
+      : [...listed, ...every.map((i) => `Every other country: ${i.name}`)];
     out.push({
       q: `Who issues ${r.name}?`,
-      a: parts.length > 0 ? `${parts.join('. ')}. The body has not been collected for the countries not listed.` : 'The issuing body has not been collected for any country.',
+      a: parts.length > 0 ? `${parts.join('. ')}.${every.length > 0 ? '' : ' The body has not been collected for the countries not listed.'}` : 'The issuing body has not been collected for any country.',
     });
     out.push({ q: `How much does ${r.name} cost?`, a: r.cost ? `${r.cost.text ?? formatRange(r.cost)}.${r.cost.label ? ` Note: ${r.cost.label}.` : ''}` : 'No cost is stated in the sources used.' });
     out.push({ q: `How long does ${r.name} take?`, a: r.days ? `${formatDays(r.days)}.` : 'No duration is stated in the sources used.' });

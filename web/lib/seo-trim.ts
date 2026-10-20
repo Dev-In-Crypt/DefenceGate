@@ -16,3 +16,23 @@ export function trimAtWord(text: string, max: number): string {
   const head = (at > 0 ? room.slice(0, at) : room).replace(/[\s,;:.\-–(]+$/, '');
   return `${head}…`;
 }
+
+/**
+ * A text cut where a phrase ends, so the tab and the search snippet do not stop mid-phrase (WP-59, re-audit NEW-5): the last whole
+ * sentence that fits, else the part before the last colon, semicolon, dash or bracket that fits, followed by `end` ("." for a
+ * description). A head shorter than `min` says too little: the text is then cut at a word with an ellipsis (trimAtWord).
+ */
+export function trimAtPhrase(text: string, max: number, min: number, end = ''): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const room = t.slice(0, max + 1);
+  const sentence = Math.max(...['. ', '? ', '! '].map((m) => room.lastIndexOf(m))) + 1;
+  if (sentence >= min) return t.slice(0, sentence);
+  // A colon, semicolon or dash ends a phrase before a bracket does ("... supply: each requirement, who issues it (in ..."). A quoted
+  // search after the mark ("Tenders, page 2: “drone ...”") is what the view is: it is cut at a word, not dropped.
+  for (const marks of [/(?:: |; | – | — )(?!“)/g, / \(/g]) {
+    const clause = Math.max(-1, ...[...t.matchAll(marks)].map((m) => m.index ?? -1).filter((i) => i + end.length <= max));
+    if (clause >= min) return `${t.slice(0, clause).replace(/[\s,]+$/, '')}${end}`;
+  }
+  return trimAtWord(t, max);
+}

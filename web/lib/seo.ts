@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { Call, Tender } from './types';
 import { safeHttpUrl } from './safe-url';
-import { DESCRIPTION_MAX, TITLE_MAX, trimAtWord } from './seo-trim';
+import { DESCRIPTION_MAX, TITLE_MAX, trimAtPhrase } from './seo-trim';
 import { countryName } from './taxonomy';
 
 export const SITE = {
@@ -37,8 +37,8 @@ export function absoluteUrl(path: string): string {
 export function buildMetadata({ title: fullTitle, description: fullDescription, path, noindex = false }: { title: string; description: string; path: string; noindex?: boolean }): Metadata {
   const url = absoluteUrl(path);
   // The one place the length rule lives: a title with the site template fits 60 characters, a description 160 (lib/seo-trim.ts).
-  const title = trimAtWord(fullTitle, TITLE_MAX);
-  const description = trimAtWord(fullDescription, DESCRIPTION_MAX);
+  const title = trimAtPhrase(fullTitle, TITLE_MAX, 12);
+  const description = trimAtPhrase(fullDescription, DESCRIPTION_MAX, 40, '.');
   return {
     title,
     description,
@@ -58,7 +58,8 @@ export function buildMetadata({ title: fullTitle, description: fullDescription, 
  */
 export function listViewTitle(full: string, short: string, v: { page?: number; countries?: readonly string[]; q?: string; filters?: number }): string {
   const page = v.page ?? 1;
-  const countries = (v.countries ?? []).filter(Boolean);
+  // A code with no name ("?country=XX") is no country to put in a title: the view is then only "(filtered)".
+  const countries = (v.countries ?? []).filter((c) => c && countryName(c) !== c);
   const q = v.q?.trim();
   const others = (v.filters ?? 0) - (countries.length > 0 ? 1 : 0) - (q ? 1 : 0);
   if (page <= 1 && countries.length === 0 && !q && others <= 0) return full;

@@ -4,7 +4,7 @@
  * (development and the CI run only; a production build without the API refuses to start, see lib/api.ts).
  * A request shaped by the visitor goes uncached; the default directory and a profile are cached like the other detail pages.
  */
-import { DETAIL_REVALIDATE_SECONDS, LIST_REVALIDATE_SECONDS, REVALIDATE_SECONDS, http, httpOrThrow } from './api';
+import { DETAIL_REVALIDATE_SECONDS, LIST_REVALIDATE_SECONDS, REVALIDATE_SECONDS, http, httpOrThrow, withLastGood } from './api';
 import * as mock from './mock/networks';
 import { effectiveProgrammes, orgApiQuery, toOrgQuery } from './networks';
 import type {
@@ -15,10 +15,12 @@ const API_BASE = process.env.DG_API_URL;
 const enc = encodeURIComponent;
 
 /** The directory. Only the unfiltered first page is shared; anything built from the URL is read live. */
-export async function getOrganisations(f: OrgFilters): Promise<OrgPage> {
+export async function getOrganisations(f: OrgFilters): Promise<OrgPage & { staleAsOf?: string }> {
   if (!API_BASE) return mock.queryOrgs({ ...f, programme: effectiveProgrammes(f) });
-  const shared = toOrgQuery({ ...f, page: 1 }) === '';
-  return httpOrThrow<OrgPage>(`/v1/organisations${orgApiQuery(f)}`, shared && (f.page ?? 1) === 1 ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
+  const shared = toOrgQuery({ ...f, page: 1 }) === '' && (f.page ?? 1) === 1;
+  const path = `/v1/organisations${orgApiQuery(f)}`;
+  // The last good answer when the service does not answer (re-audit of 20 Oct, N2: /organisations?page=2 served its error state).
+  return withLastGood(`organisations:${path}`, () => httpOrThrow<OrgPage>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS), { persist: shared });
 }
 
 export async function getOrganisation(slug: string): Promise<OrgProfile | null> {

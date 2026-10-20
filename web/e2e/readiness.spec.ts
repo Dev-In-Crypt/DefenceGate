@@ -92,7 +92,7 @@ test('/requirements lists the requirements with their cost, time and source date
 test('a requirement page says what it is, who issues it, the cost and time, the programmes and the source', async ({ page }) => {
   await visit(page, '/requirements/aqap2110', { title: /AQAP 2110/, h1: 'AQAP 2110 quality assurance certification', text: ['At a glance', 'Who issues it', 'Which programmes ask for it'] });
   await expect(page.getByText('vendor range, not a benchmark').first()).toBeVisible();
-  await expect(page.getByText('USD 17,000-48,000').first()).toBeVisible();
+  await expect(page.getByText('USD 17,000 to 48,000 for a full cycle').first()).toBeVisible();
   await expect(page.getByText('3-8 months').first()).toBeVisible();
   await expect(page.getByText('PECAL, audited through DGAM structures').first()).toBeVisible();
   await expect(page.getByText(/AQAP 2120 no longer exists/)).toBeVisible();

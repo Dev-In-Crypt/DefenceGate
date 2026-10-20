@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { plural } from '@/lib/format';
 
 export interface EntryItem { code: string; status: string; node: React.ReactNode }
 export interface StatusChip { status: string; label: string; count: number }
@@ -30,7 +31,7 @@ export function EntryList({ chips, items }: { chips: StatusChip[]; items: EntryI
             {c.label}<span className={cn('font-mono tabular-nums', status === c.status ? 'text-on-primary' : 'text-ink-muted')}>{c.count}</span>
           </button>
         ))}
-        <p role="status" className="m-0 ml-1 text-small text-ink-muted">{status ? `Showing ${shown} of ${total} entries.` : ''}</p>
+        <p role="status" className="m-0 ml-1 text-small text-ink-muted">{status ? `Showing ${shown} of ${total} ${plural(total, 'entry', 'entries')}.` : ''}</p>
       </div>
       <ol className="m-0 flex list-none flex-col gap-4 p-0">
         {items.map((i) => (

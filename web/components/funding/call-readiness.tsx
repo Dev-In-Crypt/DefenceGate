@@ -10,7 +10,7 @@ import { fitLabel, fitOf, linesSummary, type Fit } from '@/lib/fit';
 import { isFinished, toRequest } from '@/lib/profile';
 import { ASSESS_FAILED, AssessError, VERDICT_WORD, assess, daysRange, formatRange } from '@/lib/readiness';
 import type { Assessment, CallTiming, ProgrammeAssessment } from '@/lib/readiness-types';
-import { formatDateUtc } from '@/lib/format';
+import { formatDateUtc, plural } from '@/lib/format';
 import { Button } from '@/components/dg/button';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { useProfile } from '@/components/readiness/use-readiness';
@@ -60,7 +60,7 @@ function Timing({ t, a, data }: { t: CallTiming; a: ProgrammeAssessment | undefi
       <p className="m-0 text-body font-semibold">{t.name}: {VERDICT_WORD[t.verdict]}</p>
       <p className="m-0 text-body">{t.text}</p>
       {t.deadline && t.daysLeft !== null && t.daysLeft >= 0 && (
-        <p className="m-0 text-small text-ink-muted">Deadline <time dateTime={t.deadline}>{formatDateUtc(t.deadline)}</time> UTC, about {Math.round(t.daysLeft)} days left.</p>
+        <p className="m-0 text-small text-ink-muted">Deadline <time dateTime={t.deadline}>{formatDateUtc(t.deadline)}</time> UTC, about {Math.round(t.daysLeft)} {plural(Math.round(t.daysLeft), 'day')} left.</p>
       )}
       {(blocking.length > 0 || ofThisCall.length > 0) && (
         <ul className="m-0 flex list-none flex-col gap-1 p-0">

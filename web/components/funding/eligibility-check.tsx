@@ -98,7 +98,7 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
         <h3 className="m-0 text-h4">Check your company</h3>
         <p className="m-0 text-small text-ink-muted">
           {held && !edited
-            ? 'Filled in from the profile saved in this browser: country, size and control. Change an answer to try another case. Nothing is sent or saved from here. Your profile has no question about partners, so that one is yours to answer.'
+            ? 'Filled in from the profile saved in this browser: country, size and control. Change an answer to try another case. Nothing is sent or saved from here. Your profile does not say whether you already have consortium partners, so that one is yours to answer.'
             : 'Your answers stay in this page. Nothing is sent or saved.'}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">

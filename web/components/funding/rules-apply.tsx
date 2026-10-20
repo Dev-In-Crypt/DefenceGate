@@ -29,7 +29,8 @@ export function RulesApplyBlock({ block, canApplyPanel = false }: { block: Rules
   return (
     <>
       <p className="m-0 text-body">
-        This call falls under <strong>{block.regime.name}</strong>. <span className="text-ink-muted">{block.regime.why}</span>
+        {/* "National programme" is a kind, not a name: "a national programme" (re-audit of the data pages, NEW-5). */}
+        This call falls under {block.regime.code === 'NATIONAL' ? <>a <strong>national programme</strong></> : <strong>{block.regime.name}</strong>}. <span className="text-ink-muted">{block.regime.why}</span>
       </p>
       {block.encoded ? (
         <ul className="m-0 flex list-none flex-col p-0">

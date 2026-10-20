@@ -18,6 +18,7 @@
 import { EU27, check, consortiumUnclear, partnerLine, unclearConsortiumText, type EligibilityFacts, type Line, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
 import { managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
+import { plural } from './format';
 
 export type Fit = Verdict | 'unknown';
 
@@ -90,7 +91,7 @@ export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profi
   const n = facts.min_entities?.value;
   const k = facts.min_countries?.value;
   if (facts.consortium_required?.value === true) {
-    conditions.push(`A consortium is required: ${typeof n === 'number' ? `at least ${n} legal entities` : 'several legal entities'}${typeof k === 'number' ? ` from at least ${k} countries` : ''}. Your profile does not say whether you have partners.`);
+    conditions.push(`A consortium is required: ${typeof n === 'number' ? `at least ${n} ${plural(n, 'legal entity', 'legal entities')}` : 'several legal entities'}${typeof k === 'number' ? ` from at least ${k} ${plural(k, 'country', 'countries')}` : ''}. Your profile does not say whether you have partners.`);
   } else if (consortiumUnclear(facts)) {
     conditions.push(`The document is unclear about a consortium: ${unclearConsortiumText(facts)} Read it.`);
   }

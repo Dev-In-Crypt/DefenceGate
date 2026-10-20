@@ -138,6 +138,24 @@ def test_a_count_that_runs_out_of_time_leaves_a_lower_bound_not_an_error(client,
     assert client.get("/v1/tenders/scope-counts", params={"status": "closed"}).status_code == 503
 
 
+def test_an_at_least_total_of_all_is_never_below_the_open_list(client, conn, monkeypatch):
+    """WP-59 (re-audit of the data pages, NEW-2): Bundeswehr, `all` read "at least 112" while Open alone was 116. The
+    open part of `all` counts fewer (an open notice whose twin is closed is in the rest) and the rest ran out of time."""
+    for n in range(5):
+        put(conn, f"O-{n}", deadline=FUTURE + timedelta(days=n))
+    put(conn, "C-0", status="awarded", deadline=PAST)
+    real = tenders._count
+    parts = iter([(3, False), (0, True)])      # the open part of `all` (collapsed against closed twins), then the rest
+
+    def count(conn_, where, params, extra=None):
+        return next(parts) if extra else real(conn_, where, params, extra)
+
+    open_total = listing(client, status="open")["total"]
+    monkeypatch.setattr(tenders, "_count", count)
+    body = listing(client, status="all", pageSize=2)
+    assert open_total == 5 and body["totalCapped"] is True and body["total"] >= open_total
+
+
 def test_the_count_gives_up_after_its_time_box_and_the_connection_is_usable(conn):
     put(conn, "ONE")
     where, params, _ = tenders._tender_filters(None, None, None, "open", "all", None, None, None, None, None, None, None)
