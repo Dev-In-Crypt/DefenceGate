@@ -153,11 +153,61 @@ def _title(tok: str) -> bool:
     return all(len(p) >= 2 and p[0].isupper() and p[1:].islower() for p in parts)
 
 
+# Spain (WP-60): the tax number says what a winner is, and PLACSP states it for nearly every winner. A DNI
+# (8 digits and a letter) or an NIE (X, Y or Z, 7 digits and a letter) is a natural person's number, and the
+# publisher masks a person's number itself ("***1234**": 7 of 80 winners of the live feed of 20 October
+# 2026, all of them a capitals-only name of three or four words). A CIF whose first letter is a legal form's
+# (A sociedad anónima, B limitada, ..., U a UTE, W a foreign entity) is a legal entity's.
+_ES_PERSON_ID = re.compile(r"\d{8}[A-Z]|[XYZ]\d{7}[A-Z]")
+_ES_ENTITY_ID = re.compile(r"[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]")
+_MASKED_ID = re.compile(r"\*+\s*\d{3,5}\s*\*+")
+# Spanish names are mostly written in capitals with the surnames first ("GARCIA LOPEZ JUAN", "MARTINEZ
+# SANCHEZ, ANTONIO"); particles join the words of one name ("MARIA DEL CARMEN DE LA FUENTE").
+_ES_PARTICLES = frozenset("de del la las los y i e da".split())
+# capitals only: "Ute" is also a given name (DE)
+_JOINT_VENTURE = re.compile(r"\bU\.?\s?T\.?\s?E\.?(?=\s|$|[,\-(])|\b(?i:uni[oó]n\s+temporal)\b")
+
+
+def es_tax_kind(identifier: str | None, country: str | None = None) -> str | None:
+    """'person', 'entity' or None (not a Spanish tax number) for a winner's stated number."""
+    raw = (identifier or "").strip().upper()
+    if not raw:
+        return None
+    if _MASKED_ID.fullmatch(raw):
+        return "person"                 # masked by the publisher, whatever the country
+    if country not in (None, "", "ES"):
+        return None
+    s = re.sub(r"[\s.\-/]", "", raw)
+    if s.startswith("ES") and len(s) == 11:
+        s = s[2:]
+    if _ES_PERSON_ID.fullmatch(s):
+        return "person"
+    if _ES_ENTITY_ID.fullmatch(s):
+        return "entity"
+    return None
+
+
+def is_joint_venture(name: str) -> bool:
+    """A Spanish unión temporal de empresas ("UTE INDRA - ISDEFE"): one contracting party of its own."""
+    return bool(_JOINT_VENTURE.search(name or ""))
+
+
+def _es_person_name(tokens: list[str]) -> bool:
+    words = [t for t in tokens if t.lower() not in _ES_PARTICLES]
+    return (2 <= len(words) <= 5 and all(t.replace("-", "").isalpha() for t in words)
+            and all(t.isupper() or _title(t) for t in words))
+
+
 def person_reason(name: str, identifier: str | None = None, country: str | None = None) -> str | None:
     """Why this winner is not published as a supplier, or None when it is a legal entity."""
     raw = (name or "").strip()
     if not raw or raw == PERSON_PLACEHOLDER or "natural person" in raw.lower() or "osoba fizyczna" in raw.lower():
         return "person_marked"
+    tax = es_tax_kind(identifier, country)
+    if tax == "person":
+        return "person_identifier"
+    if tax == "entity":
+        return None                     # a CIF is a legal entity's, whatever its name looks like
     words = set(_words(raw))
     if words & _SOLE_TRADER or words & _SOLE_TRADER_BY_COUNTRY.get(country or "", frozenset()):
         return "person_in_trading_name"
@@ -179,6 +229,10 @@ def person_reason(name: str, identifier: str | None = None, country: str | None 
                 or (len(tokens) >= 3 and first and first[0] in _PL_GIVEN
                      and (_title(tokens[1]) or tokens[1].isupper()))):
             return "person_in_trading_name"
+    if is_joint_venture(raw) and country in (None, "", "ES"):
+        return None                     # a UTE: its members are blanked one by one (joint_venture_name)
+    if country == "ES" and not has_marker and _es_person_name(tokens):
+        return "person_name"            # GARCIA LOPEZ JUAN, MARTINEZ SANCHEZ, ANTONIO; also an autónomo's trade name
     if has_marker or not 2 <= len(tokens) <= 4:
         return None
     titled = [t for t in tokens if _title(t)]
@@ -189,6 +243,26 @@ def person_reason(name: str, identifier: str | None = None, country: str | None 
     if titled and caps and len(titled) + len(caps) + len(initials) == len(tokens):
         return "person_name"                       # DUPONT Jean, Jan NOVAK
     return None
+
+
+_JV_SPLIT = re.compile(r"\s+-\s+|\s*[,/;]\s*|\s+[YE]\s+(?=[A-ZÁÉÍÓÚÑ])")
+
+
+def joint_venture_name(name: str, country: str | None = "ES") -> str:
+    """A UTE's name with every member that reads as a natural person replaced by PERSON_PLACEHOLDER.
+
+    "UTE INDRA - GARCIA LOPEZ JUAN" becomes "UTE INDRA - [natural person]": the joint venture is kept as
+    a contracting party of its own, with the names of its member companies only."""
+    m = _JOINT_VENTURE.search(name)
+    if not m:
+        return name
+    head, rest = name[:m.end()], name[m.end():]
+    lead = re.match(r"[\s:,\-]*(?:de\s+empresas\b)?[\s:,\-]*", rest, re.IGNORECASE).group(0)
+    parts = [p for p in _JV_SPLIT.split(rest[len(lead):]) if p.strip()]
+    kept = [PERSON_PLACEHOLDER if person_reason(p.strip(), None, country) else p.strip() for p in parts]
+    if kept == [p.strip() for p in parts]:
+        return name
+    return (head + lead).rstrip() + " " + " - ".join(kept)
 
 
 def is_natural_person(name: str, identifier: str | None = None, country: str | None = None) -> bool:
@@ -463,9 +537,16 @@ def _namesake_guard(conn: psycopg.Connection, res: Resolution, w: Winner) -> Res
 
 
 def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], read: Read,
-                 raw_key: str | None, c: Counter) -> None:
-    """Archive one notice's winners. Idempotent: an award row exists once per (notice, organisation)."""
+                 raw_key: str | None, c: Counter, *, payload_hash: str | None = None,
+                 payload_updated_at: Any = None) -> None:
+    """Archive one notice's winners. Idempotent: an award row exists once per (notice, organisation).
+
+    With `payload_hash` (PLACSP, WP-60) the notice may be read again when its result changes (a folder
+    moves from ADJ to RES, a winner renounces and the next is awarded): the notice row is rewritten, a
+    winner no longer named is marked `superseded_at` (rows are never deleted), and one named again is
+    current again. TED notices are read once and never pass a hash."""
     kept = 0
+    current: list[int] = []
     for w in read.winners:
         res = resolve(conn, w.name, w.country, {"reg": w.identifier},
                       {"source_id": src_id, "candidates": False})
@@ -479,21 +560,37 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
                                   identifier_as_stated, winners_in_notice, cpv_main,
                                   resolution_method, resolution_confidence)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-               ON CONFLICT (opportunity_id, organisation_id) DO NOTHING RETURNING id""",
+               ON CONFLICT (opportunity_id, organisation_id) DO UPDATE SET superseded_at = NULL
+                  WHERE award.superseded_at IS NOT NULL
+               RETURNING id, (xmax = 0) AS inserted""",
             (opp["id"], res.org_id, w.country, w.name[:300], stated_number(w.identifier, w.country),
              read.winners_seen, _main_cpv(opp["cpv_codes"]), res.method, round(res.confidence, 2))).fetchone()
-        c["awards_new"] += row is not None
+        c["awards_new"] += bool(row and row["inserted"])
+        c["awards_current_again"] += bool(row and not row["inserted"])
         c["organisations_new"] += res.created
         c["by_" + res.method] += 1
+        current.append(res.org_id)
         kept += 1
     status = "loaded" if kept else ("no_supplier" if read.winners_seen else "no_winner_data")
+    if payload_hash is not None:
+        gone = conn.execute(
+            """UPDATE award SET superseded_at = now()
+                WHERE opportunity_id = %s AND superseded_at IS NULL AND NOT (organisation_id = ANY(%s))""",
+            (opp["id"], current)).rowcount
+        c["awards_superseded"] += gone
     conn.execute(
         """INSERT INTO award_notice (opportunity_id, raw_key, winners_seen, winners_kept, skipped_person,
-                                     skipped_no_country, status)
-           VALUES (%s, %s, %s, %s, %s, %s, %s)
-           ON CONFLICT (opportunity_id) DO NOTHING""",
+                                     skipped_no_country, status, payload_hash, payload_updated_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+           ON CONFLICT (opportunity_id) DO UPDATE
+              SET raw_key = EXCLUDED.raw_key, winners_seen = EXCLUDED.winners_seen,
+                  winners_kept = EXCLUDED.winners_kept, skipped_person = EXCLUDED.skipped_person,
+                  skipped_no_country = EXCLUDED.skipped_no_country, status = EXCLUDED.status,
+                  payload_hash = EXCLUDED.payload_hash, payload_updated_at = EXCLUDED.payload_updated_at,
+                  read_at = now()
+            WHERE EXCLUDED.payload_hash IS NOT NULL""",
         (opp["id"], raw_key, read.winners_seen, kept, read.counts["skipped_person"],
-         read.counts["skipped_no_country"], status))
+         read.counts["skipped_no_country"], status, payload_hash, payload_updated_at))
     c["notices_" + status] += 1
     for k, v in read.counts.items():
         c[k] += v

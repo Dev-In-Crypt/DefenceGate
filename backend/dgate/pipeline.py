@@ -1656,12 +1656,30 @@ def run_ezamowienia(days: int | None = 2, *,
     log.info("%s done: %s fetched, %s new, %s changed", code, fetched, new, changed)
 
 
-def _ingest_placsp(opps: Iterable[Opportunity], label: str,
+class _Drains:
+    """Several writers drained as one, before every commit (the notices' and the award payloads')."""
+
+    def __init__(self, *writers: Any) -> None:
+        self.writers = writers
+
+    def drain(self) -> None:
+        for w in self.writers:
+            w.drain()
+
+
+def _ingest_placsp(opps: Iterable[Any], label: str,
                    dataset: placsp.Dataset = placsp.MAIN,
                    stale_reason=None, *, replay: bool = False, resume_from: int = 0,
-                   progress: tuple[str, date] | None = None) -> tuple[int, int, int]:
+                   progress: tuple[str, date] | None = None,
+                   awards=None) -> tuple[int, int, int]:
     """Ingest one PLACSP stream. `stale_reason()`, if given, is asked once the
     stream is exhausted; a non-empty answer records the run as partial.
+
+    `awards` (WP-60, a factory `conn -> placsp_awards.Loader`, e.g. the class): the stream
+    is of `(opportunity, award payload)` pairs (`placsp.fetch_archive(with_results=True)`),
+    and each kept record's payload is landed and loaded after its notice, in the same
+    transaction; the loader's writer is drained with this run's before every commit. The
+    notice's own payload and hash are untouched by it.
 
     A live walk hands in, as `stale_reason.seen`, the dict its generator reads and
     writes (see `placsp.fetch_live`): the newest entry the previous complete run saw
@@ -1694,13 +1712,16 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                     ORDER BY started_at DESC LIMIT 1""", (src_id,)).fetchone()
             seen["until"] = row["newest_entry_at"] if row else None
         q = Quarantine(label)
+        loader = awards(conn) if awards is not None else None
+        drains = _Drains(writer, loader.writer) if loader is not None else writer
         fetched = new = changed = resume_from
         try:
-            for opp in itertools.islice(_pulled(conn, opps, writer), resume_from, None):
+            for item in itertools.islice(_pulled(conn, opps, drains), resume_from, None):
+                opp, award = item if loader is not None else (item, None)
                 fetched += 1
                 if progress and fetched % 200 == 0:
                     db.write_backfill_progress(conn, *progress, fetched - 1)
-                _checkpoint(conn, label, fetched, new, changed, writer=writer,
+                _checkpoint(conn, label, fetched, new, changed, writer=drains,
                             run_id=run_id)
                 with q.guard(conn, opp):
                     # This connector parses while fetching, so there is no raw payload to
@@ -1723,10 +1744,14 @@ def _ingest_placsp(opps: Iterable[Opportunity], label: str,
                         opp = _finalise(conn, opp, src_id)
                         if not _kept(conn, src_id, opp):
                             continue
-                    _, action = db.upsert_opportunity(conn, opp, h, src_id)
+                    opp_id, action = db.upsert_opportunity(conn, opp, h, src_id)
                     new += action == "new"
                     changed += action == "changed"
-            writer.drain()
+                    if award is not None:
+                        loader(conn, opp_id, opp, award)
+            drains.drain()
+            if loader is not None:
+                log.info("%s awards: %s", label, dict(loader.counts))
             stale = stale_reason() if stale_reason else None
             status, error = q.merge("partial" if stale else "success", stale)
             if run_id is None:
