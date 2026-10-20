@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from dgate import api, db
+from dgate import api, db, stats
 from dgate.normalise import Opportunity
 
 pytestmark = pytest.mark.integration
@@ -110,7 +110,8 @@ def test_a_national_copy_of_an_older_ted_stage_collapses_into_that_stage(client,
     # a national row linked some other way keeps the old rule: only the TED notice it names replaces it
     conn.execute("UPDATE opportunity SET twin_method = 'heuristic' WHERE id = %s", (nat,))
     conn.commit()
-    assert ids(client, status="closed", pageSize=50) == ["708324-2026", "NAT-H"]     # another key than the cached answer
+    stats.reset_cache()                         # the data changed under the list caches
+    assert ids(client, status="closed") == ["708324-2026", "NAT-H"]
 
 
 def test_only_the_newest_republication_of_a_procedure_is_shown(client, conn):
