@@ -127,3 +127,26 @@ test('the glossary explains cascade funding', async ({ page }) => {
   await expect(page.locator('#cascade-funding')).toHaveCount(1);
   await expect(page.locator('#cascade-funding')).toContainText('not shown to have none');
 });
+
+test('the calendar file: dates are ascending, openings are all-day, a call with several cut-offs does not claim an end', async ({ request }) => {
+  test.skip(test.info().project.name !== 'desktop', 'one run is enough: the file does not depend on the viewport');
+  const res = await request.get('/calendar.ics?kind=funding');
+  expect(res.status()).toBe(200);
+  const body = (await res.text()).replace(/\r\n /g, '');
+  const events = body.split('BEGIN:VEVENT').slice(1);
+  const starts: string[] = [];
+  for (const e of events) {
+    const uid = /UID:(.+)\r?\n/.exec(e)![1];
+    const start = /DTSTART(?:;VALUE=DATE)?:(\d{8})/.exec(e)![1];
+    starts.push(start);
+    // Not compared with today: the CI site serves fixed mock dates, so any such comparison rots.
+    expect(start, `${uid} has a date`).toMatch(/^\d{8}$/);
+    if (uid.includes('-opens@')) {
+      expect(e, `${uid}: an opening is an all-day event`).toMatch(/DTSTART;VALUE=DATE:\d{8}/);
+      expect(e).toContain('Planned opening');
+    }
+    if (/SUMMARY:Cut-off:/.test(e)) expect(e).toContain('several cut-offs');
+  }
+  expect([...starts].sort(), 'events are in date order').toEqual(starts);
+  expect(body).toContain('X-WR-CALNAME:DefenceGate deadlines');
+});

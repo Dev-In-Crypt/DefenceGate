@@ -69,6 +69,20 @@ test('a call page says who pays, who can apply, the terms and where the official
   await expect(page.getByRole('link', { name: /official call text|View original/ }).or(page.getByText(/source gives no link/)).first()).toBeVisible();
 });
 
+test('the calendar offers a subscription and the file carries openings as events of their own', async ({ page, request }) => {
+  await visit(page, '/calendar?kind=funding', { title: /calendar/i, h1: 'Deadline calendar' });
+  const subscribe = page.getByRole('link', { name: /subscribe in your calendar app/i });
+  await expect(subscribe).toHaveAttribute('href', /^webcal:\/\/.+\/calendar\.ics\?kind=funding$/);
+  test.skip(test.info().project.name !== 'desktop', 'one run is enough: the file does not depend on the viewport');
+  const res = await request.get('/calendar.ics?kind=funding');
+  expect(res.status()).toBe(200);
+  const body = (await res.text()).replace(/\r\n /g, '');
+  // Every event has its own UID; an opening is `...-opens@...`, never the same UID as the call's deadline.
+  const uids = [...body.matchAll(/^UID:(.+)\r?$/gm)].map((m) => m[1]);
+  expect(new Set(uids).size).toBe(uids.length);
+  expect(body).not.toMatch(/[A-Z0-9._%+-]+@(?!defencegatehub)[A-Z0-9-]+\.[A-Z]{2,}/i);
+});
+
 test('the glossary explains the funding terms', async ({ page }) => {
   await visit(page, '/glossary', { title: /glossary/i, h1: 'Glossary' });
   for (const id of ['edf', 'edip', 'horizon-europe', 'horizon-cluster-3', 'digital-europe', 'dual-use', 'call-status', 'date-only-deadline']) {
