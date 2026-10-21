@@ -237,3 +237,24 @@ def test_the_command_stops_cleanly_when_the_disk_is_short(conn, env, monkeypatch
     got = placsp_archives.run(todo, placsp.MAIN, floor=3 * 2**30, resume=True, pause=0, now=noon,
                               sleep=lambda s: None)
     assert got["stopped"] == ["es_placsp-202609"] and counts(conn)["opportunity"] == 0
+
+
+def test_a_month_with_an_unreadable_member_is_loaded_but_not_marked_done(conn, env, monkeypatch):
+    """WP-71 (QA M7): a member that fails to parse was skipped with a log line and the month marked done,
+    a permanent and invisible hole."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("part.atom", HEAD + awarded(result("1", ALFA)) + "</feed>")
+        zf.writestr("broken.atom", HEAD + "<entry><unclosed></feed>")
+    portal = Portal({"_202609.zip": buf.getvalue()})
+    real = placsp.fetch_archive
+    monkeypatch.setattr(placsp, "fetch_archive", lambda url, ds, **kw: real(url, ds, client=portal.client(), **kw))
+    monkeypatch.setattr(placsp_archives, "free_bytes", lambda: 50 * 2**30)
+    todo = placsp_archives.units((2026, 9), (2026, 9), placsp.MAIN, date(2026, 10, 20))
+    noon = lambda: datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)   # noqa: E731
+    got = placsp_archives.run(todo, placsp.MAIN, floor=3 * 2**30, resume=True, pause=0, now=noon,
+                              sleep=lambda s: None)
+    assert got["failed"] == ["es_placsp-202609"] and got["done"] == []
+    assert winners(conn) == ["ALFA DEFENSA INVENTADA, S.L."]                  # what was read is kept
+    assert conn.execute("SELECT count(*) AS n FROM backfill_day WHERE source_code = 'es_placsp-awards'"
+                        ).fetchone()["n"] == 0

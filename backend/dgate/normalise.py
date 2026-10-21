@@ -1118,6 +1118,66 @@ def strip_eforms_xml(xml: Any) -> str | None:
     return ET.tostring(root, encoding="unicode").replace("\x00", "")
 
 
+# The same person elements when a source sends eForms as JSON (BOAMP's `donnees`, keys like
+# "cbc:FamilyName"), compared on the local name. Walked at every depth for every source
+# (WP-71, QA H1/M5): the key filter used to see the top level only.
+def _local(key: Any) -> str:
+    return str(key).rsplit(":", 1)[-1].lstrip("@")
+
+
+def _true(value: Any) -> bool:
+    if isinstance(value, dict):
+        value = value.get("#text")
+    return str(value).strip().lower() == "true"
+
+
+# A Polish PESEL (11 digits) is a natural person's number; a NIP (10) or REGON (9, 14) cannot
+# tell a sole trader (CEIDG) from a company, so the name decides there.
+_PESEL = re.compile(r"\d{11}")
+# e-Zamowienia `contractors[]`: the fields that identify a winner who is a natural person.
+_EZAM_PERSON_FIELDS = ("contractorNationalId", "contractorCity", "contractorProvince",
+                       "contractorAddress", "contractorStreet", "contractorPostalCode")
+
+
+def contractor_is_person(entry: dict[str, Any]) -> bool:
+    """Whether an e-Zamowienia contractor entry is a natural person (a CEIDG sole trader)."""
+    from .awards import person_reason
+
+    name = str(entry.get("contractorName") or "")
+    ident = re.sub(r"\D", "", str(entry.get("contractorNationalId") or ""))
+    if _PESEL.fullmatch(ident):
+        return True
+    return person_reason(name, None, str(entry.get("contractorCountry") or "PL")[:2].upper()) is not None
+
+
+def _strip_nested(node: Any) -> Any:
+    """Drop person-bearing keys at any depth and blank the natural persons among organisations.
+
+    Runs after `_bound`, so the depth is already capped."""
+    if isinstance(node, list):
+        return [_strip_nested(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    if "contractorName" in node and contractor_is_person(node):
+        from .awards import PERSON_PLACEHOLDER
+
+        node = {k: v for k, v in node.items() if k not in _EZAM_PERSON_FIELDS}
+        node["contractorName"] = PERSON_PLACEHOLDER
+    # an eForms organisation flagged as a natural person keeps only its identifier
+    natural = any(_local(k) == "NaturalPersonIndicator" and _true(v) for k, v in node.items())
+    out: dict[Any, Any] = {}
+    for k, v in node.items():
+        if k in PERSONAL_DATA_FIELDS or _local(k) in _EFORMS_DROP:
+            continue
+        if natural and _local(k) in ("Company", "TouchPoint"):
+            parts = v if isinstance(v, list) else [v]
+            v = [{pk: pv for pk, pv in p.items() if _local(pk) == "PartyIdentification"}
+                 if isinstance(p, dict) else None for p in parts]
+            v = v if isinstance(node[k], list) else v[0]
+        out[k] = _strip_nested(v)
+    return out
+
+
 def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     """Remove personal-data fields before a payload is persisted or served.
 
@@ -1142,11 +1202,11 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
     # `_bound` below cuts every string at MAX_STRING and a notice can be longer.
     if "xml" in clean and "file" in clean and "notice_id" in clean:
         xml = clean.pop("xml")
-        clean = _redact_emails(_bound(clean))
+        clean = _redact_emails(_strip_nested(_bound(clean)))
         clean["xml"] = strip_eforms_xml(xml)
         return clean
     body = clean.pop("donnees", None) if "idweb" in clean else None
-    clean = _redact_emails(_bound(clean))
+    clean = _redact_emails(_strip_nested(_bound(clean)))
     if body is None:
         return clean
 
@@ -1162,7 +1222,7 @@ def strip_personal_data(notice: dict[str, Any]) -> dict[str, Any]:
             # record's own columns still describe the notice.
             clean["donnees"] = None
             return clean
-    scrubbed = _redact_emails(_scrub_contacts(_bound(parsed)))
+    scrubbed = _redact_emails(_strip_nested(_scrub_contacts(_bound(parsed))))
     clean["donnees"] = (json.dumps(scrubbed, ensure_ascii=False)
                         if isinstance(body, str) else scrubbed)
     return clean

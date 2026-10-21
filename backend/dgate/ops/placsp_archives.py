@@ -109,6 +109,11 @@ def plan(todo: list[Unit], done: set[date], floor: int) -> str:
     return "\n".join(lines)
 
 
+class Incomplete(RuntimeError):
+    """A unit whose archive held entries or members that could not be read (QA M7): what was
+    read is kept, but the unit is not marked done, so the hole stays visible and a rerun retries."""
+
+
 def run_unit(u: Unit, ds: placsp.Dataset, *, floor: int, resume: bool,
              land_only: bool = False) -> tuple[int, int, int]:
     pmark = f"{ds.source_code}{MARK}-progress"
@@ -116,12 +121,17 @@ def run_unit(u: Unit, ds: placsp.Dataset, *, floor: int, resume: bool,
         if not resume:
             db.reset_backfill_progress(conn, pmark, u.day)
         skip = db.backfill_progress(conn, pmark, u.day)
-    stream = placsp.fetch_archive(u.url, ds, since=u.since, with_results=True, min_free_bytes=floor)
+    seen: dict = {}
+    stream = placsp.fetch_archive(u.url, ds, since=u.since, with_results=True, min_free_bytes=floor,
+                                  observe=seen)
     got = pipeline._ingest_placsp(stream, f"{u.name}-awards", ds, replay=True, resume_from=skip,
                                   progress=(pmark, u.day),
                                   awards=lambda conn: placsp_awards.Loader(conn, land_only=land_only))
     with db.connect(settings().dsn) as conn:
         db.reset_backfill_progress(conn, pmark, u.day)
+    if seen.get("entries_failed") or seen.get("members_skipped"):
+        raise Incomplete(f"{seen.get('entries_failed', 0)} entries could not be parsed, "
+                         f"{seen.get('members_skipped', 0)} archive members skipped")
     return got
 
 
@@ -153,6 +163,10 @@ def run(todo: list[Unit], ds: placsp.Dataset, *, floor: int, resume: bool, pause
         try:
             with db.historical_load("replay"):
                 fetched, new, changed = run_unit(u, ds, floor=floor, resume=resume, land_only=land_only)
+        except Incomplete as exc:
+            log.error("%s incomplete, not marked done: %s", u.name, exc)
+            result["failed"].append(u.name)
+            continue
         except placsp.DiskLow as exc:
             log.error("stopped in %s: %s; nothing of the unit past its last checkpoint is kept", u.name, exc)
             result["stopped"].append(u.name)

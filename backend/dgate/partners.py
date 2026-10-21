@@ -36,7 +36,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from . import db, eligibility
-from .config import settings
 from .funding import SOURCE_TEXT_SOURCES, make_slug, programme_of
 from .listcache import cache_list
 from .normalise import redact_emails
@@ -60,8 +59,7 @@ _YEAR = re.compile(r"^20\d\d$")
 
 
 def get_conn():
-    cfg = settings()
-    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
+    with db.api_connect() as conn:
         yield conn
 
 

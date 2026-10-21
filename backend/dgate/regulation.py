@@ -138,8 +138,7 @@ def mock_text() -> str:
 
 
 def get_conn():
-    cfg = settings()
-    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
+    with db.api_connect() as conn:
         yield conn
 
 

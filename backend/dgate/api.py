@@ -23,16 +23,20 @@ Two deliberate design choices:
 from __future__ import annotations
 
 import functools
-from datetime import date, datetime, timedelta, timezone
+import re
+from contextlib import asynccontextmanager
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import classify, db
-from .config import settings
+from .config import require_production_secrets, settings
 from .hardening import BodyLimit, HeadAsGet, RateLimit, SecurityHeaders
 from .listcache import cache_list
 from .normalise import http_url, normalise_org_name, redact_emails
@@ -46,6 +50,16 @@ STALE_AFTER_HOURS = 36
 # The interactive documentation and the OpenAPI document describe every
 # parameter to anyone who asks; they are for development (DGATE_DOCS=1).
 _docs = settings().docs_enabled
+
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    # A production API without its internal secret does not start (QA M10). At server start,
+    # not at import: the worker imports parts of this module and holds no such secret.
+    require_production_secrets()
+    yield
+
+
 app = FastAPI(
     title="EU Defence Access Portal API",
     version="0.1.0",
@@ -53,6 +67,7 @@ app = FastAPI(
     docs_url="/docs" if _docs else None,
     redoc_url="/redoc" if _docs else None,
     openapi_url="/openapi.json" if _docs else None,
+    lifespan=_lifespan,
 )
 app.add_middleware(BodyLimit)         # innermost: its 413 still gets the security headers
 app.add_middleware(SecurityHeaders)
@@ -69,10 +84,26 @@ MAX_PREFIX_LENGTH = 8
 MAX_BIGINT = 9_223_372_036_854_775_807
 
 
+def refused(msg: str, loc: tuple[str, ...] = ("query",), headers: dict[str, str] | None = None) -> JSONResponse:
+    """A 422 in the contract's one error shape, `{detail: [{loc, msg, type}]}` (docs/design/API_CONTRACT.md),
+    the shape FastAPI gives its own validation errors."""
+    return JSONResponse({"detail": [{"loc": list(loc), "msg": msg, "type": "value_error"}]},
+                        status_code=422, headers=headers)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(request: Request, exc: StarletteHTTPException) -> Any:
+    # Every hand-raised `HTTPException(422, "text")` of every router answers in the contract's shape
+    # (QA M8: a client parsing `detail[]` broke on them). Other statuses are FastAPI's own.
+    if exc.status_code == 422 and isinstance(exc.detail, str):
+        return refused(exc.detail, headers=getattr(exc, "headers", None))
+    return await http_exception_handler(request, exc)
+
+
 @app.exception_handler(psycopg.errors.DataError)
 def _bad_value(_: Request, __: psycopg.errors.DataError) -> JSONResponse:
     # A value the database cannot store (a NUL character, a number out of range).
-    return JSONResponse({"detail": "invalid value in request"}, status_code=422)
+    return refused("invalid value in request")
 
 
 @app.exception_handler(db.PoolBusy)
@@ -86,6 +117,18 @@ def _busy(_: Request, __: Exception) -> JSONResponse:
 def _too_slow(_: Request, __: psycopg.errors.QueryCanceled) -> JSONResponse:
     return JSONResponse({"detail": "the query took too long; narrow the request"},
                         status_code=503, headers={"Retry-After": "5"})
+
+
+def day_start(d: date) -> datetime:
+    """A date filter's lower bound: the day's first instant in UTC, as the contract states, never the
+    session's time zone (QA M15)."""
+    return datetime.combine(d, time.min, tzinfo=timezone.utc)
+
+
+def day_end(d: date) -> datetime:
+    """A date filter's upper bound, inclusive: the whole of the day in UTC. A bare date compared with a
+    timestamptz was midnight at the start of it, so a deadline at 17:00 on the stated day was left out."""
+    return datetime.combine(d, time.max, tzinfo=timezone.utc)
 
 
 def _split(value: str | None, name: str, *, upper: bool = False,
@@ -128,16 +171,14 @@ def _attribution(row: dict[str, Any], default: str = "") -> str:
 def get_conn():
     # The API's own, read-only role when one is configured (migration 0024). At most `api_connections` at once in this
     # process; a request over that waits `pool_wait_ms`, then is answered 503 (`_busy`).
-    cfg = settings()
-    with db.bounded_connect(cfg.api_dsn or cfg.dsn, cfg.api_connections, cfg.pool_wait_ms / 1000) as conn:
+    with db.api_connect() as conn:
         yield conn
 
 
 def get_conn_reserved():
-    """For the health check: it uses the headroom the bound leaves in the role, so a saturated pool cannot make the
-    container look dead (and a restart then drop the requests that were waiting)."""
-    cfg = settings()
-    with db.connect(cfg.api_dsn or cfg.dsn) as conn:
+    """For the health check: its own small bound (`db.HEALTH_CONNECTIONS`) in the headroom the API bound leaves in
+    the role, so a saturated pool cannot make the container look dead, and a burst on /v1/health cannot exhaust the role."""
+    with db.api_connect(health=True) as conn:
         yield conn
 
 
@@ -421,10 +462,10 @@ def list_opportunities(
         where.append("(" + " OR ".join(clauses) + ")")
     if deadline_after:
         where.append("o.deadline_at >= %s")
-        params.append(deadline_after)
+        params.append(day_start(deadline_after))
     if deadline_before:
         where.append("o.deadline_at <= %s")
-        params.append(deadline_before)
+        params.append(day_end(deadline_before))
     if value_min is not None:
         where.append("o.value_amount >= %s")
         params.append(value_min)
@@ -674,10 +715,10 @@ def list_calls(
         params.append(_split(country, "country", upper=True, max_length=2))
     if deadline_after:
         where.append("c.deadline_at >= %s")
-        params.append(deadline_after)
+        params.append(day_start(deadline_after))
     if deadline_before:
         where.append("c.deadline_at <= %s")
-        params.append(deadline_before)
+        params.append(day_end(deadline_before))
 
     sql = (CALL_SELECT
            + (" WHERE " + " AND ".join(where) if where else "")
@@ -701,15 +742,23 @@ def get_call(call_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
     row = conn.execute(
         CALL_SELECT.replace("c.first_seen_at",
                             "c.eligibility_text, c.conditions_raw, c.details_seen_at, "
-                            "c.first_seen_at")
+                            "s.commercial_ok AS source_commercial_ok, c.first_seen_at")
         + " WHERE c.id = %s", (call_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="no such call")
     if row["suppressed"]:
         raise removed()
     base = _call_to_out(row)
-    return CallDetailOut(**base.model_dump(), eligibility_text=row.get("eligibility_text"),
-                         conditions=row.get("conditions_raw"),
+    # The source's own words go out under the rule of /v1/funding/{slug} (WP-71, QA H2): a
+    # source on SOURCE_TEXT_SOURCES whose licence row says commercial reuse is allowed, with
+    # e-mail addresses redacted. BDNS and NCBR text is not served; unsetting the flag withdraws it.
+    from .funding import SOURCE_TEXT_SOURCES
+
+    may_serve = (row.get("source_code") in SOURCE_TEXT_SOURCES
+                 and row.get("source_commercial_ok") is True)
+    return CallDetailOut(**base.model_dump(),
+                         eligibility_text=redact_emails(row.get("eligibility_text")) if may_serve else None,
+                         conditions=redact_emails(row.get("conditions_raw")) if may_serve else None,
                          details_seen_at=row.get("details_seen_at"))
 
 
@@ -803,6 +852,15 @@ def _completeness_line(check: dict[str, Any]) -> dict[str, Any]:
             "short": bool(check.get("short"))}
 
 
+_FLOOR_MESSAGE = re.compile(r"fetched \d+ below floor \d+$")
+
+
+def _under_floor(error: str | None) -> bool:
+    """Whether a partial run is partial because it collected less than its floor (`db.finish_run`'s
+    own message), or gave no reason at all."""
+    return not error or bool(_FLOOR_MESSAGE.match(error))
+
+
 @app.get("/v1/health")
 def health(conn=Depends(get_conn_reserved)):
     """Coverage health, not just liveness.
@@ -814,15 +872,23 @@ def health(conn=Depends(get_conn_reserved)):
     # has never run at all must appear here. Reporting "ok" because there are
     # no failed runs, when there are no runs, is precisely the green tick this
     # endpoint exists to prevent.
+    #
+    # The latest *finished* run is what is judged (QA M1): a PLACSP run takes forty minutes,
+    # and judging the one in progress made the answer `degraded` for the whole of it. A run
+    # still going is reported beside it, and is a problem only past `db.STALE_RUN_HOURS`.
     rows = conn.execute(
-        """SELECT DISTINCT ON (s.code)
-                  s.code, s.active, r.status, r.finished_at, r.started_at,
-                  r.records_fetched, r.records_new, r.records_changed,
-                  r.error_message, r.detail
+        """SELECT s.code, s.active, f.status, f.finished_at, f.started_at,
+                  f.records_fetched, f.error_message, f.detail, r.started_at AS running_since
              FROM source s
-             LEFT JOIN ingest_run r ON r.source_id = s.id
+             LEFT JOIN LATERAL (SELECT status, finished_at, started_at, records_fetched,
+                                       error_message, detail
+                                  FROM ingest_run WHERE source_id = s.id AND status <> 'running'
+                                 ORDER BY started_at DESC LIMIT 1) f ON TRUE
+             LEFT JOIN LATERAL (SELECT started_at FROM ingest_run
+                                 WHERE source_id = s.id AND status = 'running'
+                                 ORDER BY started_at DESC LIMIT 1) r ON TRUE
             WHERE s.active
-            ORDER BY s.code, r.started_at DESC NULLS LAST"""
+            ORDER BY s.code"""
     ).fetchall()
     total, versions, oldest = _archive_counts(conn)
 
@@ -832,18 +898,29 @@ def health(conn=Depends(get_conn_reserved)):
     now = datetime.now(timezone.utc)
     sources: list[dict[str, Any]] = []
     unhealthy: list[str] = []
+    warnings: list[str] = []
+    stuck_after = timedelta(hours=db.STALE_RUN_HOURS)
     for r in rows:
         # Only what a reader of the coverage needs. The run's error text is a
         # `str(exception)` and has held an object-store URL; it stays in the table.
         item = {"code": r["code"], "active": r["active"], "status": r["status"],
                 "finished_at": r["finished_at"], "records_fetched": r["records_fetched"]}
+        running = r["running_since"]
+        if running is not None:
+            item["running_since"] = running
         check = (r["detail"] or {}).get("completeness")
         if check:
             # Latest complete days against the portal's own day totals (ops/controls.py).
             item["completeness"] = _completeness_line(check)
-        if r["status"] is None:
-            item["status"] = "never_run"
-            item["health"] = "unhealthy"
+        if running is not None and now - running > stuck_after:
+            item["health"] = "unhealthy"            # a run nobody finished
+        elif r["status"] is None:
+            item["status"] = "running" if running is not None else "never_run"
+            item["health"] = "running" if running is not None else "unhealthy"
+        elif r["status"] == "partial" and not _under_floor(r["error_message"]):
+            # Partial for a stated reason (a portal day short of its own total, a feed the
+            # source left stale): a warning, not an outage. Under its floor is unhealthy.
+            item["health"] = "warning"
         elif r["status"] != "success":
             item["health"] = "unhealthy"
         elif r["code"] not in settings().floors:
@@ -855,7 +932,9 @@ def health(conn=Depends(get_conn_reserved)):
             item["health"] = "stale"
         else:
             item["health"] = "healthy"
-        if item["health"] != "healthy":
+        if item["health"] == "warning":
+            warnings.append(r["code"])
+        elif item["health"] not in ("healthy", "running"):
             unhealthy.append(r["code"])
         sources.append(item)
 
@@ -864,6 +943,7 @@ def health(conn=Depends(get_conn_reserved)):
         # nowhere else. Ages only, never a file name or a path (`db.backup_freshness`).
         "status": "degraded" if unhealthy or backup["status"] == "stale" else "ok",
         "unhealthy_sources": unhealthy,
+        "warning_sources": warnings,
         "backup": backup,
         "controls": {c["control"]: {"status": c["status"], "checked_at": c["checked_at"],
                                     **c["detail"]}

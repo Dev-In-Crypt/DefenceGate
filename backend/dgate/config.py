@@ -232,6 +232,10 @@ class Settings:
     # `app_password` (the accounts role's login) is the fallback key when it is unset.
     internal_secret: str = field(repr=False, default_factory=lambda: _env("DGATE_INTERNAL_SECRET", ""))
     app_password: str = field(repr=False, default_factory=lambda: _env("DGATE_APP_PASSWORD", ""))
+    # `production` on the deployed services (infra/docker-compose.yml). There the internal secret
+    # is required: without it a compromised container on the compose network could pass for the
+    # site's server (QA M10). `require_production_secrets` refuses to start the API.
+    env: str = field(default_factory=lambda: _env("DGATE_ENV", "").strip().lower())
     # The per-address request limiter. On unless DGATE_RATE_LIMIT=0 (the test suite
     # makes hundreds of requests from one "address" and says so in conftest).
     rate_limit: bool = field(default_factory=lambda: os.environ.get("DGATE_RATE_LIMIT") != "0")
@@ -496,6 +500,18 @@ class Settings:
 @lru_cache(maxsize=1)
 def settings() -> Settings:
     return Settings()
+
+
+class ConfigError(RuntimeError):
+    """A setting the deployment must have and does not; raised at start-up, not at first use."""
+
+
+def require_production_secrets(cfg: "Settings | None" = None) -> None:
+    cfg = cfg or settings()
+    if cfg.env == "production" and not cfg.internal_secret.strip():
+        raise ConfigError(
+            "DGATE_INTERNAL_SECRET is not set and DGATE_ENV is production: the API refuses to start. "
+            "Generate one with `openssl rand -hex 32`, put it in infra/.env and redeploy api and web.")
 
 
 def reset_cache() -> None:

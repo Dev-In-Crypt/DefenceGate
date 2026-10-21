@@ -67,8 +67,7 @@ class _LazyConn:
 
     def __getattr__(self, name: str) -> Any:
         if self._conn is None:
-            cfg = settings()
-            self._conn = self._stack.enter_context(db.connect(cfg.api_dsn or cfg.dsn))
+            self._conn = self._stack.enter_context(db.api_connect())
         return getattr(self._conn, name)
 
 

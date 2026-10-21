@@ -241,7 +241,7 @@ def test_an_unknown_programme_or_regime_is_a_422_not_every_call(client, conn):
                    {"regime": "defence,other"}):
         r = client.get("/v1/funding", params={"status": "all", **params})
         assert r.status_code == 422, params
-        assert "unknown value" in r.json()["detail"]
+        assert "unknown value" in r.json()["detail"][0]["msg"]
 
 
 def test_known_values_are_accepted_in_any_case(client, conn):

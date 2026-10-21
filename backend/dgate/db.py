@@ -12,6 +12,7 @@ Everything else in this file is plumbing.
 
 from __future__ import annotations
 
+import copy
 import functools
 import hashlib
 import json
@@ -30,7 +31,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .normalise import Opportunity, normalise_identifier, normalise_org_name
+from .normalise import Opportunity, normalise_identifier, normalise_org_name, scrub_opportunity
 
 log = logging.getLogger(__name__)
 
@@ -253,14 +254,31 @@ _gates: dict[tuple[str, int], threading.BoundedSemaphore] = {}
 _gates_lock = threading.Lock()
 
 
-def bounded_connect(dsn: str, size: int, wait: float):
+def bounded_connect(dsn: str, size: int, wait: float, name: str = "api"):
     """`connect`, with at most `size` connections open at once in this process for this DSN. A caller over the bound waits
     up to `wait` seconds for one to close (the queue), then gets `PoolBusy`. A connection is still opened per use: the
     bound is what protects the role's limit, a pool of kept connections would add reuse and not safety.
-    ponytail: one semaphore per (dsn, size); a pool (psycopg_pool, not a dependency) if connect time ever matters."""
+    `name` keeps two bounds of one size apart (the health check has its own, WP-71).
+    ponytail: one semaphore per (dsn, size, name); a pool (psycopg_pool, not a dependency) if connect time ever matters."""
     with _gates_lock:
-        gate = _gates.setdefault((dsn, size), threading.BoundedSemaphore(size))
+        gate = _gates.setdefault((dsn, size, name), threading.BoundedSemaphore(size))
     return _bounded(gate, dsn, wait)
+
+
+# The health check's own bound: it answers while the API bound is saturated (the container must not look
+# dead), but a burst on it can no longer open a connection per request (QA M2).
+HEALTH_CONNECTIONS = 2
+
+
+def api_connect(*, health: bool = False):
+    """The API's connection for one request: the read-only role, inside the process bound. Every public route
+    takes its connection here (api, regulation, partners, readiness), so none can exhaust the role (QA M2)."""
+    from .config import settings
+
+    cfg = settings()
+    if health:
+        return bounded_connect(cfg.api_dsn or cfg.dsn, HEALTH_CONNECTIONS, cfg.pool_wait_ms / 1000, "health")
+    return bounded_connect(cfg.api_dsn or cfg.dsn, cfg.api_connections, cfg.pool_wait_ms / 1000)
 
 
 @contextmanager
@@ -928,7 +946,13 @@ def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
     through upsert_opportunity once a change is established; a repair reaches
     it directly, having established the change another way. One path means the
     two cannot disagree about how a version is written.
+
+    Every text field is swept here (`scrub_opportunity`), because a repair builds its
+    record from a stored payload that may predate the e-mail sweep: on 12 October 2026
+    `ops.repair_ted` carried the description of the version before into about 100 new
+    TED versions with the addresses still in it (WP-71).
     """
+    opp = scrub_opportunity(copy.copy(opp))   # copy.copy: replace() would re-derive signals
     payload = opportunity_payload(opp)
     cols = {**_serving_columns(opp), **_classification_columns(opp)}
     version = after + 1
@@ -1028,6 +1052,7 @@ def upsert_opportunity(
         log.warning("%s %s: publication date %s is in the future; ignored",
                     opp.source_code, opp.native_id, opp.published_at)
         opp = replace(opp, published_at=None)
+    opp = scrub_opportunity(copy.copy(opp))   # copy.copy: replace() would re-derive signals
 
     existing = conn.execute(
         """SELECT id, current_version, buyer_name_raw, published_at, deadline_at
@@ -1125,9 +1150,17 @@ def upsert_opportunity(
     # its versions: its `published_at` is the notice's publication, the same on every
     # amendment. A version archived before `source_updated_at` existed has none and
     # carried the same stamp as `published_at`, so that stands in for it.
+    #
+    # When both sides carry the instant, the instants are compared (QA M3): by the day alone,
+    # a replay that re-read the 09:00 entry after the 15:00 award of the same day appended
+    # it as the current version, and the tender read `open` again.
     incoming_date = payload.get("source_updated_at") or payload.get("published_at")
     current_date = prev.get("source_updated_at") or prev.get("published_at")
-    if incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
+    new_at, held_at = _instant(payload.get("source_updated_at")), _instant(prev.get("source_updated_at"))
+    if new_at is not None and held_at is not None:
+        if new_at < held_at:
+            return opp_id, "stale"
+    elif incoming_date and current_date and str(incoming_date)[:10] < str(current_date)[:10]:
         return opp_id, "stale"
     changed = changed_fields(prev, payload)
     # The notice date follows the entry the row was last read from: a record the source

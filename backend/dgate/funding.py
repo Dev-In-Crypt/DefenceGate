@@ -748,8 +748,9 @@ def list_funding(
         where.append("c.deadline_at >= %s")
         params.append(datetime.combine(from_, time(0, 0), tzinfo=timezone.utc))
     if to:
-        where.append("c.deadline_at < %s::date + 1")
-        params.append(to)
+        # The whole of the day in UTC (QA M15), as tenders.py reads `to`.
+        where.append("c.deadline_at <= %s")
+        params.append(datetime.combine(to, time.max, tzinfo=timezone.utc))
 
     cur = (currency or "EUR").upper()
     if min_ is not None or max_ is not None or currency:

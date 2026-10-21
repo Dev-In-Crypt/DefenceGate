@@ -1831,8 +1831,12 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
                 return f"live walk left the feed's directory at {seen['refused']}"
             return None
 
+        def unread(seen=seen) -> str | None:
+            n = seen.get("entries_failed") or 0
+            return f"{n} feed entries could not be parsed (quarantined, see the log)" if n else None
+
         def verdict(seen=seen) -> str | None:
-            return "; ".join(r for r in (staleness(), gap()) if r) or None
+            return "; ".join(r for r in (staleness(), gap(), unread()) if r) or None
 
         # The walk reads and writes this dict; `_ingest_placsp` finds it here.
         verdict.seen = seen
@@ -1876,7 +1880,10 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
                 log.warning(msg)
                 notify(f"[dgate] {msg}")
                 continue
+            lost = arch.get("entries_failed", 0) + arch.get("members_skipped", 0)
             _ingest_placsp(iter(entries), f"{ds.source_code}-{year}{month:02d}", ds,
+                           stale_reason=lambda lost=lost: (f"{lost} archive entries or members could not be read"
+                                                           if lost else None),
                            awards=placsp_awards.Loader)
 
 

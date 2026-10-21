@@ -604,13 +604,15 @@ def parse_entry(entry: ET.Element, source_code: str = "es_placsp") -> Opportunit
 
 def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
                *, stamps: list[str] | None = None,
-               results: list[dict | None] | None = None) -> tuple[list[Opportunity], str | None]:
+               results: list[dict | None] | None = None,
+               counts: dict | None = None) -> tuple[list[Opportunity], str | None]:
     """Parse one ATOM file. Returns (opportunities, next_url).
 
     Pass `stamps` to collect each parsed entry's full `atom:updated` alongside,
     in the same order; `published_at` keeps only the date. Pass `results` to collect
     each parsed entry's award payload (`award_payload`, None for an entry without one)
-    the same way.
+    the same way. Pass `counts` to have `counts["entries_failed"]` raised by each entry
+    that could not be parsed (WP-71, QA M7: they were dropped with a log line only).
     """
     root = ET.fromstring(xml_bytes)
     out: list[Opportunity] = []
@@ -625,7 +627,9 @@ def parse_feed(xml_bytes: bytes, source_code: str = "es_placsp",
                 if results is not None:
                     results.append(award)
         except Exception as exc:  # one bad entry must not kill the batch
-            log.warning("PLACSP entry parse failed: %s", exc)
+            log.warning("PLACSP entry parse failed (quarantined): %s", exc)
+            if counts is not None:
+                counts["entries_failed"] = counts.get("entries_failed", 0) + 1
 
     next_url = None
     for link in root.findall("atom:link", NS):
@@ -727,7 +731,8 @@ def fetch_live(
             r = request_with_retry(fetch, what=f"{dataset.source_code} page {pages + 1}")
             stamps: list[str] = []
             found: list[dict | None] | None = [] if with_results else None
-            opps, next_url = parse_feed(r.content, dataset.source_code, stamps=stamps, results=found)
+            opps, next_url = parse_feed(r.content, dataset.source_code, stamps=stamps, results=found,
+                                        counts=observe)
             pages += 1
             log.info("%s page %s: %s entries", dataset.source_code, pages, len(opps))
             walked.extend(zip(stamps, list(zip(opps, found, strict=True)) if found is not None else opps,
@@ -867,6 +872,9 @@ def fetch_archive(
     spool = tempfile.TemporaryFile(prefix="placsp-entries-")
     index: list[tuple[datetime, int]] = []
     dropped = 0
+    # What could not be read is counted, not only logged (QA M7): a unit with any of it is not
+    # complete, and the caller must not mark it done.
+    lost: dict = {"entries_failed": 0, "members_skipped": 0}
     name_tail = url.rsplit("/", 1)[-1]
     try:
         with _download(client, url, f"archive {url[-12:]}", min_free_bytes) as archive, \
@@ -877,14 +885,16 @@ def fetch_archive(
             for name in names:
                 if zf.getinfo(name).file_size > MAX_MEMBER_BYTES:
                     log.warning("PLACSP archive member %s is too large; skipped", name)
+                    lost["members_skipped"] += 1
                     continue
                 try:
                     stamps: list[str] = []
                     found: list[dict | None] | None = [] if with_results else None
                     opps, _ = parse_feed(zf.read(name), dataset.source_code, stamps=stamps,
-                                         results=found)
+                                         results=found, counts=lost)
                 except Exception as exc:
                     log.warning("PLACSP archive member %s failed: %s", name, exc)
+                    lost["members_skipped"] += 1
                     continue
                 check_disk(min_free_bytes, f"archive {name_tail}")
                 awards = found if found is not None else [None] * len(opps)
@@ -908,6 +918,9 @@ def fetch_archive(
             log.warning("%s archive %s: dropped %s entries updated before %s",
                         dataset.source_code, name_tail, dropped,
                         since.date() if since else None)
+        if lost["entries_failed"] or lost["members_skipped"]:
+            log.warning("%s archive %s: %s entries could not be parsed, %s members skipped",
+                        dataset.source_code, name_tail, lost["entries_failed"], lost["members_skipped"])
     except BaseException:
         spool.close()
         raise
@@ -921,6 +934,7 @@ def fetch_archive(
     if observe is not None:
         observe["newest"] = index[-1][0] if index else None
         observe["entries"] = len(index)
+        observe.update(lost)
     try:
         for _, offset in index:
             spool.seek(offset)

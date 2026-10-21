@@ -31,5 +31,5 @@ def test_a_value_that_is_no_country_is_a_clear_422_not_a_list(conn, env, client)
     for given in ("Atlantis", "Germ", "XYZ", "DE,Atlantis"):
         got = client.get("/v1/suppliers", params={"country": given})
         assert got.status_code == 422, given
-        assert "is not a country" in got.json()["detail"]
+        assert "is not a country" in got.json()["detail"][0]["msg"]
     assert client.get("/v1/suppliers?country=ZZ").status_code == 200       # a code nobody holds is an empty group
