@@ -1124,3 +1124,28 @@ written statement HCWS1114 of 1 December 2025; `edf-ukraine-in-force-unconfirmed
   `statusReasonKind` (`below_minimum`, `stale_feed`, `unreadable`, `quarantined`, `failed`, `other`). A run can be `partial` with its
   expected minimum met. The names of seven sources carry their accents again (migration 0091).
 
+### Changes of 21 October 2026 (WP-64: Spain, Germany and NATO/EU rules)
+
+#### `POST /v1/readiness/assess`
+
+- **New programme `ES-MOD`** ("Spanish defence supplier (MoD)", kind `route`) and new rules in `GENERAL` (Germany, EU) and
+  `NATO-SUPPLY`, from `docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md`. A route none of whose rules applies to the company (the
+  Spanish route for a company established elsewhere) is left out of `assessments` rather than shown as `eligible`.
+- **New optional profile fields** (all `null` by default, read as unknown, never "no"): `nato_icb_bid`, `rid_capabilities_declared`,
+  `pecal_certificate_wanted`, `pecal_system_9_months`, `pecal_prior_contract`, `pecal_2310_target`, `stores_classified`,
+  `nato_classified_contract`, `nsfcc_held`, `nato_staff_cleared`, `ncage_need_justified`, `specific_defence_use`,
+  `homologation_mandatory`, `homologated`, `foreign_capital`, `foreign_investor_authorised`, `receives_eea_defence_products`,
+  `certified_recipient`, `de_vs_vertraulich`, `ghb_admitted`, `de_vs_nfd`, `vsnfd_declaration_signed`, `vsnfd_merkblatt`,
+  `sibe_appointed`, `us_components` (booleans); `es_defence_material_list` and `dualuse_annex_i` (`yes` | `no` | `unsure`);
+  `de_ausfuhrliste` (`part_i_a` | `part_i_b` | `neither` | `unsure`). Their questions are in `GET /v1/readiness/programmes` → `fields`.
+  The site's questionnaire does not send them yet (WP-65 will).
+- **Requirements the questionnaire does not ask** (`REQ-RID`, `REQ-PECAL`, `REQ-HSES-ES`: `extras.question` is set): a status that is
+  not sent reads as unknown, not as `not_held`. A rule that reads one is `unknown`, and `asks` / `missing` name it with
+  `field` = the requirement code and `question` = its `extras.question`. A status that is sent (the roadmap's "mark as done") is read
+  as before. When that question is the only one open, the requirement is a roadmap step.
+- **`RuleResult.consultant`** (string or null): the rule's "consultant needed" text (`texts.consultant` in the seed), set while the
+  rule is `not_met`, `to_obtain`, `conditional`, `unknown` or `info`. **`consultants`** at the top level: one entry
+  `{key, title, text, rule, asks}` per such rule, plus `US-COMPONENTS` (no rule: US export control is not in the verified rules) unless
+  `us_components` is `false`.
+- **`RoadmapStep.note`** (string or null): what the step involves beyond cost and time (`extras.roadmap_note`; the PECAL chicken-and-egg).
+

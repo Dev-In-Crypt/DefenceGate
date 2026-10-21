@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus } from 'lucide-react';
+import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus, UserRoundSearch } from 'lucide-react';
 import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords, publicPassage, publicRef, statusWords } from '@/lib/readiness';
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
-import { stepOfField } from '@/lib/profile';
+import { stepOfField, wizardAsks } from '@/lib/profile';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +46,7 @@ export function SourceNote({ source }: { source: RSource }) {
           <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-ink">Show the text of the source</summary>
           <div className="flex flex-col gap-2 pb-2">
             {passages.map((p, i) => <blockquote key={i} className="m-0 break-words border-l-2 border-line pl-3 text-ink">{cleanQuote(p)}</blockquote>)}
-            <p className="m-0">{originWords(source)} {statusWords(source.verificationStatus, source.origin)}</p>
+            <p className="m-0">{originWords(source)} {statusWords(source.verificationStatus, source.origin, source.url)}</p>
           </div>
         </details>
       )}
@@ -69,11 +69,22 @@ export function RuleItem({ rule }: { rule: RuleResult }) {
           {rule.asks.map((a) => <li key={a.field}>To answer: {a.question}</li>)}
         </ul>
       )}
+      {rule.consultant && <ConsultantNote text={rule.consultant} />}
       {rule.requirement && (rule.outcome === 'not_met' || rule.outcome === 'to_obtain') && (
         <p className="m-0 text-small"><Link href={`/readiness/roadmap`} className="font-semibold">See the step in your roadmap</Link></p>
       )}
       <SourceNote source={rule.source} />
     </li>
+  );
+}
+
+/** "Consultant needed" (WP-64): a word and an icon, never a colour alone. The service gives no answer on what it names. */
+export function ConsultantNote({ text }: { text: string }) {
+  return (
+    <p className="m-0 flex max-w-prose items-start gap-2 text-small" data-consultant>
+      <Icon icon={UserRoundSearch} size="inline" className="mt-0.5 shrink-0" />
+      <span><strong>Consultant needed.</strong> {text}</span>
+    </p>
   );
 }
 
@@ -127,7 +138,10 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
             {a.missing.map((m) => (
               <li key={m.field}>
-                <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-12 items-center font-semibold">{m.question}</Link>
+                {wizardAsks(m.field)
+                  ? <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-12 items-center font-semibold">{m.question}</Link>
+                  // a question of the Spanish, German or NATO/EU rules (WP-64) that the questionnaire does not ask yet: no step to link to
+                  : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(not asked by the questionnaire yet)</span></span>}
               </li>
             ))}
           </ul>

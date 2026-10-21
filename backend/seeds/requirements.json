@@ -258,7 +258,7 @@
       "code": "REQ-REOCE", "position": 11, "kind": "document", "category": "export_control",
       "name": "REOCE registration (Spain)",
       "summary": "Spanish exporters of controlled items must be on the Special Register of Foreign Trade Operators (REOCE), before or together with the licence application. Open only to Spanish residents.",
-      "description": "Exporters from Spain must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents.",
+      "description": "Exporters from Spain must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application: registration is a precondition of any licence (Ley 53/2007, art. 12). REOCE is open only to Spanish residents; that condition (Real Decreto 679/2014, art. 13) is taken from the research notes of 7 September 2026 and is not quoted here.",
       "cost": null, "days": null,
       "legal_basis": "Ley 53/2007, art. 12, and Real Decreto 679/2014, art. 13",
       "mandatory_for": "Spanish exporters of controlled items; residents only.",
@@ -266,11 +266,10 @@
       "source_ref": "Ley 53/2007, art. 12 (consolidated text, BOE); Real Decreto 679/2014, art. 13",
       "text_origin": "primary", "verification_status": "V",
       "passages": [
-        {"ref": "Ley 53/2007, art. 12", "url": "https://www.boe.es/eli/es/l/2007/12/28/53/con", "text": "Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso."},
-        {"ref": "DefenceGate technical appendix, Spain export control", "text": "exporters must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents."}
+        {"ref": "Ley 53/2007, art. 12", "url": "https://www.boe.es/eli/es/l/2007/12/28/53/con", "text": "Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso."}
       ],
       "last_reviewed": "2026-10-20",
-      "_correction": "WP-64, correction 2 of docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md: upgraded from the appendix notes to Ley 53/2007 art. 12 (row ES-REOCE). The residence condition (RD 679/2014 art. 13) is still quoted from the appendix.",
+      "_correction": "WP-64, correction 2 of docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md: upgraded from the appendix notes to Ley 53/2007 art. 12 (row ES-REOCE). The residence condition (RD 679/2014 art. 13) rests on the appendix notes and is said so in the description.",
       "_appendix": "657-660; table 748"
     },
     {

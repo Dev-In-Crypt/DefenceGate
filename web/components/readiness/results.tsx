@@ -9,7 +9,7 @@ import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
-import { ProgrammeCard } from './rules';
+import { ConsultantNote, ProgrammeCard } from './rules';
 import { useAssessment, useProfile } from './use-readiness';
 
 /** Shown while the profile is read from the browser and while the verdict is computed. */
@@ -77,6 +77,21 @@ export function ResultsView() {
               {result.data.assessments.map((a) => <ProgrammeCard key={a.programme} a={a} />)}
             </AutoGrid>
           </section>
+          {(result.data.consultants ?? []).length > 0 && (
+            <section aria-labelledby="consultants" className="flex flex-col gap-3">
+              <h2 id="consultants" className="m-0 text-h2">Where you need a specialist</h2>
+              <p className="m-0 max-w-prose text-body text-ink-muted">These questions are settled by a classification, a legal reading or the prime contractor, not by this check. Each says whom to ask.</p>
+              <ul className="m-0 flex list-none flex-col gap-3 p-0">
+                {(result.data.consultants ?? []).map((f) => (
+                  <li key={f.key} className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-4" data-consultant-flag={f.key}>
+                    <h3 className="m-0 text-body font-bold">{f.title}</h3>
+                    <ConsultantNote text={f.text} />
+                    {f.asks.map((a) => <p key={a.field} className="m-0 text-small text-ink-muted">To answer: {a.question}</p>)}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {result.data.general.map((a) => (
             <section key={a.programme} aria-labelledby="general" className="flex flex-col gap-4">
               <h2 id="general" className="m-0 text-h2">Other requirements that may apply to you</h2>

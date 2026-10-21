@@ -75,11 +75,17 @@ export interface Profile {
   exportIntent: ExportIntent;
 }
 
-/** The requirements the wizard asks about, in the order it shows them. `esOnly`: only for a Spanish company. */
-export const STATUS_ITEMS: { code: string; esOnly?: boolean }[] = [
+/**
+ * The requirements the wizard asks about, in the order it shows them. `esOnly`: only for a Spanish company. `roadmapOnly` (WP-64): the
+ * wizard does not ask it yet (the supplier profile is WP-65); it is kept when the roadmap marks it, and sent only once it has an answer,
+ * so the rules read "unknown" for it and ask, instead of "not held".
+ */
+export const STATUS_ITEMS: { code: string; esOnly?: boolean; roadmapOnly?: boolean }[] = [
   { code: 'REQ-NCAGE' }, { code: 'REQ-PIC' }, { code: 'REQ-ISO9001' }, { code: 'REQ-EN9100' },
   { code: 'REQ-AQAP2110' }, { code: 'REQ-AQAP2310' }, { code: 'REQ-EXPORT' },
   { code: 'REQ-REOCE', esOnly: true }, { code: 'REQ-FSC-ES', esOnly: true },
+  { code: 'REQ-RID', esOnly: true, roadmapOnly: true }, { code: 'REQ-PECAL', esOnly: true, roadmapOnly: true },
+  { code: 'REQ-HSES-ES', esOnly: true, roadmapOnly: true },
 ];
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -87,7 +93,12 @@ export const STATUS_LABEL: Record<Status, string> = {
 };
 
 export function visibleCodes(country: string): string[] {
-  return STATUS_ITEMS.filter((i) => !i.esOnly || country === 'ES').map((i) => i.code);
+  return STATUS_ITEMS.filter((i) => !i.roadmapOnly && (!i.esOnly || country === 'ES')).map((i) => i.code);
+}
+
+/** The requirements only the roadmap can mark (see `STATUS_ITEMS`), for this country. */
+export function roadmapOnlyCodes(country: string): string[] {
+  return STATUS_ITEMS.filter((i) => i.roadmapOnly && (!i.esOnly || country === 'ES')).map((i) => i.code);
 }
 
 export function emptyProfile(): Profile {
@@ -208,6 +219,8 @@ export function toRequest(p: Profile): AssessRequest | null {
   if (!p.country) return null;
   const statuses: Record<string, Status> = {};
   for (const code of visibleCodes(p.country)) statuses[code] = p.statuses[code] ?? 'not_held';
+  // not asked by the wizard: sent only once the roadmap has marked it, else the rules read it as unknown and ask
+  for (const code of roadmapOnlyCodes(p.country)) if (p.statuses[code]) statuses[code] = p.statuses[code];
   return {
     profile: {
       country: p.country,
@@ -270,6 +283,16 @@ export function unanswered(p: Profile): Unanswered[] {
 /** The step to open when a finished profile is changed: the first with an unanswered question, else the first. */
 export function firstStepToAnswer(p: Profile): number {
   return unanswered(p)[0]?.step ?? 1;
+}
+
+/** The profile fields the wizard asks (the API's `missing` may name others: the Spanish, German and NATO/EU questions of WP-64, and requirements). */
+const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'executive_management_country', 'third_country_control',
+  'ua_non_government_controlled_area', 'ua_partner', 'non_eu_component_cost_pct', 'restricted_third_country_component',
+  'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent']);
+
+/** Whether the wizard asks the question behind an API `missing` field; if not, the page shows the question without a link to a step. */
+export function wizardAsks(field: string): boolean {
+  return WIZARD_FIELDS.has(field.replace(/^profile\./, ''));
 }
 
 /** The wizard step that asks the question behind an API `missing` field (see `ProgrammeAssessment.missing`); 1 for one it does not know. */

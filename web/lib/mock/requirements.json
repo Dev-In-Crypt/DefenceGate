@@ -5903,7 +5903,7 @@
    "code": "REQ-REOCE",
    "cost": null,
    "days": null,
-   "description": "Exporters from Spain must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents.",
+   "description": "Exporters from Spain must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application: registration is a precondition of any licence (Ley 53/2007, art. 12). REOCE is open only to Spanish residents; that condition (Real Decreto 679/2014, art. 13) is taken from the research notes of 7 September 2026 and is not quoted here.",
    "durationNote": null,
    "extras": {},
    "issuers": [
@@ -5956,7 +5956,7 @@
     "lastReviewed": "2026-10-20",
     "origin": "primary",
     "ref": "Ley 53/2007, art. 12 (consolidated text, BOE); Real Decreto 679/2014, art. 13",
-    "text": "[Ley 53/2007, art. 12] Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso.\n\n[DefenceGate technical appendix, Spain export control] exporters must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents.",
+    "text": "[Ley 53/2007, art. 12] Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso.",
     "url": "https://www.boe.es/eli/es/l/2007/12/28/53/con",
     "verificationStatus": "V"
    },

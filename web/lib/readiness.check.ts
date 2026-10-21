@@ -39,7 +39,8 @@ assert.equal(isoDay('2026-10-17T12:00:00+00:00'), '2026-10-17');
 
 const notes: RSource = { url: 'https://example.test', ref: 'r', text: '[r] t', origin: 'notes', verificationStatus: 'V', lastReviewed: '2026-09-07' };
 assert.ok(originWords(notes).includes('research notes'));
-assert.ok(originWords({ ...notes, origin: 'primary' }).includes('Official Journal'));
+// WP-64: only an Official Journal link is called the Official Journal (a national law or a ministry page is primary too: lib/wp64.check.ts)
+assert.ok(originWords({ ...notes, origin: 'primary', url: 'https://eur-lex.europa.eu/eli/reg/2021/821/oj' }).includes('Official Journal'));
 
 // D8: a line taken from the research notes is never said to have been fetched; a line checked against the Official Journal is.
 assert.ok(!statusWords('V', 'notes').includes('page was fetched'));

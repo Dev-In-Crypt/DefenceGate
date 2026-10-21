@@ -63,6 +63,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
       </dl>
       {s.priceNote && <p className="m-0 text-small font-bold">{s.priceNote}</p>}
       {s.branchNote && <p className="m-0 text-small">{s.branchNote}</p>}
+      {s.note && <p className="m-0 max-w-prose text-small" data-step-note={s.code}>{s.note}</p>}
 
       <div className="flex flex-col gap-1 text-body">
         <p className="m-0 font-bold">Issued by</p>

@@ -89,7 +89,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
           {r.mandatoryFor && <Fact label="Needed for">{r.mandatoryFor}</Fact>}
           {r.legalBasis && <Fact label="Legal basis">{r.legalBasis}</Fact>}
           <Fact label="Last reviewed"><time dateTime={r.lastReviewed}>{siteDay(r.lastReviewed)}</time></Fact>
-          <Fact label="Verification">{statusWords(r.verificationStatus, r.source.origin)}</Fact>
+          <Fact label="Verification">{statusWords(r.verificationStatus, r.source.origin, r.source.url)}</Fact>
         </FactsGrid>
       </ContentSection>
 
@@ -146,6 +146,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
               <li key={`${x.programme}-${x.rule}`} className="flex flex-col gap-0.5">
                 <span><strong>{x.programmeName}</strong>: {x.title} <span className="text-small text-ink-muted">({OBLIGATION_WORD[x.obligation]})</span></span>
                 {ruleSentence(x.texts) && <span className="max-w-prose text-body text-ink-muted">{ruleSentence(x.texts)}</span>}
+                {x.texts.consultant && <span className="max-w-prose text-small"><strong>Consultant needed.</strong> {x.texts.consultant}</span>}
               </li>
             ))}
           </ul>

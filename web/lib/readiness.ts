@@ -26,7 +26,11 @@ export const OUTCOME_WORD: Record<Outcome, string> = {
  * research notes was marked verified when the notes were written; this site did not read its source again, and
  * says so instead of "the page was fetched".
  */
-export function statusWords(status: VerificationStatus, origin: 'primary' | 'notes' | 'call_document'): string {
+export function statusWords(status: VerificationStatus, origin: 'primary' | 'notes' | 'call_document', url?: string | null): string {
+  // a national law or a ministry page (WP-64) is a primary source too, but not the Official Journal
+  const national = origin === 'primary' && !!url && !isOfficialJournal(url);
+  if (national && status === 'V') return 'Verified: the text was checked against the official source linked here.';
+  if (national && status === 'S') return 'Partly verified: the text was read in the official source linked here, but the rule rests on an interpretation of it.';
   if (status === 'V') {
     if (origin === 'call_document') return 'Verified: the sentence was checked against the Commission’s call document named in the reference, not against the Official Journal.';
     return origin === 'primary'
@@ -56,7 +60,7 @@ export function withoutAnswerEcho(text: string): string {
  */
 export const PROGRAMME_NAME: Record<string, string> = {
   EDF: 'EDF', EDIP: 'EDIP', 'EDIP-USI': 'EDIP Ukraine Support Instrument', SAFE: 'SAFE', 'NATO-SUPPLY': 'NATO and NSPA supply',
-  GENERAL: 'the general requirements',
+  'ES-MOD': 'Spanish defence supplier (MoD)', GENERAL: 'the general requirements',
 };
 export const programmeName = (code: string): string => PROGRAMME_NAME[code] ?? code;
 /** "A, B and C" */
@@ -118,7 +122,13 @@ export function timeHeadline(days: { min: number; max: number }, steps: number, 
 }
 
 /** The source line under a rule: where the text comes from, in words a visitor can check. */
+/** EUR-Lex or the Publications Office: the Official Journal. Anything else quoted as primary is a national law or an official page. */
+export function isOfficialJournal(url: string): boolean {
+  return /^https?:\/\/(?:[a-z-]+\.)*(?:eur-lex\.europa\.eu|publications\.europa\.eu)\//i.test(url);
+}
+
 export function originWords(s: RSource): string {
+  if (s.origin === 'primary' && s.url && !isOfficialJournal(s.url)) return `Quoted from the official source linked here, read on ${isoDay(s.lastReviewed)}.`;
   if (s.origin === 'call_document') return 'Quoted from the Commission’s call document named in the reference; the Official Journal text does not say it.';
   return s.origin === 'primary'
     ? 'Quoted from the Official Journal text of the regulation.'

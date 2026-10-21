@@ -47,6 +47,8 @@ export interface RuleResult {
   rule: string; title: string; outcome: Outcome; reason: string; obligation: 'mandatory' | 'conditional' | 'recommended';
   kind: string; requirement: string | null; note: string | null; denominator: string | null;
   asks: { field: string; question: string }[];
+  /** "Consultant needed" (WP-64): what a specialist has to settle for this rule, set while the rule is open or not met. */
+  consultant?: string | null;
   source: RSource;
 }
 
@@ -68,6 +70,8 @@ export interface RoadmapStep {
   priceNote: string | null;
   prerequisites: { code: string; name: string; relation: 'before' | 'before_or_with'; status: string; step: number | null }[];
   parallelWith: number[]; verificationStatus: VerificationStatus; lastReviewed: string; sourceUrl: string;
+  /** What the step involves beyond cost and time (the PECAL chicken-and-egg, WP-64). */
+  note?: string | null;
 }
 
 export interface RoadmapTotals {
@@ -101,8 +105,14 @@ export interface CallAnswer {
   action?: string | null;
 }
 
+/** Where the answer needs a specialist (WP-64): export classification, US components, the HSES path, a prime's qualification. */
+export interface ConsultantFlag {
+  key: string; title: string; text: string; rule: string | null; asks: { field: string; question: string }[];
+}
+
 export interface Assessment {
   generatedAt: string; rulesReviewed: string;
   assessments: ProgrammeAssessment[]; general: ProgrammeAssessment[];
   roadmap: Roadmap; call: CallAnswer | null; notice: string;
+  consultants?: ConsultantFlag[];
 }
