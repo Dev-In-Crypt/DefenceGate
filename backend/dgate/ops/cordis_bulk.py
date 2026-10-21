@@ -47,7 +47,7 @@ import httpx
 
 from .. import db, networks
 from ..config import settings
-from ..sources import USER_AGENT, cordis
+from ..sources import cordis
 
 log = logging.getLogger("cordis_bulk")
 
