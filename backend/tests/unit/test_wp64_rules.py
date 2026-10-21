@@ -269,3 +269,11 @@ def test_the_roadmap_step_carries_the_seed_note():
     plan = roadmap.build_roadmap([], {}, CONTENT, "ES")
     assert plan["steps"] == []
     assert CONTENT.requirements["REQ-PECAL"].extras["roadmap_note"].startswith("The chicken-and-egg of PECAL")
+
+
+def test_a_roadmap_step_says_where_its_text_and_figures_come_from():
+    # WP-67: the supplier report prints a cost or a time only when the requirement's source is primary
+    steps = {s["code"]: s for s in answer(ES_AUTO, {})["roadmap"]["steps"]}
+    assert steps["REQ-RID"]["origin"] == "primary"
+    assert steps["REQ-NCAGE"]["origin"] == "notes" and steps["REQ-NCAGE"]["cost"]["basis"] == "free"
+    assert all(s["origin"] == CONTENT.requirements[c].text_origin for c, s in steps.items())

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Pencil } from 'lucide-react';
+import { ArrowRight, Pencil, Printer } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
 import { answerProblems, hasSupplier } from '@/lib/profile';
@@ -63,6 +63,7 @@ export function ResultsView() {
         <div className="flex flex-wrap gap-3">
           <Button href="/readiness" variant="secondary" icon={Pencil}>Change my answers</Button>
           {hasSupplier(profile) && <Button href="/readiness/supplier" variant="secondary" icon={Pencil}>Change my supplier profile</Button>}
+          {hasSupplier(profile) && <Button href="/readiness/supplier/report" variant="secondary" icon={Printer}>My supplier report</Button>}
           <Button href="/readiness/roadmap" iconRight={ArrowRight}>See my roadmap</Button>
         </div>
       </div>

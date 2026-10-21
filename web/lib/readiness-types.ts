@@ -72,6 +72,8 @@ export interface RoadmapStep {
   parallelWith: number[]; verificationStatus: VerificationStatus; lastReviewed: string; sourceUrl: string;
   /** What the step involves beyond cost and time (the PECAL chicken-and-egg, WP-64). */
   note?: string | null;
+  /** Where the requirement's text, cost and time come from (WP-67: the supplier report prints a figure only for `primary`). */
+  origin?: 'primary' | 'notes' | 'call_document';
 }
 
 export interface RoadmapTotals {

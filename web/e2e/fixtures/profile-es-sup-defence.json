@@ -1,0 +1,16 @@
+{
+  "version": 3, "step": 1, "updatedAt": null, "name": "", "sizeClass": "medium", "country": "ES", "legalForm": "", "applicantKind": "",
+  "management": "", "managementCountry": "", "control": "", "uaOccupied": "", "uaPartner": "", "seapPartner": "", "regime": "",
+  "componentPct": "", "restricted": "", "uaEeaComponents": "", "safeRole": "",
+  "statuses": { "REQ-ISO9001": "held", "REQ-AQAP2110": "held", "REQ-RID": "held", "REQ-NCAGE": "held", "REQ-PECAL": "not_held" },
+  "classified": "yes", "exportIntent": "",
+  "supplier": {
+    "region": "", "foreignOwner": "yes", "foreignCountry": "FR", "nace": "",
+    "cpv": ["34300000", "34100000", "35421000", "42600000", "44300000"],
+    "processes": ["machining", "electronics"], "held": [], "expiry": {}, "usComponents": "yes",
+    "answers": { "pecal_certificate_wanted": "yes", "pecal_system_9_months": "yes", "pecal_prior_contract": "no", "pecal_2310_target": "no",
+      "specific_defence_use": "yes", "homologation_mandatory": "no", "homologated": "yes", "stores_classified": "no", "nato_classified_contract": "no",
+      "nato_icb_bid": "yes", "rid_capabilities_declared": "yes", "foreign_investor_authorised": "yes", "receives_eea_defence_products": "yes",
+      "certified_recipient": "no", "ncage_need_justified": "yes", "nsfcc_held": "yes" }
+  }
+}

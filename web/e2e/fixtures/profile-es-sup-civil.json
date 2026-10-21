@@ -1,0 +1,14 @@
+{
+  "version": 3, "step": 1, "updatedAt": null, "name": "", "sizeClass": "medium", "country": "ES", "legalForm": "", "applicantKind": "",
+  "management": "", "managementCountry": "", "control": "no", "uaOccupied": "", "uaPartner": "", "seapPartner": "", "regime": "",
+  "componentPct": "", "restricted": "", "uaEeaComponents": "", "safeRole": "",
+  "statuses": { "REQ-ISO9001": "held", "REQ-PECAL": "not_held", "REQ-RID": "not_held" },
+  "classified": "no", "exportIntent": "",
+  "supplier": {
+    "region": "ES-PV", "foreignOwner": "no", "foreignCountry": "", "nace": "24.53",
+    "cpv": ["34300000", "34100000", "35421000", "42600000", "44300000"],
+    "processes": ["casting", "machining"], "held": ["IATF16949"], "expiry": { "ISO9001": "2027-05" }, "usComponents": "no",
+    "answers": { "pecal_certificate_wanted": "no", "pecal_2310_target": "no", "ncage_need_justified": "no", "specific_defence_use": "no",
+      "nato_classified_contract": "no", "nato_icb_bid": "no", "receives_eea_defence_products": "no" }
+  }
+}

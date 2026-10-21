@@ -1148,4 +1148,6 @@ written statement HCWS1114 of 1 December 2025; `edf-ukraine-in-force-unconfirmed
   `{key, title, text, rule, asks}` per such rule, plus `US-COMPONENTS` (no rule: US export control is not in the verified rules) unless
   `us_components` is `false`.
 - **`RoadmapStep.note`** (string or null): what the step involves beyond cost and time (`extras.roadmap_note`; the PECAL chicken-and-egg).
+- **`RoadmapStep.origin`** (`primary` | `notes` | `call_document`, WP-67): where the requirement's text, and so its cost and time, come
+  from (`text_origin` in the seed). The supplier report prints a cost or a time only for a `primary` step.
 

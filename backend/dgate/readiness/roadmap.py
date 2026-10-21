@@ -264,6 +264,9 @@ def _step(n: _Node, position: dict[str, int], content: Content, country: str | N
         "prerequisites": prerequisites, "parallelWith": parallel_with,
         "verificationStatus": req.status, "lastReviewed": req.last_reviewed,
         "sourceUrl": req.source_url,
+        # where the requirement's text, and so its cost and time, come from (WP-67: the supplier report prints a figure only
+        # when a primary source states it)
+        "origin": req.text_origin,
     }
 
 

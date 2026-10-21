@@ -1387,6 +1387,7 @@
     "note": null,
     "optional": false,
     "order": 1,
+    "origin": "notes",
     "parallelWith": [
      2,
      3,
@@ -1422,6 +1423,7 @@
     "note": null,
     "optional": false,
     "order": 2,
+    "origin": "primary",
     "parallelWith": [
      1,
      3,
@@ -1457,6 +1459,7 @@
     "note": null,
     "optional": true,
     "order": 3,
+    "origin": "notes",
     "parallelWith": [
      1,
      2
@@ -1537,6 +1540,7 @@
     "note": null,
     "optional": true,
     "order": 4,
+    "origin": "notes",
     "parallelWith": [
      1,
      2
