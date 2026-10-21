@@ -93,7 +93,7 @@ new `origin` field). Changed: `components/readiness/results.tsx` (report button)
 |---|---|
 | ruff | All checks passed |
 | unit (`pytest`) | 2967 passed, 1145 deselected (WP-65: 2966; +1) |
-| integration (`pytest -m integration`) | INTEGRATION_RESULT |
+| integration (`pytest -m integration`) | 1145 passed (9 min 35 s) |
 | `dgate.readiness.export --check` (in the unit run) | up to date |
 | `tsc --noEmit` | exit 0 |
 | `npm run check` | all ok, incl. `wp67.check.ts` |
