@@ -28,16 +28,16 @@ def _run(monkeypatch, newest: datetime | None, now: datetime = NOW,
     calls: list[tuple[str, str | None]] = []
     sent: list[str] = []
 
-    def fake_live(ds, max_pages, observe):
+    def fake_live(ds, max_pages, observe, **kw):
         observe["newest"] = newest
         return iter(())
 
-    def fake_ingest(opps, label, ds, stale_reason=None):
+    def fake_ingest(opps, label, ds, stale_reason=None, **kw):
         list(opps)
         calls.append((label, stale_reason() if stale_reason else None))
 
     monkeypatch.setattr(placsp, "fetch_live", fake_live)
-    def fake_archive(url, ds, observe=None, since=None):
+    def fake_archive(url, ds, observe=None, since=None, **kw):
         if observe is not None:
             observe["newest"] = archive_newest
         return iter(())
@@ -62,6 +62,37 @@ def test_a_fresh_feed_reads_no_archive(monkeypatch):
     calls, sent = _run(monkeypatch, datetime(2026, 9, 14, 5, 0, tzinfo=timezone.utc))
     assert calls == [("es_placsp-live", None)]
     assert sent == []
+
+
+def test_the_live_walk_and_its_archive_cover_collect_the_award_results(monkeypatch):
+    """WP-61: the nightly walk, and the archive that covers a frozen feed, carry the award payloads and hand
+    them to the archive loader's own code path (`placsp_awards.Loader`)."""
+    from dgate import placsp_awards
+
+    asked: dict[str, list] = {"live": [], "archive": [], "ingest": []}
+
+    def fake_live(ds, max_pages, observe, **kw):
+        asked["live"].append(kw)
+        observe["newest"] = datetime(2026, 9, 8, tzinfo=timezone.utc)      # frozen: the archive is read too
+        return iter(())
+
+    def fake_archive(url, ds, observe=None, since=None, **kw):
+        asked["archive"].append(kw)
+        if observe is not None:
+            observe["newest"] = datetime(2026, 9, 13, 20, 0, tzinfo=timezone.utc)
+        return iter(())
+
+    def fake_ingest(opps, label, ds, stale_reason=None, **kw):
+        list(opps)
+        asked["ingest"].append(kw.get("awards"))
+
+    monkeypatch.setattr(placsp, "fetch_live", fake_live)
+    monkeypatch.setattr(placsp, "fetch_archive", fake_archive)
+    monkeypatch.setattr(pipeline, "_ingest_placsp", fake_ingest)
+    monkeypatch.setattr("dgate.ops.notify.notify", lambda text: None)
+    pipeline.run_placsp_live(datasets=[placsp.MAIN], now=NOW)
+    assert asked["live"] == [{"with_results": True}] and asked["archive"] == [{"with_results": True}]
+    assert asked["ingest"] == [placsp_awards.Loader, placsp_awards.Loader]
 
 
 def test_an_empty_feed_counts_as_stale(monkeypatch):

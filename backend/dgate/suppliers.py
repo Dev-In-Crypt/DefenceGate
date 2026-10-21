@@ -21,10 +21,16 @@ notice removed on request (`suppression`) is out of every answer here, and (5, W
 group rule on the list: a country or product-group filter that selects fewer than `K_MIN` suppliers
 answers "withheld", and the list serves at most `MAX_OFFSET` positions, so the table cannot be walked
 page by page.
+
+PLACSP (Spain's national portal, WP-60/61): its award winners are stored and served only with
+DGATE_PLACSP_AWARDS_PUBLIC=true. Then an award that TED and PLACSP both publish counts once (`award_twin`,
+migration 0093; `NOT_TWIN` below), the other publication is listed under it, and PLACSP is credited with the
+date of last update its terms ask for (`placsp_note`). Natural persons are counted, never named.
 """
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -75,9 +81,27 @@ NOT_PLACSP = ("o.source_id NOT IN (SELECT id FROM source WHERE code IN ("
               + ", ".join(f"'{c}'" for c in PLACSP_SOURCES) + "))")
 
 
+_ALIASES = {"a": "k", "o": "ko", "org": "korg", "raw_org": "kraw"}
+
+
+def _as_preferred(cond: str) -> str:
+    """`cond`, written over the map's aliases, rewritten over the preferred twin's (`award_twin`)."""
+    return re.sub(r"\b(raw_org|org|o|a)\.", lambda m: _ALIASES[m[1]] + ".", cond)
+
+
+# One award published in TED and in PLACSP is counted once (WP-61, migration 0093): an award row is left out
+# when `award_twin` names a row preferred over it that the map itself serves. Uncorrelated, so the planner
+# reads the view once per query and hashes it.
+NOT_TWIN = ("a.id NOT IN (SELECT tw.award_id FROM award_twin tw JOIN award k ON k.id = tw.preferred_id "
+            "JOIN opportunity ko ON ko.id = k.opportunity_id JOIN organisation kraw ON kraw.id = k.organisation_id "
+            "JOIN organisation korg ON korg.id = COALESCE(kraw.merged_into, kraw.id) "
+            f"WHERE {_as_preferred(SCOPE)})")
+
+
 def scope() -> str:
-    """The rows the map serves: SCOPE, and without the PLACSP winners unless they are switched on."""
-    return SCOPE if settings().placsp_awards_public else f"{SCOPE} AND {NOT_PLACSP}"
+    """The rows the map serves: SCOPE, and without the PLACSP winners unless they are switched on. With them
+    on, an award that both TED and PLACSP publish is counted once (`NOT_TWIN`)."""
+    return f"{SCOPE} AND {NOT_TWIN}" if settings().placsp_awards_public else f"{SCOPE} AND {NOT_PLACSP}"
 
 
 class SupplierItem(BaseModel):
@@ -113,6 +137,12 @@ class SupplierBuyer(BaseModel):
     awards: int
 
 
+class NoticeRef(BaseModel):
+    source: str
+    noticeId: str
+    sourceUrl: str | None
+
+
 class SupplierNotice(BaseModel):
     id: str
     slug: str
@@ -126,6 +156,8 @@ class SupplierNotice(BaseModel):
     valueAmount: float | None
     valueCurrency: str | None
     sourceUrl: str | None
+    source: str = "ted"                       # where the notice shown is from: ted, es_placsp, es_placsp_agg
+    alsoPublished: list[NoticeRef] = []       # the same award in the other source, counted once (WP-61)
 
 
 class Supplier(SupplierItem):
@@ -152,6 +184,13 @@ class Cell(BaseModel):
     awards: int
 
 
+class SourceNote(BaseModel):
+    code: str
+    name: str
+    attribution: str
+    lastUpdated: datetime | None = None       # the newest update stamp of what was read (PLACSP's terms ask for it)
+
+
 class Summary(BaseModel):
     kMin: int
     since: str
@@ -167,11 +206,38 @@ class Summary(BaseModel):
     cells: list[Cell]
     suppressedGroups: int
     coverage: str
+    sources: list[SourceNote] = []
 
 
 COVERAGE = ("Winners named in TED result notices of the defence-relevant scope, from 2023. TED holds only part of "
             "European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked "
             "that figure); contracts awarded outside TED are not in this map, and a supplier absent here may win many.")
+# With the PLACSP winners on the map (DGATE_PLACSP_AWARDS_PUBLIC, WP-61).
+COVERAGE_WITH_PLACSP = (
+    "Winners named in TED result notices of the defence-relevant scope, and in the award results of Spain's national "
+    "procurement portal (PLACSP, Plataforma de Contratación del Sector Público), from 2023; an award published in both "
+    "is counted once. TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a "
+    "tenth; we have not re-checked that figure); contracts awarded outside TED and PLACSP are not in this map, and a "
+    "supplier absent here may win many. Winners that are natural persons are counted, never named.")
+TED_NOTE = {"code": "ted", "name": "TED (Tenders Electronic Daily)",
+            "attribution": "Source: TED (Tenders Electronic Daily), © European Union."}
+
+
+def placsp_note(conn, where: str = "TRUE", params: tuple = ()) -> dict[str, Any] | None:
+    """The PLACSP attribution its publisher's terms ask for (docs/sources/es_placsp.md): the source, as the source
+    row of migration 0092 words it, and the date of the last update of what was read (the newest entry stamp of the
+    PLACSP award results behind the rows `where` selects, over `award_notice n` and `opportunity o`). None when no
+    PLACSP award result is behind them."""
+    row = conn.execute(
+        f"""SELECT max(n.payload_updated_at) AS updated, count(*) AS n FROM award_notice n
+              JOIN opportunity o ON o.id = n.opportunity_id
+             WHERE n.payload_hash IS NOT NULL AND NOT ({NOT_PLACSP}) AND {where}""", params).fetchone()
+    if not row["n"]:
+        return None
+    src = conn.execute("SELECT attribution FROM source WHERE code = 'es_placsp_awards'").fetchone()
+    return {"code": "es_placsp", "name": "PLACSP (Plataforma de Contratación del Sector Público, Spain)",
+            "attribution": (src["attribution"] if src else "Origen de los datos: Ministerio de Hacienda") + ".",
+            "lastUpdated": row["updated"]}
 
 
 def _name(row: dict[str, Any]) -> str:
@@ -181,9 +247,16 @@ def _name(row: dict[str, Any]) -> str:
 # The spelling of a supplier's name we show: the one most notices use, a mixed-case one before a
 # capitals-only one, then alphabetical. Only the page's rows are asked.
 SHOWN = """(SELECT x.name_as_stated FROM award x
-             WHERE x.organisation_id = m.id
-                OR x.organisation_id IN (SELECT id FROM organisation WHERE merged_into = m.id)
+             WHERE (x.organisation_id = m.id
+                OR x.organisation_id IN (SELECT id FROM organisation WHERE merged_into = m.id)){placsp}
              GROUP BY 1 ORDER BY count(*) DESC, (x.name_as_stated = upper(x.name_as_stated)), 1 LIMIT 1)"""
+# While the PLACSP winners are off the map, their spelling of a name is not shown either (WP-61).
+_SHOWN_NOT_PLACSP = ("\n               AND NOT EXISTS (SELECT 1 FROM opportunity xo WHERE xo.id = x.opportunity_id AND "
+                     + NOT_PLACSP.replace("o.source_id NOT IN", "xo.source_id IN") + ")")
+
+
+def shown() -> str:
+    return SHOWN.format(placsp="" if settings().placsp_awards_public else _SHOWN_NOT_PLACSP)
 
 
 def _group_filters(country: str | None, cpv: str | None) -> tuple[list[str], list[Any]]:
@@ -271,7 +344,7 @@ def list_suppliers(
                 {FROM} WHERE {cond}
                GROUP BY org.id, org.country, org.canonical_name),
             m AS (SELECT base.*, count(*) OVER () AS total_rows FROM base ORDER BY {order} LIMIT %s OFFSET %s)
-            SELECT m.*, {SHOWN} AS shown FROM m ORDER BY {order}""",
+            SELECT m.*, {shown()} AS shown FROM m ORDER BY {order}""",
         params + [min(pageSize, MAX_OFFSET - offset), offset]).fetchall()
     total = rows[0]["total_rows"] if rows else 0
     if not rows and page > 1:
@@ -288,10 +361,23 @@ def supplier_summary(conn=Depends(get_conn)):
         f"""SELECT count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
                    count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p
               {FROM} WHERE {scope()}""").fetchone()
-    read = conn.execute(
-        f"""SELECT count(*) AS n, COALESCE(sum(n.skipped_person), 0) AS persons FROM award_notice n
-              JOIN opportunity o ON o.id = n.opportunity_id
-             WHERE {'TRUE' if settings().placsp_awards_public else NOT_PLACSP}""").fetchone()
+    public = settings().placsp_awards_public
+    if public:
+        # A person skipped in both the TED and the PLACSP publication of one procedure is one person: per procedure
+        # the larger of the two counts, not their sum (WP-61).
+        read = conn.execute(
+            """SELECT COALESCE(sum(n), 0) AS n, COALESCE(sum(persons), 0) AS persons FROM (
+                 SELECT count(*) AS n,
+                        greatest(sum(n.skipped_person) FILTER (WHERE s.code = 'ted'),
+                                 sum(n.skipped_person) FILTER (WHERE s.code <> 'ted')) AS persons
+                   FROM award_notice n JOIN opportunity o ON o.id = n.opportunity_id
+                   JOIN source s ON s.id = o.source_id
+                  GROUP BY coalesce(o.procedure_identifier, 'notice ' || o.id)) g""").fetchone()
+    else:
+        read = conn.execute(
+            f"""SELECT count(*) AS n, COALESCE(sum(n.skipped_person), 0) AS persons FROM award_notice n
+                  JOIN opportunity o ON o.id = n.opportunity_id
+                 WHERE {NOT_PLACSP}""").fetchone()
 
     def groups(expr: str) -> tuple[list[dict[str, Any]], int]:
         rows = conn.execute(
@@ -312,6 +398,7 @@ def supplier_summary(conn=Depends(get_conn)):
     total_cells = conn.execute(
         f"""SELECT count(*) AS n FROM (SELECT 1 {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
              GROUP BY left(a.cpv_main, 2), a.supplier_country) t""").fetchone()["n"]
+    note = placsp_note(conn) if public else None
     return {
         "kMin": K_MIN, "since": SINCE, "noticesRead": read["n"],
         "noticesWithSupplier": head["notices"], "suppliers": head["suppliers"],
@@ -321,7 +408,9 @@ def supplier_summary(conn=Depends(get_conn)):
         "byCountry": [{"key": r["key"], "suppliers": r["suppliers"], "awards": r["awards"]} for r in by_country],
         "cells": [dict(r) for r in cells],
         "suppressedGroups": hidden_cpv + hidden_country + (total_cells - len(cells)),
-        "coverage": COVERAGE,
+        # PLACSP is named once a PLACSP award result is behind the map, not merely because the switch is on.
+        "coverage": COVERAGE_WITH_PLACSP if note else COVERAGE,
+        "sources": [TED_NOTE] + ([note] if note else []),
     }
 
 
@@ -361,7 +450,8 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
     notices = conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
                    o.published_at, a.cpv_main, a.winners_in_notice, o.value_amount, o.value_currency,
-                   o.value_kind, o.source_url
+                   o.value_kind, o.source_url, a.id AS award_id,
+                   (SELECT code FROM source WHERE id = o.source_id) AS source_code
               {base} ORDER BY o.published_at DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
         (org_id,)).fetchall()
     stated = conn.execute(
@@ -384,6 +474,26 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         "SELECT id, country FROM organisation WHERE id = ANY(%s)", (buyer_ids,)).fetchall()} if buyer_ids else {}
     item = _item({**org, "n": head["n"], "first_year": head["first_year"], "last_year": head["last_year"],
                   "shown": stated[0]["v"], "divisions": [r["division"] for r in by_cpv]})
+    public = settings().placsp_awards_public
+    also: dict[int, list[dict[str, Any]]] = {}
+    attribution = TED_NOTE["attribution"] + " Winners as named in each result notice."
+    if public:
+        # Provenance of an award counted once: the other publication of it, under the one shown. A notice removed
+        # on request is not named.
+        for r in conn.execute(
+                """SELECT tw.preferred_id, s.code, o.native_id, o.source_url FROM award_twin tw
+                     JOIN award d ON d.id = tw.award_id JOIN opportunity o ON o.id = d.opportunity_id
+                     JOIN source s ON s.id = o.source_id
+                    WHERE tw.preferred_id = ANY(%s) AND NOT o.suppressed
+                    ORDER BY o.published_at NULLS LAST, o.id""", ([r["award_id"] for r in notices],)).fetchall():
+            also.setdefault(r["preferred_id"], []).append(
+                {"source": r["code"], "noticeId": r["native_id"], "sourceUrl": r["source_url"]})
+        note = placsp_note(conn, f"""o.id IN (SELECT a.opportunity_id {base})""", (org_id,))
+        if note:
+            # TED is named either way: a win shown from PLACSP lists its TED publication under it.
+            day = f", as last updated on {note['lastUpdated']:%Y-%m-%d}" if note["lastUpdated"] else ""
+            attribution = (TED_NOTE["attribution"] + " " + note["attribution"].rstrip(".")
+                           + f"{day}. Winners as named in each notice; natural persons are never named.")
     out_notices = []
     for r in notices:
         single = r["winners_in_notice"] == 1 and r["value_kind"] in ("total", "lot_sum")
@@ -395,7 +505,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
             "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
             "valueAmount": float(r["value_amount"]) if has_value else None,
             "valueCurrency": r["value_currency"].strip() if has_value and r["value_currency"] else None,
-            "sourceUrl": r["source_url"]})
+            "sourceUrl": r["source_url"], "source": r["source_code"], "alsoPublished": also.get(r["award_id"], [])})
     return {
         **item,
         "byYear": [{"year": r["year"], "awards": r["awards"]} for r in by_year],
@@ -405,5 +515,5 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
                    for r in buyer_rows for i in [r["id"]] if names.get(i)],
         "notices": out_notices, "noticeCount": head["n"],
         "namesAsStated": [redact_emails(r["v"]) for r in stated], "identifiers": list(numbers.values())[:3],
-        "attribution": "Source: TED (Tenders Electronic Daily), © European Union. Winners as named in each result notice.",
+        "attribution": attribution,
     }

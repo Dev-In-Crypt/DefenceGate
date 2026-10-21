@@ -259,6 +259,33 @@ def job_edf() -> JobResult:
     return run_job("edf_monthly", networks.run_edf, sources=["edf_factsheets"])
 
 
+def placsp_awards_catchup(today: date | None = None) -> None:
+    """The previous month's PLACSP archive, walked once for its award results and notices (WP-61): what the
+    nightly walk missed (a frozen feed, a night the worker was down). The archive command's own rules apply:
+    resumable, a month done is never read again, a 429 or a disk under 3 GiB stops it, never inside the
+    live walk's window. A stopped or failed month raises, so the job is not green."""
+    from .ops import placsp_archives
+    from .sources import placsp
+
+    today = today or _now().date()
+    prev = today.replace(day=1) - timedelta(days=1)
+    todo = placsp_archives.units((prev.year, prev.month), (prev.year, prev.month), placsp.MAIN, today)
+    if prev.year < today.year:
+        # In January the December entries are in the annual archive only. Walked from 1 December and marked as
+        # December: the annual unit's own mark (1 January) is January's, done long ago, and would skip it.
+        # ponytail: a 2 GB download once a year for one month; a December monthly URL, if the publisher keeps one.
+        todo = [placsp_archives.Unit(f"{placsp.MAIN.source_code}-{prev.year}12", todo[0].url, date(prev.year, 12, 1),
+                                     datetime(prev.year, 12, 1, tzinfo=timezone.utc), prev.year, 12, todo[0].size)]
+    got = placsp_archives.run(todo, placsp.MAIN, floor=3 * 2**30, resume=True, pause=1.0)
+    if got["failed"] or got["stopped"]:
+        raise RuntimeError(f"PLACSP award catch-up did not finish: {got}")
+
+
+def job_placsp_awards_catchup() -> JobResult:
+    """Monthly, on the 3rd at 12:00 UTC, only with DGATE_PLACSP_AWARDS_CATCHUP=true (see `placsp_awards_catchup`)."""
+    return run_job("placsp_awards_monthly", placsp_awards_catchup)
+
+
 def job_consortium_snapshot() -> JobResult:
     """Monthly, after the two above: one snapshot per project whose consortium changed and the
     consortium.changed row for each difference (networks.snapshot_consortia)."""
@@ -1048,6 +1075,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "cordis": job_cordis,
     "edf": job_edf,
     "consortium-snapshot": job_consortium_snapshot,
+    "placsp-awards-catchup": job_placsp_awards_catchup,
     "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
@@ -1133,6 +1161,10 @@ def build_scheduler():
                   id="edf_monthly", max_instances=1, misfire_grace_time=86400)
     sched.add_job(job_consortium_snapshot, CronTrigger(day=7, hour=cfg.networks_hour, minute=30),
                   id="consortium_snapshot", max_instances=1, misfire_grace_time=86400)
+    if cfg.placsp_awards_catchup:
+        # Off by default: the nightly walk collects the award results; this re-reads last month's archive.
+        sched.add_job(job_placsp_awards_catchup, CronTrigger(day=3, hour=12, minute=0),
+                      id="placsp_awards_monthly", max_instances=1, misfire_grace_time=86400)
     if ted_history_window() is not None:
         # The history does not end when it has caught up: every day it ended
         # yesterday, there is a new yesterday. The daily TED job asks only the
@@ -1201,6 +1233,9 @@ def describe_schedule() -> list[str]:
         f"consortium_snapshot day 7, {cfg.networks_hour:02d}:30 UTC  "
         f"(composition snapshot per project and the consortium.changed rows)",
         f"controls      {cfg.health_hour:02d}:10 UTC  (PLACSP measures, Atlas record)",
+        ("placsp_awards_monthly day 3, 12:00 UTC  (last month's PLACSP archive for the award results)"
+         if cfg.placsp_awards_catchup else
+         "placsp_awards_monthly off  (DGATE_PLACSP_AWARDS_CATCHUP=true to run it; the nightly walk collects them)"),
         f"backup_freshness :40 UTC  (alert when the newest dump is over "
         f"{cfg.backup_stale_hours}h old, here or in the store)",
     ]

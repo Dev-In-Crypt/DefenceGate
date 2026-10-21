@@ -855,6 +855,18 @@ export interface SupplierNotice {
   valueAmount: number | null;
   valueCurrency: string | null;
   sourceUrl: string | null;
+  /** Where the notice shown is from: ted, es_placsp, es_placsp_agg (WP-61; absent from older APIs, read as ted). */
+  source?: string;
+  /** The same award in the other source, counted once: its publication there, for provenance. */
+  alsoPublished?: { source: string; noticeId: string; sourceUrl: string | null }[];
+}
+/** A source of the supplier map with the attribution its terms ask for (GET /v1/suppliers/summary `sources`). */
+export interface SupplierSourceNote {
+  code: string;
+  name: string;
+  attribution: string;
+  /** The newest update stamp of what was read from it (PLACSP's terms ask for the date of last update). */
+  lastUpdated?: IsoDateTime | null;
 }
 export interface Supplier extends SupplierItem {
   byYear: { year: number; awards: number }[];
@@ -883,4 +895,6 @@ export interface SupplierSummary {
   cells: { division: string; country: string; suppliers: number; awards: number }[];
   suppressedGroups: number;
   coverage: string;
+  /** TED, and PLACSP while its winners are served (WP-61). */
+  sources?: SupplierSourceNote[];
 }

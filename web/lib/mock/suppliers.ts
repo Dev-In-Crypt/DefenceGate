@@ -31,6 +31,7 @@ export function supplierSummary(): SupplierSummary {
     byCpv: [{ key: '35', suppliers: 4, awards: 31 }, { key: '34', suppliers: 3, awards: 18 }, { key: '63', suppliers: 3, awards: 7 }],
     byCountry: [{ key: 'DE', suppliers: 5, awards: 22 }, { key: 'FR', suppliers: 4, awards: 15 }, { key: 'PL', suppliers: 3, awards: 9 }],
     cells: [], suppressedGroups: 6, coverage: 'Demo data.',
+    sources: [{ code: 'ted', name: 'TED (Tenders Electronic Daily)', attribution: 'Source: TED (Tenders Electronic Daily), © European Union.' }],
   };
 }
 

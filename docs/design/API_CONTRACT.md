@@ -1001,6 +1001,22 @@ placeholder amount; otherwise it is null (a value shared by several winners belo
 per supplier, no share, no rank and no "single source" flag, on purpose (the mosaic effect: the module docstring of
 `dgate/suppliers.py`). 404 for an unknown supplier or a malformed slug, 410 for one removed on request.
 
+WP-61 (21 October 2026), PLACSP winners. Stored since WP-60, served only with `DGATE_PLACSP_AWARDS_PUBLIC=true` (an owner
+decision; default false, and then every answer is as before). With it on:
+
+- An award that TED and PLACSP both publish is **one** award (view `award_twin`, migration 0093): the same procedure
+  (the same eForms procedure identifier on both notices, or the PLACSP row's TED twin link `ted_ref`) and the same winner
+  (one organisation after merges, or one tax number on both rows). The row that states a number stands for it, then the
+  TED one. Every count (`awardCount`, `byYear`, `byCpv`, `buyers`, the summary's `awards`, `suppliers`, `noticesWithSupplier`
+  and its groups) counts it once. `skippedNaturalPersons` takes, per procedure, the larger of the two publications' counts.
+- A notice item carries `source` (`ted`, `es_placsp`, `es_placsp_agg`; always set, `ted` with the switch off) and
+  `alsoPublished: [{ source, noticeId, sourceUrl }]`: the other publication of the same award, not counted (empty unless on).
+- The summary carries `sources: [{ code, name, attribution, lastUpdated }]`: TED always, and PLACSP once a PLACSP award result
+  is behind the map, with the attribution its publisher's terms ask for ("Origen de los datos: Ministerio de Hacienda ...") and
+  `lastUpdated`, the newest entry stamp read (the terms ask for the date of last update; `docs/sources/es_placsp.md`).
+  `coverage` then names PLACSP and says an award in both is counted once. The profile's `attribution` names both, with the date.
+- Natural persons are never named, only counted, in both sources.
+
 
 ## Changes of 18 October 2026 (WP-40: rules and facts, round 2)
 

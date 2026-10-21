@@ -242,6 +242,11 @@ class Settings:
     # (docs/sources/es_placsp.md) and decided: the supplier map leaves them out unless this is "true".
     placsp_awards_public: bool = field(
         default_factory=lambda: os.environ.get("DGATE_PLACSP_AWARDS_PUBLIC", "false").strip().lower() == "true")
+    # The monthly PLACSP archive catch-up of the award results (WP-61, `worker.job_placsp_awards_catchup`): a
+    # safety net behind the nightly walk, which collects them already. Off unless this is "true" (one download of
+    # the previous month's archive, about 400 MB, on the 3rd of each month).
+    placsp_awards_catchup: bool = field(
+        default_factory=lambda: os.environ.get("DGATE_PLACSP_AWARDS_CATCHUP", "false").strip().lower() == "true")
     # Separate DSN for tests. Unset means integration tests skip themselves
     # rather than silently pointing at a real database.
     test_dsn: str | None = field(default_factory=lambda: os.environ.get("DGATE_TEST_DSN"))

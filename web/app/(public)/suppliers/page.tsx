@@ -10,6 +10,7 @@ import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { cpvForWords } from '@/lib/cpv';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
+import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { Pagination } from '@/components/dg/pagination';
@@ -89,38 +90,40 @@ export default async function SuppliersPage({ searchParams }: Props) {
   const filtered = Boolean(f.q || f.country || f.cpv || f.product);
   const { match, unknown, none, api } = withProduct(f);
   let result;
-  let summary;
+  let full;
   try {
-    [result, summary] = await Promise.all([
+    // The summary is asked on every page (cached): which sources the map holds decides what the coverage card says.
+    [result, full] = await Promise.all([
       none ? Promise.resolve({ items: [], total: 0, page: 1, pageSize: 20 } as unknown as Awaited<ReturnType<typeof getSuppliers>>) : getSuppliers(api),
-      f.page === 1 && !filtered ? getSupplierSummary() : Promise.resolve(null),
+      getSupplierSummary(),
     ]);
   } catch (e) {
     // The list serves only its first positions (`maxOffset`): a page past them is not there, which is an answer, not a fault.
     if (e instanceof ApiError && e.status === 422) notFound();
     throw e;
   }
+  const summary = f.page === 1 && !filtered ? full : null;
+  const placsp = placspNote(full?.sources);
   const reachable = Math.min(result.total, result.maxOffset ?? result.total);
   const last = lastPage(reachable, result.pageSize);
   if (result.total > 0 && f.page > last) redirect(href(f, last));
   return (
     <>
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} title="Defence supplier map"
-        lead="Which companies have won defence-relevant contracts that a buyer published in TED, where they are and how often. This is the open segment of the market, not all of it." />
+        lead={`Which companies have won defence-relevant contracts that a buyer published in TED${placsp ? " or in Spain's national procurement portal (PLACSP)" : ''}, where they are and how often. This is the open segment of the market, not all of it.`} />
       {result.staleAsOf && <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(result.staleAsOf, formatDateTimeUtc)}</p>}
 
       <Card title="What this map covers" id="coverage">
         <p className="m-0 text-body">
-          The winners named in TED result notices that our archive holds in the defence-relevant scope, from 2023. TED holds only part of
-          European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked that figure), and contracts awarded outside it are not here, so a company missing from this map may win many.
-          Before eForms became mandatory (25 October 2023) notices state no winner as data, so 2023 is thin.
+          {coverageText(Boolean(placsp))}
+          {' '}Before eForms became mandatory (25 October 2023) TED notices state no winner as data, so 2023 is thin.
         </p>
         {summary && (
           <p className="m-0 text-small text-ink-muted">
             {formatNumber(summary.suppliers)} {plural(summary.suppliers, 'supplier')} and {formatNumber(summary.awards)} {plural(summary.awards, 'win')} in {formatNumber(summary.noticesWithSupplier)} {plural(summary.noticesWithSupplier, 'notice')}
             {summary.firstPublished && summary.lastPublished ? `, published ${formatDateUtc(summary.firstPublished)} to ${formatDateUtc(summary.lastPublished)} UTC` : ''}.
             {' '}{formatNumber(summary.skippedNaturalPersons)} {summary.skippedNaturalPersons === 1 ? 'winner that is a natural person (a sole trader under their own name) is' : 'winners that are natural persons (sole traders under their own name) are'} left out.
-            Source: TED, © European Union. Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).
+            Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''} Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).
           </p>
         )}
       </Card>
@@ -239,7 +242,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
               ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
               : result.withheld
                 ? `A country or product group with fewer than ${summary?.kMin ?? 3} suppliers is not listed, so that nothing describes one or two companies. Widen the filter, or search by company name without it.`
-                : 'Only companies named as winners in a TED result notice of the defence-relevant scope are listed. Try a shorter name.'}
+                : `Only companies named as winners in a TED result notice${placsp ? ' or a PLACSP award result' : ''} of the defence-relevant scope are listed. Try a shorter name.`}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">

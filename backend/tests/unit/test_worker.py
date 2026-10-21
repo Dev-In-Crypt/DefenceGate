@@ -127,4 +127,46 @@ def test_every_job_is_reachable_from_the_cli():
                                 "topics", "bdns", "ncbr", "tenderned", "de-bkms", "vinnova", "aid", "matine",
                                 "alerts", "backup-freshness", "link-twins", "requalify", "controls",
                                 "buyer-families", "warm-lists", "cascade-flags", "digest",
-                                "cordis", "edf", "consortium-snapshot"}
+                                "cordis", "edf", "consortium-snapshot", "placsp-awards-catchup"}
+
+
+# ------------------------------------------------- PLACSP award catch-up (WP-61)
+
+def test_the_placsp_award_catchup_is_off_unless_switched_on(monkeypatch):
+    from dgate import config
+
+    monkeypatch.delenv("DGATE_PLACSP_AWARDS_CATCHUP", raising=False)
+    config.reset_cache()
+    try:
+        assert "placsp_awards_monthly" not in {j.id for j in worker.build_scheduler().get_jobs()}
+        assert any(line.startswith("placsp_awards_monthly off") for line in worker.describe_schedule())
+        monkeypatch.setenv("DGATE_PLACSP_AWARDS_CATCHUP", "true")
+        config.reset_cache()
+        job = {j.id: j for j in worker.build_scheduler().get_jobs()}["placsp_awards_monthly"]
+        fields = {f.name: str(f) for f in job.trigger.fields}
+        assert (fields["day"], fields["hour"], fields["month"]) == ("3", "12", "*")
+    finally:
+        config.reset_cache()
+
+
+def test_the_catchup_reads_last_months_archive_and_is_not_green_when_stopped(monkeypatch):
+    from datetime import date
+
+    from dgate.ops import placsp_archives
+
+    asked = []
+
+    def fake_run(todo, ds, **kw):
+        asked.append([(u.name, u.url.rsplit("_", 1)[-1], u.day, u.since.date()) for u in todo])
+        return {"done": [u.name for u in todo], "skipped": [], "failed": [], "stopped": []}
+
+    monkeypatch.setattr(placsp_archives, "run", fake_run)
+    worker.placsp_awards_catchup(today=date(2026, 11, 3))
+    assert asked[-1] == [("es_placsp-202610", "202610.zip", date(2026, 10, 1), date(2026, 10, 1))]
+    # December of the year before: the annual archive, walked from 1 December and marked as December
+    worker.placsp_awards_catchup(today=date(2026, 1, 3))
+    assert asked[-1] == [("es_placsp-202512", "2025.zip", date(2025, 12, 1), date(2025, 12, 1))]
+    monkeypatch.setattr(placsp_archives, "run", lambda todo, ds, **kw: {
+        "done": [], "skipped": [], "failed": [], "stopped": ["es_placsp-202610"]})
+    with pytest.raises(RuntimeError, match="did not finish"):
+        worker.placsp_awards_catchup(today=date(2026, 11, 3))

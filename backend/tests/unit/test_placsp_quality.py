@@ -321,7 +321,7 @@ def _live(monkeypatch, **observed):
     sent: list[str] = []
     archives: list[str] = []
 
-    def fake_live(ds, max_pages, observe):
+    def fake_live(ds, max_pages, observe, **kw):
         assert observe["hard_cap"] >= max_pages
         observe.update(observed)
         return iter(())

@@ -5,6 +5,8 @@ import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { cpvDivisionLabel } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
+import { sourceLabel } from '@/lib/supplier-sources';
+import type { Supplier } from '@/lib/types';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { buildMetadata } from '@/lib/seo';
 import { PageHeader } from '@/components/dg/page-header';
@@ -17,6 +19,11 @@ import { CountryLabel, FactCell } from '@/components/dg/data-display';
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
+/** Whether this profile shows anything from PLACSP (WP-61): a notice from it, or a TED notice it also published. */
+function fromPlacsp(s: Supplier): boolean {
+  return s.notices.some((n) => sourceLabel(n.source) === 'PLACSP' || (n.alsoPublished ?? []).some((r) => sourceLabel(r.source) === 'PLACSP'));
+}
+
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -26,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const s = { ...got, name: displayName(got.name, 'title') };
   return buildMetadata({
     title: s.name,
-    description: `${s.name} (${s.country}): ${s.noticeCount} defence-relevant TED result notices naming it as a winner. The open segment of the market only.`,
+    description: `${s.name} (${s.country}): ${s.noticeCount} defence-relevant ${fromPlacsp(s) ? 'TED and PLACSP' : 'TED'} result notices naming it as a winner. The open segment of the market only.`,
     path: `/suppliers/${s.slug}`,
     noindex: false,
   });
@@ -55,7 +62,7 @@ export default async function SupplierPage({ params }: Props) {
           <p className="m-0 max-w-prose text-small text-ink-muted">Also published as: {s.namesAsStated.slice(1).join('; ')}.</p>
         )}
         <p className="m-0 max-w-prose text-small text-ink-muted">
-          This is what buyers published in TED result notices of the defence-relevant scope, from 2023. TED holds only part of European defence
+          This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, from 2023. TED holds only part of European defence
           spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking, no share and no contract total: a value appears only on a notice
           that names one winner. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
         </p>
@@ -113,7 +120,7 @@ export default async function SupplierPage({ params }: Props) {
         <div className="flex flex-col gap-3">
           <h2 id="notices" className="m-0 text-h2">The notices</h2>
           <p className="m-0 max-w-prose text-small text-ink-muted">
-            Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} of ${formatNumber(s.noticeCount)}` : ''}. Each links to its own page and to the notice at TED.
+            Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} of ${formatNumber(s.noticeCount)}` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or PLACSP' : ' and to the notice at TED'}.
           </p>
         </div>
         <Card>
@@ -133,7 +140,17 @@ export default async function SupplierPage({ params }: Props) {
                 <tr key={n.id}>
                   <th scope="row" className="font-normal">
                     <Link href={`/tenders/${n.slug}`} className="break-words">{n.title || n.noticeId}</Link>
-                    <span className="block font-mono text-mono text-ink-muted">{n.noticeId}</span>
+                    <span className="block font-mono text-mono text-ink-muted">{fromPlacsp(s) ? `${sourceLabel(n.source)} ` : ''}{n.noticeId}</span>
+                    {(n.alsoPublished ?? []).length > 0 && (
+                      <span className="block text-small text-ink-muted">
+                        Also published in {(n.alsoPublished ?? []).map((r, i) => (
+                          <span key={`${r.source}-${r.noticeId}`}>
+                            {i > 0 ? ', ' : ''}{sourceLabel(r.source)}{' '}
+                            {r.sourceUrl ? <a href={r.sourceUrl} rel="noopener" className="font-mono">{r.noticeId}</a> : <span className="font-mono">{r.noticeId}</span>}
+                          </span>
+                        ))} (counted once)
+                      </span>
+                    )}
                   </th>
                   <td>{n.buyerName ?? 'Name withheld on request'}{n.buyerCountry ? ` (${n.buyerCountry})` : ''}</td>
                   <td className="whitespace-nowrap font-mono tabular-nums">{n.publishedAt ? formatDateUtc(n.publishedAt) : 'Not stated'}</td>

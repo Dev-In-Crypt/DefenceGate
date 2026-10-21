@@ -28,7 +28,7 @@ from typing import Any, Iterable, Iterator
 import httpx
 import psycopg
 
-from . import db, rawstore
+from . import db, placsp_awards, rawstore
 from .buyer_vocab import effective_buyer_class
 from .classify import classify, detects_subcontracting
 from .config import settings
@@ -1837,8 +1837,10 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
         # The walk reads and writes this dict; `_ingest_placsp` finds it here.
         verdict.seen = seen
 
-        _ingest_placsp(placsp.fetch_live(ds, max_pages=max_pages, observe=seen),
-                       f"{ds.source_code}-live", ds, stale_reason=verdict)
+        # The award results ride along (WP-61): landed (persons blanked first) and loaded by the archive
+        # loader's own code path, `placsp_awards.Loader`, read again only when a folder's result changes.
+        _ingest_placsp(placsp.fetch_live(ds, max_pages=max_pages, observe=seen, with_results=True),
+                       f"{ds.source_code}-live", ds, stale_reason=verdict, awards=placsp_awards.Loader)
         from .ops.notify import notify
 
         if gap():
@@ -1861,7 +1863,7 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
             since = (first - timedelta(days=1)).replace(day=1)
             arch: dict = {}
             entries = list(placsp.fetch_archive(ds.monthly_archive_url(year, month), ds,
-                                                observe=arch, since=since))
+                                                observe=arch, since=since, with_results=True))
             newest = arch.get("newest")
             if newest is None or (live_newest is not None and newest <= live_newest):
                 # An archive holding nothing newer than the frozen live feed
@@ -1874,7 +1876,8 @@ def run_placsp_live(max_pages: int = 20, datasets: Iterable[placsp.Dataset] = ()
                 log.warning(msg)
                 notify(f"[dgate] {msg}")
                 continue
-            _ingest_placsp(iter(entries), f"{ds.source_code}-{year}{month:02d}", ds)
+            _ingest_placsp(iter(entries), f"{ds.source_code}-{year}{month:02d}", ds,
+                           awards=placsp_awards.Loader)
 
 
 @db.historical("backfill")

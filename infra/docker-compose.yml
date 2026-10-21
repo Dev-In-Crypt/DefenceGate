@@ -100,6 +100,8 @@ services:
       DGATE_SITE_URL: https://${DGATE_DOMAIN:-localhost}
       DGATE_TELEGRAM_TOKEN: ${DGATE_TELEGRAM_TOKEN:-}
       DGATE_TELEGRAM_CHAT_ID: ${DGATE_TELEGRAM_CHAT_ID:-}
+      # PLACSP winners on the supplier map (WP-60/61): an owner decision, off until `true` (docs/sources/es_placsp.md).
+      DGATE_PLACSP_AWARDS_PUBLIC: ${DGATE_PLACSP_AWARDS_PUBLIC:-false}
     mem_limit: 512m
     pids_limit: 256
     cap_drop: [ALL]
@@ -147,6 +149,8 @@ services:
       DGATE_OPENAI_API_KEY: ${DGATE_OPENAI_API_KEY:-}
       DGATE_OPENAI_MODEL: ${DGATE_OPENAI_MODEL:-}
       DGATE_LLM_MONTHLY_CAP_USD: ${DGATE_LLM_MONTHLY_CAP_USD:-5}
+      # The monthly PLACSP archive catch-up of the award results (WP-61): off until `true`.
+      DGATE_PLACSP_AWARDS_CATCHUP: ${DGATE_PLACSP_AWARDS_CATCHUP:-false}
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
       DGATE_RAW_DIR: /raw
       # The raw store is the thing the archive can be rebuilt from, so the

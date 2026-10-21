@@ -75,6 +75,22 @@ clearly allowed** by anything read: those are governed by the GDPR and LO 3/2018
 them at all. Whether to serve the company winners publicly is the owner's decision (`DGATE_PLACSP_AWARDS_PUBLIC`).
 If they are served, the supplier pages must carry the attribution and the date of last update.
 
+## How the terms are met when the switch is on (WP-61, 21 October 2026)
+
+- **Cite the source.** `/v1/suppliers/summary` lists PLACSP in `sources` with the attribution of the `es_placsp_awards`
+  source row ("Origen de los datos: Ministerio de Hacienda (Plataforma de Contratación del Sector Público)"); `/suppliers`
+  prints it under the counts, and every supplier profile that shows a PLACSP win prints it in `attribution`.
+- **Date of last update.** `lastUpdated` (summary) and "as last updated on YYYY-MM-DD" (profile) are the newest
+  `atom:updated` stamp of the PLACSP entries read (`award_notice.payload_updated_at`), i.e. the publisher's own date.
+- **Do not distort.** Winners are shown as the buyer named them; a win published in TED and PLACSP is counted once and
+  the other publication is listed under it (`alsoPublished`), so neither source's record is merged into the other's text.
+- **No endorsement.** Nothing on the pages says the ministry takes part in or sponsors the site.
+- **Natural persons.** Never landed, stored or shown; only counted (`skippedNaturalPersons`).
+- **Collection.** Since WP-61 the nightly live walk (`pipeline.run_placsp_live`, worker job `placsp_daily`) collects the
+  award results of the entries it reads anyway, with the archive loader's code path: no extra request to the publisher.
+  The monthly archive catch-up (`worker.job_placsp_awards_catchup`, the 3rd at 12:00 UTC, one archive download) is off
+  unless `DGATE_PLACSP_AWARDS_CATCHUP=true`.
+
 ## The twelve questions (technical appendix Part V), for the award results
 
 | # | Question | Answer |

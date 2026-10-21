@@ -685,9 +685,12 @@ def _oldest(stamps: list[str]) -> datetime | None:
 
 def fetch_live(
     dataset: Dataset = MAIN, *, client: httpx.Client | None = None, max_pages: int = 50,
-    observe: dict | None = None,
-) -> Iterator[Opportunity]:
+    observe: dict | None = None, with_results: bool = False,
+) -> Iterator[Any]:
     """Walk one dataset's live feed, following rel="next".
+
+    With `with_results` each item is `(opportunity, award payload or None)`, as from `fetch_archive`
+    (WP-61: the nightly walk collects the award results with the archive loader's code path).
 
     max_pages exists because the chain reaches back to 2012. For daily
     incremental runs a handful of pages is enough; the backfill uses the
@@ -707,7 +710,7 @@ def fetch_live(
     owns = client is None
     client = client or new_client(headers={"User-Agent": USER_AGENT},
                                     timeout=60.0, follow_redirects=True)
-    walked: list[tuple[str, Opportunity]] = []
+    walked: list[tuple[str, Any]] = []
     until = (observe or {}).get("until")
     limit = max(max_pages, (observe or {}).get("hard_cap") or 0)
     pages = 0
@@ -723,10 +726,12 @@ def fetch_live(
 
             r = request_with_retry(fetch, what=f"{dataset.source_code} page {pages + 1}")
             stamps: list[str] = []
-            opps, next_url = parse_feed(r.content, dataset.source_code, stamps=stamps)
+            found: list[dict | None] | None = [] if with_results else None
+            opps, next_url = parse_feed(r.content, dataset.source_code, stamps=stamps, results=found)
             pages += 1
             log.info("%s page %s: %s entries", dataset.source_code, pages, len(opps))
-            walked.extend(zip(stamps, opps, strict=True))
+            walked.extend(zip(stamps, list(zip(opps, found, strict=True)) if found is not None else opps,
+                              strict=True))
             if not next_url:
                 break
             oldest = _oldest(stamps)
@@ -762,8 +767,8 @@ def fetch_live(
     yield from _in_source_order(walked, observe)
 
 
-def _in_source_order(walked: list[tuple[str, Opportunity]],
-                     observe: dict | None) -> Iterator[Opportunity]:
+def _in_source_order(walked: list[tuple[str, Any]],
+                     observe: dict | None) -> Iterator[Any]:
     walked.sort(key=lambda pair: _updated_key(pair[0]))
     if observe is not None:
         observe["newest"] = _updated_key(walked[-1][0]) if walked else None
