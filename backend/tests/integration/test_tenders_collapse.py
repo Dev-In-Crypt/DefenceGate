@@ -102,7 +102,11 @@ def test_a_national_copy_of_an_older_ted_stage_collapses_into_that_stage(client,
     past = datetime.now(timezone.utc) - timedelta(days=1)
     put(conn, "708324-2026", procedure="proc-h", deadline=past, published=date(2026, 10, 14))
     put(conn, "713394-2026", procedure="proc-h", published=date(2026, 10, 15))
-    nat = put(conn, "NAT-H", source="de_bkms", procedure="proc-h", deadline=past, published=date(2026, 10, 13))
+    # A national source that is served (de_bkms, the source of the case, is inactive until the owner switches it
+    # on, so its rows are suppressed by the trigger of migration 0050 and the test passed or failed on the order
+    # the suite ran in). It is listed before it is linked: the assertions below are not vacuous.
+    nat = put(conn, "NAT-H", source="fr_boamp", procedure="proc-h", deadline=past, published=date(2026, 10, 13))
+    assert ids(client, status="closed", q="Armoured") == ["708324-2026", "NAT-H"]
     conn.execute("UPDATE opportunity SET ted_ref = '713394-2026', twin_method = 'procedure_id' WHERE id = %s", (nat,))
     conn.commit()
     assert ids(client, status="closed") == ["708324-2026"]
