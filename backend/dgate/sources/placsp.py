@@ -793,9 +793,10 @@ def _updated_key(stamp: str) -> datetime:
     return value
 
 
-# What a monthly archive may weigh on disk. The largest so far (September 2026) is a few
-# hundred MiB; past this it is not an archive of PLACSP.
-MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
+# What an archive may weigh on disk. A monthly one is a few hundred MiB; the yearly 2025 one passed
+# 2 GiB (21 Oct 2026); past 4 GiB it is not an archive of PLACSP. The disk floor of ops/placsp_archives
+# still applies before a download.
+MAX_ARCHIVE_BYTES = 4 * 1024 * 1024 * 1024
 
 
 class DiskLow(RuntimeError):
