@@ -2503,18 +2503,18 @@
     ],
     "prerequisites": [
      {
-      "code": "REQ-RID",
-      "name": "RID registration (Registro de la Industria de Defensa, Spain)",
-      "relation": "before",
-      "status": "not_held",
-      "step": 5
-     },
-     {
       "code": "REQ-ISO9001",
       "name": "ISO 9001 quality management certificate",
       "relation": "before",
       "status": "held",
       "step": null
+     },
+     {
+      "code": "REQ-RID",
+      "name": "RID registration (Registro de la Industria de Defensa, Spain)",
+      "relation": "before",
+      "status": "not_held",
+      "step": 5
      }
     ],
     "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",

@@ -5697,13 +5697,13 @@
    "name": "PECAL certification (Spain, DGAM)",
    "prerequisites": [
     {
-     "code": "REQ-RID",
-     "name": "RID registration (Registro de la Industria de Defensa, Spain)",
+     "code": "REQ-ISO9001",
+     "name": "ISO 9001 quality management certificate",
      "relation": "before"
     },
     {
-     "code": "REQ-ISO9001",
-     "name": "ISO 9001 quality management certificate",
+     "code": "REQ-RID",
+     "name": "RID registration (Registro de la Industria de Defensa, Spain)",
      "relation": "before"
     }
    ],

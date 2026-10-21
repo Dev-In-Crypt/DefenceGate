@@ -392,12 +392,12 @@
     {"requirement": "REQ-EXPORT", "prerequisite": "REQ-REOCE", "relation": "before_or_with"},
     {
       "requirement": "REQ-PECAL",
-      "prerequisite": "REQ-RID",
+      "prerequisite": "REQ-ISO9001",
       "relation": "before"
     },
     {
       "requirement": "REQ-PECAL",
-      "prerequisite": "REQ-ISO9001",
+      "prerequisite": "REQ-RID",
       "relation": "before"
     },
     {

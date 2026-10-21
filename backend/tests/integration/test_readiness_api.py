@@ -59,7 +59,8 @@ def test_the_seed_is_applied_once_and_a_second_run_inserts_nothing(conn):
     assert first["inserted"] == rows
     counts = {t: conn.execute(f"SELECT count(*) n FROM {t}").fetchone()["n"] for t in
               ("requirement", "requirement_issuer", "requirement_prerequisite", "readiness_programme", "programme_requirement")}
-    assert counts["requirement"] == 12 and counts["readiness_programme"] == 6 and counts["programme_requirement"] == n_rules
+    # WP-64: 3 requirements and the Spanish MoD route added
+    assert counts["requirement"] == 15 and counts["readiness_programme"] == 7 and counts["programme_requirement"] == n_rules
     second = seed.apply(conn, CONTENT)
     conn.commit()
     assert second == {"inserted": 0, "deactivated": 0}
@@ -109,9 +110,9 @@ def test_the_worker_applies_the_seed_when_it_starts(conn):
     from dgate import worker
 
     worker.ensure_requirements()
-    assert conn.execute("SELECT count(*) n FROM requirement").fetchone()["n"] == 12
+    assert conn.execute("SELECT count(*) n FROM requirement").fetchone()["n"] == 15
     worker.ensure_requirements()                               # idempotent
-    assert conn.execute("SELECT count(*) n FROM requirement").fetchone()["n"] == 12
+    assert conn.execute("SELECT count(*) n FROM requirement").fetchone()["n"] == 15
 
 
 # --------------------------------------------------------------------- roles
@@ -175,7 +176,7 @@ def test_before_the_rules_are_loaded_the_answer_is_503_never_an_empty_assessment
 
 def test_the_catalogue_lists_every_requirement_with_its_source(client):
     body = client.get("/v1/requirements").json()
-    assert body["total"] == 12 == len(body["items"])
+    assert body["total"] == 15 == len(body["items"])        # 12, and REQ-RID, REQ-PECAL, REQ-HSES-ES (WP-64)
     assert body["meta"]["rulesReviewed"] == "2026-10-18"
     for item in body["items"]:
         assert item["sourceUrl"].startswith("http") and item["lastReviewed"] and item["verificationStatus"] in {"V", "S", "U"}
@@ -193,7 +194,7 @@ def test_one_requirement_with_issuers_rules_prerequisites_and_the_verbatim_sourc
     assert body["vendorRangeLabel"] == "vendor range, not a benchmark"
     assert all(r["source"]["text"] for r in body["rules"]) and body["rules"]
     iso = client.get("/v1/requirements/REQ-ISO9001").json()
-    assert iso["requiredBy"] == ["REQ-AQAP2110"]
+    assert iso["requiredBy"] == ["REQ-AQAP2110", "REQ-PECAL"]      # PECAL: a formal precondition (WP-64, PA 4302)
     assert client.get("/v1/requirements/REQ-NCAGE").json()["cost"] == {
         "min": 0, "max": 0, "currency": None, "basis": "free", "text": "Free of charge (NSPA)", "alt": None, "label": None}
 
@@ -233,7 +234,7 @@ def test_issuers_for_a_country_fall_back_to_the_all_country_body_and_say_when_no
 
 def test_the_rules_are_public_with_their_expressions_and_sources(client):
     body = client.get("/v1/readiness/programmes").json()
-    assert [p["code"] for p in body["programmes"]] == ["EDF", "EDIP", "EDIP-USI", "SAFE", "NATO-SUPPLY", "GENERAL"]
+    assert [p["code"] for p in body["programmes"]] == ["EDF", "EDIP", "EDIP-USI", "SAFE", "NATO-SUPPLY", "ES-MOD", "GENERAL"]
     safe = next(p for p in body["programmes"] if p["code"] == "SAFE")
     rule = next(r for r in safe["rules"] if r["rule"] == "SAFE-ORIGIN-35")
     assert rule["condition"] == {"threshold": {"field": "non_eu_component_cost_pct", "lte": 35}}
@@ -265,7 +266,9 @@ def test_a_ukrainian_profile_gets_the_verdicts_the_rules_give(client):
 def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_path(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {"REQ-ISO9001": "held"}}).json()
     # WP-42 R1: the Ukraine Support Instrument also needs a Ukrainian applicant or partner, which a Spanish company's answers cannot supply
-    assert verdicts(body) == {"EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
+    # and the Spanish MoD route (WP-64): the RID is not asked yet, so conditional
+    assert verdicts(body) == {"EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "SAFE": "eligible", "NATO-SUPPLY": "obtain",
+                              "ES-MOD": "conditional"}
     steps = {s["code"]: s for s in body["roadmap"]["steps"]}
     # D10: Spain's AQAP route is the state's own; no vendor price is shown for it
     assert steps["REQ-AQAP2110"]["cost"] is None and "state issues this itself" in steps["REQ-AQAP2110"]["priceNote"]
@@ -273,7 +276,8 @@ def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_
                                                     "statuses": {"REQ-ISO9001": "held"}}).json()
     aqap = next(s for s in pl["roadmap"]["steps"] if s["code"] == "REQ-AQAP2110")
     assert aqap["cost"]["max"] == 25000 and aqap["variantUsed"] == "REQ-ISO9001" and aqap["priceNote"] is None
-    assert {s["code"] for s in body["roadmap"]["steps"]} == {"REQ-PIC", "REQ-NCAGE", "REQ-FSC-ES", "REQ-REOCE", "REQ-EXPORT", "REQ-AQAP2110"}
+    assert {s["code"] for s in body["roadmap"]["steps"]} == {"REQ-PIC", "REQ-NCAGE", "REQ-FSC-ES", "REQ-REOCE", "REQ-EXPORT", "REQ-AQAP2110",
+                                                             "REQ-RID", "REQ-PECAL"}      # WP-64
     held = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {
         "REQ-ISO9001": "held", "REQ-PIC": "held", "REQ-NCAGE": "held"}}).json()
     assert verdicts(held)["EDF"] == "eligible" and verdicts(held)["NATO-SUPPLY"] == "eligible"
@@ -282,7 +286,9 @@ def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_
 def test_every_line_of_an_assessment_has_its_source_and_a_date(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {}}).json()
     lines = [r for a in (*body["assessments"], *body["general"]) for r in a["rules"]]
-    assert len(lines) == 44          # 41 and the three rules of who may apply to an EDIP call of one kind of action (V2-B1)
+    # 41, the three rules of who may apply to an EDIP call of one kind of action (V2-B1), and since WP-64 the 21 rules of the
+    # Spanish MoD route, the 9 German and EU general rules and NATO-AQAP-ED
+    assert len(lines) == 75
     for r in lines:
         s = r["source"]
         assert s["url"].startswith("http") and s["text"].startswith("[") and s["ref"] and s["lastReviewed"], r["rule"]
