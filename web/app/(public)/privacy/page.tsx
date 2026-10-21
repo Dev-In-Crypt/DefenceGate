@@ -55,6 +55,7 @@ export default function PrivacyPage() {
         <p className={P}>While you browse, the site sets no cookies. These are the only items it ever stores in your browser:</p>
         <ClauseList items={[
           <><span className="font-mono">dg-theme</span> (local storage, your device only): your light or dark choice. Kept until you clear your browser data.</>,
+          <><span className="font-mono">dg.profile.v1</span> (local storage, your device only): only if you use the readiness check or the supplier profile, the answers you give there (for example a company name, its country and size, product codes and certificates). They are not stored on our server; to compute a result they are sent once and not kept. You can delete them with &ldquo;Clear my answers&rdquo; in the readiness check, or by clearing your browser data.</>,
           <><span className="font-mono">__Host-dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it. Expires after 15 minutes.</>,
           <><span className="font-mono">__Host-dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
         ]} />
