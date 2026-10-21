@@ -69,10 +69,11 @@ services:
     build:
       context: ../backend
     # --proxy-headers so the address the limiter sees is the client's, not Caddy's;
-    # trusted from any peer because nothing but Caddy can reach this port (it is
-    # `expose`d to the compose network, never published).
+    # trusted from Caddy's own address on the `edge` network only (WP-71, QA M10): the
+    # worker, the site's server and the migration job share the default network and can
+    # reach this port, and with `*` any of them could claim to be 127.0.0.1.
     command: ["uvicorn", "dgate.api:app", "--host", "0.0.0.0", "--port", "8000",
-              "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header",
+              "--proxy-headers", "--forwarded-allow-ips", "10.250.71.2", "--no-server-header",
               # uvicorn's access line holds the client address (--proxy-headers) and the
               # query string, and container logs rotate by size only. The proxy's own
               # access log is the one request log, and it has a 14-day limit (logprune).
@@ -85,9 +86,10 @@ services:
       # its own role, which can write app_* tables and nothing else.
       DGATE_APP_DSN: postgresql://dgate_app:${DGATE_APP_PASSWORD:?set DGATE_APP_PASSWORD in infra/.env}@postgres:5432/${POSTGRES_DB:-dgate}
       # Shared with the site's server (`web`, DG_INTERNAL_SECRET): once it is set the account and
-      # visit-counter routes refuse a call that does not carry it in `X-DG-Internal`. Unset means
-      # the network boundary is the only control (infra/.env.example says how to make one).
-      DGATE_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:-}
+      # visit-counter routes refuse a call that does not carry it in `X-DG-Internal`. Required
+      # (WP-71): compose refuses to start without it, and so does the API (DGATE_ENV below).
+      DGATE_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:?set DGATE_INTERNAL_SECRET in infra/.env}
+      DGATE_ENV: production
       # Only the key of the sign-in throttle counters when DGATE_INTERNAL_SECRET is unset.
       DGATE_APP_PASSWORD: ${DGATE_APP_PASSWORD}
       # Mail for sign-in links. Without a relay sign-in stays closed; nothing is faked.
@@ -120,6 +122,12 @@ services:
     restart: unless-stopped
     expose:
       - "8000"
+    networks:
+      default: {}
+      # Caddy reaches the API as `api-edge`, a name that exists on this network only, so its
+      # address as the API sees it is always 10.250.71.2, the one trusted for X-Forwarded-For.
+      edge:
+        aliases: [api-edge]
 
   worker:
     logging:
@@ -235,7 +243,7 @@ services:
       DG_API_URL: http://api:8000
       # The same value as the API's DGATE_INTERNAL_SECRET. Server-side only: it is read by the
       # account module and the middleware and never reaches a browser.
-      DG_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:-}
+      DG_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:?set DGATE_INTERNAL_SECRET in infra/.env}
     mem_limit: 512m
     pids_limit: 256
     cap_drop: [ALL]
@@ -273,6 +281,10 @@ services:
       - caddylogs:/var/log/caddy
     depends_on:
       - api
+    networks:
+      default: {}
+      edge:
+        ipv4_address: 10.250.71.2
 
   # Keeps the proxy's request logs to 14 days (Privacy notice, section 2): cuts old lines
   # from the active files and deletes rolled ones, hourly. It reads only each line's
@@ -298,6 +310,14 @@ services:
     security_opt: ["no-new-privileges:true"]
     read_only: true
     restart: unless-stopped
+
+# The proxy and the API only (WP-71, QA M10). A fixed subnet so Caddy has a fixed address the API
+# trusts for X-Forwarded-For; 10.250.71.0/29 is outside Docker's default pools and the host's routes.
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 10.250.71.0/29
 
 volumes:
   atlas:

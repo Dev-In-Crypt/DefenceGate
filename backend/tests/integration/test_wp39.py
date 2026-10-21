@@ -183,7 +183,7 @@ def test_the_list_serves_a_bounded_number_of_positions(conn, env, client, monkey
     second = client.get("/v1/suppliers?pageSize=2&page=2&sort=name").json()
     assert len(second["items"]) == 1                      # positions 3 only: the cap cuts the page, not just the offset
     r = client.get("/v1/suppliers?pageSize=2&page=3&sort=name")
-    assert r.status_code == 422 and "first 3" in r.json()["detail"]
+    assert r.status_code == 422 and "first 3" in r.json()["detail"][0]["msg"]
     assert client.get("/v1/suppliers?pageSize=1&page=4").status_code == 422
     assert suppliers.MAX_OFFSET == 3
     monkeypatch.undo()

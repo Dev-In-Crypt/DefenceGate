@@ -413,34 +413,41 @@ def read_award(rec: dict[str, Any]) -> Read:
             out.winners.append(Winner(cleaned, country, None if looks_like_contact(ident) else (ident or None)))
     if not out.winners_seen:
         out.counts["winner_not_among_tenderers"] += 1
-    out.redacted = _redact(rec, names, blank, idents, len(idents) == n)
+    out.redacted = _redact(rec, names, blank, idents, len(idents) == n, one_country)
     return out
 
 
 def _redact(rec: dict[str, Any], names: list[str], blank: set[int], idents: list[str],
-            ids_aligned: bool) -> dict[str, Any]:
+            ids_aligned: bool, country: str | None = None) -> dict[str, Any]:
     """The record with the names (and numbers) of natural persons blanked, positions kept, and any contact
-    detail typed into an identifier field removed."""
+    detail typed into an identifier field removed.
+
+    Every name the record states is tested, not only the longest tenderer list: a `winner-name` that is not
+    among the tenderers, or another language's spelling of a tenderer, is landed too (WP-71, QA M6)."""
     red = copy.deepcopy(rec)
     contact = [i for i, x in enumerate(idents) if looks_like_contact(x)]
     winner_ids = _flat(rec.get("winner-identifier"))
-    if not blank and not contact and not any(looks_like_contact(x) for x in winner_ids):
-        return red
     bad = {names[i] for i in blank}
+    others = set(_flat(rec.get("winner-name"))) | set(_flat(rec.get("organisation-name-tenderer")))
+    bad |= {x for x in others - set(names) if person_reason(x, None, country)}
+    if not bad and not contact and not any(looks_like_contact(x) for x in winner_ids):
+        return red
     for key in ("winner-name", "organisation-name-tenderer"):
         v = red.get(key)
         if isinstance(v, dict):
-            red[key] = {lang: [PERSON_PLACEHOLDER if x in bad else x for x in (lst or [])] for lang, lst in v.items()}
+            red[key] = {lang: [PERSON_PLACEHOLDER if str(x).strip() in bad else x for x in (lst or [])]
+                        for lang, lst in v.items()}
         elif isinstance(v, list):
-            red[key] = [PERSON_PLACEHOLDER if x in bad else x for x in v]
+            red[key] = [PERSON_PLACEHOLDER if str(x).strip() in bad else x for x in v]
     ids = red.get("organisation-identifier-tenderer")
     if isinstance(ids, list):
         drop = blank | set(contact)
         red["organisation-identifier-tenderer"] = (
             ["" if i in drop else x for i, x in enumerate(ids)] if ids_aligned else [])
-    elif isinstance(ids, dict) and contact:
+    elif isinstance(ids, dict) and (contact or bad):
+        # positions in a per-language block cannot be matched to a person: the block goes
         red["organisation-identifier-tenderer"] = {}
-    if blank or any(looks_like_contact(x) for x in winner_ids):
+    if bad or any(looks_like_contact(x) for x in winner_ids):
         red.pop("winner-identifier", None)
     return red
 

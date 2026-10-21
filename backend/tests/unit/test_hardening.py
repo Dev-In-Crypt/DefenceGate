@@ -82,11 +82,13 @@ def test_a_request_costs_what_its_shape_costs_the_database():
                                         "pageSize": "250"}) <= 30
 
 
-def test_an_ipv6_client_is_its_64_not_one_bucket_per_address():
+def test_an_ipv6_client_is_its_48_not_one_bucket_per_address():
     from dgate.hardening import client_key
 
-    assert client_key("2001:db8:1:2:aaaa:bbbb:cccc:dddd") == client_key("2001:db8:1:2::1") == "2001:db8:1:2::/64"
-    assert client_key("2001:db8:1:3::1") != client_key("2001:db8:1:2::1")
+    assert client_key("2001:db8:1:2:aaaa:bbbb:cccc:dddd") == client_key("2001:db8:1:2::1") == "2001:db8:1::/48"
+    # WP-71 (QA M9): the 65,536 /64s of one free /48 are one client, not 65,536
+    assert client_key("2001:db8:1:3::1") == client_key("2001:db8:1:ffff::1") == client_key("2001:db8:1:2::1")
+    assert client_key("2001:db8:2::1") != client_key("2001:db8:1:2::1")
     assert client_key("::ffff:203.0.113.9") == "203.0.113.9"
     assert client_key("203.0.113.9") == "203.0.113.9"
     assert client_key("unknown") == "unknown"

@@ -57,11 +57,16 @@ def is_internal(peer: str) -> bool:
         return False
 
 
+# An IPv6 client is bucketed by its /48: a tunnel broker hands out a /48 for free, and per /64
+# that was 65,536 buckets for one person (QA M9, 21 October 2026). A /48 is a site's whole
+# allocation, so a large network behind one /48 shares a bucket -- the side to err on.
+IPV6_PREFIX = 48
+
+
 def client_key(address: str) -> str:
-    """The bucket key of an address: an IPv6 client is its /64 (what one subscriber is
-    handed, 2^64 addresses), a mapped IPv4 address is the IPv4 one, and a string that is
-    not an address is itself. Without this one subscriber had 2^64 fresh buckets
-    (internal audit H4, 14 October 2026)."""
+    """The bucket key of an address: an IPv6 client is its /48 (`IPV6_PREFIX`), a mapped IPv4
+    address is the IPv4 one, and a string that is not an address is itself. Without this one
+    subscriber had 2^64 fresh buckets (internal audit H4, 14 October 2026)."""
     try:
         ip = ipaddress.ip_address(address)
     except ValueError:
@@ -69,7 +74,7 @@ def client_key(address: str) -> str:
     if isinstance(ip, ipaddress.IPv6Address):
         if ip.ipv4_mapped is not None:
             return str(ip.ipv4_mapped)
-        return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+        return str(ipaddress.ip_network(f"{ip}/{IPV6_PREFIX}", strict=False))
     return str(ip)
 
 
@@ -152,12 +157,17 @@ def request_cost(path: str, params: dict[str, str]) -> int:
     return min(cost, MAX_COST)
 
 
+MAX_BUCKETS = 20_000
+PRUNE_EVERY_SECONDS = 5.0
+
+
 class TokenBuckets:
     def __init__(self, capacity: float = CAPACITY, refill: float = REFILL_PER_SECOND,
                  clock: Callable[[], float] = time.monotonic) -> None:
         self.capacity, self.refill, self.clock = capacity, refill, clock
         self._buckets: dict[str, tuple[float, float]] = {}
         self._lock = threading.Lock()
+        self._pruned = float("-inf")
 
     def take(self, key: str, cost: float) -> tuple[bool, float]:
         """(allowed, seconds to wait when not)."""
@@ -172,11 +182,18 @@ class TokenBuckets:
                 self._buckets[key] = (tokens, now)
                 allowed = False
                 wait = min(3600.0, (cost - tokens) / self.refill) if self.refill > 0 else 3600.0
-            if len(self._buckets) > 20_000:
-                # A flood of distinct addresses must not become a memory leak:
-                # forget the ones that have been idle long enough to be full again.
-                horizon = now - self.capacity / self.refill
-                self._buckets = {k: v for k, v in self._buckets.items() if v[1] > horizon}
+            if len(self._buckets) > MAX_BUCKETS and now - self._pruned >= PRUNE_EVERY_SECONDS:
+                # A flood of distinct addresses must not become a memory leak: forget the
+                # ones idle long enough to be full again, and if that is not enough, the
+                # least recently seen. At most every few seconds: rebuilding the dict on
+                # every request under the one lock serialised the whole process (QA M9).
+                self._pruned = now
+                horizon = now - self.capacity / self.refill if self.refill > 0 else now
+                kept = {k: v for k, v in self._buckets.items() if v[1] > horizon}
+                if len(kept) > MAX_BUCKETS:
+                    kept = dict(sorted(kept.items(), key=lambda kv: kv[1][1])[-(MAX_BUCKETS // 2):])
+                    kept[key] = self._buckets[key]
+                self._buckets = kept
         return allowed, wait
 
 
