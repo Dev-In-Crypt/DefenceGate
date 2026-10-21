@@ -1,6 +1,6 @@
 """Fill the missing or doubled CORDIS amounts from the official bulk exports (WP-70).
 
-    python -m dgate.ops.cordis_bulk --dir /bulk --download   # find and fetch the three CSV packages, then a dry run
+    python -m dgate.ops.cordis_bulk --dir /bulk              # the three CSV packages, downloaded by a person (robots.txt)
     python -m dgate.ops.cordis_bulk --dir /bulk              # dry run on the packages already in /bulk
     python -m dgate.ops.cordis_bulk --dir /bulk --yes        # write, then rebuild the directory table
 
@@ -319,11 +319,11 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if a.download:
-        with httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=120.0, follow_redirects=True) as client:
-            for i, url in enumerate(bulk_urls(client)):
-                if i:
-                    time.sleep(1.0)
-                download(url, a.dir, client)
+        # cordis.europa.eu/robots.txt disallows /data/, where the packages are: the project honours robots.txt, so
+        # this tool never fetches them. A person downloads the three CSV zips in a browser and puts them in --dir.
+        log.error("--download is disabled: robots.txt disallows /data/ on cordis.europa.eu; download the "
+                  "cordis-*projects-csv.zip packages in a browser and put them in %s", a.dir)
+        return 2
     paths = sorted(a.dir.glob("cordis-*projects-csv.zip"))
     if not paths:
         log.error("no cordis-*projects-csv.zip in %s (use --download)", a.dir)
