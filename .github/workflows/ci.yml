@@ -79,4 +79,5 @@ jobs:
           POSTGRES_PASSWORD: ci-only-not-a-secret
           DGATE_API_PASSWORD: ci-only-not-a-secret
           DGATE_WORKER_PASSWORD: ci-only-not-a-secret
+          DGATE_INTERNAL_SECRET: ci-only-not-a-secret
           DGATE_APP_PASSWORD: ci-only-not-a-secret
