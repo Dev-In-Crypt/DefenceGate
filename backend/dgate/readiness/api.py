@@ -18,6 +18,7 @@ import dataclasses
 import re
 import threading
 import time
+from collections.abc import Mapping
 from contextlib import ExitStack
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -30,7 +31,7 @@ from ..config import settings
 from ..regime import action_of
 from ..suppress import removed
 from . import engine, roadmap
-from .content import Content, Money, Requirement, Rule
+from .content import Content, Money, Programme, Requirement, Rule
 from .seed import read_content
 
 router = APIRouter()
@@ -142,11 +143,28 @@ def _source(url: str, ref: str | None, text: str | None, origin: str, status: st
     return {"url": url, "ref": ref, "text": text, "origin": origin, "verificationStatus": status, "lastReviewed": reviewed}
 
 
-def _result(r: engine.RuleResult) -> dict[str, Any]:
+def question(c: Content, name: str) -> str:
+    """The question behind an ask: a profile field's label, or for a requirement the questionnaire does not ask its own question."""
+    if name in engine.FIELDS:
+        return engine.FIELDS[name]["label"]
+    return c.requirements[name].extras["question"]
+
+
+def unasked(c: Content) -> list[str]:
+    """The requirements the questionnaire does not ask (they carry `extras.question`): not mentioned reads as unknown."""
+    return [code for code, r in c.requirements.items() if r.extras.get("question")]
+
+
+def _asks(c: Content, names) -> list[dict[str, str]]:
+    return [{"field": f, "question": question(c, f)} for f in names]
+
+
+def _result(r: engine.RuleResult, c: Content) -> dict[str, Any]:
     return {
         "rule": r.rule, "title": r.title, "outcome": r.outcome, "reason": r.reason, "obligation": r.obligation,
         "kind": r.kind, "requirement": r.requirement, "note": r.note, "denominator": r.denominator,
-        "asks": [{"field": f, "question": engine.FIELDS[f]["label"]} for f in r.asks],
+        "consultant": r.consultant,
+        "asks": _asks(c, r.asks),
         "source": _source(r.source_url, r.source_ref, r.source_text, r.text_origin, r.verification_status, r.last_reviewed),
     }
 
@@ -157,8 +175,8 @@ def _assessment(a: engine.Assessment, c: Content) -> dict[str, Any]:
         "programme": a.programme, "name": a.name, "kind": a.kind, "summary": p.summary, "legalBasis": p.legal_basis,
         "sourceUrl": p.source_url, "verdict": a.verdict, "incomplete": a.incomplete, "blocking": list(a.blocking),
         "conditions": list(a.conditions), "toObtain": list(a.to_obtain), "counts": a.summary,
-        "missing": [{"field": f, "question": engine.FIELDS[f]["label"]} for f in a.missing],
-        "rules": [_result(r) for r in a.rules],
+        "missing": _asks(c, a.missing),
+        "rules": [_result(r, c) for r in a.rules],
     }
 
 
@@ -262,6 +280,35 @@ class ProfileIn(BaseModel):
     export_intent: Literal["none", "within_eu", "outside_eu", "unsure"] | None = None
     applicant_kind: Literal["company_or_research", "contracting_authority", "international_organisation", "seap", "eda"] | None = None
     ua_partner: bool | None = None
+    # WP-64: the questions of the Spain, Germany and NATO/EU rules; the questionnaire does not send them yet (WP-65 will)
+    nato_icb_bid: bool | None = None
+    rid_capabilities_declared: bool | None = None
+    pecal_certificate_wanted: bool | None = None
+    pecal_system_9_months: bool | None = None
+    pecal_prior_contract: bool | None = None
+    pecal_2310_target: bool | None = None
+    stores_classified: bool | None = None
+    nato_classified_contract: bool | None = None
+    nsfcc_held: bool | None = None
+    nato_staff_cleared: bool | None = None
+    ncage_need_justified: bool | None = None
+    specific_defence_use: bool | None = None
+    homologation_mandatory: bool | None = None
+    homologated: bool | None = None
+    es_defence_material_list: Literal["yes", "no", "unsure"] | None = None
+    foreign_capital: bool | None = None
+    foreign_investor_authorised: bool | None = None
+    receives_eea_defence_products: bool | None = None
+    certified_recipient: bool | None = None
+    de_vs_vertraulich: bool | None = None
+    ghb_admitted: bool | None = None
+    de_vs_nfd: bool | None = None
+    vsnfd_declaration_signed: bool | None = None
+    vsnfd_merkblatt: bool | None = None
+    sibe_appointed: bool | None = None
+    de_ausfuhrliste: Literal["part_i_a", "part_i_b", "neither", "unsure"] | None = None
+    dualuse_annex_i: Literal["yes", "no", "unsure"] | None = None
+    us_components: bool | None = None
 
     @field_validator("country", "executive_management_country")
     @classmethod
@@ -297,6 +344,17 @@ class AssessIn(BaseModel):
         return v
 
 
+def assess_all(c: Content, profile: engine.Profile, statuses: Mapping[str, str],
+               chosen: list[Programme]) -> tuple[list[engine.Assessment], list[engine.Assessment]]:
+    """The assessments the answer shows: the chosen programmes and the general rules. A requirement the questionnaire does not
+    ask reads as unknown (`unasked`), and a route whose every rule is for another country (the Spanish MoD route for a Polish
+    company) says nothing about this company: it is left out rather than shown as "eligible"."""
+    read = engine.with_unasked(statuses, unasked(c))
+    assessments = [a for a in (engine.assess(profile, read, p) for p in chosen) if engine.concerns(a)]
+    general = [engine.assess(profile, read, p) for p in c.programmes.values() if p.kind == "general"]
+    return assessments, general
+
+
 def assess_payload(c: Content, profile: engine.Profile, statuses: dict[str, str],
                    programmes: list[str] | None = None) -> dict[str, Any]:
     """The whole answer for one profile, a pure function of the content: the verdict of each programme,
@@ -307,8 +365,7 @@ def assess_payload(c: Content, profile: engine.Profile, statuses: dict[str, str]
         if missing:
             raise KeyError(sorted(missing)[0])
         chosen = [p for p in chosen if p.code in set(programmes)]
-    assessments = [engine.assess(profile, statuses, p) for p in chosen]
-    general = [engine.assess(profile, statuses, p) for p in c.programmes.values() if p.kind == "general"]
+    assessments, general = assess_all(c, profile, statuses, chosen)
     plan = roadmap.build_roadmap([*assessments, *general], statuses, c, profile.country)
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -316,6 +373,7 @@ def assess_payload(c: Content, profile: engine.Profile, statuses: dict[str, str]
         "assessments": [_assessment(a, c) for a in assessments],
         "general": [_assessment(a, c) for a in general],
         "roadmap": plan,
+        "consultants": [{**f, "asks": _asks(c, f["asks"])} for f in engine.consultant_flags(profile, [*assessments, *general])],
         "call": None,
         "notice": NOTICE,
     }
@@ -373,8 +431,9 @@ def _call(conn, c: Content, call_id: int, statuses, profile) -> dict[str, Any]:
     if not mapped:
         out["text"] = ("No readiness rules are encoded for the programme of this call, so no verdict is given.")
         return out
+    read = engine.with_unasked(statuses, unasked(c))
     for p in mapped:
-        a = engine.assess(profile, statuses, p)
+        a = engine.assess(profile, read, p)
         plan = roadmap.build_roadmap([a], statuses, c, profile.country)
         timing = roadmap.call_timing(a, plan, row["deadline_at"], now)
         timing["name"] = p.name

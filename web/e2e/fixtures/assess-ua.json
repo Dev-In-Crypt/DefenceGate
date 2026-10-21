@@ -24,6 +24,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
@@ -44,6 +45,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine under the conditions of the EU-Ukraine Association Agreement. That those conditions are met is not confirmed, so a company established in Ukraine is conditional here, not eligible. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF.",
@@ -64,6 +66,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "The same paragraph requires that the infrastructure, facilities, assets and resources used for the action are located in a Member State or an associated country for the whole duration of the action. This service does not ask about that.",
@@ -84,6 +87,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": "The guarantees must show that control is not exercised in a way that restricts the action, that access to sensitive information is prevented, and that intellectual property stays with the recipient. Paragraph 4 of Article 9 lists them.",
@@ -104,6 +108,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -124,6 +129,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -174,6 +180,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "The call documents of the common procurement calls say the same: “be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation”, and that the EDA and international organisations are eligible as beneficiaries if designated as procurement agent. Article 11(3) adds that a consortium needs at least three contracting authorities from three Member States or associated countries, at least two of them contracting authorities of Member States, unless a SEAP applies alone.",
@@ -194,6 +201,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
@@ -214,6 +222,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "The source is the Commission's call document, not the Official Journal.",
@@ -234,6 +243,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "The source is the Commission's call document, not the Official Journal: Article 13(3) of Regulation (EU) 2025/2643 only says that such activities “may be carried out by a SEAP”.",
@@ -254,6 +264,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -274,6 +285,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Paragraph 3 of the same Article also requires the infrastructure, facilities, assets and resources used for the action to be located in a Member State or an associated country. This service does not ask about that.",
@@ -294,6 +306,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": "Paragraph 6 of Article 9 lists what the guarantees must show. Article 9(9) says paragraphs 5 and 6 do not apply to contracting authorities of Member States and associated countries, international organisations, SEAPs and the EDA; this service still asks the question of every applicant.",
@@ -314,6 +327,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": "the estimated cost of the components of the end product (for industrial reinforcement actions, of the product whose production capacity the funding supports)",
      "kind": "threshold",
      "note": "Article 10(3) applies to procurement under Articles 11, 13 and 35. For industrial reinforcement actions (Article 12) paragraph 4 sets the same limit, measured on the product whose production capacity the funding supports. Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries; this service does not ask about that. The answer is about one end product.",
@@ -334,6 +348,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "This is a separate rule from the 35 % limit. It is a yes or no, with no percentage.",
@@ -354,6 +369,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -374,6 +390,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -394,6 +411,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": "A 'subcontractor' in the sense of this Regulation is narrower than any supplier: the definition in Article 2 requires at least 15 % of the value of the contract and a need for access to classified information, and leaves out suppliers that deliver components of their own design or production.",
@@ -441,6 +459,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
@@ -461,6 +480,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -481,6 +501,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Paragraph 3 of the same Article also requires the infrastructure, facilities, assets and resources used for the action to be located in a Member State or in Ukraine. This service does not ask about that.",
@@ -501,6 +522,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -521,6 +543,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": null,
@@ -541,6 +564,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": "the estimated cost of the components of the end product (for industrial reinforcement actions, of the product whose production capacity the funding supports)",
      "kind": "threshold",
      "note": "Article 27(3) applies to procurement and supporting actions, paragraph 4 to industrial reinforcement actions (measured on the product whose production capacity the funding supports). Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries other than Ukraine; this service does not ask about that. The answer is about one end product.",
@@ -561,6 +585,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "This is a separate rule from the 35 % limit. It is a yes or no, with no percentage.",
@@ -581,6 +606,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -601,6 +627,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -621,6 +648,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -668,6 +696,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Derogation for subcontractors: see the information line on the 15-35 % subcontractor allowance below. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -688,6 +717,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Paragraph 8 also requires the infrastructure, facilities, assets and resources used for the procurement to be located in a Member State, an EEA EFTA state or Ukraine, with a narrow exception where no alternative is readily available. This service does not ask about that. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -708,6 +738,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": "Paragraph 6 of Article 16 lists what the guarantees must show. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -728,6 +759,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": "the estimated cost of the components of the end product",
      "kind": "threshold",
      "note": "The percentage is measured against the estimated cost of the components of the end product, not against the contract value. It is a property of the end product you would supply, so the answer is about one product.",
@@ -748,6 +780,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "This is a separate rule from the 35 % threshold. It is a yes or no, with no percentage.",
@@ -768,6 +801,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -788,6 +822,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -817,7 +852,7 @@
    "conditions": [],
    "counts": {
     "conditional": 0,
-    "info": 1,
+    "info": 2,
     "met": 0,
     "not_applicable": 0,
     "not_met": 0,
@@ -833,6 +868,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -853,9 +889,10 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
-     "note": null,
+     "note": "For Spain this is stated in a primary source: the Ministry of Defence says the PECAL, based on the AQAP, specify the quality requirements that suppliers must meet in the defence contracts that include them (read on 20 October 2026; rule ES-PECAL-CONTRACT of the Spanish defence supplier route, verified). For other countries it rests on the research notes.",
      "obligation": "conditional",
      "outcome": "info",
      "reason": "AQAP 2110 (or 2310 for aviation and space) is required where a NATO or national contract names it. This service cannot know which of your target contracts do.",
@@ -870,6 +907,27 @@
       "verificationStatus": "S"
      },
      "title": "AQAP quality certification"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "When a contract names an AQAP or a PECAL, check the edition. The Ministry of Defence lists: PECAL 2110 Ed. 4 = AQAP-2110 Ed. D V1; PECAL 2310 Ed. B V1 = AQAP-2310 Ed. B V1; PECAL 2131 Ed. 3 = AQAP-2131 Ed. C V1 (final inspection and test, relevant to build-to-print component makers). PECAL 2210 is a supplement to 2110 or 2310. The contractual AQAP/PECAL 2000 series is a civil standard such as ISO 9001 plus NATO-specific requirements.",
+     "requirement": null,
+     "rule": "NATO-AQAP-ED",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Aseguramiento de la calidad (list of PECAL and AQAP editions)",
+      "text": "[Ministerio de Defensa, Aseguramiento de la calidad] Los requisitos de la serie de normas AQAP/PECAL 2000 contractuales son los requisitos de una norma civil (como por ejemplo, los de la ISO 9001) más una serie de requisitos específicos OTAN.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/aseguramientocalidad/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "AQAP editions as the Spanish Ministry of Defence lists them"
     }
    ],
    "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
@@ -881,6 +939,32 @@
   }
  ],
  "call": null,
+ "consultants": [
+  {
+   "asks": [
+    {
+     "field": "dualuse_annex_i",
+     "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+    }
+   ],
+   "key": "EU-DUALUSE-EXPERT",
+   "rule": "EU-DUALUSE-EXPERT",
+   "text": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
+   "title": "Is your item a listed dual-use item? (classification)"
+  },
+  {
+   "asks": [
+    {
+     "field": "us_components",
+     "question": "Does your product contain components, technology or software of US origin?"
+    }
+   ],
+   "key": "US-COMPONENTS",
+   "rule": null,
+   "text": "If your product contains components, technology or software of US origin, US export control (for defence articles, the International Traffic in Arms Regulations, ITAR) may decide to whom it can be sold or re-exported. This service holds no verified rule on US export control and gives no answer on it: ask a specialist in US export control.",
+   "title": "US-origin components (ITAR)"
+  }
+ ],
  "general": [
   {
    "blocking": [],
@@ -889,20 +973,26 @@
     "conditional": 0,
     "info": 0,
     "met": 0,
-    "not_applicable": 6,
+    "not_applicable": 14,
     "not_met": 1,
     "to_obtain": 0,
-    "unknown": 0
+    "unknown": 1
    },
    "incomplete": false,
    "kind": "general",
    "legalBasis": null,
-   "missing": [],
+   "missing": [
+    {
+     "field": "dualuse_annex_i",
+     "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+    }
+   ],
    "name": "Requirements that apply whichever route you take",
    "programme": "GENERAL",
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -923,6 +1013,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "export",
      "note": null,
@@ -943,6 +1034,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -963,6 +1055,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "export",
      "note": "Article 4(2) of the Directive lets a Member State exempt some transfers, for example where the supplier or the recipient is a governmental body or part of the armed forces. UNVERIFIED: which authority issues military licences in Germany and Poland. The research notes name the authority for dual-use items only.",
@@ -983,26 +1076,28 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "export",
-     "note": null,
+     "note": "REOCE is open only to Spanish residents: a company resident elsewhere follows the rules of its own country.",
      "obligation": "conditional",
      "outcome": "not_applicable",
      "reason": "This applies to Spanish exporters of controlled items only.",
      "requirement": "REQ-REOCE",
      "rule": "G-REOCE",
      "source": {
-      "lastReviewed": "2026-09-07",
-      "origin": "notes",
-      "ref": "DefenceGate technical appendix, Spain export control",
-      "text": "[DefenceGate technical appendix, Spain export control] exporters must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents.",
-      "url": "https://comercio.gob.es/",
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ley 53/2007, art. 12; Real Decreto 679/2014, art. 13",
+      "text": "[Ley 53/2007, art. 12] Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso.",
+      "url": "https://www.boe.es/eli/es/l/2007/12/28/53/con",
       "verificationStatus": "V"
      },
      "title": "REOCE registration (Spanish exporters)"
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "security",
      "note": null,
@@ -1012,17 +1107,18 @@
      "requirement": "REQ-FSC-ES",
      "rule": "G-HSEM",
      "source": {
-      "lastReviewed": "2026-09-07",
-      "origin": "notes",
-      "ref": "DefenceGate technical appendix, Facility and personnel security clearance",
-      "text": "[DefenceGate technical appendix, Facility and personnel security clearance] Facility clearance is called HSEM (Habilitación de Seguridad de Empresa). ONS maps it directly to the international FSCIS (Facility Security Clearance Information Sheet).",
-      "url": "https://www.cni.es/oficina-nacional-de-seguridad",
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, SEGINFOEMP page; CNI, Oficina Nacional de Seguridad",
+      "text": "[Ministerio de Defensa, SEGINFOEMP page] Obtención, modificación del grado, suspensión o retirada de la Habilitación de Seguridad de Empresa (HSEM) y, en su caso, la Habilitación de Seguridad de Establecimiento (HSES) necesarias para que las empresas puedan participar en los contratos en los que se maneje información clasificada.\n\n[CNI, Oficina Nacional de Seguridad] Creada en 1983, la ONS tiene la misión de proteger la información clasificada mediante la habilitación de personas, empresas y organismos y la acreditación de sistemas TIC en los que se maneja dicha información.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html",
       "verificationStatus": "V"
      },
      "title": "Facility security clearance (Spain)"
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -1040,6 +1136,200 @@
       "verificationStatus": "U"
      },
      "title": "Facility security clearance (other countries)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": "UNVERIFIED: the duration of the admission (the BMWE says it depends on the case).",
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "requirement": null,
+     "rule": "DE-GHB-ADMISSION",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, FAQ “Fragen zum Geheimschutz” (09.03.2026)",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Der Antrag erfolgt durch einen sogenannten VS-Auftraggeber. [...] Ein Eigenantrag ist nicht möglich.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "Admission to the BMWE Geheimschutzbetreuung (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "requirement": null,
+     "rule": "DE-GHB-COST",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, FAQ “Fragen zum Geheimschutz” (09.03.2026)",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Die Geheimschutzbetreuung des BMWE sind [sic] kostenfrei, einschließlich der Beratung während der Geheimschutzbetreuung.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "Cost of the Geheimschutzbetreuung (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies in classified tenders.",
+     "requirement": null,
+     "rule": "DE-GHB-BID",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, Information zu Vergabeverfahren (Stand 10/2026)",
+      "text": "[BMWE, Information zu Vergabeverfahren] Nach den gesetzlichen Bestimmungen ist ein bestehender Sicherheitsbescheid und damit die Aufnahme in die Geheimschutzbetreuung keine zwingende Voraussetzung für die Angebotsabgabe.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/659,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "No security notice needed to submit a bid (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies in contracts with VS-NfD material.",
+     "requirement": null,
+     "rule": "DE-VSNFD",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, Information zu Vergabeverfahren (Stand 10/2026)",
+      "text": "[BMWE, Information zu Vergabeverfahren] Wenn der Auftrag Verschlusssachen des Geheimhaltungsgrades „VS-NUR FÜR DEN DIENSTGEBRAUCH“ (VS-NfD) umfasst, ist kein Sicherheitsbescheid und damit auch keine Geheimschutzbetreuung erforderlich, allerdings verlangen Auftraggeber gem. § 7 Abs. 4 VSVgV bereits vor Gewährung dieses Zugangs die Verpflichtungserklärungen.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/659,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "VS-NUR FÜR DEN DIENSTGEBRAUCH obligations (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "requirement": null,
+     "rule": "DE-SIBE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, FAQ (09.03.2026); SÜG § 25(3), https://www.gesetze-im-internet.de/s_g/__25.html",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Ja, jedes Unternehmen in der Geheimschutzbetreuung muss einen SiBe bestellen.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "Security officer (Sicherheitsbevollmächtigter, Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies whose staff will access classified material.",
+     "requirement": null,
+     "rule": "DE-SUE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "SÜG §§ 8, 9, 10, 17; durations: BT-Drs. 20/11836 (13.06.2024), https://dserver.bundestag.de/btd/20/118/2011836.pdf",
+      "text": "[SÜG § 8] Die einfache Sicherheitsüberprüfung ist für Personen durchzuführen, die 1. Zugang zu VS-VERTRAULICH eingestuften Verschlusssachen erhalten sollen oder ihn sich verschaffen können\n\n[BT-Drs. 20/11836, note to the table of durations] Anmerkung: Die Daten wurden nicht differenziert nach öffentlichem und nichtöffentlichem Bereich erfasst.",
+      "url": "https://www.gesetze-im-internet.de/s_g/__8.html",
+      "verificationStatus": "V"
+     },
+     "title": "Personnel security checks Ü1, Ü2, Ü3 (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies whose goods in Ausfuhrliste Part I leave Germany. For other dual-use items see the EU dual-use rules.",
+     "requirement": "REQ-EXPORT",
+     "rule": "DE-EXPORT-BAFA",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "AWV § 8 and § 11; AWG § 13 (gesetze-im-internet.de)",
+      "text": "[AWV § 8] Die Ausfuhr der folgenden Güter bedarf der Genehmigung: 1. der in Teil I Abschnitt A der Ausfuhrliste genannten Güter und 2. der in Teil I Abschnitt B der Ausfuhrliste genannten Güter.\n\n[AWV § 11] Die Verbringung der in Teil I Abschnitt A der Ausfuhrliste genannten Güter bedarf der Genehmigung.",
+      "url": "https://www.gesetze-im-internet.de/awv_2013/__8.html",
+      "verificationStatus": "V"
+     },
+     "title": "German licence for goods in Ausfuhrliste Part I (BAFA)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": "UNVERIFIED: amendments of the Directive after 2009, and the CERTIDER register itself.",
+     "obligation": "recommended",
+     "outcome": "not_applicable",
+     "reason": "This concerns companies in other EU states that receive defence-related products from other member states.",
+     "requirement": null,
+     "rule": "EU-CERTIFIED-RECIPIENT",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Directive 2009/43/EC, art. 9(1) and 5(2)(b) (original 2009 text)",
+      "text": "[Directive 2009/43/EC, Article 9(1)] Member States shall designate competent authorities to carry out the certification of recipients established on their territory of defence-related products under transfer licences published by other Member States in accordance with Article 5(2)(b).",
+      "url": "http://publications.europa.eu/resource/celex/32009L0043",
+      "verificationStatus": "V"
+     },
+     "title": "Certified recipient under Directive 2009/43/EC"
+    },
+    {
+     "asks": [
+      {
+       "field": "dualuse_annex_i",
+       "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+      }
+     ],
+     "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether your item is in Annex I of Regulation (EU) 2021/821, or that you are not sure.",
+     "requirement": "REQ-EXPORT",
+     "rule": "EU-DUALUSE-EXPERT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2021/821, Article 3(1)",
+      "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Is your item a listed dual-use item? (classification)"
     }
    ],
    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
@@ -1112,6 +1402,7 @@
       "title": "PIC registered on the Funding and Tenders Portal"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 1,
     "parallelWith": [
@@ -1170,6 +1461,7 @@
       "title": "NCAGE code"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 2,
     "parallelWith": [
@@ -1205,6 +1497,7 @@
       "title": "Export authorisation for dual-use items"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 3,
     "parallelWith": [
@@ -1240,6 +1533,7 @@
       "title": "Comes before AQAP 2110 quality assurance certification"
      }
     ],
+    "note": null,
     "optional": true,
     "order": 4,
     "parallelWith": [
@@ -1320,6 +1614,7 @@
       "title": "AQAP quality certification"
      }
     ],
+    "note": null,
     "optional": true,
     "order": 5,
     "parallelWith": [

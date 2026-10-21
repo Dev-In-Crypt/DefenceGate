@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from dgate.readiness import roadmap
+from dgate.readiness.api import assess_all
 from dgate.readiness.engine import Profile, assess
 from dgate.readiness.seed import load_file
 
@@ -45,8 +46,8 @@ def co(country, **kw):
 
 def run(profile, statuses):
     programmes = [p for p in CONTENT.programmes.values() if p.kind != "general"]
-    assessments = [assess(profile, statuses, p) for p in programmes]
-    general = [assess(profile, statuses, p) for p in CONTENT.programmes.values() if p.kind == "general"]
+    # as the API answers (WP-64): unasked requirements read as unknown, a route that concerns nobody here is left out
+    assessments, general = assess_all(CONTENT, profile, statuses, programmes)
     plan = roadmap.build_roadmap([*assessments, *general], statuses, CONTENT, profile.country)
     return {a.programme: a for a in assessments}, {a.programme: a for a in general}, plan
 
@@ -78,7 +79,12 @@ def test_ua_manufacturer_with_nothing_verdicts():
     assert outcomes(general["GENERAL"]) == {
         "G-REGIME": "not_applicable", "G-EXPORT": "not_met", "G-EXPORT-INTRA-DU": "not_applicable",
         "G-EXPORT-MIL": "not_applicable", "G-REOCE": "not_applicable",
-        "G-HSEM": "not_applicable", "G-CLASSIFIED-OTHER": "not_applicable"}
+        "G-HSEM": "not_applicable", "G-CLASSIFIED-OTHER": "not_applicable",
+        # WP-64: the German rules are for German companies; whether a dual-use item exported outside the EU is a listed one is
+        # a classification the profile does not answer yet, so the "consultant needed" rule asks it
+        "DE-GHB-ADMISSION": "not_applicable", "DE-GHB-COST": "not_applicable", "DE-GHB-BID": "not_applicable",
+        "DE-VSNFD": "not_applicable", "DE-SIBE": "not_applicable", "DE-SUE": "not_applicable", "DE-EXPORT-BAFA": "not_applicable",
+        "EU-CERTIFIED-RECIPIENT": "not_applicable", "EU-DUALUSE-EXPERT": "unknown"}
 
 
 def test_ua_manufacturer_with_nothing_roadmap():
@@ -151,7 +157,10 @@ def test_es_manufacturer_with_iso_9001_verdicts():
 
 def test_es_manufacturer_with_iso_9001_roadmap():
     _, _, plan = run(ES, STATUS_ES)
-    assert [s["code"] for s in plan["steps"]] == ["REQ-PIC", "REQ-NCAGE", "REQ-FSC-ES", "REQ-REOCE", "REQ-EXPORT", "REQ-AQAP2110"]
+    # WP-64: the RID (the questionnaire does not ask whether it is held, so it is a step to mark as done) and, after it, the
+    # PECAL certificate as an optional step (a contract matter, not a block before a first contract)
+    assert [s["code"] for s in plan["steps"]] == ["REQ-PIC", "REQ-NCAGE", "REQ-FSC-ES", "REQ-REOCE", "REQ-RID", "REQ-EXPORT",
+                                                  "REQ-AQAP2110", "REQ-PECAL"]
     steps = {s["code"]: s for s in plan["steps"]}
     assert "REQ-ISO9001" not in steps                                    # held: not a step
     aqap = steps["REQ-AQAP2110"]
@@ -162,13 +171,15 @@ def test_es_manufacturer_with_iso_9001_roadmap():
                                       "relation": "before", "status": "held", "step": None}]
     assert steps["REQ-NCAGE"]["issuers"][0]["name"].startswith("Unidad de Catalogación")
     assert steps["REQ-REOCE"]["issuers"][0]["country"] == "ES" and steps["REQ-EXPORT"]["issuers"][0]["country"] == "ES"
-    assert steps["REQ-FSC-ES"]["issuers"][0]["name"].startswith("Oficina Nacional de Seguridad")
+    # WP-64, correction 1 (Ministry of Defence SEGINFOEMP page): the DGAM for MoD classified contracts, the ONS for NATO, EU and ESA
+    assert [i["name"].split(" (")[0].split(",")[0] for i in steps["REQ-FSC-ES"]["issuers"]] == [
+        "Dirección General de Armamento y Material", "Oficina Nacional de Seguridad"]
     # REOCE comes before the licence, or with it: ordered, and in the same track
     assert steps["REQ-REOCE"]["order"] < steps["REQ-EXPORT"]["order"]
     assert [p["code"] for p in steps["REQ-EXPORT"]["prerequisites"]] == ["REQ-REOCE"]
     assert ["REQ-REOCE", "REQ-EXPORT"] in plan["tracks"]
     assert plan["totals"]["days"] == {"min": 5, "max": 20}
-    assert sorted(plan["unknownCost"]) == ["REQ-EXPORT", "REQ-FSC-ES", "REQ-REOCE"]
+    assert sorted(plan["unknownCost"]) == ["REQ-EXPORT", "REQ-FSC-ES", "REQ-REOCE", "REQ-RID"]
     assert "REQ-AQAP2110" in plan["unknownCostWithOptional"] and plan["notAdded"] == []
     assert plan["totalsWithOptional"]["cost"] == []             # no price is invented for the state route
     assert plan["totalsWithOptional"]["days"] == {"min": 5, "max": 20}

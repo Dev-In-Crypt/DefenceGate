@@ -29,7 +29,7 @@ registrations are missing, else `eligible`.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -73,8 +73,45 @@ FIELDS: dict[str, dict[str, Any]] = {
     # and a rule that applies to one kind of action then does not apply.
     "action": {"kind": "enum", "context": True, "values": ACTIONS, "label": "The kind of action of the call"},
 }
+# The questions of the Spain, Germany and NATO/EU rules (WP-64, docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md). The wizard
+# does not ask them yet (the supplier profile is WP-65): a rule that reads one is "unknown", and the result names the question.
+_YES_NO_UNSURE = ("yes", "no", "unsure")
+SUPPLIER_FIELDS: dict[str, dict[str, Any]] = {
+    "nato_icb_bid": {"kind": "bool", "label": "Do you want to bid in a NATO international competitive bidding (NSIP) tender?"},
+    "rid_capabilities_declared": {"kind": "bool", "label": "Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?"},
+    "pecal_certificate_wanted": {"kind": "bool", "label": "Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?"},
+    "pecal_system_9_months": {"kind": "bool", "label": "Has your PECAL quality system been in place, and audited by your management, for at least nine months?"},
+    "pecal_prior_contract": {"kind": "bool", "label": "In the last two years, have you had at least one Ministry of Defence contract with PECAL requirements, or a certificate of conformity signed by a DGAM quality representative (RAC)?"},
+    "pecal_2310_target": {"kind": "bool", "label": "Do you target PECAL 2310 (aviation, space and defence)?"},
+    "stores_classified": {"kind": "bool", "label": "Will classified information be stored on your own premises?"},
+    "nato_classified_contract": {"kind": "bool", "label": "Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?"},
+    "nsfcc_held": {"kind": "bool", "label": "Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?"},
+    "nato_staff_cleared": {"kind": "bool", "label": "Do the staff who need access hold NATO personnel security clearances?"},
+    "ncage_need_justified": {"kind": "bool", "label": "Is a product of yours bought by the Ministry of Defence (so that it must be catalogued), or do you need an NCAGE code to register in the US System for Award Management (SAM)?"},
+    "specific_defence_use": {"kind": "bool", "label": "Is your product for specific defence use (Article 346 of the Treaty on the Functioning of the EU), rather than a civilian product?"},
+    "homologation_mandatory": {"kind": "bool", "label": "Is your product on the Ministry of Defence's list of products for which homologation is mandatory?"},
+    "homologated": {"kind": "bool", "label": "Is your product homologated by the Ministry of Defence?"},
+    "es_defence_material_list": {"kind": "enum", "values": _YES_NO_UNSURE, "label": "Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?"},
+    "foreign_capital": {"kind": "bool", "label": "Does a foreign investor hold shares in your company, directly or indirectly?"},
+    "foreign_investor_authorised": {"kind": "bool", "label": "Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?"},
+    "receives_eea_defence_products": {"kind": "bool", "label": "Do you receive defence-related products from other EEA states?"},
+    "certified_recipient": {"kind": "bool", "label": "Are you certified by your national authority as a recipient of defence-related products under the general transfer licences of other member states?"},
+    "de_vs_vertraulich": {"kind": "bool", "label": "Will material classified VS-VERTRAULICH or higher be handed to you for processing and storage?"},
+    "ghb_admitted": {"kind": "bool", "label": "Is your company already under the BMWE Geheimschutzbetreuung (with a security notice)?"},
+    "de_vs_nfd": {"kind": "bool", "label": "Does the contract involve material classified VS-NUR FÜR DEN DIENSTGEBRAUCH (VS-NfD)?"},
+    "vsnfd_declaration_signed": {"kind": "bool", "label": "Have you signed the commitment declaration (Verpflichtungserklärung) for VS-NfD?"},
+    "vsnfd_merkblatt": {"kind": "bool", "label": "Does your contract incorporate the VS-NfD-Merkblatt (GHB Anlage 4)?"},
+    "sibe_appointed": {"kind": "bool", "label": "Have you appointed a security officer (Sicherheitsbevollmächtigter, SiBe)?"},
+    "de_ausfuhrliste": {"kind": "enum", "values": ("part_i_a", "part_i_b", "neither", "unsure"),
+                        "label": "Is the item in the German export list (Ausfuhrliste) Part I Section A (arms) or Section B (national dual-use list)?"},
+    "dualuse_annex_i": {"kind": "enum", "values": _YES_NO_UNSURE, "label": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"},
+    "us_components": {"kind": "bool", "label": "Does your product contain components, technology or software of US origin?"},
+}
+FIELDS.update(SUPPLIER_FIELDS)
 COUNTRY_FIELDS = frozenset(k for k, v in FIELDS.items() if v["kind"] == "country")
 STATUS_VALUES = ("held", "in_progress", "not_held", "not_applicable")
+# Not an answer: the status of a requirement the questionnaire does not ask (`unasked`). A rule that reads it is "unknown".
+STATUS_UNKNOWN = "unknown"
 THRESHOLD_OPS = {
     "lte": lambda a, b: a <= b, "lt": lambda a, b: a < b,
     "gte": lambda a, b: a >= b, "gt": lambda a, b: a > b,
@@ -114,6 +151,35 @@ class Profile:
     applicant_kind: str | None = None
     ua_partner: bool | None = None
     action: str | None = None          # context of a call, never an answer of the company (the API does not take it)
+    # WP-64: the questions of the Spain, Germany and NATO/EU rules (`SUPPLIER_FIELDS`)
+    nato_icb_bid: bool | None = None
+    rid_capabilities_declared: bool | None = None
+    pecal_certificate_wanted: bool | None = None
+    pecal_system_9_months: bool | None = None
+    pecal_prior_contract: bool | None = None
+    pecal_2310_target: bool | None = None
+    stores_classified: bool | None = None
+    nato_classified_contract: bool | None = None
+    nsfcc_held: bool | None = None
+    nato_staff_cleared: bool | None = None
+    ncage_need_justified: bool | None = None
+    specific_defence_use: bool | None = None
+    homologation_mandatory: bool | None = None
+    homologated: bool | None = None
+    es_defence_material_list: str | None = None
+    foreign_capital: bool | None = None
+    foreign_investor_authorised: bool | None = None
+    receives_eea_defence_products: bool | None = None
+    certified_recipient: bool | None = None
+    de_vs_vertraulich: bool | None = None
+    ghb_admitted: bool | None = None
+    de_vs_nfd: bool | None = None
+    vsnfd_declaration_signed: bool | None = None
+    vsnfd_merkblatt: bool | None = None
+    sibe_appointed: bool | None = None
+    de_ausfuhrliste: str | None = None
+    dualuse_annex_i: str | None = None
+    us_components: bool | None = None
 
     def fields(self) -> dict[str, Any]:
         return {name: getattr(self, name) for name in FIELDS}
@@ -193,6 +259,32 @@ def fields_in(expr: Expr | None) -> list[str]:
     return found
 
 
+def statuses_in(expr: Expr | None) -> list[str]:
+    """The requirement codes an expression reads the status of, in order, once each."""
+    found: list[str] = []
+
+    def walk(node: Expr) -> None:
+        for key in ("all", "any"):
+            for sub in node.get(key, []):
+                walk(sub)
+        if "not" in node:
+            walk(node["not"])
+        if "status" in node and node["status"] not in found:
+            found.append(node["status"])
+
+    if expr:
+        walk(expr)
+    return found
+
+
+def with_unasked(statuses: Mapping[str, str], unasked: Iterable[str]) -> dict[str, str]:
+    """The statuses the engine reads: a requirement the questionnaire does not ask (`unasked`, its codes) and the company
+    did not mention is `STATUS_UNKNOWN`, so a rule on it says "unknown" and asks, instead of reading "not held"."""
+    out = {code: STATUS_UNKNOWN for code in unasked if code not in statuses}
+    out.update(statuses)
+    return out
+
+
 def reads_status(expr: Expr | None, code: str) -> bool:
     """Whether an expression reads the company's status of a requirement."""
     if not expr:
@@ -240,6 +332,8 @@ def evaluate(expr: Expr, fields: Mapping[str, Any], statuses: Mapping[str, str])
     if "status" in expr:
         # A requirement the company did not mention is not held.
         value = statuses.get(expr["status"], "not_held")
+        if value == STATUS_UNKNOWN:
+            return None
         return _compare(value, expr, set())
     name = expr["field"]
     value = fields.get(name)
@@ -280,6 +374,12 @@ class RuleResult:
     verification_status: str
     last_reviewed: str
     denominator: str | None = None
+    # "consultant needed" (WP-64): the rule's `texts.consultant`, set when the rule is open or not met for this company
+    consultant: str | None = None
+
+
+# The outcomes for which a "consultant needed" flag is shown: never when the rule is met or does not apply.
+CONSULTANT_OUTCOMES = ("not_met", "to_obtain", "conditional", "unknown", "info")
 
 
 @dataclass(frozen=True)
@@ -314,14 +414,18 @@ def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, st
         kind=rule.kind, requirement=rule.requirement, note=rule.note, asks=tuple(asks),
         source_url=rule.source_url, source_ref=rule.source_ref, source_text=rule.source_text,
         text_origin=rule.text_origin, verification_status=rule.status,
-        last_reviewed=rule.last_reviewed, denominator=rule.denominator)
+        last_reviewed=rule.last_reviewed, denominator=rule.denominator,
+        consultant=rule.texts.get("consultant") if outcome in CONSULTANT_OUTCOMES and not declared else None)
 
 
 def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> tuple[str, list[str], bool]:
     """(outcome, the fields still to answer, whether the outcome is the company's own "Not applicable to us")."""
     def missing(*exprs: Expr | None) -> list[str]:
         # the context of a call is not something the company can answer
-        return [f for e in exprs for f in fields_in(e) if fields.get(f) is None and not FIELDS[f].get("context")]
+        asks = [f for e in exprs for f in fields_in(e) if fields.get(f) is None and not FIELDS[f].get("context")]
+        # a requirement the questionnaire does not ask: its code stands for the question (`Requirement.extras["question"]`)
+        asks += [c for e in exprs for c in statuses_in(e) if statuses.get(c) == STATUS_UNKNOWN and c not in asks]
+        return asks
 
     if rule.applies_when is not None:
         applies = evaluate(rule.applies_when, fields, statuses)
@@ -385,3 +489,37 @@ def assess(profile: Profile, statuses: Mapping[str, str], programme: Programme |
         programme=programme.code, name=programme.name, kind=programme.kind, verdict=verdict,
         incomplete=bool(unknown), rules=results, blocking=blocking, conditions=conditions,
         to_obtain=to_obtain, missing=tuple(missing), summary=summary)
+
+
+def concerns(a: Assessment) -> bool:
+    """Whether a programme says anything about this company: a route whose every rule is for another country (the Spanish
+    Ministry of Defence route for a Polish company) does not, and is left out rather than shown as "eligible"."""
+    return any(r.outcome != "not_applicable" for r in a.rules)
+
+
+# --------------------------------------------------------------------------- "consultant needed" (WP-64)
+
+# US export control is not in the verified rules (docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md has no row for it): the flag says
+# only that a specialist is needed, and states no rule of its own.
+US_COMPONENTS_FLAG = {
+    "key": "US-COMPONENTS", "title": "US-origin components (ITAR)", "rule": None,
+    "text": ("If your product contains components, technology or software of US origin, US export control (for defence articles, "
+             "the International Traffic in Arms Regulations, ITAR) may decide to whom it can be sold or re-exported. This service holds "
+             "no verified rule on US export control and gives no answer on it: ask a specialist in US export control."),
+}
+
+
+def consultant_flags(profile: Profile, assessments: Sequence[Assessment]) -> list[dict[str, Any]]:
+    """Where the answer needs a specialist: export classification, US components, the HSES path, a prime's own qualification.
+    One entry per rule whose `texts.consultant` is set and that is open for this company, then the US-components flag unless
+    the company said it has none. Each says what to ask; none is a verdict."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for a in assessments:
+        for r in a.rules:
+            if r.consultant and r.rule not in seen:
+                seen.add(r.rule)
+                out.append({"key": r.rule, "title": r.title, "text": r.consultant, "rule": r.rule, "asks": list(r.asks)})
+    if profile.us_components is not False:
+        out.append({**US_COMPONENTS_FLAG, "asks": [] if profile.us_components else ["us_components"]})
+    return out

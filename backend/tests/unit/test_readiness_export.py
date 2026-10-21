@@ -27,7 +27,8 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
     expected = {"EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert verdicts("ua") == expected
     # the Spanish company also needs a Ukrainian applicant or partner for the Ukraine Support Instrument (WP-42 R1)
-    assert verdicts("es") == {**expected, "EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional"}
+    # and, since WP-64, the Spanish defence supplier route: the RID is not asked yet, so the route is conditional
+    assert verdicts("es") == {**expected, "EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "ES-MOD": "conditional"}
     ua = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua.json").read_text(encoding="utf-8"))
     edip = next(a for a in ua["assessments"] if a["programme"] == "EDIP")
     assert edip["blocking"] == ["EDIP-ESTABLISH", "EDIP-EXEC-MGMT"]      # Ukraine is not an associated country of the Programme
@@ -50,6 +51,6 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
 def test_the_request_fixtures_are_what_the_api_accepts():
     from dgate.readiness.api import AssessIn
 
-    for key in ("ua", "es", "ua-pic", "ua-pic-na"):
+    for key in ("ua", "es", "ua-pic", "ua-pic-na", "es-auto"):
         body = json.loads((ROOT / "web" / "e2e" / "fixtures" / f"request-{key}.json").read_text(encoding="utf-8"))
         AssessIn.model_validate(body)

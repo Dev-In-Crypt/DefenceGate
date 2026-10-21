@@ -1,0 +1,29 @@
+{
+ "profile": {
+  "applicant_kind": "company_or_research",
+  "components_from_ua_or_eea_efta": false,
+  "country": "ES",
+  "executive_management_country": "ES",
+  "export_intent": "within_eu",
+  "handles_classified": false,
+  "legal_form": "legal_person",
+  "non_eu_component_cost_pct": 15.0,
+  "product_regime": "none",
+  "restricted_third_country_component": false,
+  "safe_role": "other_supplier",
+  "third_country_control": "no",
+  "ua_non_government_controlled_area": null,
+  "ua_partner": null
+ },
+ "statuses": {
+  "REQ-AQAP2110": "not_held",
+  "REQ-AQAP2310": "not_held",
+  "REQ-EN9100": "not_held",
+  "REQ-EXPORT": "not_held",
+  "REQ-FSC-ES": "not_held",
+  "REQ-ISO9001": "held",
+  "REQ-NCAGE": "not_held",
+  "REQ-PIC": "not_held",
+  "REQ-REOCE": "not_held"
+ }
+}

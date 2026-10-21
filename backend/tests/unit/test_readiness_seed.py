@@ -26,7 +26,7 @@ def rules(code: str):
 
 
 def test_the_catalogue_has_no_requirement_without_a_source_url_or_a_review_date():
-    assert len(CONTENT.requirements) == 12
+    assert len(CONTENT.requirements) == 15        # 12 of the appendix, 3 of the Spanish MoD route (WP-64)
     for r in CONTENT.requirements.values():
         assert r.source_url.startswith("http"), r.code
         assert r.source_text and r.source_text.startswith("["), r.code
@@ -46,7 +46,9 @@ def test_every_rule_has_a_source_url_a_reference_a_verbatim_text_and_a_status():
 
 def test_the_requirements_of_the_appendix_table_are_all_there_plus_the_two_prerequisites():
     wanted = {"REQ-NCAGE", "REQ-PIC", "REQ-EDF-ELIG", "REQ-SAFE-35", "REQ-EDIP-ELIG", "REQ-AQAP2110",
-              "REQ-AQAP2310", "REQ-EXPORT", "REQ-REOCE", "REQ-FSC-ES", "REQ-ISO9001", "REQ-EN9100"}
+              "REQ-AQAP2310", "REQ-EXPORT", "REQ-REOCE", "REQ-FSC-ES", "REQ-ISO9001", "REQ-EN9100",
+              # WP-64: docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md, rows ES-RID, ES-PECAL-CERT and ES-HSES
+              "REQ-RID", "REQ-PECAL", "REQ-HSES-ES"}
     assert set(CONTENT.requirements) == wanted
 
 
@@ -128,8 +130,9 @@ def test_every_covered_country_has_the_ncage_and_pic_issuer_rows():
 def test_what_the_appendix_marks_unverified_is_marked_unverified_here():
     ua = [i for i in CONTENT.issuers_for("REQ-NCAGE", "UA")]
     assert ua and "UNVERIFIED" in ua[0].notes
-    (hsem,) = CONTENT.issuers_for("REQ-FSC-ES", "ES")
-    assert "UNVERIFIED" in hsem.notes and "processing times" in hsem.notes
+    # WP-64, correction 1: two issuers in Spain (the DGAM for MoD contracts, the ONS for NATO, EU and ESA); neither publishes a time
+    hsem = CONTENT.issuers_for("REQ-FSC-ES", "ES")
+    assert len(hsem) == 2 and all("UNVERIFIED" in i.notes and "processing times" in i.notes for i in hsem)
     de = CONTENT.issuers_for("REQ-NCAGE", "DE")[0]
     assert de.status == "U" and de.notes.startswith("UNVERIFIED")
     (other,) = rules("G-CLASSIFIED-OTHER")
@@ -167,7 +170,7 @@ def test_aqap_2120_is_flagged_as_stale_guidance():
 
 def test_the_check_command_validates_without_a_database(capsys):
     assert seed.main(["--check"]) == 0
-    assert "seed ok: 6 programmes, 12 requirements" in capsys.readouterr().out
+    assert "seed ok: 7 programmes, 15 requirements" in capsys.readouterr().out
 
 
 # --------------------------------------------------------------------- the loader refuses a broken file

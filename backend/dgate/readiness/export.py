@@ -56,6 +56,14 @@ PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
             "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": True,
             "product_regime": "military", "export_intent": "outside_eu", "ua_partner": None},
            {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
+    # WP-64: a civilian Spanish automotive supplier with ISO 9001, no classified work and no controlled product, before the
+    # questionnaire asks the questions of the Spanish defence supplier route: those rules say "unknown" and name the question
+    "es-auto": ({"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
+                 "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": 15.0,
+                 "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+                 "safe_role": "other_supplier", "applicant_kind": "company_or_research", "handles_classified": False,
+                 "product_regime": "none", "export_intent": "within_eu", "ua_partner": None},
+                {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
 }
 
 

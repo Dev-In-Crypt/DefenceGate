@@ -32,6 +32,10 @@ def main(seed_path: str, texts_dir: str, appendix_path: str) -> int:
 
     def check(owner: str, passage: dict) -> None:
         nonlocal bad, checked
+        if passage.get("url") and not passage.get("celex"):
+            # a national source read on a web page (WP-64): checked against docs/research/ANGLE1_RULES_ES_DE_2026-10-20.md
+            # by tests/unit/test_wp64_rules.py, not here
+            return
         text = norm(passage["text"])
         celex = passage.get("celex")
         document = passage.get("document")

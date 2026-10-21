@@ -105,6 +105,10 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
                 need(r.requirement, optional=False, programme=a.programme, result=r)
             elif r.outcome == "info":
                 need(r.requirement, optional=True, programme=a.programme, result=r)
+            elif r.outcome == "unknown" and r.asks == (r.requirement,):
+                # the only open question is whether the company holds it (a requirement the questionnaire does not ask yet, WP-64):
+                # it is a step, to mark as done if already held
+                need(r.requirement, optional=False, programme=a.programme, result=r)
 
     # Prerequisites that must come first pull their own steps in (ISO 9001 before AQAP 2110).
     # 'before_or_with' only orders steps that are there anyway: REOCE is not asked of a firm
@@ -250,6 +254,8 @@ def _step(n: _Node, position: dict[str, int], content: Content, country: str | N
         "blockingFor": sorted(n.blocking_for), "neededFor": n.needed_for,
         "cost": _money(n.cost), "days": _span(n.days), "variantUsed": n.variant_used,
         "branchNote": _branch_note(req, n, statuses, content),
+        # what the step involves beyond cost and time, in the words of the seed (the PECAL chicken-and-egg, WP-64)
+        "note": req.extras.get("roadmap_note"),
         "issuers": [{"country": i.country, "name": i.name, "url": i.url, "notes": i.notes,
                      "status": i.status} for i in issuers],
         "issuerNote": None if issuers else "The body that issues this has not been collected for your country.",

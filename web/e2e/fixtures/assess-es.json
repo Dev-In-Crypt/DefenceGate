@@ -21,6 +21,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
@@ -41,6 +42,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "The associated countries are the EEA EFTA states (under the conditions of the EEA Agreement) and, since Regulation (EU) 2025/2653, Ukraine under the conditions of the EU-Ukraine Association Agreement. That those conditions are met is not confirmed, so a company established in Ukraine is conditional here, not eligible. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF.",
@@ -61,6 +63,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "The same paragraph requires that the infrastructure, facilities, assets and resources used for the action are located in a Member State or an associated country for the whole duration of the action. This service does not ask about that.",
@@ -81,6 +84,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": "The guarantees must show that control is not exercised in a way that restricts the action, that access to sensitive information is prevented, and that intellectual property stays with the recipient. Paragraph 4 of Article 9 lists them.",
@@ -101,6 +105,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -121,6 +126,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -168,6 +174,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "The call documents of the common procurement calls say the same: “be contracting authorities, international organisations, SEAPs or EDA within the meaning of Articles 11, 27(1) and 42 of the EDIP Regulation”, and that the EDA and international organisations are eligible as beneficiaries if designated as procurement agent. Article 11(3) adds that a consortium needs at least three contracting authorities from three Member States or associated countries, at least two of them contracting authorities of Member States, unless a SEAP applies alone.",
@@ -188,6 +195,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
@@ -208,6 +216,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "The source is the Commission's call document, not the Official Journal.",
@@ -228,6 +237,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "The source is the Commission's call document, not the Official Journal: Article 13(3) of Regulation (EU) 2025/2643 only says that such activities “may be carried out by a SEAP”.",
@@ -248,6 +258,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -268,6 +279,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Paragraph 3 of the same Article also requires the infrastructure, facilities, assets and resources used for the action to be located in a Member State or an associated country. This service does not ask about that.",
@@ -288,6 +300,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": "Paragraph 6 of Article 9 lists what the guarantees must show. Article 9(9) says paragraphs 5 and 6 do not apply to contracting authorities of Member States and associated countries, international organisations, SEAPs and the EDA; this service still asks the question of every applicant.",
@@ -308,6 +321,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": "the estimated cost of the components of the end product (for industrial reinforcement actions, of the product whose production capacity the funding supports)",
      "kind": "threshold",
      "note": "Article 10(3) applies to procurement under Articles 11, 13 and 35. For industrial reinforcement actions (Article 12) paragraph 4 sets the same limit, measured on the product whose production capacity the funding supports. Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries; this service does not ask about that. The answer is about one end product.",
@@ -328,6 +342,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "This is a separate rule from the 35 % limit. It is a yes or no, with no percentage.",
@@ -348,6 +363,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -368,6 +384,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -388,6 +405,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": "A 'subcontractor' in the sense of this Regulation is narrower than any supplier: the definition in Article 2 requires at least 15 % of the value of the contract and a need for access to classified information, and leaves out suppliers that deliver components of their own design or production.",
@@ -440,6 +458,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Whether a particular national form, such as a sole trader or a partnership, falls on one side or the other is decided by the call and the Commission. This service reads the regulation's definition and the sentence of the call documents (EDF, EDIP and Ukraine Support Instrument call documents of 2026, section “Specific cases and definitions”): “Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).”",
@@ -460,6 +479,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -480,6 +500,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Paragraph 3 of the same Article also requires the infrastructure, facilities, assets and resources used for the action to be located in a Member State or in Ukraine. This service does not ask about that.",
@@ -500,6 +521,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -520,6 +542,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": null,
@@ -540,6 +563,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": "the estimated cost of the components of the end product (for industrial reinforcement actions, of the product whose production capacity the funding supports)",
      "kind": "threshold",
      "note": "Article 27(3) applies to procurement and supporting actions, paragraph 4 to industrial reinforcement actions (measured on the product whose production capacity the funding supports). Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries other than Ukraine; this service does not ask about that. The answer is about one end product.",
@@ -560,6 +584,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "This is a separate rule from the 35 % limit. It is a yes or no, with no percentage.",
@@ -580,6 +605,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -605,6 +631,7 @@
        "question": "Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?"
       }
      ],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": null,
@@ -625,6 +652,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -672,6 +700,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Derogation for subcontractors: see the information line on the 15-35 % subcontractor allowance below. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -692,6 +721,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "establishment",
      "note": "Paragraph 8 also requires the infrastructure, facilities, assets and resources used for the procurement to be located in a Member State, an EEA EFTA state or Ukraine, with a narrow exception where no alternative is readily available. This service does not ask about that. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -712,6 +742,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "control",
      "note": "Paragraph 6 of Article 16 lists what the guarantees must show. The paragraph binds the contractor and the 'subcontractors involved in the common procurement' of Article 16(12), who provide critical inputs, are allocated at least 15 % of the contract value and need access to classified information. A supplier below those thresholds is not bound by it.",
@@ -732,6 +763,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": "the estimated cost of the components of the end product",
      "kind": "threshold",
      "note": "The percentage is measured against the estimated cost of the components of the end product, not against the contract value. It is a property of the end product you would supply, so the answer is about one product.",
@@ -752,6 +784,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "categorical",
      "note": "This is a separate rule from the 35 % threshold. It is a yes or no, with no percentage.",
@@ -772,6 +805,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -792,6 +826,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
      "note": null,
@@ -821,7 +856,7 @@
    "conditions": [],
    "counts": {
     "conditional": 0,
-    "info": 1,
+    "info": 2,
     "met": 0,
     "not_applicable": 0,
     "not_met": 0,
@@ -837,6 +872,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
@@ -857,9 +893,10 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "contract",
-     "note": null,
+     "note": "For Spain this is stated in a primary source: the Ministry of Defence says the PECAL, based on the AQAP, specify the quality requirements that suppliers must meet in the defence contracts that include them (read on 20 October 2026; rule ES-PECAL-CONTRACT of the Spanish defence supplier route, verified). For other countries it rests on the research notes.",
      "obligation": "conditional",
      "outcome": "info",
      "reason": "AQAP 2110 (or 2310 for aviation and space) is required where a NATO or national contract names it. This service cannot know which of your target contracts do.",
@@ -874,6 +911,27 @@
       "verificationStatus": "S"
      },
      "title": "AQAP quality certification"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "When a contract names an AQAP or a PECAL, check the edition. The Ministry of Defence lists: PECAL 2110 Ed. 4 = AQAP-2110 Ed. D V1; PECAL 2310 Ed. B V1 = AQAP-2310 Ed. B V1; PECAL 2131 Ed. 3 = AQAP-2131 Ed. C V1 (final inspection and test, relevant to build-to-print component makers). PECAL 2210 is a supplement to 2110 or 2310. The contractual AQAP/PECAL 2000 series is a civil standard such as ISO 9001 plus NATO-specific requirements.",
+     "requirement": null,
+     "rule": "NATO-AQAP-ED",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Aseguramiento de la calidad (list of PECAL and AQAP editions)",
+      "text": "[Ministerio de Defensa, Aseguramiento de la calidad] Los requisitos de la serie de normas AQAP/PECAL 2000 contractuales son los requisitos de una norma civil (como por ejemplo, los de la ISO 9001) más una serie de requisitos específicos OTAN.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/aseguramientocalidad/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "AQAP editions as the Spanish Ministry of Defence lists them"
     }
    ],
    "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
@@ -882,9 +940,738 @@
     "NATO-NCAGE"
    ],
    "verdict": "obtain"
+  },
+  {
+   "blocking": [],
+   "conditions": [],
+   "counts": {
+    "conditional": 0,
+    "info": 7,
+    "met": 0,
+    "not_applicable": 0,
+    "not_met": 1,
+    "to_obtain": 0,
+    "unknown": 13
+   },
+   "incomplete": true,
+   "kind": "route",
+   "legalBasis": null,
+   "missing": [
+    {
+     "field": "REQ-RID",
+     "question": "Does the company hold a current RID certificate (registration or renewal)?"
+    },
+    {
+     "field": "pecal_certificate_wanted",
+     "question": "Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?"
+    },
+    {
+     "field": "pecal_system_9_months",
+     "question": "Has your PECAL quality system been in place, and audited by your management, for at least nine months?"
+    },
+    {
+     "field": "pecal_prior_contract",
+     "question": "In the last two years, have you had at least one Ministry of Defence contract with PECAL requirements, or a certificate of conformity signed by a DGAM quality representative (RAC)?"
+    },
+    {
+     "field": "pecal_2310_target",
+     "question": "Do you target PECAL 2310 (aviation, space and defence)?"
+    },
+    {
+     "field": "ncage_need_justified",
+     "question": "Is a product of yours bought by the Ministry of Defence (so that it must be catalogued), or do you need an NCAGE code to register in the US System for Award Management (SAM)?"
+    },
+    {
+     "field": "specific_defence_use",
+     "question": "Is your product for specific defence use (Article 346 of the Treaty on the Functioning of the EU), rather than a civilian product?"
+    },
+    {
+     "field": "homologation_mandatory",
+     "question": "Is your product on the Ministry of Defence's list of products for which homologation is mandatory?"
+    },
+    {
+     "field": "homologated",
+     "question": "Is your product homologated by the Ministry of Defence?"
+    },
+    {
+     "field": "stores_classified",
+     "question": "Will classified information be stored on your own premises?"
+    },
+    {
+     "field": "REQ-HSES-ES",
+     "question": "Does the company hold an HSES (establishment security clearance)?"
+    },
+    {
+     "field": "nato_classified_contract",
+     "question": "Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?"
+    },
+    {
+     "field": "nsfcc_held",
+     "question": "Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?"
+    },
+    {
+     "field": "nato_staff_cleared",
+     "question": "Do the staff who need access hold NATO personnel security clearances?"
+    },
+    {
+     "field": "nato_icb_bid",
+     "question": "Do you want to bid in a NATO international competitive bidding (NSIP) tender?"
+    },
+    {
+     "field": "rid_capabilities_declared",
+     "question": "Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?"
+    },
+    {
+     "field": "es_defence_material_list",
+     "question": "Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?"
+    },
+    {
+     "field": "foreign_capital",
+     "question": "Does a foreign investor hold shares in your company, directly or indirectly?"
+    },
+    {
+     "field": "foreign_investor_authorised",
+     "question": "Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?"
+    },
+    {
+     "field": "receives_eea_defence_products",
+     "question": "Do you receive defence-related products from other EEA states?"
+    },
+    {
+     "field": "certified_recipient",
+     "question": "Are you certified by your national authority as a recipient of defence-related products under the general transfer licences of other member states?"
+    }
+   ],
+   "name": "Spanish defence supplier (MoD)",
+   "programme": "ES-MOD",
+   "rules": [
+    {
+     "asks": [
+      {
+       "field": "REQ-RID",
+       "question": "Does the company hold a current RID certificate (registration or renewal)?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "registration",
+     "note": "UNVERIFIED: the legal basis of the register, its fee, processing time and validity were not found in a primary source, so none is shown.",
+     "obligation": "mandatory",
+     "outcome": "unknown",
+     "reason": "The questionnaire does not ask yet whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it.",
+     "requirement": "REQ-RID",
+     "rule": "ES-RID",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, e-office procedure “Registro de la Industria de Defensa - RID” (SIA 993054)",
+      "text": "[Ministerio de Defensa, e-office procedure list, RID (SIA 993054)] TRAMITACIÓN DEL CERTIFICADO DE INSCRIPCIÓN O RENOVACIÓN DEL CERTIFICADO EN EL REGISTRO DE LA INDUSTRIA DE DEFENSA (RID) DE LA DIRECCIÓN GENERAL DE ESTRATEGIA E INNOVACIÓN DE LA INDUSTRIA DE DEFENSA (DIGEID), REQUISITO NECESARIO PARA FORMAR PARTE DEL CATÁLOGO DE PROVEEDORES REALES O POTENCIALES DEL MINISTERIO DE DEFENSA, ASÍ COMO OTROS PROCEDIMIENTOS DEL MINISTERIO DE DEFENSA.",
+      "url": "https://sede.defensa.gob.es/acceda/procedimientos",
+      "verificationStatus": "V"
+     },
+     "title": "Registration in the defence industry register (RID)"
+    },
+    {
+     "asks": [],
+     "consultant": "Prime qualification: if you supply through a prime contractor and not the Ministry directly, the prime qualifies its suppliers by its own procedure, which none of the sources read here publishes. Ask the prime, or a consultant, what it requires.",
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "The PECAL (Spanish quality publications based on NATO's AQAP) are requirements only of the defence contracts that include them. When a contract names one, you must meet it under the oversight of a DGAM quality representative (RAC). Read the technical (PPT) and administrative (PCAP) specifications of the contracts you target.",
+     "requirement": "REQ-PECAL",
+     "rule": "ES-PECAL-CONTRACT",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Aseguramiento de la calidad (PECAL)",
+      "text": "[Ministerio de Defensa, Aseguramiento de la calidad] Las publicaciones españolas de calidad (PECAL), que están basadas en las correspondientes publicaciones AQAP de la OTAN, especifican los requisitos de la OTAN y del Ministerio de Defensa de España para la gestión de la calidad que deben cumplir los suministradores en los contratos de Defensa en los que se las incluye",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/aseguramientocalidad/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "PECAL quality requirements come with the contract"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "Ministry of Defence contracting bodies must put quality clauses in the technical (PPT) and administrative (PCAP) specifications, and a contract can be accepted only after the DGAM has endorsed the certificate of conformity of quality issued for it (Instrucción 39/1998, which implements O.M. 65/1993).",
+     "requirement": null,
+     "rule": "ES-AOC-CLAUSE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Aseguramiento de la calidad (Instrucción 39/1998)",
+      "text": "[Ministerio de Defensa, Aseguramiento de la calidad] [...] la inclusión de cláusulas de calidad en los Pliegos de Prescripciones Técnicas (PPT) y en los Pliegos de Cláusulas Administrativas Particulares (PCAP) y la obligatoriedad, para la recepción de un contrato, de que la DGAM haya refrendado previamente el correspondiente certificado de conformidad de calidad emitido para el mismo.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/aseguramientocalidad/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Quality clauses and the DGAM-endorsed certificate of conformity"
+    },
+    {
+     "asks": [
+      {
+       "field": "pecal_certificate_wanted",
+       "question": "Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?"
+      },
+      {
+       "field": "pecal_system_9_months",
+       "question": "Has your PECAL quality system been in place, and audited by your management, for at least nine months?"
+      },
+      {
+       "field": "pecal_prior_contract",
+       "question": "In the last two years, have you had at least one Ministry of Defence contract with PECAL requirements, or a certificate of conformity signed by a DGAM quality representative (RAC)?"
+      },
+      {
+       "field": "REQ-RID",
+       "question": "Does the company hold a current RID certificate (registration or renewal)?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "contract",
+     "note": "Initial audit by the DGAM; renewal and surveillance audits by certification bodies recognised by the CMDIN. The DGAM issues a quote for the fee. UNVERIFIED: no fee amount, processing time or validity period is published.",
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Answer the questions below to see whether you can apply for the PECAL certificate now.",
+     "requirement": "REQ-PECAL",
+     "rule": "ES-PECAL-CERT",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "DGAM procedure PA 4302 Ed. 9 (12/05/21)",
+      "text": "[DGAM procedure PA 4302 Ed. 9] Para acceder a la certificación del sistema de gestión de la calidad según PECAL 2110, PECAL 2310, PECAL 2110/2310 y PECAL 2110 o 2310 con los requisitos PECAL 2210, es condición necesaria que la empresa tenga vigente: 1. Su inscripción en el Registro de empresas de la DGAM.\n\n[DGAM procedure PA 4302 Ed. 9] Al menos un contrato con el Ministerio de Defensa en los dos (2) últimos años con exigencia de cumplimiento de requisitos PECAL.",
+      "url": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
+      "verificationStatus": "V"
+     },
+     "title": "PECAL certification of your quality management system (DGAM)"
+    },
+    {
+     "asks": [
+      {
+       "field": "pecal_certificate_wanted",
+       "question": "Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether you want the PECAL certificate itself.",
+     "requirement": "REQ-ISO9001",
+     "rule": "ES-PECAL-ISO",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "DGAM procedure PA 4302 Ed. 9 (12/05/21)",
+      "text": "[DGAM procedure PA 4302 Ed. 9] La certificación de sistemas de gestión de la calidad por tercera parte según UNE-EN-ISO 9001, emitida por una entidad de certificación acreditada por ENAC, y para un alcance de certificado no inferior al incluido en la solicitud de certificación PECAL (F4302.01).",
+      "url": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
+      "verificationStatus": "V"
+     },
+     "title": "ISO 9001 or EN 9100 as a formal precondition of PECAL"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": "UNVERIFIED: ISO 9001 or IATF 16949 as a general buyer filter outside the PECAL route.",
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "ISO 9001 is a formal precondition on the Spanish state route (PECAL 2110, DGAM procedure PA 4302). For the general claim that defence buyers require ISO 9001, no primary source was found, so this service does not make it.",
+     "requirement": null,
+     "rule": "Q-ISO9001-FILTER",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "DGAM procedure PA 4302 Ed. 9 (12/05/21)",
+      "text": "[DGAM procedure PA 4302 Ed. 9] La certificación de sistemas de gestión de la calidad por tercera parte según UNE-EN-ISO 9001, emitida por una entidad de certificación acreditada por ENAC, y para un alcance de certificado no inferior al incluido en la solicitud de certificación PECAL (F4302.01).",
+      "url": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
+      "verificationStatus": "V"
+     },
+     "title": "ISO 9001 as a filter"
+    },
+    {
+     "asks": [
+      {
+       "field": "pecal_2310_target",
+       "question": "Do you target PECAL 2310 (aviation, space and defence)?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "contract",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether you target PECAL 2310.",
+     "requirement": "REQ-EN9100",
+     "rule": "Q-EN9100-FILTER",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "DGAM procedure PA 4302 Ed. 9 (12/05/21)",
+      "text": "[DGAM procedure PA 4302 Ed. 9] La norma PECAL 2310 contiene todos los requisitos de calidad contenidos en la norma UNEEN 9100 junto con otros requisitos incluidos como Requisitos específicos OTAN”.",
+      "url": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
+      "verificationStatus": "V"
+     },
+     "title": "EN 9100 for PECAL 2310"
+    },
+    {
+     "asks": [
+      {
+       "field": "ncage_need_justified",
+       "question": "Is a product of yours bought by the Ministry of Defence (so that it must be catalogued), or do you need an NCAGE code to register in the US System for Award Management (SAM)?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "registration",
+     "note": "UNVERIFIED: the cost and the processing time on a Spanish primary page.",
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether a product of yours is bought by the Ministry, or whether you need SAM registration.",
+     "requirement": "REQ-NCAGE",
+     "rule": "ES-NCAGE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Catalogación (SECAT-OC, Oficina Nacional de Catalogación)",
+      "text": "[Ministerio de Defensa, Catalogación] La solicitud de un nuevo código NCAGE debe estar justificada por la necesidad de catalogar un producto adquirido por el MINISDEF o por ser necesario éste código para el registro en el “System for Award Management” (SAM) del gobierno de los EEUU. Esta solicitud ha de ser tramitada bien a través del Órgano de Catalogación del Ejército si se dispone de acceso logado a SICAD, o bien a través de la aplicación “ NCAGE Code Request Tool” (NCRT) si se carece de este acceso.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/catalogacion/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "NCAGE code (Spain)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": "RD 166/2010 itself was not opened: its article 21 is quoted through the Ministry's page.",
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "Every Armed Forces contract for materials and spare parts must contain the catalogation clause (Reglamento de Catalogación, RD 166/2010, art. 21), so as a supplier you will be asked for the identification data of what you deliver.",
+     "requirement": null,
+     "rule": "ES-CATALOG-CLAUSE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Catalogación (RD 166/2010, art. 21, as the page quotes it)",
+      "text": "[Ministerio de Defensa, Catalogación] De conformidad con lo indicado en el Artículo 21 del Reglamento de Catalogación de material de la defensa, en todos los contratos de adquisición de materiales y repuestos que se celebren en el seno de las Fuerzas Armadas es obligatorio incluir la cláusula contractual de catalogación en la que se regula el proceso de la catalogación de los materiales adquiridos.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/catalogacion/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Catalogation clause in Armed Forces supply contracts"
+    },
+    {
+     "asks": [
+      {
+       "field": "specific_defence_use",
+       "question": "Is your product for specific defence use (Article 346 of the Treaty on the Functioning of the EU), rather than a civilian product?"
+      },
+      {
+       "field": "homologation_mandatory",
+       "question": "Is your product on the Ministry of Defence's list of products for which homologation is mandatory?"
+      },
+      {
+       "field": "homologated",
+       "question": "Is your product homologated by the Ministry of Defence?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "categorical",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Answer the questions below to see whether defence homologation concerns your product.",
+     "requirement": null,
+     "rule": "ES-HOMOLOG",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Homologación (Real Decreto 165/2010)",
+      "text": "[Ministerio de Defensa, Homologación] La homologación de la Defensa se restringe a aquellos productos que sean de utilización específica en el ámbito de la defensa, de acuerdo con lo especificado en el artículo 346 del Tratado de Funcionamiento de la Unión Europea.\n\n[Ministerio de Defensa, Homologación] Con carácter general la homologación se concederá por períodos de dos años.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/homologacion/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Defence homologation of the product (RD 165/2010)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": "UNVERIFIED: cost and duration of the HSEM.",
+     "obligation": "conditional",
+     "outcome": "not_met",
+     "reason": "You will access classified information, so you need the HSEM at the grade of that information, as a bidder or as a subcontractor at any level. Subcontracting such work needs the contracting body's written approval. For Ministry of Defence classified contracts the DGAM processes it; for NATO, EU and ESA classified information, the ONS (CNI).",
+     "requirement": "REQ-FSC-ES",
+     "rule": "ES-HSEM",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ley 24/2011, art. 21.2 (consolidated text, BOE)",
+      "text": "[Ley 24/2011, art. 21.2] Asimismo, el órgano de contratación deberá incluir la exigencia a los candidatos o licitadores de estar en posesión de las correspondientes habilitaciones en materia de seguridad de empresa y, en su caso, de establecimiento, de conformidad en todo caso con el grado de clasificación de la información. Los requisitos a que se refiere el párrafo anterior serán aplicables a todos los subcontratistas, en cualquier nivel de la cadena de subcontratación, que vayan a tener acceso a información clasificada [...]",
+      "url": "https://www.boe.es/eli/es/l/2011/08/01/24/con",
+      "verificationStatus": "V"
+     },
+     "title": "Company security clearance (HSEM) for bidders and subcontractors"
+    },
+    {
+     "asks": [
+      {
+       "field": "stores_classified",
+       "question": "Will classified information be stored on your own premises?"
+      },
+      {
+       "field": "REQ-HSES-ES",
+       "question": "Does the company hold an HSES (establishment security clearance)?"
+      }
+     ],
+     "consultant": "HSES path: what your site needs (secure storage, the company's control body, personnel clearances) is set case by case with the DGAM, or with the ONS for NATO, EU and ESA information, and the sources read here publish no cost or duration. A security consultant can tell you what it takes for your site.",
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether classified information will be stored at your site, and whether you hold the HSES.",
+     "requirement": "REQ-HSES-ES",
+     "rule": "ES-HSES",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Seguridad de la información en las empresas (SEGINFOEMP)",
+      "text": "[Ministerio de Defensa, SEGINFOEMP page] Estas habilitaciones son la Habilitación de Seguridad de Empresa (HSEM) y, si además han de almacenar información clasificada en sus instalaciones, la Habilitación de Seguridad de establecimiento (HSES).",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Establishment security clearance (HSES) for storing classified information"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "For Ministry of Defence contracts the DGAM runs the procedures to obtain, upgrade, suspend or withdraw the HSEM and the HSES, and also the personnel clearance (HPS) and the opening of the company's control body (Órgano de Control). The forms include “Anexo I. Justificación de la necesidad de HSEM/HSES”.",
+     "requirement": null,
+     "rule": "ES-HSEM-ISSUER",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, SEGINFOEMP (Resolución 320/14546/2013)",
+      "text": "[Ministerio de Defensa, SEGINFOEMP page] Obtención, modificación del grado, suspensión o retirada de la Habilitación de Seguridad de Empresa (HSEM) y, en su caso, la Habilitación de Seguridad de Establecimiento (HSES) necesarias para que las empresas puedan participar en los contratos en los que se maneje información clasificada.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Who processes the HSEM and HSES for Ministry of Defence contracts"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "If the classified information is NATO's, the EU's or ESA's, the authority is the Oficina Nacional de Seguridad (ONS) of the CNI, which clears people, companies and bodies and accredits the IT systems that handle it.",
+     "requirement": null,
+     "rule": "ES-ONS-ROLE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "CNI, Oficina Nacional de Seguridad",
+      "text": "[CNI, Oficina Nacional de Seguridad] Creada en 1983, la ONS tiene la misión de proteger la información clasificada mediante la habilitación de personas, empresas y organismos y la acreditación de sistemas TIC en los que se maneja dicha información.",
+      "url": "https://www.cni.es/oficina-nacional-de-seguridad",
+      "verificationStatus": "V"
+     },
+     "title": "The ONS (CNI) for NATO, EU and ESA classified information"
+    },
+    {
+     "asks": [
+      {
+       "field": "nato_classified_contract",
+       "question": "Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?"
+      },
+      {
+       "field": "nsfcc_held",
+       "question": "Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?"
+      },
+      {
+       "field": "nato_staff_cleared",
+       "question": "Do the staff who need access hold NATO personnel security clearances?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether you hold the NSFCC and whether the staff who need access are cleared.",
+     "requirement": "REQ-FSC-ES",
+     "rule": "ES-NSFCC",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Licitaciones OTAN",
+      "text": "[Ministerio de Defensa, Licitaciones OTAN] Disponer del correspondiente Certificado de Habilitación de Seguridad de la empresa, otorgado por la Autoridad Nacional de Seguridad (ANS-D), y que se refleja en un documento denominado NATO Facility Segurity [sic] Clearance Certificate (NSFCC).",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/licitacionesotan/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "NATO Facility Security Clearance Certificate (NSFCC)"
+    },
+    {
+     "asks": [
+      {
+       "field": "nato_icb_bid",
+       "question": "Do you want to bid in a NATO international competitive bidding (NSIP) tender?"
+      },
+      {
+       "field": "rid_capabilities_declared",
+       "question": "Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?"
+      },
+      {
+       "field": "REQ-RID",
+       "question": "Does the company hold a current RID certificate (registration or renewal)?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "declaration",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Answer the questions below to see whether you can obtain the Declaration of Eligibility.",
+     "requirement": "REQ-RID",
+     "rule": "ES-NATO-DOE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Licitaciones OTAN",
+      "text": "[Ministerio de Defensa, Licitaciones OTAN] Para que una empresa española obtenga la “Declaration of Eligibility” por la DGAM es necesario: Estar registrada y con certificado en vigor en el Registro de Empresas de la Dirección General de Armamento y Material (DGAM) Haber declarado en el Registro de Empresas de DGAM Capacidades Industriales.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/licitacionesotan/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Declaration of Eligibility for NATO international competitive bidding"
+    },
+    {
+     "asks": [
+      {
+       "field": "es_defence_material_list",
+       "question": "Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?"
+      }
+     ],
+     "consultant": "Export classification: whether your item is in Annex I of Real Decreto 679/2014 (the Spanish list of defence material) is a classification question. Ask the Subdirección General de Comercio Internacional de Material de Defensa y de Doble Uso, or an export-control specialist, before the goods leave Spain.",
+     "denominator": null,
+     "kind": "export",
+     "note": "UNVERIFIED: whether a sale inside Spain to a Spanish prime needs no licence. The text covers exports and shipments; this service does not say what it means for a domestic sale.",
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Answer the questions below to see whether a Spanish defence-material licence concerns you.",
+     "requirement": "REQ-EXPORT",
+     "rule": "ES-EXPORT-MIL",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Real Decreto 679/2014, art. 2.1.a (consolidated text, BOE)",
+      "text": "[Real Decreto 679/2014, art. 2.1.a] Quedan sujetas a autorización sometida a control específico del reglamento: 1.º Las exportaciones y expediciones definitivas y temporales del material incluido en la Relación de Material de Defensa, que figura en el anexo I.",
+      "url": "https://www.boe.es/eli/es/rd/2014/08/01/679/con",
+      "verificationStatus": "V"
+     },
+     "title": "Spanish licence for exports and intra-EU shipments of defence material"
+    },
+    {
+     "asks": [
+      {
+       "field": "es_defence_material_list",
+       "question": "Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "recommended",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
+     "requirement": null,
+     "rule": "ES-LGTC",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Real Decreto 679/2014, art. 29 (consolidated text, BOE)",
+      "text": "[Real Decreto 679/2014, art. 29] La Licencia Global de Transferencia de Componentes de Material de Defensa autoriza al titular para la realización de un número ilimitado de envíos de componentes, subsistemas y recambios de material de defensa, y los servicios asociados a ellos, a uno o varios destinatarios y a uno o varios países de destino, especificados, hasta el valor máximo autorizado y dentro de un plazo de validez de tres años.",
+      "url": "https://www.boe.es/eli/es/rd/2014/08/01/679/con",
+      "verificationStatus": "V"
+     },
+     "title": "Global licence for transfers of defence-material components"
+    },
+    {
+     "asks": [
+      {
+       "field": "foreign_capital",
+       "question": "Does a foreign investor hold shares in your company, directly or indirectly?"
+      },
+      {
+       "field": "foreign_investor_authorised",
+       "question": "Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?"
+      }
+     ],
+     "consultant": "Foreign ownership: whether a component maker's activity counts as related to National Defence is not defined in the text, and the authorisation follows the rules on foreign investment (RD 664/1999). Ask a lawyer who handles foreign investment in defence.",
+     "denominator": null,
+     "kind": "control",
+     "note": "The rule text is verified; whether it reaches a civilian component maker (the scope of “actividades relacionadas con la Defensa Nacional”) is an interpretation.",
+     "obligation": "conditional",
+     "outcome": "unknown",
+     "reason": "Say whether a foreign investor holds shares in your company and, if so, whether it holds the authorisation.",
+     "requirement": null,
+     "rule": "ES-FOREIGN-CAPITAL",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Real Decreto 679/2014, art. 13.3 (consolidated text, BOE)",
+      "text": "[Real Decreto 679/2014, art. 13.3] Las empresas españolas con capital extranjero directo o indirecto, relacionadas con la fabricación, comercio o distribución de armas y explosivos de uso civil y con actividades relacionadas con la Defensa Nacional, deberán acreditar que el sujeto inversor extranjero tiene autorización administrativa del Consejo de Ministros.",
+      "url": "https://www.boe.es/eli/es/rd/2014/08/01/679/con",
+      "verificationStatus": "S"
+     },
+     "title": "Foreign investor: Council of Ministers authorisation"
+    },
+    {
+     "asks": [
+      {
+       "field": "receives_eea_defence_products",
+       "question": "Do you receive defence-related products from other EEA states?"
+      },
+      {
+       "field": "certified_recipient",
+       "question": "Are you certified by your national authority as a recipient of defence-related products under the general transfer licences of other member states?"
+      }
+     ],
+     "consultant": null,
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "recommended",
+     "outcome": "unknown",
+     "reason": "Say whether you receive defence-related products from other EEA states and whether you are certified.",
+     "requirement": null,
+     "rule": "ES-CERTIFIED-RECIPIENT",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Real Decreto 679/2014, art. 28.7 and 28.11 (consolidated text, BOE)",
+      "text": "[Real Decreto 679/2014, art. 28.7 and 28.11] El titular de la Secretaría de Estado de Comercio del Ministerio de Economía y Competitividad, previa comprobación de los criterios que se señalan a continuación y el informe previo de la JIMDDU, podrá expedir certificados a aquellas empresas inscritas en el REOCE que lo soliciten capacitándolas para poder recibir determinado material de defensa procedente de países del EEE, de acuerdo con las Licencias Generales de Transferencia publicadas por otros Estados miembros.\n\n[Real Decreto 679/2014, art. 28.7 and 28.11] La certificación tendrá un plazo de validez de cinco años.",
+      "url": "https://www.boe.es/eli/es/rd/2014/08/01/679/con",
+      "verificationStatus": "V"
+     },
+     "title": "Certified recipient of defence products from other EEA states"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "info",
+     "reason": "Since Real Decreto 205/2024 and 896/2024 the Ministry of Defence's functions under article 31 of Real Decreto 679/2014, such as end-use certificates and international import certificates, sit with the DIGEID.",
+     "requirement": null,
+     "rule": "ES-MOD-EXPORT-ROLE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, Comercio exterior",
+      "text": "[Ministerio de Defensa, Comercio exterior] Por tanto, el órgano administrativo correspondiente del Ministerio de Defensa, al que se hace referencia en el Artículo 31, del Real Decreto 679/2014, de 1 de agosto, [...] es la Dirección General de Estrategia e Innovación de la Industria de Defensa (DIGEID).",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/comercioexterior/index.html",
+      "verificationStatus": "V"
+     },
+     "title": "Ministry of Defence documents in export control (DIGEID)"
+    }
+   ],
+   "sourceUrl": "https://sede.defensa.gob.es/acceda/procedimientos",
+   "summary": "Supplying the Spanish Ministry of Defence, directly or as a subcontractor in its contracts: the defence industry register, PECAL quality, security clearances, catalogation, homologation, the Spanish defence-material licence and foreign ownership. For companies established in Spain.",
+   "toObtain": [],
+   "verdict": "conditional"
   }
  ],
  "call": null,
+ "consultants": [
+  {
+   "asks": [],
+   "key": "ES-PECAL-CONTRACT",
+   "rule": "ES-PECAL-CONTRACT",
+   "text": "Prime qualification: if you supply through a prime contractor and not the Ministry directly, the prime qualifies its suppliers by its own procedure, which none of the sources read here publishes. Ask the prime, or a consultant, what it requires.",
+   "title": "PECAL quality requirements come with the contract"
+  },
+  {
+   "asks": [
+    {
+     "field": "stores_classified",
+     "question": "Will classified information be stored on your own premises?"
+    },
+    {
+     "field": "REQ-HSES-ES",
+     "question": "Does the company hold an HSES (establishment security clearance)?"
+    }
+   ],
+   "key": "ES-HSES",
+   "rule": "ES-HSES",
+   "text": "HSES path: what your site needs (secure storage, the company's control body, personnel clearances) is set case by case with the DGAM, or with the ONS for NATO, EU and ESA information, and the sources read here publish no cost or duration. A security consultant can tell you what it takes for your site.",
+   "title": "Establishment security clearance (HSES) for storing classified information"
+  },
+  {
+   "asks": [
+    {
+     "field": "es_defence_material_list",
+     "question": "Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?"
+    }
+   ],
+   "key": "ES-EXPORT-MIL",
+   "rule": "ES-EXPORT-MIL",
+   "text": "Export classification: whether your item is in Annex I of Real Decreto 679/2014 (the Spanish list of defence material) is a classification question. Ask the Subdirección General de Comercio Internacional de Material de Defensa y de Doble Uso, or an export-control specialist, before the goods leave Spain.",
+   "title": "Spanish licence for exports and intra-EU shipments of defence material"
+  },
+  {
+   "asks": [
+    {
+     "field": "foreign_capital",
+     "question": "Does a foreign investor hold shares in your company, directly or indirectly?"
+    },
+    {
+     "field": "foreign_investor_authorised",
+     "question": "Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?"
+    }
+   ],
+   "key": "ES-FOREIGN-CAPITAL",
+   "rule": "ES-FOREIGN-CAPITAL",
+   "text": "Foreign ownership: whether a component maker's activity counts as related to National Defence is not defined in the text, and the authorisation follows the rules on foreign investment (RD 664/1999). Ask a lawyer who handles foreign investment in defence.",
+   "title": "Foreign investor: Council of Ministers authorisation"
+  },
+  {
+   "asks": [
+    {
+     "field": "us_components",
+     "question": "Does your product contain components, technology or software of US origin?"
+    }
+   ],
+   "key": "US-COMPONENTS",
+   "rule": null,
+   "text": "If your product contains components, technology or software of US origin, US export control (for defence articles, the International Traffic in Arms Regulations, ITAR) may decide to whom it can be sold or re-exported. This service holds no verified rule on US export control and gives no answer on it: ask a specialist in US export control.",
+   "title": "US-origin components (ITAR)"
+  }
+ ],
  "general": [
   {
    "blocking": [],
@@ -893,7 +1680,7 @@
     "conditional": 0,
     "info": 0,
     "met": 0,
-    "not_applicable": 4,
+    "not_applicable": 13,
     "not_met": 3,
     "to_obtain": 0,
     "unknown": 0
@@ -907,6 +1694,7 @@
    "rules": [
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -927,6 +1715,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "export",
      "note": null,
@@ -947,6 +1736,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -967,6 +1757,7 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "export",
      "note": "Article 4(2) of the Directive lets a Member State exempt some transfers, for example where the supplier or the recipient is a governmental body or part of the armed forces. UNVERIFIED: which authority issues military licences in Germany and Poland. The research notes name the authority for dual-use items only.",
@@ -987,46 +1778,49 @@
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "export",
-     "note": null,
+     "note": "REOCE is open only to Spanish residents: a company resident elsewhere follows the rules of its own country.",
      "obligation": "conditional",
      "outcome": "not_met",
      "reason": "Spanish exporters of controlled items must register in REOCE, before or together with the licence application.",
      "requirement": "REQ-REOCE",
      "rule": "G-REOCE",
      "source": {
-      "lastReviewed": "2026-09-07",
-      "origin": "notes",
-      "ref": "DefenceGate technical appendix, Spain export control",
-      "text": "[DefenceGate technical appendix, Spain export control] exporters must register in REOCE (Registro Especial de Operadores de Comercio Exterior), either before or together with the licence application. REOCE is open only to Spanish residents.",
-      "url": "https://comercio.gob.es/",
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ley 53/2007, art. 12; Real Decreto 679/2014, art. 13",
+      "text": "[Ley 53/2007, art. 12] Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso.",
+      "url": "https://www.boe.es/eli/es/l/2007/12/28/53/con",
       "verificationStatus": "V"
      },
      "title": "REOCE registration (Spanish exporters)"
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "security",
      "note": null,
      "obligation": "conditional",
      "outcome": "not_met",
-     "reason": "To handle classified information a Spanish company needs the HSEM facility security clearance from the Oficina Nacional de Seguridad. How long it takes is not published.",
+     "reason": "To handle classified information a Spanish company needs the HSEM company security clearance. Who processes it depends on whose information it is: the DGAM for Ministry of Defence classified contracts, the Oficina Nacional de Seguridad (ONS, CNI) for NATO, EU and ESA classified information. How long it takes is not published.",
      "requirement": "REQ-FSC-ES",
      "rule": "G-HSEM",
      "source": {
-      "lastReviewed": "2026-09-07",
-      "origin": "notes",
-      "ref": "DefenceGate technical appendix, Facility and personnel security clearance",
-      "text": "[DefenceGate technical appendix, Facility and personnel security clearance] Facility clearance is called HSEM (Habilitación de Seguridad de Empresa). ONS maps it directly to the international FSCIS (Facility Security Clearance Information Sheet).",
-      "url": "https://www.cni.es/oficina-nacional-de-seguridad",
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Ministerio de Defensa, SEGINFOEMP page; CNI, Oficina Nacional de Seguridad",
+      "text": "[Ministerio de Defensa, SEGINFOEMP page] Obtención, modificación del grado, suspensión o retirada de la Habilitación de Seguridad de Empresa (HSEM) y, en su caso, la Habilitación de Seguridad de Establecimiento (HSES) necesarias para que las empresas puedan participar en los contratos en los que se maneje información clasificada.\n\n[CNI, Oficina Nacional de Seguridad] Creada en 1983, la ONS tiene la misión de proteger la información clasificada mediante la habilitación de personas, empresas y organismos y la acreditación de sistemas TIC en los que se maneja dicha información.",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html",
       "verificationStatus": "V"
      },
      "title": "Facility security clearance (Spain)"
     },
     {
      "asks": [],
+     "consultant": null,
      "denominator": null,
      "kind": "information",
      "note": null,
@@ -1044,6 +1838,195 @@
       "verificationStatus": "U"
      },
      "title": "Facility security clearance (other countries)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": "UNVERIFIED: the duration of the admission (the BMWE says it depends on the case).",
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "requirement": null,
+     "rule": "DE-GHB-ADMISSION",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, FAQ “Fragen zum Geheimschutz” (09.03.2026)",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Der Antrag erfolgt durch einen sogenannten VS-Auftraggeber. [...] Ein Eigenantrag ist nicht möglich.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "Admission to the BMWE Geheimschutzbetreuung (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "requirement": null,
+     "rule": "DE-GHB-COST",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, FAQ “Fragen zum Geheimschutz” (09.03.2026)",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Die Geheimschutzbetreuung des BMWE sind [sic] kostenfrei, einschließlich der Beratung während der Geheimschutzbetreuung.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "Cost of the Geheimschutzbetreuung (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies in classified tenders.",
+     "requirement": null,
+     "rule": "DE-GHB-BID",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, Information zu Vergabeverfahren (Stand 10/2026)",
+      "text": "[BMWE, Information zu Vergabeverfahren] Nach den gesetzlichen Bestimmungen ist ein bestehender Sicherheitsbescheid und damit die Aufnahme in die Geheimschutzbetreuung keine zwingende Voraussetzung für die Angebotsabgabe.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/659,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "No security notice needed to submit a bid (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies in contracts with VS-NfD material.",
+     "requirement": null,
+     "rule": "DE-VSNFD",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, Information zu Vergabeverfahren (Stand 10/2026)",
+      "text": "[BMWE, Information zu Vergabeverfahren] Wenn der Auftrag Verschlusssachen des Geheimhaltungsgrades „VS-NUR FÜR DEN DIENSTGEBRAUCH“ (VS-NfD) umfasst, ist kein Sicherheitsbescheid und damit auch keine Geheimschutzbetreuung erforderlich, allerdings verlangen Auftraggeber gem. § 7 Abs. 4 VSVgV bereits vor Gewährung dieses Zugangs die Verpflichtungserklärungen.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/659,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "VS-NUR FÜR DEN DIENSTGEBRAUCH obligations (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "security",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "requirement": null,
+     "rule": "DE-SIBE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "BMWE Sicherheitsforum, FAQ (09.03.2026); SÜG § 25(3), https://www.gesetze-im-internet.de/s_g/__25.html",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Ja, jedes Unternehmen in der Geheimschutzbetreuung muss einen SiBe bestellen.",
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "verificationStatus": "V"
+     },
+     "title": "Security officer (Sicherheitsbevollmächtigter, Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies whose staff will access classified material.",
+     "requirement": null,
+     "rule": "DE-SUE",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "SÜG §§ 8, 9, 10, 17; durations: BT-Drs. 20/11836 (13.06.2024), https://dserver.bundestag.de/btd/20/118/2011836.pdf",
+      "text": "[SÜG § 8] Die einfache Sicherheitsüberprüfung ist für Personen durchzuführen, die 1. Zugang zu VS-VERTRAULICH eingestuften Verschlusssachen erhalten sollen oder ihn sich verschaffen können\n\n[BT-Drs. 20/11836, note to the table of durations] Anmerkung: Die Daten wurden nicht differenziert nach öffentlichem und nichtöffentlichem Bereich erfasst.",
+      "url": "https://www.gesetze-im-internet.de/s_g/__8.html",
+      "verificationStatus": "V"
+     },
+     "title": "Personnel security checks Ü1, Ü2, Ü3 (Germany)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies whose goods in Ausfuhrliste Part I leave Germany. For other dual-use items see the EU dual-use rules.",
+     "requirement": "REQ-EXPORT",
+     "rule": "DE-EXPORT-BAFA",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "AWV § 8 and § 11; AWG § 13 (gesetze-im-internet.de)",
+      "text": "[AWV § 8] Die Ausfuhr der folgenden Güter bedarf der Genehmigung: 1. der in Teil I Abschnitt A der Ausfuhrliste genannten Güter und 2. der in Teil I Abschnitt B der Ausfuhrliste genannten Güter.\n\n[AWV § 11] Die Verbringung der in Teil I Abschnitt A der Ausfuhrliste genannten Güter bedarf der Genehmigung.",
+      "url": "https://www.gesetze-im-internet.de/awv_2013/__8.html",
+      "verificationStatus": "V"
+     },
+     "title": "German licence for goods in Ausfuhrliste Part I (BAFA)"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "information",
+     "note": "UNVERIFIED: amendments of the Directive after 2009, and the CERTIDER register itself.",
+     "obligation": "recommended",
+     "outcome": "not_applicable",
+     "reason": "This concerns companies in other EU states that receive defence-related products from other member states.",
+     "requirement": null,
+     "rule": "EU-CERTIFIED-RECIPIENT",
+     "source": {
+      "lastReviewed": "2026-10-20",
+      "origin": "primary",
+      "ref": "Directive 2009/43/EC, art. 9(1) and 5(2)(b) (original 2009 text)",
+      "text": "[Directive 2009/43/EC, Article 9(1)] Member States shall designate competent authorities to carry out the certification of recipients established on their territory of defence-related products under transfer licences published by other Member States in accordance with Article 5(2)(b).",
+      "url": "http://publications.europa.eu/resource/celex/32009L0043",
+      "verificationStatus": "V"
+     },
+     "title": "Certified recipient under Directive 2009/43/EC"
+    },
+    {
+     "asks": [],
+     "consultant": null,
+     "denominator": null,
+     "kind": "export",
+     "note": null,
+     "obligation": "conditional",
+     "outcome": "not_applicable",
+     "reason": "This concerns items that may be listed dual-use items and are exported outside the EU.",
+     "requirement": "REQ-EXPORT",
+     "rule": "EU-DUALUSE-EXPERT",
+     "source": {
+      "lastReviewed": "2026-10-17",
+      "origin": "primary",
+      "ref": "Regulation (EU) 2021/821, Article 3(1)",
+      "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "verificationStatus": "V"
+     },
+     "title": "Is your item a listed dual-use item? (classification)"
     }
    ],
    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
@@ -1111,6 +2094,7 @@
       "title": "PIC registered on the Funding and Tenders Portal"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 1,
     "parallelWith": [
@@ -1118,7 +2102,9 @@
      3,
      4,
      5,
-     6
+     6,
+     7,
+     8
     ],
     "prerequisites": [],
     "priceNote": null,
@@ -1156,9 +2142,9 @@
      {
       "country": "ES",
       "name": "Unidad de Catalogación (SECAT-OC), acting as Oficina Nacional de Catalogación (ONC) for NATO, within SDG INREID, Dirección General de Armamento y Material (DGAM), Ministerio de Defensa",
-      "notes": "A new NCAGE requires an existing supply contract, and the application is submitted through the relevant Órgano de Catalogación del Ejército. No fee is published, in line with NATO policy; the word 'gratuito' does not appear on the Spanish ministry page.",
+      "notes": "A new NCAGE request has to be justified by the need to catalogue a product bought by the Ministry of Defence, or by registration in the US System for Award Management (SAM). It is made through the catalogation body of the Army branch if the company has logged access to SICAD, otherwise through the NSPA NCAGE Code Request Tool (Ministry of Defence catalogation page, read on 20 October 2026). No fee is published, in line with NATO policy; the word 'gratuito' does not appear on the Spanish ministry page.",
       "status": "V",
-      "url": null
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/catalogacion/index.html"
      }
     ],
     "lastReviewed": "2026-09-07",
@@ -1170,6 +2156,7 @@
       "title": "NCAGE code"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 2,
     "parallelWith": [
@@ -1177,7 +2164,9 @@
      3,
      4,
      5,
-     6
+     6,
+     7,
+     8
     ],
     "prerequisites": [],
     "priceNote": null,
@@ -1199,21 +2188,34 @@
     "issuers": [
      {
       "country": "ES",
-      "name": "Oficina Nacional de Seguridad (ONS), under the Secretaria de Estado Directora del CNI",
+      "name": "Dirección General de Armamento y Material (DGAM), SDG INREID, Ministerio de Defensa: for Ministry of Defence classified contracts",
+      "notes": "Runs the procedures to obtain, upgrade, suspend or withdraw the HSEM and the HSES for Ministry of Defence contracts (Resolución 320/14546/2013, which implements Instrucción 52/2013), and the personnel clearance (HPS). UNVERIFIED: processing times and cost.",
+      "status": "V",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html"
+     },
+     {
+      "country": "ES",
+      "name": "Oficina Nacional de Seguridad (ONS), under the Secretaria de Estado Directora del CNI: for NATO, EU and ESA classified information",
       "notes": "Established in 1983. Portals: cni.es/oficina-nacional-de-seguridad, ons.cni.es, sede.cni.es. UNVERIFIED: processing times for the HSEM were not confirmed.",
       "status": "V",
       "url": "https://www.cni.es/oficina-nacional-de-seguridad"
      }
     ],
-    "lastReviewed": "2026-09-07",
+    "lastReviewed": "2026-10-20",
     "name": "HSEM facility security clearance (Spain)",
     "neededFor": [
+     {
+      "programme": "ES-MOD",
+      "rule": "ES-HSEM",
+      "title": "Company security clearance (HSEM) for bidders and subcontractors"
+     },
      {
       "programme": "GENERAL",
       "rule": "G-HSEM",
       "title": "Facility security clearance (Spain)"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 3,
     "parallelWith": [
@@ -1221,13 +2223,15 @@
      2,
      4,
      5,
-     6
+     6,
+     7,
+     8
     ],
     "prerequisites": [],
     "priceNote": null,
-    "sourceUrl": "https://www.cni.es/oficina-nacional-de-seguridad",
+    "sourceUrl": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html",
     "status": "not_held",
-    "summary": "The Spanish facility security clearance (Habilitación de Seguridad de Empresa), needed to handle classified information. How long it takes is not published.",
+    "summary": "The Spanish company security clearance (Habilitación de Seguridad de Empresa), needed by bidders and subcontractors at any level that access classified information. Who issues it depends on whose information it is. How long it takes is not published.",
     "variantUsed": null,
     "verificationStatus": "V",
     "when": null
@@ -1249,7 +2253,7 @@
       "url": "https://comercio.gob.es/"
      }
     ],
-    "lastReviewed": "2026-09-07",
+    "lastReviewed": "2026-10-20",
     "name": "REOCE registration (Spain)",
     "neededFor": [
      {
@@ -1258,19 +2262,75 @@
       "title": "REOCE registration (Spanish exporters)"
      }
     ],
+    "note": null,
     "optional": false,
     "order": 4,
     "parallelWith": [
      1,
      2,
      3,
-     6
+     5,
+     7,
+     8
     ],
     "prerequisites": [],
     "priceNote": null,
-    "sourceUrl": "https://comercio.gob.es/",
+    "sourceUrl": "https://www.boe.es/eli/es/l/2007/12/28/53/con",
     "status": "not_held",
     "summary": "Spanish exporters of controlled items must be on the Special Register of Foreign Trade Operators (REOCE), before or together with the licence application. Open only to Spanish residents.",
+    "variantUsed": null,
+    "verificationStatus": "V",
+    "when": null
+   },
+   {
+    "blockingFor": [
+     "ES-MOD"
+    ],
+    "branchNote": null,
+    "category": "registration",
+    "code": "REQ-RID",
+    "cost": null,
+    "days": null,
+    "issuerNote": null,
+    "issuers": [
+     {
+      "country": "ES",
+      "name": "Dirección General de Estrategia e Innovación de la Industria de Defensa (DIGEID), Ministerio de Defensa",
+      "notes": "Requested online through the Ministry of Defence's e-office (procedure SIA 993054), with the company's electronic certificate.",
+      "status": "V",
+      "url": "https://sede.defensa.gob.es/acceda/procedimientos"
+     }
+    ],
+    "lastReviewed": "2026-10-20",
+    "name": "RID registration (Registro de la Industria de Defensa, Spain)",
+    "neededFor": [
+     {
+      "programme": "ES-MOD",
+      "rule": "ES-RID",
+      "title": "Registration in the defence industry register (RID)"
+     },
+     {
+      "programme": "",
+      "rule": "",
+      "title": "Comes before PECAL certification (Spain, DGAM)"
+     }
+    ],
+    "note": null,
+    "optional": false,
+    "order": 5,
+    "parallelWith": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     7
+    ],
+    "prerequisites": [],
+    "priceNote": null,
+    "sourceUrl": "https://sede.defensa.gob.es/acceda/procedimientos",
+    "status": "not_held",
+    "summary": "The Spanish Ministry of Defence's register of defence industry. A current certificate is needed to be in the Ministry's catalogue of actual or potential suppliers, and for PECAL and the NATO Declaration of Eligibility.",
     "variantUsed": null,
     "verificationStatus": "V",
     "when": null
@@ -1301,13 +2361,16 @@
       "title": "Authorisation for military goods"
      }
     ],
+    "note": null,
     "optional": false,
-    "order": 5,
+    "order": 6,
     "parallelWith": [
      1,
      2,
      3,
-     6
+     5,
+     7,
+     8
     ],
     "prerequisites": [
      {
@@ -1338,7 +2401,7 @@
      {
       "country": "ES",
       "name": "Spanish state route: PECAL, audited through DGAM structures",
-      "notes": "The Spanish equivalent of AQAP is PECAL, audited through the structures of the Dirección General de Armamento y Material rather than a commercial certification body.",
+      "notes": "The Spanish equivalent of AQAP is PECAL, audited through the structures of the Dirección General de Armamento y Material rather than a commercial certification body. On this route ISO 9001 from an ENAC-accredited body is a formal precondition, not only a practical one (DGAM procedure PA 4302); see the PECAL certification page.",
       "status": "S",
       "url": null
      }
@@ -1372,14 +2435,17 @@
       "title": "AQAP quality certification"
      }
     ],
+    "note": null,
     "optional": true,
-    "order": 6,
+    "order": 7,
     "parallelWith": [
      1,
      2,
      3,
      4,
-     5
+     5,
+     6,
+     8
     ],
     "prerequisites": [
      {
@@ -1396,6 +2462,67 @@
     "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",
     "variantUsed": null,
     "verificationStatus": "S",
+    "when": "when a contract names it"
+   },
+   {
+    "blockingFor": [],
+    "branchNote": null,
+    "category": "quality",
+    "code": "REQ-PECAL",
+    "cost": null,
+    "days": null,
+    "issuerNote": null,
+    "issuers": [
+     {
+      "country": "ES",
+      "name": "Dirección General de Armamento y Material (DGAM), Ministerio de Defensa",
+      "notes": "Initial audit by the DGAM; renewal and surveillance audits by certification bodies recognised by the CMDIN. The DGAM issues a quote for the fee; no amount is published.",
+      "status": "V",
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/aseguramientocalidad/index.html"
+     }
+    ],
+    "lastReviewed": "2026-10-20",
+    "name": "PECAL certification (Spain, DGAM)",
+    "neededFor": [
+     {
+      "programme": "ES-MOD",
+      "rule": "ES-PECAL-CONTRACT",
+      "title": "PECAL quality requirements come with the contract"
+     }
+    ],
+    "note": "The chicken-and-egg of PECAL: the DGAM's initial audit expects a PECAL system audited by your management for at least nine months and at least one Ministry of Defence contract with PECAL requirements in the last two years (or a certificate of conformity signed by a DGAM quality representative). A newcomer therefore usually meets PECAL inside a first contract, under the quality representative's oversight, and applies for the certificate afterwards. It is not a block before a first contract: get the RID and ISO 9001 (or EN 9100) first.",
+    "optional": true,
+    "order": 8,
+    "parallelWith": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     7
+    ],
+    "prerequisites": [
+     {
+      "code": "REQ-RID",
+      "name": "RID registration (Registro de la Industria de Defensa, Spain)",
+      "relation": "before",
+      "status": "not_held",
+      "step": 5
+     },
+     {
+      "code": "REQ-ISO9001",
+      "name": "ISO 9001 quality management certificate",
+      "relation": "before",
+      "status": "held",
+      "step": null
+     }
+    ],
+    "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",
+    "sourceUrl": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
+    "status": "not_held",
+    "summary": "The Spanish state certification of a quality management system against PECAL 2110 or 2310 (the Spanish editions of AQAP). It needs the RID and ISO 9001 or EN 9100 first, and the initial audit expects prior PECAL contract experience.",
+    "variantUsed": null,
+    "verificationStatus": "V",
     "when": "when a contract names it"
    }
   ],
@@ -1436,30 +2563,40 @@
     "REQ-EXPORT"
    ],
    [
+    "REQ-RID",
+    "REQ-PECAL"
+   ],
+   [
     "REQ-AQAP2110"
    ]
   ],
   "unknownCost": [
    "REQ-FSC-ES",
    "REQ-REOCE",
+   "REQ-RID",
    "REQ-EXPORT"
   ],
   "unknownCostWithOptional": [
    "REQ-FSC-ES",
    "REQ-REOCE",
+   "REQ-RID",
    "REQ-EXPORT",
-   "REQ-AQAP2110"
+   "REQ-AQAP2110",
+   "REQ-PECAL"
   ],
   "unknownDuration": [
    "REQ-FSC-ES",
    "REQ-REOCE",
+   "REQ-RID",
    "REQ-EXPORT"
   ],
   "unknownDurationWithOptional": [
    "REQ-FSC-ES",
    "REQ-REOCE",
+   "REQ-RID",
    "REQ-EXPORT",
-   "REQ-AQAP2110"
+   "REQ-AQAP2110",
+   "REQ-PECAL"
   ]
  },
  "rulesReviewed": "2026-10-18"

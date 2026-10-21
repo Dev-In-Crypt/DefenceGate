@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from dgate.readiness.api import ProfileIn
-from dgate.readiness.engine import assess
+from dgate.readiness.api import ProfileIn, unasked
+from dgate.readiness.engine import assess, concerns, with_unasked
 from dgate.readiness.seed import load_file
 
 CONTENT = load_file()
@@ -33,12 +33,12 @@ REASONS = {
     "p02-ua-all-answered-10pct": "EDF: Reg. 2025/2653 Art 3 replaces Art 5 of 2021/697 so that Ukraine can be an associated country 'in accordance with the conditions laid down in the EU-Ukraine Association Agreement'; the EDF call documents of 2026 say participation of entities established in Ukraine is pending the signature of that agreement and no primary text says it applies (V2-B2), so conditional, not 'obtain'. "
                                  "USI: 'established in the Union or in Ukraine' (2025/2643 Art 26(1)); only the free PIC is missing, so 'obtain', not blocked. "
                                  "EDIP: blocked as for profile 1. SAFE: established in Ukraine (2025/1106 Art 16(3)), 10 % <= 35 % (Art 16(10)): eligible.",
-    "p03-es-iso9001-only": "A Spanish legal person meets every establishment, management and control rule of EDF, EDIP and USI; the only gap is the free, immediate PIC: obtain (EDF, EDIP). USI: conditional, the action needs a Ukrainian applicant or partner (Art 27(7), WP-42 R1). SAFE has no registration: eligible. NCAGE to obtain.",
+    "p03-es-iso9001-only": "A Spanish legal person meets every establishment, management and control rule of EDF, EDIP and USI; the only gap is the free, immediate PIC: obtain (EDF, EDIP). USI: conditional, the action needs a Ukrainian applicant or partner (Art 27(7), WP-42 R1). SAFE has no registration: eligible. NCAGE to obtain. ES-MOD (WP-64): the Spanish Ministry of Defence route needs a current RID certificate (MoD e-office procedure SIA 993054), and the questionnaire does not ask yet whether the company holds it: unknown, never 'not held', so conditional.",
     "p04-pl-sme-30pct-us-components": "30 % is not higher than 35 % under SAFE Art 16(10), EDIP Art 10(3) and USI Art 27(3), so EDF, EDIP and SAFE are eligible; USI stays conditional because the action needs a Ukrainian applicant or partner (Art 27(7), WP-42 R1). Dual-use goods moved inside the Union need an authorisation only for Annex IV items or where a Member State imposes one (Reg. 2021/821 Art 11), so the export step is not mandatory (D6).",
     "p05-de-controlled-from-third-country": "Control by a third country: EDF Art 9(4), EDIP Art 9(6), USI Art 26(6) and SAFE Art 16(5) allow a derogation for an entity established in the Union if guarantees or screening are in place: conditional in all four.",
     "p06-es-sole-trader": "A sole trader is a natural person. 'Legal entity' is defined in 2021/697 Art 2 and 2025/2643 Art 2 as a legal person or an entity without legal personality as in the Financial Regulation point (c); natural persons are point (b) of that Article, which the definition does not cite. "
                           "The EDF, EDIP and Ukraine Support Instrument call documents of 2026 say: 'Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person)', so conditional for EDF, EDIP and USI, not blocked (V2-B4). "
-                          "SAFE Art 16 contains no such definition for contractors, so SAFE is not decided by legal form.",
+                          "SAFE Art 16 contains no such definition for contractors, so SAFE is not decided by legal form. ES-MOD (WP-64): the Spanish Ministry of Defence route needs a current RID certificate (MoD e-office procedure SIA 993054), and the questionnaire does not ask yet whether the company holds it: unknown, never 'not held', so conditional.",
     "p07-norwegian-company": "EDF Art 5(a): EEA EFTA members are associated countries. EDIP Art 2: only EEA EFTA members that apply the Regulation, so a check (conditional). USI Art 26(1): the Union or Ukraine only: blocked. SAFE Art 16(3): EEA EFTA State: eligible.",
     "p08-us-company": "Established outside the Union, an associated country, the EEA EFTA states and Ukraine: EDF Art 9(1), EDIP Art 9(1), USI Art 26(1) and SAFE Art 16(3) are not met. The SAFE agreements of Art 17 are not encoded.",
     "p09-de-management-in-us": "Executive management structures must be in the Union or an associated country (EDF Art 9(2), EDIP Art 9(1), USI Art 26(1)) or the Union, an EEA EFTA state or Ukraine (SAFE Art 16(3)).",
@@ -51,15 +51,15 @@ REASONS = {
     "p15-ua-controlled-by-other-country": "EDF Art 9(4): the derogation is for an entity in the Union or an associated country; Ukraine is one only if its association agreement applies, which is not confirmed (V2-B2): conditional either way. USI Art 26(6) and SAFE Art 16(5): the derogation is for an entity established in the Union only: blocked. EDIP: blocked as for any Ukrainian company.",
     "p16-fr-60pct": "60 % > 35 %: EDIP Art 10(3)-(4) and USI Art 27(3)-(4) have the same limit as SAFE Art 16(10) (the verifier's defect D1: these were shown 'Eligible'). EDF has no origin rule.",
     "p17-greece-sent-as-EL": "'EL' is Greece in EU usage; it is read as GR and Greece is a Member State: eligible (D11: it was read as a country outside the EU).",
-    "p18-es-entity-without-legal-personality": "An entity without legal personality is a legal entity only if it is of the kind in point (c) of the Financial Regulation (2021/697 Art 2; 2025/2643 Art 2): conditional. SAFE: not decided by legal form.",
+    "p18-es-entity-without-legal-personality": "An entity without legal personality is a legal entity only if it is of the kind in point (c) of the Financial Regulation (2021/697 Art 2; 2025/2643 Art 2): conditional. SAFE: not decided by legal form. ES-MOD (WP-64): the Spanish Ministry of Defence route needs a current RID certificate (MoD e-office procedure SIA 993054), and the questionnaire does not ask yet whether the company holds it: unknown, never 'not held', so conditional.",
     "p19-fr-20pct-plus-ukrainian-components": "EDIP Art 10(3) counts components from outside 'the Union and associated countries' and Ukraine is not associated; USI Art 27(3) counts those from outside 'the Union and Ukraine', so EEA EFTA components count. With such components the 20 % reported on SAFE's base may exceed 35 % on theirs: conditional, never eligible. SAFE Art 16(10) counts neither.",
     "p20-de-origin-flag-unanswered": "The question about components from Ukraine or an EEA EFTA state is unanswered: EDIP and USI cannot be decided (conditional). SAFE's base does not need it.",
     "p21-us-supplier-below-the-subcontractor-threshold": "SAFE Art 16(3) binds contractors and 'subcontractors involved in the common procurement', defined in Art 16(12) as critical-input providers with at least 15 % of the contract value and a need for classified access. A supplier below that is not bound (D5), so SAFE rules on establishment, management and control do not apply to it; EDF, EDIP and USI still block a US company.",
     "p22-us-subcontractor-involved": "A US company that meets Art 16(12) is a subcontractor involved: Art 16(3) applies and is not met (the 15 to 35 % relief of Art 16(4) is information, not encoded as a pass).",
-    "p23-es-safe-role-unanswered": "Whether SAFE Art 16(3) binds the company depends on its role (Art 16(12)); unanswered is unknown (conditional), not 'contractor' and not 'supplier'.",
+    "p23-es-safe-role-unanswered": "Whether SAFE Art 16(3) binds the company depends on its role (Art 16(12)); unanswered is unknown (conditional), not 'contractor' and not 'supplier'. ES-MOD (WP-64): the Spanish Ministry of Defence route needs a current RID certificate (MoD e-office procedure SIA 993054), and the questionnaire does not ask yet whether the company holds it: unknown, never 'not held', so conditional.",
     "p24-pl-nothing-held": "A Polish legal person with clean answers lacks only the PIC (EDF, EDIP, USI) and the NCAGE (NATO): free registrations, so 'obtain' and not blocked (D3). USI is conditional, not obtain: it also needs a Ukrainian applicant or partner (WP-42 R1).",
     "p25-pl-controlled-and-no-pic": "Control by a third country needs guarantees (derogation) and the PIC is missing: conditional dominates; the PIC stays in the 'to obtain' list.",
-    "p26-es-everything-held": "Every rule is met and both registrations are held: eligible.",
+    "p26-es-everything-held": "Every rule is met and both registrations are held: eligible. ES-MOD (WP-64): the Spanish Ministry of Defence route needs a current RID certificate (MoD e-office procedure SIA 993054), and the questionnaire does not ask yet whether the company holds it: unknown, never 'not held', so conditional.",
     "p27-ca-contractor-under-the-safe-agreement": "The agreement between the EU and Canada (Council Decision (EU) 2026/1381, OJ L 2026/445) has applied provisionally since 13 April 2026: Art 5(2) lets a Canadian legal entity established in Canada with executive management in Canada take part in SAFE procurement, so SAFE is conditional, not blocked (V2-B7). "
                                                   "EDF, EDIP and USI have no such agreement: blocked.",
     "p28-ca-management-in-the-us": "Art 5(2) of the SAFE agreement with Canada needs executive management in Canada, the Union, an EEA EFTA State or Ukraine: management in the United States is not met, so SAFE stays blocked.",
@@ -85,7 +85,10 @@ def engine_profile(raw, action=None):
 
 def verdicts(entry):
     profile = engine_profile(entry["profile"], entry.get("action"))
-    return {p.code: assess(profile, entry["statuses"], p).verdict for p in PROGRAMMES}
+    # what the API shows (WP-64): the statuses the questionnaire does not ask read as unknown, and a route none of whose rules
+    # concerns the company (the Spanish MoD route for a company elsewhere) is left out
+    statuses = with_unasked(entry["statuses"], unasked(CONTENT))
+    return {p.code: a.verdict for p in PROGRAMMES if concerns(a := assess(profile, statuses, p))}
 
 
 def test_there_are_40_profiles_and_every_one_has_a_stated_legal_reason():
