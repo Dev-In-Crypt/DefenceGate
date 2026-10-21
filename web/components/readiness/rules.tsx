@@ -4,7 +4,7 @@ import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, o
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
-import { stepOfField, wizardAsks } from '@/lib/profile';
+import { stepOfField, supplierAsks, wizardAsks } from '@/lib/profile';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
@@ -140,6 +140,9 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
               <li key={m.field}>
                 {wizardAsks(m.field)
                   ? <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-12 items-center font-semibold">{m.question}</Link>
+                  // WP-65: a question the supplier profile asks links to its field there
+                  : supplierAsks(m.field)
+                  ? <Link href={`/readiness/supplier#q-${m.field.replace(/^profile\./, '')}`} className="inline-flex min-h-12 items-center font-semibold" data-supplier-asks={m.field}>{m.question}</Link>
                   // a question of the Spanish, German or NATO/EU rules (WP-64) that the questionnaire does not ask yet: no step to link to
                   : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(not asked by the questionnaire yet)</span></span>}
               </li>

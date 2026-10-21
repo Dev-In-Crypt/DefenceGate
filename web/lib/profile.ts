@@ -7,7 +7,7 @@
  *   const p = loadProfile();            // null before the wizard has been started
  *   p?.country                          // 'UA', 'ES', ... or 'XX' for a country that is not listed
  *
- * What leaves the browser is `toRequest(profile)`: the answers the rules read (fourteen fields) and the
+ * What leaves the browser is `toRequest(profile)`: the answers the rules read (fourteen fields, plus the supplier page's answers that rules read) and the
  * status of each requirement, sent to POST /api/readiness/assess to compute the verdict. The company
  * name and the size class are kept here for the page and are never part of that request.
  *
@@ -21,9 +21,12 @@ export const PROFILE_KEY = 'dg.profile.v1';
  * Version 2 (WP-53) replaced the pre-selected "executive management is in the same country" with an answer that starts empty, and added the
  * two partner questions. A version 1 block is still read (`parseProfile`): its executive-management answer is kept only when it said
  * "another country", because a stored "same country" cannot be told from the radio that was ticked for the visitor.
+ *
+ * Version 3 (WP-65) added the supplier profile (`supplier`: what a parts or materials maker answers on /readiness/supplier). A version 1 or 2
+ * block is read with an empty supplier profile and every other answer kept; the block is written back as version 3 at the first change.
  */
-export const PROFILE_VERSION = 2;
-const LEGACY_VERSION = 1;
+export const PROFILE_VERSION = 3;
+const LEGACY_VERSIONS = [1, 2];
 
 export type Tri = 'yes' | 'no' | 'unsure' | '';
 /** Where the executive management is: the answer starts empty (WP-53, T5), and an empty answer is unknown, never "same country". */
@@ -38,8 +41,158 @@ export type ApplicantKind = 'company_or_research' | 'contracting_authority' | 'i
 export type Status = 'held' | 'in_progress' | 'not_held' | 'not_applicable';
 export type SizeClass = 'micro' | 'small' | 'medium' | 'large' | '';
 
+/** A process the supplier runs (kept for its own summary and the demand map; no rule reads it). */
+export const PROCESSES = [
+  { value: 'casting', label: 'Casting' }, { value: 'forging', label: 'Forging' }, { value: 'machining', label: 'Machining' },
+  { value: 'welding', label: 'Welding' }, { value: 'electronics', label: 'Electronics' }, { value: 'plastics_composites', label: 'Plastics and composites' },
+  { value: 'coatings', label: 'Coatings' }, { value: 'textiles', label: 'Textiles' }, { value: 'assembly', label: 'Assembly' },
+] as const;
+
+/**
+ * Certificates and registrations of the supplier profile. With a `code`, holding it is the status of that requirement (the same answer as
+ * step 4 of the wizard, or the roadmap's "mark as done"); without one, no rule reads it and it is kept in `supplier.held`. `esOnly`: asked of a
+ * Spanish company only, as the requirement is.
+ */
+export interface Holding { key: string; label: string; code?: string; esOnly?: boolean }
+export const CERTIFICATES: Holding[] = [
+  { key: 'ISO9001', label: 'ISO 9001', code: 'REQ-ISO9001' }, { key: 'IATF16949', label: 'IATF 16949' }, { key: 'ISO27001', label: 'ISO/IEC 27001' },
+  { key: 'EN9100', label: 'EN 9100', code: 'REQ-EN9100' }, { key: 'AQAP2110', label: 'AQAP 2110', code: 'REQ-AQAP2110' },
+  { key: 'AQAP2310', label: 'AQAP 2310', code: 'REQ-AQAP2310' }, { key: 'PECAL', label: 'PECAL (Spanish Ministry of Defence quality certificate)', code: 'REQ-PECAL', esOnly: true },
+];
+export const REGISTRATIONS: Holding[] = [
+  { key: 'RID', label: 'RID (Registro de la Industria de Defensa)', code: 'REQ-RID', esOnly: true },
+  { key: 'NCAGE', label: 'NCAGE code', code: 'REQ-NCAGE' }, { key: 'NSPA', label: 'NSPA Source File' },
+];
+const UNCODED = [...CERTIFICATES, ...REGISTRATIONS].filter((c) => !c.code).map((c) => c.key);
+const CERT_KEYS = CERTIFICATES.map((c) => c.key);
+
+/**
+ * The questions of the Spanish defence supplier route (WP-64, `engine.SUPPLIER_FIELDS`), in the engine's words, asked of a Spanish company on
+ * the supplier page. `when`: asked (and sent) only when the answer it depends on is given; a hidden answer is kept but not sent. An answer
+ * "I am not sure" is sent as unknown (left out), so the rule keeps its question.
+ */
+export interface EsQuestion { field: string; label: string; kind?: 'enum'; when?: (p: Profile) => boolean }
+const ans = (p: Profile, field: string): Tri => p.supplier.answers[field] ?? '';
+export const ES_QUESTIONS: EsQuestion[] = [
+  { field: 'pecal_certificate_wanted', label: 'Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?' },
+  { field: 'pecal_system_9_months', label: 'Has your PECAL quality system been in place, and audited by your management, for at least nine months?', when: (p) => ans(p, 'pecal_certificate_wanted') === 'yes' },
+  { field: 'pecal_prior_contract', label: 'In the last two years, have you had at least one Ministry of Defence contract with PECAL requirements, or a certificate of conformity signed by a DGAM quality representative (RAC)?', when: (p) => ans(p, 'pecal_certificate_wanted') === 'yes' },
+  { field: 'pecal_2310_target', label: 'Do you target PECAL 2310 (aviation, space and defence)?' },
+  { field: 'ncage_need_justified', label: 'Is a product of yours bought by the Ministry of Defence (so that it must be catalogued), or do you need an NCAGE code to register in the US System for Award Management (SAM)?', when: (p) => p.statuses['REQ-NCAGE'] !== 'held' },
+  { field: 'specific_defence_use', label: 'Is your product for specific defence use (Article 346 of the Treaty on the Functioning of the EU), rather than a civilian product?' },
+  { field: 'homologation_mandatory', label: "Is your product on the Ministry of Defence's list of products for which homologation is mandatory?", when: (p) => ans(p, 'specific_defence_use') === 'yes' },
+  { field: 'homologated', label: 'Is your product homologated by the Ministry of Defence?', when: (p) => ans(p, 'specific_defence_use') === 'yes' && ans(p, 'homologation_mandatory') === 'yes' },
+  { field: 'es_defence_material_list', kind: 'enum', label: 'Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?', when: (p) => p.regime === 'military' },
+  { field: 'stores_classified', label: 'Will classified information be stored on your own premises?', when: (p) => p.classified === 'yes' },
+  { field: 'nato_classified_contract', label: 'Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?' },
+  { field: 'nsfcc_held', label: 'Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?', when: (p) => ans(p, 'nato_classified_contract') === 'yes' },
+  { field: 'nato_staff_cleared', label: 'Do the staff who need access hold NATO personnel security clearances?', when: (p) => ans(p, 'nato_classified_contract') === 'yes' },
+  { field: 'nato_icb_bid', label: 'Do you want to bid in a NATO international competitive bidding (NSIP) tender?' },
+  { field: 'rid_capabilities_declared', label: 'Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?', when: (p) => ans(p, 'nato_icb_bid') === 'yes' },
+  { field: 'foreign_investor_authorised', label: 'Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?', when: (p) => p.supplier.foreignOwner === 'yes' },
+  { field: 'receives_eea_defence_products', label: 'Do you receive defence-related products from other EEA states?' },
+  { field: 'certified_recipient', label: 'Are you certified by your national authority as a recipient of defence-related products under the general transfer licences of other member states?', when: (p) => ans(p, 'receives_eea_defence_products') === 'yes' },
+];
+const ES_FIELDS = new Set(ES_QUESTIONS.map((q) => q.field));
+
+/** The supplier profile (WP-65). Optional throughout: an empty answer is unknown, never "no". Only the answers the rules read leave the browser. */
+export interface Supplier {
+  /** ISO 3166-2 code of a Spanish autonomous community (ES-AN ...), or free text for another country. Not sent. */
+  region: string;
+  /** A foreign investor holds shares, directly or indirectly: the engine's `foreign_capital`. */
+  foreignOwner: Tri;
+  /** Country of that investor. Not sent (no rule reads it). */
+  foreignCountry: string;
+  /** NACE Rev. 2 code, optional. Not sent. */
+  nace: string;
+  /** 5 to 15 CPV codes of what the company makes, from our CPV dictionary. Not sent. */
+  cpv: string[];
+  processes: string[];
+  /** Certificates and registrations no rule reads (IATF 16949, ISO/IEC 27001, NSPA Source File), held. The others are `statuses`. */
+  held: string[];
+  /** Expiry month (YYYY-MM) of a certificate held, by its key. Optional, not sent. */
+  expiry: Record<string, string>;
+  /** Components, technology or software of US origin in the product: the engine's `us_components`. */
+  usComponents: Tri;
+  /** The answers to `ES_QUESTIONS`, by engine field. */
+  answers: Record<string, Tri>;
+}
+
+export function emptySupplier(): Supplier {
+  return { region: '', foreignOwner: '', foreignCountry: '', nace: '', cpv: [], processes: [], held: [], expiry: {}, usComponents: '', answers: {} };
+}
+
+export const CPV_MIN = 5;
+export const CPV_MAX = 15;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const NACE = /^[A-U]?\d{2}(\.\d{1,2})?$/;
+
+/** Why the NACE code cannot be used, or null when it is empty or a NACE Rev. 2 code (25, 25.5, 25.50, C25.50). */
+export function naceProblem(value: string): string | null {
+  const v = value.trim().toUpperCase();
+  return v === '' || NACE.test(v) ? null : 'Enter a NACE code such as 25.50 or C25.50, or leave it empty.';
+}
+
+/** Why the chosen CPV codes are not enough, or null for 5 to 15. */
+export function cpvProblem(codes: string[]): string | null {
+  if (codes.length < CPV_MIN) return `Choose at least ${CPV_MIN} CPV codes (you have ${codes.length}).`;
+  return codes.length > CPV_MAX ? `Choose at most ${CPV_MAX} CPV codes.` : null;
+}
+
+/** Why an expiry month cannot be used, or null when it is empty or a month (YYYY-MM). */
+export function monthProblem(value: string): string | null {
+  return value === '' || MONTH.test(value) ? null : 'Enter the month as YYYY-MM, for example 2027-05, or leave it empty.';
+}
+
+/** Whether this profile holds a certificate or registration (a requirement's status, or the list of the others). */
+export function holds(p: Profile, item: Holding): boolean {
+  return item.code ? p.statuses[item.code] === 'held' : p.supplier.held.includes(item.key);
+}
+
+/** The profile with a certificate or registration ticked or unticked; unticking a requirement sets it to "not held" and drops its expiry month. */
+export function withHeld(p: Profile, item: Holding, on: boolean): Profile {
+  const expiry = { ...p.supplier.expiry };
+  if (!on) delete expiry[item.key];
+  const held = item.code ? p.supplier.held : on ? [...new Set([...p.supplier.held, item.key])] : p.supplier.held.filter((k) => k !== item.key);
+  const statuses: Record<string, Status> = item.code ? { ...p.statuses, [item.code]: on ? 'held' : 'not_held' } : p.statuses;
+  return { ...p, statuses, supplier: { ...p.supplier, held, expiry } };
+}
+
+/** Every problem of the supplier page, with the id of the field to focus, in the order of the page. Empty when the page can be saved. */
+export function supplierProblems(p: Profile): { id: string; text: string }[] {
+  const out: { id: string; text: string }[] = [];
+  if (!p.country) out.push({ id: 'sp-country', text: 'Choose the country where your company is established.' });
+  const nace = naceProblem(p.supplier.nace);
+  if (nace) out.push({ id: 'sp-nace', text: nace });
+  const cpv = cpvProblem(p.supplier.cpv);
+  if (cpv) out.push({ id: 'sp-cpv-search', text: cpv });
+  for (const c of CERTIFICATES) {
+    const m = monthProblem(p.supplier.expiry[c.key] ?? '');
+    if (m && holds(p, c)) out.push({ id: `sp-expiry-${c.key}`, text: `${c.label}: ${m}` });
+  }
+  return out;
+}
+
+/**
+ * The profile as the supplier page saves it: a Spanish company that went through the page has said which of RID and PECAL it holds, so an
+ * unticked one is "not held" (sent), no longer unknown.
+ */
+export function savedSupplier(p: Profile): Profile {
+  if (p.country !== 'ES') return p;
+  const statuses = { ...p.statuses };
+  for (const item of [...CERTIFICATES, ...REGISTRATIONS]) if (item.esOnly && item.code && !statuses[item.code]) statuses[item.code] = 'not_held';
+  return { ...p, statuses };
+}
+
+/** Whether the supplier page has been used (some answer of its own is given). */
+export function hasSupplier(p: Profile): boolean {
+  const s = p.supplier;
+  return s.cpv.length > 0 || s.processes.length > 0 || s.held.length > 0 || s.nace !== '' || s.region !== '' || s.foreignOwner !== ''
+    || s.usComponents !== '' || Object.keys(s.answers).length > 0;
+}
+
 export interface Profile {
-  version: 2;
+  version: 3;
   /** The furthest wizard step reached (1 to 5), 6 once the last step was finished. */
   step: number;
   updatedAt: string | null;
@@ -73,6 +226,8 @@ export interface Profile {
   // step 5: classified work and export intentions
   classified: Tri;
   exportIntent: ExportIntent;
+  /** WP-65: the supplier profile of /readiness/supplier. */
+  supplier: Supplier;
 }
 
 /**
@@ -103,8 +258,9 @@ export function roadmapOnlyCodes(country: string): string[] {
 
 export function emptyProfile(): Profile {
   return {
-    version: 2, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', management: '', managementCountry: '',
+    version: 3, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', management: '', managementCountry: '',
     control: '', uaOccupied: '', uaPartner: '', seapPartner: '', regime: '', componentPct: '', restricted: '', uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
+    supplier: emptySupplier(),
   };
 }
 
@@ -112,13 +268,39 @@ const oneOf = <T extends string>(value: unknown, allowed: readonly T[], fallback
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 const text = (value: unknown, max: number): string => (typeof value === 'string' ? value.slice(0, max) : '');
 const countryCode = (value: unknown): string => (typeof value === 'string' && /^[A-Z]{2}$/.test(value) ? value : '');
+const triOf = (value: unknown): Tri => oneOf(value, ['yes', 'no', 'unsure', ''], '');
+const strings = (value: unknown, allowed: (s: string) => boolean, max: number): string[] =>
+  Array.isArray(value) ? [...new Set(value.filter((v): v is string => typeof v === 'string' && allowed(v)))].slice(0, max) : [];
+const record = (value: unknown): Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+/** The supplier block of a stored profile, field by field; absent (a version 1 or 2 block) is empty. */
+function parseSupplier(raw: unknown): Supplier {
+  const r = record(raw);
+  const expiry: Record<string, string> = {};
+  for (const [k, v] of Object.entries(record(r.expiry))) if (CERT_KEYS.includes(k) && typeof v === 'string' && MONTH.test(v)) expiry[k] = v;
+  const answers: Record<string, Tri> = {};
+  for (const [k, v] of Object.entries(record(r.answers))) { const t = triOf(v); if (ES_FIELDS.has(k) && t) answers[k] = t; }
+  return {
+    region: text(r.region, 60),
+    foreignOwner: triOf(r.foreignOwner),
+    foreignCountry: countryCode(r.foreignCountry),
+    nace: text(r.nace, 12),
+    cpv: strings(r.cpv, (c) => /^\d{8}$/.test(c), CPV_MAX),
+    processes: strings(r.processes, (v) => PROCESSES.some((x) => x.value === v), PROCESSES.length),
+    held: strings(r.held, (v) => UNCODED.includes(v), UNCODED.length),
+    expiry,
+    usComponents: triOf(r.usComponents),
+    answers,
+  };
+}
 
 /** Read whatever is in storage as a profile: anything that is not one of ours is dropped field by field. */
 export function parseProfile(raw: unknown): Profile {
   const base = emptyProfile();
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return base;
   const r = raw as Record<string, unknown>;
-  if (r.version !== PROFILE_VERSION && r.version !== LEGACY_VERSION) return base;
+  if (r.version !== PROFILE_VERSION && !LEGACY_VERSIONS.includes(r.version as number)) return base;
   const statuses: Record<string, Status> = {};
   const given = typeof r.statuses === 'object' && r.statuses !== null && !Array.isArray(r.statuses) ? (r.statuses as Record<string, unknown>) : {};
   for (const { code } of STATUS_ITEMS) {
@@ -126,7 +308,7 @@ export function parseProfile(raw: unknown): Profile {
     if (s === 'held' || s === 'in_progress' || s === 'not_held' || s === 'not_applicable') statuses[code] = s;
   }
   return {
-    version: 2,
+    version: 3,
     step: typeof r.step === 'number' && Number.isInteger(r.step) && r.step >= 1 && r.step <= 6 ? r.step : 1,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt.slice(0, 40) : null,
     name: text(r.name, 120),
@@ -134,7 +316,7 @@ export function parseProfile(raw: unknown): Profile {
     country: countryCode(r.country),
     legalForm: oneOf(r.legalForm, ['legal_person', 'natural_person', 'no_legal_personality', ''], ''),
     applicantKind: oneOf(r.applicantKind, ['company_or_research', 'contracting_authority', 'international_organisation', 'seap', 'eda', ''], ''),
-    management: r.version === LEGACY_VERSION ? (r.managementSameCountry === false ? 'other' : '') : oneOf(r.management, ['same', 'other', ''], ''),
+    management: r.version === 1 ? (r.managementSameCountry === false ? 'other' : '') : oneOf(r.management, ['same', 'other', ''], ''),
     managementCountry: countryCode(r.managementCountry),
     control: oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], ''),
     uaOccupied: oneOf(r.uaOccupied, ['yes', 'no', 'unsure', ''], ''),
@@ -149,6 +331,7 @@ export function parseProfile(raw: unknown): Profile {
     statuses,
     classified: oneOf(r.classified, ['yes', 'no', 'unsure', ''], ''),
     exportIntent: oneOf(r.exportIntent, ['none', 'within_eu', 'outside_eu', 'unsure', ''], ''),
+    supplier: parseSupplier(r.supplier),
   };
 }
 
@@ -171,6 +354,8 @@ export interface AssessRequest {
     handles_classified: boolean | null;
     product_regime: 'none' | 'dual_use' | 'military' | 'unknown';
     export_intent: 'none' | 'within_eu' | 'outside_eu' | 'unsure' | null;
+    /** WP-65, from the supplier page (`foreign_capital`, `us_components`, the `ES_QUESTIONS`): present only when answered (absent is unknown to the API). */
+    [supplierField: string]: string | number | boolean | null;
   };
   statuses: Record<string, Status>;
   /** A call of the funding list (its id), to also get the timing of the steps against its deadline (WP-32). */
@@ -238,9 +423,22 @@ export function toRequest(p: Profile): AssessRequest | null {
       handles_classified: tri(p.classified),
       product_regime: p.regime === '' ? 'unknown' : p.regime,
       export_intent: p.exportIntent === '' ? null : p.exportIntent,
+      ...supplierFields(p),
     },
     statuses,
   };
+}
+
+/** The answers of the supplier page the rules read, only those given (an absent field is unknown to the API, and keeps the body small). */
+export function supplierFields(p: Profile): Record<string, boolean | string> {
+  const out: Record<string, boolean | string> = {};
+  const put = (field: string, v: Tri, kind?: 'enum') => {
+    if (kind === 'enum' ? v !== '' : v === 'yes' || v === 'no') out[field] = kind === 'enum' ? v : v === 'yes';
+  };
+  put('foreign_capital', p.supplier.foreignOwner);
+  put('us_components', p.supplier.usComponents);
+  if (p.country === 'ES') for (const q of ES_QUESTIONS) if (!q.when || q.when(p)) put(q.field, ans(p, q.field), q.kind);
+  return out;
 }
 
 /** Whether the wizard has been finished (the last step was passed). */
@@ -290,6 +488,14 @@ const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'execu
   'ua_non_government_controlled_area', 'ua_partner', 'non_eu_component_cost_pct', 'restricted_third_country_component',
   'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent']);
 
+/** The fields and requirements the supplier page asks (WP-65); the results link such a question to that page. */
+const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...[...CERTIFICATES, ...REGISTRATIONS].flatMap((c) => (c.code ? [c.code] : []))]);
+
+/** Whether the supplier page asks the question behind an API `missing` field (a field the wizard asks is linked to the wizard first). */
+export function supplierAsks(field: string): boolean {
+  return SUPPLIER_ASKS.has(field.replace(/^profile\./, ''));
+}
+
 /** Whether the wizard asks the question behind an API `missing` field; if not, the page shows the question without a link to a step. */
 export function wizardAsks(field: string): boolean {
   return WIZARD_FIELDS.has(field.replace(/^profile\./, ''));
@@ -319,7 +525,7 @@ export function importProfile(text: string): { ok: true; profile: Profile } | { 
   if (text.length > MAX_IMPORT) return { ok: false, reason: 'That is too long to be a set of answers from this site.' };
   let raw: unknown;
   try { raw = JSON.parse(text); } catch { return { ok: false, reason: 'That is not a set of answers: it does not read as the block this site writes.' }; }
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || ![PROFILE_VERSION, LEGACY_VERSION].includes((raw as { version?: unknown }).version as number)) {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || ![PROFILE_VERSION, ...LEGACY_VERSIONS].includes((raw as { version?: unknown }).version as number)) {
     return { ok: false, reason: 'That is not a set of answers from this site (its version is missing or unknown).' };
   }
   return { ok: true, profile: parseProfile(raw) };

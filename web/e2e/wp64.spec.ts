@@ -37,9 +37,9 @@ test('the Spanish defence supplier route: rules with their quotes and sources, u
   const card = page.getByRole('article', { name: 'Spanish defence supplier (MoD)' });
   await expect(card).toBeVisible();
   await expect(card).toHaveAttribute('data-verdict', 'conditional');
-  // the RID is asked by no step of the wizard: the question is named, without a link
-  await expect(card.locator('[data-not-asked="REQ-RID"]')).toContainText('Does the company hold a current RID certificate');
-  await expect(card.getByRole('link', { name: /current RID certificate/ })).toHaveCount(0);
+  // the RID is asked by no step of the wizard: since WP-65 the supplier profile asks it, so the question links there, not to a step
+  await expect(card.locator('[data-supplier-asks="REQ-RID"]')).toContainText('Does the company hold a current RID certificate');
+  await expect(card.getByRole('link', { name: /current RID certificate/ })).toHaveAttribute('href', '/readiness/supplier#q-REQ-RID');
   await card.getByText(/Show the \d+ rules behind this/).click();
   const rid = card.locator('[data-rule="ES-RID"]');
   await expect(rid).toHaveAttribute('data-outcome', 'unknown');

@@ -66,6 +66,37 @@ PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
                 {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
 }
 
+# WP-65: three Spanish companies that filled in only the supplier page (/readiness/supplier), as the page sends them: the wizard's
+# answers are empty (unknown), the supplier page's answers the rules read are present only when given, and RID and PECAL are
+# "not held" unless ticked (the page has asked). "No foreign investor" also answers the wizard's control question with "no" when it
+# was empty (no foreign shareholder at all: not controlled from outside the EU). tests/unit/test_wp65_supplier.py counts the open
+# questions with and without the supplier page.
+_SUPPLIER_BASE = {"country": "ES", "legal_form": None, "applicant_kind": None, "executive_management_country": None,
+                  "third_country_control": None, "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": None,
+                  "restricted_third_country_component": None, "components_from_ua_or_eea_efta": None, "ua_partner": None,
+                  "safe_role": None, "product_regime": "unknown", "export_intent": None}
+_ES_STATUSES = {code: "not_held" for code in STATUS_CODES + ES_ONLY + ["REQ-RID", "REQ-PECAL"]}
+SUPPLIER_PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
+    # a civilian automotive castings maker that answered every question of the Spanish route "no"
+    "es-sup-civil": ({**_SUPPLIER_BASE, "third_country_control": "no", "handles_classified": False, "foreign_capital": False, "us_components": False,
+                      "pecal_certificate_wanted": False, "pecal_2310_target": False, "ncage_need_justified": False,
+                      "specific_defence_use": False, "nato_classified_contract": False, "nato_icb_bid": False,
+                      "receives_eea_defence_products": False},
+                     {**_ES_STATUSES, "REQ-ISO9001": "held"}),
+    # a machining and electronics firm already selling to the Ministry: RID, NCAGE, ISO 9001 and AQAP 2110, a French investor
+    "es-sup-defence": ({**_SUPPLIER_BASE, "handles_classified": True, "foreign_capital": True, "us_components": True,
+                        "pecal_certificate_wanted": True, "pecal_system_9_months": True, "pecal_prior_contract": False,
+                        "pecal_2310_target": False, "specific_defence_use": True, "homologation_mandatory": False,
+                        "stores_classified": False, "nato_classified_contract": False, "nato_icb_bid": True,
+                        "rid_capabilities_declared": True, "foreign_investor_authorised": True,
+                        "receives_eea_defence_products": True, "certified_recipient": False},
+                       {**_ES_STATUSES, "REQ-ISO9001": "held", "REQ-AQAP2110": "held", "REQ-RID": "held", "REQ-NCAGE": "held"}),
+    # only the fields of the profile itself (no question of the Spanish route answered): those rules keep their questions
+    "es-sup-partial": ({**_SUPPLIER_BASE, "third_country_control": "no", "handles_classified": False, "foreign_capital": False},
+                       {**_ES_STATUSES, "REQ-ISO9001": "held"}),
+}
+PROFILES.update(SUPPLIER_PROFILES)
+
 
 def build() -> dict[str, Any]:
     """Every generated file, by its path relative to the repository root."""
