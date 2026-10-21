@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo';
 import { Callout, Clause, ClauseGroup, ClauseList } from '@/components/dg/blocks';
-import { ContentPage, Placeholder } from '@/components/dg/content-page';
+import { ContentPage } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
 
@@ -74,7 +74,7 @@ export default function PrivacyPage() {
         ]} />
         <p className={P}>We do not use passwords. We do not look at what you save for any purpose other than showing it to you and sending the alerts you asked for, and we do not combine it across accounts.</p>
         <p className={P}><strong>Purpose and legal basis:</strong> to provide the account, the dashboard and the alerts (Art. 6(1)(b) GDPR, or, where the contract is with your employer, our legitimate interest in providing it to you, Art. 6(1)(f)). Security measures such as limiting sign-in requests rest on Art. 6(1)(f).</p>
-        <p className={P}><strong>Mail:</strong> sign-in links and alert digests are plain text, with no tracking pixel and no link redirection. They are sent through a mail provider acting as our processor: <Placeholder>mail provider to be named when sign-in opens</Placeholder></p>
+        <p className={P}><strong>Mail:</strong> sign-in links and alert digests are plain text, with no tracking pixel and no link redirection. They will be sent through a mail provider acting as our processor. None has been chosen yet, which is why sign-in is not open; the provider will be named here before it opens.</p>
         <p className={P}><strong>Retention:</strong> your account and what is in it until you delete it. You can download everything we hold and delete the account yourself in Settings; deletion removes it at once, and encrypted backups containing it are overwritten within 30 days. Sign-in links and rate-limit counters are deleted after about a day.</p>
         <p className={P}>Providing an e-mail address is necessary to have an account; without it we cannot offer one.</p>
       </Clause>

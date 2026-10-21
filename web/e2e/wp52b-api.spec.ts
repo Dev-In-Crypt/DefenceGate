@@ -10,21 +10,22 @@ test.skip(!process.env.E2E_FAKE_API, 'needs the fake API: E2E_FAKE_API=1 and a s
 
 const text = async (page: Page, path: string) => (await page.request.get(path)).text();
 
-test('T9: November shows its 593 deadlines, six pages of at most 100, and the page stays small', async ({ page }) => {
+test('T9: November shows its 593 deadlines, twelve pages of at most 50, and the page stays small', async ({ page }) => {
   await visit(page, '/calendar?view=month&month=2026-11', { title: /calendar/i, h1: 'Deadline calendar' });
   await expect(page.locator('#results-heading')).toContainText('593 deadlines in November 2026');
   const cards = await page.locator('section[aria-labelledby="results-heading"] li').count();
-  expect(cards, 'entries on the first page').toBe(100);
-  await expect(page.getByText('Showing 1–100 of 593 deadlines in this month.')).toBeVisible();
-  await visit(page, '/calendar?view=month&month=2026-11&page=6', { title: /calendar/i, h1: 'Deadline calendar' });
-  await expect(page.getByText('Showing 501–593 of 593 deadlines in this month.')).toBeVisible();
+  expect(cards, 'entries on the first page').toBe(50);
+  await expect(page.getByText('Showing 1–50 of 593 deadlines in this month.')).toBeVisible();
+  await visit(page, '/calendar?view=month&month=2026-11&page=12', { title: /calendar/i, h1: 'Deadline calendar' });
+  await expect(page.getByText('Showing 551–593 of 593 deadlines in this month.')).toBeVisible();
   // A page past the last is the last.
   const past = await page.request.get('/calendar?view=month&month=2026-11&page=60');
   expect(past.status()).toBe(200);
-  expect(past.url()).toMatch(/page=6(&|$)/);
+  expect(past.url()).toMatch(/page=12(&|$)/);
   for (const path of ['/calendar', '/calendar?view=month&month=2026-11', '/calendar?view=month&month=2026-12']) {
     const size = Buffer.byteLength(await text(page, path));
-    expect(size, `${path} is ${size} bytes`).toBeLessThan(600_000);
+    // 50 entries a page (WP-63): about 194 KB for the list and 276 KB for a month here, against 306 and 390 KB at 100.
+    expect(size, `${path} is ${size} bytes`).toBeLessThan(300_000);
   }
   // The whole calendar: 1,449 deadlines, paged.
   await visit(page, '/calendar', { title: /calendar/i, h1: 'Deadline calendar' });

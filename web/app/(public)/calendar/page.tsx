@@ -13,7 +13,7 @@ import type { SearchParams } from '@/lib/filters';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { countryName } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
-import { EmptyState, ErrorState } from '@/components/dg/feedback';
+import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { Choice, Fieldset } from '@/components/dg/form';
 import { Button } from '@/components/dg/button';
@@ -25,8 +25,9 @@ import { Agenda, MonthGrid } from '@/components/calendar/calendar-views';
 
 export const revalidate = 60;
 
-/** Entries per page of the agenda, in the list and in the month view. */
-const LIST_PAGE = 100;
+/** Entries per page of the agenda, in the list and in the month view. 50, not 100 (WP-63): the page is about half the bytes, so it
+ * arrives sooner and a browser has less inline page data to wait for while it hydrates (the race behind React error #418, WP-54). */
+const LIST_PAGE = 50;
 const MONTHS_AHEAD = 24;
 const KINDS: { value: KindFilter; label: string }[] = [
   { value: 'all', label: 'Tenders and funding calls' },
@@ -40,7 +41,7 @@ type Props = { searchParams: Promise<SearchParams> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const p = parseCalendarParams(await searchParams);
   return buildMetadata({
-    title: 'Deadline calendar for defence tenders and funding calls',
+    title: 'Deadline calendar: defence tenders and calls',
     description: 'Upcoming deadlines of open defence tenders and funding calls in one calendar, in UTC, each linked to its record. Also as an iCalendar feed.',
     path: '/calendar',
     // Filtered and month views share the canonical page and stay out of the index.
@@ -51,6 +52,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function CalendarPage({ searchParams }: Props) {
   const p = parseCalendarParams(await searchParams);
   const data = await loadCalendar();
+  // Neither service answered: nothing to show, so the page fails (a 503 at the edge, re-audit N2) and error.tsx says so.
+  // One of the two down still renders the other, with a line that says which is missing.
+  if (!data.tendersOk && !data.callsOk) throw new Error('calendar: the tender and funding services did not answer');
   const ref = now();
   const today = ref.toISOString().slice(0, 10);
   const current = monthOf(ref);
@@ -61,7 +65,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   const countries = [...new Set([...data.entries.map((e) => e.country), ...p.countries].filter((c): c is string => Boolean(c)))].sort();
   const entries = filterEntries(data.entries, p);
   const inMonth = entries.filter((e) => dayOf(e.deadline).startsWith(month));
-  // Both views list their entries a page at a time (100): a month of 593 tenders is six pages, not one page of 600 cards.
+  // Both views list their entries a page at a time (50): a month of 593 tenders is twelve pages, not one page of 600 cards.
   const listed = p.view === 'month' ? inMonth : entries;
   const paged = pageOf(listed, p.page, LIST_PAGE);
   if (p.page > paged.pages) redirect(`/calendar${calendarQuery({ ...p, month: p.view === 'month' ? month : null, page: paged.pages })}`);
@@ -78,7 +82,6 @@ export default async function CalendarPage({ searchParams }: Props) {
 
   const href = (over: Partial<CalendarParams>) => `/calendar${calendarQuery({ ...p, page: 1, month: p.view === 'month' ? month : null, ...over })}`;
   const feed = `/calendar.ics${calendarQuery({ kind: p.kind, countries: p.countries })}`;
-  const bothDown = !data.tendersOk && !data.callsOk;
   // The same address for a calendar app that subscribes: `webcal://` opens it there instead of downloading a file.
   const subscribe = absoluteUrl(feed).replace(/^https?:/, 'webcal:');
 
@@ -163,9 +166,6 @@ export default async function CalendarPage({ searchParams }: Props) {
             </nav>
           )}
 
-          {bothDown ? (
-            <ErrorState retryHref="/calendar">The tender and funding services did not answer. Try again in a few minutes.</ErrorState>
-          ) : (
             <>
               <FilterNotices notices={notices} />
               {(!data.tendersOk || !data.callsOk) && (
@@ -194,7 +194,6 @@ export default async function CalendarPage({ searchParams }: Props) {
                 </>
               )}
             </>
-          )}
 
           <p className="m-0 max-w-prose text-small text-ink-muted">
             Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed here; the calendar feed has the opening days of the calls that have not opened.

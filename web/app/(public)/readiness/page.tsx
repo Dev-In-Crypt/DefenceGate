@@ -9,7 +9,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Readiness check: may your company take part in EDF, EDIP and SAFE?',
-  description: 'Answer a few questions about your company and see, rule by rule, whether the European Defence Fund, EDIP and SAFE allow it to take part, what blocks it and what to obtain first. Every rule shows the text of its source.',
+  description: 'Answer a few questions about your company and see, rule by rule, whether EDF, EDIP and SAFE let it take part, what blocks it and what to obtain first.',
   path: '/readiness',
 });
 

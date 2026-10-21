@@ -7,7 +7,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Where the data runs',
-  description: 'What DefenceGate runs where: the server, the archive and its backups, the domain name service, the certificate, the code, and the one language-model service used to read public call documents. What is in the EU and what is not.',
+  description: 'What DefenceGate runs where: server, archive and backups, DNS, certificate, code and the one language-model service. What is in the EU and what is not.',
   path: '/data/sovereignty',
 });
 

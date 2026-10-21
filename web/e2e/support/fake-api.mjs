@@ -94,6 +94,8 @@ function tenders(q) {
   const page = Number(q.get('page') ?? 1);
   const offset = (page - 1) * size;
   if (offset >= 10_000) return [503, { detail: 'the query took too long; narrow the request' }];
+  // A list the data service cannot answer (WP-63): the site's error state, with no last good answer to fall back on.
+  if (q.get('q') === 'unavailable') return [503, { detail: 'the query took too long; narrow the request' }];
   const search = (q.get('q') ?? '') !== '';
   let total = 1522;
   let capped = false;

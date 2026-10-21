@@ -105,6 +105,22 @@
 			# The framework's cache and prerender markers are not for clients.
 			header_down -X-Nextjs-Cache
 			header_down -X-Nextjs-Prerender
+			# A page is sent to the browser whole, not in the slices the server writes it in (WP-63, React error #418): a
+			# browser that starts to hydrate while the inline page data still trickles in fails on 1 to 13 loads in 100
+			# (WP-54). The bound is per response: a page is 0.2 to 0.4 MB, so 1 MiB holds every page, and anything longer
+			# (a large feed) has its first MiB buffered and the rest streamed as before. Memory is at most 1 MiB per
+			# response in flight. The first byte now waits until the page is complete.
+			response_buffers 1MiB
+			# A page that failed to render (the data service did not answer) is a 500 from the framework, which cannot
+			# set another status from a page. It goes out as 503 with Retry-After and is not stored by any cache, so a
+			# crawler or a monitor sees a temporary outage, not a page (WP-63; the body is the framework's error page).
+			@render_failed status 500
+			handle_response @render_failed {
+				# `>`: set once the upstream's headers are copied, so it replaces the framework's value instead of adding to it.
+				header >Cache-Control "no-store"
+				header Retry-After "120"
+				copy_response 503
+			}
 			transport http {
 				dial_timeout 5s
 				response_header_timeout 30s

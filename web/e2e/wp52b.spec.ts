@@ -79,7 +79,7 @@ test('T9: the calendar holds the tenders, a month is paged, and nothing is wider
   // A page past the last is the last, not an empty list or an error.
   const past = await request.get('/calendar?view=month&month=2026-11&page=99', { maxRedirects: 0 });
   expect([200, 307, 308]).toContain(past.status());
-  // The size budget: the list and a month are paged by 100 entries, so the page stays small whatever the number of deadlines.
+  // The size budget: the list and a month are paged by 50 entries, so the page stays small whatever the number of deadlines.
   for (const path of ['/calendar', '/calendar?view=month&month=2026-11']) {
     const size = Buffer.byteLength(await html(page, path));
     expect(size, `${path} is ${size} bytes`).toBeLessThan(600_000);

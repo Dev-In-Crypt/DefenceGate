@@ -48,12 +48,13 @@ test('/alerts has no form: the waitlist stored nothing and was removed', async (
   await expect(page.getByText(/not open yet/i).first()).toBeVisible();
 });
 
-test('/pricing is one table of the four plans, and /pack one block', async ({ page }) => {
+// The rows and headings follow the copy of WP-63 (owner decision of 21 October 2026: what exists today, no planned plans).
+test('/pricing is one table of what is offered, and /pack one block', async ({ page }) => {
   await visit(page, '/pricing', { title: /pricing/i, h1: 'Pricing' });
-  const table = page.getByRole('table', { name: 'Plans, prices and status' });
-  await expect(table.getByRole('row')).toHaveCount(5);
-  await expect(table.getByRole('row', { name: /Browsing/ })).toContainText('Free today');
-  await visit(page, '/pack', { title: /opportunity pack/i, h1: 'Opportunity pack', text: ['What it is meant to contain', 'What it will not be'] });
+  const table = page.getByRole('table', { name: 'What is offered and what it costs' });
+  await expect(table.getByRole('row')).toHaveCount(7);
+  await expect(table.getByRole('row', { name: /Browsing/ })).toContainText('Free');
+  await visit(page, '/pack', { title: /opportunity pack/i, h1: 'Opportunity pack', text: ['Put it together yourself', 'What it is not'] });
   await expect(page.locator('main section')).toHaveCount(1);
 });
 

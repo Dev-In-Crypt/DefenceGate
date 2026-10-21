@@ -5,7 +5,6 @@ import { buildMetadata } from '@/lib/seo';
 import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_WORD, yearsLabel } from '@/lib/networks';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { AutoGrid } from '@/components/dg/auto-grid';
-import { ErrorState } from '@/components/dg/feedback';
 import { CountryNote, DataSources, OrgLink, TableBox } from '@/components/networks/parts';
 import type { SearchParams } from '@/lib/filters';
 
@@ -30,8 +29,8 @@ function programmesOf(sp: SearchParams): { codes: string[]; all: boolean } {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const sp = await searchParams;
   return buildMetadata({
-    title: 'Who partners with Ukrainian organisations in EU-funded projects',
-    description: 'The coordinators of EU-funded defence and research projects that had a participant established in Ukraine, with the Ukrainian organisations and the projects as evidence. From CORDIS and the EDF project factsheets.',
+    title: 'Who partners with Ukrainian organisations',
+    description: 'Coordinators of EU-funded defence and research projects with a participant established in Ukraine, with the Ukrainian organisations and projects as evidence.',
     path: '/networks/ukraine-partners',
     noindex: sinceOf(sp) !== DEFAULT_SINCE || programmesOf(sp).all || Boolean(sp.programme),
   });
@@ -42,19 +41,19 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
   const since = sinceOf(sp);
   const chosen = programmesOf(sp);
   let { codes, all } = chosen;
-  let data;
-  try { data = await getUkrainePartners(since, codes); } catch { data = null; }
+  // A failure is thrown, not drawn here: the page then answers 503 at the edge, not 200 (re-audit N2), and ../error.tsx says so.
+  let data = await getUkrainePartners(since, codes);
   // The defence-programme default can be empty (no EDF, EDIDP or PADR project has a Ukrainian participant yet) while the other
   // programmes hold hundreds: open on those, with a line that says so, instead of an empty headline view. A programme the visitor
   // chose stays as chosen.
   let fellBack = false;
-  if (data && !sp.programme && data.totals.projects === 0 && data.byProgramme?.some((b) => b.projects > 0)) {
+  if (!sp.programme && data.totals.projects === 0 && data.byProgramme?.some((b) => b.projects > 0)) {
     try {
       const wide = await getUkrainePartners(since, []);
       if (wide.totals.projects > 0) { data = wide; codes = []; all = true; fellBack = true; }
     } catch { /* keep the empty defence view and its link to all programmes */ }
   }
-  const others = (data?.byProgramme ?? []).filter((b) => !codes.includes(b.code));
+  const others = (data.byProgramme ?? []).filter((b) => !codes.includes(b.code));
   const base = `/networks/ukraine-partners?since=${since}`;
   return (
     <ContentPage
@@ -63,7 +62,6 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
       lead="The organisations that coordinated an EU-funded project with a participant established in Ukraine. Useful if you look for a prime that already works with Ukrainian companies, or for a consortium to join."
       wide
     >
-      {!data ? <ErrorState title="This list could not be loaded" retryHref="/networks/ukraine-partners" /> : (
         <>
           <form method="get" action="/networks/ukraine-partners" aria-label="Choose the first year" className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-label" htmlFor="since">Projects started in or after
@@ -138,7 +136,6 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
           <CountryNote />
           <DataSources sources={data.sources} />
         </>
-      )}
     </ContentPage>
   );
 }
