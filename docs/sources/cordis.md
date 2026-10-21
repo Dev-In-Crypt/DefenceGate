@@ -179,3 +179,52 @@ instead of 5.9 s. `python -m dgate.ops.repair_role_multiples [--yes]` corrects t
 A figure on a CORDIS project page that differs from the open data is not this: MedMaD (172,750.08), RECOMBINE (41,400)
 and E-TANDEM (240,750) are what the service states; the page was amended later. A participation that ended is shown at
 0 on the page; the open data holds no end of participation, so the stored amount stays.
+
+## The bulk packages (WP-70, 21 October 2026)
+
+**Decision.** The owner authorised on 21 October 2026 the download of free public data that improves the product. The
+three CSV packages below were downloaded once each, from the server, one file at a time, with the connector's
+User-Agent. `robots.txt` still disallows `/data/` for every agent (read again on 21 October 2026), so the download is an
+operator's command (`--download`), never a scheduled job: no worker entry calls it.
+
+**Where the URLs come from.** `dgate.ops.cordis_bulk.bulk_urls` reads the data.europa.eu dataset pages
+(`https://data.europa.eu/api/hub/search/datasets/<id>`, ids `cordisfp7projects`, `cordish2020projects`,
+`cordis-eu-research-projects-under-horizon-europe-2021-2027`) and keeps the distribution whose download URL is the
+projects CSV package. Read on 21 October 2026:
+
+| Package | URL | Bytes | Last-Modified | sha256 (first 16) |
+|---|---|---|---|---|
+| FP7 | `https://cordis.europa.eu/data/cordis-fp7projects-csv.zip` | 32,953,397 | 2 January 2025 | `886ee47973584971` |
+| Horizon 2020 | `https://cordis.europa.eu/data/cordis-h2020projects-csv.zip` | 55,246,902 | 8 October 2026 | `7c00e367edbb2216` |
+| Horizon Europe | `https://cordis.europa.eu/data/cordis-HORIZONprojects-csv.zip` | 37,509,664 | 8 October 2026 | `b9919057b77e897a` |
+
+**Licence.** Every distribution carries `COM_REUSE`, labelled by data.europa.eu "European Commission reuse notice"
+(`http://data.europa.eu/eli/dec/2011/833/oj`). CORDIS's legal notice (`https://cordis.europa.eu/about/legal`, read 21
+October 2026): "The Commission's reuse policy is implemented by Commission Decision 2011/833/EU". The same notice
+licenses CORDIS's editorial content under CC BY 4.0 (credit, changes indicated); the attribution stays
+"Source: CORDIS, European Commission", and a changed amount keeps the reason in `contribution_note`.
+
+**Shape.** Each zip holds `project.csv` and `organization.csv` (and others not read), `;`-separated, quoted, UTF-8 with a
+byte-order mark. `organization.csv` has one row per participant and project: `projectID` (the grant number),
+`organisationID` (the PIC), `role` (`coordinator`, `participant`, `thirdParty`, `partner`, `associatedPartner`,
+`internationalPartner`), `ecContribution` (the gross EU contribution, as the SPARQL payment: a third party is 0 there),
+`netEcContribution` (net of linked third parties, what the project page prints; empty for FP7), `country` (`UK`, `EL`),
+and name, address, URL and a link to a contact form. **No contact person is in the files**; the module reads only
+`projectID`, `organisationID`, `role`, `ecContribution` and `country` and nothing else is held. `project.csv` gives the
+record number (`rcn`) of each grant number. Rows: FP7 140,064 (472 without a PIC, 1 shifted by a stray quote: skipped),
+H2020 179,046, Horizon Europe 148,155. Reading all three, streamed: 14 s, 54 MB of memory.
+
+**What it changed and why** (rules in the docstring of `dgate/ops/cordis_bulk.py`, tested in
+`tests/unit/test_cordis_bulk.py` and `tests/integration/test_wp70_cordis_bulk.py`):
+
+* `no_payment_stated` amounts get `ecContribution` (the gross figure, the meaning of the column). 18 of 18 sampled rows
+  equal the figure on the CORDIS project page.
+* an amount that is an exact multiple (x2, x3) of `ecContribution` becomes that figure (the WP-43 defect, rows the
+  one-request repair could not match).
+* any other difference is **kept** and counted (`differs_kept`): the bulk is a later copy and the project pages show
+  amendments (WP-41), but the rule "the newer file wins" was not given and is the owner's to decide. Neither is the
+  switch of the column to the net figure.
+* a fill that would push its project over the EU contribution (and so withhold amounts shown today) is dropped.
+* countries are compared only: `organisation.country` is NOT NULL, so no stored participant is without one.
+
+Production dry run, 21 October 2026: see `docs/verification/product/wp70-selfcheck.md`.
