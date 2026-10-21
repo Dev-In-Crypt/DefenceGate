@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 from . import db
+from .classify import own_relevance_sql
 from .config import settings
 from .normalise import (
     from_atlas_pl,
@@ -535,10 +536,10 @@ def _candidates(conn, source: str, src_id: int, since: date | None, until: date 
         where.append(shape)
         where.append(f"""EXISTS (SELECT 1 FROM opportunity t
                                  WHERE t.source_id = (SELECT id FROM source WHERE code = 'ted')
-                                   AND t.is_defence AND t.native_id = {twin})""")
+                                   AND {own_relevance_sql('t')} AND t.native_id = {twin})""")
     if linked_only:
-        where.append("""r.native_id IN (SELECT ted_ref FROM opportunity
-                                          WHERE is_defence AND ted_ref IS NOT NULL)""")
+        where.append(f"""r.native_id IN (SELECT n.ted_ref FROM opportunity n
+                                           WHERE {own_relevance_sql('n')} AND n.ted_ref IS NOT NULL)""")
     else:
         if since:
             where.append("r.storage_key >= %s")
@@ -661,8 +662,9 @@ def requalify_ted(conn, store: RawStore, *, since: date | None = None,
 
 # Bumped when a rule changes that lives outside the three hashed modules, so the weekly
 # job reads the days it has already marked again. 1: national notices inherit the defence
-# verdict of the TED notice they state (pipeline._twin_is_defence).
-RULES_EPOCH = "twin-defence-1"
+# verdict of the TED notice they state (pipeline._twin_is_defence). 2 (WP-72): only a twin that is
+# relevant by its own signals counts (classify.own_relevance_sql).
+RULES_EPOCH = "twin-defence-2"
 
 
 def rules_fingerprint(conn) -> str:

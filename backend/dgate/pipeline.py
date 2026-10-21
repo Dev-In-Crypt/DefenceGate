@@ -30,7 +30,7 @@ import psycopg
 
 from . import db, placsp_awards, rawstore
 from .buyer_vocab import effective_buyer_class
-from .classify import classify, detects_subcontracting
+from .classify import classify, detects_subcontracting, own_relevance_sql
 from .config import settings
 from .normalise import (
     TED_INFORMATION_TYPES,
@@ -277,19 +277,25 @@ def _twin_is_defence(conn, opp: Opportunity) -> bool:
     whose national body lacks the CPV and legal basis was landed and then dropped (7 of 7
     sampled Polish ones, 2026/S 68-238462 among them). Nothing is guessed: only a stated
     reference or an identical procedure identifier counts.
+
+    The twin counts only when it is in the default list by its own signals
+    (`classify.own_relevance_sql`, WP-72): a TED notice that is merely dual-use does not lift
+    its national copy into `supply`, and a twin that is relevant only through this link does
+    not count back.
     """
     if opp.source_code == "ted":
         return conn.execute(
-            "SELECT 1 FROM opportunity WHERE ted_ref = %s AND is_defence LIMIT 1",
+            f"SELECT 1 FROM opportunity n WHERE n.ted_ref = %s AND {own_relevance_sql('n')} LIMIT 1",
             (opp.native_id,)).fetchone() is not None
+    own = own_relevance_sql("t")
     if opp.ted_ref and conn.execute(
-            """SELECT 1 FROM opportunity t WHERE t.native_id = %s AND t.is_defence
+            f"""SELECT 1 FROM opportunity t WHERE t.native_id = %s AND {own}
                   AND t.source_id = (SELECT id FROM source WHERE code = 'ted') LIMIT 1""",
             (opp.ted_ref,)).fetchone():
         return True
     pid = (opp.procedure_identifier or "").strip("{} ")
     return bool(pid) and conn.execute(
-        """SELECT 1 FROM opportunity t WHERE t.procedure_identifier = ANY(%s) AND t.is_defence
+        f"""SELECT 1 FROM opportunity t WHERE t.procedure_identifier = ANY(%s) AND {own}
               AND t.source_id = (SELECT id FROM source WHERE code = 'ted') LIMIT 1""",
         ([pid, pid.lower(), pid.upper()],)).fetchone() is not None
 

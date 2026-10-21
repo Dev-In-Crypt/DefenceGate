@@ -81,3 +81,8 @@ agents. Anything that looks removable is listed here with why, and the owner dec
 | 2026-10-19 | `/tmp/w49_nl.py` and `/tmp/w49_ez.py` in the worker container (read-only helper scripts the container user may not delete; they go with the next container recreate). The rest of the WP-49 scratch (`/root/dev-w49`, scripts, database `agent_wp49`) was deleted by the implementer | worker container, implementer wp49 | read-only checks of raw eZamowienia and TenderNed payloads | none |
 | 2026-10-19 | `AGGREGATE` constant in `backend/dgate/tenders.py` (already marked unused since WP-22) | backend | still not used; `aggregate_sql()` feeds `buyer_base()` | delete with the next tidy-up |
 | 2026-10-20 | `/root/dev-wp60/` (branch code mounted for the WP-60 pilot, `rates.py`, `disk.log`); locally `D:\DEFENCEGATE TESTS\wp60`, `wp60b` and the container `dgate-wp60` | server and laptop, implementer wp60 | scratch of the WP-60 pilot and test runs | none once the branch is merged and the full run is done |
+
+## WP-72 (database and data fixes from the QA audit)
+
+| 2026-10-21 | index `opp_search` (GIN on `opportunity.search_tsv`, migration 0001), 35 MB | production database | no query uses `search_tsv` or `@@` (the search is `dg_fold` + trigram since migration 0054); `idx_scan = 0` on 21 Oct 2026 | none; a `DROP INDEX CONCURRENTLY` migration is the owner's call (the generated column could go with it) |
+| 2026-10-21 | local container `dgate-wp72` and `D:\DEFENCEGATE TESTS\wp72` (test Postgres with a `bench` database of synthetic rows, venv) | laptop | WP-72 tests and the planner bench | none |

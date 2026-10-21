@@ -642,6 +642,12 @@ CALL_SELECT = """
 """
 
 
+def _call_select() -> str:
+    from .funding import EFFECTIVE_STATUS
+
+    return CALL_SELECT.replace("c.status,", f"c.status, {EFFECTIVE_STATUS} AS effective_status,", 1)
+
+
 def _call_to_out(r: dict[str, Any]) -> CallOut:
     deadline = r.get("deadline_at")
     days_left = None
@@ -655,7 +661,9 @@ def _call_to_out(r: dict[str, Any]) -> CallOut:
         call_identifier=r.get("call_identifier"),
         title=redact_emails(r["title"]),
         regime=r["regime"],
-        status=r.get("status"),
+        # The status the dates settle (funding.EFFECTIVE_STATUS), not the source's word: a call the
+        # portal still lists as forthcoming after its opening day is open (QA audit, 21 Oct 2026).
+        status=r.get("effective_status", r.get("status")),
         type_of_action=r.get("type_of_action"),
         budget=float(r["budget"]) if r.get("budget") is not None else None,
         budget_scope=r.get("budget_scope"),
@@ -698,10 +706,14 @@ def list_calls(
     difference from the opportunities endpoint that matters: a call is useful
     while it is open, and what an applicant needs first is the one closing next.
     """
+    from .funding import EFFECTIVE_STATUS
+
     where: list[str] = ["NOT c.suppressed"]
     params: list[Any] = []
-    if status != "all":
-        where.append("c.status = %s")
+    if status == "evaluated":       # the source's own word; the effective status calls it closed
+        where.append("c.status = 'evaluated'")
+    elif status != "all":
+        where.append(f"{EFFECTIVE_STATUS} = %s")
         params.append(status)
     if regime != "all":
         where.append("c.regime = %s")
@@ -720,7 +732,7 @@ def list_calls(
         where.append("c.deadline_at <= %s")
         params.append(day_end(deadline_before))
 
-    sql = (CALL_SELECT
+    sql = (_call_select()
            + (" WHERE " + " AND ".join(where) if where else "")
            + " ORDER BY c.deadline_at ASC NULLS LAST, c.id"
            + " LIMIT %s OFFSET %s")
@@ -740,7 +752,7 @@ class CallDetailOut(CallOut):
 @app.get("/v1/calls/{call_id}", response_model=CallDetailOut)
 def get_call(call_id: int = Path(ge=1, le=MAX_BIGINT), conn=Depends(get_conn)):
     row = conn.execute(
-        CALL_SELECT.replace("c.first_seen_at",
+        _call_select().replace("c.first_seen_at",
                             "c.eligibility_text, c.conditions_raw, c.details_seen_at, "
                             "s.commercial_ok AS source_commercial_ok, c.first_seen_at")
         + " WHERE c.id = %s", (call_id,)).fetchone()

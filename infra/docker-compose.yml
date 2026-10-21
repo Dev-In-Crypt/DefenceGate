@@ -24,6 +24,42 @@ services:
     # mismatched pair produces backups that cannot be restored.
     image: postgres:17
     restart: unless-stopped
+    # Memory for a 3.8 GB, 2-core host that also runs the worker (limit 2 GB, about 0.6 GB used),
+    # the api and the web (512 MB each), and a 9.5 GB database (WP-72; the defaults were 128 MB
+    # shared_buffers and 4 MB work_mem, QA audit of 21 October 2026, finding 6):
+    #   shared_buffers 768MB        ~20 % of RAM: the hot set (opportunity 285 MB heap + 380 MB indexes,
+    #                               organisation 260 MB) fits; more would leave too little to the OS
+    #                               page cache and to the worker at its limit
+    #   effective_cache_size 2GB    shared_buffers plus what the page cache usually holds (2.3 GB
+    #                               buff/cache measured); a planner hint, allocates nothing
+    #   work_mem 16MB               per sort or hash node; the API's 40-thread pool rarely runs more
+    #                               than a few queries at once, so 16 MB x a few nodes x a few queries
+    #   maintenance_work_mem 128MB  index builds (CONCURRENTLY) and VACUUM; autovacuum_work_mem 64MB
+    #                               caps the three autovacuum workers at 192 MB together
+    #   random_page_cost 1.1        the volume is SSD; 4 (the default) makes index walks look 4x dearer
+    #   effective_io_concurrency 200  SSD: bitmap heap scans prefetch
+    #   shared_preload_libraries=pg_stat_statements  so the remaining sequential scans can be attributed
+    #                               (then: CREATE EXTENSION IF NOT EXISTS pg_stat_statements)
+    # shm_size: parallel workers exchange data through /dev/shm, 64 MB by default in a container.
+    shm_size: 256mb
+    command:
+      - postgres
+      - -c
+      - shared_buffers=768MB
+      - -c
+      - effective_cache_size=2GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - autovacuum_work_mem=64MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - effective_io_concurrency=200
+      - -c
+      - shared_preload_libraries=pg_stat_statements
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dgate}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
