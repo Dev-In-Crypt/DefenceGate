@@ -58,15 +58,15 @@ test('a tender page has the same side column, and its related notices are a list
   for (const w of g.cards) expect(w, 'a related card is as wide as the text column').toBeGreaterThan(isMobile(page) ? 300 : 800);
 });
 
-// WP-62: the book's card anatomy is taller than the WP-47 card (median 245 / 560 px): measured 400 at 1280 and 646 at 375.
-test('a tender card keeps a bounded height, and the classification line is said once above the list, not on every card', async ({ page }) => {
+// WP-62 (owner, 21 Oct 2026): the compact card, measured median 232 at 1280 and 490 at 375 (WP-47: 245 / 560).
+test('a tender card is short, and the classification line is said once above the list, not on every card', async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
   await expect(page.locator('main article').first()).toBeVisible();
   const heights = await page.locator('main article').evaluateAll((a) => a.map((e) => Math.round(e.getBoundingClientRect().height)));
   const sorted = [...heights].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
-  expect(median, `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 680 : 420);
-  expect(Math.max(...heights), `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 780 : 460);
+  expect(median, `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 540 : 260);
+  expect(Math.max(...heights), `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 600 : 300);
   const lines = await page.getByText(/^Classified automatically/).count();
   expect(lines, 'the line is on the page once').toBe(1);
   await expect(page.getByText(/^Classified automatically/).locator('xpath=ancestor::article')).toHaveCount(0);

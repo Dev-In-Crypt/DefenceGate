@@ -81,7 +81,8 @@ const config: Config = {
     // viewport (a card in a 3-column grid on the home page is 400 px wide on a 1333 px screen).
     plugin(({ addVariant }) => {
       addVariant('cq', '@container (min-width: 664px)');
-      addVariant('cqw', '@container (min-width: 884px)');
+      // 820: the content box of a list card in the 1200 px page (888 px card, 845 px inside) still takes the wide organisation layout.
+      addVariant('cqw', '@container (min-width: 820px)');
     }),
   ],
 };

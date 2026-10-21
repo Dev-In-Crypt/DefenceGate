@@ -91,7 +91,8 @@ test('a list card title is clamped by the card, not the window, and the whole ti
     return { clamp: getComputedStyle(h).webkitLineClamp, title: a.getAttribute('title'), text: a.textContent?.trim(), cardWidth: card.getBoundingClientRect().width };
   });
   expect(r.title, 'the link carries the whole title').toBe(r.text);
-  expect(r.clamp).toBe(r.cardWidth >= 664 + 40 ? '3' : '4');
+  // WP-62 (owner): two lines in a wide card, three in a narrow one.
+  expect(r.clamp).toBe(r.cardWidth >= 664 + 40 ? '2' : '3');
 });
 
 // R5

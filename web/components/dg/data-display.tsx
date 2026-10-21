@@ -57,16 +57,16 @@ export function LangLabel({ kind, code, className }: { kind: 'language' | 'title
 }
 
 /**
- * A fact of a list card (the brand book's FactCell): an inset cell, padding 16, label above a mono value, in a grid of as many 160 px
- * columns as fit, 12 px apart. The soon tone is tinted, so a deadline that is close stands out.
- * Put them in a <dl className={LIST_FACTS}>.
+ * A fact of a list card: a compact inset cell (the book's FactCell look, padding 4 / 12), label at the left and the mono value at the right,
+ * cells 4 px apart. The labels share one column as wide as the longest (subgrid), so a date stays on one line in a 343 px card. The soon tone
+ * is tinted, so a deadline that is close stands out. Put them in a <dl className={LIST_FACTS}>.
  */
-export const LIST_FACTS = 'm-0 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-3';
+export const LIST_FACTS = 'm-0 grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] content-start gap-1';
 export function ListFact({ label, children, tone = 'default' }: { label: string; children: React.ReactNode; tone?: 'default' | 'soon' | 'closed' }) {
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1 rounded-md p-4', tone === 'soon' ? 'bg-soon-bg' : 'bg-surface-inset')}>
+    <div className={cn('col-span-2 grid min-w-0 grid-cols-subgrid items-baseline gap-x-3 rounded-md px-3 py-1', tone === 'soon' ? 'bg-soon-bg' : 'bg-surface-inset')}>
       <dt className={cn('text-label', tone === 'soon' ? 'text-soon-fg' : 'text-ink-muted')}>{label}</dt>
-      <dd className={cn('m-0 break-words font-mono text-mono-strong tabular-nums', tone === 'soon' ? 'text-soon-fg' : tone === 'closed' ? 'text-ink-muted' : 'text-ink')}>{children}</dd>
+      <dd className={cn('m-0 min-w-0 break-words font-mono text-mono font-medium tabular-nums', tone === 'soon' ? 'text-soon-fg' : tone === 'closed' ? 'text-ink-muted' : 'text-ink')}>{children}</dd>
     </div>
   );
 }

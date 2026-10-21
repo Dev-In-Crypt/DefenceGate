@@ -161,3 +161,37 @@ other run; the feed is not touched by this change (a flake to watch, not fixed h
 Hostile review of the diff: 4 issues found and fixed (the Tailwind spacing override that broke 320 px; uncapped paragraphs in the evidence
 panels, list-card meta lines and regulation details; a measure helper that counted a wrapped URL on one line; a hover test that read the dark
 card while the pointer was still on it).
+
+## 6. Follow-up: compact list cards (owner, 21 Oct 2026)
+
+The owner judged the book-anatomy list cards too tall and asked for compact cards in the book's look. Changed (`components/dg/cards.tsx`,
+`data-display.tsx`, `networks/parts.tsx`, `tailwind.config.ts`):
+
+- Card: padding 20 at every width (was 20 / 28), 12 px between the parts (was 20); surface, no outline and the 1.5px `--ink-muted` hover edge kept.
+- Title: the card-title step 20/28 bold (was 28/36, 22/30 narrow), clamped to 2 lines in a wide card and 3 in a narrow one (was 3 / 4).
+- Facts: compact inset cells (padding 4 / 12, 4 px apart), label at the left and the 13/20 mono value at the right; the labels share one
+  column as wide as the longest (subgrid), so a date stays on one line in a 343 px card. From a 664 px card the facts are a 22rem column
+  at the right of the text; the provenance runs under both on one line. Every fact stays visible; the soon tone keeps its tint.
+- Organisation cards: the wide layout threshold `cqw` 884 -> 820 px, because a list card in the 1200 px page is 845 px inside.
+- Contrast unchanged (same tokens); no new interactive element, the 32 px link targets are untouched.
+
+Heights (`crawl/cards.js`, demo data, every card on the first page):
+
+| Cards | Before WP-62 | WP-62 book anatomy | Now |
+|---|---|---|---|
+| Calls, 1440 | 193-230 | 331-371 | 205-225 |
+| Calls, 1280 | 193-233 | 331-371 | 205-225 |
+| Tenders, 1440 | 229-270 | 388-429 | 220-289 |
+| Tenders, 1280 | 229-298 | 388-429 | 220-289 |
+| Buyers, 1440 / 1280 | 166 | 253-281 | 135-163 |
+| Organisations, 1440 / 1280 | 193 / 378 | 313 | 193 / 193 |
+| Calls, 375 | 437-519 | 591-645 | 419-465 |
+| Tenders, 375 | 457-593 | 588-735 | 438-553 |
+| Buyers, 375 | 300 | 431 | 267 |
+| Organisations, 375 | 482 | 492 | 482 |
+
+Tests moved to the new numbers: `layout.spec.ts` (call at most 260 / 520 px, tender 300 / 600 px, title 20/28), `wp47.spec.ts` (tender
+median 260 / 540, max 300 / 600), `wp48.spec.ts` (the tinted deadline cell 4 px from the next), `wp54.spec.ts` (title clamp 2 wide / 3 narrow).
+tsc, `npm run check`, `next build` ok; full Playwright `--workers=4`: 448 passed, 40 skipped, 0 failed (`e2e-compact2.log`).
+What this leaves different from the book: the list card padding (20, the book's mobile value, at every width), the 20/28 title, the fact
+cells' 4 / 12 padding and 13 px values (book FactCell 16 padding, 15 px), and the facts beside the text instead of under it.

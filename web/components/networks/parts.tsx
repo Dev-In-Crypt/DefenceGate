@@ -19,8 +19,8 @@ import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
 
-/** A list card as in components/dg/cards.tsx (brand book): no outline, padding 20 / 28, a 1.5px --ink-muted edge on hover. */
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70 sm:p-7';
+/** A list card as in components/dg/cards.tsx: no outline, padding 20, 12 px gaps, a 1.5px --ink-muted edge on hover. */
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 
 /** The name of an organisation as a person reads it. */
