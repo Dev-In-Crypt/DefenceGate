@@ -164,6 +164,9 @@ services:
       # address as the API sees it is always 10.250.71.2, the one trusted for X-Forwarded-For.
       edge:
         aliases: [api-edge]
+        # A fixed address too: started first, the API took .2 (Caddy's) automatically on 21 Oct 2026 and Caddy
+        # could not start ("Address already in use").
+        ipv4_address: 10.250.71.3
 
   worker:
     logging:
