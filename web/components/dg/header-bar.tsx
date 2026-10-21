@@ -27,7 +27,7 @@ export const MAIN_NAV: readonly NavItem[] = [
     { label: 'Ukraine partners', href: '/networks/ukraine-partners' }, { label: 'Consortium gaps', href: '/networks/consortium-gaps' },
   ] },
   { label: 'Readiness', href: '/readiness', children: [
-    { label: 'Readiness check', href: '/readiness' }, { label: 'Requirements', href: '/requirements' }, { label: 'Regulatory tracker', href: '/regulation' },
+    { label: 'Readiness check', href: '/readiness' }, { label: 'Supplier profile', href: '/readiness/supplier' }, { label: 'Requirements', href: '/requirements' }, { label: 'Regulatory tracker', href: '/regulation' },
   ] },
   { label: 'Market', href: '/market' },
   { label: 'Data', href: '/data', children: [
