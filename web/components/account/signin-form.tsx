@@ -22,7 +22,7 @@ export function SignInForm({ termsVersion, privacyVersion }: { termsVersion: str
 
   if (state.status === 'sent') {
     return (
-      <div role="status" className="flex max-w-form flex-col items-start gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+      <div role="status" className="flex max-w-form flex-col items-start gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
         <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={MailCheck} /></span>
         <h2 className="m-0 text-h3">Check your mail</h2>
         <p className="m-0 text-body text-ink-muted">
@@ -34,7 +34,7 @@ export function SignInForm({ termsVersion, privacyVersion }: { termsVersion: str
 
   const message = MESSAGE[state.status];
   return (
-    <form action={action} noValidate className="flex max-w-form flex-col gap-5 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <form action={action} noValidate className="flex max-w-form flex-col gap-5 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <TextInput
         name="email" type="email" autoComplete="email" inputMode="email" maxLength={254} required
         label="E-mail address" hint="We send one sign-in link. There is no password."

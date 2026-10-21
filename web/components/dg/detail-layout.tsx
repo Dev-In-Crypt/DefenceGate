@@ -19,7 +19,7 @@ export function DetailLayout({ top, nav, facts, side, sideLabel = 'Deadline and 
 }) {
   return (
     <div className={cn('detail', nav && 'detail--nav')}>
-      {top && <div className="d-top rounded-lg border border-edge bg-surface p-4 sm:p-5">{top}</div>}
+      {top && <div className="d-top rounded-lg border border-transparent bg-surface p-4 sm:p-5">{top}</div>}
       {nav && <div className="d-nav">{nav}</div>}
       {facts && <div className="d-facts">{facts}</div>}
       <div className="d-main flex min-w-0 flex-col gap-6">{children}</div>
@@ -35,7 +35,7 @@ export function DetailLayout({ top, nav, facts, side, sideLabel = 'Deadline and 
  */
 export function SectionNav({ items }: { items: NavItem[] }) {
   return (
-    <nav aria-label="On this page" className="flex flex-col gap-1 rounded-lg border border-edge bg-surface px-5 py-3 sm:px-6 lg:py-4">
+    <nav aria-label="On this page" className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface px-5 py-3 sm:px-7 lg:py-4">
       <p className="m-0 text-label text-ink">On this page</p>
       <ul className="m-0 flex list-none flex-wrap gap-x-5 p-0 lg:flex-col lg:gap-0">
         {items.map((t) => (

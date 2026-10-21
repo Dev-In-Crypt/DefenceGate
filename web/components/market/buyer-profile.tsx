@@ -42,7 +42,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
       </dl>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+        <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
           <h3 className="m-0 text-h3">Notices per year</h3>
           <BarChart
             id="buyer-years"
@@ -56,7 +56,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
-          <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+          <div className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
             <h3 className="m-0 text-h3">Subjects</h3>
             {profile.cpvGroups.length > 0 ? (
               <RankTable
@@ -73,7 +73,7 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
             )}
             <p className={BASIS}>{profile.basis.cpvGroups}</p>
           </div>
-          <div className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+          <div className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
             <h3 className="m-0 text-h3">Sources</h3>
             <RankTable
               caption={`Notices by source, ${name}`}

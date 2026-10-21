@@ -247,7 +247,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {result.items.map((s) => (
-              <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-4">
+              <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface p-4">
                 <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{displayName(s.name, 'title')}</Link>
                 <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
                   <CountryLabel code={s.country} />

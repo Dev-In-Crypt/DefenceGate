@@ -89,7 +89,7 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
   const todo = a.rules.filter((r) => r.outcome === 'not_met' || r.outcome === 'to_obtain');
   const id = `prog-${a.programme}`;
   return (
-    <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6" data-programme={a.programme} data-verdict={a.verdict}>
+    <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7" data-programme={a.programme} data-verdict={a.verdict}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <H id={id} className="m-0 min-w-0 flex-1 text-h3">{a.name}</H>
         {!general && <VerdictBadge verdict={a.verdict} />}

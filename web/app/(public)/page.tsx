@@ -134,10 +134,10 @@ export default async function LandingPage() {
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the links under the lead; the finder runs under both, full width. */}
-      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-x-10 lg:gap-y-5 ${CARD_SURFACE} ${CARD_PADDING}`}>
+      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the links under the lead; the finder runs under both, full width. The figures column is 20rem so the book's 56/60 headline (balanced) takes two lines at 1280 px, not three. */}
+      <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-10 lg:gap-y-5 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <div className="flex min-w-0 flex-col gap-5">
-          <h1 id="hero" className="m-0 text-[36px] font-extrabold leading-10 tracking-[-1px] md:text-display-sm">Defence and dual-use tenders and funding, in one place.</h1>
+          <h1 id="hero" className="m-0 text-display-sm [text-wrap:balance] md:text-display">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
             Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
@@ -148,7 +148,7 @@ export default async function LandingPage() {
             <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
           </div>
         </div>
-        <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-x-6 gap-y-4">
+        <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-3">
           <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
           <Counter label="Current notices" value={current ? formatNumber(current.total) : null} asOf={current?.staleAsOf} sub="including some without a stated deadline" />
           <Counter label="Open funding calls" value={stats ? String(stats.openCalls) : null} />
@@ -156,7 +156,7 @@ export default async function LandingPage() {
           <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
         </dl>
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
-          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="rounded-lg border border-edge bg-surface-inset p-4">
+          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="rounded-lg border border-transparent bg-surface-inset p-4">
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] md:items-end">
               <Select name="country" label="Country of the buyer" placeholder="Any country"
                 options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />

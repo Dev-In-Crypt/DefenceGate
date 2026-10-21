@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { paragraphsOutsideFrame, visit } from './helpers';
+import { paragraphsOutsideFrame, paragraphsOverMeasure, visit } from './helpers';
 
 /**
  * Page-level layout of the record and list pages (WP-47, docs/verification/product/wp47-selfcheck.md): a call and a tender page with a
@@ -58,14 +58,15 @@ test('a tender page has the same side column, and its related notices are a list
   for (const w of g.cards) expect(w, 'a related card is as wide as the text column').toBeGreaterThan(isMobile(page) ? 300 : 800);
 });
 
-test('a tender card is short, and the classification line is said once above the list, not on every card', async ({ page }) => {
+// WP-62: the book's card anatomy is taller than the WP-47 card (median 245 / 560 px): measured 400 at 1280 and 646 at 375.
+test('a tender card keeps a bounded height, and the classification line is said once above the list, not on every card', async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
   await expect(page.locator('main article').first()).toBeVisible();
   const heights = await page.locator('main article').evaluateAll((a) => a.map((e) => Math.round(e.getBoundingClientRect().height)));
   const sorted = [...heights].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
-  expect(median, `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 560 : 245);
-  expect(Math.max(...heights), `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 600 : 300);
+  expect(median, `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 680 : 420);
+  expect(Math.max(...heights), `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 780 : 460);
   const lines = await page.getByText(/^Classified automatically/).count();
   expect(lines, 'the line is on the page once').toBe(1);
   await expect(page.getByText(/^Classified automatically/).locator('xpath=ancestor::article')).toHaveCount(0);
@@ -119,12 +120,13 @@ test('the funding filters fold too, and the cascade and Ukraine filters stay in 
   expect(height, 'the folded filter form (2,100 px before)').toBeLessThanOrEqual(1700);
 });
 
-test('no paragraph of a list or record page leaves the content frame (the measure is the full width)', async ({ page }) => {
+test('no paragraph of a list or record page leaves the content frame or runs past the reading measure', async ({ page }) => {
   for (const path of ['/funding', '/tenders', '/organisations', CALL, TENDER, '/organisations/101-alpha-systems-gmbh']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
-    // WP-51: the measure is the whole content box (owner's change 77ca9c6, was 680 px): long paragraphs may be as wide as the frame, not wider.
+    // WP-62 (owner, 21 Oct 2026): the frame keeps the header width, a paragraph keeps the 62ch measure (at most about 90 characters a line).
     const wide = await paragraphsOutsideFrame(page, { skip: 'table, nav, [role=region], article, .reading', minLength: 121 });
     expect(wide, `${path}: paragraphs outside the header's left and right edges`).toEqual([]);
+    expect(await paragraphsOverMeasure(page, { skip: 'table' }), `${path}: paragraph lines over 95 characters`).toEqual([]);
   }
 });
 

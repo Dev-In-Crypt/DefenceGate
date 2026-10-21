@@ -15,7 +15,7 @@ const STATUS_OPTIONS: { value: CallStatusFilter; label: string }[] = [
 ];
 /** Budget presets, as plain numbers: they apply in the selected currency. Nothing is converted. */
 /** A filter form: groups that fold, separated by hairlines; the buttons stay at the foot of the visible part. */
-const FORM = 'flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5';
+const FORM = 'flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5';
 export const FORM_BUTTONS = 'sticky bottom-0 z-10 -mx-5 -mb-5 flex flex-wrap items-center gap-3 rounded-b-lg border-t border-line bg-surface px-5 py-3';
 const BUDGET_PRESETS = [1_000_000, 5_000_000, 10_000_000, 25_000_000, 50_000_000];
 

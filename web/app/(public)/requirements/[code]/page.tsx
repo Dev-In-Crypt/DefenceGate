@@ -101,7 +101,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
 
       {r.variants.length > 0 && (
         <ContentSection title="If you already hold a related certificate">
-          <ul className="m-0 flex list-none flex-col gap-2 p-0 text-body text-ink-muted">
+          <ul className="m-0 flex max-w-prose list-none flex-col gap-2 p-0 text-body text-ink-muted">
             {r.variants.map((v) => (
               <li key={v.whenHeld}>
                 {v.cost?.text ?? formatRange(v.cost)}{v.days ? `, ${formatDays(v.days)}` : ''}. {v.cost?.label && <strong className="text-ink">{v.cost.label}.</strong>}
@@ -121,7 +121,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
                 <li key={`${i.country}-${i.name}`} className="flex flex-col gap-0.5">
                   <span className="font-bold">{i.country !== '*' ? countryName(i.country) : r.issuers.some((x) => x.country !== '*') ? 'Every other country' : 'Every country'}</span>
                   <span>{safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}</span>
-                  {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
+                  {i.notes && <span className="max-w-prose text-small text-ink-muted">{i.notes}</span>}
                   <span className="text-small text-ink-muted">{statusWords(i.verificationStatus, 'notes')}</span>
                 </li>
               ))}

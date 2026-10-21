@@ -63,7 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Logo href="/" />
             <ThemeToggle />
           </div>
-          <details className="group rounded-lg border border-edge bg-surface">
+          <details className="group rounded-lg border border-transparent bg-surface">
             <summary className="flex min-h-11 cursor-pointer list-none items-center px-6 text-body font-bold [&::-webkit-details-marker]:hidden">Menu</summary>
             <div className="flex flex-col gap-4 px-3 pb-4">
               <AppNav label="Account menu" />
@@ -72,7 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </details>
         </header>
 
-        <aside className="sticky top-4 hidden flex-col gap-6 rounded-lg border border-edge bg-surface p-4 lg:flex">
+        <aside className="sticky top-4 hidden flex-col gap-6 rounded-lg border border-transparent bg-surface p-4 lg:flex">
           <div className="flex items-center justify-between gap-2 px-2">
             <Logo href="/" />
             <ThemeToggle />
@@ -86,7 +86,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         <main id="main" className="flex min-w-0 flex-col gap-6">
           {status?.termsVersion && status.privacyVersion && (
-            <form action={acceptCurrentTerms} className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
+            <form action={acceptCurrentTerms} className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
               <p className="m-0 text-body">
                 The <a href="/terms" className="font-semibold">terms of use</a> (version {status.termsVersion}) and the{' '}
                 <a href="/privacy" className="font-semibold">privacy notice</a> (version {status.privacyVersion}) have changed. Please accept them to go on using your account.

@@ -16,24 +16,21 @@ import { SourceBadge } from './source-badge';
 import { BasisChips } from './basis-chips';
 import { FitBadge } from '../funding/fit-badge';
 
-/** A list card: the surface, the edge, 20 px padding, 12 px between its parts. Call cards are about 215 px tall at 1280 px and wider, tender cards about 260 px. */
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
 /**
- * Card title: 20/28. The clamp follows the card's own width (it is a size container), not the window's: four lines in a narrow card, three when the
- * facts column takes 340 px of a wide one (it was three and two, set by the window: on the live site 7 of 10 tender titles were cut at 1440 px, 9 of 10
- * at 768 px, 5 of 20 buyer names at 768 px). A longer title is still cut, and an extra line costs about 28 px of card, so the whole title is also in the
- * link's `title` (a tooltip) and always in the link text itself, which the clamp only hides.
+ * A list card (brand book CallCard): the surface with no outline, radius 20, padding 20 (28 from sm), 20 px between its parts; on hover a 1.5px
+ * --ink-muted edge and the title underlined. The transparent border keeps the box the same size on hover and draws the card in forced colours.
  */
-export const CARD_TITLE = 'm-0 line-clamp-4 text-h3 cq:line-clamp-3';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-5 [&_p]:max-w-prose rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70 sm:p-7';
+/**
+ * Card title: the book's h2, 28/36, and 22/30 in a card narrower than 664 px (the card is a size container, so a narrow card in a 3-column
+ * grid gets the small size too). Four lines at most in a narrow card, three in a wide one; the whole title is also in the link's `title`
+ * (a tooltip) and always in the link text itself, which the clamp only hides.
+ */
+export const CARD_TITLE = 'm-0 line-clamp-4 text-h2-sm cq:line-clamp-3 cq:text-h2';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
-/**
- * Text part at the left, facts at the right (from xl); one column below (text, facts, provenance). From xl the provenance
- * row sits under the text, in the left column, so the facts column (the tallest part) sets the height of the card.
- */
-export const CARD_BODY = 'grid gap-x-6 gap-y-3 cq:grid-cols-[minmax(0,1fr)_340px]';
-const CARD_BODY_PROVENANCE = `${CARD_BODY} cq:grid-rows-[1fr_auto]`;
+/** One column, as in the book: the text part (tags, title, lines), the fact grid, the provenance row. */
+export const CARD_BODY = 'grid gap-5';
 export const CARD_TEXT = 'flex min-w-0 flex-col gap-2 cq:col-start-1 cq:row-start-1';
-const CARD_PROVENANCE = 'cq:col-start-1 cq:row-start-2';
 
 /** The title in the original language, one line, with its label; nothing when there is none. */
 function OriginalTitle({ title, lang }: { title: string | null | undefined; lang: string | null | undefined }) {
@@ -61,7 +58,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
-      <div className={CARD_BODY_PROVENANCE}>
+      <div className={CARD_BODY}>
         <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             <Tag kind="programme">{PROGRAMMES[call.programme].label}</Tag>
@@ -90,7 +87,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             </p>
           )}
         </div>
-        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-span-2 cq:row-start-1')}>
+        <dl className={LIST_FACTS}>
           <ListFact label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.rolling && d.iso ? (
               <>
@@ -123,7 +120,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
           </ListFact>
           <ListFact label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</ListFact>
         </dl>
-        <SourceBadge source={call.source} variant="inline" className={CARD_PROVENANCE} subject={displayName(call.title)} subjectLang={nonEnglish ? call.titleLanguage : undefined} />
+        <SourceBadge source={call.source} variant="inline" subject={displayName(call.title)} subjectLang={nonEnglish ? call.titleLanguage : undefined} />
       </div>
     </article>
   );
@@ -177,7 +174,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
   const H = headingLevel;
   return (
     <article className={cn(CARD, closed ? 'text-ink-muted' : 'text-ink')}>
-      <div className={CARD_BODY_PROVENANCE}>
+      <div className={CARD_BODY}>
         <div className={CARD_TEXT}>
           <div className="flex flex-wrap items-center gap-2">
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
@@ -205,7 +202,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
           <OriginalTitle title={tender.originalTitle} lang={tender.originalLanguage} />
           <BasisChips tender={tender} lifted note={classifiedNote} />
         </div>
-        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-span-2 cq:row-start-1')}>
+        <dl className={LIST_FACTS}>
           <ListFact label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.iso ? (
               <>
@@ -230,7 +227,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
           </ListFact>
           <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</ListFact>
         </dl>
-        <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>
+        <div className={'flex min-w-0 flex-col gap-2'}>
           <AnomalyNote tender={tender} />
           <SourceBadge source={tender.source} variant="inline" retrievedLabel={tenderChangedLabel(tender.source)} subject={displayName(tender.title)} subjectLang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} />
         </div>
@@ -254,7 +251,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
           {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
           {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
         </div>
-        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-start-1')}>
+        <dl className={LIST_FACTS}>
           <ListFact label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></ListFact>
           <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></ListFact>
           <ListFact label="Last published">

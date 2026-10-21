@@ -66,7 +66,7 @@ export default async function ChangesPage({ searchParams }: Props) {
   );
   const country = filters.country?.[0] ?? '';
   const filterForm = (
-    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end">
+    <form method="get" action="/changes" role="search" aria-label="Filter changes" className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end">
       <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={country} className="sm:min-w-56"
         options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
       <Select name={PARAM.scope} label="What to include" placeholder={SCOPE_CHOICES.relevant.label} defaultValue={filters.scope ?? ''}
@@ -110,7 +110,7 @@ export default async function ChangesPage({ searchParams }: Props) {
       )}
 
       {/* Text at the left (one measure), the ways to follow the list at the right: the card is filled, not a strip of text in a wide box. */}
-      <section aria-labelledby="window" className="grid gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <section aria-labelledby="window" className="grid gap-x-10 gap-y-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="flex min-w-0 flex-col gap-3">
           <h2 id="window" className="m-0 text-h3">{filters.week ? weekLabel(filters.week) : <>The last {data.windowDays} days</>}</h2>
           <p className="m-0 max-w-prose text-body">

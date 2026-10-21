@@ -31,7 +31,7 @@ export function SaveSearch({ kind, filters }: { kind: SearchKind; filters: Searc
   }
   if (step === 'saved') {
     return (
-      <p role="status" className="m-0 rounded-lg border border-edge bg-surface p-4 text-small text-ink">
+      <p role="status" className="m-0 rounded-lg border border-transparent bg-surface p-4 text-small text-ink">
         Saved. New matches appear on your dashboard. <Link href="/app/searches" className="font-semibold">Open saved searches</Link>
       </p>
     );
@@ -61,7 +61,7 @@ export function SaveSearch({ kind, filters }: { kind: SearchKind; filters: Searc
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
+    <form onSubmit={submit} className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
       <TextInput name="name" label="Name of this search" maxLength={80} required defaultValue={suggestSearchName(kind, filters)} error={error ?? undefined} />
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={step === 'saving'}>{step === 'saving' ? 'Saving' : 'Save'}</Button>

@@ -58,7 +58,7 @@ export function Notice({ code }: { code?: string | string[] }) {
 
 export function LoadFailed({ href }: { href: string }) {
   return (
-    <div role="alert" className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <div role="alert" className="flex flex-col items-start gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-alert"><Icon icon={CircleAlert} /></span>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-h3">We could not load this</h2>

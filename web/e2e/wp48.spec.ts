@@ -139,7 +139,9 @@ test('a call and a tender page on a phone: the deadline block has 16 px of card 
   }
 });
 
-test('a tinted deadline in a list card has 16 px between it and the line under it', async ({ page }) => {
+// WP-62: the facts of a list card are the book's FactCells, inset cells 12 px apart (the hairline rows of WP-48 are gone); a tinted deadline is
+// one of them, so it keeps 12 px to its neighbour on every side and never touches it.
+test('a tinted deadline in a list card is its own fact cell, 12 px from the next one', async ({ page }) => {
   await visit(page, '/funding', { title: /.+/, h1: /.+/ });
   const gaps = await page.evaluate(() => {
     const out: number[] = [];
@@ -147,13 +149,12 @@ test('a tinted deadline in a list card has 16 px between it and the line under i
       const next = tint.nextElementSibling;
       if (!next) continue;
       const a = tint.getBoundingClientRect(); const b = next.getBoundingClientRect();
-      // side by side (three columns): there is no line between them
-      if (b.top < a.bottom - 1) continue;
-      out.push(b.top - a.bottom);
+      out.push(b.top >= a.bottom - 1 ? b.top - a.bottom : b.left - a.right);
     }
     return out;
   });
-  for (const g of gaps) expect(g, 'space between the tint and the divider of the next fact').toBeGreaterThanOrEqual(16);
+  expect(gaps.length, 'the demo list has a tinted deadline').toBeGreaterThan(0);
+  for (const g of gaps) expect(Math.round(g), 'space between the tinted cell and the next fact').toBe(12);
 });
 
 test('the profile funding tab does not scroll the page sideways (a hidden table header was 396 px wide at 375)', async ({ page }) => {

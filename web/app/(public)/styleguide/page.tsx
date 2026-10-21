@@ -29,13 +29,14 @@ export const metadata: Metadata = { title: 'Styleguide', robots: { index: false,
 
 const COLOR_TOKENS = ['bg', 'surface', 'surface-inset', 'line', 'ink', 'ink-muted', 'primary', 'on-primary', 'accent', 'accent-text', 'urgent', 'on-urgent', 'link', 'open-bg', 'open-fg', 'soon-bg', 'soon-fg', 'closed-bg', 'closed-fg', 'alert', 'primary-hover', 'primary-press', 'edge'];
 const TYPE = [
-  ['display', 'Manrope 800 · 56/60', 'Your way in'], ['h1', 'Manrope 700 · 36/44 (32/40 below md)', 'Funding calls'], ['h2', 'Manrope 700 · 24/32', 'Additive manufacturing'],
-  ['h3', 'Manrope 700 · 20/28 (card title)', 'Eligibility'], ['h4', 'Manrope 600 · 18/26', 'Check your company'], ['lead', 'Manrope 400 · 18/28, ink', 'What changed in the week, in one paragraph.'],
-  ['body', 'Manrope 400 · 16/26', 'Closes in 46 days.'], ['small', 'Manrope 400 · 14/20', 'Retrieved daily'],
+  ['display', 'Manrope 800 · 56/60 (40/44 below md)', 'Your way in'], ['h1', 'Manrope 800 · 40/48 (32/40 below md)', 'Funding calls'], ['h2', 'Manrope 700 · 28/36 (list card title; 22/30 in a narrow card)', 'Additive manufacturing'],
+  ['h3', 'Manrope 600 · 20/28 (titled card)', 'Eligibility'], ['h4', 'Manrope 600 · 18/24', 'Check your company'], ['lead', 'Manrope 400 · 18/28, ink', 'What changed in the week, in one paragraph.'],
+  ['body', 'Manrope 400 · 16/24', 'Closes in 46 days.'], ['small', 'Manrope 400 · 14/20', 'Retrieved daily'],
   ['label', 'Manrope 700 · 12/16', 'Deadline'], ['mono', 'DM Mono 400 · 13/20', 'EDF-2026-DA-MATCOMP-AMSP'], ['mono-strong', 'DM Mono 500 · 15/22', 'EUR 25,000,000'], ['figure', 'DM Mono 500 · 24/30', '26 Nov 2026'],
 ] as const;
 // Tailwind's own scale: key x 4 px.
-const SPACES = [1, 2, 3, 4, 6, 8, 12, 16, 24];
+/** The brand book's spacing scale (--space-1..10: 4, 8, 12, 16, 20, 28, 48, 64 px) as Tailwind steps. */
+const SPACES = [1, 2, 3, 4, 5, 7, 12, 16];
 const RADIUS_CLASS = { md: 'rounded-md', lg: 'rounded-lg', pill: 'rounded-pill' } as const;
 const STATUSES: StatusKind[] = ['open', 'upcoming', 'soon', 'closed', 'amended'];
 
@@ -64,7 +65,7 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 function Specimen({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6', className)}>
+    <div className={cn('flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7', className)}>
       <span className="text-label text-ink-muted">{label}</span>
       {children}
     </div>
@@ -115,7 +116,7 @@ export default async function StyleguidePage() {
       </Section>
 
       <Section id="type" title="Type scale">
-        <div className="flex flex-col rounded-lg border border-edge bg-surface p-5 sm:p-6">
+        <div className="flex flex-col rounded-lg border border-transparent bg-surface p-5 sm:p-7">
           {TYPE.map(([cls, spec, sample]) => (
             <div key={cls} className="grid items-baseline gap-2 border-b border-line py-3 last:border-0 md:grid-cols-[200px_minmax(0,1fr)]">
               <span className="font-mono text-mono text-ink-muted">.{cls} · {spec}</span>
@@ -151,7 +152,7 @@ export default async function StyleguidePage() {
       <Section id="layout" title="Layout components">
         <Specimen label="Card (plain), Card (titled, 56 px header row with an action), TextCard (title column from lg)">
           <AutoGrid min={320}>
-            <Card><p className="m-0 text-body">A plain card: one surface, one edge, 20 px padding (24 from sm), 16 px between its parts.</p></Card>
+            <Card><p className="m-0 text-body">A plain card: one surface, no outline, 20 px padding (28 from sm), 16 px between its parts.</p></Card>
             <Card title="Titled card" action={<a href="#layout" className="text-small font-semibold">Action</a>}><p className="m-0 text-body">The header row is 56 px with a hairline under it.</p></Card>
           </AutoGrid>
           <TextCard title="Text card"><p className="m-0 text-body">From lg the title sits in its own 220 px column and the text beside it, in one reading measure.</p></TextCard>
@@ -166,7 +167,7 @@ export default async function StyleguidePage() {
             { label: 'Time', value: 'Up to 14 working days on average; routine priority is 10 calendar days, emergency is 3 working days', wide: true },
           ]} />
         </Specimen>
-        <Specimen label="Prose (one reading measure, 16/26) and Details (a long line behind a 44 px summary)">
+        <Specimen label="Prose (the 62ch reading measure, 16/24) and Details (a long line behind a 44 px summary)">
           <Prose><p>Running text never runs wider than the reading measure, whatever the box around it. Paragraphs are 16 px apart.</p><ul><li>A bulleted list has its markers.</li><li>And the same measure.</li></ul></Prose>
           <Details summary="Source and citation">https://example.org/a/very/long/address/that/would/otherwise/stretch/the/card/into/a/line/of/one/hundred/and/fifty/characters/and/more</Details>
         </Specimen>
@@ -186,7 +187,7 @@ export default async function StyleguidePage() {
           </DetailLayout>
         </Specimen>
         <Specimen label="FoldGroup: a filter group that folds (native details, the options stay in the form); open, closed, with a chosen option">
-          <form className="flex max-w-xs flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
+          <form className="flex max-w-xs flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
             <FoldGroup legend="Status"><Choice type="radio" name="sg-status" value="open" label="Open" defaultChecked /><Choice type="radio" name="sg-status" value="closed" label="Closed" /></FoldGroup>
             <FoldGroup legend="Country" open={false} count={1}><Choice name="sg-country" value="PL" label="Poland" defaultChecked /><Choice name="sg-country" value="DE" label="Germany" /></FoldGroup>
             <FoldGroup legend="Budget" open={false}><Choice name="sg-budget" value="1" label="EUR 1M" /></FoldGroup>
@@ -253,7 +254,7 @@ export default async function StyleguidePage() {
       </Section>
 
       <Section id="forms" title="Inputs">
-        <div className="grid gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 md:grid-cols-2">
+        <div className="grid gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7 md:grid-cols-2">
           <TextInput search placeholder="Search calls" label="Search" />
           <TextInput label="Company name" hint="As registered" />
           <TextInput label="Work email" defaultValue="name@company" error="Enter a valid email address" />

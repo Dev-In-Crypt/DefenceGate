@@ -70,7 +70,7 @@ export function CallListTemplate({
           <ul className="m-0 flex w-max list-none gap-2 p-0 md:w-auto md:flex-wrap">
             {chips.map((c) => (
               <li key={c.href}>
-                <Link href={c.href} className="inline-flex min-h-11 items-center rounded-pill border border-edge bg-surface px-4 text-small font-bold text-ink no-underline transition-colors duration-dg hover:bg-surface-inset hover:no-underline">{c.label}</Link>
+                <Link href={c.href} className="inline-flex min-h-11 items-center rounded-pill border border-transparent bg-surface px-4 text-small font-bold text-ink no-underline transition-colors duration-dg hover:bg-surface-inset hover:no-underline">{c.label}</Link>
               </li>
             ))}
           </ul>
@@ -92,7 +92,7 @@ export function CallListTemplate({
               {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} ${plural(result.total, 'call')}` : `Showing ${from}–${to} of ${result.total} ${plural(result.total, 'call')}`}
             </Count>
             {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={sortOptions(filters.currency ?? DEFAULT_CURRENCY)} />}
-            <div role="group" aria-label="View" className="flex rounded-pill border border-edge bg-surface p-1">
+            <div role="group" aria-label="View" className="flex rounded-pill border border-transparent bg-surface p-1">
               {(['list', 'calendar'] as const).map((v) => (
                 <Link key={v} href={viewHref(v)} aria-current={view === v ? 'true' : undefined}
                   className={cn('inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 text-small font-bold no-underline hover:no-underline',

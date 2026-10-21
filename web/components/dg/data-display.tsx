@@ -57,18 +57,16 @@ export function LangLabel({ kind, code, className }: { kind: 'language' | 'title
 }
 
 /**
- * A fact of a list card. Under sm: label at the left, value at the right, a hairline between rows. From sm: three columns, label above
- * value. From xl (the card has an aside column): rows again. Only the soon tone gets a tint, so a deadline that is close stands out.
+ * A fact of a list card (the brand book's FactCell): an inset cell, padding 16, label above a mono value, in a grid of as many 160 px
+ * columns as fit, 12 px apart. The soon tone is tinted, so a deadline that is close stands out.
  * Put them in a <dl className={LIST_FACTS}>.
  */
-export const LIST_FACTS = 'm-0 grid min-w-0 content-start sm:grid-cols-3 sm:gap-x-4 sm:border-t sm:border-line sm:pt-3 xl:grid-cols-1 xl:gap-x-0 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0';
+export const LIST_FACTS = 'm-0 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,160px),1fr))] gap-3';
 export function ListFact({ label, children, tone = 'default' }: { label: string; children: React.ReactNode; tone?: 'default' | 'soon' | 'closed' }) {
   return (
-    <div className={cn(
-      'grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] items-baseline gap-x-3 border-t border-line py-2 first:border-t-0 sm:block sm:border-t-0 sm:py-0 xl:grid xl:border-t xl:py-2 xl:first:border-t-0',
-      tone === 'soon' && 'mb-4 mt-4 rounded-md bg-soon-bg px-3 first:mt-0 sm:my-0 sm:py-2 xl:my-4 xl:border-t-0')}>
+    <div className={cn('flex min-w-0 flex-col gap-1 rounded-md p-4', tone === 'soon' ? 'bg-soon-bg' : 'bg-surface-inset')}>
       <dt className={cn('text-label', tone === 'soon' ? 'text-soon-fg' : 'text-ink-muted')}>{label}</dt>
-      <dd className={cn('m-0 break-words font-mono text-mono font-medium tabular-nums', tone === 'soon' ? 'text-soon-fg' : tone === 'closed' ? 'text-ink-muted' : 'text-ink')}>{children}</dd>
+      <dd className={cn('m-0 break-words font-mono text-mono-strong tabular-nums', tone === 'soon' ? 'text-soon-fg' : tone === 'closed' ? 'text-ink-muted' : 'text-ink')}>{children}</dd>
     </div>
   );
 }

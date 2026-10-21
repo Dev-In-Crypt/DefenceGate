@@ -19,7 +19,8 @@ import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
 
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
+/** A list card as in components/dg/cards.tsx (brand book): no outline, padding 20 / 28, a 1.5px --ink-muted edge on hover. */
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-5 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70 sm:p-7';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
 
 /** The name of an organisation as a person reads it. */
@@ -121,7 +122,7 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
   return (
     <FilterPanel activeCount={activeOrgFilterCount(filters)}
       defaults={{ programme: PROGRAMME_CHOICES.map((p) => p.value).filter((v) => DEFENCE_PROGRAMMES.includes(v)).join(',') }}>
-      <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5">
+      <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
         <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
         <FoldGroup legend="Programme" count={filters.programme?.length}>
           {PROGRAMME_CHOICES.map((p) => (
@@ -149,7 +150,7 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
 export function DataSources({ sources, amountNote, only }: { sources: SourceNote[]; amountNote?: string; only?: string[] }) {
   const shown = only ? sources.filter((s) => only.includes(s.code)) : sources;
   return (
-    <section aria-labelledby="data-sources" className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <section aria-labelledby="data-sources" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <h2 id="data-sources" className="m-0 text-h3">Where this comes from</h2>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {shown.map((s) => (
@@ -224,7 +225,7 @@ export function FundingChart({ rows }: { rows: FundingRow[] }) {
                   <td className="whitespace-nowrap text-right font-mono tabular-nums">{formatNumber(r.projects)}</td>
                   <td className="whitespace-nowrap text-right font-mono tabular-nums">{r.euContribution === null ? 'Not stated' : formatEur(r.euContribution)}</td>
                   <td aria-hidden="true" className="align-middle">
-                    {r.width > 0 && <div className="h-3 rounded-sm bg-primary" style={{ width: `${r.width}%` }} />}
+                    {r.width > 0 && <div className="h-3 rounded-pill bg-primary" style={{ width: `${r.width}%` }} />}
                   </td>
                 </tr>
               ))}

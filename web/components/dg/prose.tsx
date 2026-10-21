@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /**
- * Running text: one reading measure (`--measure`, the whole content box), 16/26, 16 px between blocks,
+ * Running text: the reading measure (`--measure`, 62ch), 16/24, 16 px between blocks,
  * real list markers (the reset removes them), ink colour. Put it around paragraphs and lists that belong together;
  * `muted` is for secondary text. It sets the width of the text, not of the box: the box can be as wide as it likes.
  */

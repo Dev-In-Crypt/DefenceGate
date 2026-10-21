@@ -205,7 +205,7 @@ export default async function CallDetailPage({ params }: Props) {
           </Card>
         )}
         side={(
-          <div className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+          <div className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
             <SaveButton kind="call" refId={call.id} />
             <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />

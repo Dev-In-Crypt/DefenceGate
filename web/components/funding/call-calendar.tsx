@@ -78,7 +78,7 @@ export function CallCalendar({ calls }: { calls: Call[] }) {
   return (
     <div className="flex flex-col gap-6">
       {groups.map((g) => (
-        <section key={g.key} aria-labelledby={`m-${g.key}`} className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+        <section key={g.key} aria-labelledby={`m-${g.key}`} className="flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
           <h2 id={`m-${g.key}`} className="m-0 text-h3">{g.heading}</h2>
           <ul className="m-0 flex list-none flex-col p-0">
             {g.items.map((c) => <Row key={c.id} c={c} />)}

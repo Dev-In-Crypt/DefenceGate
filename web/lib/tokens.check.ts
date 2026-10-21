@@ -40,27 +40,78 @@ for (const [name, head] of [['light', ':root {'], ['dark', '[data-theme="dark"] 
   assert.ok(ratio(t['open-fg'], t['open-bg']) >= 4.5, `${name}: open pill`);
   assert.ok(ratio(t['soon-fg'], t['soon-bg']) >= 4.5, `${name}: soon pill`);
   assert.ok(ratio(t['closed-fg'], t['closed-bg']) >= 4.5, `${name}: closed pill`);
-  // A card reads as a card: its 1px edge is clearly visible against the page and against its own surface.
-  assert.ok(ratio(t.edge, t.bg) >= 1.4, `${name}: card edge on the page ${ratio(t.edge, t.bg).toFixed(2)}:1`);
-  assert.ok(ratio(t.edge, t.surface) >= 1.5, `${name}: card edge on the surface ${ratio(t.edge, t.surface).toFixed(2)}:1`);
-  assert.ok(ratio(t.surface, t.bg) >= 1.12, `${name}: surface on the page ${ratio(t.surface, t.bg).toFixed(2)}:1`);
+  // A form field's border is a UI boundary (WCAG 1.4.11): 3:1 against the card, the page and the inset tint. The book's --line is not.
+  for (const bg of ['surface', 'bg', 'surface-inset'] as const) {
+    assert.ok(ratio(t['input-edge'], t[bg]) >= 3, `${name}: field border on ${bg} ${ratio(t['input-edge'], t[bg]).toFixed(2)}:1`);
+  }
 }
-// The dark surface was 1.14:1 against the page; it must stay clearly lighter than that.
-assert.ok(ratio(tokens('[data-theme="dark"] {').surface, tokens('[data-theme="dark"] {').bg) >= 1.25);
 
-// One reading measure, one content box, gutters 16 / 24 / 32.
-assert.match(css, /--measure:\s*100%/);
-assert.match(css, /--content-max:\s*1296px/);
+// WP-62: the colours are the brand book's (design_handoff_defencegate/pages/00-shared.md), every one, in both themes. --input-edge (above)
+// is the one colour the book does not have; --edge is an alias of --line (the hairline of a floating layer).
+const BOOK_LIGHT: Record<string, string> = {
+  bg: '#F4F1EA', surface: '#FFFFFF', 'surface-inset': '#F4F1EA', line: '#DDD8CC', ink: '#12372A', 'ink-muted': '#56605A', primary: '#12372A',
+  'on-primary': '#F4F1EA', accent: '#C4581F', 'accent-text': '#A8481A', urgent: '#A8481A', 'on-urgent': '#FFFFFF', link: '#2F6B4F',
+  'open-bg': '#DCE6DE', 'open-fg': '#1F5A3F', 'soon-bg': '#F7E1D3', 'soon-fg': '#8E3A12', 'closed-bg': '#E7E4DC', 'closed-fg': '#4A524D',
+  alert: '#A12F2F', 'primary-hover': '#1C4A39', 'primary-press': '#0C2A20',
+};
+const BOOK_DARK: Record<string, string> = {
+  bg: '#0F1D17', surface: '#17291F', 'surface-inset': '#1F3328', line: '#2C4237', ink: '#EEF1EA', 'ink-muted': '#A5B1A9', primary: '#DCE6DE',
+  'on-primary': '#0F1D17', accent: '#E07A3A', 'accent-text': '#F09A62', urgent: '#E07A3A', 'on-urgent': '#0F1D17', link: '#8FC4A6',
+  'open-bg': '#1F3A2C', 'open-fg': '#A8D5BB', 'soon-bg': '#3D2416', 'soon-fg': '#F5B48C', 'closed-bg': '#26332C', 'closed-fg': '#B9C2BC',
+  alert: '#F08A8A', 'primary-hover': '#C9D8CD', 'primary-press': '#B8CABD',
+};
+for (const [book, head] of [[BOOK_LIGHT, ':root {'], [BOOK_DARK, '[data-theme="dark"] {']] as const) {
+  const t = { ...tokens(':root {'), ...tokens(head) };
+  for (const [k, hex] of Object.entries(book)) assert.equal(t[k]?.toUpperCase(), hex, `${head} --${k} is not the brand book's ${hex}`);
+}
+assert.match(css, /--edge:\s*var\(--line\)/);
+assert.ok(!/--shadow-menu/.test(css), 'the book has no shadows');
+
+// A card has no outline (book: "no border"); the transparent 1px border only keeps its box and shows in forced colours.
+const cardSrc = readFileSync(join(process.cwd(), 'components/dg/card.tsx'), 'utf8');
+assert.match(cardSrc, /CARD_SURFACE = 'rounded-lg border border-transparent bg-surface'/);
+assert.match(cardSrc, /CARD_PADDING = 'p-5 sm:p-7'/);
+// No box of the site that pads like a card keeps the old 24 px (`p-5 sm:p-6`): the book's card padding is 28 (Tailwind 7). The header
+// pill and the footer are wired by the orchestrator and keep theirs.
+for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd(), 'components'))]) {
+  if (/header-bar|footer/.test(f)) continue;
+  assert.ok(!readFileSync(f, 'utf8').includes('p-5 sm:p-6'), `${f}: card padding 24 px, the book's is 28 (sm:p-7)`);
+}
+
+// The reading measure 62ch (owner, 21 Oct 2026), the content box 1200 px and the gutters 16 / 28 of the book.
+assert.match(css, /--measure:\s*62ch/);
+assert.match(css, /--content-max:\s*1200px/);
 assert.match(css, /--gutter:\s*16px/);
-assert.match(css, /min-width: 640px\) \{ :root \{ --gutter: 24px/);
-assert.match(css, /min-width: 1024px\) \{ :root \{ --gutter: 32px/);
+assert.match(css, /min-width: 768px\) \{ :root \{ --gutter: 28px/);
 
-// The spacing scale is Tailwind's own (4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96): no `spacing:` override in the config.
-assert.ok(!/^\s*spacing:/m.test(config), 'tailwind.config.ts overrides the spacing scale');
+// The book's spacing scale: --space-1..10 as in the book. All of its steps are on Tailwind's own scale (28 = 7, 48 = 12, 64 = 16), so
+// the config does not override it (the book's code redefines p-6 as 28 for every utility, which widened the header pill past 320 px).
+for (const [k, px] of Object.entries({ 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 28, 8: 48, 10: 64 })) {
+  assert.match(css, new RegExp(`--space-${k}:\\s*${px}px`), `--space-${k} is not ${px}px`);
+}
+assert.ok(!/^\s*(spacing|padding|margin|gap|space):/m.test(config), 'tailwind.config.ts overrides the spacing scale');
+
+// The book's type scale: size / line / tracking / weight, and the 16/24 body.
+const TYPE_BOOK: Record<string, string> = {
+  display: "['56px', { lineHeight: '60px', letterSpacing: '-2px', fontWeight: '800' }]",
+  h1: "['40px', { lineHeight: '48px', letterSpacing: '-1.5px', fontWeight: '800' }]",
+  h2: "['28px', { lineHeight: '36px', letterSpacing: '-0.5px', fontWeight: '700' }]",
+  h3: "['20px', { lineHeight: '28px', fontWeight: '600' }]",
+  body: "['16px', { lineHeight: '24px' }]",
+  small: "['14px', { lineHeight: '20px' }]",
+  label: "['12px', { lineHeight: '16px', fontWeight: '700' }]",
+  mono: "['13px', { lineHeight: '20px' }]",
+  "'mono-strong'": "['15px', { lineHeight: '22px', fontWeight: '500' }]",
+  figure: "['24px', { lineHeight: '30px', fontWeight: '500' }]",
+};
+for (const [k, v] of Object.entries(TYPE_BOOK)) assert.ok(config.includes(`${k}: ${v}`), `fontSize ${k} is not the book's ${v}`);
+assert.match(css, /body \{[^}]*line-height: 1\.5;/);
+// Every transition is the book's 120ms ease, also Tailwind's default one.
+assert.match(config, /transitionTimingFunction: \{ DEFAULT: v\('ease'\)/);
 
 // Every font-size class used in the app is defined (text-h4 was not).
 const sizes = new Set([...config.slice(config.indexOf('fontSize:')).matchAll(/^\s+'?([\w-]+)'?:\s*\[/gm)].map((m) => m[1]));
-for (const must of ['display', 'h1', 'h1-sm', 'h2', 'h3', 'h4', 'lead', 'body', 'small', 'label', 'mono', 'mono-strong', 'figure']) assert.ok(sizes.has(must), `fontSize ${must} missing`);
+for (const must of ['display', 'display-sm', 'h1', 'h1-sm', 'h2', 'h2-sm', 'h3', 'h4', 'lead', 'body', 'small', 'label', 'mono', 'mono-strong', 'figure']) assert.ok(sizes.has(must), `fontSize ${must} missing`);
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
@@ -69,7 +120,7 @@ function files(dir: string): string[] {
 }
 const used = new Set<string>();
 for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd(), 'components'))]) {
-  for (const m of readFileSync(f, 'utf8').matchAll(/(?<![\w-])text-(h\d(?:-sm)?|lead|display|body|small|label|figure|mono(?:-strong)?)(?![\w-])/g)) used.add(m[1]);
+  for (const m of readFileSync(f, 'utf8').matchAll(/(?<![\w-])text-(h\d(?:-sm)?|lead|display(?:-sm)?|body|small|label|figure|mono(?:-strong)?)(?![\w-])/g)) used.add(m[1]);
 }
 for (const u of used) assert.ok(sizes.has(u), `text-${u} is used but not defined`);
 

@@ -26,7 +26,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
   const d = info ?? getDeadline(deadline ?? null);
   const t = TONE[d.state];
   const lg = size === 'lg';
-  const dateSize = lg ? 'text-h2' : 'text-[20px] leading-[26px] tracking-[-0.5px]';
+  const dateSize = lg ? 'text-h2' : 'text-h3 tracking-[-0.5px]';
 
   if (opening) {
     return (
@@ -56,7 +56,7 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
     return (
       <div data-deadline="" className={cn('inline-flex min-w-40 flex-col gap-1 rounded-md p-4', t.box, className)}>
         <span className={cn('text-label', t.label)}>Submission</span>
-        <span className={cn('font-sans font-extrabold', lg ? 'text-h2' : 'text-[20px] leading-[26px] tracking-[-0.5px]', t.count)}>{d.label}</span>
+        <span className={cn('font-sans font-extrabold', lg ? 'text-h2' : 'text-h3 tracking-[-0.5px]', t.count)}>{d.label}</span>
         <span className={cn('font-mono tabular-nums', lg ? 'text-mono-strong' : 'text-[12px] leading-4', t.date)}>
           Last cut-off <time dateTime={d.iso ?? undefined}>{d.utc}</time>
         </span>
