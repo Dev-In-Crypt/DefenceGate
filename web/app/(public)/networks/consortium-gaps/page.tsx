@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ApiError } from '@/lib/api';
 import { getConsortiumGaps } from '@/lib/networks-api';
 import { buildMetadata } from '@/lib/seo';
 import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
@@ -28,8 +29,8 @@ function parse(sp: SearchParams) {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const q = parse(await searchParams);
   return buildMetadata({
-    title: 'Repeat participants of a capability area with no partner from one country',
-    description: 'Organisations funded at least twice in a European Defence Fund capability area whose projects never had a participant from a chosen country, with the projects as evidence.',
+    title: 'Repeat participants lacking a partner country',
+    description: 'Organisations funded at least twice in one European Defence Fund capability area that never had a partner from a chosen country, with the projects as evidence.',
     path: '/networks/consortium-gaps',
     noindex: q.programme !== 'EDF' || Boolean(q.topic) || q.lacking !== 'UA',
   });
@@ -39,7 +40,14 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
   const q = parse(await searchParams);
   let data = null;
   let problem: string | null = null;
-  try { data = await getConsortiumGaps(q); } catch { problem = 'This analysis could not be loaded. A topic that is too broad is refused: give a narrower topic.'; }
+  try {
+    data = await getConsortiumGaps(q);
+  } catch (e) {
+    // A refusal (4xx: a topic too broad) is an answer to the form; a service that did not answer is thrown, so the page answers
+    // 503 at the edge and not 200 (re-audit N2), and ../error.tsx says so.
+    if (!(e instanceof ApiError && e.status >= 400 && e.status < 500)) throw e;
+    problem = 'This analysis could not be loaded. A topic that is too broad is refused: give a narrower topic.';
+  }
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Gaps in consortia', href: '/networks/consortium-gaps' }]}

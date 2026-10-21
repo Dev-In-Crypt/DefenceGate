@@ -11,7 +11,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Alerts and saved searches',
-  description: 'E-mail alerts and saved searches are being prepared and are not open yet. What works today without an account: filters in the address, CSV, a deadline calendar file and a feed of what changed.',
+  description: 'Saved searches and e-mail alerts are built; sign-in is not open yet. Without an account: filters in the address, CSV, a calendar feed and Atom feeds.',
   path: '/alerts',
 });
 
@@ -26,7 +26,7 @@ const FEATURES = [
 const WORKS_TODAY = [
   { icon: Link2, title: 'A search you can keep', body: 'Every filter on the tender, funding and buyer pages is in the address. Bookmark it, or send the link, and it opens the same search.' },
   { icon: Rss, title: 'A feed of what changed', body: 'New notices and amendments to a deadline, value, status or procedure from the last 14 days, as a page and as an Atom feed. Add it to a feed reader and it works like an alert, without an account.' },
-  { icon: CalendarDays, title: 'A calendar file', body: 'The deadline calendar is a file you can subscribe to in your own calendar: open tenders and funding calls with a deadline.' },
+  { icon: CalendarDays, title: 'A calendar feed', body: 'Subscribe to the deadline calendar in your own calendar app: open tenders and funding calls with a deadline.' },
   { icon: Download, title: 'CSV of any result', body: 'Download the public fields of a tender or funding list, with the source, licence and attribution on every row.' },
 ];
 
@@ -38,7 +38,7 @@ export default async function AlertsPage() {
       title="Alerts and saved searches"
       lead={open
         ? 'Stop re-checking portals. Sign in with your e-mail to save searches, follow buyers and get alerts.'
-        : 'E-mail alerts and saved searches are being prepared and are not open yet. There is no date. What works today needs no account: it is listed first.'}
+        : 'Saved searches and e-mail alerts are built, but sign-in is not open yet: it opens once we have chosen a provider to send the e-mails. What works today needs no account, and it is listed first.'}
     >
       {open && <Button href="/signin" iconRight={ArrowRight} className="self-start">Sign in with e-mail</Button>}
 
@@ -53,11 +53,11 @@ export default async function AlertsPage() {
       </section>
 
       {/* One compact block for what is not open (four icon cards, a callout and a dead waitlist form before). */}
-      <ContentSection title={open ? 'What you get' : 'What is planned'}>
+      <ContentSection title={open ? 'What you get' : 'What an account adds, once sign-in opens'}>
         <dl className="m-0 flex flex-col">
           {FEATURES.map((f) => <Fact key={f.title} label={f.title}>{f.body}</Fact>)}
         </dl>
-        <p className="m-0 text-small text-ink-muted">Browsing tenders, buyers and funding calls is free and needs no account. Alerts are best effort and do not replace checking the original notice. Sign-in is by a one-time link sent to your e-mail: there is no password.</p>
+        <p className="m-0 text-small text-ink-muted">Browsing tenders, buyers and funding calls is free and needs no account. Alerts are best effort and do not replace checking the original notice. {open ? 'Sign-in is by a one-time link sent to your e-mail: there is no password.' : 'Sign-in will be by a one-time link sent to your e-mail, with no password.'}</p>
       </ContentSection>
     </ContentPage>
   );

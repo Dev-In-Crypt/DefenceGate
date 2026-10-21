@@ -17,8 +17,8 @@ type Props = { searchParams: Promise<SearchParams> };
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parseDigestFilters(await searchParams);
   const meta = buildMetadata({
-    title: 'Weekly digest of defence notices and funding calls',
-    description: 'Each week: new and amended defence notices, new, opened and closing funding calls with the eligibility rules where we have read them, and calls with cascade funding. Free, with an Atom feed.',
+    title: 'Weekly digest of defence tenders and calls',
+    description: 'Each week: new and amended defence notices, funding calls that are new, opening or closing, and calls with cascade funding. Free, with an Atom feed.',
     path: '/digest',
     noindex: Boolean(f.country),
   });

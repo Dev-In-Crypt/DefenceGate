@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
 import { CATEGORY_WORD, formatDays, formatRange, joinWords, programmeName, requirementSlug, siteDay } from '@/lib/readiness';
@@ -45,7 +46,11 @@ export default async function RequirementsPage() {
   let failed = false;
   try {
     items = (await getRequirements()).items;
-  } catch {
+  } catch (e) {
+    // At run time a failed refresh is thrown: the page is regenerated in the background (ISR), and a throw keeps the last good
+    // catalogue in the cache instead of storing the error state for an hour (WP-63). Only a build, which has nothing older to
+    // keep, renders the error state.
+    if (process.env.NEXT_PHASE !== PHASE_PRODUCTION_BUILD) throw e;
     failed = true;
   }
   const documents = items.filter((r) => r.kind === 'document');

@@ -10,7 +10,7 @@ import { JsonLd } from '@/components/dg/feedback';
 export const revalidate = 86400;
 
 export const metadata: Metadata = buildMetadata({
-  title: 'Glossary of defence procurement and funding terms',
+  title: 'Defence procurement and funding glossary',
   description: 'Short plain-English explanations of the terms a defence supplier meets in tenders and funding calls: 2009/81/EC, CPV, VEAT, framework agreements, EDF, EDIP, SAFE and more.',
   path: '/glossary',
 });

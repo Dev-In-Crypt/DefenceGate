@@ -7,7 +7,6 @@ import { staleNote } from '@/lib/source-status';
 import { activeOrgFilterCount, defaultOrgSort, parseOrgFilters, toOrgQuery } from '@/lib/networks';
 import { lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
-import { ErrorState } from '@/components/dg/feedback';
 import { ListPage } from '@/components/dg/list-page';
 import { CountryNote, DataSources, OrgCard, OrgFilterBar, ProgrammeScope } from '@/components/networks/parts';
 
@@ -28,7 +27,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     try { noindex = (await getOrganisations(f)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
-    title: listViewTitle('Organisations in EU-funded defence and research projects', 'Organisations', { page: f.page, countries: f.country, q: f.q, filters: activeOrgFilterCount(f) }),
+    title: listViewTitle('Organisations in EU-funded projects', 'Organisations', { page: f.page, countries: f.country, q: f.q, filters: activeOrgFilterCount(f) }),
     description: 'Who has taken part in the European Defence Fund, Horizon Europe, Horizon 2020 and FP7 projects: each organisation with its projects, partners, countries and EU funding, from CORDIS and the EDF project factsheets.',
     path: '/organisations',
     noindex,
@@ -43,7 +42,9 @@ export default async function OrganisationsPage({ searchParams }: Props) {
   } catch (e) {
     // The API serves no position beyond its cap (10,000): a page past it is not there, which is an answer, not a fault.
     if (e instanceof ApiError && e.status === 422) notFound();
-    return <ErrorState title="We could not load the organisations" retryHref="/organisations" />;
+    // Thrown, not drawn here: a list that failed must not answer 200 (re-audit N2). The framework answers 500, the edge sends
+    // it as 503 with Retry-After and no-store (infra/Caddyfile), and error.tsx beside this page shows the message.
+    throw e;
   }
   const last = lastPage(result.total, result.pageSize);
   if (result.total > 0 && (filters.page ?? 1) > last) redirect(`/organisations${toOrgQuery({ ...filters, page: last })}`);

@@ -17,6 +17,19 @@ export const revalidate = 3600;
 
 type Params = Promise<{ code: string }>;
 
+/**
+ * Shorter words for the browser tab and the search snippet, where the catalogue's name or summary does not fit (60 characters with
+ * the site name, 160 for a description) and would be cut mid-phrase (re-audit NEW-5, WP-63). The page itself shows the full name
+ * and summary. A requirement not listed here uses its own.
+ */
+const SHORT_META: Record<string, { name?: string; description?: string }> = {
+  'REQ-AQAP2310': { name: 'AQAP 2310' },
+  'REQ-EDIP-ELIG': { name: 'EDIP eligibility' },
+  'REQ-EXPORT': { name: 'Export authorisation' },
+  'REQ-EDF-ELIG': { description: 'Who may receive EDF funding: an entity established in the Union or an associated country, managed from there, not controlled by a non-associated third country.' },
+  'REQ-SAFE-35': { description: 'In a SAFE-supported procurement, components from outside the Union, the EEA EFTA states and Ukraine may be at most 35 % of the estimated component cost.' },
+};
+
 async function load(params: Params) {
   const { code: slug } = await params;
   const code = requirementCode(slug);
@@ -30,9 +43,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!found) return { title: 'Page not found', robots: { index: false, follow: false } };
   const { requirement: r } = found;
   const what = r.kind === 'document' ? 'who issues it, cost and time' : 'what the rule says';
+  const short = SHORT_META[r.code];
   return buildMetadata({
-    title: `${r.name}: ${what}`,
-    description: r.summary,
+    title: `${short?.name ?? r.name}: ${what}`,
+    description: short?.description ?? r.summary,
     path: `/requirements/${requirementSlug(r.code)}`,
   });
 }
