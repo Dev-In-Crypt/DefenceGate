@@ -105,7 +105,7 @@ export default function SovereigntyPage() {
       </ContentSection>
 
       <ContentSection title="What this does not say">
-        <ul className="m-0 flex list-none flex-col gap-2 p-0 text-body">
+        <ul className="m-0 flex max-w-prose list-none flex-col gap-2 p-0 text-body">
           <li>It does not say that no US company is in the path: the services above are US companies, and the list says which do what.</li>
           <li>It does not say who can be compelled by which country’s law. A server in the EU run by an EU company is one fact; the law that applies to it is another, and we do not give legal advice.</li>
           <li>Account sign-in by e-mail is not open. When it opens, the mail provider will be named in the privacy notice and here.</li>

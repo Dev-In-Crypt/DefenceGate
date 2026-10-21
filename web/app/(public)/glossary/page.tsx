@@ -37,7 +37,7 @@ export default function GlossaryPage() {
     >
       <JsonLd data={definedTerms()} />
       {/* From lg the page's own contents list (sticky, at the left) does this; below lg the terms are one collapsed list. */}
-      <nav aria-label="Terms" className="rounded-lg border border-edge bg-surface px-5 sm:px-6 lg:hidden print:hidden">
+      <nav aria-label="Terms" className="rounded-lg border border-transparent bg-surface px-5 sm:px-7 lg:hidden print:hidden">
         <Details summary="Jump to a term">
           <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-0 p-0">
             {ENTRIES.map((e) => (

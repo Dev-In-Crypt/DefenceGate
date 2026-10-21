@@ -102,7 +102,7 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
       {notices}
 
       {/* Text and counts at the left (one measure), the ways to follow at the right: the card is filled, not a strip of text in a wide box. */}
-      <section aria-labelledby="numbers" className="grid gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+      <section aria-labelledby="numbers" className="grid gap-x-10 gap-y-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="flex min-w-0 flex-col gap-3">
         <h2 id="numbers" className="m-0 text-h3">The week in numbers</h2>
         <p className="m-0 max-w-prose text-body">{countsSentence(issue)}</p>
@@ -125,7 +125,7 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
         </nav>
       </section>
 
-      <form method="get" action={basePath} role="search" aria-label="Filter the digest" className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:flex-row sm:items-end">
+      <form method="get" action={basePath} role="search" aria-label="Filter the digest" className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end">
         <Select name="country" label="Country" placeholder="All countries" defaultValue={filters.country ?? ''} className="sm:min-w-64"
           hint="A notice’s buyer country, or the funder country of a call."
           options={Object.entries(DIGEST_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
@@ -135,7 +135,7 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
         </div>
       </form>
 
-      <details className="rounded-lg border border-edge bg-surface px-5 sm:px-6">
+      <details className="rounded-lg border border-transparent bg-surface px-5 sm:px-7">
         <summary className="flex min-h-12 cursor-pointer items-center py-3 text-body font-semibold">What “new” means here</summary>
         <div className="flex max-w-prose flex-col gap-2 pb-4 text-small">
           <p className="m-0"><strong>A new notice</strong> is one our archive collected for the first time in this week and that was published in it, or up to two days before it (TED notices are collected after their publication date). A notice that was published earlier and that we read in later is not new.</p>

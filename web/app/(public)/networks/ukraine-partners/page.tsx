@@ -74,7 +74,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
             {!all && codes.join() !== DEFENCE_PROGRAMMES.join() && <input type="hidden" name="programme" value={codes.join(',')} />}
             <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
           </form>
-          <p role="status" className="m-0 max-w-prose rounded-lg border border-edge bg-surface p-4 text-body">
+          <p role="status" className="m-0 max-w-prose rounded-lg border border-transparent bg-surface p-4 text-body">
             {all ? (
               <>{fellBack && <>No project of {DEFENCE_PROGRAMMES_WORDS} started in or after {data.since} has a Ukrainian participant. </>}Showing <strong>all programmes</strong>, including civil research from Horizon Europe, Horizon 2020 and FP7. <Link href={base} className="font-semibold">Show only {DEFENCE_PROGRAMMES_WORDS}</Link>.</>
             ) : (

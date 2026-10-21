@@ -64,8 +64,8 @@ export function BarChart({ id, title, summary, bars, primaryName, secondaryName,
       </div>
       <figcaption className="flex flex-col gap-1 text-small text-ink-muted">
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-3 rounded-sm bg-primary" />{primaryName}</span>
-          {stacked && <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-3 rounded-sm bg-link" />{secondaryName}</span>}
+          <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-3 rounded-pill bg-primary" />{primaryName}</span>
+          {stacked && <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-3 rounded-pill bg-link" />{secondaryName}</span>}
           <span>Scale: 0 to {formatNumber(max)} {unit}. Tallest bar: {formatNumber(totals[tallest] ?? 0)} ({bars[tallest]?.label}).</span>
         </span>
         {bars.some((b) => b.partial) && <span>The lighter bar is a period that is not over yet.</span>}
@@ -127,7 +127,7 @@ export function RankTable({ caption, labelHeader, rows, total, unit = 'Notices' 
             <td className="text-right font-mono tabular-nums">{formatNumber(r.count)}</td>
             {total !== undefined && <td className="text-right font-mono tabular-nums">{percentText(shareOf(r.count, total))}</td>}
             <td aria-hidden="true" className="hidden sm:table-cell">
-              <div className="h-3 rounded-sm bg-primary" style={{ width: `${Math.max(1, (r.count / top) * 100)}%` }} />
+              <div className="h-3 rounded-pill bg-primary" style={{ width: `${Math.max(1, (r.count / top) * 100)}%` }} />
             </td>
           </tr>
         ))}

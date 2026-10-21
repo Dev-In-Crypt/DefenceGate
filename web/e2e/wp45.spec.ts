@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { paragraphsOutsideFrame, visit } from './helpers';
+import { paragraphsOutsideFrame, paragraphsOverMeasure, visit } from './helpers';
 
 /**
  * Page-level layout of WP-45 (docs/verification/product/wp45-selfcheck.md): the tracker entry, the requirement cards, the reading
@@ -25,12 +25,13 @@ const PAGES: { path: string; title: RegExp; h1: string | RegExp }[] = [
   { path: '/calendar', title: /calendar/i, h1: 'Deadline calendar' },
 ];
 
-test('no paragraph on these pages leaves the content frame (the measure is the full width), and nothing scrolls sideways', async ({ page }) => {
+test('no paragraph on these pages leaves the content frame or runs past the reading measure, and nothing scrolls sideways', async ({ page }) => {
   for (const p of PAGES) {
     // `visit` checks that nothing scrolls sideways.
     await visit(page, p.path, { title: p.title, h1: p.h1 });
-    // WP-51: the measure is the whole content box (owner's change 77ca9c6, was 680 px): a paragraph may be as wide as the frame, not wider.
+    // WP-62 (owner, 21 Oct 2026): the frame keeps the header width, a paragraph keeps the 62ch measure (at most about 90 characters a line).
     expect(await paragraphsOutsideFrame(page), `${p.path}: paragraphs outside the header's left and right edges`).toEqual([]);
+    expect(await paragraphsOverMeasure(page), `${p.path}: paragraph lines over 95 characters`).toEqual([]);
   }
 });
 
@@ -221,16 +222,22 @@ test('the frame of every page spans the header pill, and no card is narrower tha
   }
 });
 
-test('running paragraphs are justified and hyphenated from 768 px, left-aligned on a phone; headings, lists and table cells never are', async ({ page }) => {
+// WP-62: justified only where it reads well (owner, 21 Oct 2026): a body paragraph in a column of 560 px or more, hyphenated; a phone, a narrow
+// column and 14 px notes are left-aligned. The column is the paragraph's container (globals.css), so the check reads the paragraph's own box:
+// a justified paragraph is at least 500 px wide (its 62ch measure is about 600), a narrower one is never justified.
+test('running paragraphs are justified and hyphenated only in a wide column, left-aligned on a phone and in narrow columns; headings, lists and table cells never are', async ({ page }) => {
   for (const path of ['/privacy', '/methodology', '/about', '/regulation']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
     const s = await page.evaluate(() => {
       const long = [...document.querySelectorAll('main p')].filter((p) => (p.textContent ?? '').length > 200 && p.getClientRects().length > 0 && !p.closest('details'));
       const al = (e: Element) => getComputedStyle(e).textAlign;
+      const just = long.filter((p) => al(p) === 'justify');
       return {
         n: long.length,
-        justified: long.filter((p) => al(p) === 'justify').length,
-        hyphens: long.some((p) => getComputedStyle(p).hyphens === 'auto'),
+        justified: just.length,
+        unhyphenated: just.filter((p) => getComputedStyle(p).hyphens !== 'auto').length,
+        narrowJustified: just.filter((p) => p.getBoundingClientRect().width < 500).map((p) => Math.round(p.getBoundingClientRect().width)),
+        smallJustified: just.filter((p) => parseFloat(getComputedStyle(p).fontSize) < 16).length,
         heads: [...document.querySelectorAll('main h1, main h2, main h3')].filter((h) => al(h) === 'justify').length,
         lists: [...document.querySelectorAll('main li, main td, main th, main dd')].filter((h) => al(h) === 'justify').length,
       };
@@ -238,7 +245,10 @@ test('running paragraphs are justified and hyphenated from 768 px, left-aligned 
     expect(s.n, `${path}: long paragraphs`).toBeGreaterThan(0);
     expect(s.heads, `${path}: justified headings`).toBe(0);
     expect(s.lists, `${path}: justified list items or table cells`).toBe(0);
+    expect(s.narrowJustified, `${path}: justified paragraphs narrower than 500 px`).toEqual([]);
+    expect(s.smallJustified, `${path}: justified 14 px notes`).toBe(0);
+    expect(s.unhyphenated, `${path}: justified without hyphenation`).toBe(0);
     if (isMobile(page)) expect(s.justified, `${path}: justified on a phone`).toBe(0);
-    else { expect(s.justified, `${path}: justified long paragraphs`).toBeGreaterThan(0); expect(s.hyphens).toBe(true); }
+    else expect(s.justified, `${path}: justified long paragraphs`).toBeGreaterThan(0);
   }
 });

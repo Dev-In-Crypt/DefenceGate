@@ -56,7 +56,7 @@ export function CpvBrowser({ sections }: { sections: CpvSection[] }) {
             <p className="m-0 text-small text-ink-muted">{s.intro}</p>
             {s.groups.map((g) => (
               <div key={g.id} className="flex flex-col gap-1">
-                {g.title && <h3 id={`cpv-${g.id}`} className="m-0 text-body font-bold">{g.title}</h3>}
+                {g.title && <h3 id={`cpv-${g.id}`} className="m-0 text-h4">{g.title}</h3>}
                 {/* Two columns from lg: a section of fifty codes is a screen, not four. */}
                 <ul className="m-0 list-none p-0 lg:columns-2 lg:gap-x-10" aria-labelledby={g.title ? `cpv-${g.id}` : undefined}>
                   {g.rows.map((r) => (

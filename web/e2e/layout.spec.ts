@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { paragraphsOutsideFrame, visit } from './helpers';
+import { paragraphsOutsideFrame, paragraphsOverMeasure, visit } from './helpers';
 
 /**
  * The layout foundation of WP-44 (docs/verification/product/wp44-selfcheck.md): one measure, the page-header scale, a card that reads as a
@@ -10,7 +10,7 @@ import { paragraphsOutsideFrame, visit } from './helpers';
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
 const px = (v: string) => parseFloat(v);
 
-test('the page container is centred, with gutters of 16 px on a phone and 32 px from 1024 px, and never wider than 1360 px', async ({ page }) => {
+test('the page container is centred, with gutters of 16 px on a phone and 28 px from 768 px (brand book), and never wider than 1256 px', async ({ page }) => {
   await visit(page, '/about', { title: /About/i, h1: 'About' });
   const box = await page.evaluate(() => {
     const m = document.querySelector('main')!;
@@ -19,11 +19,11 @@ test('the page container is centred, with gutters of 16 px on a phone and 32 px 
     return { left: r.left, right: document.documentElement.clientWidth - r.right, width: r.width, pad: parseFloat(s.paddingLeft) };
   });
   expect(Math.abs(box.left - box.right), 'left and right margin are equal').toBeLessThanOrEqual(1);
-  expect(box.width).toBeLessThanOrEqual(1360);
-  expect(box.pad).toBe(isMobile(page) ? 16 : 32);
+  expect(box.width).toBeLessThanOrEqual(1256);
+  expect(box.pad).toBe(isMobile(page) ? 16 : 28);
 });
 
-test('the page title is 36/44 (32/40 on a phone) and the lead is larger than the body and in the ink colour', async ({ page }) => {
+test('the page title is the h1 of the book, 40/48 (32/40 on a phone), and the lead is larger than the body and in the ink colour', async ({ page }) => {
   await visit(page, '/about', { title: /About/i, h1: 'About' });
   const t = await page.evaluate(() => {
     const h1 = document.querySelector('main h1')!;
@@ -33,8 +33,8 @@ test('the page title is 36/44 (32/40 on a phone) and the lead is larger than the
     const hs = getComputedStyle(h1);
     return { h1: hs.fontSize, h1lh: hs.lineHeight, lead: ls.fontSize, leadColor: ls.color, ink: body.color };
   });
-  expect(t.h1).toBe(isMobile(page) ? '32px' : '36px');
-  expect(t.h1lh).toBe(isMobile(page) ? '40px' : '44px');
+  expect(t.h1).toBe(isMobile(page) ? '32px' : '40px');
+  expect(t.h1lh).toBe(isMobile(page) ? '40px' : '48px');
   expect(px(t.lead)).toBeGreaterThan(16);
   expect(t.leadColor, 'the lead is not the muted grey').toBe(t.ink);
 });
@@ -48,11 +48,12 @@ test('text-h4 is defined: the three questions on the home page are headings, not
   expect(Number(style.weight)).toBeGreaterThanOrEqual(600);
 });
 
-test('no paragraph of a reading page leaves the content frame (the measure is the full width), and the page is a centred column', async ({ page }) => {
+test('no paragraph of a reading page leaves the content frame or runs past the reading measure, and the page is a centred column', async ({ page }) => {
   for (const path of ['/about', '/methodology', '/privacy', '/glossary']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
-    // WP-51: the measure is the whole content box (owner's change 77ca9c6, was 680 px): a paragraph may be as wide as the frame, not wider.
+    // WP-62 (owner, 21 Oct 2026): the frame keeps the header width, a paragraph keeps the 62ch measure (at most about 90 characters a line).
     expect(await paragraphsOutsideFrame(page), `${path}: paragraphs outside the header's left and right edges`).toEqual([]);
+    expect(await paragraphsOverMeasure(page), `${path}: paragraph lines over 95 characters`).toEqual([]);
     // WP-45: the page frame is exactly as wide as the header pill (a 988 px column left the page narrower than the header).
     const col = await page.evaluate(() => {
       const r = document.querySelector('main h1')!.closest('div')!.getBoundingClientRect();
@@ -89,37 +90,43 @@ test('a grid of cards fills its rows: four cards in two columns, no card alone o
   expect([...perRow.values()].every((n) => n >= 2), `cards per row: ${[...perRow.values()].join(',')}`).toBe(true);
 });
 
-test('a card has a 1px edge in the light and in the dark theme, and the dark card is lighter than the page', async ({ page }) => {
+// WP-62 (brand book): a card has no outline, it is the surface on the page; a list card shows a 1.5px --ink-muted edge under the pointer.
+// The border is there but transparent (the box does not move on hover, and forced-colours mode draws it).
+test('a card has no outline in the light and in the dark theme, its surface differs from the page, and a list card shows its edge on hover', async ({ page }) => {
   await visit(page, '/funding', { title: /funding/i, h1: /funding/i });
-  const light = await page.locator('main article').first().evaluate((e) => ({ w: getComputedStyle(e).borderTopWidth, c: getComputedStyle(e).borderTopColor }));
-  expect(light.w).toBe('1px');
-  expect(light.c).not.toBe('rgba(0, 0, 0, 0)');
+  const card = page.locator('main article').first();
+  const light = await card.evaluate((e) => ({ c: getComputedStyle(e).borderTopColor, bg: getComputedStyle(e).backgroundColor, page: getComputedStyle(document.body).backgroundColor }));
+  expect(light.c, 'no outline at rest').toBe('rgba(0, 0, 0, 0)');
+  expect(light.bg, 'the card is the surface, not the page').not.toBe(light.page);
+  await card.locator('h2 a, h3 a').first().hover();
+  await expect.poll(() => card.evaluate((e) => getComputedStyle(e).borderTopColor), { message: 'the edge on hover is --ink-muted' }).toBe('rgb(86, 96, 90)');
+  // The pointer leaves the card, so the dark page below is read at rest.
+  await page.mouse.move(0, 0);
   await page.addInitScript(() => window.localStorage.setItem('dg-theme', 'dark'));
   await visit(page, '/funding', { title: /funding/i, h1: /funding/i });
   const dark = await page.locator('main article').first().evaluate((e) => ({ card: getComputedStyle(e).backgroundColor, page: getComputedStyle(document.body).backgroundColor, edge: getComputedStyle(e).borderTopColor }));
-  const lum = (rgb: string) => {
-    const c = (rgb.match(/\d+/g) ?? ['0', '0', '0']).slice(0, 3).map((v) => Number(v) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-  };
-  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-  expect(ratio(dark.card, dark.page), 'dark card against the page').toBeGreaterThanOrEqual(1.25);
-  expect(ratio(dark.edge, dark.page), 'dark card edge against the page').toBeGreaterThanOrEqual(1.4);
+  expect(dark.edge, 'no outline at rest (dark)').toBe('rgba(0, 0, 0, 0)');
+  expect(dark.card, 'the dark surface of the book').toBe('rgb(23, 41, 31)');
+  expect(dark.page, 'the dark page of the book').toBe('rgb(15, 29, 23)');
 });
 
-test('list cards are short: a call card at most 300 px and a tender card at most 340 px (650 px at 375)', async ({ page }) => {
+// WP-62: the book's card anatomy (padding 28, 20 px between the parts, a 28/36 title, a grid of inset fact cells) is taller than the compact
+// WP-47 card (call 215 px, tender 260 px at 1280). Measured on the demo data: call 331-371, tender 388-429 at 1280; call 591-645, tender
+// 588-735 at 375. The limits keep that size from growing further.
+test('list cards keep the book anatomy at a bounded height: a call card at most 380 px and a tender card at most 460 px (700 / 780 px at 375)', async ({ page }) => {
   await visit(page, '/funding', { title: /funding/i, h1: /funding/i });
   const calls = await page.locator('main article').evaluateAll((a) => a.map((e) => Math.round(e.getBoundingClientRect().height)));
   expect(calls.length).toBeGreaterThan(0);
-  const callMax = isMobile(page) ? 650 : 300;
+  const callMax = isMobile(page) ? 700 : 380;
   expect(Math.max(...calls), `call card heights ${calls.join(',')}`).toBeLessThanOrEqual(callMax);
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
   await expect(page.locator('main article').first()).toBeVisible();
   const tenders = await page.locator('main article').evaluateAll((a) => a.map((e) => Math.round(e.getBoundingClientRect().height)));
   expect(tenders.length).toBeGreaterThan(0);
-  expect(Math.max(...tenders), `tender card heights ${tenders.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 650 : 340);
-  // the title is 20/28, not the old 28/36
+  expect(Math.max(...tenders), `tender card heights ${tenders.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 780 : 460);
+  // the title is the book's h2, 28/36, and 22/30 in a card narrower than 664 px
   const title = await page.locator('main article h2').first().evaluate((e) => ({ s: getComputedStyle(e).fontSize, l: getComputedStyle(e).lineHeight }));
-  expect(title).toEqual({ s: '20px', l: '28px' });
+  expect(title).toEqual(isMobile(page) ? { s: '22px', l: '30px' } : { s: '28px', l: '36px' });
 });
 
 test('the facts of a call page are a hairline grid of at most three columns', async ({ page }) => {

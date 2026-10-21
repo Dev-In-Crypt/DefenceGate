@@ -17,7 +17,7 @@ const STATUS_OPTIONS = STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABEL[
 
 function Item({ s }: { s: ShortlistItem }) {
   return (
-    <li className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <li className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <ul className="m-0 list-none p-0"><ItemRow kind={s.kind} item={s.item} refId={s.ref} /></ul>
       <form action={saveShortlistItem} className="flex flex-col gap-3">
         <input type="hidden" name="kind" value={s.kind} />

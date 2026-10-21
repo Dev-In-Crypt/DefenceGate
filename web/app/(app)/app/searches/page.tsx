@@ -32,7 +32,7 @@ export default async function SearchesPage({ searchParams }: Props) {
       ) : (
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {searches.map((s) => (
-            <li key={s.id} className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+            <li key={s.id} className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
               <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Tag>{KIND_LABEL[s.kind] ?? s.kind}</Tag>

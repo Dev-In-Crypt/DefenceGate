@@ -61,9 +61,9 @@ export async function visit(page: Page, path: string, want: Expect): Promise<Res
 }
 
 /**
- * The reading rule since the owner's change "text runs the full content width" (--measure is 100%, commit 77ca9c6; it was 680 px): a
- * paragraph of `main` may be as wide as the content frame, never outside the header's left and right edges (the frame equals the header).
- * Returns the visible paragraphs that break it. `skip` leaves out paragraphs inside those selectors, `minLength` short ones.
+ * The frame rule: a paragraph of `main` never leaves the content frame, the header's left and right edges (the frame equals the header).
+ * Since WP-62 the paragraph itself is also capped by the reading measure (62ch, see `paragraphsOverMeasure`); the frame still keeps the
+ * header width. Returns the visible paragraphs that break it. `skip` leaves out paragraphs inside those selectors, `minLength` short ones.
  */
 export function paragraphsOutsideFrame(page: Page, opts: { skip?: string; minLength?: number } = {}) {
   return page.evaluate(({ skip, minLength }) => {
@@ -73,4 +73,40 @@ export function paragraphsOutsideFrame(page: Page, opts: { skip?: string; minLen
       .map((p) => ({ left: p.getBoundingClientRect().left, right: p.getBoundingClientRect().right, t: (p.textContent ?? '').trim().slice(0, 30) }))
       .filter((p) => p.left < h.left - 1 || p.right > h.right + 1);
   }, { skip: opts.skip, minLength: opts.minLength ?? 0 });
+}
+
+/**
+ * The reading measure (WP-62, owner's decision of 21 Oct 2026): a running paragraph of `main` holds at most `max` characters on any line
+ * but its last (default 95: the 62ch measure gives 70 to 90 in Manrope, a line of short words a few more). It counts the characters of each
+ * rendered line (word boxes on the same top), not the box width. Paragraphs under 120 characters are left out. Returns the paragraphs that
+ * break it, with their widest line.
+ */
+export function paragraphsOverMeasure(page: Page, opts: { skip?: string; max?: number } = {}) {
+  return page.evaluate(({ skip, max }) => {
+    const range = document.createRange();
+    const out: { chars: number; t: string }[] = [];
+    for (const p of document.querySelectorAll('main p')) {
+      if (p.getClientRects().length === 0 || (skip && p.closest(skip)) || (p.textContent ?? '').length < 120) continue;
+      const lines: number[] = [];
+      let top = -1e9;
+      const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        for (const m of (n.nodeValue ?? '').matchAll(/\S+/g)) {
+          range.setStart(n, m.index!);
+          range.setEnd(n, m.index! + m[0].length);
+          // A word that wraps (a URL broken by overflow-wrap, a hyphenated word) has a box on each line: its characters are shared
+          // between those lines by width.
+          const rects = [...range.getClientRects()].filter((r) => r.width > 0);
+          const total = rects.reduce((s, r) => s + r.width, 0);
+          for (const r of rects) {
+            const chars = Math.round((m[0].length * r.width) / total);
+            if (r.top > top + 6) { lines.push(chars); top = r.top; } else lines[lines.length - 1] += chars + 1;
+          }
+        }
+      }
+      const widest = Math.max(0, ...lines.slice(0, -1));
+      if (widest > max) out.push({ chars: widest, t: (p.textContent ?? '').trim().slice(0, 40) });
+    }
+    return out;
+  }, { skip: opts.skip, max: opts.max ?? 95 });
 }

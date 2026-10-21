@@ -27,7 +27,7 @@ export function EntryList({ chips, items }: { chips: StatusChip[]; items: EntryI
         {[{ status: null as string | null, label: 'All', count: total }, ...chips].map((c) => (
           <button key={c.status ?? 'all'} type="button" aria-pressed={status === c.status} onClick={() => setStatus(c.status)}
             className={cn('inline-flex min-h-11 items-center gap-2 rounded-pill border px-4 text-small font-bold',
-              status === c.status ? 'border-primary bg-primary text-on-primary' : 'border-edge bg-surface text-ink hover:bg-surface-inset')}>
+              status === c.status ? 'border-primary bg-primary text-on-primary' : 'border-transparent bg-surface text-ink hover:bg-surface-inset')}>
             {c.label}<span className={cn('font-mono tabular-nums', status === c.status ? 'text-on-primary' : 'text-ink-muted')}>{c.count}</span>
           </button>
         ))}
@@ -36,7 +36,7 @@ export function EntryList({ chips, items }: { chips: StatusChip[]; items: EntryI
       <ol className="m-0 flex list-none flex-col gap-4 p-0">
         {items.map((i) => (
           <li key={i.code} id={i.code} hidden={status !== null && i.status !== status}
-            className={cn('grid min-w-0 scroll-mt-4 gap-x-10 gap-y-4 rounded-lg border border-edge bg-surface p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_460px]',
+            className={cn('grid min-w-0 scroll-mt-4 gap-x-10 gap-y-4 rounded-lg border border-transparent bg-surface p-4 sm:p-7 lg:grid-cols-[minmax(0,1fr)_460px]',
               status !== null && i.status !== status && 'hidden')}>
             {i.node}
           </li>

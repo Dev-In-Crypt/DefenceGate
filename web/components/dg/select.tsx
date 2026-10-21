@@ -227,7 +227,7 @@ export function ListboxSelect({ options, placeholder, accessibleName, ...rest }:
             onBlur={(e) => { const to = e.relatedTarget as Node | null; if (!menuRef.current?.contains(to) && to !== selectRef.current) setOpen(false); }}
             onMouseDown={(e) => e.preventDefault()}
             style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, minWidth: pos.minWidth, maxWidth: pos.maxWidth, maxHeight: pos.maxHeight }}
-            className="z-[60] w-max overflow-y-auto overscroll-contain rounded-md border border-edge bg-surface p-1 font-sans text-body text-ink shadow-[var(--shadow-menu)]"
+            className="z-[60] w-max overflow-y-auto overscroll-contain rounded-md border-strong border-input-edge bg-surface p-1 font-sans text-body text-ink"
           >
             {items.map((o, i) => (
               <div

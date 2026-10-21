@@ -8,10 +8,11 @@
  */
 @layer base {
   :root {
-    --bg: #F4F1EA; --surface: #FFFFFF; --surface-inset: #F4F1EA; --line: #D8D2C4;
-    /* 1px outline of a card (surface vs page is only 1.13:1 without it); 1.6:1 against the surface. */
-    --edge: #D0CABB;
-    /* Border of a form field (WCAG 1.4.11, 3:1): 3.8:1 against the surface, 3.4:1 against the page and the inset tint. --line is only 1.5:1. */
+    --bg: #F4F1EA; --surface: #FFFFFF; --surface-inset: #F4F1EA; --line: #DDD8CC;
+    /* WP-62 (brand book): a card has no outline; it is the surface on the page, and an interactive card shows a 1.5px --ink-muted edge on hover.
+       --edge stays only as the hairline of a floating layer (a header sub-menu, the open list of a select): it is the book's --line. */
+    --edge: var(--line);
+    /* Border of a form field (WCAG 1.4.11, 3:1): 3.8:1 against the surface, 3.4:1 against the page and the inset tint. The book's --line is 1.3:1. */
     --input-edge: #7A857D;
     --ink: #12372A; --ink-muted: #56605A; --primary: #12372A; --on-primary: #F4F1EA;
     --accent: #C4581F; --accent-text: #A8481A; --urgent: #A8481A; --on-urgent: #FFFFFF;
@@ -21,16 +22,19 @@
     /* The logo (components/dg/logo.tsx): pine disc, bone posts, copper chevron; "Gate" in the accent. */
     --logo-disc: #12372A; --logo-post: #F4F1EA; --logo-chev: #E07A3A; --logo-gate: var(--accent);
 
+    /* The brand book's spacing scale. Its steps are on Tailwind's scale: 28 px card padding = p-7, 48 px sections = gap-12, 64 px = p-16. */
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+    --space-6: 28px; --space-8: 48px; --space-10: 64px;
     --radius-md: 14px; --radius-lg: 20px; --radius-pill: 999px;
-    /* The open list of a select (select.tsx): a soft shadow in the ink colour, deeper in the dark theme. */
-    --shadow-menu: 0 8px 24px rgb(18 55 42 / 0.18);
     --duration: 120ms; --ease: ease; --transition: 120ms ease;
-    /* Layout. Content box of a data page 1296 px; the container adds the gutters (16 / 24 / 32). */
-    --content-max: 1296px;
+    /* Layout (brand book): content box 1200 px; the container adds the gutters (16 px, 28 px from md). */
+    --content-max: 1200px;
     --gutter: 16px;
-    /* The one reading measure: the whole content box. It was 680 px (about 68 characters) and left half of a 1296 px page empty;
-       text now runs the width of its box and is justified from md (see .justify-text). */
-    --measure: 100%;
+    /* The reading measure (owner, 21 Oct 2026: "set the reading measure"): running paragraphs are at most 62ch wide, the book's cap of the
+       funding intro, which is 70 to 90 characters a line in Manrope (measured: docs/verification/product/wp62-selfcheck.md). Frames (cards,
+       the page column) keep the header width; only the text is capped. `ch` follows the font size, so a 14 px note and an 18 px lead get
+       about as many characters a line as the 16 px body. */
+    --measure: 62ch;
     --form-max: 560px;
     /* A reading page: as wide as the content box. */
     --reading-max: 100%;
@@ -54,23 +58,21 @@
   }
 
   [data-theme="dark"] {
-    /* WP-44: card vs page was 1.14:1 with no outline. Surface is lighter (1.3:1) and the card has a 1px edge (1.8:1);
-       text on the surface stays far above AA (muted 6.0, link 6.7, accent-text 6.0, alert 5.5). */
-    --bg: #0F1D17; --surface: #1D3428; --surface-inset: #254034; --line: #44604F; --edge: #3F5A4B; --input-edge: #719080;
+    /* Brand book values (WP-62; WP-44 had lightened the surface scale and outlined every card). Text on the surface and on the inset tint stays
+       above AA: lib/tokens.check.ts computes every pair. */
+    --bg: #0F1D17; --surface: #17291F; --surface-inset: #1F3328; --line: #2C4237; --input-edge: #719080;
     --ink: #EEF1EA; --ink-muted: #A5B1A9; --primary: #DCE6DE; --on-primary: #0F1D17;
     --accent: #E07A3A; --accent-text: #F09A62; --urgent: #E07A3A; --on-urgent: #0F1D17;
-    --link: #8FC4A6; --open-bg: #25503F; --open-fg: #B6E0C8; --soon-bg: #4A2C1B; --soon-fg: #F5B48C;
-    --closed-bg: #2F4238; --closed-fg: #B9C2BC; --alert: #F08A8A;
+    --link: #8FC4A6; --open-bg: #1F3A2C; --open-fg: #A8D5BB; --soon-bg: #3D2416; --soon-fg: #F5B48C;
+    --closed-bg: #26332C; --closed-fg: #B9C2BC; --alert: #F08A8A;
     --primary-hover: #C9D8CD; --primary-press: #B8CABD;
     /* The brand book's dark logo: bone disc, pine posts, "Gate" #F09A62 (the reversed mark's chevron is #C4581F). */
     --logo-disc: #F4F1EA; --logo-post: #12372A; --logo-chev: #C4581F; --logo-gate: #F09A62;
-    --shadow-menu: 0 8px 24px rgb(0 0 0 / 0.5);
     color-scheme: dark;
   }
 
-  /* 16 px with the `body` token's 26 px line (unitless, so smaller unclassed text keeps its proportion). Preflight's 1.5 gave 16/24, which
-     is not a token, on every element that sets no size class (1,415 elements in the UX audit). */
-  body { @apply bg-bg font-sans text-ink antialiased; margin: 0; font-size: 1rem; line-height: 1.625; }
+  /* 16/24, the brand book's body (unitless 1.5, so smaller unclassed text keeps its proportion). */
+  body { @apply bg-bg font-sans text-ink antialiased; margin: 0; font-size: 1rem; line-height: 1.5; }
   a { color: var(--link); text-underline-offset: 2px; }
   a:hover { text-decoration: underline; }
   /* A link in running text is underlined, not told apart by colour alone (WCAG 1.4.1: 510 links on 174 pages were 1.04 to 2.08:1 from the
@@ -88,9 +90,9 @@
   /* Preflight sets `input::placeholder` to gray-400 (2.5:1, off the palette); the selector must be as specific. */
   ::placeholder, input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: 1; }
   .font-mono, .tabular { font-variant-numeric: tabular-nums; }
-  h1, h2, h3, h4 { text-wrap: pretty; }
-  @media (min-width: 640px) { :root { --gutter: 24px; } }
-  @media (min-width: 1024px) { :root { --gutter: 32px; } }
+  /* No one-word last line (m8 of the system audit: 591 at 1440): the browser balances the last lines of headings and running text. */
+  h1, h2, h3, h4, p, li, dd, blockquote { text-wrap: pretty; }
+  @media (min-width: 768px) { :root { --gutter: 28px; } }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
@@ -99,7 +101,7 @@
   /* Paper is light: the dark theme prints with the light tokens, whatever the screen shows. */
   @media print {
     :root, [data-theme="dark"] {
-      --bg: #FFFFFF; --surface: #FFFFFF; --surface-inset: #F4F1EA; --line: #BDB8AC; --edge: #BDB8AC;
+      --bg: #FFFFFF; --surface: #FFFFFF; --surface-inset: #F4F1EA; --line: #BDB8AC;
       --ink: #12372A; --ink-muted: #3F4842; --primary: #12372A; --on-primary: #FFFFFF;
       --link: #1F5A3F; color-scheme: light;
       --logo-disc: #12372A; --logo-post: #F4F1EA; --logo-chev: #E07A3A; --logo-gate: #C4581F;
@@ -125,7 +127,7 @@
   .mono { @apply font-mono text-mono tabular-nums; }
   .mono-strong { @apply font-mono text-mono-strong tabular-nums; }
   .figure { @apply font-mono text-figure tabular-nums; }
-  /* The container: content box (--content-max) plus the gutters (16 / 24 / 32), centred. */
+  /* The container: content box (--content-max) plus the gutters (16, 28 from md), centred. */
   .page { @apply mx-auto w-full; max-width: calc(var(--content-max) + 2 * var(--gutter)); padding-inline: var(--gutter); }
   /* FactsGrid: label-above-value rows, at most 3 columns (a column is a third of the box less its gaps), 1 when narrow. */
   .facts-grid {
@@ -153,7 +155,7 @@
   /* Reading pages and TextCard: from lg a titled card puts its title (sticky) in a 220 px column and the text beside it. */
   @media (min-width: 1024px) {
     .reading .card-titled, .card-titled.split {
-      display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 40px; align-items: start; padding: 24px;
+      display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 40px; align-items: start; padding: var(--space-6);
     }
     .reading .card-titled > .card-head, .card-titled.split > .card-head {
       position: sticky; top: 16px; flex-direction: column; align-items: flex-start; justify-content: flex-start;
@@ -182,15 +184,19 @@
   .toc-page .card-titled > .card-head { min-height: 0; padding-top: 20px; padding-bottom: 0; border-bottom-width: 0; }
   .toc-page .card-titled > .card-body { padding-top: 12px; }
   /*
-   * Justified running text (WP-45): paragraphs only, from md (768 px; a phone column keeps its left edge, justifying it makes rivers), hyphenated
-   * (html lang is en). `.justify-text` on a wrapper = every paragraph in it; `.justify-p` = one paragraph. Not headings, lists of short items,
-   * table cells, tags, buttons or captions, and not the paragraphs of a card grid (a 350 px column is about 40 characters).
+   * Justified running text (WP-45, WP-62): only where it reads well, that is a paragraph in a column of at least 560 px (about 65 characters
+   * at 16 px; with the 62ch measure such a line holds 65 to 90 characters), hyphenated (html lang is en). Everything else is left-aligned: a
+   * phone, a card in a grid, the 396 px text column of a two-column card at 1024 px (those made the rivers of the audits, m7).
+   * `.justify-text` on a wrapper = every paragraph in it; `.justify-p` = one paragraph. The column is measured with a container query: the
+   * wrapper and the body of every card are inline-size containers, and a paragraph asks the nearest of them. Not headings, lists of short
+   * items, table cells, tags, buttons, captions or 14 px notes (a 62ch line of small type has too few spaces to spread: the rivers at /cpv).
    */
-  @media (min-width: 768px) {
+  .justify-text, .card-body, .justify-col { container-type: inline-size; }
+  @container (min-width: 560px) {
     .justify-text p, .justify-p { text-align: justify; hyphens: auto; }
-    .justify-text .auto-grid p, .justify-text dl p, .justify-text [role="note"], .justify-text figcaption { text-align: left; hyphens: manual; }
+    .justify-text .auto-grid p, .justify-text dl p, .justify-text [role="note"], .justify-text figcaption, .justify-text .text-small { text-align: left; hyphens: manual; }
   }
-  /* h1 of every page: 32/40 below md, 36/44 from md. */
+  /* h1 of every page: 32/40 below md, 40/48 from md (brand book). */
   .page-title { @apply font-sans text-h1-sm md:text-h1; }
   /* Opening paragraph of a page. */
   .lead { @apply font-sans text-lead text-ink; }

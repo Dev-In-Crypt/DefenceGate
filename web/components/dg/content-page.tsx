@@ -38,7 +38,7 @@ export function ContentSection({ title, children, className, aside, split = fals
 }
 
 /**
- * A section with no box: an h2 (24/32) and, 16 px under it, whatever it holds (a grid of cards, a list). The page puts
+ * A section with no box: an h2 (28/36) and, 16 px under it, whatever it holds (a grid of cards, a list). The page puts
  * 32 px between sections, so the heading is twice as close to its own content as to the section above.
  */
 export function PageSection({ title, id, intro, children, className }: {
@@ -104,7 +104,7 @@ function PageToc({ items }: { items: TocItem[] }) {
  *  - `wide` (data pages: tables, grids, figures): titled cards keep the title on top.
  * Both span the whole content box, exactly the width of the header pill (WP-45: the 988 px column left the page narrower than the header).
  * Running text (`p`, `blockquote`, `dd`, bulleted lists) never runs wider than the reading measure, paragraphs are justified from md
- * (`.justify-text`), and sections are 32 px apart.
+ * where the column is wide enough (`.justify-text`, see globals.css), and sections are 48 px apart (the book's --space-8).
  *
  * `toc` (WP-45) puts a sticky list of the sections at the left from lg (`true` = read it from the children, or pass the items). The
  * sections then use the column beside it (what is left of the content box) and keep their titles on top. The list comes after the

@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils';
 
 /**
- * The card. One surface, one radius (20 px), one 1px outline (`--edge`, so a card reads on the page in both themes),
- * one padding (20 px, 24 px from sm). Every white box on the site is this component or the same classes.
+ * The card (brand book): one surface, one radius (20 px), no outline (a transparent 1px border, which forced-colours mode draws), one
+ * padding (20 px, 28 px from sm: the book's --space-6 is Tailwind's 7). Every white box on the site is this component or the same classes.
  *
  *   <Card>                      plain padded box; children are spaced 16 px apart
  *   <Card title="Terms">        titled: a 56 px header row (h2, optional `action` at the right end), a hairline, then the body
@@ -11,8 +11,8 @@ import { cn } from '@/lib/utils';
  * `as` picks the element (`li` for a card in a list, `article` for a record). A titled card is a `section`
  * labelled by its heading; the heading id is `id`, or a slug of the title.
  */
-export const CARD_SURFACE = 'rounded-lg border border-edge bg-surface';
-export const CARD_PADDING = 'p-5 sm:p-6';
+export const CARD_SURFACE = 'rounded-lg border border-transparent bg-surface';
+export const CARD_PADDING = 'p-5 sm:p-7';
 const CARD_BODY = 'flex min-w-0 flex-col gap-4 [&_p]:max-w-prose';
 
 export const slugId = (title: string) => title.toLowerCase().replace(/\W+/g, '-');
@@ -45,7 +45,7 @@ export function Card({ title, id, anchor, headingLevel = 'h2', action, as, class
   const hid = id ?? (typeof title === 'string' ? slugId(title) : undefined);
   return (
     <As id={anchor} aria-labelledby={hid} className={cn('card-titled', CARD_SURFACE, 'min-w-0', className)}>
-      <div className="card-head flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line px-5 py-3 sm:px-6">
+      <div className="card-head flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line px-5 py-3 sm:px-7">
         <H id={hid} className="m-0 scroll-mt-4 text-h3">{title}</H>
         {action}
       </div>

@@ -92,7 +92,7 @@ export function Faq({ items }: { items: FaqItem[] }) {
   return (
     <div className="flex flex-col gap-2">
       {items.map((f) => (
-        <details key={f.q} className={cn('group px-5 sm:px-6', CARD_SURFACE)}>
+        <details key={f.q} className={cn('group px-5 sm:px-7', CARD_SURFACE)}>
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-body font-semibold [&::-webkit-details-marker]:hidden">
             {f.q}
             <Icon icon={Plus} className="shrink-0 text-ink-muted transition-transform duration-dg group-open:rotate-45" />

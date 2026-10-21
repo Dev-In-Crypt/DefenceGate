@@ -73,7 +73,7 @@ export function MonthGrid({ month, label, entries, today, moreHref }: {
     byDay.set(k, [...(byDay.get(k) ?? []), e]);
   }
   return (
-    <div className="hidden rounded-lg border border-edge bg-surface p-3 md:block">
+    <div className="hidden rounded-lg border border-transparent bg-surface p-3 md:block">
       <table className="w-full table-fixed border-separate border-spacing-1">
         <caption className="sr-only">Deadlines in {label}, UTC</caption>
         <thead>
@@ -92,7 +92,7 @@ export function MonthGrid({ month, label, entries, today, moreHref }: {
                       {items.slice(0, CELL_ENTRIES).map((e) => (
                         <Link key={e.key} href={e.href} title={displayName(e.title)}
                           aria-label={`${e.kind === 'tender' ? 'Tender' : 'Funding call'}: ${displayName(e.title)}`}
-                          className="block min-h-8 [overflow-wrap:anywhere] rounded-sm px-1 py-2 text-label text-ink">
+                          className="block min-h-8 [overflow-wrap:anywhere] rounded-md px-1 py-2 text-label text-ink">
                           {truncateTitle(displayName(e.title))}
                         </Link>
                       ))}

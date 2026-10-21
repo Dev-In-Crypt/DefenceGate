@@ -33,7 +33,7 @@ const KINDS: { value: KindFilter; label: string }[] = [
   { value: 'tenders', label: 'Tenders' },
   { value: 'funding', label: 'Funding calls' },
 ];
-const FORM = 'flex flex-col gap-6 rounded-lg border border-edge bg-surface p-5';
+const FORM = 'flex flex-col gap-6 rounded-lg border border-transparent bg-surface p-5';
 
 type Props = { searchParams: Promise<SearchParams> };
 
@@ -111,8 +111,8 @@ export default async function CalendarPage({ searchParams }: Props) {
             </form>
           </FilterPanel>
 
-          <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-5">
-            <h2 id="feed-heading" className="m-0 text-body font-bold">Calendar feed</h2>
+          <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5">
+            <h2 id="feed-heading" className="m-0 text-h3">Calendar feed</h2>
             <p className="m-0 text-small text-ink-muted">
               Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.
             </p>

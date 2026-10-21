@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const ROW = 'grid gap-1 py-2.5 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-4 print:py-1.5';
-const PANEL = 'flex flex-col gap-3 rounded-lg border border-edge bg-surface p-5 sm:p-6 print:break-inside-avoid print:rounded-none print:border-t print:border-line print:bg-transparent print:p-0 print:pt-4';
+const PANEL = 'flex flex-col gap-3 [&_p]:max-w-prose rounded-lg border border-transparent bg-surface p-5 sm:p-7 print:break-inside-avoid print:rounded-none print:border-t print:border-line print:bg-transparent print:p-0 print:pt-4';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -87,7 +87,7 @@ export default async function TenderEvidencePage({ params }: Props) {
       <header className="flex flex-col gap-3">
         <p className="m-0 font-mono text-mono text-ink-muted">DefenceGate evidence record · generated {formatStamp(generated)}</p>
         <h1 lang={isNonEnglish(tender.titleLanguage) ? (tender.titleLanguage ?? undefined) : undefined}
-          className="m-0 break-words text-[28px] font-extrabold leading-9 tracking-[-1px] md:text-h1 print:text-[22px] print:leading-7">{tender.title}</h1>
+          className="m-0 break-words text-h1-sm md:text-h1 print:text-[22px] print:leading-7">{tender.title}</h1>
         <p className="m-0 text-body text-ink-muted">Notice {tender.noticeId} · {tender.buyerName} · {tender.source.sourceName}</p>
         <div className="flex flex-wrap items-center gap-3 print:hidden">
           <PrintButton>Print this record</PrintButton>

@@ -44,7 +44,7 @@ export default async function NotFound() {
         </header>
         <AutoGrid as="ul" fill min={340}>
           {LINKS.map((l) => (
-            <li key={l.href} className="flex min-w-0 flex-col gap-1 rounded-lg border border-edge bg-surface p-5">
+            <li key={l.href} className="flex min-w-0 flex-col gap-1 rounded-lg border border-transparent bg-surface p-5">
               <Link href={l.href} className="text-body font-bold">{l.label}</Link>
               <span className="text-small text-ink-muted">{l.text}</span>
             </li>

@@ -35,7 +35,7 @@ type Level = 'h2' | 'h3' | 'h4' | 'h5';
 
 function StateShell({ icon, title, children, action, tone = 'default', level: H = 'h2' }: { icon: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode; tone?: 'default' | 'error'; level?: Level }) {
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className="flex flex-col items-start gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <div role={tone === 'error' ? 'alert' : 'status'} className="flex flex-col items-start gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <span className={cn('flex size-11 items-center justify-center rounded-pill bg-surface-inset', tone === 'error' ? 'text-alert' : 'text-ink')}>{icon}</span>
       <div className="flex flex-col gap-1">
         <H className="m-0 text-h3">{title}</H>
@@ -63,7 +63,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function CallCardSkeleton() {
   return (
-    <div className="flex flex-col gap-5 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+    <div className="flex flex-col gap-5 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <div className="flex gap-2"><Skeleton className="h-[26px] w-14 rounded-pill" /><Skeleton className="h-[26px] w-20 rounded-pill" /><Skeleton className="ml-auto h-7 w-16 rounded-pill" /></div>
       <Skeleton className="h-12 w-3/4" />
       <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3"><Skeleton className="h-[88px]" /><Skeleton className="h-[88px]" /><Skeleton className="h-[88px]" /></div>
@@ -75,7 +75,7 @@ export function CallCardSkeleton() {
 /** Plan gate. Content is never rendered behind the lock. Without `href` (no plans page yet) the action is plain text. */
 export function LockedFeature({ feature, plan = 'Pro', href }: { feature: string; plan?: string; href?: string }) {
   return (
-    <div className="flex flex-col items-start gap-4 rounded-lg border-strong border-dashed border-line bg-surface p-5 sm:p-6">
+    <div className="flex flex-col items-start gap-4 rounded-lg border-strong border-dashed border-line bg-surface p-5 sm:p-7">
       <span className="flex size-11 items-center justify-center rounded-pill bg-surface-inset text-ink"><Icon icon={Lock} /></span>
       <div className="flex flex-col gap-1">
         <h2 className="m-0 text-h3">{feature}</h2>

@@ -38,7 +38,7 @@ export default async function RegulationPage() {
       status: e.status,
       node: (
         <>
-          <div className="flex min-w-0 flex-col gap-3">
+          <div className="justify-col flex min-w-0 flex-col gap-3 [&_blockquote]:max-w-prose [&_p]:max-w-prose">
             <div className="flex flex-wrap items-center gap-2">
               <Tag kind={e.status === 'in_force' || e.status === 'adopted' ? 'programme' : 'neutral'}>{STATUS_WORD[e.status]}</Tag>
               <Tag>{e.instrument}</Tag>

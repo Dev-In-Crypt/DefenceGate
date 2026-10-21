@@ -200,7 +200,7 @@ export default async function TenderDetailPage({ params }: Props) {
           </Card>
         )}
         side={(
-          <div className="flex flex-col gap-4 rounded-lg border border-edge bg-surface p-5 sm:p-6">
+          <div className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
             <DeadlineBadge info={d} size="lg" className="hidden w-full lg:flex" local={local} />
             <SaveButton kind="tender" refId={tender.id} />
             {tender.buyerId && <FollowButton kind="buyer" refId={tender.buyerId} label="Follow this buyer" />}
