@@ -1,0 +1,32 @@
+{
+ "profile": {
+  "applicant_kind": null,
+  "components_from_ua_or_eea_efta": null,
+  "country": "ES",
+  "executive_management_country": null,
+  "export_intent": null,
+  "foreign_capital": false,
+  "handles_classified": false,
+  "legal_form": null,
+  "non_eu_component_cost_pct": null,
+  "product_regime": "unknown",
+  "restricted_third_country_component": null,
+  "safe_role": null,
+  "third_country_control": "no",
+  "ua_non_government_controlled_area": null,
+  "ua_partner": null
+ },
+ "statuses": {
+  "REQ-AQAP2110": "not_held",
+  "REQ-AQAP2310": "not_held",
+  "REQ-EN9100": "not_held",
+  "REQ-EXPORT": "not_held",
+  "REQ-FSC-ES": "not_held",
+  "REQ-ISO9001": "held",
+  "REQ-NCAGE": "not_held",
+  "REQ-PECAL": "not_held",
+  "REQ-PIC": "not_held",
+  "REQ-REOCE": "not_held",
+  "REQ-RID": "not_held"
+ }
+}

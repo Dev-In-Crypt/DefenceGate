@@ -15,18 +15,18 @@ import { useProfile } from './use-readiness';
 
 export interface WizardRequirement { code: string; name: string; summary: string }
 
-const COUNTRY_OPTIONS = [
+export const COUNTRY_OPTIONS = [
   ...Object.entries({ ...BUYER_COUNTRIES, LI: 'Liechtenstein', UA: 'Ukraine', TR: 'Türkiye', US: 'United States' })
     .map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, 'en')),
   { value: 'XX', label: 'Another country (not listed)' },
 ];
-const SIZE_OPTIONS = [
+export const SIZE_OPTIONS = [
   { value: 'micro', label: 'Micro' }, { value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' },
 ];
 const STEPS = ['Your company', 'Ownership and control', 'Products and regime', 'Certifications held', 'Classified work and exports'] as const;
 
 /** Three radios in a fieldset: the shape of most questions. An `error` is tied to the group and marks its radios invalid. */
-function Radios<T extends string>({ legend, hint, name, value, options, onChange, error }: {
+export function Radios<T extends string>({ legend, hint, name, value, options, onChange, error }: {
   legend: string; hint?: string; name: string; value: T | ''; options: { value: T; label: string; hint?: string }[]; onChange: (v: T) => void; error?: string;
 }) {
   return (
@@ -39,7 +39,7 @@ function Radios<T extends string>({ legend, hint, name, value, options, onChange
   );
 }
 
-const YES_NO_UNSURE = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'I am not sure' }] as const;
+export const YES_NO_UNSURE = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'I am not sure' }] as const;
 
 export function Wizard({ requirements }: { requirements: WizardRequirement[] }) {
   const router = useRouter();

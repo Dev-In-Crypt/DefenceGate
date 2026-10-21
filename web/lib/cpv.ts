@@ -162,7 +162,7 @@ export function isForm(titleWord: string, word: string): boolean {
  * The curated product words (lib/data/product-keywords.json). The whole query must be made of listed phrases, otherwise null and
  * the titles of the finder are searched as before: "drone zzzz" is not read as "drone". The codes are the official ones, with their titles.
  */
-function keywordMatch(query: string, max: number): ProductMatch | null {
+function keywordEntries(query: string): KeywordEntry[] | null {
   const q = wordsOf(query);
   if (q.length === 0) return null;
   const found: { entry: KeywordEntry; from: number; to: number }[] = [];
@@ -178,7 +178,12 @@ function keywordMatch(query: string, max: number): ProductMatch | null {
   const longest = found.filter((a) => !found.some((b) => b !== a && b.from <= a.from && b.to >= a.to && b.to - b.from > a.to - a.from));
   const used = q.map((_, i) => longest.some((m) => m.from <= i && i < m.to));
   const hit = [...new Set(longest.map((m) => m.entry))];
-  if (hit.length === 0 || !used.every(Boolean)) return null;
+  return hit.length === 0 || !used.every(Boolean) ? null : hit;
+}
+
+function keywordMatch(query: string, max: number): ProductMatch | null {
+  const hit = keywordEntries(query);
+  if (!hit) return null;
   const codes = [...new Map(hit.flatMap((e) => e.codes).map((c) => [c.code, c])).values()];
   const all = [...new Set(codes.map((c) => cpvPrefix(c.code)))].sort((a, b) => a.length - b.length || a.localeCompare(b));
   const kept: string[] = [];
@@ -212,4 +217,31 @@ export function cpvForWords(words: string, max = 20): ProductMatch {
     prefixes: kept.slice(0, max), truncated: kept.length > max, matched: hits.length, via: 'title',
     codes: hits.slice(0, 6).map(([code, title]) => ({ code, title })),
   };
+}
+
+/** Every code we hold with its official title: the finder's selection and the codes of the curated product words. */
+const DICTIONARY = new Map<string, string>([...PRODUCT_KEYWORDS.flatMap((e) => e.codes.map((c) => [c.code, c.title] as const)), ...Object.entries(CODES)]);
+
+/** The official title of a code of the dictionary (finder selection or product words), or null. */
+export function cpvDictionaryTitle(code: string): string | null {
+  return DICTIONARY.get(code) ?? null;
+}
+
+/**
+ * The codes a supplier can pick for its profile (WP-65), at most `max`: a 2- to 8-digit query is a code prefix; otherwise the curated
+ * product words first, then the titles, word by whole word as `cpvForWords` (no language model, no piece of a longer word).
+ */
+export function cpvSearch(query: string, max = 20): { code: string; title: string }[] {
+  const q = query.trim();
+  const pick = (test: (code: string, title: string) => boolean) =>
+    [...DICTIONARY].filter(([c, t]) => test(c, t)).sort(([a], [b]) => a.localeCompare(b)).slice(0, max).map(([code, title]) => ({ code, title }));
+  if (/^\d{2,8}$/.test(q)) return pick((c) => c.startsWith(q));
+  const hit = keywordEntries(q);
+  if (hit) {
+    const codes = new Set(hit.flatMap((e) => e.codes.map((c) => c.code)));
+    return pick((c) => codes.has(c));
+  }
+  const ws = wordsOf(q).filter((w) => w.length >= 3).slice(0, 5);
+  if (ws.length === 0) return [];
+  return pick((_, t) => { const tw = wordsOf(t); return ws.every((w) => tw.some((x) => isForm(x, w))); });
 }

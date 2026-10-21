@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
 import { buildMetadata } from '@/lib/seo';
 import { Callout } from '@/components/dg/blocks';
@@ -33,6 +35,14 @@ export default async function ReadinessPage() {
         <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server.</p>
         <p className="m-0">The only thing that leaves your browser is the request that computes the verdict: your answers to the questions the rules read, sent to the rules engine. The server does not store or log them. The company name and size you may enter below are never sent.</p>
       </Callout>
+
+      {/* WP-65: the second way in. The funding wizard below is unchanged. */}
+      <nav aria-label="Which check" className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-5">
+        <p className="m-0 text-body">The questions below are for EU defence funding calls (EDF, EDIP, SAFE).</p>
+        <Link href="/readiness/supplier" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
+          I make parts or materials and want to supply defence buyers<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
+        </Link>
+      </nav>
 
       <Wizard requirements={requirements} />
 
