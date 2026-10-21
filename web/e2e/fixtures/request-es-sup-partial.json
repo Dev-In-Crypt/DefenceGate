@@ -20,13 +20,13 @@
   "REQ-AQAP2110": "not_held",
   "REQ-AQAP2310": "not_held",
   "REQ-EN9100": "not_held",
-  "REQ-EXPORT": "not_held",
-  "REQ-FSC-ES": "not_held",
+  "REQ-EXPORT": "unknown",
+  "REQ-FSC-ES": "unknown",
   "REQ-ISO9001": "held",
   "REQ-NCAGE": "not_held",
   "REQ-PECAL": "not_held",
-  "REQ-PIC": "not_held",
-  "REQ-REOCE": "not_held",
+  "REQ-PIC": "unknown",
+  "REQ-REOCE": "unknown",
   "REQ-RID": "not_held"
  }
 }

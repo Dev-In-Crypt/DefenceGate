@@ -1046,7 +1046,7 @@
      "note": "UNVERIFIED: the legal basis of the register, its fee, processing time and validity were not found in a primary source, so none is shown.",
      "obligation": "mandatory",
      "outcome": "unknown",
-     "reason": "The questionnaire does not ask yet whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it.",
+     "reason": "Say on the supplier profile page (Readiness, Supplier profile) whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it.",
      "requirement": "REQ-RID",
      "rule": "ES-RID",
      "source": {
@@ -2352,5 +2352,5 @@
    "REQ-PECAL"
   ]
  },
- "rulesReviewed": "2026-10-18"
+ "rulesReviewed": "2026-10-20"
 }

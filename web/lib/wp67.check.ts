@@ -39,10 +39,12 @@ assert.equal(item(civil.items, 'IATF16949').status, 'In place: you hold it. No r
 
 const defence = sample('es-sup-defence').plan;
 assert.deepEqual(defence.items.map(line), [
-  'green REQ-NCAGE', 'green REQ-ISO9001', 'green REQ-AQAP2110', 'green REQ-RID', 'red REQ-FSC-ES', 'amber REQ-PIC', 'amber REQ-PECAL', 'amber REQ-EXPORT',
+  'green REQ-NCAGE', 'green REQ-ISO9001', 'green REQ-AQAP2110', 'green REQ-RID', 'amber REQ-PIC', 'amber REQ-FSC-ES', 'amber REQ-PECAL', 'amber REQ-EXPORT',
   'amber US-COMPONENTS',
 ]);
-assert.match(item(defence.items, 'REQ-FSC-ES').reason ?? '', /access classified information/);
+// WP-73 (QA MJ-3): the supplier page did not get an answer on the HSEM, so it is a question, no longer "Missing" by default
+assert.equal(item(defence.items, 'REQ-FSC-ES').status, 'Needs an answer.');
+assert.ok(item(defence.items, 'REQ-FSC-ES').asks.some((q) => /HSEM/.test(q)));
 
 const partial = sample('es-sup-partial').plan;
 assert.deepEqual(partial.items.map(line), [

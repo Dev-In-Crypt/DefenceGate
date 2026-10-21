@@ -147,7 +147,9 @@ def question(c: Content, name: str) -> str:
     """The question behind an ask: a profile field's label, or for a requirement the questionnaire does not ask its own question."""
     if name in engine.FIELDS:
         return engine.FIELDS[name]["label"]
-    return c.requirements[name].extras["question"]
+    r = c.requirements[name]
+    # a requirement the page that sent the answers did not ask about (`unknown`, WP-73) has no question of its own
+    return r.extras.get("question") or f"Do you hold: {r.name}?"
 
 
 def unasked(c: Content) -> list[str]:
@@ -325,7 +327,8 @@ class ProfileIn(BaseModel):
 class AssessIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     profile: ProfileIn
-    statuses: dict[str, Literal["held", "in_progress", "not_held", "not_applicable"]] = Field(default_factory=dict)
+    # "unknown" (WP-73): the page that sent the answers did not ask about this requirement, so a rule on it asks instead of reading "not held"
+    statuses: dict[str, Literal["held", "in_progress", "not_held", "not_applicable", "unknown"]] = Field(default_factory=dict)
     programmes: list[str] | None = Field(default=None, max_length=12)
     call: int | None = Field(default=None, ge=1, le=MAX_BIGINT)
 
@@ -366,7 +369,9 @@ def assess_payload(c: Content, profile: engine.Profile, statuses: dict[str, str]
             raise KeyError(sorted(missing)[0])
         chosen = [p for p in chosen if p.code in set(programmes)]
     assessments, general = assess_all(c, profile, statuses, chosen)
-    plan = roadmap.build_roadmap([*assessments, *general], statuses, c, profile.country)
+    # the roadmap reads what the company said; an unasked requirement is a step as before ("not held" until marked)
+    said = {k: v for k, v in statuses.items() if v != engine.STATUS_UNKNOWN}
+    plan = roadmap.build_roadmap([*assessments, *general], said, c, profile.country)
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "rulesReviewed": c.reviewed,
@@ -434,7 +439,7 @@ def _call(conn, c: Content, call_id: int, statuses, profile) -> dict[str, Any]:
     read = engine.with_unasked(statuses, unasked(c))
     for p in mapped:
         a = engine.assess(profile, read, p)
-        plan = roadmap.build_roadmap([a], statuses, c, profile.country)
+        plan = roadmap.build_roadmap([a], {k: v for k, v in statuses.items() if v != engine.STATUS_UNKNOWN}, c, profile.country)
         timing = roadmap.call_timing(a, plan, row["deadline_at"], now)
         timing["name"] = p.name
         out["timings"].append(timing)

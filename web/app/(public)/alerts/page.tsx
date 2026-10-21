@@ -17,7 +17,7 @@ export const metadata: Metadata = buildMetadata({
 
 const FEATURES = [
   { icon: Bookmark, title: 'Saved searches', body: 'Save a search by country, buyer, product code or keyword and come back to it with one click. Alert e-mails list the new notices and calls that match it.' },
-  { icon: GitCompare, title: 'Changes on your dashboard', body: 'Your dashboard shows what changed since your last visit in the notices you shortlisted and in those of buyers you follow: a moved deadline, a corrected value, a new status. Funding calls have no change history yet.' },
+  { icon: GitCompare, title: 'Changes on your dashboard', body: 'Your dashboard shows what changed since your last visit in the notices you shortlisted and in those of buyers you follow: a moved deadline, a corrected value, a new status. The dashboard does not list funding calls yet; the What changed page lists new calls and moved dates.' },
   { icon: Clock, title: 'Your cadence', body: 'Choose within the hour, a daily digest or a weekly summary, and pause an alert whenever you like.' },
   { icon: BellRing, title: 'Closing soon', body: 'Your dashboard lists the deadlines of the notices you shortlisted, and of your saved-search matches, for the next 14 days.' },
 ];

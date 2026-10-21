@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any
 
 from .content import Content, Money, Requirement, Span
-from .engine import Assessment, RuleResult
+from .engine import Assessment, RuleResult, blocks
 
 DONE = ("held", "not_applicable")
 VENDOR_LABEL = "vendor range, not a benchmark"
@@ -84,6 +84,8 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
             cost, days, used = None, None, None
         return _Node(req, status, cost, days, used, [], [], optional, state_route=state)
 
+    general = {a.programme for a in assessments if a.kind == "general"}
+
     def need(code: str, *, optional: bool, programme: str, result: RuleResult) -> None:
         req = content.requirements[code]
         status = statuses.get(code, "not_held")
@@ -93,7 +95,8 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
         if node is None:
             node = nodes[code] = make(req, status, optional)
         node.optional = node.optional and optional
-        if result.obligation == "mandatory" and not optional and programme not in node.blocking_for:
+        # the general rules carry no verdict, so they block nothing (WP-73: a conditional rule now counts where it applies)
+        if blocks(result) and not optional and programme not in node.blocking_for and programme not in general:
             node.blocking_for.append(programme)
         node.needed_for.append({"programme": programme, "rule": result.rule, "title": result.title})
 

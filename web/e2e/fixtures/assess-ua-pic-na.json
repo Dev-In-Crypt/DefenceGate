@@ -961,7 +961,9 @@
  ],
  "general": [
   {
-   "blocking": [],
+   "blocking": [
+    "G-EXPORT"
+   ],
    "conditions": [],
    "counts": {
     "conditional": 0,
@@ -972,7 +974,7 @@
     "to_obtain": 0,
     "unknown": 1
    },
-   "incomplete": false,
+   "incomplete": true,
    "kind": "general",
    "legalBasis": null,
    "missing": [
@@ -1329,7 +1331,7 @@
    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
    "summary": "Export control, exporter registration and facility security clearance depend on what you make and where you sell, not on the programme.",
    "toObtain": [],
-   "verdict": "eligible"
+   "verdict": "blocked"
   }
  ],
  "generatedAt": "2026-10-17T12:00:00+00:00",
@@ -1619,5 +1621,5 @@
    "REQ-ISO9001"
   ]
  },
- "rulesReviewed": "2026-10-18"
+ "rulesReviewed": "2026-10-20"
 }

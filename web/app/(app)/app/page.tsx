@@ -68,7 +68,7 @@ function Changes({ d }: { d: Dashboard }) {
     <Block id="changes" title="Changes on what you follow">
       {d.changes.length === 0 ? (
         <NextStep links={[{ label: 'Browse buyers', href: '/buyers' }, { label: 'Open shortlist', href: '/app/shortlist' }]}>
-          No changes since your last visit. Follow a buyer or shortlist a notice and changes to its dates, value or status show up here. Funding calls have no change history yet.
+          No changes since your last visit. Follow a buyer or shortlist a notice and changes to its dates, value or status show up here. Funding calls are not listed here yet; the What changed page lists new calls and moved dates.
         </NextStep>
       ) : (
         <ul className={LIST}>

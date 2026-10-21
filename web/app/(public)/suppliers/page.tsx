@@ -5,7 +5,8 @@ import { ApiError, getSuppliers, getSupplierSummary } from '@/lib/api';
 import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
-import { MAX_PAGE, lastPage, type SearchParams } from '@/lib/filters';
+import { MAX_PAGE, ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
+import { FilterNotices } from '@/components/dg/filter-notices';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { cpvForWords } from '@/lib/cpv';
 import { parseCountries } from '@/lib/country-input';
@@ -86,7 +87,9 @@ function withProduct(f: ReturnType<typeof parse>) {
 const INPUT = 'min-h-11 rounded-md border border-input-edge bg-surface px-3 font-normal';
 
 export default async function SuppliersPage({ searchParams }: Props) {
-  const f = parse(await searchParams);
+  const sp = await searchParams;
+  const f = parse(sp);
+  const notices = ignoredFilters(sp, 'suppliers');
   const filtered = Boolean(f.q || f.country || f.cpv || f.product);
   const { match, unknown, none, api } = withProduct(f);
   let result;
@@ -98,8 +101,14 @@ export default async function SuppliersPage({ searchParams }: Props) {
       getSupplierSummary(),
     ]);
   } catch (e) {
-    // The list serves only its first positions (`maxOffset`): a page past them is not there, which is an answer, not a fault.
-    if (e instanceof ApiError && e.status === 422) notFound();
+    // The list serves only its first positions (`maxOffset`): a page past them goes to the last page it serves, as the other lists
+    // clamp (QA m-9).
+    if (e instanceof ApiError && e.status === 422) {
+      // a refusal of page 1 as well is not about the page: then the answer stays "not there"
+      const head = none ? null : await getSuppliers({ ...api, page: 1 }).catch(() => null);
+      if (!none && !head) notFound();
+      redirect(href(f, head ? lastPage(Math.min(head.total, head.maxOffset ?? head.total), head.pageSize) : 1));
+    }
     throw e;
   }
   const summary = f.page === 1 && !filtered ? full : null;
@@ -112,6 +121,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} title="Defence supplier map"
         lead={`Which companies have won defence-relevant contracts that a buyer published in TED${placsp ? " or in Spain's national procurement portal (PLACSP)" : ''}, where they are and how often. This is the open segment of the market, not all of it.`} />
       {result.staleAsOf && <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(result.staleAsOf, formatDateTimeUtc)}</p>}
+      <FilterNotices notices={notices} />
 
       <Card title="What this map covers" id="coverage">
         <p className="m-0 text-body">

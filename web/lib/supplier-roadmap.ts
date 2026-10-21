@@ -56,10 +56,14 @@ function colour(entries: Entry[], step: RoadmapStep | undefined, held: boolean):
   // a rule that sets a condition before the requirement can be obtained (Spain's NCAGE needs a justified need) outweighs "to obtain"
   const cond = entries.find((e) => e.r.outcome === 'conditional');
   if (cond) return { rag: 'amber', status: 'A condition comes first.', decider: cond };
-  const missing = entries.find((e) => e.r.outcome === 'not_met' || (e.r.outcome === 'to_obtain' && e.r.obligation === 'mandatory' && e.a.kind !== 'programme'));
+  // the engine's rule (WP-73): a rule binds unless it is only recommended (a 'conditional' one binds where it applies: Spain's NCAGE with a justified need)
+  const missing = entries.find((e) => e.r.outcome === 'not_met' || (e.r.outcome === 'to_obtain' && e.r.obligation !== 'recommended' && e.a.kind !== 'programme'));
   if (step?.optional) return { rag: 'amber', status: `Only ${step.when ?? 'when a contract names it'}.`, decider: missing ?? entries[0] ?? null };
   if (missing) return { rag: 'red', status: 'Missing, and needed for what you said you do.', decider: missing };
-  const funding = entries.filter((e) => e.r.outcome === 'to_obtain');
+  // WP-73: a PIC the supplier page did not ask about is "unknown", not "to obtain"; only funding programmes read it, so it says so too
+  const toObtain = entries.filter((e) => e.r.outcome === 'to_obtain');
+  const open = entries.filter((e) => e.r.outcome === 'unknown');
+  const funding = toObtain.length > 0 ? toObtain : open.length > 0 && entries.every((e) => e.a.kind === 'programme' || e.r.outcome === 'info') ? open : [];
   if (funding.length > 0) return { rag: 'amber', status: `Only if you apply for EU funding (${joinWords(uniq(funding.map((e) => programmeName(e.a.programme))))}).`, decider: funding[0] };
   const unknown = entries.find((e) => e.r.outcome === 'unknown');
   return { rag: 'amber', status: unknown ? 'Needs an answer.' : 'Depends on the contract.', decider: unknown ?? entries[0] ?? null };

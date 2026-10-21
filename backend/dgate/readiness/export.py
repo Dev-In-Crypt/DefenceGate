@@ -67,15 +67,17 @@ PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
 }
 
 # WP-65: three Spanish companies that filled in only the supplier page (/readiness/supplier), as the page sends them: the wizard's
-# answers are empty (unknown), the supplier page's answers the rules read are present only when given, and RID and PECAL are
-# "not held" unless ticked (the page has asked). "No foreign investor" also answers the wizard's control question with "no" when it
+# answers are empty (unknown), the supplier page's answers the rules read are present only when given, the certificates and
+# registrations the page shows are "not held" unless ticked (the page has asked), and what it does not ask (the PIC, the export
+# authorisation, REOCE, the HSEM unless answered) is "unknown" (WP-73: never read as "not held"). "No foreign investor" also answers the wizard's control question with "no" when it
 # was empty (no foreign shareholder at all: not controlled from outside the EU). tests/unit/test_wp65_supplier.py counts the open
 # questions with and without the supplier page.
 _SUPPLIER_BASE = {"country": "ES", "legal_form": None, "applicant_kind": None, "executive_management_country": None,
                   "third_country_control": None, "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": None,
                   "restricted_third_country_component": None, "components_from_ua_or_eea_efta": None, "ua_partner": None,
                   "safe_role": None, "product_regime": "unknown", "export_intent": None}
-_ES_STATUSES = {code: "not_held" for code in STATUS_CODES + ES_ONLY + ["REQ-RID", "REQ-PECAL"]}
+_PAGE_ASKS = ["REQ-NCAGE", "REQ-ISO9001", "REQ-EN9100", "REQ-AQAP2110", "REQ-AQAP2310", "REQ-RID", "REQ-PECAL"]
+_ES_STATUSES = {code: "not_held" if code in _PAGE_ASKS else "unknown" for code in STATUS_CODES + ES_ONLY + ["REQ-RID", "REQ-PECAL"]}
 SUPPLIER_PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     # a civilian automotive castings maker that answered every question of the Spanish route "no"
     "es-sup-civil": ({**_SUPPLIER_BASE, "third_country_control": "no", "handles_classified": False, "foreign_capital": False, "us_components": False,

@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Rss } from 'lucide-react';
 import { getChanges } from '@/lib/api';
 import { weekLabel } from '@/lib/digest';
-import { lastPage, parseChangeFilters, toChangeQuery, PARAM, type SearchParams } from '@/lib/filters';
+import { CHANGE_MAX_PAGE, ignoredFilters, lastPage, parseChangeFilters, toChangeQuery, PARAM, type SearchParams } from '@/lib/filters';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
@@ -13,6 +13,7 @@ import type { Change } from '@/lib/types';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
 import { EmptyState } from '@/components/dg/feedback';
+import { FilterNotices } from '@/components/dg/filter-notices';
 import { PageHeader } from '@/components/dg/page-header';
 import { Select } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
@@ -52,8 +53,12 @@ function byDay(items: Change[]): { day: string; items: Change[] }[] {
 }
 
 export default async function ChangesPage({ searchParams }: Props) {
-  const filters = parseChangeFilters(await searchParams);
-  const data = await getChanges(filters).catch(() => null);
+  const sp = await searchParams;
+  const filters = parseChangeFilters(sp);
+  const notices = ignoredFilters(sp, 'changes');
+  // A page past the API's last (100) is past the end of the list: an answer, not an outage (QA m-8)
+  const pastEnd = (filters.page ?? 1) > CHANGE_MAX_PAGE;
+  const data = pastEnd ? null : await getChanges(filters).catch(() => null);
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'What changed', href: '/changes' }];
   const header = (
     <PageHeader crumbs={crumbs} title="What changed"
@@ -79,6 +84,13 @@ export default async function ChangesPage({ searchParams }: Props) {
       </div>
     </form>
   );
+  const firstPage = (
+    <EmptyState title={`There is no page ${filters.page} of this list`}
+      action={<Button variant="secondary" href={`/changes${toChangeQuery({ ...filters, page: 1 })}`}>Go to page 1</Button>}>
+      The list ends before this page. Page 1 has the newest changes.
+    </EmptyState>
+  );
+  if (pastEnd) return <>{header}<FilterNotices notices={notices} />{filterForm}{firstPage}</>;
   // A week outside the archive, or not yet ended, is a 404 of the API: not a fault of the list.
   if (!data && filters.week) notFound();
   if (!data) {
@@ -86,6 +98,7 @@ export default async function ChangesPage({ searchParams }: Props) {
     return (
       <>
         {header}
+        <FilterNotices notices={notices} />
         {filterForm}
         <EmptyState title="The change list is not available right now"
           action={<Button variant="secondary" href={`/changes${toChangeQuery(filters)}`}>Try again</Button>}>
@@ -97,6 +110,7 @@ export default async function ChangesPage({ searchParams }: Props) {
   }
   const last = lastPage(data.total, data.pageSize);
   if (data.total > 0 && (filters.page ?? 1) > last) redirect(`/changes${toChangeQuery({ ...filters, page: last })}`);
+  if (data.total === 0 && (filters.page ?? 1) > 1) return <>{header}<FilterNotices notices={notices} />{filterForm}{firstPage}</>;
   const feedHref = `/changes.atom${toChangeQuery({ country: filters.country, scope: filters.scope })}`;
   // A rolling window ends now; a week ends at the next Monday 00:00 (exclusive), so its last day is the second before.
   const windowLast = filters.week ? new Date(new Date(data.windowTo).getTime() - 1000).toISOString() : data.windowTo;
@@ -149,6 +163,7 @@ export default async function ChangesPage({ searchParams }: Props) {
         </nav>
       </section>
 
+      <FilterNotices notices={notices} />
       {filterForm}
 
       {(data.funding?.length ?? 0) > 0 && (

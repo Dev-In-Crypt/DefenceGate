@@ -9,8 +9,8 @@
     "met": 2,
     "not_applicable": 0,
     "not_met": 0,
-    "to_obtain": 1,
-    "unknown": 2
+    "to_obtain": 0,
+    "unknown": 3
    },
    "incomplete": true,
    "kind": "programme",
@@ -23,6 +23,10 @@
     {
      "field": "executive_management_country",
      "question": "Where are your company's executive management structures established?"
+    },
+    {
+     "field": "REQ-PIC",
+     "question": "Do you hold: PIC (Participant Identification Code)?"
     }
    ],
    "name": "European Defence Fund (EDF)",
@@ -123,14 +127,19 @@
      "title": "Not controlled by a non-associated third country"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-PIC",
+       "question": "Do you hold: PIC (Participant Identification Code)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "to_obtain",
-     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-PIC",
      "rule": "EDF-PIC",
      "source": {
@@ -167,9 +176,7 @@
    ],
    "sourceUrl": "http://data.europa.eu/eli/reg/2021/697/oj",
    "summary": "Grants for collaborative defence research and capability development, run by the European Commission.",
-   "toObtain": [
-    "EDF-PIC"
-   ],
+   "toObtain": [],
    "verdict": "conditional"
   },
   {
@@ -181,8 +188,8 @@
     "met": 2,
     "not_applicable": 3,
     "not_met": 0,
-    "to_obtain": 1,
-    "unknown": 4
+    "to_obtain": 0,
+    "unknown": 5
    },
    "incomplete": true,
    "kind": "programme",
@@ -207,6 +214,10 @@
     {
      "field": "restricted_third_country_component",
      "question": "Does any component of your end product come from a third country that contravenes the Union's security and defence interests?"
+    },
+    {
+     "field": "REQ-PIC",
+     "question": "Do you hold: PIC (Participant Identification Code)?"
     }
    ],
    "name": "European Defence Industry Programme (EDIP): the Programme",
@@ -426,14 +437,19 @@
      "title": "No component from a third country that contravenes the Union's security and defence interests"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-PIC",
+       "question": "Do you hold: PIC (Participant Identification Code)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "to_obtain",
-     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-PIC",
      "rule": "EDIP-PIC",
      "source": {
@@ -491,9 +507,7 @@
    ],
    "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
    "summary": "Union funding for the European defence industrial base. This card covers the Programme itself; the Ukraine Support Instrument has its own card. Not every call is open to a company: common procurement actions are open only to contracting authorities, international organisations, SEAPs and the European Defence Agency (Regulation (EU) 2025/2643, Article 11(2)), and two calls name a SEAP or a group of Member States in their call documents. That is checked when you open a call of that kind.",
-   "toObtain": [
-    "EDIP-PIC"
-   ],
+   "toObtain": [],
    "verdict": "conditional"
   },
   {
@@ -505,8 +519,8 @@
     "met": 2,
     "not_applicable": 1,
     "not_met": 0,
-    "to_obtain": 1,
-    "unknown": 5
+    "to_obtain": 0,
+    "unknown": 6
    },
    "incomplete": true,
    "kind": "programme",
@@ -531,6 +545,10 @@
     {
      "field": "restricted_third_country_component",
      "question": "Does any component of your end product come from a third country that contravenes the Union's security and defence interests?"
+    },
+    {
+     "field": "REQ-PIC",
+     "question": "Do you hold: PIC (Participant Identification Code)?"
     },
     {
      "field": "ua_partner",
@@ -712,14 +730,19 @@
      "title": "No component from a third country that contravenes the Union's security and defence interests"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-PIC",
+       "question": "Do you hold: PIC (Participant Identification Code)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "to_obtain",
-     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-PIC",
      "rule": "USI-PIC",
      "source": {
@@ -782,9 +805,7 @@
    ],
    "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
    "summary": "The part of EDIP that funds cooperation with Ukraine's defence industry, with its own eligibility rules.",
-   "toObtain": [
-    "USI-PIC"
-   ],
+   "toObtain": [],
    "verdict": "conditional"
   },
   {
@@ -1097,7 +1118,9 @@
   },
   {
    "blocking": [],
-   "conditions": [],
+   "conditions": [
+    "ES-NCAGE"
+   ],
    "counts": {
     "conditional": 1,
     "info": 4,
@@ -1311,7 +1334,7 @@
      "note": null,
      "obligation": "conditional",
      "outcome": "not_applicable",
-     "reason": "Defence homologation is restricted to products for specific defence use (Article 346 TFEU), and it is mandatory only for those on the Ministry's list; for the others it is voluntary. A civilian automotive component is typically not a product for specific defence use.",
+     "reason": "Defence homologation is restricted to products for specific defence use (Article 346 TFEU), and it is mandatory only for those on the Ministry's list; for the others it is voluntary. On your answers, your product is not one for which it is mandatory.",
      "requirement": null,
      "rule": "ES-HOMOLOG",
      "source": {
@@ -1561,7 +1584,7 @@
    "toObtain": [
     "ES-RID"
    ],
-   "verdict": "obtain"
+   "verdict": "conditional"
   }
  ],
  "call": null,
@@ -1582,6 +1605,10 @@
     {
      "field": "dualuse_annex_i",
      "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+    },
+    {
+     "field": "REQ-EXPORT",
+     "question": "Do you hold: Export authorisation for dual-use or military items?"
     }
    ],
    "key": "EU-DUALUSE-EXPERT",
@@ -1603,7 +1630,7 @@
     "to_obtain": 0,
     "unknown": 1
    },
-   "incomplete": false,
+   "incomplete": true,
    "kind": "general",
    "legalBasis": null,
    "missing": [
@@ -1614,6 +1641,10 @@
     {
      "field": "dualuse_annex_i",
      "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+    },
+    {
+     "field": "REQ-EXPORT",
+     "question": "Do you hold: Export authorisation for dual-use or military items?"
     }
    ],
    "name": "Requirements that apply whichever route you take",
@@ -1943,6 +1974,10 @@
       {
        "field": "dualuse_annex_i",
        "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+      },
+      {
+       "field": "REQ-EXPORT",
+       "question": "Do you hold: Export authorisation for dual-use or military items?"
       }
      ],
      "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
@@ -1968,7 +2003,7 @@
    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
    "summary": "Export control, exporter registration and facility security clearance depend on what you make and where you sell, not on the programme.",
    "toObtain": [],
-   "verdict": "eligible"
+   "verdict": "conditional"
   }
  ],
  "generatedAt": "2026-10-17T12:00:00+00:00",
@@ -2347,5 +2382,5 @@
    "REQ-PECAL"
   ]
  },
- "rulesReviewed": "2026-10-18"
+ "rulesReviewed": "2026-10-20"
 }

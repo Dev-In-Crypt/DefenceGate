@@ -11,6 +11,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { JsonLd } from '@/components/dg/feedback';
+import { PrintOpenDetails } from '@/components/dg/print-open-details';
 import { AlertsLine } from '@/components/dg/alerts-line';
 import { Tag, StatusPill } from '@/components/dg/tag';
 import { DeadlineBadge } from '@/components/dg/deadline-badge';
@@ -123,6 +124,7 @@ export default async function CallDetailPage({ params }: Props) {
   return (
     <>
       <JsonLd data={callJsonLd(call)} />
+      <PrintOpenDetails />
       <PageHeader
         crumbs={[
           { label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' },

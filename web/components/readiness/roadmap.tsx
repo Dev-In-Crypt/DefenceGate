@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
-import { answerProblems, withStatus, type Profile } from '@/lib/profile';
+import { answerProblems, withStatus, type Profile, type Status } from '@/lib/profile';
 import { CATEGORY_WORD, costHeadline, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug, timeHeadline } from '@/lib/readiness';
 import type { Roadmap, RoadmapStep, RoadmapTotals } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -172,6 +172,8 @@ export function RoadmapView() {
   const result = useAssessment(profile);
   const [marked, setMarked] = useState<Marked | null>(null);
   const [message, setMessage] = useState('');
+  // QA m-5: the last mark can be taken back here; before, only step 4 of the wizard could revert it
+  const [undo, setUndo] = useState<{ code: string; name: string; prev: Status | undefined } | null>(null);
   const plan = result.state === 'done' ? result.data.roadmap : null;
 
   // After "Mark as done" (WP-53): the card is gone once the plan is re-scored, so focus moves to the heading of the step that follows it (the one
@@ -200,9 +202,22 @@ export function RoadmapView() {
   if (!ready || profile === null) return <Skeleton className="h-56" />;
   if (!profile.country) return <NoProfile />;
   const mark = (code: string, status: 'held' | 'in_progress') => {
+    const name = plan?.steps.find((s) => s.code === code)?.name ?? code;
     setMessage('');
-    setMarked({ code, name: plan?.steps.find((s) => s.code === code)?.name ?? code, status, order: plan?.steps.map((s) => s.code) ?? [] });
+    setUndo({ code, name, prev: profile.statuses[code] });
+    setMarked({ code, name, status, order: plan?.steps.map((s) => s.code) ?? [] });
     update((p) => withStatus(p, code, status));
+  };
+  const takeBack = () => {
+    if (!undo) return;
+    const { code, name, prev } = undo;
+    setUndo(null);
+    update((p) => {
+      const statuses = { ...p.statuses };
+      if (prev) statuses[code] = prev; else delete statuses[code];
+      return { ...p, statuses, updatedAt: new Date().toISOString() };
+    });
+    setMessage(`${name}: your change is undone. Your results are re-scored.`);
   };
 
   return (
@@ -212,6 +227,7 @@ export function RoadmapView() {
         <Button href="/readiness/results" variant="secondary">My results</Button>
         {/* Always in the page, so that a screen reader announces the text when it is set. */}
         <p role="status" aria-live="polite" className={message ? 'm-0 w-full text-small font-semibold' : 'sr-only'}>{message}</p>
+        {message && undo && <Button variant="secondary" onClick={takeBack} data-undo-mark={undo.code}>Undo</Button>}
       </div>
       <AnswerProblems problems={answerProblems(profile)} />
       {(result.state === 'loading' || result.state === 'idle') && <div role="status" aria-label="Computing your roadmap"><Skeleton className="h-56" /></div>}

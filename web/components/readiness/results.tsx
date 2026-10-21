@@ -62,7 +62,8 @@ export function ResultsView() {
         </p>
         <div className="flex flex-wrap gap-3">
           <Button href="/readiness" variant="secondary" icon={Pencil}>Change my answers</Button>
-          {hasSupplier(profile) && <Button href="/readiness/supplier" variant="secondary" icon={Pencil}>Change my supplier profile</Button>}
+          {/* WP-73: the questions of the supply routes are asked there, so the link is shown before the page was used too */}
+          <Button href="/readiness/supplier" variant="secondary" icon={Pencil}>{hasSupplier(profile) ? 'Change my supplier profile' : 'Answer the supplier questions'}</Button>
           {hasSupplier(profile) && <Button href="/readiness/supplier/report" variant="secondary" icon={Printer}>My supplier report</Button>}
           <Button href="/readiness/roadmap" iconRight={ArrowRight}>See my roadmap</Button>
         </div>
@@ -97,7 +98,8 @@ export function ResultsView() {
           {result.data.general.map((a) => (
             <section key={a.programme} aria-labelledby="general" className="flex flex-col gap-4">
               <h2 id="general" className="m-0 text-h2">Other requirements that may apply to you</h2>
-              <p className="m-0 max-w-prose text-body text-ink-muted">{a.summary} They do not change the verdicts above; they are listed in your roadmap when they apply to you.</p>
+              {/* the card below carries the summary itself (QA n-5: the same paragraph was printed twice) */}
+              <p className="m-0 max-w-prose text-body text-ink-muted">These rules do not change the verdicts above; they are listed in your roadmap when they apply to you.</p>
               <ProgrammeCard a={a} general />
             </section>
           ))}

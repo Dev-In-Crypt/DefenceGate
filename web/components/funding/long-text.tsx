@@ -12,7 +12,8 @@ export function LongText({ text, pre = false, className }: { text: string; pre?:
   if (head === null) return <p className={body}>{text}</p>;
   return (
     <>
-      <p className={body}>{head}</p>
+      {/* in print the disclosure is open (the whole text), so the head is not printed twice */}
+      <p className={cn(body, 'print:hidden')}>{head}</p>
       <Details summary={fullTextLabel(text)}>
         <p className={body}>{text}</p>
       </Details>

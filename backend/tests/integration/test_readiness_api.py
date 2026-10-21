@@ -177,7 +177,8 @@ def test_before_the_rules_are_loaded_the_answer_is_503_never_an_empty_assessment
 def test_the_catalogue_lists_every_requirement_with_its_source(client):
     body = client.get("/v1/requirements").json()
     assert body["total"] == 15 == len(body["items"])        # 12, and REQ-RID, REQ-PECAL, REQ-HSES-ES (WP-64)
-    assert body["meta"]["rulesReviewed"] == "2026-10-18"
+    # WP-73 (QA m-6): the latest review of any rule shown (the Spanish rules, 2026-10-20), not the seed's first date
+    assert body["meta"]["rulesReviewed"] == "2026-10-20"
     for item in body["items"]:
         assert item["sourceUrl"].startswith("http") and item["lastReviewed"] and item["verificationStatus"] in {"V", "S", "U"}
     aqap = next(i for i in body["items"] if i["code"] == "REQ-AQAP2110")
@@ -260,15 +261,19 @@ def test_a_ukrainian_profile_gets_the_verdicts_the_rules_give(client):
     assert "free" in rules["EDF-PIC"]["reason"] and body["assessments"][0]["counts"]["to_obtain"] == 1
     assert rules["EDF-AQAP"]["outcome"] == "info"
     assert [s["code"] for s in body["roadmap"]["steps"]][:3] == ["REQ-PIC", "REQ-NCAGE", "REQ-EXPORT"]
-    assert "not legal advice" in body["notice"] and body["rulesReviewed"] == "2026-10-18" and body["call"] is None
+    assert "not legal advice" in body["notice"] and body["rulesReviewed"] == "2026-10-20" and body["call"] is None
 
 
 def test_a_spanish_profile_with_iso_9001_gets_the_verdicts_and_the_shorter_aqap_path(client):
     body = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {"REQ-ISO9001": "held"}}).json()
     # WP-42 R1: the Ukraine Support Instrument also needs a Ukrainian applicant or partner, which a Spanish company's answers cannot supply
-    # and the Spanish MoD route (WP-64): the RID is not asked yet, so conditional
+    # and the Spanish MoD route (WP-64). WP-73 (QA MJ-4): the company handles classified information and the HSEM is not mentioned,
+    # which reads "not held" for a request that does not say "unknown"; a conditional rule binds where it applies, so ES-HSEM blocks
     assert verdicts(body) == {"EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "SAFE": "eligible", "NATO-SUPPLY": "obtain",
-                              "ES-MOD": "conditional"}
+                              "ES-MOD": "blocked"}
+    assert next(a for a in body["assessments"] if a["programme"] == "ES-MOD")["blocking"] == ["ES-HSEM"]
+    unasked = client.post("/v1/readiness/assess", json={"profile": ES, "statuses": {"REQ-ISO9001": "held", "REQ-FSC-ES": "unknown"}}).json()
+    assert verdicts(unasked)["ES-MOD"] == "conditional"
     steps = {s["code"]: s for s in body["roadmap"]["steps"]}
     # D10: Spain's AQAP route is the state's own; no vendor price is shown for it
     assert steps["REQ-AQAP2110"]["cost"] is None and "state issues this itself" in steps["REQ-AQAP2110"]["priceNote"]

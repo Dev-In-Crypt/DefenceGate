@@ -27,8 +27,11 @@ def test_the_e2e_fixtures_state_the_verdicts_of_the_two_test_profiles():
     expected = {"EDF": "conditional", "EDIP": "blocked", "EDIP-USI": "obtain", "SAFE": "eligible", "NATO-SUPPLY": "obtain"}
     assert verdicts("ua") == expected
     # the Spanish company also needs a Ukrainian applicant or partner for the Ukraine Support Instrument (WP-42 R1)
-    # and, since WP-64, the Spanish defence supplier route: the RID is not asked yet, so the route is conditional
-    assert verdicts("es") == {**expected, "EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "ES-MOD": "conditional"}
+    # and, since WP-64, the Spanish defence supplier route. WP-73: it handles classified information and answered "We do not hold it" for
+    # the HSEM in step 4, and a conditional rule binds where it applies (Ley 24/2011 art. 21.2), so the route is blocked by ES-HSEM
+    assert verdicts("es") == {**expected, "EDF": "obtain", "EDIP": "obtain", "EDIP-USI": "conditional", "ES-MOD": "blocked"}
+    es = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-es.json").read_text(encoding="utf-8"))
+    assert next(a for a in es["assessments"] if a["programme"] == "ES-MOD")["blocking"] == ["ES-HSEM"]
     ua = json.loads((ROOT / "web" / "e2e" / "fixtures" / "assess-ua.json").read_text(encoding="utf-8"))
     edip = next(a for a in ua["assessments"] if a["programme"] == "EDIP")
     assert edip["blocking"] == ["EDIP-ESTABLISH", "EDIP-EXEC-MGMT"]      # Ukraine is not an associated country of the Programme

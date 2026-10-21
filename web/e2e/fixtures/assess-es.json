@@ -942,7 +942,9 @@
    "verdict": "obtain"
   },
   {
-   "blocking": [],
+   "blocking": [
+    "ES-HSEM"
+   ],
    "conditions": [],
    "counts": {
     "conditional": 0,
@@ -1058,7 +1060,7 @@
      "note": "UNVERIFIED: the legal basis of the register, its fee, processing time and validity were not found in a primary source, so none is shown.",
      "obligation": "mandatory",
      "outcome": "unknown",
-     "reason": "The questionnaire does not ask yet whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it.",
+     "reason": "Say on the supplier profile page (Readiness, Supplier profile) whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it.",
      "requirement": "REQ-RID",
      "rule": "ES-RID",
      "source": {
@@ -1603,7 +1605,7 @@
    "sourceUrl": "https://sede.defensa.gob.es/acceda/procedimientos",
    "summary": "Supplying the Spanish Ministry of Defence, directly or as a subcontractor in its contracts: the defence industry register, PECAL quality, security clearances, catalogation, homologation, the Spanish defence-material licence and foreign ownership. For companies established in Spain.",
    "toObtain": [],
-   "verdict": "conditional"
+   "verdict": "blocked"
   }
  ],
  "call": null,
@@ -1674,7 +1676,11 @@
  ],
  "general": [
   {
-   "blocking": [],
+   "blocking": [
+    "G-EXPORT-MIL",
+    "G-REOCE",
+    "G-HSEM"
+   ],
    "conditions": [],
    "counts": {
     "conditional": 0,
@@ -2032,7 +2038,7 @@
    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
    "summary": "Export control, exporter registration and facility security clearance depend on what you make and where you sell, not on the programme.",
    "toObtain": [],
-   "verdict": "eligible"
+   "verdict": "blocked"
   }
  ],
  "generatedAt": "2026-10-17T12:00:00+00:00",
@@ -2180,7 +2186,9 @@
     "when": null
    },
    {
-    "blockingFor": [],
+    "blockingFor": [
+     "ES-MOD"
+    ],
     "branchNote": null,
     "category": "security",
     "code": "REQ-FSC-ES",
@@ -2607,5 +2615,5 @@
    "REQ-PECAL"
   ]
  },
- "rulesReviewed": "2026-10-18"
+ "rulesReviewed": "2026-10-20"
 }

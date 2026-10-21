@@ -47,13 +47,13 @@ test('a civilian castings maker: errors first, then exactly the request of the f
 
   // saving an empty page: the problems are listed in an alert that takes focus, and each links to its field
   await page.getByRole('button', { name: 'Save and see my results' }).click();
-  const alert = page.getByRole('alert').filter({ hasText: 'need a change before saving' });
+  const alert = page.getByRole('alert').filter({ hasText: /needs? a change before saving/ });
   await expect(alert).toContainText('Choose the country where your company is established.');
-  await expect(alert).toContainText('Choose at least 5 CPV codes (you have 0).');
+  // WP-73 (QA MJ-2): no CPV code is required, since no rule reads them
+  await expect(alert).not.toContainText('CPV');
   await expect(alert).toBeFocused();
-  await alert.getByRole('link', { name: /Choose at least 5 CPV codes/ }).click();
-  await expect(page.getByLabel('Search the CPV codes')).toBeFocused();
-  await expect(page.getByLabel('Search the CPV codes')).toHaveAttribute('aria-invalid', 'true');
+  await alert.getByRole('link', { name: /Choose the country/ }).click();
+  await expect(page.getByLabel('Country where your company is established')).toBeFocused();
   expect(posted).toEqual([]);
 
   await page.getByLabel('Country where your company is established').selectOption('ES');
@@ -83,10 +83,10 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   await group(page, /US origin/).getByLabel('No', { exact: true }).check();
   await group(page, /access to classified information/).getByLabel('No', { exact: true }).check();
 
-  // four codes and a bad NACE code: refused, with both reasons
+  // a bad NACE code: refused, with its reason (four CPV codes are fine since WP-73)
   await page.getByRole('button', { name: 'Save and see my results' }).click();
   await expect(alert).toContainText('Enter a NACE code such as 25.50 or C25.50, or leave it empty.');
-  await expect(alert).toContainText('Choose at least 5 CPV codes (you have 4).');
+  await expect(alert).not.toContainText('CPV');
   await expect(page.getByLabel('NACE code of your main activity (optional)')).toHaveAttribute('aria-invalid', 'true');
   await page.getByLabel('NACE code of your main activity (optional)').fill('24.53');
   await search.fill('44300000');
@@ -105,8 +105,10 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   expect(posted[posted.length - 1]).toEqual(fixture('request-es-sup-civil.json'));
 
   const card = page.getByRole('article', { name: 'Spanish defence supplier (MoD)' });
-  await expect(card).toHaveAttribute('data-verdict', 'obtain');
-  await expect(card.getByText(/answers? (is|are) missing/)).toHaveCount(0);
+  // WP-73 (QA MJ-4): Spain's NCAGE without a justified need is a condition of the route, so the route is conditional, not "obtain"
+  await expect(card).toHaveAttribute('data-verdict', 'conditional');
+  // the list of missing answers ("1 answer is missing:"), not the verdict's words "an answer is missing"
+  await expect(card.getByText(/\d+ answers? (is|are) missing/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Change my supplier profile' })).toBeVisible();
   const block = await stored(page);
   expect(block.version).toBe(3);
