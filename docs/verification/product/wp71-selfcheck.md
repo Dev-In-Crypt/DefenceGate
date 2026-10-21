@@ -172,5 +172,5 @@ docker compose ... start api worker
 
 ## Scratch
 
-- Local: `D:\DEFENCEGATE TESTS\wp71` (venv, `head/` copy) and the container `dgate-wp71`. Both are removed at the end of the run.
+- Local: the container `dgate-wp71` and the `head/` copy were removed; the venv in `D:DEFENCEGATE TESTSwp71.venv` is kept for a rerun (delete the folder when done).
 - Production: nothing was created. The probes were read-only and piped through stdin.
