@@ -81,7 +81,7 @@ Also changed because it would otherwise be false: G-CLASSIFIED-OTHER said only S
 
 ## 5. Tests
 
-New: `backend/tests/unit/test_wp64_rules.py` (13 test functions, 19 cases), `backend/tests/integration/test_wp64.py` (2), `web/lib/wp64.check.ts`,
+New: `backend/tests/unit/test_wp64_rules.py` (14 test functions, 20 cases), `backend/tests/integration/test_wp64.py` (2), `web/lib/wp64.check.ts`,
 `web/e2e/wp64.spec.ts` (2 tests x desktop and 375 px), generated fixture `web/e2e/fixtures/{request,assess}-es-auto.json`.
 
 Existing tests changed, and why (no assertion removed or loosened):
@@ -109,7 +109,7 @@ Runs (local, `D:\DEFENCEGATE TESTS\wp64`, Postgres 17 container `dgate-wp64` on 
 | `tsc --noEmit` | exit 0 |
 | `npm run check` (lib checks, incl. `wp64.check.ts`) | all ok |
 | `next build` (mock data) | exit 0 |
-| Playwright, 4 workers, desktop + 375 px | 452 passed, 40 skipped (the specs' own `test.skip` cases), 0 failed |
+| Playwright, 4 workers, desktop + 375 px | 452 passed, 40 skipped (not examined; the WP-61 run skipped 32), 0 failed |
 | `python -m dgate.readiness.seed --check` | 7 programmes, 15 requirements, 75 rules |
 
 Hostile review of the diff: 6 issues found and fixed before the final runs: ES-MOD shown as "eligible" to non-Spanish companies
