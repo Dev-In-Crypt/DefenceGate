@@ -195,8 +195,9 @@ def _organisation(conn, name: str, *, reg: str | None = None, country: str = "FR
 
 
 def test_identifier_candidates_are_merged_with_method_and_confidence_and_the_rest_waits(conn):
-    commune = _organisation(conn, "commune de montoir de bretagne", reg="21440103600121")
-    mairie = _organisation(conn, "mairie de montoir-de-bretagne")
+    # companies: a commune and its mairie are public bodies, never merged by a number (WP-74)
+    commune = _organisation(conn, "chantiers de l atlantique", reg="21440103600121")
+    mairie = _organisation(conn, "chantiers de l atlantique saint-nazaire")
     a = _organisation(conn, "hopital a", reg="111")
     b = _organisation(conn, "hopital a site b", reg="222")
     x = _organisation(conn, "service x")

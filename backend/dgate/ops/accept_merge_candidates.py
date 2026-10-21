@@ -17,6 +17,14 @@ A pair, and the group it joins by shared members, is refused when anything contr
   * a row removed on request (suppressed) or marked as a natural person
   * a name that says one body acts for another ("per conto", "pour le compte", "im Auftrag" ...):
     the number is the agent's (`ACTING_FOR`)
+  * either side is a public authority or a unit of one (`buyer_family.is_public_body`: the
+    defence-buyer flag, `org_role` buyer, a public legal form, or a name of an administration or of
+    a department, directorate, service ...): a regional government, a ministry or a city council
+    files every department under one tax id, so the number proves one legal entity, not one buyer
+    (WP-74: the run of 21 October 2026 merged 6,641 such rows and was undone by `ops.undo_merges`).
+    With `--yes` such pairs are marked `rejected_public_units` and `ops.buyer_families` shows each
+    connected set as one buyer under the parent body's name (rule `shared_tax_id`). Companies that
+    share a VAT number, a registration number or a PIC are still merged.
 
 The head of a group is the row with the most notices, then the one holding a PIC, then the
 oldest. Each other row is merged with `db.merge_organisations`, which stores the method
@@ -41,7 +49,9 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from .. import db, networks
+from ..buyer_family import is_public_body
 from ..config import settings
+from . import buyer_families
 
 log = logging.getLogger("accept_merge_candidates")
 
@@ -56,7 +66,9 @@ IDENTIFIERS = ("reg", "vat", "pic")
 # 21 October 2026; such pairs wait for a person. Names are stored lower-case and unaccented.
 ACTING_FOR = re.compile(
     r"\b(?:per conto|pour (?:le )?compte|repres(?:ente|entee)? par|au nom d|on behalf|im auftrag"
-    r"|w imieniu|por cuenta|en (?:nombre|representacion) de|c/o|mandatair)", re.IGNORECASE)
+    r"|w imieniu|por cuenta|en (?:nombre|representacion) de|c/o|mandatair"
+    # Dutch "p.a." (per adres: care of; "p a ku leuven", "p a csg"), not the "s p a" of an Italian name
+    r"|(?<!\bs )p a\b)", re.IGNORECASE)
 
 
 def pending_by_method(conn) -> list[dict[str, Any]]:
@@ -87,6 +99,7 @@ def organisations(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
         for r in conn.execute(
                 """SELECT g.id, g.country, g.canonical_name AS name, g.suppressed,
                           g.individual_reason IS NOT NULL AS person,
+                          g.is_defence_buyer, g.org_role, g.legal_form,
                           NULLIF(btrim(g.national_reg_no), '') AS reg,
                           NULLIF(upper(regexp_replace(coalesce(g.vat_number, ''), '[^A-Za-z0-9]', '', 'g')), '') AS vat,
                           NULLIF(btrim(g.eu_pic), '') AS pic,
@@ -112,7 +125,14 @@ def _pair_refusal(a: dict[str, Any] | None, b: dict[str, Any] | None) -> str | N
     for k in IDENTIFIERS:
         if a[k] and b[k] and a[k] != b[k]:
             return f"different_{k}"
+    if _public(a) or _public(b):
+        return "public_body"
     return None
+
+
+def _public(o: dict[str, Any]) -> bool:
+    return is_public_body(o["name"], o["country"], legal_form=o.get("legal_form"),
+                          org_role=o.get("org_role"), defence_buyer=bool(o.get("is_defence_buyer")))
 
 
 def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
@@ -208,6 +228,17 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
     out(f"strong candidates ({'/'.join(STRONG_METHODS)} >= {MIN_CONFIDENCE}): {len(pairs)}; accepted "
         f"{result['accepted_candidates']} in {len(groups)} groups ({result['rows_to_merge']} rows to "
         f"merge); refused {dict(refused)}")
+    public = [p for p in pairs
+              if _pair_refusal(orgs.get(p["a"]), orgs.get(p["b"])) == "public_body"]
+    result["families"] = buyer_families.run(
+        conn, write=False, extra_pairs=[(p["a"], p["b"]) for p in public])
+    out(f"public-body pairs (never merged, shown as buyer families): {len(public)}; buyer families "
+        f"once they are: {result['families']}")
+    result["public_sample"] = [
+        {"candidate": p["id"], "a": (p["a"], orgs[p["a"]]["name"]), "b": (p["b"], orgs[p["b"]]["name"])}
+        for p in sorted(public, key=lambda p: hashlib.sha1(str(p["id"]).encode()).hexdigest())[:sample]]
+    for s in result["public_sample"]:
+        out(f"  public #{s['candidate']}: {s['a'][0]} {s['a'][1][:50]!r} ~ {s['b'][0]} {s['b'][1][:50]!r}")
     result["sample"] = sample_pairs(groups, orgs, sample)
     for s in result["sample"]:
         out(f"  #{s['candidate']} {s['country']} head {s['head']}: {s['a'][0]} {s['a'][1][:45]!r} "
@@ -219,6 +250,11 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
         conn.rollback()
         out("dry run: nothing written (add --yes)")
         return result
+    conn.execute(
+        """UPDATE organisation_merge_candidate SET status = 'rejected_public_units', decided_at = now()
+            WHERE id = ANY(%s) AND status = 'pending'""", ([p["id"] for p in public],))
+    conn.commit()
+    result["rejected_public_units"] = len(public)
     for g in groups[:limit]:
         for member in g["members"]:
             db.merge_organisations(
@@ -230,6 +266,7 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
             """UPDATE organisation_merge_candidate SET status = 'merged', decided_at = now()
                 WHERE id = ANY(%s) AND status = 'pending'""", ([p["id"] for p in g["candidates"]],))
         conn.commit()
+    result["families_written"] = buyer_families.run(conn, write=True)
     result["directory_rows"] = networks.refresh_organisation_network(conn)["organisations"]
     out(f"merged {result['merged']} rows in {min(len(groups), limit or len(groups))} groups")
     return result

@@ -153,5 +153,6 @@ def test_a_body_acting_for_another_is_not_proved_one_by_the_agents_number():
     assert groups == [] and refused == {"acting_for_another_body": 1}
     orgs[2]["name"] = "sua provincia di cosenza per conto del comune di rende"
     assert plan([_pair(1, 1, 2)], orgs)[1] == {"acting_for_another_body": 1}
-    orgs[2]["name"] = "commune de montoir de bretagne"          # no such words: accepted
+    # no such words: accepted (a company: a commune is a public body, refused since WP-74)
+    orgs[2]["name"] = "chantiers navals de montoir"
     assert plan([_pair(1, 1, 2)], orgs)[1] == {}
