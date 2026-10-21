@@ -110,23 +110,25 @@ test('a card has no outline in the light and in the dark theme, its surface diff
   expect(dark.page, 'the dark page of the book').toBe('rgb(15, 29, 23)');
 });
 
-// WP-62: the book's card anatomy (padding 28, 20 px between the parts, a 28/36 title, a grid of inset fact cells) is taller than the compact
-// WP-47 card (call 215 px, tender 260 px at 1280). Measured on the demo data: call 331-371, tender 388-429 at 1280; call 591-645, tender
-// 588-735 at 375. The limits keep that size from growing further.
-test('list cards keep the book anatomy at a bounded height: a call card at most 380 px and a tender card at most 460 px (700 / 780 px at 375)', async ({ page }) => {
+// WP-62, owner's decision of 21 Oct 2026: the book's full card anatomy (padding 28, 20 px gaps, a 28/36 title) made call cards 331-371 px
+// and tender cards 388-429 px at 1280. The compact card (padding 20, 12 px gaps, a 20/28 two-line title, facts as small inset cells in a
+// 22rem column, provenance on one line under both) measures call 205-225, tender 220-289 at 1280, call 419-465, tender 438-553 at 375 on
+// the demo data; before WP-62 it was
+// call 193-233, tender 229-298 at 1280 and call 437-519, tender 457-593 at 375. The limits are the owner's targets and "no taller than before".
+test('list cards are compact: a call card at most 260 px and a tender card at most 300 px (520 / 600 px at 375)', async ({ page }) => {
   await visit(page, '/funding', { title: /funding/i, h1: /funding/i });
   const calls = await page.locator('main article').evaluateAll((a) => a.map((e) => Math.round(e.getBoundingClientRect().height)));
   expect(calls.length).toBeGreaterThan(0);
-  const callMax = isMobile(page) ? 700 : 380;
+  const callMax = isMobile(page) ? 520 : 260;
   expect(Math.max(...calls), `call card heights ${calls.join(',')}`).toBeLessThanOrEqual(callMax);
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
   await expect(page.locator('main article').first()).toBeVisible();
   const tenders = await page.locator('main article').evaluateAll((a) => a.map((e) => Math.round(e.getBoundingClientRect().height)));
   expect(tenders.length).toBeGreaterThan(0);
-  expect(Math.max(...tenders), `tender card heights ${tenders.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 780 : 460);
-  // the title is the book's h2, 28/36, and 22/30 in a card narrower than 664 px
+  expect(Math.max(...tenders), `tender card heights ${tenders.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 600 : 300);
+  // the title is the card-title step, 20/28
   const title = await page.locator('main article h2').first().evaluate((e) => ({ s: getComputedStyle(e).fontSize, l: getComputedStyle(e).lineHeight }));
-  expect(title).toEqual(isMobile(page) ? { s: '22px', l: '30px' } : { s: '28px', l: '36px' });
+  expect(title).toEqual({ s: '20px', l: '28px' });
 });
 
 test('the facts of a call page are a hairline grid of at most three columns', async ({ page }) => {

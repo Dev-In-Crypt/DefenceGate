@@ -17,20 +17,26 @@ import { BasisChips } from './basis-chips';
 import { FitBadge } from '../funding/fit-badge';
 
 /**
- * A list card (brand book CallCard): the surface with no outline, radius 20, padding 20 (28 from sm), 20 px between its parts; on hover a 1.5px
- * --ink-muted edge and the title underlined. The transparent border keeps the box the same size on hover and draws the card in forced colours.
+ * A list card: the book's surface with no outline, radius 20, a 1.5px --ink-muted edge and an underlined title on hover (the transparent
+ * border keeps the box the same size on hover and draws the card in forced colours). Compact by the owner's decision of 21 Oct 2026 (the
+ * book's 28 px padding, 20 px gaps and 28/36 title made a call card 331-371 px tall): padding 20, 12 px between the parts.
  */
-const CARD = '[container-type:inline-size] group relative flex flex-col gap-5 [&_p]:max-w-prose rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70 sm:p-7';
+const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 [&_p]:max-w-prose rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
 /**
- * Card title: the book's h2, 28/36, and 22/30 in a card narrower than 664 px (the card is a size container, so a narrow card in a 3-column
- * grid gets the small size too). Four lines at most in a narrow card, three in a wide one; the whole title is also in the link's `title`
- * (a tooltip) and always in the link text itself, which the clamp only hides.
+ * Card title: the card-title step, 20/28 bold (the book's 28/36 h2 is for page-level titles). Two lines at most in a wide card, three in a
+ * narrow one (the card is a size container); the whole title is also in the link's `title` (a tooltip) and always in the link text itself,
+ * which the clamp only hides.
  */
-export const CARD_TITLE = 'm-0 line-clamp-4 text-h2-sm cq:line-clamp-3 cq:text-h2';
+export const CARD_TITLE = 'm-0 line-clamp-3 text-h3 font-bold cq:line-clamp-2';
 const TITLE_LINK = 'break-words text-inherit no-underline decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-lg after:content-[""]';
-/** One column, as in the book: the text part (tags, title, lines), the fact grid, the provenance row. */
-export const CARD_BODY = 'grid gap-5';
+/**
+ * One column in a narrow card (text, facts, provenance). From a 664 px card the facts are a 22rem column at the right of the text, and the
+ * provenance runs under both on one line.
+ */
+export const CARD_BODY = 'grid gap-x-6 gap-y-3 cq:grid-cols-[minmax(0,1fr)_22rem]';
 export const CARD_TEXT = 'flex min-w-0 flex-col gap-2 cq:col-start-1 cq:row-start-1';
+const CARD_PROVENANCE = 'cq:col-span-2 cq:row-start-2';
+const CARD_FACTS = 'cq:col-start-2 cq:row-start-1';
 
 /** The title in the original language, one line, with its label; nothing when there is none. */
 function OriginalTitle({ title, lang }: { title: string | null | undefined; lang: string | null | undefined }) {
@@ -87,7 +93,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             </p>
           )}
         </div>
-        <dl className={LIST_FACTS}>
+        <dl className={cn(LIST_FACTS, CARD_FACTS)}>
           <ListFact label={d.rolling ? 'Submission' : soon ? 'Closing soon' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.rolling && d.iso ? (
               <>
@@ -120,7 +126,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
           </ListFact>
           <ListFact label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</ListFact>
         </dl>
-        <SourceBadge source={call.source} variant="inline" subject={displayName(call.title)} subjectLang={nonEnglish ? call.titleLanguage : undefined} />
+        <SourceBadge source={call.source} variant="inline" className={CARD_PROVENANCE} subject={displayName(call.title)} subjectLang={nonEnglish ? call.titleLanguage : undefined} />
       </div>
     </article>
   );
@@ -202,7 +208,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
           <OriginalTitle title={tender.originalTitle} lang={tender.originalLanguage} />
           <BasisChips tender={tender} lifted note={classifiedNote} />
         </div>
-        <dl className={LIST_FACTS}>
+        <dl className={cn(LIST_FACTS, CARD_FACTS)}>
           <ListFact label={soon ? 'Closing soon' : longRunning ? 'Open until (long-running)' : 'Deadline'} tone={soon ? 'soon' : closed ? 'closed' : 'default'}>
             {d.iso ? (
               <>
@@ -227,7 +233,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
           </ListFact>
           <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</ListFact>
         </dl>
-        <div className={'flex min-w-0 flex-col gap-2'}>
+        <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>
           <AnomalyNote tender={tender} />
           <SourceBadge source={tender.source} variant="inline" retrievedLabel={tenderChangedLabel(tender.source)} subject={displayName(tender.title)} subjectLang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined} />
         </div>
@@ -251,7 +257,7 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
           {buyer.country && <span className="text-small text-ink-muted"><CountryLabel code={buyer.country} /></span>}
           {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
         </div>
-        <dl className={LIST_FACTS}>
+        <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-start-1')}>
           <ListFact label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></ListFact>
           <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></ListFact>
           <ListFact label="Last published">
