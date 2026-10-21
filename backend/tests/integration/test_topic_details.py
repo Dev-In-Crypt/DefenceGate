@@ -210,7 +210,11 @@ def test_a_pot_shared_by_sibling_topics_is_labelled_all_the_way_to_the_api(
 
 
 def test_the_conditions_are_served_on_the_single_call(conn, fs_store, monkeypatch):
-    _calendar(monkeypatch, [_calendar_topic(1, "EDF-2026-RA-SENS-MSDT")])
+    # An open call with its deadline ahead: /v1/calls serves the status the dates settle (WP-72), and
+    # the fixture's 29 September 2026 has passed, which would make the call closed.
+    topic = _calendar_topic(1, "EDF-2026-RA-SENS-MSDT")
+    topic["actions"][0]["deadlineDates"] = ["4102444800000"]           # 1 January 2100
+    _calendar(monkeypatch, [topic])
     pipeline.run_eu_portal()
     monkeypatch.setattr(portal, "fetch_topic_details",
                         lambda ident, client=None: _details(ident, states=True))

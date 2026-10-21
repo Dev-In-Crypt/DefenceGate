@@ -107,3 +107,15 @@ If they are served, the supplier pages must carry the attribution and the date o
 | 10 | Personal data | the publisher masks a natural person's NIF ("***1234**": 7 of 80 live winners, all capitals-only personal names). The loader treats as a person a masked number, a DNI or an NIE, and a name without a CIF that reads as a person's, and lands of a person only `{"natural_person": true}` (no name, number, address); no winner's street, city or postcode is landed; the result's free-text description is not read. UTEs are kept as joint ventures, a member that reads as a person blanked |
 | 11 | robots.txt | `Disallow: /` on both portal hosts. The connector reads only the syndication files under `/sindicacion/`, as it has since September 2026; this note did not fetch the portal's pages |
 | 12 | Failure modes | the archive of a month includes 1,430 entries of September 2021 (a loose filename match; filtered by `since`); a frozen live feed (handled by `pipeline.run_placsp_live`); a large monthly archive nearly filled a 2 GiB worker (entries spooled to disk). datos.gob.es comments of 24 September and 7 October 2026 report failed syndications being regenerated |
+
+## Notices without a publication date (WP-72, 21 October 2026)
+
+13,499 of 36,506 es_placsp rows (37 %) have no `published_at`. They are the award, formalisation and cancellation
+entries of folders whose call notice we never read (it predates the history we hold), so the entry states no
+publication of a call. What we hold cannot supply one: the raw store keeps the record the connector mapped, not the
+CODICE entry (no `cbc:IssueDate` or award date is left in it), and the 1,076 such rows that once had a dated version
+were all re-read by `remap_source --epoch 2` (`placsp_call_date`): 552 of those versions carry the entry's stamp and
+in 551 the date is after the notice's own deadline (an award date, refused by design). `notice_date` (the day of the
+entry's own update stamp) is set on 13,466 of them (99.8 %); the lists sort by `coalesce(published_at, notice_date)`
+and the site labels it as the date of that notice. A true call date needs the entry itself: the archive replay
+(`pipeline placsp-backfill` from the monthly or annual archives), not a re-map.

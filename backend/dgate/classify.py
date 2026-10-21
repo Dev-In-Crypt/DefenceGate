@@ -161,6 +161,26 @@ GOODS_DEFENCE_SQL = (f"({CORE_SQL} AND (o.sig_legal_basis OR (o.sig_cpv_military
 # and not core.
 SUPPLY_SQL = (f"((o.sig_buyer OR o.sig_linked_defence OR {CIVIL_DIRECTIVE_SQL}"
               f" OR {SECURITY_CPV_SQL}) AND NOT {CORE_SQL})")
+# Whether a notice is in `core` or `supply` (the default `relevant` list) by its OWN signals, as if
+# it had no link to a twin: what a twin must be for its link to count (`sig_linked_defence`, WP-72).
+# A link to a TED notice that is only dual-use (GDDKiA motorway works carrying 35710000 among 28
+# construction codes) put 264 national copies in the default list above their TED original
+# (QA audit of 21 October 2026, finding 3). Reading the twin without its own link also keeps two
+# twins from qualifying each other. `own_relevance_sql("t")` writes it over another alias.
+OWN_RELEVANCE_SQL = (f"(o.is_defence AND ({CORE_SQL} OR o.sig_buyer OR {CIVIL_DIRECTIVE_SQL}"
+                     f" OR {SECURITY_CPV_SQL}))").replace("o.sig_linked_defence", "FALSE")
+
+
+def own_relevance_sql(alias: str) -> str:
+    return re.sub(r"\bo\.", f"{alias}.", OWN_RELEVANCE_SQL)
+
+
+def relevant_on_its_own(*, legal_basis: bool, military_cpv: bool, dual_use: bool, buyer: bool,
+                        buyer_class: str | None) -> bool:
+    """The Python twin of OWN_RELEVANCE_SQL (for a notice that is `is_defence`)."""
+    kw = dict(legal_basis=legal_basis, military_cpv=military_cpv, dual_use=dual_use, buyer=buyer,
+              linked_defence=False, buyer_class=buyer_class)
+    return in_core(**kw) or buyer or scope_group_of(**kw) is not None
 
 
 def scope_group_of(*, legal_basis: bool, military_cpv: bool, dual_use: bool, buyer: bool,

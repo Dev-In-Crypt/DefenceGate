@@ -312,6 +312,14 @@ def ted_fields(xml: str) -> dict[str, Any]:
             stamps.append((end, hour))
     out["_deadlines"] = stamps
 
+    # BT-15, the address of the procurement documents: the notice on the buyer's tendering platform
+    # (evergabe-online, vergabe.niedersachsen.de, BWI ...), stated by the notice itself. The day files
+    # name no page of their own on oeffentlichevergabe.de, so this is the notice's only link (WP-72).
+    out["_documents_url"] = next(
+        (u for ref in _walk(root, "CallForTendersDocumentReference")
+         for u in (_t(e) for e in _path(ref, "Attachment", "ExternalReference", "URI"))
+         if u and u.lower().startswith(("http://", "https://"))), None)
+
     est, cur = _amount(next(iter(_path(proc, "RequestedTenderTotal", "EstimatedOverallContractAmount")), None))
     out["estimated-value-proc"], out["estimated-value-cur-proc"] = est, cur
     lot_values, lot_cur = [], []

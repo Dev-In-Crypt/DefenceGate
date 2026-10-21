@@ -63,6 +63,9 @@ def put_ted(conn, native_id: str, *, defence: bool = True, procedure: str | None
         source_code="ted", native_id=native_id, buyer_name_raw=buyer, country=country,
         title_original=f"TED {native_id}", published_at=published, deadline_at=deadline,
         cpv_codes=list(cpv), status="open", is_defence=defence, sig_cpv=defence,
+        # A defence TED twin is one in the default list on its own signals (WP-72: a twin that is
+        # only dual-use no longer lifts its national copy; test_wp72 covers that case).
+        sig_legal_basis=defence,
         value_amount=value, value_currency="EUR" if value else None)
     src = db.source_id(conn, "ted")
     opp.buyer_org_id = db.resolve_organisation(conn, buyer, country, src_id=src)

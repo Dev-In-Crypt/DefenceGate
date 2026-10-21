@@ -12,6 +12,8 @@ Sources and what the corrections are (see docs/DATA_QUALITY_PLAN_2026-10-12.md):
     fr_boamp      CPV codes, award and estimated values, rectificatif link; from epoch 3
                   the deadline of an eForms notice (read from the body, not DILA's column)
                   and the lot count
+    de_bkms       the notice's link (BT-15, the procurement documents on the buyer's
+                  platform), which the first mapper left empty (WP-72)
     nl_tenderned  status of prior-information notices, legal basis
     pl_ezam       status (noticeTypeTed fallback), procedure, plan-notice titles, TED link
     pl_atlas      procedure, status of annulled results; from epoch 3 the deadline read as
@@ -62,6 +64,7 @@ from ..normalise import (
     Opportunity,
     from_atlas_pl,
     from_boamp,
+    from_de_bkms,
     from_ezamowienia,
     from_tenderned,
     strip_personal_data,
@@ -140,6 +143,9 @@ MAPPERS = {
     "pl_atlas": from_atlas_pl,
     "es_placsp": from_placsp_stored,
     "es_placsp_agg": from_placsp_stored,
+    # WP-72: the link to the notice on the buyer's tendering platform (BT-15), which the first
+    # mapper never read (`source_url` was empty on all 12,700 German rows).
+    "de_bkms": from_de_bkms,
 }
 
 # Per source, the fields a mapper knows to be wrong and says so: cleared although a fact is
@@ -154,12 +160,13 @@ FIELDS = (
     "status", "status_native", "procedure_type", "legal_basis", "title_original", "title_en",
     "value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
     "ted_ref", "related_native_id", "country", "lot_count", "notice_date", "notice_kind",
+    "source_url",
 )
 
 # Facts: a mapper that now yields nothing does not erase what is stored.
 PRESERVE = ("value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
             "ted_ref", "related_native_id", "title_en", "legal_basis", "country", "lot_count",
-            "notice_date", "notice_kind")
+            "notice_date", "notice_kind", "source_url")
 
 # Columns that are not versioned: updated in place when they differ.
 DIRECT = ("status_native", "ted_ref", "related_native_id", "title_en", "lot_count",

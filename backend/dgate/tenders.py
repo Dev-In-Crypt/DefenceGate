@@ -807,9 +807,15 @@ def status_conditions(status: str, eff: str) -> list[str]:
     return []
 
 
-def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency):
+def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency,
+                    conn=None):
     """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
-    list or export applies: one place, so the list and the export can never disagree."""
+    list or export applies: one place, so the list and the export can never disagree.
+
+    One country, and a buyer whose family is one row, are written as a plain `=` (WP-72): the
+    planner then walks the (country | buyer, order) indexes of migration 0096 in the list's order and
+    stops after a page. `= ANY(...)` over the same one value made it walk the whole list index and
+    filter (the Malta list and a buyer page read most of 290,000 index entries per page)."""
     api = _api()
     eff = api.EFFECTIVE_STATUS_SQL
     where = ["o.is_defence = TRUE", "NOT o.suppressed", api.SCOPE_SQL[scope]]
@@ -834,7 +840,10 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
             params += [w] * 3
         params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
-    if countries:
+    if len(countries) == 1:
+        where.append("o.country = %s")
+        params.append(countries[0])
+    elif countries:
         where.append("o.country = ANY(%s)")
         params.append(countries)
     prefixes = _split(cpv, "cpv", max_length=api.MAX_PREFIX_LENGTH)
@@ -846,8 +855,17 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         where.append("(" + " OR ".join(clauses) + ")")
     if buyer is not None:
         # Every organisation row of the buyer's family (any member id gives the family).
-        where.append("o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))")
-        params.append(buyer)
+        ids = (conn.execute("SELECT dgate_family_ids(%s) AS ids", (buyer,)).fetchone()["ids"]
+               if conn is not None else None)
+        if ids is not None and len(ids) == 1:
+            where.append("o.buyer_org_id = %s")
+            params.append(ids[0])
+        elif ids:
+            where.append("o.buyer_org_id = ANY(%s)")
+            params.append(sorted(ids))
+        else:
+            where.append("o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))")
+            params.append(buyer)
     if from_:
         where.append("o.deadline_at >= %s")
         params.append(datetime.combine(from_, time(0, 0), tzinfo=timezone.utc))
@@ -999,7 +1017,7 @@ def list_tenders(
       - `all` with no sort, or sorted by deadline, is the open notices (soonest deadline first) and then
         the rest, as two reads: the open part is a few thousand rows, found by index"""
     where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                         to, min_, max_, currency)
+                                         to, min_, max_, currency, conn=conn)
     levels = _confidence_levels(confidence)
     if levels:
         where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
@@ -1045,7 +1063,7 @@ def list_tenders(
             # only; here an open notice whose twin is closed is counted in the rest, which the time box did not
             # finish. Each notice of the Open list is in this list or stands for its twin here, so its count holds.
             o_where, o_params, _ = _tender_filters(q, country, cpv, "open", scope, goods, buyer, from_,
-                                                   to, min_, max_, currency)
+                                                   to, min_, max_, currency, conn=conn)
             if levels:
                 o_where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
             total = max(total, _count(conn, o_where, o_params)[0])
@@ -1117,7 +1135,7 @@ def export_tenders(
     the list too slow for a long result). Call again with `cursor` = `nextCursor` until it is
     null. Rows are read a moment apart: a caller de-duplicates by id. Not cached."""
     where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                       to, min_, max_, currency)
+                                       to, min_, max_, currency, conn=conn)
     after = int(cursor) if cursor is not None else None
     sql, repeats = export_sql(where, limit, after)
     args = params * repeats + ([after] if after is not None else []) + [limit + 1]
@@ -1166,7 +1184,7 @@ def tender_scope_counts(
     capped = False
     for scope in ("relevant", "core", "supply"):
         where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                           to, min_, max_, currency)
+                                           to, min_, max_, currency, conn=conn)
         out[scope], c = _count(conn, where, params)
         if c and out[scope] == 0:
             # Not even a lower bound in the time allowed (a search word that matches a fifth of the archive,

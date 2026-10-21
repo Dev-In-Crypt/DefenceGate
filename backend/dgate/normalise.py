@@ -1905,11 +1905,12 @@ def from_de_bkms(record: dict[str, Any]) -> Opportunity:
     ted_ref = canonical_ted_ref(fields.pop("_ted_ref", None))
     fields.pop("_folder_id", None)
     fields.pop("_lots", None)
+    documents_url = fields.pop("_documents_url", None)
 
     opp = from_ted(fields)
     opp.source_code = de_bkms.SOURCE_CODE
     opp.native_id = str(native_id)
-    opp.source_url = None
+    opp.source_url = http_url(documents_url)
     opp.country = opp.country or "DE"
     opp.original_language = opp.original_language or "DE"
     opp.ted_ref = ted_ref
