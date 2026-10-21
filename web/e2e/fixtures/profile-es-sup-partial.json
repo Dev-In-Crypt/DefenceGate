@@ -2,7 +2,7 @@
   "version": 3, "step": 1, "updatedAt": null, "name": "", "sizeClass": "medium", "country": "ES", "legalForm": "", "applicantKind": "",
   "management": "", "managementCountry": "", "control": "no", "uaOccupied": "", "uaPartner": "", "seapPartner": "", "regime": "",
   "componentPct": "", "restricted": "", "uaEeaComponents": "", "safeRole": "",
-  "statuses": { "REQ-ISO9001": "held", "REQ-PECAL": "not_held", "REQ-RID": "not_held" },
+  "statuses": { "REQ-ISO9001": "held", "REQ-PECAL": "not_held", "REQ-RID": "not_held", "REQ-NCAGE": "not_held", "REQ-EN9100": "not_held", "REQ-AQAP2110": "not_held", "REQ-AQAP2310": "not_held" },
   "classified": "no", "exportIntent": "",
   "supplier": {
     "region": "", "foreignOwner": "no", "foreignCountry": "", "nace": "",

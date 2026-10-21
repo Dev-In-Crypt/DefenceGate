@@ -61,7 +61,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
 
   if (!go) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 print:hidden">
         <p className="m-0 text-body">
           Organisations that took part in earlier funded projects of the same area as this call, from CORDIS and the EDF project factsheets, with the projects as evidence.
           They are loaded when you ask.

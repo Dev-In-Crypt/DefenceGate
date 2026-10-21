@@ -51,9 +51,11 @@ def test_the_supplier_requests_are_accepted_and_small(key):
 
 
 @pytest.mark.parametrize("key, was, now, verdict", [
-    ("es-sup-civil", 19, 0, "obtain"),
-    ("es-sup-defence", 20, 0, "eligible"),
-    ("es-sup-partial", 19, 15, "obtain"),
+    # WP-73: the route counts its conditional rules where they apply, so an open condition (civil: NCAGE without a justified need)
+    # or a missing answer (defence: the HSEM, which the page now asks and which is no longer "not held" when unanswered) is "conditional"
+    ("es-sup-civil", 19, 0, "conditional"),
+    ("es-sup-defence", 21, 1, "conditional"),
+    ("es-sup-partial", 19, 15, "conditional"),
 ])
 def test_open_questions_of_the_spanish_route_before_and_after_the_supplier_page(key, was, now, verdict):
     old, _ = missing(before(request(key)))

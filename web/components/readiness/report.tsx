@@ -5,7 +5,7 @@ import { cpvDictionaryTitle } from '@/lib/cpv';
 import { now } from '@/lib/deadline';
 import { formatStamp } from '@/lib/account-format';
 import { CERTIFICATES, ES_QUESTIONS, PROCESSES, REGISTRATIONS, holds, type Profile, type Tri } from '@/lib/profile';
-import { VERDICT_MEANING, VERDICT_WORD, isoDay, publicPassage, publicRef } from '@/lib/readiness';
+import { VERDICT_WORD, isoDay, publicPassage, publicRef, verdictMeaning } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 import { RAG_WORD, supplierRoadmap, type Rag, type RoadmapItem } from '@/lib/supplier-roadmap';
 import { countryName } from '@/lib/taxonomy';
@@ -20,7 +20,7 @@ import { ConsultantNote, VerdictBadge } from './rules';
 import { NoProfile } from './results';
 import { ES_REGIONS } from './supplier';
 import { SIZE_OPTIONS } from './wizard';
-import { useAssessment, useProfile } from './use-readiness';
+import { useAssessment, useCpvVocabulary, useProfile } from './use-readiness';
 
 export const DISCLAIMER = 'Indicative, sources linked, not legal advice.';
 
@@ -73,6 +73,7 @@ const TRI: Record<Tri, string> = { yes: 'Yes', no: 'No', unsure: 'Not sure', '':
 
 /** The company as entered on the supplier page and in the readiness check: nothing added, nothing inferred. */
 function ProfileRows({ p }: { p: Profile }) {
+  const vocab = useCpvVocabulary();
   const s = p.supplier;
   const region = ES_REGIONS.find((r) => r.value === s.region)?.label ?? s.region;
   const held = [...CERTIFICATES, ...REGISTRATIONS].filter((h) => (!h.esOnly || p.country === 'ES') && holds(p, h));
@@ -89,7 +90,7 @@ function ProfileRows({ p }: { p: Profile }) {
       <Row label="What you make (CPV)">
         {s.cpv.length === 0 ? 'None chosen' : (
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {s.cpv.map((c) => <li key={c}><span className="font-mono">{c}</span> {cpvDictionaryTitle(c) ?? ''}</li>)}
+            {s.cpv.map((c) => <li key={c}><span className="font-mono">{c}</span> {vocab?.get(c) ?? cpvDictionaryTitle(c) ?? ''}</li>)}
           </ul>
         )}
       </Row>
@@ -116,7 +117,7 @@ function Results({ data }: { data: Assessment }) {
               <h3 className="m-0 min-w-0 flex-1 text-h4">{a.name}</h3>
               <VerdictBadge verdict={a.verdict} />
             </div>
-            <p className="m-0 max-w-prose text-small">{VERDICT_MEANING[a.verdict]}</p>
+            <p className="m-0 max-w-prose text-small">{verdictMeaning(a)}</p>
             {lists.filter(([, xs]) => xs.length > 0).map(([label, xs]) => <p key={label} className="m-0 text-small"><strong>{label}:</strong> {xs.join('; ')}.</p>)}
             {a.missing.length > 0 && <p className="m-0 text-small text-ink-muted">{a.missing.length === 1 ? '1 answer is missing.' : `${a.missing.length} answers are missing.`}</p>}
           </li>

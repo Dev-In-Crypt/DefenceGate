@@ -15,6 +15,19 @@ export const VERDICT_MEANING: Record<Verdict, string> = {
   blocked: 'At least one rule that every applicant must meet is not met.',
   conditional: 'No rule is plainly broken, but a condition applies or an answer is missing.',
 };
+/**
+ * The meanings on a supply route (NATO and NSPA, the Spanish Ministry of Defence): its rules bind a supplier where they apply (the HSEM where
+ * classified information is handled), and the Financial Regulation of EU funding has nothing to say about a purchase (QA m-1, WP-73).
+ */
+const ROUTE_MEANING: Record<Verdict, string> = {
+  eligible: 'No rule of this route blocks you on the answers given. Each buyer sets further conditions in its tender documents.',
+  obtain: 'Every rule of this route that applies to you is met except a registration you can obtain. Once you hold it, no rule of this route blocks you on the answers given.',
+  blocked: 'At least one rule of this route that applies to you, and that a supplier must meet, is not met.',
+  conditional: 'No rule is plainly broken, but a condition applies or an answer is missing.',
+};
+export function verdictMeaning(a: { kind: string; verdict: Verdict }): string {
+  return (a.kind === 'route' ? ROUTE_MEANING : VERDICT_MEANING)[a.verdict];
+}
 
 export const OUTCOME_WORD: Record<Outcome, string> = {
   met: 'Met', not_met: 'Not met', to_obtain: 'To obtain', conditional: 'Conditional', unknown: 'Needs an answer',

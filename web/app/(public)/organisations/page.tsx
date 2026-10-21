@@ -5,7 +5,7 @@ import { getOrganisations } from '@/lib/networks-api';
 import { formatDateTimeUtc } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { activeOrgFilterCount, defaultOrgSort, parseOrgFilters, toOrgQuery } from '@/lib/networks';
-import { lastPage, type SearchParams } from '@/lib/filters';
+import { ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { ListPage } from '@/components/dg/list-page';
 import { CountryNote, DataSources, OrgCard, OrgFilterBar, ProgrammeScope } from '@/components/networks/parts';
@@ -35,13 +35,19 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function OrganisationsPage({ searchParams }: Props) {
-  const filters = parseOrgFilters(await searchParams);
+  const sp = await searchParams;
+  const filters = parseOrgFilters(sp);
   let result;
   try {
     result = await getOrganisations(filters);
   } catch (e) {
-    // The API serves no position beyond its cap (10,000): a page past it is not there, which is an answer, not a fault.
-    if (e instanceof ApiError && e.status === 422) notFound();
+    // The API serves no position beyond its cap (10,000): a page past it goes to the last page it serves, as the other lists clamp (QA m-9).
+    if (e instanceof ApiError && e.status === 422) {
+      // a refusal of page 1 as well is not about the page: then the answer stays "not there"
+      const head = await getOrganisations({ ...filters, page: 1 }).catch(() => null);
+      if (!head) notFound();
+      redirect(`/organisations${toOrgQuery({ ...filters, page: Math.min(lastPage(head.total, head.pageSize), Math.floor(10_000 / head.pageSize)) })}`);
+    }
     // Thrown, not drawn here: a list that failed must not answer 200 (re-audit N2). The framework answers 500, the edge sends
     // it as 503 with Retry-After and no-store (infra/Caddyfile), and error.tsx beside this page shows the message.
     throw e;
@@ -59,7 +65,7 @@ export default async function OrganisationsPage({ searchParams }: Props) {
         noun="organisations" page={result.page} pageSize={result.pageSize} total={result.total}
         totalText={result.totalExact ? undefined : `${result.total.toLocaleString('en-GB')} or more`}
         sort={{ value: filters.sort ?? defaultOrgSort(filters), options: SORT_OPTIONS }}
-        notices={result.staleAsOf ? [staleNote(result.staleAsOf, formatDateTimeUtc) as string] : []}
+        notices={[...(result.staleAsOf ? [staleNote(result.staleAsOf, formatDateTimeUtc) as string] : []), ...ignoredFilters(sp, 'organisations')]}
         clearHref="/organisations"
         emptyTitle="No organisations match these filters"
         emptyText="Try a shorter name or fewer filters. Only organisations that took part in at least one project we hold are listed."

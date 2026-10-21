@@ -5,15 +5,15 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, X } from 'lucide-react';
 import { cpvDictionaryTitle, cpvSearch } from '@/lib/cpv';
 import {
-  CERTIFICATES, CPV_MAX, ES_QUESTIONS, PROCESSES, REGISTRATIONS, cpvProblem, holds, monthProblem, naceProblem, savedSupplier,
-  supplierProblems, withHeld, type Holding, type Profile, type Supplier, type Tri,
+  CERTIFICATES, CPV_MAX, CPV_MIN, ES_CLEARANCES, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, clearanceAnswer, cpvProblem, holds, isEu,
+  monthProblem, naceProblem, savedSupplier, supplierProblems, withClearance, withHeld, type Holding, type Profile, type Supplier, type Tri,
 } from '@/lib/profile';
 import { cn } from '@/lib/utils';
 import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
 import { COUNTRY_OPTIONS, Radios, SIZE_OPTIONS, YES_NO_UNSURE } from './wizard';
-import { useProfile } from './use-readiness';
+import { useCpvVocabulary, useProfile } from './use-readiness';
 
 /** The autonomous communities and cities of Spain, by their ISO 3166-2 codes. */
 export const ES_REGIONS = [
@@ -112,7 +112,8 @@ export function SupplierForm() {
         <TextInput id="sp-nace" className="max-w-form" label="NACE code of your main activity (optional)" hint="For example 25.50 (forging, pressing, stamping and roll-forming of metal). No rule reads it."
           maxLength={12} value={s.nace} onChange={(e) => setS('nace', e.target.value)} error={tried ? (naceProblem(s.nace) ?? undefined) : undefined} />
         <Radios legend="Does a foreign investor own or control part of your company, directly or indirectly?" name="foreign_capital" value={s.foreignOwner}
-          hint="A rule of the Spanish Ministry of Defence route reads this answer; your results show it with its source." options={[...YES_NO_UNSURE]}
+          hint={es ? 'A rule of the Spanish Ministry of Defence route reads this answer; your results show it with its source.' : 'No rule of this check reads it for a company outside Spain; it is kept for your own summary.'}
+          options={[...YES_NO_UNSURE]}
           // no foreign shareholder at all also answers the wizard's "controlled from outside the EU?" with "no", when that was empty
           onChange={(v) => update((p) => ({ ...p, control: v === 'no' && p.control === '' ? 'no' : p.control, supplier: { ...p.supplier, foreignOwner: v } }))} />
         {s.foreignOwner === 'yes' && (
@@ -146,6 +147,16 @@ export function SupplierForm() {
           options={[...YES_NO_UNSURE]} onChange={(v) => setS('usComponents', v)} />
         <Radios legend="Will you need access to classified information in a contract?" name="classified" value={profile.classified}
           hint="The same answer as step 5 of the readiness check." options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, classified: v }))} />
+        {/* WP-73: a clearance is asked, never assumed "not held"; "I am not sure" leaves the rule open with its question */}
+        {es && ES_CLEARANCES.filter((q) => q.when(profile)).map((q) => (
+          <Radios key={q.code} legend={q.label} name={q.code} value={clearanceAnswer(profile, q.code)} options={[...YES_NO_UNSURE]}
+            hint="The same answer as step 4 of the readiness check. If you are not sure, your results keep the question open."
+            onChange={(v) => update((p) => withClearance(p, q.code, v))} />
+        ))}
+        {!es && isEu(profile.country) && (
+          <Radios legend="Do you receive defence-related products from other EEA states?" name={EU_QUESTION} value={s.answers[EU_QUESTION] ?? ''}
+            hint="A general rule on certified recipients reads this answer." options={[...YES_NO_UNSURE]} onChange={(v) => answer(EU_QUESTION, v)} />
+        )}
       </Part>
 
       {es && (
@@ -170,20 +181,26 @@ export function SupplierForm() {
 }
 
 /**
- * Choosing 5 to 15 CPV codes from our dictionary: a search box (a code prefix, a product word of the curated list, or words of the official
- * titles, whole words only) and the codes chosen, each with a button to remove it. The count of matches is announced.
+ * Choosing up to 15 CPV codes (5 to 15 recommended, none required: no rule reads them, WP-73) from the official CPV vocabulary, loaded on this
+ * page only: a search box (a code prefix, a product word of the curated list, or words of the official titles, whole words only) and the
+ * codes chosen, each with a button to remove it. The count of matches is announced.
  */
+/** How many matches the picker lists (WP-73: the whole vocabulary matches more than the 20 of the selection did). */
+const SHOWN = 50;
+
 function CpvPicker({ codes, onChange, error }: { codes: string[]; onChange: (codes: string[]) => void; error?: string }) {
   const [query, setQuery] = useState('');
-  const found = query.trim() ? cpvSearch(query) : [];
+  const vocab = useCpvVocabulary();
+  const found = query.trim() ? cpvSearch(query, SHOWN, vocab ?? undefined) : [];
+  const title = (code: string) => vocab?.get(code) ?? cpvDictionaryTitle(code) ?? '';
   const full = codes.length >= CPV_MAX;
   return (
-    <Fieldset id="q-cpv" legend={`CPV codes of what you make (choose 5 to ${CPV_MAX})`} error={error}
-      hint="Search by a word of the product (“vehicles”, “cable”, “parts”) or by the first digits of a code. The codes and titles are those of the official CPV vocabulary.">
+    <Fieldset id="q-cpv" legend={`CPV codes of what you make (optional, up to ${CPV_MAX})`} error={error}
+      hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map; no rule of the check reads them. Search by a word of the product (“castings”, “steel”, “cable”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
       <TextInput id="sp-cpv-search" search className="mt-2 max-w-form" label="Search the CPV codes" value={query} onChange={(e) => setQuery(e.target.value)}
         aria-invalid={error ? true : undefined} aria-describedby={error ? 'q-cpv-error' : undefined} autoComplete="off" />
       <p role="status" className="m-0 text-small text-ink-muted">
-        {query.trim() === '' ? '' : found.length === 0 ? 'No code matches. Try another word, or the first digits of a code.' : `${found.length === 20 ? 'The first 20' : found.length} ${found.length === 1 ? 'code matches' : 'codes match'}.`}
+        {query.trim() === '' ? '' : found.length === 0 ? 'No code matches. Try another word, or the first digits of a code.' : `${found.length === SHOWN ? `The first ${SHOWN}` : found.length} ${found.length === 1 ? 'code matches' : 'codes match'}.${found.length === SHOWN ? ' Add a word or more digits to narrow the list.' : ''}`}
         {full ? ` You have chosen ${CPV_MAX}, the most a profile holds.` : ''}
       </p>
       {found.length > 0 && (
@@ -201,7 +218,7 @@ function CpvPicker({ codes, onChange, error }: { codes: string[]; onChange: (cod
           <ul className="m-0 flex list-none flex-col p-0" aria-label="Your CPV codes">
             {codes.map((code) => (
               <li key={code} className="flex min-h-11 items-center justify-between gap-2 border-b border-line">
-                <span className="min-w-0 text-small"><span className="font-mono">{code}</span> {cpvDictionaryTitle(code) ?? ''}</span>
+                <span className="min-w-0 text-small"><span className="font-mono">{code}</span> {title(code)}</span>
                 <button type="button" onClick={() => onChange(codes.filter((x) => x !== code))} aria-label={`Remove ${code}`}
                   className="inline-flex size-11 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-ink"><X size={18} aria-hidden="true" /></button>
               </li>

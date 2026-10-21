@@ -31,17 +31,21 @@ export default function PricingPage() {
       lead="DefenceGate is free to use. There is no paid plan and no billing, and we ask for no payment details. If a paid service is ever offered, its price and terms will be on this page before anything is charged."
     >
       <Card>
-        <DataTable label="What is offered and what it costs" minWidth={560}>
+        {/* At 375 px the note goes under the name and the table fits without scrolling sideways (QA m-7) */}
+        <DataTable label="What is offered and what it costs" minWidth={280}>
           <thead>
-            <tr><th scope="col">What</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col">Note</th></tr>
+            <tr><th scope="col">What</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col" className="hidden sm:table-cell">Note</th></tr>
           </thead>
           <tbody>
             {OFFER.map((p) => (
               <tr key={p.name}>
-                <th scope="row" className="whitespace-nowrap">{p.name}</th>
-                <td className="whitespace-nowrap font-mono">{p.price}</td>
-                <td className="whitespace-nowrap font-bold">{p.status}</td>
-                <td className="text-ink-muted">{p.note}</td>
+                <th scope="row" className="!align-top sm:whitespace-nowrap">
+                  {p.name}
+                  <span className="mt-1 block font-normal text-ink-muted sm:hidden">{p.note}</span>
+                </th>
+                <td className="font-mono sm:whitespace-nowrap">{p.price}</td>
+                <td className="font-bold sm:whitespace-nowrap">{p.status}</td>
+                <td className="hidden text-ink-muted sm:table-cell">{p.note}</td>
               </tr>
             ))}
           </tbody>

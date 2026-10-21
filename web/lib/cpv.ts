@@ -228,20 +228,28 @@ export function cpvDictionaryTitle(code: string): string | null {
 }
 
 /**
- * The codes a supplier can pick for its profile (WP-65), at most `max`: a 2- to 8-digit query is a code prefix; otherwise the curated
- * product words first, then the titles, word by whole word as `cpvForWords` (no language model, no piece of a longer word).
+ * The codes a supplier can pick for its profile (WP-65), at most `max`, from `dictionary`: the full official vocabulary once the supplier page
+ * has loaded it (`lib/cpv-full.ts`, WP-73), else our selection. A 2- to 8-digit query is a code prefix. Otherwise the codes of the curated
+ * product words come first, then every code whose official title holds each word of the query as a whole word (`isForm`: no piece of a
+ * longer word, so "gun" is not "Gunmetal"), the titles that begin with the word before the others, broader codes first. No language model.
  */
-export function cpvSearch(query: string, max = 20): { code: string; title: string }[] {
+export function cpvSearch(query: string, max = 20, dictionary: ReadonlyMap<string, string> = DICTIONARY): { code: string; title: string }[] {
   const q = query.trim();
-  const pick = (test: (code: string, title: string) => boolean) =>
-    [...DICTIONARY].filter(([c, t]) => test(c, t)).sort(([a], [b]) => a.localeCompare(b)).slice(0, max).map(([code, title]) => ({ code, title }));
-  if (/^\d{2,8}$/.test(q)) return pick((c) => c.startsWith(q));
-  const hit = keywordEntries(q);
-  if (hit) {
-    const codes = new Set(hit.flatMap((e) => e.codes.map((c) => c.code)));
-    return pick((c) => codes.has(c));
-  }
+  const out = (codes: string[]) => codes.slice(0, max).map((code) => ({ code, title: dictionary.get(code) ?? DICTIONARY.get(code) ?? '' }));
+  if (/^\d{2,8}$/.test(q)) return out([...dictionary.keys()].filter((c) => c.startsWith(q)).sort());
+  const curated = [...new Set((keywordEntries(q) ?? []).flatMap((e) => e.codes.map((c) => c.code)))].sort();
   const ws = wordsOf(q).filter((w) => w.length >= 3).slice(0, 5);
-  if (ws.length === 0) return [];
-  return pick((_, t) => { const tw = wordsOf(t); return ws.every((w) => tw.some((x) => isForm(x, w))); });
+  const heads: string[] = [];
+  const rest: string[] = [];
+  if (ws.length > 0) {
+    for (const [code, title] of dictionary) {
+      const tw = wordsOf(title);
+      // either way round: "castings" finds "Casting machines" as "casting" finds "Castings"
+      if (!ws.every((w) => tw.some((x) => isForm(x, w) || isForm(w, x)))) continue;
+      (isForm(tw[0] ?? '', ws[0]) || isForm(ws[0], tw[0] ?? '') ? heads : rest).push(code);
+    }
+  }
+  // the broader codes first (a group before its classes), then by code: with 9,454 titles a word like "vehicles" matches over a hundred
+  const byLevel = (a: string, b: string) => cpvPrefix(a).length - cpvPrefix(b).length || a.localeCompare(b);
+  return out([...new Set([...curated, ...heads.sort(byLevel), ...rest.sort(byLevel)])]);
 }

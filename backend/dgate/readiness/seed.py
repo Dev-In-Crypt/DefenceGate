@@ -176,7 +176,9 @@ def parse(raw: dict[str, Any]) -> Content:
             code=p["code"], name=p["name"], summary=p["summary"], kind=p["kind"], legal_basis=p.get("legal_basis"),
             source_url=p["source_url"], call_programme=p.get("call_programme"), last_reviewed=raw["reviewed"],
             position=p.get("position", 0), rules=tuple(sorted(rules[p["code"]], key=lambda x: (x.position, x.code))))
-    return Content(programmes=programmes, requirements=requirements, reviewed=raw["reviewed"])
+    # the latest review of anything the answer shows (QA m-6: the page said 2026-10-18 beside rules reviewed 2026-10-20)
+    reviewed = max([raw["reviewed"]] + [x.last_reviewed for rs in rules.values() for x in rs])
+    return Content(programmes=programmes, requirements=requirements, reviewed=reviewed)
 
 
 def load_file(path: Path = SEED_PATH) -> Content:
@@ -345,7 +347,8 @@ def read_content(conn: psycopg.Connection) -> Content:
             source_text=x["source_text"], text_origin=x["text_origin"], status=x["verification_status"],
             last_reviewed=x["last_reviewed"].isoformat(), position=x["position"]))
     programmes = {}
-    reviewed = ""
+    # the latest review of anything the answer shows (QA m-6: the page said 2026-10-18 beside rules reviewed 2026-10-20)
+    reviewed = max([""] + [x.last_reviewed for rs in rules.values() for x in rs])
     for p in conn.execute("SELECT * FROM readiness_programme WHERE active ORDER BY position, code").fetchall():
         reviewed = max(reviewed, p["last_reviewed"].isoformat())
         programmes[p["code"]] = Programme(

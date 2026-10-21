@@ -75,6 +75,8 @@ export default async function CalendarPage({ searchParams }: Props) {
   const Count = total === 0 ? 'p' : 'h2';
   const notices = [
     ...(p.badMonth ? [`Ignored filter: month=${p.badMonth} (use YYYY-MM)`] : []),
+    // QA m-10: the list view reads no month; it used to drop one silently
+    ...(p.view !== 'month' && p.month ? [`Ignored filter: month=${p.month} (only the month view reads it; add view=month)`] : []),
     ...(p.view === 'month' && clamped && p.month
       ? [`The calendar covers ${formatMonthUtc(`${current}-01T00:00:00Z`)} to ${formatMonthUtc(`${last}-01T00:00:00Z`)}. ${formatMonthUtc(`${p.month}-01T00:00:00Z`)} is outside it, so ${formatMonthUtc(`${month}-01T00:00:00Z`)} is shown.`]
       : []),

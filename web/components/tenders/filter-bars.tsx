@@ -27,7 +27,7 @@ function CountryChoices({ selected }: { selected: string[] | undefined }) {
     <FoldGroup legend="Buyer country" open={false} scroll count={selected?.length}>
       {Object.keys(BUYER_COUNTRIES).map((c) => (
         <Choice key={c} name={PARAM.country} value={c} defaultChecked={selected?.includes(c)}
-          label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span>{BUYER_COUNTRIES[c]}</span>} />
+          label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span><span className="sr-only">{'\u00a0'}</span>{BUYER_COUNTRIES[c]}</span>} />
       ))}
     </FoldGroup>
   );
@@ -48,7 +48,7 @@ export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: T
   return (
     <FilterPanel activeCount={activeTenderFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_TENDER_STATUS, [PARAM.scope]: DEFAULT_TENDER_SCOPE }}>
       <form method="get" action={basePath} role="search" aria-label="Filter tenders" className={FORM}>
-        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or notice number" defaultValue={filters.q ?? ''} />
+        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''} />
         <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
           hint="Starts with the digits you enter. Separate several with commas." />
         <FoldGroup legend="Status">

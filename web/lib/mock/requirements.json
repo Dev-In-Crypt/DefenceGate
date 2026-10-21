@@ -295,7 +295,7 @@
    }
   ],
   "meta": {
-   "rulesReviewed": "2026-10-18"
+   "rulesReviewed": "2026-10-20"
   },
   "total": 15
  },
@@ -571,7 +571,7 @@
    ]
   },
   "meta": {
-   "rulesReviewed": "2026-10-18"
+   "rulesReviewed": "2026-10-20"
   },
   "programmes": [
    {
@@ -2121,7 +2121,7 @@
        "not_applicable": "This concerns companies established in Spain.",
        "not_met": "You need a current RID certificate to be in the Ministry of Defence's catalogue of actual or potential suppliers, and for PECAL certification and the NATO Declaration of Eligibility. It is requested online from the DIGEID, with the company's electronic certificate.",
        "requires": "A Spanish company needs a current certificate of registration, or of renewal, in the Registro de la Industria de Defensa (RID) to be in the Ministry of Defence's catalogue of actual or potential suppliers, and for other Ministry procedures such as PECAL certification and the NATO Declaration of Eligibility.",
-       "unknown": "The questionnaire does not ask yet whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it."
+       "unknown": "Say on the supplier profile page (Readiness, Supplier profile) whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it."
       },
       "title": "Registration in the defence industry register (RID)"
      },
@@ -2268,7 +2268,7 @@
        "conditional": "You hold the RID registration and ISO 9001 or EN 9100, but the DGAM's initial audit also expects a PECAL system audited by your management for at least nine months and at least one Ministry of Defence contract with PECAL requirements in the last two years (or a certificate of conformity signed by a DGAM quality representative). A newcomer usually meets PECAL inside a first contract, under the quality representative's oversight, before it can hold the certificate: this does not stop you from bidding.",
        "met": "You hold PECAL, or you meet the conditions to apply for it.",
        "not_applicable": "This concerns Spanish companies that want the PECAL certificate itself. PECAL inside a contract is the rule on contract requirements.",
-       "not_met": "To apply for the PECAL certificate you first need a current RID registration and a third-party ISO 9001 certificate from an ENAC-accredited body (EN 9100 for PECAL 2310). See your roadmap.",
+       "not_met": "To apply for the PECAL certificate you first need both a current RID registration and a third-party ISO 9001 certificate from an ENAC-accredited body (EN 9100 for PECAL 2310); on your answers at least one of the two is missing. See your roadmap.",
        "requires": "To apply for PECAL 2110 or 2310 certification a company must have a current registration with the DGAM (the RID) and a third-party ISO 9001 certificate from an ENAC-accredited body (EN 9100 for PECAL 2310). The DGAM's initial audit also expects a PECAL system in place for at least nine months and an MoD contract with PECAL requirements in the last two years, or a certificate of conformity signed by a DGAM quality representative.",
        "unknown": "Answer the questions below to see whether you can apply for the PECAL certificate now."
       },
@@ -2507,7 +2507,7 @@
       },
       "texts": {
        "met": "Your product is homologated. Homologation is granted in general for two years and can be renewed.",
-       "not_applicable": "Defence homologation is restricted to products for specific defence use (Article 346 TFEU), and it is mandatory only for those on the Ministry's list; for the others it is voluntary. A civilian automotive component is typically not a product for specific defence use.",
+       "not_applicable": "Defence homologation is restricted to products for specific defence use (Article 346 TFEU), and it is mandatory only for those on the Ministry's list; for the others it is voluntary. On your answers, your product is not one for which it is mandatory.",
        "not_met": "Your product is on the list of mandatory homologation and is not homologated: the Ministry cannot acquire it until it is. Homologation is granted in general for two years.",
        "requires": "A product for specific defence use that is on the Ministry's list of products with mandatory homologation cannot be acquired unless it is homologated first.",
        "unknown": "Answer the questions below to see whether defence homologation concerns your product."
@@ -5753,7 +5753,7 @@
       "conditional": "You hold the RID registration and ISO 9001 or EN 9100, but the DGAM's initial audit also expects a PECAL system audited by your management for at least nine months and at least one Ministry of Defence contract with PECAL requirements in the last two years (or a certificate of conformity signed by a DGAM quality representative). A newcomer usually meets PECAL inside a first contract, under the quality representative's oversight, before it can hold the certificate: this does not stop you from bidding.",
       "met": "You hold PECAL, or you meet the conditions to apply for it.",
       "not_applicable": "This concerns Spanish companies that want the PECAL certificate itself. PECAL inside a contract is the rule on contract requirements.",
-      "not_met": "To apply for the PECAL certificate you first need a current RID registration and a third-party ISO 9001 certificate from an ENAC-accredited body (EN 9100 for PECAL 2310). See your roadmap.",
+      "not_met": "To apply for the PECAL certificate you first need both a current RID registration and a third-party ISO 9001 certificate from an ENAC-accredited body (EN 9100 for PECAL 2310); on your answers at least one of the two is missing. See your roadmap.",
       "requires": "To apply for PECAL 2110 or 2310 certification a company must have a current registration with the DGAM (the RID) and a third-party ISO 9001 certificate from an ENAC-accredited body (EN 9100 for PECAL 2310). The DGAM's initial audit also expects a PECAL system in place for at least nine months and an MoD contract with PECAL requirements in the last two years, or a certificate of conformity signed by a DGAM quality representative.",
       "unknown": "Answer the questions below to see whether you can apply for the PECAL certificate now."
      },
@@ -6018,7 +6018,7 @@
       "not_applicable": "This concerns companies established in Spain.",
       "not_met": "You need a current RID certificate to be in the Ministry of Defence's catalogue of actual or potential suppliers, and for PECAL certification and the NATO Declaration of Eligibility. It is requested online from the DIGEID, with the company's electronic certificate.",
       "requires": "A Spanish company needs a current certificate of registration, or of renewal, in the Registro de la Industria de Defensa (RID) to be in the Ministry of Defence's catalogue of actual or potential suppliers, and for other Ministry procedures such as PECAL certification and the NATO Declaration of Eligibility.",
-      "unknown": "The questionnaire does not ask yet whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it."
+      "unknown": "Say on the supplier profile page (Readiness, Supplier profile) whether you hold a current RID certificate. If you do not, it is the first thing to obtain: it is in your roadmap, and you can mark it as done there if you already hold it."
      },
      "title": "Registration in the defence industry register (RID)"
     },

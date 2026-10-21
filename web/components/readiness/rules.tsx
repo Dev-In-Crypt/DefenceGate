@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX, Info, ListChecks, Minus, UserRoundSearch } from 'lucide-react';
-import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_MEANING, VERDICT_WORD, isoDay, originWords, publicPassage, publicRef, statusWords } from '@/lib/readiness';
+import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_WORD, verdictMeaning, isoDay, originWords, publicPassage, publicRef, statusWords } from '@/lib/readiness';
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
-import { stepOfField, supplierAsks, wizardAsks } from '@/lib/profile';
+import { askedAt } from '@/lib/profile';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
@@ -106,7 +106,7 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
         {!general && <VerdictBadge verdict={a.verdict} />}
       </div>
       <p className="m-0 max-w-prose text-body text-ink-muted">{a.summary}</p>
-      {!general && <p className="m-0 text-small font-semibold">{VERDICT_MEANING[a.verdict]}</p>}
+      {!general && <p className="m-0 text-small font-semibold">{verdictMeaning(a)}</p>}
       {general && todo.length > 0 && (
         <div className="flex flex-col gap-1 text-small">
           <p className="m-0 font-bold">To do for you:</p>
@@ -136,17 +136,18 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
         <div className="flex flex-col gap-1 text-small">
           <p className="m-0 font-bold">{a.missing.length === 1 ? '1 answer is missing:' : `${a.missing.length} answers are missing:`}</p>
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-            {a.missing.map((m) => (
-              <li key={m.field}>
-                {wizardAsks(m.field)
-                  ? <Link href={`/readiness?step=${stepOfField(m.field)}`} className="inline-flex min-h-12 items-center font-semibold">{m.question}</Link>
-                  // WP-65: a question the supplier profile asks links to its field there
-                  : supplierAsks(m.field)
-                  ? <Link href={`/readiness/supplier#q-${m.field.replace(/^profile\./, '')}`} className="inline-flex min-h-12 items-center font-semibold" data-supplier-asks={m.field}>{m.question}</Link>
-                  // a question of the Spanish, German or NATO/EU rules (WP-64) that the questionnaire does not ask yet: no step to link to
-                  : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(not asked by the questionnaire yet)</span></span>}
-              </li>
-            ))}
+            {a.missing.map((m) => {
+              // the wizard's step, the supplier profile's question (WP-65), or the wizard's step 4 for a requirement (WP-73)
+              const href = askedAt(m.field);
+              return (
+                <li key={m.field}>
+                  {href
+                    ? <Link href={href} className="inline-flex min-h-12 items-center font-semibold" {...(href.startsWith('/readiness/supplier') ? { 'data-supplier-asks': m.field } : {})}>{m.question}</Link>
+                    // a question of the German or NATO/EU rules (WP-64) that no page of this check asks: the rule's source says what it means
+                    : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(this check does not ask it; see the rule and its source)</span></span>}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -167,7 +168,7 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
         </details>
       )}
       <p className="m-0 mt-auto pt-2 text-small text-ink-muted">
-        {a.legalBasis ? <>Legal basis: {a.legalBasis}.</> : 'No legal basis is stated for this route.'}{' '}
+        {a.legalBasis ? <>Legal basis: {a.legalBasis}.</> : 'This route has no single legal basis: each rule above names its own source.'}{' '}
         {safeHttpUrl(a.sourceUrl) && <a href={a.sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">{a.legalBasis ? 'Open the legal text' : 'Open the page of the source'}</a>}
       </p>
     </article>

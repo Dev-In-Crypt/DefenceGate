@@ -111,6 +111,8 @@
        browser leaves backgrounds out, which is its default: print it in the ink colour with a border instead (WP-54, R5). */
     .text-on-urgent, .text-on-primary { color: var(--ink) !important; }
     .bg-urgent, .bg-primary.text-on-primary { background: none !important; border: 1.5px solid var(--ink) !important; }
+    /* A closed disclosure prints its text (QA m-16); components/dg/print-open-details.tsx opens them for browsers without ::details-content. */
+    details::details-content { content-visibility: visible; }
   }
 }
 

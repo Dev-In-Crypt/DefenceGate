@@ -26,7 +26,7 @@ export default function PackPage() {
         <ClauseList items={[
           'Filter the tenders by country, product code (CPV) or keyword, and the funding calls by programme, funder country or keyword. The filters are in the address, so a bookmark keeps the search.',
           'Download each result as CSV: the public fields, with the source, licence and attribution on every row.',
-          'Run the readiness check to see which EDF, EDIP and SAFE rules your company meets. Your answers stay in your browser.',
+          'Run the readiness check to see which rules of the EU programmes (EDF, EDIP, SAFE), NATO supply and the Spanish Ministry of Defence route your company meets. Your answers stay in your browser.',
           'Subscribe to the calendar feed for the deadlines, and to the Atom feed of what changed.',
         ]} />
         <h3 className="m-0 text-h4">What it is not</h3>

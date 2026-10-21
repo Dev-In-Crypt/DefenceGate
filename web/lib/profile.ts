@@ -95,6 +95,40 @@ export const ES_QUESTIONS: EsQuestion[] = [
 ];
 const ES_FIELDS = new Set(ES_QUESTIONS.map((q) => q.field));
 
+/**
+ * WP-73: the security clearances of the Spanish route, asked on the supplier page of a Spanish company that needs classified work (the HSES
+ * only when classified information is stored on its premises). The answer is the requirement's status: yes is held, no is not held, and
+ * "I am not sure" or no answer leaves it unknown, so the rule asks instead of reading "Not met". The answer itself is kept in `answers`.
+ */
+export interface StatusQuestion { code: string; label: string; when: (p: Profile) => boolean }
+export const ES_CLEARANCES: StatusQuestion[] = [
+  { code: 'REQ-FSC-ES', label: 'Does your company hold a company security clearance (HSEM, habilitación de seguridad de empresa)?', when: (p) => p.classified === 'yes' },
+  { code: 'REQ-HSES-ES', label: 'Does your company hold an establishment security clearance (HSES) for the premises where classified information is stored?',
+    when: (p) => p.classified === 'yes' && ans(p, 'stores_classified') === 'yes' },
+];
+const CLEARANCE_CODES = new Set(ES_CLEARANCES.map((q) => q.code));
+
+/** The answer shown for a clearance question: what the status says (the wizard's step 4 may have changed it), else "not sure" if that was the answer. */
+export function clearanceAnswer(p: Profile, code: string): Tri {
+  if (p.statuses[code] === 'held') return 'yes';
+  if (p.statuses[code] === 'not_held') return 'no';
+  return p.supplier.answers[code] === 'unsure' ? 'unsure' : '';
+}
+
+/** The profile with a clearance question answered: the status follows (yes held, no not held, not sure: no status). */
+export function withClearance(p: Profile, code: string, v: Tri): Profile {
+  const statuses = { ...p.statuses };
+  if (v === 'yes') statuses[code] = 'held';
+  else if (v === 'no') statuses[code] = 'not_held';
+  else delete statuses[code];
+  return { ...p, statuses, supplier: { ...p.supplier, answers: { ...p.supplier.answers, [code]: v } } };
+}
+
+/** The question of the supplier page that a company of any EU country is asked (WP-73): the general certified-recipient rule reads it. */
+export const EU_QUESTION = 'receives_eea_defence_products';
+const EU27 = new Set('AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE'.split(' '));
+export const isEu = (country: string) => EU27.has(country);
+
 /** The supplier profile (WP-65). Optional throughout: an empty answer is unknown, never "no". Only the answers the rules read leave the browser. */
 export interface Supplier {
   /** ISO 3166-2 code of a Spanish autonomous community (ES-AN ...), or free text for another country. Not sent. */
@@ -105,7 +139,7 @@ export interface Supplier {
   foreignCountry: string;
   /** NACE Rev. 2 code, optional. Not sent. */
   nace: string;
-  /** 5 to 15 CPV codes of what the company makes, from our CPV dictionary. Not sent. */
+  /** Up to 15 CPV codes of what the company makes, from the official CPV vocabulary (5 to 15 recommended for the demand map). Not sent. */
   cpv: string[];
   processes: string[];
   /** Certificates and registrations no rule reads (IATF 16949, ISO/IEC 27001, NSPA Source File), held. The others are `statuses`. */
@@ -122,6 +156,7 @@ export function emptySupplier(): Supplier {
   return { region: '', foreignOwner: '', foreignCountry: '', nace: '', cpv: [], processes: [], held: [], expiry: {}, usComponents: '', answers: {} };
 }
 
+/** Recommended, not required (WP-73): no rule reads the codes; the demand map will. */
 export const CPV_MIN = 5;
 export const CPV_MAX = 15;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -133,9 +168,8 @@ export function naceProblem(value: string): string | null {
   return v === '' || NACE.test(v) ? null : 'Enter a NACE code such as 25.50 or C25.50, or leave it empty.';
 }
 
-/** Why the chosen CPV codes are not enough, or null for 5 to 15. */
+/** Why the chosen CPV codes cannot be saved, or null for 0 to 15 (WP-73: none is required, since no rule reads them). */
 export function cpvProblem(codes: string[]): string | null {
-  if (codes.length < CPV_MIN) return `Choose at least ${CPV_MIN} CPV codes (you have ${codes.length}).`;
   return codes.length > CPV_MAX ? `Choose at most ${CPV_MAX} CPV codes.` : null;
 }
 
@@ -174,13 +208,15 @@ export function supplierProblems(p: Profile): { id: string; text: string }[] {
 }
 
 /**
- * The profile as the supplier page saves it: a Spanish company that went through the page has said which of RID and PECAL it holds, so an
- * unticked one is "not held" (sent), no longer unknown.
+ * The profile as the supplier page saves it: a company that went through the page has said which of the certificates and registrations it
+ * shows it holds ("an unticked one counts as not held"), so an unticked one is "not held" (sent), no longer unknown. What the page does not
+ * show (the PIC, the export authorisation, a clearance not answered) stays unknown (WP-73).
  */
 export function savedSupplier(p: Profile): Profile {
-  if (p.country !== 'ES') return p;
   const statuses = { ...p.statuses };
-  for (const item of [...CERTIFICATES, ...REGISTRATIONS]) if (item.esOnly && item.code && !statuses[item.code]) statuses[item.code] = 'not_held';
+  for (const item of [...CERTIFICATES, ...REGISTRATIONS]) {
+    if (item.code && (!item.esOnly || p.country === 'ES') && !statuses[item.code]) statuses[item.code] = 'not_held';
+  }
   return { ...p, statuses };
 }
 
@@ -280,7 +316,7 @@ function parseSupplier(raw: unknown): Supplier {
   const expiry: Record<string, string> = {};
   for (const [k, v] of Object.entries(record(r.expiry))) if (CERT_KEYS.includes(k) && typeof v === 'string' && MONTH.test(v)) expiry[k] = v;
   const answers: Record<string, Tri> = {};
-  for (const [k, v] of Object.entries(record(r.answers))) { const t = triOf(v); if (ES_FIELDS.has(k) && t) answers[k] = t; }
+  for (const [k, v] of Object.entries(record(r.answers))) { const t = triOf(v); if ((ES_FIELDS.has(k) || CLEARANCE_CODES.has(k)) && t) answers[k] = t; }
   return {
     region: text(r.region, 60),
     foreignOwner: triOf(r.foreignOwner),
@@ -357,7 +393,8 @@ export interface AssessRequest {
     /** WP-65, from the supplier page (`foreign_capital`, `us_components`, the `ES_QUESTIONS`): present only when answered (absent is unknown to the API). */
     [supplierField: string]: string | number | boolean | null;
   };
-  statuses: Record<string, Status>;
+  /** `unknown` (WP-73): a requirement the visitor was not asked about (step 4 of the wizard not reached), so a rule on it asks instead of reading "not held". */
+  statuses: Record<string, Status | 'unknown'>;
   /** A call of the funding list (its id), to also get the timing of the steps against its deadline (WP-32). */
   call?: number;
 }
@@ -402,8 +439,11 @@ export function answerProblems(p: Profile): { step: number; text: string }[] {
 /** The request body for POST /api/readiness/assess, or null while the country is not chosen. */
 export function toRequest(p: Profile): AssessRequest | null {
   if (!p.country) return null;
-  const statuses: Record<string, Status> = {};
-  for (const code of visibleCodes(p.country)) statuses[code] = p.statuses[code] ?? 'not_held';
+  const statuses: Record<string, Status | 'unknown'> = {};
+  // step 4 of the wizard shows these with "We do not hold it" chosen: once it was passed an empty one is "not held"; before, nobody asked (WP-73)
+  const asked = p.step > 4;
+  // "I am not sure" on the supplier page stays unknown even after the wizard was finished
+  for (const code of visibleCodes(p.country)) statuses[code] = p.statuses[code] ?? (asked && p.supplier.answers[code] !== 'unsure' ? 'not_held' : 'unknown');
   // not asked by the wizard: sent only once the roadmap has marked it, else the rules read it as unknown and ask
   for (const code of roadmapOnlyCodes(p.country)) if (p.statuses[code]) statuses[code] = p.statuses[code];
   return {
@@ -437,7 +477,9 @@ export function supplierFields(p: Profile): Record<string, boolean | string> {
   };
   put('foreign_capital', p.supplier.foreignOwner);
   put('us_components', p.supplier.usComponents);
-  if (p.country === 'ES') for (const q of ES_QUESTIONS) if (!q.when || q.when(p)) put(q.field, ans(p, q.field), q.kind);
+  if (p.country === 'ES') {
+    for (const q of ES_QUESTIONS) if (!q.when || q.when(p)) put(q.field, ans(p, q.field), q.kind);
+  } else if (isEu(p.country)) put(EU_QUESTION, ans(p, EU_QUESTION));
   return out;
 }
 
@@ -489,7 +531,22 @@ const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'execu
   'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent']);
 
 /** The fields and requirements the supplier page asks (WP-65); the results link such a question to that page. */
-const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...[...CERTIFICATES, ...REGISTRATIONS].flatMap((c) => (c.code ? [c.code] : []))]);
+const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...CLEARANCE_CODES,
+  ...[...CERTIFICATES, ...REGISTRATIONS].flatMap((c) => (c.code ? [c.code] : []))]);
+
+/**
+ * Where the question behind an API `missing` field is asked (WP-73), or null when nothing on this site asks it: a field of the wizard links
+ * to its step, a field or requirement of the supplier page to its question there, a requirement of the wizard's step 4 to that step.
+ */
+export function askedAt(field: string): string | null {
+  const f = field.replace(/^profile\./, '');
+  if (WIZARD_FIELDS.has(f)) return `/readiness?step=${stepOfField(f)}`;
+  // a follow-up question is shown only after the answer it depends on: its link goes to the Spanish questions, where that answer is asked
+  if (ES_QUESTIONS.some((q) => q.field === f && q.when)) return '/readiness/supplier#sp-spain';
+  if (SUPPLIER_ASKS.has(f)) return `/readiness/supplier#q-${f}`;
+  if (STATUS_ITEMS.some((i) => i.code === f && !i.roadmapOnly)) return '/readiness?step=4';
+  return null;
+}
 
 /** Whether the supplier page asks the question behind an API `missing` field (a field the wizard asks is linked to the wizard first). */
 export function supplierAsks(field: string): boolean {

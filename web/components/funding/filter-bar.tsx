@@ -64,7 +64,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
           <FoldGroup legend="Funder country" open={false} scroll count={filters.country?.length}>
             {countries.map((c) => (
               <Choice key={c} name={PARAM.country} value={c} defaultChecked={filters.country?.includes(c)}
-                label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span>{COUNTRIES[c]}</span>} />
+                label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span><span className="sr-only">{'\u00a0'}</span>{COUNTRIES[c]}</span>} />
             ))}
           </FoldGroup>
         )}

@@ -209,9 +209,14 @@ def test_verdicts():
     assert verdict(_rule("A", condition={"field": "handles_classified", "is": True})) == ("conditional", True)
     # blocked beats conditional and unknown, and an unknown beside a block is still incomplete
     assert verdict(_rule("A", condition=PL), _rule("B", condition={"field": "handles_classified", "is": True})) == ("blocked", True)
-    # a rule that is not mandatory never changes the verdict
-    assert verdict(_rule("A", condition=PL, obligation="conditional")) == ("eligible", False)
+    # WP-73 (QA MJ-4): a "conditional" obligation binds where its applies_when holds, so it decides like a mandatory one;
+    # what a contract may name (kind "contract") is a condition when not met, never a block; a recommendation never decides
+    assert verdict(_rule("A", condition=PL, obligation="conditional")) == ("blocked", False)
+    assert verdict(_rule("A", condition=PL, obligation="conditional", kind="contract")) == ("conditional", False)
+    assert verdict(_rule("A", condition={"field": "handles_classified", "is": True}, obligation="conditional")) == ("conditional", True)
+    assert verdict(_rule("A", condition=PL, obligation="conditional", applies_when=PL)) == ("eligible", False)
     assert verdict(_rule("A", condition=PL, obligation="recommended")) == ("eligible", False)
+    assert verdict(_rule("A", condition={"field": "handles_classified", "is": True}, obligation="recommended")) == ("eligible", False)
     assert verdict(_rule("A", condition=None)) == ("eligible", False)
 
 
@@ -242,7 +247,9 @@ def test_what_beats_what_between_blocked_conditional_obtain_and_eligible():
     assert verdict(reg, guarantee) == ("conditional", ("PIC",))        # the to-do stays listed
     assert verdict(reg, unknown) == ("conditional", ("PIC",))
     assert verdict(reg, block) == ("blocked", ("PIC",))
-    assert verdict(_rule("PIC", condition=HELD, kind="registration", obligation="conditional")) == ("eligible", ())   # not mandatory
+    # WP-73: a conditional obligation counts where it applies (Spain's NCAGE with a justified need); a recommendation does not
+    assert verdict(_rule("PIC", condition=HELD, kind="registration", obligation="conditional")) == ("obtain", ("PIC",))
+    assert verdict(_rule("PIC", condition=HELD, kind="registration", obligation="recommended")) == ("eligible", ())
 
 
 def test_the_questions_of_a_rule_whose_applicability_is_unknown_include_those_of_its_condition():

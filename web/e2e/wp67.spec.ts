@@ -27,7 +27,8 @@ async function asSupplier(page: Page, key: string): Promise<unknown[]> {
 
 const ORDER: Record<string, string[]> = {
   'es-sup-civil': ['REQ-ISO9001', 'IATF16949', 'REQ-RID', 'REQ-PIC', 'REQ-NCAGE', 'REQ-AQAP2110', 'REQ-PECAL', 'REQ-EXPORT'],
-  'es-sup-defence': ['REQ-NCAGE', 'REQ-ISO9001', 'REQ-AQAP2110', 'REQ-RID', 'REQ-FSC-ES', 'REQ-PIC', 'REQ-PECAL', 'REQ-EXPORT', 'US-COMPONENTS'],
+  // WP-73: the HSEM is not answered on the page, so it is amber ("Needs an answer") after the PIC, no longer red by default
+  'es-sup-defence': ['REQ-NCAGE', 'REQ-ISO9001', 'REQ-AQAP2110', 'REQ-RID', 'REQ-PIC', 'REQ-FSC-ES', 'REQ-PECAL', 'REQ-EXPORT', 'US-COMPONENTS'],
   'es-sup-partial': ['REQ-ISO9001', 'REQ-NCAGE', 'REQ-RID', 'REQ-PIC', 'REQ-AQAP2110', 'REQ-PECAL', 'REQ-EN9100', 'REQ-FSC-ES', 'REQ-EXPORT', 'US-COMPONENTS'],
 };
 

@@ -64,3 +64,17 @@ export function useAssessment(profile: Profile | null): AssessState & { retry: (
   }, [key, attempt]);
   return { ...result, retry: () => setAttempt((n) => n + 1) };
 }
+
+/**
+ * The full official CPV vocabulary (WP-73), loaded after the first render as a chunk of its own, so that no other page carries it. Null while
+ * it loads or when it could not be loaded; the callers then use the selection of lib/cpv.ts.
+ */
+export function useCpvVocabulary(): ReadonlyMap<string, string> | null {
+  const [vocab, setVocab] = useState<ReadonlyMap<string, string> | null>(null);
+  useEffect(() => {
+    let live = true;
+    import('@/lib/cpv-full').then((m) => { if (live) setVocab(m.CPV_FULL); }).catch(() => { /* the selection stays */ });
+    return () => { live = false; };
+  }, []);
+  return vocab;
+}

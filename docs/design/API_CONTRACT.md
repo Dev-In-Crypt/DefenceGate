@@ -650,8 +650,9 @@ listed under `missing`, not guessed). `third_country_control`: `no` | `ua_eea_on
 `product_regime`: `none` | `dual_use` | `military` | `unknown`. `export_intent`: `none` | `within_eu` |
 `outside_eu` | `unsure`. `legal_form` (WP-33): `legal_person` | `natural_person` | `no_legal_personality`. `safe_role`: `contractor` | `subcontractor_involved` | `other_supplier` (SAFE Article 16(12)). `components_from_ua_or_eea_efta`: any component from Ukraine or an EEA EFTA state (EDIP and the Ukraine Support Instrument count them differently from SAFE). `non_eu_component_cost_pct` is 0 to 100 and is the share of **the estimated cost of
 the components of the end product** (SAFE Article 16(10)), never of the contract value. `statuses` maps a
-requirement code to `held` | `in_progress` | `not_held` | `not_applicable`; a requirement not mentioned is
-not held. `programmes` limits the answer (default: all but `GENERAL`). `call` is a call id from `/v1/funding`:
+requirement code to `held` | `in_progress` | `not_held` | `not_applicable` | `unknown`; a requirement not mentioned is
+not held. `unknown` (WP-73) says the page that sent the answers did not ask about it: a rule on it is `unknown` and asks
+"Do you hold: <requirement>?" (or the requirement's own question), and the roadmap still lists it as a step. `programmes` limits the answer (default: all but `GENERAL`). `call` is a call id from `/v1/funding`:
 the answer then says whether the company can take part before the call closes.
 
 Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, notice }`.
@@ -660,9 +661,12 @@ Response: `{ generatedAt, rulesReviewed, assessments, general, roadmap, call, no
   eligible | obtain | conditional | blocked, incomplete, blocking, conditions, toObtain, counts, missing: [{ field, question }],
   rules: [{ rule, title, outcome, reason, obligation, kind, requirement, note, denominator, asks, source }] }`.
   `outcome`: `met` | `not_met` | `to_obtain` (a registration anybody can obtain, the PIC or the NCAGE code, is missing) | `conditional` (a derogation exists: guarantees, a screening) | `unknown`
-  (an answer is missing) | `not_applicable` | `info`. `verdict`: `blocked` if a mandatory rule is not met;
-  else `conditional` if a mandatory rule is conditional or unknown (`incomplete` says which); else `obtain` if only registrations are missing (`toObtain` lists them); else `eligible`. `eligible` does not cover the exclusion criteria and capacity checks of the Financial Regulation or the conditions of a call.
-  A rule that is not mandatory (AQAP, export licence, clearance) never changes the verdict.
+  (an answer is missing) | `not_applicable` | `info`. `verdict`: `blocked` if a binding rule is not met;
+  else `conditional` if a binding rule is conditional or unknown (`incomplete` says which); else `obtain` if only registrations are missing (`toObtain` lists them); else `eligible`. `eligible` does not cover the exclusion criteria and capacity checks of the Financial Regulation or the conditions of a call.
+  Binding (WP-73): every rule of obligation `mandatory`, and every rule of obligation `conditional` where it applies (its `appliesWhen`
+  holds: the Spanish HSEM where classified information is handled). A `conditional` rule of kind `contract` (PECAL, EN 9100 for PECAL 2310)
+  that is not met is listed in `conditions`, not `blocking`. A `recommended` rule and an `info` rule never change the verdict.
+  `rulesReviewed` is the latest `lastReviewed` of the rules.
 - `roadmap`: `{ steps, tracks, totals, totalsWithOptional, unknownCost, unknownDuration,
   unknownCostWithOptional, unknownDurationWithOptional, notAdded, label }`. A step is
   `{ order, code, name, status, optional, when, blockingFor, neededFor, cost, days, variantUsed, branchNote,

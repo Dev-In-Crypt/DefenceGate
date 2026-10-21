@@ -25,6 +25,11 @@ A mandatory rule of kind "registration" (the PIC, the NCAGE code) that is not me
 `to_obtain`: it is something to obtain first, not a block. The verdict of a programme is `blocked` if a
 mandatory rule is not met, else `conditional` if a derogation or an answer is open, else `obtain` if only
 registrations are missing, else `eligible`.
+
+Which rules count (WP-73): every rule that is not only `recommended`. A rule whose obligation is `conditional` is binding wherever its
+`applies_when` holds (the HSEM where classified information is handled: Ley 24/2011, art. 21.2), so it counts like a mandatory one; where
+`applies_when` is false it is "not applicable" and counts for nothing. One exception: a `conditional` rule of kind `contract` (PECAL, EN 9100
+for PECAL 2310) is what a contract may name, not a condition of the route, so when it is not met it is a condition and not a block.
 """
 
 from __future__ import annotations
@@ -403,6 +408,16 @@ class Assessment:
                 for r in self.rules]
 
 
+def counts(r: RuleResult) -> bool:
+    """Whether a rule's outcome takes part in the verdict: every rule except a recommendation."""
+    return r.obligation != "recommended"
+
+
+def blocks(r: RuleResult) -> bool:
+    """Whether a rule that is not met blocks (else it is a condition): see the module notes."""
+    return r.obligation == "mandatory" or (r.obligation == "conditional" and r.kind != "contract")
+
+
 def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> RuleResult:
     outcome, asks, declared = _outcome(rule, fields, statuses)
     # a registration that is missing is a to-do with the same words as "not met": the text says it is free
@@ -466,11 +481,11 @@ def assess(profile: Profile, statuses: Mapping[str, str], programme: Programme |
         programme = content.programmes[programme]
     fields = profile.fields()
     results = tuple(assess_rule(r, fields, statuses) for r in sorted(programme.rules, key=lambda r: (r.position, r.code)))
-    mandatory = [r for r in results if r.obligation == "mandatory"]
-    blocking = tuple(r.rule for r in mandatory if r.outcome == "not_met")
-    conditions = tuple(r.rule for r in mandatory if r.outcome == "conditional")
-    to_obtain = tuple(r.rule for r in mandatory if r.outcome == "to_obtain")
-    unknown = [r for r in mandatory if r.outcome == "unknown"]
+    counted = [r for r in results if counts(r)]
+    blocking = tuple(r.rule for r in counted if r.outcome == "not_met" and blocks(r))
+    conditions = tuple(r.rule for r in counted if r.outcome == "conditional" or (r.outcome == "not_met" and not blocks(r)))
+    to_obtain = tuple(r.rule for r in counted if r.outcome == "to_obtain")
+    unknown = [r for r in counted if r.outcome == "unknown"]
     missing: list[str] = []
     for r in results:
         for f in r.asks:

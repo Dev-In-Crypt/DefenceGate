@@ -30,7 +30,7 @@ export function ProfileFields({ profile }: { profile: Profile }) {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3">
           {countries.map((c) => (
             <Choice key={c} name="countries" value={c} defaultChecked={profile.countries.includes(c)}
-              label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span>{BUYER_COUNTRIES[c] ?? ''}</span>} />
+              label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span><span className="sr-only">{'\u00a0'}</span>{BUYER_COUNTRIES[c] ?? ''}</span>} />
           ))}
         </div>
       </Fieldset>

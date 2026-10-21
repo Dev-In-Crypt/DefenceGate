@@ -316,7 +316,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
           </div>
         )}
         {notice && <p role="status" className="m-0 font-semibold text-ink">{notice}</p>}
-        <Keep profile={profile} onImport={(p) => { update(() => p); setStep(null); setNotice('Answers loaded from the file. They replace the ones that were here.'); }} />
+        <Keep profile={profile} onImport={(p) => { update(() => p); setStep(null); setNotice('Answers loaded from the file. They replace the ones that were here.'); }} onProblem={() => setNotice('')} />
       </div>
     </div>
   );
@@ -326,7 +326,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
  * Taking the answers elsewhere (U7): a consultant who checks a second client must not overwrite the first, and an answer set
  * should survive a cleared browser. The text is the block the browser stores; a file or a paste is checked field by field on the way in.
  */
-function Keep({ profile, onImport }: { profile: Profile; onImport: (p: Profile) => void }) {
+function Keep({ profile, onImport, onProblem }: { profile: Profile; onImport: (p: Profile) => void; onProblem?: () => void }) {
   const [text, setText] = useState('');
   const [problem, setProblem] = useState('');
   const [copied, setCopied] = useState(false);
@@ -344,7 +344,8 @@ function Keep({ profile, onImport }: { profile: Profile; onImport: (p: Profile) 
   };
   const load = (raw: string) => {
     const r = importProfile(raw);
-    if (!r.ok) { setProblem(r.reason); return; }
+    // a refused file replaces the earlier status line ("cleared", "loaded"), so the two never stand side by side (QA n-8)
+    if (!r.ok) { setProblem(r.reason); onProblem?.(); return; }
     setProblem('');
     setText('');
     onImport(r.profile);

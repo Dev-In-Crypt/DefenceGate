@@ -31,7 +31,8 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
   );
 }
 
-type Level = 'h2' | 'h3' | 'h4' | 'h5';
+// 'h1' for a page that is only this state (a detail page's 404, QA m-14)
+type Level = 'h1' | 'h2' | 'h3' | 'h4' | 'h5';
 
 function StateShell({ icon, title, children, action, tone = 'default', level: H = 'h2' }: { icon: React.ReactNode; title: string; children?: React.ReactNode; action?: React.ReactNode; tone?: 'default' | 'error'; level?: Level }) {
   return (
@@ -46,8 +47,8 @@ function StateShell({ icon, title, children, action, tone = 'default', level: H 
   );
 }
 
-export function EmptyState({ title, children, action }: { title: string; children?: React.ReactNode; action?: React.ReactNode }) {
-  return <StateShell icon={<Icon icon={Inbox} />} title={title} action={action}>{children}</StateShell>;
+export function EmptyState({ title, children, action, level }: { title: string; children?: React.ReactNode; action?: React.ReactNode; level?: Level }) {
+  return <StateShell icon={<Icon icon={Inbox} />} title={title} action={action} level={level}>{children}</StateShell>;
 }
 
 /** `onRetry` works from client error boundaries; `retryHref` from server components. */

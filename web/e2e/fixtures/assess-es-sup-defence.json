@@ -9,8 +9,8 @@
     "met": 1,
     "not_applicable": 0,
     "not_met": 0,
-    "to_obtain": 1,
-    "unknown": 3
+    "to_obtain": 0,
+    "unknown": 4
    },
    "incomplete": true,
    "kind": "programme",
@@ -27,6 +27,10 @@
     {
      "field": "third_country_control",
      "question": "Is your company controlled by a country or an entity outside the EU?"
+    },
+    {
+     "field": "REQ-PIC",
+     "question": "Do you hold: PIC (Participant Identification Code)?"
     }
    ],
    "name": "European Defence Fund (EDF)",
@@ -132,14 +136,19 @@
      "title": "Not controlled by a non-associated third country"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-PIC",
+       "question": "Do you hold: PIC (Participant Identification Code)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "to_obtain",
-     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-PIC",
      "rule": "EDF-PIC",
      "source": {
@@ -176,9 +185,7 @@
    ],
    "sourceUrl": "http://data.europa.eu/eli/reg/2021/697/oj",
    "summary": "Grants for collaborative defence research and capability development, run by the European Commission.",
-   "toObtain": [
-    "EDF-PIC"
-   ],
+   "toObtain": [],
    "verdict": "conditional"
   },
   {
@@ -190,8 +197,8 @@
     "met": 1,
     "not_applicable": 3,
     "not_met": 0,
-    "to_obtain": 1,
-    "unknown": 5
+    "to_obtain": 0,
+    "unknown": 6
    },
    "incomplete": true,
    "kind": "programme",
@@ -220,6 +227,10 @@
     {
      "field": "restricted_third_country_component",
      "question": "Does any component of your end product come from a third country that contravenes the Union's security and defence interests?"
+    },
+    {
+     "field": "REQ-PIC",
+     "question": "Do you hold: PIC (Participant Identification Code)?"
     }
    ],
    "name": "European Defence Industry Programme (EDIP): the Programme",
@@ -444,14 +455,19 @@
      "title": "No component from a third country that contravenes the Union's security and defence interests"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-PIC",
+       "question": "Do you hold: PIC (Participant Identification Code)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "to_obtain",
-     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-PIC",
      "rule": "EDIP-PIC",
      "source": {
@@ -509,9 +525,7 @@
    ],
    "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
    "summary": "Union funding for the European defence industrial base. This card covers the Programme itself; the Ukraine Support Instrument has its own card. Not every call is open to a company: common procurement actions are open only to contracting authorities, international organisations, SEAPs and the European Defence Agency (Regulation (EU) 2025/2643, Article 11(2)), and two calls name a SEAP or a group of Member States in their call documents. That is checked when you open a call of that kind.",
-   "toObtain": [
-    "EDIP-PIC"
-   ],
+   "toObtain": [],
    "verdict": "conditional"
   },
   {
@@ -523,8 +537,8 @@
     "met": 1,
     "not_applicable": 1,
     "not_met": 0,
-    "to_obtain": 1,
-    "unknown": 6
+    "to_obtain": 0,
+    "unknown": 7
    },
    "incomplete": true,
    "kind": "programme",
@@ -553,6 +567,10 @@
     {
      "field": "restricted_third_country_component",
      "question": "Does any component of your end product come from a third country that contravenes the Union's security and defence interests?"
+    },
+    {
+     "field": "REQ-PIC",
+     "question": "Do you hold: PIC (Participant Identification Code)?"
     },
     {
      "field": "ua_partner",
@@ -739,14 +757,19 @@
      "title": "No component from a third country that contravenes the Union's security and defence interests"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-PIC",
+       "question": "Do you hold: PIC (Participant Identification Code)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "registration",
      "note": null,
      "obligation": "mandatory",
-     "outcome": "to_obtain",
-     "reason": "You need a PIC to apply. It is free and issued immediately when the registration is complete.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-PIC",
      "rule": "USI-PIC",
      "source": {
@@ -809,9 +832,7 @@
    ],
    "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
    "summary": "The part of EDIP that funds cooperation with Ukraine's defence industry, with its own eligibility rules.",
-   "toObtain": [
-    "USI-PIC"
-   ],
+   "toObtain": [],
    "verdict": "conditional"
   },
   {
@@ -1130,20 +1151,27 @@
   },
   {
    "blocking": [],
-   "conditions": [],
+   "conditions": [
+    "ES-PECAL-CERT"
+   ],
    "counts": {
     "conditional": 2,
     "info": 6,
     "met": 5,
     "not_applicable": 7,
-    "not_met": 1,
+    "not_met": 0,
     "to_obtain": 0,
-    "unknown": 0
+    "unknown": 1
    },
-   "incomplete": false,
+   "incomplete": true,
    "kind": "route",
    "legalBasis": null,
-   "missing": [],
+   "missing": [
+    {
+     "field": "REQ-FSC-ES",
+     "question": "Do you hold: HSEM facility security clearance (Spain)?"
+    }
+   ],
    "name": "Spanish defence supplier (MoD)",
    "programme": "ES-MOD",
    "rules": [
@@ -1344,7 +1372,7 @@
      "note": null,
      "obligation": "conditional",
      "outcome": "not_applicable",
-     "reason": "Defence homologation is restricted to products for specific defence use (Article 346 TFEU), and it is mandatory only for those on the Ministry's list; for the others it is voluntary. A civilian automotive component is typically not a product for specific defence use.",
+     "reason": "Defence homologation is restricted to products for specific defence use (Article 346 TFEU), and it is mandatory only for those on the Ministry's list; for the others it is voluntary. On your answers, your product is not one for which it is mandatory.",
      "requirement": null,
      "rule": "ES-HOMOLOG",
      "source": {
@@ -1358,14 +1386,19 @@
      "title": "Defence homologation of the product (RD 165/2010)"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-FSC-ES",
+       "question": "Do you hold: HSEM facility security clearance (Spain)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "security",
      "note": "UNVERIFIED: cost and duration of the HSEM.",
      "obligation": "conditional",
-     "outcome": "not_met",
-     "reason": "You will access classified information, so you need the HSEM at the grade of that information, as a bidder or as a subcontractor at any level. Subcontracting such work needs the contracting body's written approval. For Ministry of Defence classified contracts the DGAM processes it; for NATO, EU and ESA classified information, the ONS (CNI).",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-FSC-ES",
      "rule": "ES-HSEM",
      "source": {
@@ -1592,7 +1625,7 @@
    "sourceUrl": "https://sede.defensa.gob.es/acceda/procedimientos",
    "summary": "Supplying the Spanish Ministry of Defence, directly or as a subcontractor in its contracts: the defence industry register, PECAL quality, security clearances, catalogation, homologation, the Spanish defence-material licence and foreign ownership. For companies established in Spain.",
    "toObtain": [],
-   "verdict": "eligible"
+   "verdict": "conditional"
   }
  ],
  "call": null,
@@ -1613,6 +1646,10 @@
     {
      "field": "dualuse_annex_i",
      "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+    },
+    {
+     "field": "REQ-EXPORT",
+     "question": "Do you hold: Export authorisation for dual-use or military items?"
     }
    ],
    "key": "EU-DUALUSE-EXPERT",
@@ -1637,14 +1674,18 @@
     "info": 1,
     "met": 0,
     "not_applicable": 13,
-    "not_met": 1,
+    "not_met": 0,
     "to_obtain": 0,
-    "unknown": 1
+    "unknown": 2
    },
-   "incomplete": false,
+   "incomplete": true,
    "kind": "general",
    "legalBasis": null,
    "missing": [
+    {
+     "field": "REQ-FSC-ES",
+     "question": "Do you hold: HSEM facility security clearance (Spain)?"
+    },
     {
      "field": "export_intent",
      "question": "Do you export or plan to export?"
@@ -1652,6 +1693,10 @@
     {
      "field": "dualuse_annex_i",
      "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+    },
+    {
+     "field": "REQ-EXPORT",
+     "question": "Do you hold: Export authorisation for dual-use or military items?"
     }
    ],
    "name": "Requirements that apply whichever route you take",
@@ -1763,14 +1808,19 @@
      "title": "REOCE registration (Spanish exporters)"
     },
     {
-     "asks": [],
+     "asks": [
+      {
+       "field": "REQ-FSC-ES",
+       "question": "Do you hold: HSEM facility security clearance (Spain)?"
+      }
+     ],
      "consultant": null,
      "denominator": null,
      "kind": "security",
      "note": null,
      "obligation": "conditional",
-     "outcome": "not_met",
-     "reason": "To handle classified information a Spanish company needs the HSEM company security clearance. Who processes it depends on whose information it is: the DGAM for Ministry of Defence classified contracts, the Oficina Nacional de Seguridad (ONS, CNI) for NATO, EU and ESA classified information. How long it takes is not published.",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
      "requirement": "REQ-FSC-ES",
      "rule": "G-HSEM",
      "source": {
@@ -1981,6 +2031,10 @@
       {
        "field": "dualuse_annex_i",
        "question": "Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?"
+      },
+      {
+       "field": "REQ-EXPORT",
+       "question": "Do you hold: Export authorisation for dual-use or military items?"
       }
      ],
      "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
@@ -2006,7 +2060,7 @@
    "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
    "summary": "Export control, exporter registration and facility security clearance depend on what you make and where you sell, not on the programme.",
    "toObtain": [],
-   "verdict": "eligible"
+   "verdict": "conditional"
   }
  ],
  "generatedAt": "2026-10-17T12:00:00+00:00",
@@ -2086,7 +2140,9 @@
     "when": null
    },
    {
-    "blockingFor": [],
+    "blockingFor": [
+     "ES-MOD"
+    ],
     "branchNote": null,
     "category": "security",
     "code": "REQ-FSC-ES",
@@ -2245,5 +2301,5 @@
    "REQ-PECAL"
   ]
  },
- "rulesReviewed": "2026-10-18"
+ "rulesReviewed": "2026-10-20"
 }

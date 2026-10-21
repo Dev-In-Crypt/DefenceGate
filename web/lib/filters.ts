@@ -2,7 +2,7 @@ import type {
   BuyerFilters, BuyerSort, CallFilters, CallSort, CallStatusFilter, ChangeFilters, CountryCode, ListView, ProgrammeCode, Regime,
   TenderFilters, TenderScopeFilter, TenderSort, TenderStatusFilter,
 } from './types';
-import { BUYER_COUNTRY_CODES, COUNTRIES, PROGRAMME_CODES, REGIME_CODES } from './taxonomy';
+import { BUYER_COUNTRY_CODES, COUNTRIES, PROGRAMME_CODES, REGIME_CODES, countryName } from './taxonomy';
 
 /** Next.js page searchParams shape. */
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -290,6 +290,8 @@ export function activeBuyerFilterCount(f: BuyerFilters): number {
 /* ---- What changed (/changes): country and scope only; 14 days is the API's window ---- */
 
 export const CHANGE_PAGE_SIZE = 25;
+/** The API serves the change list up to page 100 (`/v1/changes`, `page <= 100`); a page past it is shown as past the end (QA m-8). */
+export const CHANGE_MAX_PAGE = 100;
 /** An ISO week as the digest names it. The API settles whether the week exists (404). */
 const WEEK_RE = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
 const CHANGE_KINDS = ['new', 'amended'] as const;
@@ -341,7 +343,7 @@ export function parseMarketFilters(sp: SearchParams, thisYear: number = new Date
 
 /* ---- What a list page was asked for and did not use ---- */
 
-export type ListKind = 'tenders' | 'funding' | 'buyers';
+export type ListKind = 'tenders' | 'funding' | 'buyers' | 'changes' | 'organisations' | 'suppliers';
 
 /**
  * Notices for the parameters of a list URL that are present but not usable, and for ranges that cannot match.
@@ -371,6 +373,34 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
     return v ? num(v) : undefined;
   };
 
+  const pageNumber = () => {
+    const page = one(PARAM.page);
+    if (page && num(page) === undefined) bad(PARAM.page, page, 'not a page number');
+    else if (page && (num(page) as number) < 1) bad(PARAM.page, page, 'pages start at 1');
+  };
+  // WP-73 (QA m-10): the lists that dropped such values silently say so too
+  if (kind === 'changes') {
+    codes(PARAM.country, COUNTRY_CODES, 'country code');
+    choice(PARAM.scope, TENDER_SCOPES);
+    choice(PARAM.goods, GOODS);
+    choice('kind', CHANGE_KINDS);
+    const week = one('week');
+    if (week && !WEEK_RE.test(week)) bad('week', week, 'not a week; use YYYY-Www, for example 2026-W42');
+    pageNumber();
+    return out;
+  }
+  if (kind === 'organisations') {
+    for (const v of many(PARAM.country)) if (!/^[A-Za-z]{2}$/.test(v) || countryName(v.toUpperCase()) === v.toUpperCase()) bad(PARAM.country, v, 'not a known country code');
+    choice(PARAM.sort, ORG_SORT_VALUES);
+    pageNumber();
+    return out;
+  }
+  if (kind === 'suppliers') {
+    for (const v of many(PARAM.cpv)) if (!/^\d{2,8}$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
+    choice(PARAM.sort, ['awards', 'name']);
+    pageNumber();
+    return out;
+  }
   if (kind === 'buyers') {
     choice(PARAM.sort, BUYER_SORTS);
     const open = one(PARAM.hasOpen);
@@ -402,10 +432,12 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
     if (from && to && from > to) out.push(`The date range is inverted: ${from} is after ${to}, so nothing can match. Swap the two dates.`);
     if (min !== undefined && max !== undefined && min > max) out.push(`The ${kind === 'tenders' ? 'value' : 'budget'} range is inverted: the minimum is above the maximum, so nothing can match.`);
   }
-  const page = one(PARAM.page);
-  if (page && num(page) === undefined) bad(PARAM.page, page, 'not a page number');
+  pageNumber();
   return out;
 }
+
+/** The sorts of the organisation list (lib/networks.ts ORG_SORTS), here to keep this file free of the networks module. */
+const ORG_SORT_VALUES = ['defence', 'projects', 'name'] as const;
 
 /** The last page that has results (1 when there are none). A page past it is redirected here. */
 export function lastPage(total: number, pageSize: number): number {

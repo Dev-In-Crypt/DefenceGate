@@ -63,15 +63,15 @@ if (back.ok) assert.deepEqual({ ...back.profile, updatedAt: null }, { ...hostile
 assert.equal(naceProblem(''), null);
 for (const ok of ['25', '25.5', '25.50', 'C25.50', 'c25.50', ' 29.32 ']) assert.equal(naceProblem(ok), null, ok);
 for (const bad of ['2', '255', '25.501', 'Z25', '25-50', 'abc']) assert.ok(naceProblem(bad), bad);
-assert.ok(cpvProblem([])?.includes('at least 5'));
-assert.ok(cpvProblem(CPV5.slice(0, 4))?.includes('(you have 4)'));
+assert.equal(cpvProblem([]), null, 'WP-73: no CPV code is required (no rule reads them)');
+assert.equal(cpvProblem(CPV5.slice(0, 4)), null);
 assert.equal(cpvProblem(CPV5), null);
 assert.ok(cpvProblem(Array.from({ length: 16 }, (_, i) => String(i)))?.includes('at most 15'));
 assert.equal(monthProblem(''), null);
 assert.equal(monthProblem('2027-05'), null);
 for (const bad of ['2027-13', '2027-5', '05/2027', '2027']) assert.ok(monthProblem(bad), bad);
 const es: Profile = { ...emptyProfile(), country: 'ES' };
-assert.deepEqual(supplierProblems(emptyProfile()).map((x) => x.id), ['sp-country', 'sp-cpv-search']);
+assert.deepEqual(supplierProblems(emptyProfile()).map((x) => x.id), ['sp-country']);
 assert.deepEqual(supplierProblems({ ...es, supplier: { ...emptySupplier(), cpv: CPV5, nace: 'x' } }).map((x) => x.id), ['sp-nace']);
 const iso = withHeld(es, cert('ISO9001'), true);
 assert.equal(iso.statuses['REQ-ISO9001'], 'held', 'a certificate with a requirement is that requirement\'s status (the wizard\'s step 4)');
@@ -90,7 +90,8 @@ assert.equal(toRequest(savedSupplier(es))!.statuses['REQ-RID'], 'not_held');
 assert.equal(toRequest(savedSupplier(es))!.statuses['REQ-PECAL'], 'not_held');
 assert.equal(toRequest(savedSupplier(es))!.statuses['REQ-HSES-ES'], undefined, 'the page does not ask the HSES');
 assert.equal(toRequest(savedSupplier(withHeld(es, cert('RID'), true)))!.statuses['REQ-RID'], 'held');
-assert.deepEqual(savedSupplier({ ...es, country: 'PL' }).statuses, {}, 'Spanish requirements are not filled in for a company elsewhere');
+// WP-73: every certificate and registration the page shows is "not held" once saved unticked; the Spanish ones only for a Spanish company
+assert.deepEqual(savedSupplier({ ...es, country: 'PL' }).statuses, { 'REQ-ISO9001': 'not_held', 'REQ-EN9100': 'not_held', 'REQ-AQAP2110': 'not_held', 'REQ-AQAP2310': 'not_held', 'REQ-NCAGE': 'not_held' }, 'Spanish requirements are not filled in for a company elsewhere');
 
 // ------------------------------------------------------------- the three sample companies send exactly the generated requests
 const sup = (over: Partial<Profile['supplier']>, rest: Partial<Profile> = {}): Profile =>
@@ -131,7 +132,9 @@ for (const q of ES_QUESTIONS) {
   assert.equal(q.kind === 'enum', m[1] === 'enum', `${q.field}: kind`);
 }
 for (const f of ['foreign_capital', 'us_components', 'REQ-RID', 'REQ-PECAL', 'nato_icb_bid', 'profile.certified_recipient']) assert.ok(supplierAsks(f), f);
-for (const f of ['de_vs_nfd', 'dualuse_annex_i', 'REQ-HSES-ES', 'legal_form']) assert.ok(!supplierAsks(f), f);
+// WP-73: the HSEM and HSES are asked there now (REQ-FSC-ES, REQ-HSES-ES); the PIC is not (the wizard's step 4)
+for (const f of ['REQ-FSC-ES', 'REQ-HSES-ES']) assert.ok(supplierAsks(f), f);
+for (const f of ['de_vs_nfd', 'dualuse_annex_i', 'REQ-PIC', 'legal_form']) assert.ok(!supplierAsks(f), f);
 assert.ok(wizardAsks('handles_classified') && supplierAsks('REQ-NCAGE'), 'a field both ask is linked to the wizard first (rules.tsx)');
 
 // ------------------------------------------------------------- CPV search: code prefix, curated words, whole words of the titles
