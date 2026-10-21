@@ -20,7 +20,7 @@ const COLUMNS: { title: string; long?: boolean; links: { label: string; href: st
     { label: 'Ukraine partners', href: '/networks/ukraine-partners' }, { label: 'Consortium gaps', href: '/networks/consortium-gaps' },
   ] },
   { title: 'Readiness', links: [
-    { label: 'Readiness check', href: '/readiness' }, { label: 'Requirements', href: '/requirements' },
+    { label: 'Readiness check', href: '/readiness' }, { label: 'Supplier profile', href: '/readiness/supplier' }, { label: 'Requirements', href: '/requirements' },
     { label: 'Regulatory tracker', href: '/regulation' },
   ] },
   { title: 'Data', long: true, links: [
