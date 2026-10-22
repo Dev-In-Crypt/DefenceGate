@@ -72,7 +72,7 @@ export async function Footer() {
           ))}
         </div>
         <div className="grid gap-3 border-t border-line pt-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-8">
-          <p className="m-0 max-w-3xl text-small text-ink-muted">
+          <p className="m-0 text-small text-ink-muted">
             DefenceGate is an information service. It is not an official source and is not affiliated with the European Union, TED or any government. The original publication is authoritative: check it before you act. Nothing here is legal or professional advice.
           </p>
           <div className="flex flex-col gap-0.5 font-sans text-small text-ink-muted lg:text-right">

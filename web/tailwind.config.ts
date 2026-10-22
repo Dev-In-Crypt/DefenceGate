@@ -37,7 +37,7 @@ const config: Config = {
       maxWidth: {
         /** The content box of a data page (the container adds the gutters). */
         content: v('content-max'),
-        /** The reading measure of running paragraphs (62ch). Frames (cards, the page column) do not take it. */
+        /** The reading measure of running paragraphs: 100 % since WP-83 (owner, 22 Oct 2026), the text fills its card or column. */
         prose: v('measure'),
         /** A reading page: title column, gap, one measure, padding. */
         reading: v('reading-max'),

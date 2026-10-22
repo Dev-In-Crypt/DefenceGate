@@ -78,8 +78,9 @@ for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd
   assert.ok(!readFileSync(f, 'utf8').includes('p-5 sm:p-6'), `${f}: card padding 24 px, the book's is 28 (sm:p-7)`);
 }
 
-// The reading measure 62ch (owner, 21 Oct 2026), the content box 1200 px and the gutters 16 / 28 of the book.
-assert.match(css, /--measure:\s*62ch/);
+// The reading measure: the full width of the block (owner, 22 Oct 2026, WP-83; it replaced the 62ch of 21 Oct), the content box 1200 px
+// and the gutters 16 / 28 of the book.
+assert.match(css, /--measure:\s*100%/);
 assert.match(css, /--content-max:\s*1200px/);
 assert.match(css, /--gutter:\s*16px/);
 assert.match(css, /min-width: 768px\) \{ :root \{ --gutter: 28px/);
@@ -124,9 +125,9 @@ for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd
 }
 for (const u of used) assert.ok(sizes.has(u), `text-${u} is used but not defined`);
 
-// No ad hoc line-length cap: running text takes the one measure (`max-w-prose`). The breadcrumb (40ch), the footer (36/34ch) are not prose;
-// the home page keeps its own until the home layout work (WP-46) replaces them. WP-45 removed the ones on /regulation and /requirements.
-const ALLOWED_CH = ['components/dg/feedback.tsx', 'components/dg/footer.tsx', 'app/(public)/page.tsx'];
+// No ad hoc line-length cap: running text takes the one measure (`max-w-prose`, the full width of its block since WP-83). The breadcrumb's
+// last crumb (40ch, truncated) and the footer's tagline (30ch) are not running text. The home page has none left (WP-83 checked).
+const ALLOWED_CH = ['components/dg/feedback.tsx', 'components/dg/footer.tsx'];
 for (const f of [...files(join(process.cwd(), 'app')), ...files(join(process.cwd(), 'components'))]) {
   const rel = f.slice(process.cwd().length + 1).replaceAll('\\', '/');
   if (ALLOWED_CH.includes(rel)) continue;

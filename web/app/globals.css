@@ -30,11 +30,10 @@
     /* Layout (brand book): content box 1200 px; the container adds the gutters (16 px, 28 px from md). */
     --content-max: 1200px;
     --gutter: 16px;
-    /* The reading measure (owner, 21 Oct 2026: "set the reading measure"): running paragraphs are at most 62ch wide, the book's cap of the
-       funding intro, which is 70 to 90 characters a line in Manrope (measured: docs/verification/product/wp62-selfcheck.md). Frames (cards,
-       the page column) keep the header width; only the text is capped. `ch` follows the font size, so a 14 px note and an 18 px lead get
-       about as many characters a line as the 16 px body. */
-    --measure: 62ch;
+    /* The reading measure (`max-w-prose`). Owner's decision of 22 Oct 2026 (WP-83, "text across the full width of the block"): running
+       text takes the whole width of its card or column. It replaces the 62ch cap of 21 Oct (WP-62), which left the right half of a wide
+       card empty. Frames and grids keep their widths; the text no longer has a cap of its own. */
+    --measure: 100%;
     --form-max: 560px;
     /* A reading page: as wide as the content box. */
     --reading-max: 100%;
@@ -187,11 +186,11 @@
   .toc-page .card-titled > .card-body { padding-top: 12px; }
   /*
    * Justified running text (WP-45, WP-62): only where it reads well, that is a paragraph in a column of at least 560 px (about 65 characters
-   * at 16 px; with the 62ch measure such a line holds 65 to 90 characters), hyphenated (html lang is en). Everything else is left-aligned: a
+   * at 16 px; since WP-83 a paragraph fills its column, so such a line holds 65 characters or more), hyphenated (html lang is en). Everything else is left-aligned: a
    * phone, a card in a grid, the 396 px text column of a two-column card at 1024 px (those made the rivers of the audits, m7).
    * `.justify-text` on a wrapper = every paragraph in it; `.justify-p` = one paragraph. The column is measured with a container query: the
    * wrapper and the body of every card are inline-size containers, and a paragraph asks the nearest of them. Not headings, lists of short
-   * items, table cells, tags, buttons, captions or 14 px notes (a 62ch line of small type has too few spaces to spread: the rivers at /cpv).
+   * items, table cells, tags, buttons, captions or 14 px notes (a line of small type has too few spaces to spread: the rivers at /cpv).
    */
   .justify-text, .card-body, .justify-col { container-type: inline-size; }
   @container (min-width: 560px) {

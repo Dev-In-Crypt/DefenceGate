@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { paragraphsOutsideFrame, paragraphsOverMeasure, visit } from './helpers';
+import { BLOCK_WIDTHS, paragraphsNarrowerThanBlock, paragraphsOutsideFrame, visit } from './helpers';
 
 /**
  * The layout foundation of WP-44 (docs/verification/product/wp44-selfcheck.md): one measure, the page-header scale, a card that reads as a
@@ -48,12 +48,19 @@ test('text-h4 is defined: the three questions on the home page are headings, not
   expect(Number(style.weight)).toBeGreaterThanOrEqual(600);
 });
 
-test('no paragraph of a reading page leaves the content frame or runs past the reading measure, and the page is a centred column', async ({ page }) => {
+test('no paragraph of a reading page leaves the content frame, a running paragraph fills its block, and the page is a centred column', async ({ page }) => {
   for (const path of ['/about', '/methodology', '/privacy', '/glossary']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
-    // WP-62 (owner, 21 Oct 2026): the frame keeps the header width, a paragraph keeps the 62ch measure (at most about 90 characters a line).
+    // WP-83 (owner, 22 Oct 2026, replacing the 62ch measure of WP-62): the frame keeps the header width and a running paragraph takes the
+    // full width of its card or column, at 1440 and 1024 px (at 375 px `visit` checks that nothing scrolls sideways).
     expect(await paragraphsOutsideFrame(page), `${path}: paragraphs outside the header's left and right edges`).toEqual([]);
-    expect(await paragraphsOverMeasure(page), `${path}: paragraph lines over 95 characters`).toEqual([]);
+    if (!isMobile(page)) {
+      for (const width of BLOCK_WIDTHS) {
+        await page.setViewportSize({ width, height: 800 });
+        expect(await paragraphsNarrowerThanBlock(page), `${path} at ${width} px: paragraphs narrower than 90 % of their block`).toEqual([]);
+      }
+      await page.setViewportSize({ width: 1280, height: 800 });
+    }
     // WP-45: the page frame is exactly as wide as the header pill (a 988 px column left the page narrower than the header).
     const col = await page.evaluate(() => {
       const r = document.querySelector('main h1')!.closest('div')!.getBoundingClientRect();

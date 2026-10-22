@@ -62,8 +62,7 @@ export async function visit(page: Page, path: string, want: Expect): Promise<Res
 
 /**
  * The frame rule: a paragraph of `main` never leaves the content frame, the header's left and right edges (the frame equals the header).
- * Since WP-62 the paragraph itself is also capped by the reading measure (62ch, see `paragraphsOverMeasure`); the frame still keeps the
- * header width. Returns the visible paragraphs that break it. `skip` leaves out paragraphs inside those selectors, `minLength` short ones.
+ * Since WP-83 a running paragraph also fills its block (see `paragraphsNarrowerThanBlock`). Returns the visible paragraphs that break it. `skip` leaves out paragraphs inside those selectors, `minLength` short ones.
  */
 export function paragraphsOutsideFrame(page: Page, opts: { skip?: string; minLength?: number } = {}) {
   return page.evaluate(({ skip, minLength }) => {
@@ -75,38 +74,36 @@ export function paragraphsOutsideFrame(page: Page, opts: { skip?: string; minLen
   }, { skip: opts.skip, minLength: opts.minLength ?? 0 });
 }
 
+/** The widths `paragraphsNarrowerThanBlock` is checked at (WP-83): a wide desktop and a small laptop. */
+export const BLOCK_WIDTHS = [1440, 1024];
+
 /**
- * The reading measure (WP-62, owner's decision of 21 Oct 2026): a running paragraph of `main` holds at most `max` characters on any line
- * but its last (default 95: the 62ch measure gives 70 to 90 in Manrope, a line of short words a few more). It counts the characters of each
- * rendered line (word boxes on the same top), not the box width. Paragraphs under 120 characters are left out. Returns the paragraphs that
- * break it, with their widest line.
+ * The full-width rule (WP-83, owner's decision of 22 Oct 2026, "text across the full width of the block"; it replaces the 62ch measure
+ * of WP-62, 21 Oct): a running paragraph of `main` (more than `minLength` characters, default 200) is at least `ratio` (default 0.9) as
+ * wide as the content box of its block. The block is the nearest card body, padded box, grid or flex-row column, or `main`; a wrapper with a
+ * max-width of its own (anything but none or 100 %) is never the block, so a cap on a wrapper is caught as well as one on the paragraph.
+ * Returns the paragraphs that break it, with their width and the block's.
  */
-export function paragraphsOverMeasure(page: Page, opts: { skip?: string; max?: number } = {}) {
-  return page.evaluate(({ skip, max }) => {
-    const range = document.createRange();
-    const out: { chars: number; t: string }[] = [];
+export function paragraphsNarrowerThanBlock(page: Page, opts: { skip?: string; minLength?: number; ratio?: number } = {}) {
+  return page.evaluate(({ skip, minLength, ratio }) => {
+    const isBlock = (e: Element) => {
+      if (e.tagName === 'MAIN' || e.classList.contains('card-body')) return true;
+      const es = getComputedStyle(e);
+      if (!['none', '100%'].includes(es.maxWidth)) return false;
+      if (parseFloat(es.paddingLeft) + parseFloat(es.paddingRight) > 0) return true;
+      const ps = e.parentElement && getComputedStyle(e.parentElement);
+      return !!ps && (ps.display.includes('grid') || (ps.display.includes('flex') && ps.flexDirection.startsWith('row')));
+    };
+    const out: { p: number; block: number; t: string }[] = [];
     for (const p of document.querySelectorAll('main p')) {
-      if (p.getClientRects().length === 0 || (skip && p.closest(skip)) || (p.textContent ?? '').length < 120) continue;
-      const lines: number[] = [];
-      let top = -1e9;
-      const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
-      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-        for (const m of (n.nodeValue ?? '').matchAll(/\S+/g)) {
-          range.setStart(n, m.index!);
-          range.setEnd(n, m.index! + m[0].length);
-          // A word that wraps (a URL broken by overflow-wrap, a hyphenated word) has a box on each line: its characters are shared
-          // between those lines by width.
-          const rects = [...range.getClientRects()].filter((r) => r.width > 0);
-          const total = rects.reduce((s, r) => s + r.width, 0);
-          for (const r of rects) {
-            const chars = Math.round((m[0].length * r.width) / total);
-            if (r.top > top + 6) { lines.push(chars); top = r.top; } else lines[lines.length - 1] += chars + 1;
-          }
-        }
-      }
-      const widest = Math.max(0, ...lines.slice(0, -1));
-      if (widest > max) out.push({ chars: widest, t: (p.textContent ?? '').trim().slice(0, 40) });
+      if (p.getClientRects().length === 0 || (skip && p.closest(skip)) || (p.textContent ?? '').trim().length <= minLength) continue;
+      let b = p.parentElement!;
+      while (!isBlock(b)) b = b.parentElement!;
+      const s = getComputedStyle(b);
+      const inner = b.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+      const w = p.getBoundingClientRect().width;
+      if (w < ratio * inner) out.push({ p: Math.round(w), block: Math.round(inner), t: (p.textContent ?? '').trim().slice(0, 40) });
     }
     return out;
-  }, { skip: opts.skip, max: opts.max ?? 95 });
+  }, { skip: opts.skip, minLength: opts.minLength ?? 200, ratio: opts.ratio ?? 0.9 });
 }

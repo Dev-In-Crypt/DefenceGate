@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
  *
  *   <Card>                      plain padded box; children are spaced 16 px apart
  *   <Card title="Terms">        titled: a 56 px header row (h2, optional `action` at the right end), a hairline, then the body
- *   <TextCard title="Privacy">  two columns from lg: the title at the left (220 px), the text at the right (one reading measure)
+ *   <TextCard title="Privacy">  two columns from lg: the title at the left (220 px), the text at the right (the rest of the card)
  *
  * `as` picks the element (`li` for a card in a list, `article` for a record). A titled card is a `section`
  * labelled by its heading; the heading id is `id`, or a slug of the title.

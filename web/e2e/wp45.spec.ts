@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { paragraphsOutsideFrame, paragraphsOverMeasure, visit } from './helpers';
+import { BLOCK_WIDTHS, paragraphsNarrowerThanBlock, paragraphsOutsideFrame, visit } from './helpers';
 
 /**
  * Page-level layout of WP-45 (docs/verification/product/wp45-selfcheck.md): the tracker entry, the requirement cards, the reading
@@ -25,13 +25,19 @@ const PAGES: { path: string; title: RegExp; h1: string | RegExp }[] = [
   { path: '/calendar', title: /calendar/i, h1: 'Deadline calendar' },
 ];
 
-test('no paragraph on these pages leaves the content frame or runs past the reading measure, and nothing scrolls sideways', async ({ page }) => {
+test('no paragraph on these pages leaves the content frame, a running paragraph fills its block, and nothing scrolls sideways', async ({ page }) => {
   for (const p of PAGES) {
     // `visit` checks that nothing scrolls sideways.
     await visit(page, p.path, { title: p.title, h1: p.h1 });
-    // WP-62 (owner, 21 Oct 2026): the frame keeps the header width, a paragraph keeps the 62ch measure (at most about 90 characters a line).
+    // WP-83 (owner, 22 Oct 2026, replacing the 62ch measure of WP-62): the frame keeps the header width and a running paragraph takes the
+    // full width of its card or column, at 1440 and 1024 px.
     expect(await paragraphsOutsideFrame(page), `${p.path}: paragraphs outside the header's left and right edges`).toEqual([]);
-    expect(await paragraphsOverMeasure(page), `${p.path}: paragraph lines over 95 characters`).toEqual([]);
+    if (isMobile(page)) continue;
+    for (const width of BLOCK_WIDTHS) {
+      await page.setViewportSize({ width, height: 800 });
+      expect(await paragraphsNarrowerThanBlock(page), `${p.path} at ${width} px: paragraphs narrower than 90 % of their block`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
   }
 });
 
@@ -224,7 +230,7 @@ test('the frame of every page spans the header pill, and no card is narrower tha
 
 // WP-62: justified only where it reads well (owner, 21 Oct 2026): a body paragraph in a column of 560 px or more, hyphenated; a phone, a narrow
 // column and 14 px notes are left-aligned. The column is the paragraph's container (globals.css), so the check reads the paragraph's own box:
-// a justified paragraph is at least 500 px wide (its 62ch measure is about 600), a narrower one is never justified.
+// a justified paragraph is at least 500 px wide (since WP-83 it fills its column of 560 px or more), a narrower one is never justified.
 test('running paragraphs are justified and hyphenated only in a wide column, left-aligned on a phone and in narrow columns; headings, lists and table cells never are', async ({ page }) => {
   for (const path of ['/privacy', '/methodology', '/about', '/regulation']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });

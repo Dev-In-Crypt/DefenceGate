@@ -167,7 +167,7 @@ export default async function StyleguidePage() {
             { label: 'Time', value: 'Up to 14 working days on average; routine priority is 10 calendar days, emergency is 3 working days', wide: true },
           ]} />
         </Specimen>
-        <Specimen label="Prose (the 62ch reading measure, 16/24) and Details (a long line behind a 44 px summary)">
+        <Specimen label="Prose (the full width of its block, 16/24) and Details (a long line behind a 44 px summary)">
           <Prose><p>Running text never runs wider than the reading measure, whatever the box around it. Paragraphs are 16 px apart.</p><ul><li>A bulleted list has its markers.</li><li>And the same measure.</li></ul></Prose>
           <Details summary="Source and citation">https://example.org/a/very/long/address/that/would/otherwise/stretch/the/card/into/a/line/of/one/hundred/and/fifty/characters/and/more</Details>
         </Specimen>

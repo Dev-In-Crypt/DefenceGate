@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { paragraphsOutsideFrame, paragraphsOverMeasure, visit } from './helpers';
+import { BLOCK_WIDTHS, paragraphsNarrowerThanBlock, paragraphsOutsideFrame, visit } from './helpers';
 
 /**
  * Page-level layout of the record and list pages (WP-47, docs/verification/product/wp47-selfcheck.md): a call and a tender page with a
@@ -120,13 +120,21 @@ test('the funding filters fold too, and the cascade and Ukraine filters stay in 
   expect(height, 'the folded filter form (2,100 px before)').toBeLessThanOrEqual(1700);
 });
 
-test('no paragraph of a list or record page leaves the content frame or runs past the reading measure', async ({ page }) => {
-  for (const path of ['/funding', '/tenders', '/organisations', CALL, TENDER, '/organisations/101-alpha-systems-gmbh']) {
+test('no paragraph of a list or record page leaves the content frame, and a running paragraph fills its block', async ({ page }) => {
+  // WP-83 adds the pages of the owner's screenshots: the supplier map, a supplier page and the Spain automotive entry.
+  for (const path of ['/funding', '/tenders', '/organisations', CALL, TENDER, '/organisations/101-alpha-systems-gmbh',
+    '/suppliers', '/suppliers/1-demo-airframes-gmbh', '/readiness/spain-automotive']) {
     await visit(page, path, { title: /.+/, h1: /.+/ });
-    // WP-62 (owner, 21 Oct 2026): the frame keeps the header width, a paragraph keeps the 62ch measure (at most about 90 characters a line).
+    // WP-83 (owner, 22 Oct 2026, replacing the 62ch measure of WP-62): the frame keeps the header width and a running paragraph takes the
+    // full width of its card or column, at 1440 and 1024 px (at 375 px `visit` checks that nothing scrolls sideways).
     const wide = await paragraphsOutsideFrame(page, { skip: 'table, nav, [role=region], article, .reading', minLength: 121 });
     expect(wide, `${path}: paragraphs outside the header's left and right edges`).toEqual([]);
-    expect(await paragraphsOverMeasure(page, { skip: 'table' }), `${path}: paragraph lines over 95 characters`).toEqual([]);
+    if (isMobile(page)) continue;
+    for (const width of BLOCK_WIDTHS) {
+      await page.setViewportSize({ width, height: 800 });
+      expect(await paragraphsNarrowerThanBlock(page, { skip: 'table' }), `${path} at ${width} px: paragraphs narrower than 90 % of their block`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
   }
 });
 
