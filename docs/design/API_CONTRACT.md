@@ -1185,3 +1185,17 @@ Scope: the defence-scope notices (`is_defence`, not removed). Answer:
   is never counted or named. `winnersFrom` says which, `sources` carries the attributions (PLACSP with its date of last update);
 - `coverage`: direct buying by defence bodies only, not the sub-tier needs of prime contractors; TED about a tenth of EU defence
   spending; national coverage per country. `notice`: counts of notices, not of money.
+- `approach` (WP-80, "who to approach"): `winners[]`, the winners across the countries asked with at least `kMin` procurements
+  (at most 30, most contracts first, plus every one marked as a prime past the 30th): `{name, country, contracts, slug,
+  buyers, countries, lastAward, prime, edfProjects, defenceBuyer}` (no sum of values per supplier, the supplier map's rule). `slug`
+  is the supplier page (`/v1/suppliers/{slug}`), null when the supplier map serves no page for the company; `buyers` the 3 buyer
+  families it wins from most (`{slug, name, country, contracts}`, a withheld buyer never named); `lastAward` the publication date of the newest
+  of its notices (a TED result notice is published at the award; a PLACSP row carries the procurement's publication date, not the
+  award date, which is not stored); `prime: {group, jointVenture, source, sourceUrl}` from the curated list `demand.PRIMES` (the European companies of
+  the SIPRI Top 100 of 2024, GDELS, Indra), matched on the normalised name, or null; `edfProjects` the EDF, EDIDP and PADR projects
+  of the organisation and those merged into it; `defenceBuyer` its defence-buyer flag. `below: {winners, awards}`: winners with fewer
+  than `kMin` procurements, counted only; `more: {winners, awards}`: winners past the 30th.
+- WP-80: an award that TED and PLACSP both publish (`award_twin_set`) counts once, in `approach` and in the per-country winners.
+- WP-80: a request whose codes match more than 30,000 defence-scope notices in the window and countries asked (`demand.MAX_ROWS`;
+  15 whole divisions match about 117,000) is refused with `422 {"detail": {"code": "too_broad", "message": "... Choose more specific
+  codes ..."}}`, the codes not echoed. Counted first with a `LIMIT`, so a refusal costs well under a second.

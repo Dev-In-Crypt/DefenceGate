@@ -66,7 +66,7 @@ test('the results page shows one row per country and the way to the report', asy
   const es = DEMO.byCountry[0];
   await expect(section.locator('[data-demand-row="ES"]')).toContainText(`${es.coreBuyers} / ${es.otherBuyers}`);
   await expect(section.locator('[data-demand-coverage]')).toHaveText(DEMO.coverage);
-  await section.getByRole('link', { name: 'Buyers, winners and notices in your supplier report' }).click();
+  await section.getByRole('link', { name: 'Buyers and notices in your supplier report' }).click();
   await expect(page).toHaveURL(/\/readiness\/supplier\/report#r-demand$/);
 });
 

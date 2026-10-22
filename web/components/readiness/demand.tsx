@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { cpvDictionaryTitle } from '@/lib/cpv';
 import { buyerLine, directiveShare, otherWinnersLine, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
-import type { Profile } from '@/lib/profile';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { DataTable } from '@/components/dg/data-table';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
-import { useCpvVocabulary, useDemand } from './use-readiness';
+import { useCpvVocabulary, type DemandState } from './use-readiness';
+
+export type DemandResult = DemandState & { retry: () => void };
 
 /** A notice: its page here and, for paper, its address at the source (the report's print rules print it after the link). */
 function Ref({ r }: { r: DemandRef }) {
@@ -86,9 +87,8 @@ function Coverage({ d }: { d: Demand }) {
   return <p className="m-0 max-w-prose text-small text-ink-muted" data-demand-coverage>{d.coverage}</p>;
 }
 
-/** The whole map, for the printable report. */
-export function DemandMap({ profile }: { profile: Profile }) {
-  const result = useDemand(profile);
+/** The whole map, for the printable report. `result`: the one demand request of the page (WP-80: "who to approach" reads it too). */
+export function DemandMap({ result }: { result: DemandResult }) {
   const vocab = useCpvVocabulary();
   if (result.state === 'idle' || result.state === 'loading') return <div role="status" aria-label="Computing the demand map"><Skeleton className="h-40" /></div>;
   if (result.state === 'error') return <ErrorState title="The demand map could not be computed" onRetry={result.retry}>{result.message}</ErrorState>;
@@ -114,8 +114,7 @@ export function DemandMap({ profile }: { profile: Profile }) {
 }
 
 /** The short version for the results page: one row per country, the coverage line, and the way to the full map. */
-export function DemandSummary({ profile }: { profile: Profile }) {
-  const result = useDemand(profile);
+export function DemandSummary({ result }: { result: DemandResult }) {
   if (result.state === 'idle') return null;
   return (
     <section aria-labelledby="demand" className="flex flex-col gap-3" data-demand-summary-section>
@@ -145,7 +144,7 @@ export function DemandSummary({ profile }: { profile: Profile }) {
             </tbody>
           </DataTable>
           <Coverage d={result.data} />
-          <div><Button href="/readiness/supplier/report#r-demand" variant="secondary">Buyers, winners and notices in your supplier report</Button></div>
+          <div><Button href="/readiness/supplier/report#r-demand" variant="secondary">Buyers and notices in your supplier report</Button></div>
         </>
       )}
     </section>

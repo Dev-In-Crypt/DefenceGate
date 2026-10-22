@@ -19,10 +19,28 @@ export interface DemandCounts { procurements: number; directive: number; coreBuy
 export interface DemandCountry extends DemandCounts {
   country: string; topBuyers: DemandBuyer[]; topWinners: DemandWinner[]; otherWinners: { winners: number; awards: number }; latest: DemandRef[];
 }
+/** WP-80: a company that wins these procurements, across the countries asked (named only with at least kMin of them). */
+export interface ApproachWinner {
+  name: string; country: string | null; contracts: number;
+  /** Its supplier page here; null when it wins only outside the supplier map's core scope (no page). */
+  slug: string | null;
+  buyers: { slug: string; name: string; country: string; contracts: number }[];
+  /** The publication date of its newest notice (TED: the result notice; PLACSP: the procurement, the award date is not stored). */
+  countries: string[]; lastAward: string | null;
+  prime: { group: string; jointVenture: boolean; source: string; sourceUrl: string } | null;
+  edfProjects: number; defenceBuyer: boolean;
+}
+export interface Approach {
+  winners: ApproachWinner[];
+  /** Winners with fewer than kMin procurements: counted, never named. */
+  below: { winners: number; awards: number };
+  /** Winners with kMin or more past the first 30 (a prime is never among them). */
+  more: { winners: number; awards: number };
+}
 export interface Demand {
   since: string; until: string; kMin: number; countries: string[];
   codes: { code: string; prefix: string; procurements: number }[];
-  total: DemandCounts; byCountry: DemandCountry[];
+  total: DemandCounts; byCountry: DemandCountry[]; approach: Approach;
   coverage: string; winnersFrom: string; notice: string;
   sources: { code: string; name: string; attribution: string; lastUpdated?: string | null }[];
 }
@@ -66,6 +84,26 @@ export function otherWinnersLine(c: DemandCountry, kMin: number): string | null 
     `at least ${kMin} awards here, and at most ten per country.`;
 }
 
+/** The winners not named in "who to approach", in words: the mosaic rule, and the end of the list. */
+export function approachOthersLine(a: Approach, kMin: number): string | null {
+  const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+  const parts: string[] = [];
+  if (a.below.winners > 0) {
+    parts.push(`${n(a.below.winners, 'other winner', 'other winners')} with fewer than ${kMin} awards each (${n(a.below.awards, 'award', 'awards')} together) ` +
+      `${a.below.winners === 1 ? 'is' : 'are'} counted, not named.`);
+  }
+  if (a.more.winners > 0) {
+    parts.push(`${n(a.more.winners, 'more winner', 'more winners')} with ${kMin} or more awards (${n(a.more.awards, 'award', 'awards')}) ` +
+      `${a.more.winners === 1 ? 'is' : 'are'} not listed: the list stops at 30, and every prime contractor or large defence group is on it.`);
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
+/** The primes and large defence groups among the named winners, the realistic way in for a subcontractor. */
+export function primesOf(a: Approach): ApproachWinner[] {
+  return a.winners.filter((w) => w.prime !== null);
+}
+
 export class DemandError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
@@ -79,6 +117,20 @@ export async function fetchDemand(request: DemandRequest, signal?: AbortSignal):
     if (signal?.aborted) throw e;
     throw new DemandError(0, DEMAND_FAILED);
   });
-  if (!res.ok) throw new DemandError(res.status, res.status === 429 ? 'Too many requests. Wait a minute and try again.' : DEMAND_FAILED);
+  if (!res.ok) {
+    if (res.status === 429) throw new DemandError(429, 'Too many requests. Wait a minute and try again.');
+    // WP-80: codes that match too many notices are refused with the API's own sentence ("choose more specific codes")
+    if (res.status === 422) {
+      const message = tooBroadMessage(await res.json().catch(() => null));
+      if (message) throw new DemandError(422, message);
+    }
+    throw new DemandError(res.status, DEMAND_FAILED);
+  }
   return (await res.json()) as Demand;
+}
+
+/** The API's sentence for a request that matches too many notices (`detail: {code: 'too_broad', message}`), else null. */
+export function tooBroadMessage(body: unknown): string | null {
+  const d = (body as { detail?: { code?: unknown; message?: unknown } } | null)?.detail;
+  return d && d.code === 'too_broad' && typeof d.message === 'string' ? d.message : null;
 }

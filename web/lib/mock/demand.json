@@ -41,8 +41,8 @@
   "directive": 178,
   "coreBuyers": 160,
   "otherBuyers": 183,
-  "awarded": 104,
-  "winners": 104
+  "awarded": 1310,
+  "winners": 496
  },
  "byCountry": [
   {
@@ -113,53 +113,413 @@
      "procurements": 45
     }
    ],
-   "awarded": 23,
-   "winners": 24,
+   "awarded": 1229,
+   "winners": 416,
    "topWinners": [
     {
-     "name": "MADZEAL, S.L.",
+     "name": "FERRETERIA FERAYU S.L.",
      "country": "ES",
-     "awards": 3,
+     "awards": 73,
      "notices": [
       {
-       "id": "135755",
-       "slug": "135755-spain-mechanical-spare-parts-for-military-vehicles-acuerdo-m",
-       "noticeId": "401420-2026",
-       "title": "Spain – Mechanical spare parts for military vehicles – ACUERDO MARCO - Suministro abierto de repuestos para sostenimiento de vehículos \"PIRAÑA\" de la Brigada de Infantería de Marina Tercio de Armada (TEAR)",
-       "buyerName": "Intendente de San Fernando",
-       "publishedAt": "2026-06-11T00:00:00Z",
-       "source": "ted",
-       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/401420-2026",
+       "id": "139740",
+       "slug": "139740-suministro-de-materiales-para-adecuacion-caminos-en-cmt-mata",
+       "noticeId": "2026/ETSAE0206/00000801E",
+       "title": "Suministro de materiales para adecuación caminos en CMT MATAGRANDE Lote 1 Categoría 1 Áridos RI 1",
+       "buyerName": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+       "publishedAt": "2026-10-19T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Wrl4ZU%2BYF22zz8fXU2i3eQ%3D%3D",
        "directive": false
       },
       {
-       "id": "135563",
-       "slug": "135563-spain-mechanical-spare-parts-for-military-vehicles-acuerdo-m",
-       "noticeId": "389204-2026",
-       "title": "Spain – Mechanical spare parts for military vehicles – ACUERDO MARCO - Suministro abierto de repuestos para sostenimiento de vehículos \"IVECO\" de la Brigada de Infantería de Marina Tercio de Armada (TEAR)",
-       "buyerName": "Intendente de San Fernando",
-       "publishedAt": "2026-06-08T00:00:00Z",
-       "source": "ted",
-       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/389204-2026",
+       "id": "145747",
+       "slug": "145747-suministro-material-fungible-de-automocion-lote-5-academia-g",
+       "noticeId": "2026/ETSAE0327/00005440E",
+       "title": "Suministro material fungible de automoción lote 5 Academia General Basica de Suboficiales",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-10-05T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=LuWIrJtAOuU3vLk2DU2Ddg%3D%3D",
        "directive": false
       },
       {
-       "id": "122007",
-       "slug": "122007-spain-mechanical-spare-parts-for-military-vehicles-adquisici",
-       "noticeId": "390654-2025",
-       "title": "Spain – Mechanical spare parts for military vehicles – Adquisición de Repuestos de los Vehículos de la Familias Pizarro del ET",
+       "id": "235969",
+       "slug": "235969-suministro-material-fungible-de-repuestos-de-automocion-lote",
+       "noticeId": "2026/ETSAE0327/00002334E",
+       "title": "Suministro Material fungible de repuestos de automoción lote 5 Regimiento de Infantería América número 66",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-08-11T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=UzJtvZe3rDngL1BHd3qjQA%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "SUMINISTROS MERA SL",
+     "country": "ES",
+     "awards": 56,
+     "notices": [
+      {
+       "id": "397242",
+       "slug": "397242-suministro-material-fungible-de-repuestos-de-automocion-lote",
+       "noticeId": "2026/ETSAE0327/00006598E",
+       "title": "Suministro material fungible de repuestos de automoción lote 5 Regimiento de Caballería España 11",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-10-21T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=CZr7U%2F76ppjXOjazN1Dw9Q%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "146237",
+       "slug": "146237-suministro-material-fungible-de-ferreteria-lote-1-centro-de",
+       "noticeId": "2026/ETSAE0327/00006546E",
+       "title": "Suministro material fungible de ferretería lote 1 Centro de Adiestramiento San Gregorio",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-10-06T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=ZEwMEX0FSRGFQ%2FlhRK79lA%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "145787",
+       "slug": "145787-suministro-material-fungible-material-de-construccion-lote-5",
+       "noticeId": "2026/ETSAE0327/00006481E",
+       "title": "Suministro material fungible material de construcción lote 5 Centro de Adiestramiento San Gregorio",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-10-05T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=GokS4pH42p1SYrkJkLlFdw%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "URO VEHICULOS ESPECIALES, S.A.",
+     "country": "ES",
+     "awards": 49,
+     "notices": [
+      {
+       "id": "37737",
+       "slug": "37737-2018aym2059s-tear-1o-cb-am-2025-ar43u-00001892-suministro-ab",
+       "noticeId": "2026/AR43U/00002203E",
+       "title": "2018AYM2059S - TEAR - 1º CB AM (2025/AR43U/00001892) - Suministro Abierto de repuestos para sostenimiento de vehículos VAMTAC de la Brigada de Infantería de Marina (Tercio de Armada \"TEAR\")",
+       "buyerName": "Intendente de San Fernando",
+       "publishedAt": "2026-09-10T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=os9CdRfDMYzpxJFXpLZ%2B2A%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "37699",
+       "slug": "37699-adquisicion-repuestos-familia-uro-lote-2",
+       "noticeId": "2026/ETSAE0906/00003682E",
+       "title": "Adquisición repuestos familia URO - Lote 2",
        "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
-       "publishedAt": "2025-06-17T00:00:00Z",
-       "source": "ted",
-       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/390654-2025",
-       "directive": true
+       "publishedAt": "2026-09-09T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=ikFu8dL79aJrSd8H4b2soA%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "144255",
+       "slug": "144255-adquisicion-de-cubiertas",
+       "noticeId": "2026/ETSAE0906/00002446E",
+       "title": "Adquisición de cubiertas",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2026-09-03T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=80A1Ta%2FvsXWP%2Bo96UAV7cQ%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "Suyfa Defence, S.L.",
+     "country": "ES",
+     "awards": 40,
+     "notices": [
+      {
+       "id": "144625",
+       "slug": "144625-adquisicion-de-cubiertas-lote-1",
+       "noticeId": "2026/ETSAE0906/00004211E",
+       "title": "Adquisición de Cubiertas Lote 1",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2026-09-25T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=4t9Hn52GaAB70UvEyYJSGw%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "139813",
+       "slug": "139813-orm-2018aym2026s-serfer-1er-cbam-648-26-suministro-abierto-d",
+       "noticeId": "2026/AR42U/00002396",
+       "title": "ORM 2018AYM2026S SERFER. 1ER CBAM 648/26 Suministro abierto de repuestos de apoyo a equipos para PIP con destino a buques ARFER.",
+       "buyerName": "Intendente de Ferrol",
+       "publishedAt": "2026-09-24T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=E1umIeQQe16opEMYCmrbmw%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "3120",
+       "slug": "3120-adq-cubiertas-lote-1",
+       "noticeId": "2026/ETSAE0906/00003675E",
+       "title": "Adq. Cubiertas lote 1",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2026-08-24T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=JqiSLmH6luZ%2FP7lJ7Fu0SA%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "ITURRI S.A.",
+     "country": "ES",
+     "awards": 38,
+     "notices": [
+      {
+       "id": "267987",
+       "slug": "267987-adquisicion-61-vehiculos-iturri-landtrek-para-cis",
+       "noticeId": "2026/ETSAE0906/00004429E",
+       "title": "Adquisición 61 Vehículos ITURRI Landtrek para CIS",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2026-10-19T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=21%2F6ihI6uIgXhk1FZxEyvw%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "3244",
+       "slug": "3244-adquisicion-112-vehiculos-iturri-landtrek",
+       "noticeId": "2026/ETSAE0906/00003797E",
+       "title": "Adquisición 112 vehículos Iturri LANDTREK",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2026-08-20T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=ZsPwO69zQKSP%2Bo96UAV7cQ%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "235980",
+       "slug": "235980-adquisicion-de-160-vehiculos-iturri-landtrek",
+       "noticeId": "2026/ETSAE0906/00003727E",
+       "title": "Adquisición de 160  vehículos Iturri LANDTREK",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2026-08-11T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=7gNROG5dAcmP%2Bo96UAV7cQ%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "FERRETERIA ARIES SA",
+     "country": "ES",
+     "awards": 36,
+     "notices": [
+      {
+       "id": "145533",
+       "slug": "145533-suministro-material-fungible-de-ferreteria-lote-1-centro-de",
+       "noticeId": "2026/ETSAE0327/00005314E",
+       "title": "Suministro material fungible de ferretería lote 1 Centro de Adiestramiento San Gregorio",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-10-02T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=A6pNmcLXvxI%2FbjW6njtWLw%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "139822",
+       "slug": "139822-suministro-material-fungible-de-ferreteria-lote-1-acuartelam",
+       "noticeId": "2026/ETSAE0327/00004206E",
+       "title": "Suministro material fungible de ferretería lote 1 Acuartelamiento Aizoain",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-09-24T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=2jrqKs24ObKcTfjQf3USOg%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "139746",
+       "slug": "139746-suministro-material-fungible-de-ferreteria-lote-1-centro-de",
+       "noticeId": "2026/ETSAE0327/00003020E",
+       "title": "Suministro material fungible de ferretería lote 1 Centro de Adiestramiento San Gregorio",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-09-23T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=L%2FNewWk77cHCfVQHDepjGQ%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "IVECO ESPAÑA, S.L.",
+     "country": "ES",
+     "awards": 36,
+     "notices": [
+      {
+       "id": "246976",
+       "slug": "246976-14o-cbam-2020-etsae0906-00003931-para-el-carrozado-de-dos-au",
+       "noticeId": "2025/AR40U/00002118E",
+       "title": "14º CBAM 2020/ETSAE0906/00003931 para el carrozado de dos autobastidores de camión medio de 4 TM (4x4) y carrozado de tres autobastidores de camión pesado de 10 TM (6x6)",
+       "buyerName": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
+       "publishedAt": "2026-01-13T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=TH%2FdOlCNF%2Ft%2FR5QFTlaM4A%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "246972",
+       "slug": "246972-10o-cbam-2020-etsae0906-00003931-para-adquisicion-de-4-carro",
+       "noticeId": "2023/AR40U/00003094E",
+       "title": "10º CBAM 2020/ETSAE0906/00003931 para adquisición de 4 carrozados y 2 autobastidores",
+       "buyerName": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
+       "publishedAt": "2026-01-13T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=kJY1cF5JaaeopEMYCmrbmw%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "246885",
+       "slug": "246885-cb-del-am-3931-20-para-la-adquisicion-de-camiones-todo-terre",
+       "noticeId": "2025/AR40U/00000983E",
+       "title": "CB del AM 3931/20 para la Adquisición de camiones todo terreno militares",
+       "buyerName": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
+       "publishedAt": "2026-01-09T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=jt8rIs8yCsi9Hd5zqvq9cg%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "SUMINISTROS SANTO DOMINGO SL",
+     "country": "ES",
+     "awards": 32,
+     "notices": [
+      {
+       "id": "3144",
+       "slug": "3144-suministro-de-material-complementario-de-talleres-para-las-u",
+       "noticeId": "2026/ETSAE0206/00000896E",
+       "title": "Suministro de Material Complementario de Talleres para las unidades de la Brigada \"Extremadura\" XI",
+       "buyerName": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+       "publishedAt": "2026-08-11T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=l0pVrcmPLfeP%2Bo96UAV7cQ%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "251260",
+       "slug": "251260-suministro-de-productos-de-ferreteria-usac-santocildes",
+       "noticeId": "2026/ETSAE0427/00001701E",
+       "title": "Suministro de productos de ferretería USAC Santocildes",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Oeste",
+       "publishedAt": "2026-06-22T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=KTRaT09uMPUkJPJS%2BPS9vg%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "251095",
+       "slug": "251095-suministro-de-materiales-varios-para-el-mantenimiento-de-la",
+       "noticeId": "2026/ETSAE0226/00003948E",
+       "title": "Suministro de materiales varios para el mantenimiento de la Base de Cerro Muriano, Córdoba. 5 LOTES",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Sur",
+       "publishedAt": "2026-06-16T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Ey2aK1u3BoZeKgd8LfVV9g%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "Ferretería Rafa S.L.",
+     "country": "ES",
+     "awards": 31,
+     "notices": [
+      {
+       "id": "3135",
+       "slug": "3135-suministro-de-material-de-mantenimiento-material-electrico-y",
+       "noticeId": "2026/ETSAE0226/00005407E",
+       "title": "Suministro de Material de Mantenimiento (Material Eléctrico Y Material De Ferretería) en el Centro Deportivo Militar Híspalis.",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Sur",
+       "publishedAt": "2026-08-25T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Vy0hlI2F7AA7%2B9FIQYNjeQ%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "235515",
+       "slug": "235515-construccion-de-un-campo-de-explosivos-cexp-en-el-cenad-de-c",
+       "noticeId": "2026/ETSAE0206/00000700E",
+       "title": "Construcción de un Campo de Explosivos (CEXP) en el CENAD de Chinchilla (Albacete) Categoría 6 Ferretería  (lote 4 del PPT)",
+       "buyerName": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+       "publishedAt": "2026-08-03T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=O%2BX0KjMEKo%2Fs%2BnLj3vAg5A%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "38422",
+       "slug": "38422-2204-grupo-material-adquisicion-diverso-material-para-c-16",
+       "noticeId": "2026/EA24/00000909E",
+       "title": "2204/GRUPO MATERIAL/Adquisición diverso material para C.16",
+       "buyerName": "Jefatura de la Sección Económico Administrativa 24 de la Base Aérea de Morón",
+       "publishedAt": "2026-06-09T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=Gdj9Qe2qEjF%2FR5QFTlaM4A%3D%3D",
+       "directive": false
+      }
+     ]
+    },
+    {
+     "name": "RECAMBIOS COLON CATARROJA SL",
+     "country": "ES",
+     "awards": 31,
+     "notices": [
+      {
+       "id": "144798",
+       "slug": "144798-suministro-de-repuestos-de-automocion",
+       "noticeId": "2026/ETSAE0304/00000706E",
+       "title": "Suministro de repuestos de automoción",
+       "buyerName": "Jefatura de Asuntos Económicos del Cuartel General Terrestre Alta Disponibilidad",
+       "publishedAt": "2026-10-02T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=MpQupV8LIvrLIx6q1oPaMg%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "105635",
+       "slug": "105635-suministro-material-fungible-de-repuestos-de-automocion-lote",
+       "noticeId": "2026/ETSAE0327/00002321E",
+       "title": "Suministro material fungible de repuestos de automoción lote 5 Regimiento de Transmisiones 21",
+       "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+       "publishedAt": "2026-09-22T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=RgZlFW%2F217ekU02jNGj1Fw%3D%3D",
+       "directive": false
+      },
+      {
+       "id": "249623",
+       "slug": "249623-adquisicion-de-distintas-herramientas-para-el-montaje-desmon",
+       "noticeId": "2026/ETSAE0304/00000247E",
+       "title": "Adquisición de distintas herramientas para el montaje, desmontaje, puesta en funcionamiento y puesta a punto de los neumáticos de los distintos vehículos del CGTAD.",
+       "buyerName": "Jefatura de Asuntos Económicos del Cuartel General Terrestre Alta Disponibilidad",
+       "publishedAt": "2026-05-04T00:00:00Z",
+       "source": "es_placsp",
+       "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=v%2F7VR%2BV5KhEmMOlAXxDEjw%3D%3D",
+       "directive": false
       }
      ]
     }
    ],
    "otherWinners": {
-    "winners": 23,
-    "awards": 25
+    "winners": 406,
+    "awards": 1079
    },
    "latest": [
     {
@@ -1010,14 +1370,1002 @@
    ]
   }
  ],
+ "approach": {
+  "winners": [
+   {
+    "name": "FERRETERIA FERAYU S.L.",
+    "country": "ES",
+    "contracts": 73,
+    "slug": "432622-ferreteria-ferayu-s-l",
+    "buyers": [
+     {
+      "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
+      "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+      "country": "ES",
+      "contracts": 17
+     },
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 15
+     },
+     {
+      "slug": "1682-jefatura-de-intendencia-de-asuntos-economicos-centro",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Centro",
+      "country": "ES",
+      "contracts": 10
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-19",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "SUMINISTROS MERA SL",
+    "country": "ES",
+    "contracts": 56,
+    "slug": "432750-suministros-mera-sl",
+    "buyers": [
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 56
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-21",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "URO VEHICULOS ESPECIALES, S.A.",
+    "country": "ES",
+    "contracts": 49,
+    "slug": "428622-uro-vehiculos-especiales-s-a",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 37
+     },
+     {
+      "slug": "1929-intendente-de-san-fernando",
+      "name": "Intendente de San Fernando",
+      "country": "ES",
+      "contracts": 7
+     },
+     {
+      "slug": "433-jefatura-de-la-seccion-economico-administrativa-27-base-aere",
+      "name": "Jefatura de la Sección Económico-Administrativa 27 - Base Aérea de Getafe",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-10",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "Suyfa Defence, S.L.",
+    "country": "ES",
+    "contracts": 40,
+    "slug": "427910-suyfa-defence-s-l",
+    "buyers": [
+     {
+      "slug": "1929-intendente-de-san-fernando",
+      "name": "Intendente de San Fernando",
+      "country": "ES",
+      "contracts": 10
+     },
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 8
+     },
+     {
+      "slug": "213-direccion-de-gestion-economica-de-la-jefatura-de-apoyo-logis",
+      "name": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
+      "country": "ES",
+      "contracts": 5
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-25",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "ITURRI S.A.",
+    "country": "ES",
+    "contracts": 38,
+    "slug": "407387-iturri-s-a",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 20
+     },
+     {
+      "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
+      "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
+      "country": "ES",
+      "contracts": 7
+     },
+     {
+      "slug": "2372-intendente-de-cartagena",
+      "name": "Intendente de Cartagena",
+      "country": "ES",
+      "contracts": 4
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-19",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "FERRETERIA ARIES SA",
+    "country": "ES",
+    "contracts": 36,
+    "slug": "433721-ferreteria-aries-sa",
+    "buyers": [
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 36
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-02",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "IVECO ESPAÑA, S.L.",
+    "country": "ES",
+    "contracts": 36,
+    "slug": "393085-iveco-espana-s-l",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 19
+     },
+     {
+      "slug": "213-direccion-de-gestion-economica-de-la-jefatura-de-apoyo-logis",
+      "name": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
+      "country": "ES",
+      "contracts": 11
+     },
+     {
+      "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
+      "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-01-13",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "SUMINISTROS SANTO DOMINGO SL",
+    "country": "ES",
+    "contracts": 32,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+      "country": "ES",
+      "contracts": 11
+     },
+     {
+      "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
+      "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+      "country": "ES",
+      "contracts": 9
+     },
+     {
+      "slug": "1682-jefatura-de-intendencia-de-asuntos-economicos-centro",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Centro",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-08-11",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "Ferretería Rafa S.L.",
+    "country": "ES",
+    "contracts": 31,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
+      "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+      "country": "ES",
+      "contracts": 10
+     },
+     {
+      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+      "country": "ES",
+      "contracts": 9
+     },
+     {
+      "slug": "2152-jefatura-de-la-seccion-economico-administrativa-24-de-la-bas",
+      "name": "Jefatura de la Sección Económico Administrativa 24 de la Base Aérea de Morón",
+      "country": "ES",
+      "contracts": 7
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-08-25",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "RECAMBIOS COLON CATARROJA SL",
+    "country": "ES",
+    "contracts": 31,
+    "slug": "433756-recambios-colon-catarroja-sl",
+    "buyers": [
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 21
+     },
+     {
+      "slug": "2056-jefatura-de-asuntos-economicos-del-cuartel-general-terrestre",
+      "name": "Jefatura de Asuntos Económicos del Cuartel General Terrestre Alta Disponibilidad",
+      "country": "ES",
+      "contracts": 5
+     },
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-02",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "VOLVO GROUP ESPAÑA, S.A.U.",
+    "country": "ES",
+    "contracts": 30,
+    "slug": "429957-volvo-group-espana-s-a-u",
+    "buyers": [
+     {
+      "slug": "1864-jefatura-de-la-seccion-de-asuntos-economicos-de-la-unidad-mi",
+      "name": "Jefatura de la Sección de Asuntos Económicos de la Unidad Militar de Emergencias",
+      "country": "ES",
+      "contracts": 17
+     },
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 9
+     },
+     {
+      "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
+      "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-19",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "C & A COMERCIAL ARTIGAS E HIJOS SL",
+    "country": "ES",
+    "contracts": 27,
+    "slug": "433742-c-a-comercial-artigas-e-hijos-sl",
+    "buyers": [
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 24
+     },
+     {
+      "slug": "1853-jefatura-de-la-seccion-economico-administrativa-26-base-aere",
+      "name": "Jefatura de la Sección Económico-Administrativa 26 - Base Aérea de Zaragoza (Agrupación BASE)",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-05",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "IBERDEFENSA MANTENIMIENTO TECNICO SL",
+    "country": "ES",
+    "contracts": 24,
+    "slug": "432613-iberdefensa-mantenimiento-tecnico-sl",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 8
+     },
+     {
+      "slug": "433-jefatura-de-la-seccion-economico-administrativa-27-base-aere",
+      "name": "Jefatura de la Sección Económico-Administrativa 27 - Base Aérea de Getafe",
+      "country": "ES",
+      "contracts": 6
+     },
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-16",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "MADZEAL, S.L.",
+    "country": "ES",
+    "contracts": 24,
+    "slug": "428413-madzeal-s-l",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 12
+     },
+     {
+      "slug": "1929-intendente-de-san-fernando",
+      "name": "Intendente de San Fernando",
+      "country": "ES",
+      "contracts": 5
+     },
+     {
+      "slug": "1957-seccion-de-asuntos-economicos-del-parque-y-centro-de-abastec",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Abastecimiento de Material de Intendencia",
+      "country": "ES",
+      "contracts": 5
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-20",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "COMERCIAL HERNANDO MORENO COHEMO SL",
+    "country": "ES",
+    "contracts": 23,
+    "slug": "427993-comercial-hernando-moreno-cohemo-sl",
+    "buyers": [
+     {
+      "slug": "1957-seccion-de-asuntos-economicos-del-parque-y-centro-de-abastec",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Abastecimiento de Material de Intendencia",
+      "country": "ES",
+      "contracts": 12
+     },
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 7
+     },
+     {
+      "slug": "3450-seccion-de-asuntos-economicos-del-parque-y-centro-de-manteni",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Mantenimiento de Sistemas Acorazados 2",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-16",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "RECAMBIOS Y ACCESORIOS GGR, S.L.",
+    "country": "ES",
+    "contracts": 18,
+    "slug": "432923-recambios-y-accesorios-ggr-s-l",
+    "buyers": [
+     {
+      "slug": "1682-jefatura-de-intendencia-de-asuntos-economicos-centro",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Centro",
+      "country": "ES",
+      "contracts": 5
+     },
+     {
+      "slug": "2056-jefatura-de-asuntos-economicos-del-cuartel-general-terrestre",
+      "name": "Jefatura de Asuntos Económicos del Cuartel General Terrestre Alta Disponibilidad",
+      "country": "ES",
+      "contracts": 4
+     },
+     {
+      "slug": "1958-intendencia-de-madrid",
+      "name": "Intendencia de Madrid",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-30",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "SUMINISTROS IGBUR, S.L.U.",
+    "country": "ES",
+    "contracts": 17,
+    "slug": "432806-suministros-igbur-s-l-u",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 14
+     },
+     {
+      "slug": "1847-seccion-de-asuntos-economicos-de-la-jefatura-sistemas-de-inf",
+      "name": "Sección de Asuntos Económicos de la Jefatura Sistemas de Información, Telecomunicaciones y Asistencia Técnica",
+      "country": "ES",
+      "contracts": 1
+     },
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-23",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "Advantage Servicios y Diseños",
+    "country": "ES",
+    "contracts": 15,
+    "slug": "433190-advantage-servicios-y-disenos",
+    "buyers": [
+     {
+      "slug": "1958-intendencia-de-madrid",
+      "name": "Intendencia de Madrid",
+      "country": "ES",
+      "contracts": 15
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-20",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "FERRETERIA ASENSI HERVAS SLU",
+    "country": "ES",
+    "contracts": 15,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 12
+     },
+     {
+      "slug": "2056-jefatura-de-asuntos-economicos-del-cuartel-general-terrestre",
+      "name": "Jefatura de Asuntos Económicos del Cuartel General Terrestre Alta Disponibilidad",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-24",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "EURONAVAL SERVICIOS INTEGRALES SL",
+    "country": "ES",
+    "contracts": 14,
+    "slug": "429401-euronaval-servicios-integrales-sl",
+    "buyers": [
+     {
+      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+      "country": "ES",
+      "contracts": 5
+     },
+     {
+      "slug": "2080-intendente-de-ferrol",
+      "name": "Intendente de Ferrol",
+      "country": "ES",
+      "contracts": 5
+     },
+     {
+      "slug": "2559-intendente-de-las-palmas",
+      "name": "Intendente de las Palmas",
+      "country": "ES",
+      "contracts": 3
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-04",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "EMPRESA MONFORTE SA",
+    "country": "ES",
+    "contracts": 13,
+    "slug": "430157-empresa-monforte-sa",
+    "buyers": [
+     {
+      "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
+      "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
+      "country": "ES",
+      "contracts": 12
+     },
+     {
+      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-06-17",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "FERREGAS GARCIA-VASO, S.L.",
+    "country": "ES",
+    "contracts": 13,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "2372-intendente-de-cartagena",
+      "name": "Intendente de Cartagena",
+      "country": "ES",
+      "contracts": 13
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-10",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "FERRO SUMINISTROS INDUSTRIALES S.L.",
+    "country": "ES",
+    "contracts": 12,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "2056-jefatura-de-asuntos-economicos-del-cuartel-general-terrestre",
+      "name": "Jefatura de Asuntos Económicos del Cuartel General Terrestre Alta Disponibilidad",
+      "country": "ES",
+      "contracts": 6
+     },
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 5
+     },
+     {
+      "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
+      "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-09-24",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "GRUPO PEÑA AUTOMOCION, S.L.U",
+    "country": "ES",
+    "contracts": 12,
+    "slug": "432821-grupo-pena-automocion-s-l-u",
+    "buyers": [
+     {
+      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+      "country": "ES",
+      "contracts": 3
+     },
+     {
+      "slug": "2152-jefatura-de-la-seccion-economico-administrativa-24-de-la-bas",
+      "name": "Jefatura de la Sección Económico Administrativa 24 de la Base Aérea de Morón",
+      "country": "ES",
+      "contracts": 3
+     },
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-04-07",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "REDONDOYGARCIA, S.A.",
+    "country": "ES",
+    "contracts": 12,
+    "slug": "433979-redondoygarcia-s-a",
+    "buyers": [
+     {
+      "slug": "3450-seccion-de-asuntos-economicos-del-parque-y-centro-de-manteni",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Mantenimiento de Sistemas Acorazados 2",
+      "country": "ES",
+      "contracts": 6
+     },
+     {
+      "slug": "433-jefatura-de-la-seccion-economico-administrativa-27-base-aere",
+      "name": "Jefatura de la Sección Económico-Administrativa 27 - Base Aérea de Getafe",
+      "country": "ES",
+      "contracts": 2
+     },
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2025-11-20",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "Grupo de ingeniería, reconstrucción y recambios JPG S.A.",
+    "country": "ES",
+    "contracts": 11,
+    "slug": "429305-grupo-de-ingenieria-reconstruccion-y-recambios-jpg-s-a",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 4
+     },
+     {
+      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+      "country": "ES",
+      "contracts": 2
+     },
+     {
+      "slug": "3450-seccion-de-asuntos-economicos-del-parque-y-centro-de-manteni",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Mantenimiento de Sistemas Acorazados 2",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-09",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "INTEGRACION TECNOLOGICA EMPRESARIAL, S.L.",
+    "country": "ES",
+    "contracts": 11,
+    "slug": "429354-integracion-tecnologica-empresarial-s-l",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 4
+     },
+     {
+      "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
+      "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+      "country": "ES",
+      "contracts": 2
+     },
+     {
+      "slug": "2136-seccion-de-asuntos-economicos-del-parque-y-centro-de-manteni",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Mantenimiento de Helicópteros",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-06-03",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "UTE ITURRI,S.A.-GAUZON IBERICA,SLU LEY 18/1982",
+    "country": "ES",
+    "contracts": 11,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "2372-intendente-de-cartagena",
+      "name": "Intendente de Cartagena",
+      "country": "ES",
+      "contracts": 9
+     },
+     {
+      "slug": "1929-intendente-de-san-fernando",
+      "name": "Intendente de San Fernando",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-03-05",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "CORVUS INNOVA, SL",
+    "country": "ES",
+    "contracts": 10,
+    "slug": null,
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 6
+     },
+     {
+      "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
+      "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
+      "country": "ES",
+      "contracts": 1
+     },
+     {
+      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-08-24",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "CONTINENTAL TIRES ESPAÑA S.L.",
+    "country": "ES",
+    "contracts": 9,
+    "slug": "432980-continental-tires-espana-s-l",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 7
+     },
+     {
+      "slug": "190264-seccion-de-asuntos-economicos-del-parque-y-centro-de-manteni",
+      "name": "Sección de Asuntos Económicos del Parque y Centro de Mantenimiento de Vehículos Ruedas Nº 1",
+      "country": "ES",
+      "contracts": 2
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-10-19",
+    "prime": null,
+    "edfProjects": 0,
+    "defenceBuyer": false
+   },
+   {
+    "name": "SAAB AB",
+    "country": "SE",
+    "contracts": 4,
+    "slug": "394573-saab-ab",
+    "buyers": [
+     {
+      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+      "country": "ES",
+      "contracts": 4
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-08-11",
+    "prime": {
+     "group": "Saab",
+     "jointVenture": false,
+     "source": "SIPRI Top 100 arms-producing and military services companies, 2024 (fact sheet, December 2025)",
+     "sourceUrl": "https://www.sipri.org/publications/2025/sipri-fact-sheets/sipri-top-100-arms-producing-and-military-services-companies-2024"
+    },
+    "edfProjects": 3,
+    "defenceBuyer": false
+   },
+   {
+    "name": "Indra Sistemas, S.A.",
+    "country": "ES",
+    "contracts": 3,
+    "slug": "406963-indra-sistemas-s-a",
+    "buyers": [
+     {
+      "slug": "1864-jefatura-de-la-seccion-de-asuntos-economicos-de-la-unidad-mi",
+      "name": "Jefatura de la Sección de Asuntos Económicos de la Unidad Militar de Emergencias",
+      "country": "ES",
+      "contracts": 2
+     },
+     {
+      "slug": "2080-intendente-de-ferrol",
+      "name": "Intendente de Ferrol",
+      "country": "ES",
+      "contracts": 1
+     }
+    ],
+    "countries": [
+     "ES"
+    ],
+    "lastAward": "2026-02-27",
+    "prime": {
+     "group": "Indra",
+     "jointVenture": false,
+     "source": "Indra's 2026 supplier selection for automotive firms (elDiario.es, 16 June 2026)",
+     "sourceUrl": "https://www.eldiario.es/motor/sector_y_mercado/fabricar-coches-componentes-vehiculos-militares-indra-busca-proveedores-automocion_1_13308288.html"
+    },
+    "edfProjects": 64,
+    "defenceBuyer": false
+   }
+  ],
+  "below": {
+   "winners": 372,
+   "awards": 448
+  },
+  "more": {
+   "winners": 92,
+   "awards": 409
+  }
+ },
  "coverage": "Direct buying by defence bodies, as published on TED and the national portals we read; not the sub-tier needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a 2025 ECIPE policy brief; we have not re-checked that figure). National coverage differs: Spain (PLACSP) and Poland (e-Zamówienia) in full, Germany (the federal procurement office's portal) since 2025, France (BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer.",
- "winnersFrom": "Winners are those named in TED result notices; most contracts below the EU thresholds name no winner here. Natural persons are never counted or named.",
+ "winnersFrom": "Winners are those named in TED result notices and in PLACSP's award results (Spain); a winner published in both is counted once. Natural persons are never counted or named.",
  "sources": [
   {
    "code": "ted",
    "name": "TED (Tenders Electronic Daily)",
    "attribution": "Source: TED (Tenders Electronic Daily), © European Union.",
    "lastUpdated": null
+  },
+  {
+   "code": "es_placsp",
+   "name": "PLACSP (Plataforma de Contratación del Sector Público, Spain)",
+   "attribution": "Origen de los datos: Ministerio de Hacienda (Plataforma de Contratación del Sector Público).",
+   "lastUpdated": "2026-10-21T12:58:41.475000Z"
   }
  ],
  "notice": "Computed from the CPV codes and countries in the request; nothing was stored or logged. Counts of notices, not of money: the stated values of notices are budgets or framework ceilings as often as contract values."

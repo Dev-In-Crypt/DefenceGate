@@ -20,8 +20,10 @@ import { ConsultantNote, VerdictBadge } from './rules';
 import { NoProfile } from './results';
 import { ES_REGIONS } from './supplier';
 import { EXPORT_OPTIONS, SIZE_OPTIONS } from './wizard';
-import { useAssessment, useCpvVocabulary, useProfile } from './use-readiness';
+import { useAssessment, useCpvVocabulary, useDemand, useProfile } from './use-readiness';
 import { DemandMap } from './demand';
+import { ApproachMap } from './approach';
+import { CHECK_THE_CALL, COURSES, grantsFor, guidesFor } from '@/lib/es-support';
 
 export const DISCLAIMER = 'Indicative, sources linked, not legal advice.';
 
@@ -129,7 +131,37 @@ function Results({ data }: { data: Assessment }) {
   );
 }
 
-function Item({ i, n }: { i: RoadmapItem; n: number }) {
+/** WP-80: the free official guide and the Spanish regional grants that have covered this step (lib/es-support.ts), the company's region first. */
+function Support({ requirement, region }: { requirement: string; region: string | null }) {
+  const guides = guidesFor(requirement);
+  const grants = region === null ? [] : grantsFor(requirement, region);    // Spanish regions: for a company established in Spain
+  if (guides.length === 0 && grants.length === 0) return null;
+  const link = (url: string, text: string) => {
+    const safe = safeHttpUrl(url);
+    return safe ? <a href={safe} target="_blank" rel="noopener noreferrer">{text}</a> : text;
+  };
+  return (
+    <div className="flex flex-col gap-1 text-small" data-item-support>
+      {guides.map((g) => <p key={g.url} className="m-0" data-item-guide><strong>Free guide:</strong> {link(g.url, g.title)} ({g.by}, {g.date}).</p>)}
+      {grants.length > 0 && (
+        <div className="flex flex-col gap-0.5" data-item-grants>
+          <p className="m-0"><strong>Regional grants that have paid for this step:</strong></p>
+          <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5">
+            {grants.map((g) => (
+              <li key={`${g.programme}-${g.covers}`} data-grant-region={g.region}>
+                {g.regionName}{g.region === region ? ' (your region)' : ''}: {link(g.url, g.programme)}, for {g.covers}
+                {g.amounts ? `; ${g.amounts}` : ''} ({g.read}).
+              </li>
+            ))}
+          </ul>
+          <p className="m-0 text-ink-muted">{CHECK_THE_CALL}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Item({ i, n, region }: { i: RoadmapItem; n: number; region: string | null }) {
   const url = i.source ? safeHttpUrl(i.source.url) : null;
   const quote = i.source?.text ? cleanQuote(publicPassage(i.source.text.split('\n\n')[0])) : null;
   return (
@@ -163,6 +195,7 @@ function Item({ i, n }: { i: RoadmapItem; n: number }) {
           {quote && <blockquote className="m-0 break-words border-l-2 border-line pl-3 text-ink">{quote}</blockquote>}
         </div>
       )}
+      {i.rag !== 'green' && <Support requirement={i.requirement ?? i.key} region={region} />}
     </li>
   );
 }
@@ -174,6 +207,7 @@ function Item({ i, n }: { i: RoadmapItem; n: number }) {
 export function SupplierReport({ names }: { names: Record<string, string> }) {
   const { profile, ready } = useProfile();
   const result = useAssessment(profile);
+  const demand = useDemand(profile);          // one request, read by "who to approach" and "who buys what you make"
   const title = <h1 className="m-0 text-h1-sm md:text-h1 print:text-[22pt] print:leading-tight">Supplier readiness report{profile?.name ? `: ${profile.name}` : ''}</h1>;
   if (!ready || profile === null) return <div className="flex flex-col gap-6">{title}<Skeleton className="h-56" /></div>;
   if (!profile.country) return <div className="flex flex-col gap-6">{title}<NoProfile /></div>;
@@ -199,34 +233,62 @@ export function SupplierReport({ names }: { names: Record<string, string> }) {
         </div>
       </header>
 
-      <Section title="Company profile" id="r-profile">
-        <p className="m-0 text-small text-ink-muted">As entered in this browser. Nothing is added or inferred.</p>
-        <ProfileRows p={profile} />
+      <Section title="Who to approach" id="r-approach">
+        <ApproachMap result={demand} hasCodes={profile.supplier.cpv.length > 0} />
       </Section>
 
+      {profile.supplier.cpv.length > 0 && <Section title="Who buys what you make" id="r-demand"><DemandMap result={demand} /></Section>}
+
       {(result.state === 'loading' || result.state === 'idle') && <div role="status" aria-label="Computing your report"><Skeleton className="h-56" /></div>}
-      {result.state === 'error' && <ErrorState title="The report could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
+      {result.state === 'error' && <ErrorState title="The readiness appendix could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && plan && (
         <>
-          <Section title="Readiness results" id="r-results">
+          <Section title="Appendix A: readiness results" id="r-results">
             <p className="m-0 max-w-prose text-small text-ink-muted">The verdict of each programme and route on your answers. Every rule, its reason and its source are on your results page.</p>
             <Results data={result.data} />
           </Section>
 
-          <Section title="Supplier roadmap" id="r-roadmap">
+          <Section title="Appendix B: supplier roadmap, with the free guides and grants" id="r-roadmap">
             <p className="m-0 max-w-prose text-body" data-report-summary>{plan.summary}</p>
             <p className="m-0 max-w-prose text-small text-ink-muted">
               In place first, then what is needed now, then what depends on a contract, a condition or an answer; a step that must come first is
               always listed first. A cost or a time is given only where a primary source states it; the vendor ranges and the figures of our
               research notes on your roadmap page are left out here.
             </p>
+            {profile.country === 'ES' && (
+              <div className="flex max-w-prose flex-col gap-1 text-small" data-report-support>
+                <p className="m-0">
+                  In Spain these steps are covered by free public material: the guides to the RID and to PECAL/AQAP of Murcia’s CAETRA programme,
+                  and regional programmes that have paid for the steps themselves (on each step below, with the call or list they come from). A
+                  free course:
+                </p>
+                <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5">
+                  {COURSES.map((c) => {
+                    const url = safeHttpUrl(c.url);
+                    return (
+                      <li key={c.url}>
+                        {url ? <a href={url} target="_blank" rel="noopener noreferrer">{c.title}</a> : c.title} ({c.by}, {c.date}
+                        {profile.supplier.region === c.region ? ', your region' : ''}): {c.covers}.
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             <ol className="m-0 flex list-none flex-col p-0">
-              {plan.items.map((i, k) => <Item key={i.key} i={i} n={k + 1} />)}
+              {plan.items.map((i, k) => <Item key={i.key} i={i} n={k + 1} region={profile.country === 'ES' ? profile.supplier.region : null} />)}
             </ol>
           </Section>
+        </>
+      )}
 
-          {profile.supplier.cpv.length > 0 && <Section title="Who buys what you make" id="r-demand"><DemandMap profile={profile} /></Section>}
+      <Section title="Appendix C: company profile" id="r-profile">
+        <p className="m-0 text-small text-ink-muted">As entered in this browser. Nothing is added or inferred.</p>
+        <ProfileRows p={profile} />
+      </Section>
 
+      {result.state === 'done' && (
+        <>
           <Section title="About this report" id="r-about">
             <p className="m-0 max-w-prose text-body font-semibold">{DISCLAIMER}</p>
             <p className="m-0 max-w-prose text-body">
