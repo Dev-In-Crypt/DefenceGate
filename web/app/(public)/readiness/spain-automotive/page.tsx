@@ -13,8 +13,8 @@ import { ContentPage, ContentSection } from '@/components/dg/content-page';
 export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
-  title: 'Spain automotive suppliers: defence readiness',
-  description: 'For civilian manufacturers in Spain, such as automotive suppliers: the Spanish MoD, NATO and EU rules with their sources, and who buys your CPV codes.',
+  title: 'Spain automotive: who to approach in defence',
+  description: 'For civilian manufacturers in Spain, such as automotive suppliers: who wins defence contracts under your CPV codes in five countries, who buys, and the rules.',
   path: '/readiness/spain-automotive',
 });
 
@@ -45,6 +45,13 @@ function Sample({ d }: { d: Demand }) {
             </li>
           ))}
         </ul>
+        {d.approach && (
+          <p className="m-0" data-demand-sample-approach>
+            {plural(d.total.winners, 'company', 'companies')} won them; {plural(d.approach.winners.length, 'company', 'companies')} won {d.kMin} or more and
+            would be named in the report, {plural(d.approach.winners.filter((w) => w.prime).length, 'of them is', 'of them are')} marked as a prime
+            contractor or large defence group.
+          </p>
+        )}
         <p className="m-0 text-small text-ink-muted">{d.coverage}</p>
         <p className="m-0 text-small text-ink-muted">Your own map is computed from the codes you choose on the supplier profile, and is part of your report.</p>
       </div>
@@ -58,7 +65,7 @@ export default async function SpainAutomotivePage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Spain automotive', href: '/readiness/spain-automotive' }]}
       title="Supplier readiness: Spain automotive"
-      lead="For civilian manufacturers in Spain, such as automotive component suppliers, that are considering supplying defence buyers. You fill in one supplier profile; the check reads it against the published rules and shows every source."
+      lead="For civilian manufacturers in Spain, such as automotive component suppliers, that are considering defence work. You say what you make; the report starts with the companies that win defence contracts for it in five countries, then who buys it, then the rules, each with its source."
     >
       <div className="flex flex-wrap gap-3">
         <Button href="/readiness/supplier" iconRight={ArrowRight}>Start the supplier profile</Button>
@@ -79,20 +86,28 @@ export default async function SpainAutomotivePage() {
       <ContentSection title="What you get">
         <ul className="m-0 flex list-disc flex-col gap-2 pl-5 text-body text-ink-muted">
           <li>
-            <strong className="text-ink">A readiness check.</strong> Your answers against the rules of the Spanish Ministry of Defence supplier route, NATO
-            supply and the EU defence programmes. Each rule shows its outcome, the reason, and the text of its source with a link.
+            <strong className="text-ink">Who to approach.</strong> The companies that won defence-scope contracts under the CPV codes you choose in Spain,
+            Germany, France, Poland and the Netherlands over the last three years, from TED and the Spanish national portal (PLACSP), each contract counted
+            once: how many contracts, the value where a TED result notice states it, the buyers they win from, the countries, the date of the newest notice, and a link
+            to their supplier page. Prime contractors and large defence groups are marked, with the source of the list. A company is named only from three
+            awards up; the others are counted.
           </li>
           <li>
-            <strong className="text-ink">A roadmap.</strong> What you already hold, what you need now on your answers, and what usually comes with a first
-            contract, such as the PECAL quality certificate, with each prerequisite first. A cost or a time is printed only where a primary source states it.
+            <strong className="text-ink">Who buys what you make.</strong> The buyers of those codes in the five countries (core defence buyers and others),
+            how many procurements, how many under Directive 2009/81/EC, and the newest notices.
           </li>
           <li>
-            <strong className="text-ink">A demand map.</strong> Who bought under the CPV codes you choose in defence-scope notices of Spain, Germany, France,
-            Poland and the Netherlands over the last three years: the buyers (core defence buyers and others), how many procurements, how many under Directive
-            2009/81/EC, and who won where a winner is published (a company is named only from three awards up; the others are counted).
+            <strong className="text-ink">The rules, as an appendix.</strong> Your answers against the rules of the Spanish Ministry of Defence supplier route,
+            NATO supply and the EU defence programmes, each with its source; then the steps in order (what you hold, what you need now, what usually comes
+            with a first contract, such as the PECAL quality certificate), each with the free guide and the regional grants that have paid for it.
           </li>
-          <li><strong className="text-ink">A printable report</strong> of all three, which you can print or save as a PDF.</li>
+          <li><strong className="text-ink">A printable report</strong> of all of it, which you can print or save as a PDF.</li>
         </ul>
+        <p className="m-0 text-body text-ink-muted">
+          Why this order: automotive suppliers usually enter defence as subcontractors of the prime contractors and their large suppliers, and in Spain
+          the rules are already explained for free (the CAETRA guides of the Región de Murcia, a course of ACCIÓ in Catalonia) and regional programmes
+          have paid for the certifications. What we did not find elsewhere is who wins these contracts across the five countries.
+        </p>
         <p className="m-0 text-body text-ink-muted">
           The profile is one page. Where an answer needs a classification or a legal reading (export control, US-origin components, a foreign investor,
           a security clearance), the result says so and that a specialist is needed; it gives no answer of its own.
@@ -104,8 +119,8 @@ export default async function SpainAutomotivePage() {
           <li>It is not legal advice and does not replace the tender documents: each buyer sets its own conditions there.</li>
           <li>It does not find contracts or guarantee one. Meeting these requirements does not win a contract.</li>
           <li>
-            It does not show what prime contractors need from their suppliers: those needs are not published in the sources we read. The demand map shows
-            who buys directly and who won, not what primes need.
+            It does not show what prime contractors need from their suppliers: those needs are not published in the sources we read. The report shows who
+            won and who buys directly, not what primes need.
           </li>
           <li>It does not ask about the technical detail of any product, and never will.</li>
         </ul>
@@ -121,9 +136,11 @@ export default async function SpainAutomotivePage() {
         <h2 id="s-resumen" className="m-0 text-h3">Resumen en español</h2>
         <p className="m-0 max-w-prose text-body text-ink-muted">
           Para fabricantes civiles establecidos en España, por ejemplo proveedores de componentes de automoción, que estudian suministrar a compradores de
-          defensa. El perfil de proveedor contrasta sus respuestas con las reglas de la ruta de proveedor del Ministerio de Defensa, del suministro OTAN y
-          de los programas de defensa de la UE, cada una con su fuente; ordena lo que falta; muestra quién compra sus códigos CPV en España, Alemania,
-          Francia, Polonia y los Países Bajos; y genera un informe imprimible. Es orientativo, no es asesoramiento jurídico y no garantiza ningún contrato.
+          defensa. El informe empieza por las empresas que ganan contratos de defensa con sus códigos CPV en España, Alemania, Francia, Polonia y los
+          Países Bajos, marcando los contratistas principales y los grandes grupos de defensa; sigue con quién compra esos códigos; y termina, como anexo,
+          con las reglas de la ruta de proveedor del Ministerio de Defensa, del suministro OTAN y de los programas de defensa de la UE, cada una con su
+          fuente, la guía gratuita y las ayudas regionales que han cubierto cada paso. Se puede imprimir. Es orientativo, no es asesoramiento jurídico y no
+          garantiza ningún contrato.
           La herramienta está en inglés.
         </p>
       </section>

@@ -23,6 +23,13 @@ with a code under one of the chosen codes, matched by the code's own level: 3430
   switch, `suppliers.py`). The mosaic rule: a winner is named only with at least `K_MIN` procurements in the
   answer; the rest are one aggregate count.
 
+Who to approach (WP-80, `approach`): the same winners across the countries asked, each named only with at least `K_MIN`
+procurements in the answer (the rest one count), most contracts first: how many, the value a TED result notice states for a contract
+with this one winner (PLACSP states the call's estimate, so it adds none), the buyers they win from most, the countries, the newest
+notice's publication date (PLACSP: the procurement's, the award date is not stored), a link to the supplier page where one exists, the EDF projects, and the mark "prime contractor or large defence group"
+from the curated, sourced list `PRIMES`. An award TED and PLACSP both publish counts once (`award_twin_set`), here and in the
+per-country winners.
+
 What it is not: the sub-tier needs of prime contractors are not published, and TED holds about a tenth of EU
 defence spending; the coverage line says so on every answer.
 """
@@ -36,10 +43,13 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .classify import DEFENCE_PROGRAMMES
 from .config import settings
 from .funding import get_conn, make_slug
-from .normalise import redact_emails
+from .normalise import PLACEHOLDER_AMOUNT_MAX, redact_emails
+from .suppliers import FROM as SUPPLIER_FROM
 from .suppliers import K_MIN, PLACSP_SOURCES, TED_NOTE, placsp_note
+from .suppliers import scope as supplier_scope
 from .tenders import _day, clean_buyer_name
 
 router = APIRouter()
@@ -51,7 +61,61 @@ TOP_BUYERS = 10
 TOP_WINNERS = 10
 LATEST = 5
 WINNER_NOTICES = 3
+APPROACH = 30                  # winners listed under "who to approach"; a prime or large defence group is never cut
+APPROACH_BUYERS = 3
 CODE = re.compile(r"^[0-9]{8}$")
+
+# WP-80: the prime contractors and large defence groups a winner is marked as, by its normalised name
+# (`organisation.canonical_name`: lower case, accents folded, legal form taken off). The European companies of the SIPRI
+# Top 100 arms-producing and military services companies of 2024 (SIPRI fact sheet, December 2025; ThyssenKrupp as its
+# naval arm only, General Dynamics as its European land arm GDELS), and Indra, which ran a supplier selection for
+# automotive firms in 2026. A name match marks a group member that carries the group's name; a subsidiary under another
+# name is not marked. `ponytail:` a curated list read by name, not an ownership register; extend it with a source.
+SIPRI = ("SIPRI Top 100 arms-producing and military services companies, 2024 (fact sheet, December 2025)",
+         "https://www.sipri.org/publications/2025/sipri-fact-sheets/sipri-top-100-arms-producing-and-military-services-companies-2024")
+PRIMES: tuple[tuple[str, str, tuple[str, str]], ...] = (
+    ("BAE Systems", r"\bbae systems\b", SIPRI),
+    ("Airbus", r"\bairbus\b", SIPRI),
+    ("Leonardo", r"^leonardo\b(?!.*\bhotel)", SIPRI),
+    ("Thales", r"\bthales\b", SIPRI),
+    ("Rheinmetall", r"\brheinmetall\b", SIPRI),
+    ("Rolls-Royce", r"\brolls royce\b(?!.*\bmotor cars\b)", SIPRI),
+    ("Saab", r"^saab\b(?!.*\bautomobile)", SIPRI),
+    ("Safran", r"\bsafran\b", SIPRI),
+    ("MBDA", r"\bmbda\b", SIPRI),
+    ("Naval Group", r"\bnaval group\b", SIPRI),
+    ("Babcock International", r"^babcock (international|integrated|mission)\b", SIPRI),
+    ("Dassault Aviation", r"\bdassault aviation\b", SIPRI),
+    ("KNDS", r"\bknds\b|\bkrauss maffei wegmann\b|^nexter\b",
+     ("KNDS in the SIPRI Top 100, 2024: the group of Krauss-Maffei Wegmann and Nexter (KNDS Deutschland, KNDS France)",
+      SIPRI[1])),
+    ("Czechoslovak Group", r"\bczechoslovak group\b", SIPRI),
+    ("PGZ (Polska Grupa Zbrojeniowa)", r"^pgz\b|\bpolska grupa zbrojeniowa\b", SIPRI),
+    ("Fincantieri", r"\bfincantieri\b", SIPRI),
+    ("ThyssenKrupp Marine Systems", r"\bthyssenkrupp marine systems\b", SIPRI),
+    ("Hensoldt", r"\bhensoldt\b", SIPRI),
+    ("Diehl", r"^diehl\b", SIPRI),
+    ("Kongsberg", r"^kongsberg\b(?!.*\bautomotive\b)", SIPRI),
+    ("Navantia", r"\bnavantia\b", SIPRI),
+    ("General Dynamics (GDELS)", r"\bgeneral dynamics european land systems\b|^santa barbara sistemas\b",
+     ("General Dynamics in the SIPRI Top 100, 2024; Santa Bárbara Sistemas as a GDELS company (FEINDEF exhibitor page)",
+      "https://www.feindef.com/index.php/en/ficha-gdels-santa-barbara-sistemas-en")),
+    ("Indra", r"\bindra\b",
+     ("Indra's 2026 supplier selection for automotive firms (elDiario.es, 16 June 2026)",
+      "https://www.eldiario.es/motor/sector_y_mercado/fabricar-coches-componentes-vehiculos-militares-indra-busca-proveedores-automocion_1_13308288.html")),
+)
+_PRIMES = tuple((group, re.compile(rx), src) for group, rx, src in PRIMES)
+# A Spanish joint venture (UTE) of a prime and others: the way in is still the prime.
+JOINT_VENTURE = re.compile(r"^(ute|u t e)\b|\bunion temporal\b")
+
+
+def prime_of(canonical_name: str | None) -> dict[str, Any] | None:
+    """The prime or large defence group a winner's normalised name belongs to, with the source of the list; None if none."""
+    name = canonical_name or ""
+    for group, rx, (source, url) in _PRIMES:
+        if rx.search(name):
+            return {"group": group, "jointVenture": bool(JOINT_VENTURE.search(name)), "source": source, "sourceUrl": url}
+    return None
 
 COVERAGE = ("Direct buying by defence bodies, as published on TED and the national portals we read; not the sub-tier "
             "needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a "
@@ -114,7 +178,8 @@ WITH m AS MATERIALIZED (
            COALESCE(f.head_org_id, o.buyer_org_id) AS bk,                    -- dgate_buyer_head, as a join
            o.buyer_withheld AS bw, o.buyer_name_raw, o.source_id IN {PLACSP_IDS} AS placsp,
            o.source_id = (SELECT id FROM source WHERE code = 'ted') AS is_ted,
-           o.cpv_codes, hashtextextended({KEY}, 0) AS key
+           o.cpv_codes, hashtextextended({KEY}, 0) AS key,
+           o.value_amount AS va, o.value_currency AS vc, o.value_kind AS vk
       FROM opportunity o
       LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
                              AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
@@ -123,29 +188,61 @@ WITH m AS MATERIALIZED (
        AND COALESCE(o.published_at, o.notice_date) >= %(since)s
        AND dgate_cpv_heads(o.cpv_codes) && %(prefixes)s::text[]
 ), c AS (
-    SELECT country, count(DISTINCT key) AS n, count(DISTINCT key) FILTER (WHERE lb) AS d
-      FROM m GROUP BY GROUPING SETS ((country), ())
+    -- WP-80: one row per procurement first (a hash aggregate), then counted: count(DISTINCT) sorted 116,562 rows for 15
+    -- divisions; the total (country NULL) is its own pass, so a procurement in two countries is one
+    SELECT country, count(*) AS n, count(*) FILTER (WHERE lb) AS d
+      FROM (SELECT country, key, bool_or(lb) AS lb FROM m GROUP BY country, key) x GROUP BY country
+    UNION ALL
+    SELECT NULL, count(*), count(*) FILTER (WHERE lb) FROM (SELECT key, bool_or(lb) AS lb FROM m GROUP BY key) x
 ), b AS (
     SELECT country, bk, bool_or(core) AS core, count(DISTINCT key) AS n,
            mode() WITHIN GROUP (ORDER BY buyer_name_raw COLLATE "C") FILTER (WHERE NOT bw) AS name
       FROM m WHERE bk IS NOT NULL GROUP BY country, bk
 ), k AS (
     -- each code of a notice cut to each prefix length asked, then a hash join on the prefixes
-    SELECT p, count(DISTINCT key) AS n
-      FROM m, unnest(m.cpv_codes) AS c, unnest(%(lengths)s::int[]) AS len
-      JOIN unnest(%(prefixes)s::text[]) AS p ON TRUE
-     WHERE left(c, len) = p GROUP BY p
+    SELECT p, count(*) AS n FROM (
+        SELECT DISTINCT p, m.key
+          FROM m, unnest(m.cpv_codes) AS c, unnest(%(lengths)s::int[]) AS len
+          JOIN unnest(%(prefixes)s::text[]) AS p ON TRUE
+         WHERE left(c, len) = p) x GROUP BY p
 ), l AS (
     SELECT * FROM (SELECT x.*, row_number() OVER (PARTITION BY country ORDER BY day DESC NULLS LAST, id DESC) AS r
                      FROM (SELECT DISTINCT ON (key) id, country, day, key, lb FROM m
                             ORDER BY key, is_ted DESC, day DESC NULLS LAST, id DESC) x) y
      WHERE r <= {LATEST}
-), aw AS MATERIALIZED (
-    SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated
+), aw0 AS MATERIALIZED (
+    SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated, a.id AS award_id,
+           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn, m.va, m.vc, m.vk,
+           org.canonical_name AS cn, org.is_defence_buyer AS db
       FROM m JOIN award a ON a.opportunity_id = m.id
       JOIN organisation raw_org ON raw_org.id = a.organisation_id
       JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
      WHERE {AWARD_OK} AND (%(placsp)s OR NOT m.placsp)
+), aw AS MATERIALIZED (
+    -- WP-80: an award that TED and PLACSP both publish counts once, under the row `award_twin_set` prefers, when that
+    -- row is in this answer too (two organisation rows of one company were two winners before)
+    SELECT * FROM aw0
+     WHERE award_id NOT IN (SELECT tw.award_id FROM award_twin_set tw JOIN aw0 p ON p.award_id = tw.preferred_id)
+), ap AS (
+    -- WP-80, who to approach: each winner across the countries asked, with at least K_MIN procurements (the mosaic rule)
+    SELECT org, count(DISTINCT key) AS n, max(day) AS last, array_agg(DISTINCT country ORDER BY country) AS countries,
+           mode() WITHIN GROUP (ORDER BY name_as_stated) AS name, min(cn) AS cn, min(org_country) AS org_country,
+           COALESCE(bool_or(db), FALSE) AS db
+      FROM aw GROUP BY org HAVING count(DISTINCT key) >= {K_MIN}
+), apb AS (
+    -- the buyers each of them wins from most often (a withheld buyer is never named)
+    SELECT * FROM (SELECT x.*, row_number() OVER (PARTITION BY org ORDER BY n DESC, bk) AS r FROM (
+        SELECT aw.org, aw.bk, min(aw.country) AS country, count(DISTINCT aw.key) AS n,
+               mode() WITHIN GROUP (ORDER BY aw.bn COLLATE "C") FILTER (WHERE NOT aw.bw) AS name
+          FROM aw JOIN ap ON ap.org = aw.org WHERE aw.bk IS NOT NULL GROUP BY aw.org, aw.bk) x
+        WHERE name IS NOT NULL) y WHERE r <= {APPROACH_BUYERS}
+), apv AS (
+    -- the value a TED result notice states for a contract it awards to this one winner (as the supplier profile shows
+    -- it), once per procurement; PLACSP states the estimate of the call, not the award, and is not read here
+    SELECT org, vc AS currency, sum(va) AS amount, count(*) AS n FROM (
+        SELECT DISTINCT ON (aw.org, aw.key) aw.org, aw.va, trim(aw.vc) AS vc FROM aw JOIN ap ON ap.org = aw.org
+         WHERE aw.wn = 1 AND aw.vk IN ('total', 'lot_sum') AND aw.va > {PLACEHOLDER_AMOUNT_MAX} AND aw.vc IS NOT NULL
+         ORDER BY aw.org, aw.key, aw.va DESC) v GROUP BY org, vc
 ), an AS (
     SELECT country, count(DISTINCT key) AS n FROM aw GROUP BY GROUPING SETS ((country), ())
 ), w AS (
@@ -167,7 +264,8 @@ SELECT (SELECT json_agg(c) FROM c) AS c, (SELECT json_agg(b) FROM b) AS b, (SELE
        (SELECT json_agg(z) FROM (SELECT * FROM (SELECT wr.*, row_number() OVER (PARTITION BY country, org
                                                       ORDER BY day DESC NULLS LAST, id DESC) AS r FROM wr) q
                                   WHERE r <= {WINNER_NOTICES}) z) AS wr,
-       (SELECT array_agg(DISTINCT id) FROM aw) AS award_ids
+       (SELECT array_agg(DISTINCT id) FROM aw) AS award_ids,
+       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb, (SELECT json_agg(apv) FROM apv) AS apv
 """
 
 
@@ -188,6 +286,72 @@ def _notices(conn, ids: list[int]) -> dict[int, dict[str, Any]]:
                         "publishedAt": _day(r["day"]), "source": r["source"], "sourceUrl": r["source_url"],
                         "directive": bool(r["sig_legal_basis"])}
     return out
+
+
+def _edf_projects(conn, orgs: list[int]) -> dict[int, int]:
+    """The defence-relevant EU projects (EDF and its forerunners) each organisation, or one merged into it, took part in."""
+    if not orgs:
+        return {}
+    rows = conn.execute(
+        """SELECT COALESCE(o.merged_into, o.id) AS org, count(DISTINCT pa.project_id) AS n
+             FROM organisation o JOIN participation pa ON pa.organisation_id = o.id AND pa.active
+             JOIN project p ON p.id = pa.project_id JOIN programme pg ON pg.id = p.programme_id AND pg.code = ANY(%s)
+            WHERE o.id = ANY(%s) OR o.merged_into = ANY(%s) GROUP BY 1""",
+        (list(DEFENCE_PROGRAMMES), orgs, orgs)).fetchall()
+    return {r["org"]: r["n"] for r in rows}
+
+
+def _with_page(conn, orgs: list[int]) -> set[int]:
+    """The organisations the supplier map serves a page for (`/v1/suppliers/{slug}`: an award in its scope, by the
+    organisation or one merged into it), so that a link never leads to "no such supplier"."""
+    if not orgs:
+        return set()
+    rows = conn.execute(
+        f"""SELECT DISTINCT org.id {SUPPLIER_FROM} WHERE {supplier_scope()} AND a.organisation_id IN (
+                SELECT id FROM organisation WHERE id = ANY(%(orgs)s) OR merged_into = ANY(%(orgs)s))""",
+        {"orgs": orgs}).fetchall()
+    return {r["id"] for r in rows}
+
+
+def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str, Any]:
+    """Who to approach (WP-80): the companies that win these procurements, across the countries asked. Named only with at
+    least K_MIN procurements; the others are one count. The most contracts first; every prime or large defence group with
+    K_MIN is listed, past the first APPROACH too."""
+    rows = sorted(r["ap"] or [], key=lambda w: (-w["n"], w["name"], w["org"]))
+    for w in rows:
+        w["prime"] = prime_of(w["cn"])
+    listed = rows[:APPROACH] + [w for w in rows[APPROACH:] if w["prime"]]
+    shown = {w["org"] for w in listed}
+    per_org: dict[int, int] = {}
+    for w in winners:                       # per country; a procurement is in one country, so the sum is the total
+        per_org[w["org"]] = per_org.get(w["org"], 0) + w["n"]
+    big = {w["org"] for w in rows}
+    buyers: dict[int, list[dict[str, Any]]] = {}
+    for b in sorted(r["apb"] or [], key=lambda b: b["r"]):
+        name = clean_buyer_name(b["name"])
+        buyers.setdefault(b["org"], []).append({"slug": make_slug(b["bk"], name), "name": name, "country": b["country"],
+                                                "contracts": b["n"]})
+    values: dict[int, list[dict[str, Any]]] = {}
+    for v in sorted(r["apv"] or [], key=lambda v: (-v["n"], v["currency"])):
+        values.setdefault(v["org"], []).append({"currency": v["currency"], "amount": round(float(v["amount"]), 2),
+                                                "contracts": v["n"]})
+    edf = _edf_projects(conn, sorted(shown))
+    pages = _with_page(conn, sorted(shown))
+
+    def item(w: dict[str, Any]) -> dict[str, Any]:
+        name = redact_emails(w["name"]).strip()
+        return {"name": name, "country": w["org_country"], "contracts": w["n"],
+                "slug": make_slug(w["org"], name) if w["org"] in pages else None,
+                "values": values.get(w["org"], []), "buyers": buyers.get(w["org"], []), "countries": w["countries"],
+                "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
+                "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}
+
+    return {
+        "winners": [item(w) for w in listed],
+        "below": {"winners": sum(1 for o in per_org if o not in big),
+                  "awards": sum(n for o, n in per_org.items() if o not in big)},
+        "more": {"winners": len(big - shown), "awards": sum(per_org[o] for o in big - shown)},
+    }
 
 
 def demand(conn, codes: list[str], countries: list[str], today: date | None = None) -> dict[str, Any]:
@@ -254,6 +418,7 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
                   "otherBuyers": len({b["bk"] for b in buyers} - {b["bk"] for b in buyers if b["core"]}),
                   "awarded": awards.get(None, 0), "winners": len({w["org"] for w in winners})},
         "byCountry": [country_block(cc) for cc in countries],
+        "approach": approach(conn, r, winners),
         "coverage": COVERAGE,
         "winnersFrom": WINNERS_WITH_PLACSP if note else WINNERS_TED,
         "sources": [TED_NOTE] + ([note] if note else []),
@@ -328,6 +493,51 @@ class DemandSource(BaseModel):
     lastUpdated: datetime | None = None
 
 
+class Prime(BaseModel):
+    group: str
+    jointVenture: bool
+    source: str
+    sourceUrl: str
+
+
+class ApproachBuyer(BaseModel):
+    slug: str
+    name: str
+    country: str
+    contracts: int
+
+
+class StatedValue(BaseModel):
+    currency: str
+    amount: float
+    contracts: int
+
+
+class ApproachWinner(BaseModel):
+    name: str
+    country: str | None
+    contracts: int
+    slug: str | None
+    values: list[StatedValue]
+    buyers: list[ApproachBuyer]
+    countries: list[str]
+    lastAward: str | None
+    prime: Prime | None
+    edfProjects: int
+    defenceBuyer: bool
+
+
+class ApproachCount(BaseModel):
+    winners: int
+    awards: int
+
+
+class Approach(BaseModel):
+    winners: list[ApproachWinner]
+    below: ApproachCount          # winners with fewer than kMin procurements: counted, never named
+    more: ApproachCount           # winners with kMin or more past the first APPROACH (no prime among them)
+
+
 class Demand(BaseModel):
     since: str
     until: str
@@ -336,6 +546,7 @@ class Demand(BaseModel):
     codes: list[DemandCode]
     total: DemandTotal
     byCountry: list[DemandCountry]
+    approach: Approach
     coverage: str
     winnersFrom: str
     sources: list[DemandSource]

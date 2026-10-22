@@ -10,8 +10,9 @@ import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { ConsultantNote, ProgrammeCard } from './rules';
-import { useAssessment, useProfile } from './use-readiness';
+import { useAssessment, useDemand, useProfile } from './use-readiness';
 import { DemandSummary } from './demand';
+import { ApproachSummary } from './approach';
 
 /** Shown while the profile is read from the browser and while the verdict is computed. */
 function Loading() {
@@ -51,6 +52,8 @@ export function AnswerProblems({ problems }: { problems: { step: number; text: s
 export function ResultsView() {
   const { profile, ready } = useProfile();
   const result = useAssessment(profile);
+  // WP-80: one demand request for both sections that read it ("who to approach" first, then who buys); none without the supplier page
+  const demand = useDemand(profile && hasSupplier(profile) ? profile : null);
   if (!ready || profile === null) return <Loading />;
   if (!profile.country) return <NoProfile />;
 
@@ -71,6 +74,8 @@ export function ResultsView() {
       </div>
 
       <AnswerProblems problems={answerProblems(profile)} />
+      <ApproachSummary result={demand} />
+      <DemandSummary result={demand} />
       {(result.state === 'loading' || result.state === 'idle') && <Loading />}
       {result.state === 'error' && <ErrorState title="The check could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && (
@@ -96,7 +101,6 @@ export function ResultsView() {
               </ul>
             </section>
           )}
-          {hasSupplier(profile) && <DemandSummary profile={profile} />}
           {result.data.general.map((a) => (
             <section key={a.programme} aria-labelledby="general" className="flex flex-col gap-4">
               <h2 id="general" className="m-0 text-h2">Other requirements that may apply to you</h2>

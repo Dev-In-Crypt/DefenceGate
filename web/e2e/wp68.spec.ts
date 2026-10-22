@@ -16,12 +16,13 @@ const isMobile = (w: number | undefined) => (w ?? 1280) < 700;
 const group = (page: Page, name: RegExp | string) => page.getByRole('group', { name });
 
 test('the entry page: audience, what you get, what it is not, the button to start, metadata', async ({ page }) => {
-  await visit(page, '/readiness/spain-automotive', { title: /Spain automotive suppliers/, h1: 'Supplier readiness: Spain automotive' });
+  await visit(page, '/readiness/spain-automotive', { title: /Spain automotive: who to approach/, h1: 'Supplier readiness: Spain automotive' });
   const main = page.locator('#main');
   await expect(main.getByText(/civilian manufacturers in Spain, such as automotive component suppliers/).first()).toBeVisible();
   for (const h of ['Who it is for', 'What you get', 'What it is not']) await expect(main.getByRole('heading', { name: h })).toBeVisible();
   await expect(main.getByRole('complementary', { name: 'Indicative, sources linked, not legal advice' })).toBeVisible();
-  for (const t of ['A readiness check.', 'A roadmap.', 'A demand map.', 'A printable report']) await expect(main.getByText(t, { exact: false }).first()).toBeVisible();
+  // WP-80: who to approach leads, the rules are the appendix
+  for (const t of ['Who to approach.', 'Who buys what you make.', 'The rules, as an appendix.', 'A printable report']) await expect(main.getByText(t, { exact: false }).first()).toBeVisible();
   await expect(main.getByText('It does not show what prime contractors need from their suppliers', { exact: false })).toBeVisible();
   await expect(main.getByText('Meeting these requirements does not win a contract.', { exact: false })).toBeVisible();
   // a demo build has no API: no figure of the demand map is shown, none is taken from the demo data
