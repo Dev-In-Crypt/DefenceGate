@@ -173,6 +173,16 @@ _FORM_WORDS = frozenset(
     " doo ood eood ead ad".split())
 
 
+# A name whose own part (without legal-form words and single letters) is shorter than this waits for a
+# person: 'clk spol' / 'clk spol s r o' may be two firms of one short name (owner, 22 Oct 2026).
+MIN_CORE_CHARS = 5
+
+
+def _short_name(name: str | None) -> bool:
+    core = [w for w in key_of(name or "")[0].split() if len(w) > 1 and w not in _FORM_WORDS]
+    return len("".join(core)) < MIN_CORE_CHARS
+
+
 def _long_form(a: str | None, b: str | None) -> bool:
     """One name is the other's long form: the longer key begins with the shorter and goes on with
     two words or more that name nothing else ('enbw' / 'enbw energie baden-wurttemberg', 'ebn' / 'ebn
@@ -247,6 +257,8 @@ def _pair_refusal(a: dict[str, Any] | None, b: dict[str, Any] | None) -> str | N
             return f"different_{k}"
     if _public(a) or _public(b):
         return "public_body"
+    if _short_name(a["name"]) or _short_name(b["name"]):
+        return "short_name"
     fa, fb = legal_forms(a), legal_forms(b)
     if fa and fb and not fa & fb:
         # 'sci tertiaire mixte' / 'sas tertiaire mixte' under one SIRET: two forms are two bodies

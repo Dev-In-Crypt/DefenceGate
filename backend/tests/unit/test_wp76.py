@@ -221,3 +221,16 @@ def test_social_insurance_funds_are_public():
     assert is_public_body("раионна здравноосигурителна каса монтана", "BG")
     assert is_public_body("msa midi pyrenees sud", "FR")
     assert is_public_body("arbeitsmarktservice wien", "AT")
+
+
+@pytest.mark.parametrize("a, b", [("clk spol", "clk spol s r o"), ("abc gmbh", "abc"), ("ebn", "ebn bv")])
+def test_a_short_name_waits_for_a_person(a, b):
+    orgs = {1: _org(1, a, reg="36017281", country="SK"), 2: _org(2, b, country="SK")}
+    groups, refused = plan([_pair(1, 1, 2)], orgs)
+    assert groups == [] and refused["short_name"] == 1
+
+
+def test_a_name_of_five_letters_or_more_still_merges():
+    orgs = {1: _org(1, "lereti", reg="07063880962", country="IT"), 2: _org(2, "lereti s p a", country="IT")}
+    groups, refused = plan([_pair(1, 1, 2)], orgs)
+    assert len(groups) == 1 and not refused["short_name"]
