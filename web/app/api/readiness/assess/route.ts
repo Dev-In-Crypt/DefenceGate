@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { clientIp } from '@/lib/hits';
+import type { NextRequest } from 'next/server';
+import { forwardPost } from '@/lib/api-proxy';
 
 /**
  * The one call of the readiness check that leaves the browser: the answers go to the API, which computes the
@@ -12,37 +12,6 @@ import { clientIp } from '@/lib/hits';
  */
 export const dynamic = 'force-dynamic';
 
-const MAX_BYTES = 4096;       // the same limit as the proxy in front of the site (Caddy `request_body`)
-
-function reply(body: unknown, status: number, extra: Record<string, string> = {}) {
-  return NextResponse.json(body, { status, headers: { 'cache-control': 'no-store', ...extra } });
-}
-
 export async function POST(request: NextRequest) {
-  const api = process.env.DG_API_URL;
-  if (!api) return reply({ detail: 'the check is not available on this build' }, 503);
-  if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return reply({ detail: 'send JSON' }, 415);
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (declared > MAX_BYTES) return reply({ detail: 'request body too large' }, 413);
-  const body = await request.text();
-  if (body.length > MAX_BYTES) return reply({ detail: 'request body too large' }, 413);
-
-  const headers: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json' };
-  const ip = clientIp(request.headers.get('x-forwarded-for'));
-  if (ip !== 'unknown') {
-    headers['x-dg-client-ip'] = ip;
-    if (process.env.DG_INTERNAL_SECRET) headers['x-dg-internal'] = process.env.DG_INTERNAL_SECRET;
-  }
-  try {
-    const res = await fetch(`${api}/v1/readiness/assess`, {
-      method: 'POST', headers, body, cache: 'no-store', signal: AbortSignal.timeout(10_000),
-    });
-    const text = await res.text();
-    return new NextResponse(text, {
-      status: res.status,
-      headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...(res.headers.get('retry-after') ? { 'retry-after': res.headers.get('retry-after') as string } : {}) },
-    });
-  } catch {
-    return reply({ detail: 'the check could not be computed' }, 502);
-  }
+  return forwardPost(request, '/v1/readiness/assess', 'the check is not available on this build', 'the check could not be computed');
 }

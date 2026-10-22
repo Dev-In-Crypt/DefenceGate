@@ -33,7 +33,7 @@ export default async function ReadinessPage() {
     >
       <Callout title="Your answers stay in this browser">
         <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server.</p>
-        <p className="m-0">The only thing that leaves your browser is the request that computes the verdict: your answers to the questions the rules read, sent to the rules engine. The server does not store or log them. The company name and size you may enter below are never sent.</p>
+        <p className="m-0">The only thing that leaves your browser is the request that computes the verdict: your answers to the questions the rules read, sent to the rules engine. The server does not store or log them. The company name and size you may enter below are never sent. If you choose CPV codes on the supplier page, those codes alone are also sent, for the map of who buys what you make.</p>
       </Callout>
 
       {/* WP-65: the second way in. The funding wizard below is unchanged. */}
