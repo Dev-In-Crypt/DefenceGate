@@ -226,6 +226,7 @@ def replay_from_store(conn: psycopg.Connection, *, store=None, limit: int | None
             conn.commit()
     c["notices"] = len(newest)
     c["payloads_in_store"] = len(rows)
+    awards.refresh_award_twins(conn)
     if commit:
         conn.commit()
     else:

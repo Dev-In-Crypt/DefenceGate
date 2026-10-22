@@ -27,6 +27,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Sequence
 
 from . import db
+from .awards import refresh_award_twins
 from .config import settings
 from .ops.notify import notify, ping
 from .pipeline import (
@@ -416,6 +417,9 @@ def job_link_twins() -> JobResult:
 
         with db.connect(settings().dsn) as conn:
             counts.update(link_twins.run(conn, write=True))
+            # A new twin link can make two award rows one award: the supplier map's pairs (migration 0098).
+            counts["award_twin_pairs"] = refresh_award_twins(conn)
+            conn.commit()
         # The health line: what the pass did. A night with nothing new says 0 0 0.
         log.info("twin links: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
 
@@ -452,6 +456,9 @@ def job_warm_lists() -> JobResult:
         from .ops import warm_lists
 
         with db.connect(settings().dsn) as conn:
+            # The supplier map's twin pairs (migration 0098), also after merges since the last award load.
+            counts["award_twin_pairs"] = refresh_award_twins(conn)
+            conn.commit()
             counts.update(warm_lists.run(conn, write=True))
         log.info("warm lists: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
         if counts.get("failed"):

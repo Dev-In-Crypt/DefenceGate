@@ -90,9 +90,11 @@ def _as_preferred(cond: str) -> str:
 
 
 # One award published in TED and in PLACSP is counted once (WP-61, migration 0093): an award row is left out
-# when `award_twin` names a row preferred over it that the map itself serves. Uncorrelated, so the planner
-# reads the view once per query and hashes it.
-NOT_TWIN = ("a.id NOT IN (SELECT tw.award_id FROM award_twin tw JOIN award k ON k.id = tw.preferred_id "
+# when `award_twin` names a row preferred over it that the map itself serves. Read from the stored pairs
+# (`award_twin_set`, migration 0098, rewritten by `awards.refresh_award_twins` after every award load): the view
+# itself took 5 s a statement on production (WP-75). The preferred row is checked live. Uncorrelated, so the
+# planner reads the pairs once per query and hashes them.
+NOT_TWIN = ("a.id NOT IN (SELECT tw.award_id FROM award_twin_set tw JOIN award k ON k.id = tw.preferred_id "
             "JOIN opportunity ko ON ko.id = k.opportunity_id JOIN organisation kraw ON kraw.id = k.organisation_id "
             "JOIN organisation korg ON korg.id = COALESCE(kraw.merged_into, kraw.id) "
             f"WHERE {_as_preferred(SCOPE)})")
@@ -223,7 +225,7 @@ TED_NOTE = {"code": "ted", "name": "TED (Tenders Electronic Daily)",
             "attribution": "Source: TED (Tenders Electronic Daily), © European Union."}
 
 
-def placsp_note(conn, where: str = "TRUE", params: tuple = ()) -> dict[str, Any] | None:
+def placsp_note(conn, where: str = "TRUE", params: tuple | dict = ()) -> dict[str, Any] | None:
     """The PLACSP attribution its publisher's terms ask for (docs/sources/es_placsp.md): the source, as the source
     row of migration 0092 words it, and the date of the last update of what was read (the newest entry stamp of the
     PLACSP award results behind the rows `where` selects, over `award_notice n` and `opportunity o`). None when no
@@ -246,9 +248,10 @@ def _name(row: dict[str, Any]) -> str:
 
 # The spelling of a supplier's name we show: the one most notices use, a mixed-case one before a
 # capitals-only one, then alphabetical. Only the page's rows are asked.
+# The ids as an array, not an OR: the OR read the whole award table once per row of the page (WP-75).
 SHOWN = """(SELECT x.name_as_stated FROM award x
-             WHERE (x.organisation_id = m.id
-                OR x.organisation_id IN (SELECT id FROM organisation WHERE merged_into = m.id)){placsp}
+             WHERE x.organisation_id = ANY(ARRAY(SELECT m.id UNION ALL
+                                                 SELECT id FROM organisation WHERE merged_into = m.id)){placsp}
              GROUP BY 1 ORDER BY count(*) DESC, (x.name_as_stated = upper(x.name_as_stated)), 1 LIMIT 1)"""
 # While the PLACSP winners are off the map, their spelling of a name is not shown either (WP-61).
 _SHOWN_NOT_PLACSP = ("\n               AND NOT EXISTS (SELECT 1 FROM opportunity xo WHERE xo.id = x.opportunity_id AND "
@@ -357,10 +360,26 @@ def list_suppliers(
 @router.get("/v1/suppliers/summary", response_model=Summary)
 @cache_list("suppliers-summary", ttl=30 * 60)
 def supplier_summary(conn=Depends(get_conn)):
-    head = conn.execute(
-        f"""SELECT count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
-                   count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p
-              {FROM} WHERE {scope()}""").fetchone()
+    # One pass over the map's rows for the head and every group (WP-75: five passes cost 1.5 s with the PLACSP
+    # winners on). g (GROUPING bits) 3: the head, over every row; 1: by CPV division; 2: by country; 0: the
+    # cells. The groups count the rows with a CPV only (c_*), so a group of rows without one is no group.
+    rows = conn.execute(
+        f"""SELECT GROUPING(left(a.cpv_main, 2), a.supplier_country) AS g,
+                   left(a.cpv_main, 2) AS division, a.supplier_country AS country,
+                   count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
+                   count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p,
+                   count(DISTINCT org.id) FILTER (WHERE a.cpv_main IS NOT NULL) AS c_suppliers,
+                   count(*) FILTER (WHERE a.cpv_main IS NOT NULL) AS c_awards
+              {FROM} WHERE {scope()}
+             GROUP BY GROUPING SETS ((), (left(a.cpv_main, 2)), (a.supplier_country),
+                                     (left(a.cpv_main, 2), a.supplier_country))
+             ORDER BY g, CASE WHEN GROUPING(left(a.cpv_main, 2), a.supplier_country) = 0
+                              THEN count(DISTINCT org.id) FILTER (WHERE a.cpv_main IS NOT NULL) END DESC,
+                      c_awards DESC, division, country""").fetchall()
+    [head] = [r for r in rows if r["g"] == 3]
+    sets = {g: [{"key": r["division"] if g == 1 else r["country"], "division": r["division"],
+                 "country": r["country"], "suppliers": r["c_suppliers"], "awards": r["c_awards"]}
+                for r in rows if r["g"] == g and r["c_awards"]] for g in (0, 1, 2)}
     public = settings().placsp_awards_public
     if public:
         # A person skipped in both the TED and the PLACSP publication of one procedure is one person: per procedure
@@ -379,25 +398,15 @@ def supplier_summary(conn=Depends(get_conn)):
                   JOIN opportunity o ON o.id = n.opportunity_id
                  WHERE {NOT_PLACSP}""").fetchone()
 
-    def groups(expr: str) -> tuple[list[dict[str, Any]], int]:
-        rows = conn.execute(
-            f"""SELECT {expr} AS key, count(DISTINCT org.id) AS suppliers, count(*) AS awards
-                  {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
-                 GROUP BY 1 ORDER BY 3 DESC, 1""").fetchall()
-        kept = [r for r in rows if r["suppliers"] >= K_MIN and r["key"]]
-        return kept, len(rows) - len(kept)
+    def groups(g: int) -> tuple[list[dict[str, Any]], int]:
+        kept = [r for r in sets[g] if r["suppliers"] >= K_MIN and r["key"]]
+        return kept, len(sets[g]) - len(kept)
 
-    by_cpv, hidden_cpv = groups("left(a.cpv_main, 2)")
-    by_country, hidden_country = groups("a.supplier_country")
-    cells = conn.execute(
-        f"""SELECT left(a.cpv_main, 2) AS division, a.supplier_country AS country,
-                   count(DISTINCT org.id) AS suppliers, count(*) AS awards
-              {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
-             GROUP BY 1, 2 HAVING count(DISTINCT org.id) >= %s
-             ORDER BY 3 DESC, 4 DESC, 1, 2 LIMIT 300""", (K_MIN,)).fetchall()
-    total_cells = conn.execute(
-        f"""SELECT count(*) AS n FROM (SELECT 1 {FROM} WHERE {scope()} AND a.cpv_main IS NOT NULL
-             GROUP BY left(a.cpv_main, 2), a.supplier_country) t""").fetchone()["n"]
+    by_cpv, hidden_cpv = groups(1)
+    by_country, hidden_country = groups(2)
+    cells = [{k: r[k] for k in ("division", "country", "suppliers", "awards")}
+             for r in sets[0] if r["suppliers"] >= K_MIN][:300]
+    total_cells = len(sets[0])
     note = placsp_note(conn) if public else None
     return {
         "kMin": K_MIN, "since": SINCE, "noticesRead": read["n"],
@@ -429,38 +438,42 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         raise removed()
     if org and org["individual_reason"]:
         raise not_published()
-    base = f"{FROM} WHERE {scope()} AND org.id = %s"
+    # The award rows of the organisation and of those merged into it, read by index (WP-75): `org.id` alone is
+    # a join result, and every award was read to find a supplier's (0.1 s a statement, nine statements).
+    base = (f"{FROM} WHERE {scope()} AND org.id = %(org)s AND a.organisation_id = ANY(ARRAY("
+            "SELECT %(org)s::bigint UNION ALL SELECT id FROM organisation WHERE merged_into = %(org)s))")
+    p = {"org": org_id}
     head = conn.execute(
         f"""SELECT count(DISTINCT a.opportunity_id) AS n,
                    extract(year FROM min(o.published_at))::int AS first_year,
                    extract(year FROM max(o.published_at))::int AS last_year
-              {base}""", (org_id,)).fetchone()
+              {base}""", p).fetchone()
     if not org or not head["n"]:
         raise HTTPException(404, "no such supplier")
     by_year = conn.execute(
         f"""SELECT extract(year FROM o.published_at)::int AS year, count(DISTINCT a.opportunity_id) AS awards
-              {base} GROUP BY 1 ORDER BY 1 DESC""", (org_id,)).fetchall()
+              {base} GROUP BY 1 ORDER BY 1 DESC""", p).fetchall()
     by_cpv = conn.execute(
         f"""SELECT left(a.cpv_main, 2) AS division, count(DISTINCT a.opportunity_id) AS awards
-              {base} AND a.cpv_main IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1""", (org_id,)).fetchall()
+              {base} AND a.cpv_main IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1""", p).fetchall()
     buyer_rows = conn.execute(
         f"""SELECT o.buyer_org_id AS id, count(DISTINCT a.opportunity_id) AS awards
               {base} AND o.buyer_org_id IS NOT NULL AND NOT o.buyer_withheld
-             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT {PROFILE_BUYERS}""", (org_id,)).fetchall()
+             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT {PROFILE_BUYERS}""", p).fetchall()
     notices = conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
                    o.published_at, a.cpv_main, a.winners_in_notice, o.value_amount, o.value_currency,
                    o.value_kind, o.source_url, a.id AS award_id,
                    (SELECT code FROM source WHERE id = o.source_id) AS source_code
               {base} ORDER BY o.published_at DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
-        (org_id,)).fetchall()
+        p).fetchall()
     stated = conn.execute(
         f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
              ORDER BY 2 DESC, (a.name_as_stated = upper(a.name_as_stated)), 1 LIMIT 5""",
-        (org_id,)).fetchall()
+        p).fetchall()
     idents = conn.execute(
         f"""SELECT a.identifier_as_stated AS v, count(*) AS n {base} AND a.identifier_as_stated IS NOT NULL
-             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 30""", (org_id,)).fetchall()
+             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 30""", p).fetchall()
     numbers: dict[str, str] = {}              # one spelling of each number: "DE 129 415 943" is "DE129415943"
     for r in idents:
         # Only a number-shaped value is a registration number. A telephone number or an address typed into the
@@ -481,14 +494,15 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         # Provenance of an award counted once: the other publication of it, under the one shown. A notice removed
         # on request is not named.
         for r in conn.execute(
-                """SELECT tw.preferred_id, s.code, o.native_id, o.source_url FROM award_twin tw
+                """SELECT tw.preferred_id, s.code, o.native_id, o.source_url FROM award_twin_set tw
                      JOIN award d ON d.id = tw.award_id JOIN opportunity o ON o.id = d.opportunity_id
                      JOIN source s ON s.id = o.source_id
                     WHERE tw.preferred_id = ANY(%s) AND NOT o.suppressed
+                      AND d.superseded_at IS NULL AND d.excluded_reason IS NULL    -- as the view: current rows only
                     ORDER BY o.published_at NULLS LAST, o.id""", ([r["award_id"] for r in notices],)).fetchall():
             also.setdefault(r["preferred_id"], []).append(
                 {"source": r["code"], "noticeId": r["native_id"], "sourceUrl": r["source_url"]})
-        note = placsp_note(conn, f"""o.id IN (SELECT a.opportunity_id {base})""", (org_id,))
+        note = placsp_note(conn, f"""o.id IN (SELECT a.opportunity_id {base})""", p)
         if note:
             # TED is named either way: a win shown from PLACSP lists its TED publication under it.
             day = f", as last updated on {note['lastUpdated']:%Y-%m-%d}" if note["lastUpdated"] else ""

@@ -614,6 +614,17 @@ def candidates(conn: psycopg.Connection, src_id: int, since: date, limit: int | 
         (src_id, list(AWARD_SUBTYPES), since, limit or 1_000_000)).fetchall()
 
 
+def refresh_award_twins(conn: psycopg.Connection) -> int:
+    """Rewrite `award_twin_set` (migration 0098) from the `award_twin` view (seconds on production), in the
+    caller's transaction: the caller commits, and a reader sees the old pairs or the new ones. The lock keeps two
+    refreshes apart (the second would insert pairs the first committed) and lets readers through."""
+    conn.execute("LOCK TABLE award_twin_set IN EXCLUSIVE MODE")
+    conn.execute("DELETE FROM award_twin_set")
+    return conn.execute(
+        """INSERT INTO award_twin_set (award_id, preferred_id, procedure_method, winner_method)
+           SELECT award_id, preferred_id, procedure_method, winner_method FROM award_twin""").rowcount
+
+
 def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
                client: httpx.Client | None = None, pause: float = 1.0,
                sleep=None) -> Counter:
@@ -634,6 +645,7 @@ def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
                 load_awards(conn, client, writer, src_id, ted_id, since=since, limit=limit,
                             counters=c, pause=pause, sleep=nap)
                 writer.drain()
+                refresh_award_twins(conn)
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["awards_new"], changed=0,
                               detail=dict(c))
             except Exception as exc:

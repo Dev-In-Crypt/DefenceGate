@@ -27,7 +27,7 @@ TABLES = """award, award_notice, compaction_pending, backfill_day, enrichment_jo
             organisation_merge_candidate, organisation_alias, organisation,
             call, raw_ingest, ingest_run,
             app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check,
-            suppression, data_request, list_snapshot,
+            suppression, data_request, list_snapshot, award_twin_set,
             call_eligibility, call_document_text, llm_usage, digest_issue,
             programme_requirement, requirement_issuer, requirement_prerequisite, requirement,
             readiness_programme,

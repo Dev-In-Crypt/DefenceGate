@@ -3,9 +3,13 @@ have missed, and how long the supplier map takes with the PLACSP winners on. Wri
 
     python -m dgate.ops.supplier_twins              # the counts
     python -m dgate.ops.supplier_twins --time       # and the three endpoints timed, with the PLACSP switch on
+    python -m dgate.ops.supplier_twins --refresh    # how far the stored pairs are from the view (WP-75)
+    python -m dgate.ops.supplier_twins --refresh --yes   # rewrite them (worker container: its role writes)
 
 Run it in the API container (its role reads only): `--time` calls the endpoints in-process with
-DGATE_PLACSP_AWARDS_PUBLIC=true for this process alone; the running API is not touched.
+DGATE_PLACSP_AWARDS_PUBLIC=true for this process alone; the running API is not touched. The map reads the pairs
+from `award_twin_set` (migration 0098), which the award loads and the worker rewrite; `--refresh --yes` is for
+a load run by hand outside them.
 """
 
 from __future__ import annotations
@@ -46,6 +50,26 @@ def report(conn) -> dict[str, Any]:
     return out
 
 
+PAIR_COLUMNS = "award_id, preferred_id, procedure_method, winner_method"
+
+
+def refresh(conn, *, write: bool = False) -> dict[str, int]:
+    """The stored pairs against the view: how many are stored, how many the view gives, how many differ; with
+    `write`, the stored ones rewritten (`awards.refresh_award_twins`) and committed."""
+    from ..awards import refresh_award_twins
+
+    out = {k: conn.execute(f"SELECT count(*) AS n FROM ({q}) d").fetchone()["n"] for k, q in {
+        "stored": "SELECT 1 FROM award_twin_set",
+        "view": "SELECT 1 FROM award_twin",
+        "differ": f"""(SELECT {PAIR_COLUMNS} FROM award_twin EXCEPT SELECT {PAIR_COLUMNS} FROM award_twin_set)
+                      UNION ALL
+                      (SELECT {PAIR_COLUMNS} FROM award_twin_set EXCEPT SELECT {PAIR_COLUMNS} FROM award_twin)"""}.items()}
+    if write:
+        out["written"] = refresh_award_twins(conn)
+        conn.commit()
+    return out
+
+
 def timings() -> dict[str, float]:
     """The three endpoints in-process, the switch on for this process, the list cache off: cold timings."""
     os.environ["DGATE_PLACSP_AWARDS_PUBLIC"] = "true"
@@ -75,7 +99,13 @@ def timings() -> dict[str, float]:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="dgate.ops.supplier_twins", description=__doc__.split("\n\n")[0])
     p.add_argument("--time", action="store_true", help="also time the endpoints with the PLACSP switch on")
+    p.add_argument("--refresh", action="store_true", help="compare the stored twin pairs with the view")
+    p.add_argument("--yes", action="store_true", help="with --refresh: rewrite the stored pairs")
     a = p.parse_args(argv)
+    if a.refresh:
+        with db.connect(settings().dsn) as conn:
+            print("award_twin_set", refresh(conn, write=a.yes), "" if a.yes else "(dry run: --yes to write)")
+        return 0
     with db.connect(settings().dsn) as conn:
         conn.execute("SET default_transaction_read_only = on")
         conn.execute("SET statement_timeout = '30s'")

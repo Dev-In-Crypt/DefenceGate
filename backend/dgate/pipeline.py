@@ -29,6 +29,7 @@ import httpx
 import psycopg
 
 from . import db, placsp_awards, rawstore
+from .awards import refresh_award_twins
 from .buyer_vocab import effective_buyer_class
 from .classify import classify, detects_subcontracting, own_relevance_sql
 from .config import settings
@@ -1758,6 +1759,8 @@ def _ingest_placsp(opps: Iterable[Any], label: str,
             drains.drain()
             if loader is not None:
                 log.info("%s awards: %s", label, dict(loader.counts))
+                if not loader.land_only:
+                    refresh_award_twins(conn)      # the map's twin pairs (migration 0098)
             stale = stale_reason() if stale_reason else None
             status, error = q.merge("partial" if stale else "success", stale)
             if run_id is None:

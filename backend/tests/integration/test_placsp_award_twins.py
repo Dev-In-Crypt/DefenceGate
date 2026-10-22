@@ -15,7 +15,7 @@ from datetime import date, datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from dgate import api, awards, config, db, pipeline
+from dgate import api, awards, config, db, pipeline, suppliers, worker
 from dgate.normalise import Opportunity
 from dgate.rawstore import build_store
 from dgate.sources import placsp
@@ -192,6 +192,10 @@ def test_a_twin_link_without_a_procedure_identifier_is_the_same_procedure(conn, 
     conn.execute("UPDATE opportunity SET ted_ref = '500007-2026', twin_method = 'heuristic' WHERE source_id = %s",
                  (db.source_id(conn, "es_placsp"),))
     conn.commit()
+    # The map reads the stored pairs (WP-75): a link made after the load reaches them with the daily twin job.
+    assert stored_pairs(conn) == []
+    assert worker.job_link_twins().ok
+    assert stored_pairs(conn) == view_pairs(conn)
     public(monkeypatch, True)
     assert [r["procedure_method"] for r in conn.execute("SELECT * FROM award_twin").fetchall()] == ["ted_ref"]
     with TestClient(api.app) as client:
@@ -273,6 +277,145 @@ def test_the_read_only_report_counts_the_twins_and_the_pairs_it_may_have_missed(
     assert got["dropped_by_source"] == [{"code": "ted", "n": 1}]
     assert got["single_winner_pairs_not_matched"] == 1          # Delta in TED, Beta in PLACSP: for a person to read
     assert supplier_twins.main([]) == 0
+
+
+# ------------------------------------------------- the stored pairs and the one-pass summary (WP-75)
+
+PAIRS = "SELECT award_id, preferred_id, procedure_method, winner_method FROM {} ORDER BY 1, 2"
+
+
+def stored_pairs(conn) -> list[dict]:
+    return conn.execute(PAIRS.format("award_twin_set")).fetchall()
+
+
+def view_pairs(conn) -> list[dict]:
+    return conn.execute(PAIRS.format("award_twin")).fetchall()
+
+
+def many_twins(conn) -> None:
+    """Every kind of pair at once, beside suppliers that are in TED alone (three German ones: a published cell)."""
+    ted_result(conn, "500021-2026")                                               # same organisation
+    load_ted(conn, [rec("500021-2026", [TED_ALFA_NO_ID])])
+    load_placsp(conn, with_procedure(awarded(result("1", ALFA) + result("2", BETA))))      # Beta: no twin
+    pid = "1b2c3d4e-0000-4000-8000-000000000022"                                  # same number, two bodies
+    ted_result(conn, "500022-2026", pid=pid)
+    load_ted(conn, [rec("500022-2026", [("Grupo Gamma Inventado Sociedad Limitada", "ESP", "ES-B99999992")])])
+    load_placsp(conn, with_procedure(awarded(result("1", winner("GAMMA INVENTADA SL", "B99999992")),
+                                             folder="2026/ETSAE0921/00004444E"), pid=pid))
+    ted_result(conn, "500023-2026", pid=None)                                     # the twin link, no identifier
+    load_ted(conn, [rec("500023-2026", [("Delta Inventada SA", "ESP", "ESA99999993")])])
+    load_placsp(conn, awarded(result("1", winner("DELTA INVENTADA SA", "A99999993")), folder="2026/ETSAE0921/00005555E"))
+    conn.execute("UPDATE opportunity SET ted_ref = '500023-2026', twin_method = 'heuristic' WHERE native_id = %s",
+                 ("2026/ETSAE0921/00005555E",))
+    conn.commit()
+    for i, name in enumerate(("Alfa Tech GmbH", "Beta Werke GmbH", "Gamma Systems GmbH")):
+        ted_result(conn, f"50003{i}-2026", pid=None)
+        load_ted(conn, [rec(f"50003{i}-2026", [(name, "DEU", f"DE12345678{i}")])])
+    awards.refresh_award_twins(conn)
+    conn.commit()
+
+
+def old_summary_parts(conn) -> dict:
+    """The summary's head, groups and cells as the five statements before WP-75 computed them."""
+    f, s = suppliers.FROM, suppliers.scope()
+    head = conn.execute(
+        f"""SELECT count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
+                   count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p
+              {f} WHERE {s}""").fetchone()
+
+    def groups(expr: str) -> tuple[list, int]:
+        rows = conn.execute(f"""SELECT {expr} AS key, count(DISTINCT org.id) AS suppliers, count(*) AS awards
+                                  {f} WHERE {s} AND a.cpv_main IS NOT NULL GROUP BY 1 ORDER BY 3 DESC, 1""").fetchall()
+        kept = [r for r in rows if r["suppliers"] >= suppliers.K_MIN and r["key"]]
+        return kept, len(rows) - len(kept)
+
+    by_cpv, hidden_cpv = groups("left(a.cpv_main, 2)")
+    by_country, hidden_country = groups("a.supplier_country")
+    cells = conn.execute(
+        f"""SELECT left(a.cpv_main, 2) AS division, a.supplier_country AS country,
+                   count(DISTINCT org.id) AS suppliers, count(*) AS awards
+              {f} WHERE {s} AND a.cpv_main IS NOT NULL
+             GROUP BY 1, 2 HAVING count(DISTINCT org.id) >= %s ORDER BY 3 DESC, 4 DESC, 1, 2 LIMIT 300""",
+        (suppliers.K_MIN,)).fetchall()
+    total_cells = conn.execute(
+        f"""SELECT count(*) AS n FROM (SELECT 1 {f} WHERE {s} AND a.cpv_main IS NOT NULL
+             GROUP BY left(a.cpv_main, 2), a.supplier_country) t""").fetchone()["n"]
+    return {"noticesWithSupplier": head["notices"], "suppliers": head["suppliers"], "awards": head["awards"],
+            "byCpv": [dict(r) for r in by_cpv], "byCountry": [dict(r) for r in by_country],
+            "cells": [dict(r) for r in cells],
+            "suppressedGroups": hidden_cpv + hidden_country + (total_cells - len(cells))}
+
+
+def test_the_stored_pairs_are_the_view_and_the_map_reads_the_same_from_either(conn, env, monkeypatch):
+    many_twins(conn)
+    assert stored_pairs(conn) == view_pairs(conn)
+    assert {(r["procedure_method"], r["winner_method"]) for r in stored_pairs(conn)} == {
+        ("procedure_id", "organisation"), ("procedure_id", "identifier"), ("ted_ref", "organisation")}
+    public(monkeypatch, True)
+    with TestClient(api.app) as client:
+        stored = everything(client)
+        monkeypatch.setattr(suppliers, "NOT_TWIN", suppliers.NOT_TWIN.replace("award_twin_set", "award_twin"))
+        assert everything(client) == stored
+    # Alfa, Beta, Gamma, Delta and the three German suppliers: one award each, every twin counted once
+    assert stored["summary"]["awards"] == 7 and stored["summary"]["suppliers"] == 7
+    assert stored["summary"]["cells"] and all(i["awardCount"] == 1 for i in stored["list"])
+
+
+def test_the_summary_in_one_pass_says_what_the_five_statements_said(conn, env, monkeypatch):
+    many_twins(conn)
+    conn.execute("UPDATE award SET cpv_main = NULL WHERE name_as_stated = 'Beta Werke GmbH'")   # a row without a CPV
+    conn.commit()
+    with TestClient(api.app) as client:
+        for on in (False, True):
+            public(monkeypatch, on)
+            got = client.get("/v1/suppliers/summary").json()
+            assert {k: got[k] for k in old_summary_parts(conn)} == old_summary_parts(conn), on
+
+
+def test_a_merged_supplier_is_one_profile_read_by_index(conn, env, monkeypatch):
+    """The profile reads the award rows of the organisation and those merged into it (WP-75): both are counted."""
+    for i in (1, 2):
+        ted_result(conn, f"50004{i}-2026", pid=None)
+    load_ted(conn, [rec("500041-2026", [("Epsilon Inventada SA", "ESP", "ESA99999994")]),
+                    rec("500042-2026", [("Zeta Inventada SA", "ESP", "ESA99999995")])])
+    first, second = [r["organisation_id"] for r in conn.execute(
+        "SELECT organisation_id FROM award ORDER BY id").fetchall()]
+    assert first != second
+    conn.execute("UPDATE organisation SET merged_into = %s WHERE id = %s", (first, second))
+    conn.commit()
+    with TestClient(api.app) as client:
+        [item] = client.get("/v1/suppliers").json()["items"]
+        profile = client.get(f"/v1/suppliers/{item['slug']}").json()
+        via_merged = client.get(f"/v1/suppliers/{second}-epsilon").json()
+    assert item["awardCount"] == 2 and profile["noticeCount"] == 2 and len(profile["notices"]) == 2
+    assert sorted(profile["namesAsStated"]) == ["Epsilon Inventada SA", "Zeta Inventada SA"]
+    assert via_merged == profile
+
+
+def test_the_four_hourly_job_brings_the_pairs_up_to_date(conn, env, monkeypatch):
+    """A merge made after the load can make two rows one award: the list snapshots' job rewrites the pairs."""
+    many_twins(conn)
+    conn.execute("DELETE FROM award_twin_set")
+    conn.commit()
+    from dgate.ops import warm_lists
+
+    monkeypatch.setattr(warm_lists, "run", lambda conn, write: {"views": 0, "written": 0, "failed": 0, "removed": 0})
+    assert worker.job_warm_lists().ok
+    assert stored_pairs(conn) == view_pairs(conn) != []
+
+
+def test_the_scripted_refresh_says_what_differs_and_writes_only_with_yes(conn, env):
+    from dgate.ops import supplier_twins
+
+    many_twins(conn)
+    n = len(view_pairs(conn))
+    conn.execute("DELETE FROM award_twin_set WHERE award_id = (SELECT min(award_id) FROM award_twin_set)")
+    conn.commit()
+    assert supplier_twins.refresh(conn) == {"stored": n - 1, "view": n, "differ": 1}
+    assert len(stored_pairs(conn)) == n - 1                                     # the dry run wrote nothing
+    assert supplier_twins.main(["--refresh", "--yes"]) == 0
+    conn.rollback()
+    assert supplier_twins.refresh(conn) == {"stored": n, "view": n, "differ": 0}
 
 
 # ------------------------------------------------- the nightly walk (item 2)
