@@ -44,7 +44,8 @@ export function withoutValueLine(v: ValueTotals, noun: string): string | null {
 }
 
 /** The rules of the sum, the same wherever it is shown. */
-export const VALUE_RULES = 'Summed per currency, never converted. A value counts only from a notice that names this one winner: a value shared by '
-  + 'several winners is given to none of them. Values come from TED notices; Spain’s national portal (PLACSP) states the call’s estimate, not the '
-  + 'award, and adds none. Each contract is counted once, however many notices publish it. Values as published by the buyer; some may be '
+export const VALUE_RULES = 'Summed per currency, never converted; amounts without VAT where the source states both. A value counts only where a '
+  + 'notice (in Spain’s national portal, PLACSP, a lot) names this one winner: a value shared by several winners is given to none of them. '
+  + 'PLACSP values are the awarded amounts; TED values are as the notice states them. Each contract is counted once, however many notices '
+  + 'publish it: where TED and PLACSP both do, PLACSP’s awarded amount, else TED’s value. Values as published by the buyer; some may be '
   + 'framework ceilings.';

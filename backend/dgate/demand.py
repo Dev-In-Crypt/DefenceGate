@@ -57,8 +57,8 @@ from .suppliers import (
     TED_NOTE,
     ValueTotals,
     placsp_note,
+    value_of,
     value_totals,
-    valued,
 )
 from .suppliers import scope as supplier_scope
 from .tenders import _day, clean_buyer_name
@@ -203,8 +203,7 @@ WITH m AS MATERIALIZED (
            COALESCE(f.head_org_id, o.buyer_org_id) AS bk,                    -- dgate_buyer_head, as a join
            o.buyer_withheld AS bw, o.buyer_name_raw, o.source_id IN {PLACSP_IDS} AS placsp,
            o.source_id = (SELECT id FROM source WHERE code = 'ted') AS is_ted,
-           o.cpv_codes, hashtextextended({KEY}, 0) AS key,
-           o.value_amount AS va, o.value_currency AS vc, o.value_kind AS vk
+           o.cpv_codes, hashtextextended({KEY}, 0) AS key
       FROM opportunity o
       LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
                              AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
@@ -235,7 +234,7 @@ WITH m AS MATERIALIZED (
      WHERE r <= {LATEST}
 ), aw0 AS MATERIALIZED (
     SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated, a.id AS award_id,
-           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn, m.va, m.vc, m.vk,
+           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn,
            org.canonical_name AS cn, org.is_defence_buyer AS db
       FROM m JOIN award a ON a.opportunity_id = m.id
       JOIN organisation raw_org ON raw_org.id = a.organisation_id
@@ -259,15 +258,6 @@ WITH m AS MATERIALIZED (
                mode() WITHIN GROUP (ORDER BY aw.bn COLLATE "C") FILTER (WHERE NOT aw.bw) AS name
           FROM aw JOIN ap ON ap.org = aw.org WHERE aw.bk IS NOT NULL GROUP BY aw.org, aw.bk) x
         WHERE name IS NOT NULL) y WHERE r <= {APPROACH_BUYERS}
-), apv AS (
-    -- WP-81: the sum of its contracts' values per currency, each contract once, by the supplier profile's rule
-    SELECT org, ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
-           count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
-      FROM (SELECT DISTINCT ON (aw.org, aw.key) aw.org, {valued("aw.wn", "aw.va", "aw.vc", "aw.vk")} AS ok,
-                   aw.wn > 1 AS shared, aw.va, aw.vc, aw.vk
-              FROM aw JOIN ap ON ap.org = aw.org
-             ORDER BY aw.org, aw.key, 2 DESC, (aw.vk = 'total') DESC, aw.va DESC) x
-     GROUP BY 1, 2, 3, 4
 ), an AS (
     SELECT country, count(DISTINCT key) AS n FROM aw GROUP BY GROUPING SETS ((country), ())
 ), w AS (
@@ -290,7 +280,8 @@ SELECT (SELECT json_agg(c) FROM c) AS c, (SELECT json_agg(b) FROM b) AS b, (SELE
                                                       ORDER BY day DESC NULLS LAST, id DESC) AS r FROM wr) q
                                   WHERE r <= {WINNER_NOTICES}) z) AS wr,
        (SELECT array_agg(DISTINCT id) FROM aw) AS award_ids,
-       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb, (SELECT json_agg(apv) FROM apv) AS apv
+       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb,
+       (SELECT array_agg(award_id) FROM aw) AS aw_ids
 """
 
 
@@ -338,26 +329,51 @@ def _with_page(conn, orgs: list[int]) -> set[int]:
     return {r["id"] for r in rows}
 
 
-def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str, Any]:
-    """Who to approach (WP-80): the companies that win these procurements, across the countries asked, every legal entity
-    named (WP-81). The most contracts first; every prime or large defence group is listed, past the first APPROACH too."""
+def _ranked(r: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every winner of the answer (`ap`), the most contracts first, each with its prime mark."""
     rows = sorted(r["ap"] or [], key=lambda w: (-w["n"], w["name"], w["org"]))
     for w in rows:
         w["prime"] = prime_of(w["cn"])
-    listed = rows[:APPROACH] + [w for w in rows[APPROACH:] if w["prime"]]
+    return rows
+
+
+# WP-81: the sum of the listed winners' contract values per currency, each contract (the procurement key of the answer)
+# once, by the supplier profile's rule (`suppliers.value_of`: a PLACSP awarded amount first, else a TED value; a twin pair
+# from either copy). A statement of its own over the answer's award rows of the listed winners only: inside QUERY it
+# valued every winner's rows (6,700 winners at the cap) for the 30 shown, +50 % on the whole answer.
+VALUES = f"""
+SELECT org, ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
+       count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
+  FROM (SELECT DISTINCT ON (org.id, kk.k) org.id AS org, kk.k, v.va IS NOT NULL AS ok,
+               a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk
+          FROM award a
+          JOIN organisation raw_org ON raw_org.id = a.organisation_id
+          JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
+          JOIN opportunity o ON o.id = a.opportunity_id
+          LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
+                                 AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
+          CROSS JOIN LATERAL (SELECT hashtextextended({KEY}, 0) AS k) kk
+          {value_of("a.id", "%(placsp)s")}
+         WHERE a.id = ANY(%(ids)s)
+           AND a.organisation_id IN (SELECT id FROM organisation WHERE id = ANY(%(orgs)s) OR merged_into = ANY(%(orgs)s))
+         ORDER BY org.id, kk.k, 3 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
+ GROUP BY org, ok, shared, 4
+"""
+
+
+def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The "who to approach" entries of these winners: buyers, values, countries, page link, marks."""
     shown = {w["org"] for w in listed}
-    per_org: dict[int, int] = {}
-    for w in winners:                       # per country; a procurement is in one country, so the sum is the total
-        per_org[w["org"]] = per_org.get(w["org"], 0) + w["n"]
-    big = {w["org"] for w in rows}
     buyers: dict[int, list[dict[str, Any]]] = {}
     for b in sorted(r["apb"] or [], key=lambda b: b["r"]):
         name = clean_buyer_name(b["name"])
         buyers.setdefault(b["org"], []).append({"slug": make_slug(b["bk"], name), "name": name, "country": b["country"],
                                                 "contracts": b["n"]})
     sums: dict[int, list[dict[str, Any]]] = {}
-    for v in r["apv"] or []:
-        sums.setdefault(v["org"], []).append(v)
+    if shown:
+        for v in conn.execute(VALUES, {"ids": r["aw_ids"] or [], "orgs": sorted(shown),
+                                       "placsp": settings().placsp_awards_public}).fetchall():
+            sums.setdefault(v["org"], []).append(v)
     edf = _edf_projects(conn, sorted(shown))
     pages = _with_page(conn, sorted(shown))
 
@@ -370,16 +386,30 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
                 "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}
 
+    return [item(w) for w in listed]
+
+
+def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str, Any]:
+    """Who to approach (WP-80): the companies that win these procurements, across the countries asked, every legal entity
+    named (WP-81). The most contracts first; every prime or large defence group is listed, past the first APPROACH too.
+    Every one of them, a page at a time: `winners_page` (POST /v1/readiness/winners)."""
+    rows = _ranked(r)
+    listed = rows[:APPROACH] + [w for w in rows[APPROACH:] if w["prime"]]
+    shown = {w["org"] for w in listed}
+    per_org: dict[int, int] = {}
+    for w in winners:                       # per country; a procurement is in one country, so the sum is the total
+        per_org[w["org"]] = per_org.get(w["org"], 0) + w["n"]
+    big = {w["org"] for w in rows}
     return {
-        "winners": [item(w) for w in listed],
+        "winners": _items(conn, r, listed),
         "below": {"winners": sum(1 for o in per_org if o not in big),
                   "awards": sum(n for o, n in per_org.items() if o not in big)},
         "more": {"winners": len(big - shown), "awards": sum(per_org[o] for o in big - shown)},
     }
 
 
-def demand(conn, codes: list[str], countries: list[str], today: date | None = None) -> dict[str, Any]:
-    today = today or datetime.now(timezone.utc).date()
+def _answer(conn, codes: list[str], countries: list[str], today: date) -> tuple[dict[str, Any], date, bool]:
+    """The one statement of an answer (after the too-broad check): its row, the window's start, the PLACSP switch."""
     since = today - timedelta(days=round(365.25 * YEARS))
     prefixes = list(dict.fromkeys(prefix(c) for c in codes))
     public = settings().placsp_awards_public
@@ -391,6 +421,28 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
         raise TooBroad()
     r = conn.execute(QUERY, {"countries": countries, "since": since, "prefixes": prefixes, "placsp": public,
                              "lengths": sorted({len(p) for p in prefixes})}).fetchone()
+    return r, since, public
+
+
+WINNERS_PAGE = 100
+
+
+def winners_page(conn, codes: list[str], countries: list[str], page: int, today: date | None = None) -> dict[str, Any]:
+    """WP-81: every winner of the answer, `WINNERS_PAGE` at a time, in the order and form of "who to approach" (the
+    report's list stops at APPROACH; this one does not). The same statement as `demand`, so the same budget."""
+    today = today or datetime.now(timezone.utc).date()
+    r, since, public = _answer(conn, codes, countries, today)
+    rows = _ranked(r)
+    start = (page - 1) * WINNERS_PAGE
+    note = placsp_note(conn, "o.id = ANY(%s)", (r["award_ids"] or [],)) if public and r["award_ids"] else None
+    return {"since": since.isoformat(), "until": today.isoformat(), "countries": countries, "total": len(rows),
+            "page": page, "pageSize": WINNERS_PAGE, "winners": _items(conn, r, rows[start:start + WINNERS_PAGE]),
+            "winnersFrom": WINNERS_WITH_PLACSP if note else WINNERS_TED, "sources": [TED_NOTE] + ([note] if note else [])}
+
+
+def demand(conn, codes: list[str], countries: list[str], today: date | None = None) -> dict[str, Any]:
+    today = today or datetime.now(timezone.utc).date()
+    r, since, public = _answer(conn, codes, countries, today)
     counts = {x["country"]: x for x in r["c"] or []}
     awards = {x["country"]: x["n"] for x in r["an"] or []}
     buyers = r["b"] or []
@@ -581,5 +633,31 @@ class Demand(BaseModel):
 def post_demand(body: DemandIn, conn=Depends(get_conn)):
     try:
         return demand(conn, body.cpv, body.countries)
+    except TooBroad:
+        raise HTTPException(422, {"code": "too_broad", "message": TOO_BROAD}) from None
+
+
+class WinnersIn(DemandIn):
+    page: int = Field(default=1, ge=1, le=1000)
+
+
+class WinnersPage(BaseModel):
+    since: str
+    until: str
+    countries: list[str]
+    total: int
+    page: int
+    pageSize: int
+    winners: list[ApproachWinner]
+    winnersFrom: str
+    sources: list[DemandSource]
+
+
+@router.post("/v1/readiness/winners", response_model=WinnersPage)
+def post_winners(body: WinnersIn, conn=Depends(get_conn)):
+    """WP-81: every winner of the demand answer for these codes and countries, a page of 100 at a time. Stateless,
+    as /v1/readiness/demand: nothing is kept or logged."""
+    try:
+        return winners_page(conn, body.cpv, body.countries, body.page)
     except TooBroad:
         raise HTTPException(422, {"code": "too_broad", "message": TOO_BROAD}) from None

@@ -1015,15 +1015,18 @@ WP-81 (owner decision of 22 October 2026, lifting the earlier "no total per supp
     values: { byCurrency: [{ currency, amount, count, lotEstimates }], of, withoutValue, shared }
 
 over **every** notice the profile counts (`of` = `noticeCount`, not only the 50 listed), each procurement once (an award
-TED and PLACSP both publish once, as every count; a notice removed on request is out). A notice's value is the supplier's
-by the `valueAmount` rule above (`suppliers.valued`: one winner, value kind `total` or `lot_sum`, above the placeholder,
-with a currency); summed per currency, never converted, the largest `count` first. `lotEstimates`: of `count`, the notices
-whose value is the sum of the lots' estimated values rather than a stated total. `withoutValue`: notices with no value
-that is this supplier's; `shared`: of those, the ones naming several winners. PLACSP and the other national sources state
-the call's estimate and carry no value kind, so they add none. The data does not tell a framework ceiling from an awarded
-amount; the page says "some may be framework ceilings". A natural person has no profile (410) and so no sum. Limit: where
-the PLACSP row stands for a twin pair (it states the winner's number and the TED row does not), the TED notice's value is
-not added; that procurement counts under `withoutValue`.
+TED and PLACSP both publish once, as every count; a notice removed on request is out). The value of an award row
+(`suppliers.value_of`, the same for each notice's `valueAmount`): first a PLACSP awarded amount (`award.value_amount`,
+migration 0100: the importe de adjudicación **without VAT** of the folder's results, i.e. lots, that name this one winner),
+else a TED value (`suppliers.valued`: the notice names one winner, value kind `total` or `lot_sum`, above the placeholder,
+with a currency); for a TED+PLACSP twin pair both copies are candidates and the first found by that order is taken, never
+both (with `DGATE_PLACSP_AWARDS_PUBLIC` off, PLACSP is not read). Summed per currency, never converted, the largest `count`
+first. `lotEstimates`: of `count`, the notices whose value is the sum of the lots' estimated values rather than a stated
+total. `withoutValue`: notices with no value that is this supplier's; `shared`: of those, the ones naming several winners.
+A PLACSP call's own estimate (`opportunity.value_amount` of a PLACSP row, no value kind) is never used. The data does not
+tell a framework ceiling from an awarded amount; the page says "some may be framework ceilings". A natural person has no
+profile (410) and so no sum. Production: the amounts of the PLACSP awards already held are filled by replaying the landed
+payloads (`python -m dgate.ops.placsp_archives --from-store`, then `--yes`; downloads nothing).
 
 WP-61 (21 October 2026), PLACSP winners. Stored since WP-60, served only with `DGATE_PLACSP_AWARDS_PUBLIC=true` (an owner
 decision; default false, and then every answer is as before). With it on:
@@ -1219,6 +1222,11 @@ Scope: the defence-scope notices (`is_defence`, not removed). Answer:
   of the organisation and those merged into it; `defenceBuyer` its defence-buyer flag. `below: {winners, awards}`: winners with fewer
   than `kMin` procurements, counted only (always empty since WP-81); `more: {winners, awards}`: winners past the 30th.
 - WP-80: an award that TED and PLACSP both publish (`award_twin_set`) counts once, in `approach` and in the per-country winners.
+- WP-81: `POST /v1/readiness/winners` takes the same body plus `page` (1 to 1000) and answers `{since, until, countries, total,
+  page, pageSize: 100, winners: [the approach entry above], winnersFrom, sources}`: every winner of the answer (`total` =
+  `total.winners`), in the order of `approach` (most contracts first), a page at a time; the same statement, the same 422
+  `too_broad`, the same price (5 tokens), stateless. The report links to it under a list that stops before the end ("All N
+  winners for these codes", and per country).
 - WP-80: a request whose codes match more than 30,000 defence-scope notices in the window and countries asked (`demand.MAX_ROWS`;
   15 whole divisions match about 117,000) is refused with `422 {"detail": {"code": "too_broad", "message": "... Choose more specific
   codes ..."}}`, the codes not echoed. Counted first with a `LIMIT`, so a refusal costs well under a second.

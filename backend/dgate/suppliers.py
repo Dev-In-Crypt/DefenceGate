@@ -30,8 +30,9 @@ date of last update its terms ask for (`placsp_note`). Natural persons are count
 
 Sum of values per supplier (WP-81, owner decision of 22 October 2026, lifting the earlier "no sum of values per
 supplier" for sums only; everything else above stands): `value_totals` sums, per currency and never converted, the
-values that a notice naming this one winner states (`VALUED`: the profile's own per-notice rule), each procurement
-once, and says how many of the supplier's notices state no value it can be given and how many of those name several
+value of each procurement once (`value_of`: a PLACSP awarded amount without VAT of the lots naming this one winner,
+else a TED value of a notice naming this one winner, `valued`; a TED+PLACSP twin pair from either copy, never both),
+and says how many of the supplier's notices state no value it can be given and how many of those name several
 winners. A sum of the lots' estimated values (`value_kind` lot_sum) is counted apart from a stated total; the data
 does not tell a framework ceiling from an awarded amount, and the copy says so. Natural persons have no page and no sum.
 """
@@ -98,12 +99,40 @@ def valued(wn: str, amount: str, currency: str, kind: str) -> str:
             f"AND {currency} IS NOT NULL)")
 
 
+_AWARDED = f"(c.value_amount > {PLACEHOLDER_AMOUNT_MAX} AND c.value_currency IS NOT NULL)"
+
+
+def value_of(award_id: str, twins: str) -> str:
+    """WP-81: a LATERAL join giving the award row `award_id` its value as `v.va, v.vc, v.vk` (NULL: none it can be
+    given). Candidates: the row itself and, where `twins` (an SQL boolean: the PLACSP winners are served), the current
+    rows `award_twin_set` drops in its favour, so a twin pair is valued once from whichever copy states a value. First
+    a PLACSP awarded amount without VAT (`award.value_amount`, kind `awarded`), else a TED value by `valued` (kind
+    `total` or `lot_sum`); never both."""
+    return f"""LEFT JOIN LATERAL (
+        SELECT CASE WHEN {_AWARDED} THEN c.value_amount ELSE oc.value_amount END AS va,
+               CASE WHEN {_AWARDED} THEN c.value_currency ELSE trim(oc.value_currency) END AS vc,
+               CASE WHEN {_AWARDED} THEN 'awarded' ELSE oc.value_kind END AS vk
+          FROM (SELECT {award_id} AS cid UNION ALL
+                SELECT tw.award_id FROM award_twin_set tw WHERE {twins} AND tw.preferred_id = {award_id}) ids
+          JOIN award c ON c.id = ids.cid JOIN opportunity oc ON oc.id = c.opportunity_id
+         WHERE (c.id = {award_id} OR (NOT oc.suppressed AND c.superseded_at IS NULL AND c.excluded_reason IS NULL))
+           AND ({_AWARDED} OR {valued("c.winners_in_notice", "oc.value_amount", "oc.value_currency", "oc.value_kind")})
+         ORDER BY {_AWARDED} DESC, (oc.value_kind = 'total') DESC, (c.id = {award_id}) DESC
+         LIMIT 1) v ON TRUE"""
+
+
 def value_totals(rows: list[dict[str, Any]], of: int) -> dict[str, Any]:
     """WP-81: the sums of one supplier from rows `{ok, shared, vc, amount, n, lots}` (one row per group of its
     procurements, each counted once: valued or not, several winners or not, the currency), out of `of` procurements.
     Per currency, never converted, the largest count first."""
-    by = [{"currency": r["vc"].strip(), "amount": round(float(r["amount"]), 2), "count": r["n"],
-           "lotEstimates": r["lots"]} for r in rows if r["ok"]]
+    sums: dict[str, dict[str, Any]] = {}
+    for r in rows:                  # a currency can come in two rows (a PLACSP lot amount in a notice of several winners)
+        if r["ok"]:
+            s = sums.setdefault(r["vc"].strip(), {"currency": r["vc"].strip(), "amount": 0.0, "count": 0, "lotEstimates": 0})
+            s["amount"] += float(r["amount"])
+            s["count"] += r["n"]
+            s["lotEstimates"] += r["lots"]
+    by = [{**s, "amount": round(s["amount"], 2)} for s in sums.values()]
     by.sort(key=lambda v: (-v["count"], v["currency"]))
     valued_n = sum(v["count"] for v in by)
     return {"byCurrency": by, "of": of, "withoutValue": max(of - valued_n, 0),
@@ -479,6 +508,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
     base = (f"{FROM} WHERE {scope()} AND org.id = %(org)s AND a.organisation_id = ANY(ARRAY("
             "SELECT %(org)s::bigint UNION ALL SELECT id FROM organisation WHERE merged_into = %(org)s))")
     p = {"org": org_id}
+    twins = "TRUE" if settings().placsp_awards_public else "FALSE"     # WP-81: value a twin pair from either copy
     head = conn.execute(
         f"""SELECT count(DISTINCT a.opportunity_id) AS n,
                    extract(year FROM min(o.published_at))::int AS first_year,
@@ -498,20 +528,18 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
              GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT {PROFILE_BUYERS}""", p).fetchall()
     notices = conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
-                   o.published_at, a.cpv_main, a.winners_in_notice, o.value_amount, o.value_currency,
-                   o.value_kind, o.source_url, a.id AS award_id,
+                   o.published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, o.source_url, a.id AS award_id,
                    (SELECT code FROM source WHERE id = o.source_id) AS source_code
-              {base} ORDER BY o.published_at DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
+              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY o.published_at DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
         p).fetchall()
-    # WP-81: each procurement once (the profile's count), valued by the profile's own rule
+    # WP-81: each procurement once (the profile's count), valued by `value_of` (the notice rows use the same)
     sums = conn.execute(
         f"""SELECT ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
                    count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
-              FROM (SELECT DISTINCT ON (a.opportunity_id)
-                           {valued("a.winners_in_notice", "o.value_amount", "o.value_currency", "o.value_kind")} AS ok,
-                           a.winners_in_notice > 1 AS shared, o.value_amount AS va, o.value_currency AS vc,
-                           o.value_kind AS vk
-                      {base} ORDER BY a.opportunity_id, 1 DESC, (o.value_kind = 'total') DESC, o.value_amount DESC) x
+              FROM (SELECT DISTINCT ON (a.opportunity_id) v.va IS NOT NULL AS ok,
+                           a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk
+                      {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)}
+                     ORDER BY a.opportunity_id, 1 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
              GROUP BY 1, 2, 3""", p).fetchall()
     stated = conn.execute(
         f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
@@ -556,15 +584,13 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
                            + f"{day}. Winners as named in each notice; natural persons are never named.")
     out_notices = []
     for r in notices:
-        single = r["winners_in_notice"] == 1 and r["value_kind"] in ("total", "lot_sum")
-        has_value = single and r["value_amount"] is not None and float(r["value_amount"]) > PLACEHOLDER_AMOUNT_MAX
         title = redact_emails(r["title_en"] or r["title_original"]) or ""
         out_notices.append({
             "id": str(r["id"]), "slug": make_slug(r["id"], title), "noticeId": r["native_id"], "title": title,
             "buyerName": None if r["buyer_withheld"] else r["buyer_name_raw"], "buyerCountry": r["country"],
             "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
-            "valueAmount": float(r["value_amount"]) if has_value else None,
-            "valueCurrency": r["value_currency"].strip() if has_value and r["value_currency"] else None,
+            "valueAmount": float(r["va"]) if r["va"] is not None else None,
+            "valueCurrency": r["vc"].strip() if r["va"] is not None else None,
             "sourceUrl": r["source_url"], "source": r["source_code"], "alsoPublished": also.get(r["award_id"], [])})
     return {
         **item,

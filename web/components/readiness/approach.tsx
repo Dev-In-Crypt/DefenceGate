@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { approachOthersLine, primesOf, type ApproachWinner, type Demand } from '@/lib/demand';
+import { allWinnersLabel, approachOthersLine, primesOf, winnersHref, type ApproachWinner, type Demand } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
@@ -33,7 +33,7 @@ export function ApproachExplainer() {
   );
 }
 
-function Winner({ w, scope }: { w: ApproachWinner; scope: string }) {
+export function Winner({ w, scope }: { w: ApproachWinner; scope: string }) {
   const src = w.prime ? safeHttpUrl(w.prime.sourceUrl) : null;
   return (
     <li className="report-item flex flex-col gap-1.5 border-t border-line py-3 first:border-t-0" data-approach-winner={w.prime ? 'prime' : 'other'}>
@@ -63,7 +63,7 @@ function Winner({ w, scope }: { w: ApproachWinner; scope: string }) {
 }
 
 /** WP-81: what the sums under each winner cover, the list's own period, countries and sources. */
-function valueScope(d: Demand): string {
+export function winnersScope(d: Pick<Demand, 'since' | 'until' | 'countries' | 'sources'>): string {
   return `The contracts of this list: ${formatDateUtc(d.since)} to ${formatDateUtc(d.until)}, in ${d.countries.map(countryName).join(', ')}, from ${d.sources.some((s) => s.code.startsWith('es_placsp')) ? 'TED and PLACSP' : 'TED'}.`;
 }
 
@@ -103,16 +103,19 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
             2024, and Indra). Primes may still buy what you make from their own suppliers; that is not published.
           </p>
         ) : (
-          <ul className="m-0 flex list-none flex-col p-0">{primes.map((w, i) => <Winner key={`p-${i}-${w.name}`} w={w} scope={valueScope(d)} />)}</ul>
+          <ul className="m-0 flex list-none flex-col p-0">{primes.map((w, i) => <Winner key={`p-${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
         )}
       </div>
       {a.winners.length > primes.length && (
         <div className="flex flex-col gap-1">
           <h3 className="m-0 text-h4">{primes.length ? 'The other named winners' : 'The named winners'}</h3>
-          <ul className="m-0 flex list-none flex-col p-0">{a.winners.filter((w) => !w.prime).map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={valueScope(d)} />)}</ul>
+          <ul className="m-0 flex list-none flex-col p-0">{a.winners.filter((w) => !w.prime).map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
         </div>
       )}
       {others && <p className="m-0 max-w-prose text-small text-ink-muted" data-approach-others>{others}</p>}
+      {d.total.winners > a.winners.length && (
+        <p className="m-0" data-approach-all><a href={winnersHref()} className="font-semibold">{allWinnersLabel(d.total.winners)}</a></p>
+      )}
       <p className="m-0 max-w-prose text-small text-ink-muted">
         A contract here is a procurement with a published winner, counted once however many notices publish it. Under each company, Contract values sums the values of its contracts per currency. The
         latest notice is the newest publication among them: for Spain’s national portal (PLACSP) the date the procurement was published, since its
@@ -147,9 +150,12 @@ function ShortList({ d }: { d: Demand }) {
           ? `No company won ${d.kMin} or more defence-scope procurements under your codes in the last three years, so none is named.`
           : 'No company won a defence-scope procurement under your codes in the last three years.'}</p>
       ) : (
-        <ul className="m-0 flex list-none flex-col p-0">{first.map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={valueScope(d)} />)}</ul>
+        <ul className="m-0 flex list-none flex-col p-0">{first.map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
       )}
-      <div><Button href="/readiness/supplier/report#r-approach" variant="secondary">Every named winner in your supplier report</Button></div>
+      <div className="flex flex-wrap gap-3">
+        <Button href="/readiness/supplier/report#r-approach" variant="secondary">Who to approach in your supplier report</Button>
+        {d.total.winners > first.length && <Button href={winnersHref()} variant="secondary">{allWinnersLabel(d.total.winners)}</Button>}
+      </div>
     </>
   );
 }

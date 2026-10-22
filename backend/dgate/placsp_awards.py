@@ -34,7 +34,7 @@ from typing import Any
 import psycopg
 
 from . import awards, db
-from .normalise import looks_like_contact
+from .normalise import PLACEHOLDER_AMOUNT_MAX, looks_like_contact
 from .rawstore import BundleWriter, build_store, storage_key
 from .sources import ted
 
@@ -86,10 +86,27 @@ def redact(payload: dict[str, Any]) -> dict[str, Any]:
             "natural_persons_identified": sum(1 for _, i in persons if i), "results": results}
 
 
+def _values(landed: dict[str, Any]) -> dict[tuple[str, str | None], tuple[float, str] | None]:
+    """WP-81: per winner (its name key and country), the awarded amount without VAT (`value`, TaxExclusiveAmount) of the
+    results that name it alone, summed; None when its lots state two currencies. A result naming several winners (a
+    blanked person counts as one) is attributed to none; a placeholder amount is no amount."""
+    sums: dict[tuple[str, str | None], dict[str, float]] = {}
+    for r in landed.get("results") or []:
+        ws = r.get("winners") or []
+        amount, currency = r.get("value"), r.get("currency")
+        if len(ws) != 1 or not ws[0].get("name") or amount is None or amount <= PLACEHOLDER_AMOUNT_MAX or not currency:
+            continue
+        key = (awards.key_of(ws[0]["name"].strip())[0], ws[0].get("country"))
+        by = sums.setdefault(key, {})
+        by[currency] = by.get(currency, 0.0) + float(amount)
+    return {k: (round(next(iter(v.values())), 2), next(iter(v))) if len(v) == 1 else None for k, v in sums.items()}
+
+
 def read(landed: dict[str, Any]) -> awards.Read:
     """The winners of one landed (redacted) payload."""
     out = awards.Read()
     seen: set[tuple[str, str | None]] = set()
+    values = _values(landed)
     persons = int(landed.get("natural_persons") or 0)
     for r in landed.get("results") or []:
         for w in r.get("winners") or []:
@@ -118,7 +135,9 @@ def read(landed: dict[str, Any]) -> awards.Read:
             elif not country:
                 out.counts["skipped_no_country"] += 1
             else:
-                out.winners.append(awards.Winner(cleaned, country, None if looks_like_contact(ident) else ident))
+                value = values.get(key)
+                out.winners.append(awards.Winner(cleaned, country, None if looks_like_contact(ident) else ident,
+                                                 *(value or (None, None))))
                 out.counts["joint_ventures"] += bool(w.get("joint_venture"))
     out.winners_seen += int(landed.get("natural_persons") or 0)
     out.counts["skipped_person"] = persons

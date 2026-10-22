@@ -126,13 +126,20 @@ def test_one_award_in_ted_and_placsp_counts_once_and_the_numbered_record_stands_
     assert profile["identifiers"] == ["B99999990"]
     s = after["summary"]
     assert (s["suppliers"], s["awards"], s["noticesWithSupplier"]) == (1, 1, 1)
+    # WP-81: the PLACSP result's awarded amount without VAT (250,000) is the award's value, once
+    stored = conn.execute("SELECT value_amount, value_currency FROM award WHERE value_amount IS NOT NULL").fetchall()
+    assert [(float(r["value_amount"]), r["value_currency"]) for r in stored] == [(250000.0, "EUR")]
+    assert notice["valueAmount"] == 250000.0 and notice["valueCurrency"] == "EUR"
+    assert profile["values"] == {"byCurrency": [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}],
+                                 "of": 1, "withoutValue": 0, "shared": 0}
+    assert before["profiles"][0]["values"]["byCurrency"] == []     # off: the TED notice states none, PLACSP is not read
 
 
 def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, env, monkeypatch):
     ted_result(conn, "500002-2026")
     load_ted(conn, [rec("500002-2026", [("Alfa Defensa Inventada, S.L.", "ESP", "ESB99999990")])])
     load_placsp(conn, with_procedure(awarded(result("1", ALFA))))
-    # WP-81: the TED notice states the award's value; the PLACSP twin is the same award and adds nothing to the sum
+    # WP-81: the TED notice states a value too; the PLACSP twin's awarded amount is preferred, and the pair counts once
     conn.execute("UPDATE opportunity SET value_amount = 1500, value_currency = 'EUR', value_kind = 'total' "
                  "WHERE native_id = '500002-2026'")
     conn.commit()
@@ -144,8 +151,34 @@ def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, e
     [notice] = got["profiles"][0]["notices"]
     assert notice["source"] == "ted" and [r["source"] for r in notice["alsoPublished"]] == ["es_placsp"]
     assert got["profiles"][0]["values"] == {
-        "byCurrency": [{"currency": "EUR", "amount": 1500.0, "count": 1, "lotEstimates": 0}],
+        "byCurrency": [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}],
         "of": 1, "withoutValue": 0, "shared": 0}
+    assert notice["valueAmount"] == 250000.0
+    # without a PLACSP amount, the TED value stands, still once
+    conn.execute("UPDATE award SET value_amount = NULL, value_currency = NULL")
+    conn.commit()
+    with TestClient(api.app) as client:
+        again = everything(client)
+    assert again["profiles"][0]["values"]["byCurrency"] == [{"currency": "EUR", "amount": 1500.0, "count": 1,
+                                                             "lotEstimates": 0}]
+
+
+def test_a_placsp_row_standing_for_the_pair_takes_the_ted_value_when_it_states_none(conn, env, monkeypatch):
+    # WP-81: the PLACSP row (with the NIF) stands for the award; it states no amount, the TED twin does
+    ted_result(conn, "500009-2026")
+    load_ted(conn, [rec("500009-2026", [TED_ALFA_NO_ID])])
+    load_placsp(conn, with_procedure(awarded(result("1", ALFA))))
+    conn.execute("UPDATE award SET value_amount = NULL, value_currency = NULL")
+    conn.execute("UPDATE opportunity SET value_amount = 7000, value_currency = 'EUR', value_kind = 'total' "
+                 "WHERE native_id = '500009-2026'")
+    conn.commit()
+    public(monkeypatch, True)
+    with TestClient(api.app) as client:
+        got = everything(client)
+    [profile] = got["profiles"]
+    assert profile["notices"][0]["source"] == "es_placsp" and profile["notices"][0]["valueAmount"] == 7000.0
+    assert profile["values"] == {"byCurrency": [{"currency": "EUR", "amount": 7000.0, "count": 1, "lotEstimates": 0}],
+                                 "of": 1, "withoutValue": 0, "shared": 0}
 
 
 def test_one_number_on_two_organisations_is_one_winner(conn, env, monkeypatch):

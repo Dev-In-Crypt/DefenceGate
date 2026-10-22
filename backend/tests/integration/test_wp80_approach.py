@@ -182,6 +182,24 @@ def test_a_twin_pair_is_valued_once(world, post, conn):
     v = by_name(post())["Suministros Mera SL"]["values"]
     assert v["byCurrency"] == [{"currency": "EUR", "amount": 5000.0, "count": 1, "lotEstimates": 0}]
     assert (v["of"], v["withoutValue"]) == (3, 2)
+    # the PLACSP twin's awarded amount (without VAT) is preferred over the TED value; still one contract
+    conn.execute("UPDATE award SET value_amount = 4200, value_currency = 'EUR' WHERE name_as_stated = 'Suministros Mera'")
+    conn.commit()
+    v = by_name(post())["Suministros Mera SL"]["values"]
+    assert v["byCurrency"] == [{"currency": "EUR", "amount": 4200.0, "count": 1, "lotEstimates": 0}]
+    # off: PLACSP is not read, so the TED value stands
+    v = by_name(post(public=False))["Suministros Mera SL"]["values"]
+    assert v["byCurrency"] == [{"currency": "EUR", "amount": 5000.0, "count": 1, "lotEstimates": 0}]
+
+
+def test_a_placsp_awarded_amount_counts_for_its_winner_even_with_several_winners_in_the_folder(world, post, conn):
+    # WP-81: the amount is per result (lot) naming this one winner, so the notice's count of winners does not void it
+    conn.execute("UPDATE award SET value_amount = 900, value_currency = 'EUR', winners_in_notice = 2 "
+                 "WHERE opportunity_id = (SELECT id FROM opportunity WHERE native_id = 'ES-S0')")
+    conn.commit()
+    v = by_name(post())["Recambios Sur SL"]["values"]
+    assert v == {"byCurrency": [{"currency": "EUR", "amount": 900.0, "count": 1, "lotEstimates": 0}],
+                 "of": 2, "withoutValue": 1, "shared": 0}
 
 
 def test_a_natural_person_is_never_named_and_never_given_a_sum(world, post, conn):
@@ -253,3 +271,18 @@ def test_only_the_countries_asked(world, post):
     names = by_name(d)
     assert set(names) == {"Rheinmetall Landsysteme GmbH", "Talleres Norte SL"}   # Talleres' one German award: named
     assert d["approach"]["below"] == {"winners": 0, "awards": 0}
+
+
+def test_every_winner_a_page_at_a_time_in_the_order_of_who_to_approach(world, post, monkeypatch):
+    # WP-81: the report's list stops at 30 (and the primes); POST /v1/readiness/winners lists every winner of the answer
+    monkeypatch.setattr(demand, "WINNERS_PAGE", 3)
+    d = post()
+    c = TestClient(api.app)
+    first = c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "countries": ["ES", "DE"]}).json()
+    second = c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "countries": ["ES", "DE"], "page": 2}).json()
+    assert first["total"] == d["total"]["winners"] == 4 and (first["page"], first["pageSize"]) == (1, 3)
+    assert [w["name"] for w in first["winners"] + second["winners"]] == [w["name"] for w in d["approach"]["winners"]]
+    assert first["winners"][0] == d["approach"]["winners"][0]          # the same entry, values included
+    assert c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "page": 0}).status_code == 422
+    one = c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "countries": ["DE"]}).json()
+    assert {w["name"] for w in one["winners"]} == {"Rheinmetall Landsysteme GmbH", "Talleres Norte SL"}

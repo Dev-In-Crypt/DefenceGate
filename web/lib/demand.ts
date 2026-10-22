@@ -115,7 +115,31 @@ export class DemandError extends Error {
 export const DEMAND_FAILED = 'The demand map could not be computed. Try again in a moment.';
 
 export async function fetchDemand(request: DemandRequest, signal?: AbortSignal): Promise<Demand> {
-  const res = await fetch('/api/readiness/demand', {
+  return post<Demand>('/api/readiness/demand', request, signal);
+}
+
+/** WP-81: every winner of the demand answer, a page of `pageSize` at a time (POST /v1/readiness/winners). */
+export interface WinnersPage {
+  since: string; until: string; countries: string[]; total: number; page: number; pageSize: number;
+  winners: ApproachWinner[]; winnersFrom: string; sources: Demand['sources'];
+}
+
+export async function fetchWinners(request: DemandRequest & { page: number }, signal?: AbortSignal): Promise<WinnersPage> {
+  return post<WinnersPage>('/api/readiness/winners', request, signal);
+}
+
+/** The page of every winner for the profile's codes: in every country asked, or in one. */
+export function winnersHref(country?: string): string {
+  return `/readiness/supplier/winners${country ? `?country=${country}` : ''}`;
+}
+
+/** "All 496 winners for these codes", the link under a list that stops before the end. */
+export function allWinnersLabel(n: number, country?: string): string {
+  return `All ${n} ${n === 1 ? 'winner' : 'winners'}${country ? ` in ${country}` : ''} for these codes`;
+}
+
+async function post<T>(path: string, request: unknown, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(request), signal, cache: 'no-store', credentials: 'omit',
   }).catch((e: unknown) => {
@@ -131,7 +155,7 @@ export async function fetchDemand(request: DemandRequest, signal?: AbortSignal):
     }
     throw new DemandError(res.status, DEMAND_FAILED);
   }
-  return (await res.json()) as Demand;
+  return (await res.json()) as T;
 }
 
 /** The API's sentence for a request that matches too many notices (`detail: {code: 'too_broad', message}`), else null. */

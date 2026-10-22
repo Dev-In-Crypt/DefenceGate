@@ -56,6 +56,30 @@ test('who to approach: each named winner has its contract values, collapsed, per
   await expect(page.getByText(/market share|top supplier|sole source|single point of failure/i)).toHaveCount(0);
 });
 
+test('a capped list links to every winner for these codes, a page at a time, each with its contract values', async ({ page }) => {
+  await page.addInitScript((value) => { if (!window.localStorage.getItem('dg.profile.v1')) window.localStorage.setItem('dg.profile.v1', JSON.stringify(value)); },
+    fixture('profile-es-sup-civil.json'));
+  await page.route('**/api/readiness/assess', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture('assess-es-sup-civil.json')) }));
+  const sent: { page?: number; cpv?: string[]; countries?: string[] }[] = [];
+  page.on('request', (r) => { if (r.url().endsWith('/api/readiness/winners')) sent.push(r.postDataJSON()); });
+  await visit(page, '/readiness/supplier/report', { title: /supplier readiness report/i, h1: 'Supplier readiness report' });
+  const all = page.locator('[data-approach-all] a');
+  await expect(all).toHaveText(`All ${DEMO.total.winners} winners for these codes`);
+  // the per-country lists that stop at ten link to their own country
+  const es = DEMO.byCountry.find((c: { country: string; otherWinners: { winners: number } }) => c.otherWinners.winners > 0);
+  await expect(page.locator(`[data-demand-country="${es.country}"] [data-demand-all] a`)).toHaveAttribute('href', `/readiness/supplier/winners?country=${es.country}`);
+  await Promise.all([page.waitForURL(/\/readiness\/supplier\/winners$/), all.click()]);
+  await expect(page.locator('h1')).toHaveText('Every winner for your codes');
+  const rows = page.locator('[data-all-winners] [data-approach-winner]');
+  await expect(rows).toHaveCount(20);                       // the demo answers in pages of 20
+  await expect(rows.first().locator('summary', { hasText: 'Contract values' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next page' }).click();
+  await expect(page.getByText('Page 2 of')).toBeVisible();
+  await expect(rows.first()).toContainText(DEMO.approach.winners[20].name);
+  expect(sent.map((b) => b.page)).toEqual([1, 2]);
+  expect(Object.keys(sent[0]).sort()).toEqual(['countries', 'cpv', 'page']);   // the codes and countries only, nothing else of the profile
+});
+
 test('a supplier page: contract values collapsed, every notice counted, not only the listed ones', async ({ page }) => {
   await visit(page, '/suppliers/1-demo-airframes-gmbh', { title: /Demo Airframes/i, h1: 'Demo Airframes GmbH' });
   const details = await closedThenOpenedByKeyboard(page.locator('main'), page);

@@ -15,6 +15,13 @@ def test_per_currency_never_converted_most_contracts_first():
                    "of": 10, "withoutValue": 6, "shared": 2}
 
 
+def test_one_currency_in_two_rows_is_one_sum():
+    # a PLACSP lot amount in a notice of several winners comes grouped apart from the single-winner notices
+    got = value_totals([row(True, False, "EUR", 100, 2), row(True, True, "EUR", 50, 1)], of=3)
+    assert got["byCurrency"] == [{"currency": "EUR", "amount": 150.0, "count": 3, "lotEstimates": 0}]
+    assert (got["withoutValue"], got["shared"]) == (0, 0)
+
+
 def test_no_value_at_all():
     assert value_totals([], of=5) == {"byCurrency": [], "of": 5, "withoutValue": 5, "shared": 0}
 

@@ -5,7 +5,7 @@
  * Not part of the app. Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { approachOthersLine, otherWinnersLine, type DemandCountry } from './demand';
+import { allWinnersLabel, approachOthersLine, otherWinnersLine, winnersHref, type DemandCountry } from './demand';
 import { sumLines, VALUE_RULES, withoutValueLine, type ValueTotals } from './value-totals';
 
 const none: ValueTotals = { byCurrency: [], of: 3, withoutValue: 3, shared: 0 };
@@ -31,7 +31,8 @@ assert.equal(withoutValueLine({ ...mixed, withoutValue: 2, shared: 2 }, 'contrac
   '2 of 30 contracts state no value for this company alone; they name several winners.');
 assert.equal(withoutValueLine({ ...mixed, withoutValue: 0, shared: 0 }, 'contract'), null);
 
-for (const said of ['per currency, never converted', 'names this one winner', 'PLACSP', 'counted once', 'framework ceilings']) {
+for (const said of ['per currency, never converted', 'names this one winner', 'without VAT', 'PLACSP values are the awarded amounts',
+  'counted once', 'PLACSP’s awarded amount, else TED’s value', 'framework ceilings']) {
   assert.ok(VALUE_RULES.includes(said), said);
 }
 // ---------------------------------------------------------------- every legal-entity winner named (scope addition, owner "да", 22 October 2026)
@@ -41,6 +42,12 @@ const country = { otherWinners: { winners: 7, awards: 9 } } as unknown as Demand
 assert.equal(otherWinnersLine(country, 1), '7 other winners (9 awards) not listed here: the list shows the ten with the most awards per country, and the report names them all under Who to approach.');
 assert.match(otherWinnersLine(country, 3) ?? '', /named only with at least 3 awards/);
 assert.equal(approachOthersLine({ winners: [], below: { winners: 0, awards: 0 }, more: { winners: 0, awards: 0 } }, 1), null);
+
+// the link under a list that stops before the end (follow-up: nothing hidden)
+assert.equal(allWinnersLabel(496), 'All 496 winners for these codes');
+assert.equal(allWinnersLabel(1, 'Spain'), 'All 1 winner in Spain for these codes');
+assert.equal(winnersHref(), '/readiness/supplier/winners');
+assert.equal(winnersHref('ES'), '/readiness/supplier/winners?country=ES');
 
 // the mosaic rule's words stay out: no ranking, no share, no sole source
 assert.doesNotMatch(VALUE_RULES + sumLines(mixed, 'contract').join(' '), /rank|share of|market share|sole source|single point/i);
