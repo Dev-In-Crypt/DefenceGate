@@ -4,6 +4,7 @@
  * nothing. Pure except `fetchDemand`.
  */
 import type { Profile } from './profile';
+import type { ValueTotals } from './value-totals';
 
 export const DEMAND_COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL'] as const;
 
@@ -19,11 +20,13 @@ export interface DemandCounts { procurements: number; directive: number; coreBuy
 export interface DemandCountry extends DemandCounts {
   country: string; topBuyers: DemandBuyer[]; topWinners: DemandWinner[]; otherWinners: { winners: number; awards: number }; latest: DemandRef[];
 }
-/** WP-80: a company that wins these procurements, across the countries asked (named only with at least kMin of them). */
+/** WP-80: a company that wins these procurements, across the countries asked (WP-81: every legal entity, kMin is 1). */
 export interface ApproachWinner {
   name: string; country: string | null; contracts: number;
   /** Its supplier page here; null when it wins only outside the supplier map's core scope (no page). */
   slug: string | null;
+  /** WP-81: the sum of its contracts' values per currency (`of` is `contracts`), collapsed under each winner. */
+  values: ValueTotals;
   buyers: { slug: string; name: string; country: string; contracts: number }[];
   /** The publication date of its newest notice (TED: the result notice; PLACSP: the procurement, the award date is not stored). */
   countries: string[]; lastAward: string | null;
@@ -32,7 +35,7 @@ export interface ApproachWinner {
 }
 export interface Approach {
   winners: ApproachWinner[];
-  /** Winners with fewer than kMin procurements: counted, never named. */
+  /** Winners with fewer than kMin procurements: counted, never named (WP-81: kMin is 1, so none; an older answer had kMin 3). */
   below: { winners: number; awards: number };
   /** Winners with kMin or more past the first 30 (a prime is never among them). */
   more: { winners: number; awards: number };
@@ -76,12 +79,14 @@ export function buyerLine(c: Pick<DemandCounts, 'coreBuyers' | 'otherBuyers'>): 
   return `${n(c.coreBuyers, 'core defence buyer')} and ${n(c.otherBuyers, 'other defence-scope buyer')}`;
 }
 
-/** The winners not named, in words: the mosaic rule of the supplier map. */
+/** The winners not listed, in words: the end of the list (WP-81), or the old mosaic rule of an answer with kMin above 1. */
 export function otherWinnersLine(c: DemandCountry, kMin: number): string | null {
   const { winners, awards } = c.otherWinners;
   if (winners === 0) return null;
-  return `${winners} ${winners === 1 ? 'other winner' : 'other winners'} (${awards} ${awards === 1 ? 'award' : 'awards'}) not named: a winner is named only with ` +
-    `at least ${kMin} awards here, and at most ten per country.`;
+  const head = `${winners} ${winners === 1 ? 'other winner' : 'other winners'} (${awards} ${awards === 1 ? 'award' : 'awards'})`;
+  return kMin > 1
+    ? `${head} not named: a winner is named only with at least ${kMin} awards here, and at most ten per country.`
+    : `${head} not listed here: the list shows the ten with the most awards per country, and the report names them all under Who to approach.`;
 }
 
 /** The winners not named in "who to approach", in words: the mosaic rule, and the end of the list. */
@@ -110,7 +115,31 @@ export class DemandError extends Error {
 export const DEMAND_FAILED = 'The demand map could not be computed. Try again in a moment.';
 
 export async function fetchDemand(request: DemandRequest, signal?: AbortSignal): Promise<Demand> {
-  const res = await fetch('/api/readiness/demand', {
+  return post<Demand>('/api/readiness/demand', request, signal);
+}
+
+/** WP-81: every winner of the demand answer, a page of `pageSize` at a time (POST /v1/readiness/winners). */
+export interface WinnersPage {
+  since: string; until: string; countries: string[]; total: number; page: number; pageSize: number;
+  winners: ApproachWinner[]; winnersFrom: string; sources: Demand['sources'];
+}
+
+export async function fetchWinners(request: DemandRequest & { page: number }, signal?: AbortSignal): Promise<WinnersPage> {
+  return post<WinnersPage>('/api/readiness/winners', request, signal);
+}
+
+/** The page of every winner for the profile's codes: in every country asked, or in one. */
+export function winnersHref(country?: string): string {
+  return `/readiness/supplier/winners${country ? `?country=${country}` : ''}`;
+}
+
+/** "All 496 winners for these codes", the link under a list that stops before the end. */
+export function allWinnersLabel(n: number, country?: string): string {
+  return `All ${n} ${n === 1 ? 'winner' : 'winners'}${country ? ` in ${country}` : ''} for these codes`;
+}
+
+async function post<T>(path: string, request: unknown, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(path, {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(request), signal, cache: 'no-store', credentials: 'omit',
   }).catch((e: unknown) => {
@@ -126,7 +155,7 @@ export async function fetchDemand(request: DemandRequest, signal?: AbortSignal):
     }
     throw new DemandError(res.status, DEMAND_FAILED);
   }
-  return (await res.json()) as Demand;
+  return (await res.json()) as T;
 }
 
 /** The API's sentence for a request that matches too many notices (`detail: {code: 'too_broad', message}`), else null. */

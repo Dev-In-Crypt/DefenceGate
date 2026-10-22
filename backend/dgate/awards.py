@@ -334,6 +334,9 @@ class Winner:
     name: str
     country: str | None
     identifier: str | None
+    # WP-81, PLACSP only: the awarded amount without VAT of the results naming this one winner (`award.value_amount`)
+    value_amount: float | None = None
+    value_currency: str | None = None
 
 
 @dataclass
@@ -572,6 +575,13 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
                RETURNING id, (xmax = 0) AS inserted""",
             (opp["id"], res.org_id, w.country, w.name[:300], stated_number(w.identifier, w.country),
              read.winners_seen, _main_cpv(opp["cpv_codes"]), res.method, round(res.confidence, 2))).fetchone()
+        if payload_hash is not None:
+            # WP-81: a PLACSP re-read carries the awarded amount of this read, whatever the row held before
+            conn.execute(
+                """UPDATE award SET value_amount = %s, value_currency = %s
+                    WHERE opportunity_id = %s AND organisation_id = %s
+                      AND (value_amount IS DISTINCT FROM %s::numeric OR value_currency IS DISTINCT FROM %s)""",
+                (w.value_amount, w.value_currency, opp["id"], res.org_id, w.value_amount, w.value_currency))
         c["awards_new"] += bool(row and row["inserted"])
         c["awards_current_again"] += bool(row and not row["inserted"])
         c["organisations_new"] += res.created

@@ -29,7 +29,10 @@ assert.ok(a.winners.slice(30).every((w) => w.prime), 'past the 30th only primes'
 assert.ok(primesOf(a).length > 0, 'the demo marks a prime (Indra, Saab on 22 October 2026)');
 for (const w of a.winners) {
   assert.ok(w.buyers.length <= 3 && w.buyers.every((b) => b.name && b.contracts >= 1), w.name);
-  assert.ok(!('values' in w), `${w.name}: no sum of values per supplier`);
+  // WP-81 (owner decision of 22 October 2026): the sum per currency, the counts adding up to the contracts
+  assert.equal(w.values.of, w.contracts, w.name);
+  assert.equal(w.values.byCurrency.reduce((k, v) => k + v.count, 0) + w.values.withoutValue, w.contracts, `${w.name}: valued and unvalued contracts`);
+  assert.ok(w.values.shared <= w.values.withoutValue && w.values.byCurrency.every((v) => /^[A-Z]{3}$/.test(v.currency) && v.amount > 1 && v.lotEstimates <= v.count), w.name);
   assert.ok(w.countries.length >= 1 && w.countries.every((c) => demo.countries.includes(c)), w.name);
   if (w.prime) assert.match(w.prime.sourceUrl, /^https:\/\//);
 }

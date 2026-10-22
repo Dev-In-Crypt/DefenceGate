@@ -21,9 +21,11 @@ def test_a_country_name_or_three_letter_code_lists_the_same_suppliers_as_the_cod
         got = client.get("/v1/suppliers", params={"country": given, "sort": "name"})
         assert got.status_code == 200, given
         assert got.json()["items"] == by_code["items"], given
-    # the k rule still holds under a name: Estonia has one supplier
-    assert client.get("/v1/suppliers?country=Estonia").json()["withheld"] is True
-    assert client.get("/v1/suppliers?country=EST").json()["withheld"] is True
+    # a name reads as the code for a small group too: Estonia has one supplier, listed since WP-81
+    by_est = client.get("/v1/suppliers?country=EE").json()
+    assert by_est["total"] == 1 and by_est["withheld"] is False
+    assert client.get("/v1/suppliers?country=Estonia").json()["items"] == by_est["items"]
+    assert client.get("/v1/suppliers?country=EST").json()["items"] == by_est["items"]
 
 
 def test_a_value_that_is_no_country_is_a_clear_422_not_a_list(conn, env, client):

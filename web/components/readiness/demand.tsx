@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { cpvDictionaryTitle } from '@/lib/cpv';
-import { buyerLine, directiveShare, otherWinnersLine, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
+import { allWinnersLabel, buyerLine, directiveShare, otherWinnersLine, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
@@ -68,6 +68,11 @@ function Country({ c, kMin }: { c: DemandCountry; kMin: number }) {
                   </ul>
                 )}
                 {others && <p className="m-0 max-w-prose text-small text-ink-muted" data-demand-others>{others}</p>}
+                {c.otherWinners.winners > 0 && (
+                  <p className="m-0 text-small" data-demand-all>
+                    <a href={winnersHref(c.country)} className="font-semibold">{allWinnersLabel(c.winners, countryName(c.country))}</a>
+                  </p>
+                )}
               </>
             )}
           </div>

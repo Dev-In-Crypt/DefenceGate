@@ -148,6 +148,32 @@ def test_the_winners_of_a_folder_are_its_companies_and_ute_once_each():
     assert got.counts["joint_ventures"] == 1
 
 
+def test_each_winner_carries_the_awarded_amount_without_vat_of_the_lots_it_won_alone():
+    # WP-81: TaxExclusiveAmount (1,000 per lot), never PayableAmount (1,210, with VAT); Talleres won lots 1 and 6
+    got = placsp_awards.read(placsp_awards.redact(payload()))
+    assert [(w.name, w.value_amount, w.value_currency) for w in got.winners] == [
+        ("TALLERES INVENTADOS DEL NORTE, S.L.", 2000.0, "EUR"),
+        ("UTE INVENTADA SISTEMAS SA - [natural person]", 1000.0, "EUR"),
+        ("Nordic Example AB", 1000.0, "EUR"),
+    ]
+
+
+def test_a_lot_won_by_several_a_placeholder_and_two_currencies_give_no_amount():
+    shared = result("8", "1", party("TALLERES INVENTADOS DEL NORTE, S.L.", "B99999990") + party("Nordic Example AB", "SE556000000001", "OTROS", "SE"))
+    with_person = result("8", "2", party("Nordic Example AB", "SE556000000001", "OTROS", "SE") + party("PEREZ GOMEZ ANTONIO", "***9999**"))
+    zero = result("8", "3", party("TALLERES INVENTADOS DEL NORTE, S.L.", "B99999990"), value="0.00")
+    found: list = []
+    placsp.parse_feed(feed(entry(shared + with_person + zero)), results=found)
+    got = placsp_awards.read(placsp_awards.redact(found[0]))
+    assert {w.name: w.value_amount for w in got.winners} == {"TALLERES INVENTADOS DEL NORTE, S.L.": None,
+                                                              "Nordic Example AB": None}
+    landed = placsp_awards.redact(found[0])
+    landed["results"] = [{"result_code": "8", "value": v, "currency": c,
+                          "winners": [{"name": "Nordic Example AB", "country": "SE", "identifier": "SE556000000001"}]}
+                         for v, c in ((100.0, "EUR"), (200.0, "SEK"))]
+    assert [w.value_amount for w in placsp_awards.read(landed).winners] == [None]
+
+
 def test_a_folder_whose_every_lot_was_deserted_names_no_winner():
     got = placsp_awards.read(placsp_awards.redact(
         {"results": [{"result_code": "3", "winners": []}, {"result_code": "4", "winners": []}]}))

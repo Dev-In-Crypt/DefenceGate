@@ -26,11 +26,11 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
 
 export function supplierSummary(): SupplierSummary {
   return {
-    kMin: 3, since: '2023-01-01', noticesRead: 4200, noticesWithSupplier: 31, suppliers: ITEMS.length, awards: 34, skippedNaturalPersons: 2,
+    kMin: 1, since: '2023-01-01', noticesRead: 4200, noticesWithSupplier: 31, suppliers: ITEMS.length, awards: 34, skippedNaturalPersons: 2,
     firstPublished: '2023-11-02T00:00:00Z', lastPublished: '2026-10-09T00:00:00Z',
     byCpv: [{ key: '35', suppliers: 4, awards: 31 }, { key: '34', suppliers: 3, awards: 18 }, { key: '63', suppliers: 3, awards: 7 }],
     byCountry: [{ key: 'DE', suppliers: 5, awards: 22 }, { key: 'FR', suppliers: 4, awards: 15 }, { key: 'PL', suppliers: 3, awards: 9 }],
-    cells: [], suppressedGroups: 6, coverage: 'Demo data.',
+    cells: [], suppressedGroups: 0, coverage: 'Demo data.',
     sources: [{ code: 'ted', name: 'TED (Tenders Electronic Daily)', attribution: 'Source: TED (Tenders Electronic Daily), © European Union.' }],
   };
 }
@@ -39,8 +39,13 @@ export function findSupplier(slug: string): Supplier | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
   const s = id ? ITEMS.find((x) => x.id === id) : undefined;
   if (!s) return null;
+  const valued = Math.min(3, s.awardCount);       // the listed notices 0, 2, 4 name one winner and state a value (below)
   return {
     ...s,
+    values: {
+      byCurrency: [{ currency: 'EUR', amount: [1_200_000, 1_500_000, 1_800_000].slice(0, valued).reduce((a, b) => a + b, 0), count: valued, lotEstimates: 0 }],
+      of: s.awardCount, withoutValue: s.awardCount - valued, shared: Math.min(3, s.awardCount - valued),
+    },
     byYear: [{ year: 2023, awards: 1 }, { year: 2024, awards: 4 }, { year: 2025, awards: 6 }, { year: 2026, awards: s.awardCount - 11 > 0 ? s.awardCount - 11 : 1 }],
     byCpv: s.cpvDivisions.map((d, i) => ({ division: d, awards: Math.max(1, s.awardCount - i * 3) })),
     buyers: [

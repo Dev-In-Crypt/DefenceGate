@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { approachOthersLine, primesOf, type ApproachWinner, type Demand } from '@/lib/demand';
+import { allWinnersLabel, approachOthersLine, primesOf, winnersHref, type ApproachWinner, type Demand } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Tag } from '@/components/dg/tag';
+import { ValueTotalsBlock } from '@/components/dg/value-totals';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import type { DemandState } from './use-readiness';
 
@@ -32,7 +33,7 @@ export function ApproachExplainer() {
   );
 }
 
-function Winner({ w }: { w: ApproachWinner }) {
+export function Winner({ w, scope }: { w: ApproachWinner; scope: string }) {
   const src = w.prime ? safeHttpUrl(w.prime.sourceUrl) : null;
   return (
     <li className="report-item flex flex-col gap-1.5 border-t border-line py-3 first:border-t-0" data-approach-winner={w.prime ? 'prime' : 'other'}>
@@ -55,9 +56,15 @@ function Winner({ w }: { w: ApproachWinner }) {
           ))}
         </p>
       )}
+      {w.values && <ValueTotalsBlock values={w.values} noun="contract" scope={scope} />}
       {w.prime && <p className="m-0 text-small text-ink-muted">Listed by name from: {src ? <a href={src} target="_blank" rel="noopener noreferrer">{w.prime.source}</a> : w.prime.source}.</p>}
     </li>
   );
+}
+
+/** WP-81: what the sums under each winner cover, the list's own period, countries and sources. */
+export function winnersScope(d: Pick<Demand, 'since' | 'until' | 'countries' | 'sources'>): string {
+  return `The contracts of this list: ${formatDateUtc(d.since)} to ${formatDateUtc(d.until)}, in ${d.countries.map(countryName).join(', ')}, from ${d.sources.some((s) => s.code.startsWith('es_placsp')) ? 'TED and PLACSP' : 'TED'}.`;
 }
 
 /** The full "who to approach" section of the report. */
@@ -83,8 +90,10 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
       <p className="m-0 max-w-prose text-body" data-approach-summary>
         From {formatDateUtc(d.since)} to {formatDateUtc(d.until)}, in {d.countries.map(countryName).join(', ')}: {d.total.winners}{' '}
         {d.total.winners === 1 ? 'company' : 'companies'} won defence-scope procurements under your codes. {a.winners.length === 0
-          ? `None won ${d.kMin} or more, so none is named.`
-          : `${a.winners.length} won ${d.kMin} or more and ${a.winners.length === 1 ? 'is' : 'are'} named below, most contracts first.`}
+          ? (d.kMin > 1 ? `None won ${d.kMin} or more, so none is named.` : 'None is named.')
+          : d.kMin > 1
+            ? `${a.winners.length} won ${d.kMin} or more and ${a.winners.length === 1 ? 'is' : 'are'} named below, most contracts first.`
+            : `${a.winners.length} ${a.winners.length === 1 ? 'is' : 'are'} named below, most contracts first. A winner who is a natural person is never named.`}
       </p>
       <div className="flex flex-col gap-1" data-approach-primes>
         <h3 className="m-0 text-h4">Prime contractors and large defence groups among them</h3>
@@ -94,18 +103,21 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
             2024, and Indra). Primes may still buy what you make from their own suppliers; that is not published.
           </p>
         ) : (
-          <ul className="m-0 flex list-none flex-col p-0">{primes.map((w, i) => <Winner key={`p-${i}-${w.name}`} w={w} />)}</ul>
+          <ul className="m-0 flex list-none flex-col p-0">{primes.map((w, i) => <Winner key={`p-${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
         )}
       </div>
       {a.winners.length > primes.length && (
         <div className="flex flex-col gap-1">
           <h3 className="m-0 text-h4">{primes.length ? 'The other named winners' : 'The named winners'}</h3>
-          <ul className="m-0 flex list-none flex-col p-0">{a.winners.filter((w) => !w.prime).map((w, i) => <Winner key={`${i}-${w.name}`} w={w} />)}</ul>
+          <ul className="m-0 flex list-none flex-col p-0">{a.winners.filter((w) => !w.prime).map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
         </div>
       )}
       {others && <p className="m-0 max-w-prose text-small text-ink-muted" data-approach-others>{others}</p>}
+      {d.total.winners > a.winners.length && (
+        <p className="m-0" data-approach-all><a href={winnersHref()} className="font-semibold">{allWinnersLabel(d.total.winners)}</a></p>
+      )}
       <p className="m-0 max-w-prose text-small text-ink-muted">
-        A contract here is a procurement with a published winner, counted once however many notices publish it; no value is summed per company. The
+        A contract here is a procurement with a published winner, counted once however many notices publish it. Under each company, Contract values sums the values of its contracts per currency. The
         latest notice is the newest publication among them: for Spain’s national portal (PLACSP) the date the procurement was published, since its
         award date is not stored. Marked by name: a group member that carries the group’s name; a subsidiary under another name is not marked.
       </p>
@@ -134,11 +146,16 @@ function ShortList({ d }: { d: Demand }) {
   return (
     <>
       {first.length === 0 ? (
-        <p className="m-0 max-w-prose text-body">No company won {d.kMin} or more defence-scope procurements under your codes in the last three years, so none is named.</p>
+        <p className="m-0 max-w-prose text-body">{d.kMin > 1
+          ? `No company won ${d.kMin} or more defence-scope procurements under your codes in the last three years, so none is named.`
+          : 'No company won a defence-scope procurement under your codes in the last three years.'}</p>
       ) : (
-        <ul className="m-0 flex list-none flex-col p-0">{first.map((w, i) => <Winner key={`${i}-${w.name}`} w={w} />)}</ul>
+        <ul className="m-0 flex list-none flex-col p-0">{first.map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
       )}
-      <div><Button href="/readiness/supplier/report#r-approach" variant="secondary">Every named winner in your supplier report</Button></div>
+      <div className="flex flex-wrap gap-3">
+        <Button href="/readiness/supplier/report#r-approach" variant="secondary">Who to approach in your supplier report</Button>
+        {d.total.winners > first.length && <Button href={winnersHref()} variant="secondary">{allWinnersLabel(d.total.winners)}</Button>}
+      </div>
     </>
   );
 }

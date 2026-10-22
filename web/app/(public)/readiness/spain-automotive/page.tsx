@@ -47,7 +47,7 @@ function Sample({ d }: { d: Demand }) {
         </ul>
         {d.approach && (
           <p className="m-0" data-demand-sample-approach>
-            {plural(d.total.winners, 'company', 'companies')} won them; {plural(d.approach.winners.length, 'company', 'companies')} won {d.kMin} or more and
+            {plural(d.total.winners, 'company', 'companies')} won them; {plural(d.approach.winners.length, 'company', 'companies')}{d.kMin > 1 ? ` won ${d.kMin} or more and` : ''}
             would be named in the report, {plural(d.approach.winners.filter((w) => w.prime).length, 'of them is', 'of them are')} marked as a prime
             contractor or large defence group.
           </p>
@@ -88,9 +88,10 @@ export default async function SpainAutomotivePage() {
           <li>
             <strong className="text-ink">Who to approach.</strong> The companies that won defence-scope contracts under the CPV codes you choose in Spain,
             Germany, France, Poland and the Netherlands over the last three years, from TED and the Spanish national portal (PLACSP), each contract counted
-            once: how many contracts, the buyers they win from, the countries, the date of the latest notice, and a link
-            to their supplier page. Prime contractors and large defence groups are marked, with the source of the list. A company is named only from three
-            awards up; the others are counted.
+            once: how many contracts, the sum of their values per currency where a notice states one for that company alone, the buyers they win
+            from, the countries, the date of the latest notice, and a link
+            to their supplier page. Prime contractors and large defence groups are marked, with the source of the list. Every company is named, from one award up;
+            a winner who is a natural person is never named.
           </li>
           <li>
             <strong className="text-ink">Who buys what you make.</strong> The buyers of those codes in the five countries (core defence buyers and others),

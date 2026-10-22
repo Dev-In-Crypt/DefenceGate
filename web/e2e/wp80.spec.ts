@@ -93,7 +93,7 @@ test('the results page leads with who to approach, then who buys, then the progr
   expect(sent).toHaveLength(1);
   await expect(page.locator('[data-demand-row]').first()).toBeVisible();
   await noSideScroll(page);
-  await approach.getByRole('link', { name: 'Every named winner in your supplier report' }).click();
+  await approach.getByRole('link', { name: 'Who to approach in your supplier report' }).click();
   await expect(page).toHaveURL(/\/readiness\/supplier\/report#r-approach$/);
 });
 
