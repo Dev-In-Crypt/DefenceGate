@@ -198,9 +198,9 @@ def _slug(client, name_part: str) -> str:
 
 def test_the_list_filters_and_pages_and_says_what_it_counts(conn, env, client, monkeypatch):
     run(scenario(conn))
-    # The three suppliers of this scenario are smaller than any group the list may show (WP-39: a filter that selects
-    # fewer than K_MIN suppliers is withheld, tests/integration/test_wp39.py); the filters themselves are tested here.
-    monkeypatch.setattr(suppliers_module, "K_MIN", 1)
+    # WP-81: K_MIN is 1, so a filter lists every supplier it selects (tests/integration/test_wp39.py); the filters
+    # themselves are tested here
+    assert suppliers_module.K_MIN == 1
     body = client.get("/v1/suppliers").json()
     assert body["total"] == 3 and body["page"] == 1
     assert [(i["name"], i["country"], i["awardCount"]) for i in body["items"]] == [
@@ -233,8 +233,39 @@ def test_a_profile_states_the_notices_and_shows_a_value_only_where_one_supplier_
     indra = client.get(f"/v1/suppliers/{_slug(client, 'indra')}").json()
     assert indra["notices"][0]["valueAmount"] is None               # 3-2026 had two winners: no value for either
     assert "TED" in indra["attribution"]
-    # nothing the product must not carry: no sum, no share, no rank
-    assert not {"valueTotal", "share", "rank", "dependency"} & set(rh)
+    # WP-81 (owner decision of 22 October 2026): the sum of values per currency, only from a notice naming this one
+    # winner; 2-2026 names a person beside it, so its value would be shared, and is counted as such
+    assert rh["values"] == {"byCurrency": [{"currency": "EUR", "amount": 1_000_000.0, "count": 1, "lotEstimates": 0}],
+                            "of": 2, "withoutValue": 1, "shared": 1}
+    # Indra's one notice states 5,000,000 for two winners: attributed to neither, no sum
+    assert indra["values"] == {"byCurrency": [], "of": 1, "withoutValue": 1, "shared": 1}
+    # still nothing the product must not carry: no share, no rank, no dependency score
+    assert not {"share", "rank", "dependency"} & set(rh)
+
+
+def test_a_profile_sums_values_per_currency_beyond_the_listed_notices_and_without_removed_ones(conn, env, client):
+    # WP-81: per currency, never converted; a sum of lot estimates counted apart; a placeholder and an estimate are no
+    # value; a notice removed on request is out of the sum as of every count; the sum covers every notice, not the 50 listed
+    rows = [("70-2026", 1000.0, "EUR", "total"), ("71-2026", 2000.0, "EUR", "lot_sum"), ("72-2026", 500.0, "PLN", "total"),
+            ("73-2026", 1.0, "EUR", "total"), ("74-2026", 9000.0, "EUR", "estimated"), ("75-2026", 4000.0, "EUR", "total")]
+    for pn, *_ in rows:
+        put_notice(conn, pn)
+    for n in range(suppliers_module.PROFILE_NOTICES):
+        put_notice(conn, f"8{n:02d}-2026", published=date(2026, 5, 1))
+    for pn, amount, currency, kind in rows:
+        conn.execute("UPDATE opportunity SET value_amount = %s, value_currency = %s, value_kind = %s WHERE native_id = %s",
+                     (amount, currency, kind, pn))
+    conn.commit()
+    pns = [r[0] for r in rows] + [f"8{n:02d}-2026" for n in range(suppliers_module.PROFILE_NOTICES)]
+    run(FakeTed([rec(pn, [("Rheinmetall Landsysteme GmbH", "DEU", ID_RHEIN)]) for pn in pns]))
+    conn.execute("UPDATE opportunity SET suppressed = TRUE WHERE native_id = '75-2026'")
+    conn.commit()
+    rh = client.get(f"/v1/suppliers/{_slug(client, 'landsysteme')}").json()
+    assert rh["noticeCount"] == 5 + suppliers_module.PROFILE_NOTICES
+    assert all(n["noticeId"] not in {"70-2026", "71-2026", "72-2026"} for n in rh["notices"])   # older than the 50 listed
+    assert rh["values"] == {"byCurrency": [{"currency": "EUR", "amount": 3000.0, "count": 2, "lotEstimates": 1},
+                                           {"currency": "PLN", "amount": 500.0, "count": 1, "lotEstimates": 0}],
+                            "of": rh["noticeCount"], "withoutValue": rh["noticeCount"] - 3, "shared": 0}
 
 
 def test_one_registration_number_written_two_ways_is_shown_once(conn, env, client):
@@ -275,15 +306,20 @@ def test_a_notice_outside_the_core_scope_is_not_on_the_map(conn, env, client):
     assert nammo["noticeCount"] == 1
 
 
-def test_the_aggregate_publishes_no_group_of_fewer_than_three_suppliers(conn, env, client):
+def test_the_aggregate_publishes_every_group_of_legal_entities_however_small(conn, env, client):
+    # WP-81 (owner decision of 22 October 2026): the rule "no group of fewer than three suppliers" is lifted for legal
+    # entities; the person among the winners of 2-2026 is still only counted
     run(scenario(conn))          # division 35: Rheinmetall, Nammo, Indra (3). Division 33: Nammo (1)
     s = client.get("/v1/suppliers/summary").json()
-    assert s["kMin"] == 3 and s["suppliers"] == 3 and s["awards"] == 5 and s["noticesWithSupplier"] == 4
+    assert s["kMin"] == 1 and s["suppliers"] == 3 and s["awards"] == 5 and s["noticesWithSupplier"] == 4
     assert s["skippedNaturalPersons"] == 1 and s["noticesRead"] == 4
-    assert [(g["key"], g["suppliers"]) for g in s["byCpv"]] == [("35", 3)]
-    assert s["suppressedGroups"] >= 1 and "tenth" in s["coverage"]
-    # by country: three countries with one supplier each: none is published
-    assert s["byCountry"] == [] and s["cells"] == []
+    assert [(g["key"], g["suppliers"]) for g in s["byCpv"]] == [("35", 3), ("33", 1)]
+    assert s["suppressedGroups"] == 0 and "tenth" in s["coverage"]
+    # by country: three countries with one supplier each: all published now
+    assert sorted((g["key"], g["suppliers"]) for g in s["byCountry"]) == [("DE", 1), ("ES", 1), ("NO", 1)]
+    assert sorted((c["division"], c["country"], c["suppliers"]) for c in s["cells"]) == [
+        ("33", "NO", 1), ("35", "DE", 1), ("35", "ES", 1), ("35", "NO", 1)]
+    assert "Radek" not in json.dumps(s)
     # the aggregate reveals nothing the groups hide: no supplier name anywhere in it
     assert "Nammo" not in json.dumps(s) and "Rheinmetall" not in json.dumps(s)
 

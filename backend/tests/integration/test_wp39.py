@@ -152,22 +152,24 @@ def test_the_cleaner_excludes_stored_rows_and_every_supplier_query_skips_them(co
     assert clean_suppliers.run(conn, write=True)["excluded_new"] == 0                    # idempotent
 
 
-# ============================================================== N5/N7: the k rule on the list, and the cap
+# ============================================================== N5/N7: small groups (WP-81), and the cap
 
-def test_a_country_or_product_group_of_fewer_than_three_suppliers_is_not_listed(conn, env, client):
+def test_a_country_or_product_group_of_fewer_than_three_suppliers_is_listed(conn, env, client):
+    # WP-81 (owner decision of 22 October 2026): the k rule of the list ("withheld" below three suppliers) is lifted for
+    # legal entities; every supplier a filter selects is listed, and `withheld` stays false
     seed_suppliers(conn, env)
     big = client.get("/v1/suppliers?country=DE").json()
     assert big["total"] == 3 and big["withheld"] is False
     small = client.get("/v1/suppliers?country=EE").json()
-    assert small["items"] == [] and small["total"] == 0 and small["withheld"] is True
+    assert [i["name"] for i in small["items"]] == ["Eqqus Ltd OU"] and small["total"] == 1 and small["withheld"] is False
     nothing = client.get("/v1/suppliers?country=ZZ").json()          # a group that does not exist is just empty
     assert nothing["items"] == [] and nothing["withheld"] is False
     # the product group alone, and the two together, the same
-    assert client.get("/v1/suppliers?cpv=3510&country=DE").json()["withheld"] is True      # two German suppliers
-    assert client.get("/v1/suppliers?cpv=3510").json()["withheld"] is True
+    two = client.get("/v1/suppliers?cpv=3510&country=DE").json()
+    assert two["total"] == 1 and two["withheld"] is False          # Hensoldt (3-2026); 4-2026 is the Estonian's
+    assert client.get("/v1/suppliers?cpv=3510").json()["total"] == 2
     assert client.get("/v1/suppliers?cpv=35&country=DE&sort=name").json()["total"] == 3
-    # the sort does not get round it
-    assert client.get("/v1/suppliers?country=EE&sort=awards").json()["items"] == []
+    assert client.get("/v1/suppliers?country=EE&sort=awards").json()["total"] == 1
     # a name search inside a large group still works; the group is judged without the name
     one = client.get("/v1/suppliers?country=DE&q=hensoldt").json()
     assert one["total"] == 1 and one["withheld"] is False

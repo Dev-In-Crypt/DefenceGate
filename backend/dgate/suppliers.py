@@ -13,19 +13,27 @@ notices into a ranking, a share or a dependency score.
 
 The mosaic effect, and what stops it: separate facts that are each public can add up to a picture
 nobody published. The map therefore (1) shows supplier-level detail only as the notices state it
-(name, country, buyer, date, CPV, value of a notice with one winner), (2) publishes aggregates only
-for groups of at least `K_MIN` suppliers, so that no figure describes one supplier's position,
-(3) states no ranking of suppliers by contract value, no "sole source" or "single point of failure"
-label and no sum of values per supplier, (4) honours a removal request: an organisation or a
-notice removed on request (`suppression`) is out of every answer here, and (5, WP-39) holds the same
-group rule on the list: a country or product-group filter that selects fewer than `K_MIN` suppliers
-answers "withheld", and the list serves at most `MAX_OFFSET` positions, so the table cannot be walked
-page by page.
+(name, country, buyer, date, CPV, value of a notice with one winner), (2) names every winner that is a
+legal entity, whatever its number of awards, and every group of them (WP-81, owner decision of 22 October
+2026: the earlier rule that published a group only from `K_MIN` = 3 suppliers, and named a winner only from
+3 awards, is lifted for legal entities; `K_MIN` is now 1), while a natural person or sole trader
+(`individual_reason`) is counted and never named, never listed and never given a sum, (3) states no
+ranking of suppliers by contract value, no share and no "sole source" or "single point of failure"
+label, (4) honours a removal request: an organisation or a notice removed on request (`suppression`) is
+out of every answer here, and (5, WP-39) serves at most `MAX_OFFSET` positions of the list, so the table
+cannot be walked page by page (a narrower filter answers what lies beyond).
 
 PLACSP (Spain's national portal, WP-60/61): its award winners are stored and served only with
 DGATE_PLACSP_AWARDS_PUBLIC=true. Then an award that TED and PLACSP both publish counts once (`award_twin`,
 migration 0093; `NOT_TWIN` below), the other publication is listed under it, and PLACSP is credited with the
 date of last update its terms ask for (`placsp_note`). Natural persons are counted, never named.
+
+Sum of values per supplier (WP-81, owner decision of 22 October 2026, lifting the earlier "no sum of values per
+supplier" for sums only; everything else above stands): `value_totals` sums, per currency and never converted, the
+values that a notice naming this one winner states (`VALUED`: the profile's own per-notice rule), each procurement
+once, and says how many of the supplier's notices state no value it can be given and how many of those name several
+winners. A sum of the lots' estimated values (`value_kind` lot_sum) is counted apart from a stated total; the data
+does not tell a framework ceiling from an awarded amount, and the copy says so. Natural persons have no page and no sum.
 """
 
 from __future__ import annotations
@@ -53,7 +61,8 @@ from .tenders import _buyer_names, _day, _id_of, _split, search_words
 
 router = APIRouter()
 
-K_MIN = 3                      # an aggregate group needs this many suppliers to be published
+# WP-81: a group (and a winner) is published from one legal-entity supplier; natural persons are never named
+K_MIN = 1
 # The deepest list position served (WP-39, verify2-abuse N5/N7). 4,186 suppliers were 42 requests of 100;
 # nobody reads past the first few pages of a list, and a longer walk is a name, country or product-group
 # search. Narrowing is the way to everything: this raises the price of copying the table, it does not make
@@ -79,6 +88,26 @@ SCOPE = (f"o.is_defence AND NOT o.suppressed AND {CORE_SQL} AND NOT org.suppress
 PLACSP_SOURCES = ("es_placsp", "es_placsp_agg")
 NOT_PLACSP = ("o.source_id NOT IN (SELECT id FROM source WHERE code IN ("
               + ", ".join(f"'{c}'" for c in PLACSP_SOURCES) + "))")
+
+
+def valued(wn: str, amount: str, currency: str, kind: str) -> str:
+    """WP-81: the SQL condition "this notice's value is this winner's": the notice names one winner (a value shared
+    by several winners is attributed to none) and states a total or a sum of lots (TED's `value_kind`; PLACSP and the
+    other national sources state the call's estimate and carry no kind) above the placeholder amount, with a currency."""
+    return (f"({wn} = 1 AND {kind} IN ('total', 'lot_sum') AND {amount} > {PLACEHOLDER_AMOUNT_MAX} "
+            f"AND {currency} IS NOT NULL)")
+
+
+def value_totals(rows: list[dict[str, Any]], of: int) -> dict[str, Any]:
+    """WP-81: the sums of one supplier from rows `{ok, shared, vc, amount, n, lots}` (one row per group of its
+    procurements, each counted once: valued or not, several winners or not, the currency), out of `of` procurements.
+    Per currency, never converted, the largest count first."""
+    by = [{"currency": r["vc"].strip(), "amount": round(float(r["amount"]), 2), "count": r["n"],
+           "lotEstimates": r["lots"]} for r in rows if r["ok"]]
+    by.sort(key=lambda v: (-v["count"], v["currency"]))
+    valued_n = sum(v["count"] for v in by)
+    return {"byCurrency": by, "of": of, "withoutValue": max(of - valued_n, 0),
+            "shared": sum(r["n"] for r in rows if not r["ok"] and r["shared"])}
 
 
 _ALIASES = {"a": "k", "o": "ko", "org": "korg", "raw_org": "kraw"}
@@ -123,7 +152,7 @@ class SupplierPage(BaseModel):
     page: int
     pageSize: int
     maxOffset: int = MAX_OFFSET              # the list serves no position beyond this
-    withheld: bool = False                   # the country / product-group filter selects fewer than kMin suppliers
+    withheld: bool = False                   # WP-81: always false (a small group was withheld before)
 
 
 class Count(BaseModel):
@@ -162,7 +191,23 @@ class SupplierNotice(BaseModel):
     alsoPublished: list[NoticeRef] = []       # the same award in the other source, counted once (WP-61)
 
 
+class ValueSum(BaseModel):
+    currency: str
+    amount: float
+    count: int                                # the procurements whose value this is
+    lotEstimates: int                         # of them, those whose value is the sum of the lots' estimated values
+
+
+class ValueTotals(BaseModel):
+    """WP-81: the values of one supplier's procurements, summed per currency (`suppliers.value_totals`)."""
+    byCurrency: list[ValueSum]
+    of: int                                   # the procurements behind the sums
+    withoutValue: int                         # of them, those with no value given to this winner
+    shared: int                               # of those, the ones naming several winners
+
+
 class Supplier(SupplierItem):
+    values: ValueTotals
     byYear: list[Count]
     byCpv: list[Count]
     buyers: list[SupplierBuyer]
@@ -321,17 +366,8 @@ def list_suppliers(
     if offset >= MAX_OFFSET:
         raise HTTPException(422, f"page: the list serves the first {MAX_OFFSET} suppliers only; search by name, "
                                  "country or product group")
-    gwhere, gparams = _group_filters(country, cpv)
-    if gwhere:
-        # The k rule of the summary, held for a filtered list too: a country or product group with fewer than
-        # K_MIN suppliers is not listed, so a filter cannot turn the aggregate into a view of one or two firms.
-        # The group is the country / CPV part alone, so a name search inside a large group still works.
-        size = conn.execute(f"SELECT count(DISTINCT org.id) AS n {FROM} WHERE {' AND '.join([scope()] + gwhere)}",
-                            gparams).fetchone()["n"]
-        if size < K_MIN:
-            # A group with no supplier at all is simply empty: "withheld" is for a group that exists and is small.
-            return {"items": [], "total": 0, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
-                    "withheld": size > 0}
+    # WP-81: a country or product-group filter lists every supplier it selects, however few (the WP-39 "withheld"
+    # answer for a group of fewer than 3 is lifted by the owner; `withheld` stays in the answer, always false)
     where, params = _filters(q, country, cpv)
     cond = " AND ".join([scope()] + where)
     order = "canonical_name, id" if sort == "name" else "n DESC, canonical_name, id"
@@ -467,6 +503,16 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
                    (SELECT code FROM source WHERE id = o.source_id) AS source_code
               {base} ORDER BY o.published_at DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
         p).fetchall()
+    # WP-81: each procurement once (the profile's count), valued by the profile's own rule
+    sums = conn.execute(
+        f"""SELECT ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
+                   count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
+              FROM (SELECT DISTINCT ON (a.opportunity_id)
+                           {valued("a.winners_in_notice", "o.value_amount", "o.value_currency", "o.value_kind")} AS ok,
+                           a.winners_in_notice > 1 AS shared, o.value_amount AS va, o.value_currency AS vc,
+                           o.value_kind AS vk
+                      {base} ORDER BY a.opportunity_id, 1 DESC, (o.value_kind = 'total') DESC, o.value_amount DESC) x
+             GROUP BY 1, 2, 3""", p).fetchall()
     stated = conn.execute(
         f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
              ORDER BY 2 DESC, (a.name_as_stated = upper(a.name_as_stated)), 1 LIMIT 5""",
@@ -522,6 +568,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
             "sourceUrl": r["source_url"], "source": r["source_code"], "alsoPublished": also.get(r["award_id"], [])})
     return {
         **item,
+        "values": value_totals(sums, head["n"]),
         "byYear": [{"year": r["year"], "awards": r["awards"]} for r in by_year],
         "byCpv": [{"division": r["division"], "awards": r["awards"]} for r in by_cpv],
         "buyers": [{"slug": make_slug(i, names.get(i) or ""), "name": names.get(i) or "Buyer",

@@ -1377,6 +1377,12 @@
     "country": "ES",
     "contracts": 73,
     "slug": "432622-ferreteria-ferayu-s-l",
+    "values": {
+     "byCurrency": [],
+     "of": 73,
+     "withoutValue": 73,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
@@ -1410,6 +1416,12 @@
     "country": "ES",
     "contracts": 56,
     "slug": "432750-suministros-mera-sl",
+    "values": {
+     "byCurrency": [],
+     "of": 56,
+     "withoutValue": 56,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
@@ -1431,6 +1443,19 @@
     "country": "ES",
     "contracts": 49,
     "slug": "428622-uro-vehiculos-especiales-s-a",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 1512500.0,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 49,
+     "withoutValue": 48,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -1464,6 +1489,19 @@
     "country": "ES",
     "contracts": 40,
     "slug": "427910-suyfa-defence-s-l",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 1425000.0,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 40,
+     "withoutValue": 39,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1929-intendente-de-san-fernando",
@@ -1497,6 +1535,19 @@
     "country": "ES",
     "contracts": 38,
     "slug": "407387-iturri-s-a",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 181928000.0,
+       "count": 2,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 38,
+     "withoutValue": 36,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -1530,6 +1581,12 @@
     "country": "ES",
     "contracts": 36,
     "slug": "433721-ferreteria-aries-sa",
+    "values": {
+     "byCurrency": [],
+     "of": 36,
+     "withoutValue": 36,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
@@ -1551,6 +1608,12 @@
     "country": "ES",
     "contracts": 36,
     "slug": "393085-iveco-espana-s-l",
+    "values": {
+     "byCurrency": [],
+     "of": 36,
+     "withoutValue": 36,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -1584,6 +1647,12 @@
     "country": "ES",
     "contracts": 32,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 32,
+     "withoutValue": 32,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
@@ -1617,6 +1686,12 @@
     "country": "ES",
     "contracts": 31,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 31,
+     "withoutValue": 31,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
@@ -1650,6 +1725,12 @@
     "country": "ES",
     "contracts": 31,
     "slug": "433756-recambios-colon-catarroja-sl",
+    "values": {
+     "byCurrency": [],
+     "of": 31,
+     "withoutValue": 31,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
@@ -1683,6 +1764,19 @@
     "country": "ES",
     "contracts": 30,
     "slug": "429957-volvo-group-espana-s-a-u",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 203818000.0,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 30,
+     "withoutValue": 29,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1864-jefatura-de-la-seccion-de-asuntos-economicos-de-la-unidad-mi",
@@ -1716,6 +1810,12 @@
     "country": "ES",
     "contracts": 27,
     "slug": "433742-c-a-comercial-artigas-e-hijos-sl",
+    "values": {
+     "byCurrency": [],
+     "of": 27,
+     "withoutValue": 27,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
@@ -1743,6 +1843,12 @@
     "country": "ES",
     "contracts": 24,
     "slug": "432613-iberdefensa-mantenimiento-tecnico-sl",
+    "values": {
+     "byCurrency": [],
+     "of": 24,
+     "withoutValue": 24,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -1776,6 +1882,19 @@
     "country": "ES",
     "contracts": 24,
     "slug": "428413-madzeal-s-l",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 4012500.0,
+       "count": 2,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 24,
+     "withoutValue": 22,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -1809,6 +1928,12 @@
     "country": "ES",
     "contracts": 23,
     "slug": "427993-comercial-hernando-moreno-cohemo-sl",
+    "values": {
+     "byCurrency": [],
+     "of": 23,
+     "withoutValue": 23,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1957-seccion-de-asuntos-economicos-del-parque-y-centro-de-abastec",
@@ -1842,6 +1967,12 @@
     "country": "ES",
     "contracts": 18,
     "slug": "432923-recambios-y-accesorios-ggr-s-l",
+    "values": {
+     "byCurrency": [],
+     "of": 18,
+     "withoutValue": 18,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1682-jefatura-de-intendencia-de-asuntos-economicos-centro",
@@ -1875,6 +2006,12 @@
     "country": "ES",
     "contracts": 17,
     "slug": "432806-suministros-igbur-s-l-u",
+    "values": {
+     "byCurrency": [],
+     "of": 17,
+     "withoutValue": 17,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -1908,6 +2045,12 @@
     "country": "ES",
     "contracts": 15,
     "slug": "433190-advantage-servicios-y-disenos",
+    "values": {
+     "byCurrency": [],
+     "of": 15,
+     "withoutValue": 15,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1958-intendencia-de-madrid",
@@ -1929,6 +2072,12 @@
     "country": "ES",
     "contracts": 15,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 15,
+     "withoutValue": 15,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
@@ -1956,6 +2105,12 @@
     "country": "ES",
     "contracts": 14,
     "slug": "429401-euronaval-servicios-integrales-sl",
+    "values": {
+     "byCurrency": [],
+     "of": 14,
+     "withoutValue": 14,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
@@ -1989,6 +2144,12 @@
     "country": "ES",
     "contracts": 13,
     "slug": "430157-empresa-monforte-sa",
+    "values": {
+     "byCurrency": [],
+     "of": 13,
+     "withoutValue": 13,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
@@ -2016,6 +2177,12 @@
     "country": "ES",
     "contracts": 13,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 13,
+     "withoutValue": 13,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "2372-intendente-de-cartagena",
@@ -2037,6 +2204,12 @@
     "country": "ES",
     "contracts": 12,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 12,
+     "withoutValue": 12,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "2056-jefatura-de-asuntos-economicos-del-cuartel-general-terrestre",
@@ -2070,6 +2243,12 @@
     "country": "ES",
     "contracts": 12,
     "slug": "432821-grupo-pena-automocion-s-l-u",
+    "values": {
+     "byCurrency": [],
+     "of": 12,
+     "withoutValue": 12,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
@@ -2103,6 +2282,12 @@
     "country": "ES",
     "contracts": 12,
     "slug": "433979-redondoygarcia-s-a",
+    "values": {
+     "byCurrency": [],
+     "of": 12,
+     "withoutValue": 12,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "3450-seccion-de-asuntos-economicos-del-parque-y-centro-de-manteni",
@@ -2136,6 +2321,19 @@
     "country": "ES",
     "contracts": 11,
     "slug": "429305-grupo-de-ingenieria-reconstruccion-y-recambios-jpg-s-a",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 3210743.82,
+       "count": 2,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 11,
+     "withoutValue": 9,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -2169,6 +2367,19 @@
     "country": "ES",
     "contracts": 11,
     "slug": "429354-integracion-tecnologica-empresarial-s-l",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 47.6,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 11,
+     "withoutValue": 10,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -2202,6 +2413,12 @@
     "country": "ES",
     "contracts": 11,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 11,
+     "withoutValue": 11,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "2372-intendente-de-cartagena",
@@ -2229,6 +2446,12 @@
     "country": "ES",
     "contracts": 10,
     "slug": null,
+    "values": {
+     "byCurrency": [],
+     "of": 10,
+     "withoutValue": 10,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -2262,6 +2485,12 @@
     "country": "ES",
     "contracts": 9,
     "slug": "432980-continental-tires-espana-s-l",
+    "values": {
+     "byCurrency": [],
+     "of": 9,
+     "withoutValue": 9,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -2289,6 +2518,19 @@
     "country": "SE",
     "contracts": 4,
     "slug": "394573-saab-ab",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 29346226.8,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 4,
+     "withoutValue": 3,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
@@ -2315,6 +2557,19 @@
     "country": "ES",
     "contracts": 3,
     "slug": "406963-indra-sistemas-s-a",
+    "values": {
+     "byCurrency": [
+      {
+       "currency": "EUR",
+       "amount": 476301.23,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "of": 3,
+     "withoutValue": 2,
+     "shared": 0
+    },
     "buyers": [
      {
       "slug": "1864-jefatura-de-la-seccion-de-asuntos-economicos-de-la-unidad-mi",

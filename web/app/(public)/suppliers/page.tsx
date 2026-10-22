@@ -142,8 +142,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
         <section aria-labelledby="aggregate" className="flex flex-col gap-4">
           <h2 id="aggregate" className="m-0 text-h2">By product group and country</h2>
           <p className="m-0 max-w-prose text-small text-ink-muted">
-            Counts of suppliers and wins. A group of fewer than {summary.kMin} suppliers is not shown ({formatNumber(summary.suppressedGroups)} {summary.suppressedGroups === 1 ? 'group is' : 'groups are'}
-            held back), so that no figure describes one company, and the same holds for a list narrowed by country or product group. The map states no contract value per supplier and ranks nobody by value; a supplier's wins are a count of notices, each with its link.
+            Counts of suppliers and wins, every group shown however small. Winners that are natural persons are counted, never named. The map ranks
+            nobody by value; a supplier's wins are a count of notices, each with its link, and its page sums the values of the notices that name it alone.
           </p>
           <AutoGrid min={420}>
             <Card title="By CPV division" headingLevel="h3" className="self-start">
@@ -247,12 +247,10 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         <ResultsRegion className="flex flex-col gap-4">
         {result.total === 0 ? (
-          <EmptyState title={unknown.length > 0 ? 'Not a country' : result.withheld ? 'This group is too small to list' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
+          <EmptyState title={unknown.length > 0 ? 'Not a country' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
             {unknown.length > 0
               ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
-              : result.withheld
-                ? `A country or product group with fewer than ${summary?.kMin ?? 3} suppliers is not listed, so that nothing describes one or two companies. Widen the filter, or search by company name without it.`
-                : `Only companies named as winners in a TED result notice${placsp ? ' or a PLACSP award result' : ''} of the defence-relevant scope are listed. Try a shorter name.`}
+              : `Only companies named as winners in a TED result notice${placsp ? ' or a PLACSP award result' : ''} of the defence-relevant scope are listed. Try a shorter name.`}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">

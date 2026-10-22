@@ -1,5 +1,6 @@
 // Domain types. They follow docs/design/API_CONTRACT.md (/v1/funding, /v1/tenders, /v1/buyers, /v1/sources),
 // which is authoritative.
+import type { ValueTotals } from './value-totals';
 
 /** Funder countries we collect. 'EU' = an EU programme. */
 export type CountryCode = 'EU' | 'PL' | 'SE' | 'FR' | 'ES' | 'FI' | 'DE' | 'IT' | 'NL';
@@ -231,7 +232,7 @@ export interface Paginated<T> {
   maxOffset?: number;
   /** `/v1/tenders`: the count stopped at its cap, so `total` is "at least this many". Absent on older API builds. */
   totalCapped?: boolean;
-  /** `/v1/suppliers`: the country or product group selects fewer suppliers than kMin, so none is listed. */
+  /** `/v1/suppliers`: always false since WP-81 (a group of fewer than three suppliers was withheld before). */
   withheld?: boolean;
   search?: SearchInfo | null;
   /** `/v1/funding`: calls with cascade funding among those that match every filter but this one. Absent on older API builds. */
@@ -869,6 +870,8 @@ export interface SupplierSourceNote {
   lastUpdated?: IsoDateTime | null;
 }
 export interface Supplier extends SupplierItem {
+  /** WP-81: the sum of its notices' values per currency (the values of notices naming it alone), collapsed on the page. */
+  values: ValueTotals;
   byYear: { year: number; awards: number }[];
   byCpv: { division: string; awards: number }[];
   buyers: { slug: string; name: string; country: string | null; awards: number }[];

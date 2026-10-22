@@ -15,6 +15,7 @@ import { AutoGrid } from '@/components/dg/auto-grid';
 import { DataTable } from '@/components/dg/data-table';
 import { FactsGrid } from '@/components/dg/facts-grid';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
+import { ValueTotalsBlock } from '@/components/dg/value-totals';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
@@ -63,9 +64,16 @@ export default async function SupplierPage({ params }: Props) {
         )}
         <p className="m-0 max-w-prose text-small text-ink-muted">
           This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, from 2023. TED holds only part of European defence
-          spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking, no share and no contract total: a value appears only on a notice
-          that names one winner. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
+          spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking and no share; a value appears only on a notice that names one
+          winner, and Contract values sums those values per currency. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
         </p>
+        {s.values && (
+          <ValueTotalsBlock
+            values={s.values}
+            noun="notice"
+            scope={`All ${formatNumber(s.noticeCount)} notices naming it a winner, not only the ones listed below: ${fromPlacsp(s) ? 'TED result notices and PLACSP award results' : 'TED result notices'} of the defence-relevant scope, from 2023.`}
+          />
+        )}
       </PageHeader>
 
       <AutoGrid min={380}>

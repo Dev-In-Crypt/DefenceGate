@@ -972,6 +972,10 @@ filter that selects fewer than `kMin` suppliers answers `items: [], total: 0, wi
 group rule of the summary, judged on the country and product group alone, so a `q` inside a large group works. A winner
 string that is no supplier (`award.excluded_reason`) is not listed.
 
+WP-81 (owner decision of 22 October 2026): the group rule is lifted for legal entities. `kMin` is 1, a filter lists every
+supplier it selects however few, and `withheld` is always false (kept for compatibility). `maxOffset` stays (the list is
+not walked page by page). Natural persons and sole traders (`organisation.individual_reason`) are never listed or named.
+
 WP-57 (19 October 2026): each `country` value is a two-letter code (`DE`), a three-letter code (`DEU`) or an English name
 (`Germany`, `Czech Republic`, `UK`), without regard to case, and is read as the two-letter code the list stores
 (`dgate/countries.py`). A two-letter value is a code as written, so a code nobody holds (`ZZ`) is an empty group, as before.
@@ -979,13 +983,14 @@ A value that is none of the three answers 422 with `country: '<value>' is not a 
 
 `GET /v1/suppliers/summary` is the public aggregate:
 
-    { kMin: 3, since, noticesRead, noticesWithSupplier, suppliers, awards, skippedNaturalPersons,
+    { kMin: 1, since, noticesRead, noticesWithSupplier, suppliers, awards, skippedNaturalPersons,
       firstPublished, lastPublished,
       byCpv: [{ key: "35", suppliers, awards }], byCountry: [{ key: "DE", suppliers, awards }],
       cells: [{ division, country, suppliers, awards }], suppressedGroups, coverage }
 
 A group (a CPV division, a country, a division within a country) with fewer than `kMin` suppliers is **not
-published**; `suppressedGroups` counts the groups held back. No supplier name is in the summary. `coverage` is the
+published**; `suppressedGroups` counts the groups held back (WP-81: `kMin` is 1, so every group with a supplier is
+published and `suppressedGroups` is 0). No supplier name is in the summary. `coverage` is the
 sentence every page must carry: TED holds only part of European defence spending (a 2025 ECIPE brief says about a tenth; not re-checked), and this map is the open
 segment.
 
@@ -1001,9 +1006,24 @@ segment.
 field is not shown (verify2-abuse N1). 410 also for an organisation the directory treats as a natural person.
 
 `valueAmount` is set only when `winnersInNotice` is 1 and the notice states a total or a sum of lots above the
-placeholder amount; otherwise it is null (a value shared by several winners belongs to none). There is no total
-per supplier, no share, no rank and no "single source" flag, on purpose (the mosaic effect: the module docstring of
-`dgate/suppliers.py`). 404 for an unknown supplier or a malformed slug, 410 for one removed on request.
+placeholder amount; otherwise it is null (a value shared by several winners belongs to none). There is no share, no
+rank and no "single source" flag, on purpose (the mosaic effect: the module docstring of `dgate/suppliers.py`). 404 for
+an unknown supplier or a malformed slug, 410 for one removed on request.
+
+WP-81 (owner decision of 22 October 2026, lifting the earlier "no total per supplier" for sums only): the profile carries
+
+    values: { byCurrency: [{ currency, amount, count, lotEstimates }], of, withoutValue, shared }
+
+over **every** notice the profile counts (`of` = `noticeCount`, not only the 50 listed), each procurement once (an award
+TED and PLACSP both publish once, as every count; a notice removed on request is out). A notice's value is the supplier's
+by the `valueAmount` rule above (`suppliers.valued`: one winner, value kind `total` or `lot_sum`, above the placeholder,
+with a currency); summed per currency, never converted, the largest `count` first. `lotEstimates`: of `count`, the notices
+whose value is the sum of the lots' estimated values rather than a stated total. `withoutValue`: notices with no value
+that is this supplier's; `shared`: of those, the ones naming several winners. PLACSP and the other national sources state
+the call's estimate and carry no value kind, so they add none. The data does not tell a framework ceiling from an awarded
+amount; the page says "some may be framework ceilings". A natural person has no profile (410) and so no sum. Limit: where
+the PLACSP row stands for a twin pair (it states the winner's number and the TED row does not), the TED notice's value is
+not added; that procurement counts under `withoutValue`.
 
 WP-61 (21 October 2026), PLACSP winners. Stored since WP-60, served only with `DGATE_PLACSP_AWARDS_PUBLIC=true` (an owner
 decision; default false, and then every answer is as before). With it on:
@@ -1169,15 +1189,16 @@ A code matches by its level in the CPV tree: the code without its trailing zeros
 under `4447`, `35000000` the division). Window: the last three years (1,096 days to today, by publication date, else notice date).
 Scope: the defence-scope notices (`is_defence`, not removed). Answer:
 
-- `since`, `until`, `kMin` (3), `countries`, `codes: [{code, prefix, procurements}]`;
+- `since`, `until`, `kMin` (1 since WP-81; 3 before), `countries`, `codes: [{code, prefix, procurements}]`;
 - `total` and per country `byCountry[]`: `procurements` (a procurement published in several notices is counted once: the eForms
   procedure identifier, of the notice or of the TED notice a national notice names; else the TED number; else the national number
   in its country, which the two Polish sources share), `directive` (of those, how many name Directive 2009/81/EC), `coreBuyers` /
   `otherBuyers` (buyer families; core = on the curated defence-buyer list or of class `defence`), `awarded` (procurements with a
   winner served), `winners` (legal entities);
 - per country `topBuyers` (at most 10: `{slug, name, core, procurements}`; a withheld buyer is counted, never named; two families
-  under one name are one line), `topWinners` (at most 10, only winners with at least `kMin` procurements here:
-  `{name, country, awards, notices}`), `otherWinners: {winners, awards}` (every other winner, as a count only: the mosaic rule),
+  under one name are one line), `topWinners` (at most 10, the winners with the most procurements here, each with at least `kMin`
+  (WP-81: every legal entity qualifies): `{name, country, awards, notices}`), `otherWinners: {winners, awards}` (every other
+  winner, as a count: past the tenth since WP-81),
   `latest` (the 5 newest procurements). A notice reference is `{id, slug, noticeId, title, buyerName, publishedAt, source, sourceUrl,
   directive}`;
 - winners come from TED result notices, and from PLACSP's award results only while `DGATE_PLACSP_AWARDS_PUBLIC` is true (the
@@ -1186,15 +1207,17 @@ Scope: the defence-scope notices (`is_defence`, not removed). Answer:
 - `coverage`: direct buying by defence bodies only, not the sub-tier needs of prime contractors; TED about a tenth of EU defence
   spending; national coverage per country. `notice`: counts of notices, not of money.
 - `approach` (WP-80, "who to approach"): `winners[]`, the winners across the countries asked with at least `kMin` procurements
-  (at most 30, most contracts first, plus every one marked as a prime past the 30th): `{name, country, contracts, slug,
-  buyers, countries, lastAward, prime, edfProjects, defenceBuyer}` (no sum of values per supplier, the supplier map's rule). `slug`
+  (WP-81: every legal entity; at most 30, most contracts first, plus every one marked as a prime past the 30th): `{name, country, contracts, slug, values,
+  buyers, countries, lastAward, prime, edfProjects, defenceBuyer}`. `values` (WP-81): the supplier profile's `values` shape and
+  rule over this answer's contracts (`of` = `contracts`; each procurement once, a TED+PLACSP twin once; never converted; never
+  used to order the list, which stays most contracts first). `slug`
   is the supplier page (`/v1/suppliers/{slug}`), null when the supplier map serves no page for the company; `buyers` the 3 buyer
   families it wins from most (`{slug, name, country, contracts}`, a withheld buyer never named); `lastAward` the publication date of the newest
   of its notices (a TED result notice is published at the award; a PLACSP row carries the procurement's publication date, not the
   award date, which is not stored); `prime: {group, jointVenture, source, sourceUrl}` from the curated list `demand.PRIMES` (the European companies of
   the SIPRI Top 100 of 2024, GDELS, Indra), matched on the normalised name, or null; `edfProjects` the EDF, EDIDP and PADR projects
   of the organisation and those merged into it; `defenceBuyer` its defence-buyer flag. `below: {winners, awards}`: winners with fewer
-  than `kMin` procurements, counted only; `more: {winners, awards}`: winners past the 30th.
+  than `kMin` procurements, counted only (always empty since WP-81); `more: {winners, awards}`: winners past the 30th.
 - WP-80: an award that TED and PLACSP both publish (`award_twin_set`) counts once, in `approach` and in the per-country winners.
 - WP-80: a request whose codes match more than 30,000 defence-scope notices in the window and countries asked (`demand.MAX_ROWS`;
   15 whole divisions match about 117,000) is refused with `422 {"detail": {"code": "too_broad", "message": "... Choose more specific

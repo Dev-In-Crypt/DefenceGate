@@ -140,19 +140,23 @@ def test_counts_one_procurement_per_procedure_and_splits_core_and_other_buyers(w
     assert d["coverage"].startswith("Direct buying by defence bodies") and "tenth" in d["coverage"]
 
 
-def test_names_only_legal_entities_with_three_procurements_and_counts_the_rest(world, client):
+def test_names_every_legal_entity_and_never_a_person_or_a_removed_company(world, client):
+    # WP-81 (owner decision of 22 October 2026): a legal entity is named from one procurement (the WP-66 rule "named only
+    # with three" is lifted); the natural person and the removed company are still never counted or named
     es = post(client(), ["34300000"], ["ES"]).json()["byCountry"][0]
-    # TED winners only while the switch is off: ted1 has two winners (one of them the big company, one award)
-    assert es["topWinners"] == [] and es["winners"] == 2 and es["awarded"] == 1
-    assert es["otherWinners"] == {"winners": 2, "awards": 2}
+    # TED winners only while the switch is off: ted1 has two winners (the big company and the small one, one award each)
+    assert [(w["name"], w["awards"]) for w in es["topWinners"]] == [("Recambios Sur SL", 1), ("TALLERES NORTE SL", 1)]
+    assert es["winners"] == 2 and es["awarded"] == 1
+    assert es["otherWinners"] == {"winners": 0, "awards": 0}
     on = post(client(public=True), ["34300000"], ["ES"]).json()
     es = on["byCountry"][0]
-    assert [(w["name"], w["country"], w["awards"]) for w in es["topWinners"]] == [("Talleres Norte, S.L.", "ES", 4)]
+    assert [(w["name"], w["country"], w["awards"]) for w in es["topWinners"]] == [
+        ("Talleres Norte, S.L.", "ES", 4), ("Recambios Sur SL", "ES", 1)]
     assert len(es["topWinners"][0]["notices"]) == demand.WINNER_NOTICES
-    assert es["otherWinners"] == {"winners": 1, "awards": 1}
+    assert es["otherWinners"] == {"winners": 0, "awards": 0}
     assert es["winners"] == 2 and es["awarded"] == 4
     body = str(on)
-    assert "Garcia" not in body and "Borrado" not in body and "Recambios" not in body
+    assert "Garcia" not in body and "Borrado" not in body
     assert "PLACSP" in on["winnersFrom"] and [s["code"] for s in on["sources"]] == ["ted", "es_placsp"]
 
 

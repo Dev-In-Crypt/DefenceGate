@@ -20,14 +20,16 @@ with a code under one of the chosen codes, matched by the code's own level: 3430
 - procurements with a published winner, and the winners: legal entities only (a winner the directory treats as
   a natural person, or a winner string that is no supplier, is never counted or named), from TED result
   notices, and from PLACSP's award results only while DGATE_PLACSP_AWARDS_PUBLIC is on (the supplier map's
-  switch, `suppliers.py`). The mosaic rule: a winner is named only with at least `K_MIN` procurements in the
-  answer; the rest are one aggregate count.
+  switch, `suppliers.py`). WP-81 (owner decision of 22 October 2026): every legal-entity winner is named,
+  whatever its number of procurements (`K_MIN` is 1; the lists stop at `TOP_WINNERS` per country and `APPROACH`).
 
-Who to approach (WP-80, `approach`): the same winners across the countries asked, each named only with at least `K_MIN`
-procurements in the answer (the rest one count), most contracts first: how many, the buyers they win from most, the
+Who to approach (WP-80, `approach`): the same winners across the countries asked, each named (WP-81: from one
+procurement; `below` is always empty now), most contracts first: how many, the buyers they win from most, the
 countries, the newest notice's publication date (PLACSP: the procurement's, the award date is not stored), a link to the supplier
-page where one exists, the EDF projects, and the mark "prime contractor or large defence group" from the curated, sourced list
-`PRIMES`. No sum of values per supplier (the supplier map's rule). An award TED and PLACSP both publish counts once
+page where one exists, the EDF projects, the mark "prime contractor or large defence group" from the curated, sourced list
+`PRIMES`, and (WP-81, owner decision of 22 October 2026) the sum of the values of its contracts per currency, by the supplier
+profile's own rule (`suppliers.valued`, `suppliers.value_totals`: a value only from a notice naming this one winner, each
+contract once, never converted; how many state no value). An award TED and PLACSP both publish counts once
 (`award_twin_set`), here and in the per-country winners. A request matching more than `MAX_ROWS` notices is refused (422,
 `too_broad`) so that no answer risks the API's 5 s budget.
 
@@ -49,7 +51,15 @@ from .config import settings
 from .funding import get_conn, make_slug
 from .normalise import redact_emails
 from .suppliers import FROM as SUPPLIER_FROM
-from .suppliers import K_MIN, PLACSP_SOURCES, TED_NOTE, placsp_note
+from .suppliers import (
+    K_MIN,
+    PLACSP_SOURCES,
+    TED_NOTE,
+    ValueTotals,
+    placsp_note,
+    value_totals,
+    valued,
+)
 from .suppliers import scope as supplier_scope
 from .tenders import _day, clean_buyer_name
 
@@ -99,7 +109,7 @@ PRIMES: tuple[tuple[str, str, tuple[str, str]], ...] = (
     ("Kongsberg", r"^kongsberg\b(?!.*\bautomotive\b)", SIPRI),
     ("Navantia", r"\bnavantia\b", SIPRI),
     ("General Dynamics (GDELS)", r"\bgeneral dynamics european land systems\b|^santa barbara sistemas\b",
-     ("General Dynamics in the SIPRI Top 100, 2024; Santa Bárbara Sistemas as a GDELS company (FEINDEF exhibitor page)",
+     ("General Dynamics in the SIPRI Top 100, 2024; Santa BГЎrbara Sistemas as a GDELS company (FEINDEF exhibitor page)",
       "https://www.feindef.com/index.php/en/ficha-gdels-santa-barbara-sistemas-en")),
     ("Indra", r"\bindra\b",
      ("Indra's 2026 supplier selection for automotive firms (elDiario.es, 16 June 2026)",
@@ -121,7 +131,7 @@ def prime_of(canonical_name: str | None) -> dict[str, Any] | None:
 COVERAGE = ("Direct buying by defence bodies, as published on TED and the national portals we read; not the sub-tier "
             "needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a "
             "2025 ECIPE policy brief; we have not re-checked that figure). National coverage differs: Spain (PLACSP) "
-            "and Poland (e-Zamówienia) in full, Germany (the federal procurement office's portal) since 2025, France "
+            "and Poland (e-ZamГіwienia) in full, Germany (the federal procurement office's portal) since 2025, France "
             "(BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer.")
 WINNERS_TED = ("Winners are those named in TED result notices; most contracts below the EU thresholds name no winner "
                "here. Natural persons are never counted or named.")
@@ -193,7 +203,8 @@ WITH m AS MATERIALIZED (
            COALESCE(f.head_org_id, o.buyer_org_id) AS bk,                    -- dgate_buyer_head, as a join
            o.buyer_withheld AS bw, o.buyer_name_raw, o.source_id IN {PLACSP_IDS} AS placsp,
            o.source_id = (SELECT id FROM source WHERE code = 'ted') AS is_ted,
-           o.cpv_codes, hashtextextended({KEY}, 0) AS key
+           o.cpv_codes, hashtextextended({KEY}, 0) AS key,
+           o.value_amount AS va, o.value_currency AS vc, o.value_kind AS vk
       FROM opportunity o
       LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
                              AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
@@ -224,7 +235,7 @@ WITH m AS MATERIALIZED (
      WHERE r <= {LATEST}
 ), aw0 AS MATERIALIZED (
     SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated, a.id AS award_id,
-           m.bk, m.bw, m.buyer_name_raw AS bn,
+           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn, m.va, m.vc, m.vk,
            org.canonical_name AS cn, org.is_defence_buyer AS db
       FROM m JOIN award a ON a.opportunity_id = m.id
       JOIN organisation raw_org ON raw_org.id = a.organisation_id
@@ -236,7 +247,7 @@ WITH m AS MATERIALIZED (
     SELECT * FROM aw0
      WHERE award_id NOT IN (SELECT tw.award_id FROM award_twin_set tw JOIN aw0 p ON p.award_id = tw.preferred_id)
 ), ap AS (
-    -- WP-80, who to approach: each winner across the countries asked, with at least K_MIN procurements (the mosaic rule)
+    -- WP-80, who to approach: each winner across the countries asked (WP-81: K_MIN is 1, every legal entity)
     SELECT org, count(DISTINCT key) AS n, max(day) AS last, array_agg(DISTINCT country ORDER BY country) AS countries,
            mode() WITHIN GROUP (ORDER BY name_as_stated) AS name, min(cn) AS cn, min(org_country) AS org_country,
            COALESCE(bool_or(db), FALSE) AS db
@@ -248,6 +259,15 @@ WITH m AS MATERIALIZED (
                mode() WITHIN GROUP (ORDER BY aw.bn COLLATE "C") FILTER (WHERE NOT aw.bw) AS name
           FROM aw JOIN ap ON ap.org = aw.org WHERE aw.bk IS NOT NULL GROUP BY aw.org, aw.bk) x
         WHERE name IS NOT NULL) y WHERE r <= {APPROACH_BUYERS}
+), apv AS (
+    -- WP-81: the sum of its contracts' values per currency, each contract once, by the supplier profile's rule
+    SELECT org, ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
+           count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
+      FROM (SELECT DISTINCT ON (aw.org, aw.key) aw.org, {valued("aw.wn", "aw.va", "aw.vc", "aw.vk")} AS ok,
+                   aw.wn > 1 AS shared, aw.va, aw.vc, aw.vk
+              FROM aw JOIN ap ON ap.org = aw.org
+             ORDER BY aw.org, aw.key, 2 DESC, (aw.vk = 'total') DESC, aw.va DESC) x
+     GROUP BY 1, 2, 3, 4
 ), an AS (
     SELECT country, count(DISTINCT key) AS n FROM aw GROUP BY GROUPING SETS ((country), ())
 ), w AS (
@@ -270,7 +290,7 @@ SELECT (SELECT json_agg(c) FROM c) AS c, (SELECT json_agg(b) FROM b) AS b, (SELE
                                                       ORDER BY day DESC NULLS LAST, id DESC) AS r FROM wr) q
                                   WHERE r <= {WINNER_NOTICES}) z) AS wr,
        (SELECT array_agg(DISTINCT id) FROM aw) AS award_ids,
-       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb
+       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb, (SELECT json_agg(apv) FROM apv) AS apv
 """
 
 
@@ -319,9 +339,8 @@ def _with_page(conn, orgs: list[int]) -> set[int]:
 
 
 def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str, Any]:
-    """Who to approach (WP-80): the companies that win these procurements, across the countries asked. Named only with at
-    least K_MIN procurements; the others are one count. The most contracts first; every prime or large defence group with
-    K_MIN is listed, past the first APPROACH too."""
+    """Who to approach (WP-80): the companies that win these procurements, across the countries asked, every legal entity
+    named (WP-81). The most contracts first; every prime or large defence group is listed, past the first APPROACH too."""
     rows = sorted(r["ap"] or [], key=lambda w: (-w["n"], w["name"], w["org"]))
     for w in rows:
         w["prime"] = prime_of(w["cn"])
@@ -336,6 +355,9 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
         name = clean_buyer_name(b["name"])
         buyers.setdefault(b["org"], []).append({"slug": make_slug(b["bk"], name), "name": name, "country": b["country"],
                                                 "contracts": b["n"]})
+    sums: dict[int, list[dict[str, Any]]] = {}
+    for v in r["apv"] or []:
+        sums.setdefault(v["org"], []).append(v)
     edf = _edf_projects(conn, sorted(shown))
     pages = _with_page(conn, sorted(shown))
 
@@ -343,6 +365,7 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
         name = redact_emails(w["name"]).strip()
         return {"name": name, "country": w["org_country"], "contracts": w["n"],
                 "slug": make_slug(w["org"], name) if w["org"] in pages else None,
+                "values": value_totals(sums.get(w["org"], []), w["n"]),
                 "buyers": buyers.get(w["org"], []), "countries": w["countries"],
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
                 "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}
@@ -519,6 +542,7 @@ class ApproachWinner(BaseModel):
     country: str | None
     contracts: int
     slug: str | None
+    values: ValueTotals                       # WP-81: `of` is `contracts`
     buyers: list[ApproachBuyer]
     countries: list[str]
     lastAward: str | None
@@ -534,7 +558,7 @@ class ApproachCount(BaseModel):
 
 class Approach(BaseModel):
     winners: list[ApproachWinner]
-    below: ApproachCount          # winners with fewer than kMin procurements: counted, never named
+    below: ApproachCount          # winners with fewer than kMin procurements (WP-81: kMin is 1, so none)
     more: ApproachCount           # winners with kMin or more past the first APPROACH (no prime among them)
 
 

@@ -132,6 +132,10 @@ def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, e
     ted_result(conn, "500002-2026")
     load_ted(conn, [rec("500002-2026", [("Alfa Defensa Inventada, S.L.", "ESP", "ESB99999990")])])
     load_placsp(conn, with_procedure(awarded(result("1", ALFA))))
+    # WP-81: the TED notice states the award's value; the PLACSP twin is the same award and adds nothing to the sum
+    conn.execute("UPDATE opportunity SET value_amount = 1500, value_currency = 'EUR', value_kind = 'total' "
+                 "WHERE native_id = '500002-2026'")
+    conn.commit()
     public(monkeypatch, True)
     with TestClient(api.app) as client:
         got = everything(client)
@@ -139,6 +143,9 @@ def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, e
     assert item["awardCount"] == 1
     [notice] = got["profiles"][0]["notices"]
     assert notice["source"] == "ted" and [r["source"] for r in notice["alsoPublished"]] == ["es_placsp"]
+    assert got["profiles"][0]["values"] == {
+        "byCurrency": [{"currency": "EUR", "amount": 1500.0, "count": 1, "lotEstimates": 0}],
+        "of": 1, "withoutValue": 0, "shared": 0}
 
 
 def test_one_number_on_two_organisations_is_one_winner(conn, env, monkeypatch):
