@@ -1,20 +1,18 @@
 /**
- * Self-check of WP-80 ("who to approach" leads the supplier report): the words of the value and of the winners not named; the demo answer
+ * Self-check of WP-80 ("who to approach" leads the supplier report): the words of the winners not named and of a refused broad request; the demo answer
  * (lib/mock/demand.json, the API's answer on production data) keeps the mosaic rule across countries; and every guide, grant and amount of
  * lib/es-support.ts is in the research file it comes from (docs/research/ANGLE1_SPAIN_LANDSCAPE_2026-10-22.md, in the main checkout's docs:
  * its URLs and figures are copied here as RESEARCH, so that a changed link or an invented amount fails).
  * Not part of the app. Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { approachOthersLine, primesOf, valueLine, type Approach, type Demand } from './demand';
+import { approachOthersLine, primesOf, tooBroadMessage, type Approach, type Demand } from './demand';
 import { CHECK_THE_CALL, COURSES, GRANTS, GUIDES, grantsFor, guidesFor } from './es-support';
 import mock from './mock/demand.json';
 
 // ---------------------------------------------------------------- words
-assert.equal(valueLine({ values: [], contracts: 4 }), null);
-assert.equal(valueLine({ values: [{ currency: 'EUR', amount: 1425000, contracts: 1 }], contracts: 9 }), 'EUR 1,425,000 stated for 1 of 9 contracts');
-assert.equal(valueLine({ values: [{ currency: 'PLN', amount: 3846310.14, contracts: 3 }, { currency: 'EUR', amount: 10, contracts: 1 }], contracts: 4 }),
-  'PLN 3,846,310 stated for 3 of 4 contracts; EUR 10 stated for 1 of 4 contracts');
+assert.equal(tooBroadMessage({ detail: { code: 'too_broad', message: 'Choose more specific codes.' } }), 'Choose more specific codes.');
+for (const other of [null, {}, { detail: 'x' }, { detail: [{ msg: 'cpv' }] }, { detail: { code: 'other', message: 'x' } }]) assert.equal(tooBroadMessage(other), null);
 const none: Approach = { winners: [], below: { winners: 0, awards: 0 }, more: { winners: 0, awards: 0 } };
 assert.equal(approachOthersLine(none, 3), null);
 assert.equal(approachOthersLine({ ...none, below: { winners: 1, awards: 2 } }, 3), '1 other winner with fewer than 3 awards each (2 awards together) is counted, not named.');
@@ -31,7 +29,7 @@ assert.ok(a.winners.slice(30).every((w) => w.prime), 'past the 30th only primes'
 assert.ok(primesOf(a).length > 0, 'the demo marks a prime (Indra, Saab on 22 October 2026)');
 for (const w of a.winners) {
   assert.ok(w.buyers.length <= 3 && w.buyers.every((b) => b.name && b.contracts >= 1), w.name);
-  assert.ok(w.values.every((v) => v.contracts <= w.contracts), `${w.name}: more valued contracts than contracts`);
+  assert.ok(!('values' in w), `${w.name}: no sum of values per supplier`);
   assert.ok(w.countries.length >= 1 && w.countries.every((c) => demo.countries.includes(c)), w.name);
   if (w.prime) assert.match(w.prime.sourceUrl, /^https:\/\//);
 }

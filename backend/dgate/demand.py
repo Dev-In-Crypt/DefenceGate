@@ -24,11 +24,12 @@ with a code under one of the chosen codes, matched by the code's own level: 3430
   answer; the rest are one aggregate count.
 
 Who to approach (WP-80, `approach`): the same winners across the countries asked, each named only with at least `K_MIN`
-procurements in the answer (the rest one count), most contracts first: how many, the value a TED result notice states for a contract
-with this one winner (PLACSP states the call's estimate, so it adds none), the buyers they win from most, the countries, the newest
-notice's publication date (PLACSP: the procurement's, the award date is not stored), a link to the supplier page where one exists, the EDF projects, and the mark "prime contractor or large defence group"
-from the curated, sourced list `PRIMES`. An award TED and PLACSP both publish counts once (`award_twin_set`), here and in the
-per-country winners.
+procurements in the answer (the rest one count), most contracts first: how many, the buyers they win from most, the
+countries, the newest notice's publication date (PLACSP: the procurement's, the award date is not stored), a link to the supplier
+page where one exists, the EDF projects, and the mark "prime contractor or large defence group" from the curated, sourced list
+`PRIMES`. No sum of values per supplier (the supplier map's rule). An award TED and PLACSP both publish counts once
+(`award_twin_set`), here and in the per-country winners. A request matching more than `MAX_ROWS` notices is refused (422,
+`too_broad`) so that no answer risks the API's 5 s budget.
 
 What it is not: the sub-tier needs of prime contractors are not published, and TED holds about a tenth of EU
 defence spending; the coverage line says so on every answer.
@@ -40,13 +41,13 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .classify import DEFENCE_PROGRAMMES
 from .config import settings
 from .funding import get_conn, make_slug
-from .normalise import PLACEHOLDER_AMOUNT_MAX, redact_emails
+from .normalise import redact_emails
 from .suppliers import FROM as SUPPLIER_FROM
 from .suppliers import K_MIN, PLACSP_SOURCES, TED_NOTE, placsp_note
 from .suppliers import scope as supplier_scope
@@ -171,6 +172,20 @@ PLACSP_IDS = "(SELECT id FROM source WHERE code IN (" + ", ".join(f"'{c}'" for c
 AWARD_OK = ("NOT org.suppressed AND NOT raw_org.suppressed AND a.excluded_reason IS NULL AND a.superseded_at IS NULL "
             "AND org.individual_reason IS NULL AND raw_org.individual_reason IS NULL")
 
+# The notices of an answer: defence scope, the countries and the window asked, a code under one of the prefixes (index 0099).
+MATCH = ("o.is_defence AND NOT o.suppressed AND o.country = ANY(%(countries)s) "
+         "AND COALESCE(o.published_at, o.notice_date) >= %(since)s AND dgate_cpv_heads(o.cpv_codes) && %(prefixes)s::text[]")
+# WP-80: at most this many matched notices per answer. Measured on production on 22 October 2026 (loaded server): 8,130 rows
+# (the vehicle-parts sample) 0.8-1.2 s, 22,921 rows 1.1-1.9 s, 40,843 rows 2.3-2.6 s, 116,562 (15 divisions) 5.6-6.0 s.
+MAX_ROWS = 30_000
+TOO_BROAD = ("These CPV codes cover too many defence-scope notices for one map (more than 30,000 in three years). Choose more "
+             "specific codes: a group such as 34300000 rather than a whole division such as 34000000, or fewer codes.")
+
+
+class TooBroad(Exception):
+    """The request matches more than MAX_ROWS notices: refused with 422, the codes not echoed."""
+
+
 QUERY = f"""
 WITH m AS MATERIALIZED (
     SELECT o.id, o.country, COALESCE(o.published_at, o.notice_date) AS day, o.sig_legal_basis AS lb,
@@ -178,15 +193,12 @@ WITH m AS MATERIALIZED (
            COALESCE(f.head_org_id, o.buyer_org_id) AS bk,                    -- dgate_buyer_head, as a join
            o.buyer_withheld AS bw, o.buyer_name_raw, o.source_id IN {PLACSP_IDS} AS placsp,
            o.source_id = (SELECT id FROM source WHERE code = 'ted') AS is_ted,
-           o.cpv_codes, hashtextextended({KEY}, 0) AS key,
-           o.value_amount AS va, o.value_currency AS vc, o.value_kind AS vk
+           o.cpv_codes, hashtextextended({KEY}, 0) AS key
       FROM opportunity o
       LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
                              AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
       LEFT JOIN buyer_family_member f ON f.org_id = o.buyer_org_id
-     WHERE o.is_defence AND NOT o.suppressed AND o.country = ANY(%(countries)s)
-       AND COALESCE(o.published_at, o.notice_date) >= %(since)s
-       AND dgate_cpv_heads(o.cpv_codes) && %(prefixes)s::text[]
+     WHERE {MATCH}
 ), c AS (
     -- WP-80: one row per procurement first (a hash aggregate), then counted: count(DISTINCT) sorted 116,562 rows for 15
     -- divisions; the total (country NULL) is its own pass, so a procurement in two countries is one
@@ -212,7 +224,7 @@ WITH m AS MATERIALIZED (
      WHERE r <= {LATEST}
 ), aw0 AS MATERIALIZED (
     SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated, a.id AS award_id,
-           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn, m.va, m.vc, m.vk,
+           m.bk, m.bw, m.buyer_name_raw AS bn,
            org.canonical_name AS cn, org.is_defence_buyer AS db
       FROM m JOIN award a ON a.opportunity_id = m.id
       JOIN organisation raw_org ON raw_org.id = a.organisation_id
@@ -236,13 +248,6 @@ WITH m AS MATERIALIZED (
                mode() WITHIN GROUP (ORDER BY aw.bn COLLATE "C") FILTER (WHERE NOT aw.bw) AS name
           FROM aw JOIN ap ON ap.org = aw.org WHERE aw.bk IS NOT NULL GROUP BY aw.org, aw.bk) x
         WHERE name IS NOT NULL) y WHERE r <= {APPROACH_BUYERS}
-), apv AS (
-    -- the value a TED result notice states for a contract it awards to this one winner (as the supplier profile shows
-    -- it), once per procurement; PLACSP states the estimate of the call, not the award, and is not read here
-    SELECT org, vc AS currency, sum(va) AS amount, count(*) AS n FROM (
-        SELECT DISTINCT ON (aw.org, aw.key) aw.org, aw.va, trim(aw.vc) AS vc FROM aw JOIN ap ON ap.org = aw.org
-         WHERE aw.wn = 1 AND aw.vk IN ('total', 'lot_sum') AND aw.va > {PLACEHOLDER_AMOUNT_MAX} AND aw.vc IS NOT NULL
-         ORDER BY aw.org, aw.key, aw.va DESC) v GROUP BY org, vc
 ), an AS (
     SELECT country, count(DISTINCT key) AS n FROM aw GROUP BY GROUPING SETS ((country), ())
 ), w AS (
@@ -265,7 +270,7 @@ SELECT (SELECT json_agg(c) FROM c) AS c, (SELECT json_agg(b) FROM b) AS b, (SELE
                                                       ORDER BY day DESC NULLS LAST, id DESC) AS r FROM wr) q
                                   WHERE r <= {WINNER_NOTICES}) z) AS wr,
        (SELECT array_agg(DISTINCT id) FROM aw) AS award_ids,
-       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb, (SELECT json_agg(apv) FROM apv) AS apv
+       (SELECT json_agg(ap) FROM ap) AS ap, (SELECT json_agg(apb) FROM apb) AS apb
 """
 
 
@@ -331,10 +336,6 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
         name = clean_buyer_name(b["name"])
         buyers.setdefault(b["org"], []).append({"slug": make_slug(b["bk"], name), "name": name, "country": b["country"],
                                                 "contracts": b["n"]})
-    values: dict[int, list[dict[str, Any]]] = {}
-    for v in sorted(r["apv"] or [], key=lambda v: (-v["n"], v["currency"])):
-        values.setdefault(v["org"], []).append({"currency": v["currency"], "amount": round(float(v["amount"]), 2),
-                                                "contracts": v["n"]})
     edf = _edf_projects(conn, sorted(shown))
     pages = _with_page(conn, sorted(shown))
 
@@ -342,7 +343,7 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
         name = redact_emails(w["name"]).strip()
         return {"name": name, "country": w["org_country"], "contracts": w["n"],
                 "slug": make_slug(w["org"], name) if w["org"] in pages else None,
-                "values": values.get(w["org"], []), "buyers": buyers.get(w["org"], []), "countries": w["countries"],
+                "buyers": buyers.get(w["org"], []), "countries": w["countries"],
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
                 "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}
 
@@ -359,6 +360,12 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
     since = today - timedelta(days=round(365.25 * YEARS))
     prefixes = list(dict.fromkeys(prefix(c) for c in codes))
     public = settings().placsp_awards_public
+    # WP-80: the work grows with the notices matched (15 whole divisions: 116,562 rows, 4-6 s on production, against the
+    # API's 5 s budget). Counted first, stopping at the cap, so a request that would read more is refused before it costs.
+    matched = conn.execute(f"SELECT count(*) AS n FROM (SELECT 1 FROM opportunity o WHERE {MATCH} LIMIT %(cap)s) x",
+                           {"countries": countries, "since": since, "prefixes": prefixes, "cap": MAX_ROWS + 1}).fetchone()["n"]
+    if matched > MAX_ROWS:
+        raise TooBroad()
     r = conn.execute(QUERY, {"countries": countries, "since": since, "prefixes": prefixes, "placsp": public,
                              "lengths": sorted({len(p) for p in prefixes})}).fetchone()
     counts = {x["country"]: x for x in r["c"] or []}
@@ -507,18 +514,11 @@ class ApproachBuyer(BaseModel):
     contracts: int
 
 
-class StatedValue(BaseModel):
-    currency: str
-    amount: float
-    contracts: int
-
-
 class ApproachWinner(BaseModel):
     name: str
     country: str | None
     contracts: int
     slug: str | None
-    values: list[StatedValue]
     buyers: list[ApproachBuyer]
     countries: list[str]
     lastAward: str | None
@@ -555,4 +555,7 @@ class Demand(BaseModel):
 
 @router.post("/v1/readiness/demand", response_model=Demand)
 def post_demand(body: DemandIn, conn=Depends(get_conn)):
-    return demand(conn, body.cpv, body.countries)
+    try:
+        return demand(conn, body.cpv, body.countries)
+    except TooBroad:
+        raise HTTPException(422, {"code": "too_broad", "message": TOO_BROAD}) from None

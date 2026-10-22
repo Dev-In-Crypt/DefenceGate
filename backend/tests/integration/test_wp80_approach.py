@@ -137,10 +137,25 @@ def test_a_twin_pair_counts_once_and_only_while_the_preferred_row_is_in_the_answ
     assert off["approach"]["below"]["winners"] == 1   # mera's TED award; talleres has 3 TED+DE awards and is named
 
 
-def test_values_only_where_a_ted_result_notice_names_this_one_winner(world, post):
-    t = by_name(post())["Talleres Norte SL"]
-    assert t["values"] == [{"currency": "EUR", "amount": 100000.0, "contracts": 1}]
-    assert by_name(post())["Rheinmetall Landsysteme GmbH"]["values"] == []
+def test_no_sum_of_values_per_supplier(world, post):
+    # the supplier map's rule: no sum of values per supplier, though Talleres' notices state values
+    d = post()
+    assert all("values" not in w and "amount" not in str(w) for w in d["approach"]["winners"])
+    assert "100000" not in str(d["approach"])
+
+
+def test_a_request_that_matches_too_many_notices_is_refused_without_echoing_it(world, conn, monkeypatch):
+    monkeypatch.setattr(demand, "MAX_ROWS", 3)
+    monkeypatch.setenv("DGATE_PLACSP_AWARDS_PUBLIC", "true")
+    config.reset_cache()
+    r = TestClient(api.app).post("/v1/readiness/demand", json={"cpv": ["34330000"], "countries": ["ES", "DE"]})
+    assert r.status_code == 422
+    assert r.json()["detail"]["code"] == "too_broad"
+    assert "more specific codes" in r.json()["detail"]["message"] and "34330000" not in r.text
+    # at the cap itself the answer is served: Germany alone matches 4 notices, more than 3; with the cap at 4 it is served
+    monkeypatch.setattr(demand, "MAX_ROWS", 4)
+    ok = TestClient(api.app).post("/v1/readiness/demand", json={"cpv": ["34300000"], "countries": ["DE"]})
+    assert ok.status_code == 200
 
 
 def test_buyers_they_win_from_never_name_a_withheld_buyer(world, post):

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { approachOthersLine, primesOf, valueLine, type ApproachWinner, type Demand } from '@/lib/demand';
+import { approachOthersLine, primesOf, type ApproachWinner, type Demand } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
@@ -33,7 +33,6 @@ export function ApproachExplainer() {
 }
 
 function Winner({ w }: { w: ApproachWinner }) {
-  const value = valueLine(w);
   const src = w.prime ? safeHttpUrl(w.prime.sourceUrl) : null;
   return (
     <li className="report-item flex flex-col gap-1.5 border-t border-line py-3 first:border-t-0" data-approach-winner={w.prime ? 'prime' : 'other'}>
@@ -46,7 +45,7 @@ function Winner({ w }: { w: ApproachWinner }) {
       </div>
       <p className="m-0 text-small" data-approach-facts>
         {w.contracts} {w.contracts === 1 ? 'contract' : 'contracts'} won in {w.countries.map(countryName).join(', ')}
-        {w.lastAward ? `; newest notice published ${formatDateUtc(w.lastAward)}` : ''}{value ? `; ${value}` : ''}.
+        {w.lastAward ? `; latest notice published ${formatDateUtc(w.lastAward)}` : ''}.
       </p>
       {w.buyers.length > 0 && (
         <p className="m-0 text-small text-ink-muted">
@@ -106,9 +105,9 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
       )}
       {others && <p className="m-0 max-w-prose text-small text-ink-muted" data-approach-others>{others}</p>}
       <p className="m-0 max-w-prose text-small text-ink-muted">
-        A contract here is a procurement with a published winner, counted once however many notices publish it. The stated value is what a TED result
-        notice gives for a contract with this one winner; it can be a framework ceiling, and Spanish national notices (PLACSP) state the call’s estimate,
-        not the award, so they add no value. Marked by name: a group member that carries the group’s name; a subsidiary under another name is not marked.
+        A contract here is a procurement with a published winner, counted once however many notices publish it; no value is summed per company. The
+        latest notice is the newest publication among them: for Spain’s national portal (PLACSP) the date the procurement was published, since its
+        award date is not stored. Marked by name: a group member that carries the group’s name; a subsidiary under another name is not marked.
       </p>
       <p className="m-0 max-w-prose text-small text-ink-muted">{d.winnersFrom} {d.coverage}</p>
     </div>

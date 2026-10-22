@@ -88,7 +88,7 @@ export default async function SpainAutomotivePage() {
           <li>
             <strong className="text-ink">Who to approach.</strong> The companies that won defence-scope contracts under the CPV codes you choose in Spain,
             Germany, France, Poland and the Netherlands over the last three years, from TED and the Spanish national portal (PLACSP), each contract counted
-            once: how many contracts, the value where a TED result notice states it, the buyers they win from, the countries, the date of the newest notice, and a link
+            once: how many contracts, the buyers they win from, the countries, the date of the latest notice, and a link
             to their supplier page. Prime contractors and large defence groups are marked, with the source of the list. A company is named only from three
             awards up; the others are counted.
           </li>

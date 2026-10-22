@@ -3,7 +3,6 @@
  * The one call: `POST /api/readiness/demand` with the codes and the five countries, and nothing else of the profile. The server keeps
  * nothing. Pure except `fetchDemand`.
  */
-import { formatMoney } from './format';
 import type { Profile } from './profile';
 
 export const DEMAND_COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL'] as const;
@@ -25,8 +24,6 @@ export interface ApproachWinner {
   name: string; country: string | null; contracts: number;
   /** Its supplier page here; null when it wins only outside the supplier map's core scope (no page). */
   slug: string | null;
-  /** The value TED result notices state for contracts with this one winner, per currency. */
-  values: { currency: string; amount: number; contracts: number }[];
   buyers: { slug: string; name: string; country: string; contracts: number }[];
   /** The publication date of its newest notice (TED: the result notice; PLACSP: the procurement, the award date is not stored). */
   countries: string[]; lastAward: string | null;
@@ -87,12 +84,6 @@ export function otherWinnersLine(c: DemandCountry, kMin: number): string | null 
     `at least ${kMin} awards here, and at most ten per country.`;
 }
 
-/** "EUR 1,425,000 stated for 1 of 9 contracts"; null when no TED result notice states one. */
-export function valueLine(w: Pick<ApproachWinner, 'values' | 'contracts'>): string | null {
-  if (w.values.length === 0) return null;
-  return w.values.map((v) => `${formatMoney({ currency: v.currency, amount: Math.round(v.amount) })} stated for ${v.contracts} of ${w.contracts} ${w.contracts === 1 ? 'contract' : 'contracts'}`).join('; ');
-}
-
 /** The winners not named in "who to approach", in words: the mosaic rule, and the end of the list. */
 export function approachOthersLine(a: Approach, kMin: number): string | null {
   const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
@@ -126,6 +117,20 @@ export async function fetchDemand(request: DemandRequest, signal?: AbortSignal):
     if (signal?.aborted) throw e;
     throw new DemandError(0, DEMAND_FAILED);
   });
-  if (!res.ok) throw new DemandError(res.status, res.status === 429 ? 'Too many requests. Wait a minute and try again.' : DEMAND_FAILED);
+  if (!res.ok) {
+    if (res.status === 429) throw new DemandError(429, 'Too many requests. Wait a minute and try again.');
+    // WP-80: codes that match too many notices are refused with the API's own sentence ("choose more specific codes")
+    if (res.status === 422) {
+      const message = tooBroadMessage(await res.json().catch(() => null));
+      if (message) throw new DemandError(422, message);
+    }
+    throw new DemandError(res.status, DEMAND_FAILED);
+  }
   return (await res.json()) as Demand;
+}
+
+/** The API's sentence for a request that matches too many notices (`detail: {code: 'too_broad', message}`), else null. */
+export function tooBroadMessage(body: unknown): string | null {
+  const d = (body as { detail?: { code?: unknown; message?: unknown } } | null)?.detail;
+  return d && d.code === 'too_broad' && typeof d.message === 'string' ? d.message : null;
 }

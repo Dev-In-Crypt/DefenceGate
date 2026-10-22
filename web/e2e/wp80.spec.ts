@@ -64,7 +64,7 @@ test('the report starts with who to approach, then who buys, then the rules as a
   await expect(s.getByRole('link', { name: linked.name, exact: true }).first()).toHaveAttribute('href', `/suppliers/${linked.slug}`);
   const plain = WINNERS.find((w) => !w.slug)!;
   await expect(s.getByRole('link', { name: plain.name, exact: true })).toHaveCount(0);
-  await expect(s.locator('[data-approach-facts]').first()).toContainText(/contracts? won in .+; newest notice published/);
+  await expect(s.locator('[data-approach-facts]').first()).toContainText(/contracts? won in .+; latest notice published/);
 
   // the roadmap: the RID step with its free guide and the grants, Galicia (the company's region) first
   const rid = page.locator('[data-item="REQ-RID"]');
@@ -95,6 +95,15 @@ test('the results page leads with who to approach, then who buys, then the progr
   await noSideScroll(page);
   await approach.getByRole('link', { name: 'Every named winner in your supplier report' }).click();
   await expect(page).toHaveURL(/\/readiness\/supplier\/report#r-approach$/);
+});
+
+test('codes too broad for one map: the report says to choose more specific codes, and the rest stands', async ({ page }) => {
+  await asSupplier(page, fixture('profile-es-sup-civil.json'));
+  const message = 'These CPV codes cover too many defence-scope notices for one map (more than 30,000 in three years). Choose more specific codes.';
+  await page.route('**/api/readiness/demand', (route) => route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ detail: { code: 'too_broad', message } }) }));
+  await page.goto('/readiness/supplier/report');
+  await expect(page.locator('[data-report-section="r-approach"]').getByText(message)).toBeVisible();
+  await expect(page.locator('[data-item="REQ-RID"]')).toBeVisible();
 });
 
 test('without CPV codes the report says how to get the list, and asks nothing', async ({ page }) => {
