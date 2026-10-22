@@ -36,18 +36,21 @@ function parse(sp: SearchParams) {
   const q = first(sp.q).slice(0, 100).trim();
   // A code, a three-letter code or an English name, as typed (lib/country-input.ts reads it); the API is asked with the codes.
   const country = first(sp.country).replace(/[^\p{L}\p{M}\s,.'’&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  // WP-85: the buyer's country (the notice's), as the supplier report's countries; `country` stays the supplier's
+  const buyerCountry = first(sp.buyerCountry).replace(/[^\p{L}\p{M}\s,.'’&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const cpv = first(sp.cpv).replace(/[^0-9,]/g, '').slice(0, 40);
   const product = first(sp.product).replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
   const sort = first(sp.sort) === 'name' ? ('name' as const) : ('awards' as const);
   const n = Number(first(sp.page));
   const page = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), MAX_PAGE) : 1;
-  return { q, country, cpv, product, sort, page };
+  return { q, country, buyerCountry, cpv, product, sort, page };
 }
 
 function href(f: ReturnType<typeof parse>, page: number): string {
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
   if (f.country) p.set('country', f.country);
+  if (f.buyerCountry) p.set('buyerCountry', f.buyerCountry);
   if (f.cpv) p.set('cpv', f.cpv);
   if (f.product) p.set('product', f.product);
   if (f.sort !== 'awards') p.set('sort', f.sort);
@@ -57,15 +60,15 @@ function href(f: ReturnType<typeof parse>, page: number): string {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parse(await searchParams);
-  let noindex = Boolean(f.q || f.country || f.cpv || f.product || f.page > 1 || f.sort !== 'awards');
+  let noindex = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.page > 1 || f.sort !== 'awards');
   if (!noindex) {
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
   return buildMetadata({
     title: listViewTitle('Defence supplier map', 'Supplier map', {
-      page: f.page, countries: parseCountries(f.country).codes, q: f.q, filters: [f.q, f.country, f.cpv, f.product].filter(Boolean).length,
+      page: f.page, countries: parseCountries(f.country).codes, q: f.q, filters: [f.q, f.country, f.buyerCountry, f.cpv, f.product].filter(Boolean).length,
     }),
-    description: 'Companies named as winners in TED result notices of defence-relevant contracts since 2023: where they are, what they won and who bought it. The open segment only.',
+    description: 'Companies named as winners in TED result notices of defence-relevant contracts of the last three years: where they are, what they won and who bought it. The open segment only.',
     path: '/suppliers',
     noindex,
   });
@@ -80,8 +83,10 @@ function withProduct(f: ReturnType<typeof parse>) {
   // A product word takes the place of the typed codes (the page says so): an intersection of two lists of prefixes is not what anyone means.
   const cpv = match ? match.prefixes.join(',') : f.cpv;
   // A country that is none of the three forms is an answer ("not a country"), never a 404 page and never the unfiltered list.
-  const { codes, unknown } = parseCountries(f.country);
-  return { match, unknown, none: (match !== null && match.prefixes.length === 0) || unknown.length > 0, api: { ...f, cpv, country: codes.join(',') } };
+  const { codes, unknown: u1 } = parseCountries(f.country);
+  const { codes: buyerCodes, unknown: u2 } = parseCountries(f.buyerCountry);
+  const unknown = [...u1, ...u2];
+  return { match, unknown, none: (match !== null && match.prefixes.length === 0) || unknown.length > 0, api: { ...f, cpv, country: codes.join(','), buyerCountry: buyerCodes.join(',') } };
 }
 
 const INPUT = 'min-h-11 rounded-md border border-input-edge bg-surface px-3 font-normal';
@@ -90,7 +95,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const f = parse(sp);
   const notices = ignoredFilters(sp, 'suppliers');
-  const filtered = Boolean(f.q || f.country || f.cpv || f.product);
+  const filtered = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product);
   const { match, unknown, none, api } = withProduct(f);
   let result;
   let full;
@@ -126,11 +131,10 @@ export default async function SuppliersPage({ searchParams }: Props) {
       <Card title="What this map covers" id="coverage">
         <p className="m-0 text-body">
           {coverageText(Boolean(placsp))}
-          {' '}Before eForms became mandatory (25 October 2023) TED notices state no winner as data, so 2023 is thin.
         </p>
         {summary && (
           <p className="m-0 text-small text-ink-muted">
-            {formatNumber(summary.suppliers)} {plural(summary.suppliers, 'supplier')} and {formatNumber(summary.awards)} {plural(summary.awards, 'win')} in {formatNumber(summary.noticesWithSupplier)} {plural(summary.noticesWithSupplier, 'notice')}
+            {formatNumber(summary.suppliers)} {plural(summary.suppliers, 'supplier')} and {formatNumber(summary.awards)} {plural(summary.awards, 'win')} in {formatNumber(summary.noticesWithSupplier)} {plural(summary.noticesWithSupplier, 'contract')}
             {summary.firstPublished && summary.lastPublished ? `, published ${formatDateUtc(summary.firstPublished)} to ${formatDateUtc(summary.lastPublished)} UTC` : ''}.
             {' '}{formatNumber(summary.skippedNaturalPersons)} {summary.skippedNaturalPersons === 1 ? 'winner that is a natural person (a sole trader under their own name) is' : 'winners that are natural persons (sole traders under their own name) are'} left out.
             Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''} Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).
@@ -143,7 +147,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <h2 id="aggregate" className="m-0 text-h2">By product group and country</h2>
           <p className="m-0 max-w-prose text-small text-ink-muted">
             Counts of suppliers and wins, every group shown however small. Winners that are natural persons are counted, never named. The map ranks
-            nobody by value; a supplier's wins are a count of notices, each with its link, and its page sums the values of the notices that name it alone.
+            nobody by value; a supplier's wins are a count of contracts, each with its notice and link, and its page sums the values of the notices that name it alone.
+            A contract is in every CPV division its notice has a code in, so the divisions add up to more than the total.
           </p>
           <AutoGrid min={420}>
             <Card title="By CPV division" headingLevel="h3" className="self-start">
@@ -202,8 +207,11 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <label className="flex flex-col gap-1 text-small font-semibold">Company name
             <input name="q" defaultValue={f.q} maxLength={100} className={INPUT} />
           </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Country code, for example DE
+          <label className="flex flex-col gap-1 text-small font-semibold">Supplier's country, for example DE
             <input name="country" defaultValue={f.country} maxLength={20} className={`${INPUT} w-40`} />
+          </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">Buyer's country, for example ES
+            <input name="buyerCountry" defaultValue={f.buyerCountry} maxLength={20} className={`${INPUT} w-40`} aria-describedby="country-help" />
           </label>
           <label className="flex flex-col gap-1 text-small font-semibold">Product, for example ammunition
             <input name="product" defaultValue={f.product} maxLength={60} className={`${INPUT} w-48`} aria-describedby="product-help" />
@@ -225,7 +233,12 @@ export default async function SuppliersPage({ searchParams }: Props) {
         <p id="product-help" className="m-0 max-w-prose text-small text-ink-muted">
           A product word is read as CPV codes, from a short list of words for the main defence products (drone, explosives, body armour, tank, and a few more)
           and otherwise from the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>; suppliers are
-          listed that won notices whose main CPV code starts with one of them. The page shows the codes it used. Not sure of the word? Browse the finder and copy a code into the CPV box.
+          listed that won notices with any CPV code starting with one of them. The page shows the codes it used. Not sure of the word? Browse the finder and copy a code into the CPV box.
+        </p>
+        <p id="country-help" className="m-0 max-w-prose text-small text-ink-muted">
+          The supplier's country is where the winner is registered, as the notice states it. The buyer's country is the country of the
+          buyer that awarded the contract: the countries of the supplier report. With the report's CPV codes and countries the list gives
+          each company the number of contracts “who to approach” gives it.
         </p>
         <p id="order-help" className="m-0 max-w-prose text-small text-ink-muted">
           “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
@@ -250,7 +263,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           <EmptyState title={unknown.length > 0 ? 'Not a country' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
             {unknown.length > 0
               ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
-              : `Only companies named as winners in a TED result notice${placsp ? ' or a PLACSP award result' : ''} of the defence-relevant scope are listed. Try a shorter name.`}
+              : `Only companies named as winners in a TED result notice${placsp ? ' or a PLACSP award result' : ''} of the defence-relevant scope, published in the last three years, are listed. Try a shorter name.`}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">

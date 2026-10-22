@@ -16,7 +16,7 @@ test('/suppliers?country=Germany and ?country=DEU list what ?country=DE lists, a
   for (const given of ['Germany', 'germany', 'DEU', 'Deutschland']) {
     await visit(page, `/suppliers?country=${encodeURIComponent(given)}`, SUPPLIERS);
     await expect(page.locator('#results-heading')).toHaveText(byCode);
-    await expect(page.getByRole('search', { name: 'Find suppliers' }).getByLabel(/^Country code/)).toHaveValue(given);
+    await expect(page.getByRole('search', { name: 'Find suppliers' }).getByLabel(/^Supplier's country/)).toHaveValue(given);
   }
 });
 

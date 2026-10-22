@@ -15,7 +15,8 @@ test('/suppliers: what the map covers, the search, and the list or the honest em
   });
   const search = page.getByRole('search', { name: 'Find suppliers' });
   await expect(search.getByLabel('Company name')).toBeVisible();
-  await expect(search.getByLabel(/^Country code/)).toBeVisible();
+  await expect(search.getByLabel(/^Supplier's country/)).toBeVisible();
+  await expect(search.getByLabel(/^Buyer's country/)).toBeVisible();
   await expect(search.getByLabel(/^CPV code/)).toBeVisible();
   await expect(page.locator('#results-heading')).toBeVisible();
   await pace(page);
@@ -36,7 +37,7 @@ test('a supplier page: its notices, the coverage caveat and no ranking, when the
   }
   await Promise.all([page.waitForURL(/\/suppliers\/\d+/), first.click()]);
   await expect(page.locator('h1').first()).not.toBeEmpty();
-  await expect(page.getByRole('heading', { name: 'Notices per year' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Contracts per year' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'The notices' })).toBeVisible();
   await expect(page.getByText(/TED holds only part of European defence/)).toBeVisible();
   // The map carries no ranking, share or contract total: nothing on the page says so.

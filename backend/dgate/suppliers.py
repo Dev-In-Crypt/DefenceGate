@@ -1,12 +1,17 @@
 """The supplier map: who has won the defence-relevant result notices of TED (WP-37).
 
-    GET /v1/suppliers?country=&cpv=&q=     the suppliers, most awards first
-    GET /v1/suppliers/summary              the public aggregate: by CPV division and country
-    GET /v1/suppliers/{slug}               one supplier: wins by year and CPV, buyers, the notices
+    GET /v1/suppliers?country=&buyerCountry=&cpv=&q=   the suppliers, most contracts first
+    GET /v1/suppliers/summary                          the public aggregate: by CPV division and country
+    GET /v1/suppliers/{slug}                           one supplier: wins by year and CPV, buyers, the notices
 
 What this is, and is not. It is the open segment: the winners that a buyer published in a TED result
-notice of the defence-relevant core scope, from 2023 on (the first year in which eForms notices name
-a winner as data). TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; not re-checked);
+notice (and, while switched on, a PLACSP award result) of the defence scope over the last three years.
+WP-85 (owner decision of 22 October 2026): the rows are the award set of `award_set.py`, the one the
+supplier report's demand answer (`demand.py`) counts, so a winner it names has a page here with the same
+number of contracts under the same filters. A count is of procurements (`award_set.KEY`), not of notices;
+`country` is the supplier's country, `buyerCountry` the buyer's (the demand answer's countries), and `cpv`
+matches any code of a notice (before WP-85: the core scope from 2023, the main CPV code, notices counted).
+TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; not re-checked);
 most defence contracts are awarded outside it, and a supplier absent here is not a supplier that wins
 nothing. Every figure on a profile is a fact from a notice, with its link; nothing is derived from several
 notices into a ranking, a share or a dependency score.
@@ -25,7 +30,7 @@ cannot be walked page by page (a narrower filter answers what lies beyond).
 
 PLACSP (Spain's national portal, WP-60/61): its award winners are stored and served only with
 DGATE_PLACSP_AWARDS_PUBLIC=true. Then an award that TED and PLACSP both publish counts once (`award_twin`,
-migration 0093; `NOT_TWIN` below), the other publication is listed under it, and PLACSP is credited with the
+migration 0093; `award_set.NOT_TWIN`), the other publication is listed under it, and PLACSP is credited with the
 date of last update its terms ask for (`placsp_note`). Natural persons are counted, never named.
 
 Sum of values per supplier (WP-81, owner decision of 22 October 2026, lifting the earlier "no sum of values per
@@ -40,13 +45,14 @@ does not tell a framework ceiling from an awarded amount, and the copy says so. 
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from .classify import CORE_SQL
+from .award_set import CPV_MATCH, FROM, KEY, KEY_HASH, NOT_PLACSP, prefix, scope, since
 from .config import settings
 from .countries import to_iso2
 from .funding import get_conn, make_slug
@@ -70,26 +76,8 @@ K_MIN = 1
 # it impossible (the data is public in TED; the rate limit prices the rest).
 MAX_OFFSET = 500
 MAX_BIGINT = 9_223_372_036_854_775_807
-SINCE = "2023-01-01"
 PROFILE_NOTICES = 50
 PROFILE_BUYERS = 20
-
-FROM = """FROM award a
-          JOIN opportunity o ON o.id = a.opportunity_id
-          JOIN organisation raw_org ON raw_org.id = a.organisation_id
-          JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)"""
-# `excluded_reason`: a winner string that is no supplier (a placeholder, a consortium written as one name,
-# garbled text; migration 0080, `ops/clean_suppliers.py`). `individual_reason`: an organisation the directory
-# treats as a natural person (`individuals.py`): never listed, as in the directory.
-SCOPE = (f"o.is_defence AND NOT o.suppressed AND {CORE_SQL} AND NOT org.suppressed AND NOT raw_org.suppressed "
-         "AND a.excluded_reason IS NULL AND org.individual_reason IS NULL AND raw_org.individual_reason IS NULL "
-         "AND a.superseded_at IS NULL")
-# PLACSP winners (WP-60) are stored and not served until DGATE_PLACSP_AWARDS_PUBLIC is true: the owner has to
-# decide on the reuse terms (docs/sources/es_placsp.md) first.
-PLACSP_SOURCES = ("es_placsp", "es_placsp_agg")
-NOT_PLACSP = ("o.source_id NOT IN (SELECT id FROM source WHERE code IN ("
-              + ", ".join(f"'{c}'" for c in PLACSP_SOURCES) + "))")
-
 
 def valued(wn: str, amount: str, currency: str, kind: str) -> str:
     """WP-81: the SQL condition "this notice's value is this winner's": the notice names one winner (a value shared
@@ -137,31 +125,6 @@ def value_totals(rows: list[dict[str, Any]], of: int) -> dict[str, Any]:
     valued_n = sum(v["count"] for v in by)
     return {"byCurrency": by, "of": of, "withoutValue": max(of - valued_n, 0),
             "shared": sum(r["n"] for r in rows if not r["ok"] and r["shared"])}
-
-
-_ALIASES = {"a": "k", "o": "ko", "org": "korg", "raw_org": "kraw"}
-
-
-def _as_preferred(cond: str) -> str:
-    """`cond`, written over the map's aliases, rewritten over the preferred twin's (`award_twin`)."""
-    return re.sub(r"\b(raw_org|org|o|a)\.", lambda m: _ALIASES[m[1]] + ".", cond)
-
-
-# One award published in TED and in PLACSP is counted once (WP-61, migration 0093): an award row is left out
-# when `award_twin` names a row preferred over it that the map itself serves. Read from the stored pairs
-# (`award_twin_set`, migration 0098, rewritten by `awards.refresh_award_twins` after every award load): the view
-# itself took 5 s a statement on production (WP-75). The preferred row is checked live. Uncorrelated, so the
-# planner reads the pairs once per query and hashes them.
-NOT_TWIN = ("a.id NOT IN (SELECT tw.award_id FROM award_twin_set tw JOIN award k ON k.id = tw.preferred_id "
-            "JOIN opportunity ko ON ko.id = k.opportunity_id JOIN organisation kraw ON kraw.id = k.organisation_id "
-            "JOIN organisation korg ON korg.id = COALESCE(kraw.merged_into, kraw.id) "
-            f"WHERE {_as_preferred(SCOPE)})")
-
-
-def scope() -> str:
-    """The rows the map serves: SCOPE, and without the PLACSP winners unless they are switched on. With them
-    on, an award that both TED and PLACSP publish is counted once (`NOT_TWIN`)."""
-    return f"{SCOPE} AND {NOT_TWIN}" if settings().placsp_awards_public else f"{SCOPE} AND {NOT_PLACSP}"
 
 
 class SupplierItem(BaseModel):
@@ -285,13 +248,14 @@ class Summary(BaseModel):
     sources: list[SourceNote] = []
 
 
-COVERAGE = ("Winners named in TED result notices of the defence-relevant scope, from 2023. TED holds only part of "
-            "European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked "
+COVERAGE = ("Winners named in TED result notices of the defence-relevant scope, published in the last three years. TED holds "
+            "only part of European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked "
             "that figure); contracts awarded outside TED are not in this map, and a supplier absent here may win many.")
 # With the PLACSP winners on the map (DGATE_PLACSP_AWARDS_PUBLIC, WP-61).
 COVERAGE_WITH_PLACSP = (
     "Winners named in TED result notices of the defence-relevant scope, and in the award results of Spain's national "
-    "procurement portal (PLACSP, Plataforma de Contratación del Sector Público), from 2023; an award published in both "
+    "procurement portal (PLACSP, Plataforma de Contratación del Sector Público), published in the last three years; an "
+    "award published in both "
     "is counted once. TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a "
     "tenth; we have not re-checked that figure); contracts awarded outside TED and PLACSP are not in this map, and a "
     "supplier absent here may win many. Winners that are natural persons are counted, never named.")
@@ -336,40 +300,47 @@ def shown() -> str:
     return SHOWN.format(placsp="" if settings().placsp_awards_public else _SHOWN_NOT_PLACSP)
 
 
-def _group_filters(country: str | None, cpv: str | None) -> tuple[list[str], list[Any]]:
-    """The country and product-group part of the filters: the group whose size the k rule is about."""
-    where: list[str] = []
-    params: list[Any] = []
-    countries: list[str] = []
-    for given in _split(country, "country", max_length=60):
+def _countries(value: str | None, name: str) -> list[str]:
+    out: list[str] = []
+    for given in _split(value, name, max_length=60):
         # A code (DE), a three-letter code (DEU) or an English name (Germany): all read as the alpha-2 code stored.
         iso2 = to_iso2(given)
         if iso2 is None:
-            raise HTTPException(422, f"country: '{given[:40]}' is not a country; use a code (DE, DEU) or an English name (Germany)")
-        countries.append(iso2)
-    if countries:
-        where.append("a.supplier_country = ANY(%s)")
-        params.append(countries)
-    prefixes = _split(cpv, "cpv", max_length=8)
-    if prefixes:
-        where.append("(" + " OR ".join(["a.cpv_main LIKE %s"] * len(prefixes)) + ")")
-        params += [f"{p}%" for p in prefixes]
-    return where, params
+            raise HTTPException(422, f"{name}: '{given[:40]}' is not a country; use a code (DE, DEU) or an English name (Germany)")
+        out.append(iso2)
+    return out
 
 
-def _filters(q: str | None, country: str | None, cpv: str | None) -> tuple[list[str], list[Any]]:
+CPV_PART = re.compile(r"^[0-9]{2,8}$")
+
+
+def _filters(q: str | None, country: str | None, cpv: str | None,
+             buyer_country: str | None = None) -> tuple[list[str], dict[str, Any]]:
+    """The filters over the award set (`award_set`), with the window as a parameter. `country` is the supplier's
+    country as the notice states it; `buyerCountry` the buyer's (the notice's), as the demand answer's countries;
+    `cpv` any code of the notice under a prefix, an 8-digit code standing for its level (`award_set.prefix`), as the
+    demand answer reads its codes."""
     where: list[str] = []
-    params: list[Any] = []
+    params: dict[str, Any] = {"since": since()}
     words = search_words((q or "").replace("\x00", "").strip())
-    if words:
+    for i, w in enumerate(words):
         # Each word begins a word of the supplier's normalised name or of a name as stated.
-        like = ("(dg_fold(org.canonical_name) LIKE dg_word_pattern(%s) "
-                "OR dg_fold(a.name_as_stated) LIKE dg_word_pattern(%s))")
-        where.append(" AND ".join([like] * len(words)))
-        for w in words:
-            params += [w, w]
-    gwhere, gparams = _group_filters(country, cpv)
-    return where + gwhere, params + gparams
+        where.append(f"(dg_fold(org.canonical_name) LIKE dg_word_pattern(%(q{i})s) "
+                     f"OR dg_fold(a.name_as_stated) LIKE dg_word_pattern(%(q{i})s))")
+        params[f"q{i}"] = w
+    if supplier := _countries(country, "country"):
+        where.append("a.supplier_country = ANY(%(supplier)s)")
+        params["supplier"] = supplier
+    if buyer := _countries(buyer_country, "buyerCountry"):
+        where.append("o.country = ANY(%(buyer)s)")
+        params["buyer"] = buyer
+    parts = _split(cpv, "cpv", max_length=8)
+    if parts:
+        if any(not CPV_PART.match(p) for p in parts):
+            raise HTTPException(422, "cpv: CPV codes or their leading part, 2 to 8 digits")
+        where.append(CPV_MATCH)
+        params["prefixes"] = list(dict.fromkeys(prefix(p) if len(p) == 8 else p for p in parts))
+    return where, params
 
 
 def _item(r: dict[str, Any]) -> dict[str, Any]:
@@ -386,6 +357,7 @@ def list_suppliers(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=200),
+    buyerCountry: str | None = Query(None, max_length=200),
     sort: str = Query("awards", pattern="^(awards|name)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=100),
@@ -397,23 +369,24 @@ def list_suppliers(
                                  "country or product group")
     # WP-81: a country or product-group filter lists every supplier it selects, however few (the WP-39 "withheld"
     # answer for a group of fewer than 3 is lifted by the owner; `withheld` stays in the answer, always false)
-    where, params = _filters(q, country, cpv)
+    where, params = _filters(q, country, cpv, buyerCountry)
     cond = " AND ".join([scope()] + where)
     order = "canonical_name, id" if sort == "name" else "n DESC, canonical_name, id"
     # The page is cut first and the shown spelling asked for its 20 rows only (asked before the cut it took a
-    # second at page 40: 4,188 suppliers on 18 October 2026).
+    # second at page 40: 4,188 suppliers on 18 October 2026). `n`: procurements won (`award_set.KEY`).
     rows = conn.execute(
         f"""WITH base AS (
               SELECT org.id, org.country, org.canonical_name,
-                     count(DISTINCT a.opportunity_id) AS n,
-                     extract(year FROM min(o.published_at))::int AS first_year,
-                     extract(year FROM max(o.published_at))::int AS last_year,
+                     count(DISTINCT {KEY_HASH}) AS n,
+                     extract(year FROM min(COALESCE(o.published_at, o.notice_date)))::int AS first_year,
+                     extract(year FROM max(COALESCE(o.published_at, o.notice_date)))::int AS last_year,
                      array_agg(DISTINCT left(a.cpv_main, 2)) AS divisions
                 {FROM} WHERE {cond}
                GROUP BY org.id, org.country, org.canonical_name),
-            m AS (SELECT base.*, count(*) OVER () AS total_rows FROM base ORDER BY {order} LIMIT %s OFFSET %s)
+            m AS (SELECT base.*, count(*) OVER () AS total_rows FROM base ORDER BY {order}
+                  LIMIT %(limit)s OFFSET %(offset)s)
             SELECT m.*, {shown()} AS shown FROM m ORDER BY {order}""",
-        params + [min(pageSize, MAX_OFFSET - offset), offset]).fetchall()
+        {**params, "limit": min(pageSize, MAX_OFFSET - offset), "offset": offset}).fetchall()
     total = rows[0]["total_rows"] if rows else 0
     if not rows and page > 1:
         total = conn.execute(
@@ -425,22 +398,29 @@ def list_suppliers(
 @router.get("/v1/suppliers/summary", response_model=Summary)
 @cache_list("suppliers-summary", ttl=30 * 60)
 def supplier_summary(conn=Depends(get_conn)):
-    # One pass over the map's rows for the head and every group (WP-75: five passes cost 1.5 s with the PLACSP
-    # winners on). g (GROUPING bits) 3: the head, over every row; 1: by CPV division; 2: by country; 0: the
-    # cells. The groups count the rows with a CPV only (c_*), so a group of rows without one is no group.
+    # One pass over the set's rows for the head and every group (WP-75: five passes cost 1.5 s with the PLACSP
+    # winners on). A win is a supplier and a procurement (`KEY`), as the list counts it. WP-85: the list's CPV
+    # filter reads every code of a notice, so the groups do too: a row is in every division its notice has a code
+    # in (a win in two divisions is in both). g (GROUPING bits) 3: the head, over every row; 1: by CPV division;
+    # 2: by country; 0: the cells. The groups count the rows with a CPV only (c_*). A win is counted by one bigint,
+    # `pair` (a distinct over a (org, key) record sorted three times slower: 1.3 s against 0.4 s on 67,000 rows).
+    # ponytail: a 64-bit hash of the pair; a collision (about 1 in 10^10 at 100,000 wins) would undercount one win.
+    since_day = since()
     rows = conn.execute(
-        f"""SELECT GROUPING(left(a.cpv_main, 2), a.supplier_country) AS g,
-                   left(a.cpv_main, 2) AS division, a.supplier_country AS country,
-                   count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
-                   count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p,
-                   count(DISTINCT org.id) FILTER (WHERE a.cpv_main IS NOT NULL) AS c_suppliers,
-                   count(*) FILTER (WHERE a.cpv_main IS NOT NULL) AS c_awards
-              {FROM} WHERE {scope()}
-             GROUP BY GROUPING SETS ((), (left(a.cpv_main, 2)), (a.supplier_country),
-                                     (left(a.cpv_main, 2), a.supplier_country))
-             ORDER BY g, CASE WHEN GROUPING(left(a.cpv_main, 2), a.supplier_country) = 0
-                              THEN count(DISTINCT org.id) FILTER (WHERE a.cpv_main IS NOT NULL) END DESC,
-                      c_awards DESC, division, country""").fetchall()
+        f"""WITH r AS MATERIALIZED (
+                SELECT org.id AS org, {KEY_HASH} AS key, hashtextextended(org.id || ' ' || {KEY}, 0) AS pair,
+                       a.supplier_country AS country, o.cpv_codes, COALESCE(o.published_at, o.notice_date) AS day
+                  {FROM} WHERE {scope()})
+            SELECT GROUPING(x.division, r.country) AS g, x.division, r.country,
+                   count(DISTINCT r.key) AS notices, count(DISTINCT r.org) AS suppliers,
+                   count(DISTINCT r.pair) AS awards, min(r.day) AS first_p, max(r.day) AS last_p,
+                   count(DISTINCT r.org) FILTER (WHERE x.division IS NOT NULL) AS c_suppliers,
+                   count(DISTINCT r.pair) FILTER (WHERE x.division IS NOT NULL) AS c_awards
+              FROM r LEFT JOIN LATERAL (SELECT DISTINCT left(c, 2) AS division FROM unnest(r.cpv_codes) c) x ON TRUE
+             GROUP BY GROUPING SETS ((), (x.division), (r.country), (x.division, r.country))
+             ORDER BY g, CASE WHEN GROUPING(x.division, r.country) = 0
+                              THEN count(DISTINCT r.org) FILTER (WHERE x.division IS NOT NULL) END DESC,
+                      c_awards DESC, division, country""", {"since": since_day}).fetchall()
     [head] = [r for r in rows if r["g"] == 3]
     sets = {g: [{"key": r["division"] if g == 1 else r["country"], "division": r["division"],
                  "country": r["country"], "suppliers": r["c_suppliers"], "awards": r["c_awards"]}
@@ -474,7 +454,7 @@ def supplier_summary(conn=Depends(get_conn)):
     total_cells = len(sets[0])
     note = placsp_note(conn) if public else None
     return {
-        "kMin": K_MIN, "since": SINCE, "noticesRead": read["n"],
+        "kMin": K_MIN, "since": since_day.isoformat(), "noticesRead": read["n"],
         "noticesWithSupplier": head["notices"], "suppliers": head["suppliers"],
         "awards": head["awards"], "skippedNaturalPersons": int(read["persons"]),
         "firstPublished": _day(head["first_p"]), "lastPublished": _day(head["last_p"]),
@@ -507,39 +487,42 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
     # a join result, and every award was read to find a supplier's (0.1 s a statement, nine statements).
     base = (f"{FROM} WHERE {scope()} AND org.id = %(org)s AND a.organisation_id = ANY(ARRAY("
             "SELECT %(org)s::bigint UNION ALL SELECT id FROM organisation WHERE merged_into = %(org)s))")
-    p = {"org": org_id}
+    p = {"org": org_id, "since": since()}
     twins = "TRUE" if settings().placsp_awards_public else "FALSE"     # WP-81: value a twin pair from either copy
     head = conn.execute(
-        f"""SELECT count(DISTINCT a.opportunity_id) AS n,
-                   extract(year FROM min(o.published_at))::int AS first_year,
-                   extract(year FROM max(o.published_at))::int AS last_year
+        f"""SELECT count(DISTINCT {KEY_HASH}) AS n,
+                   extract(year FROM min(COALESCE(o.published_at, o.notice_date)))::int AS first_year,
+                   extract(year FROM max(COALESCE(o.published_at, o.notice_date)))::int AS last_year
               {base}""", p).fetchone()
     if not org or not head["n"]:
         raise HTTPException(404, "no such supplier")
-    by_year = conn.execute(
-        f"""SELECT extract(year FROM o.published_at)::int AS year, count(DISTINCT a.opportunity_id) AS awards
-              {base} GROUP BY 1 ORDER BY 1 DESC""", p).fetchall()
-    by_cpv = conn.execute(
-        f"""SELECT left(a.cpv_main, 2) AS division, count(DISTINCT a.opportunity_id) AS awards
-              {base} AND a.cpv_main IS NOT NULL GROUP BY 1 ORDER BY 2 DESC, 1""", p).fetchall()
+    # WP-85: a procurement counts once (`award_set.KEY`), in the year and main CPV division of its newest notice, so
+    # the years and the divisions each add up to the count
+    per = conn.execute(
+        f"""SELECT DISTINCT ON ({KEY_HASH}) extract(year FROM COALESCE(o.published_at, o.notice_date))::int AS year,
+                   left(a.cpv_main, 2) AS division
+              {base} ORDER BY {KEY_HASH}, COALESCE(o.published_at, o.notice_date) DESC NULLS LAST, o.id DESC""",
+        p).fetchall()
+    by_year = sorted(Counter(r["year"] for r in per).items(), key=lambda x: -(x[0] or 0))
+    by_cpv = sorted(Counter(r["division"] for r in per if r["division"]).items(), key=lambda x: (-x[1], x[0]))
     buyer_rows = conn.execute(
-        f"""SELECT o.buyer_org_id AS id, count(DISTINCT a.opportunity_id) AS awards
+        f"""SELECT o.buyer_org_id AS id, count(DISTINCT {KEY_HASH}) AS awards
               {base} AND o.buyer_org_id IS NOT NULL AND NOT o.buyer_withheld
              GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT {PROFILE_BUYERS}""", p).fetchall()
     notices = conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
-                   o.published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, o.source_url, a.id AS award_id,
+                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, o.source_url, a.id AS award_id,
                    (SELECT code FROM source WHERE id = o.source_id) AS source_code
-              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY o.published_at DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
+              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
         p).fetchall()
     # WP-81: each procurement once (the profile's count), valued by `value_of` (the notice rows use the same)
     sums = conn.execute(
         f"""SELECT ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
                    count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
-              FROM (SELECT DISTINCT ON (a.opportunity_id) v.va IS NOT NULL AS ok,
+              FROM (SELECT DISTINCT ON ({KEY_HASH}) v.va IS NOT NULL AS ok,
                            a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk
                       {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)}
-                     ORDER BY a.opportunity_id, 1 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
+                     ORDER BY {KEY_HASH}, 1 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
              GROUP BY 1, 2, 3""", p).fetchall()
     stated = conn.execute(
         f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
@@ -560,7 +543,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
     countries = {r["id"]: r["country"] for r in conn.execute(
         "SELECT id, country FROM organisation WHERE id = ANY(%s)", (buyer_ids,)).fetchall()} if buyer_ids else {}
     item = _item({**org, "n": head["n"], "first_year": head["first_year"], "last_year": head["last_year"],
-                  "shown": stated[0]["v"], "divisions": [r["division"] for r in by_cpv]})
+                  "shown": stated[0]["v"], "divisions": [d for d, _ in by_cpv]})
     public = settings().placsp_awards_public
     also: dict[int, list[dict[str, Any]]] = {}
     attribution = TED_NOTE["attribution"] + " Winners as named in each result notice."
@@ -595,8 +578,8 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
     return {
         **item,
         "values": value_totals(sums, head["n"]),
-        "byYear": [{"year": r["year"], "awards": r["awards"]} for r in by_year],
-        "byCpv": [{"division": r["division"], "awards": r["awards"]} for r in by_cpv],
+        "byYear": [{"year": y, "awards": n} for y, n in by_year],
+        "byCpv": [{"division": d, "awards": n} for d, n in by_cpv],
         "buyers": [{"slug": make_slug(i, names.get(i) or ""), "name": names.get(i) or "Buyer",
                     "country": countries.get(i), "awards": r["awards"]}
                    for r in buyer_rows for i in [r["id"]] if names.get(i)],

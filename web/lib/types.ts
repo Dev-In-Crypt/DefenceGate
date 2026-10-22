@@ -830,7 +830,7 @@ export interface PartnersAnswer {
   source?: { readAt: string | null; sources: string[]; licence: string };
 }
 
-/** The supplier map (GET /v1/suppliers, docs/design/API_CONTRACT.md): winners named in TED result notices of the core scope. */
+/** The supplier map (GET /v1/suppliers, docs/design/API_CONTRACT.md): winners named in TED result notices of the defence scope, the last three years: the award set of the demand answer (WP-85). */
 export interface SupplierItem {
   id: string;
   slug: string;
@@ -881,7 +881,7 @@ export interface Supplier extends SupplierItem {
   identifiers: string[];
   attribution: string;
 }
-export interface SupplierFilters { q?: string; country?: string; cpv?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
+export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
 export interface SupplierSummary {
   /** A group of fewer suppliers than this is not published. */
   kMin: number;

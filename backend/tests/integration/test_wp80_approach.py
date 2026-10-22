@@ -247,13 +247,43 @@ def test_a_prime_is_marked_with_its_source_and_its_edf_projects(world, post):
     assert t["prime"] is None and t["edfProjects"] == 0 and t["defenceBuyer"] is False
 
 
-def test_the_supplier_page_is_linked_only_where_the_supplier_map_has_one(world, post):
-    names = by_name(post())
-    # Talleres won a core-scope notice (Directive 2009/81/EC, a defence buyer): its page exists
-    assert names["Talleres Norte SL"]["slug"] == f"{world['talleres']}-talleres-norte-sl"
-    assert names["Rheinmetall Landsysteme GmbH"]["slug"] is None
-    # Mera's core-scope award is under another code: its page exists, so the link is there
-    assert names["Suministros Mera SL"]["slug"] == f"{world['twin_ted']}-suministros-mera-sl"
+@pytest.mark.parametrize("public", [True, False])
+def test_every_named_winner_has_a_supplier_page_with_the_same_count_for_the_same_filters(world, post, public):
+    # WP-85 (owner decision of 22 October 2026): the supplier map counts the demand answer's award set (`award_set`).
+    # Before, Rheinmetall (no core-scope notice) had no page; now every winner named has one, and the map filtered by the
+    # answer's codes and buyer countries gives each the answer's number of contracts, per country too
+    d = post(public=public)
+    c = TestClient(api.app)
+    names = by_name(d)
+    assert names["Rheinmetall Landsysteme GmbH"]["slug"] == f"{world['rheinmetall']}-rheinmetall-landsysteme-gmbh"
+
+    def listed(**params) -> dict[str, int]:
+        body = c.get("/v1/suppliers", params={"cpv": "34300000", "pageSize": 100, **params}).json()
+        return {i["slug"]: i["awardCount"] for i in body["items"]}
+
+    assert listed(buyerCountry="ES,DE") == {w["slug"]: w["contracts"] for w in d["approach"]["winners"]}
+    for block in d["byCountry"]:
+        assert sorted(listed(buyerCountry=block["country"]).values(), reverse=True) == [w["awards"] for w in block["topWinners"]]
+    for w in d["approach"]["winners"]:
+        profile = c.get(f"/v1/suppliers/{w['slug']}")
+        assert profile.status_code == 200 and profile.json()["name"] == w["name"]
+        # a profile counts every notice of the set, outside these codes too: Mera's 8-2026 (CPV 35000000) is one more
+        assert profile.json()["noticeCount"] == w["contracts"] + (w["name"] == "Suministros Mera SL")
+    # the winners page links the same pages
+    page = c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "countries": ["ES", "DE"]}).json()
+    assert {w["slug"] for w in page["winners"]} == set(listed(buyerCountry="ES,DE"))
+
+
+def test_a_twin_pair_is_matched_by_the_codes_of_the_publication_that_stands_for_it(world, post, conn):
+    # WP-85: which of two twins stands is decided over the whole award set, never by a filter (`award_set.NOT_TWIN`), so the
+    # map and the answer agree. A pair whose TED copy (the one that stands) carries other codes than its PLACSP copy is
+    # matched by the TED copy's codes: Mera's 9-2026 moved to 35000000 takes its PLACSP twin ES-M9 out of this answer
+    conn.execute("UPDATE opportunity SET cpv_codes = ARRAY['35000000'] WHERE native_id = '9-2026'")
+    conn.commit()
+    mera = by_name(post())["Suministros Mera SL"]
+    assert mera["contracts"] == 2
+    listed = TestClient(api.app).get("/v1/suppliers", params={"cpv": "34300000", "buyerCountry": "ES,DE"}).json()["items"]
+    assert {i["slug"]: i["awardCount"] for i in listed}[mera["slug"]] == 2
 
 
 def test_a_prime_is_listed_past_the_end_of_the_list(world, post, monkeypatch):

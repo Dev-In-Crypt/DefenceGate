@@ -17,8 +17,11 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
   const q = (f.q ?? '').trim().toLowerCase();
   const countries = (f.country ?? '').split(',').filter(Boolean);
   const cpv = (f.cpv ?? '').split(',').filter(Boolean);
+  // every demo supplier has the same three demo buyers (findSupplier): a buyer country among theirs keeps them all
+  const buyers = (f.buyerCountry ?? '').split(',').filter(Boolean);
   let items = ITEMS.filter((s) => (!q || s.name.toLowerCase().includes(q))
     && (countries.length === 0 || countries.includes(s.country))
+    && (buyers.length === 0 || buyers.some((b) => ['FR', 'DE', 'PL'].includes(b)))
     && (cpv.length === 0 || cpv.some((c) => s.cpvDivisions.some((d) => d.startsWith(c.slice(0, 2))))));
   if (f.sort === 'name') items = [...items].sort((a, b) => a.name.localeCompare(b.name));
   return { items, total: items.length, page: 1, pageSize: f.pageSize ?? 20 };
@@ -26,7 +29,7 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
 
 export function supplierSummary(): SupplierSummary {
   return {
-    kMin: 1, since: '2023-01-01', noticesRead: 4200, noticesWithSupplier: 31, suppliers: ITEMS.length, awards: 34, skippedNaturalPersons: 2,
+    kMin: 1, since: '2023-10-12', noticesRead: 4200, noticesWithSupplier: 31, suppliers: ITEMS.length, awards: 34, skippedNaturalPersons: 2,
     firstPublished: '2023-11-02T00:00:00Z', lastPublished: '2026-10-09T00:00:00Z',
     byCpv: [{ key: '35', suppliers: 4, awards: 31 }, { key: '34', suppliers: 3, awards: 18 }, { key: '63', suppliers: 3, awards: 7 }],
     byCountry: [{ key: 'DE', suppliers: 5, awards: 22 }, { key: 'FR', suppliers: 4, awards: 15 }, { key: 'PL', suppliers: 3, awards: 9 }],

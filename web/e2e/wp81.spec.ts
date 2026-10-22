@@ -83,9 +83,9 @@ test('a capped list links to every winner for these codes, a page at a time, eac
 test('a supplier page: contract values collapsed, every notice counted, not only the listed ones', async ({ page }) => {
   await visit(page, '/suppliers/1-demo-airframes-gmbh', { title: /Demo Airframes/i, h1: 'Demo Airframes GmbH' });
   const details = await closedThenOpenedByKeyboard(page.locator('main'), page);
-  await expect(details.locator('[data-value-sum]')).toHaveText(['EUR 4,500,000 over 3 notices']);
-  await expect(details.locator('[data-value-without]')).toHaveText('11 of 14 notices state no value for this company alone; 3 of them name several winners.');
-  await expect(details).toContainText('All 14 notices naming it a winner, not only the ones listed below');
+  await expect(details.locator('[data-value-sum]')).toHaveText(['EUR 4,500,000 over 3 contracts']);
+  await expect(details.locator('[data-value-without]')).toHaveText('11 of 14 contracts state no value for this company alone; 3 of them name several winners.');
+  await expect(details).toContainText('All 14 contracts it won, not only the ones listed below');
   await expect(details).toContainText('PLACSP');
   await expect(page.getByText(/market share|top supplier|sole source|single point of failure/i)).toHaveCount(0);
 });

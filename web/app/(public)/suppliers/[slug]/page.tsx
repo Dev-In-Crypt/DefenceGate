@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const s = { ...got, name: displayName(got.name, 'title') };
   return buildMetadata({
     title: s.name,
-    description: `${s.name} (${s.country}): ${s.noticeCount} defence-relevant ${fromPlacsp(s) ? 'TED and PLACSP' : 'TED'} result notices naming it as a winner. The open segment of the market only.`,
+    description: `${s.name} (${s.country}): ${s.noticeCount} defence-relevant contracts of the last three years in ${fromPlacsp(s) ? 'TED and PLACSP' : 'TED'} result notices naming it as a winner. The open segment of the market only.`,
     path: `/suppliers/${s.slug}`,
     noindex: false,
   });
@@ -53,7 +53,7 @@ export default async function SupplierPage({ params }: Props) {
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }, { label: s.name, href: `/suppliers/${s.slug}` }]} title={s.name}>
         <FactsGrid>
           <FactCell label="Country"><CountryLabel code={s.country} className="font-sans" /></FactCell>
-          <FactCell label="Notices naming it a winner"><span className="tabular-nums">{formatNumber(s.noticeCount)}</span></FactCell>
+          <FactCell label="Contracts won, last three years"><span className="tabular-nums">{formatNumber(s.noticeCount)}</span></FactCell>
           <FactCell label="Years">
             <span className="tabular-nums">{s.firstYear ? (s.firstYear === s.lastYear ? s.firstYear : `${s.firstYear} to ${s.lastYear}`) : 'Not stated'}</span>
           </FactCell>
@@ -63,23 +63,24 @@ export default async function SupplierPage({ params }: Props) {
           <p className="m-0 max-w-prose text-small text-ink-muted">Also published as: {s.namesAsStated.slice(1).join('; ')}.</p>
         )}
         <p className="m-0 max-w-prose text-small text-ink-muted">
-          This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, from 2023. TED holds only part of European defence
+          This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, published in the last three years:
+          the same contracts the supplier report counts in “who to approach”. A contract published in several notices is counted once. TED holds only part of European defence
           spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking and no share; a value appears only on a notice that names one
           winner, and Contract values sums those values per currency. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
         </p>
         {s.values && (
           <ValueTotalsBlock
             values={s.values}
-            noun="notice"
-            scope={`All ${formatNumber(s.noticeCount)} notices naming it a winner, not only the ones listed below: ${fromPlacsp(s) ? 'TED result notices and PLACSP award results' : 'TED result notices'} of the defence-relevant scope, from 2023.`}
+            noun="contract"
+            scope={`All ${formatNumber(s.noticeCount)} contracts it won, not only the ones listed below: ${fromPlacsp(s) ? 'TED result notices and PLACSP award results' : 'TED result notices'} of the defence-relevant scope, published in the last three years.`}
           />
         )}
       </PageHeader>
 
       <AutoGrid min={380}>
-        <Card title="Notices per year" id="by-year" className="self-start">
-          <DataTable label={`Notices naming ${s.name} a winner, per year of publication`} minWidth={240}>
-            <thead><tr><th scope="col">Year</th><th scope="col" className="text-right">Notices</th></tr></thead>
+        <Card title="Contracts per year" id="by-year" className="self-start">
+          <DataTable label={`Contracts won by ${s.name}, per year of publication of the newest notice`} minWidth={240}>
+            <thead><tr><th scope="col">Year</th><th scope="col" className="text-right">Contracts</th></tr></thead>
             <tbody>
               {s.byYear.map((y) => (
                 <tr key={y.year}>
@@ -91,8 +92,8 @@ export default async function SupplierPage({ params }: Props) {
           </DataTable>
         </Card>
         <Card title="Product groups" id="by-cpv" className="self-start">
-          <DataTable label={`Notices naming ${s.name} a winner, per CPV division`} minWidth={280}>
-            <thead><tr><th scope="col">CPV division</th><th scope="col" className="text-right">Notices</th></tr></thead>
+          <DataTable label={`Contracts won by ${s.name}, per main CPV division`} minWidth={280}>
+            <thead><tr><th scope="col">Main CPV division</th><th scope="col" className="text-right">Contracts</th></tr></thead>
             <tbody>
               {s.byCpv.map((c) => (
                 <tr key={c.division}>
@@ -109,7 +110,7 @@ export default async function SupplierPage({ params }: Props) {
         <Card title="Buyers" id="buyers">
           <DataTable label="Buyers whose notices name this supplier a winner" minWidth={420}>
             <thead>
-              <tr><th scope="col" className="min-w-52">Buyer</th><th scope="col">Country</th><th scope="col" className="text-right">Notices</th></tr>
+              <tr><th scope="col" className="min-w-52">Buyer</th><th scope="col">Country</th><th scope="col" className="text-right">Contracts</th></tr>
             </thead>
             <tbody>
               {s.buyers.map((b) => (
@@ -128,7 +129,7 @@ export default async function SupplierPage({ params }: Props) {
         <div className="flex flex-col gap-3">
           <h2 id="notices" className="m-0 text-h2">The notices</h2>
           <p className="m-0 max-w-prose text-small text-ink-muted">
-            Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} of ${formatNumber(s.noticeCount)}` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or PLACSP' : ' and to the notice at TED'}.
+            Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} notices of its ${formatNumber(s.noticeCount)} contracts` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or PLACSP' : ' and to the notice at TED'}.
           </p>
         </div>
         <Card>

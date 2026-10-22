@@ -16,16 +16,19 @@ export function sourceLabel(code: string | undefined): string {
   return code && PLACSP_CODES.includes(code) ? 'PLACSP' : 'TED';
 }
 
-/** The coverage paragraph of /suppliers. */
+/** The coverage paragraph of /suppliers. WP-85: the same contracts as the supplier report's "who to approach", over the same three years. */
 export function coverageText(placsp: boolean): string {
+  const same = ' These are the same contracts the supplier report counts in “who to approach”, so a company named there has a page here. ' +
+    'A contract published in several notices is counted once.';
   return placsp
     ? "The winners named in TED result notices and in the award results of Spain's national procurement portal (PLACSP, Plataforma de " +
-      'Contratación del Sector Público) that our archive holds in the defence-relevant scope, from 2023. An award published in both is counted ' +
-      'once. TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked that ' +
-      'figure), and contracts awarded outside TED and PLACSP are not here, so a company missing from this map may win many.'
-    : 'The winners named in TED result notices that our archive holds in the defence-relevant scope, from 2023. TED holds only part of ' +
-      'European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked that figure), and contracts ' +
-      'awarded outside it are not here, so a company missing from this map may win many.';
+      'Contratación del Sector Público) that our archive holds in the defence-relevant scope, published in the last three years. An award ' +
+      'published in both is counted once.' + same + ' TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at ' +
+      'about a tenth; we have not re-checked that figure), and contracts awarded outside TED and PLACSP are not here, so a company missing ' +
+      'from this map may win many.'
+    : 'The winners named in TED result notices that our archive holds in the defence-relevant scope, published in the last three years.' + same +
+      ' TED holds only part of European defence spending (a 2025 ECIPE policy brief puts it at about a tenth; we have not re-checked that ' +
+      'figure), and contracts awarded outside it are not here, so a company missing from this map may win many.';
 }
 
 /** "Origen de los datos: …, last updated 20 Sep 2026." for a PLACSP note; empty without one. */

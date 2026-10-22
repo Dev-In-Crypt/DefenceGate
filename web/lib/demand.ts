@@ -23,7 +23,7 @@ export interface DemandCountry extends DemandCounts {
 /** WP-80: a company that wins these procurements, across the countries asked (WP-81: every legal entity, kMin is 1). */
 export interface ApproachWinner {
   name: string; country: string | null; contracts: number;
-  /** Its supplier page here; null when it wins only outside the supplier map's core scope (no page). */
+  /** Its supplier page here. Since WP-85 every winner has one (the map counts the same awards); null only in an answer from before. */
   slug: string | null;
   /** WP-81: the sum of its contracts' values per currency (`of` is `contracts`), collapsed under each winner. */
   values: ValueTotals;

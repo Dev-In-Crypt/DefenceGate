@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
+from datetime import date, timedelta
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from dgate import api, awards, config, db
+from dgate import api, award_set, awards, config, db
 from dgate import suppliers as suppliers_module
 from dgate.normalise import Opportunity
 from dgate.rawstore import build_store
@@ -218,6 +218,31 @@ def test_the_list_filters_and_pages_and_says_what_it_counts(conn, env, client, m
     assert client.get("/v1/suppliers", params={"cpv": ",".join(["35"] * 21)}).status_code == 422
 
 
+def test_the_cpv_filter_reads_every_code_of_a_notice_and_the_buyer_country_is_its_own_filter(conn, env, client):
+    # WP-85: as the demand answer, a CPV filter matches any code of the notice (an 8-digit code stands for its level:
+    # 34300000 is the group 343), and the buyer's country is a filter beside the supplier's
+    put_notice(conn, "90-2026", cpv=("35400000", "34330000"), country="ES", buyer="Jefatura de Apoyo Logistico")
+    put_notice(conn, "91-2026", cpv=("35400000",))
+    run(FakeTed([rec("90-2026", [("Nammo Raufoss AS", "NOR", "NO923456789")]),
+                 rec("91-2026", [("Nammo Raufoss AS", "NOR", "NO923456789"), ("Indra Sistemas, S.A.", "ESP", "ESA28599033")])]))
+
+    def names(**params) -> list[tuple[str, int]]:
+        return [(i["name"], i["awardCount"]) for i in client.get("/v1/suppliers", params=params).json()["items"]]
+
+    assert names(cpv="34300000") == names(cpv="343") == [("Nammo Raufoss AS", 1)]      # 34330000 is not the main code
+    assert names(cpv="34330000") == [("Nammo Raufoss AS", 1)]
+    assert names(buyerCountry="ES") == [("Nammo Raufoss AS", 1)]
+    assert names(buyerCountry="Germany") == [("Indra Sistemas, S.A.", 1), ("Nammo Raufoss AS", 1)]
+    assert names(country="ES") == [("Indra Sistemas, S.A.", 1)]                          # the supplier's country
+    assert names(country="ES", buyerCountry="ES") == []
+    assert client.get("/v1/suppliers", params={"buyerCountry": "Atlantis"}).status_code == 422
+    assert client.get("/v1/suppliers", params={"cpv": "3a"}).status_code == 422
+    s = client.get("/v1/suppliers/summary").json()
+    # the summary's groups read every code too: Nammo's win under 34 is in division 34, and in 35 as well
+    assert [(g["key"], g["suppliers"], g["awards"]) for g in s["byCpv"]] == [("35", 2, 3), ("34", 1, 1)]
+    assert s["awards"] == 3 and s["noticesWithSupplier"] == 2
+
+
 def test_a_profile_states_the_notices_and_shows_a_value_only_where_one_supplier_won(conn, env, client):
     run(scenario(conn))
     rh = client.get(f"/v1/suppliers/{_slug(client, 'landsysteme')}").json()
@@ -298,12 +323,28 @@ def test_a_notice_removed_on_request_leaves_the_profile(conn, env, client):
     assert [n["noticeId"] for n in prof["notices"]] == ["3-2026"] and prof["noticeCount"] == 1
 
 
-def test_a_notice_outside_the_core_scope_is_not_on_the_map(conn, env, client):
+def test_a_defence_scope_notice_outside_the_core_scope_is_on_the_map_and_a_civil_one_is_not(conn, env, client):
+    # WP-85 (owner decision of 22 October 2026): the map counts the demand answer's award set, the whole defence scope
+    # (`is_defence`), not only its core; a notice outside the defence scope stays off it
     run(scenario(conn))
     conn.execute("UPDATE opportunity SET sig_legal_basis = FALSE, sig_cpv_military = FALSE WHERE native_id = '4-2026'")
     conn.commit()
-    nammo = client.get(f"/v1/suppliers/{_slug(client, 'nammo')}").json()
-    assert nammo["noticeCount"] == 1
+    slug = _slug(client, "nammo")
+    assert client.get(f"/v1/suppliers/{slug}").json()["noticeCount"] == 2
+    conn.execute("UPDATE opportunity SET is_defence = FALSE WHERE native_id = '4-2026'")
+    conn.commit()
+    assert client.get(f"/v1/suppliers/{slug}").json()["noticeCount"] == 1
+
+
+def test_the_map_counts_the_last_three_years(conn, env, client):
+    # WP-85: the window is the demand answer's, three years back from today (`award_set.since`), not "from 2023"
+    run(scenario(conn))
+    old = award_set.since() - timedelta(days=1)
+    conn.execute("UPDATE opportunity SET published_at = %s WHERE native_id = '4-2026'", (old,))
+    conn.commit()
+    slug = _slug(client, "nammo")
+    assert client.get(f"/v1/suppliers/{slug}").json()["noticeCount"] == 1
+    assert client.get("/v1/suppliers/summary").json()["since"] == award_set.since().isoformat()
 
 
 def test_the_aggregate_publishes_every_group_of_legal_entities_however_small(conn, env, client):

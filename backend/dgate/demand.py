@@ -17,16 +17,18 @@ with a code under one of the chosen codes, matched by the code's own level: 3430
 - buyers, as buyer families (`dgate_buyer_head`), split into core defence buyers (on the curated defence-buyer
   list, or of class `defence`: ministries, armed forces, procurement agencies) and the other defence-scope
   buyers (police, security, other public bodies);
-- procurements with a published winner, and the winners: legal entities only (a winner the directory treats as
-  a natural person, or a winner string that is no supplier, is never counted or named), from TED result
-  notices, and from PLACSP's award results only while DGATE_PLACSP_AWARDS_PUBLIC is on (the supplier map's
-  switch, `suppliers.py`). WP-81 (owner decision of 22 October 2026): every legal-entity winner is named,
+- procurements with a published winner, and the winners: the rows of the award set (`award_set.py`, WP-85), the
+  one the supplier map counts: legal entities only (a winner the directory treats as a natural person, or a
+  winner string that is no supplier, is never counted or named), from TED result notices, and from PLACSP's award
+  results only while DGATE_PLACSP_AWARDS_PUBLIC is on; an award TED and PLACSP both publish once. So every winner
+  named has a supplier page, and `/v1/suppliers?cpv=<the codes>&buyerCountry=<the countries>` gives it the same
+  number of contracts. WP-81 (owner decision of 22 October 2026): every legal-entity winner is named,
   whatever its number of procurements (`K_MIN` is 1; the lists stop at `TOP_WINNERS` per country and `APPROACH`).
 
 Who to approach (WP-80, `approach`): the same winners across the countries asked, each named (WP-81: from one
 procurement; `below` is always empty now), most contracts first: how many, the buyers they win from most, the
 countries, the newest notice's publication date (PLACSP: the procurement's, the award date is not stored), a link to the supplier
-page where one exists, the EDF projects, the mark "prime contractor or large defence group" from the curated, sourced list
+page (every winner has one since WP-85), the EDF projects, the mark "prime contractor or large defence group" from the curated, sourced list
 `PRIMES`, and (WP-81, owner decision of 22 October 2026) the sum of the values of its contracts per currency, by the supplier
 profile's own rule (`suppliers.valued`, `suppliers.value_totals`: a value only from a notice naming this one winner, each
 contract once, never converted; how many state no value). An award TED and PLACSP both publish counts once
@@ -40,34 +42,33 @@ defence spending; the coverage line says so on every answer.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from . import award_set
+from .award_set import CPV_MATCH, KEY, NOTICES, prefix
 from .classify import DEFENCE_PROGRAMMES
 from .config import settings
 from .funding import get_conn, make_slug
 from .normalise import redact_emails
-from .suppliers import FROM as SUPPLIER_FROM
 from .suppliers import (
     K_MIN,
-    PLACSP_SOURCES,
     TED_NOTE,
     ValueTotals,
     placsp_note,
     value_of,
     value_totals,
 )
-from .suppliers import scope as supplier_scope
 from .tenders import _day, clean_buyer_name
 
 router = APIRouter()
 
 COUNTRIES = ("ES", "DE", "FR", "PL", "NL")
 MAX_CODES = 15
-YEARS = 3
+YEARS = award_set.YEARS
 TOP_BUYERS = 10
 TOP_WINNERS = 10
 LATEST = 5
@@ -141,13 +142,6 @@ NOTICE = ("Computed from the CPV codes and countries in the request; nothing was
           "not of money: the stated values of notices are budgets or framework ceilings as often as contract values.")
 
 
-def prefix(code: str) -> str:
-    """The leading part a code stands for, by its level in the CPV tree: the code without its trailing zeros,
-    never shorter than its division (34300000 -> 343, 44470000 -> 4447, 35000000 -> 35, 10000000 -> 10)."""
-    head = code.rstrip("0")
-    return head if len(head) >= 2 else code[:2]
-
-
 class DemandIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cpv: list[str] = Field(min_length=1, max_length=MAX_CODES)
@@ -169,22 +163,9 @@ class DemandIn(BaseModel):
         return [c for c in COUNTRIES if c in set(v)]
 
 
-# One procurement, however many notices publish it: the eForms procedure identifier (of the notice, or of the TED
-# notice a national notice was forwarded as), else the TED publication number, else the national number within
-# its country (the two Polish sources share it).
-KEY = """COALESCE('p:' || COALESCE(o.procedure_identifier, t.procedure_identifier),
-                  'ted:' || COALESCE(o.ted_ref, CASE WHEN o.source_id = (SELECT id FROM source WHERE code = 'ted')
-                                                     THEN o.native_id END),
-                  o.country || ':' || o.native_id)"""
-PLACSP_IDS = "(SELECT id FROM source WHERE code IN (" + ", ".join(f"'{c}'" for c in PLACSP_SOURCES) + "))"
-# The award rows the supplier map would serve, less its core-scope test (a defence body's commodity purchase under
-# the civil directive is demand too): legal entities, not removed, not superseded, not a placeholder string.
-AWARD_OK = ("NOT org.suppressed AND NOT raw_org.suppressed AND a.excluded_reason IS NULL AND a.superseded_at IS NULL "
-            "AND org.individual_reason IS NULL AND raw_org.individual_reason IS NULL")
-
-# The notices of an answer: defence scope, the countries and the window asked, a code under one of the prefixes (index 0099).
-MATCH = ("o.is_defence AND NOT o.suppressed AND o.country = ANY(%(countries)s) "
-         "AND COALESCE(o.published_at, o.notice_date) >= %(since)s AND dgate_cpv_heads(o.cpv_codes) && %(prefixes)s::text[]")
+# The notices of an answer: the award set's notices (`award_set.NOTICES`: defence scope, not removed, the window), in the
+# countries asked, with a code under one of the prefixes (`award_set.CPV_MATCH`, index 0099). KEY: `award_set.KEY`.
+MATCH = f"{NOTICES} AND o.country = ANY(%(countries)s) AND {CPV_MATCH}"
 # WP-80: at most this many matched notices per answer. Measured on production on 22 October 2026 (loaded server): 8,130 rows
 # (the vehicle-parts sample) 0.8-1.2 s, 22,921 rows 1.1-1.9 s, 40,843 rows 2.3-2.6 s, 116,562 (15 divisions) 5.6-6.0 s.
 MAX_ROWS = 30_000
@@ -196,12 +177,14 @@ class TooBroad(Exception):
     """The request matches more than MAX_ROWS notices: refused with 422, the codes not echoed."""
 
 
-QUERY = f"""
+def query() -> str:
+    """The one statement of an answer. Built per call: the award set's condition reads the PLACSP switch."""
+    return f"""
 WITH m AS MATERIALIZED (
     SELECT o.id, o.country, COALESCE(o.published_at, o.notice_date) AS day, o.sig_legal_basis AS lb,
            (o.sig_buyer OR o.buyer_class = 'defence') AS core,
            COALESCE(f.head_org_id, o.buyer_org_id) AS bk,                    -- dgate_buyer_head, as a join
-           o.buyer_withheld AS bw, o.buyer_name_raw, o.source_id IN {PLACSP_IDS} AS placsp,
+           o.buyer_withheld AS bw, o.buyer_name_raw,
            o.source_id = (SELECT id FROM source WHERE code = 'ted') AS is_ted,
            o.cpv_codes, hashtextextended({KEY}, 0) AS key
       FROM opportunity o
@@ -232,19 +215,17 @@ WITH m AS MATERIALIZED (
                      FROM (SELECT DISTINCT ON (key) id, country, day, key, lb FROM m
                             ORDER BY key, is_ted DESC, day DESC NULLS LAST, id DESC) x) y
      WHERE r <= {LATEST}
-), aw0 AS MATERIALIZED (
+), aw AS MATERIALIZED (
+    -- WP-85: the winners of these notices are the award set's rows (`award_set.scope`: legal entities, the PLACSP switch,
+    -- an award that TED and PLACSP both publish once), exactly as the supplier map counts them
     SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated, a.id AS award_id,
            a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn,
            org.canonical_name AS cn, org.is_defence_buyer AS db
       FROM m JOIN award a ON a.opportunity_id = m.id
+      JOIN opportunity o ON o.id = m.id
       JOIN organisation raw_org ON raw_org.id = a.organisation_id
       JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
-     WHERE {AWARD_OK} AND (%(placsp)s OR NOT m.placsp)
-), aw AS MATERIALIZED (
-    -- WP-80: an award that TED and PLACSP both publish counts once, under the row `award_twin_set` prefers, when that
-    -- row is in this answer too (two organisation rows of one company were two winners before)
-    SELECT * FROM aw0
-     WHERE award_id NOT IN (SELECT tw.award_id FROM award_twin_set tw JOIN aw0 p ON p.award_id = tw.preferred_id)
+     WHERE {award_set.scope()}
 ), ap AS (
     -- WP-80, who to approach: each winner across the countries asked (WP-81: K_MIN is 1, every legal entity)
     SELECT org, count(DISTINCT key) AS n, max(day) AS last, array_agg(DISTINCT country ORDER BY country) AS countries,
@@ -317,18 +298,6 @@ def _edf_projects(conn, orgs: list[int]) -> dict[int, int]:
     return {r["org"]: r["n"] for r in rows}
 
 
-def _with_page(conn, orgs: list[int]) -> set[int]:
-    """The organisations the supplier map serves a page for (`/v1/suppliers/{slug}`: an award in its scope, by the
-    organisation or one merged into it), so that a link never leads to "no such supplier"."""
-    if not orgs:
-        return set()
-    rows = conn.execute(
-        f"""SELECT DISTINCT org.id {SUPPLIER_FROM} WHERE {supplier_scope()} AND a.organisation_id IN (
-                SELECT id FROM organisation WHERE id = ANY(%(orgs)s) OR merged_into = ANY(%(orgs)s))""",
-        {"orgs": orgs}).fetchall()
-    return {r["id"] for r in rows}
-
-
 def _ranked(r: dict[str, Any]) -> list[dict[str, Any]]:
     """Every winner of the answer (`ap`), the most contracts first, each with its prime mark."""
     rows = sorted(r["ap"] or [], key=lambda w: (-w["n"], w["name"], w["org"]))
@@ -375,12 +344,12 @@ def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[s
                                        "placsp": settings().placsp_awards_public}).fetchall():
             sums.setdefault(v["org"], []).append(v)
     edf = _edf_projects(conn, sorted(shown))
-    pages = _with_page(conn, sorted(shown))
 
     def item(w: dict[str, Any]) -> dict[str, Any]:
         name = redact_emails(w["name"]).strip()
         return {"name": name, "country": w["org_country"], "contracts": w["n"],
-                "slug": make_slug(w["org"], name) if w["org"] in pages else None,
+                # WP-85: every winner has a supplier page; the map counts the same award set (`award_set`)
+                "slug": make_slug(w["org"], name),
                 "values": value_totals(sums.get(w["org"], []), w["n"]),
                 "buyers": buyers.get(w["org"], []), "countries": w["countries"],
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
@@ -410,7 +379,7 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
 
 def _answer(conn, codes: list[str], countries: list[str], today: date) -> tuple[dict[str, Any], date, bool]:
     """The one statement of an answer (after the too-broad check): its row, the window's start, the PLACSP switch."""
-    since = today - timedelta(days=round(365.25 * YEARS))
+    since = award_set.since(today)
     prefixes = list(dict.fromkeys(prefix(c) for c in codes))
     public = settings().placsp_awards_public
     # WP-80: the work grows with the notices matched (15 whole divisions: 116,562 rows, 4-6 s on production, against the
@@ -419,7 +388,7 @@ def _answer(conn, codes: list[str], countries: list[str], today: date) -> tuple[
                            {"countries": countries, "since": since, "prefixes": prefixes, "cap": MAX_ROWS + 1}).fetchone()["n"]
     if matched > MAX_ROWS:
         raise TooBroad()
-    r = conn.execute(QUERY, {"countries": countries, "since": since, "prefixes": prefixes, "placsp": public,
+    r = conn.execute(query(), {"countries": countries, "since": since, "prefixes": prefixes, "placsp": public,
                              "lengths": sorted({len(p) for p in prefixes})}).fetchone()
     return r, since, public
 

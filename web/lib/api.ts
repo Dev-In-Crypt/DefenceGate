@@ -373,6 +373,7 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
   if (f.country) p.set('country', f.country);
+  if (f.buyerCountry) p.set('buyerCountry', f.buyerCountry);
   if (f.cpv) p.set('cpv', f.cpv);
   if (f.sort && f.sort !== 'awards') p.set('sort', f.sort);
   if (f.page && f.page > 1) p.set('page', String(f.page));

@@ -15,7 +15,7 @@ from datetime import date, datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from dgate import api, awards, config, db, pipeline, suppliers, worker
+from dgate import api, award_set, awards, config, db, pipeline, suppliers, worker
 from dgate.normalise import Opportunity
 from dgate.rawstore import build_store
 from dgate.sources import placsp
@@ -215,7 +215,8 @@ def test_two_ted_result_notices_and_the_numbered_placsp_folder_are_one_award(con
     ted_result(conn, "500006-2026", published=date(2026, 9, 28))
     load_ted(conn, [rec("500005-2026", [TED_ALFA_NO_ID]), rec("500006-2026", [TED_ALFA_NO_ID])])
     with TestClient(api.app) as client:
-        assert client.get("/v1/suppliers").json()["items"][0]["awardCount"] == 2       # TED alone, as before
+        # TED alone: two result notices of one procedure are one procurement (WP-85, `award_set.KEY`, as the demand answer)
+        assert client.get("/v1/suppliers").json()["items"][0]["awardCount"] == 1
         load_placsp(conn, with_procedure(awarded(result("1", ALFA))))
         public(monkeypatch, True)
         got = everything(client)
@@ -356,30 +357,33 @@ def many_twins(conn) -> None:
 
 
 def old_summary_parts(conn) -> dict:
-    """The summary's head, groups and cells as the five statements before WP-75 computed them."""
-    f, s = suppliers.FROM, suppliers.scope()
+    """The summary's head, groups and cells as separate plain statements compute them (the five statements before
+    WP-75), under the WP-85 rule: the award set (`award_set`), a win is a supplier and a procurement, a row in every
+    CPV division its notice has a code in."""
+    f, s = award_set.FROM, award_set.scope()
+    p = {"since": award_set.since(), "k": suppliers.K_MIN}
+    rows = f"""(SELECT org.id AS org, {award_set.KEY_HASH} AS key, a.supplier_country AS country, d.division
+                  {f} LEFT JOIN LATERAL (SELECT DISTINCT left(c, 2) AS division FROM unnest(o.cpv_codes) c) d ON TRUE
+                 WHERE {s}) r"""
     head = conn.execute(
-        f"""SELECT count(DISTINCT a.opportunity_id) AS notices, count(DISTINCT org.id) AS suppliers,
-                   count(*) AS awards, min(o.published_at) AS first_p, max(o.published_at) AS last_p
-              {f} WHERE {s}""").fetchone()
+        f"""SELECT count(DISTINCT key) AS notices, count(DISTINCT org) AS suppliers, count(DISTINCT (org, key)) AS awards
+              FROM {rows}""", p).fetchone()
 
     def groups(expr: str) -> tuple[list, int]:
-        rows = conn.execute(f"""SELECT {expr} AS key, count(DISTINCT org.id) AS suppliers, count(*) AS awards
-                                  {f} WHERE {s} AND a.cpv_main IS NOT NULL GROUP BY 1 ORDER BY 3 DESC, 1""").fetchall()
-        kept = [r for r in rows if r["suppliers"] >= suppliers.K_MIN and r["key"]]
-        return kept, len(rows) - len(kept)
+        got = conn.execute(f"""SELECT {expr} AS key, count(DISTINCT org) AS suppliers, count(DISTINCT (org, key)) AS awards
+                                 FROM {rows} WHERE division IS NOT NULL GROUP BY 1 ORDER BY 3 DESC, 1""", p).fetchall()
+        kept = [r for r in got if r["suppliers"] >= suppliers.K_MIN and r["key"]]
+        return kept, len(got) - len(kept)
 
-    by_cpv, hidden_cpv = groups("left(a.cpv_main, 2)")
-    by_country, hidden_country = groups("a.supplier_country")
+    by_cpv, hidden_cpv = groups("division")
+    by_country, hidden_country = groups("country")
     cells = conn.execute(
-        f"""SELECT left(a.cpv_main, 2) AS division, a.supplier_country AS country,
-                   count(DISTINCT org.id) AS suppliers, count(*) AS awards
-              {f} WHERE {s} AND a.cpv_main IS NOT NULL
-             GROUP BY 1, 2 HAVING count(DISTINCT org.id) >= %s ORDER BY 3 DESC, 4 DESC, 1, 2 LIMIT 300""",
-        (suppliers.K_MIN,)).fetchall()
+        f"""SELECT division, country, count(DISTINCT org) AS suppliers, count(DISTINCT (org, key)) AS awards
+              FROM {rows} WHERE division IS NOT NULL
+             GROUP BY 1, 2 HAVING count(DISTINCT org) >= %(k)s ORDER BY 3 DESC, 4 DESC, 1, 2 LIMIT 300""", p).fetchall()
     total_cells = conn.execute(
-        f"""SELECT count(*) AS n FROM (SELECT 1 {f} WHERE {s} AND a.cpv_main IS NOT NULL
-             GROUP BY left(a.cpv_main, 2), a.supplier_country) t""").fetchone()["n"]
+        f"""SELECT count(*) AS n FROM (SELECT 1 FROM {rows} WHERE division IS NOT NULL
+             GROUP BY division, country) t""", p).fetchone()["n"]
     return {"noticesWithSupplier": head["notices"], "suppliers": head["suppliers"], "awards": head["awards"],
             "byCpv": [dict(r) for r in by_cpv], "byCountry": [dict(r) for r in by_country],
             "cells": [dict(r) for r in cells],
@@ -394,7 +398,7 @@ def test_the_stored_pairs_are_the_view_and_the_map_reads_the_same_from_either(co
     public(monkeypatch, True)
     with TestClient(api.app) as client:
         stored = everything(client)
-        monkeypatch.setattr(suppliers, "NOT_TWIN", suppliers.NOT_TWIN.replace("award_twin_set", "award_twin"))
+        monkeypatch.setattr(award_set, "NOT_TWIN", award_set.NOT_TWIN.replace("award_twin_set", "award_twin"))
         assert everything(client) == stored
     # Alfa, Beta, Gamma, Delta and the three German suppliers: one award each, every twin counted once
     assert stored["summary"]["awards"] == 7 and stored["summary"]["suppliers"] == 7
@@ -403,7 +407,9 @@ def test_the_stored_pairs_are_the_view_and_the_map_reads_the_same_from_either(co
 
 def test_the_summary_in_one_pass_says_what_the_five_statements_said(conn, env, monkeypatch):
     many_twins(conn)
-    conn.execute("UPDATE award SET cpv_main = NULL WHERE name_as_stated = 'Beta Werke GmbH'")   # a row without a CPV
+    # a row without a CPV (WP-85: the groups read the notice's codes)
+    conn.execute("""UPDATE opportunity SET cpv_codes = '{}' WHERE id IN (
+                        SELECT opportunity_id FROM award WHERE name_as_stated = 'Beta Werke GmbH')""")
     conn.commit()
     with TestClient(api.app) as client:
         for on in (False, True):

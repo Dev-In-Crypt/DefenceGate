@@ -958,6 +958,21 @@ Public, no account. The winners named in TED result notices of the **core scope*
 or organisation removed on request (`suppression`) is out of every answer; an organisation removed answers 410 on its
 own address. Feasibility and numbers: `docs/design/SUPPLIER_MAP_FEASIBILITY.md`.
 
+**WP-85 (owner decision of 22 October 2026, replaces the scope above and the counting rules below where they differ):** the
+map counts the award set of the supplier report's demand answer (`dgate/award_set.py`, used by `suppliers.py` and `demand.py`
+alike): award rows of **defence-scope** notices (`is_defence`, every signal, not only the core scope), not removed, published in
+the **last three years** (rolling, 1,096 days to today, by publication date, else notice date; `since` in the summary), legal
+entities only, TED and (with the switch on) PLACSP, a TED+PLACSP twin once. Every count is of **procurements** (the demand
+answer's procurement key: a procurement published in several notices, such as two TED result notices of one procedure, counts
+once), not of notices. `GET /v1/suppliers` takes `buyerCountry` (the buyer's country, i.e. the notice's; same forms as
+`country`, 422 for a value that is no country) beside `country` (the supplier's); `cpv` matches **any** CPV code of the notice
+under a prefix of 2 to 8 digits (an 8-digit code stands for its level, `34300000` = `343`, as in the demand answer; anything
+else answers 422). So `/v1/suppliers?cpv=<the codes>&buyerCountry=<the countries>` gives each winner of
+`POST /v1/readiness/demand` with those codes and countries its `approach.winners[].contracts`, and every such winner has a
+profile. The summary's `byCpv` and `cells` put a win in every division its notice has a code in (the divisions add up to more
+than `awards`); `awards` is the number of (supplier, procurement) pairs. The profile's `byYear` and `byCpv` put a procurement in
+the year and the main CPV division of its newest notice, so each adds up to `noticeCount` (the number of procurements).
+
 `GET /v1/suppliers?q=&country=&cpv=&sort=awards|name&page=&pageSize=` returns `{ items, total, page, pageSize }`;
 `country` is the supplier's country (comma-separated codes), `cpv` a prefix of the notice's main CPV (comma-separated),
 `q` words that begin a word of the normalised or the stated name. An item:
@@ -1214,7 +1229,8 @@ Scope: the defence-scope notices (`is_defence`, not removed). Answer:
   buyers, countries, lastAward, prime, edfProjects, defenceBuyer}`. `values` (WP-81): the supplier profile's `values` shape and
   rule over this answer's contracts (`of` = `contracts`; each procurement once, a TED+PLACSP twin once; never converted; never
   used to order the list, which stays most contracts first). `slug`
-  is the supplier page (`/v1/suppliers/{slug}`), null when the supplier map serves no page for the company; `buyers` the 3 buyer
+  is the supplier page (`/v1/suppliers/{slug}`; WP-85: always set, the map counts the same award set, so the page exists and its
+  list filtered by these codes and buyer countries gives the same `contracts`; null only before WP-85); `buyers` the 3 buyer
   families it wins from most (`{slug, name, country, contracts}`, a withheld buyer never named); `lastAward` the publication date of the newest
   of its notices (a TED result notice is published at the award; a PLACSP row carries the procurement's publication date, not the
   award date, which is not stored); `prime: {group, jointVenture, source, sourceUrl}` from the curated list `demand.PRIMES` (the European companies of

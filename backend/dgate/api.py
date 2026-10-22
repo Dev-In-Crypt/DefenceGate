@@ -1056,7 +1056,7 @@ from .network_api import router as _network_router  # noqa: E402
 app.include_router(_network_router)
 
 
-# The supplier map (suppliers.py, WP-37): winners of the TED result notices of the core scope.
+# The supplier map (suppliers.py, WP-37): the winners of the award set (award_set.py, WP-85), as the demand answer counts them.
 from .suppliers import router as _suppliers_router  # noqa: E402
 
 app.include_router(_suppliers_router)
