@@ -111,7 +111,8 @@ def test_a_link_that_is_not_http_is_refused():
 # ------------------------------------------------------------- merge candidates
 
 def _org(i, reg=None, vat=None, pic=None, notices=0, country="FR", suppressed=False, person=False):
-    return {"id": i, "country": country, "name": f"org {i}", "suppressed": suppressed,
+    # one name for all: since WP-76 a shared number needs a second agreeing signal (the name here)
+    return {"id": i, "country": country, "name": "acme naval", "suppressed": suppressed,
             "person": person, "reg": reg, "vat": vat, "pic": pic, "notices": notices}
 
 
@@ -121,11 +122,12 @@ def _pair(cid, a, b, conf=0.97):
 
 
 def test_an_identifier_pair_is_one_group_headed_by_the_row_with_most_notices():
-    orgs = {1: _org(1, reg="21440103600121", notices=2), 2: _org(2, notices=9), 3: _org(3)}
+    # a company's SIRET (one beginning 2 is a local authority's since WP-76)
+    orgs = {1: _org(1, reg="44440103600121", notices=2), 2: _org(2, notices=9), 3: _org(3)}
     groups, refused = plan([_pair(10, 1, 2), _pair(11, 1, 3)], orgs)
     assert refused == {}
     assert [(g["head"], g["members"]) for g in groups] == [(2, [1, 3])]
-    assert groups[0]["confidence"] == 0.97
+    assert groups[0]["confidence"] == 0.98          # the identifier (0.97) and the name (WP-76)
 
 
 def test_anything_that_contradicts_the_identifier_is_refused():
@@ -154,5 +156,5 @@ def test_a_body_acting_for_another_is_not_proved_one_by_the_agents_number():
     orgs[2]["name"] = "sua provincia di cosenza per conto del comune di rende"
     assert plan([_pair(1, 1, 2)], orgs)[1] == {"acting_for_another_body": 1}
     # no such words: accepted (a company: a commune is a public body, refused since WP-74)
-    orgs[2]["name"] = "chantiers navals de montoir"
+    orgs[1]["name"] = orgs[2]["name"] = "chantiers navals de montoir"
     assert plan([_pair(1, 1, 2)], orgs)[1] == {}

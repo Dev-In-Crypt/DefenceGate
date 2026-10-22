@@ -147,7 +147,94 @@ PUBLIC_NAME = re.compile("|".join((
     r"\brijks|\bstatens\b|staatsbetrieb|\bstaat\b|\bstato\b|\bestado\b|\betat\b|\brepublik|\brepublic",
     r"\bskarb panstwa\b|\burzad\b|\burad\b|\bstatni\b|\bdrzavn|\bдържавн|\bdirectoratul\b",
     r"\bprefecture\b|\bprefettura\b|\bservicio (?:andaluz|vasco|canario|navarro|madrileno)\b",
+    # WP-76: the words of the administrations that `buyer_class_of` does not class, per language
+    # (two Dutch government units were merged in the sample of WP-74: 'ubr his', 'ssc iuc dji')
+    r"\bgemeente|\bministerie\b|rijkswaterstaat|\bprovincie\b|waterschap|hoogheemraadschap|\bdienst\b",
+    r"\bzbo\b|uitvoeringsorganisatie|\binspectie\b|belastingdienst|\bvng\b|veiligheidsregio",
+    r"\bbehorde\b|\bamt\b|\bamter\b|\bstadt\b|landkreis|\bgemeinde\b|kreisverwaltung|zweckverband",
+    r"landeshauptstadt|bezirkshauptmannschaft|bezirksregierung|\bmagistrat|\bbund\b|bundes\w+",
+    r"\bministere\b|\bdirection\b|\bcommune\b|\bmairie\b|\bdepartement\b|\bconseil (?:departemental|regional"
+    r"|general|municipal|de (?:gouvernement|l europe))|\bregion (?:de|d|des|du)\b|\bcentre de gestion\b",
+    r"\brectorat\b|\bacademie (?:de|d)\b|office public|\bsdis\b|\bccas\b|\bsivu\b|\bsivom\b|\bsictom\b",
+    r"\bcomune\b|\bprovincia\b|\bregione\b|\bente\b|\bcentrale unica\b|\bcuc\b|camera di commercio",
+    r"\bquestura\b|\bautorita\b|\bconsorzio di bonifica\b|\baler\b|\bater\b|\biacp\b|case popolari",
+    r"\bayuntamiento\b|\bdiputacion\b|\bcabildo\b|\bconsell\b|\bconsejo (?:de gobierno|insular|comarcal)",
+    r"\bgeneralitat\b|\bxunta\b|\bconcello\b|\bmancomunidad\b|\balcaldia\b|\bpleno\b|\bmesa del\b",
+    r"\brectorado\b|\bcomarca\b|\bconcejo\b|\bcomunidad (?:autonoma|de madrid)",
+    r"\burzad\b|\bgmina\b|\bgminn|\bstarostwo\b|\bwojewodzk|\bwojewodztw|\bpowiat|\bkomenda\b",
+    r"jednostka wojskowa|\bmiasto\b|\bmiejsk|\bzarzad (?:drog|dzielnicy|zlewni|transportu|budynkow)",
+    r"\bsad (?:rejonowy|okregowy|apelacyjny)|\bprokuratur|\bnadlesnictwo\b|lasy panstwowe",
+    r"\b(?:generalna|regionalna) dyrekcja\b|\bosrodek pomocy\b|\binspektorat\b|\bsamorzad",
+    r"\bmesto\b|\bobec\b|\bkraj\b|\bkrajsk|\bministerstvo\b|\bsprava\b|\bobvodni\b|\bmestsk",
+    r"\bkommun\b|\bkommune\b|\bregion \w+|\blandsting|lansstyrelsen|\bkaupunki\b|\bkunta\b|kuntayhtyma",
+    r"hyvinvointialue|\bmaakunta|\bkeskus\b|\bministerio\b|ministeriet\b|fylkeskommune|\bdirektoratet\b",
+    r"\bville de\b|\bcpas\b|\bocmw\b|\bservice public\b|federale overheidsdienst|\bspf\b|\bfod\b",
+    r"vlaamse overheid|region wallonne|\bintercommunal|stadtgemeinde|marktgemeinde|\bmunicipio\b",
+    r"camara municipal|\bfreguesia\b|servicos municipalizados|direcao-geral|instituto publico",
+    r"\bprimaria\b|\bconsiliul\b|\bjudetul\b|\bmunicipiul\b|\borasul\b|\bcomuna\b|unitatea militara",
+    r"\binspectoratul\b|\bagentia\b|\badministratia\b|\bvald\b|\blinn\b|vallavalitsus|linnavalitsus",
+    r"\bamet\b|\bministeerium\b|\briigi\b|pasvaldib|\bnovada\b|\bdome\b|\bvalsts\b|\bministrija\b",
+    r"\bparvalde\b|savivaldyb|\badministracija\b|\bministerija\b|\btarnyba\b|\binspekcija\b|valstybes",
+    r"onkormanyzat|polgarmesteri|\bhivatal\b|\bmegyei\b|\bkozseg|kormanyhivatal|\ballami\b|igazgatosag",
+    r"\bopcina\b|\bopcine\b|\bgrad\b|zupanij|\bobcina\b|\buprava\b|\bagencija\b|\bministarstvo\b",
+    r"община|областна администрация|районн|столична|δημος|δημου|περιφερεια|αποκεντρωμενη|οργανισμος",
+    r"\bcouncil\b|\bborough\b|\bcounty\b|department of|office of public works|health service executive",
+    r"\bauthority\b|\bcommission\b|\binstitute\b|\binstitut\b|\binstituto\b|\bistituto\b|\binstytut\b",
+    # social security and health insurance: public-law bodies with regional funds or offices
+    # ('msa midi pyrenees' / '.. sud', 'arbeitsmarktservice' / '.. wien', the Bulgarian district funds)
+    r"\bcaf\b|\bcpam\b|\burssaf\b|\bcarsat\b|\bmsa\b|\bcnaf\b|caisse (?:primaire|d allocations|nationale"
+    r"|regionale|de mutualite|d assurance)|sozialversicherung|krankenkasse|\baok\b|unfallkasse",
+    r"berufsgenossenschaft|rentenversicherung|arbeitsmarktservice|bundesagentur|jobcenter|\binps\b",
+    r"\binail\b|\binami\b|\briziv\b|\bonem\b|seguridad social|\bmutua\b|здравноосигурителна",
+    r"здравна инспекция|раионн|областн",
 )))
+
+# Abbreviations that mean a public body in one country only (elsewhere they are words or companies)
+PUBLIC_NAME_BY_COUNTRY: dict[str, re.Pattern[str]] = {
+    # Dutch central government's own units: 'ubr' (Uitvoeringsorganisatie Bedrijfsvoering Rijk),
+    # 'dji' (Dienst Justitiele Inrichtingen), 'ssc' (shared service centre) ...
+    "NL": re.compile(
+        r"\b(?:ubr|dji|ssc|dtv|rvo|cjib|ind|rws|dico|logius|p-direkt|odc|rvb|rijk|rivm|nvwa|duo|uwv"
+        r"|svb|kadaster|knmi|coa|dictu|dosco|cbs|ilt|nza|afm|acm)\b"),
+    # 'a s p palermo - u o c approvvigionamenti': the provincial health authority and a unit of it;
+    # a central purchasing body ('centrale di committenza') buys for others under their number
+    "IT": re.compile(r"\ba ?s ?p\b|\bu ?o ?c\b|\bu ?o ?s ?d?\b|centrale di committenza|stazioni? (?:unica )?appaltant"),
+}
+
+# Identifiers that by their own shape belong to a public body (the stored form: upper case, no
+# separators; a VAT number may carry its country prefix). Each was read against the identifiers of
+# the pending pairs on production (22 October 2026, docs/verification/product/wp76-selfcheck.md).
+PUBLIC_ID: dict[str, re.Pattern[str]] = {
+    # SIREN / SIRET: 1 the State and its establishments, 2 local authorities; a VAT number is
+    # FR + 2 check characters + the SIREN
+    "FR": re.compile(r"^(?:FR)?(?:[0-9A-Z]{2}(?=\d{9}$))?[12]\d{8}(?:\d{5})?$"),
+    # NIF / CIF: P local corporations, Q public bodies, S organs of the State and the regions
+    "ES": re.compile(r"^(?:ES)?[PQS]\d{7}[0-9A-J]$"),
+    # codice fiscale of an administration (non-commercial body): 11 digits beginning 8 or 9
+    "IT": re.compile(r"^(?:IT)?[89]\d{10}$"),
+    # enterprise number 0200 .. 0399: public-law bodies (companies hold the former VAT range 04..09)
+    "BE": re.compile(r"^(?:BE)?0[23]\d{8}"),
+    # organisationsnummer 2xxxxx-xxxx: the State, regions, municipalities, parishes
+    "SE": re.compile(r"^(?:SE)?2\d{9}"),
+    # NIPC 6xxxxxxxx: public administration
+    "PT": re.compile(r"^(?:PT)?6\d{8}$"),
+    # registry code 70.. state agencies, 75.. local governments
+    "EE": re.compile(r"^(?:EE)?7[05]\d{6}$"),
+    # registration number 9000...: state and municipal institutions
+    "LV": re.compile(r"^(?:LV)?9000\d{7}$"),
+    # tax number 15......: budgetary bodies
+    "HU": re.compile(r"^(?:HU)?15\d{6}(?:\d{3})?$"),
+    # OIN of a government body: 00000001 + RSIN, 00000004 + a number Logius assigns
+    "NL": re.compile(r"^0000000[14]\d{12}$"),
+    # Leitweg-ID (the e-invoicing address of a public buyer; 99x.. the Federation), as the notices
+    # write it, with or without its label
+    "DE": re.compile(r"^(?:LEITWEG|BERICHTSEINHEIT|FACHAMTSNUMMER)|^99[1-9]\d{6,}$|^\d{2,12}[A-Z][0-9A-Z]*\d{2}$"),
+}
+
+
+def public_identifier(country: str | None, *identifiers: str | None) -> bool:
+    rx = PUBLIC_ID.get((country or "").upper())
+    return bool(rx and any(i and rx.search(i.upper()) for i in identifiers))
 
 # legal forms of public bodies (the `legal_form` column, or written into the name)
 PUBLIC_FORM = re.compile("|".join((
@@ -168,17 +255,31 @@ def is_sub_unit(name: str | None) -> bool:
     return bool(name and SUB_UNIT.search(name))
 
 
-def is_public_body(name: str | None, country: str | None = None, *, legal_form: str | None = None,
-                   org_role: str | None = None, defence_buyer: bool = False) -> bool:
-    """A public authority or a unit of one, by its flags, its legal form or its name.
-    ponytail: a vocabulary, not a register; a company whose name says 'pharma' or 'agency' is
-    held as public too, which only means it waits for a person instead of being merged."""
-    if defence_buyer or (org_role or "").lower() == "buyer":
-        return True
+def public_signal(name: str | None, country: str | None = None, *, legal_form: str | None = None,
+                  org_role: str | None = None, defence_buyer: bool = False, buys: bool = False,
+                  company_form: bool = False, identifiers: tuple[str | None, ...] = ()) -> str | None:
+    """Why a row is a public authority or a unit of one, or None: its flags, its buyer role (it
+    publishes notices, and no name of it states a company's legal form: a utility or an exhibition
+    centre that is an S.A. buys too), its legal form, an identifier of a public body, or its name.
+    ponytail: a vocabulary and identifier shapes, not a register; a company whose name says 'pharma'
+    or 'institute' is held as public too, which only means it waits for a person."""
+    if defence_buyer:
+        return "defence_buyer"
+    if (org_role or "").lower() == "buyer" or (buys and not company_form):
+        return "buyer_role"
     if legal_form and PUBLIC_FORM.search(legal_form.lower()):
-        return True
+        return "legal_form"
+    if public_identifier(country, *identifiers):
+        return "identifier"
     n = (name or "").strip()
     if not n:
-        return False
-    return bool(SUB_UNIT.search(n) or PUBLIC_NAME.search(n) or PUBLIC_FORM.search(n)
-                or buyer_class_of(n, country) in _PUBLIC_CLASSES)
+        return None
+    if (SUB_UNIT.search(n) or PUBLIC_NAME.search(n) or PUBLIC_FORM.search(n)
+            or ((rx := PUBLIC_NAME_BY_COUNTRY.get((country or "").upper())) and rx.search(n))
+            or buyer_class_of(n, country) in _PUBLIC_CLASSES):
+        return "name"
+    return None
+
+
+def is_public_body(name: str | None, country: str | None = None, **kw) -> bool:
+    return public_signal(name, country, **kw) is not None

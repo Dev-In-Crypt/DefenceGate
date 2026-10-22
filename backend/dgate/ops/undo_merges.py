@@ -27,6 +27,8 @@ merge itself left behind, and deletes nothing:
                    created in the window) become `undone`
 
 then the directory table is rebuilt. One transaction; a second run finds no batch and changes nothing.
+`ops.accept_merge_candidates --undo-batch FROM TO` runs the same logic for any window and for the
+two-signal methods of WP-76 (`identifier+name` ...), without an expected count.
 
     python -m dgate.ops.undo_merges                 # dry run: counts and 20 sampled notices
     python -m dgate.ops.undo_merges --yes
@@ -59,28 +61,30 @@ class BatchMismatch(RuntimeError):
     pass
 
 
-def batch(conn, start: str, end: str, method: str) -> list[dict[str, Any]]:
+def batch(conn, start: str, end: str, methods: tuple[str, ...]) -> list[dict[str, Any]]:
     return [dict(r) for r in conn.execute(
         """SELECT o.id, o.merged_into AS head, o.merged_at, o.identifier_method,
                   o.national_reg_no, o.is_defence_buyer
              FROM organisation o
-            WHERE o.merge_method = %s AND o.merged_at >= %s AND o.merged_at < %s
-            ORDER BY o.id""", (method, start, end)).fetchall()]
+            WHERE o.merge_method = ANY(%s) AND o.merged_at >= %s AND o.merged_at < %s
+            ORDER BY o.id""", (list(methods), start, end)).fetchall()]
 
 
-def _with_candidate(conn, rows: list[dict[str, Any]], start: str, end: str, method: str) -> int:
+def _with_candidate(conn, rows: list[dict[str, Any]], start: str, end: str,
+                    methods: tuple[str, ...]) -> int:
     """How many (member, head) pairs carry the `merged` candidate row the merge wrote or updated."""
     pairs = [(min(r["id"], r["head"]), max(r["id"], r["head"])) for r in rows]
     n = 0
     for i in range(0, len(pairs), 5000):
         part = pairs[i:i + 5000]
         n += conn.execute(
-            """SELECT count(*) AS n FROM organisation_merge_candidate c
+            """SELECT count(DISTINCT (c.organisation_id, c.candidate_org_id)) AS n
+                 FROM organisation_merge_candidate c
                  JOIN unnest(%s::bigint[], %s::bigint[]) AS p(a, b)
                    ON c.organisation_id = p.a AND c.candidate_org_id = p.b
-                WHERE c.match_method = %s AND c.status = 'merged'
+                WHERE c.match_method = ANY(%s) AND c.status = 'merged'
                   AND c.decided_at >= %s AND c.decided_at < %s""",
-            ([a for a, _ in part], [b for _, b in part], method, start, end)).fetchone()["n"]
+            ([a for a, _ in part], [b for _, b in part], list(methods), start, end)).fetchone()["n"]
     return n
 
 
@@ -95,7 +99,7 @@ def _seeded(conn) -> set[tuple[str, str]]:
     return out
 
 
-def plan(conn, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def plan(conn, rows: list[dict[str, Any]], methods: tuple[str, ...] = (METHOD,)) -> dict[str, Any]:
     members = {r["id"]: r for r in rows}
     head_of = {r["id"]: r["head"] for r in rows}
     heads = sorted(set(head_of.values()))
@@ -153,7 +157,7 @@ def plan(conn, rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     numbers = []                      # (head, donor, number)
     for h in hrows.values():
-        if not (h["national_reg_no"] and h["identifier_method"] == METHOD
+        if not (h["national_reg_no"] and h["identifier_method"] in methods
                 and h["identifier_confidence"] is not None
                 and float(h["identifier_confidence"]) >= MERGE_STAMP):
             continue
@@ -181,27 +185,28 @@ def sample_notices(conn, notices: list[tuple[int, int, int]], n: int = 20) -> li
     return [{"notice": o, "old": (h, names.get(h)), "new": (m, names.get(m))} for o, h, m in pick]
 
 
-def run(conn, *, apply: bool = False, start: str = START, end: str = END, method: str = METHOD,
+def run(conn, *, apply: bool = False, start: str = START, end: str = END,
+        methods: tuple[str, ...] = (METHOD,),
         expected: int | None = EXPECTED, detected_by: str = DETECTED_BY, sample: int = 20,
         refresh: bool = True, out=print) -> dict[str, Any]:
-    rows = batch(conn, start, end, method)
+    rows = batch(conn, start, end, methods)
     result: dict[str, Any] = {"rows": len(rows), "applied": False}
     if not rows:
         conn.rollback()
-        out(f"no rows merged by {method!r} between {start} and {end}: nothing to undo")
+        out(f"no rows merged by {list(methods)} between {start} and {end}: nothing to undo")
         return result
     if expected is not None and len(rows) != expected:
         raise BatchMismatch(f"{len(rows)} rows in the window, expected {expected}")
-    proved = _with_candidate(conn, rows, start, end, method)
+    proved = _with_candidate(conn, rows, start, end, methods)
     if proved != len(rows):
         raise BatchMismatch(f"{len(rows) - proved} rows of the window have no merged candidate pair")
-    p = plan(conn, rows)
+    p = plan(conn, rows, methods)
     cands = conn.execute(
         """SELECT count(*) FILTER (WHERE detected_by <> %s OR created_at < %s) AS to_pending,
                   count(*) FILTER (WHERE detected_by = %s AND created_at >= %s) AS to_undone
              FROM organisation_merge_candidate
-            WHERE match_method = %s AND status = 'merged' AND decided_at >= %s AND decided_at < %s""",
-        (detected_by, start, detected_by, start, method, start, end)).fetchone()
+            WHERE match_method = ANY(%s) AND status = 'merged' AND decided_at >= %s AND decided_at < %s""",
+        (detected_by, start, detected_by, start, list(methods), start, end)).fetchone()
     result.update({
         "heads": len(p["heads"]), "aliases": len(p["aliases"]), "notices": len(p["notices"]),
         "notices_kept_on_head": p["notices_kept"], "numbers_restored": len(p["numbers"]),
@@ -242,8 +247,8 @@ def run(conn, *, apply: bool = False, start: str = START, end: str = END, method
               SET status = CASE WHEN detected_by = %s AND created_at >= %s THEN 'undone'
                                 ELSE 'pending' END,
                   decided_at = CASE WHEN detected_by = %s AND created_at >= %s THEN now() END
-            WHERE match_method = %s AND status = 'merged' AND decided_at >= %s AND decided_at < %s""",
-        (detected_by, start, detected_by, start, method, start, end))
+            WHERE match_method = ANY(%s) AND status = 'merged' AND decided_at >= %s AND decided_at < %s""",
+        (detected_by, start, detected_by, start, list(methods), start, end))
     conn.commit()
     result["applied"] = True
     out(f"undone: {len(rows)} rows unmerged")

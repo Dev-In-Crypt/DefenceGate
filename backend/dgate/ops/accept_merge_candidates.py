@@ -25,17 +25,27 @@ A pair, and the group it joins by shared members, is refused when anything contr
     With `--yes` such pairs are marked `rejected_public_units` and `ops.buyer_families` shows each
     connected set as one buyer under the parent body's name (rule `shared_tax_id`). Companies that
     share a VAT number, a registration number or a PIC are still merged.
+    WP-76 widened the signals: the buyer role (the row publishes notices and no name of it states a
+    company's legal form), identifiers shaped like a public body's (`buyer_family.PUBLIC_ID`: a
+    French SIREN beginning 1 or 2, a Spanish NIF P/Q/S, an Italian codice fiscale 8/9, a Belgian
+    enterprise number 02/03, a Swedish 2..., a Dutch government OIN, a German Leitweg-ID ...) and the
+    vocabulary of every country held
+  * the two rows state different legal forms (`different_legal_form`)
+  * nothing but the number agrees (`no_second_signal`, WP-76): the names must be alike, or both
+    rows state the same legal form and one name begins or ends the other (`agreement`)
 
 The head of a group is the row with the most notices, then the one holding a PIC, then the
 oldest. Each other row is merged with `db.merge_organisations`, which stores the method
-(`identifier`) and the candidate's confidence on the absorbed row, re-points aliases and notices,
+(`identifier+name`, `identifier+legal_form` or `identifier+name+legal_form`: what agreed) and its
+confidence (0.98 or 0.99) on the absorbed row, re-points aliases and notices,
 and deletes nothing (the alias keeps `prev_organisation_id`). The group's candidate rows are marked
 `merged`. Public bodies split by office id (BAAINBw: 67 rows, each with its own Leitweg-ID) are NOT
 merged: different identifiers. The buyer list shows them as one buyer through the buyer families
 (`ops.buyer_families`, rule `baainbw`); the dry run reports how many such rows a family covers.
 
     python -m dgate.ops.accept_merge_candidates                  # dry run: counts and 30 sampled pairs
-    python -m dgate.ops.accept_merge_candidates --yes --limit 500
+    python -m dgate.ops.accept_merge_candidates --yes --limit 200 --sample 30   # one batch, then read it
+    python -m dgate.ops.accept_merge_candidates --undo-batch FROM TO [--yes]     # undo a batch's window
 """
 
 from __future__ import annotations
@@ -46,12 +56,14 @@ import logging
 import re
 import sys
 from collections import Counter, defaultdict
+from difflib import SequenceMatcher
 from typing import Any
 
 from .. import db, networks
 from ..buyer_family import is_public_body
 from ..config import settings
-from . import buyer_families
+from ..resolution.names import key_of, legal_form_of
+from . import buyer_families, undo_merges
 
 log = logging.getLogger("accept_merge_candidates")
 
@@ -59,6 +71,13 @@ DETECTED_BY = "ops.accept_merge_candidates"
 STRONG_METHODS = ("identifier",)
 MIN_CONFIDENCE = 0.97
 IDENTIFIERS = ("reg", "vat", "pic")
+# WP-76: the merge methods this script writes (the plain 'identifier' of WP-72 and the two-signal
+# ones); `--undo-batch` undoes any of them
+MERGE_METHODS = ("identifier", "identifier+name", "identifier+legal_form", "identifier+name+legal_form")
+# read on the production pairs of 22 October 2026: at 0.85 a typo, a hyphen, a dropped article or
+# an added abbreviation still agree ('xestion do solo de galicia' / '.. xestur'); two units of one
+# body whose names share only the body's abbreviation do not ('ssc iuc dji' / 'sic dji': 0.67)
+NAME_SIMILARITY = 0.85
 
 # A body that procures for another states its own number beside the other's name ("commune de
 # Villefontaine represented by SARA", "SUA Provincia di Cosenza per conto del Comune ..."): the number
@@ -66,9 +85,26 @@ IDENTIFIERS = ("reg", "vat", "pic")
 # 21 October 2026; such pairs wait for a person. Names are stored lower-case and unaccented.
 ACTING_FOR = re.compile(
     r"\b(?:per conto|pour (?:le )?compte|repres(?:ente|entee)? par|au nom d|on behalf|im auftrag"
-    r"|w imieniu|por cuenta|en (?:nombre|representacion) de|c/o|mandatair"
+    r"|w imieniu|por cuenta|en (?:nombre|representacion)\b|c/o|mandatair"
+    # WP-76, read on the accepted pairs of 22 October 2026: 'gse ggmbh vertreten durch die vea
+    # beratungs-gmbh', 'agb boortmeerbeek bijgestaan door belfius bank', '.. c o inventura' (the
+    # stored form of c/o), 'verdo varme a s pa vegne af ..', 'septalia maitrise d ouvrage deleguee
+    # pour vilogia', 'obb- holding sowie die mit ihr ..' (a holding and its affiliates), and names
+    # that list several bodies ('hlm des chalets et sccv le clos tolosan ..')
+    r"|vertr?eten durch|bijgestaan door|\bnamens\b|\bc o\b|pa vegne a[fv]|pa uppdrag av"
+    r"|ouvrage deleguee|\bagissant\b|sowie die mit ihr"
+    r"|\b(?:et|und|og|och|en|y|and) (?:sccv|sci|sarl|sas|sa|gmbh|ag|as|ab|bv|nv|sl)\b"
     # Dutch "p.a." (per adres: care of; "p a ku leuven", "p a csg"), not the "s p a" of an Italian name
     r"|(?<!\bs )p a\b)", re.IGNORECASE)
+# Norwegian and Danish "v/" or "ved" (by, care of) is stored as a lone "v": 'innkjopssamarbeidet i
+# nord-gudbrandsdalen v abakus', 'holmegaarden ved h skjode knudsen'. Not elsewhere: a Czech or
+# Slovak "v" is "in" ('nemocnice v praze').
+# The words that tell the companies of one group apart: 'provas - haderslev forsyning a s' (the
+# holding) and 'provas - haderslev forsyningsservice a s', 'verdo' and 'verdo holding',
+# 'medfacilities' and 'medfacilities betrieb'. A group often states one number for all of them;
+# when one name has such a word and the other not, the pair waits (`sister_company`).
+SISTER = re.compile(r"holding|service|betrieb|drift|beteiligung|verwaltung|management|immobilien|netz")
+ACTING_FOR_NORDIC = re.compile(r"\bv(?:ed)?\b(?= \w)")
 
 
 def pending_by_method(conn) -> list[dict[str, Any]]:
@@ -92,21 +128,102 @@ def strong_pairs(conn) -> list[dict[str, Any]]:
 
 
 def organisations(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
+    """The rows of `ids`, with what the rule reads: identifiers, flags, defence notices, whether
+    the row publishes notices at all (`buys`), and up to five raw names of its aliases (they keep
+    the legal form the stored name drops)."""
     out: dict[int, dict[str, Any]] = {}
     chunk = sorted(ids)
     for n in range(0, len(chunk), 5000):
         part = chunk[n:n + 5000]
         for r in conn.execute(
-                """SELECT g.id, g.country, g.canonical_name AS name, g.suppressed,
+                """SELECT g.id, g.country, g.canonical_name AS name, g.display_name, g.suppressed,
                           g.individual_reason IS NOT NULL AS person,
                           g.is_defence_buyer, g.org_role, g.legal_form,
                           NULLIF(btrim(g.national_reg_no), '') AS reg,
                           NULLIF(upper(regexp_replace(coalesce(g.vat_number, ''), '[^A-Za-z0-9]', '', 'g')), '') AS vat,
                           NULLIF(btrim(g.eu_pic), '') AS pic,
-                          (SELECT count(*) FROM opportunity o WHERE o.buyer_org_id = g.id AND o.is_defence) AS notices
+                          (SELECT count(*) FROM opportunity o WHERE o.buyer_org_id = g.id AND o.is_defence) AS notices,
+                          EXISTS (SELECT 1 FROM opportunity o WHERE o.buyer_org_id = g.id) AS buys,
+                          ARRAY(SELECT a.raw_name FROM organisation_alias a
+                                 WHERE a.organisation_id = g.id ORDER BY a.id LIMIT 5) AS raw_names
                      FROM organisation g WHERE g.id = ANY(%s)""", (part,)).fetchall():
             out[r["id"]] = dict(r)
     return out
+
+
+def legal_forms(o: dict[str, Any]) -> set[str]:
+    """The legal-form classes the row's names state (`resolution.names.legal_form_of`)."""
+    names = (o.get("legal_form"), o.get("name"), o.get("display_name"), *(o.get("raw_names") or ()))
+    return {f for f in map(legal_form_of, names) if f}
+
+
+def name_similarity(a: str | None, b: str | None) -> float:
+    """How alike two names are, 0..1: the ratio of `difflib` over the networks keys (legal forms,
+    hyphens and transliteration folded), so 'secom - drobeta turnu severin' and 'secom
+    drobeta-turnu severin' are 1.0."""
+    ka, kb = key_of(a or "")[0], key_of(b or "")[0]
+    if not ka or not kb:
+        return 0.0
+    return SequenceMatcher(None, ka, kb, autojunk=False).ratio()
+
+
+# legal-form words a key can still carry inside it (key_of strips them only at its ends)
+_FORM_WORDS = frozenset(
+    "sa sl slu sau ab as oy oyj bv nv ag kg gmbh mbh spa srl sro spol aktiebolag aps ltd plc sas sarl"
+    " doo ood eood ead ad".split())
+
+
+def _long_form(a: str | None, b: str | None) -> bool:
+    """One name is the other's long form: the longer key begins with the shorter and goes on with
+    two words or more that name nothing else ('enbw' / 'enbw energie baden-wurttemberg', 'ebn' / 'ebn
+    energie beheer nederland'), or it is the same name written twice. Read on the 275 such pairs
+    accepted on production (22 October 2026), these are NOT long forms and wait:
+      one more word        a sister company ('verdo' / 'verdo holding', 'bitmarck' / '.. service',
+                           'medfacilities' / '.. betrieb', 'femern' / 'femern landanlaeg')
+      the name repeated    a list of companies ('50hertz transmission 50hertz offshore 50hertz ..')
+      a legal form inside  a list of bodies ('sonderborg forsyningsservice a s nordals fjernvarme')
+      words in front       an agent or a parent ('holmegaarden ved ..', 'consejero delegado de ..',
+                           'energinet gas storage denmark')"""
+    ka, kb = sorted((key_of(a or "")[0], key_of(b or "")[0]), key=len)
+    if not ka:
+        return False
+    short = ka.split()
+    if kb == ka or kb == f"{ka} {ka}":
+        return True
+    if not kb.startswith(ka + " "):
+        return False
+    rest = kb[len(ka):].split()
+    while rest and rest[-1] in _FORM_WORDS:
+        rest.pop()
+    if not rest:
+        return True
+    if set(rest) & (set(short) | _FORM_WORDS):
+        return False
+    return len(rest) >= 2
+
+
+def agreement(a: dict[str, Any], b: dict[str, Any]) -> tuple[str, float] | None:
+    """What agrees with the shared identifier besides it: the merge method and its confidence, or
+    None (the pair then waits). A shared number alone is not enough (WP-76: 2 of 30 sampled
+    accepted pairs were two units of one Dutch government body):
+
+      name        the names are alike (`name_similarity` >= NAME_SIMILARITY)
+      legal_form  both rows state one and the same legal form, e.g. both B.V., and one name is
+                  the other's long form (`_long_form`). A shared word is not enough: two
+                  companies of one municipal group are both GmbH and both 'hamm'
+                  ('verkehrsbetrieb hamm' / 'energie- und wasserversorgung hamm')
+
+    Each agreeing signal adds 0.01 to the identifier's 0.97. The city or postcode would be a third
+    signal; no table holds either (organisation stores no address), so it is not used."""
+    signals = []
+    if name_similarity(a["name"], b["name"]) >= NAME_SIMILARITY:
+        signals.append("name")
+    fa, fb = legal_forms(a), legal_forms(b)
+    if fa and fa == fb and _long_form(a["name"], b["name"]):
+        signals.append("legal_form")
+    if not signals:
+        return None
+    return "+".join(("identifier", *signals)), round(MIN_CONFIDENCE + 0.01 * len(signals), 2)
 
 
 def _pair_refusal(a: dict[str, Any] | None, b: dict[str, Any] | None) -> str | None:
@@ -122,17 +239,31 @@ def _pair_refusal(a: dict[str, Any] | None, b: dict[str, Any] | None) -> str | N
         return "natural_person"
     if ACTING_FOR.search(a["name"] or "") or ACTING_FOR.search(b["name"] or ""):
         return "acting_for_another_body"
+    if a["country"] in ("NO", "DK") and (ACTING_FOR_NORDIC.search(a["name"] or "")
+                                         or ACTING_FOR_NORDIC.search(b["name"] or "")):
+        return "acting_for_another_body"
     for k in IDENTIFIERS:
         if a[k] and b[k] and a[k] != b[k]:
             return f"different_{k}"
     if _public(a) or _public(b):
         return "public_body"
+    fa, fb = legal_forms(a), legal_forms(b)
+    if fa and fb and not fa & fb:
+        # 'sci tertiaire mixte' / 'sas tertiaire mixte' under one SIRET: two forms are two bodies
+        # unless a person reads the register (WP-41)
+        return "different_legal_form"
+    if set(SISTER.findall(a["name"] or "")) != set(SISTER.findall(b["name"] or "")):
+        return "sister_company"
+    if agreement(a, b) is None:
+        return "no_second_signal"
     return None
 
 
 def _public(o: dict[str, Any]) -> bool:
     return is_public_body(o["name"], o["country"], legal_form=o.get("legal_form"),
-                          org_role=o.get("org_role"), defence_buyer=bool(o.get("is_defence_buyer")))
+                          org_role=o.get("org_role"), defence_buyer=bool(o.get("is_defence_buyer")),
+                          buys=bool(o.get("buys")), company_form=bool(legal_forms(o)),
+                          identifiers=(o.get("reg"), o.get("vat")))
 
 
 def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
@@ -153,6 +284,8 @@ def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
         if why:
             refused[why] += 1
             continue
+        p = {**p}
+        p["method"], p["merge_confidence"] = agreement(orgs[p["a"]], orgs[p["b"]])  # type: ignore[misc]
         kept.append(p)
         parent[find(p["a"])] = find(p["b"])
     by_root: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -169,7 +302,7 @@ def plan(pairs: list[dict[str, Any]], orgs: dict[int, dict[str, Any]]
         head = min(rows, key=lambda r: (-r["notices"], r["pic"] is None, r["id"]))
         groups.append({"head": head["id"], "members": [i for i in ids if i != head["id"]],
                        "candidates": cands,
-                       "confidence": float(min(p["confidence"] for p in cands))})
+                       "confidence": float(min(p["merge_confidence"] for p in cands))})
     groups.sort(key=lambda g: (-len(g["members"]), g["head"]))
     return groups, refused
 
@@ -206,6 +339,7 @@ def sample_pairs(groups: list[dict[str, Any]], orgs: dict[int, dict[str, Any]],
     for g, p in cands[:n]:
         a, b = orgs[p["a"]], orgs[p["b"]]
         out.append({"candidate": p["id"], "country": a["country"], "head": g["head"],
+                    "method": p.get("method"), "confidence": p.get("merge_confidence"),
                     "a": (a["id"], a["name"], a["reg"] or a["vat"] or a["pic"]),
                     "b": (b["id"], b["name"], b["reg"] or b["vat"] or b["pic"]),
                     "evidence": p["evidence"]})
@@ -232,8 +366,9 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
               if _pair_refusal(orgs.get(p["a"]), orgs.get(p["b"])) == "public_body"]
     result["families"] = buyer_families.run(
         conn, write=False, extra_pairs=[(p["a"], p["b"]) for p in public])
+    result["left_pending"] = sum(refused.values()) - len(public)
     out(f"public-body pairs (never merged, shown as buyer families): {len(public)}; buyer families "
-        f"once they are: {result['families']}")
+        f"once they are: {result['families']}; left pending for a person: {result['left_pending']}")
     result["public_sample"] = [
         {"candidate": p["id"], "a": (p["a"], orgs[p["a"]]["name"]), "b": (p["b"], orgs[p["b"]]["name"])}
         for p in sorted(public, key=lambda p: hashlib.sha1(str(p["id"]).encode()).hexdigest())[:sample]]
@@ -255,33 +390,66 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
             WHERE id = ANY(%s) AND status = 'pending'""", ([p["id"] for p in public],))
     conn.commit()
     result["rejected_public_units"] = len(public)
-    for g in groups[:limit]:
+    batch = groups[:limit]
+    started = conn.execute("SELECT now() AS t").fetchone()["t"]
+    conn.commit()
+    for g in batch:
         for member in g["members"]:
+            # the pair that joined this member: its method (which signals agreed) and confidence
+            p = next(p for p in g["candidates"] if member in (p["a"], p["b"]))
             db.merge_organisations(
-                conn, g["head"], member, method="identifier", confidence=g["confidence"],
-                evidence=next(p["evidence"] for p in g["candidates"] if member in (p["a"], p["b"])),
+                conn, g["head"], member, method=p["method"], confidence=p["merge_confidence"],
+                evidence=f"{p['evidence']}; agreeing: {p['method'].split('+', 1)[1]}",
                 detected_by=DETECTED_BY)
             result["merged"] += 1
         conn.execute(
             """UPDATE organisation_merge_candidate SET status = 'merged', decided_at = now()
                 WHERE id = ANY(%s) AND status = 'pending'""", ([p["id"] for p in g["candidates"]],))
         conn.commit()
+    ended = conn.execute("SELECT now() AS t").fetchone()["t"]
+    conn.commit()
+    result["batch_window"] = (started.isoformat(), ended.isoformat())
     result["families_written"] = buyer_families.run(conn, write=True)
     result["directory_rows"] = networks.refresh_organisation_network(conn)["organisations"]
-    out(f"merged {result['merged']} rows in {min(len(groups), limit or len(groups))} groups")
+    out(f"merged {result['merged']} rows in {len(batch)} groups; "
+        f"{len(groups) - len(batch)} accepted groups left for the next batch")
+    result["batch_sample"] = sample_pairs(batch, orgs, sample)
+    out(f"{len(result['batch_sample'])} sampled merged pairs of this batch (read them before the next):")
+    for s in result["batch_sample"]:
+        out(f"  #{s['candidate']} {s['country']} {s['method']} {s['confidence']} head {s['head']}: "
+            f"{s['a'][0]} {s['a'][1][:45]!r} ~ {s['b'][0]} {s['b'][1][:45]!r} [{s['a'][2] or s['b'][2]}]")
+    out(f"to undo this batch: python -m dgate.ops.accept_merge_candidates --undo-batch "
+        f"'{started.isoformat()}' '{ended.isoformat()}' [--yes]")
     return result
+
+
+def undo_batch(conn, start: str, end: str, *, apply: bool = False, out=print) -> dict[str, Any]:
+    """Undo every merge this script wrote between `start` and `end` (`ops.undo_merges`, WP-74's
+    logic, for any window and any of MERGE_METHODS; no expected count: the window is the batch)."""
+    return undo_merges.run(conn, apply=apply, start=start, end=end, methods=MERGE_METHODS,
+                           expected=None, out=out)
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--yes", action="store_true", help="merge; without it nothing changes")
-    p.add_argument("--limit", type=int, default=None, help="merge at most this many groups")
+    p.add_argument("--limit", type=int, default=None,
+                   help="merge at most this many groups (the largest first); run again for the next batch")
+    p.add_argument("--sample", type=int, default=30,
+                   help="how many pairs to print: accepted (dry run) or merged in this batch (--yes)")
     p.add_argument("--no-office-splits", action="store_true",
                    help="skip the report on same-name rows with different numbers (a full scan)")
+    p.add_argument("--undo-batch", nargs=2, metavar=("FROM", "TO"),
+                   help="undo the merges this script wrote in [FROM, TO) (timestamps with zone); "
+                        "dry run unless --yes")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     with db.connect(settings().dsn) as conn:
-        run(conn, apply=a.yes, limit=a.limit, with_office_splits=not a.no_office_splits)
+        if a.undo_batch:
+            undo_batch(conn, *a.undo_batch, apply=a.yes)
+        else:
+            run(conn, apply=a.yes, limit=a.limit, sample=a.sample,
+                with_office_splits=not a.no_office_splits)
     return 0
 
 
