@@ -161,6 +161,7 @@ def schema() -> dict[str, Any]:
 # ----------------------------------------------------------------- the document
 
 MAX_REDIRECTS = 4
+_DOWNLOAD_LINK = re.compile(r'href="(/document/download/[^"]+)"|fileUrl\s*=\s*\'(/File/download\.aspx\?[^\']+)\'')
 
 
 def _domain(host: str | None) -> str:
@@ -195,10 +196,11 @@ def _get_pdf(http: httpx.Client, url: str) -> bytes:
         raise ValueError(f"HTTP {r.status_code}")
     content = r.content
     if not content.startswith(b"%PDF") and "text/html" in r.headers.get("content-type", ""):
-        # The ECCC site serves a page whose download link is the file.
-        m = re.search(r'href="(/document/download/[^"]+)"', r.text)
+        # The ECCC site serves a page whose download link is the file; the Chips JU site a viewer
+        # page whose script holds the file's address (WP-78).
+        m = _DOWNLOAD_LINK.search(r.text)
         if m:
-            r2 = _get(http, urljoin(str(r.url), m.group(1)), _domain(r.url.host))
+            r2 = _get(http, urljoin(str(r.url), m.group(1) or m.group(2)), _domain(r.url.host))
             if r2.status_code == 200:
                 content = r2.content
     if len(content) > MAX_PDF_BYTES:
@@ -406,6 +408,10 @@ TOPIC_KEY_PREFIX = "call-text:"
 # shared by every call of the programme. Taken from the URLs the portal lists with the call.
 _GENERAL_ANNEXES = re.compile(r"/wp-\d+-general-annexes_[a-z]+-(\d{4})(?:-(\d{4}))?_en\.pdf", re.I)
 _EIC_PROGRAMME = re.compile(r"[/=]EIC-Work-Programme-(\d{4})\.pdf", re.I)
+# What stands for the call document, in this order: the portal's "Call document"; without one, the Chips JU
+# topic's "Guide for applicants", and without that its work programme appendix that has the topic (WP-78).
+CALL_DOCUMENT_LABELS = (re.compile(r"call document", re.I), re.compile(r"guide for applicants", re.I),
+                        re.compile(r"appendix\s+[\w.]+\s+of\b(?=.*\bchips\b).*\bwork\s*programme", re.I))
 
 # What a general or topic source is, said in the note of every fact read from it.
 SCOPE_NOTES = {
@@ -512,15 +518,20 @@ def sources_of(cond: dict[str, Any] | None, eligibility_text: str | None,
     source is keyed per topic: one document serves many topics and its rules differ between them."""
     docs = [d for d in (cond or {}).get("documents") or []
             if isinstance(d, dict) and isinstance(d.get("url"), str) and d["url"].startswith("https://")]
-    calls = [d for d in docs if str(d.get("label", "")).lower().startswith("call document")]
+    calls = next(([d for d in docs if p.match(str(d.get("label", "")))] for p in CALL_DOCUMENT_LABELS
+                  if any(p.match(str(d.get("label", ""))) for d in docs)), [])
     if calls:
         return [Source("call_document", document_key(d["url"], topic_code), str(d.get("label") or "Call document"),
                        document=d["url"], topic=topic_code) for d in calls]
     out: list[Source] = []
     general = _general_annex([d["url"] for d in docs])
-    if general:
-        label = "EIC work programme" if _EIC_PROGRAMME.search(general) else "General annexes of the work programme"
-        out.append(Source("general", general, label))
+    if general and _EIC_PROGRAMME.search(general):
+        # WP-78: the EIC work programme is the call text of every EIC scheme (Pathfinder, Accelerator,
+        # STEP): read once per topic, told which, like a call document; a row read before stays served.
+        out.append(Source("general", document_key(general, topic_code), "EIC work programme",
+                          document=general if topic_code else None, topic=topic_code))
+    elif general:
+        out.append(Source("general", general, "General annexes of the work programme"))
     text = topic_text(eligibility_text)
     if text:
         out.append(Source("topic", topic_key(text), "Conditions stated for this topic", text))
@@ -569,10 +580,12 @@ def extraction_units(conn) -> list[dict[str, Any]]:
             u = units.setdefault((src.scope, src.key), {
                 "url": src.document or src.key, "key": src.key, "scope": src.scope, "label": src.label,
                 "text": src.text, "topic": (src.topic, r["title"] or "") if src.topic else None,
-                "calls": 0, "open_calls": 0})
+                "calls": 0, "open_calls": 0, "forthcoming_calls": 0})
             u["calls"] += 1
             u["open_calls"] += 1 if r["status"] == "open" else 0
-    return sorted(units.values(), key=lambda u: (-u["open_calls"], -u["calls"], u["key"]))
+            u["forthcoming_calls"] += 1 if r["status"] == "forthcoming" else 0
+    # Open calls first, then forthcoming ones (WP-78: they were ranked with the closed calls).
+    return sorted(units.values(), key=lambda u: (-u["open_calls"], -u["forthcoming_calls"], -u["calls"], u["key"]))
 
 
 def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | None = None,
@@ -585,7 +598,7 @@ def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | N
     `document_key(url, code)`."""
     if scope not in SCOPES:
         raise ValueError(f"unknown scope {scope!r}")
-    code = topic[0] if topic and scope == "call_document" else None
+    code = topic[0] if topic and scope in ("call_document", "general") else None
     key = document_key(url, code)
     held = conn.execute("SELECT 1 FROM call_eligibility WHERE url = %s AND prompt_version = %s",
                         (key, PROMPT_VERSION)).fetchone()

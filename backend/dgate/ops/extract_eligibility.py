@@ -53,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
               f"cap {settings().llm_monthly_cap_usd:.2f}")
         for d in docs:
             if not a.yes:
-                print(f"  {d['open_calls']:2d} open / {d['calls']:2d} calls  {d['scope']:13s} {d['key']}")
+                print(f"  {d['open_calls']:2d} open / {d.get('forthcoming_calls', 0):2d} forthcoming / "
+                      f"{d['calls']:2d} calls  {d['scope']:13s} {d['key']}")
                 continue
             try:
                 print(eligibility.extract_one(conn, d["url"], force=a.force, scope=d["scope"], text=d["text"],
