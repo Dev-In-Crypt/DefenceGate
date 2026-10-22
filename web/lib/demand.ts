@@ -33,6 +33,19 @@ export function demandRequest(p: Profile): DemandRequest | null {
   return cpv.length ? { cpv, countries: [...DEMAND_COUNTRIES] } : null;
 }
 
+/**
+ * WP-68: the codes of the sample on /readiness/spain-automotive: the vehicle-parts profile of the WP-65/66 samples (the page prints their
+ * official titles). The page shows the API's live answer for them, or nothing.
+ */
+export const SAMPLE_CPV = ['34300000', '34100000', '35421000', '42600000', '44300000'] as const;
+
+/** Whether a body is a demand answer the page can show (a live read from the API, so it is checked before use). */
+export function isDemand(d: unknown): d is Demand {
+  const x = d as Demand | null;
+  return typeof x === 'object' && x !== null && typeof x.since === 'string' && typeof x.until === 'string' && typeof x.coverage === 'string'
+    && typeof x.total?.procurements === 'number' && Array.isArray(x.byCountry) && x.byCountry.every((c) => typeof c?.country === 'string' && typeof c.procurements === 'number');
+}
+
 /** "12 of 150 (8 %)"; a share of nothing is not a share. */
 export function directiveShare(c: Pick<DemandCounts, 'directive' | 'procurements'>): string {
   if (c.procurements === 0) return 'none';

@@ -35,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // An issue never changes once its week has ended: its last change is the end of the week.
     ...weeks.map((w) => ({ url: absoluteUrl(`/digest/${w.week}`), lastModified: new Date(w.weekTo) })),
     // The readiness check and the requirements catalogue (WP-29). /readiness/results and /readiness/roadmap are private to the visitor and noindex.
-    ...['/readiness', '/readiness/supplier', '/requirements'].map((p) => ({ url: absoluteUrl(p), lastModified })),
+    ...['/readiness', '/readiness/supplier', '/readiness/spain-automotive', '/requirements'].map((p) => ({ url: absoluteUrl(p), lastModified })),
     ...requirements.map((r) => ({ url: absoluteUrl(`/requirements/${requirementSlug(r.code)}`), lastModified: new Date(r.lastReviewed) })),
     ...calls.filter((c) => isCallSlug(c.slug)).map((c) => ({ url: absoluteUrl(`/funding/${c.slug}`), lastModified: new Date(c.updatedAt) })),
     ...tenders.filter((t) => isTenderSlug(t.slug)).map((t) => ({ url: absoluteUrl(`/tenders/${t.slug}`), lastModified: new Date(t.updatedAt) })),

@@ -29,6 +29,8 @@ export const PROFILE_VERSION = 3;
 const LEGACY_VERSIONS = [1, 2];
 
 export type Tri = 'yes' | 'no' | 'unsure' | '';
+/** An answer of a supplier-page question: yes / no / not sure, or one of the choices of a question with its own (`EsQuestion.options`). */
+export type Answer = Tri | 'part_i_a' | 'part_i_b' | 'neither';
 /** Where the executive management is: the answer starts empty (WP-53, T5), and an empty answer is unknown, never "same country". */
 export type Management = 'same' | 'other' | '';
 export type Control = 'no' | 'ua_eea_only' | 'other' | 'unsure' | '';
@@ -71,8 +73,12 @@ const CERT_KEYS = CERTIFICATES.map((c) => c.key);
  * the supplier page. `when`: asked (and sent) only when the answer it depends on is given; a hidden answer is kept but not sent. An answer
  * "I am not sure" is sent as unknown (left out), so the rule keeps its question.
  */
-export interface EsQuestion { field: string; label: string; kind?: 'enum'; when?: (p: Profile) => boolean }
-const ans = (p: Profile, field: string): Tri => p.supplier.answers[field] ?? '';
+export interface EsQuestion {
+  field: string; label: string; kind?: 'enum'; when?: (p: Profile) => boolean;
+  /** The choices, when they are not yes / no / not sure (sent as the value itself: `kind` is then 'enum'). */
+  options?: readonly { value: Exclude<Answer, ''>; label: string }[];
+}
+const ans = (p: Profile, field: string): Answer => p.supplier.answers[field] ?? '';
 export const ES_QUESTIONS: EsQuestion[] = [
   { field: 'pecal_certificate_wanted', label: 'Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?' },
   { field: 'pecal_system_9_months', label: 'Has your PECAL quality system been in place, and audited by your management, for at least nine months?', when: (p) => ans(p, 'pecal_certificate_wanted') === 'yes' },
@@ -96,6 +102,40 @@ export const ES_QUESTIONS: EsQuestion[] = [
 const ES_FIELDS = new Set(ES_QUESTIONS.map((q) => q.field));
 
 /**
+ * WP-68: the questions of the German rules (WP-64: DE-GHB-ADMISSION, DE-SIBE, DE-VSNFD, DE-EXPORT-BAFA), in the engine's words, asked of a
+ * company established in Germany: those rules apply only there (`country` is DE), so for a company elsewhere an answer would change nothing.
+ * The security questions follow a "yes" to classified access. The personnel security checks (Ü1 to Ü3, DE-SUE) are information that reads
+ * no answer of its own, so nothing is asked for them.
+ */
+export const DE_QUESTIONS: EsQuestion[] = [
+  { field: 'de_vs_vertraulich', label: 'Will material classified VS-VERTRAULICH or higher be handed to you for processing and storage?', when: (p) => p.classified === 'yes' },
+  { field: 'ghb_admitted', label: 'Is your company already under the BMWE Geheimschutzbetreuung (with a security notice)?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_vertraulich') === 'yes' },
+  { field: 'sibe_appointed', label: 'Have you appointed a security officer (Sicherheitsbevollmächtigter, SiBe)?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_vertraulich') === 'yes' },
+  { field: 'de_vs_nfd', label: 'Does the contract involve material classified VS-NUR FÜR DEN DIENSTGEBRAUCH (VS-NfD)?', when: (p) => p.classified === 'yes' },
+  { field: 'vsnfd_declaration_signed', label: 'Have you signed the commitment declaration (Verpflichtungserklärung) for VS-NfD?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_nfd') === 'yes' },
+  { field: 'vsnfd_merkblatt', label: 'Does your contract incorporate the VS-NfD-Merkblatt (GHB Anlage 4)?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_nfd') === 'yes' },
+  { field: 'de_ausfuhrliste', kind: 'enum', label: 'Is the item in the German export list (Ausfuhrliste) Part I Section A (arms) or Section B (national dual-use list)?',
+    when: (p) => p.exportIntent !== 'none',
+    options: [{ value: 'part_i_a', label: 'Yes, Part I Section A (arms)' }, { value: 'part_i_b', label: 'Yes, Part I Section B (national dual-use list)' },
+      { value: 'neither', label: 'Neither' }, { value: 'unsure', label: 'I am not sure' }] },
+];
+const DE_FIELDS = new Set(DE_QUESTIONS.map((q) => q.field));
+
+/**
+ * WP-68: the dual-use question of the EU rule EU-DUALUSE-EXPERT, asked of every company (the rule has no country condition). It is shown
+ * while the rule can apply: the product is not said to be outside every regime or on a military list, and the company exports, or may
+ * export, outside the EU. "I am not sure" is sent as such: the rule then says a classification is needed and flags a specialist.
+ */
+export const DUAL_USE_QUESTION: EsQuestion = {
+  field: 'dualuse_annex_i', kind: 'enum', label: 'Is your item listed in Annex I of Regulation (EU) 2021/821 (dual-use items)?',
+  when: (p) => !['none', 'military'].includes(p.regime) && !['none', 'within_eu'].includes(p.exportIntent),
+};
+const QUESTIONS = [...ES_QUESTIONS, ...DE_QUESTIONS, DUAL_USE_QUESTION];
+const TRI_WORDS: Record<string, string> = { yes: 'Yes', no: 'No', unsure: 'Not sure', '': 'Not answered' };
+/** An answer in words: the question's own choice, or yes / no / not sure (the report prints it). */
+export const answerLabel = (q: EsQuestion, v: Answer): string => q.options?.find((o) => o.value === v)?.label ?? TRI_WORDS[v] ?? v;
+
+/**
  * WP-73: the security clearances of the Spanish route, asked on the supplier page of a Spanish company that needs classified work (the HSES
  * only when classified information is stored on its premises). The answer is the requirement's status: yes is held, no is not held, and
  * "I am not sure" or no answer leaves it unknown, so the rule asks instead of reading "Not met". The answer itself is kept in `answers`.
@@ -107,6 +147,18 @@ export const ES_CLEARANCES: StatusQuestion[] = [
     when: (p) => p.classified === 'yes' && ans(p, 'stores_classified') === 'yes' },
 ];
 const CLEARANCE_CODES = new Set(ES_CLEARANCES.map((q) => q.code));
+
+/**
+ * WP-68: the export authorisation, asked on the supplier page once the item is, or may be, on the EU dual-use list or in Part I of the German
+ * export list: the two export rules read it (EU-DUALUSE-EXPERT, DE-EXPORT-BAFA). It is the wizard's step 4 answer (`REQ-EXPORT`), answered as
+ * the clearances are (`withClearance`): "I am not sure" leaves it unknown.
+ */
+export const EXPORT_HOLDING: StatusQuestion = {
+  code: 'REQ-EXPORT', label: 'Do you hold an export authorisation for this item (dual-use or military)?',
+  when: (p) => (DUAL_USE_QUESTION.when!(p) && ['yes', 'unsure'].includes(ans(p, DUAL_USE_QUESTION.field)))
+    || (p.country === 'DE' && p.exportIntent !== 'none' && ['part_i_a', 'part_i_b', 'unsure'].includes(ans(p, 'de_ausfuhrliste'))),
+};
+const STATUS_ANSWER_CODES = new Set([...CLEARANCE_CODES, EXPORT_HOLDING.code]);
 
 /** The answer shown for a clearance question: what the status says (the wizard's step 4 may have changed it), else "not sure" if that was the answer. */
 export function clearanceAnswer(p: Profile, code: string): Tri {
@@ -148,8 +200,8 @@ export interface Supplier {
   expiry: Record<string, string>;
   /** Components, technology or software of US origin in the product: the engine's `us_components`. */
   usComponents: Tri;
-  /** The answers to `ES_QUESTIONS`, by engine field. */
-  answers: Record<string, Tri>;
+  /** The answers to `ES_QUESTIONS`, `DE_QUESTIONS`, `DUAL_USE_QUESTION` and the clearance questions, by engine field (or requirement code). */
+  answers: Record<string, Answer>;
 }
 
 export function emptySupplier(): Supplier {
@@ -315,8 +367,13 @@ function parseSupplier(raw: unknown): Supplier {
   const r = record(raw);
   const expiry: Record<string, string> = {};
   for (const [k, v] of Object.entries(record(r.expiry))) if (CERT_KEYS.includes(k) && typeof v === 'string' && MONTH.test(v)) expiry[k] = v;
-  const answers: Record<string, Tri> = {};
-  for (const [k, v] of Object.entries(record(r.answers))) { const t = triOf(v); if ((ES_FIELDS.has(k) || CLEARANCE_CODES.has(k)) && t) answers[k] = t; }
+  const answers: Record<string, Answer> = {};
+  for (const [k, v] of Object.entries(record(r.answers))) {
+    const q = QUESTIONS.find((x) => x.field === k);
+    // a question with choices of its own takes only those; every other one yes / no / not sure
+    const t: Answer = q?.options ? oneOf(v, q.options.map((o) => o.value), '') : triOf(v);
+    if ((q || STATUS_ANSWER_CODES.has(k)) && t) answers[k] = t;
+  }
   return {
     region: text(r.region, 60),
     foreignOwner: triOf(r.foreignOwner),
@@ -472,7 +529,7 @@ export function toRequest(p: Profile): AssessRequest | null {
 /** The answers of the supplier page the rules read, only those given (an absent field is unknown to the API, and keeps the body small). */
 export function supplierFields(p: Profile): Record<string, boolean | string> {
   const out: Record<string, boolean | string> = {};
-  const put = (field: string, v: Tri, kind?: 'enum') => {
+  const put = (field: string, v: Answer, kind?: 'enum') => {
     if (kind === 'enum' ? v !== '' : v === 'yes' || v === 'no') out[field] = kind === 'enum' ? v : v === 'yes';
   };
   put('foreign_capital', p.supplier.foreignOwner);
@@ -480,6 +537,10 @@ export function supplierFields(p: Profile): Record<string, boolean | string> {
   if (p.country === 'ES') {
     for (const q of ES_QUESTIONS) if (!q.when || q.when(p)) put(q.field, ans(p, q.field), q.kind);
   } else if (isEu(p.country)) put(EU_QUESTION, ans(p, EU_QUESTION));
+  // WP-68: the German rules apply only to a company established in Germany; the dual-use rule to any company
+  const ask = (q: EsQuestion) => { if (!q.when || q.when(p)) put(q.field, ans(p, q.field), q.kind); };
+  if (p.country === 'DE') DE_QUESTIONS.forEach(ask);
+  ask(DUAL_USE_QUESTION);
   return out;
 }
 
@@ -531,7 +592,7 @@ const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'execu
   'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent']);
 
 /** The fields and requirements the supplier page asks (WP-65); the results link such a question to that page. */
-const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...CLEARANCE_CODES,
+const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...DE_FIELDS, DUAL_USE_QUESTION.field, ...CLEARANCE_CODES,
   ...[...CERTIFICATES, ...REGISTRATIONS].flatMap((c) => (c.code ? [c.code] : []))]);
 
 /**
@@ -543,6 +604,9 @@ export function askedAt(field: string): string | null {
   if (WIZARD_FIELDS.has(f)) return `/readiness?step=${stepOfField(f)}`;
   // a follow-up question is shown only after the answer it depends on: its link goes to the Spanish questions, where that answer is asked
   if (ES_QUESTIONS.some((q) => q.field === f && q.when)) return '/readiness/supplier#sp-spain';
+  // WP-68: each shown only while the answers it depends on allow: the link goes to its block, which says what makes it appear
+  if (f === DUAL_USE_QUESTION.field || f === 'de_ausfuhrliste') return '/readiness/supplier#sp-export';
+  if (DE_FIELDS.has(f)) return '/readiness/supplier#sp-germany';
   if (SUPPLIER_ASKS.has(f)) return `/readiness/supplier#q-${f}`;
   if (STATUS_ITEMS.some((i) => i.code === f && !i.roadmapOnly)) return '/readiness?step=4';
   return null;

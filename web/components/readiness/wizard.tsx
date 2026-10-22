@@ -39,6 +39,11 @@ export function Radios<T extends string>({ legend, hint, name, value, options, o
   );
 }
 
+/** Step 5's export question; the supplier page asks the same answer (WP-68). */
+export const EXPORT_OPTIONS = [
+  { value: 'none', label: 'No' }, { value: 'within_eu', label: 'Yes, to other EU countries' },
+  { value: 'outside_eu', label: 'Yes, outside the EU' }, { value: 'unsure', label: 'Not sure yet' },
+] as const;
 export const YES_NO_UNSURE = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'I am not sure' }] as const;
 
 export function Wizard({ requirements }: { requirements: WizardRequirement[] }) {
@@ -278,13 +283,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
             <Radios legend="Will you handle classified information in a contract?" name="classified" value={profile.classified}
               options={[...YES_NO_UNSURE]} onChange={(v) => set('classified', v)} />
             <Radios legend="Do you export, or plan to export, your product?" name="export" value={profile.exportIntent}
-              options={[
-                { value: 'none', label: 'No' },
-                { value: 'within_eu', label: 'Yes, to other EU countries' },
-                { value: 'outside_eu', label: 'Yes, outside the EU' },
-                { value: 'unsure', label: 'Not sure yet' },
-              ]}
-              onChange={(v) => set('exportIntent', v)} />
+              options={[...EXPORT_OPTIONS]} onChange={(v) => set('exportIntent', v)} />
           </div>
         )}
 

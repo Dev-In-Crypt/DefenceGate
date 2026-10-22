@@ -134,7 +134,8 @@ for (const q of ES_QUESTIONS) {
 for (const f of ['foreign_capital', 'us_components', 'REQ-RID', 'REQ-PECAL', 'nato_icb_bid', 'profile.certified_recipient']) assert.ok(supplierAsks(f), f);
 // WP-73: the HSEM and HSES are asked there now (REQ-FSC-ES, REQ-HSES-ES); the PIC is not (the wizard's step 4)
 for (const f of ['REQ-FSC-ES', 'REQ-HSES-ES']) assert.ok(supplierAsks(f), f);
-for (const f of ['de_vs_nfd', 'dualuse_annex_i', 'REQ-PIC', 'legal_form']) assert.ok(!supplierAsks(f), f);
+// WP-68: the German and dual-use questions are asked there now (wp68.check.ts); the PIC and the legal form still are not
+for (const f of ['REQ-PIC', 'legal_form']) assert.ok(!supplierAsks(f), f);
 assert.ok(wizardAsks('handles_classified') && supplierAsks('REQ-NCAGE'), 'a field both ask is linked to the wizard first (rules.tsx)');
 
 // ------------------------------------------------------------- CPV search: code prefix, curated words, whole words of the titles

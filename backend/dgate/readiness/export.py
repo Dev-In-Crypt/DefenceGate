@@ -97,6 +97,16 @@ SUPPLIER_PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     "es-sup-partial": ({**_SUPPLIER_BASE, "third_country_control": "no", "handles_classified": False, "foreign_capital": False},
                        {**_ES_STATUSES, "REQ-ISO9001": "held"}),
 }
+# WP-68: a German supplier that filled in only the supplier page, with classified work (VS-VERTRAULICH and VS-NfD) and an export
+# outside the EU of an item it is not sure about: the German questions and the dual-use question answered, the export authorisation
+# answered "no". tests/unit/test_wp68_questions.py states what each German and dual-use rule says with and without these answers.
+SUPPLIER_PROFILES["de-sup"] = (
+    {**_SUPPLIER_BASE, "country": "DE", "third_country_control": "no", "handles_classified": True, "export_intent": "outside_eu",
+     "foreign_capital": False, "us_components": False, "receives_eea_defence_products": False,
+     "de_vs_vertraulich": True, "ghb_admitted": False, "sibe_appointed": True, "de_vs_nfd": True, "vsnfd_declaration_signed": True,
+     "vsnfd_merkblatt": False, "de_ausfuhrliste": "unsure", "dualuse_annex_i": "unsure"},
+    {**{code: "not_held" if code in _PAGE_ASKS else "unknown" for code in STATUS_CODES}, "REQ-ISO9001": "held", "REQ-EXPORT": "not_held"},
+)
 PROFILES.update(SUPPLIER_PROFILES)
 
 

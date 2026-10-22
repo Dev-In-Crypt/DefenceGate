@@ -42,6 +42,9 @@ export default async function ReadinessPage() {
         <Link href="/readiness/supplier" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
           I make parts or materials and want to supply defence buyers<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
         </Link>
+        <Link href="/readiness/spain-automotive" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
+          A civilian manufacturer in Spain, such as an automotive supplier: what the check gives you<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
+        </Link>
       </nav>
 
       <Wizard requirements={requirements} />

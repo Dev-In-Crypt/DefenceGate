@@ -89,7 +89,9 @@ assert.equal(askedAt('REQ-RID'), '/readiness/supplier#q-REQ-RID');
 assert.equal(askedAt('REQ-FSC-ES'), '/readiness/supplier#q-REQ-FSC-ES');
 assert.equal(askedAt('REQ-HSES-ES'), '/readiness/supplier#q-REQ-HSES-ES');
 assert.equal(askedAt('REQ-PIC'), '/readiness?step=4');
-assert.equal(askedAt('de_vs_nfd'), null);
+// WP-68: the German questions are asked on the supplier page now; a field no page asks still has no link
+assert.equal(askedAt('de_vs_nfd'), '/readiness/supplier#sp-germany');
+assert.equal(askedAt('pecal_unknown_field'), null);
 // the RID rule no longer says the questionnaire does not ask
 const seed = readFileSync('../backend/seeds/requirements.json', 'utf8');
 assert.ok(!seed.includes('does not ask yet whether you hold a current RID'), 'the stale RID sentence is gone');

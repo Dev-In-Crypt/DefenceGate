@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { cpvDictionaryTitle } from '@/lib/cpv';
 import { now } from '@/lib/deadline';
 import { formatStamp } from '@/lib/account-format';
-import { CERTIFICATES, ES_QUESTIONS, PROCESSES, REGISTRATIONS, holds, type Profile, type Tri } from '@/lib/profile';
+import { CERTIFICATES, DE_QUESTIONS, DUAL_USE_QUESTION, ES_QUESTIONS, PROCESSES, REGISTRATIONS, answerLabel, holds, type Profile, type Tri } from '@/lib/profile';
 import { VERDICT_WORD, isoDay, publicPassage, publicRef, verdictMeaning } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 import { RAG_WORD, supplierRoadmap, type Rag, type RoadmapItem } from '@/lib/supplier-roadmap';
@@ -19,7 +19,7 @@ import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { ConsultantNote, VerdictBadge } from './rules';
 import { NoProfile } from './results';
 import { ES_REGIONS } from './supplier';
-import { SIZE_OPTIONS } from './wizard';
+import { EXPORT_OPTIONS, SIZE_OPTIONS } from './wizard';
 import { useAssessment, useCpvVocabulary, useProfile } from './use-readiness';
 import { DemandMap } from './demand';
 
@@ -78,7 +78,7 @@ function ProfileRows({ p }: { p: Profile }) {
   const s = p.supplier;
   const region = ES_REGIONS.find((r) => r.value === s.region)?.label ?? s.region;
   const held = [...CERTIFICATES, ...REGISTRATIONS].filter((h) => (!h.esOnly || p.country === 'ES') && holds(p, h));
-  const answered = ES_QUESTIONS.filter((q) => p.country === 'ES' && s.answers[q.field]);
+  const answered = [...(p.country === 'ES' ? ES_QUESTIONS : []), ...(p.country === 'DE' ? DE_QUESTIONS : []), DUAL_USE_QUESTION].filter((q) => s.answers[q.field]);
   return (
     <dl className="m-0 flex flex-col">
       {p.name && <Row label="Company">{p.name}</Row>}
@@ -101,7 +101,8 @@ function ProfileRows({ p }: { p: Profile }) {
       </Row>
       <Row label="US-origin components">{TRI[s.usComponents]}</Row>
       <Row label="Access to classified information">{TRI[p.classified]}</Row>
-      {answered.map((q) => <Row key={q.field} label={q.label}>{TRI[s.answers[q.field]]}</Row>)}
+      <Row label="Exports">{EXPORT_OPTIONS.find((o) => o.value === p.exportIntent)?.label ?? 'Not answered'}</Row>
+      {answered.map((q) => <Row key={q.field} label={q.label}>{answerLabel(q, s.answers[q.field])}</Row>)}
     </dl>
   );
 }
