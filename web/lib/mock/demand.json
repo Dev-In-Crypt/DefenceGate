@@ -1,0 +1,1024 @@
+{
+ "since": "2023-10-22",
+ "until": "2026-10-22",
+ "kMin": 3,
+ "countries": [
+  "ES",
+  "DE",
+  "FR",
+  "PL",
+  "NL"
+ ],
+ "codes": [
+  {
+   "code": "34300000",
+   "prefix": "343",
+   "procurements": 1725
+  },
+  {
+   "code": "34100000",
+   "prefix": "341",
+   "procurements": 1308
+  },
+  {
+   "code": "35421000",
+   "prefix": "35421",
+   "procurements": 110
+  },
+  {
+   "code": "42600000",
+   "prefix": "426",
+   "procurements": 474
+  },
+  {
+   "code": "44300000",
+   "prefix": "443",
+   "procurements": 836
+  }
+ ],
+ "total": {
+  "procurements": 4311,
+  "directive": 178,
+  "coreBuyers": 160,
+  "otherBuyers": 183,
+  "awarded": 104,
+  "winners": 104
+ },
+ "byCountry": [
+  {
+   "country": "ES",
+   "procurements": 1515,
+   "directive": 33,
+   "coreBuyers": 46,
+   "otherBuyers": 33,
+   "topBuyers": [
+    {
+     "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
+     "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+     "core": true,
+     "procurements": 259
+    },
+    {
+     "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
+     "name": "Jefatura de Intendencia de Asuntos Económicos Este",
+     "core": true,
+     "procurements": 199
+    },
+    {
+     "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
+     "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+     "core": true,
+     "procurements": 95
+    },
+    {
+     "slug": "2080-intendente-de-ferrol",
+     "name": "Intendente de Ferrol",
+     "core": true,
+     "procurements": 60
+    },
+    {
+     "slug": "1929-intendente-de-san-fernando",
+     "name": "Intendente de San Fernando",
+     "core": true,
+     "procurements": 58
+    },
+    {
+     "slug": "2372-intendente-de-cartagena",
+     "name": "Intendente de Cartagena",
+     "core": true,
+     "procurements": 56
+    },
+    {
+     "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
+     "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
+     "core": true,
+     "procurements": 52
+    },
+    {
+     "slug": "2559-intendente-de-las-palmas",
+     "name": "Intendente de las Palmas",
+     "core": true,
+     "procurements": 50
+    },
+    {
+     "slug": "213-direccion-de-gestion-economica-de-la-jefatura-de-apoyo-logis",
+     "name": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
+     "core": true,
+     "procurements": 45
+    },
+    {
+     "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
+     "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
+     "core": true,
+     "procurements": 45
+    }
+   ],
+   "awarded": 23,
+   "winners": 24,
+   "topWinners": [
+    {
+     "name": "MADZEAL, S.L.",
+     "country": "ES",
+     "awards": 3,
+     "notices": [
+      {
+       "id": "135755",
+       "slug": "135755-spain-mechanical-spare-parts-for-military-vehicles-acuerdo-m",
+       "noticeId": "401420-2026",
+       "title": "Spain – Mechanical spare parts for military vehicles – ACUERDO MARCO - Suministro abierto de repuestos para sostenimiento de vehículos \"PIRAÑA\" de la Brigada de Infantería de Marina Tercio de Armada (TEAR)",
+       "buyerName": "Intendente de San Fernando",
+       "publishedAt": "2026-06-11T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/401420-2026",
+       "directive": false
+      },
+      {
+       "id": "135563",
+       "slug": "135563-spain-mechanical-spare-parts-for-military-vehicles-acuerdo-m",
+       "noticeId": "389204-2026",
+       "title": "Spain – Mechanical spare parts for military vehicles – ACUERDO MARCO - Suministro abierto de repuestos para sostenimiento de vehículos \"IVECO\" de la Brigada de Infantería de Marina Tercio de Armada (TEAR)",
+       "buyerName": "Intendente de San Fernando",
+       "publishedAt": "2026-06-08T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/389204-2026",
+       "directive": false
+      },
+      {
+       "id": "122007",
+       "slug": "122007-spain-mechanical-spare-parts-for-military-vehicles-adquisici",
+       "noticeId": "390654-2025",
+       "title": "Spain – Mechanical spare parts for military vehicles – Adquisición de Repuestos de los Vehículos de la Familias Pizarro del ET",
+       "buyerName": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
+       "publishedAt": "2025-06-17T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/390654-2025",
+       "directive": true
+      }
+     ]
+    }
+   ],
+   "otherWinners": {
+    "winners": 23,
+    "awards": 25
+   },
+   "latest": [
+    {
+     "id": "396865",
+     "slug": "396865-spain-electrical-machinery-apparatus-equipment-and-consumabl",
+     "noticeId": "732301-2026",
+     "title": "Spain – Electrical machinery, apparatus, equipment and consumables; lighting – Sistema Dinámico de Adquisición de suministro materiales diversos y productos de uso habitual para los diferentes departamentos del Ayuntamiento de Bétera",
+     "buyerName": "Junta de Gobierno del Ayuntamiento de Bétera",
+     "publishedAt": "2026-10-22T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/732301-2026",
+     "directive": false
+    },
+    {
+     "id": "397245",
+     "slug": "397245-adquisicion-de-material-diverso-para-el-sostenimiento-de-uni",
+     "noticeId": "2026/ETSAE0065/00001309E",
+     "title": "Adquisición de material diverso, para el sostenimiento de unidades de la base Coronel Mate",
+     "buyerName": "Sección de Asuntos Económicos del Parque y Centro de Mantenimiento de Helicópteros",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "es_placsp",
+     "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=aHJrQzQDS5uqb7rCcv76BA%3D%3D",
+     "directive": false
+    },
+    {
+     "id": "397242",
+     "slug": "397242-suministro-material-fungible-de-repuestos-de-automocion-lote",
+     "noticeId": "2026/ETSAE0327/00006598E",
+     "title": "Suministro material fungible de repuestos de automoción lote 5 Regimiento de Caballería España 11",
+     "buyerName": "Jefatura de Intendencia de Asuntos Económicos Este",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "es_placsp",
+     "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=CZr7U%2F76ppjXOjazN1Dw9Q%3D%3D",
+     "directive": false
+    },
+    {
+     "id": "397238",
+     "slug": "397238-suministro-de-repuestos-para-mulas-mecanicas-falcata-bri-vii",
+     "noticeId": "2026/ETSAE0206/00001598E",
+     "title": "Suministro de repuestos para mulas mecánicas FALCATA BRI VII",
+     "buyerName": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "es_placsp",
+     "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=2rX46DpNMMR4zIRvjBVCSw%3D%3D",
+     "directive": false
+    },
+    {
+     "id": "397230",
+     "slug": "397230-adquisicion-de-tres-3-equipos-laser-para-vigilancia-de-estru",
+     "noticeId": "2026/SP03038000/00003360E",
+     "title": "adquisición de tres (3) equipos láser para vigilancia de estructuras inestables para equipos usar de la ume.",
+     "buyerName": "Jefatura de la Sección de Asuntos Económicos de la Unidad Militar de Emergencias",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "es_placsp",
+     "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=7R7LApR2uikIYE3ZiZ%2BxmQ%3D%3D",
+     "directive": false
+    }
+   ]
+  },
+  {
+   "country": "DE",
+   "procurements": 306,
+   "directive": 39,
+   "coreBuyers": 17,
+   "otherBuyers": 45,
+   "topBuyers": [
+    {
+     "slug": "330-bundesamt-fur-infrastruktur-umweltschutz-und-dienstleistunge",
+     "name": "Bundesamt für Infrastruktur, Umweltschutz und Dienstleistungen der Bundeswehr",
+     "core": true,
+     "procurements": 148
+    },
+    {
+     "slug": "196-bundesamt-fur-ausrustung-informationstechnik-und-nutzung-der",
+     "name": "Bundesamt für Ausrüstung, Informationstechnik und Nutzung der Bundeswehr",
+     "core": true,
+     "procurements": 46
+    },
+    {
+     "slug": "200-hil-heeresinstandsetzungslogistik-gmbh",
+     "name": "HIL Heeresinstandsetzungslogistik GmbH",
+     "core": true,
+     "procurements": 12
+    },
+    {
+     "slug": "34208-bundeswehr-dienstleistungszentrum-munster",
+     "name": "Bundeswehr-Dienstleistungszentrum Munster",
+     "core": true,
+     "procurements": 11
+    },
+    {
+     "slug": "28605-bundesrepublik-deutschland-vertreten-durch-das-bundesministe",
+     "name": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern und für Heimat, vertreten durch das Beschaffungsamt des BMI",
+     "core": false,
+     "procurements": 8
+    },
+    {
+     "slug": "30945-marinearsenal",
+     "name": "Marinearsenal",
+     "core": true,
+     "procurements": 7
+    },
+    {
+     "slug": "177481-bundesamt-fur-auswartige-angelegenheiten",
+     "name": "Bundesamt für Auswärtige Angelegenheiten",
+     "core": false,
+     "procurements": 5
+    },
+    {
+     "slug": "128609-gemeinde-ruppichteroth",
+     "name": "Gemeinde Ruppichteroth",
+     "core": false,
+     "procurements": 4
+    },
+    {
+     "slug": "306899-bundeswehr-dienstleistungszentrum-doberlug-kirchhain",
+     "name": "Bundeswehr-Dienstleistungszentrum Doberlug-Kirchhain",
+     "core": true,
+     "procurements": 3
+    },
+    {
+     "slug": "283500-bundeswehr-dienstleistungszentrum-torgelow",
+     "name": "Bundeswehr-Dienstleistungszentrum Torgelow",
+     "core": true,
+     "procurements": 3
+    }
+   ],
+   "awarded": 25,
+   "winners": 21,
+   "topWinners": [
+    {
+     "name": "BMW AG",
+     "country": "DE",
+     "awards": 3,
+     "notices": [
+      {
+       "id": "129217",
+       "slug": "129217-germany-motor-vehicles-sonderschutz-kfz",
+       "noticeId": "836124-2025",
+       "title": "Germany – Motor vehicles – Sonderschutz Kfz",
+       "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern und für Heimat, vertreten durch das Beschaffungsamt des BMI",
+       "publishedAt": "2025-12-16T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/836124-2025",
+       "directive": true
+      },
+      {
+       "id": "122526",
+       "slug": "122526-germany-specialist-vehicles-sonderschutzfahrzeuge-fur-das-bk",
+       "noticeId": "427308-2025",
+       "title": "Germany – Specialist vehicles – Sonderschutzfahrzeuge für das BKA",
+       "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern und für Heimat, vertreten durch das Beschaffungsamt des BMI",
+       "publishedAt": "2025-07-02T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/427308-2025",
+       "directive": true
+      },
+      {
+       "id": "122090",
+       "slug": "122090-germany-motor-vehicles-anmietung-sonderschutzfahrzeug",
+       "noticeId": "397629-2025",
+       "title": "Germany – Motor vehicles – Anmietung Sonderschutzfahrzeug",
+       "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern und für Heimat, vertreten durch das Beschaffungsamt des BMI",
+       "publishedAt": "2025-06-19T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/397629-2025",
+       "directive": true
+      }
+     ]
+    },
+    {
+     "name": "Esser GmbH",
+     "country": "DE",
+     "awards": 3,
+     "notices": [
+      {
+       "id": "298353",
+       "slug": "298353-germany-specialist-vehicles-neutraler-ausbau-lkw",
+       "noticeId": "715255-2026",
+       "title": "Germany – Specialist vehicles – neutraler Ausbau LKW",
+       "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern, vertreten durch das Beschaffungsamt des BMI",
+       "publishedAt": "2026-10-16T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/715255-2026",
+       "directive": true
+      },
+      {
+       "id": "144699",
+       "slug": "144699-germany-specialist-vehicles-verdeckte-funkausstattung",
+       "noticeId": "668641-2026",
+       "title": "Germany – Specialist vehicles – Verdeckte Funkausstattung",
+       "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern, vertreten durch das Beschaffungsamt des BMI",
+       "publishedAt": "2026-09-29T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/668641-2026",
+       "directive": true
+      },
+      {
+       "id": "124488",
+       "slug": "124488-germany-specialist-vehicles-neutraler-mfe-ausbau",
+       "noticeId": "544223-2025",
+       "title": "Germany – Specialist vehicles – neutraler MFE Ausbau",
+       "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern und für Heimat, vertreten durch das Beschaffungsamt des BMI",
+       "publishedAt": "2025-08-20T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/544223-2025",
+       "directive": true
+      }
+     ]
+    }
+   ],
+   "otherWinners": {
+    "winners": 19,
+    "awards": 21
+   },
+   "latest": [
+    {
+     "id": "396881",
+     "slug": "396881-germany-firefighting-vehicles-ausschreibung-von-vier-mannsch",
+     "noticeId": "733269-2026",
+     "title": "Germany – Firefighting vehicles – Ausschreibung von vier Mannschaftstransportfahrzeugen für die Feuerwehr Remscheid",
+     "buyerName": "Stadt Remscheid, Fachdienst Recht und Vergabe, Abteilung Zentrale Vergabestelle",
+     "publishedAt": "2026-10-22T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/733269-2026",
+     "directive": false
+    },
+    {
+     "id": "294308",
+     "slug": "294308-6003106689-ersatzteile-din-iso",
+     "noticeId": "b0cf60d1-ee74-402c-b131-18b47cc3ae4c",
+     "title": "6003106689- Ersatzteile Din & Iso",
+     "buyerName": "Bundesamt für Infrastruktur, Umweltschutz und Dienstleistungen der Bundeswehr",
+     "publishedAt": "2026-10-20T00:00:00Z",
+     "source": "de_bkms",
+     "sourceUrl": null,
+     "directive": false
+    },
+    {
+     "id": "298353",
+     "slug": "298353-germany-specialist-vehicles-neutraler-ausbau-lkw",
+     "noticeId": "715255-2026",
+     "title": "Germany – Specialist vehicles – neutraler Ausbau LKW",
+     "buyerName": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern, vertreten durch das Beschaffungsamt des BMI",
+     "publishedAt": "2026-10-16T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/715255-2026",
+     "directive": true
+    },
+    {
+     "id": "294628",
+     "slug": "294628-lieferung-von-rollcontainern-fur-die-ausstattung-der-hohenre",
+     "noticeId": "25923020",
+     "title": "Lieferung von Rollcontainern für die Ausstattung der Höhenretter",
+     "buyerName": "Stadt Oldenburg (Oldb)",
+     "publishedAt": "2026-10-12T00:00:00Z",
+     "source": "de_bkms",
+     "sourceUrl": null,
+     "directive": false
+    },
+    {
+     "id": "215256",
+     "slug": "215256-germany-milling-machines-bearbeitungszentrum-5-achs-frasmasc",
+     "noticeId": "703787-2026",
+     "title": "Germany – Milling machines – Bearbeitungszentrum 5-Achs Fräsmaschine für das Werk Sankt Wendel",
+     "buyerName": "HIL Heeresinstandsetzungslogistik GmbH",
+     "publishedAt": "2026-10-12T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/703787-2026",
+     "directive": false
+    }
+   ]
+  },
+  {
+   "country": "FR",
+   "procurements": 87,
+   "directive": 37,
+   "coreBuyers": 30,
+   "otherBuyers": 21,
+   "topBuyers": [
+    {
+     "slug": "34117-minarm-air-siae-ministere-des-armees",
+     "name": "MINARM/AIR/SIAé (Ministère des Armées)",
+     "core": true,
+     "procurements": 15
+    },
+    {
+     "slug": "267-economat-des-armees",
+     "name": "ECONOMAT DES ARMEES",
+     "core": true,
+     "procurements": 7
+    },
+    {
+     "slug": "171986-mindef-ema-sca-pfc-sud",
+     "name": "MINDEF / EMA / SCA / PFC SUD",
+     "core": true,
+     "procurements": 5
+    },
+    {
+     "slug": "28590-direction-generale-de-larmement-domn-service-des-achats-d-ar",
+     "name": "Direction Générale de l’Armement / DOMN / Service des achats d'armement",
+     "core": true,
+     "procurements": 3
+    },
+    {
+     "slug": "219054-minarm-ema-sca-pfc-sud-divap",
+     "name": "MINARM/EMA/SCA/PFC SUD/DIVAP",
+     "core": true,
+     "procurements": 3
+    },
+    {
+     "slug": "28875-cea-cesta-33",
+     "name": "CEA CESTA (33)",
+     "core": false,
+     "procurements": 2
+    },
+    {
+     "slug": "116173-commune-de-martigues",
+     "name": "COMMUNE DE MARTIGUES",
+     "core": false,
+     "procurements": 2
+    },
+    {
+     "slug": "28627-commissariat-a-l-energie-atomique-et-aux-energies-alternativ",
+     "name": "Commissariat à l'Energie Atomique et aux Energies Alternatives",
+     "core": false,
+     "procurements": 2
+    },
+    {
+     "slug": "257371-dicom-fag",
+     "name": "DICOM FAG",
+     "core": true,
+     "procurements": 2
+    },
+    {
+     "slug": "33161-marine-dcssf-dssf-toulon",
+     "name": "MARINE/DCSSF/DSSF/TOULON",
+     "core": true,
+     "procurements": 2
+    }
+   ],
+   "awarded": 7,
+   "winners": 17,
+   "topWinners": [],
+   "otherWinners": {
+    "winners": 17,
+    "awards": 17
+   },
+   "latest": [
+    {
+     "id": "269396",
+     "slug": "269396-marche-relatif-a-la-fourniture-de-consommables-et-de-prestat",
+     "noticeId": "26-94009",
+     "title": "Marché relatif à la fourniture, de consommables et de prestations de service de pneumatiques pour charges légères et pour charges lourdes au profit d’organismes délégataires du MINARM.",
+     "buyerName": "PFC Brest",
+     "publishedAt": "2026-10-01T00:00:00Z",
+     "source": "fr_boamp",
+     "sourceUrl": "https://www.boamp.fr/pages/avis/?q=idweb:%2226-94009%22",
+     "directive": false
+    },
+    {
+     "id": "37638",
+     "slug": "37638-france-test-benches-livre-iii-sur-le-fondement-de-larticle-l",
+     "noticeId": "635412-2026",
+     "title": "France – Test benches – Livre III sur le fondement de l’article L. 1113-1 alinéa 3 du code de la commande publique portant sur les dispositions applicables aux marchés de défense ou de sécurité (MDS)",
+     "buyerName": "13ème BSMAT - Dét. Moulins - A.SAR",
+     "publishedAt": "2026-09-15T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/635412-2026",
+     "directive": true
+    },
+    {
+     "id": "269319",
+     "slug": "269319-accord-cadre-a-bon-de-commande-pour-l-approvisionnement-des",
+     "noticeId": "26-86780",
+     "title": "Accord-cadre à bon de commande pour l'approvisionnement des équipes de travaux des régies en fournitures, matériels/matériaux sur les sites soutenus par le SID IDF et ses organismes subordonnés (USID)",
+     "buyerName": "Service d’infrastructure de la Défense Ile de France",
+     "publishedAt": "2026-09-09T00:00:00Z",
+     "source": "fr_boamp",
+     "sourceUrl": "https://www.boamp.fr/pages/avis/?q=idweb:%2226-86780%22",
+     "directive": false
+    },
+    {
+     "id": "29",
+     "slug": "29-france-test-benches-conception-fourniture-installation-et-mi",
+     "noticeId": "614733-2026",
+     "title": "France – Test benches – Conception, fourniture, installation et mise en service d'un banc d'essais de moteurs et de pompes hydrauliques et maintenance associée au profit de la division équipements (DEQ) de l'atelier industriel de l'aéronautique de Cuers-Pierrefeu",
+     "buyerName": "MINARM/AIR/SIAé (Ministère des Armées)",
+     "publishedAt": "2026-09-07T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/614733-2026",
+     "directive": true
+    },
+    {
+     "id": "269220",
+     "slug": "269220-prestation-de-grutage-et-de-transport-de-rechanges-navals-en",
+     "noticeId": "26-80052",
+     "title": "Prestation de grutage et de transport de rechanges navals entre les magasins du service logistique de la Marine situés dans la base navale de Toulon et divers sites extérieurs du SLM Toulon",
+     "buyerName": "PFC Sud",
+     "publishedAt": "2026-08-12T00:00:00Z",
+     "source": "fr_boamp",
+     "sourceUrl": "https://www.boamp.fr/pages/avis/?q=idweb:%2226-80052%22",
+     "directive": false
+    }
+   ]
+  },
+  {
+   "country": "PL",
+   "procurements": 2313,
+   "directive": 50,
+   "coreBuyers": 64,
+   "otherBuyers": 81,
+   "topBuyers": [
+    {
+     "slug": "6968-3-regionalna-baza-logistyczna",
+     "name": "3 Regionalna Baza Logistyczna",
+     "core": true,
+     "procurements": 146
+    },
+    {
+     "slug": "210-2-regionalna-baza-logistyczna",
+     "name": "2. Regionalna Baza Logistyczna",
+     "core": true,
+     "procurements": 134
+    },
+    {
+     "slug": "501-4-regionalna-baza-logistyczna",
+     "name": "4 Regionalna Baza Logistyczna",
+     "core": true,
+     "procurements": 114
+    },
+    {
+     "slug": "7396-43-wojskowy-oddzia-gospodarczy",
+     "name": "43 Wojskowy Oddział Gospodarczy",
+     "core": true,
+     "procurements": 112
+    },
+    {
+     "slug": "7084-41-baza-lotnictwa-szkolnego",
+     "name": "41. Baza Lotnictwa Szkolnego",
+     "core": true,
+     "procurements": 77
+    },
+    {
+     "slug": "7065-31-wojskowy-oddzia-gospodarczy",
+     "name": "31 Wojskowy Oddział Gospodarczy",
+     "core": true,
+     "procurements": 76
+    },
+    {
+     "slug": "8377-wojskowy-instytut-techniczny-uzbrojenia",
+     "name": "WOJSKOWY INSTYTUT TECHNICZNY UZBROJENIA",
+     "core": true,
+     "procurements": 76
+    },
+    {
+     "slug": "514-skarb-panstwa-13-wojskowy-oddzia-gospodarczy-13-wog",
+     "name": "Skarb Państwa - 13 Wojskowy Oddział Gospodarczy (13 WOG)",
+     "core": true,
+     "procurements": 69
+    },
+    {
+     "slug": "10098-31-baza-lotnictwa-taktycznego-w-poznaniu-krzesinach",
+     "name": "31 BAZA LOTNICTWA TAKTYCZNEGO W POZNANIU-KRZESINACH",
+     "core": true,
+     "procurements": 61
+    },
+    {
+     "slug": "189-45-wojskowy-oddzia-gospodarczy",
+     "name": "45 Wojskowy Oddział Gospodarczy",
+     "core": true,
+     "procurements": 57
+    }
+   ],
+   "awarded": 34,
+   "winners": 26,
+   "topWinners": [
+    {
+     "name": "\"AUTO PODLASIE\" Spółka z ograniczoną odpowiedzialnością",
+     "country": "PL",
+     "awards": 5,
+     "notices": [
+      {
+       "id": "135717",
+       "slug": "135717-poland-military-vehicles-and-associated-parts-dostawa-pojazd",
+       "noticeId": "399789-2026",
+       "title": "Poland – Military vehicles and associated parts – DOSTAWA POJAZDÓW WOJSKOWYCH (INTERWENCYJNYCH) DLA ŻW - zadanie nr 2",
+       "buyerName": "ODDZIAŁ ZABEZPIECZENIA ŻANDARMERII WOJSKOWEJ",
+       "publishedAt": "2026-06-11T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/399789-2026",
+       "directive": true
+      },
+      {
+       "id": "133678",
+       "slug": "133678-poland-military-vehicles-and-associated-parts-dostawa-pojazd",
+       "noticeId": "266564-2026",
+       "title": "Poland – Military vehicles and associated parts – DOSTAWA POJAZDÓW WOJSKOWYCH DLA ŻW (AMBULANS KRYM. I WIĘŹNIARKA)",
+       "buyerName": "ODDZIAŁ ZABEZPIECZENIA ŻANDARMERII WOJSKOWEJ",
+       "publishedAt": "2026-04-20T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/266564-2026",
+       "directive": true
+      },
+      {
+       "id": "124298",
+       "slug": "124298-poland-military-vehicles-and-associated-parts-dostawa-pojazd",
+       "noticeId": "533132-2025",
+       "title": "Poland – Military vehicles and associated parts – DOSTAWA POJAZDÓW WOJSKOWYCH DLA ŻW",
+       "buyerName": "ODDZIAŁ ZABEZPIECZENIA ŻANDARMERII WOJSKOWEJ",
+       "publishedAt": "2025-08-14T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/533132-2025",
+       "directive": true
+      }
+     ]
+    },
+    {
+     "name": "BIWAR Sp. z o. o.",
+     "country": "PL",
+     "awards": 4,
+     "notices": [
+      {
+       "id": "138161",
+       "slug": "138161-poland-mechanical-spare-parts-for-military-vehicles-dostawa",
+       "noticeId": "547504-2026",
+       "title": "Poland – Mechanical spare parts for military vehicles – Dostawa - części zamienne do pojazdów BWP-1",
+       "buyerName": "4 Regionalna Baza Logistyczna",
+       "publishedAt": "2026-08-07T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/547504-2026",
+       "directive": true
+      },
+      {
+       "id": "134934",
+       "slug": "134934-poland-parts-and-accessories-for-vehicles-and-their-engines",
+       "noticeId": "351423-2026",
+       "title": "Poland – Parts and accessories for vehicles and their engines – Dostawa części zamiennych do pojazdów bojowych BWP-1, BRDM-2 oraz 2S1 GOŹDZIK",
+       "buyerName": "3 Regionalna Baza Logistyczna",
+       "publishedAt": "2026-05-22T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/351423-2026",
+       "directive": true
+      },
+      {
+       "id": "127549",
+       "slug": "127549-poland-military-vehicles-and-associated-parts-dostawe-czesci",
+       "noticeId": "728383-2025",
+       "title": "Poland – Military vehicles and associated parts – Dostawę części zamiennych do pojazdów bojowych",
+       "buyerName": "1 REGIONALNA BAZA LOGISTYCZNA",
+       "publishedAt": "2025-11-04T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/728383-2025",
+       "directive": true
+      }
+     ]
+    },
+    {
+     "name": "ZDUNEK PREMIUM SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ",
+     "country": "PL",
+     "awards": 4,
+     "notices": [
+      {
+       "id": "135701",
+       "slug": "135701-poland-military-vehicles-and-associated-parts-dostawa-samoch",
+       "noticeId": "398605-2026",
+       "title": "Poland – Military vehicles and associated parts – DOSTAWA SAMOCHODÓW INTERWENCYJNYCH SPECJALNEGO PRZEZNACZENIA DLA ŻW",
+       "buyerName": "ODDZIAŁ ZABEZPIECZENIA ŻANDARMERII WOJSKOWEJ",
+       "publishedAt": "2026-06-10T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/398605-2026",
+       "directive": true
+      },
+      {
+       "id": "128155",
+       "slug": "128155-poland-military-vehicles-and-associated-parts-dostawa-pojazd",
+       "noticeId": "768968-2025",
+       "title": "Poland – Military vehicles and associated parts – DOSTAWA POJAZDÓW WOJSKOWYCH DLA ŻW III",
+       "buyerName": "ODDZIAŁ ZABEZPIECZENIA ŻANDARMERII WOJSKOWEJ",
+       "publishedAt": "2025-11-20T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/768968-2025",
+       "directive": true
+      },
+      {
+       "id": "113846",
+       "slug": "113846-poland-military-vehicles-and-associated-parts-dostawa-pojazd",
+       "noticeId": "691254-2024",
+       "title": "Poland – Military vehicles and associated parts – DOSTAWA POJAZDÓW WOJSKOWYCH (INTERWNCYJNYCH) DLA ŻW",
+       "buyerName": "ODDZIAŁ ZABEZPIECZENIA ŻANDARMERII WOJSKOWEJ",
+       "publishedAt": "2024-11-13T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/691254-2024",
+       "directive": true
+      }
+     ]
+    },
+    {
+     "name": "AUTOCOMP MANAGEMENT Sp. z o.o.",
+     "country": "PL",
+     "awards": 3,
+     "notices": [
+      {
+       "id": "215134",
+       "slug": "215134-poland-training-software-development-services-naprawa-gowna",
+       "noticeId": "706263-2026",
+       "title": "Poland – Training software development services – Naprawa główna i modyfikacja Symulatora Operatorów Broni Podwodnej CBM w Centrum Szkolenia Marynarki Wojennej Ustka",
+       "buyerName": "6 Wojskowy Oddział Gospodarczy",
+       "publishedAt": "2026-10-13T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/706263-2026",
+       "directive": true
+      },
+      {
+       "id": "139025",
+       "slug": "139025-poland-repair-maintenance-and-associated-services-related-to",
+       "noticeId": "600036-2026",
+       "title": "Poland – Repair, maintenance and associated services related to marine and other equipment – Naprawa główna i modyfikacja symulatora modeli uzbrojenia morskiego AMW",
+       "buyerName": "Komenda Portu Wojennego Gdynia",
+       "publishedAt": "2026-09-01T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/600036-2026",
+       "directive": true
+      },
+      {
+       "id": "112914",
+       "slug": "112914-poland-training-software-development-services-naprawa-gowna",
+       "noticeId": "633844-2024",
+       "title": "Poland – Training software development services – Naprawa główna i modyfikacja Symulatora Obrony Przeciwawaryjnej Okrętu w Centrum Szkolenia Marynarki Wojennej w Ustce.",
+       "buyerName": "6 Wojskowy Oddział Gospodarczy",
+       "publishedAt": "2024-10-18T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/633844-2024",
+       "directive": true
+      }
+     ]
+    },
+    {
+     "name": "CENZIN Spółka z ograniczoną odpowiedzialnością",
+     "country": "PL",
+     "awards": 3,
+     "notices": [
+      {
+       "id": "138166",
+       "slug": "138166-poland-military-vehicles-and-associated-parts-dostawa-czesci",
+       "noticeId": "547622-2026",
+       "title": "Poland – Military vehicles and associated parts – Dostawa części zamiennych do pojazdów bojowych",
+       "buyerName": "1 REGIONALNA BAZA LOGISTYCZNA",
+       "publishedAt": "2026-08-07T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/547622-2026",
+       "directive": true
+      },
+      {
+       "id": "118815",
+       "slug": "118815-poland-parts-and-accessories-for-vehicles-and-their-engines",
+       "noticeId": "193316-2025",
+       "title": "Poland – Parts and accessories for vehicles and their engines – Dostawa części zamiennych do pojazdów bojowych BWP-1 oraz BRDM-2",
+       "buyerName": "3 Regionalna Baza Logistyczna",
+       "publishedAt": "2025-03-26T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/193316-2025",
+       "directive": true
+      },
+      {
+       "id": "110743",
+       "slug": "110743-poland-parts-and-accessories-for-vehicles-and-their-engines",
+       "noticeId": "515505-2024",
+       "title": "Poland – Parts and accessories for vehicles and their engines – Dostawa części zamiennych do pojazdów bojowych BWP-1 oraz BRDM-2",
+       "buyerName": "3 Regionalna Baza Logistyczna",
+       "publishedAt": "2024-08-28T00:00:00Z",
+       "source": "ted",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/515505-2024",
+       "directive": true
+      }
+     ]
+    }
+   ],
+   "otherWinners": {
+    "winners": 20,
+    "awards": 22
+   },
+   "latest": [
+    {
+     "id": "397036",
+     "slug": "397036-dostawa-czesci-zamiennych-do-pojazdow-koowych",
+     "noticeId": "2026/BZP 00499499",
+     "title": "Dostawa części zamiennych do pojazdów kołowych",
+     "buyerName": "2 REGIONALNA BAZA LOGISTYCZNA",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "pl_ezam",
+     "sourceUrl": "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/08df2f71-9f7f-1eec-701a-d00001f0e3bd",
+     "directive": false
+    },
+    {
+     "id": "397029",
+     "slug": "397029-dostawa-do-siedziby-zamawiajacego-samochodu-osobowego-do-prz",
+     "noticeId": "2026/BZP 00499422",
+     "title": "Dostawa do siedziby zamawiającego samochodu osobowego do przewozu ośmiu osób",
+     "buyerName": "Akademia Marynarki Wojennej im. Bohaterów Westerplatte",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "pl_ezam",
+     "sourceUrl": "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/08df2f6f-b6ce-63d9-701a-d00001f0e35e",
+     "directive": false
+    },
+    {
+     "id": "397026",
+     "slug": "397026-dostawa-ogumienia-i-akumulatorow-29-2026",
+     "noticeId": "2026/BZP 00499377",
+     "title": "Dostawa ogumienia i akumulatorów - 29/2026",
+     "buyerName": "13 WOJSKOWY ODDZIAŁ GOSPODARCZY",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "pl_ezam",
+     "sourceUrl": "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/08df2f6e-ee63-f004-701a-d00001f0e32e",
+     "directive": false
+    },
+    {
+     "id": "397011",
+     "slug": "397011-obrabiarki-do-obrobki-i-wykanczania-metali",
+     "noticeId": "2026/BZP 00498820",
+     "title": "Obrabiarki do obróbki i wykańczania metali",
+     "buyerName": "WOJSKOWY INSTYTUT TECHNICZNY UZBROJENIA",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "pl_ezam",
+     "sourceUrl": "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/08df2f61-f664-96f4-701a-d0000164af83",
+     "directive": false
+    },
+    {
+     "id": "396997",
+     "slug": "396997-zakup-sprzetu-w-ramach-programu-ochrony-ludnosci-i-obrony-cy",
+     "noticeId": "2026/BZP 00498381",
+     "title": "„Zakup sprzętu w ramach Programu Ochrony Ludności i Obrony Cywilnej na lata 2025-2026. Uzupełnienia zasobów niezbędnych do realizacji zadań ochrony ludności i obrony cywilnej”",
+     "buyerName": "Powiat Głubczycki",
+     "publishedAt": "2026-10-21T00:00:00Z",
+     "source": "pl_ezam",
+     "sourceUrl": "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/08df2f56-f6aa-daa9-701a-d0000164ad47",
+     "directive": false
+    }
+   ]
+  },
+  {
+   "country": "NL",
+   "procurements": 90,
+   "directive": 19,
+   "coreBuyers": 3,
+   "otherBuyers": 3,
+   "topBuyers": [
+    {
+     "slug": "215-ministerie-van-defensie",
+     "name": "Ministerie van Defensie",
+     "core": true,
+     "procurements": 80
+    },
+    {
+     "slug": "46720-politie",
+     "name": "Politie",
+     "core": false,
+     "procurements": 5
+    },
+    {
+     "slug": "35465-ministerie-van-buitenlandse-zaken",
+     "name": "Ministerie van Buitenlandse Zaken",
+     "core": false,
+     "procurements": 2
+    },
+    {
+     "slug": "200582-ris",
+     "name": "RIS",
+     "core": false,
+     "procurements": 2
+    },
+    {
+     "slug": "61470-ministry-of-defence",
+     "name": "Ministry of Defence",
+     "core": true,
+     "procurements": 1
+    },
+    {
+     "slug": "188162-ministry-of-defense-of-the-netherlands",
+     "name": "Ministry of Defense of the Netherlands",
+     "core": true,
+     "procurements": 1
+    }
+   ],
+   "awarded": 15,
+   "winners": 17,
+   "topWinners": [],
+   "otherWinners": {
+    "winners": 17,
+    "awards": 18
+   },
+   "latest": [
+    {
+     "id": "145667",
+     "slug": "145667-netherlands-driving-simulators-rijsimulator-cv90",
+     "noticeId": "684457-2026",
+     "title": "Netherlands – Driving simulators – Rijsimulator CV90",
+     "buyerName": "Ministerie van Defensie",
+     "publishedAt": "2026-10-05T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/684457-2026",
+     "directive": true
+    },
+    {
+     "id": "145501",
+     "slug": "145501-netherlands-lathes-boring-and-milling-machine-tools-marktcon",
+     "noticeId": "674684-2026",
+     "title": "Netherlands – Lathes, boring and milling machine tools – Marktconsultatie levering en onderhoud van draaibanken en freesmachines",
+     "buyerName": "Ministerie van Defensie",
+     "publishedAt": "2026-10-01T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/674684-2026",
+     "directive": false
+    },
+    {
+     "id": "144419",
+     "slug": "144419-netherlands-flight-simulators-new-human-training-centrifuge",
+     "noticeId": "662223-2026",
+     "title": "Netherlands – Flight simulators – New Human Training Centrifuge (HTC) and its infrastructure",
+     "buyerName": "Ministerie van Defensie",
+     "publishedAt": "2026-09-25T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/662223-2026",
+     "directive": true
+    },
+    {
+     "id": "139054",
+     "slug": "139054-netherlands-motor-vehicles-handhavingsvoertuigen",
+     "noticeId": "601765-2026",
+     "title": "Netherlands – Motor vehicles – Handhavingsvoertuigen",
+     "buyerName": "Politie",
+     "publishedAt": "2026-09-01T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/601765-2026",
+     "directive": true
+    },
+    {
+     "id": "138588",
+     "slug": "138588-netherlands-tools-ea-gu-var-gereedschappen-aanschaf-en-diens",
+     "noticeId": "574606-2026",
+     "title": "Netherlands – Tools – EA GU VAR Gereedschappen - Aanschaf en dienstverlening",
+     "buyerName": "Ministerie van Defensie",
+     "publishedAt": "2026-08-19T00:00:00Z",
+     "source": "ted",
+     "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/574606-2026",
+     "directive": false
+    }
+   ]
+  }
+ ],
+ "coverage": "Direct buying by defence bodies, as published on TED and the national portals we read; not the sub-tier needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a 2025 ECIPE policy brief; we have not re-checked that figure). National coverage differs: Spain (PLACSP) and Poland (e-Zamówienia) in full, Germany (the federal procurement office's portal) since 2025, France (BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer.",
+ "winnersFrom": "Winners are those named in TED result notices; most contracts below the EU thresholds name no winner here. Natural persons are never counted or named.",
+ "sources": [
+  {
+   "code": "ted",
+   "name": "TED (Tenders Electronic Daily)",
+   "attribution": "Source: TED (Tenders Electronic Daily), © European Union.",
+   "lastUpdated": null
+  }
+ ],
+ "notice": "Computed from the CPV codes and countries in the request; nothing was stored or logged. Counts of notices, not of money: the stated values of notices are budgets or framework ceilings as often as contract values."
+}

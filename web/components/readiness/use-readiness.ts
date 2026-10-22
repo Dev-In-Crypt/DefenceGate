@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearProfile, emptyProfile, loadProfile, saveProfile, toRequest, type Profile } from '@/lib/profile';
 import { ASSESS_FAILED, AssessError, assess } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
+import { DEMAND_FAILED, DemandError, demandRequest, fetchDemand, type Demand } from '@/lib/demand';
 
 /**
  * The profile of the visitor, from and to localStorage only. `ready` is false on the server and for the first
@@ -58,6 +59,37 @@ export function useAssessment(profile: Profile | null): AssessState & { retry: (
       (e: unknown) => {
         if (controller.signal.aborted || mine !== seq.current) return;
         setResult({ state: 'error', message: e instanceof AssessError ? e.message : ASSESS_FAILED });
+      },
+    );
+    return () => controller.abort();
+  }, [key, attempt]);
+  return { ...result, retry: () => setAttempt((n) => n + 1) };
+}
+
+export type DemandState =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'error'; message: string }
+  | { state: 'done'; data: Demand };
+
+/** The demand map for the profile's CPV codes (WP-66), asked again only when the codes change. Nothing is kept. */
+export function useDemand(profile: Profile | null): DemandState & { retry: () => void } {
+  const [result, setResult] = useState<DemandState>({ state: 'idle' });
+  const [attempt, setAttempt] = useState(0);
+  const request = profile ? demandRequest(profile) : null;
+  const key = request ? JSON.stringify(request) : '';
+  useEffect(() => {
+    if (!key) {
+      setResult({ state: 'idle' });
+      return;
+    }
+    const controller = new AbortController();
+    setResult({ state: 'loading' });
+    fetchDemand(JSON.parse(key), controller.signal).then(
+      (data) => { if (!controller.signal.aborted) setResult({ state: 'done', data }); },
+      (e: unknown) => {
+        if (controller.signal.aborted) return;
+        setResult({ state: 'error', message: e instanceof DemandError ? e.message : DEMAND_FAILED });
       },
     );
     return () => controller.abort();

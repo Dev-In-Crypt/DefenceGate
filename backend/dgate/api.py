@@ -1061,6 +1061,11 @@ from .suppliers import router as _suppliers_router  # noqa: E402
 
 app.include_router(_suppliers_router)
 
+# The demand map of the supplier report (demand.py, WP-66): stateless, the CPV codes come in the body.
+from .demand import router as _demand_router  # noqa: E402
+
+app.include_router(_demand_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

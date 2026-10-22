@@ -84,6 +84,9 @@ HEAVY_PATHS = {"/v1/organisations/resolve": 5, "/v1/funding/slugs": 20,
                "/v1/tenders/slugs": 20, "/v1/buyers/slugs": 20}
 # The readiness assessment evaluates a few dozen rules in memory: cheap, but it takes a body.
 HEAVY_PATHS["/v1/readiness/assess"] = 3
+# The demand map (WP-66) aggregates the defence notices of up to 15 CPV codes in five countries: one statement,
+# priced like a buyer-list page.
+HEAVY_PATHS["/v1/readiness/demand"] = 5
 # The coverage report: a dozen small reads, and (kept ten minutes, one caller at a time) three
 # figures that cost seconds when cold. Public, so it is priced like the buyer list; the
 # container's own check comes from a local peer and is not charged.

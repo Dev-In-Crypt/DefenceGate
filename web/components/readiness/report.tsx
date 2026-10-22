@@ -21,6 +21,7 @@ import { NoProfile } from './results';
 import { ES_REGIONS } from './supplier';
 import { SIZE_OPTIONS } from './wizard';
 import { useAssessment, useCpvVocabulary, useProfile } from './use-readiness';
+import { DemandMap } from './demand';
 
 export const DISCLAIMER = 'Indicative, sources linked, not legal advice.';
 
@@ -167,9 +168,9 @@ function Item({ i, n }: { i: RoadmapItem; n: number }) {
 
 /**
  * The printable supplier report (WP-67), built in the browser from the stored profile and the one assess call the results page makes too.
- * `names`: requirement names from the public catalogue. `demand`: the section "Who buys what you make" (WP-66); shown only when given.
+ * `names`: requirement names from the public catalogue. The section "Who buys what you make" (WP-66) is shown when the supplier page holds CPV codes.
  */
-export function SupplierReport({ names, demand }: { names: Record<string, string>; demand?: React.ReactNode }) {
+export function SupplierReport({ names }: { names: Record<string, string> }) {
   const { profile, ready } = useProfile();
   const result = useAssessment(profile);
   const title = <h1 className="m-0 text-h1-sm md:text-h1 print:text-[22pt] print:leading-tight">Supplier readiness report{profile?.name ? `: ${profile.name}` : ''}</h1>;
@@ -223,7 +224,7 @@ export function SupplierReport({ names, demand }: { names: Record<string, string
             </ol>
           </Section>
 
-          {demand && <Section title="Who buys what you make" id="r-demand">{demand}</Section>}
+          {profile.supplier.cpv.length > 0 && <Section title="Who buys what you make" id="r-demand"><DemandMap profile={profile} /></Section>}
 
           <Section title="About this report" id="r-about">
             <p className="m-0 max-w-prose text-body font-semibold">{DISCLAIMER}</p>
@@ -233,8 +234,9 @@ export function SupplierReport({ names, demand }: { names: Record<string, string
             </p>
             <p className="m-0 max-w-prose text-small text-ink-muted">
               {result.data.notice} Rules last reviewed on {isoDay(result.data.rulesReviewed)}. Generated on {formatStamp(now().toISOString())}.
-              The only thing that left this browser to make it is the request that computes the verdict, with the answers the rules read; the
-              server does not store or log it.
+              {profile.supplier.cpv.length > 0
+                ? 'Two requests left this browser to make it: the one that computes the verdict, with the answers the rules read, and the one for the demand map, with your CPV codes and nothing else; the server does not store or log either.'
+                : 'The only thing that left this browser to make it is the request that computes the verdict, with the answers the rules read; the server does not store or log it.'}
             </p>
           </Section>
         </>

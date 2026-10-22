@@ -1155,3 +1155,33 @@ written statement HCWS1114 of 1 December 2025; `edf-ukraine-in-force-unconfirmed
 - **`RoadmapStep.origin`** (`primary` | `notes` | `call_document`, WP-67): where the requirement's text, and so its cost and time, come
   from (`text_origin` in the seed). The supplier report prints a cost or a time only for a `primary` step.
 
+
+## Changes of 22 October 2026 (WP-66: the demand map)
+
+#### `POST /v1/readiness/demand`
+
+Stateless, like `assess`: the body carries the codes, nothing is stored, cached or logged, and a refused body is not echoed back.
+Body (at most 16 KiB, unknown keys refused): `cpv` (1 to 15 CPV codes of 8 digits; a check digit `-0` is taken off; duplicates
+are read once), `countries` (1 to 5 of `ES`, `DE`, `FR`, `PL`, `NL`; default all five). Rate-limit cost 5. The site calls it through
+its own route `/api/readiness/demand`, which passes the body on and keeps nothing.
+
+A code matches by its level in the CPV tree: the code without its trailing zeros (`34300000` is everything under `343`, `44470000`
+under `4447`, `35000000` the division). Window: the last three years (1,096 days to today, by publication date, else notice date).
+Scope: the defence-scope notices (`is_defence`, not removed). Answer:
+
+- `since`, `until`, `kMin` (3), `countries`, `codes: [{code, prefix, procurements}]`;
+- `total` and per country `byCountry[]`: `procurements` (a procurement published in several notices is counted once: the eForms
+  procedure identifier, of the notice or of the TED notice a national notice names; else the TED number; else the national number
+  in its country, which the two Polish sources share), `directive` (of those, how many name Directive 2009/81/EC), `coreBuyers` /
+  `otherBuyers` (buyer families; core = on the curated defence-buyer list or of class `defence`), `awarded` (procurements with a
+  winner served), `winners` (legal entities);
+- per country `topBuyers` (at most 10: `{slug, name, core, procurements}`; a withheld buyer is counted, never named; two families
+  under one name are one line), `topWinners` (at most 10, only winners with at least `kMin` procurements here:
+  `{name, country, awards, notices}`), `otherWinners: {winners, awards}` (every other winner, as a count only: the mosaic rule),
+  `latest` (the 5 newest procurements). A notice reference is `{id, slug, noticeId, title, buyerName, publishedAt, source, sourceUrl,
+  directive}`;
+- winners come from TED result notices, and from PLACSP's award results only while `DGATE_PLACSP_AWARDS_PUBLIC` is true (the
+  supplier map's switch); a winner the directory treats as a natural person, a removed one, or a winner string that is no supplier
+  is never counted or named. `winnersFrom` says which, `sources` carries the attributions (PLACSP with its date of last update);
+- `coverage`: direct buying by defence bodies only, not the sub-tier needs of prime contractors; TED about a tenth of EU defence
+  spending; national coverage per country. `notice`: counts of notices, not of money.

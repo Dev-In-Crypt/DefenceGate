@@ -7,7 +7,7 @@ import { visit } from './helpers';
  * WP-67: the printable supplier report (/readiness/supplier/report) and the entry copy of /readiness/supplier. What this proves: for the three
  * sample companies of WP-65 (stored profiles `fixtures/profile-es-sup-*.json`), the report sends nothing but the request of the results page
  * (`request-es-sup-*.json`), shows the profile as entered, the verdicts, and the red / amber / green roadmap of `lib/wp67.check.ts` in its
- * order, with the PECAL note, the specialist flags and the disclaimer; "Who buys what you make" is not shown (no data yet); in print the site
+ * order, with the PECAL note, the specialist flags and the disclaimer; "Who buys what you make" is shown (WP-66, wp66.spec.ts); in print the site
  * chrome and the buttons are gone, each section starts a page and an outside link prints its address. The print pictures and PDFs of the
  * three reports are written to `WP67_SHOTS` (the self-check) or the test's output folder.
  */
@@ -35,7 +35,8 @@ const ORDER: Record<string, string[]> = {
 for (const key of Object.keys(ORDER)) {
   test(`the report of ${key}: profile, verdicts and roadmap, nothing else sent, printable`, async ({ page }, info) => {
     const others: string[] = [];
-    page.on('request', (r) => { if (r.method() !== 'GET' && !r.url().endsWith('/api/readiness/assess')) others.push(`${r.method()} ${r.url()}`); });
+    // WP-66: the demand map is the second request (its body, the CPV codes alone, is checked in wp66.spec.ts)
+    page.on('request', (r) => { if (r.method() !== 'GET' && !/\/api\/readiness\/(assess|demand)$/.test(r.url())) others.push(`${r.method()} ${r.url()}`); });
     const posted = await asSupplier(page, key);
     await visit(page, '/readiness/supplier/report', { title: /supplier readiness report/i, h1: 'Supplier readiness report' });
     const items = page.locator('[data-item]');
@@ -46,7 +47,7 @@ for (const key of Object.keys(ORDER)) {
 
     await expect(page.locator('[data-disclaimer]')).toHaveText('Indicative, sources linked, not legal advice.');
     for (const s of ['r-profile', 'r-results', 'r-roadmap', 'r-about']) await expect(page.locator(`[data-report-section="${s}"]`)).toBeVisible();
-    await expect(page.locator('[data-report-section="r-demand"]')).toHaveCount(0);
+    await expect(page.locator('[data-report-section="r-demand"]')).toBeVisible();     // WP-66: the profiles hold CPV codes
     await expect(page.getByText('generated 12 Oct 2026, 08:00 UTC')).toBeVisible();
     // the profile as entered: the CPV codes with their titles; the verdicts of the Spanish route; the summary
     await expect(page.locator('[data-report-section="r-profile"]')).toContainText('34300000 Parts and accessories for vehicles and their engines');

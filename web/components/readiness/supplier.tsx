@@ -172,7 +172,8 @@ export function SupplierForm() {
 
       <div className="flex flex-col gap-3">
         <p className="m-0 max-w-prose text-small text-ink-muted">
-          Saved in this browser as you go. The CPV codes, processes, region, NACE code and investor country never leave it; the results page sends only the answers the rules read.
+          Saved in this browser as you go. The processes, region, NACE code and investor country never leave it; the results page sends only the answers the
+          rules read, and the CPV codes alone (nothing else of the profile) for the map of who buys what you make. The server stores and logs neither.
         </p>
         <div><Button type="submit" iconRight={ArrowRight}>Save and see my results</Button></div>
       </div>
@@ -196,7 +197,7 @@ function CpvPicker({ codes, onChange, error }: { codes: string[]; onChange: (cod
   const full = codes.length >= CPV_MAX;
   return (
     <Fieldset id="q-cpv" legend={`CPV codes of what you make (optional, up to ${CPV_MAX})`} error={error}
-      hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map; no rule of the check reads them. Search by a word of the product (“castings”, “steel”, “cable”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
+      hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “steel”, “cable”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
       <TextInput id="sp-cpv-search" search className="mt-2 max-w-form" label="Search the CPV codes" value={query} onChange={(e) => setQuery(e.target.value)}
         aria-invalid={error ? true : undefined} aria-describedby={error ? 'q-cpv-error' : undefined} autoComplete="off" />
       <p role="status" className="m-0 text-small text-ink-muted">

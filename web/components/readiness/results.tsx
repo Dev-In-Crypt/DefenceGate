@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { ConsultantNote, ProgrammeCard } from './rules';
 import { useAssessment, useProfile } from './use-readiness';
+import { DemandSummary } from './demand';
 
 /** Shown while the profile is read from the browser and while the verdict is computed. */
 function Loading() {
@@ -95,6 +96,7 @@ export function ResultsView() {
               </ul>
             </section>
           )}
+          {hasSupplier(profile) && <DemandSummary profile={profile} />}
           {result.data.general.map((a) => (
             <section key={a.programme} aria-labelledby="general" className="flex flex-col gap-4">
               <h2 id="general" className="m-0 text-h2">Other requirements that may apply to you</h2>

@@ -38,7 +38,7 @@ export default function SupplierPage() {
       </PageSection>
       <Callout title="Your answers stay in this browser">
         <p className="m-0">They are saved in this browser, on this device, together with the answers of the readiness check. There is no account and no copy on our server.</p>
-        <p className="m-0">The only thing that leaves your browser is the request that computes the verdict, with the answers the rules read. The server does not store or log them.</p>
+        <p className="m-0">Two requests leave your browser: the one that computes the verdict, with the answers the rules read, and the one for the map of who buys what you make, with your CPV codes and nothing else. The server does not store or log them.</p>
       </Callout>
       <SupplierForm />
     </ContentPage>
