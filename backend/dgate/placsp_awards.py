@@ -224,6 +224,9 @@ def replay_from_store(conn: psycopg.Connection, *, store=None, limit: int | None
         """SELECT r.native_id, r.storage_key FROM raw_ingest r
             WHERE r.source_id = %s ORDER BY r.id LIMIT %s""",   # landing order: each bundle is read once
         (src, limit or 100_000_000)).fetchall()
+    # nothing is written yet: end the read before the store is read (30+ minutes on production), or
+    # the worker role's idle-in-transaction timeout closes the connection (22 Oct 2026)
+    conn.rollback()
     newest: dict[str, tuple[datetime, str, dict]] = {}
     oldest = datetime.min.replace(tzinfo=timezone.utc)
     for r in rows:
