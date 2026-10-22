@@ -1,0 +1,38 @@
+{
+ "profile": {
+  "applicant_kind": null,
+  "components_from_ua_or_eea_efta": null,
+  "country": "DE",
+  "de_ausfuhrliste": "unsure",
+  "de_vs_nfd": true,
+  "de_vs_vertraulich": true,
+  "dualuse_annex_i": "unsure",
+  "executive_management_country": null,
+  "export_intent": "outside_eu",
+  "foreign_capital": false,
+  "ghb_admitted": false,
+  "handles_classified": true,
+  "legal_form": null,
+  "non_eu_component_cost_pct": null,
+  "product_regime": "unknown",
+  "receives_eea_defence_products": false,
+  "restricted_third_country_component": null,
+  "safe_role": null,
+  "sibe_appointed": true,
+  "third_country_control": "no",
+  "ua_non_government_controlled_area": null,
+  "ua_partner": null,
+  "us_components": false,
+  "vsnfd_declaration_signed": true,
+  "vsnfd_merkblatt": false
+ },
+ "statuses": {
+  "REQ-AQAP2110": "not_held",
+  "REQ-AQAP2310": "not_held",
+  "REQ-EN9100": "not_held",
+  "REQ-EXPORT": "not_held",
+  "REQ-ISO9001": "held",
+  "REQ-NCAGE": "not_held",
+  "REQ-PIC": "unknown"
+ }
+}

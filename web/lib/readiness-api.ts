@@ -7,6 +7,7 @@
 import { REVALIDATE_SECONDS, ApiError } from './api';
 import mock from './mock/requirements.json';
 import type { RequirementDetail, RequirementSummary } from './readiness-types';
+import { DEMAND_COUNTRIES, SAMPLE_CPV, isDemand, type Demand } from './demand';
 
 const API_BASE = process.env.DG_API_URL;
 
@@ -28,6 +29,26 @@ export async function getRequirements(): Promise<Catalogue> {
     return r;
   }
   return mock.catalogue as unknown as Catalogue;
+}
+
+/**
+ * WP-68: the demand map for the sample codes of /readiness/spain-automotive, read live from the API (POST /v1/readiness/demand, stateless:
+ * nothing of a visitor is in it). Null on a build without an API (the demo data is not live, so no figure is shown) and on any failure.
+ */
+export async function getDemandSample(): Promise<Demand | null> {
+  if (!API_BASE) return null;
+  try {
+    const res = await fetch(`${API_BASE}/v1/readiness/demand`, {
+      method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ cpv: [...SAMPLE_CPV], countries: [...DEMAND_COUNTRIES] }),
+      signal: AbortSignal.timeout(10_000), next: { revalidate: REVALIDATE_SECONDS },
+    });
+    if (!res.ok) return null;
+    const body: unknown = await res.json();
+    return isDemand(body) ? body : null;
+  } catch {
+    return null;
+  }
 }
 
 /** One requirement by its code (`REQ-NCAGE`), or null when there is none. */

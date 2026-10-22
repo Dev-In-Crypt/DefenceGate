@@ -65,7 +65,8 @@ export function Fieldset({ legend, hint, error, id, children, className }: {
   const hintId = id && hint ? `${id}-hint` : undefined;
   const errorId = id && error ? `${id}-error` : undefined;
   return (
-    <fieldset aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined} className={cn('m-0 flex min-w-0 flex-col border-0 p-0', className)}>
+    // the id is the target of the results' links to a question (`/readiness/supplier#q-<field>`): without it those links led nowhere (WP-68)
+    <fieldset id={id} aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined} className={cn('m-0 flex min-w-0 flex-col border-0 p-0', className)}>
       <legend className="mb-1 p-0 text-label text-ink">{legend}</legend>
       {hint && <p id={hintId} className="m-0 max-w-prose text-small text-ink-muted">{hint}</p>}
       {error && <p id={errorId} className="m-0 flex items-center gap-1 text-small font-bold text-alert"><Icon icon={CircleAlert} size="inline" />{error}</p>}

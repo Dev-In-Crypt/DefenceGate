@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, X } from 'lucide-react';
 import { cpvDictionaryTitle, cpvSearch } from '@/lib/cpv';
 import {
-  CERTIFICATES, CPV_MAX, CPV_MIN, ES_CLEARANCES, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, clearanceAnswer, cpvProblem, holds, isEu,
-  monthProblem, naceProblem, savedSupplier, supplierProblems, withClearance, withHeld, type Holding, type Profile, type Supplier, type Tri,
+  CERTIFICATES, CPV_MAX, CPV_MIN, DE_QUESTIONS, DUAL_USE_QUESTION, ES_CLEARANCES, EXPORT_HOLDING, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, clearanceAnswer,
+  cpvProblem, holds, isEu, monthProblem, naceProblem, savedSupplier, supplierProblems, withClearance, withHeld,
+  type Answer, type EsQuestion, type Holding, type Profile, type Supplier,
 } from '@/lib/profile';
 import { cn } from '@/lib/utils';
 import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
-import { COUNTRY_OPTIONS, Radios, SIZE_OPTIONS, YES_NO_UNSURE } from './wizard';
+import { COUNTRY_OPTIONS, EXPORT_OPTIONS, Radios, SIZE_OPTIONS, YES_NO_UNSURE } from './wizard';
 import { useCpvVocabulary, useProfile } from './use-readiness';
 
 /** The autonomous communities and cities of Spain, by their ISO 3166-2 codes. */
@@ -50,7 +51,13 @@ export function SupplierForm() {
   const s = profile.supplier;
   const es = profile.country === 'ES';
   const setS = <K extends keyof Supplier>(key: K, value: Supplier[K]) => update((p) => ({ ...p, supplier: { ...p.supplier, [key]: value } }));
-  const answer = (field: string, v: Tri) => update((p) => ({ ...p, supplier: { ...p.supplier, answers: { ...p.supplier.answers, [field]: v } } }));
+  const de = profile.country === 'DE';
+  const answer = (field: string, v: Answer) => update((p) => ({ ...p, supplier: { ...p.supplier, answers: { ...p.supplier.answers, [field]: v } } }));
+  const question = (q: EsQuestion, hint?: string) => (
+    <Radios key={q.field} legend={q.label} name={q.field} value={s.answers[q.field] ?? ''} hint={hint}
+      options={q.options ? [...q.options] : [...YES_NO_UNSURE]} onChange={(v) => answer(q.field, v)} />
+  );
+  const shownQ = (q: EsQuestion) => !q.when || q.when(profile);
   const problems = tried ? supplierProblems(profile) : [];
   const errorOf = (id: string) => problems.find((x) => x.id === id)?.text;
   const shown = (h: Holding) => !h.esOnly || es;
@@ -159,14 +166,42 @@ export function SupplierForm() {
         )}
       </Part>
 
+      {/* WP-68: the export answer of step 5, the EU dual-use question and, for a German company, the German export list */}
+      <Part title="Exports and export control" id="sp-export">
+        <Radios legend="Do you export, or plan to export, your product?" name="export_intent" value={profile.exportIntent}
+          hint="The same answer as step 5 of the readiness check. The export rules read it." options={[...EXPORT_OPTIONS]}
+          onChange={(v) => update((p) => ({ ...p, exportIntent: v }))} />
+        {shownQ(DUAL_USE_QUESTION)
+          ? question(DUAL_USE_QUESTION, 'The EU rule on dual-use exports reads this answer when you export, or may export, outside the EU. If you are not sure, your results say that a classification settles it and that a specialist is needed; this check does not classify items.')
+          : <p className="m-0 max-w-prose text-small text-ink-muted" data-dual-use-hidden>
+              The question on the EU dual-use list (Annex I of Regulation (EU) 2021/821) is asked when you export, or may export, outside the EU, unless you said in step 3 of the readiness check that your main product is military or in neither regime.
+            </p>}
+        {de && shownQ(DE_QUESTIONS.find((q) => q.field === 'de_ausfuhrliste')!)
+          && question(DE_QUESTIONS.find((q) => q.field === 'de_ausfuhrliste')!, 'The German rule on BAFA licences reads this answer. If you are not sure, your results say that a classification settles it.')}
+        {EXPORT_HOLDING.when(profile) && (
+          <Radios legend={EXPORT_HOLDING.label} name={EXPORT_HOLDING.code} value={clearanceAnswer(profile, EXPORT_HOLDING.code)} options={[...YES_NO_UNSURE]}
+            hint="The same answer as step 4 of the readiness check. If you are not sure, your results keep the question open."
+            onChange={(v) => update((p) => withClearance(p, EXPORT_HOLDING.code, v))} />
+        )}
+      </Part>
+
+      {de && (
+        <Part title="Questions of the German rules on classified contracts (optional)" id="sp-germany">
+          <p className="m-0 max-w-prose text-small text-ink-muted">
+            The German rules on the Geheimschutzbetreuung, the security officer and VS-NfD material read these answers; they apply to companies established in Germany. Leave a question empty, or answer “I am not sure”, and the rule stays open with its question on your results. The personnel security checks (Ü1 to Ü3) need no answer here: your results show that rule, with its source, once you say you need access to classified information.
+          </p>
+          {profile.classified === 'yes'
+            ? DE_QUESTIONS.filter((q) => q.field !== 'de_ausfuhrliste' && shownQ(q)).map((q) => question(q))
+            : <p className="m-0 max-w-prose text-small text-ink-muted" data-germany-waiting>These questions appear once you answer “Yes” to access to classified information above.</p>}
+        </Part>
+      )}
+
       {es && (
         <Part title="Questions of the Spanish defence supplier route (optional)" id="sp-spain">
           <p className="m-0 max-w-prose text-small text-ink-muted">
             The rules of the Ministry of Defence route read these answers. Leave a question empty, or answer “I am not sure”, and the rule stays open with its question on your results.
           </p>
-          {ES_QUESTIONS.filter((q) => !q.when || q.when(profile)).map((q) => (
-            <Radios key={q.field} legend={q.label} name={q.field} value={s.answers[q.field] ?? ''} options={[...YES_NO_UNSURE]} onChange={(v) => answer(q.field, v)} />
-          ))}
+          {ES_QUESTIONS.filter(shownQ).map((q) => question(q))}
         </Part>
       )}
 
