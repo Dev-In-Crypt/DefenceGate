@@ -105,7 +105,7 @@ export default function TermsPage() {
       <Clause n={13} title="Acceptable use">
         <p className={P}>You must not:</p>
         <ClauseList items={[
-          'access the service by automated means (crawlers, scrapers, scripts, bots, agents or bulk download) except the CSV export and the calendar feed the site offers, used within their limits, search-engine indexing that respects our robots file, or as we have agreed in writing, or exceed the rate limits we apply;',
+          'access the service by automated means (crawlers, scrapers, scripts, bots, agents or bulk download) except the CSV export, the calendar feed and the Atom feeds the site offers, used within their limits, search-engine indexing that respects our robots file, or as we have agreed in writing, or exceed the rate limits we apply;',
           'use the service or any part of our compilation to train, fine-tune, evaluate or feed an artificial-intelligence or machine-learning system, or to supply a retrieval or chat tool with it, without our written agreement;',
           'circumvent a limit, access control or security measure, or probe the service for weaknesses;',
           'extract or re-use a substantial part of DefenceGate data to build, feed or operate a competing or redistributed database or service, or resell or sublicense it. This does not restrict what you may do with source data that you take from the source itself;',

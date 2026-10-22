@@ -55,7 +55,7 @@ export default function PrivacyPage() {
         <p className={P}>While you browse, the site sets no cookies. These are the only items it ever stores in your browser:</p>
         <ClauseList items={[
           <><span className="font-mono">dg-theme</span> (local storage, your device only): your light or dark choice. Kept until you clear your browser data.</>,
-          <><span className="font-mono">dg.profile.v1</span> (local storage, your device only): only if you use the readiness check or the supplier profile, the answers you give there (for example a company name, its country and size, product codes and certificates). They are not stored on our server; to compute a result they are sent once and not kept. You can delete them with &ldquo;Clear my answers&rdquo; in the readiness check, or by clearing your browser data.</>,
+          <><span className="font-mono">dg.profile.v1</span> (local storage, your device only): only if you use the readiness check or the supplier profile, the answers you give there (for example a company name, its country and size, product codes and certificates). They stay in your browser: we do not see them and do not keep them. To compute a result they are sent once to our server, used for that answer only and neither stored nor logged. You can delete them with &ldquo;Clear my answers&rdquo; in the readiness check, or by clearing your browser data.</>,
           <><span className="font-mono">__Host-dg_bind</span> (cookie, first party): only while you sign in. Ties the sign-in link to the browser that asked for it. Expires after 15 minutes.</>,
           <><span className="font-mono">__Host-dg_session</span> (cookie, first party): only when you are signed in. Keeps you signed in. Expires after 30 days at most, or after 7 days without use.</>,
         ]} />
@@ -87,7 +87,7 @@ export default function PrivacyPage() {
       <Clause n={7} title="Personal data in public notices">
         <p className={P}>Public procurement notices and funding calls are published by public bodies and sometimes name a contact person. We republish them as business information about who buys and who funds what.</p>
         <ClauseList items={[
-          <><strong>What we hold.</strong> The notice fields. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business.</>,
+          <><strong>What we hold.</strong> The notice fields. Our collection drops the contact fields a source publishes (names, e-mail addresses, telephone numbers) and removes e-mail addresses from free text; a name or number typed into a description by the publisher is not removed. The site is not designed to show contact persons. Buyers and suppliers that are legal entities are shown by name; a sole trader’s name can be the name of the business. We keep the registration numbers of companies, never a person’s. Participants in EU-funded projects come from the public data the European Commission publishes (CORDIS, EDF); a few of them are individuals or sole traders and appear as the Commission publishes them.</>,
           <><strong>Where it comes from.</strong> From the public source of the notice, never from you.</>,
           <><strong>Why and on what basis.</strong> To give businesses access to public procurement information in one place: our legitimate interest, and the interest of users and of the public in transparent public procurement (Art. 6(1)(f) GDPR).</>,
           <><strong>Who sees it.</strong> Anyone who visits the site; it is public by design. Our hosting provider processes it for us.</>,
@@ -103,6 +103,7 @@ export default function PrivacyPage() {
           'The hosting provider, Hetzner Online GmbH, as a processor: it operates the server we use, located in Finland, and the storage we use for backups, located in the European Union.',
           'Cloudflare, Inc. (USA), as the provider of the domain name service only: it answers requests for the domain’s address and can see the address of the resolver that asks. Traffic to the site does not pass through Cloudflare.',
           'The mail provider named in section 5, once sign-in opens.',
+          'Artificial-intelligence services we choose (for example OpenAI or Anthropic) may process the text of public documents we collect, such as funding call documents and project factsheets, to read information from them; they may process it outside the European Economic Area. We send them nothing about visitors or account holders.',
         ]} />
         <p className={P}>We do not sell personal data. We disclose data to an authority where the law requires it.</p>
       </Clause>
