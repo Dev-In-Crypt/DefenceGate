@@ -117,7 +117,7 @@ def shared_identifier_holders(conn) -> dict[int, dict[str, Any]]:
         """SELECT k.id, k.canonical_name, k.country, k.national_reg_no, k.is_defence_buyer,
                   a.id AS aid, a.canonical_name AS aname
              FROM organisation a JOIN organisation k ON k.id = a.merged_into
-            WHERE a.merge_method = 'identifier' AND k.merged_into IS NULL
+            WHERE a.merge_method LIKE 'identifier%' AND k.merged_into IS NULL
             ORDER BY k.id, a.id""").fetchall()
     out: dict[int, dict[str, Any]] = {}
     for r in rows:

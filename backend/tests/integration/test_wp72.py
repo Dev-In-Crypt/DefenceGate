@@ -196,8 +196,9 @@ def _organisation(conn, name: str, *, reg: str | None = None, country: str = "FR
 
 def test_identifier_candidates_are_merged_with_method_and_confidence_and_the_rest_waits(conn):
     # companies: a commune and its mairie are public bodies, never merged by a number (WP-74)
-    commune = _organisation(conn, "chantiers de l atlantique", reg="21440103600121")
-    mairie = _organisation(conn, "chantiers de l atlantique saint-nazaire")
+    # since WP-76: a company SIRET (one beginning 2 is a local authority's) and names that agree
+    commune = _organisation(conn, "chantiers de l atlantique", reg="44440103600121")
+    mairie = _organisation(conn, "chantiers de l atlantique s a")
     a = _organisation(conn, "hopital a", reg="111")
     b = _organisation(conn, "hopital a site b", reg="222")
     x = _organisation(conn, "service x")
@@ -221,8 +222,8 @@ def test_identifier_candidates_are_merged_with_method_and_confidence_and_the_res
     assert done["merged"] == 1
     merged = conn.execute("SELECT id, merged_into, merge_method, merge_confidence FROM organisation "
                           "WHERE merged_into IS NOT NULL").fetchall()
-    assert len(merged) == 1 and merged[0]["merge_method"] == "identifier"
-    assert float(merged[0]["merge_confidence"]) == 0.97
+    assert len(merged) == 1 and merged[0]["merge_method"] == "identifier+name"   # what agreed (WP-76)
+    assert float(merged[0]["merge_confidence"]) == 0.98
     assert {merged[0]["id"], merged[0]["merged_into"]} == {commune, mairie}
     status = {(r["match_method"], float(r["confidence"])): r["status"] for r in conn.execute(
         "SELECT match_method, confidence, status FROM organisation_merge_candidate "
