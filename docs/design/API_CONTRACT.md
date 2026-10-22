@@ -1246,3 +1246,28 @@ Scope: the defence-scope notices (`is_defence`, not removed). Answer:
 - WP-80: a request whose codes match more than 30,000 defence-scope notices in the window and countries asked (`demand.MAX_ROWS`;
   15 whole divisions match about 117,000) is refused with `422 {"detail": {"code": "too_broad", "message": "... Choose more specific
   codes ..."}}`, the codes not echoed. Counted first with a `LIMIT`, so a refusal costs well under a second.
+
+## Changes of 22 October 2026 (WP-86: the site search)
+
+### `GET /v1/search?q=&limit=5`
+
+One query over the five lists the site has, for the header's search field and `/search`. `q` 2 to 100 characters (422
+otherwise), `limit` 1 to 10 (default 5). Answer:
+
+```
+{ "q": "radar", "tookMs": 812,
+  "tenders":       { "total": 40, "atLeast": false, "items": [ <Tender>, ... ], "error": null },
+  "funding":       { ... <FundingCall> ... },
+  "buyers":        { ... <Buyer> ... },
+  "suppliers":     { ... <supplier map item> ... },
+  "organisations": { ... <organisation directory item> ... } }
+```
+
+Each group is the list endpoint itself (`/v1/tenders`, `/v1/funding`, `/v1/buyers`, `/v1/suppliers`, `/v1/organisations`) called
+with `q`, `pageSize=limit` and the filters the site's list opens on: the endpoints' defaults (tenders and funding: open), and for
+organisations the defence programmes (`programme=EDF,EDIDP,PADR`, as `/organisations` opens). So a group's `total` and items are
+what `/<list>?q=<words>` shows. `atLeast`: the list's own total is a floor (tenders `totalCapped`, organisations past 10,000).
+No new index or search engine; the lists' response caches apply. The groups run in turn on one connection inside a 4.5 s budget,
+each statement limited to what is left less 0.3 s for every group after it: a group that runs out answers
+`{"total": null, "items": [], "error": "slow"}`, one whose list refuses the words `"error": "refused"`; the others still answer.
+Rate limit: 15 tokens (the five list searches as separate requests cost 22).

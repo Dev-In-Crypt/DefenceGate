@@ -8,6 +8,7 @@ import { activeOrgFilterCount, defaultOrgSort, parseOrgFilters, toOrgQuery } fro
 import { ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { ListPage } from '@/components/dg/list-page';
+import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
 import { CountryNote, DataSources, OrgCard, OrgFilterBar, ProgrammeScope } from '@/components/networks/parts';
 
 export const revalidate = 60;
@@ -57,9 +58,9 @@ export default async function OrganisationsPage({ searchParams }: Props) {
   return (
     <>
       <ListPage
-        crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }]}
-        title="Organisations in funded projects"
-        intro="Who has already taken part in EU-funded defence and research projects: the European Defence Fund, Horizon Europe, Horizon 2020 and FP7. Open an organisation to see its projects, its partners and the EU funding it received."
+        crumbs={companyCrumbs('organisations')}
+        title="Companies"
+        head={<CompaniesTabs current="organisations" />}
         scope={<ProgrammeScope filters={filters} basePath="/organisations" />}
         filterBar={<OrgFilterBar filters={filters} basePath="/organisations" />}
         noun="organisations" page={result.page} pageSize={result.pageSize} total={result.total}

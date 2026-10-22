@@ -95,12 +95,12 @@ test('/changes past its last page, and unknown filter values, say so', async ({ 
   await expect(page.getByRole('link', { name: 'Go to page 1' })).toHaveAttribute('href', '/changes');
   await visit(page, '/changes?kind=bogus&week=garbage&country=XX', { title: /changed/i, h1: 'What changed' });
   for (const t of ['Ignored filter: kind=bogus', 'Ignored filter: week=garbage', 'Ignored filter: country=XX']) await expect(page.getByText(t, { exact: false })).toBeVisible();
-  await visit(page, '/organisations?country=XX&sort=bogus', { title: /organisations/i, h1: /organisations/i, text: ['Ignored filter: country=XX', 'Ignored filter: sort=bogus'] });
-  await visit(page, '/suppliers?cpv=abc', { title: /supplier/i, h1: /supplier/i, text: ['Ignored filter: cpv=abc'] });
+  await visit(page, '/organisations?country=XX&sort=bogus', { title: /organisations/i, h1: 'Companies', text: ['Ignored filter: country=XX', 'Ignored filter: sort=bogus'] });
+  await visit(page, '/suppliers?cpv=abc', { title: /supplier/i, h1: 'Companies', text: ['Ignored filter: cpv=abc'] });
   await visit(page, '/calendar?month=2025-01', { title: /calendar/i, h1: /calendar/i, text: [/Ignored filter: month=2025-01/] });
   await visit(page, '/tenders?page=0', { title: /tenders/i, h1: /tenders/i, text: ['Ignored filter: page=0 (pages start at 1)'] });
   // m-9: a page past the end goes to the last page, as the other lists do, not to a 404
-  for (const [url, h1] of [['/organisations?page=9999', /organisations/i], ['/suppliers?page=999', /supplier/i]] as const) {
+  for (const [url, h1] of [['/organisations?page=9999', 'Companies'], ['/suppliers?page=999', 'Companies']] as const) {
     await visit(page, url, { title: /./, h1 });
     expect(page.url()).not.toMatch(/page=999/);
   }

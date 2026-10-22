@@ -71,20 +71,6 @@ export function Steps({ items, rows = false }: { items: { title: string; body: s
   );
 }
 
-/** Who it is for: a name and one line of what they get. */
-export function AudienceGrid({ items }: { items: { who: string; body: string }[] }) {
-  return (
-    <AutoGrid as="ul" min={420}>
-      {items.map((a) => (
-        <Card as="li" key={a.who} className="gap-1">
-          <h3 className="m-0 text-h3">{a.who}</h3>
-          <p className="m-0 text-body text-ink-muted">{a.body}</p>
-        </Card>
-      ))}
-    </AutoGrid>
-  );
-}
-
 export interface FaqItem { q: string; a: string }
 
 /** Native disclosure: works without script and is keyboard-reachable. */

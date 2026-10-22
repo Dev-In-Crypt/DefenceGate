@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function ResultsPage() {
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Results', href: '/readiness/results' }]}
+      crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Results', href: '/readiness/results' }]}
       title="Your readiness results"
       lead="One card for each programme. Open a card to read every rule, the reason for its outcome and the text of the source."
       wide

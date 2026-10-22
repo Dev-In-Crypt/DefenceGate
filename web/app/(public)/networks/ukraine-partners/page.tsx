@@ -58,7 +58,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Partners of Ukrainian organisations', href: '/networks/ukraine-partners' }]}
-      title="Who partners with Ukrainian organisations"
+      title="Ukraine partners"
       lead="The organisations that coordinated an EU-funded project with a participant established in Ukraine. Useful if you look for a prime that already works with Ukrainian companies, or for a consortium to join."
       wide
     >

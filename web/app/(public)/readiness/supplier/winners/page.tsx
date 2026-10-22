@@ -14,7 +14,7 @@ export default function AllWinnersPage() {
   return (
     <div className="flex flex-col gap-6">
       <Breadcrumbs items={[
-        { label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Supplier profile', href: '/readiness/supplier' },
+        { label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Supplier profile', href: '/readiness/supplier' },
         { label: 'Report', href: '/readiness/supplier/report' }, { label: 'Every winner', href: '/readiness/supplier/winners' },
       ]} />
       <h1 className="m-0 text-h1-sm md:text-h1">Every winner for your codes</h1>

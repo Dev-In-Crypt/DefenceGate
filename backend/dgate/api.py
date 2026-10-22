@@ -1066,6 +1066,11 @@ from .demand import router as _demand_router  # noqa: E402
 
 app.include_router(_demand_router)
 
+# One search box over the five lists (search.py, WP-86): each group is the list endpoint itself.
+from .search import router as _search_router  # noqa: E402
+
+app.include_router(_search_router)
+
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error(request: Request, exc: RequestValidationError):

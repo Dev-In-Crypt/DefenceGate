@@ -1,0 +1,122 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { buildMetadata } from '@/lib/seo';
+import { formatDateUtc, formatNumber, plural } from '@/lib/format';
+import { countryName } from '@/lib/taxonomy';
+import { displayName } from '@/lib/display-name';
+import { getSearch, searchQuery, seeAllHref, type SearchGroup, type SiteSearch } from '@/lib/search';
+import { PageHeader } from '@/components/dg/page-header';
+import { Card } from '@/components/dg/card';
+import { SiteSearchForm } from '@/components/dg/site-search';
+import { ErrorState } from '@/components/dg/feedback';
+
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+// Every query is a page of its own: never indexed, never listed in the sitemap.
+export const metadata: Metadata = buildMetadata({
+  title: 'Search',
+  description: 'Search tenders, funding calls, buyers and companies at once.',
+  path: '/search',
+  noindex: true,
+});
+
+type Key = keyof Omit<SiteSearch, 'q'>;
+interface Row { href: string; title: string; line: string }
+
+const where = (country: string | null | undefined) => (country ? countryName(country) : null);
+const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(' · ');
+
+/** Each group's rows: the name or title, and one line of what the list card says first. */
+function rows(s: SiteSearch, key: Key): Row[] {
+  switch (key) {
+    case 'tenders': return s.tenders.items.map((t) => ({ href: `/tenders/${t.slug}`, title: t.title,
+      line: join(displayName(t.buyerName), where(t.country), t.deadline ? `Deadline ${formatDateUtc(t.deadline)}` : 'No deadline stated') }));
+    case 'funding': return s.funding.items.map((c) => ({ href: `/funding/${c.slug}`, title: c.title,
+      line: join(c.programmeName, c.deadline ? `Deadline ${formatDateUtc(c.deadline)}` : 'No fixed deadline') }));
+    case 'buyers': return s.buyers.items.map((b) => ({ href: `/buyers/${b.slug}`, title: displayName(b.name),
+      line: join(where(b.country), `${formatNumber(b.tenderCount)} ${plural(b.tenderCount, 'tender')}, ${formatNumber(b.openCount)} open`) }));
+    case 'suppliers': return s.suppliers.items.map((x) => ({ href: `/suppliers/${x.slug}`, title: displayName(x.name),
+      line: join(where(x.country), `${formatNumber(x.awardCount)} ${plural(x.awardCount, 'contract')} won`) }));
+    case 'organisations': return s.organisations.items.map((o) => ({ href: `/organisations/${o.slug}`, title: displayName(o.name),
+      line: join(where(o.country), `${formatNumber(o.defenceProjects)} defence ${plural(o.defenceProjects, 'project')}`) }));
+  }
+}
+
+/** The groups in the menu's order; Companies is the two tabs of the Companies page. */
+const GROUPS: { title: string; parts: { key: Key; label?: string; noun: string }[] }[] = [
+  { title: 'Tenders', parts: [{ key: 'tenders', noun: 'open tenders' }] },
+  { title: 'Funding', parts: [{ key: 'funding', noun: 'open funding calls' }] },
+  { title: 'Buyers', parts: [{ key: 'buyers', noun: 'buyers' }] },
+  { title: 'Companies', parts: [
+    { key: 'suppliers', label: 'Won contracts', noun: 'companies that won contracts' },
+    { key: 'organisations', label: 'In EU-funded projects', noun: 'companies in EU-funded defence projects' },
+  ] },
+];
+
+function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts'][number] }) {
+  const g: SearchGroup<unknown> = s[part.key];
+  const all = seeAllHref(part.key, s.q);
+  const total = g.total === null ? '' : `${g.atLeast ? 'at least ' : ''}${formatNumber(g.total)}`;
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {part.label && <h3 className="m-0 text-h4">{part.label}</h3>}
+      {g.error ? (
+        <p className="m-0 text-body text-ink-muted">
+          {g.error === 'slow' ? 'This part of the search took too long.' : 'This list does not search for these words.'}{' '}
+          <Link href={all} className="font-semibold">Search the list itself</Link>
+        </p>
+      ) : g.total === 0 ? (
+        <p className="m-0 text-body text-ink-muted">No {part.noun} match.</p>
+      ) : (
+        <>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {rows(s, part.key).map((r) => (
+              <li key={r.href} className="border-t border-line first:border-t-0">
+                <Link href={r.href} className="flex min-h-11 flex-col justify-center py-2 no-underline hover:underline">
+                  <span className="text-body font-semibold text-ink [overflow-wrap:anywhere]">{r.title}</span>
+                  {r.line && <span className="text-small text-ink-muted">{r.line}</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">See all {total} {part.noun}</Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default async function SearchPage({ searchParams }: Props) {
+  const q = searchQuery((await searchParams).q);
+  // A search the data service did not answer (busy, too many searches from one address) says so; the lists still work.
+  const result = q ? await getSearch(q).catch(() => 'failed' as const) : null;
+  return (
+    <>
+      <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Search', href: '/search' }]} title="Search"
+        lead={q ? undefined : 'One search over tenders, funding calls, buyers and companies. Each part shows its first five matches and leads to the full list.'}>
+        <SiteSearchForm id="page-search" defaultValue={q} className="max-w-2xl" />
+      </PageHeader>
+      {result === 'failed' && (
+        <ErrorState title="The search is not available right now" retryHref={`/search?${new URLSearchParams({ q })}`}>
+          Try again in a minute, or search one list: <Link href={seeAllHref('tenders', q)} className="font-semibold">tenders</Link>, <Link href={seeAllHref('funding', q)} className="font-semibold">funding</Link>, <Link href={seeAllHref('buyers', q)} className="font-semibold">buyers</Link> or <Link href={seeAllHref('suppliers', q)} className="font-semibold">companies</Link>.
+        </ErrorState>
+      )}
+      {result && result !== 'failed' && (
+        <section aria-labelledby="results-heading" className="flex flex-col gap-4">
+          <h2 id="results-heading" className="m-0 text-h2">Results for “{result.q}”</h2>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {GROUPS.map((g) => (
+              <Card key={g.title} title={g.title} id={`group-${g.title.toLowerCase()}`} className={g.parts.length > 1 ? 'lg:col-span-2' : undefined}
+                bodyClassName={g.parts.length > 1 ? 'grid gap-6 lg:grid-cols-2' : undefined}>
+                {g.parts.map((p) => <Part key={p.key} s={result} part={p} />)}
+              </Card>
+            ))}
+          </div>
+          <p className="m-0 max-w-prose text-small text-ink-muted">
+            Tenders and funding calls are the open ones, as their lists open; companies in EU-funded projects are those of the defence programmes. Each list can widen the search.
+          </p>
+        </section>
+      )}
+    </>
+  );
+}

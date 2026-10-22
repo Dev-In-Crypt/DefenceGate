@@ -89,6 +89,10 @@ HEAVY_PATHS["/v1/readiness/assess"] = 3
 HEAVY_PATHS["/v1/readiness/demand"] = 5
 # WP-81: every winner of the same answer, a page at a time: the same statement, the same price.
 HEAVY_PATHS["/v1/readiness/winners"] = 5
+# WP-86: the site search runs five list searches with a word (tenders 6, buyers 8, suppliers 5, organisations 2,
+# funding 1 as separate requests, 22) at a page of five each, inside one 4.5 s budget: a little under their sum, so a
+# visitor gets eight searches at once and then one every 7.5 s.
+HEAVY_PATHS["/v1/search"] = 15
 # The coverage report: a dozen small reads, and (kept ten minutes, one caller at a time) three
 # figures that cost seconds when cold. Public, so it is priced like the buyer list; the
 # container's own check comes from a local peer and is not charged.

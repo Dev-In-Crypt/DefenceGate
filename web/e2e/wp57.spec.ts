@@ -7,7 +7,7 @@ import { visit } from './helpers';
  * coordinator says so (M9). Read-only; runs against the demo data of the CI build (lib/mock).
  */
 
-const SUPPLIERS = { title: /supplier map/i, h1: 'Defence supplier map' } as const;
+const SUPPLIERS = { title: /supplier map/i, h1: 'Companies' } as const;
 
 test('/suppliers?country=Germany and ?country=DEU list what ?country=DE lists, and are not a 404', async ({ page }) => {
   await visit(page, '/suppliers?country=DE', SUPPLIERS);
@@ -44,7 +44,7 @@ test('/suppliers?product=gun reads guns, not gunmetal pipe fittings; ?product=fu
 });
 
 test('organisation names keep the acronyms and legal forms of the source ("Sas" is SAS)', async ({ page }) => {
-  await visit(page, '/organisations', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations', { title: /organisations/i, h1: 'Companies' });
   await expect(page.getByRole('link', { name: 'Bravo Ingénierie SAS' }).first()).toBeVisible();
   await expect(page.getByText(/Ingénierie Sas\b/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Alpha Systems GmbH' }).first()).toBeVisible();

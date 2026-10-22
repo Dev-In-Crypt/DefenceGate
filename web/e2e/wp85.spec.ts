@@ -8,7 +8,7 @@ import { visit } from './helpers';
  * themselves are proved against Postgres (backend/tests/integration/test_wp80_approach.py, test_supplier_map.py).
  */
 
-const SUPPLIERS = { title: /supplier map/i, h1: 'Defence supplier map' } as const;
+const SUPPLIERS = { title: /supplier map/i, h1: 'Companies' } as const;
 
 test('/suppliers says it covers the contracts of "who to approach", over three years', async ({ page }) => {
   await visit(page, '/suppliers', { ...SUPPLIERS, text: ['published in the last three years', 'the same contracts the supplier report counts'] });

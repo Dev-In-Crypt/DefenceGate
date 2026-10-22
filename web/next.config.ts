@@ -70,6 +70,11 @@ export default function config(phase: string): NextConfig {
       staticGenerationMaxConcurrency: 3,
       staticGenerationRetryCount: 3,
     },
+    // WP-86: Companies is one page with two tabs at their own addresses (/suppliers, /organisations); the menu's address opens
+    // the first. Not permanent: which tab opens first may change.
+    async redirects() {
+      return [{ source: '/companies', destination: '/suppliers', permanent: false }];
+    },
     async headers() {
       return [
         {

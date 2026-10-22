@@ -410,3 +410,11 @@ def test_the_change_feed_costs_more_than_a_plain_list_page():
     assert request_cost("/v1/changes", {}) == 5
     assert request_cost("/v1/changes", {"pageSize": "200", "country": "PL"}) == 5
     assert request_cost("/v1/tenders", {}) == 1
+
+
+def test_the_site_search_is_priced_like_the_five_list_searches_it_runs():
+    """WP-86: one /v1/search runs the word search of five lists (22 tokens as separate requests), a page of five each."""
+    separate = sum(request_cost(p, {"q": "radar"})
+                   for p in ("/v1/tenders", "/v1/funding", "/v1/buyers", "/v1/suppliers", "/v1/organisations"))
+    assert separate == 22
+    assert request_cost("/v1/search", {"q": "radar"}) == 15

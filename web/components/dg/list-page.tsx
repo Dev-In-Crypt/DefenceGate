@@ -30,9 +30,11 @@ export function SkipToResults() {
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, children,
+  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, children,
 }: {
-  crumbs: Crumb[]; title: string; intro: string; meta?: string; filterBar: React.ReactNode;
+  crumbs: Crumb[]; title: string; intro?: string; meta?: string; filterBar: React.ReactNode;
+  /** Under the title in place of (or after) the intro: the tabs of Companies (WP-86). */
+  head?: React.ReactNode;
   /** Said above the results: what the list shows when that is a default the visitor did not choose. */
   scope?: React.ReactNode;
   /** One line that holds for every card of the list (said once instead of on each card), shown above the cards. */
@@ -63,7 +65,7 @@ export function ListPage({
   const Count = total === 0 ? 'p' : 'h2';
   return (
     <>
-      <PageHeader crumbs={crumbs} title={title} lead={intro} meta={meta} />
+      <PageHeader crumbs={crumbs} title={title} lead={intro} meta={meta}>{head}</PageHeader>
 
       <LiveListScope>
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
