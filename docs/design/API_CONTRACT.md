@@ -1246,3 +1246,29 @@ Scope: the defence-scope notices (`is_defence`, not removed). Answer:
 - WP-80: a request whose codes match more than 30,000 defence-scope notices in the window and countries asked (`demand.MAX_ROWS`;
   15 whole divisions match about 117,000) is refused with `422 {"detail": {"code": "too_broad", "message": "... Choose more specific
   codes ..."}}`, the codes not echoed. Counted first with a `LIMIT`, so a refusal costs well under a second.
+
+## Changes of 22 October 2026 (WP-87: correctness and trust, UX audit section 2)
+
+- `GET /v1/tenders/calendar` takes the tender list's filters: `q`, `country`, `cpv`, `scope`, `goods`, `from`, `to`, `min`,
+  `max`, `currency` (read by the list's own `_tender_filters`), besides `maxItems`. Its `total` is the list's count of open notices
+  with a deadline under the same filters (`/v1/tenders?status=open&from=<today>`).
+- `GET /v1/changes` takes `q`, `cpv`, `from`, `to`, `min`, `max`, `currency` as well; `counts` are then of the filtered window, and
+  `funding` is empty (a call has no CPV code or value range).
+- Both answer **422** for a query parameter they do not take (`unknown query parameter; this endpoint takes: ...`, the
+  parameter sent is not echoed): a parameter is never ignored in silence.
+- `GET /v1/tenders`: new `sort=core-first`, the default of the open list in the defence-relevant scope (no `sort`): core notices
+  first, then the rest, each soonest deadline first. `deadline-asc` is the plain deadline order. Totals unchanged.
+- `GET /v1/funding`: with no `sort`, defence calls first, then dual-use ones (each part in the deadline order); a `sort` asked
+  for is the plain order. `/v1/digest` calls carry `regime`, defence first in each section. `budgetNote.short` for a portal
+  stating 0 is "Amount not stated".
+- A tender's deadline: a national deadline more than 90 days from its TED twin's shows the twin's (a typo), except when the
+  twin's has passed and the notice's own is ahead: then the notice's own is shown and `anomalies` holds `first-deadline-passed`
+  (a dynamic purchasing system or framework), so the card agrees with the Open status the list already gave it.
+- `buyerSlug` of a tender is the buyer family's head (the buyer page), not a member row's.
+- `meta` of `/v1/tenders`, `/v1/funding`, `/v1/changes`, `/v1/digest`: `updatedBy`, the name of the source whose run `updatedAt` is.
+- `GET /v1/buyers/{slug}/profile`: every figure counts notices shown once (the list's collapse rules); `perYearEarlier` and
+  `perYearUndated` make the years add up to `tenderCount`; `amendments.observedFrom` says since when the notices are watched (the
+  site shows the share after six months).
+- Supplier values (`/v1/suppliers/{slug}` `values`, `approach.winners[].values`): `suspect`, the contracts whose value is under
+  1,000 (a unit price), in no sum; a notice row has `valueSuspect`. Profile `notices` are one row per contract, a second
+  publication of the same procurement listed under it in `alsoPublished`; `buyers` are per buyer family.

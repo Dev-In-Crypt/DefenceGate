@@ -54,12 +54,18 @@ NAMED: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
     # budget unit signs for, and one record carries a removed e-mail address after the name.
     ("agencja_uzbrojenia", "PL", re.compile(r"^(?:skarb panstwa\s*-?\s*)?agencja uzbrojenia\b"),
      "one budget unit, with and without the State Treasury in front"),
-    # Its predecessor under the same form of words (renamed on 1 January 2022, stated in
-    # a notice that carries both names). Kept as a family of its own: the two names are
-    # not merged with each other.
-    ("inspektorat_uzbrojenia", "PL",
-     re.compile(r"^(?:skarb panstwa\s*-?\s*)?inspektorat uzbrojenia\b"),
-     "one budget unit, with and without the State Treasury in front"),
+)
+
+# Renamed bodies (WP-87, owner decision of 22 October 2026): a curated list of a predecessor's names and the family of
+# its successor, each with the evidence and a confidence that are stored with the member (`buyer_family_member.method`
+# is `curated_rename`). Read by `family_of` before the rules above; the ops command `dgate.ops.curated_renames` reports
+# what it covers. Display layer only, like every family: no organisation row is merged.
+CURATED_RENAME = "curated_rename"
+RENAMES: tuple[tuple[str, re.Pattern[str], str, float, str], ...] = (
+    # The Armament Inspectorate (Inspektorat Uzbrojenia) became the Armament Agency (Agencja Uzbrojenia) on
+    # 1 January 2022: the same budget unit of the Ministry of National Defence, the same procurement desk in Warsaw.
+    ("PL", re.compile(r"^(?:skarb panstwa\s*-?\s*)?inspektorat uzbrojenia\b"), "agencja_uzbrojenia", 0.95,
+     "Inspektorat Uzbrojenia was renamed Agencja Uzbrojenia on 1 January 2022 (Ministry of National Defence)"),
 )
 
 _FR_PREFIX = re.compile(r"^(?:minarm|mindef) ")
@@ -84,6 +90,9 @@ def family_of(country: str | None, name: str | None) -> Family | None:
     n = (name or "").strip()
     if not c or not n:
         return None
+    for country_, pattern, label, confidence, _evidence in RENAMES:
+        if c == country_ and pattern.search(n):
+            return Family(f"{c}:rule:{label}", CURATED_RENAME, confidence)
     for label, country_, pattern, _why in NAMED:
         if c == country_ and pattern.search(n):
             # "rule:" cannot occur in a normalised name, so a row that is merely called "hil"

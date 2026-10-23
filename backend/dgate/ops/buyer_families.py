@@ -23,7 +23,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from .. import db
-from ..buyer_family import RULE, SHARED_TAX_ID, family_of, is_sub_unit
+from ..buyer_family import CURATED_RENAME, RULE, SHARED_TAX_ID, family_of, is_sub_unit
 from ..config import settings
 
 log = logging.getLogger("buyer_families")
@@ -73,7 +73,8 @@ def groups_of(rows: list[tuple[int, str, str, int, str | None]]) -> list[Group]:
     for key, members in by_key.items():
         if len(members) < 2:
             continue
-        members.sort(key=lambda m: (-m.notices, m.org_id))
+        # WP-87: a renamed body's family is headed by its successor (curated renames), whatever the counts
+        members.sort(key=lambda m: (m.method == CURATED_RENAME, -m.notices, m.org_id))
         out.append(Group(key, members[0], members[1:]))
     out.sort(key=lambda g: (-g.notices, g.key))
     return out

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SUSPECT_NOTE, SUSPECT_VALUE_MAX } from '@/lib/value-totals';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
@@ -166,7 +167,8 @@ export default async function SupplierPage({ params }: Props) {
                   <td className="whitespace-nowrap font-mono tabular-nums">{n.cpv ?? 'Not stated'}</td>
                   <td className="font-mono tabular-nums">
                     {n.valueAmount !== null
-                      ? `${formatNumber(n.valueAmount)} ${n.valueCurrency ?? ''}`
+                      ? <>{`${formatNumber(n.valueAmount)} ${n.valueCurrency ?? ''}`}{(n.valueSuspect ?? n.valueAmount < SUSPECT_VALUE_MAX)
+                        && <span className="block font-sans text-small text-ink-muted" data-value-suspect>{SUSPECT_NOTE}</span>}</>
                       : n.winnersInNotice > 1 ? `Shared by ${n.winnersInNotice} winners` : 'Not stated'}
                   </td>
                 </tr>

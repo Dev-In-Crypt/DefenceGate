@@ -171,3 +171,8 @@ export function buildDigestAtom(issues: Digest[], o: DigestAtomOptions): string 
     '',
   ].join('\n');
 }
+
+/** WP-87: a section's calls in two parts, the defence calls and the dual-use ones (shown under their own heading). */
+export function splitByRegime<T extends { regime?: string | null }>(items: T[]): { defence: T[]; dualUse: T[] } {
+  return { defence: items.filter((c) => c.regime !== 'dual-use'), dualUse: items.filter((c) => c.regime === 'dual-use') };
+}

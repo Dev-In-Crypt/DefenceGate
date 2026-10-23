@@ -31,10 +31,12 @@ export function StatusPill({ status, children }: { status: StatusKind; children?
 }
 
 /** What a source's last run looks like once its age is read: see lib/source-status.ts. */
-export type RunPillKind = RunStatus | 'stale' | 'one-off';
+export type RunPillKind = RunStatus | 'stale' | 'one-off' | 'ok-incremental';
 
 const RUN_PILL: Record<RunPillKind, { cls: string; label: string }> = {
   ok: { cls: 'border-transparent bg-open-bg text-open-fg', label: 'OK' },
+  // WP-87: finished on time with no minimum to compare it with (a run that reads only what changed)
+  'ok-incremental': { cls: 'border-transparent bg-open-bg text-open-fg', label: 'OK (incremental run)' },
   // A short run is not time pressure and not an error: neutral fill with a hairline.
   partial: { cls: 'border-line bg-surface-inset text-ink', label: 'Partial' },
   failed: { cls: 'border-alert bg-surface-inset text-alert', label: 'Failed' },

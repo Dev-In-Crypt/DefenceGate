@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_CHOICES, PROGRAMME_WORD, effectiveProgrammes, fundingGroups, formatEur, methodWord, roleWord, toOrgQuery, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_CHOICES, contributionMissing, PROGRAMME_WORD, effectiveProgrammes, fundingGroups, formatEur, methodWord, roleWord, toOrgQuery, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, PartnerRow, ProjectMember, SourceNote } from '@/lib/networks-types';
 import { Button } from '../dg/button';
@@ -73,7 +73,7 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
             </>
           )}
           <FactCell label={defence ? 'Coordinated, all programmes' : 'As coordinator'}>{num(org.coordinated)}</FactCell>
-          <FactCell label={defence ? 'EU contribution, all programmes' : 'EU contribution'}>{org.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(org.euContribution)}</FactCell>
+          <FactCell label={defence ? 'EU contribution, all programmes' : 'EU contribution'}>{org.euContribution === null ? <span className="font-sans">{contributionMissing(org.programmes)}</span> : formatEur(org.euContribution)}</FactCell>
           <FactCell label="Active">{yearsLabel(org.firstYear, org.lastYear)}</FactCell>
         </dl>
       </div>

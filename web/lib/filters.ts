@@ -93,6 +93,15 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
   };
 }
 
+/**
+ * WP-87: where the dual-use calls start on a page of the default order (the API lists the defence calls first, then the dual-use
+ * ones): the index of the first dual-use call on the page. -1 when the order was chosen (the regimes are mixed then) or the page
+ * has no dual-use call.
+ */
+export function dualUseStart(items: { regime?: string }[], defaultOrder: boolean): number {
+  return defaultOrder ? items.findIndex((c) => c.regime === 'dual-use') : -1;
+}
+
 export function parseView(sp: SearchParams): ListView {
   return first(sp[PARAM.view]) === 'calendar' ? 'calendar' : 'list';
 }
@@ -178,8 +187,12 @@ export const BUYER_PAGE_SIZE = 20;
 export const DEFAULT_TENDER_STATUS: TenderStatusFilter = 'open';
 export const DEFAULT_TENDER_SCOPE: TenderScopeFilter = 'relevant';
 export const DEFAULT_TENDER_SORT: TenderSort = 'deadline-asc';
-/** Soonest deadline first, except on a closed or planned list (the API's own default): the newest deadline leads. */
+/**
+ * Soonest deadline first, except on a closed or planned list (the API's own default): the newest deadline leads. WP-87: the
+ * open list leads with the military goods and works (`core-first`, the API's default for it), each part soonest first.
+ */
 export function defaultTenderSort(status: TenderStatusFilter | undefined): TenderSort {
+  if (status === undefined || status === 'open') return 'core-first';
   return status === 'closed' || status === 'planned' ? 'deadline-desc' : DEFAULT_TENDER_SORT;
 }
 export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
@@ -187,7 +200,7 @@ export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
 const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'planned', 'all'];
 const TENDER_SCOPES: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
 const GOODS = ['defence'] as const;
-const TENDER_SORTS: TenderSort[] = ['deadline-asc', 'deadline-desc', 'published-desc'];
+const TENDER_SORTS: TenderSort[] = ['core-first', 'deadline-asc', 'deadline-desc', 'published-desc'];
 const BUYER_SORTS: BuyerSort[] = ['tenders', 'name'];
 const COUNTRY_CODES: string[] = BUYER_COUNTRY_CODES;
 
@@ -303,10 +316,19 @@ export function parseChangeFilters(sp: SearchParams): ChangeFilters {
   const goods = oneOf(first(sp[PARAM.goods]), GOODS);
   const week = first(sp.week);
   const kind = oneOf(first(sp.kind), CHANGE_KINDS);
+  // WP-87: the tender list's other filters, so a filtered list and its changes (and their Atom feed) hold the same notices
+  const t = parseTenderFilters(sp);
   return {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     scope,
     ...(goods ? { goods } : {}),
+    ...(t.q ? { q: t.q } : {}),
+    ...(t.cpv ? { cpv: t.cpv } : {}),
+    ...(t.deadlineFrom ? { deadlineFrom: t.deadlineFrom } : {}),
+    ...(t.deadlineTo ? { deadlineTo: t.deadlineTo } : {}),
+    ...(t.valueMin !== undefined ? { valueMin: t.valueMin } : {}),
+    ...(t.valueMax !== undefined ? { valueMax: t.valueMax } : {}),
+    ...(t.currency ? { currency: t.currency } : {}),
     // A week of the digest, and one kind of change in it. `kind` alone is read too: the last 14 days, new or amended only.
     ...(week && WEEK_RE.test(week) ? { week } : {}),
     ...(kind ? { kind } : {}),
@@ -321,6 +343,13 @@ export function toChangeQuery(f: ChangeFilters): string {
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
   if (f.scope) p.set(PARAM.scope, f.scope);
   if (f.goods) p.set(PARAM.goods, f.goods);
+  if (f.q) p.set(PARAM.q, f.q);
+  if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
+  if (f.deadlineFrom) p.set(PARAM.from, f.deadlineFrom);
+  if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
+  if (f.valueMin !== undefined) p.set(PARAM.min, String(f.valueMin));
+  if (f.valueMax !== undefined) p.set(PARAM.max, String(f.valueMax));
+  if (f.currency) p.set(PARAM.currency, f.currency);
   if (f.week) p.set('week', f.week);
   if (f.kind) p.set('kind', f.kind);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
@@ -386,7 +415,15 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
     choice('kind', CHANGE_KINDS);
     const week = one('week');
     if (week && !WEEK_RE.test(week)) bad('week', week, 'not a week; use YYYY-Www, for example 2026-W42');
+    for (const v of many(PARAM.cpv)) if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
+    day(PARAM.from);
+    day(PARAM.to);
+    amount(PARAM.min);
+    amount(PARAM.max);
+    const cur = one(PARAM.currency);
+    if (cur && !CURRENCY_RE.test(cur)) bad(PARAM.currency, cur, 'use a three-letter code such as EUR');
     pageNumber();
+    out.push(...unknownParams(sp, CHANGE_PARAMS));
     return out;
   }
   if (kind === 'organisations') {
@@ -434,6 +471,22 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
   }
   pageNumber();
   return out;
+}
+
+/** The parameters /changes and /changes.atom read (WP-87): the tender list's filters, the digest week and the kind of change. */
+export const CHANGE_PARAMS = ['country', 'scope', 'goods', 'q', 'cpv', 'from', 'to', 'min', 'max', 'currency', 'week', 'kind', 'page'] as const;
+/** The parameters /calendar and /calendar.ics read (WP-87): its own (kind, view, month, page) and the tender list's filters. */
+export const CALENDAR_PARAMS = ['kind', 'country', 'view', 'month', 'page', 'q', 'cpv', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency'] as const;
+
+/**
+ * WP-87: a parameter a page does not read is said, never dropped in silence ("/changes?cpv=35" listed every change as if the
+ * code had been read). Empty values (a blank form field) are not mentioned; `utm_*` and the like are named like any other.
+ */
+export function unknownParams(sp: SearchParams, known: readonly string[]): string[] {
+  return Object.keys(sp)
+    .filter((k) => !known.includes(k) && (Array.isArray(sp[k]) ? (sp[k] as string[]).some((v) => v.trim() !== '') : (sp[k] ?? '').trim() !== ''))
+    .sort()
+    .map((k) => `Ignored filter: ${k.slice(0, 40)} (not a filter of this page)`);
 }
 
 /** The sorts of the organisation list (lib/networks.ts ORG_SORTS), here to keep this file free of the networks module. */

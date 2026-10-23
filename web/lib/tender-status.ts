@@ -22,7 +22,16 @@ export function tenderChangedLabel(source: Pick<Tender['source'], 'lastChangeKin
 /** What a tender's status reads as. `word` is the plain one for exports ("Open" even when closing soon). */
 export interface TenderStatusView { kind: StatusKind; label: string; word: string }
 
-type StatusInput = Pick<Tender, 'status' | 'deadline'> & Partial<Pick<Tender, 'statusNative' | 'deadlineIsDate'>>;
+type StatusInput = Pick<Tender, 'status' | 'deadline'> & Partial<Pick<Tender, 'statusNative' | 'deadlineIsDate' | 'anomalies' | 'title' | 'procedure'>>;
+
+/** The API's anomaly code (WP-87): the TED notice's first deadline has passed, the notice's own (later) one has not. */
+export const FIRST_DEADLINE_PASSED = 'first-deadline-passed';
+const DPS = /dynamic purchasing|sistema din[aá]mico|syst[eè]me d.acquisition dynamique|dynamiczn\w* system|dynamisch\w* beschaffungssystem|dynamisch aankoopsysteem/i;
+
+/** "Open (dynamic purchasing system): first deadline passed", or "Open: first deadline passed" when the notice does not say it is one. */
+export function firstDeadlineLabel(t: Partial<Pick<Tender, 'title' | 'procedure'>>): string {
+  return DPS.test(`${t.title ?? ''} ${t.procedure ?? ''}`) ? 'Open (dynamic purchasing system): first deadline passed' : 'Open: first deadline passed';
+}
 
 /**
  * The words of the API's effective status (`statusNative`): open, expired, awarded, cancelled, forthcoming,
@@ -42,6 +51,8 @@ export function tenderStatusView(t: StatusInput, ref: Date = now()): TenderStatu
       if (t.status === 'closed') return fixed('closed', 'Closed');
       const d = getTenderDeadline(t, ref);
       if (d.state === 'closed') return fixed('closed', 'Closed');
+      // WP-87: open by the notice's own deadline while TED's first round has closed: never a "Closed" card on the Open list
+      if (Array.isArray(t.anomalies) && t.anomalies.includes(FIRST_DEADLINE_PASSED)) return { kind: 'open', label: firstDeadlineLabel(t), word: 'Open' };
       if (d.state === 'soon' || d.state === 'urgent') return { kind: 'soon', label: 'Closing soon', word: 'Open' };
       return fixed('open', 'Open');
     }
@@ -58,6 +69,7 @@ const ANOMALY_TEXT: Record<string, string> = {
   [LONG_RUNNING]: 'Long-running notice: the source states a deadline more than 3 years ahead. That is usually a framework agreement or a dynamic purchasing system that stays open, not a closing date.',
   'deadline-more-than-1y': 'Deadline is more than a year ahead in the source; verify it at the source.',
   'deadline-differs-from-ted-twin': "The national notice gives another deadline; the one shown is the TED notice's.",
+  [FIRST_DEADLINE_PASSED]: 'The deadline in the TED notice (the first round) has passed; this notice states a later one and is open until then. That is how a dynamic purchasing system or a framework that takes new requests reads; check the source.',
 };
 
 /** A notice whose stated deadline is more than three years ahead: shown as open until then, never as "closing". */

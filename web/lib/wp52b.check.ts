@@ -60,7 +60,7 @@ assert.equal(294 + 1274 - 46, 1522);
 assert.equal(parseTenderFilters({ status: 'planned' }).status, 'planned');
 assert.equal(parseTenderFilters({ status: 'planned' }).sort, 'deadline-desc', 'a planned list runs newest deadline first, like closed (the API default)');
 assert.equal(defaultTenderSort('planned'), 'deadline-desc');
-assert.equal(defaultTenderSort('open'), 'deadline-asc');
+assert.equal(defaultTenderSort('open'), 'core-first');   // WP-87: the open list leads with the military goods and works
 assert.equal(defaultTenderSort('all'), 'deadline-asc');
 assert.equal(toTenderQuery(parseTenderFilters({ status: 'planned' })), '?status=planned');
 assert.deepEqual(ignoredFilters({ status: 'planned' }, 'tenders'), [], 'planned is a known status');

@@ -1,7 +1,7 @@
 import { sourceById } from './sources';
 import { now } from '../deadline';
 import { weekMonday } from '../digest';
-import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE } from '../filters';
+import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
 import type {
   Buyer, BuyerFilters, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
   TenderVersion,
@@ -170,11 +170,15 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
     if (q && ![t.title, t.originalTitle, t.buyerName, t.noticeId].some((s) => s?.toLowerCase().includes(q))) return false;
     return true;
   });
-  if ((f.sort ?? 'deadline-asc') === 'published-desc') {
+  const sort = f.sort ?? defaultTenderSort(status);
+  if (sort === 'published-desc') {
     items = items.sort((a, b) => time(b.publishedAt ?? '1970-01-01T00:00:00Z') - time(a.publishedAt ?? '1970-01-01T00:00:00Z'));
   } else {
-    const newestFirst = f.sort === 'deadline-desc';
+    const newestFirst = sort === 'deadline-desc';
+    // Like the API (WP-87): the open list's default leads with the core notices, each part soonest deadline first.
+    const coreFirst = sort === 'core-first' && status === 'open' && scope === 'relevant';
     items = items.sort((a, b) => {
+      if (coreFirst && (a.scope === 'core') !== (b.scope === 'core')) return a.scope === 'core' ? -1 : 1;
       if ((a.deadline === null) !== (b.deadline === null)) return a.deadline === null ? 1 : -1;
       if (a.deadline === null || b.deadline === null) return 0;
       return newestFirst ? time(b.deadline) - time(a.deadline) : time(a.deadline) - time(b.deadline);
@@ -185,9 +189,12 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, totalCapped: false, page, pageSize, asOf: ref.toISOString() };
 }
 
-/** What GET /v1/tenders/calendar answers: the open notices that state a deadline, soonest first, with what a calendar draws. */
-export function queryCalendar(ref: Date = now()): CalendarPage {
-  const items: CalendarItem[] = allTenders(ref)
+/**
+ * What GET /v1/tenders/calendar answers: the open notices that state a deadline, soonest first, with what a calendar draws.
+ * WP-87: under the tender list's own filters, read as the list reads them.
+ */
+export function queryCalendar(ref: Date = now(), f: TenderFilters = {}): CalendarPage {
+  const items: CalendarItem[] = queryTenders({ ...f, status: 'open', sort: 'deadline-asc', page: 1, pageSize: 100_000 }, ref).items
     .filter((t) => t.status === 'open' && t.deadline !== null)
     .sort((a, b) => time(a.deadline!) - time(b.deadline!))
     .map((t) => ({
@@ -213,7 +220,14 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
   const since = weekStart ?? ref.getTime() - CHANGE_WINDOW_DAYS * 86_400_000;
   const end = weekStart !== null ? weekStart + 7 * 86_400_000 - 1 : ref.getTime();
   const all: Change[] = [];
+  // WP-87: the tender list's other filters, read by the list's own rules (any status)
+  const narrowed = f.q || f.cpv || f.deadlineFrom || f.deadlineTo || f.valueMin !== undefined || f.valueMax !== undefined || f.currency;
+  const kept = narrowed ? new Set(queryTenders({
+    q: f.q, cpv: f.cpv, deadlineFrom: f.deadlineFrom, deadlineTo: f.deadlineTo, valueMin: f.valueMin, valueMax: f.valueMax,
+    currency: f.currency, status: 'all', scope: 'all', page: 1, pageSize: 100_000,
+  }, ref).items.map((t) => t.id)) : null;
   for (const t of allTenders(ref)) {
+    if (kept && !kept.has(t.id)) continue;
     if (f.country?.length && (!t.country || !f.country.includes(t.country))) continue;
     if (f.scope !== 'all' && f.scope !== 'relevant' && t.scope !== (f.scope ?? t.scope)) continue;
     const versions = [...(tenderVersions(t.slug) ?? [])].sort((a, b) => a.version - b.version);

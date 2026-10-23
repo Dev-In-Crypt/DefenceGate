@@ -122,7 +122,7 @@ assert.equal(lastPage(95, 10), 10);
 
 // ---- A closed list runs newest deadline first unless a sort was asked for ----
 assert.equal(defaultTenderSort('closed'), 'deadline-desc');
-assert.equal(defaultTenderSort('open'), 'deadline-asc');
+assert.equal(defaultTenderSort('open'), 'core-first');   // WP-87: the open list leads with the military goods and works
 assert.equal(parseTenderFilters({ status: 'closed' }).sort, 'deadline-desc');
 assert.equal(toTenderQuery(parseTenderFilters({ status: 'closed' })), '?status=closed');
 assert.equal(toTenderQuery(parseTenderFilters({ status: 'closed', sort: 'deadline-asc' })), '?status=closed&sort=deadline-asc');

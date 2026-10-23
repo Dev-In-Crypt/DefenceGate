@@ -207,16 +207,20 @@ def _run(conn, code: str, status: str, finished: datetime) -> None:
 
 def test_the_lists_say_when_their_sources_were_last_collected(client, conn):
     base = datetime(2026, 10, 13, 6, 0, tzinfo=timezone.utc)
-    assert client.get("/v1/tenders").json()["meta"] == {"updatedAt": None}
+    assert client.get("/v1/tenders").json()["meta"] == {"updatedAt": None, "updatedBy": None}
     stats.reset_cache()
     _run(conn, "ted", "success", base)
     _run(conn, "fr_boamp", "partial", base + timedelta(hours=1))
     _run(conn, "ted", "failed", base + timedelta(hours=2))          # added nothing
     _run(conn, "eu_portal", "success", base + timedelta(hours=3))   # another list
-    got = client.get("/v1/tenders").json()["meta"]["updatedAt"]
-    assert datetime.fromisoformat(got) == base + timedelta(hours=1)
-    grants = client.get("/v1/funding").json()["meta"]["updatedAt"]
-    assert datetime.fromisoformat(grants) == base + timedelta(hours=3)
+    meta = client.get("/v1/tenders").json()["meta"]
+    assert datetime.fromisoformat(meta["updatedAt"]) == base + timedelta(hours=1)
+    # WP-87: the list names the source of that run, so "Data updated" cannot be read as the footer's any-source run
+    name = conn.execute("SELECT name FROM source WHERE code = 'fr_boamp'").fetchone()["name"]
+    assert meta["updatedBy"] == name
+    grants = client.get("/v1/funding").json()["meta"]
+    assert datetime.fromisoformat(grants["updatedAt"]) == base + timedelta(hours=3)
+    assert grants["updatedBy"] == conn.execute("SELECT name FROM source WHERE code = 'eu_portal'").fetchone()["name"]
 
 
 # ------------------------------------------------- placeholders, page size

@@ -7,8 +7,10 @@ import { getCalls, getTenderCalendar, isCallSlug, isTenderSlug } from './api';
 import { entryFromItem, type CalendarEntry } from './calendar-tenders';
 import { getCallDeadline, now } from './deadline';
 import { formatDateLabelledUtc } from './format';
+import { tenderOnly } from './calendar-counts';
 import { ROLLING_NOTE } from './ics';
-import type { SearchParams } from './filters';
+import { DEFAULT_TENDER_SCOPE, parseTenderFilters, toTenderQuery, type SearchParams } from './filters';
+import type { TenderFilters } from './types';
 
 export type { CalendarEntry, CalendarEvent, CalendarKind } from './calendar-tenders';
 export type KindFilter = 'all' | 'tenders' | 'funding';
@@ -25,6 +27,11 @@ export interface CalendarData {
   tendersHeld: number;
   /** Open tenders left off because their deadline is over three years ahead (framework agreements, DPS). */
   longRunning: number;
+  /**
+   * WP-87: the funder country (null: EU) of every open call, as /funding counts them: the calendar lists only those with a
+   * coming deadline, so the page says how many of the open calls it holds and why the others are not on it.
+   */
+  openCalls: (string | null)[];
 }
 
 const CALL_PAGE = 500;
@@ -35,8 +42,8 @@ const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
  * The open tenders with a deadline, all of them in one read (GET /v1/tenders/calendar). The calendar used to read five
  * pages of the list, the 500 earliest of 1,529, and November showed none of its 593 (UX audit T9).
  */
-async function loadTenders(ref: Date): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number }> {
-  const page = await getTenderCalendar();
+async function loadTenders(ref: Date, filters: TenderFilters): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number }> {
+  const page = await getTenderCalendar(filters);
   const entries: CalendarEntry[] = [];
   let longRunning = 0;
   for (const item of page.items) {
@@ -69,7 +76,7 @@ export async function loadUpcomingCalls(ref: Date): Promise<CalendarEntry[]> {
   return entries;
 }
 
-async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcoming: CalendarEntry[] }> {
+async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcoming: CalendarEntry[]; openCalls: (string | null)[] }> {
   const [r, upcoming] = await Promise.all([getCalls({ status: 'open', pageSize: CALL_PAGE, page: 1 }, { cacheable: true }), loadUpcomingCalls(ref)]);
   const entries: CalendarEntry[] = [];
   for (const c of r.items) {
@@ -84,19 +91,25 @@ async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcomin
       rolling: c.rolling === true, note: c.rolling === true ? ROLLING_NOTE : null,
     });
   }
-  return { entries, upcoming };
+  return { entries, upcoming, openCalls: r.items.filter((c) => c.status === 'open').map((c) => c.funderCountry ?? null) };
 }
 
 const byTime = (a: CalendarEntry, b: CalendarEntry) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key);
 
-/** Tenders and calls together, soonest deadline first. A failing half is reported, not hidden. */
-export async function loadCalendar(ref: Date = now()): Promise<CalendarData> {
+/**
+ * Tenders and calls together, soonest deadline first. A failing half is reported, not hidden. `tender` (WP-87): the tender list's
+ * filters, applied by the API to the tenders as the list applies them; the calls are narrowed by `filterEntries`.
+ */
+export async function loadCalendar(ref: Date = now(), tender: TenderFilters = {}): Promise<CalendarData> {
   const [t, c] = await Promise.all([
-    loadTenders(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0, longRunning: 0 })),
-    loadCalls(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], upcoming: [] as CalendarEntry[] })),
+    loadTenders(ref, tender).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0, longRunning: 0 })),
+    loadCalls(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], upcoming: [] as CalendarEntry[], openCalls: [] as (string | null)[] })),
   ]);
   const entries = [...t.entries, ...c.entries].sort(byTime);
-  return { entries, upcoming: c.upcoming.sort(byTime), tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held, longRunning: t.longRunning };
+  return {
+    entries, upcoming: c.upcoming.sort(byTime), tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held,
+    longRunning: t.longRunning, openCalls: c.openCalls,
+  };
 }
 
 /* ---- URL parameters: kind, country, view, month ---- */
@@ -106,6 +119,8 @@ const MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 
 export interface CalendarParams {
   kind: KindFilter; countries: string[]; view: CalendarView; month: string | null;
+  /** WP-87: the tender list's filters (search, CPV, scope, defence goods, deadline and value range), as /tenders reads them. */
+  tender: Pick<TenderFilters, 'q' | 'cpv' | 'scope' | 'goods' | 'deadlineFrom' | 'deadlineTo' | 'valueMin' | 'valueMax' | 'currency'>;
   /** 1-based page of the list view. */
   page: number;
   /** A `month` that is not YYYY-MM, as sent: it is ignored and the page says so. */
@@ -118,7 +133,19 @@ export function parseCalendarParams(sp: SearchParams): CalendarParams {
   const countries = [...new Set(raw.map((s) => s.trim().toUpperCase()).filter((s) => /^[A-Z]{2}$/.test(s)))].slice(0, 20);
   const month = first(sp.month);
   const page = Math.floor(Number(first(sp.page)));
+  const t = parseTenderFilters(sp);
+  const tender: CalendarParams['tender'] = {};
+  if (t.q) tender.q = t.q;
+  if (t.cpv) tender.cpv = t.cpv;
+  if (t.scope && t.scope !== DEFAULT_TENDER_SCOPE) tender.scope = t.scope;
+  if (t.goods) tender.goods = t.goods;
+  if (t.deadlineFrom) tender.deadlineFrom = t.deadlineFrom;
+  if (t.deadlineTo) tender.deadlineTo = t.deadlineTo;
+  if (t.valueMin !== undefined) tender.valueMin = t.valueMin;
+  if (t.valueMax !== undefined) tender.valueMax = t.valueMax;
+  if (t.currency) tender.currency = t.currency;
   return {
+    tender,
     kind: kind === 'tenders' || kind === 'funding' ? kind : 'all',
     countries,
     view: first(sp.view) === 'month' ? 'month' : 'list',
@@ -128,20 +155,32 @@ export function parseCalendarParams(sp: SearchParams): CalendarParams {
   };
 }
 
-export function filterEntries(entries: CalendarEntry[], f: Pick<CalendarParams, 'kind' | 'countries'>): CalendarEntry[] {
+/**
+ * The entries a calendar shows for its filters: the kind, the countries, the deadline range (a day, UTC, both ends included, as
+ * /tenders reads it). A tender-only filter (WP-87) leaves the funding calls out of "Tenders and funding calls": they cannot match it.
+ */
+export function filterEntries(entries: CalendarEntry[], f: Pick<CalendarParams, 'kind' | 'countries'> & Partial<Pick<CalendarParams, 'tender'>>): CalendarEntry[] {
+  const tenderFilter = tenderOnly(f.tender).length > 0;
+  const from = f.tender?.deadlineFrom;
+  const to = f.tender?.deadlineTo;
   return entries.filter((e) => {
     if (f.kind === 'tenders' && e.kind !== 'tender') return false;
     if (f.kind === 'funding' && e.kind !== 'funding') return false;
+    if (f.kind === 'all' && tenderFilter && e.kind !== 'tender') return false;
     if (f.countries.length > 0 && !(e.country && f.countries.includes(e.country))) return false;
+    const day = dayOf(e.deadline);
+    if (from && day < from) return false;
+    if (to && day > to) return false;
     return true;
   });
 }
 
-/** Query string of a calendar link; defaults are left out. */
+/** Query string of a calendar link; defaults are left out. The tender filters travel as /tenders writes them (WP-87). */
 export function calendarQuery(p: Partial<Omit<CalendarParams, 'badMonth'>>): string {
   const q = new URLSearchParams();
   if (p.kind && p.kind !== 'all') q.set('kind', p.kind);
   if (p.countries?.length) q.set('country', p.countries.join(','));
+  if (p.tender) for (const [k, v] of new URLSearchParams(toTenderQuery(p.tender))) q.set(k, v);
   if (p.view === 'month') q.set('view', 'month');
   if (p.month) q.set('month', p.month);
   if (p.page && p.page > 1) q.set('page', String(p.page));
@@ -187,3 +226,10 @@ export function groupByDay(entries: CalendarEntry[]): { day: string; items: Cale
 export { dayOf };
 
 export { pageOf, resolveMonth, truncateTitle } from './calendar-view';
+export { tenderOnly };
+
+/** WP-87: the calendar of a tender list's result: its filters (the status, the sort and the page are the list's, not the calendar's). */
+export function calendarHrefFor(f: TenderFilters): string {
+  const { country, status: _s, sort: _o, page: _p, pageSize: _z, buyer: _b, ...tender } = f;
+  return `/calendar${calendarQuery({ kind: 'tenders', countries: country ?? [], tender })}`;
+}

@@ -309,12 +309,30 @@ def window_events(conn, scope: str | None, countries: list[str], goods: str | No
                         0 if ttl <= 0 else 5 * 60, store=stats._list_cache, limit=stats.LIST_CACHED)
 
 
-@router.get("/v1/changes", response_model=ChangePage)
+def _matching(conn, ids: list[int], *, q, cpv, from_, to, min_, max_, currency) -> set[int]:
+    """WP-87: of these notices, the ones the tender list's own filters keep (`tenders._tender_filters`, any status):
+    the search words, CPV prefixes, deadline range and value range read exactly as the list reads them. The scope,
+    the goods filter and the country are applied by `build_events` already."""
+    if not ids:
+        return set()
+    where, params, _ = T._tender_filters(q, None, cpv, "all", "all", None, None, from_, to, min_, max_, currency)
+    return {r["id"] for r in conn.execute(
+        f"SELECT o.id FROM opportunity o WHERE o.id = ANY(%s) AND {' AND '.join(where)}", [ids, *params]).fetchall()}
+
+
+@router.get("/v1/changes", response_model=ChangePage, dependencies=[Depends(T.known_params)])
 @cache_list("changes", ttl=5 * 60, snapshot=True)
 def list_changes(
     country: str | None = Query(None, max_length=200),
     scope: str | None = Query(None, pattern="^(relevant|core|supply|all)$"),
     goods: str | None = Query(None, pattern="^defence$"),
+    q: str | None = Query(None, max_length=100),
+    cpv: str | None = Query(None, max_length=400),
+    from_: date | None = Query(None, alias="from"),
+    to: date | None = None,
+    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
+    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
+    currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     page: int = Query(1, ge=1, le=100),
     pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     week: str | None = Query(None, pattern=r"^\d{4}-W\d{2}$"),
@@ -323,7 +341,12 @@ def list_changes(
     with_meta=Depends(serves_meta),
 ):
     """`week` is an ISO week of the archive (`2026-W42`, as the digest's) instead of the last 14 days; `kind`
-    lists only the new or only the amended notices. `counts` always count both kinds of the window."""
+    lists only the new or only the amended notices. `counts` always count both kinds of the window.
+
+    WP-87: the tender list's other filters as well (`q`, `cpv`, deadline `from`/`to`, value `min`/`max`/`currency`),
+    so a filtered list and its feed of changes hold the same notices; `counts` are then of the filtered window.
+    Funding calls have no CPV code, value range or tender search, so with any of them the funding part is empty.
+    An unknown parameter is a 422 (`/v1/changes?cpv=` was ignored before)."""
     countries = T._split(country, "country", upper=True, max_length=2)
     if week is not None:
         from .weekly_digest import all_weeks, week_bounds
@@ -335,6 +358,11 @@ def list_changes(
         if week not in all_weeks(datetime.now(timezone.utc)):
             raise HTTPException(404, "no such week")      # not in the archive, or not ended
     events, since, until = window_events(conn, scope, countries, goods, week)
+    narrowed = any(v is not None for v in (q, cpv, from_, to, min_, max_, currency))
+    if narrowed:
+        keep = _matching(conn, sorted({e["id"] for e in events}), q=q, cpv=cpv, from_=from_, to=to,
+                         min_=min_, max_=max_, currency=currency)
+        events = [e for e in events if e["id"] in keep]
     everything = events
     if kind:
         events = [e for e in events if e["kind"] == kind]
@@ -344,7 +372,7 @@ def list_changes(
     rows = conn.execute(f"{T.TENDER_SELECT} WHERE o.id = ANY(%s)", (ids,)).fetchall() if ids else []
     tenders = {t["id"]: t for t in T._present(conn, rows, checked=with_meta is True)}
     # The tender scope filters do not apply to funding calls; a country does (the funder's).
-    if scope in (None, "core", "all") and not goods and not kind:
+    if scope in (None, "core", "all") and not goods and not kind and not narrowed:
         calls = (funding_events(conn, countries=countries) if week is None else
                  funding_events(conn, countries=countries, now=until, days=7, bounded=True))
     else:
@@ -357,7 +385,7 @@ def list_changes(
         "id": f"{e['id']}-{e['day']:%Y%m%d}", "kind": e["kind"], "day": e["day"],
         "detectedAt": e["at"], "changes": e["changes"], "tender": tenders[str(e["id"])],
     } for e in shown if str(e["id"]) in tenders]
-    from .stats import cached_last_run  # stats imports tenders
+    from .stats import list_meta  # stats imports tenders
 
     return {
         "items": items, "total": len(events), "page": page, "pageSize": pageSize,
@@ -365,5 +393,5 @@ def list_changes(
         "counts": {"new": sum(1 for e in everything if e["kind"] == "new"),
                    "amended": sum(1 for e in everything if e["kind"] == "amended")},
         "funding": funding, "fundingTotal": len(calls),
-        "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None},
+        "meta": list_meta(conn, "tender") if with_meta is True else {},
     }

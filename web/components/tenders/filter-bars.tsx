@@ -37,13 +37,17 @@ function CountryChoices({ selected }: { selected: string[] | undefined }) {
  * URL-synced filter form (GET) for /tenders. Works without JS; FilterPanel enhances it. The same
  * progressive-enhancement panel as the funding filters.
  */
-export function TenderFilterBar({ filters, basePath, scopeCounts }: { filters: TenderFilters; basePath: string; scopeCounts?: ScopeCounts | null }) {
+export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: {
+  filters: TenderFilters; basePath: string; scopeCounts?: ScopeCounts | null;
+  /** WP-87 (lib/list-count.ts listStamps): the scope counts' own time, when it is not the list's; null when the header says it. */
+  countsNote?: string | null;
+}) {
   const currency = filters.currency ?? DEFAULT_CURRENCY;
   const currencyOptions = (CURRENCIES.includes(currency) ? [...CURRENCIES] : [...CURRENCIES, currency]).map((c) => ({ value: c, label: c }));
   const valueOptions = VALUE_PRESETS.map((n) => ({ value: String(n), label: `${currency} ${formatPreset(n)}` }));
   // A value typed into the URL that is not a preset stays selectable, so the form never silently drops it.
   const withCurrent = (v: number | undefined) => (v === undefined || VALUE_PRESETS.includes(v) ? valueOptions : [...valueOptions, { value: String(v), label: `${currency} ${v}` }]);
-  const asOf = countsAsOf(scopeCounts?.asOf);
+  const asOf = countsNote === undefined ? countsAsOf(scopeCounts?.asOf) : countsNote;
   const overlap = overlapNote(scopeCounts);
   return (
     <FilterPanel activeCount={activeTenderFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_TENDER_STATUS, [PARAM.scope]: DEFAULT_TENDER_SCOPE }}>

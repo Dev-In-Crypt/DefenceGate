@@ -90,7 +90,8 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           <FactCell label="Country">
             {buyer.country ? <CountryLabel code={buyer.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}
           </FactCell>
-          <FactCell label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></FactCell>
+          {/* WP-87: the profile's total when there is one (notices shown once, the unit of every figure below), so the page has one number */}
+          <FactCell label="Tenders in archive"><span className="tabular-nums">{profile?.tenderCount ?? buyer.tenderCount}</span></FactCell>
           <FactCell label="Open now"><span className="tabular-nums">{buyer.openCount}</span></FactCell>
           <FactCell label="Last published">
             {buyer.lastPublishedAt

@@ -116,6 +116,9 @@ class DigestCall(BaseModel):
     eligibility: str | None = None
     # read | not_read | no_source (funding.FundingCallDetail.eligibilityState)
     eligibilityState: str = "no_source"
+    # WP-87: defence | dual-use. Each list holds the defence calls first; the site heads the dual-use ones apart
+    # (a stored issue from before has none: the site then shows the list as it is)
+    regime: str | None = None
     changes: list[T.FieldChange] = []
 
 
@@ -205,6 +208,7 @@ def _call(row: dict[str, Any], kind: str, changes_: list[dict[str, Any]], read: 
         "cascade": c["cascade"], "changes": changes_,
         "eligibility": eligibility.summary_line(read["facts"]) if read["state"] == "read" else None,
         "eligibilityState": read["state"],
+        "regime": c["regime"],
     }
 
 
@@ -235,6 +239,9 @@ def build_all(conn, week: str, *, now: datetime | None = None,
     lists = {"call-new": [(e["row"], e["changes"]) for e in cal if e["kind"] == "call-new"],
              "call-amended": [(e["row"], e["changes"]) for e in cal if e["kind"] == "call-amended"],
              "call-opened": [(r, []) for r in opened], "call-closing": [(r, []) for r in closing]}
+    # WP-87: the defence calls first in each list, the dual-use ones after them (kept, in their own order): Biotechnology
+    # for Healthy Ageing headed the week's new calls. The section limit cuts the dual-use calls first.
+    lists = {k: sorted(v, key=lambda x: x[0].get("regime") == "dual_use") for k, v in lists.items()}
     every = {r["id"]: r for items in lists.values() for r, _ in items}
     read = eligibility.read_many(
         conn, [(i, r.get("conditions_raw") or {}, r.get("eligibility_text"), r.get("topic_code"), r.get("type_of_action"))
@@ -350,11 +357,11 @@ def get_digest(
     else:
         body = _plain(build_all(conn, chosen, now=now, only=[])[""])
     i = weeks.index(chosen)
-    from .stats import cached_last_run  # stats imports tenders
+    from .stats import list_meta  # stats imports tenders
 
     return {**body, "previousWeek": weeks[i + 1] if i + 1 < len(weeks) else None,
             "nextWeek": weeks[i - 1] if i > 0 else None,
-            "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None}}
+            "meta": list_meta(conn, "tender") if with_meta is True else {}}
 
 
 @router.get("/v1/digest/weeks", response_model=list[WeekSummary])

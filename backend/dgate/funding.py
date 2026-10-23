@@ -279,6 +279,8 @@ class ListMeta(BaseModel):
     # When the newest successful or partial collection run of the list's sources finished
     # (UTC): the freshness of the data, not of the response. Null before any run.
     updatedAt: datetime | None = None
+    # WP-87: the source whose run that was, so a page names it ("Tender data: latest run of TED").
+    updatedBy: str | None = None
 
 
 class SearchInfo(BaseModel):
@@ -546,7 +548,8 @@ def budget_note(programme_code: str, cond: dict[str, Any]) -> dict[str, Any]:
         line = cond.get("budget_line")
         if isinstance(line, dict) and line and "budgetYearMap" in line:
             if _year_total(line) == 0 and line.get("budgetYearMap"):
-                return {"reason": "portal_zero", "short": "The portal states 0 for this topic",
+                # WP-87: a 0 is no amount; the card says so in plain words, the page says what the portal states
+                return {"reason": "portal_zero", "short": "Amount not stated",
                         "text": "The portal's topic data states a budget of 0 for this topic. That is not a budget: "
                                 "the programme's work programme is where the amount is set." + where}
             return {"reason": "portal_empty", "short": "The portal gives no figure for this topic",
@@ -784,9 +787,15 @@ def list_funding(
 
     # An open call held open past its cut-off (continuous, several cut-offs) sorts after
     # the ones with a deadline still to come, not first because its date is oldest.
+    # WP-87: the default order (no sort asked for) lists the defence calls first and the dual-use ones after them, each
+    # part in its own deadline order; the site heads the second part "Dual-use calls". A sort asked for is honoured
+    # as it is. The total is the same list's.
+    defence_first = sort is None
     sort = sort or ("deadline-desc" if status == "closed" else "deadline-asc")
     closed_last = (f"({EFFECTIVE_STATUS} = 'closed') ASC, "
                    f"({EFFECTIVE_STATUS} = 'open' AND c.deadline_at < now()) ASC")
+    if defence_first:
+        closed_last = f"(c.regime = 'dual_use') ASC, {closed_last}"
     if sort == "budget-desc":
         # The chosen currency first, largest first; then the amounts in other currencies, each currency
         # on its own and largest first within it (never compared across currencies: nothing is
@@ -806,12 +815,12 @@ def list_funding(
     rows = conn.execute(
         f"{SELECT}{clause} ORDER BY {order} LIMIT %s OFFSET %s",
         params + order_params + [pageSize, (page - 1) * pageSize]).fetchall()
-    from .stats import cached_last_run  # stats imports tenders, which imports this module
+    from .stats import list_meta  # stats imports tenders, which imports this module
 
     return {"items": [to_call(r) for r in rows], "total": total,
             "page": page, "pageSize": pageSize, "search": search, "cascadeTotal": cascade_total,
             "ukraineTotal": ukraine_total,
-            "meta": {"updatedAt": cached_last_run(conn, "grant") if with_meta is True else None}}
+            "meta": list_meta(conn, "grant") if with_meta is True else {}}
 
 
 @router.get("/v1/funding/slugs")

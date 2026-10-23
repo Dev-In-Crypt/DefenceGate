@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Rss } from 'lucide-react';
-import { DIGEST_COUNTRIES, SECTIONS, countsSentence, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, type DigestFilters } from '@/lib/digest';
+import { DIGEST_COUNTRIES, SECTIONS, countsSentence, splitByRegime, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, type DigestFilters } from '@/lib/digest';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
@@ -81,6 +81,27 @@ function TenderItem({ t }: { t: DigestTender }) {
  * One issue of the weekly digest. The same page for /digest (the latest issue) and /digest/[week].
  * `basePath` is where the country filter submits to; `feedHref` is the Atom feed for the same country.
  */
+/** WP-87: a section's defence calls, then its dual-use calls under their own heading (never dropped, never first). */
+function CallParts({ calls }: { calls: DigestCall[] }) {
+  const { defence, dualUse } = splitByRegime(calls);
+  const grid = (list: DigestCall[]) => (
+    <AutoGrid as="ul" min={420} pairs>
+      {list.map((it) => <FitItem key={`${it.kind}-${it.id}`} id={it.id} className="min-w-0"><CallItem c={it} /></FitItem>)}
+    </AutoGrid>
+  );
+  return (
+    <>
+      {defence.length > 0 && grid(defence)}
+      {dualUse.length > 0 && (
+        <div className="flex flex-col gap-3" data-dual-use>
+          <h3 className="m-0 text-body font-semibold">Dual-use calls <span className="font-mono tabular-nums text-ink-muted">({formatNumber(dualUse.length)})</span></h3>
+          {grid(dualUse)}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices }: {
   issue: Digest; filters: DigestFilters; basePath: string; feedHref: string; crumbs: Crumb[];
   /** Status lines about the data, shown under the page header. */
@@ -177,12 +198,12 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
             )}
             {items.length === 0 ? (
               <p className="m-0 text-body text-ink-muted">None{country ? ` for ${country}` : ''} this week.</p>
-            ) : (
+            ) : isTender ? (
               <AutoGrid as="ul" min={420} pairs>
-                {items.map((it) => (isTender
-                  ? <li key={`${it.kind}-${it.id}`} className="min-w-0"><TenderItem t={it as DigestTender} /></li>
-                  : <FitItem key={`${it.kind}-${it.id}`} id={it.id} className="min-w-0"><CallItem c={it as DigestCall} /></FitItem>))}
+                {items.map((it) => <li key={`${it.kind}-${it.id}`} className="min-w-0"><TenderItem t={it as DigestTender} /></li>)}
               </AutoGrid>
+            ) : (
+              <CallParts calls={items as DigestCall[]} />
             )}
             {cut && (
               <p className="m-0 text-small text-ink-muted">

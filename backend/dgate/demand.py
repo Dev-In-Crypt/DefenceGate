@@ -59,6 +59,7 @@ from .suppliers import (
     TED_NOTE,
     ValueTotals,
     placsp_note,
+    sums_select,
     value_of,
     value_totals,
 )
@@ -110,7 +111,7 @@ PRIMES: tuple[tuple[str, str, tuple[str, str]], ...] = (
     ("Kongsberg", r"^kongsberg\b(?!.*\bautomotive\b)", SIPRI),
     ("Navantia", r"\bnavantia\b", SIPRI),
     ("General Dynamics (GDELS)", r"\bgeneral dynamics european land systems\b|^santa barbara sistemas\b",
-     ("General Dynamics in the SIPRI Top 100, 2024; Santa BГЎrbara Sistemas as a GDELS company (FEINDEF exhibitor page)",
+     ("General Dynamics in the SIPRI Top 100, 2024; Santa Bárbara Sistemas as a GDELS company (FEINDEF exhibitor page)",
       "https://www.feindef.com/index.php/en/ficha-gdels-santa-barbara-sistemas-en")),
     ("Indra", r"\bindra\b",
      ("Indra's 2026 supplier selection for automotive firms (elDiario.es, 16 June 2026)",
@@ -132,7 +133,7 @@ def prime_of(canonical_name: str | None) -> dict[str, Any] | None:
 COVERAGE = ("Direct buying by defence bodies, as published on TED and the national portals we read; not the sub-tier "
             "needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a "
             "2025 ECIPE policy brief; we have not re-checked that figure). National coverage differs: Spain (PLACSP) "
-            "and Poland (e-ZamГіwienia) in full, Germany (the federal procurement office's portal) since 2025, France "
+            "and Poland (e-Zamówienia) in full, Germany (the federal procurement office's portal) since 2025, France "
             "(BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer.")
 WINNERS_TED = ("Winners are those named in TED result notices; most contracts below the EU thresholds name no winner "
                "here. Natural persons are never counted or named.")
@@ -311,8 +312,7 @@ def _ranked(r: dict[str, Any]) -> list[dict[str, Any]]:
 # from either copy). A statement of its own over the answer's award rows of the listed winners only: inside QUERY it
 # valued every winner's rows (6,700 winners at the cap) for the 30 shown, +50 % on the whole answer.
 VALUES = f"""
-SELECT org, ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
-       count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
+{sums_select("x.org")[0]}
   FROM (SELECT DISTINCT ON (org.id, kk.k) org.id AS org, kk.k, v.va IS NOT NULL AS ok,
                a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk
           FROM award a
@@ -326,7 +326,7 @@ SELECT org, ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok
          WHERE a.id = ANY(%(ids)s)
            AND a.organisation_id IN (SELECT id FROM organisation WHERE id = ANY(%(orgs)s) OR merged_into = ANY(%(orgs)s))
          ORDER BY org.id, kk.k, 3 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
- GROUP BY org, ok, shared, 4
+ {sums_select("x.org")[1]}
 """
 
 

@@ -18,7 +18,9 @@ def test_the_portal_stating_zero_is_said_to_be_zero_and_not_a_budget():
     note = budget_note("HORIZON", {"budget_line": {"action": "HORIZON-EIC-2026-ACCELERATOR-01",
                                                    "budgetYearMap": {"2026": "0"}, "expectedGrants": 0}})
     assert note["reason"] == "portal_zero"
-    assert "states 0" in note["short"] and "work programme" in note["text"]
+    # WP-87: the card's short line is plain ("Amount not stated"); the page's text still says the portal states 0
+    assert note["short"] == "Amount not stated"
+    assert "states a budget of 0" in note["text"] and "work programme" in note["text"]
     assert "perProject" not in note
 
 

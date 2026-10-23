@@ -9,7 +9,8 @@ import {
   type CalendarParams, type KindFilter,
 } from '@/lib/calendar';
 import { pageOfDay } from '@/lib/calendar-tenders';
-import type { SearchParams } from '@/lib/filters';
+import { calendarCounts, calendarNotices, feedLine } from '@/lib/calendar-counts';
+import { toTenderQuery, type SearchParams } from '@/lib/filters';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { countryName } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
@@ -45,13 +46,14 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     description: 'Upcoming deadlines of open defence tenders and funding calls in one calendar, in UTC, each linked to its record. Also as an iCalendar feed.',
     path: '/calendar',
     // Filtered and month views share the canonical page and stay out of the index.
-    noindex: p.kind !== 'all' || p.countries.length > 0 || p.view !== 'list' || p.month !== null || p.page > 1,
+    noindex: p.kind !== 'all' || p.countries.length > 0 || p.view !== 'list' || p.month !== null || p.page > 1 || Object.keys(p.tender).length > 0,
   });
 }
 
 export default async function CalendarPage({ searchParams }: Props) {
-  const p = parseCalendarParams(await searchParams);
-  const data = await loadCalendar();
+  const sp = await searchParams;
+  const p = parseCalendarParams(sp);
+  const data = await loadCalendar(undefined, { ...p.tender, country: p.countries.length > 0 ? p.countries : undefined });
   // Neither service answered: nothing to show, so the page fails (a 503 at the edge, re-audit N2) and error.tsx says so.
   // One of the two down still renders the other, with a line that says which is missing.
   if (!data.tendersOk && !data.callsOk) throw new Error('calendar: the tender and funding services did not answer');
@@ -74,6 +76,8 @@ export default async function CalendarPage({ searchParams }: Props) {
   const firstShown = (paged.page - 1) * LIST_PAGE + 1;
   const Count = total === 0 ? 'p' : 'h2';
   const notices = [
+    // WP-87: a parameter the calendar does not read, or a tender filter a funding call cannot match, is said
+    ...calendarNotices(sp, p),
     ...(p.badMonth ? [`Ignored filter: month=${p.badMonth} (use YYYY-MM)`] : []),
     // QA m-10: the list view reads no month; it used to drop one silently
     ...(p.view !== 'month' && p.month ? [`Ignored filter: month=${p.month} (only the month view reads it; add view=month)`] : []),
@@ -83,7 +87,12 @@ export default async function CalendarPage({ searchParams }: Props) {
   ];
 
   const href = (over: Partial<CalendarParams>) => `/calendar${calendarQuery({ ...p, page: 1, month: p.view === 'month' ? month : null, ...over })}`;
-  const feed = `/calendar.ics${calendarQuery({ kind: p.kind, countries: p.countries })}`;
+  const feed = `/calendar.ics${calendarQuery({ kind: p.kind, countries: p.countries, tender: p.tender })}`;
+  const counts = calendarCounts(data, p, {
+    tenders: filterEntries(data.entries, { ...p, kind: 'tenders' }).length,
+    calls: filterEntries(data.entries, { ...p, kind: 'funding' }).length,
+  }, today);
+  const feedEvents = filterEntries([...data.entries, ...data.upcoming], p).length;
   // The same address for a calendar app that subscribes: `webcal://` opens it there instead of downloading a file.
   const subscribe = absoluteUrl(feed).replace(/^https?:/, 'webcal:');
 
@@ -94,7 +103,7 @@ export default async function CalendarPage({ searchParams }: Props) {
 
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">
-          <FilterPanel activeCount={(p.kind !== 'all' ? 1 : 0) + (p.countries.length > 0 ? 1 : 0)}>
+          <FilterPanel activeCount={(p.kind !== 'all' ? 1 : 0) + (p.countries.length > 0 ? 1 : 0) + Object.keys(p.tender).length}>
             <form method="get" action="/calendar" role="search" aria-label="Filter the calendar" className={FORM}>
               <Fieldset legend="Show">
                 {KINDS.map((k) => <Choice key={k.value} type="radio" name="kind" value={k.value} label={k.label} defaultChecked={p.kind === k.value} />)}
@@ -107,6 +116,8 @@ export default async function CalendarPage({ searchParams }: Props) {
                   ))}
                 </Fieldset>
               )}
+              {/* The tender list's filters this calendar came with travel with the form (WP-87). */}
+              {[...new URLSearchParams(toTenderQuery(p.tender))].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
               {p.view === 'month' && <input type="hidden" name="view" value="month" />}
               {p.view === 'month' && <input type="hidden" name="month" value={month} />}
               <div className="flex flex-wrap items-center gap-3">
@@ -119,7 +130,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5">
             <h2 id="feed-heading" className="m-0 text-h3">Calendar feed</h2>
             <p className="m-0 text-small text-ink-muted">
-              Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened. Up to 500 events, in UTC. The feed is refreshed hourly from data collected once a day.
+              Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened, with the filters you chose. {feedLine(feedEvents)} Times are UTC. The feed is refreshed hourly from data collected once a day.
             </p>
             <a href={subscribe} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
               <Icon icon={CalendarPlus} size="inline" />Subscribe in your calendar app
@@ -156,6 +167,11 @@ export default async function CalendarPage({ searchParams }: Props) {
             </div>
           </div>
 
+          {counts.length > 0 && (
+            <div className="flex flex-col gap-1 text-small text-ink-muted" data-calendar-counts>
+              {counts.map((c) => <p key={c.key} className="m-0">{c.text}{c.href && <> <Link href={c.href} className="font-semibold">{c.link}</Link>.</>}</p>)}
+            </div>
+          )}
           {p.view === 'month' && (
             <nav aria-label="Month" className="flex flex-wrap items-center justify-between gap-2">
               {month > current
@@ -201,9 +217,6 @@ export default async function CalendarPage({ searchParams }: Props) {
             Open tenders in the defence scope and open funding calls with a stated deadline. Calls that have not opened yet and entries without a deadline are not listed here; the calendar feed has the opening days of the calls that have not opened.
             {data.tendersOk && data.tendersTotal > data.tendersHeld && (
               <> The calendar holds the {data.tendersHeld} open tenders with the earliest deadlines of {data.tendersTotal}; later ones are on the <Link href="/tenders" className="font-semibold">tenders list</Link>.</>
-            )}
-            {data.longRunning > 0 && (
-              <> {data.longRunning} open {data.longRunning === 1 ? 'notice has' : 'notices have'} a deadline more than 3 years ahead (framework agreements and dynamic purchasing systems that stay open) and {data.longRunning === 1 ? 'is' : 'are'} left off; they are on the <Link href="/tenders" className="font-semibold">tenders list</Link>, last.</>
             )}
             {' '}Check the original notice before you act: it is authoritative.
           </p>

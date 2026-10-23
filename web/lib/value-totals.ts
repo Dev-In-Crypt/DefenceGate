@@ -21,6 +21,8 @@ export interface ValueTotals {
   withoutValue: number;
   /** Of those, the ones naming several winners. */
   shared: number;
+  /** WP-87: contracts whose value is under 1,000, probably a unit price: in no sum. Absent from older APIs. */
+  suspect?: number;
 }
 
 const n = (k: number, noun: string) => `${formatNumber(k)} ${k === 1 ? noun : `${noun}s`}`;
@@ -41,6 +43,18 @@ export function withoutValueLine(v: ValueTotals, noun: string): string | null {
   const head = `${formatNumber(v.withoutValue)} of ${n(v.of, noun)} ${v.withoutValue === 1 ? 'states' : 'state'} no value for this company alone`;
   if (v.shared === 0) return `${head}.`;
   return `${head}; ${v.shared === v.withoutValue ? (v.shared === 1 ? 'it names' : 'they name') : `${formatNumber(v.shared)} of them ${v.shared === 1 ? 'names' : 'name'}`} several winners.`;
+}
+
+/** WP-87: the value under which a contract's figure is read as a unit price (the API's SUPPLIERS.SUSPECT_VALUE_MAX). */
+export const SUSPECT_VALUE_MAX = 1000;
+/** The cell of a contract whose value is under SUSPECT_VALUE_MAX. */
+export const SUSPECT_NOTE = 'value as published, probably a unit price';
+
+/** "2 contracts state a value under 1,000 (probably a unit price) and are left out of the sums." Null when none does. */
+export function suspectLine(v: ValueTotals, noun: string): string | null {
+  const k = v.suspect ?? 0;
+  if (k === 0) return null;
+  return `${n(k, noun)} ${k === 1 ? 'states' : 'state'} a value under ${formatNumber(SUSPECT_VALUE_MAX)} (probably a unit price, not the ${noun}’s value) and ${k === 1 ? 'is' : 'are'} left out of the sums.`;
 }
 
 /** The rules of the sum, the same wherever it is shown. */

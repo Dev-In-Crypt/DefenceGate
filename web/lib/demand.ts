@@ -104,6 +104,22 @@ export function approachOthersLine(a: Approach, kMin: number): string | null {
   return parts.length ? parts.join(' ') : null;
 }
 
+/**
+ * WP-87: the sample's sentence about the winners, in the numbers the report and its winners page use. Since WP-81 every legal entity is
+ * named: "who to approach" lists the most contracts first (and every prime), the winners page all of them ("41 companies would be
+ * named" was the list's length, read as all that is named; and the two words ran together).
+ */
+export function approachSentence(d: Pick<Demand, 'total' | 'approach' | 'kMin'>): string {
+  const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+  const all = d.total.winners;
+  const listed = d.approach.winners.length;
+  const primes = d.approach.winners.filter((w) => w.prime).length;
+  const named = d.kMin > 1 ? all - d.approach.below.winners : all;
+  return `${n(all, 'company', 'companies')} won them. The report names ${named === all ? (all === 1 ? 'it' : 'every one of them') : `the ${named} with ${d.kMin} or more contracts`}: `
+    + `${listed === named ? 'all of them' : `the ${listed} with the most contracts, and every prime contractor or large defence group,`} under “who to approach”`
+    + `${listed === named ? '' : `, and all ${named} on its list of winners`}. ${n(primes, 'of those listed is', 'of those listed are')} marked as a prime contractor or large defence group.`;
+}
+
 /** The primes and large defence groups among the named winners, the realistic way in for a subcontractor. */
 export function primesOf(a: Approach): ApproachWinner[] {
   return a.winners.filter((w) => w.prime !== null);
