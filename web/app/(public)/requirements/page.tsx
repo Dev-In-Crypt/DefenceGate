@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, formatDays, formatRange, joinWords, programmeName, requirementSlug, siteDay } from '@/lib/readiness';
+import { CATEGORY_WORD, costStatement, joinWords, programmeName, requirementSlug, siteDay, timeStatement } from '@/lib/readiness';
 import type { RequirementSummary } from '@/lib/readiness-types';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
@@ -36,8 +36,8 @@ function RequirementCard({ r }: { r: RequirementSummary }) {
       <p className="m-0 text-body text-ink-muted">{r.summary}</p>
       {document && (
         <FactsGrid className="mt-auto" items={[
-          { label: 'Cost', value: `${formatRange(r.cost)}${r.cost?.label ? ` (${r.cost.label})` : ''}` },
-          { label: 'Time', value: formatDays(r.days) },
+          { label: 'Cost', value: `${costStatement(r.cost)}${r.cost?.label ? ` (${r.cost.label})` : ''}` },
+          { label: 'Time', value: timeStatement(r.days) },
         ]} />
       )}
       <p className={document ? 'm-0 text-small text-ink-muted' : 'm-0 mt-auto text-small text-ink-muted'}>

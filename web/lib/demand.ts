@@ -125,6 +125,30 @@ export function primesOf(a: Approach): ApproachWinner[] {
   return a.winners.filter((w) => w.prime !== null);
 }
 
+/**
+ * WP-89 (UX audit, section 4): the named winners in three groups, each most contracts first (the answer's order): the direct suppliers of
+ * the company's own country (Suyfa, JPG, MADZEAL for a Spanish one), the primes and large defence groups (those of its country first), and
+ * the other winners. A Spanish user saw eight German primes before any Spanish winner.
+ */
+export function approachGroups(a: Approach, country: string): { home: ApproachWinner[]; primes: ApproachWinner[]; others: ApproachWinner[] } {
+  const primes = primesOf(a);
+  return {
+    home: a.winners.filter((w) => !w.prime && w.country === country),
+    primes: [...primes.filter((w) => w.country === country), ...primes.filter((w) => w.country !== country)],
+    others: a.winners.filter((w) => !w.prime && w.country !== country),
+  };
+}
+
+/**
+ * WP-89: a winner's supplier page with the report's codes and countries, so that the page says how many of its contracts are under them
+ * (`/v1/suppliers/{slug}?cpv=&buyerCountry=`, the count "who to approach" gives).
+ */
+export function supplierHref(slug: string, request: DemandRequest | null): string {
+  if (!request) return `/suppliers/${slug}`;
+  const p = new URLSearchParams({ cpv: request.cpv.join(','), buyerCountry: request.countries.join(',') });
+  return `/suppliers/${slug}?${p.toString()}`;
+}
+
 export class DemandError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }

@@ -1,16 +1,19 @@
 /**
  * WP-67: the supplier roadmap. A red / amber / green list, one line per requirement, built from the engine's answer (`POST
  * /v1/readiness/assess`) and the stored profile only. Nothing is decided here that the engine did not say: the colour is read from the
- * outcomes of the rules that name the requirement, the order is the engine's roadmap order (its prerequisite graph), and a cost or a time
- * is printed only when the requirement's source is primary (`RoadmapStep.origin`). lib/wp67.check.ts runs it on the three sample companies.
+ * outcomes of the rules that name the requirement, the order is the engine's roadmap order (its prerequisite graph), and the cost and the
+ * time are the requirement's one statement (`costStatement`, WP-89: the roadmap and the requirement pages print the same words; WP-67
+ * printed a figure only for a primary source, so the report said "Not stated in a primary source" where the roadmap said "Free").
+ * lib/wp67.check.ts runs it on the three sample companies.
  */
 import { CERTIFICATES, REGISTRATIONS, type Profile } from './profile';
-import { formatDays, formatRange, joinWords, programmeName } from './readiness';
+import { NOT_STATED, costStatement, joinWords, programmeName, timeStatement } from './readiness';
 import type { Assessment, ProgrammeAssessment, RSource, RoadmapStep, RuleResult } from './readiness-types';
 
 export type Rag = 'red' | 'amber' | 'green';
 export const RAG_WORD: Record<Rag, string> = { red: 'Needed now', amber: 'Depends', green: 'In place' };
-export const NOT_PRIMARY = 'Not stated in a primary source';
+/** What a line without a requirement (a rule, a specialist's question) says for its cost and time. */
+export const NO_FIGURE = NOT_STATED;
 
 export interface RoadmapItem {
   /** A requirement code (REQ-RID), else the code of a rule or of a consultant flag. */
@@ -26,6 +29,8 @@ export interface RoadmapItem {
   after: string[];
   /** Null for what is in place. */
   cost: string | null;
+  /** "vendor range, not a benchmark" beside a vendor's figure (the roadmap's label). */
+  costLabel?: string | null;
   time: string | null;
   issuers: string[];
   /** What the step involves beyond cost and time (the PECAL chicken-and-egg). */
@@ -92,15 +97,15 @@ export function supplierRoadmap(result: Assessment, profile: Profile, names: Rec
     if (!held && !step && entries.every((e) => e.r.outcome === 'info')) continue;
     const { rag, status, decider } = colour(entries, step, held);
     entries.forEach((e) => covered.add(e.r.rule));
-    const primary = step?.origin === 'primary';
     items.push({
       key: code, requirement: code, rag, status,
       name: step?.name ?? names[code] ?? preName.get(code) ?? HOLDINGS.find((h) => h.code === code)?.label ?? code,
       reason: rag === 'green' && held ? null : decider?.r.reason ?? step?.summary ?? null,
       neededFor: uniq(entries.filter((e) => e.r.outcome !== 'info').map((e) => programmeName(e.a.programme))),
       after: (step?.prerequisites ?? []).filter((p) => p.relation === 'before').map((p) => p.code),
-      cost: rag === 'green' ? null : primary ? formatRange(step?.cost ?? null) : NOT_PRIMARY,
-      time: rag === 'green' ? null : primary ? formatDays(step?.days ?? null) : NOT_PRIMARY,
+      cost: rag === 'green' ? null : costStatement(step?.cost ?? null),
+      costLabel: rag === 'green' ? null : step?.cost?.label ?? null,
+      time: rag === 'green' ? null : timeStatement(step?.days ?? null),
       issuers: rag === 'green' ? [] : (step?.issuers ?? []).map((i) => i.name),
       note: rag === 'green' ? null : step?.note ?? null,
       consultant: rag === 'green' ? [] : uniq(entries.map((e) => e.r.consultant).filter((c): c is string => !!c)),
@@ -120,14 +125,14 @@ export function supplierRoadmap(result: Assessment, profile: Profile, names: Rec
     covered.add(r.rule);
     items.push({ key: r.rule, requirement: null, name: r.title, rag: r.outcome === 'not_met' ? 'red' : 'amber',
       status: r.outcome === 'not_met' ? 'Missing, and needed for what you said you do.' : 'A specialist has to settle it.', reason: r.reason,
-      neededFor: [programmeName(a.programme)], after: [], cost: NOT_PRIMARY, time: NOT_PRIMARY, issuers: [], note: null,
+      neededFor: [programmeName(a.programme)], after: [], cost: NO_FIGURE, time: NO_FIGURE, issuers: [], note: null,
       consultant: r.consultant ? [r.consultant] : [], asks: r.asks.map((q) => q.question), source: r.source });
   }
   for (const f of result.consultants ?? []) {
     if (f.rule && covered.has(f.rule)) continue;
     const rule = f.rule ? all.flatMap((a) => a.rules).find((r) => r.rule === f.rule) : undefined;
     items.push({ key: f.key, requirement: null, name: f.title, rag: 'amber', status: 'A specialist has to settle it.', reason: null,
-      neededFor: [], after: [], cost: NOT_PRIMARY, time: NOT_PRIMARY, issuers: [], note: null, consultant: [f.text], asks: f.asks.map((q) => q.question),
+      neededFor: [], after: [], cost: NO_FIGURE, time: NO_FIGURE, issuers: [], note: null, consultant: [f.text], asks: f.asks.map((q) => q.question),
       source: rule?.source ?? null });
   }
 

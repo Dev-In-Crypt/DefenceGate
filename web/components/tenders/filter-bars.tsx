@@ -104,6 +104,9 @@ export function BuyerFilterBar({ filters, basePath }: { filters: BuyerFilters; b
     <FilterPanel activeCount={activeBuyerFilterCount(filters)}>
       <form method="get" action={basePath} role="search" aria-label="Filter buyers" className={FORM}>
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Name of the buyer" defaultValue={filters.q ?? ''} />
+        {/* WP-89: who buys what you make (the tender list's CPV reading) */}
+        <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 343 or 34320000" defaultValue={filters.cpv?.join(', ') ?? ''}
+          hint="Buyers with at least one tender under a code that starts with these digits; separate several with commas. Their counts stay all of their tenders." />
         <FoldGroup legend="Open tenders" count={filters.hasOpen === true ? 1 : 0}>
           <Choice name={PARAM.hasOpen} value="true" label="Only buyers with open tenders" defaultChecked={filters.hasOpen === true} />
         </FoldGroup>

@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { cpvDictionaryTitle } from '@/lib/cpv';
 import { now } from '@/lib/deadline';
 import { formatStamp } from '@/lib/account-format';
-import { CERTIFICATES, DE_QUESTIONS, DUAL_USE_QUESTION, ES_QUESTIONS, PROCESSES, REGISTRATIONS, answerLabel, holds, type Profile, type Tri } from '@/lib/profile';
+import { SUPPLY_ROUTES, CERTIFICATES, DE_QUESTIONS, DUAL_USE_QUESTION, ES_QUESTIONS, PROCESSES, REGISTRATIONS, answerLabel, holds, type Profile, type Tri } from '@/lib/profile';
 import { VERDICT_WORD, isoDay, publicPassage, publicRef, verdictMeaning } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 import { RAG_WORD, supplierRoadmap, type Rag, type RoadmapItem } from '@/lib/supplier-roadmap';
@@ -24,7 +24,9 @@ import { EXPORT_OPTIONS, SIZE_OPTIONS } from './wizard';
 import { useAssessment, useCpvVocabulary, useDemand, useProfile } from './use-readiness';
 import { DemandMap } from './demand';
 import { ApproachMap } from './approach';
-import { CHECK_THE_CALL, COURSES, grantsFor, guidesFor } from '@/lib/es-support';
+import { demandRequest } from '@/lib/demand';
+import { CHECK_THE_CALL, COURSES, guidesFor, isClosed, noRegionalGrant, regionalGrants } from '@/lib/es-support';
+import { Tag } from '@/components/dg/tag';
 
 export const DISCLAIMER = 'Indicative, sources linked, not legal advice.';
 
@@ -39,6 +41,11 @@ const PRINT_CSS = `
   .report-item, .report-row { break-inside: avoid; }
   .report a[href^="http"]::after { content: " (" attr(href) ")"; font-weight: 400; overflow-wrap: anywhere; }
   .report { font-size: 10.5pt; }
+  /* WP-89: a company's contract values print as their summary line (the total, and how many state none); the details stay on the page */
+  .report [data-value-totals] { display: none; }
+  /* WP-89: on paper, each winner of the demand map with its newest notice (all of them are named under "Who to approach"), and tighter rows */
+  .report [data-demand-winner] [data-demand-notice]:not(:first-child) { display: none; }
+  .report .report-item { padding-top: 0.35rem; padding-bottom: 0.35rem; }
 }`;
 
 const RAG_ICON = { green: CircleCheck, amber: CircleAlert, red: CircleX } as const;
@@ -111,9 +118,11 @@ function ProfileRows({ p }: { p: Profile }) {
 }
 
 function Results({ data }: { data: Assessment }) {
+  // WP-89: the supply routes first (the Spanish Ministry of Defence, then NATO and NSPA), then the EU funding programmes
+  const rank = (a: Assessment['assessments'][number]) => (a.kind === 'route' ? (SUPPLY_ROUTES as readonly string[]).indexOf(a.programme) + 1 || 50 : 100);
   return (
     <ul className="m-0 flex list-none flex-col p-0">
-      {data.assessments.map((a) => {
+      {[...data.assessments].sort((x, y) => rank(x) - rank(y)).map((a) => {
         const titles = (codes: string[]) => a.rules.filter((r) => codes.includes(r.rule)).map((r) => r.title);
         const lists: [string, string[]][] = [['Not met', titles(a.blocking)], ['To obtain first', titles(a.toObtain)], ['A condition applies', titles(a.conditions)]];
         return (
@@ -132,11 +141,16 @@ function Results({ data }: { data: Assessment }) {
   );
 }
 
-/** WP-80: the free official guide and the Spanish regional grants that have covered this step (lib/es-support.ts), the company's region first. */
+/**
+ * WP-80: the free official guide and the Spanish regional grants that have covered this step (lib/es-support.ts). WP-89: with the region
+ * chosen, its own programmes only, or one plain sentence when it has none; a closed call is marked so.
+ */
 function Support({ requirement, region }: { requirement: string; region: string | null }) {
   const guides = guidesFor(requirement);
-  const grants = region === null ? [] : grantsFor(requirement, region);    // Spanish regions: for a company established in Spain
-  if (guides.length === 0 && grants.length === 0) return null;
+  // Spanish regions: for a company established in Spain
+  const { grants, none } = region === null ? { grants: [], none: false } : regionalGrants(requirement, region);
+  const regionName = ES_REGIONS.find((r) => r.value === region)?.label ?? region ?? '';
+  if (guides.length === 0 && grants.length === 0 && !none) return null;
   const link = (url: string, text: string) => {
     const safe = safeHttpUrl(url);
     return safe ? <a href={safe} target="_blank" rel="noopener noreferrer">{text}</a> : text;
@@ -144,12 +158,14 @@ function Support({ requirement, region }: { requirement: string; region: string 
   return (
     <div className="flex flex-col gap-1 text-small" data-item-support>
       {guides.map((g) => <p key={g.url} className="m-0" data-item-guide><strong>Free guide:</strong> {link(g.url, g.title)} ({g.by}, {g.date}).</p>)}
+      {none && <p className="m-0" data-item-no-grant><strong>Regional grants:</strong> {noRegionalGrant(regionName)}</p>}
       {grants.length > 0 && (
         <div className="flex flex-col gap-0.5" data-item-grants>
           <p className="m-0"><strong>Regional grants that have paid for this step:</strong></p>
           <ul className="m-0 flex list-disc flex-col gap-0.5 pl-5">
             {grants.map((g) => (
-              <li key={`${g.programme}-${g.covers}`} data-grant-region={g.region}>
+              <li key={`${g.programme}-${g.covers}`} data-grant-region={g.region} data-grant-closed={isClosed(g) || undefined}>
+                {isClosed(g) && <><Tag>Closed</Tag>{' '}</>}
                 {g.regionName}{g.region === region ? ' (your region)' : ''}: {link(g.url, g.programme)}, for {g.covers}
                 {g.amounts ? `; ${g.amounts}` : ''} ({g.read}).
               </li>
@@ -178,8 +194,8 @@ function Item({ i, n, region }: { i: RoadmapItem; n: number; region: string | nu
       {i.neededFor.length > 0 && <p className="m-0 text-small text-ink-muted">Named by: {i.neededFor.join('; ')}.</p>}
       {i.cost !== null && (
         <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-small">
-          <dt className="text-ink-muted">Cost</dt><dd className="m-0">{i.cost}</dd>
-          <dt className="text-ink-muted">Time</dt><dd className="m-0">{i.time}</dd>
+          <dt className="text-ink-muted">Cost</dt><dd className="m-0" data-item-cost>{i.cost}{i.costLabel ? ` (${i.costLabel})` : ''}</dd>
+          <dt className="text-ink-muted">Time</dt><dd className="m-0" data-item-time>{i.time}</dd>
         </dl>
       )}
       {i.issuers.length > 0 && <p className="m-0 text-small">Issued by: {i.issuers.join('; ')}.</p>}
@@ -237,7 +253,7 @@ export function SupplierReport({ names }: { names: Record<string, string> }) {
       </header>
 
       <Section title="Who to approach" id="r-approach">
-        <ApproachMap result={demand} hasCodes={profile.supplier.cpv.length > 0} />
+        <ApproachMap result={demand} hasCodes={profile.supplier.cpv.length > 0} country={profile.country} request={demandRequest(profile)} />
       </Section>
 
       {profile.supplier.cpv.length > 0 && <Section title="Who buys what you make" id="r-demand"><DemandMap result={demand} /></Section>}
@@ -255,8 +271,8 @@ export function SupplierReport({ names }: { names: Record<string, string> }) {
             <p className="m-0 max-w-prose text-body" data-report-summary>{plan.summary}</p>
             <p className="m-0 max-w-prose text-small text-ink-muted">
               In place first, then what is needed now, then what depends on a contract, a condition or an answer; a step that must come first is
-              always listed first. A cost or a time is given only where a primary source states it; the vendor ranges and the figures of our
-              research notes on your roadmap page are left out here.
+              always listed first. Cost and time are in the words of the requirement's source, as on your roadmap page; where no source
+              states one, the line says so.
             </p>
             {profile.country === 'ES' && (
               <div className="flex max-w-prose flex-col gap-1 text-small" data-report-support>

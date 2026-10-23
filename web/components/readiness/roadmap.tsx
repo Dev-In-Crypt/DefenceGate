@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
-import { answerProblems, withStatus, type Profile, type Status } from '@/lib/profile';
-import { CATEGORY_WORD, costHeadline, formatDays, formatRange, isoDay, joinWords, programmeName, requirementSlug, timeHeadline } from '@/lib/readiness';
+import { answerProblems, roadmapProgrammes, withStatus, type Profile, type Status } from '@/lib/profile';
+import { CATEGORY_WORD, costHeadline, costStatement, isoDay, joinWords, programmeName, requirementSlug, timeHeadline, timeStatement } from '@/lib/readiness';
 import type { Roadmap, RoadmapStep, RoadmapTotals } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
@@ -52,13 +52,13 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
         <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-3">
           <dt className="text-label text-ink-muted">Cost</dt>
           <dd className="m-0 flex flex-col gap-0.5 text-body">
-            <span className="font-mono tabular-nums">{formatRange(s.cost)}</span>
+            <span className="font-mono tabular-nums" data-step-cost>{costStatement(s.cost)}</span>
             {s.cost?.label && <span className="text-small font-bold">{s.cost.label}</span>}
           </dd>
         </div>
         <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-3">
           <dt className="text-label text-ink-muted">Time</dt>
-          <dd className="m-0 font-mono text-body tabular-nums">{formatDays(s.days)}</dd>
+          <dd className="m-0 font-mono text-body tabular-nums" data-step-time>{timeStatement(s.days)}</dd>
         </div>
       </dl>
       {s.priceNote && <p className="m-0 text-small font-bold">{s.priceNote}</p>}
@@ -143,8 +143,8 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
       </AutoGrid>
       <Callout title="Read the ranges with care">
         <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is shown in the currency of the source and is never converted.</p>
-        {plan.unknownCost.length > 0 && <p className="m-0">No cost is stated in the sources for: {plan.unknownCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
-        {plan.unknownDuration.length > 0 && <p className="m-0">No time is stated in the sources for: {plan.unknownDuration.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
+        {plan.unknownCost.length > 0 && <p className="m-0">No cost is stated by the source for: {plan.unknownCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
+        {plan.unknownDuration.length > 0 && <p className="m-0">No time is stated by the source for: {plan.unknownDuration.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}
         {extraCost.length > 0 && <p className="m-0">The total that includes what only a contract might ask for has no cost for: {extraCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. The sources give none, so it is not counted and the total is not complete.</p>}
         {extraTime.length > 0 && <p className="m-0">Nor a time for: {extraTime.map((c) => byCode.get(c)?.name ?? c).join('; ')}.</p>}
         {plan.notAdded.map((n) => <p key={n.code} className="m-0">Not added to any total: {n.text}</p>)}
@@ -169,7 +169,9 @@ interface Marked { code: string; name: string; status: 'held' | 'in_progress'; o
 
 export function RoadmapView() {
   const { profile, ready, update } = useProfile();
-  const result = useAssessment(profile);
+  // WP-89: a supplier that does not want EU funding gets the steps of its supply routes only (no PIC "needed now")
+  const programmes = profile ? roadmapProgrammes(profile) : null;
+  const result = useAssessment(profile, programmes);
   const [marked, setMarked] = useState<Marked | null>(null);
   const [message, setMessage] = useState('');
   // QA m-5: the last mark can be taken back here; before, only step 4 of the wizard could revert it
@@ -230,6 +232,12 @@ export function RoadmapView() {
         {message && undo && <Button variant="secondary" onClick={takeBack} data-undo-mark={undo.code}>Undo</Button>}
       </div>
       <AnswerProblems problems={answerProblems(profile)} />
+      {programmes && (
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-roadmap-routes>
+          The steps of your supply routes ({profile.country === 'ES' ? 'the Spanish Ministry of Defence, NATO and NSPA' : 'NATO and NSPA'}). What only the EU funding programmes ask (the PIC) is left out:{' '}
+          <Link href="/readiness/supplier#sp-eu" className="font-semibold">say on your supplier profile that you also want EU funding</Link> to add it.
+        </p>
+      )}
       {(result.state === 'loading' || result.state === 'idle') && <div role="status" aria-label="Computing your roadmap"><Skeleton className="h-56" /></div>}
       {result.state === 'error' && <ErrorState title="The roadmap could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && <RoadmapBody plan={result.data.roadmap} profile={profile} onMark={mark} />}

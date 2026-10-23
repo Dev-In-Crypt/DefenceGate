@@ -89,8 +89,11 @@ export function ConsultantNote({ text }: { text: string }) {
 }
 
 /** One programme: the verdict, why, and every rule behind it. */
-/** `general`: the rules that apply whichever route you take. They carry no verdict; what is not met is a to-do. */
-export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: ProgrammeAssessment; headingLevel?: 'h2' | 'h3'; general?: boolean }) {
+/** `general`: the rules that apply whichever route you take. They carry no verdict; what is not met is a to-do. `supplier` (WP-89): a missing
+ * answer links to the supplier page where that page asks it too. */
+export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplier = false }: {
+  a: ProgrammeAssessment; headingLevel?: 'h2' | 'h3'; general?: boolean; supplier?: boolean;
+}) {
   const H = headingLevel;
   const blockers = a.rules.filter((r) => a.blocking.includes(r.rule));
   const conditions = a.rules.filter((r) => a.conditions.includes(r.rule));
@@ -138,7 +141,7 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false }: { a: 
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
             {a.missing.map((m) => {
               // the wizard's step, the supplier profile's question (WP-65), or the wizard's step 4 for a requirement (WP-73)
-              const href = askedAt(m.field);
+              const href = askedAt(m.field, supplier);
               return (
                 <li key={m.field}>
                   {href

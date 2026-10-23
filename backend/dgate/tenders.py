@@ -299,6 +299,25 @@ def _split(value: str | None, name: str, *, upper: bool = False, max_length: int
     return [i.upper() for i in items] if upper else items
 
 
+CPV_PREFIX = re.compile(r"^[0-9]{2,8}$")
+# WP-89: a notice with any CPV code under one of the prefixes (as typed: the tender list's `cpv` reading), over the
+# defence-scope GIN index of migration 0099 (`award_set.CPV_MATCH` with the prefixes as given).
+CPV_HEADS = "dgate_cpv_heads(o.cpv_codes) && %s::text[]"
+
+
+def cpv_prefixes(value: str | None, name: str = "cpv") -> list[str]:
+    """The CPV prefixes of a `cpv=` parameter: 2 to 8 digits each, a trailing check digit (35120000-1) dropped;
+    anything else is a 422, as the other list filters refuse what they cannot read."""
+    out: list[str] = []
+    for item in _split(value, name, max_length=10):
+        code = item[:8] if re.fullmatch(r"[0-9]{8}-[0-9]", item) else item
+        if not CPV_PREFIX.match(code):
+            raise HTTPException(422, f"{name}: CPV codes or their leading part, 2 to 8 digits")
+        if code not in out:
+            out.append(code)
+    return out
+
+
 def _day(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return value
@@ -1722,6 +1741,7 @@ def _core_where() -> list[str]:
 # groups: a few thousand), then per family. Grouping by the COALESCE directly made it expect 220,000 groups
 # and join them to `organisation` by a hash.
 _FAMILY = "LEFT JOIN buyer_family_member m ON m.org_id = x.org_id"
+_FAMILY_O = "LEFT JOIN buyer_family_member m ON m.org_id = o.buyer_org_id"
 
 
 def _totals_sql(exact: bool = False) -> str:
@@ -1834,6 +1854,7 @@ def list_buyers(
     sort: str = Query("tenders", pattern="^(tenders|name)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=100),
+    cpv: str | None = Query(None, max_length=200),
     conn=Depends(get_conn),
 ):
     agg = _BASE_FROM
@@ -1860,6 +1881,13 @@ def list_buyers(
         params.append(countries)
     if hasOpen:
         where.append("org.open_n > 0")
+    prefixes = cpv_prefixes(cpv)
+    if prefixes:
+        # WP-89: the buyers (families) with at least one of their counted notices (the core scope the counts are of)
+        # under one of the codes; the counts stay all of their notices. A semi-join over the GIN index.
+        where.append(f"org.id IN (SELECT COALESCE(m.head_org_id, o.buyer_org_id) FROM opportunity o {_FAMILY_O} "
+                     f"WHERE {' AND '.join(_core_where())} AND {CPV_HEADS})")
+        params.append(prefixes)
     # The aggregate and its join to `organisation` are computed first, each as a step of its
     # own (MATERIALIZED), and the filters run over the few thousand families that come out:
     # `?q=de` timed out at 5 s on 16 October 2026 because the name filter was run over all

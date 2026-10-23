@@ -22,7 +22,8 @@ function Ref({ r }: { r: DemandRef }) {
       <Link href={`/tenders/${r.slug}`} className="font-semibold">{r.title || r.noticeId}</Link>
       <span className="text-small text-ink-muted">
         {[r.buyerName, r.publishedAt ? formatDateUtc(r.publishedAt) : null, r.noticeId, r.directive ? 'Directive 2009/81/EC' : null].filter(Boolean).join(' · ')}
-        {url && <> · <a href={url} target="_blank" rel="noopener noreferrer">At the source</a></>}
+        {/* WP-89: on paper the notice number stands for it (the source's address printed after every notice filled pages) */}
+        {url && <span className="print:hidden"> · <a href={url} target="_blank" rel="noopener noreferrer">At the source</a></span>}
       </span>
     </li>
   );
@@ -107,6 +108,10 @@ export function DemandMap({ result }: { result: DemandResult }) {
         {directiveShare(d.total)}.
       </p>
       <Coverage d={d} />
+      <p className="m-0 hidden text-small text-ink-muted print:block" data-demand-print-note>
+        On paper, each winner below is shown with its newest notice and a notice by its number; the report in the browser lists up to three, with
+        the link to each at its source.
+      </p>
       <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
         {d.codes.map((c) => (
           <li key={c.code} data-demand-code={c.code}><span className="font-mono">{c.code}</span> {vocab?.get(c.code) ?? cpvDictionaryTitle(c.code) ?? ''}: {c.procurements}</li>

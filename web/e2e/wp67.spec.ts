@@ -59,9 +59,12 @@ for (const key of Object.keys(ORDER)) {
     await expect(pecal.locator('[data-item-note]')).toContainText('not a block before a first contract');
     await expect(pecal.locator('[data-consultant]')).toContainText('Prime qualification');
     await expect(page.locator('[data-item="REQ-EXPORT"] [data-consultant]')).toContainText('Export classification');
-    // no figure that a primary source does not state
-    await expect(page.locator('[data-item="REQ-NCAGE"]')).not.toContainText('Free');
-    await expect(page.locator('[data-item="REQ-PIC"]').getByText('Not stated in a primary source').first()).toBeVisible();
+    // WP-89 (owner, UX audit section 4): one cost statement per requirement, the words of its source as on the roadmap and the requirement
+    // pages (WP-67 printed "Not stated in a primary source" here while the roadmap said "Free")
+    const ncage = page.locator('[data-item="REQ-NCAGE"]:not([data-rag="green"]) [data-item-cost]');
+    if (key !== 'es-sup-defence') await expect(ncage).toHaveText('Free of charge (NSPA)');      // the defence firm holds its NCAGE
+    await expect(page.locator('[data-item="REQ-PIC"] [data-item-cost]')).toHaveText('Free');
+    await expect(page.getByText('Not stated in a primary source')).toHaveCount(0);
 
     // print: no site chrome, no buttons, a page per section, outside links followed by their address
     await page.emulateMedia({ media: 'print' });

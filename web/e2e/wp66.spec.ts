@@ -55,6 +55,8 @@ test('the report maps who buys the codes, per country, from the codes alone', as
   expect(await map.evaluate((e) => getComputedStyle(e).breakBefore)).toBe('page');
   const after = await map.locator('a[href^="http"]').first().evaluate((a) => getComputedStyle(a, '::after').content);
   expect(after).toMatch(/\(https?:\/\//);
+  // WP-89: a notice's own "At the source" link is not printed (its number is); the printed report was 59 pages, these addresses a good part
+  await expect(map.locator('[data-demand-notice] a[href^="http"]').first()).toBeHidden();
 });
 
 test('the results page shows one row per country and the way to the report', async ({ page }) => {

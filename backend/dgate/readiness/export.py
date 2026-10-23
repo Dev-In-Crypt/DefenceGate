@@ -109,6 +109,11 @@ SUPPLIER_PROFILES["de-sup"] = (
 )
 PROFILES.update(SUPPLIER_PROFILES)
 
+# WP-89: a supplier that does not apply for EU funding asks the supply routes only (`programmes`): its roadmap then has no
+# step that only the funding programmes ask for (the PIC). The answer for the civilian castings maker above.
+SUPPLY_ROUTES = ["ES-MOD", "NATO-SUPPLY"]          # web/lib/profile.ts SUPPLY_ROUTES, in its order
+ROUTES_ONLY: dict[str, str] = {"es-sup-civil-routes": "es-sup-civil"}
+
 
 def build() -> dict[str, Any]:
     """Every generated file, by its path relative to the repository root."""
@@ -125,6 +130,12 @@ def build() -> dict[str, Any]:
         answer = api.assess_payload(c, Profile(**profile), statuses)
         answer["generatedAt"] = FIXED_TIME
         files[f"web/e2e/fixtures/request-{key}.json"] = body
+        files[f"web/e2e/fixtures/assess-{key}.json"] = answer
+    for key, of in ROUTES_ONLY.items():
+        profile, statuses = PROFILES[of]
+        answer = api.assess_payload(c, Profile(**profile), statuses, SUPPLY_ROUTES)
+        answer["generatedAt"] = FIXED_TIME
+        files[f"web/e2e/fixtures/request-{key}.json"] = {"profile": profile, "statuses": statuses, "programmes": SUPPLY_ROUTES}
         files[f"web/e2e/fixtures/assess-{key}.json"] = answer
     return files
 

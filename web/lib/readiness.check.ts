@@ -12,14 +12,14 @@ const free: RMoney = { min: 0, max: 0, currency: null, basis: 'free', text: 'Fre
 // Money is shown in the currency the source used, never converted; a missing figure says so.
 assert.equal(formatRange(usd), 'USD 17,000 to 48,000');
 assert.equal(formatRange(free), 'Free');
-assert.equal(formatRange(null), 'Not stated in the sources');
-assert.equal(formatRange({ ...usd, min: null }), 'Not stated in the sources');
+assert.equal(formatRange(null), 'Not stated by the source');
+assert.equal(formatRange({ ...usd, min: null }), 'Not stated by the source');
 assert.equal(formatRange({ ...usd, min: 5, max: 5 }), 'USD 5');
 
 // Durations: the source's own words when it has them, else days or months.
 assert.equal(formatDays({ min: 90, max: 240, text: '3-8 months', note: null }), '3-8 months');
 assert.equal(formatDays({ min: 5, max: 20, text: null, note: null }), '5 to 20 days');
-assert.equal(formatDays(null), 'Not stated in the sources');
+assert.equal(formatDays(null), 'Not stated by the source');
 assert.equal(daysRange(0, 0), 'no time needed', 'U8: never "0 to 0 days"');
 assert.equal(formatDays({ min: 0, max: 0, text: 'immediate', note: null }), 'immediate', 'the source own word wins');
 assert.equal(formatDays({ min: 0, max: 0, text: null, note: null }), 'no time needed');

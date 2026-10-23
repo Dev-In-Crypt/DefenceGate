@@ -54,7 +54,9 @@ export default async function BuyersPage({ searchParams }: Props) {
       emptyTitle="No buyers match these filters"
       emptyText="Try a shorter name or fewer countries. Only buyers with at least one defence notice in our archive are listed."
       hrefFor={(p) => `/buyers${toBuyerQuery({ ...filters, page: p })}`}
-      footnote="Counts come from the notices in our archive. Each notice shows its own source."
+      footnote={filters.cpv?.length
+        ? `Buyers with at least one tender under CPV ${filters.cpv.join(', ')}; the counts are of all their tenders in our archive. Each notice shows its own source.`
+        : 'Counts come from the notices in our archive. Each notice shows its own source.'}
     >
       {result.items.map((b) => <li key={b.id}><BuyerCard buyer={b} /></li>)}
     </ListPage>

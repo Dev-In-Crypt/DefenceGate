@@ -4,7 +4,7 @@ import { getMarketStats } from '@/lib/api';
 import { MARKET_FIRST_YEAR, PARAM, parseMarketFilters, type SearchParams } from '@/lib/filters';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
-import { Select } from '@/components/dg/form';
+import { Select, TextInput } from '@/components/dg/form';
 import { cpvGroupName } from '@/lib/cpv';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { daysText, monthLabel, percentText } from '@/lib/market';
@@ -40,6 +40,9 @@ export default async function MarketPage({ searchParams }: Props) {
         className="sm:min-w-56" options={yearOptions} />
       <Select name={PARAM.country} label="Buyer country" placeholder="All countries" defaultValue={filters.country ?? ''} className="sm:min-w-56"
         options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
+      {/* WP-89: the market of one's own products (the tender list's CPV reading) */}
+      <TextInput name={PARAM.cpv} maxLength={200} label="CPV code (optional)" placeholder="For example 343 or 34320000" className="sm:min-w-56"
+        defaultValue={filters.cpv?.join(', ') ?? ''} />
       <div className="flex items-center gap-3">
         <Button type="submit">Show</Button>
         <Link href="/market" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
@@ -51,7 +54,7 @@ export default async function MarketPage({ searchParams }: Props) {
     return (
       <ContentPage crumbs={crumbs} title="Market overview">
         {selectors}
-        <EmptyState title="The overview is not available right now" action={<Button variant="secondary" href={`/market${filters.year || filters.country ? `?${new URLSearchParams({ ...(filters.year ? { year: String(filters.year) } : {}), ...(filters.country ? { country: filters.country } : {}) })}` : ''}`}>Try again</Button>}>
+        <EmptyState title="The overview is not available right now" action={<Button variant="secondary" href={`/market${filters.year || filters.country || filters.cpv ? `?${new URLSearchParams({ ...(filters.year ? { year: String(filters.year) } : {}), ...(filters.country ? { country: filters.country } : {}), ...(filters.cpv ? { cpv: filters.cpv.join(',') } : {}) })}` : ''}`}>Try again</Button>}>
           The figures are computed by the data service and could not be read. Your choice is kept: try again in a minute, or see the <Link href="/data" className={LINK}>source status</Link>.
         </EmptyState>
       </ContentPage>
@@ -61,7 +64,9 @@ export default async function MarketPage({ searchParams }: Props) {
   const months = stats.months;
   const inMonths = months.reduce((n, m) => n + m.count, 0);
   const yearOf = stats.year ?? null;
-  const where = stats.country ? ` in ${BUYER_COUNTRIES[stats.country] ?? stats.country}` : '';
+  const codes = stats.cpv?.length ? stats.cpv : filters.cpv;
+  const where = `${stats.country ? ` in ${BUYER_COUNTRIES[stats.country] ?? stats.country}` : ''}${codes?.length ? `, CPV ${codes.join(', ')}` : ''}`;
+  const cpvLink = codes?.length ? `&cpv=${codes.join(',')}` : '';
   const monthsTitle = yearOf ? `Notices published per month, ${yearOf}${where}` : `Notices published per month, last 36 months${where}`;
   const from = formatDateUtc(stats.windowFrom);
   const to = formatDateUtc(stats.windowTo);
@@ -115,7 +120,7 @@ export default async function MarketPage({ searchParams }: Props) {
               ...stats.countries.items.map((c) => ({
                 key: c.country,
                 // To the notices behind the number: the tender list, this country, every status, the market's own scope (core).
-                label: <Link href={`/tenders?country=${c.country}&status=all&scope=core`} className={LINK}><CountryLabel code={c.country} /></Link>,
+                label: <Link href={`/tenders?country=${c.country}&status=all&scope=core${cpvLink}`} className={LINK}><CountryLabel code={c.country} /></Link>,
                 count: c.count,
               })),
               ...(stats.countries.other > 0 ? [{ key: 'other', label: <span>Other countries, or none stated</span>, count: stats.countries.other }] : []),

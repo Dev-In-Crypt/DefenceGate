@@ -281,8 +281,13 @@ export function allBuyers(ref: Date = now()): Buyer[] {
 export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer> {
   const q = f.q?.toLowerCase();
   // Only buyers with at least one core-scope notice are listed.
+  // WP-89: a CPV filter keeps the buyers with a core notice under one of the prefixes; their counts stay all of their notices
+  const withCode = f.cpv?.length
+    ? new Set(allTenders(ref).filter((t) => t.scope === 'core' && t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))).map((t) => t.buyerId))
+    : null;
   let items = allBuyers(ref).filter((b) => {
     if (b.tenderCount === 0) return false;
+    if (withCode && !withCode.has(b.id)) return false;
     if (f.hasOpen && b.openCount === 0) return false;
     if (f.country && (!b.country || !f.country.includes(b.country))) return false;
     if (q && !b.name.toLowerCase().includes(q)) return false;

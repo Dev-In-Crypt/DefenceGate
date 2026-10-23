@@ -39,12 +39,16 @@ export type AssessState =
   | { state: 'error'; message: string }
   | { state: 'done'; data: Assessment };
 
-/** Ask the API for the verdict of the profile whenever its answers change. Nothing is kept. */
-export function useAssessment(profile: Profile | null): AssessState & { retry: () => void } {
+/**
+ * Ask the API for the verdict of the profile whenever its answers change. Nothing is kept. `programmes` (WP-89): only these (the roadmap
+ * of a supplier that does not want EU funding asks the supply routes); null for every one.
+ */
+export function useAssessment(profile: Profile | null, programmes: string[] | null = null): AssessState & { retry: () => void } {
   const [result, setResult] = useState<AssessState>({ state: 'idle' });
   const [attempt, setAttempt] = useState(0);
   const seq = useRef(0);
-  const request = profile ? toRequest(profile) : null;
+  const base = profile ? toRequest(profile) : null;
+  const request = base && programmes ? { ...base, programmes } : base;
   const key = request ? JSON.stringify(request) : '';
   useEffect(() => {
     if (!key) {

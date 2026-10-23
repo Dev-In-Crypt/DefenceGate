@@ -196,14 +196,19 @@ def month_starts(today: date, n: int = MONTHS) -> list[date]:
     return out[::-1]
 
 
-def _scope(since: date, today: date, country: str | None = None) -> tuple[str, list[Any]]:
+def _scope(since: date, today: date, country: str | None = None,
+           cpv: list[str] | None = None) -> tuple[str, list[Any]]:
     """Core-scope notices published from `since` to `today` (a date in the future is
-    not a publication), of one buyer country when asked."""
+    not a publication), of one buyer country when asked, and (WP-89) with a CPV code under one of the
+    prefixes `cpv` when asked (the tender list's reading, over the GIN index of migration 0099)."""
     where = f"{CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s"
     params: list[Any] = [since, today]
     if country:
         where += " AND o.country = %s"
         params.append(country)
+    if cpv:
+        where += " AND dgate_cpv_heads(o.cpv_codes) && %s::text[]"
+        params.append(list(cpv))
     return where, params
 
 
@@ -218,8 +223,8 @@ def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
 # plain data. The same helpers serve the market and a buyer.
 
 def notices_per_month(conn, today: date, months: int = MONTHS, *,
-                      starts: list[date] | None = None, country: str | None = None
-                      ) -> list[dict[str, Any]]:
+                      starts: list[date] | None = None, country: str | None = None,
+                      cpv: list[str] | None = None) -> list[dict[str, Any]]:
     """Notices published per calendar month, all sources and TED alone, zero-filled.
     The month `today` is in is incomplete and says so. `starts` (the months of one calendar
     year) replaces the trailing `months`; `country` keeps one buyer country."""
@@ -227,6 +232,8 @@ def notices_per_month(conn, today: date, months: int = MONTHS, *,
     extra, args = ("", [])
     if country:
         extra, args = " AND o.country = %s", [country]
+    if cpv:
+        extra, args = extra + " AND dgate_cpv_heads(o.cpv_codes) && %s::text[]", [*args, list(cpv)]
     rows = conn.execute(
         f"""SELECT date_trunc('month', o.published_at)::date AS month, count(*) AS n,
                    count(*) FILTER (
@@ -351,7 +358,7 @@ def window_words(basis: dict[str, str], year: int | None) -> dict[str, str]:
 
 
 def market(get_conn, today: date | None = None, *, year: int | None = None,
-           country: str | None = None) -> dict[str, Any]:
+           country: str | None = None, cpv: list[str] | None = None) -> dict[str, Any]:
     """Each figure is cached on its own for the hour. The API role has a 5 s budget and a
     cold cache can spend it on one query (a 36-month scan took 11.7 s on a busy server on
     13 October 2026, before migration 0038): the request then fails with a 503, and the
@@ -364,9 +371,10 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
         starts = [date(year, m, 1) for m in range(1, 13) if date(year, m, 1) <= today]
     else:
         since, until, starts = today - timedelta(days=WINDOW_DAYS), today, None
-    where, params = _scope(since, until, country)
+    cpv = list(cpv or []) or None
+    where, params = _scope(since, until, country, cpv)
     sections = {
-        "months": lambda c: notices_per_month(c, today, starts=starts, country=country),
+        "months": lambda c: notices_per_month(c, today, starts=starts, country=country, cpv=cpv),
         "countries": lambda c: notices_per_country(c, where, params),
         "sources": lambda c: notices_per_source(c, where, params),
         "amendments": lambda c: amendment_share(c, where, params),
@@ -376,7 +384,7 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
     got: dict[str, dict[str, Any]] = {}
     for name, fn in sections.items():
         got[name] = cached(
-            ("market", name, today, year, country),
+            ("market", name, today, year, country, tuple(cpv or ())),
             lambda fn=fn: {"at": datetime.now(timezone.utc), "data": fn(get_conn())})
     return {
         "asOf": min(part["at"] for part in got.values()),     # the oldest figure on the page
@@ -386,6 +394,7 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
         "windowTo": until,
         "year": year,
         "country": country,
+        "cpv": cpv,
         "sourceCount": len(got["sources"]["data"]),
         **{name: part["data"] for name, part in got.items()},
         "basis": window_words(BASIS, year),
@@ -447,6 +456,8 @@ class MarketStats(BaseModel):
     # rolling 12 months and all countries.
     year: int | None = None
     country: str | None = None
+    # WP-89: the CPV prefixes the figures were narrowed to, null for every code
+    cpv: list[str] | None = None
     sourceCount: int
     months: list[MonthCount]
     countries: Countries
@@ -462,11 +473,14 @@ MARKET_FIRST_YEAR = 2017
 
 @router.get("/v1/stats/market", response_model=MarketStats)
 def market_stats(year: int | None = Query(None, ge=MARKET_FIRST_YEAR, le=2100),
-                 country: str | None = Query(None, pattern="^[A-Za-z]{2}$")):
+                 country: str | None = Query(None, pattern="^[A-Za-z]{2}$"),
+                 cpv: str | None = Query(None, max_length=200)):
     if year is not None and year > datetime.now(timezone.utc).year:
         raise HTTPException(422, "year is in the future")
+    from .tenders import cpv_prefixes
+    prefixes = cpv_prefixes(cpv)
     with _Lazy() as get_conn:
-        return market(get_conn, year=year, country=country.upper() if country else None)
+        return market(get_conn, year=year, country=country.upper() if country else None, cpv=prefixes)
 
 
 # ----------------------------------------------------------- buyer profile

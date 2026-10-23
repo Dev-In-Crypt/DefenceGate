@@ -202,10 +202,12 @@ export interface Supplier {
   usComponents: Tri;
   /** The answers to `ES_QUESTIONS`, `DE_QUESTIONS`, `DUAL_USE_QUESTION` and the clearance questions, by engine field (or requirement code). */
   answers: Record<string, Answer>;
+  /** WP-89: whether the company also wants EU funding (EDF, EDIP, SAFE); not sent, it decides what the results lead with (`wantsEuFunding`). */
+  euFunding: Tri;
 }
 
 export function emptySupplier(): Supplier {
-  return { region: '', foreignOwner: '', foreignCountry: '', nace: '', cpv: [], processes: [], held: [], expiry: {}, usComponents: '', answers: {} };
+  return { region: '', foreignOwner: '', foreignCountry: '', nace: '', cpv: [], processes: [], held: [], expiry: {}, usComponents: '', answers: {}, euFunding: '' };
 }
 
 /** Recommended, not required (WP-73): no rule reads the codes; the demand map will. */
@@ -276,7 +278,30 @@ export function savedSupplier(p: Profile): Profile {
 export function hasSupplier(p: Profile): boolean {
   const s = p.supplier;
   return s.cpv.length > 0 || s.processes.length > 0 || s.held.length > 0 || s.nace !== '' || s.region !== '' || s.foreignOwner !== ''
-    || s.usComponents !== '' || Object.keys(s.answers).length > 0;
+    || s.usComponents !== '' || Object.keys(s.answers).length > 0 || s.euFunding !== '';
+}
+
+/** WP-89: the supply routes of the check (kind `route`): what a supplier's results and roadmap lead with. */
+export const SUPPLY_ROUTES = ['ES-MOD', 'NATO-SUPPLY'] as const;
+/** The EU funding programmes (kind `programme`). */
+export const EU_PROGRAMMES = ['EDF', 'EDIP', 'EDIP-USI', 'SAFE'] as const;
+
+/**
+ * WP-89 (UX audit, section 4): whether the EU funding programmes are part of what this company wants. "Yes" on the supplier page says so,
+ * "no" says not; unanswered or "not sure", a company that only filled in the supplier page is a supplier first (its results lead with the
+ * Ministry of Defence and NATO routes, the funding programmes collapsed, and its roadmap leaves out what only they ask, the PIC), while one
+ * that went through the readiness check (the EU funding questions) or never used the supplier page is not.
+ */
+export function wantsEuFunding(p: Profile): boolean {
+  const e = p.supplier.euFunding;
+  if (e === 'yes') return true;
+  if (e === 'no') return false;
+  return !hasSupplier(p) || p.step >= 6;
+}
+
+/** The programmes a roadmap request asks for: the supply routes only for a supplier that does not want EU funding, else every one (null). */
+export function roadmapProgrammes(p: Profile): string[] | null {
+  return wantsEuFunding(p) ? null : [...SUPPLY_ROUTES];
 }
 
 export interface Profile {
@@ -385,6 +410,7 @@ function parseSupplier(raw: unknown): Supplier {
     expiry,
     usComponents: triOf(r.usComponents),
     answers,
+    euFunding: triOf(r.euFunding),
   };
 }
 
@@ -454,6 +480,8 @@ export interface AssessRequest {
   statuses: Record<string, Status | 'unknown'>;
   /** A call of the funding list (its id), to also get the timing of the steps against its deadline (WP-32). */
   call?: number;
+  /** WP-89: only these programmes (the supply routes of a supplier that does not want EU funding: its roadmap). */
+  programmes?: string[];
 }
 
 const tri = (v: Tri): boolean | null => (v === 'yes' ? true : v === 'no' ? false : null);
@@ -596,11 +624,26 @@ const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS,
   ...[...CERTIFICATES, ...REGISTRATIONS].flatMap((c) => (c.code ? [c.code] : []))]);
 
 /**
+ * WP-89: the wizard's questions the supplier page asks as well, and where: classified work and exports in their blocks, the questions the
+ * EU funding programmes read (and the PIC) in its block "If you also want EU funding" (`EU_FUNDING_FIELDS`).
+ */
+export const EU_FUNDING_FIELDS = ['legal_form', 'executive_management_country', 'third_country_control', 'non_eu_component_cost_pct',
+  'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'ua_partner', 'safe_role', 'REQ-PIC'] as const;
+const SUPPLIER_PAGE_ASKS: Record<string, string> = {
+  handles_classified: 'q-classified', export_intent: 'q-export_intent',
+  // the export authorisation is asked in the export block once the item may be on a control list; the block says what makes it appear
+  'REQ-EXPORT': 'sp-export',
+  ...Object.fromEntries(EU_FUNDING_FIELDS.map((f) => [f, 'sp-eu'])),
+};
+
+/**
  * Where the question behind an API `missing` field is asked (WP-73), or null when nothing on this site asks it: a field of the wizard links
  * to its step, a field or requirement of the supplier page to its question there, a requirement of the wizard's step 4 to that step.
  */
-export function askedAt(field: string): string | null {
+export function askedAt(field: string, supplier = false): string | null {
   const f = field.replace(/^profile\./, '');
+  // WP-89: a supplier answers on its own page what its verdicts still miss, the EU funding questions there too (#sp-eu)
+  if (supplier && SUPPLIER_PAGE_ASKS[f]) return `/readiness/supplier#${SUPPLIER_PAGE_ASKS[f]}`;
   if (WIZARD_FIELDS.has(f)) return `/readiness?step=${stepOfField(f)}`;
   // a follow-up question is shown only after the answer it depends on: its link goes to the Spanish questions, where that answer is asked
   if (ES_QUESTIONS.some((q) => q.field === f && q.when)) return '/readiness/supplier#sp-spain';

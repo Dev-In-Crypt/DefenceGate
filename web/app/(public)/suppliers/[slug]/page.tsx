@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
-import { cpvDivisionLabel } from '@/lib/taxonomy';
+import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
 import { PLACSP_CODES, sourceLabel } from '@/lib/supplier-sources';
 import { AboutData } from '@/components/dg/about-data';
@@ -20,7 +20,10 @@ import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { ValueTotalsBlock } from '@/components/dg/value-totals';
 
 export const revalidate = 300;
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+/** WP-89: the codes and countries the supplier report's link carries (`cpv`, `buyerCountry`), read as plain text and checked by the API. */
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.slice(0, 200);
 
 /** Whether this profile shows anything from PLACSP (WP-61): a notice from it, or a TED notice it also published. */
 function fromPlacsp(s: Supplier): boolean {
@@ -42,10 +45,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-export default async function SupplierPage({ params }: Props) {
+export default async function SupplierPage({ params, searchParams }: Props) {
   const { slug } = await params;
   if (!isSupplierSlug(slug)) notFound();
-  const got = await getSupplier(slug).catch(whenRemoved);
+  const sp = await searchParams;
+  const under = { cpv: one(sp.cpv), buyerCountry: one(sp.buyerCountry) };
+  // an unreadable code list is the API's 422: the page then shows the total alone
+  const got = await (under.cpv ? getSupplier(slug, under).catch(() => getSupplier(slug)) : getSupplier(slug)).catch(whenRemoved);
   if (got === REMOVED) return <RemovedOnRequest what="supplier" />;
   if (!got) notFound();
   const s = { ...got, name: displayName(got.name, 'title') };      // the case of the name is for the eye; the stored name is not changed
@@ -55,7 +61,14 @@ export default async function SupplierPage({ params }: Props) {
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }, { label: s.name, href: `/suppliers/${s.slug}` }]} title={s.name}>
         <FactsGrid>
           <FactCell label="Country"><CountryLabel code={s.country} className="font-sans" /></FactCell>
-          <FactCell label="Contracts won, last three years"><span className="tabular-nums">{formatNumber(s.noticeCount)}</span></FactCell>
+          <FactCell label="Contracts won, last three years">
+            <span className="tabular-nums">{formatNumber(s.noticeCount)}</span>
+            {s.underCodes && (
+              <span className="block font-sans text-small font-normal text-ink-muted" data-under-codes>
+                {formatNumber(s.underCodes.contracts)} of them under your CPV codes{s.underCodes.buyerCountries.length ? `, in ${s.underCodes.buyerCountries.map(countryName).join(', ')}` : ''}, as in your supplier report
+              </span>
+            )}
+          </FactCell>
           <FactCell label="Years">
             <span className="tabular-nums">{s.firstYear ? (s.firstYear === s.lastYear ? s.firstYear : `${s.firstYear} to ${s.lastYear}`) : 'Not stated'}</span>
           </FactCell>

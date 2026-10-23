@@ -227,7 +227,16 @@ class ValueTotals(BaseModel):
     suspect: int = 0                          # WP-87: of them, those whose value is under 1,000 (a unit price): in no sum
 
 
+class UnderCodes(BaseModel):
+    """WP-89: of the supplier's contracts, those with a code under the CPV codes asked (and of the buyer countries asked),
+    counted as /v1/suppliers?cpv=&buyerCountry= and the supplier report's "who to approach" count them."""
+    cpv: list[str]
+    buyerCountries: list[str]
+    contracts: int
+
+
 class Supplier(SupplierItem):
+    underCodes: UnderCodes | None = None
     values: ValueTotals
     byYear: list[Count]
     byCpv: list[Count]
@@ -498,8 +507,11 @@ def supplier_summary(conn=Depends(get_conn)):
 
 
 @router.get("/v1/suppliers/{slug}", response_model=Supplier)
-def get_supplier(slug: str, conn=Depends(get_conn)):
+def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
+                 buyerCountry: str | None = Query(None, max_length=200), conn=Depends(get_conn)):
     org_id = _id_of(slug, "supplier")
+    # WP-89: read (and refused when unreadable) before anything is counted
+    under_where, under_params = _filters(None, None, cpv, buyerCountry) if cpv else ([], {})
     org = conn.execute(
         "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation WHERE id = %s",
         (org_id,)).fetchone()
@@ -625,8 +637,14 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
             "alsoPublished": also.get(r["award_id"], []) + [
                 x for x in same.get(r["award_id"], [])
                 if x["noticeId"] not in {y["noticeId"] for y in also.get(r["award_id"], [])}]})
+    under = None
+    if under_where:
+        n = conn.execute(f"SELECT count(DISTINCT {KEY_HASH}) AS n {base} AND {' AND '.join(under_where)}",
+                         {**p, **{k: v for k, v in under_params.items() if k != "since"}}).fetchone()["n"]
+        under = {"cpv": under_params["prefixes"], "buyerCountries": under_params.get("buyer", []), "contracts": n}
     return {
         **item,
+        "underCodes": under,
         "values": value_totals(sums, head["n"]),
         "byYear": [{"year": y, "awards": n} for y, n in by_year],
         "byCpv": [{"division": d, "awards": n} for d, n in by_cpv],

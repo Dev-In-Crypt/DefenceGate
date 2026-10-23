@@ -1,0 +1,44 @@
+{
+ "profile": {
+  "applicant_kind": null,
+  "components_from_ua_or_eea_efta": null,
+  "country": "ES",
+  "executive_management_country": null,
+  "export_intent": null,
+  "foreign_capital": false,
+  "handles_classified": false,
+  "legal_form": null,
+  "nato_classified_contract": false,
+  "nato_icb_bid": false,
+  "ncage_need_justified": false,
+  "non_eu_component_cost_pct": null,
+  "pecal_2310_target": false,
+  "pecal_certificate_wanted": false,
+  "product_regime": "unknown",
+  "receives_eea_defence_products": false,
+  "restricted_third_country_component": null,
+  "safe_role": null,
+  "specific_defence_use": false,
+  "third_country_control": "no",
+  "ua_non_government_controlled_area": null,
+  "ua_partner": null,
+  "us_components": false
+ },
+ "programmes": [
+  "ES-MOD",
+  "NATO-SUPPLY"
+ ],
+ "statuses": {
+  "REQ-AQAP2110": "not_held",
+  "REQ-AQAP2310": "not_held",
+  "REQ-EN9100": "not_held",
+  "REQ-EXPORT": "unknown",
+  "REQ-FSC-ES": "unknown",
+  "REQ-ISO9001": "held",
+  "REQ-NCAGE": "not_held",
+  "REQ-PECAL": "not_held",
+  "REQ-PIC": "unknown",
+  "REQ-REOCE": "unknown",
+  "REQ-RID": "not_held"
+ }
+}

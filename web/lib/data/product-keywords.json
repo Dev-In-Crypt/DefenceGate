@@ -1,6 +1,6 @@
 {
   "_source": "Curated by DefenceGate. Each entry maps product words a buyer or supplier uses to the CPV 2008 codes the notices of that product carry. The codes and their English titles are those of the Publications Office codelist (EU Vocabularies, dataset http://publications.europa.eu/resource/dataset/cpv, as published in the OP-TED eForms SDK repository, retrieved 18 October 2026); no title is written by us.",
-  "_note": "Used by the product search of the supplier map (lib/cpv.ts, cpvForWords) before the finder's titles are searched. The finder matches words in titles only, so 'drone' (the CPV says 'Unmanned aerial vehicles' and 'Non-piloted aircraft'), 'explosives', 'body armour' (the CPV says 'Garments for anti-ballistic protection') and 'tank' (which hit heating tanks) found nothing or the wrong thing. A word is listed only when the codes are certain: the product is named by the title of the code, or notices of that product carry it in the archive (checked on 18 October 2026). The query is read as a whole: every word of it must belong to a listed phrase, otherwise the finder's titles are searched as before.",
+  "_note": "Used by the product search of the supplier map (lib/cpv.ts, cpvForWords) before the finder's titles are searched. The finder matches words in titles only, so 'drone' (the CPV says 'Unmanned aerial vehicles' and 'Non-piloted aircraft'), 'explosives', 'body armour' (the CPV says 'Garments for anti-ballistic protection') and 'tank' (which hit heating tanks) found nothing or the wrong thing. A word is listed only when the codes are certain: the product is named by the title of the code, or notices of that product carry it in the archive (checked on 18 October 2026). The query is read as a whole: every word of it must belong to a listed phrase, otherwise the finder's titles are searched as before. WP-89 (23 October 2026, UX audit of the supplier path): the words an automotive parts maker uses (castings, forgings, machined parts, stampings, rubber and plastic parts, wiring harnesses, filters, seats, glass, paint and coatings, fasteners). Where the CPV has no code for the product as such, the entry names the part codes it is bought under and says so in its note; the codes of the machines that make it are left out.",
   "_retrieved": "2026-10-18",
   "entries": [
     {
@@ -83,6 +83,124 @@
         { "code": "35513000", "title": "Mine warfare and auxiliary ships" }
       ],
       "note": "A mine here is a weapon or a mine-warfare ship; for mining equipment use the CPV box."
+    },
+    {
+      "words": ["vehicle parts", "vehicle spare parts", "automotive", "automotive parts", "auto parts", "car parts", "truck parts", "automotive components"],
+      "codes": [
+        { "code": "34300000", "title": "Parts and accessories for vehicles and their engines" },
+        { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
+        { "code": "34330000", "title": "Spare parts for goods vehicles, vans and cars" },
+        { "code": "35420000", "title": "Parts of military vehicles" },
+        { "code": "35421000", "title": "Mechanical spare parts for military vehicles" }
+      ],
+      "note": "Vehicle parts, civil and military: the codes the defence buyers use for the spare parts of their vehicles."
+    },
+    {
+      "words": ["casting", "castings", "cast part", "cast parts", "cast iron", "cast-iron", "iron castings", "aluminium castings", "aluminum castings", "die casting", "die castings", "foundry", "foundry parts"],
+      "codes": [
+        { "code": "44470000", "title": "Cast-iron products" },
+        { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
+        { "code": "34312000", "title": "Engine parts" },
+        { "code": "35421000", "title": "Mechanical spare parts for military vehicles" }
+      ],
+      "note": "The CPV has no code for castings as such: cast-iron products, and the vehicle and engine part codes a cast part is bought under. Casting machines are 43720000."
+    },
+    {
+      "words": ["forging", "forgings", "forged", "forged part", "forged parts"],
+      "codes": [
+        { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
+        { "code": "42141100", "title": "Transmission, cam- and crank- shafts" },
+        { "code": "35421000", "title": "Mechanical spare parts for military vehicles" }
+      ],
+      "note": "The CPV has no code for forgings as such: the part codes a forged part is bought under (shafts, mechanical vehicle parts). Forging machines are 42634000."
+    },
+    {
+      "words": ["machined", "machined part", "machined parts", "machining", "turned", "turned part", "turned parts", "cnc", "cnc machining", "precision parts", "milled parts"],
+      "codes": [
+        { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
+        { "code": "34330000", "title": "Spare parts for goods vehicles, vans and cars" },
+        { "code": "35421000", "title": "Mechanical spare parts for military vehicles" },
+        { "code": "42141000", "title": "Plain gears, gearing and driving elements" },
+        { "code": "42142000", "title": "Parts of gearing and driving elements" }
+      ],
+      "note": "The CPV has no code for machined parts as such: the part codes they are bought under. Machine tools and machining centres are 42600000."
+    },
+    {
+      "words": ["stamping", "stampings", "stamped part", "stamped parts", "pressing", "pressings", "pressed part", "pressed parts", "sheet metal parts", "metal stampings"],
+      "codes": [
+        { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
+        { "code": "34330000", "title": "Spare parts for goods vehicles, vans and cars" },
+        { "code": "35421000", "title": "Mechanical spare parts for military vehicles" }
+      ],
+      "note": "The CPV has no code for stampings as such: the vehicle part codes they are bought under. Die-stamping machines are 42635000, presses 42636000."
+    },
+    {
+      "words": ["rubber part", "rubber parts", "rubber seal", "rubber seals", "seal", "seals", "gasket", "gaskets", "hose", "hoses", "rubber hose", "rubber hoses"],
+      "codes": [
+        { "code": "19510000", "title": "Rubber products" },
+        { "code": "44425200", "title": "Rubber seals" },
+        { "code": "34312500", "title": "Gaskets" },
+        { "code": "44165100", "title": "Hoses" },
+        { "code": "34312700", "title": "Rubber transmission belts" }
+      ]
+    },
+    {
+      "words": ["plastic part", "plastic parts", "plastic components", "injection moulding", "injection molding", "moulded parts", "molded parts", "moulded plastic"],
+      "codes": [{ "code": "19520000", "title": "Plastic products" }],
+      "note": "Plastic products. Machinery for working plastics is 42994200."
+    },
+    {
+      "words": ["wiring harness", "wiring harnesses", "harness", "harnesses", "cable harness", "cable harnesses", "wiring loom", "wiring looms"],
+      "codes": [
+        { "code": "31611000", "title": "Wiring sets" },
+        { "code": "31612000", "title": "Electrical wiring looms for engines" },
+        { "code": "35422000", "title": "Electronic and electrical spare parts for military vehicles" }
+      ]
+    },
+    {
+      "words": ["filter", "filters", "oil filter", "oil filters", "air filter", "air filters", "fuel filter", "fuel filters"],
+      "codes": [
+        { "code": "42913000", "title": "Oil, petrol and air-intake filters" },
+        { "code": "42913300", "title": "Oil filters" },
+        { "code": "42913400", "title": "Petrol filters" },
+        { "code": "42913500", "title": "Air-intake filters" }
+      ]
+    },
+    {
+      "words": ["seat", "seats", "vehicle seat", "vehicle seats", "car seat", "car seats", "seat belt", "seat belts"],
+      "codes": [
+        { "code": "34370000", "title": "Seats for motor vehicles" },
+        { "code": "34328300", "title": "Seat belts" }
+      ]
+    },
+    {
+      "words": ["glass", "safety glass", "windscreen", "windscreens", "windshield", "windshields", "vehicle glass", "automotive glass", "mirror", "mirrors"],
+      "codes": [
+        { "code": "39299200", "title": "Safety glass" },
+        { "code": "39299300", "title": "Glass mirrors" }
+      ]
+    },
+    {
+      "words": ["paint", "paints", "coating", "coatings", "varnish", "varnishes", "powder coating", "anti-corrosion", "anticorrosion"],
+      "codes": [
+        { "code": "44810000", "title": "Paints" },
+        { "code": "44820000", "title": "Varnishes" },
+        { "code": "44113330", "title": "Coating materials" },
+        { "code": "24963000", "title": "Anti-corrosion products" }
+      ]
+    },
+    {
+      "words": ["fastener", "fasteners", "bolt", "bolts", "screw", "screws", "nut", "nuts", "rivet", "rivets", "washer", "washers", "spring", "springs"],
+      "codes": [
+        { "code": "44530000", "title": "Fasteners" },
+        { "code": "44531000", "title": "Threaded fasteners" },
+        { "code": "44531400", "title": "Bolts" },
+        { "code": "44531600", "title": "Nuts" },
+        { "code": "44532100", "title": "Rivets" },
+        { "code": "44532200", "title": "Washers" },
+        { "code": "44550000", "title": "Springs" }
+      ],
+      "note": "Fasteners and springs (division 44). A washer here is a fastener, not a washing machine."
     }
   ]
 }

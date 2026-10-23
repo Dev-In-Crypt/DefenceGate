@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { getRequirement, getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, OBLIGATION_WORD, faqOf, formatDays, formatRange, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
+import { CATEGORY_WORD, OBLIGATION_WORD, costStatement, faqOf, formatDays, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
 import { plural } from '@/lib/format';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
@@ -90,7 +90,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
           {r.kind === 'document' && (
             <>
               <Fact label="Cost">
-                <span className="block font-mono tabular-nums">{r.cost?.text ?? formatRange(r.cost)}</span>
+                <span className="block font-mono tabular-nums">{costStatement(r.cost)}</span>
                 {r.vendorRangeLabel && <span className="block text-small font-bold">{r.vendorRangeLabel}</span>}
                 {r.cost?.alt && <span className="block text-small text-ink-muted">{r.cost.alt.text}</span>}
               </Fact>
@@ -118,7 +118,7 @@ export default async function RequirementPage({ params }: { params: Params }) {
           <ul className="m-0 flex max-w-prose list-none flex-col gap-2 p-0 text-body text-ink-muted">
             {r.variants.map((v) => (
               <li key={v.whenHeld}>
-                {v.cost?.text ?? formatRange(v.cost)}{v.days ? `, ${formatDays(v.days)}` : ''}. {v.cost?.label && <strong className="text-ink">{v.cost.label}.</strong>}
+                {costStatement(v.cost)}{v.days ? `, ${formatDays(v.days)}` : ''}. {v.cost?.label && <strong className="text-ink">{v.cost.label}.</strong>}
               </li>
             ))}
           </ul>

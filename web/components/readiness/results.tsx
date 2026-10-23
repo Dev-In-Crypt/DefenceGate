@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Pencil, Printer } from 'lucide-react';
+import { ArrowRight, ChevronDown, Pencil, Printer } from 'lucide-react';
+import { Icon } from '@/components/dg/icon';
 import { countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
-import { answerProblems, hasSupplier } from '@/lib/profile';
+import { SUPPLY_ROUTES, answerProblems, hasSupplier, wantsEuFunding } from '@/lib/profile';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
+import type { Assessment } from '@/lib/readiness-types';
 import { ConsultantNote, ProgrammeCard } from './rules';
 import { useAssessment, useDemand, useProfile } from './use-readiness';
 import { DemandSummary } from './demand';
@@ -49,6 +51,51 @@ export function AnswerProblems({ problems }: { problems: { step: number; text: s
   );
 }
 
+/**
+ * WP-89 (UX audit, section 4): a supplier's results lead with its supply routes (the Spanish Ministry of Defence, NATO and NSPA); the EU
+ * funding programmes follow, collapsed under "If you also want EU funding" unless it said it wants it. Someone who came for EU funding (the
+ * readiness check) sees the programmes first, as before.
+ */
+function Programmes({ assessments, supplier, euFunding }: { assessments: Assessment['assessments']; supplier: boolean; euFunding: boolean }) {
+  // the national route first (the Spanish Ministry of Defence), then NATO and NSPA (SUPPLY_ROUTES), then any other route
+  const rank = (code: string) => { const i = (SUPPLY_ROUTES as readonly string[]).indexOf(code); return i < 0 ? 99 : i; };
+  const routes = assessments.filter((a) => a.kind === 'route').sort((x, y) => rank(x.programme) - rank(y.programme));
+  const funding = assessments.filter((a) => a.kind !== 'route');
+  const card = (a: Assessment['assessments'][number]) => <ProgrammeCard key={a.programme} a={a} supplier={supplier} />;
+  if (!supplier) {
+    return (
+      <section aria-labelledby="programmes" className="flex flex-col gap-4">
+        <h2 id="programmes" className="m-0 text-h2">Where you stand, programme by programme</h2>
+        <AutoGrid fill min={400}>{assessments.map(card)}</AutoGrid>
+      </section>
+    );
+  }
+  return (
+    <section aria-labelledby="programmes" className="flex flex-col gap-4" data-supplier-routes>
+      <h2 id="programmes" className="m-0 text-h2">Where you stand, programme by programme</h2>
+      <AutoGrid fill min={400}>{routes.map(card)}</AutoGrid>
+      {funding.length > 0 && (euFunding ? (
+        <div className="flex flex-col gap-3" data-eu-funding="open">
+          <h3 className="m-0 text-h3">EU funding programmes</h3>
+          <AutoGrid fill min={400}>{funding.map(card)}</AutoGrid>
+        </div>
+      ) : (
+        <details className="group flex flex-col gap-3" data-eu-funding="collapsed">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 text-h4 font-bold [&::-webkit-details-marker]:hidden">
+            If you also want EU funding ({funding.length} programmes)
+            <Icon icon={ChevronDown} size="inline" className="transition-transform duration-dg group-open:rotate-180" />
+          </summary>
+          <p className="m-0 max-w-prose text-small text-ink-muted">
+            EU grants and loans (EDF, EDIP, SAFE) are a separate path from supplying a ministry or a prime. Your roadmap leaves out what only they
+            ask, such as the PIC, until you say on your supplier profile that you want EU funding.
+          </p>
+          <AutoGrid fill min={400}>{funding.map(card)}</AutoGrid>
+        </details>
+      ))}
+    </section>
+  );
+}
+
 export function ResultsView() {
   const { profile, ready } = useProfile();
   const result = useAssessment(profile);
@@ -74,18 +121,13 @@ export function ResultsView() {
       </div>
 
       <AnswerProblems problems={answerProblems(profile)} />
-      <ApproachSummary result={demand} />
+      <ApproachSummary result={demand} country={profile.country} cpv={profile.supplier.cpv} />
       <DemandSummary result={demand} />
       {(result.state === 'loading' || result.state === 'idle') && <Loading />}
       {result.state === 'error' && <ErrorState title="The check could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && (
         <>
-          <section aria-labelledby="programmes" className="flex flex-col gap-4">
-            <h2 id="programmes" className="m-0 text-h2">Where you stand, programme by programme</h2>
-            <AutoGrid fill min={400}>
-              {result.data.assessments.map((a) => <ProgrammeCard key={a.programme} a={a} />)}
-            </AutoGrid>
-          </section>
+          <Programmes assessments={result.data.assessments} supplier={hasSupplier(profile)} euFunding={wantsEuFunding(profile)} />
           {(result.data.consultants ?? []).length > 0 && (
             <section aria-labelledby="consultants" className="flex flex-col gap-3">
               <h2 id="consultants" className="m-0 text-h2">Where you need a specialist</h2>
@@ -106,7 +148,7 @@ export function ResultsView() {
               <h2 id="general" className="m-0 text-h2">Other requirements that may apply to you</h2>
               {/* the card below carries the summary itself (QA n-5: the same paragraph was printed twice) */}
               <p className="m-0 max-w-prose text-body text-ink-muted">These rules do not change the verdicts above; they are listed in your roadmap when they apply to you.</p>
-              <ProgrammeCard a={a} general />
+              <ProgrammeCard a={a} general supplier={hasSupplier(profile)} />
             </section>
           ))}
           <p className="m-0 max-w-prose text-small text-ink-muted">

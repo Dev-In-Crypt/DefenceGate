@@ -395,10 +395,15 @@ export async function getSupplierSummary(): Promise<SupplierSummary | null> {
   }
 }
 
-export async function getSupplier(slug: string): Promise<Supplier | null> {
+/** `under` (WP-89): the CPV codes and buyer countries of the supplier report's link; the answer then counts the contracts under them. */
+export async function getSupplier(slug: string, under: { cpv?: string; buyerCountry?: string } = {}): Promise<Supplier | null> {
   if (!isSupplierSlug(slug)) return null;
-  if (!API_BASE) return supplierMock.findSupplier(slug);
-  return http<Supplier>(`/v1/suppliers/${encodeURIComponent(slug)}`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
+  if (!API_BASE) return supplierMock.findSupplier(slug, under);
+  const p = new URLSearchParams();
+  if (under.cpv) p.set('cpv', under.cpv);
+  if (under.cpv && under.buyerCountry) p.set('buyerCountry', under.buyerCountry);
+  const q = p.toString();
+  return http<Supplier>(`/v1/suppliers/${encodeURIComponent(slug)}${q ? `?${q}` : ''}`, q ? 'no-store' : 'revalidate', DETAIL_REVALIDATE_SECONDS);
 }
 
 export async function getBuyer(slug: string): Promise<Buyer | null> {
@@ -418,6 +423,7 @@ export async function getMarketStats(filters: MarketFilters = {}): Promise<Marke
   const p = new URLSearchParams();
   if (filters.year) p.set('year', String(filters.year));
   if (filters.country) p.set('country', filters.country);
+  if (filters.cpv?.length) p.set('cpv', filters.cpv.join(','));
   const q = p.toString();
   return http<MarketStats>(`/v1/stats/market${q ? `?${q}` : ''}`, q ? 'no-store' : 'revalidate');
 }

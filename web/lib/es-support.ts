@@ -95,3 +95,27 @@ export function grantsFor(requirement: string | null, region = ''): Grant[] {
   const xs = GRANTS.filter((g) => g.requirements.includes(requirement));
   return [...xs.filter((g) => g.region === region), ...xs.filter((g) => g.region !== region)];
 }
+
+/** WP-89: whether the call or list a grant line read is closed (its `read` says so). */
+export function isClosed(g: Grant): boolean {
+  return g.read.toLowerCase().includes('closed');
+}
+
+/**
+ * WP-89 (UX audit, section 4): the grants a company can use for a step. With its region chosen, that region's only (a regional
+ * programme is for the companies established there: Murcia's and Galicia's were listed to a company in the Comunitat Valenciana); with
+ * none chosen, every one. `none` is true when the region is chosen, none of its programmes covers the step and another region's does:
+ * the report then says so in plain words and points to the regional development agency. No agency is named: our sources name none for
+ * a region they hold no programme of (docs/research/ANGLE1_SPAIN_LANDSCAPE_2026-10-22.md).
+ */
+export function regionalGrants(requirement: string | null, region: string): { grants: Grant[]; none: boolean } {
+  const all = grantsFor(requirement, region);
+  if (!region) return { grants: all, none: false };
+  const own = all.filter((g) => g.region === region);
+  return { grants: own, none: own.length === 0 && all.length > 0 };
+}
+
+/** The sentence for a step no programme of the company's region covers. */
+export function noRegionalGrant(regionName: string): string {
+  return `No programme of ${regionName} in our sources pays for this step. Ask your regional development agency whether it has one; the programmes of other regions are for companies established there.`;
+}

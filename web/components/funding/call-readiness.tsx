@@ -8,7 +8,7 @@ import { callSummary } from '@/lib/call-readiness';
 import { cleanQuote } from '@/lib/quote';
 import { fitLabel, fitOf, linesSummary, type Fit } from '@/lib/fit';
 import { isFinished, toRequest } from '@/lib/profile';
-import { ASSESS_FAILED, AssessError, VERDICT_WORD, assess, daysRange, formatRange } from '@/lib/readiness';
+import { ASSESS_FAILED, AssessError, VERDICT_WORD, assess, costStatement, daysRange } from '@/lib/readiness';
 import type { Assessment, CallTiming, ProgrammeAssessment } from '@/lib/readiness-types';
 import { formatDateUtc, plural } from '@/lib/format';
 import { Button } from '@/components/dg/button';
@@ -75,7 +75,7 @@ function Timing({ t, a, data }: { t: CallTiming; a: ProgrammeAssessment | undefi
             {steps.map((s) => (
               <li key={s.code} className="text-body">
                 <Link href={`/requirements/${s.code.replace(/^REQ-/, '').toLowerCase()}`} className="font-semibold">{s.name}</Link>
-                {': '}{formatRange(s.cost)}, {s.days && s.days.min !== null && s.days.max !== null ? daysRange(s.days.min, s.days.max) : 'time not stated'}
+                {': '}{costStatement(s.cost)}, {s.days && s.days.min !== null && s.days.max !== null ? daysRange(s.days.min, s.days.max) : 'time not stated'}
                 {s.cost?.label ? ` (${s.cost.label})` : ''}
               </li>
             ))}

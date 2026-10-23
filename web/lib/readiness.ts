@@ -90,9 +90,12 @@ export const CATEGORY_WORD: Record<string, string> = {
 
 const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
+/** WP-89: the one words for a cost or a time that no source states, on the report, the roadmap and the requirement pages alike. */
+export const NOT_STATED = 'Not stated by the source';
+
 /** "USD 17,000 to 48,000", "free", or "not stated". Money is never converted. */
 export function formatRange(m: RMoney | null): string {
-  if (!m || m.min === null || m.max === null) return 'Not stated in the sources';
+  if (!m || m.min === null || m.max === null) return NOT_STATED;
   if (m.basis === 'free') return 'Free';
   const cur = m.currency ?? '';
   return m.min === m.max ? `${cur} ${nf.format(m.min)}` : `${cur} ${nf.format(m.min)} to ${nf.format(m.max)}`;
@@ -100,8 +103,23 @@ export function formatRange(m: RMoney | null): string {
 
 /** Days as the sources speak: "immediate", "3 to 8 months", "4 to 20 days"; when they give no words, "no time needed" for zero. */
 export function formatDays(s: RSpan | null): string {
-  if (!s || s.min === null || s.max === null) return 'Not stated in the sources';
+  if (!s || s.min === null || s.max === null) return NOT_STATED;
   return s.text ?? daysRange(s.min, s.max);
+}
+
+/**
+ * WP-89 (UX audit, section 4): one cost statement per requirement, wherever it is shown (report, roadmap, requirement pages, a call's
+ * readiness block): the source's own words when it gives them ("Free of charge (NSPA)", "USD 17,000 to 48,000 ... (vendor quote)"), else
+ * the range, else NOT_STATED. The report used to say "Not stated in a primary source" where the roadmap said "Free".
+ */
+export function costStatement(m: RMoney | null): string {
+  if (!m || m.min === null || m.max === null) return NOT_STATED;
+  return m.text ?? formatRange(m);
+}
+
+/** The time of a requirement, the same everywhere (see `costStatement`). */
+export function timeStatement(s: RSpan | null): string {
+  return formatDays(s);
 }
 
 /** "0 to 0 days" read as a mistake (U8): a step that is issued at once needs no time. */
@@ -260,7 +278,7 @@ export function faqOf(r: RequirementDetail): { q: string; a: string }[] {
       q: `Who issues ${r.name}?`,
       a: parts.length > 0 ? `${parts.join('. ')}.${every.length > 0 ? '' : ' The body has not been collected for the countries not listed.'}` : 'The issuing body has not been collected for any country.',
     });
-    out.push({ q: `How much does ${r.name} cost?`, a: r.cost ? `${r.cost.text ?? formatRange(r.cost)}.${r.cost.label ? ` Note: ${r.cost.label}.` : ''}` : 'No cost is stated in the sources used.' });
+    out.push({ q: `How much does ${r.name} cost?`, a: r.cost ? `${costStatement(r.cost)}.${r.cost.label ? ` Note: ${r.cost.label}.` : ''}` : 'No cost is stated in the sources used.' });
     out.push({ q: `How long does ${r.name} take?`, a: r.days ? `${formatDays(r.days)}.` : 'No duration is stated in the sources used.' });
   }
   if (r.mandatoryFor) out.push({ q: `Who needs ${r.name}?`, a: r.mandatoryFor });

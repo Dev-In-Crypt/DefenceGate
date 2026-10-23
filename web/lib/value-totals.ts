@@ -45,6 +45,17 @@ export function withoutValueLine(v: ValueTotals, noun: string): string | null {
   return `${head}; ${v.shared === v.withoutValue ? (v.shared === 1 ? 'it names' : 'they name') : `${formatNumber(v.shared)} of them ${v.shared === 1 ? 'names' : 'name'}`} several winners.`;
 }
 
+/**
+ * WP-89: the summary line of the collapsed block: the sums, one per currency ("EUR 1,200,000 over 3 contracts; PLN 40,000 over 1
+ * contract"), or "no stated value" when there is none to sum. The details (what states no value, the unit prices) stay inside.
+ */
+export function totalLine(v: ValueTotals, noun: string): string {
+  if (v.byCurrency.length === 0) return 'no stated value';
+  const sums = v.byCurrency.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${n(s.count, noun)}`).join('; ');
+  // the sum is not the company's whole: say how many state no value of their own (the line is all that prints)
+  return v.withoutValue > 0 ? `${sums}; ${formatNumber(v.withoutValue)} of ${n(v.of, noun)} state none` : sums;
+}
+
 /** WP-87: the value under which a contract's figure is read as a unit price (the API's SUPPLIERS.SUSPECT_VALUE_MAX). */
 export const SUSPECT_VALUE_MAX = 1000;
 /** The cell of a contract whose value is under SUSPECT_VALUE_MAX. */

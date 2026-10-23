@@ -38,13 +38,21 @@ export function supplierSummary(): SupplierSummary {
   };
 }
 
-export function findSupplier(slug: string): Supplier | null {
+export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?: string } = {}): Supplier | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
   const s = id ? ITEMS.find((x) => x.id === id) : undefined;
   if (!s) return null;
+  // WP-89: the demo's count under the asked codes: its contracts in the divisions asked (each division of the item holds a share)
+  const asked = (under.cpv ?? '').split(',').map((c) => c.trim()).filter((c) => /^\d{2,8}$/.test(c));
+  const underCodes = asked.length ? {
+    cpv: asked.map((c) => (c.length === 8 ? c.replace(/0+$/, '').padEnd(2, '0') : c)),
+    buyerCountries: (under.buyerCountry ?? '').split(',').map((c) => c.trim().toUpperCase()).filter(Boolean),
+    contracts: Math.max(0, Math.floor(s.awardCount * s.cpvDivisions.filter((d) => asked.some((c) => c.startsWith(d))).length / Math.max(1, s.cpvDivisions.length))),
+  } : null;
   const valued = Math.min(3, s.awardCount);       // the listed notices 0, 2, 4 name one winner and state a value (below)
   return {
     ...s,
+    underCodes,
     values: {
       byCurrency: [{ currency: 'EUR', amount: [1_200_000, 1_500_000, 1_800_000].slice(0, valued).reduce((a, b) => a + b, 0), count: valued, lotEstimates: 0 }],
       of: s.awardCount, withoutValue: s.awardCount - valued, shared: Math.min(3, s.awardCount - valued),

@@ -14,9 +14,11 @@ import { visit } from './helpers';
 
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
 const DEMO = JSON.parse(readFileSync(path.join(__dirname, '..', 'lib', 'mock', 'demand.json'), 'utf8'));
-type W = { name: string; contracts: number; slug: string | null; prime: { group: string } | null };
+type W = { name: string; country: string | null; contracts: number; slug: string | null; prime: { group: string } | null };
 const WINNERS: W[] = DEMO.approach.winners;
-const PRIMES = WINNERS.filter((w) => w.prime);
+// WP-89: the primes of the company's own country (Spain, the fixture profiles) first, then the others, each most contracts first
+const PRIMES = [...WINNERS.filter((w) => w.prime && w.country === 'ES'), ...WINNERS.filter((w) => w.prime && w.country !== 'ES')];
+const HOME = WINNERS.filter((w) => !w.prime && w.country === 'ES');
 
 /** `visit` measures before the demand answer arrives: measured again once the lists are on the page. */
 async function noSideScroll(page: Page) {
@@ -57,11 +59,16 @@ test('the report starts with who to approach, then who buys, then the rules as a
     await expect(primes.nth(i).getByRole('link', { name: /SIPRI|elDiario/ })).toHaveAttribute('href', /^https:\/\//);
   }
   await expect(s.locator('[data-approach-winner]')).toHaveCount(WINNERS.length);
+  // WP-89: the direct suppliers of the company's own country lead the section, before the primes
+  await expect(s.locator('[data-approach-home] h3')).toHaveText('Direct suppliers in Spain');
+  await expect(s.locator('[data-approach-home] [data-approach-winner]')).toHaveCount(HOME.length);
+  await expect(s.locator('[data-approach-winner]').first()).toContainText(HOME[0].name);
   expect(WINNERS.every((w) => w.contracts >= DEMO.kMin)).toBe(true);
   await expect(s.locator('[data-approach-others]')).toContainText(`${DEMO.approach.below.winners} other winners with fewer than ${DEMO.kMin} awards each`);
   // a supplier page is linked where one exists, and only then
   const linked = WINNERS.find((w) => w.slug)!;
-  await expect(s.getByRole('link', { name: linked.name, exact: true }).first()).toHaveAttribute('href', `/suppliers/${linked.slug}`);
+  // WP-89: with the profile's codes and the report's countries, so that the page says how many of its contracts are under them
+  await expect(s.getByRole('link', { name: linked.name, exact: true }).first()).toHaveAttribute('href', new RegExp(`^/suppliers/${linked.slug}\\?cpv=`));
   const plain = WINNERS.find((w) => !w.slug)!;
   await expect(s.getByRole('link', { name: plain.name, exact: true })).toHaveCount(0);
   await expect(s.locator('[data-approach-facts]').first()).toContainText(/contracts? won in .+; latest notice published/);
@@ -84,8 +91,13 @@ test('the results page leads with who to approach, then who buys, then the progr
   await visit(page, '/readiness/results', { title: /readiness results/i, h1: 'Your readiness results' });
   const approach = page.locator('[data-approach-summary-section]');
   await expect(approach.getByRole('heading', { name: 'Who to approach' })).toBeVisible();
-  await expect(approach.locator('[data-approach-winner]').first()).toContainText(PRIMES[0].name);
-  await expect(approach.locator('[data-approach-winner]')).toHaveCount(Math.min(8, WINNERS.length));
+  // WP-89: two columns, the direct suppliers of Spain (the company's country) first, the large primes beside them
+  await expect(approach.locator('[data-approach-home] h3')).toHaveText('Direct suppliers in Spain');
+  await expect(approach.locator('[data-approach-winner]').first()).toContainText(HOME[0].name);
+  await expect(approach.locator('[data-approach-home] [data-approach-winner]')).toHaveCount(Math.min(5, HOME.length));
+  await expect(approach.locator('[data-approach-primes] h3')).toHaveText('Large primes');
+  await expect(approach.locator('[data-approach-primes] [data-approach-winner]').first()).toContainText(PRIMES[0].name);
+  await expect(approach.locator('[data-approach-winner]')).toHaveCount(Math.min(5, HOME.length) + Math.min(5, PRIMES.length));
   await expect(page.getByRole('heading', { name: 'Where you stand, programme by programme' })).toBeVisible();
   const headings = await page.locator('#main h2').allInnerTexts();
   expect(headings.indexOf('Who to approach')).toBeLessThan(headings.indexOf('Who buys what you make'));

@@ -237,7 +237,8 @@ export function cpvSearch(query: string, max = 20, dictionary: ReadonlyMap<strin
   const q = query.trim();
   const out = (codes: string[]) => codes.slice(0, max).map((code) => ({ code, title: dictionary.get(code) ?? DICTIONARY.get(code) ?? '' }));
   if (/^\d{2,8}$/.test(q)) return out([...dictionary.keys()].filter((c) => c.startsWith(q)).sort());
-  const curated = [...new Set((keywordEntries(q) ?? []).flatMap((e) => e.codes.map((c) => c.code)))].sort();
+  // in the entry's own order (WP-89: "castings" leads with Cast-iron products, the code named for the product itself)
+  const curated = [...new Set((keywordEntries(q) ?? []).flatMap((e) => e.codes.map((c) => c.code)))];
   const ws = wordsOf(q).filter((w) => w.length >= 3).slice(0, 5);
   const heads: string[] = [];
   const rest: string[] = [];
@@ -249,7 +250,33 @@ export function cpvSearch(query: string, max = 20, dictionary: ReadonlyMap<strin
       (isForm(tw[0] ?? '', ws[0]) || isForm(ws[0], tw[0] ?? '') ? heads : rest).push(code);
     }
   }
-  // the broader codes first (a group before its classes), then by code: with 9,454 titles a word like "vehicles" matches over a hundred
+  // the broader codes first (a group before its classes), then by code: with 9,454 titles a word like "vehicles" matches over a hundred.
+  // WP-89: a product before the machine that makes it ("castings": cast-iron products before casting machines), in each list.
   const byLevel = (a: string, b: string) => cpvPrefix(a).length - cpvPrefix(b).length || a.localeCompare(b);
-  return out([...new Set([...curated, ...heads.sort(byLevel), ...rest.sort(byLevel)])]);
+  const ranked = (xs: string[]) => [...xs.filter((c) => !isMachineCode(c, dictionary)).sort(byLevel), ...xs.filter((c) => isMachineCode(c, dictionary)).sort(byLevel)];
+  return out([...new Set([...curated, ...ranked(heads), ...ranked(rest)])]);
 }
+
+/** WP-89: what the curated product words of a query say of themselves ("The CPV has no code for castings as such: ..."), or null. */
+export function productNote(query: string): string | null {
+  const notes = (keywordEntries(query) ?? []).map((e) => e.note).filter((n): n is string => !!n);
+  return notes.length ? [...new Set(notes)].join(' ') : null;
+}
+
+/**
+ * WP-89: a code for a machine, a machine tool or machinery (what makes a product, not the product): the machine tools (group 426) and
+ * every code whose official title names a machine, machinery, a machining centre or presses. The supplier search lists these after
+ * the products.
+ */
+export function isMachineCode(code: string, dictionary: ReadonlyMap<string, string> = DICTIONARY): boolean {
+  if (code.startsWith('426')) return true;
+  const title = dictionary.get(code) ?? DICTIONARY.get(code) ?? '';
+  return wordsOf(title).some((w) => ['machine', 'machines', 'machinery', 'machining', 'presses'].includes(w));
+}
+
+/**
+ * WP-89 (UX audit, section 4): a one-click start for an automotive parts maker on the supplier profile, trimmed by the visitor:
+ * the vehicle and military-vehicle part codes the defence buyers use for spare parts, and the product codes of castings, fasteners and
+ * wiring. Official codes and titles; the demand map counts under each.
+ */
+export const AUTOMOTIVE_SET = ['34300000', '34320000', '34330000', '35420000', '35421000', '34322000', '34312000', '44470000', '44530000', '31611000'] as const;

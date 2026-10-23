@@ -8,7 +8,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseProfile, toRequest } from './profile';
-import { NOT_PRIMARY, supplierRoadmap, type RoadmapItem } from './supplier-roadmap';
+import { NO_FIGURE, supplierRoadmap, type RoadmapItem } from './supplier-roadmap';
+import { costStatement, timeStatement } from './readiness';
 import type { Assessment } from './readiness-types';
 
 const json = (name: string) => JSON.parse(readFileSync(`e2e/fixtures/${name}.json`, 'utf8'));
@@ -70,15 +71,16 @@ for (const key of SAMPLES) {
   const pecal = item(items, 'REQ-PECAL');
   assert.equal(pecal.rag, 'amber', `${key}: PECAL is not a blocker`);
   assert.match(pecal.note ?? '', /not a block before a first contract/);
-  // cost and time: a figure only where the requirement's source is primary. No primary source in the seed states one, so every line
-  // that is not in place says so; the figures of the research notes (NCAGE "free of charge", NSPA) are not printed.
+  // WP-89: cost and time are the requirement's one statement, the words the roadmap and the requirement pages print (NCAGE "Free of
+  // charge (NSPA)" everywhere; WP-67 printed "Not stated in a primary source" here); a line with no step says it is not stated
   for (const i of items) {
     if (i.rag === 'green') { assert.equal(i.cost, null); continue; }
     const step = answer.roadmap.steps.find((s) => s.code === i.key);
-    if (step?.origin === 'primary') assert.equal(i.cost, 'Not stated in the sources', `${key}: ${i.key} primary, no figure stated`);
-    else assert.equal(i.cost, NOT_PRIMARY, `${key}: ${i.key}`);
-    assert.ok(!/free|EUR|USD|days|months/i.test(`${i.cost} ${i.time}`), `${key}: ${i.key} prints no figure`);
+    assert.equal(i.cost, step ? costStatement(step.cost) : NO_FIGURE, `${key}: ${i.key} cost`);
+    assert.equal(i.time, step ? timeStatement(step.days) : NO_FIGURE, `${key}: ${i.key} time`);
   }
+  const ncage = items.find((i) => i.key === 'REQ-NCAGE');
+  if (ncage && ncage.rag !== 'green') assert.equal(ncage.cost, 'Free of charge (NSPA)', `${key}: NCAGE`);
   // every "consultant needed" flag of the answer is on the list, and every line that is not in place names its source (or has none: US-COMPONENTS)
   for (const f of answer.consultants ?? []) assert.ok(items.some((i) => i.consultant.includes(f.text)), `${key}: flag ${f.key} on the list`);
   for (const i of items) if (i.rag !== 'green' && i.key !== 'US-COMPONENTS') assert.ok(i.source?.url.startsWith('http'), `${key}: ${i.key} has a source`);
@@ -102,7 +104,7 @@ Object.assign(rules(foreign).find((r) => r.rule === 'ES-FOREIGN-CAPITAL')!, { ou
 const fc = item(supplierRoadmap(foreign, sample('es-sup-defence').profile).items, 'ES-FOREIGN-CAPITAL');
 assert.equal(fc.rag, 'red');
 assert.deepEqual(fc.consultant, ['Foreign-capital authorisation: ask a lawyer.']);
-assert.equal(fc.cost, NOT_PRIMARY);
+assert.equal(fc.cost, NO_FIGURE);
 // a step whose source is primary and states a figure prints it
 const priced = clone(ca);
 Object.assign(priced.roadmap.steps.find((s) => s.code === 'REQ-RID')!, { cost: { min: 100, max: 100, currency: 'EUR', basis: 'not_stated', text: null, alt: null, label: null } });

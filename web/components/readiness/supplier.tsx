@@ -3,17 +3,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, X } from 'lucide-react';
-import { cpvDictionaryTitle, cpvSearch } from '@/lib/cpv';
+import { AUTOMOTIVE_SET, cpvDictionaryTitle, cpvSearch, productNote } from '@/lib/cpv';
 import {
   CERTIFICATES, CPV_MAX, CPV_MIN, DE_QUESTIONS, DUAL_USE_QUESTION, ES_CLEARANCES, EXPORT_HOLDING, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, clearanceAnswer,
-  cpvProblem, holds, isEu, monthProblem, naceProblem, savedSupplier, supplierProblems, withClearance, withHeld,
+  cpvProblem, holds, isEu, monthProblem, naceProblem, pctProblem, savedSupplier, supplierProblems, withClearance, withHeld,
   type Answer, type EsQuestion, type Holding, type Profile, type Supplier,
 } from '@/lib/profile';
 import { cn } from '@/lib/utils';
 import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
-import { COUNTRY_OPTIONS, EXPORT_OPTIONS, Radios, SIZE_OPTIONS, YES_NO_UNSURE } from './wizard';
+import { CONTROL_OPTIONS, COUNTRY_OPTIONS, EXPORT_OPTIONS, LEGAL_FORM_OPTIONS, MANAGEMENT_OPTIONS, Radios, SAFE_ROLE_OPTIONS, SIZE_OPTIONS, YES_NO_UNSURE } from './wizard';
 import { useCpvVocabulary, useProfile } from './use-readiness';
 
 /** The autonomous communities and cities of Spain, by their ISO 3166-2 codes. */
@@ -205,6 +205,50 @@ export function SupplierForm() {
         </Part>
       )}
 
+      {/* WP-89: the EU funding programmes' questions asked here, not by sending a supplier to the readiness check's steps */}
+      <Part title="If you also want EU funding (optional)" id="sp-eu">
+        <Radios legend="Do you also want EU funding: a grant of the European Defence Fund or EDIP, or a role in a SAFE-supported procurement?" name="eu_funding"
+          value={s.euFunding} options={[...YES_NO_UNSURE]}
+          hint="Supplying a ministry or a prime contractor needs none of it. Unless you answer yes, your results lead with the supply routes and your roadmap leaves out what only EU funding asks (the PIC)."
+          onChange={(v) => setS('euFunding', v)} />
+        {s.euFunding === 'yes' && (
+          <>
+            <p className="m-0 max-w-prose text-small text-ink-muted" data-eu-questions>
+              The questions the EU programmes read, the same answers as the readiness check&rsquo;s. Leave one empty if you do not know; its rule then stays open with its question.
+            </p>
+            <Radios legend="What is the legal form of your organisation?" name="legal_form" value={profile.legalForm} options={[...LEGAL_FORM_OPTIONS]}
+              onChange={(v) => update((p) => ({ ...p, legalForm: v }))} />
+            <Radios legend="Where are your company's executive management structures?" name="management" value={profile.management} options={[...MANAGEMENT_OPTIONS]}
+              hint="The place from which the company is actually run." onChange={(v) => update((p) => ({ ...p, management: v }))} />
+            {profile.management === 'other' && (
+              <Select className="max-w-form" label="Country of the executive management" placeholder="Choose a country" options={COUNTRY_OPTIONS}
+                value={profile.managementCountry} onChange={(e) => update((p) => ({ ...p, managementCountry: e.target.value }))} />
+            )}
+            <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control" value={profile.control} options={[...CONTROL_OPTIONS]}
+              hint="Think of the ultimate owners, not only the first shareholder." onChange={(v) => update((p) => ({ ...p, control: v }))} />
+            <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={12}
+              hint="For the main end product, as a share of the estimated cost of its components. Leave empty if you do not know."
+              value={profile.componentPct} onChange={(e) => update((p) => ({ ...p, componentPct: e.target.value }))}
+              error={pctProblem(profile.componentPct) ?? undefined} />
+            <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
+              value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, restricted: v }))} />
+            <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua_eea_components"
+              value={profile.uaEeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, uaEeaComponents: v }))} />
+            {profile.country !== 'UA' && (
+              <Radios legend="Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?" name="ua_partner"
+                hint="Only the Ukraine Support Instrument asks for one." value={profile.uaPartner} options={[...YES_NO_UNSURE]}
+                onChange={(v) => update((p) => ({ ...p, uaPartner: v }))} />
+            )}
+            <Radios legend="In a SAFE-supported procurement, what would your role be?" name="safe_role" value={profile.safeRole} options={[...SAFE_ROLE_OPTIONS]}
+              onChange={(v) => update((p) => ({ ...p, safeRole: v }))} />
+            <Radios legend="Do you hold a PIC (Participant Identification Code) of the EU Funding and Tenders Portal?" name="REQ-PIC"
+              value={clearanceAnswer(profile, 'REQ-PIC')} options={[...YES_NO_UNSURE]}
+              hint="A nine-digit code issued when an organisation registers on the portal; every EDF and EDIP application needs one."
+              onChange={(v) => update((p) => withClearance(p, 'REQ-PIC', v))} />
+          </>
+        )}
+      </Part>
+
       <div className="flex flex-col gap-3">
         <p className="m-0 max-w-prose text-small text-ink-muted">
           Saved in this browser as you go. The processes, region, NACE code and investor country never leave it; the results page sends only the answers the
@@ -228,17 +272,38 @@ function CpvPicker({ codes, onChange, error }: { codes: string[]; onChange: (cod
   const [query, setQuery] = useState('');
   const vocab = useCpvVocabulary();
   const found = query.trim() ? cpvSearch(query, SHOWN, vocab ?? undefined) : [];
+  const note = query.trim() ? productNote(query) : null;
   const title = (code: string) => vocab?.get(code) ?? cpvDictionaryTitle(code) ?? '';
   const full = codes.length >= CPV_MAX;
+  // WP-89: the suggested set of an automotive parts maker, added to what is chosen (never past CPV_MAX), each code removable below
+  const suggested = AUTOMOTIVE_SET.filter((c) => !codes.includes(c));
+  const [added, setAdded] = useState<number | null>(null);
+  const addSuggested = () => {
+    const room = Math.max(0, CPV_MAX - codes.length);
+    const take = suggested.slice(0, room);
+    onChange([...codes, ...take]);
+    setAdded(take.length);
+  };
   return (
     <Fieldset id="q-cpv" legend={`CPV codes of what you make (optional, up to ${CPV_MAX})`} error={error}
-      hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “steel”, “cable”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
+      hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
+      <div className="mt-2 flex flex-col gap-1" data-cpv-suggested>
+        <div>
+          <Button type="button" variant="secondary" onClick={addSuggested} disabled={suggested.length === 0 || full}>Automotive supplier: suggested codes</Button>
+        </div>
+        <p role="status" className="m-0 text-small text-ink-muted">
+          {added === null
+            ? `Adds ${AUTOMOTIVE_SET.length} codes of vehicle and military-vehicle parts, engine and brake parts, cast-iron products, fasteners and wiring sets; remove the ones you do not make.`
+            : added === 0 ? 'No code added: they are chosen already, or your list is full.' : `${added} ${added === 1 ? 'code' : 'codes'} added. Remove below the ones you do not make.`}
+        </p>
+      </div>
       <TextInput id="sp-cpv-search" search className="mt-2 max-w-form" label="Search the CPV codes" value={query} onChange={(e) => setQuery(e.target.value)}
         aria-invalid={error ? true : undefined} aria-describedby={error ? 'q-cpv-error' : undefined} autoComplete="off" />
       <p role="status" className="m-0 text-small text-ink-muted">
         {query.trim() === '' ? '' : found.length === 0 ? 'No code matches. Try another word, or the first digits of a code.' : `${found.length === SHOWN ? `The first ${SHOWN}` : found.length} ${found.length === 1 ? 'code matches' : 'codes match'}.${found.length === SHOWN ? ' Add a word or more digits to narrow the list.' : ''}`}
         {full ? ` You have chosen ${CPV_MAX}, the most a profile holds.` : ''}
       </p>
+      {note && found.length > 0 && <p className="m-0 max-w-prose text-small" data-cpv-note>{note}</p>}
       {found.length > 0 && (
         <div className="flex max-h-96 flex-col overflow-y-auto">
           {found.map((c) => (

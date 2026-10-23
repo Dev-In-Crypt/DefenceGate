@@ -110,7 +110,7 @@ test('a buyer’s years add up to its total, and the amendment share waits for s
 test('a supplier’s unit price is shown as published and left out of the sums', async ({ page }) => {
   await visit(page, '/suppliers/1-demo-airframes-gmbh', { title: /Demo Airframes/i, h1: 'Demo Airframes GmbH' });
   await expect(page.locator('td [data-value-suspect]')).toHaveText('value as published, probably a unit price');
-  await page.getByText('Contract values', { exact: true }).first().click();
+  await page.locator('summary', { hasText: /^Contract values/ }).first().click();       // WP-89: "Contract values: EUR ...
   await expect(page.locator('[data-value-totals] [data-value-suspect]')).toHaveText(
     '1 contract states a value under 1,000 (probably a unit price, not the contract’s value) and is left out of the sums.');
 });

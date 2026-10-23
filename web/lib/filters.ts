@@ -278,6 +278,7 @@ export function parseBuyerFilters(sp: SearchParams): BuyerFilters {
   return {
     q: searchText(first(sp[PARAM.q])),
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
+    cpv: cpvList(sp[PARAM.cpv]),
     hasOpen: first(sp[PARAM.hasOpen]) === 'true' ? true : undefined,
     sort: oneOf(first(sp[PARAM.sort]), BUYER_SORTS) ?? DEFAULT_BUYER_SORT,
     page: pageOf(first(sp[PARAM.page])),
@@ -289,6 +290,7 @@ export function toBuyerQuery(f: BuyerFilters): string {
   const p = new URLSearchParams();
   if (f.q) p.set(PARAM.q, f.q);
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
+  if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
   if (f.hasOpen) p.set(PARAM.hasOpen, 'true');
   if (f.sort && f.sort !== DEFAULT_BUYER_SORT) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
@@ -297,7 +299,7 @@ export function toBuyerQuery(f: BuyerFilters): string {
 }
 
 export function activeBuyerFilterCount(f: BuyerFilters): number {
-  return [f.q, f.country?.length, f.hasOpen ? 1 : undefined].filter((v) => v !== undefined && v !== 0 && v !== '').length;
+  return [f.q, f.country?.length, f.cpv?.length, f.hasOpen ? 1 : undefined].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
 
 /* ---- What changed (/changes): country and scope only; 14 days is the API's window ---- */
@@ -362,12 +364,13 @@ export function toChangeQuery(f: ChangeFilters): string {
 /** The first year the market page offers: the archive holds notices back to 2021, and TED history before 2024 is partial. */
 export const MARKET_FIRST_YEAR = 2021;
 
-export function parseMarketFilters(sp: SearchParams, thisYear: number = new Date().getUTCFullYear()): { year?: number; country?: string } {
+export function parseMarketFilters(sp: SearchParams, thisYear: number = new Date().getUTCFullYear()): { year?: number; country?: string; cpv?: string[] } {
   const y = Number(first(sp[PARAM.year]));
   const year = Number.isInteger(y) && y >= MARKET_FIRST_YEAR && y <= thisYear ? y : undefined;
   const c = (first(sp[PARAM.country]) ?? '').trim().toUpperCase();
   const country = COUNTRY_CODES.includes(c) ? c : undefined;
-  return { ...(year ? { year } : {}), ...(country ? { country } : {}) };
+  const cpv = cpvList(sp[PARAM.cpv]);           // WP-89: as on /tenders
+  return { ...(year ? { year } : {}), ...(country ? { country } : {}), ...(cpv ? { cpv } : {}) };
 }
 
 /* ---- What a list page was asked for and did not use ---- */
@@ -440,6 +443,7 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
   }
   if (kind === 'buyers') {
     choice(PARAM.sort, BUYER_SORTS);
+    for (const v of many(PARAM.cpv)) if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
     const open = one(PARAM.hasOpen);
     if (open && open !== 'true') bad(PARAM.hasOpen, open, 'use true');
     codes(PARAM.country, COUNTRY_CODES, 'country code');

@@ -45,14 +45,20 @@ test('who to approach: each named winner has its contract values, collapsed, per
   const v = w.values.byCurrency[0];
   await expect(details.locator('[data-value-sum]').first()).toHaveText(new RegExp(`^${v.currency} ${fmt(v.amount)} over ${v.count} contracts?`));
   await expect(details.locator('[data-value-without]')).toHaveText(`${w.values.withoutValue} of ${w.contracts} contracts state no value for this company alone.`);
-  await expect(details).toContainText('Summed per currency, never converted');
-  await expect(details).toContainText('names this one winner');
-  await expect(details).toContainText('some may be framework ceilings');
-  await expect(details).toContainText(`The contracts of this list: `);
+  // WP-89: the summary line carries the total; the rules are stated once, under the list (they were under each of 38 companies)
+  await expect(details.locator('summary')).toContainText(`Contract values: ${v.currency} ${fmt(v.amount)} over ${v.count} contract`);
+  await expect(details).not.toContainText('Summed per currency, never converted');
+  const rules = s.locator('[data-value-rules]');
+  await expect(rules).toHaveCount(1);
+  await expect(rules).toContainText('Summed per currency, never converted');
+  await expect(rules).toContainText('names this one winner');
+  await expect(rules).toContainText('some may be framework ceilings');
+  await expect(rules).toContainText(`The contracts of this list: `);
 
   const bare = winners.find((x) => x.values.byCurrency.length === 0)!;
   const none = await closedThenOpenedByKeyboard(s.locator('[data-approach-winner]', { hasText: bare.name }).first(), page);
   await expect(none).toContainText('No value to sum.');
+  await expect(none.locator('summary')).toHaveText(/^Contract values: no stated value/);
   await expect(page.getByText(/market share|top supplier|sole source|single point of failure/i)).toHaveCount(0);
 });
 

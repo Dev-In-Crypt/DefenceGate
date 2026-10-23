@@ -1,16 +1,20 @@
-import { sumLines, suspectLine, VALUE_RULES, withoutValueLine, type ValueTotals } from '@/lib/value-totals';
+import { sumLines, suspectLine, totalLine, VALUE_RULES, withoutValueLine, type ValueTotals } from '@/lib/value-totals';
 import { Details } from './details';
 
 /**
  * WP-81: the sum of one supplier's contract values, collapsed by default (a native disclosure: keyboard and print work without
  * script). `noun` is what the list counts ("contract", "notice"); `scope` says which period and sources the sum covers.
+ * WP-89: the summary line carries the total ("Contract values: EUR 1,200,000 over 3 contracts"), so the closed block is not read as
+ * empty; `rules={false}` leaves out the scope and the rules, for a list that states them once (the supplier report's winners).
  */
-export function ValueTotalsBlock({ values, noun, scope, className }: { values: ValueTotals; noun: string; scope: string; className?: string }) {
+export function ValueTotalsBlock({ values, noun, scope, className, rules = true }: {
+  values: ValueTotals; noun: string; scope: string; className?: string; rules?: boolean;
+}) {
   const lines = sumLines(values, noun);
   const without = withoutValueLine(values, noun);
   const suspect = suspectLine(values, noun);
   return (
-    <Details summary="Contract values" className={className}>
+    <Details summary={<span data-value-summary>Contract values: {totalLine(values, noun)}</span>} className={className}>
       <div data-value-totals className="flex flex-col gap-2">
         {lines.length > 0 ? (
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0 text-ink">
@@ -21,7 +25,7 @@ export function ValueTotalsBlock({ values, noun, scope, className }: { values: V
         )}
         {without && <p className="m-0" data-value-without>{without}</p>}
         {suspect && <p className="m-0" data-value-suspect>{suspect}</p>}
-        <p className="m-0">{scope} {VALUE_RULES}</p>
+        {rules && <p className="m-0">{scope} {VALUE_RULES}</p>}
       </div>
     </Details>
   );

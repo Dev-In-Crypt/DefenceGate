@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { allWinnersLabel, approachOthersLine, primesOf, winnersHref, type ApproachWinner, type Demand } from '@/lib/demand';
+import { allWinnersLabel, approachGroups, approachOthersLine, supplierHref, winnersHref, type ApproachWinner, type Demand, type DemandRequest } from '@/lib/demand';
+import { VALUE_RULES } from '@/lib/value-totals';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
@@ -39,12 +40,16 @@ export function ApproachExplainer() {
   );
 }
 
-export function Winner({ w, scope }: { w: ApproachWinner; scope: string }) {
+/**
+ * One named winner. `request` (WP-89): the profile's codes and countries, carried by the link to its supplier page; `rules={false}`: the
+ * sums' scope and rules are stated once under the list, not under each company (the printed report repeated them 38 times).
+ */
+export function Winner({ w, scope, request = null, rules = true }: { w: ApproachWinner; scope: string; request?: DemandRequest | null; rules?: boolean }) {
   const src = w.prime ? safeHttpUrl(w.prime.sourceUrl) : null;
   return (
     <li className="report-item flex flex-col gap-1.5 border-t border-line py-3 first:border-t-0" data-approach-winner={w.prime ? 'prime' : 'other'}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-body font-semibold">{w.slug ? <Link href={`/suppliers/${w.slug}`}>{w.name}</Link> : w.name}</span>
+        <span className="text-body font-semibold">{w.slug ? <Link href={supplierHref(w.slug, request)}>{w.name}</Link> : w.name}</span>
         {w.country && <span className="text-small text-ink-muted">({countryName(w.country)})</span>}
         {w.prime && <Tag wrap>{w.prime.jointVenture ? `Joint venture with ${w.prime.group}` : `Prime or large defence group: ${w.prime.group}`}</Tag>}
         {w.edfProjects > 0 && <Tag>{`EDF projects: ${w.edfProjects}`}</Tag>}
@@ -62,7 +67,7 @@ export function Winner({ w, scope }: { w: ApproachWinner; scope: string }) {
           ))}
         </p>
       )}
-      {w.values && <ValueTotalsBlock values={w.values} noun="contract" scope={scope} />}
+      {w.values && <ValueTotalsBlock values={w.values} noun="contract" scope={scope} rules={rules} />}
       {w.prime && <p className="m-0 text-small text-ink-muted">Listed by name from: {src ? <a href={src} target="_blank" rel="noopener noreferrer">{w.prime.source}</a> : w.prime.source}.</p>}
     </li>
   );
@@ -73,8 +78,11 @@ export function winnersScope(d: Pick<Demand, 'since' | 'until' | 'countries' | '
   return `The contracts of this list: ${formatDateUtc(d.since)} to ${formatDateUtc(d.until)}, in ${d.countries.map(countryName).join(', ')}, from ${d.sources.some((s) => s.code.startsWith('es_placsp')) ? 'TED and PLACSP' : 'TED'}.`;
 }
 
-/** The full "who to approach" section of the report. */
-export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: boolean }) {
+/** WP-89: "Direct suppliers in Spain", the heading of the winners of the company's own country. */
+const homeTitle = (country: string) => `Direct suppliers in ${countryName(country)}`;
+
+/** The full "who to approach" section of the report. `country`: the company's; its own winners come first (WP-89). */
+export function ApproachMap({ result, hasCodes, country, request }: { result: Result; hasCodes: boolean; country: string; request: DemandRequest | null }) {
   if (!hasCodes) {
     return (
       <div className="flex flex-col gap-3">
@@ -88,8 +96,12 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
   if (result.state === 'error') return <ErrorState title="The list could not be computed" onRetry={result.retry}>{result.message}</ErrorState>;
   const d = result.data;
   const a = d.approach;
-  const primes = primesOf(a);
+  const { home, primes, others: abroad } = approachGroups(a, country);
   const others = approachOthersLine(a, d.kMin);
+  const scope = winnersScope(d);
+  const list = (ws: ApproachWinner[], key: string) => (
+    <ul className="m-0 flex list-none flex-col p-0">{ws.map((w, i) => <Winner key={`${key}-${i}-${w.name}`} w={w} scope={scope} request={request} rules={false} />)}</ul>
+  );
   return (
     <div className="flex flex-col gap-4" data-approach>
       <ApproachExplainer />
@@ -101,6 +113,13 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
             ? `${a.winners.length} won ${d.kMin} or more and ${a.winners.length === 1 ? 'is' : 'are'} named below, most contracts first.`
             : `${a.winners.length} ${a.winners.length === 1 ? 'is' : 'are'} named below, most contracts first. A winner who is a natural person is never named.`}
       </p>
+      {home.length > 0 && (
+        <div className="flex flex-col gap-1" data-approach-home>
+          <h3 className="m-0 text-h4">{homeTitle(country)}</h3>
+          <p className="m-0 max-w-prose text-small text-ink-muted">Companies of your country that sell these products to the defence buyers directly: competitors, partners or customers for your parts.</p>
+          {list(home, 'h')}
+        </div>
+      )}
       <div className="flex flex-col gap-1" data-approach-primes>
         <h3 className="m-0 text-h4">Prime contractors and large defence groups among them</h3>
         {primes.length === 0 ? (
@@ -108,14 +127,12 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
             None of the named winners is on our list of prime contractors and large defence groups (the European companies of the SIPRI Top 100 of
             2024, and Indra). Primes may still buy what you make from their own suppliers; that is not published.
           </p>
-        ) : (
-          <ul className="m-0 flex list-none flex-col p-0">{primes.map((w, i) => <Winner key={`p-${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
-        )}
+        ) : list(primes, 'p')}
       </div>
-      {a.winners.length > primes.length && (
-        <div className="flex flex-col gap-1">
-          <h3 className="m-0 text-h4">{primes.length ? 'The other named winners' : 'The named winners'}</h3>
-          <ul className="m-0 flex list-none flex-col p-0">{a.winners.filter((w) => !w.prime).map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
+      {abroad.length > 0 && (
+        <div className="flex flex-col gap-1" data-approach-abroad>
+          <h3 className="m-0 text-h4">{home.length > 0 || primes.length > 0 ? 'The other named winners, in other countries' : 'The named winners'}</h3>
+          {list(abroad, 'o')}
         </div>
       )}
       {others && <p className="m-0 max-w-prose text-small text-ink-muted" data-approach-others>{others}</p>}
@@ -128,14 +145,16 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
         latest notice is the newest publication among them: for Spain’s national portal (PLACSP) the date the procurement was published, since its
         award date is not stored. Marked by name: a group member that carries the group’s name; a subsidiary under another name is not marked.
       </p>
+      {/* WP-89: the sums' scope and rules once, for every company above (they were printed under each of them) */}
+      <p className="m-0" data-value-rules>Contract values: {scope} {VALUE_RULES}</p>
       <p className="m-0">{d.winnersFrom} {d.coverage}</p>
       </AboutData>
     </div>
   );
 }
 
-/** The short version, first on the results page: the primes, then the first named winners, and the way to the report. */
-export function ApproachSummary({ result }: { result: Result }) {
+/** The short version, first on the results page: the company's own country's direct suppliers and the primes, and the way to the report. */
+export function ApproachSummary({ result, country, cpv }: { result: Result; country: string; cpv: string[] }) {
   if (result.state === 'idle') return null;
   return (
     <section aria-labelledby="approach" className="flex flex-col gap-3" data-approach-summary-section>
@@ -143,26 +162,43 @@ export function ApproachSummary({ result }: { result: Result }) {
       <ApproachExplainer />
       {result.state === 'loading' && <div role="status" aria-label="Finding who wins these contracts"><Skeleton className="h-40" /></div>}
       {result.state === 'error' && <ErrorState title="The list could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
-      {result.state === 'done' && <ShortList d={result.data} />}
+      {result.state === 'done' && <ShortList d={result.data} country={country} cpv={cpv} />}
     </section>
   );
 }
 
-function ShortList({ d }: { d: Demand }) {
-  const primes = primesOf(d.approach);
-  const first = [...primes, ...d.approach.winners.filter((w) => !w.prime)].slice(0, 8);
+/** How many of each group the results page shows (WP-89: two columns of five; before, the first eight, primes first). */
+export const SHORT_LIST = 5;
+
+function ShortList({ d, country, cpv }: { d: Demand; country: string; cpv: string[] }) {
+  const { home, primes, others } = approachGroups(d.approach, country);
+  // without winners of its own country, the direct suppliers of every country
+  const direct = (home.length > 0 ? home : others).slice(0, SHORT_LIST);
+  const big = primes.slice(0, SHORT_LIST);
+  const request = cpv.length ? { cpv, countries: d.countries } : null;
+  const column = (title: string, ws: ApproachWinner[], key: string, attr: string) => (
+    <div className="flex min-w-0 flex-col gap-1" {...{ [attr]: '' }}>
+      <h3 className="m-0 text-h4">{title}</h3>
+      {ws.length === 0
+        ? <p className="m-0 text-small text-ink-muted">None among the winners under your codes.</p>
+        : <ul className="m-0 flex list-none flex-col p-0">{ws.map((w, i) => <Winner key={`${key}-${i}-${w.name}`} w={w} scope={winnersScope(d)} request={request} />)}</ul>}
+    </div>
+  );
   return (
     <>
-      {first.length === 0 ? (
+      {direct.length + big.length === 0 ? (
         <p className="m-0 max-w-prose text-body">{d.kMin > 1
           ? `No company won ${d.kMin} or more defence-scope procurements under your codes in the last three years, so none is named.`
           : 'No company won a defence-scope procurement under your codes in the last three years.'}</p>
       ) : (
-        <ul className="m-0 flex list-none flex-col p-0">{first.map((w, i) => <Winner key={`${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}</ul>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {column(home.length > 0 ? homeTitle(country) : 'Direct suppliers', direct, 'h', 'data-approach-home')}
+          {column('Large primes', big, 'p', 'data-approach-primes')}
+        </div>
       )}
       <div className="flex flex-wrap gap-3">
         <Button href="/readiness/supplier/report#r-approach" variant="secondary">Who to approach in your supplier report</Button>
-        {d.total.winners > first.length && <Button href={winnersHref()} variant="secondary">{allWinnersLabel(d.total.winners)}</Button>}
+        {d.total.winners > direct.length + big.length && <Button href={winnersHref()} variant="secondary">{allWinnersLabel(d.total.winners)}</Button>}
       </div>
     </>
   );

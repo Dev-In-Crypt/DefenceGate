@@ -610,6 +610,8 @@ export interface MarketStats {
   windowTo: string;
   /** The calendar year and the buyer country the figures were asked for; absent or null: the rolling 12 months, all countries. */
   year?: number | null;
+  /** WP-89: the CPV prefixes the figures were narrowed to; absent or null: every code. */
+  cpv?: string[] | null;
   country?: string | null;
   /** Sources that contributed core notices in the window. */
   sourceCount: number;
@@ -624,7 +626,7 @@ export interface MarketStats {
 }
 
 /** The market page's selectors: a calendar year (the rolling 12 months when absent) and one buyer country. */
-export interface MarketFilters { year?: number; country?: string }
+export interface MarketFilters { year?: number; country?: string; /** WP-89: CPV prefixes, as on /tenders. */ cpv?: string[] }
 
 /** GET /v1/buyers/{slug}/profile: the buyer's own core-scope notices, counted. */
 export interface BuyerProfile {
@@ -648,6 +650,8 @@ export type BuyerSort = 'tenders' | 'name';
 export interface BuyerFilters {
   q?: string;
   country?: string[];
+  /** WP-89: CPV prefixes: the buyers with a notice under one of them (the tender list's reading). */
+  cpv?: string[];
   hasOpen?: boolean;
   sort?: BuyerSort;
   page?: number;
@@ -890,6 +894,11 @@ export interface SupplierSourceNote {
   lastUpdated?: IsoDateTime | null;
 }
 export interface Supplier extends SupplierItem {
+  /**
+   * WP-89: of its contracts, those under the CPV codes (and of the buyer countries) the page was asked for: the supplier report's link
+   * carries the profile's codes, so the page says "44 of them under your codes" beside the total. Null without codes.
+   */
+  underCodes?: { cpv: string[]; buyerCountries: string[]; contracts: number } | null;
   /** WP-81: the sum of its notices' values per currency (the values of notices naming it alone), collapsed on the page. */
   values: ValueTotals;
   byYear: { year: number; awards: number }[];

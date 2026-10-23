@@ -59,7 +59,7 @@ export function AllWinners() {
         {d.total > 0 ? ` (${from} to ${Math.min(d.page * d.pageSize, d.total)} on this page)` : ''}. A winner who is a natural person is never named.
       </p>
       <ul className="m-0 flex list-none flex-col p-0">
-        {d.winners.map((w, i) => <Winner key={`${d.page}-${i}-${w.name}`} w={w} scope={winnersScope(d)} />)}
+        {d.winners.map((w, i) => <Winner key={`${d.page}-${i}-${w.name}`} w={w} scope={winnersScope(d)} request={request} />)}
       </ul>
       {last > 1 && (
         <nav aria-label="Pages of winners" className="flex flex-wrap items-center gap-3">
