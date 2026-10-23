@@ -475,12 +475,14 @@ def job_cascade_flags() -> JobResult:
     counts: dict[str, int] = {}
 
     def _run() -> None:
-        from . import cascade, ukraine
+        from . import cascade, ukraine, who_apply
 
         with db.connect(settings().dsn) as conn:
             counts.update(cascade.run(conn, write=True))
             # WP-36: the "open to Ukraine" flag is derived from the same facts, in the same pass.
             counts.update({f"ukraine_{k}": v for k, v in ukraine.run(conn, write=True).items() if k != "calls"})
+            # WP-92: who may apply, from the call's own facts first (the list badge), same pass.
+            counts.update({f"who_{k}": v for k, v in who_apply.run(conn, write=True).items() if k != "calls"})
         log.info("cascade flags: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
 
     result = run_job("cascade_flags", _run)

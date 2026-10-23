@@ -17,6 +17,10 @@ interface RawCall {
   eligibility?: EligibilityItem[]; conditionsText?: string; cascade?: boolean; ukraine?: boolean;
   /** The EU portal's SME flag (or a national call whose applicants name SMEs): `whoMayApply` is then `companies`. */
   forSmes?: boolean;
+  /** WP-92: who may apply as the call document states it (backend `call.who_may_apply_doc`), and its SME-only flag. */
+  whoDoc?: WhoMayApply; smeOnly?: boolean;
+  /** WP-92: the commercial summary of the topic description (detail only). */
+  fundsSummary?: string;
 }
 const data = raw as unknown as { eligibility: Record<string, EligibilityItem[]>; calls: RawCall[] };
 
@@ -79,7 +83,9 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
     eligibility: r.eligibility ?? data.eligibility[eligKey] ?? [],
     cascade: r.cascade ?? null,
     openToUkraine: r.ukraine ?? null,
-    whoMayApply: mockWho(r.programme, r.topicId, r.forSmes),
+    // WP-92: the call document's answer first, the programme rules after (backend funding.WHO_MAY_APPLY)
+    whoMayApply: r.whoDoc ?? mockWho(r.programme, r.topicId, r.forSmes),
+    smeOnly: r.smeOnly ?? null,
     publishedAt: r.publishedAt ?? null,
     firstSeenAt: r.firstSeenAt ?? FIRST_SEEN, lastSeenAt: r.retrievedAt,
     source: {
@@ -87,6 +93,7 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
       retrievedAt: r.retrievedAt, licence: src.licence, attribution: src.attribution,
     },
     ...(detail && r.conditionsText ? { conditionsText: r.conditionsText } : {}),
+    ...(detail ? { fundsSummary: r.fundsSummary ?? null } : {}),
     ...(detail ? { partnerArea: mockPartnerArea(r.topicId) } : {}),
     ...(detail ? mockDetail(r) : {}),
   };

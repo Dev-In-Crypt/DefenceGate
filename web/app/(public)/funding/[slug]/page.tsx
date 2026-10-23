@@ -143,6 +143,7 @@ export default async function CallDetailPage({ params }: Props) {
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
             {call.whoMayApply && <Tag>{WHO_WORDS[call.whoMayApply]}</Tag>}
+            {call.smeOnly === true && <Tag>SMEs only</Tag>}
             <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
           </div>
         )}
@@ -158,10 +159,22 @@ export default async function CallDetailPage({ params }: Props) {
         )}
         <p className="m-0 max-w-prose text-body text-ink-muted">{funderLine(call)}</p>
         {/* WP-91 (UX audit 6): what the call funds and whether one can apply, on the first screen (phone included) */}
-        <p className="m-0 max-w-prose text-body" data-what-it-funds>
-          <strong>What it funds:</strong> <span lang={nonEnglish ? call.titleLanguage : undefined}>{whatItFunds({ ...call, title: displayName(call.title) })}</span>
-          {sourceUrl && <> <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Read the topic description at {sourceDisplay(call.source.sourceName)}<span className="sr-only"> (opens in new tab)</span></a>.</>}
-        </p>
+        {/* WP-92: the topic description's own Objective / Expected outcome, commercial sentences only (backend topic_summary.py) */}
+        {call.fundsSummary ? (
+          <div className="m-0 max-w-prose text-body" data-what-it-funds data-funds-summary>
+            <p className="m-0"><strong>What it funds:</strong> {call.fundsSummary}</p>
+            <p className="m-0 text-small text-ink-muted">
+              From the topic description{sourceUrl
+                ? <>; <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">see the full text<span className="sr-only"> at {sourceDisplay(call.source.sourceName)} (opens in new tab)</span></a>.</>
+                : '.'}
+            </p>
+          </div>
+        ) : (
+          <p className="m-0 max-w-prose text-body" data-what-it-funds>
+            <strong>What it funds:</strong> <span lang={nonEnglish ? call.titleLanguage : undefined}>{whatItFunds({ ...call, title: displayName(call.title) })}</span>
+            {sourceUrl && <> <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Read the topic description at {sourceDisplay(call.source.sourceName)}<span className="sr-only"> (opens in new tab)</span></a>.</>}
+          </p>
+        )}
         {!closed && <ApplySummary call={call} />}
         {call.status === 'open' && call.sourceStatus === 'forthcoming' && (
           <p className="m-0 max-w-prose text-body text-ink-muted">

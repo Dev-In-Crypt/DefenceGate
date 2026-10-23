@@ -73,6 +73,8 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             <Tag>{call.funderCountry}</Tag>
             {/* WP-91: who may apply, where the rules or the source say (a few EDIP calls are for public bodies only) */}
             {call.whoMayApply && <span data-who={call.whoMayApply} className="contents"><Tag>{WHO_WORDS[call.whoMayApply]}</Tag></span>}
+            {/* WP-92: the call document reserves it for SMEs */}
+            {call.smeOnly === true && <span data-sme-only className="contents"><Tag>SMEs only</Tag></span>}
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {!closed && <FitBadge id={call.id} />}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}

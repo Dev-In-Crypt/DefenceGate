@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .. import cascade, db
+from .. import cascade, db, who_apply
 from ..config import settings
 
 
@@ -22,6 +22,8 @@ def main(argv: list[str] | None = None) -> int:
     a = p.parse_args(argv)
     with db.connect(settings().dsn) as conn:
         print(cascade.run(conn, write=a.yes))
+        # WP-92: who may apply from the call's own eligibility facts (the list badge), same pass as the nightly job.
+        print("who may apply:", who_apply.run(conn, write=a.yes))
     return 0
 
 

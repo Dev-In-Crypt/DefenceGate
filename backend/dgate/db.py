@@ -1508,7 +1508,7 @@ def record_call_dates(conn: psycopg.Connection, call_id: int, before: dict[str, 
 # hash: a calendar entry that has not changed can still have its budget
 # corrected the next morning.
 CALL_DETAIL_FIELDS = ["budget", "budget_scope", "currency", "eligibility_text", "conditions_raw",
-                      "min_consortium_size", "min_member_states"]
+                      "min_consortium_size", "min_member_states", "funds_summary"]
 
 
 def calls_needing_details(conn: psycopg.Connection, src_id: int, *,

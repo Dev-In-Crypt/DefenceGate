@@ -202,6 +202,8 @@ class FundingCall(BaseModel):
     openToUkraine: bool | None = None
     # WP-91: `companies` (a company can take part), `public` (only public bodies may apply), null where nothing we hold says.
     whoMayApply: str | None = None
+    # WP-92: true where the call's own eligibility facts say it is reserved for SMEs (dgate/who_apply.py); null otherwise.
+    smeOnly: bool | None = None
     publishedAt: datetime | None
     firstSeenAt: datetime
     lastSeenAt: datetime
@@ -247,6 +249,9 @@ class CascadeBasis(BaseModel):
 
 class FundingCallDetail(FundingCall):
     conditionsText: str | None = None
+    # WP-92: what the call funds, at most three sentences of the topic description's Objective / Expected outcome that
+    # pass the commercial filter (dgate/topic_summary.py). Null when none does: the page links the official text instead.
+    fundsSummary: str | None = None
     # Who may apply, in the source's own words where it gives them (the eligible-countries and
     # other-eligibility sections of its conditions) and from its structured fields (applicants of
     # a national call). Empty when the source gives nothing: the page then points at the call text.
@@ -389,8 +394,10 @@ _EDIP_SQL = ("(p.code = 'EDIP' OR (p.code = 'EDF' AND (upper(COALESCE(c.topic_co
 # call of the defence fund or EDIP (their recipients are legal entities, public or private: rules EDF-LEGAL-ENTITY,
 # EDIP-LEGAL-ENTITY, USI-LEGAL-ENTITY), a topic the EU portal flags for SMEs, a Polish call whose applicant types name an SME,
 # a micro or a large enterprise, a Spanish call whose beneficiary types name companies or SMEs; null where nothing we hold says.
+# WP-92: the call's own eligibility facts come first (`call.who_may_apply_doc`, set by dgate/who_apply.py from the call
+# document or the topic's own conditions); the programme rules below only where those facts say nothing.
 _T = "('-' || upper(COALESCE(c.topic_code, '')) || '-')"
-WHO_MAY_APPLY = f"""(CASE
+WHO_MAY_APPLY = f"""COALESCE(c.who_may_apply_doc, CASE
     WHEN p.code IN ('EDF', 'EDIP') AND {_T} LIKE '%%-EDIP-%%' AND (
          {_T} LIKE '%%-CPA-%%' OR ({_T} LIKE '%%-SA-%%' AND {_T} LIKE '%%-SEAP-%%')
          OR ({_T} LIKE '%%-CSA-%%' AND {_T} LIKE '%%-PREP-%%')) THEN 'public'
@@ -653,6 +660,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "cascade": r.get("cascade"),
         "openToUkraine": r.get("open_to_ukraine"),
         "whoMayApply": r.get("who_may_apply"),
+        "smeOnly": True if r.get("sme_only") is True else None,
         "publishedAt": _day(r.get("published_at")),
         "firstSeenAt": r["first_seen_at"],
         "lastSeenAt": r["last_seen_at"],
@@ -672,6 +680,8 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         may_serve = r["source_code"] in SOURCE_TEXT_SOURCES and r.get("source_commercial_ok") is True
         text = r.get("eligibility_text") if may_serve else None
         out["conditionsText"] = redact_emails(text.strip()) if text and text.strip() else None
+        summary = r.get("funds_summary") if may_serve else None
+        out["fundsSummary"] = redact_emails(summary) if summary else None
         out["whoCanApply"] = redact_emails(who_can_apply(out["conditionsText"], out["eligibility"]))
         out["documents"] = documents_of(cond) if may_serve else []
     return out

@@ -1,0 +1,43 @@
+{
+  "_note": "TopicDetails documents of the EU portal reduced to the fields WP-92 reads (identifier, description), in the portal's HTML shape: EDF and EDIP topics in Objective / Scope / Types of activities / Functional requirements / Expected impact, Horizon topics in Expected Outcome / Scope. Wording in the style of the 2025-2026 work programmes, written for the tests; no topic text is copied whole.",
+  "EDF-2026-RA-SENS-MSDT": {
+    "identifier": "EDF-2026-RA-SENS-MSDT",
+    "description": "<p><strong>Objective:</strong></p><p>The objective of this topic is to support research on multi-static detection techniques for European armed forces. The aim is to strengthen the European defence technological and industrial base in the field of passive surveillance. Proposals are expected to foster cooperation between industry, research organisations and SMEs across Member States. The detection range should exceed 150 km against small targets. The resulting solutions should reach TRL 4 at the end of the project. Sensor accuracy and latency must be improved over current systems. The topic contributes to the CARD focus area on enhanced military mobility.</p><p><strong>Scope:</strong></p><p>Proposals must address the development of a demonstrator able to fuse data from several receivers. The system shall operate in the 2-4 GHz band.</p><p><strong>Types of activities</strong></p><table><tr><td>Studies</td><td>Mandatory</td></tr></table><p><strong>Functional requirements:</strong></p><ul><li>the system should be able to track at least 50 objects simultaneously;</li><li>the waveform should be adaptable.</li></ul><p><strong>Expected impact:</strong></p><p>Reduced dependence on non-EU suppliers for surveillance components.</p>"
+  },
+  "EDF-2026-DA-GROUND-FCV": {
+    "identifier": "EDF-2026-DA-GROUND-FCV",
+    "description": "<p><strong>Objective:</strong> The objective is to develop the next generation of ground combat capabilities in a cooperative way between Member States.</p><p>Proposals should enable European industry to deliver interoperable solutions to the armed forces of several Member States. The vehicle should reach a top speed of 90 km/h. The armour level must be compatible with STANAG 4569 level 4. The design of the turret should allow modular integration. The project builds on the work of MGCS and Leopard upgrade programmes. Participating SMEs are expected to gain access to new supply chains.</p><p><strong>Scope:</strong> The proposals should cover the design and prototyping of the platform.</p>"
+  },
+  "EDF-EDIP-USI-2026-SCS": {
+    "identifier": "EDF-EDIP-USI-2026-SCS",
+    "description": "<p><strong>Objective</strong></p><p>The objective of this topic is to increase the production capacity of the Ukrainian defence industry and its integration into the European defence technological and industrial base.</p><p>Actions should support cooperation between Ukrainian and EU companies in ramping up manufacturing of defence products.</p><p>The topic also aims to secure supply chains for critical raw materials used by the defence industry.</p><p>Applicants should increase output by 30% within 24 months.</p><p><strong>Scope</strong></p><p>The action covers the reconfiguration of production lines and the qualification of new suppliers.</p>"
+  },
+  "EDIP-2026-CPA-AIRDEF": {
+    "identifier": "EDIP-2026-CPA-AIRDEF",
+    "description": "<p><strong>Objective:</strong></p><p>This topic will support the common procurement of air defence products by consortia of Member States.</p><p>It aims to reduce fragmentation of demand and to improve the security of supply of the European defence industry.</p><ul><li>aggregation of demand across at least three Member States;</li><li>improved interoperability of the procured products;</li><li>Patriot and IRIS-T SLM batteries are eligible products.</li></ul><p><strong>Scope:</strong></p><p>Procurement of systems with an engagement range of 40 km or more.</p>"
+  },
+  "HORIZON-CL3-2026-01-DRS-01": {
+    "identifier": "HORIZON-CL3-2026-01-DRS-01",
+    "description": "<p><span><strong>Expected Outcome</strong>:</span></p><p>Projects' results are expected to contribute to some or all of the following outcomes:</p><ul><li>Improved preparedness of first responders and civil protection authorities for large-scale disasters;</li><li>Better uptake of innovative solutions by public buyers and end-users across Europe;</li><li>New market opportunities for European SMEs in the civil security sector;</li><li>Faster deployment of drones with a flight endurance of more than 2 hours;</li><li>an operational resolution of 10 cm per pixel.</li></ul><p><span><strong>Scope</strong>:</span></p><p>Proposals should develop a toolbox for disaster risk reduction. The toolbox shall be validated in at least three pilots.</p>"
+  },
+  "HORIZON-CL3-2026-01-BM-02": {
+    "identifier": "HORIZON-CL3-2026-01-BM-02",
+    "description": "<p><strong>Expected Outcome:</strong> Project results are expected to contribute to the following outcome: European border authorities have access to affordable, interoperable solutions developed with the participation of European industry. The project is expected to strengthen the competitiveness of the EU security industry. See https://example.europa.eu for details. Contact the helpdesk at info@example.eu.</p><p><strong>Scope:</strong> Proposals should address detection of small vessels at sea.</p>"
+  },
+  "DIGITAL-2026-AI-01": {
+    "identifier": "DIGITAL-2026-AI-01",
+    "description": "<p><strong>Objective:</strong></p><p>The objective is to deploy trusted artificial intelligence testing facilities that support SMEs and start-ups in bringing products to market.</p><p>The facilities should be open to companies from every Member State on fair terms.</p><p>The algorithms tested must meet the requirements of the AI Act.</p><p>Phase one runs in 2026 and phase two in 2027.</p><p>In addition, this action complements earlier investments.</p>"
+  },
+  "EDF-2026-LS-RA-CHALLENGE": {
+    "identifier": "EDF-2026-LS-RA-CHALLENGE",
+    "description": "<p><strong>Scope:</strong></p><p>The challenge is open to all.</p><p><strong>Functional requirements:</strong></p><p>The objective of the system is to locate the emitter within 3 seconds.</p>"
+  },
+  "EDF-2026-NO-HEADINGS": {
+    "identifier": "EDF-2026-NO-HEADINGS",
+    "description": "<p>This topic aims to support European defence SMEs in cross-border cooperation.</p>"
+  },
+  "EDF-2026-RA-NAVAL": {
+    "identifier": "EDF-2026-RA-NAVAL",
+    "description": "<p><strong>Objective:</strong></p><p>The objective is to support research on autonomous naval systems for the protection of maritime infrastructure.</p><p>The research should explore ways of increasing the operational endurance of unmanned vessels.</p><p>Proposals should foster the participation of SMEs and mid-caps from several Member States.</p><p>The project should aim for a payload capacity of at least one tonne.</p><p>Results are expected to support future joint procurement by Member States.</p><p>Ballistic protection of the hull must be considered.</p><p>The vessel should be designed for operation in high sea states.</p></div>"
+  }
+}

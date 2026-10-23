@@ -43,6 +43,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from ..topic_summary import funds_summary
 from . import USER_AGENT, new_client, request_with_retry
 
 log = logging.getLogger(__name__)
@@ -491,6 +492,9 @@ def detail_fields(details: dict[str, Any], identifier: str) -> dict[str, Any]:
         "eligibility_text": text,
         "min_consortium_size": size,
         "min_member_states": states,
+        # WP-92: what the call funds, at most three sentences of the description's Objective / Expected
+        # outcome that pass the commercial filter (topic_summary.py); None when none does.
+        "funds_summary": funds_summary(details),
         "conditions_raw": {
             "budget_line": line or None,
             "topics_sharing_budget": sharing or None,

@@ -114,6 +114,10 @@ export interface Call {
   openToUkraine?: boolean | null;
   /** WP-91: `companies` (a company can take part), `public` (only public bodies may apply); null or absent where nothing we hold says. */
   whoMayApply?: WhoMayApply | null;
+  /** WP-92: true where the call's own eligibility facts say it is reserved for SMEs; null or absent otherwise. */
+  smeOnly?: boolean | null;
+  /** WP-92, detail only: what the call funds, at most three commercial sentences of the topic description's Objective / Expected outcome. Null: none passed the filter. */
+  fundsSummary?: string | null;
   /** The source's own date for the call, where it states one. */
   publishedAt: IsoDateTime | null;
   firstSeenAt: IsoDateTime;
