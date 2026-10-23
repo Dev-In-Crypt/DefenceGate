@@ -45,6 +45,7 @@ from .resolution import Resolution, resolve
 from .resolution.cascade import add_review
 from .resolution.names import key_of
 from .sources import USER_AGENT, new_client, ted
+from .supplier_identity import stated_country_check
 
 log = logging.getLogger(__name__)
 
@@ -487,7 +488,13 @@ def read_award(rec: dict[str, Any]) -> Read:
         else:
             # A telephone number or an address typed into the identifier field is contact data (4 of 4,186
             # profiles, verify2-abuse N1): never read on. A word in the field is dropped when the row is stored.
-            out.winners.append(Winner(cleaned, country, None if looks_like_contact(ident) else (ident or None)))
+            ident = None if looks_like_contact(ident) else (ident or None)
+            # WP-96: a country the winner's own VAT prefix, name or legal form contradicts was the list's slip
+            # (LEONARDO Germany GmbH, Saab Finland Oy and Rheinmetall Canada Inc. filed as Sweden)
+            fixed, basis = stated_country_check(cleaned, ident, country, tuple(c for c in countries if c))
+            if basis:
+                out.counts["country_corrected_" + basis] += 1
+            out.winners.append(Winner(cleaned, fixed, ident))
     if not out.winners_seen:
         out.counts["winner_not_among_tenderers"] += 1
     out.redacted = _redact(rec, names, blank, idents, len(idents) == n, one_country)

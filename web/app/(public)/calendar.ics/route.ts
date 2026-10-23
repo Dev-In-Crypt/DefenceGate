@@ -33,7 +33,10 @@ export async function GET(request: Request): Promise<Response> {
   const events = [...data.entries, ...data.upcoming].sort(
     (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key));
   const chosen = filterEntries(events, p);
-  return new Response(buildIcs(chosen, hour, { tendersBeyond: data.tendersTotal - data.tendersHeld, longRunning: kind === 'funding' ? 0 : data.longRunning }), {
+  return new Response(buildIcs(chosen, hour, {
+    tendersBeyond: data.tendersTotal - data.tendersHeld, longRunning: kind === 'funding' ? 0 : data.longRunning,
+    withoutDeadline: kind === 'funding' ? 0 : data.withoutDeadline,
+  }), {
     headers: {
       'content-type': 'text/calendar; charset=utf-8',
       'content-disposition': 'inline; filename="defencegate-deadlines.ics"',

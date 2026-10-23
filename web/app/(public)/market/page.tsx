@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getMarketStats } from '@/lib/api';
 import { MARKET_FIRST_YEAR, PARAM, parseMarketFilters, type SearchParams } from '@/lib/filters';
-import { BUYER_COUNTRIES } from '@/lib/taxonomy';
+import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Select, TextInput } from '@/components/dg/form';
 import { cpvGroupName } from '@/lib/cpv';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
-import { daysText, monthLabel, percentText } from '@/lib/market';
+import { amendmentsShown, daysText, monthLabel, percentText } from '@/lib/market';
 import { buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { AboutData } from '@/components/dg/about-data';
@@ -72,6 +72,7 @@ export default async function MarketPage({ searchParams }: Props) {
   const to = formatDateUtc(stats.windowTo);
   const w = stats.responseWindow;
   const a = stats.amendments;
+  const watched = amendmentsShown(a, stats.asOf);
 
   return (
     <ContentPage
@@ -82,8 +83,19 @@ export default async function MarketPage({ searchParams }: Props) {
     >
       {selectors}
 
+      {/* WP-96: the set every figure counts, named once beside them, with the tender list of the same set (the list opens on
+          All defence and shows a notice published in two sources once, so its default count differs: NL 384 here, 524 there) */}
+      <p className="m-0 max-w-prose text-body" data-market-scope>
+        Every figure counts notices of <strong>{SCOPE_CHOICES.core.label.toLowerCase()}</strong> only, as each source published them: award notices
+        and corrections included, and a notice published in TED and in a national portal counted once per source. The tender list opens
+        on {SCOPE_CHOICES.relevant.label} and shows such a notice once, so its default count is not this one.{' '}
+        <Link href={`/tenders?${new URLSearchParams({ ...(stats.country ? { country: stats.country } : {}), status: 'all', scope: 'core', ...(codes?.length ? { cpv: codes.join(',') } : {}) })}`} className={LINK}>
+          Open {SCOPE_CHOICES.core.label.toLowerCase()} in the tender list
+        </Link>.
+      </p>
+
       <dl className="facts-grid m-0 border-b border-line">
-        <FactCell label={`Notices, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
+        <FactCell label={`Notices of ${SCOPE_CHOICES.core.label.toLowerCase()}, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
         <FactCell label={yearOf ? `Notices, ${yearOf}, by month below` : 'Notices, last 36 months'}>{formatNumber(inMonths)}</FactCell>
         <FactCell label="Sources that published them">{stats.sourceCount}</FactCell>
         <FactCell label="Typical response window">
@@ -91,8 +103,17 @@ export default async function MarketPage({ searchParams }: Props) {
           {w.p25 !== null && w.p75 !== null && <span className="block font-sans text-small font-normal text-ink-muted">Middle half: {w.p25} to {w.p75} {plural(w.p75, 'day')}</span>}
         </FactCell>
         <FactCell label="With an amendment">
-          <span>{percentText(a.share)}</span>
-          <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}</span>
+          {/* WP-96: the buyer page's rule: a share over a few weeks of watching says nothing, so it waits for six months */}
+          {watched.shown ? (
+            <>
+              <span>{percentText(a.share)}</span>
+              <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}</span>
+            </>
+          ) : (
+            <span className="block font-sans text-small font-normal text-ink-muted" data-amendments-pending>
+              Not shown yet: we have watched these notices only since {watched.since}, too short to say how often they are amended. Shown after six months.
+            </span>
+          )}
         </FactCell>
         <FactCell label="Figures as of"><time dateTime={stats.asOf}>{formatDateTimeUtc(stats.asOf)}</time></FactCell>
       </dl>

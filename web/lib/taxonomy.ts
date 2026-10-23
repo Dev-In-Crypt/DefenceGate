@@ -138,9 +138,21 @@ const LEGAL_BASES: Record<string, string> = {
   // WP-88: PLACSP's code for an ordinary contract, in words (Spain's public sector contracts law)
   'Ley 9/2017 (LCSP)': 'Spanish public sector contracts law (Ley 9/2017)',
 };
+/**
+ * WP-96: the German national notice service (Bekanntmachungsservice) states the national rules a notice is under as a code
+ * (`de-uvgo`): the ones we can name, and any other `de-` code as German national rules.
+ */
+const DE_LEGAL_BASES: Record<string, string> = {
+  uvgo: 'UVgO (German rules for supplies and services below the EU thresholds)',
+  vob: 'VOB/A (German rules for construction works)', 'vob-a': 'VOB/A (German rules for construction works)',
+  vgv: 'VgV (German procurement regulation)', vsvgv: 'VSVgV (German defence and security procurement regulation)',
+  sektvo: 'SektVO (German utilities procurement regulation)', konzvgv: 'KonzVgV (German concessions regulation)',
+};
 export function legalBasisLabel(code: string): string | null {
   const k = code.trim();
   if (k.toLowerCase() === 'other') return 'Other legal basis (not one of the EU procurement directives)';
+  const de = /^de-(.+)$/i.exec(k);
+  if (de) return DE_LEGAL_BASES[de[1].toLowerCase()] ?? `German national procurement rules (${de[1].toUpperCase()})`;
   return LEGAL_BASES[k] ?? LEGAL_BASES[k.toUpperCase()] ?? null;
 }
 
@@ -159,6 +171,15 @@ const PROCEDURES: Record<string, string> = {
   'negociado con publicidad': 'Negotiated procedure with prior publication', 'procedimiento negociado con publicidad': 'Negotiated procedure with prior publication',
   'negociado sin publicidad': 'Negotiated procedure without prior publication', 'procedimiento negociado sin publicidad': 'Negotiated procedure without prior publication',
   'dialogue competitif': 'Competitive dialogue', 'dialogo competitivo': 'Competitive dialogue', 'concurrentiegerichte dialoog': 'Competitive dialogue',
+  // WP-96: the eForms procedure codes, as TED and the German notice service state them, and the German national ones (`de-`)
+  'neg w call': 'Negotiated procedure with prior publication', 'neg wo call': 'Negotiated procedure without prior publication',
+  'comp dial': 'Competitive dialogue', 'innovation': 'Innovation partnership', 'comp tend': 'Competitive tendering (concession)',
+  'oth single': 'Other single-stage procedure', 'oth mult': 'Other multi-stage procedure',
+  'de open': 'Open procedure (German national rules)', 'de restricted': 'Restricted procedure (German national rules)',
+  'de comp w call': 'Restricted procedure after a call for competition (German national rules)',
+  'de comp wo call': 'Restricted procedure without a call for competition (German national rules)',
+  'de neg w call': 'Negotiated award after a call for competition (German national rules)',
+  'de neg wo call': 'Negotiated award without a call for competition (German national rules)',
 };
 
 /** The English name of a procedure the source gave in another language; null when it is not one we know (show it as stated). */

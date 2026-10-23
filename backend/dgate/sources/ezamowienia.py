@@ -50,7 +50,9 @@ log = logging.getLogger(__name__)
 API_BASE = "https://ezamowienia.gov.pl/mo-board/api/v1"
 SEARCH_URL = f"{API_BASE}/Board/Search"
 GLOSSARY_URL = f"{API_BASE}/glossary"
-NOTICE_URL = "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/{object_id}"
+# WP-96: the notice page the bulletin serves (the Atlas dataset links the same object id there); the former
+# mp-client/search/list/ogloszenia/<id> address answers PAGE_NOT_FOUND
+NOTICE_URL = "https://ezamowienia.gov.pl/mo-client-board/bzp/notice-details/id/{object_id}"
 
 SOURCE_CODE = "pl_ezam"
 

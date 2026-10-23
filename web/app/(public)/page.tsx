@@ -47,7 +47,7 @@ const benefits = (names: string) => [
 ];
 
 const STEPS = [
-  { title: 'We collect', body: 'Public notices and funding calls are collected from the sources listed on the status page, once a day.' },
+  { title: 'We collect', body: 'Public notices and funding calls are collected from the sources listed on the status page, daily; the EU research datasets monthly.' },
   { title: 'You search and filter', body: 'By country, buyer, deadline, value or keyword. Every fact is shown with its source.' },
   { title: 'You verify and act', body: 'Open the original, confirm the details there, then bid or apply. We link; the decision is yours.' },
 ];
@@ -56,7 +56,7 @@ const faqItems = (portals: { count: string; names: string }): FaqItem[] => [
   { q: 'What is DefenceGate?', a: 'An independent information service that collects publicly published defence and dual-use procurement notices and funding calls, shows them in one directory, and keeps a version history of the changes it observes.' },
   { q: 'Is it an official source?', a: 'No. We are not affiliated with the EU, TED or any government. Every record links to the original publication, which is the authoritative text.' },
   { q: 'Where does the data come from?', a: `From TED, the national tender portals and feeds of ${portals.names}, and public funding portals. The source status page lists each one with its licence, when it last ran and the known gaps.` },
-  { q: 'How current is it?', a: 'Each source is collected once a day, not in real time. The status page shows the last run per source. Always confirm deadlines in the original notice.' },
+  { q: 'How current is it?', a: 'Tender sources and funding portals are collected daily (the EU research datasets monthly), not in real time. The status page shows the last run per source. Always confirm deadlines in the original notice.' },
   { q: 'Is it complete?', a: `No, and we do not claim it is. Sources can fail or publish late, national tender portals are collected for ${portals.count} countries only (the others through TED), and some history is still being loaded. A notice you need may be missing, so check the portals relevant to you.` },
   { q: 'How do you decide what counts as defence or dual-use?', a: 'Automatically, from several signals such as the legal basis, the product classification and the buyer. It can be wrong and is not a legal determination. See the methodology page.' },
   { q: 'What does the version history show?', a: 'What changed in a notice between two of our observations and when we saw it, for example a moved deadline or a corrected value. A new version is kept when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. History starts when we first saw a notice (our archive began in September 2026); earlier states are not reconstructed.' },

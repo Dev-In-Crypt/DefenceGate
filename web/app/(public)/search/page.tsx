@@ -53,6 +53,21 @@ const GROUPS: { title: string; parts: { key: Key; label?: string; noun: string }
   ] },
 ];
 
+/**
+ * WP-96: words that name a buyer (BAAINBw, Ministère de la Défense) find its tenders by the buyer, not by title words: the buyer's own
+ * open count (its whole family, the tender list's default scope), linked to its page. Only when the words name few buyers.
+ */
+function BuyerTenders({ s }: { s: SiteSearch }) {
+  const b = s.buyers.error || (s.buyers.total ?? 0) > 3 ? undefined : s.buyers.items[0];
+  if (!b || b.openCount === 0) return null;
+  return (
+    <p className="m-0 text-body" data-buyer-tenders>
+      <Link href={`/buyers/${b.slug}`} className="font-semibold">{displayName(b.name)}: {formatNumber(b.openCount)} open {plural(b.openCount, 'tender')}</Link>
+      <span className="block text-small text-ink-muted">All of this buyer&rsquo;s open tenders, whatever their titles say. The list below matches the words in titles.</span>
+    </p>
+  );
+}
+
 function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts'][number] }) {
   const g: SearchGroup<unknown> = s[part.key];
   const all = seeAllHref(part.key, s.q);
@@ -60,6 +75,7 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {part.label && <h3 className="m-0 text-h4">{part.label}</h3>}
+      {part.key === 'tenders' && <BuyerTenders s={s} />}
       {g.error ? (
         <p className="m-0 text-body text-ink-muted">
           {g.error === 'slow' ? 'This part of the search took too long.' : 'This list does not search for these words.'}{' '}

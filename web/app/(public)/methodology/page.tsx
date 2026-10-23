@@ -16,7 +16,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 const PIPELINE = [
-  { title: 'Collect', body: 'Each source is fetched once a day through its public interface. The payload is kept in a private archive, with contact fields removed, before anything else is done to it. A small number of payloads landed before 22 September 2026 still hold some; they are never shown.' },
+  { title: 'Collect', body: 'Each source is fetched through its public interface on its own schedule: tender sources and funding portals daily, the EU research datasets (CORDIS and the EDF results) monthly; the status page shows each one. The payload is kept in a private archive, with contact fields removed, before anything else is done to it. A small number of payloads landed before 22 September 2026 still hold some; they are never shown.' },
   { title: 'Normalise', body: 'Fields are mapped to one shape: title, buyer, country, dates, value, codes. The contact fields a source publishes are dropped, and e-mail addresses are also removed from free text.' },
   { title: 'Classify and link', body: 'Each notice is checked for defence and dual-use signals and linked to the same notice on other sources where a shared reference or identifier exists.' },
 ];
@@ -99,7 +99,7 @@ export default async function MethodologyPage() {
 
       <ContentSection title="Limits">
         <ClauseList items={[
-          'Collection is scheduled once a day, not real time. The status page shows when each source last ran.',
+          'Collection is scheduled, not real time: tender sources and funding portals daily, the EU research datasets (CORDIS, EDF results) monthly. The status page shows when each source last ran.',
           'A source can fail, change format or publish late. A run that fell short is marked partial.',
           `National tender portals and feeds are collected for ${portals.count} countries (${portals.names}); elsewhere we hold only what TED carries. For Germany that is the federal notice service, from 25 October 2023. Below-threshold procurement is often not published centrally. Known gaps are listed on the source status page.`,
           'A field a source does not give, or that we do not read from it, is shown as not available or not read from this source, never as a finding.',

@@ -55,6 +55,18 @@ MAX_ENTRY_BYTES = 8 * 1024 * 1024       # largest seen: 0.7 MB
 MAX_TOTAL_BYTES = 400 * 1024 * 1024     # measured days: 27 MB unpacked
 MAX_ENTRIES = 20_000
 
+# WP-96: the notice's page in the service's own search, by its eForms notice id (a UUID). The legacy national forms
+# have a numeric id and no such page. ponytail: the address form is the service's UI as of October 2026, not read from
+# a fetched page (no portal is called from the laptop); one constant to change if it moves.
+NOTICE_PAGE = "https://oeffentlichevergabe.de/ui/de/search/details?noticeId={notice_id}"
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+
+
+def notice_page(notice_id: str | None) -> str | None:
+    """The notice's page on oeffentlichevergabe.de, or None for an id that is not an eForms notice id."""
+    return NOTICE_PAGE.format(notice_id=notice_id.lower()) if notice_id and _UUID.match(notice_id) else None
+
+
 _NAME = re.compile(r"^(?P<id>[0-9A-Za-z-]{1,64}?)-(?P<version>\d{1,4})\.xml$")
 _UNSAFE_MARKUP = re.compile(rb"<!\s*(DOCTYPE|ENTITY)", re.IGNORECASE)
 

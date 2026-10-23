@@ -443,7 +443,8 @@ def _country2(value: Any) -> str | None:
         return None
     s = str(raw).strip().upper()
     if len(s) == 2:
-        return s
+        # WP-96: "UK" is no ISO code; the United Kingdom is GB (the supplier list showed it twice)
+        return "GB" if s == "UK" else s
     got = _ISO3_TO_2.get(s)
     if (got is None and s not in _UNKNOWN_COUNTRY_LOGGED
             and len(_UNKNOWN_COUNTRY_LOGGED) < 100):
@@ -1585,8 +1586,20 @@ def _fr_eforms_deadline(body: dict[str, Any]) -> datetime | None:
                                         _fr_text(period.get("cbc:EndTime")),
                                         default_tz=ZoneInfo(_FR_TZ))
                 if stamp is not None:
-                    stamps.append(stamp)
+                    stamps.append(_paris_wall_time(stamp))
     return max(stamps) if stamps else None
+
+
+def _paris_wall_time(stamp: datetime) -> datetime:
+    """A French deadline written with a Paris offset (+01:00 or +02:00) as the wall time it is in Paris on that day.
+
+    BOAMP writes the offset in force when the notice is published, not on the deadline's date: a notice of October
+    states "12:00:00+02:00" for 19 November, when Paris is at +01:00, and BOAMP's own page says "12h00", which is
+    11:00 UTC, where reading the offset gave 10:00 (WP-96, p10 /tenders/269424). So the printed time is read in
+    Europe/Paris for the date itself; any other offset (Z, an overseas one) is the notice's own and stays."""
+    if stamp.utcoffset() in (timedelta(hours=1), timedelta(hours=2)):
+        return stamp.replace(tzinfo=ZoneInfo(_FR_TZ))
+    return stamp
 
 
 def _fr_legacy_deadline(body: dict[str, Any]) -> datetime | None:
@@ -1608,7 +1621,7 @@ def _fr_legacy_deadline(body: dict[str, Any]) -> datetime | None:
             stamp = parse_iso_datetime(text[:-6] if fixed else text,
                                        default_tz=ZoneInfo(_FR_TZ))
             if stamp is not None:
-                stamps.append(stamp)
+                stamps.append(_paris_wall_time(stamp))
     return max(stamps) if stamps else None
 
 
@@ -1997,7 +2010,9 @@ def from_de_bkms(record: dict[str, Any]) -> Opportunity:
     opp = from_ted(fields)
     opp.source_code = de_bkms.SOURCE_CODE
     opp.native_id = str(native_id)
-    opp.source_url = http_url(documents_url)
+    # BT-15 (the documents on the buyer's platform) when the notice states it, else (WP-96) the notice's own page on
+    # oeffentlichevergabe.de, built from its eForms notice id: 70 of 72 open German notices had no link at all
+    opp.source_url = http_url(documents_url) or de_bkms.notice_page(str(native_id))
     opp.country = opp.country or "DE"
     opp.original_language = opp.original_language or "DE"
     opp.ted_ref = ted_ref
@@ -2203,9 +2218,10 @@ def from_ezamowienia(record: dict[str, Any]) -> Opportunity:
     # form in `noticeTypeTed`; both are kept, the BZP one first.
     notice_type = _first(g("noticeType"))
     native_type = notice_type or _first(g("noticeTypeTed"))
+    from .sources.ezamowienia import NOTICE_URL
+
     object_id = _first(g("objectId")) or _first(g("moIdentifier"))
-    url = (f"https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/{object_id}"
-           if object_id else None)
+    url = NOTICE_URL.format(object_id=object_id) if object_id else None
 
     deadline = parse_iso_datetime(g("submittingOffersDate"), default_tz=ZoneInfo(_PL_TZ))
 

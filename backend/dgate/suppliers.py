@@ -48,6 +48,7 @@ framework its source says it is based on. Natural persons have no page and no su
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter
 from datetime import datetime
 from typing import Any
@@ -67,6 +68,7 @@ from .normalise import (
     normalise_identifier,
     redact_emails,
 )
+from .ops.company_groups import GROUPS
 from .suppress import not_published, removed
 from .tenders import _buyer_names, _day, _id_of, _split, search_words
 
@@ -311,8 +313,17 @@ class UnderCodes(BaseModel):
     contracts: int
 
 
+class CompanyGroupRef(BaseModel):
+    """WP-96: the curated company group a supplier is listed under (`ops.company_groups`), with its source."""
+    key: str
+    name: str
+    source: str
+    members: int
+
+
 class Supplier(SupplierItem):
     underCodes: UnderCodes | None = None
+    group: CompanyGroupRef | None = None
     values: ValueTotals
     byYear: list[Count]
     byCpv: list[Count]
@@ -428,8 +439,18 @@ def _countries(value: str | None, name: str) -> list[str]:
 CPV_PART = re.compile(r"^[0-9]{2,8}$")
 
 
+def groups_named(words: list[str]) -> list[str]:
+    """WP-96: the curated groups whose name holds every one of the search words at the start of a word."""
+    out = []
+    for g in GROUPS:
+        name = re.findall(r"[a-z0-9]+", unicodedata.normalize("NFKD", g.name).encode("ascii", "ignore").decode().lower())
+        if words and all(any(n.startswith(w.lower()) for n in name) for w in words):
+            out.append(g.key)
+    return out
+
+
 def _filters(q: str | None, country: str | None, cpv: str | None,
-             buyer_country: str | None = None) -> tuple[list[str], dict[str, Any]]:
+             buyer_country: str | None = None, group: str | None = None) -> tuple[list[str], dict[str, Any]]:
     """The filters over the award set (`award_set`), with the window as a parameter. `country` is the supplier's
     country as the notice states it; `buyerCountry` the buyer's (the notice's), as the demand answer's countries;
     `cpv` any code of the notice under a prefix, an 8-digit code standing for its level (`award_set.prefix`), as the
@@ -437,11 +458,21 @@ def _filters(q: str | None, country: str | None, cpv: str | None,
     where: list[str] = []
     params: dict[str, Any] = {"since": since()}
     words = search_words((q or "").replace("\x00", "").strip())
+    named = groups_named(words)
+    # WP-96: words that name a curated company group ("Polska Grupa Zbrojeniowa", "PGZ") find its members too
+    member = " OR org.id IN (SELECT org_id FROM company_group_member WHERE group_key = ANY(%(named)s))" if named else ""
     for i, w in enumerate(words):
         # Each word begins a word of the supplier's normalised name or of a name as stated.
         where.append(f"(dg_fold(org.canonical_name) LIKE dg_word_pattern(%(q{i})s) "
-                     f"OR dg_fold(a.name_as_stated) LIKE dg_word_pattern(%(q{i})s))")
+                     f"OR dg_fold(a.name_as_stated) LIKE dg_word_pattern(%(q{i})s){member})")
         params[f"q{i}"] = w
+    if named:
+        params["named"] = named
+    if group:
+        if group not in {g.key for g in GROUPS}:
+            raise HTTPException(422, f"group: one of {', '.join(g.key for g in GROUPS)}")
+        where.append("org.id IN (SELECT org_id FROM company_group_member WHERE group_key = %(group)s)")
+        params["group"] = group
     if supplier := _countries(country, "country"):
         where.append("a.supplier_country = ANY(%(supplier)s)")
         params["supplier"] = supplier
@@ -472,6 +503,7 @@ def list_suppliers(
     country: str | None = Query(None, max_length=200),
     cpv: str | None = Query(None, max_length=200),
     buyerCountry: str | None = Query(None, max_length=200),
+    group: str | None = Query(None, max_length=40),
     sort: str = Query("awards", pattern="^(awards|name)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=100),
@@ -483,7 +515,7 @@ def list_suppliers(
                                  "country or product group")
     # WP-81: a country or product-group filter lists every supplier it selects, however few (the WP-39 "withheld"
     # answer for a group of fewer than 3 is lifted by the owner; `withheld` stays in the answer, always false)
-    where, params = _filters(q, country, cpv, buyerCountry)
+    where, params = _filters(q, country, cpv, buyerCountry, group if isinstance(group, str) else None)
     cond = " AND ".join([scope()] + where)
     order = "canonical_name, id" if sort == "name" else "n DESC, canonical_name, id"
     # The page is cut first and the shown spelling asked for its 20 rows only (asked before the cut it took a
@@ -720,6 +752,7 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
     return {
         **item,
         "underCodes": under,
+        "group": company_group_of(conn, org_id),
         "values": value_totals(sums, head["n"], largest=True),
         "byYear": [{"year": y, "awards": n} for y, n in by_year],
         "byCpv": [{"division": d, "awards": n} for d, n in by_cpv],
@@ -730,6 +763,15 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
         "namesAsStated": [redact_emails(r["v"]) for r in stated], "identifiers": list(numbers.values())[:3],
         "attribution": attribution,
     }
+
+
+def company_group_of(conn, org_id: int) -> dict[str, Any] | None:
+    """WP-96: the curated group the supplier is listed under, with its source and how many companies it lists."""
+    row = conn.execute(
+        """SELECT m.group_key, (SELECT count(*) FROM company_group_member x WHERE x.group_key = m.group_key) AS n
+             FROM company_group_member m WHERE m.org_id = %s""", (org_id,)).fetchone()
+    g = next((g for g in GROUPS if row and g.key == row["group_key"]), None)
+    return {"key": g.key, "name": g.name, "source": g.source, "members": row["n"]} if g and row else None
 
 
 def framework_refs(conn, ids: list[int]) -> dict[int, dict[str, Any]]:

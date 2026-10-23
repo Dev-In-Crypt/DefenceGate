@@ -105,7 +105,8 @@ def test_the_german_notice_links_to_its_documents_on_the_buyers_platform():
 
 def test_a_link_that_is_not_http_is_refused():
     opp = from_de_bkms(strip_personal_data(_record(_with_documents("javascript:alert(1)"))))
-    assert opp.source_url is None
+    # WP-96: the refused link leaves the notice's own page on oeffentlichevergabe.de, never the script
+    assert opp.source_url.startswith("https://oeffentlichevergabe.de/ui/de/search/details?noticeId=")
 
 
 # ------------------------------------------------------------- merge candidates

@@ -459,6 +459,8 @@ export interface CalendarPage {
   total: number;
   truncated: boolean;
   asOf?: IsoDateTime;
+  /** WP-96: open notices of the same filters that state no deadline (not in `items`; 0 with a date range). */
+  withoutDeadline?: number;
 }
 
 /** GET /v1/tenders/{slug}/versions, newest first. */
@@ -647,10 +649,12 @@ export interface Buyer {
   slug: string;
   name: string;
   country: string | null;
-  /** Core-scope notices. */
+  /** Notices of the list's default scope (All defence; WP-96, it was the core scope). */
   tenderCount: number;
   /** Of those, open now. */
   openCount: number;
+  /** WP-96: of the open ones, the military goods and works (`scope=core`). Only on the buyer's own page. */
+  openCoreCount?: number | null;
   lastPublishedAt: IsoDateTime | null;
   /** On the curated list of defence bodies. */
   isDefenceBuyer: boolean;
@@ -680,7 +684,8 @@ export interface MarketStats {
   months: MarketMonth[];
   countries: { total: number; items: { country: string; count: number }[]; other: number };
   sources: { id: string; name: string; count: number }[];
-  amendments: { notices: number; amended: number; share: number | null };
+  /** WP-96: `observedFrom`, since when the archive watched these notices: the share is shown once that is six months back, as on a buyer page. */
+  amendments: { notices: number; amended: number; share: number | null; observedFrom?: IsoDateTime | null };
   responseWindow: { notices: number; median: number | null; p25: number | null; p75: number | null };
   cpvGroups: { group: string; count: number }[];
   basis: Record<string, string>;
@@ -989,8 +994,10 @@ export interface Supplier extends SupplierItem {
   namesAsStated: string[];
   identifiers: string[];
   attribution: string;
+  /** WP-96: the curated company group it is listed under (a parent and its subsidiaries, never merged), with its source. */
+  group?: { key: string; name: string; source: string; members: number } | null;
 }
-export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
+export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
 export interface SupplierSummary {
   /** A group of fewer suppliers than this is not published. */
   kMin: number;

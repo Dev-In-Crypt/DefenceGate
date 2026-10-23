@@ -213,9 +213,11 @@ def _scope(since: date, today: date, country: str | None = None,
 
 
 def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
-    # The buyer's whole family: any member id gives the head's family (migration 0055).
-    return (f"{CORE_NOTICES} AND NOT o.buyer_withheld AND o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))",
-            [org_id])
+    # The buyer's whole family: any member id gives the head's family (migration 0055). WP-96: the tender list's default
+    # scope (All defence), as the buyer page's counts and lists are; it was the core scope, and a ministry's transport,
+    # catering and storage tenders were in no figure of its page.
+    return (f"o.is_defence AND NOT o.suppressed AND {_api().SCOPE_SQL['relevant']} AND NOT o.buyer_withheld "
+            "AND o.buyer_org_id = ANY(ARRAY(SELECT unnest(dgate_family_ids(%s))))", [org_id])
 
 
 # ------------------------------------------------------------ aggregates
@@ -299,6 +301,19 @@ def cpv_groups(conn, where: str, params: list[Any], top: int) -> list[dict[str, 
     return [{"group": r["g"], "count": r["n"]} for r in rows]
 
 
+def amendments_watched(conn, where: str, params: list[Any]) -> dict[str, Any]:
+    """The share (`amendment_share`) and since when the archive watched these notices (`observedFrom`: the first time
+    it saw the oldest of them). A share over a few weeks of watching says nothing; the site shows it once that is
+    HISTORY_DAYS old, on the market page as on a buyer page (WP-96: the market said 0 % where the buyer page said
+    "not shown yet")."""
+    out = amendment_share(conn, where, params)
+    out["observedFrom"] = conn.execute(
+        f"""SELECT min(v.observed_at) AS t FROM opportunity o
+              JOIN opportunity_version v ON v.opportunity_id = o.id AND v.version = 1 WHERE {where}""",
+        params).fetchone()["t"]
+    return out
+
+
 def amendment_share(conn, where: str, params: list[Any]) -> dict[str, Any]:
     """How many of the scope's notices have an amendment, as the tender page's timeline
     counts one. SQL names the notices with a version that could count (changed a listed
@@ -377,7 +392,7 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
         "months": lambda c: notices_per_month(c, today, starts=starts, country=country, cpv=cpv),
         "countries": lambda c: notices_per_country(c, where, params),
         "sources": lambda c: notices_per_source(c, where, params),
-        "amendments": lambda c: amendment_share(c, where, params),
+        "amendments": lambda c: amendments_watched(c, where, params),
         "responseWindow": lambda c: response_window(c, where, params),
         "cpvGroups": lambda c: cpv_groups(c, where, params, TOP_CPV_MARKET),
     }
@@ -500,7 +515,7 @@ PROFILE_BASIS = {
 
 
 def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any] | None:
-    """The buyer's own core-scope notices, or None when it has none (the buyer page's
+    """The buyer's own notices of the list's default scope (WP-96; it was the core scope), or None when it has none (the buyer page's
     404). `openNow` is as of now, with the status rule the tender list uses.
 
     WP-87: one unit everywhere, the notices the buyer's tender list shows: a notice published in TED and in a
@@ -528,15 +543,11 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
         f"""SELECT count(*) FILTER (WHERE o.published_at < %s) AS earlier,
                    count(*) FILTER (WHERE o.published_at IS NULL OR o.published_at > %s) AS undated
               FROM opportunity o WHERE {where}""", [date(first_year, 1, 1), today] + params).fetchone()
-    amendments = amendment_share(conn, where, params)
-    amendments["observedFrom"] = conn.execute(
-        f"""SELECT min(v.observed_at) AS t FROM opportunity o
-              JOIN opportunity_version v ON v.opportunity_id = o.id AND v.version = 1 WHERE {where}""",
-        params).fetchone()["t"]
+    amendments = amendments_watched(conn, where, params)
     return {
         "buyerId": str(head_id),
         "asOf": datetime.now(timezone.utc),
-        "scope": "core",
+        "scope": "relevant",
         "unit": "notices published",
         "tenderCount": head["n"],
         "openNow": head["open_n"],
@@ -598,6 +609,9 @@ def get_buyer_profile(slug: str):
 MAX_GAP_MONTHS = 120
 
 
+USUAL_MONTHS = 12
+
+
 def month_gaps(per_month: dict[str, int]) -> tuple[int, list[str]]:
     """(median notices per month, the months well below it) of one source, from the
     notices held per month of publication (`YYYY-MM`). The first and the last month are
@@ -616,7 +630,10 @@ def month_gaps(per_month: dict[str, int]) -> tuple[int, list[str]]:
     inner = grid[1:-1]
     if len(inner) < 3:
         return 0, []
-    counts = sorted(per_month.get(k, 0) for k in inner)
+    # WP-96: the usual month is that of the last USUAL_MONTHS whole months, what the source holds now. Over every month
+    # since 2015 it said "about 21" for PLACSP, which holds 41,142 notices, most of them recent; the older, thinner
+    # years show as months below half of it.
+    counts = sorted(per_month.get(k, 0) for k in inner[-USUAL_MONTHS:])
     mid = len(counts) // 2
     median = counts[mid] if len(counts) % 2 else (counts[mid - 1] + counts[mid]) / 2
     if median <= 0:

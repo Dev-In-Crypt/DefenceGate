@@ -28,6 +28,8 @@ export interface CalendarData {
   tendersHeld: number;
   /** Open tenders left off because their deadline is over three years ahead (framework agreements, DPS). */
   longRunning: number;
+  /** WP-96: open tenders of the same filters that state no deadline (the list shows them, a calendar cannot). */
+  withoutDeadline: number;
   /**
    * WP-87: the funder country (null: EU) of every open call, as /funding counts them: the calendar lists only those with a
    * coming deadline, so the page says how many of the open calls it holds and why the others are not on it.
@@ -43,7 +45,7 @@ const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10);
  * The open tenders with a deadline, all of them in one read (GET /v1/tenders/calendar). The calendar used to read five
  * pages of the list, the 500 earliest of 1,529, and November showed none of its 593 (UX audit T9).
  */
-async function loadTenders(ref: Date, filters: TenderFilters): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number }> {
+async function loadTenders(ref: Date, filters: TenderFilters): Promise<{ entries: CalendarEntry[]; total: number; held: number; longRunning: number; withoutDeadline: number }> {
   const page = await getTenderCalendar(filters);
   const entries: CalendarEntry[] = [];
   let longRunning = 0;
@@ -54,7 +56,7 @@ async function loadTenders(ref: Date, filters: TenderFilters): Promise<{ entries
     if (r.long) longRunning += 1;
     else if (r.entry) entries.push(r.entry);
   }
-  return { entries, total: Math.max(page.total, page.items.length), held: page.items.length, longRunning };
+  return { entries, total: Math.max(page.total, page.items.length), held: page.items.length, longRunning, withoutDeadline: page.withoutDeadline ?? 0 };
 }
 
 /** Calls that have not opened yet (`Opens soon`): the opening day, still to come, and the planned deadline. */
@@ -91,13 +93,13 @@ const byTime = (a: CalendarEntry, b: CalendarEntry) => new Date(a.deadline).getT
  */
 export async function loadCalendar(ref: Date = now(), tender: TenderFilters = {}): Promise<CalendarData> {
   const [t, c] = await Promise.all([
-    loadTenders(ref, tender).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0, longRunning: 0 })),
+    loadTenders(ref, tender).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], total: 0, held: 0, longRunning: 0, withoutDeadline: 0 })),
     loadCalls(ref).then((v) => ({ ok: true as const, ...v })).catch(() => ({ ok: false as const, entries: [] as CalendarEntry[], upcoming: [] as CalendarEntry[], openCalls: [] as (string | null)[] })),
   ]);
   const entries = [...t.entries, ...c.entries].sort(byTime);
   return {
     entries, upcoming: c.upcoming.sort(byTime), tendersOk: t.ok, callsOk: c.ok, tendersTotal: t.total, tendersHeld: t.held,
-    longRunning: t.longRunning, openCalls: c.openCalls,
+    longRunning: t.longRunning, withoutDeadline: t.withoutDeadline, openCalls: c.openCalls,
   };
 }
 

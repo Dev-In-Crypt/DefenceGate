@@ -364,6 +364,28 @@ def rejected_names(directory: Path | None = None) -> set[tuple[str, str]]:
     return out
 
 
+def rejected_only(conn, *, apply: bool = False, out: Callable[[str], None] = print) -> int:
+    """WP-96: only the flagged organisations a person rejected in the derived files (today: Nodrosinajuma valsts
+    agentura, LV, the Interior ministry's provision agency), nothing else of the cleanup. Report by default."""
+    from ..pipeline import SEEDS_FILE
+
+    gone = rejected_names()
+    out(f"seed folder {SEEDS_FILE.parent}: {len(gone)} rejected names {sorted(gone)}")
+    rows = [{**dict(r), "why": "rejected by a person in the derived list"} for r in conn.execute(
+        """SELECT id, country, canonical_name, defence_buyer_source AS source FROM organisation
+            WHERE is_defence_buyer AND merged_into IS NULL ORDER BY id""").fetchall()
+        if (r["country"].strip(), r["canonical_name"]) in gone]
+    for r in rows:
+        out(f"  {r['id']} {r['country']} {r['canonical_name']!r} (flag source {r['source']})")
+    if not apply:
+        conn.rollback()
+        out(f"{len(rows)} to unflag; dry run: nothing written (add --yes)")
+        return len(rows)
+    n = unflag(conn, rows)
+    out(f"unflagged {n}")
+    return n
+
+
 def unflag(conn, rows: list[dict[str, Any]]) -> int:
     n = 0
     for r in rows:
@@ -455,9 +477,14 @@ def main(argv: list[str] | None = None) -> int:
                    help="write the shared-identifier report (step 3) and the rename plan "
                         "(step 4) here")
     p.add_argument("--top", type=int, default=12)
+    p.add_argument("--rejected-only", action="store_true",
+                   help="WP-96: only unflag the names a person rejected in the derived files, nothing else")
     args = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     with db.connect(settings().dsn) as conn:
+        if args.rejected_only:
+            rejected_only(conn, apply=args.yes)
+            return 0
         run(conn, apply=args.yes, merge_conflicting=args.merge_conflicting, top=args.top,
             report_csv=args.report_csv)
     return 0

@@ -12,7 +12,7 @@ const BASIS = 'm-0 max-w-prose text-small text-ink-muted';
 /**
  * What a buyer's own notices add up to: how many a year, on what subjects, how long it gives to respond,
  * how often it amends, and where the notices came from. Counts of notices, never spend; the API computes
- * them from the buyer's core-scope notices only, so the page says that too.
+ * them from the buyer's notices of the list's default scope (WP-96: All defence; it was the core scope).
  */
 export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; name: string }) {
   const w = profile.responseWindow;

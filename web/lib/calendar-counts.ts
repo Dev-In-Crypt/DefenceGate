@@ -42,7 +42,16 @@ export interface CalendarCountsInput {
   /** Open tenders with a deadline under the filters, as the API counts them: the tenders list's count of the same filters. */
   tendersHeld: number;
   longRunning: number;
+  /** WP-96: open tenders of the filters that state no deadline: on the tenders list, never on a calendar. */
+  withoutDeadline?: number;
   openCalls: (string | null)[];
+}
+
+/** WP-96: the sentence for the open tenders without a deadline, which a calendar leaves out: said, never silent. */
+export function withoutDeadlineLine(n: number): string {
+  return n > 0
+    ? `${formatNumber(n)} open ${n === 1 ? 'tender states' : 'tenders state'} no deadline: the tenders list shows ${n === 1 ? 'it' : 'them'}, the calendar cannot.`
+    : '';
 }
 
 /**
@@ -61,11 +70,13 @@ export function calendarCounts(data: CalendarCountsInput, p: Params, shown: { te
       data.longRunning > 0 ? `${formatNumber(data.longRunning)} ${data.longRunning === 1 ? 'has' : 'have'} a deadline more than 3 years ahead (framework agreements and dynamic purchasing systems that stay open) and ${data.longRunning === 1 ? 'is' : 'are'} left off` : null,
       other > 0 ? `${formatNumber(other)} could not be placed on a day` : null,
     ].filter(Boolean);
+    const undated = withoutDeadlineLine(data.withoutDeadline ?? 0);
     out.push({
       key: 'tenders',
-      text: data.tendersHeld === shown.tenders
+      text: (data.tendersHeld === shown.tenders
         ? `Tenders: ${count(shown.tenders, 'deadline')}, every open tender with a deadline ahead under these filters, as the tenders list counts them.`
-        : `Tenders: ${count(shown.tenders, 'deadline')} of the ${formatNumber(data.tendersHeld)} open tenders with a deadline ahead that the tenders list counts under these filters; ${words(reasons as string[])}.`,
+        : `Tenders: ${count(shown.tenders, 'deadline')} of the ${formatNumber(data.tendersHeld)} open tenders with a deadline ahead that the tenders list counts under these filters; ${words(reasons as string[])}.`)
+        + (undated ? ` ${undated}` : ''),
       href, link: 'Open that list',
     });
   }

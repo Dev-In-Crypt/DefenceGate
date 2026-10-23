@@ -115,6 +115,8 @@ services:
               # access log is the one request log, and it has a 14-day limit (logprune).
               "--no-access-log"]
     environment:
+      # WP-96: uvicorn imports the package from the venv, where no seeds/ is: the image's defence buyer lists
+      DGATE_SEEDS_DIR: /app/seeds
       # The API reads and nothing else: a role with SELECT, a 5 s statement budget
       # and 30 connections (migration 0024). Its own password, not the owner's.
       DGATE_DSN: postgresql://dgate_api:${DGATE_API_PASSWORD}@postgres:5432/${POSTGRES_DB:-dgate}
@@ -198,6 +200,8 @@ services:
       DGATE_LLM_MONTHLY_CAP_USD: ${DGATE_LLM_MONTHLY_CAP_USD:-5}
       # The monthly PLACSP archive catch-up of the award results (WP-61): off until `true`.
       DGATE_PLACSP_AWARDS_CATCHUP: ${DGATE_PLACSP_AWARDS_CATCHUP:-false}
+      # WP-96: the defence buyer lists of the image (the package is also installed in the venv, where no seeds/ is)
+      DGATE_SEEDS_DIR: /app/seeds
       DGATE_RAW_BACKEND: ${DGATE_RAW_BACKEND:-fs}
       DGATE_RAW_DIR: /raw
       # The raw store is the thing the archive can be rebuilt from, so the

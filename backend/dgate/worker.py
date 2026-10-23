@@ -435,10 +435,12 @@ def job_buyer_families() -> JobResult:
     counts: dict[str, int] = {}
 
     def _run() -> None:
-        from .ops import buyer_families
+        from .ops import buyer_families, company_groups
 
         with db.connect(settings().dsn) as conn:
             counts.update(buyer_families.run(conn, write=True))
+            # WP-96: the curated company groups too (display layer, idempotent): a new winner of a listed name joins
+            counts["company_group_members"] = company_groups.run(conn, write=True, out=log.debug)["members"]
         log.info("buyer families: %s", ", ".join(f"{k} {v}" for k, v in counts.items()))
 
     result = run_job("buyer_families", _run)

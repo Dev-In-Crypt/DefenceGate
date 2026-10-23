@@ -77,6 +77,14 @@ export default async function SupplierPage({ params, searchParams }: Props) {
         {s.namesAsStated.length > 1 && (
           <p className="m-0 max-w-prose text-small text-ink-muted">Also published as: {s.namesAsStated.slice(1).join('; ')}.</p>
         )}
+        {/* WP-96: a curated company group (parent and subsidiaries, separate companies, never merged), with its source */}
+        {s.group && (
+          <p className="m-0 max-w-prose text-body" data-company-group>
+            Part of the <Link href={`/suppliers?group=${encodeURIComponent(s.group.key)}`} className="font-semibold">{s.group.name} group</Link>:{' '}
+            {formatNumber(s.group.members)} {s.group.members === 1 ? 'company' : 'companies'} on our curated list, each a company of its own.
+            <span className="block text-small text-ink-muted">Source of the list: {s.group.source}.</span>
+          </p>
+        )}
         {/* WP-88: one line; the coverage, the method and the removal route are in About this data. */}
         {/* WP-90: the open segment said where it cannot be missed, in one line; the coverage and the method stay in About this data */}
         <p className="m-0 max-w-prose rounded-md border-l-4 border-ink bg-surface-inset px-4 py-2.5 text-body font-semibold" data-open-segment>

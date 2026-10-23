@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { FactsGrid } from '@/components/dg/facts-grid';
 import { ClassifiedNote } from '@/components/dg/basis-chips';
+import { SCOPE_CHOICES } from '@/lib/taxonomy';
 import { Tag } from '@/components/dg/tag';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { TenderCard } from '@/components/dg/cards';
@@ -58,11 +59,12 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
   const page = pageOf(sp);
   // WP-90: a CPV filter on the buyer's own tenders (the tender list's reading: any code of a notice under the prefixes); the figures above stay all of them
   const cpv = parseTenderFilters(sp).cpv;
-  const own = { buyer: buyer.id, scope: 'core' as const, cpv };
+  const own = { buyer: buyer.id, cpv };
   const hrefOf = (p: number) => `/buyers/${buyer.slug}${toTenderQuery({ cpv, page: p, sort: undefined })}`;
   // Two fixed queries on the id the API gave us: open tenders first, then the history. No ordering across them is assumed.
-  // All of them in the scope the counts above are in (`core`: the notice itself is defence). The lists used the site's default,
-  // `relevant`, while "Open now" counted `core`, so a buyer could list more open tenders than it said it had (UX audit T14).
+  // All of them in the scope the counts above are in. WP-96: the tender list's default (All defence), as the counts now are:
+  // the core scope left out a ministry's transport, catering and storage tenders (NL Ministry of Defence: 5 open against the
+  // list's 27). The military goods and works among the open ones are counted beside "Open now".
   const [open, planned, earlier, profile, suppliers] = await Promise.all([
     page === 1 && (buyer.openCount > 0 || cpv)
       ? getTenders({ ...own, status: 'open', pageSize: OPEN_LIMIT }, { cacheable: !cpv })
@@ -97,8 +99,15 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
             {buyer.country ? <CountryLabel code={buyer.country} className="font-sans" /> : <span className="font-sans">Not stated</span>}
           </FactCell>
           {/* WP-87: the profile's total when there is one (notices shown once, the unit of every figure below), so the page has one number */}
-          <FactCell label="Tenders in archive"><span className="tabular-nums">{profile?.tenderCount ?? buyer.tenderCount}</span></FactCell>
-          <FactCell label="Open now"><span className="tabular-nums">{buyer.openCount}</span></FactCell>
+          <FactCell label="Tenders in archive"><span className="tabular-nums">{formatNumber(profile?.tenderCount ?? buyer.tenderCount)}</span></FactCell>
+          <FactCell label="Open now">
+            <span className="tabular-nums">{formatNumber(buyer.openCount)}</span>
+            {typeof buyer.openCoreCount === 'number' && buyer.openCount > 0 && (
+              <span className="block font-sans text-small text-ink-muted" data-open-core>
+                {formatNumber(buyer.openCoreCount)} of them {SCOPE_CHOICES.core.label.toLowerCase()}
+              </span>
+            )}
+          </FactCell>
           <FactCell label="Last published">
             {buyer.lastPublishedAt
               ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>
@@ -106,7 +115,9 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           </FactCell>
         </FactsGrid>
         {variantsLine(buyer.nameVariants) && <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
-        <p className="m-0 max-w-prose text-small text-ink-muted">Counts cover defence notices only; each notice shows its own source.</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted">
+          Counts cover the notices the tender list shows for this buyer under {SCOPE_CHOICES.relevant.label}: {SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}. Each notice shows its own source.
+        </p>
         {buyer.organisationSlug && (
           <p className="m-0 max-w-prose text-body">
             Also took part in funded projects: <Link href={`/organisations/${buyer.organisationSlug}`} className="font-semibold">see its projects, partners and EU funding</Link>.

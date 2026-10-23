@@ -332,7 +332,8 @@ def test_a_buyer_that_has_only_supply_notices_has_no_link_and_one_with_a_core_no
     store(conn, replace(opp("SUP-2", kind="supply", country="ES"), buyer_name_raw="Cuartel sin avisos"))
     by_id = {t["noticeId"]: t for t in listing(client)["items"]}
     assert by_id["CORE-1"]["buyerSlug"] and by_id["SUP-1"]["buyerSlug"] == by_id["CORE-1"]["buyerSlug"]
-    assert by_id["SUP-2"]["buyerSlug"] is None and by_id["SUP-2"]["buyerName"] == "Cuartel sin avisos"
+    # WP-96: a buyer page counts the list's default scope, so a buyer with only other purchases has a page and a link
+    assert by_id["SUP-2"]["buyerSlug"] and by_id["SUP-2"]["buyerName"] == "Cuartel sin avisos"
     assert by_id["SUP-2"]["buyerId"]                                    # the id still filters the list
     assert client.get(f"/v1/buyers/{by_id['CORE-1']['buyerSlug']}").status_code == 200
     # every link on the list resolves
@@ -411,8 +412,10 @@ def test_the_slugs_of_the_buyers_are_the_ones_with_an_open_notice_and_a_page(cli
     put(conn, "B-2", country="ES", status="awarded", deadline=PAST)
     put(conn, "B-3", kind="supply", country="FR")
     slugs = [s["slug"] for s in client.get("/v1/buyers/slugs").json()]
-    assert len(slugs) == 1 and slugs[0].endswith("ministry-pl")
-    assert client.get(f"/v1/buyers/{slugs[0]}").status_code == 200
+    # WP-96: the open supply notice's buyer has a page too (the list's default scope); the awarded one's has no open notice
+    assert len(slugs) == 2 and any(s.endswith("ministry-pl") for s in slugs) and any(s.endswith("ministry-fr") for s in slugs)
+    for s in slugs:
+        assert client.get(f"/v1/buyers/{s}").status_code == 200
 
 
 # ======================================================================= T16 / T18: sources

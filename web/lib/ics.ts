@@ -95,6 +95,8 @@ function event(e: CalendarEntry, dtstamp: string): string[] {
  */
 export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: {
   tendersBeyond?: number; longRunning?: number;
+  /** WP-96: open tenders of the filters that state no deadline, never in a calendar: said in its description. */
+  withoutDeadline?: number;
   /** WP-91: the calendar's own name and a sentence of its own (a funding search, one call); the defaults are the deadline calendar's. */
   name?: string; about?: string;
 } = {}): string {
@@ -107,6 +109,7 @@ export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: 
     beyond > 0 ? `${beyond} open tenders with later deadlines are not in it; narrow it with filters or see the tenders list.` : null,
     // WP-90: no silent cut: a deadline over three years ahead (a framework or a dynamic purchasing system) is left off, and counted
     long > 0 ? `${long} open ${long === 1 ? 'tender has' : 'tenders have'} a deadline more than three years ahead (frameworks, dynamic purchasing systems) and ${long === 1 ? 'is' : 'are'} not in it; the tenders list has them.` : null,
+    (opts.withoutDeadline ?? 0) > 0 ? `${opts.withoutDeadline} open ${opts.withoutDeadline === 1 ? 'tender states' : 'tenders state'} no deadline and ${opts.withoutDeadline === 1 ? 'is' : 'are'} not in it; the tenders list has them.` : null,
   ].filter(Boolean).join(' ');
   const lines = [
     'BEGIN:VCALENDAR',

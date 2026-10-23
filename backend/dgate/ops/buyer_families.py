@@ -146,13 +146,69 @@ def tax_id_groups(conn, pairs: list[tuple[int, int]], buyers: dict[int, Member],
     return out
 
 
+TWIN_NOTICE = "twin_notice"
+TWIN_CONFIDENCE = 0.85
+# Links that name the TED notice by an identifier (migration 0035); a `heuristic` twin is not enough to move a buyer.
+TWIN_METHODS = ("stated_ted_ref", "doue_ref", "procedure_id")
+
+
+def twin_pairs(conn) -> list[tuple[int, int]]:
+    """(the national copy's buyer, the TED twin's buyer) of every notice published in TED and in a national portal
+    under two buyer rows of one country (Video Downlink Track Antenna: TED 146213 under 'Ministry of Defence', its
+    TenderNed copy 146554 under 'Ministerie van Defensie'), the twin linked by an identifier."""
+    return [(r["copy"], r["twin"]) for r in conn.execute(
+        """SELECT o.buyer_org_id AS copy, t.buyer_org_id AS twin
+             FROM opportunity o
+             JOIN opportunity t ON t.native_id = o.ted_ref AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
+            WHERE o.ted_ref IS NOT NULL AND o.twin_method = ANY(%s) AND o.is_defence AND t.is_defence
+              AND NOT o.suppressed AND NOT t.suppressed AND NOT o.buyer_withheld AND NOT t.buyer_withheld
+              AND o.buyer_org_id IS NOT NULL AND t.buyer_org_id IS NOT NULL AND o.buyer_org_id <> t.buyer_org_id
+              AND o.country = t.country""", (list(TWIN_METHODS),)).fetchall()]
+
+
+def twin_groups(groups: list[Group], pairs: list[tuple[int, int]], buyers: dict[int, Member]) -> list[Group]:
+    """WP-96: the copy follows the twin's buyer family. A buyer row that no rule placed and whose notices are the
+    national copies of TED notices joins the family of the TED notices' buyer (the one most of its copies point at);
+    a twin's buyer with no family heads a new one. A row a rule placed is never moved, and a head is never made a
+    member."""
+    head_of = {m.org_id: g for g in groups for m in (g.head, *g.members)}
+    votes: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    for copy, twin in pairs:
+        if copy in head_of or copy not in buyers:
+            continue
+        target = head_of[twin].head.org_id if twin in head_of else twin
+        if target != copy:
+            votes[copy][target] += 1
+    added: dict[int, Group] = {}
+    for copy, by_target in sorted(votes.items()):
+        target = max(by_target, key=lambda t: (by_target[t], -t))
+        if target in votes:             # the target is itself a copy that moves: left alone (no chains)
+            continue
+        member = Member(copy, buyers[copy].name, buyers[copy].notices, TWIN_NOTICE, TWIN_CONFIDENCE,
+                        buyers[copy].reg_no)
+        if target in head_of:
+            head_of[target].members.append(member)
+        else:
+            g = added.get(target)
+            if g is None:
+                head = buyers.get(target)
+                if head is None:
+                    continue
+                g = added[target] = Group(f"twin:{target}", Member(target, head.name, head.notices, TWIN_NOTICE,
+                                                                   TWIN_CONFIDENCE, head.reg_no))
+            g.members.append(member)
+    return list(added.values())
+
+
 def all_groups(conn, extra_pairs: list[tuple[int, int]] = ()) -> list[Group]:
-    """The name rules first; the shared tax id joins only rows they left alone."""
+    """The name rules first; the shared tax id joins only rows they left alone; then a national copy's buyer follows
+    its TED twin's buyer (`twin_groups`)."""
     rows = organisations(conn)
     groups = groups_of(rows)
     placed = {m.org_id for g in groups for m in (g.head, *g.members)}
     buyers = {r[0]: Member(r[0], r[2], r[3], SHARED_TAX_ID, RULE, r[4]) for r in rows}
     groups += tax_id_groups(conn, tax_id_pairs(conn) + list(extra_pairs), buyers, placed)
+    groups += twin_groups(groups, twin_pairs(conn), buyers)
     groups.sort(key=lambda g: (-g.notices, g.key))
     return groups
 

@@ -32,6 +32,10 @@ Sources and what the corrections are (see docs/DATA_QUALITY_PLAN_2026-10-12.md):
                   (value, lots, publication date, no-winner outcome) is the replay's:
                   `pipeline placsp-backfill`.
 
+WP-96 (run each with `--epoch 96`): fr_boamp, an eForms deadline written with a Paris offset is Paris wall time on
+its own day (a November deadline stated "+02:00" was an hour early); de_bkms, a notice without BT-15 links its own
+page on oeffentlichevergabe.de; pl_ezam, the notice-details page (the old search-list address is PAGE_NOT_FOUND).
+
 Facts are never erased: when the mapper now returns nothing for a value, a date, a CPV
 list or a link the row already holds, the stored value is kept. Status and procedure,
 which were wrong rather than missing, are replaced. The one exception is a field a mapper

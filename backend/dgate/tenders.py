@@ -12,7 +12,7 @@ Decisions that shape it:
   - a national notice whose TED twin is in the same result is shown once; so is a
     BOAMP parent whose rectificatif is in the same result, and a TED procedure's
     re-publications (the newest that matches the filters wins; the rectificatif never
-    hides). The buyer aggregate: `tenderCount` counts every core notice of the buyer,
+    hides). The buyer aggregate: `tenderCount` counts every notice of the default scope of the buyer (WP-96),
     collapsed or not; `openCount` applies the list's own collapse and status rule
     (`collapse_clauses`), so it equals what `/v1/tenders?buyer=` lists as open
   - amounts are never converted; a value range selects one currency
@@ -308,6 +308,10 @@ class Buyer(BaseModel):
     nameVariants: int = 0
     # The profile of the same body in the networks layer (WP-28), when it took part in funded projects.
     organisationSlug: str | None = None
+    # WP-96: the counts are of the list's default scope (All defence); of the open ones, the military goods and works
+    # (`scope=core`). Only on the buyer's own page.
+    openCoreCount: int | None = None
+    scope: str = "relevant"
 
 
 class BuyerPage(BaseModel):
@@ -767,8 +771,8 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
 
 def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
     """Of the buyers of these notices, the ones that have a buyer page. A page exists for a buyer family
-    with at least one core notice (`aggregate_sql`); a buyer that only supplies (the armed forces buying
-    food) has none, and a link to it was a 404 for 73 of the 389 buyers of the open list (WP-52, T14).
+    with at least one notice of the default scope (`aggregate_sql`; WP-96: All defence, it was the core scope and a buyer
+    that only supplies (the armed forces buying food) had none, and a link to it was a 404 for 73 of the 389 buyers of the open list (WP-52, T14).
     A core notice settles it for its own buyer; the others are asked of the database in one query."""
     ids = {r["buyer_org_id"] for r in rows if r.get("buyer_org_id") and not r.get("buyer_withheld")}
     known = {r["buyer_org_id"] for r in rows
@@ -780,7 +784,7 @@ def buyers_with_page(conn, rows: list[dict[str, Any]]) -> set[int]:
         f"""SELECT x.id FROM unnest(%s::bigint[]) AS x(id)
              WHERE EXISTS (SELECT 1 FROM opportunity o
                             WHERE o.buyer_org_id = ANY(dgate_family_ids(x.id))
-                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld AND {CORE})""",
+                              AND o.is_defence AND NOT o.suppressed AND NOT o.buyer_withheld AND {_api().SCOPE_SQL["relevant"]})""",
         (ask,)).fetchall()
     return known | {r["id"] for r in got}
 
@@ -1354,6 +1358,8 @@ class CalendarPage(BaseModel):
     total: int
     truncated: bool
     asOf: datetime
+    # WP-96: open notices of the same filters that state no deadline, not in `items` (0 with a date range)
+    withoutDeadline: int = 0
 
 
 @router.get("/v1/tenders/calendar", response_model=CalendarPage, dependencies=[Depends(known_params)])
@@ -1382,6 +1388,10 @@ def tender_calendar(
     list reads them, so a filtered list and its calendar hold the same notices; any other parameter is a 422."""
     where, params, eff = _tender_filters(q, country, cpv, "open", scope, goods, None, from_, to,
                                          min_, max_, currency, cpv_main=cpvMain, not_cpv=notCpv)
+    # WP-96: the open notices of the same filters that state no deadline (a date range holds none of them), so the
+    # calendar and its file say how many the list shows and they do not (DE: 57, all of Europe: 76)
+    undated = (_count(conn, [*where, "o.deadline_at IS NULL"], params)[0]
+               if from_ is None and to is None else 0)
     where.append("o.deadline_at IS NOT NULL")
     rows = _rows(conn, where, params, [], ORDER_OPEN_DEADLINE, maxItems + 1, 0)
     truncated = len(rows) > maxItems
@@ -1413,7 +1423,8 @@ def tender_calendar(
             "statusNative": eff_status, "anomalies": notes, "sourceName": r["source_name"],
         })
     total = _count(conn, where, params)[0] if truncated else len(items)
-    return {"items": items, "total": total, "truncated": truncated, "asOf": datetime.now(timezone.utc)}
+    return {"items": items, "total": total, "truncated": truncated, "asOf": datetime.now(timezone.utc),
+            "withoutDeadline": undated}
 
 
 @router.get("/v1/tenders/slugs")
@@ -1852,9 +1863,9 @@ def aggregate_sql(*, exact: bool = False) -> str:
     per buyer FAMILY (`org_id` is the head's id: migration 0055, `buyer_family_member`; a
     buyer with no family is its own head).
 
-    `open_n` is counted as the buyer's own list counts it: the same scope (core) and collapse (a national
+    `open_n` is counted as the buyer's own list counts it: the same scope (WP-96: relevant, the list default; it was core) and collapse (a national
     notice and its TED twin, a rectificatif and its parent, a re-publication: one each), so it equals
-    `/v1/tenders?buyer=&status=open&scope=core`. `n`, with `exact=True`, is counted the same way, and equals
+    `/v1/tenders?buyer=&status=open&scope=relevant` (the default). `n`, with `exact=True`, is counted the same way, and equals
     `status=all`: the 3,329 the list shows for the largest buyer, where the plain count said 5,366 (WP-52, T14).
     The collapse is tested for each of the 68,000 core notices, which is 8 s on an idle server and over 30 s
     on a busy one: the worker runs it (`ops/warm_lists`, stored as `list_snapshot` key `buyer-base`) and the
@@ -1872,7 +1883,11 @@ def aggregate_sql(*, exact: bool = False) -> str:
 
 
 def _core_where() -> list[str]:
-    return ["o.is_defence = TRUE", "NOT o.suppressed", "NOT o.buyer_withheld", CORE,
+    """The notices a buyer's counts are of. WP-96: the tender list's default scope, `relevant` (All defence: military
+    goods and works and the other purchases of armed forces), so "Open now" on a buyer page is what the list shows for
+    the buyer (NL Ministry of Defence: 5 against the list's 27, all its transport, catering and storage tenders were
+    left out). The buyer page counts the military goods and works among the open ones apart (`get_buyer`)."""
+    return ["o.is_defence = TRUE", "NOT o.suppressed", "NOT o.buyer_withheld", _api().SCOPE_SQL["relevant"],
             "o.buyer_org_id IS NOT NULL"]
 
 
@@ -2095,6 +2110,13 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     row = {**row, "n": counts[at], "open_n": open_n[at], "last_published": last_published[at],
            "variants": variants[at]}
     out = _buyer(row, _buyer_names(conn, [row["id"]]))
+    # WP-96: of the open tenders (the list's default scope), the military goods and works, as `scope=core` counts them
+    if row["open_n"]:
+        where, params, _ = _tender_filters(None, None, None, "open", "core", None, row["id"], None, None, None,
+                                           None, None, conn=conn)
+        out["openCoreCount"] = _count(conn, where, params)[0]
+    else:
+        out["openCoreCount"] = 0
     from .network_api import network_slug_of_buyer
     out["organisationSlug"] = network_slug_of_buyer(
         conn, conn.execute("SELECT dgate_family_ids(%s) AS ids", (row["id"],)).fetchone()["ids"])

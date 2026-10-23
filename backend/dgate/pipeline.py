@@ -2215,7 +2215,24 @@ def run_atlas_backfill(year: int, *, path: Path | None = None,
             encoding="utf-8")
 
 
-SEEDS_FILE = Path(__file__).resolve().parents[1] / "seeds" / "defence_buyers.csv"
+def seeds_dir() -> Path:
+    """The folder of the defence buyer lists. Next to the package in a checkout (backend/seeds); but the image installs
+    the package into the virtualenv as well (Dockerfile: `pip install .`), and a process that imports it from there (a
+    console script such as uvicorn, or a working directory other than /app) found `site-packages/seeds`, which does not
+    exist: the built-in list was used and the derived files' person-rejected rows were never read (WP-96: the Latvian
+    Interior agency kept its flag). So `DGATE_SEEDS_DIR` when set, else the first folder that holds the list: next to
+    the package, the working directory's `seeds`, the image's `/app/seeds`."""
+    from .config import settings
+
+    if settings().seeds_dir:
+        return Path(settings().seeds_dir)
+    for d in (Path(__file__).resolve().parents[1] / "seeds", Path.cwd() / "seeds", Path("/app/seeds")):
+        if (d / "defence_buyers.csv").exists():
+            return d
+    return Path(__file__).resolve().parents[1] / "seeds"
+
+
+SEEDS_FILE = seeds_dir() / "defence_buyers.csv"
 
 
 def load_seed_rows(path: Path | None = None) -> dict[tuple[str, str], list[tuple[str, str]]]:

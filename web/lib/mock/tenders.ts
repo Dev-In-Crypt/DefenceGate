@@ -228,7 +228,10 @@ export function queryCalendar(ref: Date = now(), f: TenderFilters = {}): Calenda
       id: t.id, slug: t.slug, noticeId: t.noticeId, title: t.title, buyerName: t.buyerName, country: t.country, deadline: t.deadline!,
       deadlineFrom: null, scope: t.scope, status: t.status, statusNative: t.statusNative, anomalies: t.anomalies ?? [], sourceName: t.source.sourceName,
     }));
-  return { items, total: items.length, truncated: false, asOf: ref.toISOString() };
+  // WP-96: the open notices of the same filters that state no deadline (a date range holds none)
+  const withoutDeadline = f.deadlineFrom || f.deadlineTo ? 0
+    : queryTenders({ ...f, status: 'open', page: 1, pageSize: 100_000 }, ref).items.filter((t) => t.status === 'open' && t.deadline === null).length;
+  return { items, total: items.length, truncated: false, asOf: ref.toISOString(), withoutDeadline };
 }
 
 const CHANGE_WINDOW_DAYS = 14;
@@ -298,13 +301,15 @@ export function tenderVersions(slug: string): TenderVersion[] | null {
 }
 
 export function allBuyers(ref: Date = now()): Buyer[] {
-  const tenders = allTenders(ref).filter((t) => t.scope === 'core');
+  // WP-96: the list's default scope (All defence: core and supply), as the API counts a buyer now
+  const tenders = allTenders(ref);
   return RAW_BUYERS.map((b, i) => {
     const mine = tenders.filter((t) => t.buyerId === buyerId(i));
     const published = mine.flatMap((t) => (t.publishedAt ? [t.publishedAt] : [])).sort();
+    const open = mine.filter((t) => t.status === 'open');
     return {
       id: buyerId(i), slug: `${buyerId(i)}-${b.words}`, name: b.name, country: b.country,
-      tenderCount: mine.length, openCount: mine.filter((t) => t.status === 'open').length,
+      tenderCount: mine.length, openCount: open.length, openCoreCount: open.filter((t) => t.scope === 'core').length,
       lastPublishedAt: published.at(-1) ?? null, isDefenceBuyer: b.defence,
       nameVariants: i === 0 ? 2 : 0,
     };
@@ -313,10 +318,10 @@ export function allBuyers(ref: Date = now()): Buyer[] {
 
 export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer> {
   const q = f.q?.toLowerCase();
-  // Only buyers with at least one core-scope notice are listed.
+  // Only buyers with at least one notice of the default scope are listed (WP-96: it was the core scope).
   // WP-89: a CPV filter keeps the buyers with a core notice under one of the prefixes; their counts stay all of their notices
   const withCode = f.cpv?.length
-    ? new Set(allTenders(ref).filter((t) => t.scope === 'core' && t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))).map((t) => t.buyerId))
+    ? new Set(allTenders(ref).filter((t) => t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))).map((t) => t.buyerId))
     : null;
   let items = allBuyers(ref).filter((b) => {
     if (b.tenderCount === 0) return false;

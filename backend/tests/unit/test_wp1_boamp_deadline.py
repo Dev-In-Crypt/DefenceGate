@@ -27,9 +27,12 @@ def at(day: str, hh: int, mm: int, offset_hours: int) -> datetime:
 
 
 def test_a_notice_without_the_column_gets_its_deadline_from_the_body():
-    """26-98330: EndDate 2026-11-30+01:00, EndTime 16:00:00.000+02:00 on a single lot."""
+    """26-98330: EndDate 2026-11-30+01:00, EndTime 16:00:00.000+02:00 on a single lot.
+
+    WP-96: the +02:00 is the offset of the publication day (summer); on 30 November Paris is at +01:00 and BOAMP's
+    page prints the wall time (p10: "12h00" on 19 November, shown here an hour early). 16:00 Paris is 15:00 UTC."""
     o = from_boamp(NOTICES["single_lot_offset_mismatch"])
-    assert o.deadline_at == at("2026-11-30", 16, 0, 2)
+    assert o.deadline_at == at("2026-11-30", 16, 0, 1)
     assert o.status == "open"
 
 

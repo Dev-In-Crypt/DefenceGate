@@ -211,6 +211,9 @@ class Settings:
     # --- database -------------------------------------------------------
     dsn: str = field(repr=False, default_factory=lambda: _env(
         "DGATE_DSN", "postgresql://dgate:dgate@localhost:5432/dgate"))
+    # WP-96: the folder of the defence buyer lists (seeds/); empty: found next to the package, in the working directory or
+    # at /app/seeds (`pipeline.seeds_dir`)
+    seeds_dir: str = field(default_factory=lambda: _env("DGATE_SEEDS_DIR", ""))
     # The public API's own connection, a role that can only read (migration 0024).
     # Unset means it uses `dsn`, so a rollout can move the API first.
     api_dsn: str | None = field(repr=False, default_factory=lambda: os.environ.get("DGATE_API_DSN") or None)

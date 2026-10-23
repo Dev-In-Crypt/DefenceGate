@@ -29,7 +29,7 @@ export function marketStats(ref: Date = new Date()): MarketStats {
     months,
     countries: { total: 1900, items: [{ country: 'DE', count: 410 }, { country: 'PL', count: 330 }, { country: 'FR', count: 280 }, { country: 'ES', count: 190 }], other: 690 },
     sources: [{ id: 'ted', name: 'TED', count: 1500 }, { id: 'fr_boamp', name: 'BOAMP', count: 250 }, { id: 'pl_ezam', name: 'e-Zamówienia', count: 150 }],
-    amendments: { notices: 1900, amended: 14, share: 0.0074 },
+    amendments: { notices: 1900, amended: 14, share: 0.0074, observedFrom: '2026-09-18T06:00:00Z' },
     responseWindow: { notices: 1500, median: 35, p25: 24, p75: 49 },
     cpvGroups: [{ group: '354', count: 410 }, { group: '351', count: 300 }, { group: '353', count: 220 }],
     basis: BASIS,

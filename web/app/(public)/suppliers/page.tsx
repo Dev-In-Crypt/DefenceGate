@@ -45,7 +45,9 @@ function parse(sp: SearchParams) {
   const sort = first(sp.sort) === 'name' ? ('name' as const) : ('awards' as const);
   const n = Number(first(sp.page));
   const page = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), MAX_PAGE) : 1;
-  return { q, country, buyerCountry, cpv, product, sort, page };
+  // WP-96: a curated company group (`/suppliers?group=rheinmetall`), its key as the API knows it
+  const group = first(sp.group).toLowerCase().replace(/[^a-z]/g, '').slice(0, 40);
+  return { q, country, buyerCountry, cpv, product, sort, page, group };
 }
 
 function href(f: ReturnType<typeof parse>, page: number): string {
@@ -55,6 +57,7 @@ function href(f: ReturnType<typeof parse>, page: number): string {
   if (f.buyerCountry) p.set('buyerCountry', f.buyerCountry);
   if (f.cpv) p.set('cpv', f.cpv);
   if (f.product) p.set('product', f.product);
+  if (f.group) p.set('group', f.group);
   if (f.sort !== 'awards') p.set('sort', f.sort);
   if (page > 1) p.set('page', String(page));
   return `/suppliers${p.size ? `?${p.toString()}` : ''}`;
@@ -62,7 +65,7 @@ function href(f: ReturnType<typeof parse>, page: number): string {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parse(await searchParams);
-  let noindex = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.page > 1 || f.sort !== 'awards');
+  let noindex = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group || f.page > 1 || f.sort !== 'awards');
   if (!noindex) {
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
@@ -97,7 +100,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const f = parse(sp);
   const notices = ignoredFilters(sp, 'suppliers');
-  const filtered = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product);
+  const filtered = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group);
   const { match, unknown, none, api } = withProduct(f);
   let result;
   let full;
@@ -152,6 +155,12 @@ export default async function SuppliersPage({ searchParams }: Props) {
         <h2 id="results-heading" className="m-0 text-h2">
           {result.total === 0 ? 'No suppliers' : `Suppliers (${formatNumber(result.total)})`}
         </h2>
+        {f.group && (
+          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small" data-group-view>
+            The companies of a curated company group (a parent and its subsidiaries, from the source named on each company&rsquo;s page). Each
+            is a company of its own with its own contracts; nothing is merged or added up across them. <Link href="/suppliers" className="font-semibold">Show every supplier</Link>
+          </p>
+        )}
         <LiveForm defaults={{ sort: 'awards' }}>
         <form method="get" action="/suppliers" role="search" aria-label="Find suppliers" className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-small font-semibold">Company name

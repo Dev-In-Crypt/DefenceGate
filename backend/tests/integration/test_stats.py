@@ -252,12 +252,13 @@ def test_a_buyer_profile_is_the_buyers_own_core_notices(client, conn):
          cpv=("35810000",), source="fr_boamp")
     _put(conn, "LAPSED", buyer="Big Buyer", published=date(today.year - 1, 3, 1), days=10)
     _put(conn, "OTHER", buyer="Other Buyer")
-    _put(conn, "SUPPLY", buyer="Big Buyer", cpv=("15000000",), sig_buyer=True)   # not core
+    # WP-96: the profile is of the list's default scope (core and supply); a dual-use purchase is in neither
+    _put(conn, "DUAL", buyer="Big Buyer", dual_use=True)
     listed = client.get("/v1/buyers").json()["items"]
     slug = next(b["slug"] for b in listed if b["name"] == "Big Buyer")
 
     body = client.get(f"/v1/buyers/{slug}/profile").json()
-    assert body["tenderCount"] == 5 and body["scope"] == "core"
+    assert body["tenderCount"] == 5 and body["scope"] == "relevant"
     assert body["unit"] == "notices published"
     years = {y["year"]: y["count"] for y in body["perYear"]}
     assert len(body["perYear"]) == stats.BUYER_YEARS
@@ -276,12 +277,17 @@ def test_a_buyer_profile_is_the_buyers_own_core_notices(client, conn):
 
 
 def test_an_unknown_buyer_or_one_with_no_core_notice_has_no_profile(client, conn):
+    # WP-96: the profile is of the list's default scope: a buyer with only other purchases has one, a buyer with only a
+    # dual-use purchase (in no default scope) has none
     _put(conn, "S", buyer="Supply Only", cpv=("15000000",), sig_buyer=True)
+    _put(conn, "D", buyer="Dual Only", dual_use=True)
     assert client.get("/v1/buyers/999999-nobody/profile").status_code == 404
     assert client.get("/v1/buyers/not-a-number/profile").status_code == 404
     oid = conn.execute("SELECT id FROM organisation WHERE canonical_name ILIKE 'supply only'"
                        ).fetchone()["id"]
-    assert client.get(f"/v1/buyers/{oid}-supply-only/profile").status_code == 404
+    assert client.get(f"/v1/buyers/{oid}-supply-only/profile").json()["tenderCount"] == 1
+    oid = conn.execute("SELECT id FROM organisation WHERE canonical_name ILIKE 'dual only'").fetchone()["id"]
+    assert client.get(f"/v1/buyers/{oid}-dual-only/profile").status_code == 404
 
 
 def test_a_profile_is_cached_per_buyer_and_an_unknown_one_is_not_cached(client, conn):

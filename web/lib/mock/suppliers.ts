@@ -19,7 +19,9 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
   const cpv = (f.cpv ?? '').split(',').filter(Boolean);
   // every demo supplier has the same three demo buyers (findSupplier): a buyer country among theirs keeps them all
   const buyers = (f.buyerCountry ?? '').split(',').filter(Boolean);
+  // WP-96: a curated group's members are, in the demo data, the companies whose name begins with the group's key
   let items = ITEMS.filter((s) => (!q || s.name.toLowerCase().includes(q))
+    && (!f.group || s.name.toLowerCase().startsWith(f.group))
     && (countries.length === 0 || countries.includes(s.country))
     && (buyers.length === 0 || buyers.some((b) => ['FR', 'DE', 'PL'].includes(b)))
     && (cpv.length === 0 || cpv.some((c) => s.cpvDivisions.some((d) => d.startsWith(c.slice(0, 2))))));
@@ -53,6 +55,8 @@ export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?:
   return {
     ...s,
     underCodes,
+    // WP-96: the demo's curated group, of every demo company (querySuppliers reads `group` as a name prefix)
+    group: s.id === '1' ? { key: 'demo', name: 'Demo', source: 'Demo group list (demo data)', members: ITEMS.length } : null,
     values: {
       byCurrency: [{ currency: 'EUR', amount: [1_200_000, 1_500_000, 1_800_000].slice(0, valued).reduce((a, b) => a + b, 0), count: valued, lotEstimates: 0 }],
       of: s.awardCount, withoutValue: s.awardCount - valued, shared: Math.min(3, s.awardCount - valued),

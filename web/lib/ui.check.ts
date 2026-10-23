@@ -317,7 +317,7 @@ assert.deepEqual(monthRanges(['2026-05', '2026-06', '2026-07', '2026-12', '2027-
 assert.deepEqual(monthRanges(['x', '2026-13']), []);
 assert.equal(
   gapSentence({ name: 'Poland (e-Zamówienia)', heldFrom: '2026-01-02', heldTo: '2026-10-12', monthlyMedian: 1100, gapMonths: ['2026-02', '2026-03'] }),
-  'Poland (e-Zamówienia): publication dates 2 Jan 2026 to 12 Oct 2026. The usual month holds about 1,100 notices. Months with fewer than half of that: Feb to Mar 2026.',
+  'Poland (e-Zamówienia): publication dates 2 Jan 2026 to 12 Oct 2026. In the last 12 months the usual month held about 1,100 notices. Months with fewer than half of that: Feb to Mar 2026.',
 );
 assert.equal(gapSentence({ name: 'TED', heldFrom: '2026-01-02', heldTo: '2026-10-12', gapMonths: undefined }), null);
 assert.match(gapSentence({ name: 'TED', heldFrom: '2026-01-02', heldTo: '2026-10-12', monthlyMedian: 900, gapMonths: [] }) ?? '', /No whole month/);

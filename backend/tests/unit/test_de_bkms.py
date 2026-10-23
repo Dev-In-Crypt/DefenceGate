@@ -100,7 +100,9 @@ def test_a_defence_call_maps_through_the_ted_mapper():
     assert opp.deadline_at == datetime(2026, 10, 26, 12, 0, tzinfo=timezone(timedelta(hours=1)))
     assert opp.security_clearance_required is True
     assert opp.value_amount == 250000.0 and opp.value_currency == "EUR"
-    assert opp.source_url is None and opp.ted_ref is None
+    # WP-96: no documents link in the notice: its own page on oeffentlichevergabe.de, from the notice id
+    assert opp.source_url == ("https://oeffentlichevergabe.de/ui/de/search/details?"
+                              "noticeId=129f4d26-440e-4017-91b5-df3a10cf3f30") and opp.ted_ref is None
     assert opp.lot_count == 1
 
 

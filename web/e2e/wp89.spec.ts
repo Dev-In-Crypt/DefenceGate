@@ -145,7 +145,8 @@ test('/buyers and /market take a CPV code', async ({ page }, info) => {
   await visit(page, '/market?cpv=343', { title: /market/i, h1: 'Market overview' });
   await expect(page.getByLabel('CPV code (optional)')).toHaveValue('343');
   await expect(page.getByRole('heading', { name: /Notices published per month/ }).first()).toBeVisible();
-  await expect(page.locator('main').getByText(/^Notices, .*, CPV 343$/).first()).toBeVisible();
+  // WP-96: the headline names the set it counts ("Notices of military goods and works, ...")
+  await expect(page.locator('main').getByText(/^Notices of military goods and works, .*, CPV 343$/).first()).toBeVisible();
   await expect(page.locator('a[href*="/tenders?country="]').first()).toHaveAttribute('href', /&cpv=343$/);
 });
 

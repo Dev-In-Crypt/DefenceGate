@@ -151,7 +151,8 @@ export function gapSentence(s: { name: string; heldFrom?: string | null; heldTo?
   const span = heldSpan(s.heldFrom, s.heldTo);
   if (!span || s.gapMonths === undefined || s.gapMonths === null) return null;
   const median = s.monthlyMedian ?? 0;
-  const usual = median >= 10 ? ` The usual month holds about ${median.toLocaleString('en-GB')} notices.`
+  // WP-96: the API's median is over the last 12 whole months (it was every month since the first, "about 21" for PLACSP's 41,142)
+  const usual = median >= 10 ? ` In the last 12 months the usual month held about ${median.toLocaleString('en-GB')} notices.`
     : median > 0 ? ' The usual month holds only a handful of notices, so month-by-month gaps say little.' : '';
   // A source with only a handful of notices a month has no meaningful "half of the usual month".
   if (median > 0 && median < 10) return `${s.name}: publication dates ${span}.${usual}`;

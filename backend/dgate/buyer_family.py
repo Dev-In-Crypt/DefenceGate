@@ -54,7 +54,41 @@ NAMED: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
     # budget unit signs for, and one record carries a removed e-mail address after the name.
     ("agencja_uzbrojenia", "PL", re.compile(r"^(?:skarb panstwa\s*-?\s*)?agencja uzbrojenia\b"),
      "one budget unit, with and without the State Treasury in front"),
+    # WP-96: the Dutch Ministry of Defence publishes as the ministry, as its materiel organisation (DMO, 7 spellings), its
+    # service centres (CDC), its support command (DOSCO), its armed services and logistics centres, in Dutch and English
+    # ("Ministry of Defence (MoD)", "Defence Materiel Organisation (DMO)"): one ministry, one buyer with its units.
+    ("nl_defensie", "NL", re.compile(
+        r"^(?:ministerie van defensie|ministry of defen[cs]e\b|defensie materieel organisatie|defen[cs]e materi[ae]l"
+        r" organi[sz]ation|dmo\b|commando dienstencentra|cdc\b|defensie ondersteuningscommando|dosco\b"
+        r"|commando (?:landstrijdkrachten|zeestrijdkrachten|luchtstrijdkrachten)|clas\b|czsk\b|clsk\b"
+        r"|koninklijke (?:marine|landmacht|luchtmacht)\b|logisti(?:ek|c) cent(?:rum|re) woensdrecht|matlogco\b)"),
+     "one ministry: the Ministerie van Defensie and its units (DMO, CDC, DOSCO, the armed services), Dutch and English"),
+    # Spain's army logistics command's economic affairs office, written JAEMALE, Jae Male and JAE MALE.
+    ("jae_male", "ES", re.compile(r"^jae ?male\b"),
+     "one office (Jefatura de Asuntos Economicos del Mando de Apoyo Logistico), with and without a space"),
 )
+
+# WP-96: spellings of one name that the stored form keeps apart, per country: a German abbreviation and a typo of the
+# notices ("Staatl. Hochbauamt" / "Staatliches Hochbauamt", "Beschafffungsamt des BMI").
+_SPELLINGS: dict[str, tuple[tuple[re.Pattern[str], str], ...]] = {
+    "DE": ((re.compile(r"^staatl\b"), "staatliches"), (re.compile(r"\bbeschafffung"), "beschaffung")),
+}
+# The State Treasury ('Skarb Panstwa') in front of a Polish budget unit, and the seat after a numbered logistics base or
+# military economic department ('1 Regionalna Baza Logistyczna w Walczu'): one unit with and without them.
+_PL_TREASURY = re.compile(r"^skarb panstwa\s+")
+_PL_SEAT = re.compile(r"^(\d+ (?:regionalna baza logistyczna|wojskowy oddzial gospodarczy)) w \w+$")
+
+
+def _spelled(country: str, name: str) -> str:
+    """The name with a dash read as a space and the country's spellings made one (`_SPELLINGS`, the Polish treasury
+    prefix and seat)."""
+    out = re.sub(r"\s*-\s*", " ", name).strip()
+    for rx, repl in _SPELLINGS.get(country, ()):
+        out = rx.sub(repl, out)
+    if country == "PL":
+        out = _PL_TREASURY.sub("", out)
+        out = _PL_SEAT.sub(r"\1", out)
+    return re.sub(r"\s+", " ", out)
 
 # Renamed bodies (WP-87, owner decision of 22 October 2026): a curated list of a predecessor's names and the family of
 # its successor, each with the evidence and a confidence that are stored with the member (`buyer_family_member.method`
@@ -102,6 +136,10 @@ def family_of(country: str | None, name: str | None) -> Family | None:
         stripped = _fr_stripped(n)
         if stripped and stripped != n:
             return Family(f"{c}:{stripped}", "fr_ministry", RULE)
+    spelled = _spelled(c, n)
+    if spelled and spelled != n:
+        # WP-96: dash, abbreviation, typo, treasury prefix or seat variants of one name
+        return Family(f"{c}:{spelled}", "spelling_variant", RULE)
     return Family(f"{c}:{n}", "identical_name", IDENTICAL)
 
 

@@ -123,9 +123,10 @@ test('T16 / T18: a monthly source is not stale after three days, and a partial r
 });
 
 test('T14: a buyer page lists the open tenders its "Open now" counts', async ({ page }) => {
-  // Demo buyer 4 has two open core notices and one open supply notice; "Open now" counts core, so the list must too.
+  // Demo buyer 4 has two open core notices and one open supply notice; "Open now" counts the list's default scope (WP-96: it
+  // counted core), so the list must too. The cell's number is its first figure (a line under it names the core ones).
   await visit(page, '/buyers/4-demo-defence-materiel-organisation', { title: /DefenceGate|Demo/, h1: /.+/ });
-  const openNow = Number((await page.locator('dt', { hasText: 'Open now' }).locator('xpath=following-sibling::dd[1]').innerText()).replace(/\D/g, ''));
+  const openNow = Number((await page.locator('dt', { hasText: 'Open now' }).locator('xpath=following-sibling::dd[1]').locator('.tabular-nums').first().innerText()).replace(/\D/g, ''));
   expect(openNow).toBeGreaterThan(0);
   const listed = page.locator('section[aria-labelledby="open-tenders"] article');
   await expect(listed).toHaveCount(openNow);
