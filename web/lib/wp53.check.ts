@@ -114,7 +114,7 @@ assert.equal(line(117, 'country', company({ management: '' })).verdict, 'check',
 assert.equal(line(117, 'country', company({ management: 'other', managementCountry: 'CH' })).verdict, 'check', 'executive management in a country the call does not name');
 assert.equal(line(117, 'country', company({ management: 'other', managementCountry: 'NO' })).verdict, 'yes', 'in an EEA country, which the call names');
 const ukCountries = factsOf(113).eligible_countries;
-assert.equal(line(113, 'country', company({ country: 'UA', uaOccupied: 'no' })).verdict, 'check', 'a Ukrainian company still checks the list of countries');
+assert.equal(line(113, 'country', company({ country: 'UA', uaOccupied: 'no' })).verdict, 'yes', 'WP-93: the call names Ukraine, so a Ukrainian company is eligible on the country (it was a check)');
 assert.equal(countryNote(ukCountries, 'UA', checkProfileOf(company({ country: 'UA', uaOccupied: 'no' }))!.more), '', 'but the note about the areas is answered');
 assert.match(countryNote(ukCountries, 'UA', checkProfileOf(company({ country: 'UA', uaOccupied: '' }))!.more), /non-government/, 'a Ukrainian company that did not answer keeps the note');
 assert.match(countryNote(ukCountries, 'UA', checkProfileOf(company({ country: 'UA', uaOccupied: 'yes' }))!.more), /non-government/);

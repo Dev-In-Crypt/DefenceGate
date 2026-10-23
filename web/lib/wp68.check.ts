@@ -73,7 +73,7 @@ assert.equal(Object.keys(toRequest(de({}))!.profile).filter((f) => DE_QUESTIONS.
 const stored = parseProfile({ ...JSON.parse(exportProfile(sup)), supplier: { ...sup.supplier, answers: {
   de_ausfuhrliste: 'yes', dualuse_annex_i: 'part_i_a', ghb_admitted: 'neither', sibe_appointed: 'yes', 'REQ-EXPORT': 'no', unknown_field: 'yes',
 } } });
-assert.equal(stored.version, 3);
+assert.equal(stored.version, 4);
 assert.deepEqual(stored.supplier.answers, { sibe_appointed: 'yes', 'REQ-EXPORT': 'no' }, 'each answer only from its own choices');
 const back = importProfile(exportProfile(sup));
 assert.ok(back.ok && back.profile.supplier.answers.de_ausfuhrliste === 'unsure' && back.profile.supplier.answers.dualuse_annex_i === 'unsure');

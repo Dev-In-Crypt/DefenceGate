@@ -55,6 +55,13 @@ def after(call_id: int) -> dict[str, object]:
     return {n: f["value"] for n, f in served(call_id)["facts"].items()}
 
 
+def test_wp93_a_topics_border_authorities_are_required_partners_and_the_annexes_list_of_who_may_apply_stays():
+    for cid in (43, 69):
+        got = served(cid)["facts"]
+        assert got["required_partners"]["value"].startswith("at least 2 Border")
+        assert got["entity_types"]["scope"] == "general" and "Legal" in str(got["entity_types"]["value"])
+
+
 # What the verifier judged wrong and the checks must take away (call ids), and why.
 GONE = {
     "cascade_funding": {138, 140, 59, 33, 36, 60, 69, 43,    # F1: general "where the topic allows"

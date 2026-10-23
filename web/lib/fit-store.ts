@@ -17,8 +17,8 @@
  * is no hydration mismatch; badges appear after hydration. The profile is read again every time an item mounts,
  * so a profile changed on /readiness is seen after a client-side navigation.
  */
-import type { EligibilityFacts } from './eligibility-check';
-import { applicantFit, fitOf, fitsProfile, programmeFit, programmesOfCall, shownFit, withProgramme, type Fit, type FitResult } from './fit';
+import type { EligibilityFact, EligibilityFacts } from './eligibility-check';
+import { callFit, fitsProfile, programmesOfCall, shownFit, type Fit, type FitResult } from './fit';
 import { PROFILE_KEY, loadProfile, toRequest, type Profile } from './profile';
 import { assess } from './readiness';
 import { topicScore, topicWords } from './funding-path';
@@ -68,11 +68,8 @@ function codesOf(id: string): string[] {
 
 /** The fit of one call to the saved profile; `unknown` while its facts have not come. */
 export function fitFor(id: string): FitResult {
-  const entry = entries.get(id);
-  const doc: FitResult = entry && entry.state === 'read' ? fitOf(entry.facts, profile) : { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
-  const withRules = withProgramme(doc, programmeFit(programmes.data, codesOf(id)));
-  // Who may apply to some EDIP calls (common procurement is not open to a company): the rules of the API need the call, a badge does not have it.
-  return entry ? withProgramme(withRules, applicantFit(entry.programme, entry.topic, profile)) : withRules;
+  // WP-93: the one verdict (lib/fit.ts `callFit`), the same on the call page
+  return callFit(entries.get(id) ?? null, profile, programmes.data);
 }
 
 /**
@@ -131,13 +128,14 @@ async function flush(): Promise<void> {
       const res = await fetch(`/api/fit/facts?ids=${ids.join(',')}`, { headers: { accept: 'application/json' }, credentials: 'omit' });
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as { items?: Record<string, {
-        state: Entry['state']; programme?: string; topic?: string; facts?: Record<string, { value: unknown; note?: string | null; scope?: string }>;
+        state: Entry['state']; programme?: string; topic?: string; facts?: Record<string, { value: unknown; note?: string | null; quote?: string | null; scope?: string }>;
       }> };
       for (const id of ids) {
         const item = body.items?.[id];
         entries.set(id, item ? {
           state: item.state, programme: item.programme ?? '', topic: item.topic ?? '',
-          facts: Object.fromEntries(Object.entries(item.facts ?? {}).map(([k, v]) => [k, { value: v.value, note: v.note ?? null, quote: '', confidence: 1, scope: v.scope as 'call_document' | 'general' | 'topic' | undefined }])),
+          // WP-93 (fix 5): the quote comes too, so that the badge reads the same sentence as the call page (call 45: "controlled by China")
+          facts: Object.fromEntries(Object.entries(item.facts ?? {}).map(([k, v]) => [k, { value: v.value, note: v.note ?? null, quote: v.quote ?? '', confidence: 1, scope: v.scope as EligibilityFact['scope'] }])),
         } : null);
       }
     } catch {

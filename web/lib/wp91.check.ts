@@ -101,7 +101,7 @@ assert.equal(applySummary({ rulesApply: cpa, documentEligibility: null }, 'PL', 
 const edfUa: RulesApply = { ...usiRules, forCompany: [], byCountry: { EU: [], EEA_EFTA: [], OTHER: [], UA: [o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'conditional', [], 'Your company is established in Ukraine.')] } };
 assert.match(applySummary({ rulesApply: edfUa, documentEligibility: null }, 'UA')!.lines[0].text, /^From Ukraine: only on a condition\. Your company is established in Ukraine\./);
 const none = applySummary({ rulesApply: null, documentEligibility: null }, 'PL')!;
-assert.equal(none.verdict, 'check');
+assert.equal(none.verdict, 'unknown', 'WP-93 (finding 6): nothing held is "Rules not read", never "Possible"');
 assert.match(none.lines[0].text, /No rules of this programme are encoded here/);
 // the call document's consortium fact of a Ukraine Support Instrument call: never a bare "No"
 const q = (value: unknown, quote: string, note: string | null = null) => ({ value, quote, note, confidence: 1, scope: 'call_document' as const });

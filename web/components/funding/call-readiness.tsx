@@ -6,7 +6,9 @@ import { ArrowRight, Pencil } from 'lucide-react';
 import type { EligibilityFacts } from '@/lib/eligibility-check';
 import { callSummary } from '@/lib/call-readiness';
 import { cleanQuote } from '@/lib/quote';
-import { fitLabel, fitOf, linesSummary, type Fit } from '@/lib/fit';
+import { fitLabel, linesSummary, type Fit } from '@/lib/fit';
+import { useFit } from '@/lib/fit-hooks';
+import { fitFor, isLoaded } from '@/lib/fit-store';
 import { isFinished, toRequest } from '@/lib/profile';
 import { ASSESS_FAILED, AssessError, VERDICT_WORD, assess, costStatement, daysRange } from '@/lib/readiness';
 import type { Assessment, CallTiming, ProgrammeAssessment } from '@/lib/readiness-types';
@@ -106,7 +108,9 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
   const usable = ready && profile !== null && profile.country !== '';
   const request = usable && profile ? toRequest(profile) : null;
   const result = useCallAssessment(callId, usable, request ? JSON.stringify(request) : '');
-  const doc = usable && profile ? fitOf(facts, profile) : null;
+  // WP-93 (finding 5): the one verdict of the call, the list badge's (lib/fit.ts callFit through the store), not a second reading of the facts
+  const store = useFit(callId);
+  const doc = usable && profile && store.hasProfile && isLoaded(callId) ? fitFor(callId) : null;
 
   if (!usable || !profile) {
     return (
@@ -138,7 +142,7 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
       {result.state === 'done' && <p className="m-0 text-body font-semibold">{callSummary(fit, timings)}</p>}
 
       <div className="flex flex-col gap-2">
-        <h4 className="m-0 text-label">The rules read from this call’s document: {doc ? (doc.fit === 'unknown' ? (facts ? 'nothing to compare with your profile' : 'rules not read') : fitLabel(doc).word) : 'not compared'}</h4>
+        <h4 className="m-0 text-label">This call’s rules and its programme’s, against your profile: {doc ? (doc.fit === 'unknown' ? (facts ? 'nothing to compare with your profile' : 'rules not read: check the call document') : fitLabel(doc).word) : 'comparing…'}</h4>
         {doc?.result ? (
           <>
             <p className="m-0 text-small font-semibold">{linesSummary(doc.result.lines)}</p>

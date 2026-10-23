@@ -73,13 +73,13 @@ delete legacy.management;
 assert.equal(parseProfile(legacy).management, '', 'a version 1 "same country" cannot be told from the radio that was ticked for the visitor');
 assert.equal(parseProfile({ ...legacy, managementSameCountry: false, managementCountry: 'CH' }).management, 'other');
 assert.equal(parseProfile({ ...legacy, managementSameCountry: false, managementCountry: 'CH' }).managementCountry, 'CH');
-assert.equal(parseProfile(legacy).version, 3, 'it is written back as the current version (3 since WP-65)');
+assert.equal(parseProfile(legacy).version, 4, 'it is written back as the current version (4 since WP-93)');
 assert.equal(parseProfile(legacy).country, 'UA', 'the other answers are kept');
 assert.equal(parseProfile(legacy).uaPartner, '');
 assert.equal(parseProfile({ ...ua, management: 'sideways' }).management, '');
 assert.equal(PROFILE_KEY, 'dg.profile.v1', 'the key keeps its name; the version is inside the block');
 const imported = importProfile(JSON.stringify(legacy));
-assert.ok(imported.ok && imported.profile.management === '' && imported.profile.version === 3, 'a version 1 file can still be loaded');
+assert.ok(imported.ok && imported.profile.management === '' && imported.profile.version === 4, 'a version 1 file can still be loaded');
 
 // WP-53, T21: the partner questions. Unanswered and "not sure" are unknown (null), never "no"; a Ukrainian company is not asked.
 const pl: Profile = { ...ua, country: 'PL', uaOccupied: '' };
@@ -131,7 +131,7 @@ assert.deepEqual(answerProblems(ua), []);
 assert.deepEqual(parseProfile(null), emptyProfile());
 assert.deepEqual(parseProfile('x'), emptyProfile());
 assert.deepEqual(parseProfile([]), emptyProfile());
-assert.deepEqual(parseProfile({ version: 4, country: 'UA' }), emptyProfile(), 'a version this code does not know (4, after WP-65 made 3 the current one) is refused');
+assert.deepEqual(parseProfile({ version: 5, country: 'UA' }), emptyProfile(), 'a version this code does not know (5, after WP-93 made 4 the current one) is refused');
 assert.deepEqual(parseProfile({ version: 0, country: 'UA' }), emptyProfile());
 const read = parseProfile({ ...ua, country: 'ukraine', control: 'maybe', componentPct: '', step: 99, statuses: { 'REQ-PIC': 'held', 'REQ-NOPE': 'held', 'REQ-NCAGE': 'done' }, name: 'x'.repeat(500) });
 assert.equal(read.country, '');
@@ -154,13 +154,16 @@ assert.equal(isFinished({ ...ua, step: 3 }), false);
 assert.equal(isFinished(null), false);
 
 // U7: what is still unanswered is named, in the order of the wizard, and "Change my answers" opens at the first of them.
-assert.deepEqual(unanswered(ua), [], 'a complete profile has nothing missing');
-assert.equal(firstStepToAnswer(ua), 1, 'nothing missing: the first step');
-const partial: Profile = { ...ua, step: 6, regime: '', restricted: '', classified: '' };
+// WP-93: the size and group questions are new; a complete profile answers them, a version 3 one is told they are missing (step 1)
+const ua4: Profile = { ...ua, orgKind: 'company', headcount: 'lt50', inGroup: 'no' };
+assert.deepEqual(unanswered(ua4), [], 'a complete profile has nothing missing');
+assert.deepEqual(unanswered(ua).map((u) => u.step), [1, 1, 1], 'a profile without the WP-93 answers is asked them');
+assert.equal(firstStepToAnswer(ua4), 1, 'nothing missing: the first step');
+const partial: Profile = { ...ua4, step: 6, regime: '', restricted: '', classified: '' };
 assert.deepEqual(unanswered(partial).map((u) => u.step), [3, 3, 5]);
 assert.equal(firstStepToAnswer(partial), 3);
 assert.match(unanswered(partial)[1].question, /third country/);
-assert.equal(unanswered({ ...ua, control: '' })[0].step, 2);
+assert.equal(unanswered({ ...ua4, control: '' })[0].step, 2);
 assert.deepEqual(unanswered(emptyProfile()).slice(0, 2).map((u) => u.step), [1, 1]);
 assert.ok(unanswered({ ...ua, country: 'UA', uaOccupied: '' }).some((u) => /area of Ukraine/.test(u.question)));
 assert.ok(!unanswered({ ...ua, country: 'PL', uaOccupied: '' }).some((u) => /area of Ukraine/.test(u.question)), 'only a Ukrainian company is asked');
@@ -171,7 +174,7 @@ const written = exportProfile(partial);
 const back = importProfile(written);
 assert.ok(back.ok);
 if (back.ok) assert.deepEqual({ ...back.profile, updatedAt: null }, { ...parseProfile(partial), updatedAt: null }, 'what was written is what is read back');
-assert.equal(importProfile('{"version":4}').ok, false);
+assert.equal(importProfile('{"version":5}').ok, false);
 assert.equal(importProfile('{}').ok, false);
 assert.equal(importProfile('[1,2]').ok, false);
 assert.equal(importProfile('not json').ok, false);

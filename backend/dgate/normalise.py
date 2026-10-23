@@ -1669,6 +1669,14 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
     )
 
 
+def _aid_rules(text: str, day: str | None) -> dict[str, Any]:
+    """`rules_read` (and the page's date as `rules_read_at`) for conditions_raw, or nothing when the page states none of them."""
+    from .rule_readings import read_aid_page
+
+    read = read_aid_page(text)
+    return {"rules_read": read, "rules_read_at": f"{day[:10]}T00:00:00+00:00" if day else None} if read else {}
+
+
 def from_aid(record: dict[str, Any], *, today: date | None = None) -> Call:
     """Map one page of the Agence de l'innovation de defense to a Call.
 
@@ -1705,6 +1713,8 @@ def from_aid(record: dict[str, Any], *, today: date | None = None) -> Call:
             "modified": record.get("modified"),
             "deadlines": [d.isoformat() for d in ends],
             "max_aid_eur_per_project": aid.max_aid_eur(text),
+            # WP-93: rules the page states in fixed words (RAPID's group staff count, the Cyber Defense Factory's staff nationality)
+            **_aid_rules(text, record.get("modified") or record.get("published")),
         },
         status=aid.status(record, now=now),
         regime="defence",

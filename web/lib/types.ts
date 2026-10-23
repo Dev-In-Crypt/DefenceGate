@@ -199,9 +199,10 @@ export interface CallDocumentEligibility {
   documentUrl: string | null;
   extractedAt: IsoDateTime;
   /** `work_programme`: the call has no call document, and the facts come from the general annexes and the topic's text. */
-  basis?: 'call_document' | 'work_programme';
+  /** WP-93: `call_page`, the rules an agency's page states (an AID call), served without its words. */
+  basis?: 'call_document' | 'work_programme' | 'call_page';
   sources?: EligibilitySourceInfo[];
-  facts: Record<string, { value: unknown; note?: string | null; quote: string; confidence: number; scope?: 'call_document' | 'general' | 'topic' }>;
+  facts: Record<string, { value: unknown; note?: string | null; quote: string; confidence: number; scope?: 'call_document' | 'general' | 'topic' | 'programme' }>;
 }
 
 export interface CallDocument {

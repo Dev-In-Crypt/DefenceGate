@@ -310,7 +310,8 @@ export default async function CallDetailPage({ params }: Props) {
         {call.documentEligibility ? (
           <Panel title="Can you apply?">
             <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
-              basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed} />
+              basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed}
+              ctx={{ programme: call.programme, topic: call.topicId }} />
           </Panel>
         ) : call.eligibilityState === 'not_read' ? (
           <Panel title="Can you apply?">

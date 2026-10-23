@@ -51,8 +51,11 @@ MAX_FIT_IDS = 100
 EVIDENCE_PER_PARTNER = 3
 
 # The facts the "fits my profile" badge compares (lib/eligibility-check.ts reads these and no others).
+# WP-93 (fix 5): every fact the verdict reads, with its quote, so that the badge is the call page's verdict: the single-applicant note
+# (call 118) and the sentence of a control restriction (call 45: "controlled by China") were left out, and the two disagreed.
 FIT_FACTS = ("eligible_countries", "entity_types", "sme_only", "natural_persons_allowed", "consortium_required",
-             "min_entities", "min_countries", "ownership_control_restriction")
+             "min_entities", "min_countries", "ownership_control_restriction", "single_applicant_allowed",
+             "designated_applicants", "required_partners", "investor_precommitment", "max_group_headcount", "staff_nationality")
 
 _SAFE = re.compile(r"^[A-Z0-9-]{1,40}$")
 _YEAR = re.compile(r"^20\d\d$")
@@ -385,7 +388,8 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
               conn=Depends(get_conn)):
     """The document facts the browser compares with the saved profile, for the calls of one list page, and the
     programme and topic code of each call (which decide whose rules apply to it). The same facts, under the same
-    source rule, as the call page serves; without the quotes."""
+    source rule, as the call page serves, quotes included (WP-93: the verdict reads them). A call of a source whose text is not
+    served (an AID call) gets the rules read from its page without the quote (eligibility.page_rules)."""
     wanted = list(dict.fromkeys(int(i) for i in ids.split(",")))
     if len(wanted) > MAX_FIT_IDS:
         raise HTTPException(422, f"at most {MAX_FIT_IDS} calls at a time")
@@ -402,13 +406,13 @@ def fit_facts(ids: str = Query(..., min_length=1, max_length=1200, pattern=r"^[0
     for r in rows:
         # Which programme's rules judge the call is decided by the browser from these two (lib/fit.ts programmesOfCall).
         which = {"programme": programme_of(r["programme_code"]), "topic": r["topic_code"]}
-        got = read.get(r["id"])
+        got = read.get(r["id"]) or eligibility.page_rules(r["conditions_raw"])
         if got is None:
             items[str(r["id"])] = {"state": "no_source", "basis": None, "facts": {}, **which}
             continue
         items[str(r["id"])] = {
             **which, "state": got["state"], "basis": got["basis"],
-            "facts": {k: {"value": f["value"], "note": redact_emails(f.get("note")), "scope": f["scope"]}
+            "facts": {k: {"value": f["value"], "note": redact_emails(f.get("note")), "quote": redact_emails(f.get("quote")) or "", "scope": f["scope"]}
                       for k, f in got["facts"].items() if k in FIT_FACTS},
         }
     return {"items": items}

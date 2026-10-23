@@ -61,7 +61,7 @@ def test_the_eic_work_programme_is_read_for_each_topic_and_told_which(client, co
     assert (row["scope"], row["document_url"]) == ("general", EIC)
     assert row["fields"]["min_entities"].get("other_topic") is True, "a quote naming another topic is refused"
     facts = client.get(f"/v1/funding/{cid}").json()["documentEligibility"]["facts"]
-    assert set(facts) == {"eligible_countries"} and facts["eligible_countries"]["scope"] == "general"
+    assert set(facts) == {"eligible_countries"} and facts["eligible_countries"]["scope"] == "programme"   # WP-93: the EIC text read for the topic is its own
     assert eligibility.extract_one(conn, unit["url"], scope="general", topic=unit["topic"],
                                    llm_client=client_)["status"] == "held"
     assert len(seen) == 1

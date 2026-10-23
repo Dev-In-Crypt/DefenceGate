@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { cpvDictionaryTitle } from '@/lib/cpv';
 import { now } from '@/lib/deadline';
 import { formatStamp } from '@/lib/account-format';
-import { SUPPLY_ROUTES, CERTIFICATES, DE_QUESTIONS, DUAL_USE_QUESTION, ES_QUESTIONS, PROCESSES, REGISTRATIONS, answerLabel, holds, type Profile, type Tri } from '@/lib/profile';
+import { HEADCOUNT_BANDS, SUPPLY_ROUTES, CERTIFICATES, DE_QUESTIONS, DUAL_USE_QUESTION, ES_QUESTIONS, PROCESSES, REGISTRATIONS, answerLabel, holds, type Profile, type Tri } from '@/lib/profile';
 import { VERDICT_WORD, isoDay, publicPassage, publicRef, verdictMeaning } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 import { RAG_WORD, supplierRoadmap, type Rag, type RoadmapItem } from '@/lib/supplier-roadmap';
@@ -93,7 +93,7 @@ function ProfileRows({ p }: { p: Profile }) {
     <dl className="m-0 flex flex-col">
       {p.name && <Row label="Company">{p.name}</Row>}
       <Row label="Established in">{countryName(p.country)}{region ? `, ${region}` : ''}</Row>
-      <Row label="Size">{SIZE_OPTIONS.find((o) => o.value === p.sizeClass)?.label ?? 'Not answered'}</Row>
+      <Row label="Size">{HEADCOUNT_BANDS.find((o) => o.value === p.headcount)?.label ? `${HEADCOUNT_BANDS.find((o) => o.value === p.headcount)!.label} staff${p.inGroup === 'yes' ? `, part of a group${p.groupHeadcount ? ` of ${HEADCOUNT_BANDS.find((o) => o.value === p.groupHeadcount)!.label.toLowerCase()}` : ''}` : ''}` : SIZE_OPTIONS.find((o) => o.value === p.sizeClass)?.label ?? 'Not answered'}</Row>
       <Row label="NACE code">{s.nace ? <span className="font-mono">{s.nace}</span> : 'Not answered'}</Row>
       <Row label="Foreign investor owns or controls part">
         {TRI[s.foreignOwner]}{s.foreignOwner === 'yes' && s.foreignCountry ? ` (${countryName(s.foreignCountry)})` : ''}

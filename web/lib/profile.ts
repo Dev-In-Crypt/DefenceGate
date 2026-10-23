@@ -25,8 +25,16 @@ export const PROFILE_KEY = 'dg.profile.v1';
  * Version 3 (WP-65) added the supplier profile (`supplier`: what a parts or materials maker answers on /readiness/supplier). A version 1 or 2
  * block is read with an empty supplier profile and every other answer kept; the block is written back as version 3 at the first change.
  */
-export const PROFILE_VERSION = 3;
-const LEGACY_VERSIONS = [1, 2];
+export const PROFILE_VERSION = 4;
+const LEGACY_VERSIONS = [1, 2, 3];
+/**
+ * Version 4 (WP-93, the eligibility check of 23 October 2026): what the size, control and EIC rules read. The kind of organisation
+ * (`orgKind`), the staff count (`headcount`), whether the company is part of a group and the group's staff count, which country controls
+ * a company controlled from outside the EU (`controlCountry`), an investor's pre-commitment (`investor`) and the share of non-EU components
+ * as a choice (`componentBand`). A block of version 1 to 3 is read with these empty; while the staff count is unanswered the size rules
+ * read the old size class instead (lib/fit.ts `headcountOf`: micro and small, fewer than 50; medium, 50 to 249; large, 250 or more), and
+ * the request it sends stays what it was. An unanswered one is unknown: the rules that read it say "check", never "eligible".
+ */
 
 export type Tri = 'yes' | 'no' | 'unsure' | '';
 /** An answer of a supplier-page question: yes / no / not sure, or one of the choices of a question with its own (`EsQuestion.options`). */
@@ -49,6 +57,18 @@ export type SizeClass = 'micro' | 'small' | 'medium' | 'large' | '';
  * open ("check") in the results, and say why. Additive to version 3: a block without it reads ''.
  */
 export type Offering = 'products' | 'software_services' | '';
+/** WP-93: the kind of a company or research body (the applicant kind says whether it is a public buyer). */
+export type OrgKind = 'company' | 'university' | 'research' | '';
+/** WP-93: staff count bands, as the SME definition and the EIC small mid-cap count them (and RAPID's 2,000 for a group). */
+export type HeadcountBand = 'lt50' | '50_249' | '250_499' | '500_1999' | '2000plus' | '';
+export const HEADCOUNT_BANDS: { value: Exclude<HeadcountBand, ''>; label: string }[] = [
+  { value: 'lt50', label: 'Fewer than 50' }, { value: '50_249', label: '50 to 249' }, { value: '250_499', label: '250 to 499' },
+  { value: '500_1999', label: '500 to 1,999' }, { value: '2000plus', label: '2,000 or more' },
+];
+/** WP-93: who controls a company controlled from outside the EU (asked after the control question). */
+export type ControlCountry = 'ua' | 'eea' | 'cn' | 'ru_by' | 'other_non_eu' | 'unsure' | '';
+/** WP-93: the share of non-EU component cost as a choice; an exact share typed in `componentPct` wins. */
+export type ComponentBand = 'le35' | 'gt35' | 'unsure' | '';
 /** The answers about components a software or services company is not asked (see `Offering`). */
 export const COMPONENT_FIELDS = ['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta'] as const;
 /** The fields of the rules left open because the company makes software or services, for the results to say so. */
@@ -317,7 +337,7 @@ export function roadmapProgrammes(p: Profile): string[] | null {
 }
 
 export interface Profile {
-  version: 3;
+  version: 4;
   /** The furthest wizard step reached (1 to 5), 6 once the last step was finished. */
   step: number;
   updatedAt: string | null;
@@ -332,14 +352,26 @@ export interface Profile {
   offering: Offering;
   /** WP-91: the company's topics in its own words, comma-separated ("drone software, autonomy"): the order of "Fits my profile". Never sent. */
   topics: string;
+  /** WP-93: company, university or research organisation (asked when the applicant kind is a company or research body, or unanswered). */
+  orgKind: OrgKind;
+  /** WP-93: the organisation's own staff count. */
+  headcount: HeadcountBand;
+  /** WP-93: part of a group (a parent, subsidiaries, or enterprises holding 25 % or more of each other): the SME definition counts them together. */
+  inGroup: Tri;
+  groupHeadcount: HeadcountBand;
   // step 2: ownership and control
   management: Management;
   managementCountry: string;
   control: Control;
+  /** WP-93: which country controls the company, when it is controlled from outside the EU. */
+  controlCountry: ControlCountry;
+  /** WP-93: a pre-commitment of a single qualified investor for at least 20 % of a funding round you plan to raise (the EIC STEP calls ask for one). */
+  investor: Tri;
   uaOccupied: Tri;
   // step 3: products and regime
   regime: Regime;
   componentPct: string;
+  componentBand: ComponentBand;
   restricted: Tri;
   /** Any component from Ukraine or an EEA EFTA state (EDIP and the Ukraine Support Instrument count them differently from SAFE). */
   uaEeaComponents: Tri;
@@ -387,8 +419,10 @@ export function roadmapOnlyCodes(country: string): string[] {
 
 export function emptyProfile(): Profile {
   return {
-    version: 3, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', offering: '', topics: '', management: '', managementCountry: '',
-    control: '', uaOccupied: '', uaPartner: '', seapPartner: '', regime: '', componentPct: '', restricted: '', uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
+    version: 4, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', offering: '', topics: '',
+    orgKind: '', headcount: '', inGroup: '', groupHeadcount: '', management: '', managementCountry: '',
+    control: '', controlCountry: '', investor: '', uaOccupied: '', uaPartner: '', seapPartner: '', regime: '', componentPct: '', componentBand: '', restricted: '',
+    uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
     supplier: emptySupplier(),
   };
 }
@@ -442,26 +476,39 @@ export function parseProfile(raw: unknown): Profile {
     const s = given[code];
     if (s === 'held' || s === 'in_progress' || s === 'not_held' || s === 'not_applicable') statuses[code] = s;
   }
+  const sizeClass = oneOf(r.sizeClass, ['micro', 'small', 'medium', 'large', ''], '');
+  const bands = HEADCOUNT_BANDS.map((b) => b.value);
+  const control = oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], '');
+  const controlCountry = oneOf(r.controlCountry, ['ua', 'eea', 'cn', 'ru_by', 'other_non_eu', 'unsure', ''], '');
   return {
-    version: 3,
+    version: 4,
     step: typeof r.step === 'number' && Number.isInteger(r.step) && r.step >= 1 && r.step <= 6 ? r.step : 1,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt.slice(0, 40) : null,
     name: text(r.name, 120),
-    sizeClass: oneOf(r.sizeClass, ['micro', 'small', 'medium', 'large', ''], ''),
+    sizeClass,
     country: countryCode(r.country),
     legalForm: oneOf(r.legalForm, ['legal_person', 'natural_person', 'no_legal_personality', ''], ''),
     applicantKind: oneOf(r.applicantKind, ['company_or_research', 'contracting_authority', 'international_organisation', 'seap', 'eda', ''], ''),
     offering: oneOf(r.offering, ['products', 'software_services', ''], ''),
     topics: text(r.topics, TOPICS_MAX),
+    orgKind: oneOf(r.orgKind, ['company', 'university', 'research', ''], ''),
+    headcount: oneOf(r.headcount, bands, ''),
+    inGroup: triOf(r.inGroup),
+    groupHeadcount: oneOf(r.groupHeadcount, bands, ''),
     management: r.version === 1 ? (r.managementSameCountry === false ? 'other' : '') : oneOf(r.management, ['same', 'other', ''], ''),
     managementCountry: countryCode(r.managementCountry),
-    control: oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], ''),
+    control,
+    // the controlling country goes with the answer it belongs to: Ukraine or the EEA after "only by Ukraine or an EEA EFTA state", the others after "another country"
+    controlCountry: control === 'ua_eea_only' ? (['ua', 'eea', 'unsure'].includes(controlCountry) ? controlCountry : '')
+      : control === 'other' ? (['cn', 'ru_by', 'other_non_eu', 'unsure'].includes(controlCountry) ? controlCountry : '') : '',
+    investor: triOf(r.investor),
     uaOccupied: oneOf(r.uaOccupied, ['yes', 'no', 'unsure', ''], ''),
     uaPartner: oneOf(r.uaPartner, ['yes', 'no', 'unsure', ''], ''),
     seapPartner: oneOf(r.seapPartner, ['yes', 'no', 'unsure', ''], ''),
     regime: oneOf(r.regime, ['none', 'dual_use', 'military', 'unknown', ''], ''),
     // kept as typed (up to 12 characters): a value that is not a number from 0 to 100 is shown with its reason (`answerProblems`), not dropped here
     componentPct: text(r.componentPct, 12),
+    componentBand: oneOf(r.componentBand, ['le35', 'gt35', 'unsure', ''], ''),
     restricted: oneOf(r.restricted, ['yes', 'no', 'unsure', ''], ''),
     uaEeaComponents: oneOf(r.uaEeaComponents, ['yes', 'no', 'unsure', ''], ''),
     safeRole: oneOf(r.safeRole, ['contractor', 'subcontractor_involved', 'other_supplier', 'unsure', ''], ''),
@@ -519,6 +566,17 @@ export function pctProblem(value: string): string | null {
   return value.trim() === '' || parsePct(value) !== null ? null : 'Enter a number from 0 to 100.';
 }
 
+/**
+ * The share the 35 % rules read (WP-93, fix 7): the exact share typed, else the choice. The only rules on the field compare it with 35 % (`lte`
+ * 35, seeds/requirements.json), so a choice is sent as a share on its side of the line: 35 for "35 % or less", 36 for "more than 35 %".
+ * ponytail: a band, not a figure; a rule with another threshold would need the exact share asked.
+ */
+export function componentShare(p: Profile): number | null {
+  const exact = parsePct(p.componentPct);
+  if (exact !== null) return exact;
+  return p.componentBand === 'le35' ? 35 : p.componentBand === 'gt35' ? 36 : null;
+}
+
 /** The executive-management country the rules read: the company's own country, the one chosen, or null while not answered. */
 export function managementCountryOf(p: Profile): string | null {
   return p.management === 'same' ? p.country || null : p.management === 'other' ? p.managementCountry || null : null;
@@ -558,7 +616,7 @@ export function toRequest(p: Profile): AssessRequest | null {
       third_country_control: p.control === 'no' || p.control === 'ua_eea_only' || p.control === 'other' ? p.control : null,
       ua_non_government_controlled_area: p.country === 'UA' ? tri(p.uaOccupied) : null,
       // not asked of a software or services company (WP-91): a leftover answer is not sent, so the rules ask instead of reading it
-      non_eu_component_cost_pct: p.offering === 'software_services' ? null : parsePct(p.componentPct),
+      non_eu_component_cost_pct: p.offering === 'software_services' ? null : componentShare(p),
       restricted_third_country_component: p.offering === 'software_services' ? null : tri(p.restricted),
       components_from_ua_or_eea_efta: p.offering === 'software_services' ? null : tri(p.uaEeaComponents),
       // a Ukrainian company is itself the entity the rule asks for; the question is not asked of it, so a leftover answer is not sent
@@ -567,10 +625,38 @@ export function toRequest(p: Profile): AssessRequest | null {
       handles_classified: tri(p.classified),
       product_regime: p.regime === '' ? 'unknown' : p.regime,
       export_intent: p.exportIntent === '' ? null : p.exportIntent,
+      ...applicantFields(p),
       ...supplierFields(p),
     },
     statuses,
   };
+}
+
+/**
+ * WP-93: the answers the call verdict reads besides the rules (backend/dgate/verdict.py; the programme rules do not read them), only those
+ * given: an absent field is unknown to the API, and a profile of version 3 sends what it sent before.
+ */
+export function applicantFields(p: Profile): Record<string, string | boolean> {
+  const out: Record<string, string | boolean> = {};
+  if (p.orgKind) out.org_kind = p.orgKind;
+  if (p.headcount) out.headcount = p.headcount;
+  const group = tri(p.inGroup);
+  if (group !== null) out.in_group = group;
+  if (p.inGroup === 'yes' && p.groupHeadcount) out.group_headcount = p.groupHeadcount;
+  const ctl = controlCountryOf(p);
+  if (ctl) out.control_country = ctl;
+  const investor = tri(p.investor);
+  if (investor !== null) out.investor_precommitment = investor;
+  // The size class and the SEAP-partner answer stay in the browser, as before: the API's verdict reads them as unknown (dgate/verdict.py).
+  return out;
+}
+
+/** The controlling country the rules read: only with the control answer it belongs to, and never "not sure". */
+export function controlCountryOf(p: Profile): 'ua' | 'eea' | 'cn' | 'ru_by' | 'other_non_eu' | null {
+  const c = p.controlCountry;
+  if (p.control === 'ua_eea_only' && (c === 'ua' || c === 'eea')) return c;
+  if (p.control === 'other' && (c === 'cn' || c === 'ru_by' || c === 'other_non_eu')) return c;
+  return null;
 }
 
 /** The answers of the supplier page the rules read, only those given (an absent field is unknown to the API, and keeps the body small). */
@@ -607,21 +693,30 @@ export function withStatus(p: Profile, code: string, status: Status): Profile {
 export interface Unanswered { step: number; question: string }
 
 /**
- * The questions the rules read that the profile leaves empty, in the order of the wizard. The optional ones (name, size, the share of
- * non-EU components, the two partner questions: the Ukraine Support Instrument card asks for the first itself while it is empty) and the certificates, which count as "not held" until said otherwise, are not listed. Empty before a country is chosen.
+ * The questions the rules read that the profile leaves empty, in the order of the wizard. The optional ones (name, the investor's
+ * pre-commitment, the two partner questions: the Ukraine Support Instrument card asks for the first itself while it is empty) and the certificates, which count as "not held" until said otherwise, are not listed. Empty before a country is chosen.
+ * WP-93: the staff count, the group and the share of non-EU components are listed: the results named the share as a missing answer and
+ * the list did not (finding 7 of 23 October 2026).
  */
 export function unanswered(p: Profile): Unanswered[] {
   const out: Unanswered[] = [];
   const need = (step: number, empty: boolean, question: string) => { if (empty) out.push({ step, question }); };
   need(1, !p.country, 'Country where your company is established');
   need(1, !p.legalForm, 'Legal form of your organisation');
+  // WP-93: the size rules of the EIC, the SME-only calls and RAPID read these; unanswered, they say "check"
+  need(1, (p.applicantKind === '' || p.applicantKind === 'company_or_research') && !p.orgKind, 'Whether you are a company, a university or a research organisation');
+  need(1, !p.headcount, 'How many people your organisation employs');
+  need(1, !p.inGroup, 'Whether your company is part of a group');
+  need(1, p.inGroup === 'yes' && !p.groupHeadcount, 'How many people the whole group employs');
   need(2, !p.management, 'Where the executive management of your company is');
   need(2, p.management === 'other' && !p.managementCountry, 'Country of the executive management');
   need(2, !p.control, 'Whether your company is controlled from outside the EU');
+  need(2, (p.control === 'other' || p.control === 'ua_eea_only') && !p.controlCountry, 'Which country controls your company');
   need(2, p.country === 'UA' && !p.uaOccupied, 'Whether you are established in an area of Ukraine the government does not control');
   need(3, !p.regime, 'Which export regime your main product is in');
   // a software or services company is not asked about components (WP-91): those rules stay open in the results, with the reason
   const products = p.offering !== 'software_services';
+  need(3, products && componentShare(p) === null && p.componentBand !== 'unsure', 'What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine');
   need(3, products && !p.restricted, 'Whether a component comes from a third country that contravenes the security and defence interests of the Union');
   need(3, products && !p.uaEeaComponents, 'Whether components originate in Ukraine or an EEA EFTA state');
   need(3, !p.safeRole, 'Your role in a SAFE-supported procurement');
@@ -638,7 +733,8 @@ export function firstStepToAnswer(p: Profile): number {
 /** The profile fields the wizard asks (the API's `missing` may name others: the Spanish, German and NATO/EU questions of WP-64, and requirements). */
 const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'executive_management_country', 'third_country_control',
   'ua_non_government_controlled_area', 'ua_partner', 'non_eu_component_cost_pct', 'restricted_third_country_component',
-  'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent']);
+  'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent',
+  'org_kind', 'headcount', 'in_group', 'group_headcount', 'control_country', 'investor_precommitment']);
 
 /** The fields and requirements the supplier page asks (WP-65); the results link such a question to that page. */
 const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...DE_FIELDS, DUAL_USE_QUESTION.field, ...CLEARANCE_CODES,
@@ -689,8 +785,8 @@ export function wizardAsks(field: string): boolean {
 /** The wizard step that asks the question behind an API `missing` field (see `ProgrammeAssessment.missing`); 1 for one it does not know. */
 export function stepOfField(field: string): number {
   const f = field.replace(/^profile\./, '');
-  if (['country', 'legal_form'].includes(f)) return 1;
-  if (['executive_management_country', 'third_country_control', 'ua_non_government_controlled_area', 'ua_partner'].includes(f)) return 2;
+  if (['country', 'legal_form', 'org_kind', 'headcount', 'in_group', 'group_headcount'].includes(f)) return 1;
+  if (['executive_management_country', 'third_country_control', 'ua_non_government_controlled_area', 'ua_partner', 'control_country', 'investor_precommitment'].includes(f)) return 2;
   if (['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'safe_role', 'product_regime'].includes(f)) return 3;
   if (['handles_classified', 'export_intent'].includes(f)) return 5;
   return 1;

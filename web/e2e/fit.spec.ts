@@ -160,7 +160,7 @@ test('a call page with a profile shows the document rules, the programme rules a
   await visit(page, href, { title: /DefenceGate/, h1: /.+/ });
   const section = page.getByRole('region', { name: 'Your readiness for this call' });
   await expect(section.getByText(/The programme’s rules allow you once the missing steps are done/)).toBeVisible();
-  await expect(section.getByRole('heading', { name: /The rules read from this call’s document/ })).toBeVisible();
+  await expect(section.getByRole('heading', { name: /This call’s rules and its programme’s, against your profile/ })).toBeVisible();
   await expect(section.getByRole('heading', { name: /The programme’s rules, and the time left/ })).toBeVisible();
   await expect(section.getByText('European Defence Fund (EDF): Blocked')).toBeVisible();
   await expect(section.getByRole('link', { name: 'Your roadmap' })).toHaveAttribute('href', '/readiness/roadmap');

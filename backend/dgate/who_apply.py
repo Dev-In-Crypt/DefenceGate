@@ -23,7 +23,7 @@ from typing import Any
 
 from . import eligibility
 
-OWN_SCOPES = ("call_document", "topic")
+OWN_SCOPES = ("call_document", "topic", "programme")   # WP-93: the EIC work programme read for the topic is its own text
 EVIDENCE_MAX = 400
 
 _PRIVATE = re.compile(r"\b(?:compan(?:y|ies)|enterprises?|smes?|small and medium|mid-caps?|private|undertakings?|"
