@@ -16,9 +16,15 @@ work is on fixtures).
   Fields the code reads: `conditions` (HTML: eligibility text, document links), `budgetOverviewJSONItem.budgetTopicActionMap`
   (budget line), `topicMGAs`, `tags`, `sme`, `links`. **New: `description`** (HTML), in which the portal writes the sections
   `Expected Outcome:` / `Scope:` (Horizon, Digital) and `Objective:` / `Scope:` / `Types of activities` / `Functional
-  requirements` / `Expected impact` (EDF, EDIP). The repository holds no real `description` sample (no fixture or test carried
-  one before this change); the fixture `backend/tests/fixtures/eu_topic_descriptions.json` is written in the portal's shape. The
-  server probe in the report confirms the key and the headings on the stored documents.
+  requirements` / `Expected impact` (EDF, EDIP).
+- **Production probe (orchestrator, read-only, 23 October 2026):** `description` exists (1 to 9 KB). Headings are
+  `<p class="topicdescriptionkind">Scope:</p>` followed by `<p>` paragraphs. EDF 2026 topics have only "Scope:", "Targeted
+  types of activities:", "Indicative budget:" (some "Management mode:", "Form of funding:"), **no Objective**; EDIP-P FNLC topics
+  have short descriptions with no heading; Horizon CL3 has the long form. So: a `topicdescriptionkind` paragraph is a heading
+  whatever its label (the `<strong>` form stays supported), and an EDF / EDIP topic with no Objective / Expected outcome section
+  may give **only the first sentence of its Scope**, only when it opens with "The objective of this topic is", "The aim of this
+  topic is" or "This topic aims to", and only through the same filter (now also: prototype, hardware, interceptor, survivability,
+  integrated with, architecture). Nothing else of Scope; never Targeted types of activities.
 
 ## 2. What changed
 
@@ -76,7 +82,17 @@ Dropped (15 of 24, with the reason):
 | DIGITAL-2026-AI-01 | The facilities should be open to companies from every Member State on fair terms. | unclassified |
 | EDF-2026-RA-NAVAL | The project should aim for a payload capacity of at least one tonne. | specification |
 
-Never read at all (Scope, Functional requirements, Types of activities, Expected impact): e.g. "The system shall operate in the
+Real first Scope sentences of 2026 EDF topics (production probe; `REAL-` fixtures, markup `topicdescriptionkind`):
+
+| Sentence | Verdict |
+|---|---|
+| The objective of this topic is to follow up and complement previous activities in the field of smart technologies for next generation fighter systems. | **kept** (the call's whole summary; the second Scope sentence is not read) |
+| The aim of this topic is to follow up and complement previous activities in the field of the next generation self-protection systems in order to increase the survivability of fixed wing and rotary wing, combat or non-combat aircraft in hostile environment. | dropped: specification (survivability) |
+| This topic aims to follow up and complement previous activities for the development of an endo-atmospheric interceptor by maturing key technologies required to successfully counter hypersonic and ballistic threats up to TRL 6. | dropped: figure (TRL 6) |
+| This topic aims to develop a prototype of a semi-autonomous remote management system, integrated with adaptive hardware that continuously learns. | dropped: specification (prototype, integrated with, hardware) |
+| Military operations require higher flexibility and mobility to gain and maintain the initiative. | dropped: not an aim sentence (and an aim sentence after it in Scope is not read) |
+
+Never read at all (Scope beyond an EDF / EDIP aim opening, Functional requirements, Types of activities, Expected impact): e.g. "The system shall operate in the
 2-4 GHz band.", "the system should be able to track at least 50 objects simultaneously", "Procurement of systems with an
 engagement range of 40 km or more." Two fixtures give no summary: a description with no heading, and an objective written under
 "Functional requirements".
@@ -89,12 +105,12 @@ env; E2E_PORT 3092; Playwright 4 workers), final code:
 | Check | Result | Time |
 |---|---|---|
 | ruff | All checks passed | |
-| unit (`pytest`) | **3375 passed** (69 new in `test_wp92.py`) | 23 s |
-| integration (`pytest -m integration`) | **1258 passed**, 0 failed (5 new in `test_wp92.py`) | 11 min 47 s |
+| unit (`pytest`) | **3384 passed** (78 new in `test_wp92.py`, after the real-markup change) | 20 s |
+| integration (`pytest -m integration`) | **1258 passed**, 0 failed (5 new in `test_wp92.py`), full run before the real-markup change; after it `test_wp92`, `test_wp19`, `test_wp31`, `test_wp91`: 64 passed | 11 min 47 s |
 | `tsc --noEmit` | exit 0 | 11 s |
 | `npm run check` | all ok | 118 s |
 | `next build` (mock) | exit 0 | 52 s |
-| Playwright, desktop + 375 px | **688 passed, 56 skipped**, 0 failed (3 new tests x 2) | 3 min 30 s |
+| Playwright, desktop + 375 px | **688 passed, 56 skipped**, 0 failed (3 new tests x 2); after the real-markup change (backend only) `wp92` + `wp91` specs: 34 passed | 3 min 30 s |
 
 The first Playwright run failed the new call-page test on its own assertion (the link's screen-reader text "at EU Funding &
 Tenders Portal (opens in new tab)" sits before the final full stop); the assertion was corrected, the page was not changed, and
@@ -108,7 +124,7 @@ Screenshots, `docs/verification/product/wp92/` (demo data, 1280 and 375 px, from
 - The filter is deliberately strict: a purpose sentence with a number word plus a unit word ("one tonne") is caught only by the
   specification word next to it; a sentence with an unlisted acronym is dropped even when harmless. Fewer summaries, never a
   technical one. Ceiling: word lists, not a model; widen `ACRONYMS_OK` / `PURPOSE_WORDS` from the backfill report if too few pass.
-- The `description` key and headings are confirmed on fixtures written in the portal's shape, not on a stored real document; the
-  probe in the report checks the production raw store before the backfill is written.
+- On production most EDF 2026 topics will have no summary: their only candidate is the first Scope sentence, and real ones
+  often name a technology (interceptor, prototype) or a TRL. The backfill report gives the count before anything is written.
 - `who_may_apply_doc` is only as good as the extracted `entity_types`; an entity list the rules cannot place (universities only,
   "Member States") stores nothing and the programme rules decide.

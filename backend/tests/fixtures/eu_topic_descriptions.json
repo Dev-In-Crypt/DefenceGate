@@ -1,5 +1,37 @@
 {
-  "_note": "TopicDetails documents of the EU portal reduced to the fields WP-92 reads (identifier, description), in the portal's HTML shape: EDF and EDIP topics in Objective / Scope / Types of activities / Functional requirements / Expected impact, Horizon topics in Expected Outcome / Scope. Wording in the style of the 2025-2026 work programmes, written for the tests; no topic text is copied whole.",
+  "_note": "TopicDetails documents of the EU portal reduced to the fields WP-92 reads (identifier, description), in the portal's HTML shape: EDF and EDIP topics in Objective / Scope / Types of activities / Functional requirements / Expected impact, Horizon topics in Expected Outcome / Scope. Wording in the style of the 2025-2026 work programmes, written for the tests; no topic text is copied whole. The REAL- entries use the markup and the first Scope sentences of 2026 EDF topics as production holds them (probe of 23 October 2026: headings are <p class=\"topicdescriptionkind\">; EDF 2026 topics have Scope, Targeted types of activities and Indicative budget, no Objective); the sentences are public text, the rest of each description is placeholder.",
+  "REAL-EDF-2026-DA-AIR-FIGHTER": {
+    "identifier": "EDF-2026-DA-AIR-SFNG",
+    "description": "<p class=\"topicdescriptionkind\">Scope:</p><p>The objective of this topic is to follow up and complement previous activities in the field of smart technologies for next generation fighter systems. Proposals should address the integration of the results into a common demonstrator.</p><p class=\"topicdescriptionkind\">Targeted types of activities:</p><p>The following types of activities are eligible: studies, design, prototyping.</p><p class=\"topicdescriptionkind\">Indicative budget:</p><p>EUR 50 000 000.</p>"
+  },
+  "REAL-EDF-2026-DA-AIR-SPS": {
+    "identifier": "EDF-2026-DA-AIR-SPS",
+    "description": "<p class=\"topicdescriptionkind\">Scope:</p><p>The aim of this topic is to follow up and complement previous activities in the field of the next generation self-protection systems in order to increase the survivability of fixed wing and rotary wing, combat or non-combat aircraft in hostile environment.</p><p class=\"topicdescriptionkind\">Targeted types of activities:</p><p>Studies and design.</p>"
+  },
+  "REAL-EDF-2026-DA-SPACE-EAI": {
+    "identifier": "EDF-2026-DA-SPACE-EAI",
+    "description": "<p class=\"topicdescriptionkind\">Scope:</p><p>This topic aims to follow up and complement previous activities for the development of an endo-atmospheric interceptor by maturing key technologies required to successfully counter hypersonic and ballistic threats up to TRL 6.</p><p class=\"topicdescriptionkind\">Indicative budget:</p><p>EUR 90 000 000.</p><p class=\"topicdescriptionkind\">Management mode:</p><p>Indirect.</p>"
+  },
+  "REAL-EDF-2026-RA-DIGIT-RMS": {
+    "identifier": "EDF-2026-RA-DIGIT-RMS",
+    "description": "<p class=\"topicdescriptionkind\">Scope:</p><p>This topic aims to develop a prototype of a semi-autonomous remote management system, integrated with adaptive hardware that continuously learns.</p><p class=\"topicdescriptionkind\">Form of funding:</p><p>Grants.</p>"
+  },
+  "REAL-EDF-2026-DA-PROTMOB-MOB": {
+    "identifier": "EDF-2026-DA-PROTMOB-MOB",
+    "description": "<p class=\"topicdescriptionkind\">Scope:</p><p>Military operations require higher flexibility and mobility to gain and maintain the initiative. The objective of this topic is to support European industry in cooperation between Member States.</p>"
+  },
+  "REAL-EDF-EDIP-P-2027-FNLC-CPA": {
+    "identifier": "EDF-EDIP-P-2027-FNLC-CPA-AMDS",
+    "description": "<p>Common procurement of defence products by at least three Member States.</p>"
+  },
+  "REAL-HORIZON-CL3-KIND": {
+    "identifier": "HORIZON-CL3-2026-01-FCT-01",
+    "description": "<p class=\"topicdescriptionkind\">Expected Outcome:</p><p>Projects' results are expected to contribute to some or all of the following outcomes:</p><ul><li>Improved cooperation between European police authorities and industry;</li><li>Better uptake of innovative solutions by end-users across Member States.</li></ul><p class=\"topicdescriptionkind\">Scope:</p><p>The objective of this topic is to support the development of tools for police authorities.</p>"
+  },
+  "REAL-HORIZON-NO-OUTCOME": {
+    "identifier": "HORIZON-CL3-2026-01-SSRI-02",
+    "description": "<p class=\"topicdescriptionkind\">Scope:</p><p>The objective of this topic is to support European industry in the civil security sector.</p>"
+  },
   "EDF-2026-RA-SENS-MSDT": {
     "identifier": "EDF-2026-RA-SENS-MSDT",
     "description": "<p><strong>Objective:</strong></p><p>The objective of this topic is to support research on multi-static detection techniques for European armed forces. The aim is to strengthen the European defence technological and industrial base in the field of passive surveillance. Proposals are expected to foster cooperation between industry, research organisations and SMEs across Member States. The detection range should exceed 150 km against small targets. The resulting solutions should reach TRL 4 at the end of the project. Sensor accuracy and latency must be improved over current systems. The topic contributes to the CARD focus area on enhanced military mobility.</p><p><strong>Scope:</strong></p><p>Proposals must address the development of a demonstrator able to fuse data from several receivers. The system shall operate in the 2-4 GHz band.</p><p><strong>Types of activities</strong></p><table><tr><td>Studies</td><td>Mandatory</td></tr></table><p><strong>Functional requirements:</strong></p><ul><li>the system should be able to track at least 50 objects simultaneously;</li><li>the waveform should be adaptable.</li></ul><p><strong>Expected impact:</strong></p><p>Reduced dependence on non-EU suppliers for surveillance components.</p>"

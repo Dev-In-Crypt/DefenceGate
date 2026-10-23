@@ -126,7 +126,7 @@ def test_the_summary_is_at_most_three_kept_sentences_in_the_order_of_the_text():
     for topic in TOPICS.values():
         summary = ts.funds_summary(topic)
         if summary:
-            kept = [s for s, why in ts.sentences(topic["description"]) if why is None]
+            kept = [s for s, why in ts.sentences(topic["description"], topic["identifier"]) if why is None]
             assert summary == " ".join(kept[:3])
 
 
@@ -139,10 +139,63 @@ def test_bullets_become_sentences_and_a_lead_in_is_dropped():
 
 def test_no_kept_sentence_of_any_fixture_carries_a_digit_other_than_a_year_or_a_specification_word():
     for topic in TOPICS.values():
-        for s, why in ts.sentences(topic["description"]):
+        for s, why in ts.sentences(topic["description"], topic["identifier"]):
             if why is None:
                 assert not ts._DIGIT.search(ts._YEAR.sub("", s)), s
                 assert not ts._SPEC.search(s), s
+
+
+# ------------------------------------------------------------------------- the portal's real markup (production probe, 23 Oct)
+
+REAL_SCOPE_OPENINGS = [
+    ("REAL-EDF-2026-DA-AIR-FIGHTER", "The objective of this topic is to follow up and complement previous activities in the "
+                                     "field of smart technologies for next generation fighter systems.", None),
+    ("REAL-EDF-2026-DA-AIR-SPS", "The aim of this topic is to follow up and complement previous activities in the field of the "
+                                 "next generation self-protection systems in order to increase the survivability of fixed "
+                                 "wing and rotary wing, combat or non-combat aircraft in hostile environment.", "specification"),
+    ("REAL-EDF-2026-DA-SPACE-EAI", "This topic aims to follow up and complement previous activities for the development of an "
+                                   "endo-atmospheric interceptor by maturing key technologies required to successfully counter "
+                                   "hypersonic and ballistic threats up to TRL 6.", "figure"),
+    ("REAL-EDF-2026-RA-DIGIT-RMS", "This topic aims to develop a prototype of a semi-autonomous remote management system, "
+                                   "integrated with adaptive hardware that continuously learns.", "specification"),
+    ("REAL-EDF-2026-DA-PROTMOB-MOB", "Military operations require higher flexibility and mobility to gain and maintain the "
+                                     "initiative.", "not an aim sentence"),
+]
+
+
+@pytest.mark.parametrize("key,sentence,why", REAL_SCOPE_OPENINGS)
+def test_an_edf_topic_without_objective_offers_only_the_aim_sentence_opening_its_scope(key, sentence, why):
+    topic = TOPICS[key]
+    assert ts.sentences(topic["description"], topic["identifier"]) == [(sentence, why)]
+    assert ts.funds_summary(topic) == (sentence if why is None else None)
+
+
+def test_the_survivability_sentence_is_dropped_for_its_word_in_a_short_sentence_too():
+    assert ts.verdict("The aim of this topic is to increase the survivability of European combat aircraft.") == "specification"
+
+
+def test_topicdescriptionkind_paragraphs_are_headings_and_nothing_after_the_first_scope_sentence_is_read():
+    topic = TOPICS["REAL-EDF-2026-DA-AIR-FIGHTER"]
+    sections = ts._sections(topic["description"])
+    assert [s for s, _ in sections] == ["scope", "other", "other"]
+    assert "integration of the results" not in (ts.funds_summary(topic) or "")      # second Scope sentence: not read
+    assert "prototyping" not in (ts.funds_summary(topic) or "")                     # Targeted types of activities: never
+
+
+def test_the_scope_aim_is_read_for_edf_and_edip_only_and_never_beside_an_objective():
+    assert ts.funds_summary(TOPICS["REAL-HORIZON-NO-OUTCOME"]) is None               # Horizon: Expected Outcome or nothing
+    assert ts.funds_summary(TOPICS["REAL-EDF-EDIP-P-2027-FNLC-CPA"]) is None         # no heading at all
+    horizon = ts.funds_summary(TOPICS["REAL-HORIZON-CL3-KIND"])
+    assert horizon == ("Improved cooperation between European police authorities and industry. "
+                       "Better uptake of innovative solutions by end-users across Member States.")
+    assert "tools for police" not in horizon                                        # its Scope stays unread
+    # an EDF topic with an Objective section: Scope is not read at all
+    assert "demonstrator able" not in ts.funds_summary(TOPICS["EDF-2026-RA-SENS-MSDT"])
+
+
+def test_the_aim_sentence_must_open_the_scope():
+    # "The objective of this topic is ..." as the second sentence of Scope does not count
+    assert ts.funds_summary(TOPICS["REAL-EDF-2026-DA-PROTMOB-MOB"]) is None
 
 
 # ------------------------------------------------------------------------- the connector

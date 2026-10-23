@@ -7,6 +7,11 @@ read here -- Objective and Expected outcome -- because Scope, the functional req
 activity tables are where a topic describes the system it wants, and the product stores commercial
 market information only (docs/CLAUDE.md, scope rules).
 
+On production (probe of 23 October 2026) the headings are `<p class="topicdescriptionkind">Scope:</p>` paragraphs, and the
+2026 EDF topics have no Objective at all (Scope, Targeted types of activities, Indicative budget). For an EDF or EDIP topic
+with no Objective / Expected outcome section, the first sentence of Scope alone may be read, only when it opens with
+"The objective of this topic is", "The aim of this topic is" or "This topic aims to", and through the same filter.
+
 Each sentence of those sections then has to pass a strict filter, and the filter fails closed:
 
   * a sentence with a figure (a year aside) is dropped -- units, percentages, TRL levels, ranges;
@@ -38,9 +43,21 @@ OTHER = (r"scope|expected\s+impacts?|types?\s+of\s+activities|functional\s+requi
          r"technical\s+requirements|specific\s+(?:topic\s+)?conditions|eligible\s+activities|"
          r"targeted\s+stakeholders|additional\s+information|specific\s+challenge|"
          r"general\s+conditions|topic\s+conditions|"
-         r"description|expected\s+results|deliverables|requirements|activities")
+         r"description|expected\s+results|deliverables|requirements|activities|"
+         r"targeted\s+types\s+of\s+activities|indicative\s+budget|budget|management\s+mode|form\s+of\s+funding")
 _HEADING = re.compile(rf"^\s*(?P<h>{KEPT}|{OTHER})\s*(?::|$)\s*", re.I)
 _KEPT = re.compile(rf"^(?:{KEPT})$", re.I)
+_SCOPE = re.compile(r"^scope$", re.I)
+
+# The portal's own heading markup (production, 23 October 2026): `<p class="topicdescriptionkind">Scope:</p>`.
+# Whatever its label, such a paragraph is a heading; it is marked before the tags go.
+HEADING_MARK = "\x01"
+_KIND = re.compile(r"<p\b[^>]*class\s*=\s*[\"'][^\"']*\btopicdescriptionkind\b[^\"']*[\"'][^>]*>(.*?)</p>", re.I | re.S)
+
+# EDF and EDIP topics of 2026 have no Objective section: their Scope opens with the aim. Only that first sentence of
+# Scope may be read, only when it opens with one of these phrases, and only through the same filter.
+AIM_OPENING = re.compile(r"^(?:the\s+(?:objective|aim)\s+of\s+this\s+topic\s+is|this\s+topic\s+aims\s+to)\b", re.I)
+AIM_PROGRAMMES = ("EDF", "EDIP")
 
 _BLOCK = re.compile(r"</?(?:p|div|br|h[1-6]|ul|ol|tr|table|section)\b[^>]*>", re.I)
 _ITEM = re.compile(r"<li\b[^>]*>", re.I)
@@ -64,6 +81,8 @@ SPEC_WORDS = (
     "sensor performance", "protection level", "mtbf", "operating envelope", "kill chain", "firing", "fire control",
     # the words of tenders._TECHNICAL (WP-90's commercial subject) that the rules above do not already cover
     "tolerance", "tolerances", "mil-std", "stanag",
+    # the words of the 2026 EDF Scope openings (production probe, 23 October 2026)
+    "prototype", "prototypes", "prototyping", "hardware", "interceptor", "interceptors", "integrated with",
 )
 _SPEC = re.compile(r"\b(?:" + "|".join(re.escape(w) for w in SPEC_WORDS) + r")\b", re.I)
 
@@ -85,7 +104,7 @@ PURPOSE_WORDS = (
     r"develop\w*", r"strengthen\w*", r"improv\w*", r"enhanc\w*", r"foster\w*", r"enabl\w*", r"increas\w*",
     r"reduc\w* (?:the )?dependenc\w*", r"competitive\w*", r"industr\w*", r"smes?", r"market\w*", r"cooperat\w*",
     r"collaborat\w*", r"interoperab\w*", r"capabilit\w*", r"autonomy", r"resilien\w*", r"supply chains?",
-    r"innovat\w*", r"solutions?", r"prototypes?", r"demonstrat\w*", r"uptake", r"deploy\w*", r"adopt\w*",
+    r"innovat\w*", r"solutions?", r"demonstrat\w*", r"uptake", r"deploy\w*", r"adopt\w*",
     r"integrat\w*", r"armed forces", r"end[- ]users?", r"cross-border", r"joint", r"procure\w*", r"production",
     r"manufactur\w*", r"ecosystems?", r"start-ups?", r"skills",
 )
@@ -93,28 +112,39 @@ _PURPOSE = re.compile(r"\b(?:" + "|".join(PURPOSE_WORDS) + r")\b", re.I)
 
 
 def _blocks(raw: str) -> list[str]:
-    text = _ITEM.sub("\n• ", raw)
+    text = _KIND.sub(lambda m: f"\n{HEADING_MARK}{_TAG.sub(' ', m.group(1))}\n", raw)
+    text = _ITEM.sub("\n• ", text)
     text = _BLOCK.sub("\n", text)
     text = html.unescape(_TAG.sub(" ", text)).replace("\xa0", " ")
     return [re.sub(r"[ \t]+", " ", b).strip() for b in text.split("\n") if b.strip()]
 
 
-def purpose_text(description: Any) -> list[str]:
-    """The blocks of the Objective and Expected outcome sections, in order; nothing else."""
+def _sections(description: Any) -> list[tuple[str | None, str]]:
+    """(section, block) in order: section `kept` (Objective, Expected outcome), `scope`, `other`, or None before any
+    heading. A `topicdescriptionkind` paragraph is a heading whatever it says; so is a block that opens with a known label."""
     if not isinstance(description, str) or not description.strip():
         return []
-    out: list[str] = []
-    keep = False
+    out: list[tuple[str | None, str]] = []
+    section: str | None = None
     for block in _blocks(description):
-        m = _HEADING.match(block)
-        if m:
-            keep = bool(_KEPT.match(re.sub(r"\s+", " ", m.group("h")).strip()))
-            block = block[m.end():].strip()
-            if not block:
-                continue
-        if keep:
-            out.append(block)
+        label, rest = None, block
+        if block.startswith(HEADING_MARK):
+            label, rest = block[1:].strip().rstrip(":").strip(), ""
+        else:
+            m = _HEADING.match(block)
+            if m:
+                label, rest = m.group("h"), block[m.end():].strip()
+        if label is not None:
+            label = re.sub(r"\s+", " ", label).strip()
+            section = "kept" if _KEPT.match(label) else "scope" if _SCOPE.match(label) else "other"
+        if rest:
+            out.append((section, rest))
     return out
+
+
+def purpose_text(description: Any) -> list[str]:
+    """The blocks of the Objective and Expected outcome sections, in order; nothing else."""
+    return [b for s, b in _sections(description) if s == "kept"]
 
 
 def verdict(sentence: str) -> str | None:
@@ -149,17 +179,33 @@ def _units(block: str) -> list[str]:
     return [u.strip() for u in _SPLIT.split(block) if u.strip()]
 
 
-def sentences(description: Any) -> list[tuple[str, str | None]]:
-    """Every sentence of the purpose sections with its verdict (None = kept), for tests and the self-check."""
-    return [(u, verdict(u)) for b in purpose_text(description) for u in _units(b)]
+def scope_aim(description: Any) -> tuple[str, str | None] | None:
+    """The first sentence of Scope with its verdict, for a topic with no Objective / Expected outcome section: kept
+    only when it opens with an aim phrase (AIM_OPENING) and passes `verdict`. None when there is no Scope sentence."""
+    blocks = [b for s, b in _sections(description) if s == "scope"]
+    units = _units(blocks[0]) if blocks else []
+    if not units:
+        return None
+    first = units[0]
+    return first, (verdict(first) if AIM_OPENING.match(first) else "not an aim sentence")
+
+
+def sentences(description: Any, identifier: str | None = None) -> list[tuple[str, str | None]]:
+    """Every sentence read with its verdict (None = kept), for tests and the self-check: the purpose sections, or, for
+    an EDF / EDIP topic that has none, the first sentence of Scope (`scope_aim`)."""
+    out = [(u, verdict(u)) for b in purpose_text(description) for u in _units(b)]
+    if not out and (identifier or "").upper().startswith(AIM_PROGRAMMES):
+        aim = scope_aim(description)
+        out = [aim] if aim else []
+    return out
 
 
 def funds_summary(details: dict[str, Any] | None) -> str | None:
-    """At most three kept sentences of the topic's Objective / Expected outcome, or None."""
+    """At most three kept sentences of the topic's Objective / Expected outcome (or its Scope's aim sentence), or None."""
     if not isinstance(details, dict):
         return None
     kept: list[str] = []
-    for s, why in sentences(details.get("description")):
+    for s, why in sentences(details.get("description"), str(details.get("identifier") or "")):
         if why is None and s not in kept:
             kept.append(s)
         if len(kept) == MAX_SENTENCES:

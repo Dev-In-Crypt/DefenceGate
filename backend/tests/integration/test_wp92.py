@@ -48,6 +48,14 @@ def test_the_topic_details_step_stores_the_summary(conn):
     conn.commit()
     got = conn.execute("SELECT funds_summary FROM call WHERE id = %s", (cid,)).fetchone()["funds_summary"]
     assert got.startswith("The objective of this topic is to increase the production capacity")
+    # the portal's real markup (topicdescriptionkind, Scope only): the aim sentence opening the Scope, nothing else
+    real = TOPICS["REAL-EDF-2026-DA-AIR-FIGHTER"]
+    cid2 = put(conn, "fighter", programme="EDF", topic=real["identifier"])
+    db.update_call_details(conn, cid2, eu_portal.detail_fields(real, real["identifier"]), "h-fighter")
+    conn.commit()
+    assert conn.execute("SELECT funds_summary FROM call WHERE id = %s", (cid2,)).fetchone()["funds_summary"] == (
+        "The objective of this topic is to follow up and complement previous activities in the field of smart technologies "
+        "for next generation fighter systems.")
 
 
 def test_the_backfill_reads_the_raw_store_reports_by_default_and_is_idempotent(conn, monkeypatch, tmp_path):
