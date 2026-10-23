@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { SUSPECT_NOTE, SUSPECT_VALUE_MAX } from '@/lib/value-totals';
+import { SUSPECT_NOTE, SUSPECT_VALUE_MAX, VALUE_KIND_LABEL } from '@/lib/value-totals';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
@@ -183,6 +183,14 @@ export default async function SupplierPage({ params, searchParams }: Props) {
                         ))} (counted once)
                       </span>
                     )}
+                    {n.framework && (
+                      <span className="block text-small text-ink-muted" data-framework>
+                        Call-off under the framework agreement{' '}
+                        {n.framework.slug
+                          ? <Link href={`/tenders/${n.framework.slug}`} className="font-mono">{n.framework.noticeId}</Link>
+                          : <span className="font-mono">{n.framework.noticeId}</span>}
+                      </span>
+                    )}
                   </th>
                   <td>{n.buyerName ?? 'Name withheld on request'}{n.buyerCountry ? ` (${n.buyerCountry})` : ''}</td>
                   <td className="whitespace-nowrap font-mono tabular-nums">{n.publishedAt ? formatDateUtc(n.publishedAt) : 'Not stated'}</td>
@@ -190,7 +198,10 @@ export default async function SupplierPage({ params, searchParams }: Props) {
                   <td className="font-mono tabular-nums">
                     {n.valueAmount !== null
                       ? <>{`${formatNumber(n.valueAmount)} ${n.valueCurrency ?? ''}`}{(n.valueSuspect ?? n.valueAmount < SUSPECT_VALUE_MAX)
-                        && <span className="block font-sans text-small text-ink-muted" data-value-suspect>{SUSPECT_NOTE}</span>}</>
+                        && <span className="block font-sans text-small text-ink-muted" data-value-suspect>{SUSPECT_NOTE}</span>}
+                        {/* WP-95: a ceiling or an estimate says so, and is not in the sum */}
+                        {n.valueKind && n.valueKind !== 'contract'
+                          && <span className="block font-sans text-small text-ink-muted" data-value-kind={n.valueKind}>{VALUE_KIND_LABEL[n.valueKind]}, not in the sum</span>}</>
                       : n.winnersInNotice > 1 ? `Shared by ${n.winnersInNotice} winners` : 'Not stated'}
                   </td>
                 </tr>

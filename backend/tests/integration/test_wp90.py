@@ -135,7 +135,7 @@ def test_the_change_list_by_kind_of_change(client, conn):
     amend(conn, done, "b", status="awarded")
     store(conn, opp("NEW"))
     every = get(client, "/v1/changes", scope="all")
-    assert every["counts"] == {"new": 1, "amended": 3}
+    assert every["counts"] == {"new": 1, "amended": 3, "awards": 0}
 
     def kind(k: str) -> list[str]:
         page = get(client, "/v1/changes", scope="all", kind=k)

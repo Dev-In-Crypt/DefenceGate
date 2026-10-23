@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from dgate import api, db, stats
-from dgate.confidence import confidence
+from dgate.confidence import confidence, label
 from dgate.normalise import Opportunity
 
 pytestmark = pytest.mark.integration
@@ -22,8 +22,11 @@ ROWS = [
     ("HI-BOTH", True, True, True, "defence", "high"),
     ("HI-CPV", False, True, True, "defence", "high"),
     ("MED-BUYER", False, False, True, "defence", "medium"),
-    ("MED-LB-BUYER", True, False, True, "defence", "medium"),
-    ("MED-LB-CPV", True, True, False, "other", "medium"),
+    # WP-95: the directive used by a listed buyer, and the directive with a main military code, are high (they were medium)
+    ("HI-LB-BUYER", True, False, True, "defence", "high"),
+    ("HI-LB-CPV", True, True, False, "other", "high"),
+    # WP-95: a listed buyer whose military code is not the main code (the gatehouse of /tenders/396812) is medium
+    ("MED-CPV-NOT-MAIN", False, True, True, "defence", "medium"),
     ("LOW-LB-CPV-POLICE", True, True, False, "security", "low"),
     ("LOW-DIRECTIVE", True, False, False, "municipal", "low"),
     ("LOW-CPV", False, True, False, "other", "low"),
@@ -45,7 +48,8 @@ def _fill(conn):
         opp = Opportunity(
             source_code="ted", native_id=nid, buyer_name_raw=f"Buyer {i}", title_original=f"Notice {nid}",
             country="PL", published_at=date(2026, 10, 1), deadline_at=FUTURE,
-            cpv_codes=["35400000" if cpv else "45000000"], status="open", is_defence=True,
+            cpv_codes=(["45000000", "35400000"] if nid == "MED-CPV-NOT-MAIN" else ["35400000" if cpv else "45000000"]),
+            status="open", is_defence=True,
             sig_cpv=cpv, sig_cpv_military=cpv, sig_legal_basis=lb, sig_buyer=buyer, buyer_class=cls,
             legal_basis="32009L0081" if lb else "32014L0024")
         opp.buyer_org_id = db.resolve_organisation(conn, f"Buyer {i}", "PL", src_id=src)
@@ -65,8 +69,10 @@ def test_every_tender_carries_its_level_and_the_reason(client, conn):
     for nid, lb, cpv, buyer, cls, level in ROWS:
         c = got[nid]["confidence"]
         assert c["level"] == level, nid
+        main = nid != "MED-CPV-NOT-MAIN"
         assert c == {"level": level, "basis": confidence(
-            legal_basis=lb, military_cpv=cpv, buyer=buyer, buyer_class=cls)[1]}
+            legal_basis=lb, military_cpv=cpv, buyer=buyer, buyer_class=cls, main_military=main)[1],
+            "label": label(level, buyer=buyer, military_cpv=cpv)}
     # the detail page and the export say the same as the list
     tid = got["HI-BOTH"]["id"]
     assert client.get(f"/v1/tenders/{tid}").json()["confidence"]["level"] == "high"

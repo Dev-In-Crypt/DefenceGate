@@ -20,12 +20,14 @@ export interface BasisInput {
 }
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
-export interface ConfidenceInput { level?: string | null; basis?: string[] | null }
+export interface ConfidenceInput { level?: string | null; basis?: string[] | null; label?: string | null }
 
 /** Where the three levels are explained: the section "How sure are we" of the methodology page. */
 export const CONFIDENCE_HREF = '/methodology#s-how-sure-are-we';
 // WP-88: the level in words a reader uses (the audit found "Medium confidence"); `level` and the CSV cell are unchanged.
-const CONFIDENCE_WORD: Record<ConfidenceLevel, string> = { high: 'Clearly defence', medium: 'Probably defence', low: 'Possibly defence' };
+// WP-95: the API names the level by what it rests on (`label`: "Defence buyer, ordinary purchase"); these words are for an
+// older API only, and say the signal too, never a probability ("Probably defence" stood on refuse collection and bed linen).
+const CONFIDENCE_WORD: Record<ConfidenceLevel, string> = { high: 'Clearly defence', medium: 'Defence buyer or directive', low: 'Weak defence signal' };
 
 /**
  * The badge next to the "why" chips: the visible text, the sentence shown on hover and focus (the API's `basis`), and
@@ -42,7 +44,7 @@ export function confidenceView(c: ConfidenceInput | null | undefined): Confidenc
   const level = c?.level as ConfidenceLevel | undefined;
   if (!level || !(level in CONFIDENCE_WORD)) return null;
   const sentence = (c?.basis ?? []).filter(Boolean).join('; ');
-  const text = CONFIDENCE_WORD[level];
+  const text = (c?.label ?? '').trim() || CONFIDENCE_WORD[level];
   return { level, text, sentence: sentence ? `${sentence}.` : '', name: sentence ? `${text}: ${sentence}.` : text };
 }
 

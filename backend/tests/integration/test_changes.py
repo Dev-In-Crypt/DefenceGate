@@ -110,7 +110,7 @@ def test_a_notice_first_collected_today_is_new(client, conn):
     store(conn, opp("N-1"))
     got = feed(client)
     assert got["windowDays"] == 14
-    assert got["total"] == 1 and got["counts"] == {"new": 1, "amended": 0}
+    assert got["total"] == 1 and got["counts"] == {"new": 1, "amended": 0, "awards": 0}
     item = got["items"][0]
     assert item["kind"] == "new" and item["changes"] == []
     assert item["tender"]["noticeId"] == "N-1" and item["tender"]["title"] == "Armoured vehicles"
@@ -145,7 +145,7 @@ def test_a_moved_deadline_is_an_amendment_with_before_and_after(client, conn):
     age(conn, oid, 20)                       # first seen five days ago
     amend(conn, first, "b", deadline_at=LATER)
     got = feed(client)
-    assert got["counts"] == {"new": 0, "amended": 1}
+    assert got["counts"] == {"new": 0, "amended": 1, "awards": 0}
     item = by_notice(got)["A-1"]
     assert item["kind"] == "amended"
     [line] = item["changes"]
@@ -229,9 +229,10 @@ def test_a_publication_date_only_or_cpv_only_version_is_not_an_amendment(client,
 # ------------------------------------------------------- scope, country, paging
 
 def test_the_default_is_core_and_supply_and_the_scope_filters(client, conn):
+    # WP-95: distinct titles (one buyer's notices with one title, code and date would be one row of /changes)
     store(conn, opp("CORE-1", kind="core"))
     store(conn, opp("SUP-1", kind="supply"))
-    store(conn, opp("DUAL-1", kind="dual"))
+    store(conn, opp("DUAL-1", kind="dual", title="Protective clothing"))
     assert set(by_notice(feed(client))) == {"CORE-1", "SUP-1"}
     assert set(by_notice(feed(client, scope="core"))) == {"CORE-1"}
     assert set(by_notice(feed(client, scope="supply"))) == {"SUP-1"}
@@ -256,7 +257,8 @@ def test_a_national_notice_is_listed_once_under_its_ted_twin(client, conn):
 
 def test_pages_and_totals(client, conn):
     for i in range(5):
-        store(conn, opp(f"P-{i}"))
+        # WP-95: five notices of one buyer with one title and date would be one row (lots, or a second source)
+        store(conn, opp(f"P-{i}", title=f"Armoured vehicles {chr(65 + i)}"))
     first = feed(client, pageSize=2)
     assert first["total"] == 5 and len(first["items"]) == 2 and first["page"] == 1
     third = feed(client, pageSize=2, page=3)

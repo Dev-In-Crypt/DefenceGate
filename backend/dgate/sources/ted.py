@@ -341,6 +341,25 @@ def fetch_by_numbers(numbers: list[str], fields: list[str] | None = None, *,
             client.close()
 
 
+NOTICE_XML_URL = "https://ted.europa.eu/en/notice/{number}/xml"     # the notice's `links.xml.MUL`
+
+
+def fetch_notice_xml(number: str, *, client: httpx.Client) -> bytes | None:
+    """The notice document of one publication number, as TED publishes it (WP-95: the winners of an older-format
+    result notice are in the document only; the search API states none). None when TED has no such notice."""
+    if not PUBLICATION_NUMBER.fullmatch(number):
+        raise ValueError("not a publication number")
+
+    def send() -> httpx.Response:
+        r = client.get(NOTICE_XML_URL.format(number=number), headers={"Accept": "application/xml"}, timeout=60.0)
+        if r.status_code != 404:
+            r.raise_for_status()
+        return r
+
+    r = request_with_retry(send, what=f"TED notice {number}")
+    return None if r.status_code == 404 else r.content
+
+
 def _number(notice: dict[str, Any]) -> str:
     value = notice.get("publication-number") or notice.get("notice-identifier")
     if isinstance(value, list):

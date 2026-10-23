@@ -34,6 +34,7 @@ from typing import Any
 import psycopg
 
 from . import awards, db
+from .award_value import framework_refs, placsp_kind
 from .normalise import PLACEHOLDER_AMOUNT_MAX, looks_like_contact
 from .rawstore import BundleWriter, build_store, storage_key
 from .sources import ted
@@ -81,6 +82,7 @@ def redact(payload: dict[str, Any]) -> dict[str, Any]:
         results.append({**{k: v for k, v in r.items() if k != "winners"}, "winners": winners})
     return {"source": payload.get("source"), "folder_id": payload.get("folder_id"),
             "status_native": payload.get("status_native"), "updated": payload.get("updated"),
+            **({"contracting_system": payload["contracting_system"]} if payload.get("contracting_system") else {}),
             "natural_persons": len(persons),
             # how many of them stated a number at all (counted, the number itself is not kept)
             "natural_persons_identified": sum(1 for _, i in persons if i), "results": results}
@@ -102,8 +104,9 @@ def _values(landed: dict[str, Any]) -> dict[tuple[str, str | None], tuple[float,
     return {k: (round(next(iter(v.values())), 2), next(iter(v))) if len(v) == 1 else None for k, v in sums.items()}
 
 
-def read(landed: dict[str, Any]) -> awards.Read:
-    """The winners of one landed (redacted) payload."""
+def read(landed: dict[str, Any], kind: str | None = None) -> awards.Read:
+    """The winners of one landed (redacted) payload. `kind` (WP-95): what the awarded amounts are, contract or
+    framework ceiling (`award_value.placsp_kind`); None leaves the kind unset."""
     out = awards.Read()
     seen: set[tuple[str, str | None]] = set()
     values = _values(landed)
@@ -137,7 +140,7 @@ def read(landed: dict[str, Any]) -> awards.Read:
             else:
                 value = values.get(key)
                 out.winners.append(awards.Winner(cleaned, country, None if looks_like_contact(ident) else ident,
-                                                 *(value or (None, None))))
+                                                 *(value or (None, None)), kind if value else None))
                 out.counts["joint_ventures"] += bool(w.get("joint_venture"))
     out.winners_seen += int(landed.get("natural_persons") or 0)
     out.counts["skipped_person"] = persons
@@ -145,6 +148,20 @@ def read(landed: dict[str, Any]) -> awards.Read:
         codes = {r.get("result_code") for r in landed.get("results") or []}
         out.counts["no_winner_result" if codes <= NO_WINNER_CODES else "no_winner_named"] += 1
     return out
+
+
+def framework_of(conn: psycopg.Connection, opp_id: int, title: str | None) -> int | None:
+    """WP-95: the PLACSP notice of the framework agreement a call-off's title names by its file number
+    ("1º CB AM (2025/AR43U/00001894)" -> folder 2025/AR43U/00001894E), or None."""
+    refs = framework_refs(title)
+    if not refs:
+        return None
+    row = conn.execute(
+        """SELECT o.id FROM opportunity o
+            WHERE o.native_id = ANY(%s) AND o.id <> %s
+              AND o.source_id IN (SELECT id FROM source WHERE code IN ('es_placsp', 'es_placsp_agg'))
+            ORDER BY array_position(%s, o.native_id), o.id LIMIT 1""", (refs, opp_id, refs)).fetchone()
+    return row["id"] if row else None
 
 
 def _instant(stamp: str | None) -> datetime | None:
@@ -198,10 +215,12 @@ class Loader:
             key = self.writer.put(storage_key(KEY_PREFIX, native, content_hash=h), landed)
             if not db.raw_held(conn, self.src_id, native, h):
                 db.record_raw(conn, self.src_id, native, h, key)
-        result = read(landed)
-        cpv = getattr(opp, "cpv_codes", None)
-        if cpv is None:
-            cpv = conn.execute("SELECT cpv_codes FROM opportunity WHERE id = %s", (opp_id,)).fetchone()["cpv_codes"]
+        cpv, title = getattr(opp, "cpv_codes", None), getattr(opp, "title_original", None)
+        if cpv is None or title is None:
+            row = conn.execute("SELECT cpv_codes, title_original FROM opportunity WHERE id = %s", (opp_id,)).fetchone()
+            cpv, title = row["cpv_codes"], row["title_original"]
+        result = read(landed, placsp_kind(landed.get("contracting_system"), title))
+        result.framework_id = framework_of(conn, opp_id, title)
         awards.store_notice(conn, self.src_id, {"id": opp_id, "cpv_codes": cpv}, result, key, c,
                             payload_hash=h, payload_updated_at=updated)
         c["payloads_read"] += 1

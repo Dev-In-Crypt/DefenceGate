@@ -58,8 +58,8 @@ from .suppliers import (
     K_MIN,
     TED_NOTE,
     ValueTotals,
+    best,
     placsp_note,
-    sums_select,
     value_of,
     value_totals,
 )
@@ -308,25 +308,24 @@ def _ranked(r: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 # WP-81: the sum of the listed winners' contract values per currency, each contract (the procurement key of the answer)
-# once, by the supplier profile's rule (`suppliers.value_of`: a PLACSP awarded amount first, else a TED value; a twin pair
-# from either copy). A statement of its own over the answer's award rows of the listed winners only: inside QUERY it
-# valued every winner's rows (6,700 winners at the cap) for the 30 shown, +50 % on the whole answer.
+# once, by the supplier profile's rule (`suppliers.value_of`, `suppliers.best`: a contract value before a ceiling before
+# an estimate (WP-95), PLACSP's awarded amount before TED's value; a twin pair from either copy). A statement of its own
+# over the answer's award rows of the listed winners only: inside QUERY it valued every winner's rows (6,700 winners at
+# the cap) for the 30 shown, +50 % on the whole answer. WP-95: the rows themselves (one per award row of a listed
+# winner), so the sums by kind and each winner's largest contracts come from one statement.
 VALUES = f"""
-{sums_select("x.org")[0]}
-  FROM (SELECT DISTINCT ON (org.id, kk.k) org.id AS org, kk.k, v.va IS NOT NULL AS ok,
-               a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk
-          FROM award a
-          JOIN organisation raw_org ON raw_org.id = a.organisation_id
-          JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
-          JOIN opportunity o ON o.id = a.opportunity_id
-          LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
-                                 AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
-          CROSS JOIN LATERAL (SELECT hashtextextended({KEY}, 0) AS k) kk
-          {value_of("a.id", "%(placsp)s")}
-         WHERE a.id = ANY(%(ids)s)
-           AND a.organisation_id IN (SELECT id FROM organisation WHERE id = ANY(%(orgs)s) OR merged_into = ANY(%(orgs)s))
-         ORDER BY org.id, kk.k, 3 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
- {sums_select("x.org")[1]}
+SELECT org.id AS org, hashtextextended({KEY}, 0) AS k, a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk, v.vp,
+       o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.source_url,
+       COALESCE(o.published_at, o.notice_date) AS published_at, (SELECT code FROM source WHERE id = o.source_id) AS source_code
+  FROM award a
+  JOIN organisation raw_org ON raw_org.id = a.organisation_id
+  JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
+  JOIN opportunity o ON o.id = a.opportunity_id
+  LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
+                         AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
+  {value_of("a.id", "%(placsp)s")}
+ WHERE a.id = ANY(%(ids)s)
+   AND a.organisation_id IN (SELECT id FROM organisation WHERE id = ANY(%(orgs)s) OR merged_into = ANY(%(orgs)s))
 """
 
 
@@ -338,11 +337,12 @@ def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[s
         name = clean_buyer_name(b["name"])
         buyers.setdefault(b["org"], []).append({"slug": make_slug(b["bk"], name), "name": name, "country": b["country"],
                                                 "contracts": b["n"]})
-    sums: dict[int, list[dict[str, Any]]] = {}
+    per: dict[int, list[dict[str, Any]]] = {}
     if shown:
         for v in conn.execute(VALUES, {"ids": r["aw_ids"] or [], "orgs": sorted(shown),
                                        "placsp": settings().placsp_awards_public}).fetchall():
-            sums.setdefault(v["org"], []).append(v)
+            per.setdefault(v["org"], []).append(v)
+    sums = {o: list(best(rows).values()) for o, rows in per.items()}
     edf = _edf_projects(conn, sorted(shown))
 
     def item(w: dict[str, Any]) -> dict[str, Any]:
@@ -350,7 +350,7 @@ def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[s
         return {"name": name, "country": w["org_country"], "contracts": w["n"],
                 # WP-85: every winner has a supplier page; the map counts the same award set (`award_set`)
                 "slug": make_slug(w["org"], name),
-                "values": value_totals(sums.get(w["org"], []), w["n"]),
+                "values": value_totals(sums.get(w["org"], []), w["n"], largest=True),
                 "buyers": buyers.get(w["org"], []), "countries": w["countries"],
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
                 "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}

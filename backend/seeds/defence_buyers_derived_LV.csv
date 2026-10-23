@@ -2,7 +2,7 @@ country,name,identifier,reason,confidence,reviewed
 LV,aizsardzibas ministrija,,ministry,0.95,false
 LV,latvijas republikas aizsardzibas ministrijas nacionalo brunoto speku nodrosinajuma pavelnieciba,,ministry,0.95,false
 LV,nodrosinajuma pavelnieciba,90001259776,procurement_agency,0.95,false
-LV,nodrosinajuma valsts agentura,90009112024,procurement_agency,0.95,false
+LV,nodrosinajuma valsts agentura,90009112024,procurement_agency,0.95,rejected
 LV,valsts aizsardzibas logistikas un iepirkumu centrs,40900035122,armed_forces,0.95,false
 LV,valsts aizsardzibas militaro objektu un iepirkumu centrs,90009225180,armed_forces,0.95,false
 LV,sia valsts aizsardzibas korporacija,40203525018,defence_word,0.70,false

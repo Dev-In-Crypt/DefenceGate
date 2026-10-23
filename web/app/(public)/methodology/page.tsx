@@ -53,7 +53,7 @@ export default async function MethodologyPage() {
         </p>
         <ClauseList items={[
           'The legal basis of the procedure, for example Directive 2009/81/EC on defence and security procurement.',
-          'The product classification (CPV), where military and civil groups are told apart.',
+          'The product classification (CPV), where military and civil groups are told apart. A military code that is one of more than 20 codes of a civil buyer’s catch-all notice (a purchasing system that lists everything it may buy), and not its main code, does not count.',
           'The buyer, against a curated list of defence buyers, and the kind of body it is.',
           'A security-clearance or confidentiality field in the notice. On TED this field also carries sanctions declarations and criminal-record certificates, so it is shown but never qualifies a notice.',
         ]} />
@@ -64,15 +64,24 @@ export default async function MethodologyPage() {
 
       <ContentSection title="How sure are we">
         <p className="m-0 text-body text-ink-muted">
-          Every notice in the list carries a confidence level, high, medium or low, next to the reasons it is listed; the card says it as “Clearly defence”, “Probably defence” or “Possibly defence”. The level is worked out from the same signals, when you open the page, and it does not change which notices are listed. It describes the group of notices that get the level, not the single notice: read the reasons on the card, then the original.
+          Every notice in the list carries a confidence level, high, medium or low, next to the reasons it is listed. The card names the level by what it rests on: “Clearly defence”; “Defence buyer, ordinary purchase”, “Defence buyer, some military codes” or “Defence directive, unlisted buyer”; “Weak defence signal”. The level is worked out from the same signals, when you open the page, and it does not change which notices are listed. It describes the group of notices that get the level, not the single notice: read the reasons on the card, then the original.
         </p>
         <ClauseList items={[
-          <><span className="font-semibold text-ink">High.</span> A military product code and a buyer on our defence list agree. In our sample, 96 % of these notices were themselves defence goods or services (95 % interval 88 to 98) and 99 % were defence goods or services or a defence body buying (92 to 100). Sample: 64 notices.</>,
-          <><span className="font-semibold text-ink">Medium.</span> The buyer is on our defence list, or the defence directive and a military product code agree for a buyer that is not a security or civil body. The buyer is a defence body in 93 % of the sample (85 to 97), but only 11 % of the notices were defence goods or services themselves (6 to 19): most are ordinary purchases such as food, cleaning, IT or building work. Sample: 111 notices.</>,
+          <><span className="font-semibold text-ink">High.</span> The notice’s main product code is a military one and a buyer on our defence list or the defence directive agrees, or a buyer on our defence list uses the defence directive. Measured under the earlier rule (any military code and a listed buyer): in our sample, 96 % of these notices were themselves defence goods or services (95 % interval 88 to 98) and 99 % were defence goods or services or a defence body buying (92 to 100). Sample: 64 notices.</>,
+          <><span className="font-semibold text-ink">Medium.</span> The buyer is on our defence list, or the defence directive and a military product code that is not the main code agree for a buyer that is not a security or civil body. The buyer is a defence body in 93 % of the sample (85 to 97), but only 11 % of the notices were defence goods or services themselves (6 to 19): most are ordinary purchases such as food, cleaning, IT or building work. Sample: 111 notices.</>,
           <><span className="font-semibold text-ink">Low.</span> One weak signal, or a signal from the wrong kind of buyer: only the directive from a civil body, only a military product code, a military code bought by a police, prison, border, customs or tax body. In the sample 21 % were defence goods or services or a defence body buying (16 to 27) and 34 % were not defence at all (28 to 40). Sample: 188 notices.</>,
         ]} />
         <p className="m-0 text-body text-ink-muted">
-          These are estimates from a random sample of 363 notices read by hand on 16 October 2026, drawn at random within each combination of signals and, inside it, in proportion across sources; the figures are weighted by the size of each combination. One person judged the notices from the title, the buyer and the product codes. The intervals are 95 % intervals; a different sample would give different numbers, and they will drift as the sources and our rules change. The low level is a small share of the list (about 7 %), the medium level most of it (about 83 %). We re-measure when the rules change.
+          These are estimates from a random sample of 363 notices read by hand on 16 October 2026, drawn at random within each combination of signals and, inside it, in proportion across sources; the figures are weighted by the size of each combination. One person judged the notices from the title, the buyer and the product codes. The intervals are 95 % intervals; a different sample would give different numbers, and they will drift as the sources and our rules change. The low level is a small share of the list (about 7 %), the medium level most of it (about 83 %). Since 23 October 2026 the high level needs the military code to be the notice’s main code; the sample has not been read again under that rule.
+        </p>
+      </ContentSection>
+
+      <ContentSection title="Contract values and winners">
+        <p className="m-0 text-body text-ink-muted">
+          The amount of an award notice is one of three things, and we say which: the value of the contract awarded (a call-off under a framework agreement is a contract), the ceiling of a framework agreement or dynamic purchasing system, or the buyer’s estimate where the award states no value. Only contract values are summed for a company; ceilings and estimates are listed apart and never added, so a framework and its call-offs are never counted twice. On TED we read the notice’s own value fields: the notice value, the framework maximum and the winning tenders’ values. On Spain’s national portal the amount is the awarded amount without VAT; for a framework agreement it is the ceiling, which we read from the portal’s contracting-system field where the entry carries it, otherwise from the title (acuerdo marco, contrato basado). A call-off whose title quotes its framework’s file number is linked to the framework.
+        </p>
+        <p className="m-0 text-body text-ink-muted">
+          Winners are named from the result notices of the defence scope on TED and from the award results of Spain’s national portal; natural persons are counted and never named. TED’s search data names the winners of notices in its current format (eForms) only. A result notice in TED’s older format (most notices before 25 October 2023, and some notices under the defence directive into 2024) names its winners in the notice document alone: for the core scope we read them from that document. Where the document names no winner, or we cannot read it, the notice shows none.
         </p>
       </ContentSection>
 

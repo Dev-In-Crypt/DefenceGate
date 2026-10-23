@@ -9,8 +9,13 @@ export interface ValueSum {
   currency: string; amount: number;
   /** The contracts (or notices) whose value this is. */
   count: number;
-  /** Of them, those whose value is the sum of the lots' estimated values, not a stated total. */
+  /** WP-95: always 0 (a sum of lot estimates is an estimate, in `estimates`); kept for older APIs. */
   lotEstimates: number;
+}
+/** WP-95: one of the largest contract values, with its notice. */
+export interface LargestContract {
+  id: string; slug: string; noticeId: string; title: string; buyerName: string | null; publishedAt: string | null;
+  amount: number; currency: string; sourceUrl: string | null; source: string;
 }
 /** GET /v1/suppliers/{slug} `values`, and each winner's `values` in POST /v1/readiness/demand `approach`. */
 export interface ValueTotals {
@@ -23,18 +28,30 @@ export interface ValueTotals {
   shared: number;
   /** WP-87: contracts whose value is under 1,000, probably a unit price: in no sum. Absent from older APIs. */
   suspect?: number;
+  /** WP-95: framework ceilings and estimates, never added to the contract values. Absent from older APIs. */
+  frameworks?: ValueSum[];
+  estimates?: ValueSum[];
+  /** WP-95: the largest contract values (at most 10), with their notices. */
+  largest?: LargestContract[];
+}
+
+/** WP-95: the words for what an amount is, on rows and labels. */
+export const VALUE_KIND_LABEL = { contract: 'contract value', framework: 'framework ceiling', estimate: 'estimate' } as const;
+
+/** WP-95: "Framework ceilings, not added: EUR 1,250,000 (1 framework)", one line per kind that has any. */
+export function apartLines(v: ValueTotals): string[] {
+  const line = (sums: ValueSum[] | undefined, head: string, noun: string) => (sums && sums.length > 0
+    ? [`${head}: ${sums.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} (${n(s.count, noun)})`).join('; ')}`]
+    : []);
+  return [...line(v.frameworks, 'Framework ceilings, not added to the contract values', 'framework'),
+    ...line(v.estimates, 'Estimates where the award states no value, not added', 'notice')];
 }
 
 const n = (k: number, noun: string) => `${formatNumber(k)} ${k === 1 ? noun : `${noun}s`}`;
 
-/** "EUR 3,000 over 2 contracts (1 of them is the sum of the lots' estimated values, not a stated total)", one line per currency. */
+/** "EUR 3,000 over 2 contracts", one line per currency (WP-95: contract values only; a lot estimate is an estimate now). */
 export function sumLines(v: ValueTotals, noun: string): string[] {
-  const lots = (s: ValueSum) => {
-    if (s.lotEstimates === 0) return '';
-    const which = s.count === 1 ? 'it is' : s.lotEstimates === s.count ? 'all are' : `${formatNumber(s.lotEstimates)} of them ${s.lotEstimates === 1 ? 'is' : 'are'}`;
-    return ` (${which} the sum of the lots’ estimated values, not a stated total)`;
-  };
-  return v.byCurrency.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${n(s.count, noun)}${lots(s)}`);
+  return v.byCurrency.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${n(s.count, noun)}`);
 }
 
 /** "12 of 30 contracts state no value for this company alone; 4 of them name several winners." Null when every one states one. */
@@ -50,7 +67,7 @@ export function withoutValueLine(v: ValueTotals, noun: string): string | null {
  * contract"), or "no stated value" when there is none to sum. The details (what states no value, the unit prices) stay inside.
  */
 export function totalLine(v: ValueTotals, noun: string): string {
-  if (v.byCurrency.length === 0) return 'no stated value';
+  if (v.byCurrency.length === 0) return (v.frameworks?.length || v.estimates?.length) ? 'no contract value; ceilings or estimates only' : 'no stated value';
   const sums = v.byCurrency.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${n(s.count, noun)}`).join('; ');
   // the sum is not the company's whole: say how many state no value of their own (the line is all that prints)
   return v.withoutValue > 0 ? `${sums}; ${formatNumber(v.withoutValue)} of ${n(v.of, noun)} state none` : sums;
@@ -71,6 +88,7 @@ export function suspectLine(v: ValueTotals, noun: string): string | null {
 /** The rules of the sum, the same wherever it is shown. */
 export const VALUE_RULES = 'Summed per currency, never converted; amounts without VAT where the source states both. A value counts only where a '
   + 'notice (in Spain’s national portal, PLACSP, a lot) names this one winner: a value shared by several winners is given to none of them. '
-  + 'PLACSP values are the awarded amounts; TED values are as the notice states them. Each contract is counted once, however many notices '
-  + 'publish it: where TED and PLACSP both do, PLACSP’s awarded amount, else TED’s value. Values as published by the buyer; some may be '
-  + 'framework ceilings.';
+  + 'Only contract values are summed: the ceiling of a framework agreement or dynamic purchasing system, and an estimate where the award states '
+  + 'no value, are listed apart and never added, so a framework is never counted with its call-offs. PLACSP values are the awarded amounts; TED '
+  + 'values are what the award notice states. Each contract is counted once, however many notices publish it: where TED and PLACSP both do, a '
+  + 'contract value before a ceiling, PLACSP’s awarded amount before TED’s.';

@@ -330,7 +330,7 @@ export const CHANGE_PAGE_SIZE = 25;
 export const CHANGE_MAX_PAGE = 100;
 /** An ISO week as the digest names it. The API settles whether the week exists (404). */
 const WEEK_RE = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
-const CHANGE_KINDS: ChangeKindFilter[] = ['new', 'amended', 'deadline', 'value', 'status'];
+const CHANGE_KINDS: ChangeKindFilter[] = ['new', 'award', 'amended', 'deadline', 'value', 'status'];
 
 export function parseChangeFilters(sp: SearchParams): ChangeFilters {
   // `relevant` is the API's default for the change list too: left out, like the tender list does.

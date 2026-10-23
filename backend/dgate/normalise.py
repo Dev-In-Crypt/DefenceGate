@@ -112,6 +112,9 @@ class Opportunity:
     # in VERSIONED_FIELDS, left out of the payload while empty so no hash moves.
     notice_date: date | None = None
     notice_kind: str | None = None
+    # WP-95: the buyers of a joint procurement after the first (`buyer_name_raw`), as the notice names them
+    # (TED's buyer-name list). An attribute: not versioned, left out of the payload while empty.
+    other_buyers: list[str] | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
@@ -901,6 +904,19 @@ def _ted_buyer_identifier(value: Any) -> str | None:
     return text
 
 
+def _ted_other_buyers(value: Any) -> list[str] | None:
+    """The buyers a TED notice names after the first, in the block the first is read from (`_first`: English, else
+    the first language), each once (WP-95: TED 711894-2026 names Nodrosinajuma valsts agentura and Valsts policija).
+    None when the notice names one buyer."""
+    block = value
+    if isinstance(value, dict):
+        block = next((value[k] for k in ("eng", "en") if k in value), None) or next(iter(value.values()), None)
+    names = [" ".join(str(x).split()) for x in (block if isinstance(block, list) else [block]) if x not in (None, "")]
+    first = names[0] if names else None
+    out = [n for n in dict.fromkeys(names[1:]) if n and n != first][:10]
+    return out or None
+
+
 def _ted_text(value: Any, limit: int = 64) -> str | None:
     raw = _first(value)
     text = str(raw).strip()[:limit] if raw is not None else ""
@@ -962,6 +978,7 @@ def from_ted(notice: dict[str, Any]) -> Opportunity:
         source_code="ted",
         native_id=str(native_id),
         buyer_name_raw=str(_first(g("buyer-name")) or "").strip() or "UNKNOWN",
+        other_buyers=_ted_other_buyers(g("buyer-name")),
         title_original=title_original,
         title_en=title_en,
         buyer_identifier=_ted_buyer_identifier(g("buyer-identifier")),

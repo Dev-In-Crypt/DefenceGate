@@ -59,6 +59,15 @@ export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?:
       // WP-87: a contract whose published value is a unit price (the 7th row below), in no sum. A further contract of the
       // supplier's beyond the rows the demo lists, so the counts above stay as they were.
       suspect: 1,
+      // WP-95: a framework ceiling, listed apart and never added (a further contract beyond the rows listed, as above), and the
+      // largest contract values: the valued rows below, the largest first
+      frameworks: [{ currency: 'EUR', amount: 5_000_000, count: 1, lotEstimates: 0 }],
+      estimates: [],
+      largest: [4, 2, 0].slice(3 - valued).map((i) => ({
+        id: String(900 + i), slug: String(900 + i), noticeId: `2026/S 0${i + 1}0-00${i}`, title: `Framework agreement for demonstration item ${i + 1}`,
+        buyerName: i % 3 === 0 ? 'Demo Armaments Agency' : 'Demo Defence Materiel Administration', publishedAt: `2026-0${(i % 9) + 1}-1${i}T00:00:00Z`,
+        amount: 1_200_000 + i * 150_000, currency: 'EUR', sourceUrl: null, source: 'ted',
+      })),
     },
     byYear: [{ year: 2023, awards: 1 }, { year: 2024, awards: 4 }, { year: 2025, awards: 6 }, { year: 2026, awards: s.awardCount - 11 > 0 ? s.awardCount - 11 : 1 }],
     byCpv: s.cpvDivisions.map((d, i) => ({ division: d, awards: Math.max(1, s.awardCount - i * 3) })),
@@ -72,6 +81,9 @@ export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?:
       buyerName: i % 3 === 0 ? 'Demo Armaments Agency' : 'Demo Defence Materiel Administration', buyerCountry: i % 3 === 0 ? 'FR' : 'DE',
       publishedAt: `2026-0${(i % 9) + 1}-1${i}T00:00:00Z`, cpv: '35120000', winnersInNotice: i % 2 === 0 ? 1 : 3,
       valueAmount: i % 2 === 0 ? 1_200_000 + i * 150_000 : null, valueCurrency: i % 2 === 0 ? 'EUR' : null, sourceUrl: null,
+      valueKind: i % 2 === 0 ? 'contract' : null,
+      // WP-95: a call-off that names its framework agreement
+      framework: i === 2 ? { source: 'ted', noticeId: '2026/S 010-000', sourceUrl: null, slug: '900' } : null,
     })).concat([{
       // WP-87: "EUR 48 over 1 contract" in the audit: a price per item published as the value
       id: '906', slug: '906', noticeId: '2026/S 070-006', title: 'Supply of fasteners at a unit price', buyerName: 'Demo Armaments Agency',

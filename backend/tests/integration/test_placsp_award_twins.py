@@ -36,6 +36,11 @@ from .test_supplier_map import FakeTed, rec
 
 pytestmark = pytest.mark.integration
 
+
+def core(v: dict) -> dict:
+    """The WP-81 keys of a `values` answer (WP-95 adds `frameworks`, `estimates` and `largest`, asserted where they matter)."""
+    return {k: v[k] for k in ("byCurrency", "of", "withoutValue", "shared", "suspect")}
+
 PID = "8f0c3a52-1b7e-4c1d-9a55-3e2f6d7c8b90"
 
 
@@ -130,8 +135,10 @@ def test_one_award_in_ted_and_placsp_counts_once_and_the_numbered_record_stands_
     stored = conn.execute("SELECT value_amount, value_currency FROM award WHERE value_amount IS NOT NULL").fetchall()
     assert [(float(r["value_amount"]), r["value_currency"]) for r in stored] == [(250000.0, "EUR")]
     assert notice["valueAmount"] == 250000.0 and notice["valueCurrency"] == "EUR"
-    assert profile["values"] == {"byCurrency": [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}],
-                                 "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
+    # WP-95: the fixture's folder is an "Acuerdo marco": its awarded amount is the framework's ceiling, listed apart
+    assert core(profile["values"]) == {"byCurrency": [], "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
+    assert profile["values"]["frameworks"] == [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}]
+    assert notice["valueKind"] == "framework"
     assert before["profiles"][0]["values"]["byCurrency"] == []     # off: the TED notice states none, PLACSP is not read
 
 
@@ -150,10 +157,12 @@ def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, e
     assert item["awardCount"] == 1
     [notice] = got["profiles"][0]["notices"]
     assert notice["source"] == "ted" and [r["source"] for r in notice["alsoPublished"]] == ["es_placsp"]
-    assert got["profiles"][0]["values"] == {
-        "byCurrency": [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}],
+    # WP-95: the PLACSP folder is an "Acuerdo marco" (its amount a ceiling); the TED notice's total is a contract value,
+    # which stands for the pair before a ceiling
+    assert core(got["profiles"][0]["values"]) == {
+        "byCurrency": [{"currency": "EUR", "amount": 1500.0, "count": 1, "lotEstimates": 0}],
         "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
-    assert notice["valueAmount"] == 250000.0
+    assert notice["valueAmount"] == 1500.0 and notice["valueKind"] == "contract"
     # without a PLACSP amount, the TED value stands, still once
     conn.execute("UPDATE award SET value_amount = NULL, value_currency = NULL")
     conn.commit()
@@ -177,7 +186,7 @@ def test_a_placsp_row_standing_for_the_pair_takes_the_ted_value_when_it_states_n
         got = everything(client)
     [profile] = got["profiles"]
     assert profile["notices"][0]["source"] == "es_placsp" and profile["notices"][0]["valueAmount"] == 7000.0
-    assert profile["values"] == {"byCurrency": [{"currency": "EUR", "amount": 7000.0, "count": 1, "lotEstimates": 0}],
+    assert core(profile["values"]) == {"byCurrency": [{"currency": "EUR", "amount": 7000.0, "count": 1, "lotEstimates": 0}],
                                  "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
 
 

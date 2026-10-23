@@ -543,7 +543,7 @@ def test_the_changes_list_is_unchanged_by_the_bounded_window(client, conn):
     """/v1/changes still reaches to now: `bounded` is only for the digest of a past week."""
     store(conn, opp("LIVE-1"))
     first = client.get("/v1/changes").json()
-    assert first["counts"] == {"new": 1, "amended": 0}
+    assert first["counts"] == {"new": 1, "amended": 0, "awards": 0}
     events, _, _ = changes.build_events(conn, scope=None, countries=[], now=NOW + timedelta(days=1), days=14, bounded=True)
     assert len(events) == 1
     events, _, _ = changes.build_events(conn, scope=None, countries=[], now=NOW - timedelta(days=1), days=14, bounded=True)

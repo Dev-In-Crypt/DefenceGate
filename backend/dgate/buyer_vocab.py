@@ -129,6 +129,7 @@ SECURITY_SERVICE = _rx(
     r"inrikes|innenministerium|inneres\b|interieur|binnenlandse|\binterior|vnitra|vnutra|notranje",
     r"unutarnjih|ministerul afacerilor interne|spraw wewnetrznych|vidaus reikalu|iekslietu",
     r"siseministeerium|sisaministeerium|ministry of justice|home office|piirivalve|rajavartio",
+    r"nodrosinajuma valsts agentura|robezsardz",     # WP-95: the Latvian Interior's provision agency, border guard
     r"полиц|жандарм|вътрешните работи|αστυνομ|λιμενικ|kustwacht|coast ?guard|tieslietu",
     # Gaps found reading the buyers that the CPV-group demotion of 13 October 2026 would
     # have caught: a police authority, a prison service or a customs office whose class was
@@ -311,8 +312,10 @@ DEFENCE_INCLUDE: list[_Row] = [
     _row("procurement_agency", 0.90, "GB", r"^leidos supply"),
     _row("procurement_agency", 0.95, "HU", r"vedelemgazdasagi hivatal",
          r"^hm (?:vedelemgazdasagi|elektronikai|ei)\b"),
-    _row("procurement_agency", 0.95, "LV",
-         r"^nodrosinajuma valsts agentura", r"^nodrosinajuma pavelnieciba"),
+    # WP-95: not "nodrosinajuma valsts agentura" (the Provision State Agency of the Ministry of the Interior: it buys
+    # for the State Police, the Border Guard and the fire service; persona p10, TED 711894-2026 with Valsts policija);
+    # the Joint Logistics Command of the armed forces stays
+    _row("procurement_agency", 0.95, "LV", r"^nodrosinajuma pavelnieciba"),
     _row("military_unit", 0.85, "RO",
          r"^(?:ministerul apararii (?:nationale )?)?(?:unitatea militara|u m|um)\s*\d",
          r"^statul major|^baza (?:aeriana|navala|logistica)|^comandamentul"),

@@ -36,6 +36,8 @@ export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
 const RELATED_LIMIT = 3;
+/** WP-95: the label of an award's value by its kind. */
+const AWARD_VALUE_LABEL = { contract: 'Awarded value', framework: 'Framework ceiling', estimate: 'Estimated value' } as const;
 const ROW = 'grid gap-1 break-words py-2.5 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4';
 /** The facts grid inside a titled card: the card's own header rule stands in for the first hairline. */
 const IN_CARD = 'border-b-0 [&>div:first-child]:border-t-0';
@@ -116,6 +118,10 @@ export default async function TenderDetailPage({ params }: Props) {
   const procedureEn = tender.procedure ? procedureLabel(tender.procedure) : null;
   const clearance = clearanceView(tender);
   const subcontracting = subcontractingView(tender);
+  const otherBuyers = tender.otherBuyers ?? [];
+  const awardedTo = tender.awardedTo ?? [];
+  const awardedPersons = tender.awardedPersons ?? 0;
+  const award = tender.awardValue && !isPlaceholderAmount(tender.awardValue.amount) ? tender.awardValue : null;
 
   return (
     <>
@@ -141,11 +147,27 @@ export default async function TenderDetailPage({ params }: Props) {
           </p>
         )}
         <p className="m-0 max-w-prose text-body">
-          <span className="text-ink-muted">Buyer: </span>
+          <span className="text-ink-muted">{otherBuyers.length > 0 ? 'Buyers: ' : 'Buyer: '}</span>
           {tender.buyerSlug
             ? <Link href={`/buyers/${tender.buyerSlug}`} className="py-2 font-semibold">{buyer}</Link>
             : <span className="font-semibold">{buyer}</span>}
+          {/* WP-95: every buyer of a joint procurement, as the notice names them */}
+          {otherBuyers.length > 0 && <span data-other-buyers>{otherBuyers.map((b) => `; ${displayName(b, 'title')}`).join('')} (joint procurement)</span>}
         </p>
+        {/* WP-95: who the award names; natural persons are counted, never named */}
+        {(awardedTo.length > 0 || awardedPersons > 0) && (
+          <p className="m-0 max-w-prose text-body" data-awarded-to>
+            <span className="text-ink-muted">Awarded to: </span>
+            {awardedTo.map((w, i) => (
+              <span key={`${w.name}-${i}`}>
+                {i > 0 && '; '}
+                {w.slug ? <Link href={`/suppliers/${w.slug}`} className="py-2 font-semibold">{displayName(w.name, 'title')}</Link> : <span className="font-semibold">{displayName(w.name, 'title')}</span>}
+                {w.country ? ` (${w.country})` : ''}
+              </span>
+            ))}
+            {awardedPersons > 0 && `${awardedTo.length > 0 ? '; and ' : ''}${awardedPersons === 1 ? 'a natural person' : `${awardedPersons} natural persons`}, not named`}
+          </p>
+        )}
         {/* WP-90: the subject in the notice's own words (its first sentence, commercial only: the API leaves out a specification or a contact) */}
         {tender.subject && (
           <p className="m-0 max-w-prose text-body" data-subject>
@@ -164,6 +186,14 @@ export default async function TenderDetailPage({ params }: Props) {
         facts={(
           <Card title="Key facts">
             <FactsGrid className={IN_CARD}>
+              {/* WP-95: an award's value says what it is: the contract awarded, a framework ceiling, or the estimate */}
+              {award ? (
+                <FactCell label={AWARD_VALUE_LABEL[award.kind]}>
+                  <AmountDisplay money={{ amount: award.amount, currency: award.currency }} size="lg" />
+                  {award.kind === 'framework' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">The most that may be bought under the framework agreement, not a contract value</div>}
+                  {award.kind === 'estimate' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">The award states no value; this is the buyer’s estimate</div>}
+                </FactCell>
+              ) : (
               <FactCell label="Estimated value">
                 <AmountDisplay money={tender.estimatedValue} size="lg" />
                 {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
@@ -173,6 +203,7 @@ export default async function TenderDetailPage({ params }: Props) {
                   <div className="mt-1 font-sans text-small font-normal text-ink-muted">{sentence(valueKindLabel(tender.valueKind) ?? '')}</div>
                 )}
               </FactCell>
+              )}
               <FactCell label="Notice ID">{tender.noticeId}</FactCell>
               <FactCell label={tender.publishedAt || !tender.noticeDate ? 'Published' : 'Notice date'}>
                 {tender.publishedAt

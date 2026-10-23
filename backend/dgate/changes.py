@@ -1,10 +1,13 @@
 """What changed: the real changes of the last 14 days across the site (`GET /v1/changes`).
 
-Two kinds of entry, each about a notice that is in scope:
+Three kinds of entry, each about a notice that is in scope:
 
   - `new`      the notice was first collected in the window and was published in it (or a
                day or two before: TED notices are collected after their publication date).
                An older notice read in by a history load is not news
+  - `award`    the same, for a notice that is an award (WP-95, persona p04: "New" stood on new
+               tenders and award results alike): its status is awarded, or the source calls
+               the notice an award or a formalisation
   - `amended`  its deadline, value (or currency), status or procedure changed, as the
                archive observed it
 
@@ -26,6 +29,11 @@ One entry per notice per UTC day. Within a day the entry for a notice's first si
 `new` and wins over amendments seen the same day; several amendments of one day are one
 entry whose lines run from the day's first `before` to its last `after`.
 
+WP-95: entries that look the same are one row (`group_events`): the lots of one notice
+published as notices of their own ("Część II: ..."), and the same notice from two sources
+of one country. Same buyer, same title once the lot number is taken off, same main code, same publication and deadline
+date, kind, day and changes; the row says how many notices it stands for (`repeats`).
+
 A national notice shown under its TED twin in `/v1/tenders` is shown once here too (the
 list's own collapse rules, `tenders.collapse_clauses`). Only titles, buyers, countries,
 dates and statuses are served, as everywhere else: no personal data, no specifications.
@@ -33,6 +41,7 @@ dates and statuses are served, as everywhere else: no personal data, no specific
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -68,16 +77,19 @@ class Change(BaseModel):
     # Stable: "<notice id>-<YYYYMMDD>". The same notice on the same day is the same entry
     # whatever else is seen later, so a feed reader does not show it twice.
     id: str
-    kind: str                          # new | amended
+    kind: str                          # new | award | amended
     day: date                          # the UTC day it was observed
     detectedAt: datetime               # the latest observation of that day
     changes: list[T.FieldChange]       # empty for a new notice
     tender: T.Tender
+    # WP-95: how many notices this row stands for (lots of one notice, one notice from two sources); 1 for itself
+    repeats: int = 1
 
 
 class ChangeCounts(BaseModel):
     new: int
     amended: int
+    awards: int = 0                    # WP-95: new award notices, apart from `new` tenders
 
 
 class FundingChange(BaseModel):
@@ -163,9 +175,16 @@ def funding_events(conn, *, countries: list[str], now: datetime | None = None,
     return sorted(events.values(), key=lambda e: (e["day"], e["at"], e["row"]["id"]), reverse=True)
 
 
+# WP-95: a notice first collected that is an award, not a call: its status is awarded, or the source names it an award
+# or a formalisation (PLACSP, `notice_kind`)
+AWARD_NOTICE_SQL = "(o.status = 'awarded' OR o.notice_kind IN ('award', 'formalisation'))"
+
+
 def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
-                since: datetime, until: datetime | None = None) -> tuple[dict[int, datetime], list[int]]:
-    """(notices first seen in the window with when, notices with a candidate amendment).
+                since: datetime, until: datetime | None = None
+                ) -> tuple[dict[int, datetime], list[int], set[int]]:
+    """(notices first seen in the window with when, notices with a candidate amendment, the first seen that are
+    award notices: WP-95).
 
     The amendment scan is written for the planner, not for the reader (EXPLAIN ANALYZE on
     production, 15 October 2026: the `dgate_api` role has a 5 s statement timeout, and the
@@ -181,7 +200,7 @@ def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
     upper_new = " AND v.observed_at < %s" if until else ""
     upper_args = [until] if until else []
     new_rows = conn.execute(
-        f"""SELECT o.id, v.observed_at
+        f"""SELECT o.id, v.observed_at, {AWARD_NOTICE_SQL} AS is_award
               FROM opportunity o
               JOIN opportunity_version v ON v.opportunity_id = o.id AND v.version = 1
              WHERE o.is_defence AND NOT o.suppressed AND {scope_sql}{country_sql}
@@ -198,7 +217,8 @@ def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
                AND NOT EXISTS (SELECT 1 FROM annotated a WHERE a.vid = v.id){upper_amended}
              LIMIT {CANDIDATE_LIMIT}""",
         [list(NOT_A_CHANGE), since, since, list(CHANGE_FIELDS)] + upper_args).fetchall()
-    return ({r["id"]: r["observed_at"] for r in new_rows}, [r["id"] for r in amended_rows])
+    return ({r["id"]: r["observed_at"] for r in new_rows}, [r["id"] for r in amended_rows],
+            {r["id"] for r in new_rows if r["is_award"]})
 
 
 def _amendments(conn, ids: list[int], since: datetime,
@@ -263,7 +283,8 @@ def build_events(conn, *, scope: str | None, countries: list[str],
         country_sql = " AND o.country = ANY(%s)"
         params.append(countries)
 
-    first_seen, amended_ids = _candidates(conn, scope_sql, country_sql, params, since, now if bounded else None)
+    first_seen, amended_ids, awards = _candidates(conn, scope_sql, country_sql, params, since,
+                                                  now if bounded else None)
     ids = sorted(set(first_seen) | set(amended_ids))
     if not ids:
         return [], since, now
@@ -281,10 +302,47 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     for oid, at in first_seen.items():
         if oid in shown:
             at = at.astimezone(timezone.utc)
-            events[(oid, at.date())] = {"id": oid, "kind": "new", "day": at.date(), "at": at,
-                                        "changes": []}
+            events[(oid, at.date())] = {"id": oid, "kind": "award" if oid in awards else "new", "day": at.date(),
+                                        "at": at, "changes": []}
     out = sorted(events.values(), key=lambda e: (e["day"], e["at"], e["id"]), reverse=True)
     return out, since, now
+
+
+# The lot or part number a title carries ("Część II:", "Lote 3 -", "Los 2", "Lot n°1", "část 4"), taken off before two
+# titles are compared (`group_key`).
+_LOT_NUMBER = re.compile(
+    r"\b(?:lot[eo]?s?|los|lotto|cz[eę][sś][cć]|[cč][aá]st|teil|pakiet|zadanie|part(?:ie)?|cz\.)\s*"
+    r"(?:n[º°o]\.?\s*|nr\.?\s*|no\.?\s*)?(?:[ivxlcdm]+|\d+)\b[\s:.\-–—)]*", re.IGNORECASE)
+
+
+def base_title(title: str | None) -> str:
+    """A title with its lot number taken off, lower case, single-spaced: two lots of one notice compare equal."""
+    text = _LOT_NUMBER.sub(" ", (title or "").lower())
+    return " ".join(re.sub(r"[^\w]+", " ", text).split())
+
+
+def group_key(row: dict[str, Any], event: dict[str, Any]) -> tuple:
+    """WP-95: what two events must share to be one row: buyer, title without its lot number, main CPV code, publication
+    date, deadline, kind, day and the changes. The source is not in it: one notice from two sources of a country is one row."""
+    return (row.get("buyer_org_id") or row.get("buyer_name_raw"), base_title(row.get("title_original")),
+            (row.get("cpv_codes") or [None])[0], row.get("published_at"), row.get("deadline_at"), event["kind"], event["day"],
+            tuple((c["field"], c["before"], c["after"]) for c in event["changes"]))
+
+
+def group_events(conn, events: list[dict[str, Any]]) -> list[tuple[dict[str, Any], int]]:
+    """The events with identical-looking ones merged, in order: (the first of them, how many). They stay separate
+    notices, each with its own page (WP-52 T10 for the digest; WP-95 for /changes)."""
+    if not events:
+        return []
+    rows = {r["id"]: r for r in conn.execute(
+        "SELECT id, buyer_org_id, buyer_name_raw, title_original, cpv_codes, published_at, deadline_at FROM opportunity "
+        "WHERE id = ANY(%s)",
+        ([e["id"] for e in events],)).fetchall()}
+    groups: dict[tuple, list[dict[str, Any]]] = {}
+    for e in events:
+        key = group_key(rows[e["id"]], e) if e["id"] in rows else (e["id"],)
+        groups.setdefault(key, []).append(e)
+    return [(g[0], len(g)) for g in groups.values()]
 
 
 def week_end(week: str, now: datetime | None = None) -> tuple[datetime, float]:
@@ -333,13 +391,14 @@ def _matching(conn, ids: list[int], *, q, cpv, from_, to, min_, max_, currency, 
 
 # WP-90: the kinds a list can be narrowed to: new notices, every amendment, or the amendments that moved one thing
 # (the deadline; the value or its currency; the status). A procedure change is an amendment and nothing more.
+# WP-95: `award`, the new award notices (`new` is the new calls and other notices).
 KIND_FIELDS = {"deadline": ("deadline_at",), "value": ("value_amount", "value_currency"), "status": ("status",)}
-KIND_PATTERN = "^(new|amended|deadline|value|status)$"
+KIND_PATTERN = "^(new|award|amended|deadline|value|status)$"
 
 
 def of_kind(event: dict[str, Any], kind: str) -> bool:
     """Whether an event is of a kind of `KIND_PATTERN`."""
-    if kind in ("new", "amended"):
+    if kind in ("new", "award", "amended"):
         return event["kind"] == kind
     return event["kind"] == "amended" and any(c["field"] in KIND_FIELDS[kind] for c in event["changes"])
 
@@ -394,11 +453,15 @@ def list_changes(
                          min_=min_, max_=max_, currency=currency, cpv_main=cpvMain, not_cpv=notCpv,
                          status=status or "all")
         events = [e for e in events if e["id"] in keep]
-    everything = events
+    # WP-95: the lots of one notice and one notice from two sources are one row
+    grouped = group_events(conn, events)
+    everything = grouped
     if kind:
-        events = [e for e in events if of_kind(e, kind)]
+        grouped = [(e, n) for e, n in grouped if of_kind(e, kind)]
     start = (page - 1) * pageSize
-    shown = events[start:start + pageSize]
+    shown_rows = grouped[start:start + pageSize]
+    shown = [e for e, _ in shown_rows]
+    repeats = {id(e): n for e, n in shown_rows}
     ids = [e["id"] for e in shown]
     rows = conn.execute(f"{T.TENDER_SELECT} WHERE o.id = ANY(%s)", (ids,)).fetchall() if ids else []
     tenders = {t["id"]: t for t in T._present(conn, rows, checked=with_meta is True)}
@@ -415,15 +478,16 @@ def list_changes(
     } for e in calls[:FUNDING_LIMIT]] if page == 1 else []
     items = [{
         "id": f"{e['id']}-{e['day']:%Y%m%d}", "kind": e["kind"], "day": e["day"],
-        "detectedAt": e["at"], "changes": e["changes"], "tender": tenders[str(e["id"])],
+        "detectedAt": e["at"], "changes": e["changes"], "tender": tenders[str(e["id"])], "repeats": repeats[id(e)],
     } for e in shown if str(e["id"]) in tenders]
     from .stats import list_meta  # stats imports tenders
 
     return {
-        "items": items, "total": len(events), "page": page, "pageSize": pageSize,
+        "items": items, "total": len(grouped), "page": page, "pageSize": pageSize,
         "windowDays": WINDOW_DAYS if week is None else 7, "windowFrom": since, "windowTo": until,
-        "counts": {"new": sum(1 for e in everything if e["kind"] == "new"),
-                   "amended": sum(1 for e in everything if e["kind"] == "amended")},
+        "counts": {"new": sum(1 for e, _ in everything if e["kind"] == "new"),
+                   "awards": sum(1 for e, _ in everything if e["kind"] == "award"),
+                   "amended": sum(1 for e, _ in everything if e["kind"] == "amended")},
         "funding": funding, "fundingTotal": len(calls),
         "meta": list_meta(conn, "tender") if with_meta is True else {},
     }

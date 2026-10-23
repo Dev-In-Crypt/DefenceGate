@@ -93,6 +93,14 @@ CPV_AMBIGUOUS_GROUPS = {"356", "357", "358"}
 # (migration 0029); tests/unit/test_buyer_classes.py keeps the two in step.
 MILITARY_CPV_SQL_REGEX = "^35[3-8]"
 
+# WP-95 (persona round of 23 October 2026, A1.4): a catch-all purchasing system of a civil buyer lists every
+# code it may ever buy under (Ayuntamiento de Bétera, Cetursa Sierra Nevada, Ayuntamiento de Molina de Segura:
+# 74 to 314 codes), and one military code among them made the notice defence. A military code that is not the
+# notice's main code, on a notice of more than CATCH_ALL_CODES distinct codes, from a buyer that is not on the
+# defence list (nor a defence body by its name) and without the directive, is no defence signal (`DefenceSignals.catch_all_civil`). The column
+# `sig_cpv_military` still says the code is there; only the verdict ignores it.
+CATCH_ALL_CODES = 20
+
 # Divisions outside 35 that carry dual-use work. Never sufficient alone.
 CPV_DUAL_USE_DIVISIONS = {
     "34",  # Transport equipment
@@ -257,6 +265,9 @@ class DefenceSignals:
     # Every military CPV of the notice is in CPV_AMBIGUOUS_GROUPS (and none is one of
     # the added military codes outside division 35).
     cpv_ambiguous_only: bool = False
+    # WP-95: the main (first) code is military; more than CATCH_ALL_CODES distinct codes
+    cpv_main_military: bool = False
+    cpv_codes_count: int = 0
     matched_cpv: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
 
@@ -268,6 +279,15 @@ class DefenceSignals:
     @property
     def cpv(self) -> bool:
         return self.military_cpv or self.cpv_civil_security
+
+    @property
+    def catch_all_civil(self) -> bool:
+        """WP-95: the military code is one of many codes of a civil buyer's catch-all notice, not its main code, with
+        no directive and no link to a defence notice: no defence signal (see CATCH_ALL_CODES). A civil buyer is one
+        not on the defence list whose name is not a defence body's; an unclassified buyer (None) is never demoted."""
+        return (self.military_cpv and not self.cpv_main_military and self.cpv_codes_count > CATCH_ALL_CODES
+                and not self.legal_basis and not self.buyer and not self.linked_defence
+                and self.buyer_class not in (None, "defence"))
 
     @property
     def dual_use(self) -> bool:
@@ -318,7 +338,7 @@ class DefenceSignals:
         316 such rows were read and none was relevant (fire engines, guard
         services). So clearance corroborates; it never decides.
         """
-        if self.legal_basis or self.military_cpv:
+        if self.legal_basis or (self.military_cpv and not self.catch_all_civil):
             return True
         if self.buyer:
             # A defence ministry buying anything is worth surfacing to a
@@ -408,6 +428,8 @@ def classify(
 
     sig.cpv_ambiguous_only = (sig.cpv_military and not sig.cpv_adjacent
                               and military_groups <= CPV_AMBIGUOUS_GROUPS)
+    sig.cpv_main_military = bool(codes and military_cpv_codes(codes[:1]))
+    sig.cpv_codes_count = len(set(codes))
 
     if sig.military_cpv:
         sig.reasons.append(f"military CPV: {', '.join(sorted(set(sig.matched_cpv)))}")
@@ -422,6 +444,9 @@ def classify(
     if buyer_is_defence:
         sig.buyer = True
         sig.reasons.append("buyer is on the defence buyer list")
+    if sig.catch_all_civil:
+        sig.reasons.append(f"not defence: the military code is one of {sig.cpv_codes_count} codes of a catch-all "
+                           "notice, not its main code, and the buyer is not on the defence list")
 
     if linked_defence:
         sig.reasons.append("same procurement as a defence notice of another source")

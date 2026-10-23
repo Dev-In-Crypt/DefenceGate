@@ -13,6 +13,11 @@ from dgate import api, config, demand
 
 pytestmark = pytest.mark.integration
 
+
+def core(v: dict) -> dict:
+    """The WP-81 keys of a `values` answer (WP-95 adds `frameworks`, `estimates` and `largest`, asserted where they matter)."""
+    return {k: v[k] for k in ("byCurrency", "of", "withoutValue", "shared", "suspect")}
+
 RECENT = date.today() - timedelta(days=30)
 
 
@@ -144,9 +149,9 @@ def test_values_are_summed_only_where_a_notice_names_this_one_winner(world, post
     # WP-81 (owner decision of 22 October 2026, replacing WP-80's "no sum of values per supplier"): Talleres' TED total
     # of 100,000 is its own; 2-2026 names two winners (shared, attributed to none); DE-1 states no total or lot sum
     t = by_name(post())["Talleres Norte SL"]
-    assert t["values"] == {"byCurrency": [{"currency": "EUR", "amount": 100000.0, "count": 1, "lotEstimates": 0}],
+    assert core(t["values"]) == {"byCurrency": [{"currency": "EUR", "amount": 100000.0, "count": 1, "lotEstimates": 0}],
                            "of": 3, "withoutValue": 2, "shared": 1, "suspect": 0}
-    assert by_name(post())["Rheinmetall Landsysteme GmbH"]["values"] == {"byCurrency": [], "of": 3, "withoutValue": 3,
+    assert core(by_name(post())["Rheinmetall Landsysteme GmbH"]["values"]) == {"byCurrency": [], "of": 3, "withoutValue": 3,
                                                                          "shared": 0, "suspect": 0}
 
 
@@ -161,8 +166,10 @@ def test_values_are_summed_per_currency_never_converted_and_lot_estimates_are_co
     set_value(conn, "DE-R1", 2500.5, "EUR", "lot_sum")
     set_value(conn, "DE-R2", 3000.0, "PLN", "total")
     v = by_name(post())["Rheinmetall Landsysteme GmbH"]["values"]
-    assert v["byCurrency"] == [{"currency": "EUR", "amount": 3500.5, "count": 2, "lotEstimates": 1},
+    # WP-95: a sum of lot estimates is an estimate, listed apart and never added (it was summed, flagged as lotEstimates)
+    assert v["byCurrency"] == [{"currency": "EUR", "amount": 1000.0, "count": 1, "lotEstimates": 0},
                                {"currency": "PLN", "amount": 3000.0, "count": 1, "lotEstimates": 0}]
+    assert v["estimates"] == [{"currency": "EUR", "amount": 2500.5, "count": 1, "lotEstimates": 0}]
     assert (v["of"], v["withoutValue"], v["shared"]) == (3, 0, 0)
 
 
@@ -198,7 +205,7 @@ def test_a_placsp_awarded_amount_counts_for_its_winner_even_with_several_winners
                  "WHERE opportunity_id = (SELECT id FROM opportunity WHERE native_id = 'ES-S0')")
     conn.commit()
     v = by_name(post())["Recambios Sur SL"]["values"]
-    assert v == {"byCurrency": [{"currency": "EUR", "amount": 9000.0, "count": 1, "lotEstimates": 0}],
+    assert core(v) == {"byCurrency": [{"currency": "EUR", "amount": 9000.0, "count": 1, "lotEstimates": 0}],
                  "of": 2, "withoutValue": 1, "shared": 0, "suspect": 0}
 
 

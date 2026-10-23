@@ -182,7 +182,7 @@ def test_a_change_the_publisher_made_before_our_first_reading_is_not_an_amendmen
     age(conn, oid, 3, version=1)                                   # read three days ago, amended today
     got = client.get("/v1/changes", params={"scope": "all"}).json()
     assert [(i["kind"], i["tender"]["title"]) for i in got["items"]] == [("amended", "Armoured vehicles")]
-    assert got["counts"] == {"new": 0, "amended": 1}
+    assert got["counts"] == {"new": 0, "amended": 1, "awards": 0}
 
 
 def test_the_migration_lets_a_row_be_keyed_per_topic_and_names_its_document(conn):

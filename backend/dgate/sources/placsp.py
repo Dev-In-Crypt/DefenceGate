@@ -472,9 +472,16 @@ def award_payload(entry: ET.Element, source_code: str = "es_placsp") -> dict | N
     results = parse_results(cfs)
     if not results:
         return None
-    return {"source": source_code, "folder_id": _text(cfs, "cbc:ContractFolderID"),
-            "status_native": _text(cfs, "cbc-place-ext:ContractFolderStatusCode"),
-            "updated": _text(entry, "atom:updated"), "results": results}
+    out = {"source": source_code, "folder_id": _text(cfs, "cbc:ContractFolderID"),
+           "status_native": _text(cfs, "cbc-place-ext:ContractFolderStatusCode"),
+           "updated": _text(entry, "atom:updated"), "results": results}
+    # WP-95: whether the folder establishes a framework agreement or a dynamic purchasing system, or is a contract
+    # based on one (`award_value.PLACSP_SYSTEM`). Absent when the entry does not state it, so the payload of a folder
+    # without it lands with the hash it had.
+    system = _text(cfs, ".//cac:TenderingProcess/cbc:ContractingSystemCode")
+    if system:
+        out["contracting_system"] = system.strip()
+    return out
 
 
 _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")

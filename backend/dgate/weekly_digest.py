@@ -167,21 +167,11 @@ class WeekSummary(BaseModel):
 
 def distinct_events(conn, events: list[dict[str, Any]]) -> list[tuple[dict[str, Any], int]]:
     """The events with identical-looking ones merged, in order: (the first of them, how many). Notices of one
-    source and buyer with the same title, publication date, kind and changes read as one row (the digest of
-    week 42 listed one Polish title 13 times). They stay separate notices: each has its own page, and the
-    counts of the issue count them all (WP-52, T10)."""
-    if not events:
-        return []
-    keys = {r["id"]: (r["source_id"], r["buyer_org_id"] or r["buyer_name_raw"], r["title_original"], r["published_at"])
-            for r in conn.execute(
-                "SELECT id, source_id, buyer_org_id, buyer_name_raw, title_original, published_at "
-                "FROM opportunity WHERE id = ANY(%s)", ([e["id"] for e in events],)).fetchall()}
-    groups: dict[tuple, list[dict[str, Any]]] = {}
-    for e in events:
-        key = (keys.get(e["id"], e["id"]), e["kind"], e["day"],
-               tuple((c["field"], c["before"], c["after"]) for c in e["changes"]))
-        groups.setdefault(key, []).append(e)
-    return [(g[0], len(g)) for g in groups.values()]
+    buyer with the same title, publication date, kind and changes read as one row (the digest of week 42 listed
+    one Polish title 13 times). They stay separate notices: each has its own page, and the counts of the issue
+    count them all (WP-52, T10). WP-95: the rule of /changes (`changes.group_events`): the lot number is taken off
+    the title, and one notice from two sources is one row."""
+    return changes.group_events(conn, events)
 
 
 def _tenders(conn, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -193,7 +183,9 @@ def _tenders(conn, events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for e, repeats in shown:
         t = by_id.get(str(e["id"]))
         if t:
-            out.append({"id": t["id"], "slug": t["slug"], "kind": e["kind"], "day": e["day"], "title": t["title"],
+            # WP-95: the digest's tenders stay new | amended (a new award notice is a new notice of the week here)
+            out.append({"id": t["id"], "slug": t["slug"], "kind": "new" if e["kind"] == "award" else e["kind"],
+                        "day": e["day"], "title": t["title"],
                         "buyerName": t["buyerName"], "country": t["country"], "deadline": t["deadline"],
                         "estimatedValue": t["estimatedValue"], "changes": e["changes"], "repeats": repeats})
     return out
@@ -261,7 +253,8 @@ def build_all(conn, week: str, *, now: datetime | None = None,
                 if row.get("cascade") is True and row["id"] not in seen:
                     seen.add(row["id"])
                     cascade.append((kind, row, ch))
-        new_t = [e for e in events if e["kind"] == "new" and (not country or t_country.get(e["id"]) == country)]
+        # WP-95: a new award notice is a new notice of the week here, as before (/changes lists it apart)
+        new_t = [e for e in events if e["kind"] in ("new", "award") and (not country or t_country.get(e["id"]) == country)]
         amended_t = [e for e in events if e["kind"] == "amended" and (not country or t_country.get(e["id"]) == country)]
         shown = {k: [_call(r, k, ch, read[r["id"]]) for r, ch in v[:SECTION_LIMIT]] for k, v in kept.items()}
         return {
