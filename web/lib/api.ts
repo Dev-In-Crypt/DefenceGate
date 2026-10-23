@@ -6,7 +6,7 @@
  */
 import { headers } from 'next/headers';
 import { TtlCache } from './export-cache';
-import type { Buyer, BuyerFilters, BuyerProfile, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, BuyerSuppliers, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
@@ -180,6 +180,7 @@ function tendersQuery(f: TenderFilters): string {
     p.set(PARAM.min, String(Math.max(f.valueMin ?? 0, PLACEHOLDER_AMOUNT_MAX + 0.01)));
   }
   p.set('pageSize', String(f.pageSize ?? TENDER_PAGE_SIZE));
+  p.delete(PARAM.size);                 // WP-90: the address's name of the page size; the API reads pageSize
   return `?${p.toString()}`;
 }
 
@@ -207,7 +208,7 @@ export async function getTenderScopeCounts(filters: TenderFilters = {}): Promise
   try {
     if (API_BASE) {
       const p = new URLSearchParams(toTenderQuery({ ...filters, scope: undefined, sort: undefined, page: 1 }));
-      for (const k of ['scope', 'sort', 'page']) p.delete(k);
+      for (const k of ['scope', 'sort', 'page', PARAM.size]) p.delete(k);
       if (filters.valueMin !== undefined || filters.valueMax !== undefined) p.set(PARAM.min, String(Math.max(filters.valueMin ?? 0, PLACEHOLDER_AMOUNT_MAX + 0.01)));
       const q = p.toString();
       return await http<ScopeCounts>(`/v1/tenders/scope-counts${q ? `?${q}` : ''}`, q === '' ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS);
@@ -227,7 +228,7 @@ export async function getTenderScopeCounts(filters: TenderFilters = {}): Promise
  */
 export async function getTenderCalendar(filters: TenderFilters = {}): Promise<CalendarPage> {
   // WP-87: the tender list's own filters, as the list sends them (status, sort and page are not the calendar's)
-  const query = toTenderQuery({ ...filters, status: undefined, sort: undefined, page: undefined, buyer: undefined });
+  const query = toTenderQuery({ ...filters, status: undefined, sort: undefined, page: undefined, pageSize: undefined, buyer: undefined });
   if (API_BASE) {
     const path = `/v1/tenders/calendar${query}`;
     return withLastGood(`calendar:${path}`, () => httpOrThrow<CalendarPage>(path, 'revalidate', LIST_REVALIDATE_SECONDS), { persist: query === '' });
@@ -434,6 +435,17 @@ export async function getBuyerProfile(buyer: Buyer): Promise<BuyerProfile | null
   if (!API_BASE) return statsMock.buyerProfile(buyer);
   try {
     return await http<BuyerProfile>(`/v1/buyers/${encodeURIComponent(buyer.slug)}/profile`);
+  } catch {
+    return null;
+  }
+}
+
+/** WP-90: who won this buyer's contracts (GET /v1/buyers/{slug}/suppliers). null when the API cannot answer: the page renders without it. */
+export async function getBuyerSuppliers(buyer: Buyer): Promise<BuyerSuppliers | null> {
+  if (!isBuyerSlug(buyer.slug)) return null;
+  if (!API_BASE) return supplierMock.buyerSuppliers(buyer);
+  try {
+    return await http<BuyerSuppliers>(`/v1/buyers/${encodeURIComponent(buyer.slug)}/suppliers`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
   } catch {
     return null;
   }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getDigest, getDigestWeeks } from '@/lib/api';
-import { digestQuery, parseDigestFilters, unknownDigestCountry } from '@/lib/digest';
+import { digestQuery, parseDigestFilters, unknownDigestCountry, weekOf } from '@/lib/digest';
+import { now } from '@/lib/deadline';
 import { formatDateTimeUtc } from '@/lib/format';
 import type { SearchParams } from '@/lib/filters';
 import { staleNote } from '@/lib/source-status';
@@ -38,7 +39,8 @@ export default async function DigestPage({ searchParams }: Props) {
         <PageHeader crumbs={crumbs} title="Weekly digest" />
         <EmptyState title="There is no issue to show right now" action={<Button variant="secondary" href={`/digest${digestQuery(filters)}`}>Try again</Button>}>
           The first issue appears when the first full week of our archive has ended, and the data service did not answer for this one.
-          Nothing here means there is nothing to report: the issue could not be read. <a href="/changes" className="font-semibold">What changed</a> covers the last 14 days meanwhile.
+          Nothing here means there is nothing to report: the issue could not be read. <a href="/changes" className="font-semibold">What changed</a> covers the last 14 days meanwhile, and{' '}
+          <a href={`/changes?week=${weekOf(now())}`} className="font-semibold" data-week-so-far>this week so far</a>.
         </EmptyState>
       </>
     );

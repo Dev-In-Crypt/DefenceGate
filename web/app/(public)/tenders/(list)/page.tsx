@@ -8,7 +8,7 @@ import {
 import { formatDateTimeUtc } from '@/lib/format';
 import { cutSentence, listStamps, reachableTotal, totalWords } from '@/lib/list-count';
 import { calendarHrefFor } from '@/lib/calendar';
-import { toChangeQuery } from '@/lib/filters';
+import { SubscribeToSearch } from '@/components/tenders/subscribe';
 import { listUpdatedAt, staleNote, updatedLine, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
@@ -70,15 +70,12 @@ export default async function TendersPage({ searchParams }: Props) {
       meta={`${tenderSources} tender sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}${stamps.list ? ` · ${stamps.list}` : ''}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} countsNote={stamps.scope} />}
       calendarHref={calendarHrefFor(filters)}
-      feedHref={`/changes.atom${toChangeQuery({
-        country: filters.country, scope: filters.scope === 'relevant' ? undefined : filters.scope, goods: filters.goods, q: filters.q,
-        cpv: filters.cpv, deadlineFrom: filters.deadlineFrom, deadlineTo: filters.deadlineTo, valueMin: filters.valueMin,
-        valueMax: filters.valueMax, currency: filters.currency,
-      })}`}
+      // WP-90: the change feed (and the calendar file) of this search are in one control above the results, with every filter
+      subscribe={<SubscribeToSearch filters={filters} />}
       // The accounts service keeps open, closed and all; a saved search for Planned would be refused.
-      filterExtra={filters.status === 'planned' ? undefined : <SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
+      filterExtra={filters.status === 'planned' ? undefined : <SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1, pageSize: undefined }))} />}
       // Every status and scope with nothing to narrow them is refused by the export (400): no link to a refusal.
-      exportHref={tooBroad(filters) ? undefined : `/tenders/export.csv${toTenderQuery({ ...filters, page: 1 })}`}
+      exportHref={tooBroad(filters) ? undefined : `/tenders/export.csv${toTenderQuery({ ...filters, page: 1, pageSize: undefined })}`}
       exportStatus={filters.status}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
       totalText={totalWords(result)} reachable={reachable} limitNote={cutSentence(result)}

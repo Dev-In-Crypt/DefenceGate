@@ -54,6 +54,7 @@ from .classify import (
     scope_group_of,
 )
 from .confidence import CONFIDENCE_SQL, LEVELS, confidence_of_row
+from .cpv_labels import codes_for_word
 from .db import same_value
 from .funding import (
     Budget,
@@ -220,6 +221,12 @@ class Tender(BaseModel):
     subcontracting: bool
     sameNotice: list[dict[str, Any]]
     source: SourceAttribution
+    # WP-90, the notice's own page only (`/v1/tenders/{slug}`): the first sentence of the notice's own description,
+    # where the source states one and it reads as a commercial subject (`commercial_subject`); null otherwise.
+    subject: str | None = None
+    # The address of the procurement documents, where a source states it as such: Germany's Bekanntmachungsservice
+    # (BT-15, its notices' only link), for the notice itself or its national twin.
+    documentsUrl: str | None = None
 
 
 class TenderPage(BaseModel):
@@ -879,7 +886,7 @@ def status_conditions(status: str, eff: str) -> list[str]:
 
 
 def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min_, max_, currency,
-                    conn=None):
+                    conn=None, *, cpv_main: bool = False, not_cpv: str | None = None):
     """The WHERE conditions (written over `opportunity o`) and their parameters that a tenders
     list or export applies: one place, so the list and the export can never disagree.
 
@@ -899,16 +906,20 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
     text = (q or "").replace("\x00", "").strip()
     words = search_words(text)
     if words:
-        # Every word must begin a word of the title or the buyer's name, accents and
-        # punctuation folded on both sides (migration 0054); the notice number is matched
-        # as typed. The folded titles are trigram-indexed.
+        # Every word must begin a word of the title (the original, or the English one TED gives) or the buyer's
+        # name, accents and punctuation folded on both sides (migration 0054); the notice number is matched
+        # as typed. The folded titles are trigram-indexed. WP-90: or the English title of one of the notice's
+        # own CPV codes (`cpv_labels`, over the GIN index of migration 0099).
         per_word = ("(dg_fold(o.title_en) LIKE dg_word_pattern(%s) "
                     "OR dg_fold(o.title_original) LIKE dg_word_pattern(%s) "
                     "OR (dg_fold(o.buyer_name_raw) LIKE dg_word_pattern(%s) "
-                    "AND NOT o.buyer_withheld))")
-        where.append("((" + " AND ".join([per_word] * len(words)) + ") OR o.native_id ILIKE %s)")
+                    "AND NOT o.buyer_withheld){labels})")
+        clauses = []
         for w in words:
-            params += [w] * 3
+            codes = codes_for_word(w)
+            clauses.append(per_word.format(labels=f" OR {CPV_HEADS}" if codes else ""))
+            params += [w] * 3 + ([list(codes)] if codes else [])
+        where.append("((" + " AND ".join(clauses) + ") OR o.native_id ILIKE %s)")
         params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
     if len(countries) == 1:
@@ -921,9 +932,15 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
     if prefixes:
         clauses = []
         for p in prefixes:
-            clauses.append("EXISTS (SELECT 1 FROM unnest(o.cpv_codes) c WHERE c LIKE %s)")
+            # WP-90: `cpv_main` reads the notice's main code only (the first, as `Tender.cpv`)
+            clauses.append("o.cpv_codes[1] LIKE %s" if cpv_main
+                           else "EXISTS (SELECT 1 FROM unnest(o.cpv_codes) c WHERE c LIKE %s)")
             params.append(f"{p}%")
         where.append("(" + " OR ".join(clauses) + ")")
+    if excluded := cpv_prefixes(not_cpv, "notCpv"):
+        # WP-90: no code of the notice under any of these (main code or not): "not 3511", fire extinguishers
+        where.append("NOT EXISTS (SELECT 1 FROM unnest(o.cpv_codes) c WHERE c LIKE ANY(%s))")
+        params.append([f"{p}%" for p in excluded])
     if buyer is not None:
         # Every organisation row of the buyer's family (any member id gives the family).
         ids = (conn.execute("SELECT dgate_family_ids(%s) AS ids", (buyer,)).fetchone()["ids"]
@@ -1076,6 +1093,8 @@ def list_tenders(
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
     confidence: str | None = Query(None, max_length=40),
+    cpvMain: bool = Query(False),
+    notCpv: str | None = Query(None, max_length=400),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
@@ -1091,13 +1110,13 @@ def list_tenders(
         the core notices (the notice itself is defence), soonest deadline first, then the other purchases of
         defence buyers; the same two-read way. The total is the same list's: only the order changes"""
     where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                         to, min_, max_, currency, conn=conn)
+                                         to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
     levels = _confidence_levels(confidence)
     if levels:
         where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
     asked = {"q": q, "country": country, "cpv": cpv, "status": status, "scope": scope, "goods": goods,
              "buyer": buyer, "from_": from_, "to": to, "min_": min_, "max_": max_, "currency": currency,
-             "sort": sort, "confidence": confidence}
+             "sort": sort, "confidence": confidence, "cpvMain": cpvMain, "notCpv": notCpv}
     start = (page - 1) * pageSize
     served = start < MAX_OFFSET
     if status == "all" and sort in (None, "deadline-asc"):
@@ -1139,7 +1158,8 @@ def list_tenders(
             # only; here an open notice whose twin is closed is counted in the rest, which the time box did not
             # finish. Each notice of the Open list is in this list or stands for its twin here, so its count holds.
             o_where, o_params, _ = _tender_filters(q, country, cpv, "open", scope, goods, buyer, from_,
-                                                   to, min_, max_, currency, conn=conn)
+                                                   to, min_, max_, currency, conn=conn, cpv_main=cpvMain,
+                                                   not_cpv=notCpv)
             if levels:
                 o_where.append("(" + " OR ".join(CONFIDENCE_SQL[lv] for lv in levels) + ")")
             total = max(total, _count(conn, o_where, o_params)[0])
@@ -1204,6 +1224,8 @@ def export_tenders(
     currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     cursor: str | None = Query(None, pattern="^[0-9]{1,18}$"),
     limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_MAX_LIMIT),
+    cpvMain: bool = Query(False),
+    notCpv: str | None = Query(None, max_length=400),
     conn=Depends(get_conn),
 ):
     """One page of a CSV export: the notices the list would show for the same filters, newest id
@@ -1211,7 +1233,7 @@ def export_tenders(
     the list too slow for a long result). Call again with `cursor` = `nextCursor` until it is
     null. Rows are read a moment apart: a caller de-duplicates by id. Not cached."""
     where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                       to, min_, max_, currency, conn=conn)
+                                       to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
     after = int(cursor) if cursor is not None else None
     sql, repeats = export_sql(where, limit, after)
     args = params * repeats + ([after] if after is not None else []) + [limit + 1]
@@ -1250,6 +1272,8 @@ def tender_scope_counts(
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
     currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
+    cpvMain: bool = Query(False),
+    notCpv: str | None = Query(None, max_length=400),
     conn=Depends(get_conn),
 ):
     """How many notices the list would show under each scope for the same other filters, with
@@ -1260,7 +1284,7 @@ def tender_scope_counts(
     capped = False
     for scope in ("relevant", "core", "supply"):
         where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
-                                           to, min_, max_, currency, conn=conn)
+                                           to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
         out[scope], c = _count(conn, where, params)
         if c and out[scope] == 0:
             # Not even a lower bound in the time allowed (a search word that matches a fifth of the archive,
@@ -1315,6 +1339,8 @@ def tender_calendar(
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
     currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     maxItems: int = Query(CALENDAR_LIMIT, ge=1, le=CALENDAR_LIMIT),
+    cpvMain: bool = Query(False),
+    notCpv: str | None = Query(None, max_length=400),
     conn=Depends(get_conn),
 ):
     """The open notices that state a deadline, soonest first, with nothing but what a calendar draws
@@ -1324,7 +1350,7 @@ def tender_calendar(
     WP-87: the list's own filters (q, country, cpv, scope, goods, dates, value), read by `_tender_filters` as the
     list reads them, so a filtered list and its calendar hold the same notices; any other parameter is a 422."""
     where, params, eff = _tender_filters(q, country, cpv, "open", scope, goods, None, from_, to,
-                                         min_, max_, currency)
+                                         min_, max_, currency, cpv_main=cpvMain, not_cpv=notCpv)
     where.append("o.deadline_at IS NOT NULL")
     rows = _rows(conn, where, params, [], ORDER_OPEN_DEADLINE, maxItems + 1, 0)
     truncated = len(rows) > maxItems
@@ -1397,7 +1423,45 @@ def get_tender(slug: str, conn=Depends(get_conn)):
         raise HTTPException(404, "no such tender")
     if row["suppressed"]:
         raise removed()
-    return _present(conn, [row], checked=True)[0]
+    out = _present(conn, [row], checked=True)[0]
+    got = conn.execute("SELECT payload->>'description' AS d FROM opportunity_version WHERE opportunity_id = %s "
+                       "ORDER BY version DESC LIMIT 1", (tender_id,)).fetchone()
+    out["subject"] = commercial_subject(got["d"] if got else None)
+    if row["source_code"] in DOCUMENTS_SOURCES:
+        out["documentsUrl"] = out["source"]["url"]
+    else:
+        out["documentsUrl"] = next((t["url"] for t in out["sameNotice"] if t["source"] in DOCUMENTS_SOURCES
+                                    and t["url"]), None)
+    return out
+
+
+# The sources whose notice link is the address of the procurement documents (BT-15): de_bkms (WP-72).
+DOCUMENTS_SOURCES = ("de_bkms",)
+SUBJECT_MAX = 300
+# What a commercial subject leaves out (docs/CLAUDE.md: commercial market intelligence only, no technical
+# specification or performance, no personal data): a figure with a physical unit, the words of a specification, and
+# anything that reads as a contact. Such a description is not shown at all, rather than cut into a half sentence.
+_TECHNICAL = re.compile(
+    r"\d\s*(?:mm|cm|km|kg|kn|kw|mw|kv|hz|khz|mhz|ghz|db|dbm|°|bar|psi|rpm|km/h|m/s|nm|µm|ml|kwh|w|v|m|g|t|l)\b"
+    r"|\b(?:specifications?|performance|tolerances?|accuracy|wavelength|frequenc(?:y|ies)|calibre|caliber|mil-std|"
+    r"stanag|technische|spezifikation|leistungsbeschreibung|especificaciones|prescriptions techniques)\b",
+    re.IGNORECASE)
+_CONTACT = re.compile(r"@|\b(?:tel|phone|telefon|tél|tfno|contact|kontakt|contacto)\b|\+?\d[\d\s()/.-]{7,}\d",
+                      re.IGNORECASE)
+
+
+def commercial_subject(text: str | None) -> str | None:
+    """The first sentence of a notice's description, at most SUBJECT_MAX characters (cut at a word), or None when
+    there is none or it reads as a specification or a contact (`_TECHNICAL`, `_CONTACT`)."""
+    clean = re.sub(r"\s+", " ", redact_emails(text) or "").strip()
+    if not clean:
+        return None
+    first = re.split(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9])", clean, maxsplit=1)[0]
+    if _TECHNICAL.search(first) or _CONTACT.search(first) or "[" in first:
+        return None
+    if len(first) > SUBJECT_MAX:
+        first = first[:SUBJECT_MAX].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    return first
 
 
 # What the timeline may say about a changed field. An allow-list with a label each:

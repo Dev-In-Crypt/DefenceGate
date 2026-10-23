@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Rss } from 'lucide-react';
-import { DIGEST_COUNTRIES, SECTIONS, countsSentence, splitByRegime, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, type DigestFilters } from '@/lib/digest';
+import { DIGEST_COUNTRIES, SECTIONS, countsSentence, splitByRegime, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, weekOf, type DigestFilters } from '@/lib/digest';
+import { now } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
@@ -141,6 +142,8 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
         </div>
         <nav aria-label="Follow the digest" className="flex flex-col lg:border-l lg:border-line lg:pl-6">
           <a href={feedHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold"><Icon icon={Rss} size="inline" />Atom feed of the weekly digest</a>
+          {/* WP-90: the week under way, which has no issue yet: its changes so far */}
+          <Link href={`/changes?week=${weekOf(now())}`} className="inline-flex min-h-11 items-center text-small font-bold" data-week-so-far>This week so far, in What changed</Link>
           <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed (the last 14 days)</Link>
           <a href="#earlier" className="inline-flex min-h-11 items-center text-small font-bold">Earlier weeks</a>
         </nav>

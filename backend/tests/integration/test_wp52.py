@@ -304,7 +304,10 @@ def test_changes_can_be_asked_for_a_week_and_a_kind(client, conn):
     assert client.get("/v1/changes", params={"week": week, "kind": "amended"}).json()["total"] == 0
     assert client.get("/v1/changes", params={"kind": "new"}).json()["total"] == 4       # the last 14 days: the week's and TODAY
     assert client.get("/v1/changes", params={"week": "2026-W01"}).status_code == 404         # before the archive
-    assert client.get("/v1/changes", params={"week": W.week_id(NOW.date())}).status_code == 404   # not ended
+    # WP-90: the week under way is listed up to now ("this week so far", from the digest); a week to come is not
+    so_far = client.get("/v1/changes", params={"week": W.week_id(NOW.date())}).json()
+    assert [i["tender"]["noticeId"] for i in so_far["items"]] == ["TODAY"]
+    assert client.get("/v1/changes", params={"week": W.week_id(NOW.date() + timedelta(days=7))}).status_code == 404
     assert client.get("/v1/changes", params={"kind": "other"}).status_code == 422
 
 

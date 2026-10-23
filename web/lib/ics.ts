@@ -93,13 +93,16 @@ function event(e: CalendarEntry, dtstamp: string): string[] {
  * The calendar file, CRLF lines, at most ICS_MAX_EVENTS events in the order given. `tendersBeyond`: open tenders the API did not
  * send (past its 3,000). Either cut is said in the calendar's description, never left silent (WP-87).
  */
-export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: { tendersBeyond?: number } = {}): string {
+export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: { tendersBeyond?: number; longRunning?: number } = {}): string {
   const dtstamp = stamp(at);
   const cut = entries.length > ICS_MAX_EVENTS;
   const beyond = Math.max(0, opts.tendersBeyond ?? 0);
+  const long = Math.max(0, opts.longRunning ?? 0);
   const note = [
     cut ? `This file holds the first ${ICS_MAX_EVENTS} of ${entries.length} events; narrow the address with filters (kind, country, cpv, from, to) for the rest.` : null,
     beyond > 0 ? `${beyond} open tenders with later deadlines are not in it; narrow it with filters or see the tenders list.` : null,
+    // WP-90: no silent cut: a deadline over three years ahead (a framework or a dynamic purchasing system) is left off, and counted
+    long > 0 ? `${long} open ${long === 1 ? 'tender has' : 'tenders have'} a deadline more than three years ahead (frameworks, dynamic purchasing systems) and ${long === 1 ? 'is' : 'are'} not in it; the tenders list has them.` : null,
   ].filter(Boolean).join(' ');
   const lines = [
     'BEGIN:VCALENDAR',

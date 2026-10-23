@@ -177,6 +177,12 @@ export default async function CallDetailPage({ params }: Props) {
               </FactCell>
               {call.callId && <FactCell label="Call ID">{call.callId}</FactCell>}
               <FactCell label={call.callId ? 'Topic ID' : 'Source ID'}>{call.topicId}</FactCell>
+              {/* WP-90: the deadline in the facts too, the way the badge states it (date only, or a time in UTC; a cut-off of a rolling call) */}
+              <FactCell label={call.rolling ? 'Cut-off' : 'Deadline'}>
+                {call.deadline && d.iso
+                  ? <span className="font-sans" data-key-deadline>{d.utc}</span>
+                  : <span className="font-sans" data-key-deadline>Not stated</span>}
+              </FactCell>
               <FactCell label="Opening date">
                 {call.openingDate
                   ? <time dateTime={call.openingDate}>{formatDateUtc(call.openingDate)} UTC</time>

@@ -1,5 +1,5 @@
 import type {
-  BuyerFilters, BuyerSort, CallFilters, CallSort, CallStatusFilter, ChangeFilters, CountryCode, ListView, ProgrammeCode, Regime,
+  BuyerFilters, BuyerSort, CallFilters, CallSort, CallStatusFilter, ChangeFilters, ChangeKindFilter, CountryCode, ListView, ProgrammeCode, Regime,
   TenderFilters, TenderScopeFilter, TenderSort, TenderStatusFilter,
 } from './types';
 import { BUYER_COUNTRY_CODES, COUNTRIES, PROGRAMME_CODES, REGIME_CODES, countryName } from './taxonomy';
@@ -25,6 +25,7 @@ export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
   scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv', year: 'year', cascade: 'cascade', ukraine: 'ukraine',
+  cpvMain: 'cpvMain', notCpv: 'notCpv', size: 'size',
 } as const;
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
@@ -183,6 +184,8 @@ export function broadenings(f: CallFilters): Broadening[] {
 /* ---- Tenders (/tenders) and buyers (/buyers). Same keys and caps as the funding filters. ---- */
 
 export const TENDER_PAGE_SIZE = 10;
+/** WP-90: the page sizes /tenders offers (`size`); 10 is the default, the one the API's snapshots are built for. */
+export const TENDER_PAGE_SIZES = [10, 25, 50] as const;
 export const BUYER_PAGE_SIZE = 20;
 export const DEFAULT_TENDER_STATUS: TenderStatusFilter = 'open';
 export const DEFAULT_TENDER_SCOPE: TenderScopeFilter = 'relevant';
@@ -224,13 +227,19 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
   const to = first(sp[PARAM.to]);
   const currency = first(sp[PARAM.currency]);
   const status = oneOf(first(sp[PARAM.status]), TENDER_STATUSES) ?? DEFAULT_TENDER_STATUS;
+  const cpv = cpvList(sp[PARAM.cpv]);
+  const notCpv = cpvList(sp[PARAM.notCpv]);
+  const size = Number(first(sp[PARAM.size]));
   return {
     q: searchText(first(sp[PARAM.q])),
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     status,
     scope: oneOf(first(sp[PARAM.scope]), TENDER_SCOPES) ?? DEFAULT_TENDER_SCOPE,
     goods: oneOf(first(sp[PARAM.goods]), GOODS),
-    cpv: cpvList(sp[PARAM.cpv]),
+    cpv,
+    // WP-90: the main code only (read only with a code), and the codes to leave out
+    ...(cpv && first(sp[PARAM.cpvMain]) === 'true' ? { cpvMain: true } : {}),
+    ...(notCpv ? { notCpv } : {}),
     deadlineFrom: from && isDay(from) ? from : undefined,
     deadlineTo: to && isDay(to) ? to : undefined,
     valueMin: num(first(sp[PARAM.min])),
@@ -239,7 +248,7 @@ export function parseTenderFilters(sp: SearchParams): TenderFilters {
     currency: currency && CURRENCY_RE.test(currency) ? currency.toUpperCase() : undefined,
     sort: oneOf(first(sp[PARAM.sort]), TENDER_SORTS) ?? defaultTenderSort(status),
     page: pageOf(first(sp[PARAM.page])),
-    pageSize: TENDER_PAGE_SIZE,
+    pageSize: (TENDER_PAGE_SIZES as readonly number[]).includes(size) ? size : TENDER_PAGE_SIZE,
   };
 }
 
@@ -252,6 +261,8 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.scope && f.scope !== DEFAULT_TENDER_SCOPE) p.set(PARAM.scope, f.scope);
   if (f.goods) p.set(PARAM.goods, f.goods);
   if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
+  if (f.cpv?.length && f.cpvMain) p.set(PARAM.cpvMain, 'true');
+  if (f.notCpv?.length) p.set(PARAM.notCpv, f.notCpv.join(','));
   if (f.buyer) p.set('buyer', f.buyer);
   if (f.deadlineFrom) p.set(PARAM.from, f.deadlineFrom);
   if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
@@ -260,13 +271,15 @@ export function toTenderQuery(f: TenderFilters): string {
   if (f.currency) p.set(PARAM.currency, f.currency);
   if (f.sort && f.sort !== defaultTenderSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
+  // WP-90: a page size of the list's own choices (a size set by code, the buyer page's 100, is the API's pageSize only)
+  if (f.pageSize && f.pageSize !== TENDER_PAGE_SIZE && (TENDER_PAGE_SIZES as readonly number[]).includes(f.pageSize)) p.set(PARAM.size, String(f.pageSize));
   const s = p.toString();
   return s ? `?${s}` : '';
 }
 
 export function activeTenderFilterCount(f: TenderFilters): number {
   return [
-    f.q, f.country?.length, f.cpv?.length,
+    f.q, f.country?.length, f.cpv?.length, f.cpv?.length && f.cpvMain ? 1 : undefined, f.notCpv?.length,
     f.status !== DEFAULT_TENDER_STATUS ? f.status : undefined,
     f.scope !== DEFAULT_TENDER_SCOPE ? f.scope : undefined,
     f.goods,
@@ -309,7 +322,7 @@ export const CHANGE_PAGE_SIZE = 25;
 export const CHANGE_MAX_PAGE = 100;
 /** An ISO week as the digest names it. The API settles whether the week exists (404). */
 const WEEK_RE = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
-const CHANGE_KINDS = ['new', 'amended'] as const;
+const CHANGE_KINDS: ChangeKindFilter[] = ['new', 'amended', 'deadline', 'value', 'status'];
 
 export function parseChangeFilters(sp: SearchParams): ChangeFilters {
   // `relevant` is the API's default for the change list too: left out, like the tender list does.
@@ -320,12 +333,17 @@ export function parseChangeFilters(sp: SearchParams): ChangeFilters {
   const kind = oneOf(first(sp.kind), CHANGE_KINDS);
   // WP-87: the tender list's other filters, so a filtered list and its changes (and their Atom feed) hold the same notices
   const t = parseTenderFilters(sp);
+  // WP-90: the status only when it is asked for (the change list's default is every status, the tender list's Open)
+  const status = oneOf(first(sp[PARAM.status]), TENDER_STATUSES);
   return {
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
     scope,
     ...(goods ? { goods } : {}),
     ...(t.q ? { q: t.q } : {}),
     ...(t.cpv ? { cpv: t.cpv } : {}),
+    ...(t.cpvMain ? { cpvMain: true } : {}),
+    ...(t.notCpv ? { notCpv: t.notCpv } : {}),
+    ...(status ? { status } : {}),
     ...(t.deadlineFrom ? { deadlineFrom: t.deadlineFrom } : {}),
     ...(t.deadlineTo ? { deadlineTo: t.deadlineTo } : {}),
     ...(t.valueMin !== undefined ? { valueMin: t.valueMin } : {}),
@@ -347,6 +365,9 @@ export function toChangeQuery(f: ChangeFilters): string {
   if (f.goods) p.set(PARAM.goods, f.goods);
   if (f.q) p.set(PARAM.q, f.q);
   if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
+  if (f.cpv?.length && f.cpvMain) p.set(PARAM.cpvMain, 'true');
+  if (f.notCpv?.length) p.set(PARAM.notCpv, f.notCpv.join(','));
+  if (f.status) p.set(PARAM.status, f.status);
   if (f.deadlineFrom) p.set(PARAM.from, f.deadlineFrom);
   if (f.deadlineTo) p.set(PARAM.to, f.deadlineTo);
   if (f.valueMin !== undefined) p.set(PARAM.min, String(f.valueMin));
@@ -419,6 +440,9 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
     const week = one('week');
     if (week && !WEEK_RE.test(week)) bad('week', week, 'not a week; use YYYY-Www, for example 2026-W42');
     for (const v of many(PARAM.cpv)) if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
+    for (const v of many(PARAM.notCpv)) if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.notCpv, v, 'CPV codes are 2 to 8 digits');
+    choice(PARAM.cpvMain, ['true']);
+    choice(PARAM.status, TENDER_STATUSES);
     day(PARAM.from);
     day(PARAM.to);
     amount(PARAM.min);
@@ -453,9 +477,11 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
     if (kind === 'tenders') {
       choice(PARAM.scope, TENDER_SCOPES);
       choice(PARAM.goods, GOODS);
-      for (const v of many(PARAM.cpv)) {
-        if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
+      for (const key of [PARAM.cpv, PARAM.notCpv]) {
+        for (const v of many(key)) if (!/^(\d{8}-\d|\d{2,8})$/.test(v)) bad(key, v, 'CPV codes are 2 to 8 digits');
       }
+      choice(PARAM.cpvMain, ['true']);
+      choice(PARAM.size, TENDER_PAGE_SIZES.map(String));
       codes(PARAM.country, COUNTRY_CODES, 'country code');
     } else {
       codes(PARAM.country, Object.keys(COUNTRIES), 'funder country');
@@ -478,9 +504,9 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
 }
 
 /** The parameters /changes and /changes.atom read (WP-87): the tender list's filters, the digest week and the kind of change. */
-export const CHANGE_PARAMS = ['country', 'scope', 'goods', 'q', 'cpv', 'from', 'to', 'min', 'max', 'currency', 'week', 'kind', 'page'] as const;
+export const CHANGE_PARAMS = ['country', 'scope', 'goods', 'q', 'cpv', 'cpvMain', 'notCpv', 'status', 'from', 'to', 'min', 'max', 'currency', 'week', 'kind', 'page'] as const;
 /** The parameters /calendar and /calendar.ics read (WP-87): its own (kind, view, month, page) and the tender list's filters. */
-export const CALENDAR_PARAMS = ['kind', 'country', 'view', 'month', 'page', 'q', 'cpv', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency'] as const;
+export const CALENDAR_PARAMS = ['kind', 'country', 'view', 'month', 'page', 'q', 'cpv', 'cpvMain', 'notCpv', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency'] as const;
 
 /**
  * WP-87: a parameter a page does not read is said, never dropped in silence ("/changes?cpv=35" listed every change as if the

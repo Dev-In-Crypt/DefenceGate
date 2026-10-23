@@ -339,6 +339,10 @@ export interface Tender {
   sameNotice: { source: string; url: string | null; id?: string; noticeId?: string }[];
   /** retrievedAt = when the source last changed the notice as we saw it; checkedAt = when we last collected that source. */
   source: SourceAttribution;
+  /** WP-90, the notice's own page only: the first sentence of its description when it reads as a commercial subject (no specification, no contact). */
+  subject?: string | null;
+  /** WP-90: the address of the procurement documents, where a source states it as such (Germany's Bekanntmachungsservice, BT-15). */
+  documentsUrl?: string | null;
 }
 
 /** `planned` (19 October 2026): a prior information notice whose deadline, if it states one, is ahead. `closed` no longer holds them. */
@@ -368,6 +372,10 @@ export interface TenderFilters {
   goods?: 'defence';
   /** CPV code prefixes (2 to 8 digits), at most 20. */
   cpv?: string[];
+  /** WP-90: `cpv` reads the notice's main code only (the first). Only with `cpv`. */
+  cpvMain?: boolean;
+  /** WP-90: leave out a notice with any code under these prefixes ("not 3511"). */
+  notCpv?: string[];
   /** Organisation id. Set by code (the buyer page), never read from the URL. */
   buyer?: string;
   /** YYYY-MM-DD, inclusive, UTC */
@@ -436,6 +444,8 @@ export interface TenderVersion {
  * re-reading of our own is never one). `changes` is empty for `new`.
  */
 export type ChangeKind = 'new' | 'amended';
+/** WP-90: what /changes can be narrowed to: a kind of entry, or the amendments that moved one thing. */
+export type ChangeKindFilter = ChangeKind | 'deadline' | 'value' | 'status';
 export interface Change {
   /** "<notice id>-<YYYYMMDD>": stable, so a feed reader does not show an entry twice. */
   id: string;
@@ -566,10 +576,14 @@ export interface ChangeFilters {
   goods?: 'defence';
   /** An ISO week of the digest (`2026-W42`) instead of the last 14 days, and one kind of change in it: where the digest's "the list has the rest" leads. */
   week?: string;
-  kind?: ChangeKind;
+  kind?: ChangeKindFilter;
   /** WP-87: the tender list's other filters, read by the API as the list reads them. */
   q?: string;
   cpv?: string[];
+  /** WP-90: the rest of them, so a subscription is exactly its search: main code only, excluded codes, the list's status (as of now). */
+  cpvMain?: boolean;
+  notCpv?: string[];
+  status?: TenderStatusFilter;
   deadlineFrom?: string;
   deadlineTo?: string;
   valueMin?: number;
@@ -629,6 +643,15 @@ export interface MarketStats {
 export interface MarketFilters { year?: number; country?: string; /** WP-89: CPV prefixes, as on /tenders. */ cpv?: string[] }
 
 /** GET /v1/buyers/{slug}/profile: the buyer's own core-scope notices, counted. */
+/** WP-90, GET /v1/buyers/{slug}/suppliers: who won this buyer's contracts (the supplier map's award set), most first, at most 10. */
+export interface BuyerSuppliers {
+  items: { slug: string; name: string; country: string | null; awards: number }[];
+  /** Every supplier and contract of the buyer in the award set, not only the ten listed. */
+  suppliers: number;
+  contracts: number;
+  attribution: string;
+}
+
 export interface BuyerProfile {
   buyerId: string;
   asOf: IsoDateTime;

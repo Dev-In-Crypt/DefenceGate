@@ -49,6 +49,10 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["dgate*"]
 
+[tool.setuptools.package-data]
+# WP-90: the CPV vocabulary the tender search reads (dgate/cpv_labels.py)
+dgate = ["data/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q -m 'not integration'"

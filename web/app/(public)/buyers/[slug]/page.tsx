@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { getBuyer, getBuyerProfile, getTenders, isBuyerSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { displayName } from '@/lib/display-name';
-import { formatDateUtc, variantsLine } from '@/lib/format';
-import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, type SearchParams } from '@/lib/filters';
+import { formatDateUtc, formatNumber, variantsLine } from '@/lib/format';
+import { MAX_PAGE, TENDER_PAGE_SIZE, lastPage, parseTenderFilters, toTenderQuery, type SearchParams } from '@/lib/filters';
+import { TextInput } from '@/components/dg/form';
+import { BuyerTopSuppliers } from '@/components/market/buyer-suppliers';
 import { buildMetadata } from '@/lib/seo';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
@@ -54,24 +56,28 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
   if (buyer.slug !== slug && isBuyerSlug(buyer.slug)) permanentRedirect(`/buyers/${buyer.slug}`);
 
   const page = pageOf(sp);
+  // WP-90: a CPV filter on the buyer's own tenders (the tender list's reading: any code of a notice under the prefixes); the figures above stay all of them
+  const cpv = parseTenderFilters(sp).cpv;
+  const own = { buyer: buyer.id, scope: 'core' as const, cpv };
+  const hrefOf = (p: number) => `/buyers/${buyer.slug}${toTenderQuery({ cpv, page: p, sort: undefined })}`;
   // Two fixed queries on the id the API gave us: open tenders first, then the history. No ordering across them is assumed.
   // All of them in the scope the counts above are in (`core`: the notice itself is defence). The lists used the site's default,
   // `relevant`, while "Open now" counted `core`, so a buyer could list more open tenders than it said it had (UX audit T14).
-  const [open, planned, earlier, profile] = await Promise.all([
-    page === 1 && buyer.openCount > 0
-      ? getTenders({ buyer: buyer.id, status: 'open', scope: 'core', pageSize: OPEN_LIMIT }, { cacheable: true })
+  const [open, planned, earlier, profile, suppliers] = await Promise.all([
+    page === 1 && (buyer.openCount > 0 || cpv)
+      ? getTenders({ ...own, status: 'open', pageSize: OPEN_LIMIT }, { cacheable: !cpv })
       : Promise.resolve(null),
     // A planned notice (prior information) is neither open nor closed since 19 October 2026; it is counted in "Tenders in archive".
-    page === 1 ? getTenders({ buyer: buyer.id, status: 'planned', scope: 'core', pageSize: OPEN_LIMIT }, { cacheable: true }).catch(() => null) : Promise.resolve(null),
-    getTenders({ buyer: buyer.id, status: 'closed', scope: 'core', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 }),
+    page === 1 ? getTenders({ ...own, status: 'planned', pageSize: OPEN_LIMIT }, { cacheable: !cpv }).catch(() => null) : Promise.resolve(null),
+    getTenders({ ...own, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 && !cpv }),
     // The profile is an extra: a buyer page still renders when the API cannot answer it.
     page === 1 && buyer.tenderCount > 0 ? getBuyerProfile(buyer) : Promise.resolve(null),
+    page === 1 ? getBuyerSuppliers(buyer) : Promise.resolve(null),
   ]);
 
   // A page past the last one is the last one, not an empty list.
   if (page > 1 && earlier.items.length === 0 && earlier.total > 0) {
-    const last = lastPage(earlier.total, earlier.pageSize);
-    redirect(last > 1 ? `/buyers/${buyer.slug}?page=${last}` : `/buyers/${buyer.slug}`);
+    redirect(hrefOf(lastPage(earlier.total, earlier.pageSize)));
   }
   const name = displayName(buyer.name, 'title');
 
@@ -112,6 +118,24 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
 
       {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
 
+      {suppliers && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} />}
+
+      {/* WP-90: the buyer's own tenders under a CPV code */}
+      <form method="get" action={`/buyers/${buyer.slug}`} role="search" aria-label="Filter this buyer's tenders"
+        className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end" data-buyer-cpv>
+        <TextInput name="cpv" maxLength={200} label="This buyer's tenders under a CPV code" placeholder="For example 357 or 35700000"
+          defaultValue={cpv?.join(', ') ?? ''} className="sm:min-w-72" hint="Starts with the digits you enter; separate several with commas. The figures above stay all of its tenders." />
+        <div className="flex items-center gap-3">
+          <Button type="submit">Show</Button>
+          {cpv && <Link href={`/buyers/${buyer.slug}`} className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>}
+        </div>
+      </form>
+      {cpv && (
+        <p className="m-0 max-w-prose text-body" role="status">
+          Showing this buyer&rsquo;s tenders with a code under {cpv.join(', ')}: {formatNumber(open?.total ?? 0)} open and {formatNumber(earlier.total)} earlier.
+        </p>
+      )}
+
       {page === 1 && (
         <section aria-labelledby="open-tenders" className="flex flex-col gap-4">
           <h2 id="open-tenders" className="m-0 text-h2">Open tenders</h2>
@@ -151,8 +175,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
             <ul className="m-0 flex list-none flex-col gap-4 p-0">
               {earlier.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
             </ul>
-            <Pagination page={earlier.page} total={earlier.total} pageSize={earlier.pageSize}
-              hrefFor={(p) => (p > 1 ? `/buyers/${buyer.slug}?page=${p}` : `/buyers/${buyer.slug}`)} />
+            <Pagination page={earlier.page} total={earlier.total} pageSize={earlier.pageSize} hrefFor={hrefOf} />
           </>
         ) : (
           <EmptyState title="No earlier tenders">

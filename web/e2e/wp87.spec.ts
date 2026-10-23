@@ -62,8 +62,8 @@ test('a filtered tender list links its calendar and its change feed with its fil
   await visit(page, '/tenders?cpv=44&country=PL', { title: /tenders/i, h1: 'Tenders' });
   await expect(page.getByRole('link', { name: 'Deadline calendar of this search' }).first())
     .toHaveAttribute('href', '/calendar?kind=tenders&country=PL&cpv=44');
-  await expect(page.getByRole('link', { name: 'Changes of this search (Atom feed)' }).first())
-    .toHaveAttribute('href', '/changes.atom?country=PL&cpv=44');
+  // WP-90 (rewritten): the feed is in "Subscribe to this search", with the list's status as well
+  await expect(page.locator('[data-subscribe-atom]')).toHaveAttribute('href', '/changes.atom?country=PL&cpv=44&status=open');
 });
 
 test('the default tender list leads with military goods and works, and the plain deadline order is a choice', async ({ page }) => {

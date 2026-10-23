@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Rss } from 'lucide-react';
 import { getChanges } from '@/lib/api';
-import { weekLabel } from '@/lib/digest';
+import { weekLabel, weekOf, weekSoFarLabel } from '@/lib/digest';
+import { now } from '@/lib/deadline';
 import { CHANGE_MAX_PAGE, MAX_QUERY_LENGTH, ignoredFilters, lastPage, parseChangeFilters, toChangeQuery, toTenderQuery, PARAM, type SearchParams } from '@/lib/filters';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import { buildMetadata } from '@/lib/seo';
-import type { Change } from '@/lib/types';
+import type { Change, ChangeKindFilter } from '@/lib/types';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
 import { EmptyState } from '@/components/dg/feedback';
@@ -39,6 +40,14 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return { ...meta, alternates: { ...meta.alternates, types: { 'application/atom+xml': '/changes.atom' } } };
 }
 
+/** WP-90: the kinds of change a list can be narrowed to (the API's `kind`), and how a sentence names them. */
+const KIND_WORDS: Record<ChangeKindFilter, string> = {
+  new: 'the new notices', amended: 'the amendments', deadline: 'the amendments that moved a deadline',
+  value: 'the amendments that changed a value', status: 'the amendments that changed a status',
+};
+const KIND_OPTIONS = ([['new', 'New notices'], ['amended', 'Every amendment'], ['deadline', 'Deadline moved'], ['value', 'Value changed'], ['status', 'Status changed']] as const)
+  .map(([value, label]) => ({ value, label }));
+
 /** The same names as the tender list (lib/taxonomy.ts SCOPE_CHOICES); the default is left unselected. */
 const SCOPE_OPTIONS = (['core', 'supply', 'all'] as const).map((value) => ({ value, label: SCOPE_CHOICES[value].label }));
 
@@ -57,6 +66,8 @@ export default async function ChangesPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseChangeFilters(sp);
   const notices = ignoredFilters(sp, 'changes');
+  // WP-90: the week under way ("this week so far", from the digest) is listed up to now; it has no issue of the digest yet
+  const thisWeek = filters.week !== undefined && filters.week === weekOf(now());
   // A page past the API's last (100) is past the end of the list: an answer, not an outage (QA m-8)
   const pastEnd = (filters.page ?? 1) > CHANGE_MAX_PAGE;
   const data = pastEnd ? null : await getChanges(filters).catch(() => null);
@@ -65,7 +76,7 @@ export default async function ChangesPage({ searchParams }: Props) {
     <PageHeader crumbs={crumbs} title="What changed"
       lead={<>
         {filters.week
-          ? `New notices and amendments seen in ${weekLabel(filters.week)}. An amendment is a deadline, value, status or procedure that moved, with the old and the new value.`
+          ? `New notices and amendments seen ${thisWeek ? 'so far this week' : `in ${weekLabel(filters.week)}`}. An amendment is a deadline, value, status or procedure that moved, with the old and the new value.`
           : 'New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value.'}
       </>} />
   );
@@ -79,13 +90,17 @@ export default async function ChangesPage({ searchParams }: Props) {
       {/* WP-87: the tender list's search and CPV filter, read by the API as the list reads them */}
       <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''} className="sm:min-w-56" />
       <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35" defaultValue={filters.cpv?.join(', ') ?? ''} className="sm:min-w-40" />
+      {/* WP-90: one kind of change, where the archive's lines tell it */}
+      <Select name="kind" label="Kind of change" placeholder="Every change" defaultValue={filters.kind ?? ''} className="sm:min-w-56" options={KIND_OPTIONS} />
       {/* the list's other filters this page came with (deadline and value range, defence goods) travel with the form */}
       {[...new URLSearchParams(toTenderQuery({
         goods: filters.goods, deadlineFrom: filters.deadlineFrom, deadlineTo: filters.deadlineTo,
-        valueMin: filters.valueMin, valueMax: filters.valueMax, currency: filters.currency,
+        valueMin: filters.valueMin, valueMax: filters.valueMax, currency: filters.currency, notCpv: filters.notCpv,
       }))].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      {/* WP-90: a subscription's own filters (main code only, the status) travel too */}
+      {filters.cpvMain && <input type="hidden" name={PARAM.cpvMain} value="true" />}
+      {filters.status && <input type="hidden" name={PARAM.status} value={filters.status} />}
       {filters.week && <input type="hidden" name="week" value={filters.week} />}
-      {filters.kind && <input type="hidden" name="kind" value={filters.kind} />}
       <div className="flex items-center gap-3">
         <Button type="submit">Apply</Button>
         <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
@@ -135,7 +150,7 @@ export default async function ChangesPage({ searchParams }: Props) {
       {/* Text at the left (one measure), the ways to follow the list at the right: the card is filled, not a strip of text in a wide box. */}
       <section aria-labelledby="window" className="grid gap-x-10 gap-y-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="flex min-w-0 flex-col gap-3">
-          <h2 id="window" className="m-0 text-h3">{filters.week ? weekLabel(filters.week) : <>The last {data.windowDays} days</>}</h2>
+          <h2 id="window" className="m-0 text-h3">{filters.week ? (thisWeek ? weekSoFarLabel(filters.week, now()) : weekLabel(filters.week)) : <>The last {data.windowDays} days</>}</h2>
           <p className="m-0 max-w-prose text-body">
             <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices and{' '}
             <span className="font-mono tabular-nums">{formatNumber(data.counts.amended)}</span> amendments, from{' '}
@@ -144,8 +159,9 @@ export default async function ChangesPage({ searchParams }: Props) {
           </p>
           {(filters.week || filters.kind) && (
             <p className="m-0 max-w-prose text-body">
-              {filters.kind ? `Only the ${filters.kind === 'new' ? 'new notices' : 'amendments'} are listed. ` : ''}
-              {filters.week && <>This is the list behind <Link href={`/digest/${filters.week}`} className="font-semibold">the weekly digest of this week</Link>. </>}
+              {filters.kind ? `Only ${KIND_WORDS[filters.kind]} are listed. ` : ''}
+              {filters.week && !thisWeek && <>This is the list behind <Link href={`/digest/${filters.week}`} className="font-semibold">the weekly digest of this week</Link>. </>}
+              {thisWeek && <>The week is not over: its <Link href="/digest" className="font-semibold">weekly digest</Link> comes after Sunday. </>}
               <Link href="/changes" className="font-semibold">{filters.week ? 'Show the last 14 days' : 'Show all changes'}</Link>
             </p>
           )}

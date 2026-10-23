@@ -287,6 +287,15 @@ def build_events(conn, *, scope: str | None, countries: list[str],
     return out, since, now
 
 
+def week_end(week: str, now: datetime | None = None) -> tuple[datetime, float]:
+    """(where a week's window ends, how many days it spans): the next Monday, or now for the week under way (WP-90)."""
+    from .weekly_digest import week_bounds
+
+    start, end = week_bounds(week)
+    end = min(end, now or datetime.now(timezone.utc))
+    return end, (end - start) / timedelta(days=1)
+
+
 def window_events(conn, scope: str | None, countries: list[str], goods: str | None,
                   week: str | None = None):
     """`build_events` for the page endpoints, kept five minutes per (scope, countries, goods, week): the 14-day
@@ -296,28 +305,43 @@ def window_events(conn, scope: str | None, countries: list[str], goods: str | No
     is where the digest's "the list has the rest" leads (WP-52, T10)."""
     from . import stats
     from .config import settings
-    from .weekly_digest import week_bounds  # weekly_digest imports this module
 
     def compute():
         if week is None:
             return build_events(conn, scope=scope, countries=countries, goods=goods)
-        return build_events(conn, scope=scope, countries=countries, goods=goods,
-                            now=week_bounds(week)[1], days=7, bounded=True)
+        end, days = week_end(week)
+        return build_events(conn, scope=scope, countries=countries, goods=goods, now=end, days=days, bounded=True)
 
     ttl = settings().list_cache_seconds
     return stats.cached(("changes-window", scope, tuple(countries), goods, week), compute,
                         0 if ttl <= 0 else 5 * 60, store=stats._list_cache, limit=stats.LIST_CACHED)
 
 
-def _matching(conn, ids: list[int], *, q, cpv, from_, to, min_, max_, currency) -> set[int]:
+def _matching(conn, ids: list[int], *, q, cpv, from_, to, min_, max_, currency, cpv_main: bool = False,
+              not_cpv: str | None = None, status: str = "all") -> set[int]:
     """WP-87: of these notices, the ones the tender list's own filters keep (`tenders._tender_filters`, any status):
     the search words, CPV prefixes, deadline range and value range read exactly as the list reads them. The scope,
-    the goods filter and the country are applied by `build_events` already."""
+    the goods filter and the country are applied by `build_events` already. WP-90: the main-code reading, the
+    excluded codes and the list's status (as of now: a feed of "Open" holds what is open today) too."""
     if not ids:
         return set()
-    where, params, _ = T._tender_filters(q, None, cpv, "all", "all", None, None, from_, to, min_, max_, currency)
+    where, params, _ = T._tender_filters(q, None, cpv, status, "all", None, None, from_, to, min_, max_, currency,
+                                         cpv_main=cpv_main, not_cpv=not_cpv)
     return {r["id"] for r in conn.execute(
         f"SELECT o.id FROM opportunity o WHERE o.id = ANY(%s) AND {' AND '.join(where)}", [ids, *params]).fetchall()}
+
+
+# WP-90: the kinds a list can be narrowed to: new notices, every amendment, or the amendments that moved one thing
+# (the deadline; the value or its currency; the status). A procedure change is an amendment and nothing more.
+KIND_FIELDS = {"deadline": ("deadline_at",), "value": ("value_amount", "value_currency"), "status": ("status",)}
+KIND_PATTERN = "^(new|amended|deadline|value|status)$"
+
+
+def of_kind(event: dict[str, Any], kind: str) -> bool:
+    """Whether an event is of a kind of `KIND_PATTERN`."""
+    if kind in ("new", "amended"):
+        return event["kind"] == kind
+    return event["kind"] == "amended" and any(c["field"] in KIND_FIELDS[kind] for c in event["changes"])
 
 
 @router.get("/v1/changes", response_model=ChangePage, dependencies=[Depends(T.known_params)])
@@ -336,7 +360,10 @@ def list_changes(
     page: int = Query(1, ge=1, le=100),
     pageSize: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     week: str | None = Query(None, pattern=r"^\d{4}-W\d{2}$"),
-    kind: str | None = Query(None, pattern="^(new|amended)$"),
+    kind: str | None = Query(None, pattern=KIND_PATTERN),
+    status: str | None = Query(None, pattern=T.STATUS_PATTERN),
+    cpvMain: bool = Query(False),
+    notCpv: str | None = Query(None, max_length=400),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
@@ -349,23 +376,27 @@ def list_changes(
     An unknown parameter is a 422 (`/v1/changes?cpv=` was ignored before)."""
     countries = T._split(country, "country", upper=True, max_length=2)
     if week is not None:
-        from .weekly_digest import all_weeks, week_bounds
+        from .weekly_digest import all_weeks, week_bounds, week_id
 
         try:
             week_bounds(week)
         except ValueError:
             raise HTTPException(404, "no such week") from None
-        if week not in all_weeks(datetime.now(timezone.utc)):
-            raise HTTPException(404, "no such week")      # not in the archive, or not ended
+        now = datetime.now(timezone.utc)
+        # WP-90: the week under way too ("this week so far", from the digest): its events up to now
+        if week not in all_weeks(now) and week != week_id(now.date()):
+            raise HTTPException(404, "no such week")      # not in the archive, or in the future
     events, since, until = window_events(conn, scope, countries, goods, week)
-    narrowed = any(v is not None for v in (q, cpv, from_, to, min_, max_, currency))
+    narrowed = any(v is not None for v in (q, cpv, from_, to, min_, max_, currency, notCpv, status)) or (
+        cpvMain and cpv is not None)
     if narrowed:
         keep = _matching(conn, sorted({e["id"] for e in events}), q=q, cpv=cpv, from_=from_, to=to,
-                         min_=min_, max_=max_, currency=currency)
+                         min_=min_, max_=max_, currency=currency, cpv_main=cpvMain, not_cpv=notCpv,
+                         status=status or "all")
         events = [e for e in events if e["id"] in keep]
     everything = events
     if kind:
-        events = [e for e in events if e["kind"] == kind]
+        events = [e for e in events if of_kind(e, kind)]
     start = (page - 1) * pageSize
     shown = events[start:start + pageSize]
     ids = [e["id"] for e in shown]
@@ -374,7 +405,8 @@ def list_changes(
     # The tender scope filters do not apply to funding calls; a country does (the funder's).
     if scope in (None, "core", "all") and not goods and not kind and not narrowed:
         calls = (funding_events(conn, countries=countries) if week is None else
-                 funding_events(conn, countries=countries, now=until, days=7, bounded=True))
+                 funding_events(conn, countries=countries, now=until, days=(until - since) / timedelta(days=1),
+                                bounded=True))
     else:
         calls = []
     funding = [{

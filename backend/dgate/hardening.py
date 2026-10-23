@@ -137,6 +137,8 @@ def request_cost(path: str, params: dict[str, str]) -> int:
     if path == "/v1/buyers" or (path.startswith("/v1/buyers/") and path.endswith("/profile")):
         # The buyer list re-aggregates the whole table; a profile is 0.2-0.5 s uncached.
         return 5 + (3 if (params.get("q") or "").strip() else 0)
+    if path.startswith("/v1/buyers/") and path.endswith("/suppliers"):
+        return 3                       # WP-90: the award set of one buyer family, aggregated (kept 30 minutes)
     if PARTNER_PATH.match(path):
         return 5 + (2 if (params.get("country") or params.get("programme")) else 0)
     if path.startswith(ANALYTICS_PREFIX):

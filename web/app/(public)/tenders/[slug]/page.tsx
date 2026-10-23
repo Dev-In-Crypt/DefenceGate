@@ -22,6 +22,7 @@ import { SourceBadge } from '@/components/dg/source-badge';
 import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
 import { AboutData } from '@/components/dg/about-data';
+import { Details } from '@/components/dg/details';
 import { Card, slugId } from '@/components/dg/card';
 import { AlertsLine } from '@/components/dg/alerts-line';
 import { BasisChips, ClassifiedNote } from '@/components/dg/basis-chips';
@@ -100,6 +101,10 @@ export default async function TenderDetailPage({ params }: Props) {
   const closed = d.state === 'closed';
   const nonEnglish = isNonEnglish(tender.titleLanguage);
   const sourceUrl = safeHttpUrl(tender.source.url);
+  const documentsUrl = safeHttpUrl(tender.documentsUrl ?? null);
+  // WP-90: our own re-readings fold away under the publisher's changes
+  const ownVersions = versions.filter((v) => !v.correction);
+  const corrections = versions.filter((v) => v.correction);
   const legal = tender.legalBasis ? legalBasisLabel(tender.legalBasis) : null;
   // The main code first, then the rest, each once.
   const cpvCodes = [...new Set([...(tender.cpv ? [tender.cpv] : []), ...tender.cpvCodes])];
@@ -141,6 +146,12 @@ export default async function TenderDetailPage({ params }: Props) {
             ? <Link href={`/buyers/${tender.buyerSlug}`} className="py-2 font-semibold">{buyer}</Link>
             : <span className="font-semibold">{buyer}</span>}
         </p>
+        {/* WP-90: the subject in the notice's own words (its first sentence, commercial only: the API leaves out a specification or a contact) */}
+        {tender.subject && (
+          <p className="m-0 max-w-prose text-body" data-subject>
+            <span className="text-ink-muted">Subject, as the notice states it: </span>{tender.subject}
+          </p>
+        )}
         <BasisChips tender={tender} />
         {tender.scope === 'supply' && (
           <p className="m-0 max-w-prose text-small text-ink-muted">{scopeGroupNote(tender.qualifiedBy) ?? TENDER_SCOPES.supply.hint}</p>
@@ -208,6 +219,10 @@ export default async function TenderDetailPage({ params }: Props) {
             {sourceUrl && (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {sourceDisplay(tender.source.sourceName)}</Button>
             )}
+            {documentsUrl && documentsUrl !== sourceUrl && (
+              <Button href={documentsUrl} external variant="text" className="self-start" data-documents>Procurement documents</Button>
+            )}
+            {documentsUrl && documentsUrl === sourceUrl && <p className="m-0 text-small text-ink-muted">The original is where the procurement documents are.</p>}
             <Button href={`/tenders/${tender.slug}/evidence`} variant="text" icon={Printer} className="self-start">Print evidence</Button>
             <AlertsLine />
           </div>
@@ -241,8 +256,12 @@ export default async function TenderDetailPage({ params }: Props) {
                 const name = sourceDisplay(sourceNames.get(n.source) ?? n.source);
                 return (
                   <li key={`${n.source}-${i}`} className={cn('flex flex-wrap items-center justify-between gap-2 py-2', i > 0 && 'border-t border-line')}>
-                    <span className="text-body font-semibold">{name}</span>
-                    {url && <Button href={url} external variant="text">View at {name}<span className="sr-only"> (opens in new tab)</span></Button>}
+                    <span className="text-body font-semibold">{name}{n.noticeId && <span className="ml-2 font-mono text-small font-normal text-ink-muted">{n.noticeId}</span>}</span>
+                    {/* WP-90: a working link always: the notice at its source when it gives an address, and its own page here */}
+                    <span className="flex flex-wrap gap-x-4">
+                      {n.id && <Link href={`/tenders/${n.id}`} className="inline-flex min-h-11 items-center text-small font-bold" data-same-notice-page>Open this copy here</Link>}
+                      {url && <Button href={url} external variant="text">View at {name}<span className="sr-only"> (opens in new tab)</span></Button>}
+                    </span>
                   </li>
                 );
               })}
@@ -258,8 +277,15 @@ export default async function TenderDetailPage({ params }: Props) {
             </p>
           </AboutData>
           {versions.length > 0
-            ? <VersionTimeline versions={versions} />
+            ? <VersionTimeline versions={ownVersions} />
             : <p className="m-0 text-body text-ink-muted">The version history could not be read for this notice.</p>}
+          {corrections.length > 0 && (
+            <div data-corrections>
+              <Details summary={`${corrections.length} ${corrections.length === 1 ? 'correction' : 'corrections'} by DefenceGate, not changes by the publisher`}>
+                <VersionTimeline versions={corrections} />
+              </Details>
+            </div>
+          )}
         </Panel>
 
         <Panel title="Source and attribution">

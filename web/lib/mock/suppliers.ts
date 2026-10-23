@@ -3,7 +3,7 @@
  * companies, so the supplier pages have something to lay out in the demo build and in the end-to-end tests. Shapes only; the numbers
  * are made up, which is why this is never used with an API configured.
  */
-import type { Paginated, Supplier, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
+import type { BuyerSuppliers, Paginated, Supplier, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
 
 const ITEMS: SupplierItem[] = [
   { id: '1', slug: '1-demo-airframes-gmbh', name: 'Demo Airframes GmbH', country: 'DE', awardCount: 14, firstYear: 2023, lastYear: 2026, cpvDivisions: ['35', '34'] },
@@ -80,5 +80,20 @@ export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?:
     }]),
     noticeCount: s.awardCount, namesAsStated: [s.name, s.name.toUpperCase()], identifiers: [`DE${100000000 + Number(s.id)}`],
     attribution: 'Source: TED, © European Union.',
+  };
+}
+
+/**
+ * WP-90: GET /v1/buyers/{slug}/suppliers in the demo: the demo suppliers whose profile lists the buyer (findSupplier's three demo
+ * buyers), with fewer contracts the later the supplier comes, most first.
+ */
+export function buyerSuppliers(buyer: { slug: string }): BuyerSuppliers {
+  const items = ITEMS.flatMap((s) => {
+    const row = findSupplier(s.slug)?.buyers.find((b) => b.slug === buyer.slug);
+    return row ? [{ slug: s.slug, name: s.name, country: s.country, awards: Math.max(1, row.awards - Number(s.id) + 1) }] : [];
+  }).sort((a, b) => b.awards - a.awards || a.name.localeCompare(b.name));
+  return {
+    items, suppliers: items.length, contracts: items.reduce((n, s) => n + s.awards, 0),
+    attribution: 'Source: TED (Tenders Electronic Daily), © European Union. Winners as named in each notice; natural persons are never named.',
   };
 }

@@ -30,6 +30,22 @@ export function weekMonday(week: string): Date {
   return new Date(monday.getTime() + (Number(m[2]) - 1) * 7 * 86_400_000);
 }
 
+/** WP-90: the ISO week a moment falls in, UTC ("2026-W43"): the week under way, whose changes so far /changes lists. */
+export function weekOf(d: Date): string {
+  const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  // the ISO year is the Thursday's
+  const thursday = new Date(day.getTime() + (3 - ((day.getUTCDay() + 6) % 7)) * 86_400_000);
+  const week = 1 + Math.floor((thursday.getTime() - weekMonday(`${thursday.getUTCFullYear()}-W01`).getTime()) / (7 * 86_400_000));
+  return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+/** "This week so far: 19 to 23 October" (to the day of `ref`, UTC). */
+export function weekSoFarLabel(week: string, ref: Date): string {
+  const start = weekMonday(week);
+  const from = start.getUTCMonth() === ref.getUTCMonth() ? `${start.getUTCDate()}` : `${start.getUTCDate()} ${MONTHS[start.getUTCMonth()]}`;
+  return `This week so far: ${from} to ${ref.getUTCDate()} ${MONTHS[ref.getUTCMonth()]} ${ref.getUTCFullYear()}`;
+}
+
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /** "Week 41: 5 to 11 October 2026" (the last day is the Sunday; the issue ends at the next Monday 00:00 UTC). */

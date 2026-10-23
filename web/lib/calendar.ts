@@ -120,7 +120,7 @@ const MONTH_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
 export interface CalendarParams {
   kind: KindFilter; countries: string[]; view: CalendarView; month: string | null;
   /** WP-87: the tender list's filters (search, CPV, scope, defence goods, deadline and value range), as /tenders reads them. */
-  tender: Pick<TenderFilters, 'q' | 'cpv' | 'scope' | 'goods' | 'deadlineFrom' | 'deadlineTo' | 'valueMin' | 'valueMax' | 'currency'>;
+  tender: Pick<TenderFilters, 'q' | 'cpv' | 'cpvMain' | 'notCpv' | 'scope' | 'goods' | 'deadlineFrom' | 'deadlineTo' | 'valueMin' | 'valueMax' | 'currency'>;
   /** 1-based page of the list view. */
   page: number;
   /** A `month` that is not YYYY-MM, as sent: it is ignored and the page says so. */
@@ -137,6 +137,8 @@ export function parseCalendarParams(sp: SearchParams): CalendarParams {
   const tender: CalendarParams['tender'] = {};
   if (t.q) tender.q = t.q;
   if (t.cpv) tender.cpv = t.cpv;
+  if (t.cpvMain) tender.cpvMain = true;               // WP-90
+  if (t.notCpv) tender.notCpv = t.notCpv;
   if (t.scope && t.scope !== DEFAULT_TENDER_SCOPE) tender.scope = t.scope;
   if (t.goods) tender.goods = t.goods;
   if (t.deadlineFrom) tender.deadlineFrom = t.deadlineFrom;

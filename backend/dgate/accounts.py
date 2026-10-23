@@ -627,18 +627,19 @@ def revoke_session(session_id: str, conn=Depends(get_conn), user=Depends(current
 
 # ------------------------------------------------------------------ searches
 _TENDER_KEYS = {"q", "country", "cpv", "status", "scope", "goods", "buyer", "from", "to", "min", "max",
-                "currency", "sort"}
+                "currency", "sort", "cpvMain", "notCpv"}
 _CALL_KEYS = {"q", "programme", "regime", "country", "status", "from", "to", "min", "max",
               "currency", "sort"}
 _ENUMS = {
     ("tender", "status"): {"open", "closed", "all"},
     ("tender", "scope"): {"relevant", "core", "supply", "all"},
     ("tender", "goods"): {"defence"},
+    ("tender", "cpvMain"): {"true"},
     ("tender", "sort"): {"deadline-asc", "published-desc"},
     ("call", "status"): {"open", "forthcoming", "closing-soon", "closed", "all"},
     ("call", "sort"): {"deadline-asc", "deadline-desc", "budget-desc"},
 }
-_MAX_LEN = {"q": 100, "country": 200, "cpv": 400, "programme": 200, "regime": 100}
+_MAX_LEN = {"q": 100, "country": 200, "cpv": 400, "notCpv": 400, "programme": 200, "regime": 100}
 
 
 def clean_filters(kind: str, filters: dict[str, Any]) -> dict[str, str]:
@@ -697,6 +698,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
     if kind == "tender":
         base.update(cpv=f.get("cpv"), status=f.get("status", "open"), scope=f.get("scope", "relevant"),
                     goods=f.get("goods"), confidence=None,
+                    cpvMain=f.get("cpvMain") == "true", notCpv=f.get("notCpv"),
                     buyer=int(f["buyer"]) if "buyer" in f else None)
     else:
         base.update(programme=f.get("programme"), regime=f.get("regime"),

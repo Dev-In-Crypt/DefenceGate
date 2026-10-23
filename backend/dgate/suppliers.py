@@ -655,3 +655,54 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
         "namesAsStated": [redact_emails(r["v"]) for r in stated], "identifiers": list(numbers.values())[:3],
         "attribution": attribution,
     }
+
+
+# ----------------------------------------------------------------- WP-90: a buyer's top suppliers
+
+BUYER_TOP = 10
+
+
+class BuyerSupplier(BaseModel):
+    slug: str
+    name: str
+    country: str | None
+    awards: int
+
+
+class BuyerSuppliers(BaseModel):
+    items: list[BuyerSupplier]
+    # Suppliers (legal entities) and contracts (`award_set.KEY`) of the buyer in the award set, all of them.
+    suppliers: int
+    contracts: int
+    attribution: str
+
+
+@router.get("/v1/buyers/{slug}/suppliers", response_model=BuyerSuppliers)
+@cache_list("buyer-suppliers", ttl=30 * 60)
+def buyer_suppliers(slug: str, conn=Depends(get_conn)):
+    """Who won this buyer's contracts (WP-90, the analyst's "top suppliers of this buyer"): the award set of the
+    supplier map (`award_set.scope`: defence scope, last three years, legal entities only, a TED+PLACSP twin once),
+    under the buyer's family (every organisation row of the body, migration 0055), most contracts first, at most
+    BUYER_TOP. A natural person is never named (`award_set.WINNERS`); a buyer removed on request has none."""
+    org_id = _id_of(slug, "buyer")
+    ids = conn.execute("SELECT dgate_family_ids(%s) AS ids", (org_id,)).fetchone()["ids"] or [org_id]
+    p = {"since": since(), "ids": list(ids), "limit": BUYER_TOP}
+    own = "o.buyer_org_id = ANY(%(ids)s) AND NOT o.buyer_withheld"
+    rows = conn.execute(
+        f"""WITH base AS (
+              SELECT org.id, org.country, org.canonical_name, count(DISTINCT {KEY_HASH}) AS n
+                {FROM} WHERE {scope()} AND {own}
+               GROUP BY org.id, org.country, org.canonical_name),
+            m AS (SELECT base.*, count(*) OVER () AS total_rows FROM base ORDER BY n DESC, canonical_name, id
+                  LIMIT %(limit)s)
+            SELECT m.*, {shown()} AS shown FROM m ORDER BY n DESC, canonical_name, id""", p).fetchall()
+    contracts = conn.execute(f"SELECT count(DISTINCT {KEY_HASH}) AS n {FROM} WHERE {scope()} AND {own}",
+                             p).fetchone()["n"]
+    note =placsp_note(conn, f"o.id IN (SELECT a.opportunity_id {FROM} WHERE {scope()} AND {own})", p) if (
+        settings().placsp_awards_public) else None
+    day = f", as last updated on {note['lastUpdated']:%Y-%m-%d}" if note and note["lastUpdated"] else ""
+    attribution = (TED_NOTE["attribution"] + (f" {note['attribution'].rstrip('.')}{day}." if note else "")
+                   + " Winners as named in each notice; natural persons are never named.")
+    return {"items": [{"slug": make_slug(r["id"], _name(r)), "name": _name(r), "country": r["country"],
+                       "awards": r["n"]} for r in rows],
+            "suppliers": rows[0]["total_rows"] if rows else 0, "contracts": contracts, "attribution": attribution}

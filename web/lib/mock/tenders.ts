@@ -1,6 +1,7 @@
 import { sourceById } from './sources';
 import { now } from '../deadline';
-import { weekMonday } from '../digest';
+import { cpvTitle, titleHasWord } from '../cpv';
+import { weekMonday, weekOf } from '../digest';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
 import type {
   Buyer, BuyerFilters, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
@@ -30,7 +31,7 @@ interface RawTender {
   cpvCodes: string[]; procedure?: string; legalBasis?: string; scope?: TenderScope;
   deadline: string | null; publishedAt: string | null; value?: [number, string];
   native?: string; security?: boolean; subcontracting?: boolean;
-  sameNotice?: { source: string; url: string | null }[];
+  sameNotice?: { source: string; url: string | null; id?: string; noticeId?: string }[];
 }
 
 const RAW: RawTender[] = [
@@ -42,7 +43,7 @@ const RAW: RawTender[] = [
   { words: 'workshop-consumables-supply', noticeId: '588310-2026', sourceId: 'eu-ted', retrievedAt: '2026-10-11T06:20:00Z',
     title: 'Supply of workshop consumables', buyer: 1, cpvCodes: ['44510000'], procedure: 'Open procedure', legalBasis: '32009L0081',
     deadline: '2026-11-04T00:00:00Z', publishedAt: '2026-10-05T00:00:00Z', value: [850_000, 'EUR'],
-    sameNotice: [{ source: 'pl-ezam', url: 'https://ezamowienia.gov.pl' }] },
+    sameNotice: [{ source: 'pl-ezam', url: 'https://ezamowienia.gov.pl', id: '3', noticeId: '2026/BZP 00412345' }] },
   { words: 'dostawa-materialow-eksploatacyjnych-warsztatow', noticeId: '2026/BZP 00412345', sourceId: 'pl-ezam', retrievedAt: '2026-10-11T06:35:00Z',
     title: 'Dostawa materiałów eksploatacyjnych dla warsztatów', titleLanguage: 'pl', buyer: 1, cpvCodes: ['44510000'],
     procedure: 'Przetarg nieograniczony', legalBasis: '32009L0081', deadline: '2026-10-30T09:00:00Z', publishedAt: '2026-10-02T00:00:00Z', value: [2_100_000, 'PLN'] },
@@ -96,9 +97,23 @@ const RAW_VERSIONS: Record<string, TenderVersion[]> = {
     { version: 1, detectedAt: '2026-08-30T06:20:00Z', changes: [] },
   ],
   'fuel-supply-framework': [
-    { version: 2, detectedAt: '2026-10-09T06:20:00Z', changes: [{ field: 'title', label: 'Title', before: 'Fuel supply', after: 'Fuel supply framework' }] },
-    { version: 1, detectedAt: '2026-10-03T06:20:00Z', changes: [] },
+    // WP-90: two of our own re-readings of the payload we held (`correction`): the page folds them away under the publisher's changes
+    { version: 4, sequence: 4, detectedAt: '2026-10-11T06:20:00Z', correction: true, changes: [{ field: 'procedure', label: 'Procedure', before: 'Open procedure', after: 'Restricted procedure' }] },
+    { version: 3, sequence: 3, detectedAt: '2026-10-10T06:20:00Z', correction: true, changes: [{ field: 'buyer', label: 'Buyer', before: 'Demo Joint Procurement', after: 'Demo Joint Procurement Cell' }] },
+    { version: 2, sequence: 2, detectedAt: '2026-10-09T06:20:00Z', changes: [{ field: 'title', label: 'Title', before: 'Fuel supply', after: 'Fuel supply framework' }] },
+    { version: 1, sequence: 1, detectedAt: '2026-10-03T06:20:00Z', changes: [] },
   ],
+};
+
+/**
+ * WP-90: what the notice's own page adds (GET /v1/tenders/{slug}): the first sentence of the description where it reads as a commercial
+ * subject, and the address of the procurement documents where a source names one (invented, as everything here).
+ */
+const DETAIL: Record<string, Pick<Tender, 'subject' | 'documentsUrl'>> = {
+  'framework-agreement-machined-aluminium-housings': {
+    subject: 'Framework agreement for the supply of machined aluminium housings for vehicle electronics, in two lots.',
+    documentsUrl: 'https://www.example.org/demo-documents/561204-2026',
+  },
 };
 
 const buyerId = (i: number) => String(i + 1);
@@ -152,7 +167,10 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
     if (status === 'planned' ? !planned : status === 'closed' ? t.status !== 'closed' || planned : status === 'open' && t.status !== 'open') return false;
     if (scope !== 'all' && scope !== 'relevant' && t.scope !== scope) return false;
     if (f.buyer && t.buyerId !== f.buyer) return false;
-    if (f.cpv?.length && !t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) return false;
+    // WP-90: the main code only, and the codes to leave out (any of the notice's), as the API reads them
+    const codes = f.cpvMain ? t.cpvCodes.slice(0, 1) : t.cpvCodes;
+    if (f.cpv?.length && !codes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) return false;
+    if (f.notCpv?.length && t.cpvCodes.some((c) => f.notCpv!.some((p) => c.startsWith(p)))) return false;
     if (f.country && (!t.country || !f.country.includes(t.country))) return false;
     if (f.deadlineFrom || f.deadlineTo) {
       if (t.deadline === null) return false;
@@ -167,7 +185,9 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
       if (f.valueMin !== undefined && v.amount < f.valueMin) return false;
       if (f.valueMax !== undefined && v.amount > f.valueMax) return false;
     }
-    if (q && ![t.title, t.originalTitle, t.buyerName, t.noticeId].some((s) => s?.toLowerCase().includes(q))) return false;
+    // WP-90: or every word begins a word of the English title of one of the notice's own CPV codes
+    if (q && ![t.title, t.originalTitle, t.buyerName, t.noticeId].some((s) => s?.toLowerCase().includes(q))
+      && !q.split(/\s+/).filter(Boolean).every((w) => t.cpvCodes.some((c) => titleHasWord(cpvTitle(c), w)))) return false;
     return true;
   });
   const sort = f.sort ?? defaultTenderSort(status);
@@ -210,21 +230,25 @@ const CHANGE_FIELDS = new Set(['deadline', 'estimated_value', 'status', 'procedu
 
 /** Whether the API would answer `week`: the archive began in 2026-W37, and a week that has not ended is not an issue yet. */
 export function weekAvailable(week: string, ref: Date = now()): boolean {
-  return week >= '2026-W37' && weekMonday(week).getTime() + 7 * 86_400_000 <= ref.getTime();
+  // WP-90: the week under way too, up to now
+  return week >= '2026-W37' && (weekMonday(week).getTime() + 7 * 86_400_000 <= ref.getTime() || week === weekOf(ref));
 }
+
+/** WP-90: the mock's field names of each kind of change (the API's `changes.KIND_FIELDS`). */
+const KIND_FIELDS: Record<string, string[]> = { deadline: ['deadline'], value: ['estimated_value'], status: ['status'] };
 
 /** What the API's /v1/changes answers, built from the mock versions: a notice first seen in the window is new. */
 export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
   // `week` is a week of the digest instead of the last 14 days (weekAvailable says whether the API would answer it).
   const weekStart = f.week ? weekMonday(f.week).getTime() : null;
   const since = weekStart ?? ref.getTime() - CHANGE_WINDOW_DAYS * 86_400_000;
-  const end = weekStart !== null ? weekStart + 7 * 86_400_000 - 1 : ref.getTime();
+  const end = weekStart !== null ? Math.min(weekStart + 7 * 86_400_000 - 1, ref.getTime()) : ref.getTime();
   const all: Change[] = [];
-  // WP-87: the tender list's other filters, read by the list's own rules (any status)
-  const narrowed = f.q || f.cpv || f.deadlineFrom || f.deadlineTo || f.valueMin !== undefined || f.valueMax !== undefined || f.currency;
+  // WP-87: the tender list's other filters, read by the list's own rules (any status); WP-90: the rest, and the status as of now
+  const narrowed = f.q || f.cpv || f.notCpv || f.status || f.deadlineFrom || f.deadlineTo || f.valueMin !== undefined || f.valueMax !== undefined || f.currency;
   const kept = narrowed ? new Set(queryTenders({
-    q: f.q, cpv: f.cpv, deadlineFrom: f.deadlineFrom, deadlineTo: f.deadlineTo, valueMin: f.valueMin, valueMax: f.valueMax,
-    currency: f.currency, status: 'all', scope: 'all', page: 1, pageSize: 100_000,
+    q: f.q, cpv: f.cpv, cpvMain: f.cpvMain, notCpv: f.notCpv, deadlineFrom: f.deadlineFrom, deadlineTo: f.deadlineTo, valueMin: f.valueMin,
+    valueMax: f.valueMax, currency: f.currency, status: f.status ?? 'all', scope: 'all', page: 1, pageSize: 100_000,
   }, ref).items.map((t) => t.id)) : null;
   for (const t of allTenders(ref)) {
     if (kept && !kept.has(t.id)) continue;
@@ -241,7 +265,8 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
     });
   }
   all.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt) || b.id.localeCompare(a.id));
-  const shown = f.kind ? all.filter((c) => c.kind === f.kind) : all;
+  const shown = !f.kind ? all : all.filter((c) => (f.kind === 'new' || f.kind === 'amended' ? c.kind === f.kind
+    : c.kind === 'amended' && c.changes.some((l) => KIND_FIELDS[f.kind!].includes(l.field))));
   const pageSize = f.pageSize ?? 25;
   const page = f.page ?? 1;
   return {
@@ -254,7 +279,8 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
 /** Like the API: only the leading integer of "<id>-<words>" is looked up. */
 export function findTender(slug: string, ref: Date = now()): Tender | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
-  return id ? (allTenders(ref).find((t) => t.id === id) ?? null) : null;
+  const t = id ? (allTenders(ref).find((x) => x.id === id) ?? null) : null;
+  return t ? { ...t, subject: null, documentsUrl: null, ...DETAIL[RAW[Number(t.id) - 1].words] } : null;
 }
 
 export function tenderVersions(slug: string): TenderVersion[] | null {

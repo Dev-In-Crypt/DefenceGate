@@ -133,7 +133,9 @@ assert.equal(parseChangeFilters({ week: '2026-W42&x=1' }).week, undefined);
 assert.equal(parseChangeFilters({ kind: 'other' }).kind, undefined);
 assert.equal(toChangeQuery(parseChangeFilters({})), '', 'the default list is still the cacheable one');
 assert.equal(tenderMock.weekAvailable('2026-W41', new Date('2026-10-12T08:00:00Z')), true);
-assert.equal(tenderMock.weekAvailable('2026-W42', new Date('2026-10-12T08:00:00Z')), false, 'a week that has not ended');
+// WP-90 (rewritten): the week under way is listed up to now ("this week so far"); a week to come is not
+assert.equal(tenderMock.weekAvailable('2026-W42', new Date('2026-10-12T08:00:00Z')), true, 'the week under way');
+assert.equal(tenderMock.weekAvailable('2026-W43', new Date('2026-10-12T08:00:00Z')), false, 'a week to come');
 assert.equal(tenderMock.weekAvailable('2026-W36', REF), false, 'before the archive');
 // The demo list of a week and a kind holds exactly the entries of that week and kind; the counts count both kinds.
 const w41 = tenderMock.queryChanges({ week: '2026-W41', pageSize: 100 }, new Date('2026-10-12T08:00:00Z'));

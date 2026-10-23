@@ -30,10 +30,12 @@ export function SkipToResults() {
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, calendarHref = '/calendar?kind=tenders', feedHref, children,
+  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, calendarHref = '/calendar?kind=tenders', feedHref, subscribe, children,
 }: {
   /** WP-87: the calendar and the Atom feed of this result, with its filters. */
   calendarHref?: string; feedHref?: string;
+  /** WP-90: the "Subscribe to this search" control, above the results whatever their number. */
+  subscribe?: React.ReactNode;
   crumbs: Crumb[]; title: string; intro?: string; meta?: string; filterBar: React.ReactNode;
   /** Under the title in place of (or after) the intro: the tabs of Companies (WP-86). */
   head?: React.ReactNode;
@@ -85,6 +87,7 @@ export function ListPage({
             <SortSelect value={sort.value} options={sort.options} />
           </div>
           <FilterNotices notices={notices} />
+          {subscribe}
           {total > 0 && listNote}
           {total === 0 ? (
             <EmptyState title={emptyTitle} action={<Button variant="secondary" href={clearHref}>Clear filters</Button>}>{emptyText}</EmptyState>

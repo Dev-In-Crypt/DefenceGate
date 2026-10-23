@@ -34,6 +34,18 @@ export function cpvGroupTitle(group: string): string | null {
   return /^\d{3}$/.test(group) ? (CODES[`${group}00000`] ?? null) : null;
 }
 
+/** Folded as the API's `dg_fold` (and `cpv_labels.fold`): lower case, no accents, the separators one space, a leading space. */
+export function foldWords(text: string): string {
+  const t = text.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return ` ${t.split(/[\s\-–—/_.,;:()"'’]+/).filter(Boolean).join(' ')}`;
+}
+
+/** WP-90: whether a search word begins a word of a CPV title, as the API's tender search reads them (backend/dgate/cpv_labels.py: 3 letters or more). */
+export function titleHasWord(title: string | null | undefined, word: string): boolean {
+  const w = foldWords(word).trim();
+  return w.length >= 3 && !w.includes(' ') && !!title && foldWords(title).includes(` ${w}`);
+}
+
 /** The vocabulary's own title of a full code (`50640000`), or null when it is not one of the codes we hold. */
 export function cpvTitle(code: string): string | null {
   const digits = /^\d{8}/.exec(code)?.[0];

@@ -88,12 +88,15 @@ test('the filter column folds into groups, keeps every filter, and stays on scre
   const form = page.getByRole('search', { name: 'Filter tenders' });
   const groups = form.locator('details');
   expect(await groups.count(), 'the filter groups').toBeGreaterThanOrEqual(4);
-  // The country list is folded away but still in the form: a closed group is submitted.
+  // WP-90 (owner-approved change): the country list is open on /tenders, an analyst's first filter; it still folds, and a closed group is
+  // still submitted.
   const country = form.locator('details', { hasText: 'Buyer country' });
-  expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(false);
+  expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(true);
   expect(await country.locator('input[type=checkbox]').count(), 'every country stays a filter').toBeGreaterThanOrEqual(20);
-  await country.locator('summary').click();
   await expect(country.locator('input[type=checkbox]').first()).toBeVisible();
+  await country.locator('summary').click();
+  expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(false);
+  await country.locator('summary').click();
   // Every option row of a filter is at least 32 px high (a checkbox or radio label is the target).
   const sizes = await form.evaluate((f) => [...f.querySelectorAll('label:has(input[type=checkbox]), label:has(input[type=radio])')]
     .filter((l) => l.getBoundingClientRect().height > 0).map((l) => Math.round(l.getBoundingClientRect().height)));

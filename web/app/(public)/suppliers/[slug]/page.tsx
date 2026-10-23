@@ -78,7 +78,10 @@ export default async function SupplierPage({ params, searchParams }: Props) {
           <p className="m-0 max-w-prose text-small text-ink-muted">Also published as: {s.namesAsStated.slice(1).join('; ')}.</p>
         )}
         {/* WP-88: one line; the coverage, the method and the removal route are in About this data. */}
-        <p className="m-0 max-w-prose text-body">Contracts this company won in published award notices of the last three years; it may have won more that are not published here.</p>
+        {/* WP-90: the open segment said where it cannot be missed, in one line; the coverage and the method stay in About this data */}
+        <p className="m-0 max-w-prose rounded-md border-l-4 border-ink bg-surface-inset px-4 py-2.5 text-body font-semibold" data-open-segment>
+          Open segment only: {fromPlacsp(s) ? 'TED and Spain’s PLACSP' : 'TED'} award notices of the last three years; the company&rsquo;s real volume is larger.
+        </p>
         <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{s.attribution}</p>
         <AboutData>
         <p className="m-0">

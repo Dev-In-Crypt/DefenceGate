@@ -9,14 +9,14 @@ import { formatNumber, plural } from './format';
 const count = (n: number, one: string) => `${formatNumber(n)} ${plural(n, one)}`;
 import type { TenderFilters } from './types';
 
-type TenderPart = Pick<TenderFilters, 'q' | 'cpv' | 'scope' | 'goods' | 'deadlineFrom' | 'deadlineTo' | 'valueMin' | 'valueMax' | 'currency'>;
+type TenderPart = Pick<TenderFilters, 'q' | 'cpv' | 'cpvMain' | 'notCpv' | 'scope' | 'goods' | 'deadlineFrom' | 'deadlineTo' | 'valueMin' | 'valueMax' | 'currency'>;
 interface Params { kind: 'all' | 'tenders' | 'funding'; countries: string[]; tender: TenderPart }
 
 /** The filters that only a tender has: a funding call has no CPV code, scope or estimated value, and the search is the tender list's. */
 export function tenderOnly(t: TenderPart | undefined): string[] {
   if (!t) return [];
   return [
-    t.q ? 'the search' : null, t.cpv ? 'the CPV code' : null, t.scope ? 'the scope' : null, t.goods ? 'Defence goods only' : null,
+    t.q ? 'the search' : null, t.cpv || t.notCpv ? 'the CPV code' : null, t.scope ? 'the scope' : null, t.goods ? 'Defence goods only' : null,
     t.valueMin !== undefined || t.valueMax !== undefined || t.currency ? 'the estimated value' : null,
   ].filter((s): s is string => s !== null);
 }
