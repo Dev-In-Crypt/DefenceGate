@@ -345,8 +345,11 @@ const hi = confidenceView({ level: 'high', basis: ['Military product code', 'Def
 assert.equal(hi?.text, 'Clearly defence');   // WP-88: the level in plain words
 assert.equal(hi?.sentence, 'Military product code; Defence buyer.');
 assert.equal(hi?.name, 'Clearly defence: Military product code; Defence buyer.');     // the accessible name carries the level and the reason
-assert.equal(confidenceView({ level: 'low', basis: [] })?.name, 'Possibly defence');       // no reason: the level alone, no empty sentence
-assert.equal(confidenceView({ level: 'medium', basis: ['Defence buyer'] })?.text, 'Probably defence');
+// WP-95: no probability words; the API's label names the signal, and an older API's level gets a word that does too
+assert.equal(confidenceView({ level: 'low', basis: [] })?.name, 'Weak defence signal');       // no reason: the level alone, no empty sentence
+assert.equal(confidenceView({ level: 'medium', basis: ['Defence buyer'] })?.text, 'Defence buyer or directive');
+assert.equal(confidenceView({ level: 'medium', basis: ['Defence buyer'], label: 'Defence buyer, ordinary purchase' })?.text, 'Defence buyer, ordinary purchase');
+assert.equal(confidenceView({ level: 'medium', basis: ['Defence buyer'], label: 'Defence buyer, ordinary purchase' })?.name, 'Defence buyer, ordinary purchase: Defence buyer.');
 assert.equal(confidenceView(undefined), null);                                          // an older API build: no badge
 assert.equal(confidenceView({ level: 'certain', basis: ['x'] }), null);                 // a level this build does not know is not shown as a wrong word
 assert.equal(confidenceCell({ level: 'medium', basis: ['Defence buyer'] }), 'medium');

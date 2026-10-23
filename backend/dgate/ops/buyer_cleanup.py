@@ -29,6 +29,9 @@ deleted, no archived version is touched, and no merge is undone.
    defence body (`buyer_class_of`: its precedence, not the exclusion lists') or when the
    organisation's notices are filed under the 2009/81/EC legal basis (14 October 2026: the
    Spanish Army contracting board 311783 and a French ministry service 331798).
+   WP-95: a name a person marked `rejected` in the derived files loses its flag whatever its
+   source and its notices say (the Latvian Interior's provision agency, Nodrosinajuma valsts
+   agentura, buys for the police under 2009/81/EC too).
 
 3. **Shared identifiers** (correctness:D8), read only. A registration number that belongs
    to a ministry-level legal entity was merged with every service that stated it (`merge_method
@@ -335,7 +338,30 @@ def rejected_flags(conn, keep: set[tuple[str, str]] | None = None) -> list[dict[
     candidates = [c for c in candidates
                   if buyer_class_of(c["canonical_name"], c["country"]) != "defence"]
     protected = _with_defence_legal_basis(conn, [c["id"] for c in candidates])
-    return [c for c in candidates if c["id"] not in protected]
+    kept = [c for c in candidates if c["id"] not in protected]
+    # WP-95: a person's rejection decides; no rule or legal basis keeps such a flag
+    gone = rejected_names()
+    listed = {c["id"] for c in kept}
+    for r in conn.execute(
+            """SELECT id, country, canonical_name, defence_buyer_source AS source FROM organisation
+                WHERE is_defence_buyer AND merged_into IS NULL ORDER BY id""").fetchall():
+        if (r["country"], r["canonical_name"]) in gone and r["id"] not in listed:
+            kept.append({**r, "why": "rejected by a person in the derived list"})
+    return kept
+
+
+def rejected_names(directory: Path | None = None) -> set[tuple[str, str]]:
+    """(country, normalised name) a person rejected in the derived files (`reviewed` rejected, no, reject)."""
+    from ..pipeline import SEEDS_FILE
+
+    directory = directory or SEEDS_FILE.parent
+    out: set[tuple[str, str]] = set()
+    for path in sorted(glob.glob(str(directory / "defence_buyers_derived_*.csv"))):
+        with open(path, encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                if (row.get("reviewed") or "").strip().lower() in ("rejected", "no", "reject"):
+                    out.add((row["country"].strip(), normalise_org_name(row["name"])))
+    return out
 
 
 def unflag(conn, rows: list[dict[str, Any]]) -> int:

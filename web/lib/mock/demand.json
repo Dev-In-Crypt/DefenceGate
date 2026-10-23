@@ -1382,7 +1382,10 @@
      "of": 73,
      "withoutValue": 73,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1422,7 +1425,10 @@
      "of": 56,
      "withoutValue": 56,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1457,7 +1463,30 @@
      "of": 49,
      "withoutValue": 48,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [
+      {
+       "currency": "EUR",
+       "amount": 1250000.0,
+       "count": 1,
+       "lotEstimates": 0
+      }
+     ],
+     "estimates": [],
+     "largest": [
+      {
+       "id": "2",
+       "slug": "2-spain-mechanical-spare-parts-for-military-vehicles",
+       "noticeId": "389204-2026",
+       "title": "Spain – Mechanical spare parts for military vehicles – Suministro de repuestos",
+       "buyerName": "Intendente de San Fernando",
+       "publishedAt": "2026-06-08T00:00:00Z",
+       "amount": 504166.67,
+       "currency": "EUR",
+       "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/389204-2026",
+       "source": "ted"
+      }
+     ]
     },
     "buyers": [
      {
@@ -1504,7 +1533,10 @@
      "of": 40,
      "withoutValue": 39,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1551,7 +1583,10 @@
      "of": 38,
      "withoutValue": 36,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1591,7 +1626,10 @@
      "of": 36,
      "withoutValue": 36,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1619,7 +1657,10 @@
      "of": 36,
      "withoutValue": 36,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1659,7 +1700,10 @@
      "of": 32,
      "withoutValue": 32,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1699,7 +1743,10 @@
      "of": 31,
      "withoutValue": 31,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1739,7 +1786,10 @@
      "of": 31,
      "withoutValue": 31,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1786,7 +1836,10 @@
      "of": 30,
      "withoutValue": 29,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1826,7 +1879,10 @@
      "of": 27,
      "withoutValue": 27,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1860,7 +1916,10 @@
      "of": 24,
      "withoutValue": 24,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1907,7 +1966,10 @@
      "of": 24,
      "withoutValue": 22,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1947,7 +2009,10 @@
      "of": 23,
      "withoutValue": 23,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -1987,7 +2052,10 @@
      "of": 18,
      "withoutValue": 18,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2027,7 +2095,10 @@
      "of": 17,
      "withoutValue": 17,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2067,7 +2138,10 @@
      "of": 15,
      "withoutValue": 15,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2095,7 +2169,10 @@
      "of": 15,
      "withoutValue": 15,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2129,7 +2206,10 @@
      "of": 14,
      "withoutValue": 14,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2169,7 +2249,10 @@
      "of": 13,
      "withoutValue": 13,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2203,7 +2286,10 @@
      "of": 13,
      "withoutValue": 13,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2231,7 +2317,10 @@
      "of": 12,
      "withoutValue": 12,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2271,7 +2360,10 @@
      "of": 12,
      "withoutValue": 12,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2311,7 +2403,10 @@
      "of": 12,
      "withoutValue": 12,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2358,7 +2453,10 @@
      "of": 11,
      "withoutValue": 9,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2405,7 +2503,10 @@
      "of": 11,
      "withoutValue": 10,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2445,7 +2546,10 @@
      "of": 11,
      "withoutValue": 11,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2479,7 +2583,10 @@
      "of": 10,
      "withoutValue": 10,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2519,7 +2626,10 @@
      "of": 9,
      "withoutValue": 9,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2560,7 +2670,10 @@
      "of": 4,
      "withoutValue": 3,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {
@@ -2600,7 +2713,10 @@
      "of": 3,
      "withoutValue": 2,
      "shared": 0,
-     "suspect": 0
+     "suspect": 0,
+     "frameworks": [],
+     "estimates": [],
+     "largest": []
     },
     "buyers": [
      {

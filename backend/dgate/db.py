@@ -195,6 +195,8 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
                  "lot_count", "value_kind", "notice_date", "notice_kind"):
         if payload.get(name) is None:
             payload.pop(name, None)
+    if not payload.get("other_buyers"):              # WP-95, the same rule
+        payload.pop("other_buyers", None)
     return payload
 
 
@@ -888,6 +890,7 @@ def _serving_columns(opp: Opportunity) -> dict[str, Any]:
         lot_count=opp.lot_count, value_kind=opp.value_kind,
         buyer_identifier=opp.buyer_identifier,
         notice_date=opp.notice_date, notice_kind=opp.notice_kind,
+        other_buyers=opp.other_buyers,
     )
 
 
@@ -927,7 +930,7 @@ def refresh_classification(conn: psycopg.Connection, opp_id: int, opp: Opportuni
 # versioned facts (`opportunity_payload` leaves them out while empty).
 KEPT_WHEN_ABSENT = frozenset({
     "ted_ref", "procedure_identifier", "related_native_id", "buyer_identifier",
-    "lot_count", "notice_subtype", "value_kind",
+    "lot_count", "notice_subtype", "value_kind", "other_buyers",
 })
 
 # What a PLACSP re-reading can move without the publisher having said anything: the

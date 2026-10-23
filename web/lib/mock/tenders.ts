@@ -109,10 +109,17 @@ const RAW_VERSIONS: Record<string, TenderVersion[]> = {
  * WP-90: what the notice's own page adds (GET /v1/tenders/{slug}): the first sentence of the description where it reads as a commercial
  * subject, and the address of the procurement documents where a source names one (invented, as everything here).
  */
-const DETAIL: Record<string, Pick<Tender, 'subject' | 'documentsUrl'>> = {
+const DETAIL: Record<string, Partial<Pick<Tender, 'subject' | 'documentsUrl' | 'awardedTo' | 'awardedPersons' | 'awardValue' | 'otherBuyers'>>> = {
   'framework-agreement-machined-aluminium-housings': {
     subject: 'Framework agreement for the supply of machined aluminium housings for vehicle electronics, in two lots.',
     documentsUrl: 'https://www.example.org/demo-documents/561204-2026',
+  },
+  // WP-95: an award notice names its winners (a supplier page link where there is one) and says what its value is
+  'packaging-and-logistics-services': {
+    awardedTo: [{ name: 'Demo Logistics B.V.', slug: '4-demo-logistics-bv', country: 'NL', valueAmount: 4_750_000, valueCurrency: 'EUR', valueKind: 'contract' }],
+    awardedPersons: 1,
+    awardValue: { amount: 4_750_000, currency: 'EUR', kind: 'contract' },
+    otherBuyers: ['Demo Joint Support Service'],
   },
 };
 
@@ -280,7 +287,7 @@ export function queryChanges(f: ChangeFilters, ref: Date = now()): ChangePage {
 export function findTender(slug: string, ref: Date = now()): Tender | null {
   const id = /^(\d+)(?:-|$)/.exec(slug)?.[1];
   const t = id ? (allTenders(ref).find((x) => x.id === id) ?? null) : null;
-  return t ? { ...t, subject: null, documentsUrl: null, ...DETAIL[RAW[Number(t.id) - 1].words] } : null;
+  return t ? { ...t, subject: null, documentsUrl: null, awardedTo: [], awardedPersons: 0, awardValue: null, ...DETAIL[RAW[Number(t.id) - 1].words] } : null;
 }
 
 export function tenderVersions(slug: string): TenderVersion[] | null {

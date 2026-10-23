@@ -21,7 +21,7 @@ import { Select, TextInput } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
 import { Pagination } from '@/components/dg/pagination';
 import { Tag } from '@/components/dg/tag';
-import { ChangeEntry, FIRST_COLLECTED } from '@/components/changes/change-entry';
+import { ChangeEntry, FIRST_COLLECTED, FIRST_COLLECTED_AWARD } from '@/components/changes/change-entry';
 import { FundingChangeEntry } from '@/components/changes/funding-change-entry';
 import { FitFilter, FitItem } from '@/components/funding/fit-badge';
 
@@ -42,10 +42,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 /** WP-90: the kinds of change a list can be narrowed to (the API's `kind`), and how a sentence names them. */
 const KIND_WORDS: Record<ChangeKindFilter, string> = {
-  new: 'the new notices', amended: 'the amendments', deadline: 'the amendments that moved a deadline',
+  new: 'the new notices', award: 'the new award notices', amended: 'the amendments', deadline: 'the amendments that moved a deadline',
   value: 'the amendments that changed a value', status: 'the amendments that changed a status',
 };
-const KIND_OPTIONS = ([['new', 'New notices'], ['amended', 'Every amendment'], ['deadline', 'Deadline moved'], ['value', 'Value changed'], ['status', 'Status changed']] as const)
+const KIND_OPTIONS = ([['new', 'New notices'], ['award', 'New award notices'], ['amended', 'Every amendment'], ['deadline', 'Deadline moved'], ['value', 'Value changed'], ['status', 'Status changed']] as const)
   .map(([value, label]) => ({ value, label }));
 
 /** The same names as the tender list (lib/taxonomy.ts SCOPE_CHOICES); the default is left unselected. */
@@ -152,7 +152,9 @@ export default async function ChangesPage({ searchParams }: Props) {
         <div className="flex min-w-0 flex-col gap-3">
           <h2 id="window" className="m-0 text-h3">{filters.week ? (thisWeek ? weekSoFarLabel(filters.week, now()) : weekLabel(filters.week)) : <>The last {data.windowDays} days</>}</h2>
           <p className="m-0 max-w-prose text-body">
-            <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices and{' '}
+            <span className="font-mono tabular-nums">{formatNumber(data.counts.new)}</span> new notices,{' '}
+            {/* WP-95: new award notices apart from the new tenders */}
+            <span className="font-mono tabular-nums">{formatNumber(data.counts.awards ?? 0)}</span> new award notices and{' '}
             <span className="font-mono tabular-nums">{formatNumber(data.counts.amended)}</span> amendments, from{' '}
             <time dateTime={data.windowFrom}>{formatDateUtc(data.windowFrom)}</time> to{' '}
             <time dateTime={windowLast}>{formatDateUtc(windowLast)}</time> (UTC).
@@ -220,6 +222,7 @@ export default async function ChangesPage({ searchParams }: Props) {
         ) : (
           <>
           <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New</Tag>{FIRST_COLLECTED}</p>
+          <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New award</Tag>{FIRST_COLLECTED_AWARD}</p>
           {byDay(data.items).map((g) => (
             <div key={g.day} className="flex flex-col gap-3">
               <h2 className="m-0 text-h3"><time dateTime={g.day}>{formatDateUtc(`${g.day}T00:00:00Z`)}</time></h2>

@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { allWinnersLabel, approachOthersLine, otherWinnersLine, winnersHref, type DemandCountry } from './demand';
-import { sumLines, VALUE_RULES, withoutValueLine, type ValueTotals } from './value-totals';
+import { apartLines, sumLines, totalLine, VALUE_RULES, withoutValueLine, type ValueTotals } from './value-totals';
 
 const none: ValueTotals = { byCurrency: [], of: 3, withoutValue: 3, shared: 0 };
 assert.deepEqual(sumLines(none, 'contract'), []);
@@ -16,23 +16,33 @@ const mixed: ValueTotals = {
   byCurrency: [{ currency: 'EUR', amount: 3000.4, count: 2, lotEstimates: 1 }, { currency: 'PLN', amount: 500, count: 1, lotEstimates: 0 }],
   of: 30, withoutValue: 27, shared: 4,
 };
+// WP-95: a sum of lot estimates is an estimate, listed apart (`apartLines`), so a contract sum carries no lot note any more
 assert.deepEqual(sumLines(mixed, 'contract'), [
-  'EUR 3,000 over 2 contracts (1 of them is the sum of the lots’ estimated values, not a stated total)',
+  'EUR 3,000 over 2 contracts',
   'PLN 500 over 1 contract',
 ]);
 assert.equal(withoutValueLine(mixed, 'notice'), '27 of 30 notices state no value for this company alone; 4 of them name several winners.');
 assert.equal(sumLines({ ...mixed, byCurrency: [{ currency: 'EUR', amount: 10, count: 1, lotEstimates: 1 }] }, 'contract')[0],
-  'EUR 10 over 1 contract (it is the sum of the lots’ estimated values, not a stated total)');
-assert.equal(sumLines({ ...mixed, byCurrency: [{ currency: 'EUR', amount: 10, count: 2, lotEstimates: 2 }] }, 'contract')[0],
-  'EUR 10 over 2 contracts (all are the sum of the lots’ estimated values, not a stated total)');
+  'EUR 10 over 1 contract');
+// WP-95: framework ceilings and estimates, one line each, never added to the contract values
+assert.deepEqual(apartLines({ ...mixed, frameworks: [{ currency: 'EUR', amount: 11930000, count: 1, lotEstimates: 0 }],
+  estimates: [{ currency: 'EUR', amount: 1160000, count: 1, lotEstimates: 0 }, { currency: 'DKK', amount: 500, count: 2, lotEstimates: 0 }] }), [
+  'Framework ceilings, not added to the contract values: EUR 11,930,000 (1 framework)',
+  'Estimates where the award states no value, not added: EUR 1,160,000 (1 notice); DKK 500 (2 notices)',
+]);
+assert.deepEqual(apartLines(mixed), []);
+assert.equal(totalLine({ ...none, frameworks: [{ currency: 'EUR', amount: 1, count: 1, lotEstimates: 0 }] }, 'contract'),
+  'no contract value; ceilings or estimates only');
 assert.equal(withoutValueLine({ byCurrency: [], of: 1, withoutValue: 1, shared: 1 }, 'contract'),
   '1 of 1 contract states no value for this company alone; it names several winners.');
 assert.equal(withoutValueLine({ ...mixed, withoutValue: 2, shared: 2 }, 'contract'),
   '2 of 30 contracts state no value for this company alone; they name several winners.');
 assert.equal(withoutValueLine({ ...mixed, withoutValue: 0, shared: 0 }, 'contract'), null);
 
+// WP-95: only contract values are summed; ceilings and estimates apart; a framework never counted with its call-offs
 for (const said of ['per currency, never converted', 'names this one winner', 'without VAT', 'PLACSP values are the awarded amounts',
-  'counted once', 'PLACSP’s awarded amount, else TED’s value', 'framework ceilings']) {
+  'counted once', 'PLACSP’s awarded amount before TED’s', 'Only contract values are summed', 'ceiling of a framework agreement',
+  'never counted with its call-offs']) {
   assert.ok(VALUE_RULES.includes(said), said);
 }
 // ---------------------------------------------------------------- every legal-entity winner named (scope addition, owner "да", 22 October 2026)

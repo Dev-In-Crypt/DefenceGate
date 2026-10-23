@@ -351,7 +351,11 @@ export interface Tender {
    * signal). `basis` is the reason in plain words. A statement about the group of notices that get the level,
    * measured on a sample (methodology), never about the single notice. Absent on an older API build.
    */
-  confidence?: { level: 'high' | 'medium' | 'low'; basis: string[] } | null;
+  confidence?: {
+    level: 'high' | 'medium' | 'low'; basis: string[];
+    /** WP-95: the level in words, by what it rests on ("Clearly defence", "Defence buyer, ordinary purchase", ...). Absent on older APIs. */
+    label?: string | null;
+  } | null;
   /** More than one version observed. */
   amended: boolean;
   versionCount: number;
@@ -365,6 +369,24 @@ export interface Tender {
   subject?: string | null;
   /** WP-90: the address of the procurement documents, where a source states it as such (Germany's Bekanntmachungsservice, BT-15). */
   documentsUrl?: string | null;
+  /** WP-95: the other buyers of a joint procurement, as the notice names them after `buyerName`. */
+  otherBuyers?: string[];
+  /** WP-95, the notice's own page only: the legal-entity winners (a supplier page link where there is one); natural persons are counted, never named. */
+  awardedTo?: AwardedTo[];
+  awardedPersons?: number;
+  /** WP-95: what the award states and what kind of amount it is. */
+  awardValue?: { amount: number; currency: string; kind: ValueKind } | null;
+}
+
+/** WP-95: what an amount is: the contract awarded, a framework agreement's ceiling, or the buyer's estimate. */
+export type ValueKind = 'contract' | 'framework' | 'estimate';
+export interface AwardedTo {
+  name: string;
+  slug: string | null;
+  country: string | null;
+  valueAmount?: number | null;
+  valueCurrency?: string | null;
+  valueKind?: ValueKind | null;
 }
 
 /** `planned` (19 October 2026): a prior information notice whose deadline, if it states one, is ahead. `closed` no longer holds them. */
@@ -465,7 +487,7 @@ export interface TenderVersion {
  * the window; `amended`: its deadline, value, status or procedure changed, as the archive observed it (a bulk
  * re-reading of our own is never one). `changes` is empty for `new`.
  */
-export type ChangeKind = 'new' | 'amended';
+export type ChangeKind = 'new' | 'award' | 'amended';
 /** WP-90: what /changes can be narrowed to: a kind of entry, or the amendments that moved one thing. */
 export type ChangeKindFilter = ChangeKind | 'deadline' | 'value' | 'status';
 export interface Change {
@@ -478,6 +500,8 @@ export interface Change {
   detectedAt: IsoDateTime;
   changes: FieldChange[];
   tender: Tender;
+  /** WP-95: how many notices this row stands for (the lots of one notice, one notice from two sources). Absent: 1. */
+  repeats?: number;
 }
 export interface ChangePage {
   items: Change[];
@@ -487,7 +511,8 @@ export interface ChangePage {
   windowDays: number;
   windowFrom: IsoDateTime;
   windowTo: IsoDateTime;
-  counts: { new: number; amended: number };
+  /** `awards` (WP-95): new award notices, counted apart from `new`; absent on older APIs. */
+  counts: { new: number; amended: number; awards?: number };
   /** Funding calls first collected in the window or whose dates the source moved; page 1 only. Absent on older API builds. */
   funding?: FundingChange[];
   /** How many such calls there are in all, whatever the page. */
@@ -930,6 +955,10 @@ export interface SupplierNotice {
   valueCurrency: string | null;
   /** WP-87: the value is under 1,000: shown as published, probably a unit price, left out of every sum. */
   valueSuspect?: boolean;
+  /** WP-95: what the value is (contract, framework ceiling, estimate); absent on older APIs. */
+  valueKind?: ValueKind | null;
+  /** WP-95: the framework agreement this call-off states it is based on. */
+  framework?: { source: string; noticeId: string; sourceUrl: string | null; slug?: string | null } | null;
   sourceUrl: string | null;
   /** Where the notice shown is from: ted, es_placsp, es_placsp_agg (WP-61; absent from older APIs, read as ted). */
   source?: string;

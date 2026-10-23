@@ -17,6 +17,11 @@ from dgate.rawstore import build_store
 
 pytestmark = pytest.mark.integration
 
+
+def core(v: dict) -> dict:
+    """The WP-81 keys of a `values` answer (WP-95 adds `frameworks`, `estimates` and `largest`, asserted where they matter)."""
+    return {k: v[k] for k in ("byCurrency", "of", "withoutValue", "shared", "suspect")}
+
 ID_RHEIN = "DE190270455"
 ID_NORM = "190270455"
 
@@ -260,10 +265,10 @@ def test_a_profile_states_the_notices_and_shows_a_value_only_where_one_supplier_
     assert "TED" in indra["attribution"]
     # WP-81 (owner decision of 22 October 2026): the sum of values per currency, only from a notice naming this one
     # winner; 2-2026 names a person beside it, so its value would be shared, and is counted as such
-    assert rh["values"] == {"byCurrency": [{"currency": "EUR", "amount": 1_000_000.0, "count": 1, "lotEstimates": 0}],
+    assert core(rh["values"]) == {"byCurrency": [{"currency": "EUR", "amount": 1_000_000.0, "count": 1, "lotEstimates": 0}],
                             "of": 2, "withoutValue": 1, "shared": 1, "suspect": 0}
     # Indra's one notice states 5,000,000 for two winners: attributed to neither, no sum
-    assert indra["values"] == {"byCurrency": [], "of": 1, "withoutValue": 1, "shared": 1, "suspect": 0}
+    assert core(indra["values"]) == {"byCurrency": [], "of": 1, "withoutValue": 1, "shared": 1, "suspect": 0}
     # still nothing the product must not carry: no share, no rank, no dependency score
     assert not {"share", "rank", "dependency"} & set(rh)
 
@@ -288,9 +293,13 @@ def test_a_profile_sums_values_per_currency_beyond_the_listed_notices_and_withou
     rh = client.get(f"/v1/suppliers/{_slug(client, 'landsysteme')}").json()
     assert rh["noticeCount"] == 5 + suppliers_module.PROFILE_NOTICES
     assert all(n["noticeId"] not in {"70-2026", "71-2026", "72-2026"} for n in rh["notices"])   # older than the 50 listed
-    assert rh["values"] == {"byCurrency": [{"currency": "EUR", "amount": 3000.0, "count": 2, "lotEstimates": 1},
-                                           {"currency": "PLN", "amount": 5000.0, "count": 1, "lotEstimates": 0}],
-                            "of": rh["noticeCount"], "withoutValue": rh["noticeCount"] - 3, "shared": 0, "suspect": 0}
+    # WP-95: a sum of lot estimates (71) and the procedure's estimate (74) are estimates, listed apart, never summed
+    assert core(rh["values"]) == {"byCurrency": [{"currency": "EUR", "amount": 1000.0, "count": 1, "lotEstimates": 0},
+                                                 {"currency": "PLN", "amount": 5000.0, "count": 1, "lotEstimates": 0}],
+                                  "of": rh["noticeCount"], "withoutValue": rh["noticeCount"] - 4, "shared": 0, "suspect": 0}
+    assert rh["values"]["estimates"] == [{"currency": "EUR", "amount": 11000.0, "count": 2, "lotEstimates": 0}]
+    assert rh["values"]["frameworks"] == []
+    assert [c["noticeId"] for c in rh["values"]["largest"]] == ["70-2026", "72-2026"]
 
 
 def test_one_registration_number_written_two_ways_is_shown_once(conn, env, client):

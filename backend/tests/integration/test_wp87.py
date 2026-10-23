@@ -99,7 +99,7 @@ def test_the_changes_read_the_lists_filters(client, conn):
     assert all_["total"] == 2
     trucks = get(client, "/v1/changes", cpv="34")
     assert [c["tender"]["noticeId"] for c in trucks["items"]] == ["C-TRUCK"]
-    assert trucks["total"] == 1 and trucks["counts"] == {"new": 1, "amended": 0}
+    assert trucks["total"] == 1 and trucks["counts"] == {"new": 1, "amended": 0, "awards": 0}
     assert [c["tender"]["noticeId"] for c in get(client, "/v1/changes", q="radar")["items"]] == ["C-RADAR"]
     assert get(client, "/v1/changes", min="10000", currency="EUR")["total"] == 1
     assert get(client, "/v1/changes", **{"from": (NOW + timedelta(days=60)).date().isoformat()})["total"] == 0
@@ -221,7 +221,7 @@ def _ted(conn, native_id: str, *, pid: str | None, buyer: str = "Ministerio de D
     return oid
 
 
-def test_one_contract_published_twice_is_one_row_and_a_unit_price_is_in_no_sum(conn, env, client):
+def test_one_contract_published_twice_is_one_row_and_a_unit_price_is_in_no_sum(conn, env, client, monkeypatch):
     _ted(conn, "474829-2024", pid="proc-lt-1")
     _ted(conn, "467138-2024", pid="proc-lt-1")
     _ted(conn, "1-2026", pid="proc-2", value=48)
@@ -240,9 +240,15 @@ def test_one_contract_published_twice_is_one_row_and_a_unit_price_is_in_no_sum(c
     assert prof["values"]["byCurrency"] == [{"currency": "EUR", "amount": 250_000.0, "count": 1, "lotEstimates": 0}]
     assert prof["values"]["suspect"] == 1 and prof["values"]["withoutValue"] == 1
     # a PLACSP awarded amount of 300 is a contract total (a Spanish minor contract): summed, not flagged
-    conn.execute("UPDATE award SET value_amount = 300, value_currency = 'EUR' WHERE opportunity_id = "
+    # WP-95: a TED row carries its notice's value too now, so the PLACSP amount is a PLACSP notice's
+    conn.execute("UPDATE opportunity SET source_id = (SELECT id FROM source WHERE code = 'es_placsp') "
+                 "WHERE native_id = '2-2026'")
+    conn.execute("UPDATE award SET value_amount = 300, value_currency = 'EUR', value_kind = 'contract' WHERE opportunity_id = "
                  "(SELECT id FROM opportunity WHERE native_id = '2-2026')")
     conn.commit()
+    monkeypatch.setenv("DGATE_PLACSP_AWARDS_PUBLIC", "true")      # the PLACSP winners on the map
+    from dgate import config
+    config.reset_cache()
     again = get(client, f"/v1/suppliers/{slug}")
     placsp = [n for n in again["notices"] if n["noticeId"] == "2-2026"][0]
     assert placsp["valueAmount"] == 300.0 and placsp["valueSuspect"] is False

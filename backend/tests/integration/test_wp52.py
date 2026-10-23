@@ -296,10 +296,10 @@ def test_the_digest_lists_identical_notices_once_and_counts_them_all(conn):
 def test_changes_can_be_asked_for_a_week_and_a_kind(client, conn):
     week = W.last_complete_week(NOW)
     for n in range(3):
-        _last_week_event(conn, f"W-{n}")
+        _last_week_event(conn, f"W-{n}", title=f"Armoured vehicles {n}")   # WP-95: one title thrice would be one row
     store(conn, opp("TODAY"))
     this = client.get("/v1/changes", params={"week": week}).json()
-    assert this["total"] == 3 and this["windowDays"] == 7 and this["counts"] == {"new": 3, "amended": 0}
+    assert this["total"] == 3 and this["windowDays"] == 7 and this["counts"] == {"new": 3, "amended": 0, "awards": 0}
     assert sorted(i["tender"]["noticeId"] for i in this["items"]) == ["W-0", "W-1", "W-2"]
     assert client.get("/v1/changes", params={"week": week, "kind": "amended"}).json()["total"] == 0
     assert client.get("/v1/changes", params={"kind": "new"}).json()["total"] == 4       # the last 14 days: the week's and TODAY

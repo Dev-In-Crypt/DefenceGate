@@ -375,6 +375,11 @@ def test_the_committed_derived_files_hold_no_excluded_body():
             for row in csv.DictReader(fh):
                 seen += 1
                 assert row["country"] not in {"PL", "ES"}
+                if row["reviewed"].strip().lower() == "rejected":
+                    # WP-95: a row a person rejected stays in the file, kept out for good (pipeline.load_derived_rows):
+                    # no rule may name it a defence body (the Latvian Interior's provision agency)
+                    assert not bv.defence_body(row["name"], row["country"]).label, row
+                    continue
                 assert bv.defence_body(row["name"], row["country"]).label, row
                 assert 0 < float(row["confidence"]) <= 1
     assert seen > 0

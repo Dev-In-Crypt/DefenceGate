@@ -52,7 +52,8 @@ test('who to approach: each named winner has its contract values, collapsed, per
   await expect(rules).toHaveCount(1);
   await expect(rules).toContainText('Summed per currency, never converted');
   await expect(rules).toContainText('names this one winner');
-  await expect(rules).toContainText('some may be framework ceilings');
+  // WP-95: ceilings are listed apart, never added
+  await expect(rules).toContainText('ceiling of a framework agreement');
   await expect(rules).toContainText(`The contracts of this list: `);
 
   const bare = winners.find((x) => x.values.byCurrency.length === 0)!;

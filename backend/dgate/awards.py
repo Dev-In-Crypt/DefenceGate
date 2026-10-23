@@ -16,8 +16,9 @@ as the buyer published them. It keeps no contact, no person, no technical conten
 a natural person (a sole trader under their own name) is not a supplier profile: it is skipped and
 counted, and its name never reaches the database or the raw store (see `is_natural_person`).
 
-Values are not kept here: a notice's value is on the `opportunity` row, and a profile shows it only
-when the notice names one winner (a value shared by several winners belongs to none of them).
+Values (WP-95): the notice's value fields are asked with its winners (`award_value.TED_VALUE_FIELDS`), and the
+value with its kind (contract, framework ceiling, estimate) is kept on `award_notice` and, where the notice names
+one winner, on that winner's `award` row (a value shared by several winners belongs to none of them).
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ import httpx
 import psycopg
 
 from . import db
+from .award_value import TED_VALUE_FIELDS, ted_value
 from .classify import CORE_SQL, military_cpv_codes
 from .config import settings
 from .normalise import _country2, looks_like_contact, normalise_identifier, redact_emails
@@ -54,6 +56,14 @@ AWARD_SUBTYPES = ("29", "30", "31", "33", "34", "35", "36", "37", "E1", "E2", "E
 # states no winner at all (measured: 735 of 10,894 result notices of 2023 name one, 9,859 of 11,795 of
 # 2024). Older notices are not asked for.
 DEFAULT_SINCE = date(2023, 1, 1)
+# WP-95: a result notice in the older (pre-eForms) format has no subtype (the column is NULL), only TED's notice
+# type, and was never a candidate: TED 40783-2024 (Italian Navy, warship repair, Fincantieri), published in January
+# 2024 under the defence directive, which kept the older forms into 2024. Such notices are read too, within the
+# same core scope and window; the search API states no winner for them, so their winners are read from the notice
+# document (`legacy_award_record`).
+LEGACY_AWARD_TYPES = ("can-standard", "can-social", "can-desg", "can-tran", "veat")
+# The winner fields and (WP-95) the value fields, asked in one request.
+AWARD_FETCH_FIELDS = ted.AWARD_FIELDS + TED_VALUE_FIELDS
 PERSON_PLACEHOLDER = "[natural person]"
 
 # ----------------------------------------------------------------------------- natural persons
@@ -334,9 +344,12 @@ class Winner:
     name: str
     country: str | None
     identifier: str | None
-    # WP-81, PLACSP only: the awarded amount without VAT of the results naming this one winner (`award.value_amount`)
+    # WP-81, PLACSP: the awarded amount without VAT of the results naming this one winner (`award.value_amount`);
+    # WP-95, TED too: the notice's value where it names this one winner. `value_kind`: contract, framework or
+    # estimate (`award_value`); None: nothing derived (the row is left as it is)
     value_amount: float | None = None
     value_currency: str | None = None
+    value_kind: str | None = None
 
 
 @dataclass
@@ -345,6 +358,9 @@ class Read:
     counts: Counter = field(default_factory=Counter)
     redacted: dict[str, Any] = field(default_factory=dict)
     winners_seen: int = 0               # distinct winning organisations the notice names, kept or not
+    # WP-95: the notice's own value (amount, currency, kind), TED; the framework notice a call-off is based on
+    notice_value: tuple[float | None, str | None, str | None] | None = None
+    framework_id: int | None = None
 
 
 def _lists(value: Any) -> list[list[str]]:
@@ -575,13 +591,16 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
                RETURNING id, (xmax = 0) AS inserted""",
             (opp["id"], res.org_id, w.country, w.name[:300], stated_number(w.identifier, w.country),
              read.winners_seen, _main_cpv(opp["cpv_codes"]), res.method, round(res.confidence, 2))).fetchone()
-        if payload_hash is not None:
-            # WP-81: a PLACSP re-read carries the awarded amount of this read, whatever the row held before
+        if payload_hash is not None or w.value_kind is not None:
+            # WP-81: a PLACSP re-read carries the awarded amount of this read, whatever the row held before;
+            # WP-95: and its kind, and a TED notice the value of its one winner
             conn.execute(
-                """UPDATE award SET value_amount = %s, value_currency = %s
+                """UPDATE award SET value_amount = %s, value_currency = %s, value_kind = %s
                     WHERE opportunity_id = %s AND organisation_id = %s
-                      AND (value_amount IS DISTINCT FROM %s::numeric OR value_currency IS DISTINCT FROM %s)""",
-                (w.value_amount, w.value_currency, opp["id"], res.org_id, w.value_amount, w.value_currency))
+                      AND (value_amount IS DISTINCT FROM %s::numeric OR value_currency IS DISTINCT FROM %s
+                           OR value_kind IS DISTINCT FROM %s)""",
+                (w.value_amount, w.value_currency, w.value_kind, opp["id"], res.org_id, w.value_amount,
+                 w.value_currency, w.value_kind))
         c["awards_new"] += bool(row and row["inserted"])
         c["awards_current_again"] += bool(row and not row["inserted"])
         c["organisations_new"] += res.created
@@ -595,33 +614,113 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
                 WHERE opportunity_id = %s AND superseded_at IS NULL AND NOT (organisation_id = ANY(%s))""",
             (opp["id"], current)).rowcount
         c["awards_superseded"] += gone
+    va, vc, vk = read.notice_value or (None, None, None)
     conn.execute(
         """INSERT INTO award_notice (opportunity_id, raw_key, winners_seen, winners_kept, skipped_person,
-                                     skipped_no_country, status, payload_hash, payload_updated_at)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                     skipped_no_country, status, payload_hash, payload_updated_at,
+                                     value_amount, value_currency, value_kind, framework_id)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (opportunity_id) DO UPDATE
               SET raw_key = EXCLUDED.raw_key, winners_seen = EXCLUDED.winners_seen,
                   winners_kept = EXCLUDED.winners_kept, skipped_person = EXCLUDED.skipped_person,
                   skipped_no_country = EXCLUDED.skipped_no_country, status = EXCLUDED.status,
                   payload_hash = EXCLUDED.payload_hash, payload_updated_at = EXCLUDED.payload_updated_at,
-                  read_at = now()
+                  framework_id = EXCLUDED.framework_id, read_at = now()
             WHERE EXCLUDED.payload_hash IS NOT NULL""",
         (opp["id"], raw_key, read.winners_seen, kept, read.counts["skipped_person"],
-         read.counts["skipped_no_country"], status, payload_hash, payload_updated_at))
+         read.counts["skipped_no_country"], status, payload_hash, payload_updated_at, va, vc, vk, read.framework_id))
     c["notices_" + status] += 1
     for k, v in read.counts.items():
         c[k] += v
 
 
+# The serving columns the value of a TED notice is read with (`award_value.ted_value`).
+VALUE_COLUMNS = "o.value_amount, o.value_currency, o.value_kind, o.notice_subtype, o.title_original, o.title_en"
+RESULT_NOTICE_SQL = ("(o.notice_subtype = ANY(%(subtypes)s) "
+                     "OR (o.notice_subtype IS NULL AND o.status_native = ANY(%(legacy)s)))")
+RESULT_NOTICE_PARAMS = {"subtypes": list(AWARD_SUBTYPES), "legacy": list(LEGACY_AWARD_TYPES)}
+
+
 def candidates(conn: psycopg.Connection, src_id: int, since: date, limit: int | None) -> list[dict[str, Any]]:
-    """TED result notices of the core scope that no run has read yet, newest first."""
+    """TED result notices of the core scope that no run has read yet, newest first: eForms ones by subtype, older
+    ones by notice type (WP-95)."""
     return conn.execute(
-        f"""SELECT o.id, o.native_id, o.cpv_codes FROM opportunity o
-             WHERE o.source_id = %s AND o.is_defence AND NOT o.suppressed AND {CORE_SQL}
-               AND o.notice_subtype = ANY(%s) AND o.published_at >= %s
+        f"""SELECT o.id, o.native_id, o.cpv_codes, {VALUE_COLUMNS} FROM opportunity o
+             WHERE o.source_id = %(src)s AND o.is_defence AND NOT o.suppressed AND {CORE_SQL}
+               AND {RESULT_NOTICE_SQL} AND o.published_at >= %(since)s
                AND NOT EXISTS (SELECT 1 FROM award_notice n WHERE n.opportunity_id = o.id)
-             ORDER BY o.published_at DESC, o.id LIMIT %s""",
-        (src_id, list(AWARD_SUBTYPES), since, limit or 1_000_000)).fetchall()
+             ORDER BY o.published_at DESC, o.id LIMIT %(limit)s""",
+        {"src": src_id, **RESULT_NOTICE_PARAMS, "since": since, "limit": limit or 1_000_000}).fetchall()
+
+
+def _xml_local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _xml_find(el: Any, name: str) -> Any:
+    return next((x for x in el.iter() if _xml_local(x.tag) == name), None)
+
+
+def legacy_award_record(xml: bytes) -> dict[str, Any]:
+    """The winners of an older-format TED result notice (the TED_EXPORT document: R2.0.8
+    `ECONOMIC_OPERATOR_NAME_ADDRESS`, R2.0.9 `AWARDED_CONTRACT/CONTRACTORS/CONTRACTOR/ADDRESS_CONTRACTOR`) in the shape
+    of the search API's award fields, so `read_award` reads them with the same rules (natural persons, names,
+    countries). Only the name, the country and the national number of each contractor are read: no address, no
+    contact. A document that is not XML, or names no contractor, gives a record without winners.
+    ponytail: the element names are the TED_EXPORT schemas' as documented; the ops report counts the documents read
+    and those that named a winner, so a schema this misses shows as a gap, not as a wrong winner."""
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        return {"legacy-xml": True}
+    names: list[str] = []
+    countries: list[str] = []
+    idents: list[str] = []
+    for el in root.iter():
+        if _xml_local(el.tag) not in ("ADDRESS_CONTRACTOR", "ECONOMIC_OPERATOR_NAME_ADDRESS"):
+            continue
+        name_el = _xml_find(el, "OFFICIALNAME")
+        name = " ".join((name_el.text or "").split()) if name_el is not None else ""
+        if not name:
+            continue
+        country_el = _xml_find(el, "COUNTRY")
+        country = (country_el.get("VALUE") or "").strip().upper() if country_el is not None else ""
+        ident_el = _xml_find(el, "NATIONALID")
+        names.append(name)
+        countries.append("GB" if country == "UK" else country)     # the older forms write UK
+        idents.append(" ".join((ident_el.text or "").split()) if ident_el is not None else "")
+    return {"legacy-xml": True, "winner-name": names, "organisation-name-tenderer": names,
+            "organisation-country-tenderer": countries, "organisation-identifier-tenderer": idents}
+
+
+def with_values(read: Read, value: tuple[float | None, str | None, str | None]) -> Read:
+    """WP-95: the notice's value (`award_value.ted_value`) on the notice and, where the notice names one winner, on
+    that winner (a value shared by several winners is attributed to none, as before)."""
+    read.notice_value = value if value[2] else None
+    if value[2] and read.winners_seen == 1:
+        for w in read.winners:
+            w.value_amount, w.value_currency, w.value_kind = value
+    return read
+
+
+def read_ted_notice(rec: dict[str, Any], opp: dict[str, Any], client: httpx.Client, counters: Counter,
+                    nap=None) -> tuple[dict[str, Any], Read]:
+    """The winners and value of one TED result notice from its search record; for an older-format notice whose
+    record names no winner, from its document (WP-95). Returns the record read (to land) and the reading."""
+    read = read_award(rec)
+    if not read.winners_seen and not opp.get("notice_subtype"):
+        if nap:
+            nap()
+        xml = ted.fetch_notice_xml(opp["native_id"], client=client)
+        counters["legacy_documents"] += 1
+        legacy = legacy_award_record(xml) if xml else {}
+        if legacy.get("winner-name"):
+            rec = {**rec, **legacy}
+            read = read_award(rec)
+            counters["legacy_with_winners"] += 1
+    return rec, with_values(read, ted_value(rec, opp))
 
 
 def refresh_award_twins(conn: psycopg.Connection) -> int:
@@ -685,14 +784,14 @@ def load_awards(conn: psycopg.Connection, client: httpx.Client, writer: BundleWr
         counters["skipped_bad_number"] += len(todo[i:i + ted.AWARD_BATCH]) - len(batch)
         if i:
             nap(pause)
-        got = ted.fetch_by_numbers([o["native_id"] for o in batch], client=client)
+        got = ted.fetch_by_numbers([o["native_id"] for o in batch], fields=AWARD_FETCH_FIELDS, client=client)
         for opp in batch:
             rec = got.get(opp["native_id"])
             if rec is None:
                 counters["not_returned"] += 1       # not marked read: the next run asks again
                 continue
             counters["fetched"] += 1
-            read = read_award(rec)
+            rec, read = read_ted_notice(rec, opp, client, counters, nap=lambda: nap(pause))
             raw_key = None
             if read.redacted:
                 h = ted.content_hash(read.redacted)

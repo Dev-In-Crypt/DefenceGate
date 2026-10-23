@@ -205,7 +205,7 @@ def test_a_call_collected_in_the_window_and_a_moved_deadline_are_listed_as_fundi
     assert by_kind[("call-new", "HORIZON-fresh")]["changes"] == []
     assert body["fundingTotal"] == 2
     # the tender list and its counts are unchanged in shape
-    assert body["items"] == [] and body["counts"] == {"new": 0, "amended": 0}
+    assert body["items"] == [] and body["counts"] == {"new": 0, "amended": 0, "awards": 0}
     assert conn.execute("SELECT count(*) AS n FROM call_change").fetchone()["n"] == 1
 
 

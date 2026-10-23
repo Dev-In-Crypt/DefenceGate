@@ -45,6 +45,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from . import award_set
 from .classify import (
     CORE_SQL,
     GROUP_CIVIL_DIRECTIVE,
@@ -152,6 +153,23 @@ CORE = CORE_SQL                         # dgate/classify.py, also api.CORE_SQL
 class Confidence(BaseModel):
     level: str
     basis: list[str]
+    # WP-95: the level in words, by what it rests on ("Clearly defence", "Defence buyer, ordinary purchase", ...)
+    label: str | None = None
+
+
+class AwardedTo(BaseModel):
+    name: str
+    slug: str | None                 # the supplier page; null when the winner has none (outside its window)
+    country: str | None
+    valueAmount: float | None = None # the value given to this winner (a notice naming one winner, a PLACSP lot amount)
+    valueCurrency: str | None = None
+    valueKind: str | None = None
+
+
+class AwardValue(BaseModel):
+    amount: float
+    currency: str
+    kind: str                        # contract | framework | estimate (dgate/award_value.py)
 
 
 class Tender(BaseModel):
@@ -227,6 +245,15 @@ class Tender(BaseModel):
     # The address of the procurement documents, where a source states it as such: Germany's Bekanntmachungsservice
     # (BT-15, its notices' only link), for the notice itself or its national twin.
     documentsUrl: str | None = None
+    # WP-95: the other buyers of a joint procurement, as the notice names them after the first (`buyerName`).
+    otherBuyers: list[str] = []
+    # WP-95, the notice's own page only: the winners the notice (or its other publication) names that are legal
+    # entities, with a link to their supplier page where they have one; natural persons are counted
+    # (`awardedPersons`), never named. `awardValue`: what the award states, with its kind (contract, framework,
+    # estimate); null where nothing was derived.
+    awardedTo: list[AwardedTo] = []
+    awardedPersons: int = 0
+    awardValue: AwardValue | None = None
 
 
 class TenderPage(BaseModel):
@@ -382,7 +409,7 @@ TENDER_COLUMNS = (
     "o.buyer_class, "
     "o.security_clearance_required, o.subcontracting_signal, o.source_url, "
     "o.status, o.ted_ref, o.lot_count, o.value_kind, o.notice_subtype, "
-    "o.suppressed, o.buyer_withheld, o.notice_date, o.notice_kind"
+    "o.suppressed, o.buyer_withheld, o.notice_date, o.notice_kind, o.other_buyers"
 )
 
 TENDER_SELECT = f"""
@@ -624,6 +651,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "versionCount": n_versions,
         "securityClearance": bool(r.get("security_clearance_required")),
         "subcontracting": bool(r.get("subcontracting_signal")),
+        "otherBuyers": [] if r.get("buyer_withheld") else [b for b in (r.get("other_buyers") or []) if b],
         "sameNotice": [{"source": t["source"], "url": t.get("url"), "id": str(t["id"]),
                         "noticeId": t["native_id"]} for t in twins],
         "source": {
@@ -1435,7 +1463,51 @@ def get_tender(slug: str, conn=Depends(get_conn)):
     else:
         out["documentsUrl"] = next((t["url"] for t in out["sameNotice"] if t["source"] in DOCUMENTS_SOURCES
                                     and t["url"]), None)
+    out.update(awarded(conn, [tender_id] + [int(t["id"]) for t in out["sameNotice"]]))
     return out
+
+
+def awarded(conn, ids: list[int]) -> dict[str, Any]:
+    """WP-95 (persona round of 23 October 2026, A1.2): who the award notice names, on its own page. The winners of the
+    notice and of its other publications (`sameNotice`) that are legal entities (`award_set.WINNERS`: not removed, not a
+    natural person, not a placeholder, not superseded), each once, with a link to their supplier page where the
+    supplier map lists them (`award_set.scope`), and the persons counted. The value: the notice's own (TED, with its
+    kind), else the one winner's."""
+    rows = conn.execute(
+        f"""SELECT DISTINCT ON (org.id) org.id, a.name_as_stated, a.supplier_country, a.value_amount, a.value_currency,
+                   a.value_kind
+              FROM award a JOIN opportunity o ON o.id = a.opportunity_id
+              JOIN organisation raw_org ON raw_org.id = a.organisation_id
+              JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
+             WHERE a.opportunity_id = ANY(%s) AND NOT o.suppressed AND {award_set.WINNERS}
+             ORDER BY org.id, (a.opportunity_id = %s) DESC, a.value_amount IS NULL, a.id""", (ids, ids[0])).fetchall()
+    notice = conn.execute(
+        """SELECT COALESCE(max(skipped_person), 0) AS persons,
+                  (array_agg(value_amount ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS va,
+                  (array_agg(value_currency ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS vc,
+                  (array_agg(value_kind ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS vk
+             FROM award_notice WHERE opportunity_id = ANY(%s)""", (ids[0], ids[0], ids[0], ids)).fetchone()
+    paged: set[int] = set()
+    if rows:
+        paged = {r["id"] for r in conn.execute(
+            f"SELECT DISTINCT org.id {award_set.FROM} WHERE {award_set.scope()} AND org.id = ANY(%(orgs)s)",
+            {"since": award_set.since(), "orgs": [r["id"] for r in rows]}).fetchall()}
+    winners = []
+    for r in sorted(rows, key=lambda r: (r["name_as_stated"] or "").lower()):
+        name = redact_emails(r["name_as_stated"]).strip()
+        has_value = r["value_amount"] is not None and r["value_amount"] > PLACEHOLDER_VALUE_MAX and r["value_currency"]
+        winners.append({"name": name, "slug": make_slug(r["id"], name) if r["id"] in paged else None,
+                        "country": r["supplier_country"],
+                        "valueAmount": float(r["value_amount"]) if has_value else None,
+                        "valueCurrency": r["value_currency"].strip() if has_value else None,
+                        "valueKind": (r["value_kind"] or "contract") if has_value else None})
+    value = None
+    if notice and notice["vk"] and notice["va"] is not None and notice["va"] > PLACEHOLDER_VALUE_MAX and notice["vc"]:
+        value = {"amount": float(notice["va"]), "currency": notice["vc"].strip(), "kind": notice["vk"]}
+    elif len(winners) == 1 and winners[0]["valueAmount"] is not None and not (notice and notice["persons"]):
+        value = {"amount": winners[0]["valueAmount"], "currency": winners[0]["valueCurrency"],
+                 "kind": winners[0]["valueKind"]}
+    return {"awardedTo": winners, "awardedPersons": int(notice["persons"]) if notice else 0, "awardValue": value}
 
 
 # The sources whose notice link is the address of the procurement documents (BT-15): de_bkms (WP-72).
