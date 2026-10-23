@@ -1,6 +1,10 @@
 # WP-87 self-check: correctness and trust (UX audit of 22 October 2026, section 2)
 
-Branch `wp-wp87` from `integration` (1ce494d). Task: section 2 of `D:\DEFENCEGATE TESTS\ux-oct22\SUMMARY.md`; owner, 22 October
+Branch `wp-wp87` from `integration` (1ce494d), with `integration` merged in at b213e9e (WP-86: menu, /search, home); the one
+conflict (`dg/list-page.tsx`: WP-86's `head` beside WP-87's `calendarHref`/`feedHref`) keeps both. WP-86's site search runs each
+list with its defaults, so its tender group follows the new core-first order and the same totals (integration
+`test_the_site_search_lists_tenders_in_the_lists_default_order`); no change to `search.py` was needed (only the order changed,
+no total). Task: section 2 of `D:\DEFENCEGATE TESTS\ux-oct22\SUMMARY.md`; owner, 22 October
 2026: fix everything that can be fixed (usability, completeness, correctness). WP-86 owns the header, footer, home page, menu,
 global search and readiness entry: none of their files is edited here, except that the shared scope names
 (`lib/taxonomy.ts SCOPE_CHOICES`, the owner's plain names) also reach the home page's counters (see section 9). No deploy, no
@@ -135,13 +139,66 @@ and confidence asserted), `test_wp87.py` (`plan` with the public guard).
 
 ## 11. Budget (5 s API)
 
-See section 12 for the measurements.
+Local only, `D:\DEFENCEGATE TESTS\wp87\probe\perf.py`, database `perf` in `dgate-wp87`: the WP-85 seed (330,000 defence-scope
+notices, 200,000 civil, 60,000 award rows) plus 2,750 open notices with deadlines, 3,000 national twins, a version per notice
+(2,000 in the change window), 300 calls, 20 buyer families; list cache off; five runs each through the app (TestClient), median
+(range). Base = `integration` 1ce494d (its calendar and changes ignored `cpv`/`q`, so its filtered rows are unfiltered work).
+
+| Call | base | wp-wp87 |
+|---|---|---|
+| `/v1/tenders` default (open), page 1 | 0.172 s | 0.343 s (core first: two parts, each counted) |
+| `/v1/tenders` default, page 30 | 0.172 s | 0.348 s |
+| `/v1/tenders?sort=deadline-asc` | 0.181 s | 0.169 s |
+| `/v1/tenders?status=all` | 0.236 s | 0.228 s |
+| `/v1/tenders/calendar` | 0.213 s | 0.234 s |
+| `/v1/tenders/calendar?cpv=35&country=ES,DE&q=parts` | (ignored) 0.216 s | 0.274 s |
+| `/v1/changes?pageSize=25` | 0.178 s | 0.182 s |
+| `/v1/changes?cpv=35&q=parts` | (ignored) 0.171 s | 0.240 s |
+| `/v1/changes?pageSize=200` (the feed) | 0.219 s | 0.225 s |
+| `/v1/funding` | 0.040 s | 0.031 s |
+| buyer profile, largest family, first (uncached) call | 0.445 s | 0.992 s (the collapse rules over the family) |
+| supplier profile, largest | 0.216 s | 0.235 s |
+
+All well under 5 s; WP-80 measured production at 1.5-3x local times. The buyer profile is cached per buyer (`stats.cached`,
+an hour): its first call is the slow one. **To confirm after deploy** (read-only): `/v1/buyers/<BAAINBw>/profile` uncached
+(the largest family on production: 5,380 rows before the collapse) and `/v1/tenders` page 1.
 
 ## 12. Test runs
 
-See the table below (filled after the runs).
+Local, `D:\DEFENCEGATE TESTS\wp87`, own venv (uv, Python 3.11), throwaway Postgres 17 container `dgate-wp87` on 55487
+(database `dgate` for the suites, `perf` for section 11), TZ=UTC, web mock env of `web.yml`, E2E_PORT 3087, Playwright 4 workers.
+Final code (after the merge of `integration`):
 
-## 13. Ops commands for the orchestrator (production, after deploy)
+| Check | Result |
+|---|---|
+| ruff | All checks passed |
+| unit (`pytest`) | **3281 passed**, 1232 deselected |
+| integration (`pytest -m integration`) | **1232 passed**, 0 failed |
+| `tsc --noEmit` | exit 0 |
+| `npm run check` (`scripts/run-checks.mjs`, incl. new `wp87.check.ts`) | all ok |
+| `next build` (mock) | exit 0 |
+| Playwright, desktop + 375 px | **568 passed, 50 skipped** (the fake-API group), 0 failed, incl. new `wp87.spec.ts` (13 x 2) |
+
+Two integration runs were cut by the local Docker engine stopping the container (its recovery took ten minutes); the run in the
+table is a clean one from start to end. Tests changed because the behaviour changed (none deleted or skipped): exact `values`
+dicts gained `suspect: 0`; fixtures with ordinary contracts under 1,000 raised to 3,000/5,000/9,000; `meta` gained `updatedBy`;
+the buyer profile's `amendments` gained `observedFrom`; `defaultTenderSort('open')` is `core-first` (`ui.check`, `wp52b.check`);
+the rename assertion of `test_buyer_family.py`; the short line of `test_wp49.py`; the scope labels of `routes.spec.ts`.
+
+## 13. Open decisions
+
+- **The 1,000 threshold on PLACSP awarded amounts.** Production now holds 31,933 PLACSP award values, 1,013 of them under EUR 1,000.
+  A PLACSP awarded amount is a total without VAT, and a Spanish minor contract can legitimately be EUR 300. With this change those
+  1,013 are shown as "probably a unit price" and left out of the sums. The rule was asked for ("e.g. < EUR 1,000"); whether it
+  should apply to PLACSP's awarded amounts too, or only to TED's stated values, or with another threshold, is the owner's call
+  (one constant, `suppliers.SUSPECT_VALUE_MAX`, and the source in `sums_select` if PLACSP is to be exempt).
+- `/changes.atom?week=&kind=` stays the last 14 days with the two parameters dropped (WP-52's tested decision) rather than a 422.
+- The footer's "Last collection run" (WP-86's file) is the run of any source; the lists now say "Latest run of its sources ...
+  (source)". WP-86 may name it or say "of any source".
+- The scope names are shared (`SCOPE_CHOICES`): the home page's counters (WP-86) now read "All defence", "Military goods and
+  works", "Other purchases by armed forces".
+
+## 14. Ops commands for the orchestrator (production, after deploy)
 
 1. `docker compose ... run --rm --no-deps worker python -m dgate.ops.curated_renames` (report), then with `--yes`.
 2. `docker compose ... run --rm --no-deps worker python -m dgate.ops.org_dedupe` (report: now contract winners too; read the

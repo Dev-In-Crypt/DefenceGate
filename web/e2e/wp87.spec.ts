@@ -114,7 +114,7 @@ test('a supplier’s unit price is shown as published and left out of the sums',
 });
 
 test('the CPV divisions of the supplier map have their names', async ({ page }) => {
-  await visit(page, '/suppliers', { title: /supplier map/i, h1: 'Defence supplier map' });
+  await visit(page, '/suppliers', { title: /supplier map/i, h1: 'Companies' });
   const rows = await page.getByRole('table', { name: /per CPV division/ }).locator('tbody th').allInnerTexts();
   for (const r of rows) expect(r.trim(), r).toMatch(/^\d{2} \S/);
 });
