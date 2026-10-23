@@ -50,7 +50,7 @@ export function ListPage({
   noun: string; page: number; pageSize: number; total: number;
   sort: { value: string; options: { value: string; label: string }[] };
   clearHref: string; emptyTitle: string; emptyText: string; hrefFor: (page: number) => string;
-  footnote?: string;
+  footnote?: React.ReactNode;
   /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
   notices?: string[];
   /** The total as words when it is not an exact count ("10,000 or more", "at least 10,000"). */
@@ -93,7 +93,7 @@ export function ListPage({
           )}
           {limitNote && <p className="m-0 max-w-prose text-small text-ink-muted">{limitNote}</p>}
           <Pagination page={page} total={reachable ?? total} pageSize={pageSize} hrefFor={hrefFor} />
-          {footnote && <p className="m-0 max-w-prose text-small text-ink-muted">{footnote}</p>}
+          {footnote && (typeof footnote === 'string' ? <p className="m-0 max-w-prose text-small text-ink-muted">{footnote}</p> : footnote)}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
           {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </ResultsRegion>

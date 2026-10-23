@@ -74,7 +74,7 @@ export function BasisChips({ tender, lifted = false, className, note = true }: {
 function ClassifiedLine({ confidence, lifted = false }: { confidence: boolean; lifted?: boolean }) {
   return (
     <p className="m-0 text-small text-ink-muted">
-      {CLASSIFIED_AUTOMATICALLY}{confidence ? ' (the confidence is a sample estimate)' : ''}; <Link href={confidence ? CONFIDENCE_HREF : '/methodology'} className={cn('font-semibold', lifted && 'relative z-10')}>see how</Link>
+      {CLASSIFIED_AUTOMATICALLY}{confidence ? ', with how sure we are estimated from checked samples' : ''}; <Link href={confidence ? CONFIDENCE_HREF : '/methodology'} className={cn('font-semibold', lifted && 'relative z-10')}>see how</Link>
     </p>
   );
 }

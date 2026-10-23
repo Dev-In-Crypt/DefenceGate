@@ -67,14 +67,14 @@ test('a tender card is short, and the classification line is said once above the
   const median = sorted[Math.floor(sorted.length / 2)];
   expect(median, `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 540 : 260);
   expect(Math.max(...heights), `tender card heights ${heights.join(',')}`).toBeLessThanOrEqual(isMobile(page) ? 600 : 300);
-  const lines = await page.getByText(/^Classified automatically/).count();
+  const lines = await page.getByText(/^Listed by our automatic rules/).count();
   expect(lines, 'the line is on the page once').toBe(1);
-  await expect(page.getByText(/^Classified automatically/).locator('xpath=ancestor::article')).toHaveCount(0);
+  await expect(page.getByText(/^Listed by our automatic rules/).locator('xpath=ancestor::article')).toHaveCount(0);
 });
 
 test('a buyer page says how notices are classified once, not on each of its cards', async ({ page }) => {
   await visit(page, '/buyers/1-demo-armaments-agency', { title: /DefenceGate/, h1: /.+/ });
-  expect(await page.getByText(/^Classified automatically/).count()).toBe(1);
+  expect(await page.getByText(/^Listed by our automatic rules/).count()).toBe(1);
 });
 
 test('the filter column folds into groups, keeps every filter, and stays on screen from 1024 px', async ({ page }) => {

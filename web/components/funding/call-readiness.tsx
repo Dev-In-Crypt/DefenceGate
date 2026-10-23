@@ -114,7 +114,7 @@ export function CallReadiness({ callId, headingLevel = 'h3' }: { callId: string;
         <H id={`readiness-${callId}`} className="m-0 text-h4">Your readiness for this call</H>
         <p className="m-0 text-body">
           Answer five short questions about your company, and this page will show whether the rules of this call and of its programme allow you to apply,
-          what you would still need, and whether you can get it before the deadline. It takes about three minutes. Your answers stay in this browser.
+          what you would still need, and whether you can get it before the deadline. It takes about three minutes. Your answers are not stored on our server.
         </p>
         <Button href="/readiness" iconRight={ArrowRight} className="self-start">Start the readiness check</Button>
       </section>

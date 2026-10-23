@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { visit } from './helpers';
+import { openAbout, visit } from './helpers';
 
 /**
  * WP-52b, the web side of the tender data fixes (docs/verification/product/wp52b-selfcheck.md). Against the demo data of a local
@@ -112,11 +112,13 @@ test('T16 / T18: a monthly source is not stale after three days, and a partial r
   await expect(edip).toContainText(/Collected monthly, last ran \d+ days ago/);
   await expect(edip).not.toContainText('Stale');
   // Partial with the minimum met: the card says why.
-  const placsp = page.locator('article', { has: page.getByRole('heading', { name: 'PLACSP' }) });
+  // WP-88: the card is titled by the platform's name (its attribution keeps the code)
+  const placsp = page.locator('article', { has: page.getByRole('heading', { name: 'Plataforma de Contratación (Spain)' }) });
   await expect(placsp).toContainText('Why the last run is partial:');
   await expect(placsp).toContainText('Met expected minimum');
   await expect(placsp.getByText('Partial', { exact: true })).toBeVisible();
-  // The rule for "late" is the API's, named for each rhythm.
+  // The rule for "late" is the API's, named for each rhythm (WP-88: in the collapsed What the statuses mean).
+  await openAbout(page);
   await expect(page.getByText(/a run is late for a daily source after 3 days, a monthly source after 40 days/)).toBeVisible();
 });
 

@@ -27,8 +27,8 @@ assert.equal(placspCredit(es, (d) => d.slice(0, 10)),
 assert.equal(placspCredit({ ...es, lastUpdated: null }, (d) => d), 'Origen de los datos: Ministerio de Hacienda (Plataforma de Contratación del Sector Público).');
 
 // The source of one notice; an older API sends none, which is TED.
-assert.equal(sourceLabel('es_placsp'), 'PLACSP');
-assert.equal(sourceLabel('es_placsp_agg'), 'PLACSP');
+assert.equal(sourceLabel('es_placsp'), 'Spanish portal');
+assert.equal(sourceLabel('es_placsp_agg'), 'Spanish portal');
 assert.equal(sourceLabel('ted'), 'TED');
 assert.equal(sourceLabel(undefined), 'TED');
 

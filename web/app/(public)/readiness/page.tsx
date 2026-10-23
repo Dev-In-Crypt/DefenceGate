@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { getRequirements } from '@/lib/readiness-api';
 import { buildMetadata } from '@/lib/seo';
 import { Callout } from '@/components/dg/blocks';
+import { AboutData } from '@/components/dg/about-data';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { Wizard, type WizardRequirement } from '@/components/readiness/wizard';
 
@@ -29,16 +30,19 @@ export default async function ReadinessPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Readiness check', href: '/readiness' }]}
       title="Readiness check"
-      lead="Five short sets of questions about your company. For each programme you get a verdict, and for each rule the reason and the text of the source. Then an ordered list of what to obtain, who issues it, and what it costs."
+      lead="Answer five short sets of questions to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first."
     >
-      <Callout title="Your answers stay in this browser">
-        <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server.</p>
+      {/* WP-88: the heading says what is true of the whole flow (the next paragraph says what is sent once); the detail is collapsed. */}
+      <Callout title="Your answers are not stored on our server">
+        <AboutData summary="What is kept and what is sent">
+        <p className="m-0">They are saved in this browser, on this device. There is no account and no copy on our server. The verdict, each rule with its reason and the text of its source, and an ordered list of what to obtain, who issues it and what it costs, are worked out from them.</p>
         <p className="m-0">The only thing that leaves your browser is the request that computes the verdict: your answers to the questions the rules read, sent to the rules engine. The server does not store or log them. The company name and size you may enter below are never sent. If you choose CPV codes on the supplier page, those codes alone are also sent, for the map of who buys what you make.</p>
+        </AboutData>
       </Callout>
 
       {/* WP-65: the second way in. The funding wizard below is unchanged. */}
       <nav aria-label="Which check" className="flex flex-col gap-1 rounded-lg border border-edge bg-surface p-5">
-        <p className="m-0 text-body">The questions below are for EU defence funding calls (EDF, EDIP, SAFE).</p>
+        <p className="m-0 text-body">The questions below are for EU defence funding (the European Defence Fund, EDIP and SAFE). Something else?</p>
         <Link href="/readiness/supplier" className="inline-flex min-h-11 items-center gap-2 text-body font-bold">
           I make parts or materials and want to supply defence buyers<ArrowRight size={18} aria-hidden="true" className="shrink-0" />
         </Link>

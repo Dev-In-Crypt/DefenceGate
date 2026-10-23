@@ -20,7 +20,12 @@ export const PROGRAMME_CHOICES: { value: string; label: string }[] = [
   { value: 'H2020', label: 'Horizon 2020' },
   { value: 'FP7', label: 'Seventh Framework Programme' },
 ];
-export const PROGRAMME_WORD: Record<string, string> = Object.fromEntries(PROGRAMME_CHOICES.map((p) => [p.value, p.label]));
+/** WP-88: a programme by its name, never by the code alone (EDIDP and PADR are named in the glossary and About this data). */
+export const PROGRAMME_WORD: Record<string, string> = {
+  ...Object.fromEntries(PROGRAMME_CHOICES.map((p) => [p.value, p.label])),
+  EDIDP: 'European Defence Industrial Development Programme', PADR: 'Preparatory Action on Defence Research',
+};
+export const programmeName = (code: string) => PROGRAMME_WORD[code] ?? code;
 
 /**
  * The programmes a defence reader means when none is chosen (U10 of the UX verification: the directory opened with CNRS and
@@ -28,7 +33,7 @@ export const PROGRAMME_WORD: Record<string, string> = Object.fromEntries(PROGRAM
  * is one visible choice away (`programme=all`).
  */
 export const DEFENCE_PROGRAMMES = ['EDF', 'EDIDP', 'PADR'];
-export const DEFENCE_PROGRAMMES_WORDS = 'the European Defence Fund and its predecessors (EDIDP, PADR)';
+export const DEFENCE_PROGRAMMES_WORDS = 'the European Defence Fund and its two predecessor programmes';
 
 /** The programmes a request filters by: all of them (none), the ones chosen, or the defence-relevant ones. */
 export function effectiveProgrammes(f: Pick<OrgFilters, 'programme' | 'allProgrammes'>): string[] {
@@ -57,7 +62,7 @@ export const EDF_CATEGORY_WORDS: Record<string, string> = {
 
 /** Programmes the consortium analysis can be run on. An EDF one needs no topic; any other needs the start of a topic code. */
 export const GAP_PROGRAMMES: { value: string; label: string }[] = [
-  { value: 'EDF', label: 'European Defence Fund (EDF)' }, { value: 'EDIDP', label: 'EDIDP' }, { value: 'PADR', label: 'PADR' },
+  { value: 'EDF', label: 'European Defence Fund' }, { value: 'EDIDP', label: 'European Defence Industrial Development Programme' }, { value: 'PADR', label: 'Preparatory Action on Defence Research' },
   { value: 'HORIZON', label: 'Horizon Europe (needs a topic code start)' }, { value: 'H2020', label: 'Horizon 2020 (needs a topic code start)' },
 ];
 

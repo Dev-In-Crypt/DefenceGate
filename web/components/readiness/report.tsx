@@ -14,6 +14,7 @@ import { cleanQuote } from '@/lib/quote';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/dg/icon';
 import { Button } from '@/components/dg/button';
+import { AboutData } from '@/components/dg/about-data';
 import { PrintButton } from '@/components/dg/print-button';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { ConsultantNote, VerdictBadge } from './rules';
@@ -226,10 +227,12 @@ export function SupplierReport({ names }: { names: Record<string, string> }) {
             <Button href="/readiness/supplier" variant="secondary">Change my supplier profile</Button>
             <Button href="/readiness/results" variant="secondary">My results</Button>
           </div>
-          <p className="m-0 max-w-prose text-small text-ink-muted">
+          <AboutData summary="How to keep a PDF">
+          <p className="m-0">
             To keep a PDF, choose “Save as PDF” as the printer in your browser’s print dialog; turning off its “Headers and footers” option leaves out the
             address and date the browser adds. The report is made in this browser; no file is made on our server.
           </p>
+          </AboutData>
         </div>
       </header>
 

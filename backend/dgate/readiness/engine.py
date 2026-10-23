@@ -82,7 +82,7 @@ FIELDS: dict[str, dict[str, Any]] = {
 # does not ask them yet (the supplier profile is WP-65): a rule that reads one is "unknown", and the result names the question.
 _YES_NO_UNSURE = ("yes", "no", "unsure")
 SUPPLIER_FIELDS: dict[str, dict[str, Any]] = {
-    "nato_icb_bid": {"kind": "bool", "label": "Do you want to bid in a NATO international competitive bidding (NSIP) tender?"},
+    "nato_icb_bid": {"kind": "bool", "label": "Do you want to bid in a NATO international competitive bidding tender (NATO Security Investment Programme)?"},
     "rid_capabilities_declared": {"kind": "bool", "label": "Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?"},
     "pecal_certificate_wanted": {"kind": "bool", "label": "Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?"},
     "pecal_system_9_months": {"kind": "bool", "label": "Has your PECAL quality system been in place, and audited by your management, for at least nine months?"},

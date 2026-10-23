@@ -91,7 +91,7 @@ export function orgProfile(slug: string): OrgProfile | null {
       const eur = own.flatMap((p) => p.members.filter(([m, , e]) => m.id === o.id && e !== null).map(([, , e]) => e as number));
       return { code, name: code, projects: own.length, euContribution: eur.length ? eur.reduce((a, b) => a + b, 0) : null, firstYear: Math.min(...own.map((p) => p.year)), lastYear: Math.max(...own.map((p) => p.year)) };
     }),
-    resolution: { note: `Participations: ${Object.entries(methods).map(([m, n]) => `${n} of ${ps.length} matched by ${m === 'pic' ? 'its PIC' : 'its exact normalised name within the country'}`).join('; ')}.`,
+    resolution: { note: `Participations: ${Object.entries(methods).map(([m, n]) => `${n} of ${ps.length} matched by ${m === 'pic' ? 'its PIC' : 'the same name (ignoring accents, capitals and the legal form) in the same country'}`).join('; ')}.`,
       participations: methods, lowestConfidence: o.pic ? 0.9 : 0.9 },
     aliases: { total: 1, items: [{ name: o.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()), method: 'pic', confidence: 1, firstSeen: '2026-10-17', source: 'cordis' }] },
     mergedFrom: 0, buyer: null, sources: SOURCES, amountNote: AMOUNT_NOTE,
@@ -195,7 +195,7 @@ export function ukrainePartners(since: number, programmes: string[] = []): Ukrai
 export function consortiumGaps(f: { programme: string; topic?: string; lacking: string }): ConsortiumGaps {
   return {
     programme: [f.programme], topic: f.topic ?? null, lacking: f.lacking, minProjects: 2, projectsInArea: 2,
-    definition: `Capability area: the projects of the programme(s) named, narrowed by \`topic\`. An organisation is listed when it took part in at least 2 projects of the area and no project of the area it took part in had a participant established in ${f.lacking}.`,
+    definition: `Capability area: the projects of the programme(s) named, narrowed by the topic you give. An organisation is listed when it took part in at least 2 projects of the area and no project of the area it took part in had a participant established in ${f.lacking}.`,
     items: [{ organisation: ref(B), projects: 2, partnerCountries: ['DE', 'ES'], recentProjects: [{ ...ref3(PROJECTS[2]), category: 'CYBER', countries: ['DE', 'ES', 'FR'] }] }],
     areas: [{ code: 'CYBER', projects: 2 }, { code: 'GROUND', projects: 2 }],
     limits: ['The EDF factsheets are read by a language model; a participant missed or misplaced would show a gap that is not there.'],

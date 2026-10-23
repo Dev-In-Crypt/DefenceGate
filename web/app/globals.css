@@ -153,6 +153,15 @@
   @media (min-width: 1024px) { .auto-grid { gap: 24px; } .auto-fill { gap: 24px; } }
   /* AutoGrid pairs: an odd last card takes the row (one column: no change; two: no card alone in the left half). */
   .auto-grid-pairs > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* WP-88: a wide table read as cards below 640 px (Consortium gaps was 640 px in 301): one row a block, the header row kept for
+     screen readers only, each cell under its column name (data-label). It stays a table, so its name and rows are still announced. */
+  @media (max-width: 639.98px) {
+    .stack-sm { min-width: 0 !important; }
+    .stack-sm thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .stack-sm tr { display: block; padding: 12px 0; }
+    .stack-sm th, .stack-sm td { display: block; padding: 2px 0 !important; text-align: left !important; }
+    .stack-sm td[data-label]::before { content: attr(data-label); display: block; font-family: var(--font-sans, inherit); font-weight: 600; color: var(--ink-muted); }
+  }
   /* Reading pages and TextCard: from lg a titled card puts its title (sticky) in a 220 px column and the text beside it. */
   @media (min-width: 1024px) {
     .reading .card-titled, .card-titled.split {

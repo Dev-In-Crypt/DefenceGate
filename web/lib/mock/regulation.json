@@ -185,7 +185,7 @@
    "whatChanged": "For procurement supported under the Ukraine Support Instrument the cost of components originating outside the Union and Ukraine may not exceed 35 % of the estimated cost of the components of the end product, and no component may come from a third country that contravenes the security and defence interests of the Union and its Member States. Article 27(4) sets the same share for industrial reinforcement actions. The readiness check applies it (rule “Components from outside the Union and Ukraine: at most 35 % of component cost”)."
   },
   {
-   "affected": "Companies that look at the EDIP common procurement calls (topic codes EDF-EDIP-P-...-FNLC-CPA-...) as applicants, and the contracting authorities that would lead them.",
+   "affected": "Companies that look at the EDIP common procurement calls (the calls whose topic code contains CPA) as applicants, and the contracting authorities that would lead them.",
    "checkedOn": "2026-10-18",
    "code": "edip-common-procurement-applicants",
    "eventDate": "2025-12-30",

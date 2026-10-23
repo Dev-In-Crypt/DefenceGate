@@ -64,7 +64,7 @@ export default async function MethodologyPage() {
 
       <ContentSection title="How sure are we">
         <p className="m-0 text-body text-ink-muted">
-          Every notice in the list carries a confidence level, high, medium or low, next to the reasons it is listed. The level is worked out from the same signals, when you open the page, and it does not change which notices are listed. It describes the group of notices that get the level, not the single notice: read the reasons on the card, then the original.
+          Every notice in the list carries a confidence level, high, medium or low, next to the reasons it is listed; the card says it as “Clearly defence”, “Probably defence” or “Possibly defence”. The level is worked out from the same signals, when you open the page, and it does not change which notices are listed. It describes the group of notices that get the level, not the single notice: read the reasons on the card, then the original.
         </p>
         <ClauseList items={[
           <><span className="font-semibold text-ink">High.</span> A military product code and a buyer on our defence list agree. In our sample, 96 % of these notices were themselves defence goods or services (95 % interval 88 to 98) and 99 % were defence goods or services or a defence body buying (92 to 100). Sample: 64 notices.</>,

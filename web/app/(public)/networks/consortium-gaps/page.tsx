@@ -9,6 +9,7 @@ import { Select } from '@/components/dg/form';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { DataSources, OrgLink, TableBox } from '@/components/networks/parts';
+import { AboutData } from '@/components/dg/about-data';
 import type { SearchParams } from '@/lib/filters';
 
 export const revalidate = 900;
@@ -52,7 +53,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Gaps in consortia', href: '/networks/consortium-gaps' }]}
       title="Consortium gaps"
-      lead="Organisations that were funded at least twice in the same capability area and never had a participant established in a chosen country. A starting point for finding a partner the established consortia do not yet have."
+      lead="Organisations funded at least twice in one capability area that never had a partner from the country you choose: a place to look for a partner the established consortia do not have."
       wide
     >
       <form method="get" action="/networks/consortium-gaps" aria-label="Choose the area and the country" className="flex flex-wrap items-end gap-3">
@@ -67,18 +68,15 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
       {problem && <ErrorState title={problem} retryHref="/networks/consortium-gaps" />}
       {data && (
         <>
-          <ContentSection title="What this counts">
-            <p className="m-0 text-body">{data.definition}</p>
+          {/* WP-88: one result line and the category links stay; the definition and the limits are in How we count. */}
+          <ContentSection title="Area and result">
             <p className="m-0 text-body">
               {data.projectsInArea} projects are in this area. {data.items.length} {data.items.length === 1 ? 'organisation was' : 'organisations were'} funded {data.minProjects} or more times in it
               with no participant from {countryName(data.lacking)}.
             </p>
             {data.areas.length > 0 && (
               <>
-                <p className="m-0 text-small text-ink-muted">
-                  EDF capability categories in the data, with the number of projects. The codes are those of the Commission’s own file names; the words beside them are our plain reading
-                  of the abbreviation, and the EDF work programme is authoritative.
-                </p>
+                <p className="m-0 text-small text-ink-muted">EDF capability categories, with the number of projects:</p>
                 <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0 text-small">
                   {data.areas.map((a) => (
                     <li key={a.code}>
@@ -89,11 +87,20 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
                 </ul>
               </>
             )}
+            <AboutData summary="How we count">
+              <h3 className="m-0 text-h4">What this counts</h3>
+              <p className="m-0">{data.definition}</p>
+              {data.areas.length > 0 && (
+                <p className="m-0">The category codes are those of the Commission’s own file names; the words beside them are our plain reading of the abbreviation, and the EDF work programme is authoritative.</p>
+              )}
+              <h3 className="m-0 text-h4">Limits</h3>
+              <ul className="m-0 list-disc pl-5 [&>li+li]:mt-1">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
+            </AboutData>
           </ContentSection>
           <ContentSection title="Organisations">
             {data.items.length === 0 ? <EmptyState title="Nobody matches">Try another category, or another country.</EmptyState> : (
               <TableBox label="Repeat participants with no partner from the chosen country">
-                <table className="w-full min-w-[640px] border-collapse text-left text-small">
+                <table className="stack-sm w-full min-w-[640px] border-collapse text-left text-small">
                   <caption className="sr-only">Organisations funded repeatedly in the area, with no participant from {countryName(data.lacking)}</caption>
                   <thead>
                     <tr className="border-b border-line">
@@ -107,18 +114,15 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
                     {data.items.map((i) => (
                       <tr key={i.organisation.id ?? i.organisation.name} className="border-b border-line align-top last:border-0">
                         <th scope="row" className="py-2 pr-4 font-normal"><OrgLink org={i.organisation} />{i.organisation.country ? <span className="text-ink-muted"> ({i.organisation.country})</span> : null}</th>
-                        <td className="py-2 pr-4 text-right font-mono tabular-nums">{i.projects}</td>
-                        <td className="py-2 pr-4 font-mono">{i.partnerCountries.join(', ') || 'None'}</td>
-                        <td className="py-2"><ul className="m-0 list-none p-0">{i.recentProjects.map((p) => <li key={p.slug}><Link href={`/projects/${p.slug}`}>{p.acronym ?? p.title}</Link> <span className="text-ink-muted">{p.year}</span></li>)}</ul></td>
+                        <td data-label="Projects in the area" className="py-2 pr-4 text-right font-mono tabular-nums">{i.projects}</td>
+                        <td data-label="Partner countries seen" className="py-2 pr-4 font-mono">{i.partnerCountries.join(', ') || 'None'}</td>
+                        <td data-label="Projects" className="py-2"><ul className="m-0 list-none p-0">{i.recentProjects.map((p) => <li key={p.slug}><Link href={`/projects/${p.slug}`}>{p.acronym ?? p.title}</Link> <span className="text-ink-muted">{p.year}</span></li>)}</ul></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </TableBox>
             )}
-          </ContentSection>
-          <ContentSection title="Limits">
-            <ul className="m-0 list-disc pl-5 text-body [&>li+li]:mt-1">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
           </ContentSection>
           <DataSources sources={data.sources} />
         </>

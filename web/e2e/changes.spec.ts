@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { pace, visit } from './helpers';
+import { openAbout, pace, visit } from './helpers';
 
 test('/changes: the window, the filters and the feed link', async ({ page }) => {
   await visit(page, '/changes', {
@@ -8,6 +8,8 @@ test('/changes: the window, the filters and the feed link', async ({ page }) => 
     text: [/The last 14 days/, 'Atom feed of this list'],
   });
   // Honest about the archive's age and about our own corrections.
+  // WP-88: the method is in the collapsed How we count (owner-approved copy change)
+  await openAbout(page);
   await expect(page.getByText(/began in September 2026/i)).toBeVisible();
   await expect(page.getByRole('search', { name: /filter changes/i })).toBeVisible();
   await expect(page.locator('link[rel="alternate"][type="application/atom+xml"]')).toHaveCount(1);

@@ -1,0 +1,65 @@
+{
+ "C:/Program Files/Git/tenders": {
+  "error": "Error: page.goto: Protocol error (Page.navigate): Cannot navigate to invalid URL"
+ },
+ "/tenders": {
+  "words": 40,
+  "prose": 86,
+  "first": "form",
+  "text": "Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and changes to dates, values and status are kept in its version history. 5 tender sources Counts as of 08:00 UTC",
+  "terms": [
+   "PLACSP"
+  ]
+ },
+ "/tenders/1-framework-agreement-machined-aluminium-housings": {
+  "words": 21,
+  "prose": 70,
+  "first": "li",
+  "text": "CPV 44316400 Amended Open Raamovereenkomst voor gefreesde aluminium behuizingen Original title Dutch Buyer: Demo Defence Materiel Organisation Why this is here",
+  "terms": []
+ },
+ "/buyers": {
+  "words": 21,
+  "prose": 35,
+  "first": "form",
+  "text": "The bodies that publish defence and dual-use tenders. Open a buyer to see its notices in our archive, open ones first.",
+  "terms": []
+ },
+ "/buyers/1-demo-armaments-agency": {
+  "words": 2,
+  "prose": 111,
+  "first": "dl",
+  "text": "Defence body",
+  "terms": []
+ },
+ "/data": {
+  "words": 133,
+  "prose": 373,
+  "first": "dl",
+  "text": "Every source we collect from and when it last ran. Met expected minimum compares what a run fetched with the minimum we expect from that source; it is not a share of everything the source publishes. What OK means: the last run finished and fetched at least that minimum, and it was not late for how o",
+  "terms": [
+   "PLACSP"
+  ]
+ },
+ "/changes": {
+  "words": 154,
+  "prose": 158,
+  "first": "form",
+  "text": "New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value. No account is needed, and the Atom feed does what an alert would. The last 14 days 9 new notices and 3 amendments, from 28 Sep 2026 to 12 Oct 2026 (UTC). Taken from",
+  "terms": []
+ },
+ "/calendar": {
+  "words": 35,
+  "prose": 192,
+  "first": "form",
+  "text": "The deadlines of open defence tenders and open funding calls, soonest first. Times are UTC; a notice that gives only a date shows only the date. Each entry links to its record and its source.",
+  "terms": []
+ },
+ "/digest/2026-W42": {
+  "words": 26,
+  "prose": 26,
+  "first": "li",
+  "text": "Error 404 The address may be mistyped, or the notice or call may no longer be listed. Try the search on one of the lists below.",
+  "terms": []
+ }
+}

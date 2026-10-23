@@ -6,7 +6,8 @@ import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { cpvDivisionLabel } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
-import { sourceLabel } from '@/lib/supplier-sources';
+import { PLACSP_CODES, sourceLabel } from '@/lib/supplier-sources';
+import { AboutData } from '@/components/dg/about-data';
 import type { Supplier } from '@/lib/types';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { buildMetadata } from '@/lib/seo';
@@ -23,7 +24,7 @@ type Props = { params: Promise<{ slug: string }> };
 
 /** Whether this profile shows anything from PLACSP (WP-61): a notice from it, or a TED notice it also published. */
 function fromPlacsp(s: Supplier): boolean {
-  return s.notices.some((n) => sourceLabel(n.source) === 'PLACSP' || (n.alsoPublished ?? []).some((r) => sourceLabel(r.source) === 'PLACSP'));
+  return s.notices.some((n) => PLACSP_CODES.includes(n.source ?? '') || (n.alsoPublished ?? []).some((r) => PLACSP_CODES.includes(r.source ?? '')));
 }
 
 
@@ -63,17 +64,22 @@ export default async function SupplierPage({ params }: Props) {
         {s.namesAsStated.length > 1 && (
           <p className="m-0 max-w-prose text-small text-ink-muted">Also published as: {s.namesAsStated.slice(1).join('; ')}.</p>
         )}
-        <p className="m-0 max-w-prose text-small text-ink-muted">
+        {/* WP-88: one line; the coverage, the method and the removal route are in About this data. */}
+        <p className="m-0 max-w-prose text-body">Contracts this company won in published award notices of the last three years; it may have won more that are not published here.</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{s.attribution}</p>
+        <AboutData>
+        <p className="m-0">
           This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, published in the last three years:
           the same contracts the supplier report counts in “who to approach”. A contract published in several notices is counted once. TED holds only part of European defence
           spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking and no share; a value appears only on a notice that names one
-          winner, and Contract values sums those values per currency. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
+          winner, and Contract values sums those values per currency. To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
         </p>
+        </AboutData>
         {s.values && (
           <ValueTotalsBlock
             values={s.values}
             noun="contract"
-            scope={`All ${formatNumber(s.noticeCount)} contracts it won, not only the ones listed below: ${fromPlacsp(s) ? 'TED result notices and PLACSP award results' : 'TED result notices'} of the defence-relevant scope, published in the last three years.`}
+            scope={`All ${formatNumber(s.noticeCount)} contracts it won, not only the ones listed below: ${fromPlacsp(s) ? 'TED result notices and award results of Spain’s national portal' : 'TED result notices'} of the defence-relevant scope, published in the last three years.`}
           />
         )}
       </PageHeader>
@@ -130,7 +136,7 @@ export default async function SupplierPage({ params }: Props) {
         <div className="flex flex-col gap-3">
           <h2 id="notices" className="m-0 text-h2">The notices</h2>
           <p className="m-0 max-w-prose text-small text-ink-muted">
-            Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} notices of its ${formatNumber(s.noticeCount)} contracts` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or PLACSP' : ' and to the notice at TED'}.
+            Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} notices of its ${formatNumber(s.noticeCount)} contracts` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or the Spanish portal' : ' and to the notice at TED'}.
           </p>
         </div>
         <Card>

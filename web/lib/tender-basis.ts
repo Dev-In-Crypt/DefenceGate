@@ -24,7 +24,8 @@ export interface ConfidenceInput { level?: string | null; basis?: string[] | nul
 
 /** Where the three levels are explained: the section "How sure are we" of the methodology page. */
 export const CONFIDENCE_HREF = '/methodology#s-how-sure-are-we';
-const CONFIDENCE_WORD: Record<ConfidenceLevel, string> = { high: 'High', medium: 'Medium', low: 'Low' };
+// WP-88: the level in words a reader uses (the audit found "Medium confidence"); `level` and the CSV cell are unchanged.
+const CONFIDENCE_WORD: Record<ConfidenceLevel, string> = { high: 'Clearly defence', medium: 'Probably defence', low: 'Possibly defence' };
 
 /**
  * The badge next to the "why" chips: the visible text, the sentence shown on hover and focus (the API's `basis`), and
@@ -41,7 +42,7 @@ export function confidenceView(c: ConfidenceInput | null | undefined): Confidenc
   const level = c?.level as ConfidenceLevel | undefined;
   if (!level || !(level in CONFIDENCE_WORD)) return null;
   const sentence = (c?.basis ?? []).filter(Boolean).join('; ');
-  const text = `${CONFIDENCE_WORD[level]} confidence`;
+  const text = CONFIDENCE_WORD[level];
   return { level, text, sentence: sentence ? `${sentence}.` : '', name: sentence ? `${text}: ${sentence}.` : text };
 }
 
@@ -163,7 +164,7 @@ export function subcontractingView(t: SignalInput): SignalView {
 }
 
 /** The one line under the chips. */
-export const CLASSIFIED_AUTOMATICALLY = 'Classified automatically';
+export const CLASSIFIED_AUTOMATICALLY = 'Listed by our automatic rules';
 
 /**
  * The additional CPV codes through which a notice matched a CPV filter, when its main code does not match: the card

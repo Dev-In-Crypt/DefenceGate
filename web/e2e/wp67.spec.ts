@@ -91,7 +91,8 @@ test('no profile in this browser: the report asks for the answers', async ({ pag
 test('the supplier page says who it is for, and the results link to the report', async ({ page }) => {
   await asSupplier(page, 'es-sup-civil');
   await visit(page, '/readiness/supplier', { title: /supplier profile/i, h1: 'Supplier profile' });
-  await expect(page.getByRole('heading', { name: 'Who this is for' })).toBeVisible();
+  // WP-88: who it is for is a collapsed About this data under the lead (owner-approved copy change)
+  await expect(page.locator('summary', { hasText: 'Who this is for' })).toBeVisible();
   const copy = page.locator('[data-supplier-audience]');
   await expect(copy).toContainText('Manufacturers in Spain that make civilian products today');
   await expect(copy).toContainText('does not say that you will win one');

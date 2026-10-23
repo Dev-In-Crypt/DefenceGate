@@ -10,6 +10,7 @@ import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/fo
 import { daysText, monthLabel, percentText } from '@/lib/market';
 import { buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
+import { AboutData } from '@/components/dg/about-data';
 import { BarChart, RankTable } from '@/components/market/charts';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
@@ -23,7 +24,7 @@ export const metadata: Metadata = buildMetadata({
   path: '/market',
 });
 
-const BASIS = 'text-small text-ink-muted m-0 max-w-prose';
+// WP-88: the basis lines of each chart are in its How we count (components/dg/about-data.tsx).
 const LINK = 'font-semibold';
 
 type Props = { searchParams: Promise<SearchParams> };
@@ -72,7 +73,7 @@ export default async function MarketPage({ searchParams }: Props) {
       wide
       crumbs={crumbs}
       title="Market overview"
-      lead="How many defence procurement notices are published, by month, country and subject. Every figure counts notices published: none is contract value, spend or market size."
+      lead="How many defence procurement notices are published, by month, country and subject: counts of notices, never of money."
     >
       {selectors}
 
@@ -87,7 +88,6 @@ export default async function MarketPage({ searchParams }: Props) {
         <FactCell label="With an amendment">
           <span>{percentText(a.share)}</span>
           <span className="block font-sans text-small font-normal text-ink-muted">{formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}</span>
-          <span className="block font-sans text-small font-normal text-ink-muted">Counted only from when we first saw each notice (September 2026 at the earliest), so it will rise as the archive ages.</span>
         </FactCell>
         <FactCell label="Figures as of"><time dateTime={stats.asOf}>{formatDateTimeUtc(stats.asOf)}</time></FactCell>
       </dl>
@@ -102,7 +102,7 @@ export default async function MarketPage({ searchParams }: Props) {
           secondaryName="National sources"
           labelHeader="Month"
         />
-        <p className={BASIS}>{stats.basis.months}</p>
+        <AboutData summary="How we count"><p className="m-0">{stats.basis.months}</p></AboutData>
       </ContentSection>
 
       <AutoGrid min={460}>
@@ -121,12 +121,14 @@ export default async function MarketPage({ searchParams }: Props) {
               ...(stats.countries.other > 0 ? [{ key: 'other', label: <span>Other countries, or none stated</span>, count: stats.countries.other }] : []),
             ]}
           />
-          <p className={BASIS}>{stats.basis.countries}</p>
-          <p className={BASIS}>
+          <AboutData summary="How we count">
+          <p className="m-0">{stats.basis.countries}</p>
+          <p className="m-0">
             A country row opens the tender list for that country with the market&rsquo;s own scope (core), every status and every year: the list has no publication-year filter, so a year&rsquo;s count is not reproduced there.
             The Polish figure includes the one-off Atlas dataset, which ends in December 2025, and TED notices before April 2024 are still being re-checked; see{' '}
             <Link href="/data" className={LINK}>source status</Link>.
           </p>
+          </AboutData>
         </ContentSection>
 
         <ContentSection title="By subject">
@@ -142,10 +144,12 @@ export default async function MarketPage({ searchParams }: Props) {
               };
             })}
           />
-          <p className={BASIS}>{stats.basis.cpvGroups}</p>
-          <p className={BASIS}>
+          <AboutData summary="How we count">
+          <p className="m-0">{stats.basis.cpvGroups}</p>
+          <p className="m-0">
             Titles are from the <Link href="/cpv" className={LINK}>CPV vocabulary</Link>. Groups are the first three digits of a code.
           </p>
+          </AboutData>
         </ContentSection>
       </AutoGrid>
 
@@ -156,11 +160,12 @@ export default async function MarketPage({ searchParams }: Props) {
           total={stats.countries.total}
           rows={stats.sources.map((s) => ({ key: s.id, label: s.name, count: s.count }))}
         />
-        <p className={BASIS}>{stats.basis.sources}</p>
+        <AboutData summary="How we count"><p className="m-0">{stats.basis.sources}</p></AboutData>
       </ContentSection>
 
       <ContentSection title="Reading these figures" split>
-        <ul className="m-0 flex list-disc flex-col gap-2 pl-5 text-body text-ink-muted">
+        <AboutData summary="What these counts are and are not">
+        <ul className="m-0 flex list-disc flex-col gap-2 pl-5">
           <li>They are counts of notices published. A notice can be a call for tender, a correction or an award; none states how much is spent.</li>
           <li>Only notices that state the defence and security directive, or carry a military product code, are counted. A military code bought by a municipal, health, education or fire body is not, and neither are notices listed only because their buyer is a defence body, notices whose only signal is the defence directive from a civil buyer, or notices whose only signal is a military product code from a police, prison, border, customs or tax body.</li>
           <li>
@@ -176,7 +181,9 @@ export default async function MarketPage({ searchParams }: Props) {
             A correction published as a separate notice is not counted. How notices are collected and classified is in the <Link href="/methodology" className={LINK}>methodology</Link>.
           </li>
           <li>All dates are UTC. Figures are recalculated at most once an hour.</li>
+          <li>The share with an amendment is counted only from when we first saw each notice (September 2026 at the earliest), so it will rise as the archive ages.</li>
         </ul>
+        </AboutData>
       </ContentSection>
     </ContentPage>
   );

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
-import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_CHOICES, contributionMissing, PROGRAMME_WORD, effectiveProgrammes, fundingGroups, formatEur, methodWord, roleWord, toOrgQuery, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, DEFENCE_PROGRAMMES_WORDS, PROGRAMME_CHOICES, contributionMissing, PROGRAMME_WORD, programmeName, effectiveProgrammes, fundingGroups, formatEur, methodWord, roleWord, toOrgQuery, yearsLabel, activeOrgFilterCount } from '@/lib/networks';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import type { FundingRow, OrgFilters, OrgListItem, OrgProjectRow, OrgRef, PartnerRow, ProjectMember, SourceNote } from '@/lib/networks-types';
 import { Button } from '../dg/button';
@@ -18,6 +18,7 @@ import { Icon } from '../dg/icon';
 import { ScrollBox } from '../dg/scroll-box';
 import { Tag } from '../dg/tag';
 import { FilterPanel } from '../funding/filter-panel';
+import { AboutData } from '../dg/about-data';
 
 /** A list card as in components/dg/cards.tsx: no outline, padding 20, 12 px gaps, a 1.5px --ink-muted edge on hover. */
 const CARD = '[container-type:inline-size] group relative flex flex-col gap-3 rounded-lg border-strong border-transparent bg-surface p-5 transition-colors duration-dg hover:border-ink-muted has-[[data-link-pending]]:opacity-70';
@@ -58,7 +59,7 @@ export function OrgCard({ org, scope = 'all' }: { org: OrgListItem; scope?: 'def
           </h2>
           <span className="text-small text-ink-muted"><CountryLabel code={org.country} /></span>
           {org.nameVariants ? <span className="text-small text-ink-muted">Includes {org.nameVariants} name {org.nameVariants === 1 ? 'variant' : 'variants'}</span> : null}
-          <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{p}</Tag>)}</p>
+          <p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p} kind="programme">{programmeName(p)}</Tag>)}</p>
         </div>
         <dl className="facts-grid facts-grid--4 m-0 border-b border-line cqw:col-start-2 cqw:row-start-1 cqw:self-start">
           {defence ? (
@@ -97,7 +98,7 @@ export function ProgrammeScope({ filters, basePath }: { filters: OrgFilters; bas
         <>Showing <strong>{chosen.map((c) => PROGRAMME_WORD[c] ?? c).join(', ')}</strong>.{' '}
           <Link href={link({ ...filters, allProgrammes: true, programme: [] })} className="font-semibold">Show all programmes</Link>.</>
       ) : (
-        <>Showing <strong>{DEFENCE_PROGRAMMES_WORDS}</strong>: the defence-relevant programmes ({DEFENCE_PROGRAMMES.join(', ')}).{' '}
+        <>Showing <strong>{DEFENCE_PROGRAMMES_WORDS}</strong>, the defence programmes.{' '}
           <Link href={link({ ...filters, allProgrammes: true, programme: [] })} className="font-semibold">Show all programmes</Link>, including civil research (Horizon Europe, Horizon 2020, FP7).</>
       )}
     </p>
@@ -146,12 +147,20 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
   );
 }
 
-/** Where the data comes from, its licence and the day it was read. On every page of this layer. */
-export function DataSources({ sources, amountNote, only }: { sources: SourceNote[]; amountNote?: string; only?: string[] }) {
+/**
+ * Where the data comes from, its licence and the day it was read. On every page of this layer. WP-88: one line, and the sources,
+ * licences, amounts and method in a collapsed About this data (`children`, for example CountryNote, go in it too).
+ */
+export function DataSources({ sources, amountNote, only, children }: { sources: SourceNote[]; amountNote?: string; only?: string[]; children?: React.ReactNode }) {
   const shown = only ? sources.filter((s) => only.includes(s.code)) : sources;
   return (
-    <section aria-labelledby="data-sources" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
+    <section aria-labelledby="data-sources" className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <h2 id="data-sources" className="m-0 text-h3">Where this comes from</h2>
+      {/* WP-88: each source's attribution and licence stay on screen; read dates, notes, amounts and method are collapsed. */}
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small text-ink-muted" data-attribution>
+        {shown.map((s) => <li key={s.code} className="max-w-prose">{s.attribution}. Licence: {s.licence}.</li>)}
+      </ul>
+      <AboutData>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {shown.map((s) => (
           <li key={s.code} className="flex max-w-prose flex-col gap-1">
@@ -169,6 +178,8 @@ export function DataSources({ sources, amountNote, only }: { sources: SourceNote
         Organisation-level facts only: a name, a country, a role, an amount, a year. A participant is recognised by its PIC where the source gives one,
         otherwise by name; the page says which. <Link href="/methodology" className="font-semibold">How the data is built</Link>.
       </p>
+      {children}
+      </AboutData>
     </section>
   );
 }

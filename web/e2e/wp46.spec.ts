@@ -35,7 +35,7 @@ test('home: the three parts are named once, there is no block that only promises
 });
 
 test('/readiness: fields are at most 560 px wide, and the page says "this browser", not the name of the storage key', async ({ page }) => {
-  await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check', text: ['Your answers stay in this browser'] });
+  await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check', text: ['Your answers are not stored on our server'] });
   await expect(page.locator('main').getByText('dg.profile.v1')).toHaveCount(0);
   for (const label of ['Company name (optional)', 'Country where your company is established']) {
     const w = (await page.getByLabel(label).boundingBox())!.width;
@@ -68,8 +68,8 @@ test('/imprint: the seven fields stand in two columns and every value is still a
 });
 
 test('/networks/ukraine-partners opens on a view that has content and says why it is not the defence view', async ({ page }) => {
-  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Ukraine partners', text: ['What this counts'] });
-  await expect(page.getByText(/No project of the European Defence Fund and its predecessors/)).toBeVisible();
+  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Ukraine partners', text: ['How we count'] });
+  await expect(page.getByText(/No project of the European Defence Fund and its two predecessor programmes/)).toBeVisible();
   await expect(page.getByRole('link', { name: /Show only the European Defence Fund/ })).toBeVisible();
   await expect(page.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
 });

@@ -12,6 +12,7 @@ import { Card } from '@/components/dg/card';
 import { ContentPage, ContentSection, PageSection } from '@/components/dg/content-page';
 import { ErrorState, JsonLd } from '@/components/dg/feedback';
 import { FactsGrid } from '@/components/dg/facts-grid';
+import { InfoLink } from '@/components/dg/about-data';
 
 export const revalidate = 3600;
 
@@ -21,12 +22,17 @@ export const metadata: Metadata = buildMetadata({
   path: '/requirements',
 });
 
+/** WP-88: a requirement whose name carries an abbreviation gets an (i) to its glossary entry. */
+const TERM_OF: Record<string, { id: string; term: string }> = {
+  'REQ-FSC-ES': { id: 'hsem', term: 'HSEM' }, 'REQ-HSES-ES': { id: 'hses', term: 'HSES' }, 'REQ-PIC': { id: 'pic', term: 'PIC' },
+};
+
 /** One requirement: name, summary, then Cost and Time as facts (label above value) pinned to the bottom, so the cards of a row line up. */
 function RequirementCard({ r }: { r: RequirementSummary }) {
   const document = r.kind === 'document';
   return (
     <Card as="li" className="gap-3">
-      <h3 className="m-0 text-h3"><Link href={`/requirements/${requirementSlug(r.code)}`} className="text-inherit">{r.name}</Link></h3>
+      <h3 className="m-0 text-h3"><Link href={`/requirements/${requirementSlug(r.code)}`} className="text-inherit">{r.name}</Link>{TERM_OF[r.code] && <> <InfoLink id={TERM_OF[r.code].id} term={TERM_OF[r.code].term} /></>}</h3>
       <p className="m-0 text-body text-ink-muted">{r.summary}</p>
       {document && (
         <FactsGrid className="mt-auto" items={[
@@ -65,7 +71,7 @@ export default async function RequirementsPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Requirements', href: '/requirements' }]}
       title="Requirements"
-      lead="What separates a company from taking part: the codes, registrations, certificates and licences, and the eligibility rules. For each one: who issues it (in the countries covered so far), what it costs and how long it takes, with the source and the date it was last reviewed."
+      lead="The codes, registrations, certificates and licences a company needs to take part, and the eligibility rules: open one for who issues it, its cost and time, and its source."
     >
       {failed && <ErrorState title="The catalogue could not be loaded" retryHref="/requirements" />}
       {items.length > 0 && <JsonLd data={list} />}
@@ -82,7 +88,7 @@ export default async function RequirementsPage() {
       )}
       <ContentSection title="About the costs">
         <p className="m-0 text-body text-ink-muted">
-          Every cost on these pages that is not free comes from a certification body or a consultancy, and no neutral body publishes prices. They are shown as ranges, in the currency the vendor used, labelled as vendor ranges and not as a benchmark. Where a source states no cost or time, the page says so and shows none.
+          Each card names the issuer in the countries covered so far, the source and the date it was last reviewed. Every cost on these pages that is not free comes from a certification body or a consultancy, and no neutral body publishes prices. They are shown as ranges, in the currency the vendor used, labelled as vendor ranges and not as a benchmark. Where a source states no cost or time, the page says so and shows none.
         </p>
       </ContentSection>
       <div>

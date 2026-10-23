@@ -120,7 +120,8 @@ test('without CPV codes the report says how to get the list, and asks nothing', 
 test('the entry page and the supplier page say the new order', async ({ page }) => {
   await visit(page, '/readiness/spain-automotive', { title: /Spain automotive: who to approach/, h1: 'Supplier readiness: Spain automotive' });
   const main = page.locator('#main');
-  await expect(main.getByText('the report starts with the companies that win defence contracts for it', { exact: false })).toBeVisible();
+  // WP-88: the lead is one sentence (owner-approved copy change); the order is the same
+  await expect(main.getByText('the report shows who wins and who buys it in five countries, then the rules', { exact: false })).toBeVisible();
   await expect(main.getByText('Why this order:', { exact: false })).toBeVisible();
   await expect(page.locator('[data-summary-es]')).toContainText('El informe empieza por las empresas que ganan contratos');
   await visit(page, '/readiness/supplier', { title: /Supplier profile: who to approach/, h1: 'Supplier profile' });

@@ -5,6 +5,7 @@ import { DEMAND_FAILED, DemandError, demandRequest, fetchWinners, type WinnersPa
 import { formatDateUtc } from '@/lib/format';
 import { countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
+import { AboutData } from '@/components/dg/about-data';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { Winner, winnersScope } from './approach';
 import { useProfile } from './use-readiness';
@@ -67,7 +68,7 @@ export function AllWinners() {
           <Button variant="secondary" disabled={d.page >= last} onClick={() => setPage(d.page + 1)}>Next page</Button>
         </nav>
       )}
-      <p className="m-0 max-w-prose text-small text-ink-muted">{d.winnersFrom}</p>
+      <AboutData summary="Where the winners come from"><p className="m-0">{d.winnersFrom}</p></AboutData>
       <div><Button href="/readiness/supplier/report#r-approach" variant="secondary">Back to the supplier report</Button></div>
     </div>
   );

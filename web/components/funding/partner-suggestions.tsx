@@ -10,6 +10,7 @@ import { Button } from '@/components/dg/button';
 import { Select } from '@/components/dg/form';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { useProfile } from '@/components/readiness/use-readiness';
+import { AboutData } from '@/components/dg/about-data';
 
 /** A failure we word ourselves; any other (no answer, unreadable JSON) gets the standard sentence, never the browser's. */
 class LoadError extends Error {}
@@ -63,8 +64,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
     return (
       <div className="flex flex-col gap-3 print:hidden">
         <p className="m-0 text-body">
-          Organisations that took part in earlier funded projects of the same area as this call, from CORDIS and the EDF project factsheets, with the projects as evidence.
-          They are loaded when you ask.
+          Organisations that took part in earlier EU-funded projects of the same area as this call, with the projects as evidence. They are loaded when you ask.
         </p>
         <Button type="button" variant="secondary" icon={Users} onClick={() => setAsked(true)} className="self-start whitespace-normal text-left">Show organisations from earlier projects</Button>
       </div>
@@ -151,11 +151,16 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
           )}
         </>
       )}
-      <p className="m-0 text-small text-ink-muted">
+      <p className="m-0 text-small text-ink-muted" data-attribution>
+        Who has worked in the same area, not a recommendation. Sources: {d.source?.sources.join(' and ') ?? 'CORDIS and the EDF factsheets'}.{d.source?.licence ? ` Licence: ${d.source.licence}.` : ''}
+      </p>
+      <AboutData>
+      <p className="m-0">
         An organisation that took part in an earlier project is not necessarily looking for partners, or a fit for this call: this is who has worked in the same area,
         not a recommendation. Sources: {d.source?.sources.join(' and ') ?? 'CORDIS and the EDF factsheets'}{d.source?.readAt ? `, read ${formatDateUtc(d.source.readAt)}` : ''}.
         The EDF participants were read from the factsheets (PDF) by a language model and checked against their text; the original factsheet is authoritative.
         {d.source?.licence ? ` Licence: ${d.source.licence}.` : ''}      </p>
+      </AboutData>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { cpvGroupName } from '@/lib/cpv';
 import { formatNumber, plural } from '@/lib/format';
+import { AboutData } from '@/components/dg/about-data';
 import { amendmentsShown, daysText, percentText, profileYearBars } from '@/lib/market';
 import type { BuyerProfile } from '@/lib/types';
 import { FactCell } from '@/components/dg/data-display';
@@ -23,10 +24,12 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
   return (
     <section aria-labelledby="buyer-profile" className="flex flex-col gap-4">
       <h2 id="buyer-profile" className="m-0 text-h2">Profile</h2>
-      <p className="m-0 max-w-prose text-body text-ink-muted">
+      <AboutData summary="How we count">
+      <p className="m-0">
         Counts of {name}&apos;s {formatNumber(profile.tenderCount)} defence notices in our archive (the “Tenders in archive” above: a notice published in TED and in a national portal is one), from {profile.sources.length === 1 ? 'one source' : `${profile.sources.length} sources`}.
         They count notices, not contract value, and are only as complete as those sources: see <Link href="/data" className="font-semibold">source status</Link>.
       </p>
+      </AboutData>
       <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Typical response window">
           <span>{daysText(w.median)}</span>

@@ -215,7 +215,7 @@ test('partner suggestions load on request, are ranked with their evidence, and f
   await expect(items.first()).toContainText('5 projects in this area, 2 as coordinator, latest 2025');
   await expect(items.first()).toContainText('ORBITX (2025, coordinator); SKYZ (2024)');
   await expect(page.getByRole('link', { name: 'Alpha SA' })).toHaveAttribute('href', '/organisations/11-alpha-sa');
-  await expect(page.getByText(/not a recommendation/)).toBeVisible();
+  await expect(page.getByText(/not a recommendation/).first()).toBeVisible();
   await page.getByLabel('Show organisations from').selectOption('ES');
   await expect(page.getByRole('link', { name: 'Alpha SA' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Charlie SL' })).toBeVisible();

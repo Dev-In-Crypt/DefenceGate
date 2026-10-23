@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { visit } from './helpers';
+import { openAbout, visit } from './helpers';
 
 /**
  * WP-85 (owner decision of 22 October 2026): the supplier map counts the contracts the supplier report counts in "who to approach",
@@ -11,7 +11,10 @@ import { visit } from './helpers';
 const SUPPLIERS = { title: /supplier map/i, h1: 'Companies' } as const;
 
 test('/suppliers says it covers the contracts of "who to approach", over three years', async ({ page }) => {
-  await visit(page, '/suppliers', { ...SUPPLIERS, text: ['published in the last three years', 'the same contracts the supplier report counts'] });
+  await visit(page, '/suppliers', SUPPLIERS);
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
+  for (const t of ['published in the last three years', 'the same contracts the supplier report counts']) await expect(page.getByText(t).first()).toBeVisible();
   await expect(page.getByText(/from 2023|2023 is thin|main CPV code starts/)).toHaveCount(0);
   await expect(page.getByText(/with any CPV code starting with one of them/)).toBeVisible();
 });
@@ -22,6 +25,8 @@ test("the supplier's country and the buyer's country are two filters, each label
   await expect(search.getByLabel(/^Supplier's country/)).toHaveValue('');
   await expect(search.getByLabel(/^Buyer's country/)).toHaveValue('France');
   await expect(page.locator('#results-heading')).toHaveText(/^Suppliers \(\d+\)$/);
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(page.getByText(/The buyer's country is the country of the buyer that awarded the contract/)).toBeVisible();
   await visit(page, '/suppliers?buyerCountry=Atlantis', SUPPLIERS);
   await expect(page.getByText('Not a country', { exact: true })).toBeVisible();
@@ -31,6 +36,8 @@ test('a supplier page counts contracts over the last three years', async ({ page
   await visit(page, '/suppliers/1-demo-airframes-gmbh', { title: /Demo Airframes/i, h1: 'Demo Airframes GmbH' });
   await expect(page.getByText('Contracts won, last three years')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Contracts per year' })).toBeVisible();
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(page.getByText(/the same contracts the supplier report counts in “who to approach”/)).toBeVisible();
   await expect(page.getByText(/from 2023/)).toHaveCount(0);
 });

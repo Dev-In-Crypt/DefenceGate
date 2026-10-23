@@ -367,7 +367,7 @@
    "what_changed": "Under Article 11(2) of Regulation (EU) 2025/2643 only contracting authorities of Member States or associated countries, international organisations, SEAPs (structures for European armament programmes) and the European Defence Agency are eligible for common procurement actions. A company or a research body cannot apply to a call of that kind (the EDIP calls whose topic code contains CPA); it can take part in other roles, such as associated partner or subcontractor, as the call documents say. Industrial reinforcement actions (Article 12) are not under this rule.",
    "event_date": "2025-12-30",
    "status": "in_force",
-   "affected": "Companies that look at the EDIP common procurement calls (topic codes EDF-EDIP-P-...-FNLC-CPA-...) as applicants, and the contracting authorities that would lead them.",
+   "affected": "Companies that look at the EDIP common procurement calls (the calls whose topic code contains CPA) as applicants, and the contracting authorities that would lead them.",
    "source_url": "https://publications.europa.eu/resource/celex/32025R2643",
    "source_ref": "Regulation (EU) 2025/2643, Article 11(2); Official Journal L, 29.12.2025",
    "source_quote": "Only the following legal entities shall be eligible for common procurement actions:",

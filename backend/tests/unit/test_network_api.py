@@ -21,14 +21,15 @@ from dgate.suppress import WITHHELD_NAME
 def test_resolution_note_says_how_many_participations_were_matched_each_way():
     note = resolution_note({"pic": 3, "exact_name": 1}, 0.9, "999000001")
     assert note == ("Participations: 3 of 4 matched by its PIC, the participant identification code the source states; "
-                    "1 of 4 matched by its exact normalised name within the country. Lowest confidence 0.90.")
+                    "1 of 4 matched by the same name (ignoring accents, capitals and the legal form) in the same country. "
+                    "How sure the least certain match is: 0.90 on a scale to 1 (1 is certain).")
 
 
 def test_resolution_note_for_one_method_and_for_nothing_held():
     assert resolution_note({"pic": 5}, 1.0, "1").startswith("Participations: all 5 matched by its PIC")
     assert resolution_note({}, None, None) == "No participation is held for this organisation."
-    assert resolution_note({"exact_name_ambiguous": 2}, 0.8, None).endswith("No PIC is held, so it was recognised by name.")
-    assert "queued for review" in resolution_note({"exact_name_ambiguous": 2}, 0.8, None)
+    assert resolution_note({"exact_name_ambiguous": 2}, 0.8, None).endswith("The sources give it no PIC, so it was recognised by its name.")
+    assert "queued for a person to check" in resolution_note({"exact_name_ambiguous": 2}, 0.8, None)
 
 
 def test_a_method_without_a_word_is_still_said():

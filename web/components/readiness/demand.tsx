@@ -10,6 +10,7 @@ import { Button } from '@/components/dg/button';
 import { DataTable } from '@/components/dg/data-table';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import { useCpvVocabulary, type DemandState } from './use-readiness';
+import { AboutData } from '@/components/dg/about-data';
 
 export type DemandResult = DemandState & { retry: () => void };
 
@@ -89,7 +90,7 @@ function Country({ c, kMin }: { c: DemandCountry; kMin: number }) {
 }
 
 function Coverage({ d }: { d: Demand }) {
-  return <p className="m-0 max-w-prose text-small text-ink-muted" data-demand-coverage>{d.coverage}</p>;
+  return <AboutData summary="How we count"><p className="m-0" data-demand-coverage>{d.coverage}</p></AboutData>;
 }
 
 /** The whole map, for the printable report. `result`: the one demand request of the page (WP-80: "who to approach" reads it too). */
@@ -112,8 +113,10 @@ export function DemandMap({ result }: { result: DemandResult }) {
         ))}
       </ul>
       {d.byCountry.map((c) => <Country key={c.country} c={c} kMin={d.kMin} />)}
-      <p className="m-0 max-w-prose text-small text-ink-muted">{d.winnersFrom} {d.notice}</p>
-      <p className="m-0 max-w-prose text-small text-ink-muted">{d.sources.map((s) => s.attribution).join(' ')}</p>
+      <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{d.sources.map((s) => s.attribution).join(' ')}</p>
+      <AboutData summary="What the counts mean">
+        <p className="m-0">{d.winnersFrom} {d.notice}</p>
+      </AboutData>
     </div>
   );
 }

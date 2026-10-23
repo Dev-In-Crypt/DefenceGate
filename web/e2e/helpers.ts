@@ -31,6 +31,11 @@ export interface Expect {
  * text, no horizontal scroll (the check that matters at 375 px, kept at every width), and no e-mail address in the
  * document.
  */
+/** WP-88: open every collapsed About this data / How we count of the page, so a test can read what is in it. */
+export async function openAbout(page: Page): Promise<void> {
+  await page.evaluate(() => document.querySelectorAll<HTMLDetailsElement>('main [data-about] details').forEach((d) => { d.open = true; }));
+}
+
 export async function visit(page: Page, path: string, want: Expect): Promise<Response> {
   const errors = watchErrors(page);
   const response = await page.goto(path, { waitUntil: 'load' });

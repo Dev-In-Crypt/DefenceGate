@@ -4,7 +4,8 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { formatDateUtc, formatNumber } from '@/lib/format';
-import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, contributionMissing, formatEur, isNetworkSlug, methodWord, yearsLabel } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, contributionMissing, formatEur, isNetworkSlug, methodWord, programmeName, yearsLabel } from '@/lib/networks';
+import { AboutData, InfoLink } from '@/components/dg/about-data';
 import { getOrganisation, getOrganisationFunding, getOrganisationProjects, getPartners } from '@/lib/networks-api';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
@@ -77,7 +78,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
       <JsonLd data={{ '@context': 'https://schema.org', '@type': 'Organization', name, url: absoluteUrl(base), address: { '@type': 'PostalAddress', addressCountry: org.country } }} />
       <PageHeader
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: name, href: base }]}
-        eyebrow={<p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p.code || 'none'} kind="programme">{p.code || 'Programme not stated'}</Tag>)}</p>}
+        eyebrow={<p className="m-0 flex flex-wrap gap-2">{org.programmes.map((p) => <Tag key={p.code || 'none'} kind="programme">{p.code ? programmeName(p.code) : 'Programme not stated'}</Tag>)}</p>}
         title={name}
       >
         <FactsGrid>
@@ -88,7 +89,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
           <FactCell label="Defence projects"><span className="tabular-nums">{defenceProjectsOf(org)}</span></FactCell>
           <FactCell label="Projects, all programmes"><span className="tabular-nums">{org.counts.projects}</span></FactCell>
           <FactCell label="As coordinator"><span className="tabular-nums">{org.counts.coordinated}</span></FactCell>
-          <FactCell label="EU contribution (CORDIS)">
+          <FactCell label="EU contribution">
             {org.counts.euContribution === null ? <span className="font-sans">{contributionMissing(org.programmes.map((p) => p.code))}</span> : formatEur(org.counts.euContribution)}
           </FactCell>
           <FactCell label="Active"><span>{yearsLabel(org.counts.firstYear, org.counts.lastYear)}</span></FactCell>
@@ -108,13 +109,15 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
       {tab === 'projects' && <ProjectsTab slug={org.slug} sp={sp} page={page} base={base} />}
       {tab === 'aliases' && <AliasesTab org={org} />}
 
+      {/* WP-88: one line under the heading of DataSources; the country rule, the sources and the removal route are in its About this data. */}
+      <DataSources sources={org.sources} amountNote={org.amountNote}>
       <CountryNote />
-      <DataSources sources={org.sources} amountNote={org.amountNote} />
       <p className="m-0 max-w-prose text-small text-ink-muted">
         Names are as CORDIS and the EDF project factsheets publish them. We do not list an organisation whose name looks like a natural person&rsquo;s.
         If this entry is you, or a business named after you, and you want it removed, write to the contact in the <Link href="/imprint" className="font-semibold">imprint</Link>;
         the <Link href="/privacy" className="font-semibold">privacy notice</Link> (sections 7 and 9) says how a request is handled.
       </p>
+      </DataSources>
     </>
   );
 }
@@ -135,7 +138,9 @@ function Overview({ org }: { org: OrgProfile }) {
   return (
     <>
       <Card title="How we recognised this organisation" id="recognised">
-        <p className="m-0 text-body">{org.resolution.note}</p>
+        <p className="m-0 text-body">{org.pic ? 'By its PIC, the registration number of EU programmes, where the source gives one, otherwise by its name.' : 'By its name: the sources give it no PIC, the registration number of EU programmes.'} <InfoLink id="pic" term="PIC" /></p>
+        <AboutData summary="How each project was matched">
+        <p className="m-0">{org.resolution.note}</p>
         <FactsGrid className="border-b-0 [&>div:first-child]:border-t-0">
           <Fact label="PIC" wide={!org.pic}>
             {org.pic
@@ -146,6 +151,7 @@ function Overview({ org }: { org: OrgProfile }) {
           {org.variantOf && (<Fact label="Name variant of" wide>This row is shown under {org.variantOf.organisation.slug ? <Link href={`/organisations/${org.variantOf.organisation.slug}`} className="underline underline-offset-2">{org.variantOf.organisation.name}</Link> : org.variantOf.organisation.name} in the directory; it is a separate row and is not merged.</Fact>)}
           {org.mergedFrom > 0 && (<Fact label="Merged names" wide>{org.mergedFrom} other organisation {org.mergedFrom === 1 ? 'row was' : 'rows were'} merged into this one; their projects are counted here.</Fact>)}
         </FactsGrid>
+        </AboutData>
       </Card>
       <Card title="By programme" id="by-programme">
         {org.programmes.length <= 2 ? (
@@ -282,7 +288,7 @@ function AliasesTab({ org }: { org: OrgProfile }) {
           <tr>
             <th scope="col" className="min-w-44">Name</th>
             <th scope="col" className="min-w-36">Matched by</th>
-            <th scope="col" className="text-right">Confidence</th>
+            <th scope="col" className="text-right">How sure (1 is certain)</th>
             <th scope="col" className="whitespace-nowrap">First seen</th>
           </tr>
         </thead>

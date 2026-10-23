@@ -1178,7 +1178,7 @@
     },
     {
      "field": "nato_icb_bid",
-     "question": "Do you want to bid in a NATO international competitive bidding (NSIP) tender?"
+     "question": "Do you want to bid in a NATO international competitive bidding tender (NATO Security Investment Programme)?"
     },
     {
      "field": "rid_capabilities_declared",
@@ -1569,7 +1569,7 @@
      "asks": [
       {
        "field": "nato_icb_bid",
-       "question": "Do you want to bid in a NATO international competitive bidding (NSIP) tender?"
+       "question": "Do you want to bid in a NATO international competitive bidding tender (NATO Security Investment Programme)?"
       },
       {
        "field": "rid_capabilities_declared",

@@ -8,6 +8,7 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { SITE, buildMetadata } from '@/lib/seo';
 import { ContentPage } from '@/components/dg/content-page';
 import { Details } from '@/components/dg/details';
+import { AboutData } from '@/components/dg/about-data';
 import { Fact } from '@/components/dg/facts-grid';
 import { Icon } from '@/components/dg/icon';
 import { Tag } from '@/components/dg/tag';
@@ -96,10 +97,12 @@ export default async function RegulationPage() {
       wide
     >
       <div className="flex max-w-prose flex-col gap-2">
-        <p className="m-0 text-small text-ink-muted">
-          {feed.notice}{feed.lastChecked ? ` Last checked ${formatDateUtc(feed.lastChecked)}.` : ''}
-        </p>
-        <p className="m-0 text-small text-ink-muted">Newest event first. Each entry has a link to itself and a line you can copy into a note.</p>
+        {/* WP-88: what the tracker is and is not (the feed's notice) is collapsed under one line. */}
+        <p className="m-0 text-small text-ink-muted">Newest event first{feed.lastChecked ? `; last checked ${formatDateUtc(feed.lastChecked)}` : ''}.</p>
+        <AboutData>
+          <p className="m-0">{feed.notice}</p>
+          <p className="m-0">Each entry has a link to itself and a line you can copy into a note.</p>
+        </AboutData>
         <a href="/regulation.atom" className="inline-flex min-h-11 items-center gap-1 self-start text-small font-semibold"><Icon icon={Rss} size="inline" />Atom feed</a>
       </div>
       <EntryList chips={chips} items={items} />

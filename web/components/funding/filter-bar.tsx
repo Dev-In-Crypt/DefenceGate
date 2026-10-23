@@ -52,7 +52,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
           </FoldGroup>
         )}
         {show('regime') && (
-          <FoldGroup legend="Regime" count={filters.regime?.length}>
+          <FoldGroup legend="Defence or dual-use" count={filters.regime?.length}>
             {REGIME_CODES.map((r) => <Choice key={r} name={PARAM.regime} value={r} label={REGIMES[r]} defaultChecked={filters.regime?.includes(r)} />)}
             <p className="m-0 text-small text-ink-muted">
               Dual-use is our label for calls under civil programmes we treat as dual-use. It is not the programme’s label.
@@ -69,7 +69,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
           </FoldGroup>
         )}
         {show('cascade') && (
-          <FoldGroup legend="Financial support to third parties" count={filters.cascade === true ? 1 : 0}>
+          <FoldGroup legend="Cascade funding" count={filters.cascade === true ? 1 : 0}>
             <Choice name={PARAM.cascade} value="true" defaultChecked={filters.cascade === true}
               label={`Only calls with cascade funding${typeof cascadeTotal === 'number' ? ` (${cascadeTotal})` : ''}`} />
             <p className="m-0 text-small text-ink-muted">

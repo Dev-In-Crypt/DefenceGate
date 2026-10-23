@@ -16,8 +16,8 @@ export interface GlossaryEntry {
 
 export const GLOSSARY: GlossaryEntry[] = [
   {
-    id: 'scope', term: 'Scope (defence-relevant, core, supplies)',
-    body: 'Defence-relevant is the default list: the core defence notices and the supplies to defence buyers together. Core means the notice itself is defence, by the defence procurement directive or a military product code. Supplies to defence buyers are notices that are here because their buyer is a defence body, or because of a single defence signal from the wrong kind of buyer. Each card says why it is on the list. A military code bought by a municipality or a hospital is dual-use and only appears under All.',
+    id: 'scope', term: 'Scope (All defence, Military goods and works, Other purchases by armed forces)',
+    body: 'All defence is the two groups together. Military goods and works are notices that are defence themselves, by the defence procurement directive or a military product code. Other purchases by armed forces are notices that are here because their buyer is a defence body, or because of a single defence signal from the wrong kind of buyer. Each card says why it is on the list. A military code bought by a municipality or a hospital is dual-use and appears only under Everything.',
     see: { label: 'How a notice is judged', href: '/methodology' },
   },
   {
@@ -207,5 +207,51 @@ export const GLOSSARY: GlossaryEntry[] = [
   {
     id: 'veat', term: 'VEAT', full: 'Voluntary ex ante transparency notice',
     body: 'A voluntary notice a buyer publishes before awarding a contract without a prior call for competition. It states that the buyer intends to do so and gives its reasons, and it lets other suppliers react before the contract is signed.',
+  },
+  // WP-88: the terms the pages now explain in place (an (i) link or About this data) rather than show bare.
+  {
+    id: 'pic', term: 'PIC', full: 'Participant Identification Code',
+    body: 'The nine-digit number an organisation gets when it registers on the EU Funding and Tenders Portal. It is needed to apply for EU grants such as the EDF and EDIP, and the EU project records identify participants by it. Where a source gives no PIC, we recognise an organisation by its name in its country.',
+    source: 'EU Funding & Tenders Portal',
+  },
+  {
+    id: 'match-confidence', term: 'How sure a match is',
+    body: 'When a name in a source is linked to an organisation we hold, the way it was linked (a registration number, the same name in the same country, a spelling linked before) gives a score from 0 to 1, where 1 is certain. A similar name alone never links two records: such pairs wait for a person to decide.',
+    see: { label: 'How the data is built', href: '/methodology' },
+  },
+  {
+    id: 'edidp', term: 'EDIDP', full: 'European Defence Industrial Development Programme',
+    body: 'The EU programme of 2019 and 2020 that co-funded the development of defence products by consortia of companies. It was a predecessor of the European Defence Fund, and its projects count as defence projects here.',
+  },
+  {
+    id: 'padr', term: 'PADR', full: 'Preparatory Action on Defence Research',
+    body: 'The EU’s first funding of defence research, from 2017 to 2019, and a predecessor of the European Defence Fund. Its projects count as defence projects here.',
+  },
+  {
+    id: 'cordis', term: 'CORDIS', full: 'Community Research and Development Information Service',
+    body: 'The European Commission’s public database of EU-funded research projects and their participants. The organisation pages read projects, roles and EU contributions from it, with the EDF project factsheets for defence projects.',
+    source: 'CORDIS, European Commission',
+  },
+  {
+    id: 'placsp', term: 'PLACSP', full: 'Plataforma de Contratación del Sector Público',
+    body: 'Spain’s national public procurement portal, run by the Ministry of Finance. Spanish notices and their award results are read from it as well as from TED; an award published in both is counted once.',
+    source: 'Ministerio de Hacienda',
+  },
+  {
+    id: 'hsem', term: 'HSEM', full: 'Habilitación de Seguridad de Empresa',
+    body: 'The Spanish company security clearance, needed by bidders and subcontractors at any level that access classified information. Who issues it depends on whose information it is.',
+    source: 'Ministerio de Defensa',
+    see: { label: 'The requirement', href: '/requirements' },
+  },
+  {
+    id: 'lcsp', term: 'LCSP', full: 'Ley 9/2017 de Contratos del Sector Público',
+    body: 'Spain’s public sector contracts law, the legal basis the Spanish platform states for an ordinary public contract. Defence and security contracts in Spain can fall under a separate law instead.',
+    source: 'BOE (Boletín Oficial del Estado)',
+  },
+  {
+    id: 'hses', term: 'HSES', full: 'Habilitación de Seguridad de Establecimiento',
+    body: 'The Spanish clearance of a company’s premises for storing classified information, needed on top of the HSEM.',
+    source: 'Ministerio de Defensa',
+    see: { label: 'The requirement', href: '/requirements' },
   },
 ];

@@ -118,7 +118,8 @@ test('a call that has cascade funding says so on its page, with the sentence it 
   const href = await page.locator('a[href^="/funding/"]:not([href*="export"])').first().getAttribute('href');
   test.skip(!href, 'no call with cascade funding on this site');
   await visit(page, href!, { title: /DefenceGate/, h1: /.+/ });
-  await expect(page.getByRole('heading', { name: 'Financial support to third parties', exact: true })).toBeVisible();
+  // WP-88: the panel is named by its plain term (the glossary's "cascade funding")
+  await expect(page.getByRole('heading', { name: 'Cascade funding', exact: true })).toBeVisible();
   await expect(page.getByText('This call has cascade funding')).toBeVisible();
 });
 

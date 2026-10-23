@@ -10,6 +10,7 @@ import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { ListPage } from '@/components/dg/list-page';
 import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
 import { CountryNote, DataSources, OrgCard, OrgFilterBar, ProgrammeScope } from '@/components/networks/parts';
+import { AboutData } from '@/components/dg/about-data';
 
 export const revalidate = 60;
 
@@ -71,12 +72,11 @@ export default async function OrganisationsPage({ searchParams }: Props) {
         emptyTitle="No organisations match these filters"
         emptyText="Try a shorter name or fewer filters. Only organisations that took part in at least one project we hold are listed."
         hrefFor={(p) => `/organisations${toOrgQuery({ ...filters, page: p })}`}
-        footnote="Counts are projects with an active participant, as the sources list them today. Defence projects are those of the European Defence Fund and its predecessors (EDIDP, PADR); the other figures count every programme, civil research included. A name that looks like a natural person is not listed; to ask for a removal, write to the contact in the imprint (privacy notice, section 9)."
+        footnote={<AboutData summary="How we count">Counts are projects with an active participant, as the sources list them today. Defence projects are those of the European Defence Fund and its predecessors (EDIDP, the European Defence Industrial Development Programme, and PADR, the Preparatory Action on Defence Research); the other figures count every programme, civil research included. A name that looks like a natural person is not listed; to ask for a removal, write to the contact in the imprint (privacy notice, section 9).</AboutData>}
       >
         {result.items.map((o) => <li key={o.id}><OrgCard org={o} scope={defaultOrgSort(filters) === 'defence' ? 'defence' : 'all'} /></li>)}
       </ListPage>
-      <CountryNote />
-      <DataSources sources={result.meta.sources} amountNote={result.meta.amountNote} />
+      <DataSources sources={result.meta.sources} amountNote={result.meta.amountNote}><CountryNote /></DataSources>
     </>
   );
 }

@@ -297,7 +297,7 @@ test('the first step needs a country, and a page of results without answers says
 });
 
 test('the wizard page says where the answers go and what the check does not do', async ({ page }) => {
-  await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check', text: ['Your answers stay in this browser', 'What it does not do'] });
+  await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check', text: ['Your answers are not stored on our server', 'What it does not do'] });
   await expect(page.getByText(/not legal advice/).first()).toBeVisible();
   await expect(page.getByText(/AQAP quality certification is not an eligibility condition/)).toBeVisible();
 });
