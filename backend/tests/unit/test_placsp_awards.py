@@ -192,13 +192,36 @@ def test_a_landed_payload_is_not_redacted_twice():
 ES_PERSONS = [
     ("GARCIA LOPEZ JUAN", None), ("JOSE LUIS FERNANDEZ RUIZ", None), ("FERNANDEZ RUIZ JOSE LUIS", None),
     ("MARTINEZ SANCHEZ, ANTONIO", None), ("MARIA DEL CARMEN DE LA FUENTE", None),
-    ("ANY NAME AT ALL S.L.", "12345678Z"), ("ANY NAME", "X1234567L"), ("ANY NAME", "***1234**"),
+    ("ANY NAME", "X1234567L"), ("ANY NAME", "***1234**"),
     ("Juan García López", None),
     # WP-94: loaded before the ES rule, stated no number
     ("GABRIELA GARCIA CARRASCAL", None), ("JUAN JOSE FERNANDEZ BALONGO", None), ("JOSE ANTONIO GARCIA VERA", None),
     ("GARCIA LOPEZ, JUAN", None), ("Juan José Fernández", None), ("RECAMBIOS GOMEZ", "12345678Z"),
-    ("DISA GAS S.A.U", "***1234**"),
+    ("RAUL HERNANDEZ JIMENEZ", None), ("DANIEL MENDEZ HERNANDEZ", None),
+    # a UTE with no company member left
+    ("UTE [natural person]", None), ("UTE [natural person] - [natural person]", None),
+    ("UTE [natural person] - [natural person] - S.L.", None),
 ]
+# WP-94 (production preview of 23 Oct 2026): a UTE whose person members are blanked stays a party of its own
+ES_JOINT_VENTURES_KEPT = [
+    "UTE ITURRI SA - [natural person] - S.A.", "UTE THALES ESPAÑA - [natural person]",
+    "UTE AIRBUS DEFENCE AND SPACE - [natural person] - AIRBUS HELICOPTERS ESPAÑA - [natural person]",
+    "UTE [natural person] - AIRBUS HELICOPTERS ESPAÑA CLAEX 2024",
+    "Unión Temporal de Empresas denominada “[natural person] - S.L - Grupo Render",
+    "Unión Temporal de Empresas denominada “Matías Arrom Bibiloni - S.L - Grupo Render",
+]
+
+
+def test_a_ute_member_in_curly_quotes_is_blanked():
+    assert awards.joint_venture_name("Unión Temporal de Empresas denominada “Matías Arrom Bibiloni - S.L - Grupo Render"
+                                     ) == "Unión Temporal de Empresas denominada [natural person] - S.L - Grupo Render"
+
+
+@pytest.mark.parametrize("name", ES_JOINT_VENTURES_KEPT)
+def test_a_ute_with_a_company_member_left_is_a_supplier(name):
+    assert awards.person_reason(name, None, "ES") is None
+    from dgate.ops.clean_suppliers import verdict
+    assert verdict(name, "ES", None) is None
 ES_COMPANIES = [
     ("TALLERES HERMANOS PEREZ S.L.", None), ("INDRA SISTEMAS, S.A.", None), ("GARCIA LOPEZ JUAN", "B12345678"),
     ("NAVANTIA", None), ("UTE INDRA - ISDEFE", "U12345678"), ("UNION TEMPORAL DE EMPRESAS ALFA Y BETA", None),
@@ -216,6 +239,10 @@ ES_COMPANIES = [
         "Jucansur de Obras y Const.S.L.", "JOSE ANTONIO GARCIA S. A. U.", "JUAN PEREZ S.L.L.", "MARIA LOPEZ S.COOP",
         "TALLERES JUAN GARCIA")),
     ("JUAN GARCIA LOPEZ", "B12345678"),
+    # WP-94: a legal form or a business word beats a person's (masked or DNI/NIE) number
+    ("NAMMO PALENCIA SLU", "***1234**"), ("NAMMO PALENCIA SLU", "12345678Z"),
+    ("Sener Aerospace and Defence (SCR Division)", "***1234**"), ("Sener Aerospace and Defence (SCR Division)", "X1234567L"),
+    ("ANY NAME AT ALL S.L.", "12345678Z"), ("DISA GAS S.A.U", "***1234**"),
 ]
 
 
@@ -228,7 +255,8 @@ def test_clean_suppliers_reads_the_stated_number():
     from dgate.ops.clean_suppliers import verdict
     assert verdict("JUAN GARCIA LOPEZ", "ES", "B12345678") is None
     assert verdict("JUAN GARCIA LOPEZ", "ES", None) == "person_name"
-    assert verdict("DISA GAS S.A.U", "ES", "12345678Z") == "person_identifier"
+    assert verdict("RUIZ PEREZ", "ES", "12345678Z") == "person_identifier"
+    assert verdict("DISA GAS S.A.U", "ES", "12345678Z") is None
     assert verdict("DISA GAS S.A.U", "ES", None) is None
 
 

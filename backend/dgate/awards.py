@@ -208,7 +208,7 @@ _ES_GIVEN = frozenset("""
     gustavo hector isidro jacinto leandro leonardo lucas marcelino mateo mauricio nestor rodrigo rogelio
     teodoro valentin abel adolfo alfredo anselmo aurelio bartolome basilio camilo celestino clemente damian
     dionisio eloy elias eugenio fabian faustino fermin florencio gerardo german gines isaac jeronimo juanjo
-    joaquim marcelo moises narciso pascual joao goncalo rui nuno tiago paulo duarte vasco afonso
+    joaquim marcelo moises narciso pascual matias joao goncalo rui nuno tiago paulo duarte vasco afonso
     maria carmen ana isabel dolores pilar teresa rosa josefa francisca antonia laura cristina marta lucia
     mercedes elena manuela concepcion raquel sara paula rosario beatriz encarnacion julia silvia patricia
     irene montserrat montse monica alicia sonia rocio sandra yolanda esther andrea marina nuria inmaculada
@@ -237,6 +237,12 @@ _ES_TRADE = frozenset("""
 """.split())
 
 
+def _jv_has_company(name: str) -> bool:
+    """Whether a UTE name keeps a member besides PERSON_PLACEHOLDER (a lone legal form is no member)."""
+    rest = _JOINT_VENTURE.sub(" ", name.replace(PERSON_PLACEHOLDER, " "))
+    return bool(set(_words(rest)) - _ES_PARTICLES - _LEGAL_FORMS - {"empresas", "denominada"})
+
+
 def _es_person_name(tokens: list[str], words: set[str]) -> bool:
     shape = [t for t in tokens if t.lower() not in _ES_PARTICLES]
     return (2 <= len(shape) <= 5 and all(t.replace("-", "").isalpha() for t in shape)
@@ -247,11 +253,17 @@ def _es_person_name(tokens: list[str], words: set[str]) -> bool:
 def person_reason(name: str, identifier: str | None = None, country: str | None = None) -> str | None:
     """Why this winner is not published as a supplier, or None when it is a legal entity."""
     raw = (name or "").strip()
+    if is_joint_venture(raw) and PERSON_PLACEHOLDER in raw:
+        # WP-94: a UTE whose person members joint_venture_name blanked is a party of its own while a company is left
+        return None if _jv_has_company(raw) else "person_marked"
     if not raw or raw == PERSON_PLACEHOLDER or "natural person" in raw.lower() or "osoba fizyczna" in raw.lower():
         return "person_marked"
     tax = es_tax_kind(identifier, country)
     if tax == "person":
-        return "person_identifier"
+        if not set(_words(raw)) & _CORPORATE:
+            return "person_identifier"
+        # WP-94: a legal form or a business word in the name beats a person's number ("NAMMO PALENCIA SLU")
+        log.info("a person's tax number stated for a name with a legal form or business word: read as an entity")
     if tax == "entity":
         return None                     # a CIF is a legal entity's, whatever its name looks like
     words = set(_words(raw))
@@ -261,7 +273,7 @@ def person_reason(name: str, identifier: str | None = None, country: str | None 
     legal_form = bool(words & _LEGAL_FORMS)
     if not legal_form and _ADDRESS.search(raw):
         return "person_in_trading_name"            # a street or a postal code in a name: a sole trader's
-    tokens = [t.strip(",;()\"'") for t in raw.replace(".", " ").split()]
+    tokens = [t.strip(",;()\"'“”«»") for t in raw.replace(".", " ").split()]
     tokens = [t for t in tokens if t]
     if _PL_TRAILING_PERSON.search(raw) and not has_marker:
         return "person_in_trading_name"
@@ -303,7 +315,7 @@ def joint_venture_name(name: str, country: str | None = "ES") -> str:
     if not m:
         return name
     head, rest = name[:m.end()], name[m.end():]
-    lead = re.match(r"[\s:,\-]*(?:de\s+empresas\b)?[\s:,\-]*", rest, re.IGNORECASE).group(0)
+    lead = re.match(r"[\s:,\-]*(?:de\s+empresas\b)?[\s:,\-]*(?:denominada\b)?[\s:,\-]*", rest, re.IGNORECASE).group(0)
     parts = [p for p in _JV_SPLIT.split(rest[len(lead):]) if p.strip()]
     kept = [PERSON_PLACEHOLDER if person_reason(p.strip(), None, country) else p.strip() for p in parts]
     if kept == [p.strip() for p in parts]:

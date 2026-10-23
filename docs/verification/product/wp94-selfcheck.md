@@ -45,3 +45,25 @@ name and no trade word, or a person's number. Check with the preview before `cle
 New: `tests/unit/test_placsp_awards.py` (the 24 production companies and four person-name companies are companies, the
 three production persons and the typical forms are persons, every dotted/run-together form, `verdict` reads the number);
 `tests/integration/test_wp94.py` (preview writes nothing and counts 2 of 6; `clean_suppliers --yes` marks exactly the two).
+
+## Follow-up: the production preview of 23 October 2026
+
+The coordinator's read-only run of `person_preview` marked 217 rows: `person_name` 5 (all persons), `person_identifier` 10,
+`person_marked` 202. Two false-positive classes, fixed in `person_reason` (shared by the loader and the cleaner):
+
+1. `person_marked` on joint ventures: 202 rows were UTE names whose person members `joint_venture_name` had already blanked
+   ("UTE THALES ESPAÑA - [natural person]"). A UTE with "[natural person]" and at least one other member (a lone legal form
+   such as "- S.A." is no member) is a supplier; "UTE [natural person]", "UTE [natural person] - [natural person]" stay
+   `person_marked`. Also found: the UTE splitter left "denominada “Matías Arrom Bibiloni" unblanked (the word "denominada"
+   and the curly quote broke the name shape, and Matías was not a listed given name); fixed, tested.
+2. `person_identifier` beating a legal form: a person's number (masked, DNI or NIE) no longer marks a name that has a legal form
+   or a business word ("NAMMO PALENCIA SLU", "Sener Aerospace and Defence (SCR Division)"); logged at INFO, without name or
+   number. This also changes the older test "ANY NAME AT ALL S.L." with a DNI: now an entity. `person_preview` prints the
+   identifier class (none / masked / dni / nie / cif / other) per reason and per sample line, never the number.
+
+Expected preview after this change: `person_name` 5, `person_identifier` 10 minus those whose name holds a legal form or business
+word (at least the 2 named, so 8 or fewer), `person_marked` only the UTEs with no company member left (from 202 to the handful
+that are all "[natural person]").
+
+Re-run: ruff clean; unit 3485 passed; integration `test_wp94` and every award / PLACSP / supplier / wp39 / person suite
+(`-k "award or placsp or supplier or wp39 or wp94 or person or individual or ezam"`) 118 passed.

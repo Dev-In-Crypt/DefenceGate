@@ -16,7 +16,11 @@ ROWS = [  # name_as_stated, identifier_as_stated, expected excluded_reason
     ("CONTINENTAL TIRES", None, None),
     ("HIERROS BUENO SAL", None, None),
     ("JUAN GARCIA LOPEZ", "B12345678", None),            # a CIF: an entity, whatever its name
-    ("ANY TRADE NAME", "12345678Z", "person_identifier"),  # a DNI
+    ("RUIZ PEREZ", "12345678Z", "person_identifier"),  # a DNI
+    ("NAMMO PALENCIA SLU", "***1234**", None),             # a legal form beats a masked number
+    ("Sener Aerospace and Defence (SCR Division)", "***5678**", None),
+    ("UTE THALES ESPAÑA - [natural person]", None, None),   # a member blanked, a company left
+    ("UTE [natural person] - [natural person]", None, "person_marked"),
 ]
 
 
@@ -33,7 +37,8 @@ def test_the_cleaner_and_the_preview_flag_only_the_persons(conn, env, capsys):  
 
     assert person_preview.main([]) == 0
     out = capsys.readouterr().out
-    assert "6 award rows read; 2 would be a natural person" in out and "2 distinct" in out
+    assert "10 award rows read; 3 would be a natural person" in out and "3 distinct" in out
+    assert "'person_identifier/dni': 1" in out and "'person_name/none': 1" in out and "12345678Z" not in out
     assert "GABRIELA" in out and "DISA" not in out
     assert conn.execute("SELECT count(*) AS n FROM award WHERE excluded_reason IS NOT NULL").fetchone()["n"] == 0
 
