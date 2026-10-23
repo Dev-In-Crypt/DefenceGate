@@ -146,6 +146,35 @@ def test_designated_applicants_are_read_per_topic_with_the_consortium_route_wher
     assert read_document(DEP12, None) == {} and read_document("", "DIGITAL-X-Y-Z") == {}
 
 
+# The production report of 23 October 2026 gave `designated_applicants` to every topic of the ECCC documents: a heading or a "For the
+# topic" sentence with the call's own code (a prefix of every topic's), or another year's code, was taken for each topic. Two topics,
+# one designated and one open, with those traps and no blank lines (as pypdf may give the text).
+MULTI = """Call: DIGITAL-ECCC-2027-DEPLOY-CYBER-13 -- Cybersecurity capacities
+DIGITAL-ECCC-2027-DEPLOY-CYBER-13 -- Cybersecurity capacities and operational preparedness
+This call targets exclusively National Coordination Centres which have been recognised by the Commission.
+DIGITAL-ECCC-2027-DEPLOY-CYBER-13-OPEN - Open tools for companies
+Targeted stakeholders
+Technology providers, SMEs, start-ups, research and academia, public sector.
+DIGITAL-ECCC-2027-DEPLOY-CYBER-13-NCH - National Cyber Hubs
+Targeted stakeholders
+The targeted stakeholders under a) above are public bodies acting as National Cyber Hubs, as identified by Member States.
+3. Available budget
+6. Eligibility
+For the topic DIGITAL-ECCC-2027-DEPLOY-CYBER-13: only entities designated at Member State level as National Cyber Hubs are allowed to apply.
+For the topic DIGITAL-ECCC-2026-DEPLOY-CYBER-09-OPEN: only entities designated at Member State level as National Cyber Hubs are allowed to apply.
+"""
+
+
+def test_a_designated_phrase_is_read_from_the_topics_own_section_only():
+    hub = designated(MULTI, "DIGITAL-ECCC-2027-DEPLOY-CYBER-13-NATCH")["designated_applicants"]
+    assert hub["value"] == "public bodies acting as National Cyber Hubs"
+    assert designated(MULTI, "DIGITAL-ECCC-2027-DEPLOY-CYBER-13-OPEN") == {}, "an open topic of the same document"
+    assert topic_section(MULTI, "DIGITAL-ECCC-2027-DEPLOY-CYBER-13-OPEN").strip().endswith("public sector.")
+    # the real documents too: the open topics of DEP-11 read nothing
+    for topic in ("AI4SME", "DUALUSE"):
+        assert designated(DEP11, f"DIGITAL-ECCC-2027-DEPLOY-CYBER-11-{topic}") == {}
+
+
 def test_the_aid_pages_give_the_group_staff_limit_and_the_staff_nationality():
     rapid = read_aid_page("Il s'adresse aux PME et ETI dont l'effectif consolidé de moins de 2000 salariés est établi en France.")
     assert rapid["max_group_headcount"]["value"] == 1999

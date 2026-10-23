@@ -69,7 +69,8 @@ def eu_rows(conn, result: Result, *, write: bool) -> None:
         names = _changed(r["fields"], read)
         if not names:
             continue
-        result.changed.append(f"{r['url']}: {', '.join(names)}")
+        # the value and the matched sentence of each reading, so that a report can be checked before --yes
+        result.changed.append(f"{r['url']}: " + "; ".join(f"{k} = {read[k]['value']!r} from “{read[k]['quote'][:240]}”" for k in names))
         if write:
             conn.execute("UPDATE call_eligibility SET fields = %s WHERE url = %s",
                          (Jsonb({**r["fields"], **{k: read[k] for k in names}}), r["url"]))
@@ -103,7 +104,8 @@ def aid_calls(conn, result: Result, *, write: bool) -> None:
         names = _changed(cond.get("rules_read") or {}, read_aid_page(text))
         if not names:
             continue
-        result.changed.append(f"call {c['id']} ({c['native_id']}): {', '.join(names)}")
+        new = read_aid_page(text)
+        result.changed.append(f"call {c['id']} ({c['native_id']}): " + "; ".join(f"{k} = {new[k]['value']!r} from “{new[k]['quote'][:240]}”" for k in names))
         if write:
             conn.execute("UPDATE call SET conditions_raw = %s WHERE id = %s", (Jsonb({**cond, **_aid_rules(text or '', day)}), c["id"]))
 
