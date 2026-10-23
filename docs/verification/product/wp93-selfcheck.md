@@ -132,3 +132,18 @@ programme read for a topic is scope `programme` (integration wp78); BM-03 / BM-0
 - Designated-entity readings depend on the call document's layout (topic headings "<code> - <title>", "3. Available budget"); a topic
   whose heading is not found reads nothing (fail closed). CBCH is a "no" for a company (the finding-4 rule); open decision whether a
   company joining a hub's consortium should be a "check" instead.
+
+## 6. Follow-up: designated bodies per topic (production report of 23 October 2026)
+
+The orchestrator's report run of `python -m dgate.ops.rule_readings` on production (not written: 95 rows, 16 to write) gave
+`designated_applicants` to every topic of the shared ECCC documents (DEP-10, 11, 12), the open AI4SME and DUALUSE topics included.
+Cause: the topic match reused `eligibility._same_topic`, which also takes the call's own code (a prefix of every topic's) and another
+year's code for the topic, so a heading or a "For the topic" sentence of the whole call, or of another year, was read for each topic.
+Fix: `rule_readings._same` matches only the topic's own code or its abbreviation under the same call prefix (NATCH / NCH), the "For the
+topic" paragraph is cut at 600 characters, and the report prints, per row, the value and the matched sentence. Test
+`test_a_designated_phrase_is_read_from_the_topics_own_section_only`: a two-topic document with a call-level heading saying "targets
+exclusively National Coordination Centres", a call-level and a previous-year "For the topic" sentence and no blank lines: the open topic
+reads nothing, the hub topic reads its own "Targeted stakeholders". The verifiers' DEP-11 and DEP-12 give readings for NCC, NATCH and
+CBCH only, as before. Re-run: ruff clean; unit (test_wp93, test_wp35, test_eligibility) 108 passed; integration (test_wp93, wp78, wp32,
+eligibility) 31 passed; lib checks all ok; next build ok; Playwright 692 passed, 56 skipped. The orchestrator should run the report
+again and check each printed sentence before `--yes`.

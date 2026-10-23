@@ -88,9 +88,19 @@ def _norm_code(code: str) -> str:
 
 
 def _same(mine: str, other: str) -> bool:
-    from .eligibility import _same_topic
-
-    return _same_topic(mine, other)
+    """`other` names exactly this topic: the same code, or the same call prefix and an abbreviation of the last part (the document writes
+    NCH for the portal's NATCH). Stricter than eligibility._same_topic on purpose: the call's own code (a prefix of every topic's) and
+    another year's code are not this topic, or one topic's designated bodies are read for every topic of the document (production
+    report of 23 October 2026: all 11 topics of DEP-10, 11 and 12)."""
+    a, b = mine.upper(), other.upper()
+    if a == b:
+        return True
+    (pa, _, la), (pb, _, lb) = a.rpartition("-"), b.rpartition("-")
+    if pa != pb or not pa:
+        return False
+    short, long = sorted((la, lb), key=len)
+    it = iter(long)
+    return len(short) >= 3 and short[0] == long[0] and all(ch in it for ch in short)
 
 
 def topic_section(text: str, topic: str) -> str:
@@ -111,7 +121,7 @@ def _for_this_topic(text: str, topic: str) -> list[str]:
     out = []
     for m in re.finditer(r"For\s+the\s+topic\s+(?P<code>[A-Z][A-Z0-9]*(?:-\s?[A-Z0-9]+){3,})(?P<rest>.*?)(?=For\s+the\s+topic\s|\n\s*\n|$)", text, re.S):
         if _same(topic, _norm_code(m.group("code"))):
-            out.append(m.group("rest"))
+            out.append(m.group("rest")[:600])           # the paragraph about this topic, not the rest of the document
     return out
 
 
