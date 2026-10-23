@@ -277,7 +277,7 @@ def test_the_call_detail_names_the_partner_area_from_the_topic_code_alone(client
 
 # ------------------------------------------------------------------------------ the facts of the fit badge
 
-def test_fit_facts_serve_only_the_facts_the_badge_reads_and_no_quote(client, conn):
+def test_fit_facts_serve_only_the_facts_the_badge_reads_with_their_quotes(client, conn):
     read = put(conn, "read", documents=[doc("https://example.test/a.pdf")])
     hold(conn, "https://example.test/a.pdf", "call_document",
          eligible_countries=("EU Member States and associated countries", "Eligible: Member States.", None),
@@ -288,8 +288,9 @@ def test_fit_facts_serve_only_the_facts_the_badge_reads_and_no_quote(client, con
     assert body["state"] == "read" and body["basis"] == "call_document"
     assert body["programme"] == "HORIZON" and body["topic"] == "HORIZON-read"
     assert set(body["facts"]) == {"eligible_countries", "sme_only"}
-    assert body["facts"]["sme_only"] == {"value": False, "note": "A bonus for SMEs.", "scope": "call_document"}
-    assert all("quote" not in f for f in body["facts"].values())
+    # WP-93 (finding 5): the quote comes too, so that the badge reads what the call page reads (it was left out, and the two disagreed)
+    assert body["facts"]["sme_only"] == {"value": False, "note": "A bonus for SMEs.", "quote": "Open to all.", "scope": "call_document"}
+    assert body["facts"]["eligible_countries"]["quote"] == "Eligible: Member States."
 
 
 def test_fit_facts_say_not_read_for_unread_calls_and_no_source_for_national_ones_and_skip_removed_ones(client, conn):

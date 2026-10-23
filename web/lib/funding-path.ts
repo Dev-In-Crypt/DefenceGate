@@ -50,7 +50,8 @@ export function emptyLine(f: CallFilters, upcoming: Call[], closed: Call[]): str
 // ---------------------------------------------------------------- 2. "Can I apply?" on the first screen
 
 export interface SummaryLine { key: string; verdict: Verdict | 'info'; text: string }
-export interface Summary { verdict: Verdict; lines: SummaryLine[] }
+/** `unknown` (WP-93, finding 6): no rule of the call or its programme is held, so nothing is said either way. */
+export interface Summary { verdict: Verdict | 'unknown'; lines: SummaryLine[] }
 
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? 'no' : a === 'check' || b === 'check' ? 'check' : 'yes');
@@ -59,7 +60,7 @@ const worst = (a: Verdict, b: Verdict): Verdict => (a === 'no' || b === 'no' ? '
  * What a company of `country` can do with this call, in two or three lines. `kind` is the applicant kind of the saved profile (''
  * when not answered): only a public body is not told "Companies cannot apply". Null without a country.
  */
-export function applySummary(call: Pick<Call, 'rulesApply' | 'documentEligibility'>, country: string, kind = ''): Summary | null {
+export function applySummary(call: Pick<Call, 'rulesApply' | 'documentEligibility'> & Partial<Pick<Call, 'programme' | 'topicId'>>, country: string, kind = ''): Summary | null {
   if (!country) return null;
   const name = named(country);
   const lines: SummaryLine[] = [];
@@ -92,10 +93,14 @@ export function applySummary(call: Pick<Call, 'rulesApply' | 'documentEligibilit
     const also = rows.filter((r) => r.outcome === 'unknown' && !r.asks.includes('ua_partner') && !r.asks.includes('ua_non_government_controlled_area'));
     if (!no && also.length > 0) lines.push({ key: 'also', verdict: 'info', text: `Also required: ${also.map((r) => lowerFirst(r.title)).join('; ')}.` });
   } else if (facts.eligible_countries) {
-    const line = check(facts, { country, orgType: '', hasPartners: '', controlledAbroad: '' }).lines.find((l) => l.key === 'country');
+    const ctx = call.programme ? { programme: call.programme, topic: call.topicId ?? '' } : undefined;
+    const line = check(facts, { country, orgType: '', hasPartners: '', controlledAbroad: '' }, ctx).lines.find((l) => l.key === 'country');
     if (line) lines.push({ key: 'country', verdict: line.verdict, text: `From ${name}: ${lowerFirst(line.reason)}` });
+  } else if (Object.keys(facts).length === 0) {
+    // WP-93 (finding 6): nothing is held, so nothing is "possible": the call's own text decides (RAPID, the Cyber Defense Factory)
+    return { verdict: 'unknown', lines: [{ key: 'country', verdict: 'info', text: 'No rules of this programme are encoded here and none were read from its documents: read who may apply in the official call text.' }] };
   } else {
-    lines.push({ key: 'country', verdict: 'check', text: 'No rules of this programme are encoded here and none were read from its documents: read who may apply in the official call text.' });
+    lines.push({ key: 'country', verdict: 'check', text: 'Where applicants must be established was not read from this call: check its own text. The rules that were read are below.' });
   }
 
   // The consortium as the call document states it (never a bare "not required" when a single applicant has a condition).
@@ -111,10 +116,11 @@ export function applySummary(call: Pick<Call, 'rulesApply' | 'documentEligibilit
   return { verdict, lines };
 }
 
-export const SUMMARY_WORD: Record<Verdict, string> = {
+export const SUMMARY_WORD: Record<Verdict | 'unknown', string> = {
   yes: 'Nothing in the rules we hold stops you so far',
   check: 'Possible, with a condition to check',
   no: 'The rules we hold say you cannot apply',
+  unknown: 'Rules not read: check the call document',
 };
 
 // ---------------------------------------------------------------- "What it funds"

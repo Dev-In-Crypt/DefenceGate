@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, pctProblem, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
+import { HEADCOUNT_BANDS, STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, pctProblem, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
 import { cn } from '@/lib/utils';
 import { Callout } from '@/components/dg/blocks';
@@ -51,6 +51,83 @@ export const LEGAL_FORM_OPTIONS = [{ value: 'legal_person', label: 'A legal pers
 export const MANAGEMENT_OPTIONS = [{ value: 'same', label: 'In the country where the company is established' }, { value: 'other', label: 'In another country' }] as const;
 export const CONTROL_OPTIONS = [{ value: 'no', label: 'No' }, { value: 'ua_eea_only', label: 'Yes, but only by Ukraine or an EEA EFTA state (Iceland, Liechtenstein, Norway)' }, { value: 'other', label: 'Yes, by another country or an entity from another country' }, { value: 'unsure', label: 'I am not sure' }] as const;
 export const SAFE_ROLE_OPTIONS = [{ value: 'contractor', label: 'We would be the contractor' }, { value: 'subcontractor_involved', label: 'We would be a subcontractor of that kind (critical inputs, at least 15 % of the contract value, access to classified information)' }, { value: 'other_supplier', label: 'We would supply components or services below that level' }, { value: 'unsure', label: 'I am not sure' }] as const;
+
+// ---------------------------------------------------------------- WP-93: the questions the size, control and EIC rules read (wizard and supplier page)
+
+type Update = (fn: (p: Profile) => Profile) => void;
+const SIZE_OF_BAND: Record<string, Profile['sizeClass']> = { lt50: 'small', '50_249': 'medium', '250_499': 'large', '500_1999': 'large', '2000plus': 'large' };
+
+/** The kind of a company or research body, its staff count and its group: the SME and small mid-cap rules count a group's staff together. */
+export function SizeQuestions({ profile, update }: { profile: Profile; update: Update }) {
+  return (
+    <>
+      {(profile.applicantKind === '' || profile.applicantKind === 'company_or_research') && (
+        <Radios legend="Which of these is your organisation?" name="org-kind" value={profile.orgKind}
+          hint="Calls for SMEs and small mid-caps (the EIC Accelerator and STEP) are for companies: a university or a research organisation that is not an enterprise cannot apply to them."
+          options={[...ORG_KIND_OPTIONS]} onChange={(v) => update((p) => ({ ...p, orgKind: v }))} />
+      )}
+      <Radios legend="How many people does your organisation employ?" name="headcount" value={profile.headcount}
+        hint="Staff in annual work units, as the SME definition counts them. SMEs have fewer than 250; small mid-caps up to 499."
+        options={[...HEADCOUNT_BANDS]} onChange={(v) => update((p) => ({ ...p, headcount: v, sizeClass: SIZE_OF_BAND[v] ?? p.sizeClass }))} />
+      <Radios legend="Is your company part of a group?" name="in-group" value={profile.inGroup}
+        hint="A parent company, subsidiaries, or enterprises that hold 25 % or more of each other. The SME definition, the EIC and some national calls count the staff of the whole group. Leave it empty if you do not know; it is then never read as “no”."
+        options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, inGroup: v }))} />
+      {profile.inGroup === 'yes' && (
+        <Radios legend="How many people does the whole group employ?" name="group-headcount" value={profile.groupHeadcount}
+          options={[...HEADCOUNT_BANDS]} onChange={(v) => update((p) => ({ ...p, groupHeadcount: v }))} />
+      )}
+    </>
+  );
+}
+
+export const ORG_KIND_OPTIONS = [
+  { value: 'company', label: 'A company' }, { value: 'university', label: 'A university or another higher-education institution' },
+  { value: 'research', label: 'A research organisation that is not a university' },
+] as const;
+const CONTROL_UA_EEA = [{ value: 'ua', label: 'Ukraine' }, { value: 'eea', label: 'An EEA EFTA state (Iceland, Liechtenstein, Norway)' }, { value: 'unsure', label: 'I am not sure' }] as const;
+const CONTROL_OTHER = [
+  { value: 'cn', label: 'China' }, { value: 'ru_by', label: 'Russia or Belarus' }, { value: 'other_non_eu', label: 'Another country outside the EU' },
+  { value: 'unsure', label: 'I am not sure' },
+] as const;
+
+/** Which country controls a company controlled from outside the EU: some calls exclude control by China only, others admit control from an eligible country. */
+export function ControlCountryQuestion({ profile, update }: { profile: Profile; update: Update }) {
+  if (profile.control !== 'ua_eea_only' && profile.control !== 'other') return null;
+  return (
+    <Radios legend="Which country controls your company?" name="control-country" value={profile.controlCountry}
+      hint="Some calls exclude only entities controlled by China; others accept control from a country that is itself eligible under the call."
+      options={profile.control === 'ua_eea_only' ? [...CONTROL_UA_EEA] : [...CONTROL_OTHER]}
+      onChange={(v) => update((p) => ({ ...p, controlCountry: v }))} />
+  );
+}
+
+/** The EIC STEP calls are open only to a company that already has an investor's pre-commitment for at least 20 % of its funding round. */
+export function InvestorQuestion({ profile, update }: { profile: Profile; update: Update }) {
+  return (
+    <Radios legend="Do you have a pre-commitment from a single qualified investor for at least 20 % of a funding round you plan to raise? (optional)" name="investor"
+      hint="The EIC STEP Scale Up calls ask for one: an equity pre-commitment, from one investor, of at least 20 % of the round. Leave it empty if it does not concern you."
+      value={profile.investor} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, investor: v }))} />
+  );
+}
+
+export const COMPONENT_BAND_OPTIONS = [
+  { value: 'le35', label: '35 % or less' }, { value: 'gt35', label: 'More than 35 %' }, { value: 'unsure', label: 'I do not know yet' },
+] as const;
+
+/** The 35 % rule of EDIP, the Ukraine Support Instrument and SAFE (WP-93, finding 7: the results named it as missing and no step asked it as a question). */
+export function ComponentShareQuestion({ profile, update }: { profile: Profile; update: Update }) {
+  return (
+    <>
+      <Radios legend="What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine?" name="component-band"
+        hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. EDIP, the Ukraine Support Instrument and SAFE allow at most 35 %."
+        value={profile.componentBand} options={[...COMPONENT_BAND_OPTIONS]} onChange={(v) => update((p) => ({ ...p, componentBand: v }))} />
+      <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine, if you know it exactly (%, optional)" inputMode="decimal" maxLength={12}
+        hint="A figure typed here is used instead of the choice above."
+        value={profile.componentPct} onChange={(e) => { const v = e.target.value; update((p) => ({ ...p, componentPct: v })); }}
+        error={pctProblem(profile.componentPct) ?? undefined} />
+    </>
+  );
+}
 
 export function Wizard({ requirements }: { requirements: WizardRequirement[] }) {
   const router = useRouter();
@@ -161,8 +238,6 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
           <div className="flex flex-col gap-4">
             <TextInput className="max-w-form" label="Company name (optional)" hint="Shown on your results page. It never leaves this browser." maxLength={120}
               value={profile.name} onChange={(e) => set('name', e.target.value)} autoComplete="organization" />
-            <Select className="max-w-form" label="Size of the company (optional)" hint="Kept for your own summary. No rule reads it." placeholder="Choose" options={SIZE_OPTIONS}
-              value={profile.sizeClass} onChange={(e) => set('sizeClass', e.target.value as Profile['sizeClass'])} />
             <Select className="max-w-form" label="Country where your company is established" hint="Where it is registered. Most rules start here." placeholder="Choose a country"
               options={COUNTRY_OPTIONS} value={profile.country} aria-required="true"
               error={needCountry ? 'Choose a country to go on.' : undefined}
@@ -189,6 +264,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 { value: 'eda', label: 'The European Defence Agency' },
               ]}
               onChange={(v) => set('applicantKind', v)} />
+            <SizeQuestions profile={profile} update={update} />
           </div>
         )}
 
@@ -210,6 +286,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               value={profile.control}
               options={[...CONTROL_OPTIONS]}
               onChange={(v) => set('control', v)} />
+            <ControlCountryQuestion profile={profile} update={update} />
             {profile.country === 'UA' && (
               <Radios legend="Is your company established in an area of Ukraine that the Ukrainian government does not control?" name="occupied"
                 value={profile.uaOccupied} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaOccupied', v)} />
@@ -222,6 +299,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
             <Radios legend="Does a SEAP (structure for European armament programmes) take part in your planned consortium?" name="seap-partner"
               hint="Some EDIP calls for industrial reinforcement ask for at least three independent entities unless a SEAP takes part. Leave it empty if you do not know yet; it is then never read as “no”."
               value={profile.seapPartner} options={[...YES_NO_UNSURE]} onChange={(v) => set('seapPartner', v)} />
+            <InvestorQuestion profile={profile} update={update} />
           </div>
         )}
 
@@ -250,10 +328,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               </p>
             ) : (
               <>
-                <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={12}
-                  hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. Leave empty if you do not know."
-                  value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value)}
-                  error={pctProblem(profile.componentPct) ?? undefined} />
+                <ComponentShareQuestion profile={profile} update={update} />
                 <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
                   hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
                   value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />

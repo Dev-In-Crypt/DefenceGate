@@ -217,7 +217,8 @@ class EligibilityFact(BaseModel):
     note: str | None = None
     quote: str
     confidence: float
-    # Where it was read: `call_document`, `general` (work programme annexes) or `topic`.
+    # Where it was read: `call_document`, `general` (work programme annexes), `topic`, or (WP-93) `programme`: the EIC work
+    # programme read for this topic, the scheme's own call text. An agency page's rule (WP-93) has an empty quote: its text is not served.
     scope: str = "call_document"
 
 
@@ -920,6 +921,16 @@ def get_funding(slug: str, conn=Depends(get_conn)):
         out["documentEligibility"] = read["documentEligibility"]
         out["eligibilityState"] = read["state"]
         out["eligibilitySources"] = read["sources"]
+    else:
+        # WP-93 (finding 6): an agency's page whose text is not served may still state a rule; the facts come without its words
+        from . import eligibility
+
+        page = eligibility.page_rules(row.get("conditions_raw"), http_url(row.get("source_url")))
+        if page:
+            out["documentEligibility"] = {"documentUrl": page["sources"][0]["url"], "extractedAt": page["sources"][0]["extractedAt"] or row["last_seen_at"],
+                                          "basis": page["basis"], "sources": page["sources"], "facts": page["facts"]}
+            out["eligibilityState"] = "read"
+            out["eligibilitySources"] = page["sources"]
     if row.get("cascade_reason") and row["cascade_reason"] != "not_stated":
         out["cascadeBasis"] = {"reason": row["cascade_reason"], "evidence": redact_emails(row.get("cascade_evidence"))}
     if row.get("open_to_ukraine_reason"):

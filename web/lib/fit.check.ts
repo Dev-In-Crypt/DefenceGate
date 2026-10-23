@@ -12,12 +12,13 @@ const f = (value: unknown, note: string | null = null, scope: 'call_document' | 
   ({ value, note, quote: 'q', confidence: 1, scope });
 const profile = (over: Partial<Profile>): Profile => ({ ...emptyProfile(), step: 6, ...over });
 const UA = profile({ country: 'UA', sizeClass: 'small', control: 'no' });
-const ES = profile({ country: 'ES', sizeClass: 'small', control: 'no' });
+// WP-93: a small company that said it is not part of a group (the size rules count a group's staff)
+const ES = profile({ country: 'ES', sizeClass: 'small', inGroup: 'no', control: 'no' });
 const LARGE_ES = profile({ country: 'ES', sizeClass: 'large', control: 'no' });
 
 // The profile of the readiness check, as the form of the call page reads it.
 assert.equal(checkProfileOf(profile({})), null, 'no country, no verdict');
-assert.deepEqual(checkProfileOf(ES), { country: 'ES', orgType: 'sme', hasPartners: '', controlledAbroad: 'no', more: { legalPerson: false, company: false, managementCountry: '', uaOccupied: '', uaPartner: '', seapPartner: '' } });
+assert.deepEqual(checkProfileOf(ES), { country: 'ES', orgType: 'sme', hasPartners: '', controlledAbroad: 'no', kind: '', size: { min: 0, max: 49 }, controller: '', investor: '', more: { legalPerson: false, company: false, managementCountry: '', uaOccupied: '', uaPartner: '', seapPartner: '' } });
 assert.equal(checkProfileOf(LARGE_ES)!.orgType, 'large');
 assert.equal(checkProfileOf(profile({ country: 'ES' }))!.orgType, '');
 assert.equal(checkProfileOf(profile({ country: 'ES', control: 'other' }))!.controlledAbroad, 'yes');

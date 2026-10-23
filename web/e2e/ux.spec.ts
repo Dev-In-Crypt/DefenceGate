@@ -119,7 +119,8 @@ test('U6: the partner list of a call with no category says "whole programme" bef
 // ---------------------------------------------------------------- U7, U16: the wizard
 
 test('U7: Change my answers opens at the first step with an unanswered question and names it', async ({ page }) => {
-  await saveProfile(page, { ...PROFILE, regime: '', classified: '' });
+  // WP-93: the size and group questions of step 1 answered, so that the first unanswered one is still in step 3
+  await saveProfile(page, { ...PROFILE, orgKind: 'company', headcount: 'lt50', inGroup: 'no', regime: '', classified: '' });
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await expect(page.getByText('Step 3 of 5: Products and regime')).toBeVisible();
   const note = page.getByText('2 questions have no answer yet');

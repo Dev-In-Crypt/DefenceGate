@@ -310,6 +310,14 @@ class ProfileIn(BaseModel):
     de_ausfuhrliste: Literal["part_i_a", "part_i_b", "neither", "unsure"] | None = None
     dualuse_annex_i: Literal["yes", "no", "unsure"] | None = None
     us_components: bool | None = None
+    # WP-93: read by the call verdict (dgate/verdict.py) and by no rule of the engine
+    org_kind: Literal["company", "university", "research"] | None = None
+    headcount: Literal["lt50", "50_249", "250_499", "500_1999", "2000plus"] | None = None
+    in_group: bool | None = None
+    group_headcount: Literal["lt50", "50_249", "250_499", "500_1999", "2000plus"] | None = None
+    control_country: Literal["ua", "eea", "cn", "ru_by", "other_non_eu"] | None = None
+    investor_precommitment: bool | None = None
+    seap_partner: bool | None = None
 
     @field_validator("country", "executive_management_country")
     @classmethod
@@ -320,7 +328,10 @@ class ProfileIn(BaseModel):
         return v
 
     def to_engine(self) -> engine.Profile:
-        return engine.Profile(**self.model_dump())
+        return engine.Profile(**self.model_dump(exclude=set(VERDICT_ONLY)))
+
+
+VERDICT_ONLY = ("org_kind", "headcount", "in_group", "group_headcount", "control_country", "investor_precommitment", "seap_partner")
 
 
 class AssessIn(BaseModel):
@@ -395,7 +406,21 @@ def assess(body: AssessIn, conn=Depends(get_conn)):
         raise HTTPException(422, "unknown programme") from None
     if body.call:
         out["call"] = _call(conn, c, body.call, body.statuses, profile)
+        # WP-93 (fix 5): the one verdict of the call for these answers, as the list and the call page show it
+        out["call"]["verdict"] = call_verdict(conn, body.call, body.profile.model_dump(), out)
     return out
+
+
+def call_verdict(conn, call_id: int, answers: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    """dgate/verdict.call_fit over the facts the badge reads (`/v1/fit/facts`) and this answer's programme verdicts (no call)."""
+    from .. import verdict
+    from ..partners import fit_facts
+
+    item = fit_facts(ids=str(call_id), conn=conn)["items"].get(str(call_id))
+    call = {"state": item["state"], "facts": item["facts"], "programme": item["programme"], "topic": item["topic"] or ""} if item else None
+    r = verdict.call_fit(call, answers, {"assessments": payload["assessments"], "roadmap": payload["roadmap"]})
+    return {"fit": r["fit"], "shown": verdict.shown_fit(r), "word": verdict.fit_word(r), "blockedBy": r["blockedBy"], "conditions": r["conditions"],
+            "lines": [{k: x[k] for k in ("key", "label", "verdict", "reason")} for x in ((r.get("result") or {}).get("lines") or [])]}
 
 
 def programmes_of_call(c: Content, programme_code: str, topic_code: str | None) -> list:

@@ -58,7 +58,7 @@ test('a civilian castings maker: errors first, then exactly the request of the f
 
   await page.getByLabel('Country where your company is established').selectOption('ES');
   await page.getByLabel('Region (optional)').selectOption('ES-PV');
-  await page.getByLabel('Size of the company (optional)').selectOption('medium');
+  await group(page, /How many people does your organisation employ/).getByLabel('50 to 249', { exact: true }).check();
   await page.getByLabel('NACE code of your main activity (optional)').fill('24-53');
   await group(page, /foreign investor own or control/).getByLabel('No', { exact: true }).check();
 
@@ -102,7 +102,9 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   await page.getByRole('button', { name: 'Save and see my results' }).click();
   await expect(page).toHaveURL(/\/readiness\/results$/);
   await expect.poll(() => posted.length).toBeGreaterThan(0);
-  expect(posted[posted.length - 1]).toEqual(fixture('request-es-sup-civil.json'));
+  // WP-93: the staff count is now a question of its own, answered on this page, and sent; the rest is exactly the fixture's request
+  const want = fixture('request-es-sup-civil.json');
+  expect(posted[posted.length - 1]).toEqual({ ...want, profile: { ...want.profile, headcount: '50_249' } });
 
   const card = page.getByRole('article', { name: 'Spanish defence supplier (MoD)' });
   // WP-73 (QA MJ-4): Spain's NCAGE without a justified need is a condition of the route, so the route is conditional, not "obtain"
@@ -111,7 +113,7 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   await expect(card.getByText(/\d+ answers? (is|are) missing/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Change my supplier profile' })).toBeVisible();
   const block = await stored(page);
-  expect(block.version).toBe(3);
+  expect(block.version).toBe(4);        // WP-93: the current version
   expect(block.supplier.cpv).toHaveLength(5);
   expect(block.supplier.expiry).toEqual({ ISO9001: '2027-05' });
   expect(block.control).toBe('no');      // "no foreign investor" answered the wizard's empty control question
@@ -128,13 +130,15 @@ test('a version 2 profile of the wizard: every answer is read, the results link 
 
   await visit(page, '/readiness/supplier', { title: /supplier profile/i, h1: 'Supplier profile' });
   await expect(page.getByLabel('Country where your company is established')).toHaveValue('ES');
-  await expect(page.getByLabel('Size of the company (optional)')).toHaveValue('medium');
+  // WP-93: the old size class is kept (and still read by the size rules), the new staff-count question starts unanswered
+  await expect(group(page, /How many people does your organisation employ/).getByLabel('50 to 249', { exact: true })).not.toBeChecked();
+  expect((await stored(page)).sizeClass).toBe('medium');
   await expect(group(page, 'Certificates you hold').getByLabel('ISO 9001', { exact: true })).toBeChecked();
   await expect(group(page, /access to classified information/).getByLabel('No', { exact: true })).toBeChecked();
   expect((await stored(page)).version).toBe(2);           // reading does not write
   await group(page, 'Registrations you hold').getByLabel(/^RID/).check();
   const block = await stored(page);
-  expect(block.version).toBe(3);
+  expect(block.version).toBe(4);        // WP-93: the current version
   expect(block.statuses).toEqual({ 'REQ-ISO9001': 'held', 'REQ-RID': 'held' });
   for (const [k, v] of Object.entries(ES_V2)) if (!['version', 'updatedAt', 'statuses'].includes(k)) expect(block[k], k).toEqual(v);
 });

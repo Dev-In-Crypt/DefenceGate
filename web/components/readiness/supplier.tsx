@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
-import { CONTROL_OPTIONS, COUNTRY_OPTIONS, EXPORT_OPTIONS, LEGAL_FORM_OPTIONS, MANAGEMENT_OPTIONS, Radios, SAFE_ROLE_OPTIONS, SIZE_OPTIONS, YES_NO_UNSURE } from './wizard';
+import { CONTROL_OPTIONS, COUNTRY_OPTIONS, ComponentShareQuestion, ControlCountryQuestion, EXPORT_OPTIONS, InvestorQuestion, LEGAL_FORM_OPTIONS, MANAGEMENT_OPTIONS, Radios, SAFE_ROLE_OPTIONS, SizeQuestions, YES_NO_UNSURE } from './wizard';
 import { useCpvVocabulary, useProfile } from './use-readiness';
 
 /** The autonomous communities and cities of Spain, by their ISO 3166-2 codes. */
@@ -114,8 +114,7 @@ export function SupplierForm() {
         {es
           ? <Select className="max-w-form" label="Region (optional)" placeholder="Choose a region" options={ES_REGIONS} value={s.region} onChange={(e) => setS('region', e.target.value)} />
           : <TextInput className="max-w-form" label="Region (optional)" maxLength={60} value={s.region} onChange={(e) => setS('region', e.target.value)} />}
-        <Select className="max-w-form" label="Size of the company (optional)" hint="Kept for your own summary. No rule reads it." placeholder="Choose" options={SIZE_OPTIONS}
-          value={profile.sizeClass} onChange={(e) => update((p) => ({ ...p, sizeClass: e.target.value as Profile['sizeClass'] }))} />
+        <SizeQuestions profile={profile} update={update} />
         <TextInput id="sp-nace" className="max-w-form" label="NACE code of your main activity (optional)" hint="For example 25.50 (forging, pressing, stamping and roll-forming of metal). No rule reads it."
           maxLength={12} value={s.nace} onChange={(e) => setS('nace', e.target.value)} error={tried ? (naceProblem(s.nace) ?? undefined) : undefined} />
         <Radios legend="Does a foreign investor own or control part of your company, directly or indirectly?" name="foreign_capital" value={s.foreignOwner}
@@ -226,10 +225,9 @@ export function SupplierForm() {
             )}
             <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control" value={profile.control} options={[...CONTROL_OPTIONS]}
               hint="Think of the ultimate owners, not only the first shareholder." onChange={(v) => update((p) => ({ ...p, control: v }))} />
-            <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={12}
-              hint="For the main end product, as a share of the estimated cost of its components. Leave empty if you do not know."
-              value={profile.componentPct} onChange={(e) => update((p) => ({ ...p, componentPct: e.target.value }))}
-              error={pctProblem(profile.componentPct) ?? undefined} />
+            <ControlCountryQuestion profile={profile} update={update} />
+            <InvestorQuestion profile={profile} update={update} />
+            <ComponentShareQuestion profile={profile} update={update} />
             <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
               value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, restricted: v }))} />
             <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua_eea_components"

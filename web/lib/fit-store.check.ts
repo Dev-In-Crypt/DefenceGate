@@ -119,7 +119,7 @@ async function main() {
   store.unmount('5');
 
   // 6. A profile saved after the first page is seen by the next item (a client-side navigation).
-  storage.set('dg.profile.v1', profile({ sizeClass: 'small' }));
+  storage.set('dg.profile.v1', profile({ sizeClass: 'small', inGroup: 'no' }));
   store.mount('1');
   await sleep(120);
   assert.equal(store.fitFor('1').fit, 'yes', 'a small company is allowed where the large one was not');

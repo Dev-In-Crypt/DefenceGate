@@ -15,8 +15,8 @@
  * (a legal entity established in Ukraine, a SEAP): a condition of exactly those two kinds is met by the answer, and only then is the
  * line "yes". Without the answer, or with another condition on partners, it stays "check".
  */
-import { EU27, check, consortiumUnclear, partnerLine, unclearConsortiumText, type EligibilityFacts, type Line, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
-import { managementCountryOf, type ApplicantKind, type Profile } from './profile';
+import { BAND_RANGE, EU27, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
+import { controlCountryOf, managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 import { plural } from './format';
 
@@ -38,7 +38,34 @@ export const FIT_MEANING: Record<Fit, string> = {
 export function orgTypeOf(p: Profile): OrgType | '' {
   if (p.legalForm === 'natural_person') return 'individual';
   if (p.applicantKind === 'contracting_authority' || p.applicantKind === 'international_organisation' || p.applicantKind === 'seap' || p.applicantKind === 'eda') return 'public';
+  // WP-93: a university or a research organisation is not compared as a company; a company goes by its own staff count, else its size class
+  if (p.orgKind === 'university' || p.orgKind === 'research') return 'university';
+  const own = p.headcount ? BAND_RANGE[p.headcount] : null;
+  if (own) return own.max <= 249 ? 'sme' : 'large';
   return p.sizeClass === 'large' ? 'large' : p.sizeClass === '' ? '' : 'sme';
+}
+
+/** WP-93: what the organisation is, for the size rules: a public buyer, or the answer to "company, university or research organisation". */
+export function kindOf(p: Profile): OrgKind {
+  if (p.applicantKind === 'contracting_authority' || p.applicantKind === 'international_organisation' || p.applicantKind === 'seap' || p.applicantKind === 'eda') return 'public';
+  return p.orgKind;
+}
+
+/**
+ * WP-93: the staff count the size rules read, as a range. The SME definition counts linked enterprises, so it is the group's where the company
+ * is part of one; while the group is not answered (or its staff count), it is open above, and a size rule then says "check", never "yes".
+ * Without an own staff count the size class of a version 1 to 3 profile says what it can ("large": 250 or more).
+ */
+const SIZE_CLASS_RANGE: Record<string, Headcount> = {
+  micro: { min: 0, max: 9 }, small: { min: 0, max: 49 }, medium: { min: 50, max: 249 }, large: { min: 250, max: Infinity },
+};
+
+export function headcountOf(p: Profile): Headcount {
+  const own = (p.headcount ? BAND_RANGE[p.headcount] : null) ?? SIZE_CLASS_RANGE[p.sizeClass] ?? { min: 0, max: Infinity };
+  if (p.inGroup === 'no') return own;
+  const group = p.inGroup === 'yes' && p.groupHeadcount ? BAND_RANGE[p.groupHeadcount] : null;
+  if (group) return { min: Math.max(own.min, group.min), max: Math.max(own.max, group.max) };
+  return { min: own.min, max: Infinity };
 }
 
 /** What the form of the call page asks, from the saved profile. Null while the country is not chosen. */
@@ -51,8 +78,10 @@ export function checkProfileOf(p: Profile): CheckProfile | null {
     // partners (a Ukrainian entity, a SEAP) is in `more`.
     hasPartners: '',
     // "Controlled from outside the EU or associated countries": only an explicit "no" settles it. Control by
-    // Ukraine or the EEA is associated for some calls and not for others, so it is a question for the document.
-    controlledAbroad: p.control === 'no' ? 'no' : p.control === 'other' ? 'yes' : 'unsure',
+    // Ukraine or the EEA is associated for some calls and not for others, so it is a question for the document; WP-93: with the
+    // controlling country answered, the document's list of eligible countries settles it (`controllerEligible`).
+    controlledAbroad: p.control === 'no' ? 'no' : p.control === 'other' || (p.control === 'ua_eea_only' && controlCountryOf(p)) ? 'yes' : 'unsure',
+    kind: kindOf(p), size: headcountOf(p), controller: (controlCountryOf(p) ?? '') as Controller, investor: p.investor,
     more: {
       legalPerson: p.legalForm === 'legal_person', company: p.applicantKind === 'company_or_research', managementCountry: managementCountryOf(p) ?? '',
       uaOccupied: p.uaOccupied, uaPartner: p.uaPartner, seapPartner: p.seapPartner,
@@ -70,14 +99,14 @@ export interface FitResult {
 }
 
 /** The fit of one call: its facts against the saved profile. `facts` null or empty: the rules were not read. */
-export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profile | null): FitResult {
+export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profile | null, ctx?: CallContext): FitResult {
   const cp = profile ? checkProfileOf(profile) : null;
   if (!facts || !cp || Object.values(facts).every((f) => f === undefined)) return { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
-  const result = check(facts, cp);
+  const result = check(facts, cp, ctx);
   const lines: Line[] = [...result.lines];
   // What the form leaves out when the profile has no answer: an SME-only call and an unknown size.
   const sme = facts.sme_only;
-  if (sme && sme.value === true && !cp.orgType) {
+  if (sme && sme.value === true && !cp.orgType && !lines.some((l) => l.key === 'sme')) {
     lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: 'The call is reserved for SMEs and your profile does not give a size class.', quote: sme.quote });
   }
   // A condition the document attaches to the consortium or to a single applicant (call 78: the proposal must use one of the specified
@@ -201,6 +230,30 @@ export function withProgramme(doc: FitResult, prog: ProgrammeFit | null): FitRes
   if (doc.fit === 'unknown') return doc;
   const fit: Fit = prog.fit === 'check' && doc.fit === 'yes' ? 'check' : doc.fit;
   return { ...doc, fit, conditions: [...prog.because, ...doc.conditions] };
+}
+
+// ---------------------------------------------------------------- WP-93: the one verdict of a call
+
+/** What is known of one call for its verdict: the facts the API serves for it (`GET /v1/fit/facts`, or the call page's own), and whose rules apply. */
+export interface CallFacts {
+  state: 'read' | 'not_read' | 'no_source';
+  facts: EligibilityFacts;
+  /** The programme chip (EDF, HORIZON, DIGITAL, NATIONAL...) and the topic code: they decide whose rules and which association apply. */
+  programme: string;
+  topic: string;
+}
+
+/**
+ * The verdict of one call for the saved profile (WP-93, fix 5): the document's facts, the programme's rules and who may apply to the call's kind
+ * of action, never better than the worst of the three. The list badge, the filter "Fits my profile", the call page and the API
+ * (backend/dgate/verdict.py, the same rules on the same fixtures) all give this one. `assessment` is the profile's
+ * `POST /v1/readiness/assess` answer without a call (null while it has not come or failed).
+ */
+export function callFit(call: CallFacts | null, profile: Profile | null, assessment: Pick<Assessment, 'assessments' | 'roadmap'> | null): FitResult {
+  const ctx: CallContext | undefined = call ? { programme: call.programme, topic: call.topic } : undefined;
+  const doc: FitResult = call && call.state === 'read' ? fitOf(call.facts, profile, ctx) : { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
+  const withRules = withProgramme(doc, programmeFit(assessment, call ? programmesOfCall(call.programme, call.topic) : []));
+  return call ? withProgramme(withRules, applicantFit(call.programme, call.topic, profile)) : withRules;
 }
 
 // ---------------------------------------------------------------- what the badge says (UX walk-through U4)

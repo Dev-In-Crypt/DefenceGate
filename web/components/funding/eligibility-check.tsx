@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { check, consortiumUnclear, factDisplay, FACT_LABELS, SCOPE_WORDS, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
+import { check, consortiumUnclear, factDisplay, FACT_LABELS, SCOPE_WORDS, type CallContext, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
 import { checkProfileOf, linesSummary } from '@/lib/fit';
 import { cleanQuote } from '@/lib/quote';
 import type { EligibilitySourceInfo } from '@/lib/types';
@@ -37,8 +37,10 @@ function shownNote(key: string, note: string, country: string): string {
   return (note.match(/[^.;!?]+[.;!?]*/g) ?? []).map((s) => s.trim()).filter((s) => s && !NGCA.test(s)).join(' ');
 }
 
-export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId, closed = false }: {
-  facts: EligibilityFacts; documentUrl: string | null; readAt: string; basis?: 'call_document' | 'work_programme'; sources?: EligibilitySourceInfo[];
+export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId, closed = false, ctx }: {
+  facts: EligibilityFacts; documentUrl: string | null; readAt: string; basis?: 'call_document' | 'work_programme' | 'call_page'; sources?: EligibilitySourceInfo[];
+  /** WP-93: the call's programme and topic, so that "associated countries" are read as the list badge reads them. */
+  ctx?: CallContext;
   /** The call's id: with it, the panel also shows "Your readiness for this call" from the saved profile (WP-32). */
   callId?: string;
   /** The call has closed: its rules are listed for reference and there is no verdict, no form and no readiness block. */
@@ -56,8 +58,9 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the fields, not the object, are what changes
   }, [held?.country, held?.orgType, held?.controlledAbroad, edited]);
   // An edited form is another case: what only the saved profile knows (`more`: legal form, executive management, partners) no longer applies to it (WP-53).
-  const set = <K extends keyof Profile>(k: K, v: Profile[K]) => { setEdited(true); setP((x) => ({ ...x, [k]: v, more: undefined })); };
-  const result = check(facts, p);
+  // WP-93: and so are its staff count, its kind and who controls it
+  const set = <K extends keyof Profile>(k: K, v: Profile[K]) => { setEdited(true); setP((x) => ({ ...x, [k]: v, more: undefined, kind: undefined, size: undefined, controller: undefined, investor: undefined })); };
+  const result = check(facts, p, ctx);
   const answered = result.lines.length > 0;
   const shown = Object.keys(FACT_LABELS).filter((k) => facts[k]);
   const doc = documentUrl ? safeHttpUrl(documentUrl) : null;
@@ -71,6 +74,11 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
           This call has no call document of its own. The rules below were read automatically on {readAt} from the work programme’s general annexes
           (they apply to every call of the programme, and the topic may change them) and from this topic’s own conditions. Each line says which, and shows
           the text’s own sentence. The official texts are authoritative and this is not legal advice.
+        </p>
+      ) : basis === 'call_page' ? (
+        <p className="m-0 text-small text-ink-muted">
+          Read automatically on {readAt} from the agency’s call page, which states these rules in fixed words; its text is not reproduced here. Only these rules were
+          read: the page is authoritative and this is not legal advice.
         </p>
       ) : (
         <p className="m-0 text-small text-ink-muted">
@@ -88,7 +96,8 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
                 <span className={k === 'consortium_required' && consortiumUnclear(facts) ? 'font-semibold' : undefined}>{factDisplay(k, facts)}</span>
                 {fromProgramme && f.scope && <span className="text-label font-bold text-ink">{SCOPE_WORDS[f.scope]}</span>}
                 {f.note && shownNote(k, f.note, p.country) && <span className="text-small text-ink-muted">{shownNote(k, f.note, p.country)}</span>}
-                <q className="text-small text-ink-muted">{cleanQuote(f.quote)}</q>
+                {f.quote ? <q className="text-small text-ink-muted">{cleanQuote(f.quote)}</q>
+                  : <span className="text-small text-ink-muted">Read from the agency’s call page; its text is not reproduced here.</span>}
               </dd>
             </div>
           );

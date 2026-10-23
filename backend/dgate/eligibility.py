@@ -628,6 +628,10 @@ def extract_one(conn, url: str, *, force: bool = False, client: httpx.Client | N
         user=f"{USER_HEADERS[scope]}{topic_header(topic if code else None)}{DOC_BEGIN}\n{body}\n{DOC_END}",
         schema=schema(), schema_name="eligibility", max_output_tokens=7000, client=llm_client)
     fields = annotate_scope(check_quotes(bound(answer), body, code), scope)
+    # WP-93: what fixed patterns read from the same text replaces the model's fact of the same name (rule_readings.py)
+    from .rule_readings import read_document
+
+    fields.update(read_document(body, code))
     from psycopg.types.json import Jsonb
 
     conn.execute(
@@ -766,9 +770,16 @@ def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: st
     facts: dict[str, Any] = {}
     other_topic: dict[str, str] = {}
     for s, row in sorted(read, key=lambda p: SCOPES.index(p[0].scope)):   # general first, so that the topic's own wins
+        # WP-93: the EIC work programme read for this topic is the scheme's own call text (WP-78), not general annexes a topic may change
+        eic_own = s.scope == "general" and s.topic is not None and held.get(s.key) is row
         for name, fact in row["fields"].items():
             served = _served_fact(fact, s.scope, name, topic_code, action)
-            if served:
+            if served and eic_own:
+                served = {**served, "scope": "programme", "note": _without_scope_note(served["note"])}
+            moved = as_required(served) if served and name == "entity_types" else None
+            if moved:
+                facts["required_partners"] = moved
+            elif served:
                 facts[name] = served
             elif (s.scope == "call_document" and fact.get("value") is not None and fact.get("quote")
                   and names_other_topic(fact["quote"], topic_code)):
@@ -779,6 +790,58 @@ def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: st
     return {"state": "read" if facts else "not_read",
             "basis": "call_document" if srcs[0].scope == "call_document" else "work_programme",
             "sources": sources, "facts": facts, "other_topic": other_topic}
+
+
+def _without_scope_note(note: str | None) -> str | None:
+    """The note without the words that only said it was read from the general annexes."""
+    rest = (note or "").replace(SCOPE_NOTES["general"], "").strip()
+    return rest or None
+
+
+# WP-93 (finding 9): "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from
+# at least 2 different EU Member States or Associated countries" is who must be in the consortium, not who may apply. Read as "Who may
+# apply: Border or Coast Guard Authorities", a company was told nothing in the list covers it (BM-01, BM-02); the same for the
+# practitioner portfolios of INFRA-03. Such an entity-types fact is served as `required_partners`.
+_INVOLVEMENT = re.compile(r"requires?\s+(?:the\s+)?(?:active\s+)?involvement,?\s+as\s+beneficiaries,?\s+of\s+(?P<who>at\s+least\s+\d+\s+[^.]+)", re.I)
+_PRACTITIONERS = re.compile(r"\brequired\s+practitioner|\bpractitioners?\s+should\s+represent", re.I)
+
+
+def as_required(types: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A served entity-types fact that names who must be in the consortium, as a `required_partners` fact; else None."""
+    if not types or types["scope"] == "general":
+        return None
+    m = _INVOLVEMENT.search(types["quote"] or "")
+    if m:
+        return {**types, "value": " ".join(m.group("who").split()).rstrip(" .") + ", as beneficiaries"}
+    if _PRACTITIONERS.search(f"{types['quote']} {types.get('note') or ''}") and isinstance(types["value"], list):
+        return {**types, "value": "practitioners as beneficiaries, of these kinds: " + "; ".join(str(v) for v in types["value"])}
+    return None
+
+
+def required_partners(facts: dict[str, Any]) -> dict[str, Any]:
+    """The served facts with such an entity-types fact moved to `required_partners` (assemble moves it as it reads it, so that the
+    general annexes' list of who may apply, which it would have replaced, stays)."""
+    moved = as_required(facts.get("entity_types"))
+    if not moved:
+        return facts
+    return {**{k: v for k, v in facts.items() if k != "entity_types"}, "required_partners": moved}
+
+
+# ----------------------------------------------------------------- WP-93: the rules an agency's call page states (rule_readings.read_aid_page)
+
+PAGE_FACTS = ("max_group_headcount", "staff_nationality")
+
+
+def page_rules(cond: dict[str, Any] | None, url: str | None = None) -> dict[str, Any] | None:
+    """What is known of a call whose rules were read from its agency's page (`conditions_raw.rules_read`, AID calls), in the shape of
+    `read_many`. The page's text is not served (funding.SOURCE_TEXT_SOURCES), so the facts carry no quote. None when nothing was read."""
+    read = (cond or {}).get("rules_read") or {}
+    facts = {k: {"value": f["value"], "note": f.get("note"), "quote": "", "confidence": 1.0, "scope": "call_document"}
+             for k, f in read.items() if k in PAGE_FACTS and isinstance(f, dict) and f.get("value") is not None}
+    if not facts:
+        return None
+    return {"state": "read", "basis": "call_page", "facts": facts, "other_topic": {},
+            "sources": [{"scope": "call_document", "label": "The agency's call page", "url": url, "extractedAt": (cond or {}).get("rules_read_at")}]}
 
 
 def summary_line(facts: dict[str, Any]) -> str | None:
