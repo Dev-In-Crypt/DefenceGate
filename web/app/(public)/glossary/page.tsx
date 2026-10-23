@@ -33,7 +33,7 @@ export default function GlossaryPage() {
       toc={ENTRIES.map((e) => ({ id: e.id, label: e.term }))}
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Glossary', href: '/glossary' }]}
       title="Glossary"
-      lead="The terms a defence supplier meets in tenders and funding calls, explained briefly. These are plain-language explanations, not legal advice; the original notice and the legal text are authoritative."
+      lead="The terms of tenders and funding calls in plain words; not legal advice, the notice and the legal text are authoritative."
     >
       <JsonLd data={definedTerms()} />
       {/* From lg the page's own contents list (sticky, at the left) does this; below lg the terms are one collapsed list. */}

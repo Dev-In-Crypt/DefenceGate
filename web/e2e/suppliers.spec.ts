@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { pace, visit } from './helpers';
+import { openAbout, pace, visit } from './helpers';
 
 /**
  * The supplier map (WP-37): /suppliers and a supplier's page. Read-only. The same file runs against a local build
@@ -11,8 +11,10 @@ test('/suppliers: what the map covers, the search, and the list or the honest em
   await visit(page, '/suppliers', {
     title: /supplier map/i,
     h1: 'Companies',
-    text: ['What this map covers', 'TED holds only part of'],
   });
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
+  for (const t of ['How we count', 'TED holds only part of']) await expect(page.getByText(t).first()).toBeVisible();
   const search = page.getByRole('search', { name: 'Find suppliers' });
   await expect(search.getByLabel('Company name')).toBeVisible();
   await expect(search.getByLabel(/^Supplier's country/)).toBeVisible();
@@ -39,6 +41,8 @@ test('a supplier page: its notices, the coverage caveat and no ranking, when the
   await expect(page.locator('h1').first()).not.toBeEmpty();
   await expect(page.getByRole('heading', { name: 'Contracts per year' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'The notices' })).toBeVisible();
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(page.getByText(/TED holds only part of European defence/)).toBeVisible();
   // The map carries no ranking, share or contract total: nothing on the page says so.
   await expect(page.getByText(/market share|top supplier|single point of failure|sole source/i)).toHaveCount(0);

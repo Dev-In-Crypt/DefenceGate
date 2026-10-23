@@ -93,7 +93,7 @@ export const ES_QUESTIONS: EsQuestion[] = [
   { field: 'nato_classified_contract', label: 'Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?' },
   { field: 'nsfcc_held', label: 'Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?', when: (p) => ans(p, 'nato_classified_contract') === 'yes' },
   { field: 'nato_staff_cleared', label: 'Do the staff who need access hold NATO personnel security clearances?', when: (p) => ans(p, 'nato_classified_contract') === 'yes' },
-  { field: 'nato_icb_bid', label: 'Do you want to bid in a NATO international competitive bidding (NSIP) tender?' },
+  { field: 'nato_icb_bid', label: 'Do you want to bid in a NATO international competitive bidding tender (NATO Security Investment Programme)?' },
   { field: 'rid_capabilities_declared', label: 'Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?', when: (p) => ans(p, 'nato_icb_bid') === 'yes' },
   { field: 'foreign_investor_authorised', label: 'Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?', when: (p) => p.supplier.foreignOwner === 'yes' },
   { field: 'receives_eea_defence_products', label: 'Do you receive defence-related products from other EEA states?' },

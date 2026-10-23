@@ -112,15 +112,13 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
               <span className="font-sans">{closed ? 'Closed' : 'No fixed deadline'}</span>
             )}
           </ListFact>
-          <ListFact label={call.budgetScope === 'call' ? 'Call budget' : call.budgetScope === 'topic' ? 'Topic budget' : 'Budget'} tone={closed ? 'closed' : 'default'}>
+          <ListFact label={call.budgetScope === 'call' ? 'Call budget, all topics' : call.budgetScope === 'topic' ? 'Topic budget' : 'Budget'} tone={closed ? 'closed' : 'default'}>
             {budgetRepeated ? (
               <span className="font-sans text-body text-ink-muted">Shared with the other topics of this call</span>
             ) : (
               <>
+                {/* WP-88: the label says whose budget it is ("Call budget": shared by its topics, see the glossary); no second line. */}
                 <BudgetDisplay money={call.budget} note={call.budgetNote} />
-                {call.budget && call.budgetScope === 'call' && (
-                  <div className="font-sans text-small font-normal text-ink-muted">Shared by several topics of this call</div>
-                )}
               </>
             )}
           </ListFact>

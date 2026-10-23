@@ -11,7 +11,6 @@ import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { JsonLd } from '@/components/dg/feedback';
-import { PrintOpenDetails } from '@/components/dg/print-open-details';
 import { AlertsLine } from '@/components/dg/alerts-line';
 import { Tag, StatusPill } from '@/components/dg/tag';
 import { DeadlineBadge } from '@/components/dg/deadline-badge';
@@ -116,7 +115,7 @@ export default async function CallDetailPage({ params }: Props) {
   const toc = [
     hasScope && part('Scope'), part('Who can apply'), call.rulesApply && part('Rules that apply'), ukraine && part('Ukrainian participants'),
     canApply && part('Can you apply?'), call.partnerArea && part('Partners from earlier projects'),
-    call.cascade !== null && call.cascade !== undefined && part('Financial support to third parties', 'Cascade funding'),
+    call.cascade !== null && call.cascade !== undefined && part('Cascade funding'),
     part('Terms'), documents.length > 0 && part('Official documents'), call.conditionsText && { id: 'conditions', label: 'Conditions as published' },
     part('Source and attribution', 'Source'), related.length > 0 && { id: 'related', label: 'Related calls' },
   ].filter((t): t is { id: string; label: string } => Boolean(t));
@@ -124,7 +123,6 @@ export default async function CallDetailPage({ params }: Props) {
   return (
     <>
       <JsonLd data={callJsonLd(call)} />
-      <PrintOpenDetails />
       <PageHeader
         crumbs={[
           { label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' },
@@ -308,14 +306,14 @@ export default async function CallDetailPage({ params }: Props) {
         )}
 
         {call.cascade !== null && call.cascade !== undefined && (
-          <Panel title="Financial support to third parties">
+          <Panel title="Cascade funding">
             {call.cascade ? (
               <p className="m-0 text-body">
                 This call has cascade funding: the projects it funds may pass part of the money to third parties, usually small firms, by calls of their own.
                 See the <Link href="/glossary#cascade-funding" className="font-semibold">glossary</Link>.
               </p>
             ) : (
-              <p className="m-0 text-body">The call’s document says financial support to third parties is not allowed.</p>
+              <p className="m-0 text-body">The call’s document says the projects may not pass money on to third parties (no cascade funding).</p>
             )}
             {call.cascadeBasis?.evidence && (
               <p className="m-0 text-small text-ink-muted">

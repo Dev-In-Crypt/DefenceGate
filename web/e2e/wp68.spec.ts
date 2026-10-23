@@ -17,7 +17,8 @@ const group = (page: Page, name: RegExp | string) => page.getByRole('group', { n
 test('the entry page: audience, what you get, what it is not, the button to start, metadata', async ({ page }) => {
   await visit(page, '/readiness/spain-automotive', { title: /Spain automotive: who to approach/, h1: 'Supplier readiness: Spain automotive' });
   const main = page.locator('#main');
-  await expect(main.getByText(/civilian manufacturers in Spain, such as automotive component suppliers/).first()).toBeVisible();
+  // WP-88: the lead is one sentence (owner-approved copy change)
+  await expect(main.getByText(/civilian manufacturers in Spain, such as automotive suppliers/).first()).toBeVisible();
   for (const h of ['Who it is for', 'What you get', 'What it is not']) await expect(main.getByRole('heading', { name: h })).toBeVisible();
   await expect(main.getByRole('complementary', { name: 'Indicative, sources linked, not legal advice' })).toBeVisible();
   // WP-80: who to approach leads, the rules are the appendix

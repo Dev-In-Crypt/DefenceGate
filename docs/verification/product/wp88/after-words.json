@@ -1,0 +1,165 @@
+{
+ "/suppliers": {
+  "words": 26,
+  "prose": 21,
+  "first": "form",
+  "text": "Companies named as winners of defence contracts in public award notices of the last three years. Also: Ukraine partners Consortium gaps How we count Suppliers (5)",
+  "terms": []
+ },
+ "/organisations": {
+  "words": 28,
+  "prose": 63,
+  "first": "form",
+  "text": "Companies and research bodies that took part in EU-funded defence and research projects: the European Defence Fund, Horizon Europe, Horizon 2020 and FP7. Also: Ukraine partners Consortium gaps",
+  "terms": []
+ },
+ "/suppliers/1-demo-airframes-gmbh": {
+  "words": 0,
+  "prose": 51,
+  "first": "dl",
+  "text": "",
+  "terms": []
+ },
+ "/organisations/101-alpha-systems-gmbh": {
+  "words": 7,
+  "prose": 36,
+  "first": "dl",
+  "text": "European Defence Fund Horizon 2020 Horizon Europe",
+  "terms": []
+ },
+ "/funding": {
+  "words": 31,
+  "prose": 74,
+  "first": "form",
+  "text": "EU and national funding calls for defence and dual-use projects: filter by programme, country or deadline, and open a call for its rules and source. 8 funding sources Deadlines in UTC",
+  "terms": []
+ },
+ "/funding/1-edf-2026-additive-manufacturing-spare-parts": {
+  "words": 10,
+  "prose": 196,
+  "first": "dl",
+  "text": "EDF Defence Open European Commission European Defence Fund Key facts",
+  "terms": []
+ },
+ "/check": {
+  "words": 13,
+  "prose": 25,
+  "first": "li",
+  "text": "Answer one question first, then the check that fits. What do you want?",
+  "terms": []
+ },
+ "/readiness": {
+  "words": 41,
+  "prose": 111,
+  "first": "form",
+  "text": "Answer five short sets of questions to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first. Your answers are not stored on our server What is kept and what is sent",
+  "terms": []
+ },
+ "/readiness/supplier": {
+  "words": 50,
+  "prose": 35,
+  "first": "form",
+  "text": "Say what you make and what you hold: the results show who wins defence contracts for it, who buys it, and what their rules ask of you. Who this is for and what you get Your answers are not stored on our server What is kept and what is sent",
+  "terms": []
+ },
+ "/readiness/spain-automotive": {
+  "words": 32,
+  "prose": 424,
+  "first": "div",
+  "text": "For civilian manufacturers in Spain, such as automotive suppliers, considering defence work: say what you make, and the report shows who wins and who buys it in five countries, then the rules.",
+  "terms": []
+ },
+ "/readiness/results": {
+  "words": 48,
+  "prose": 23,
+  "first": null,
+  "text": "One card for each programme. Open a card to read every rule, the reason for its outcome and the text of the source. No answers in this browser yet The check needs a few answers about your company. They are kept in this browser only. Answer the questions",
+  "terms": []
+ },
+ "/readiness/roadmap": {
+  "words": 44,
+  "prose": 19,
+  "first": null,
+  "text": "What to obtain, in the order the dependencies allow, with who issues it and what it costs and takes. No answers in this browser yet The check needs a few answers about your company. They are kept in this browser only. Answer the questions",
+  "terms": []
+ },
+ "/readiness/supplier/report": {
+  "words": 25,
+  "prose": 0,
+  "first": null,
+  "text": "No answers in this browser yet The check needs a few answers about your company. They are kept in this browser only. Answer the questions",
+  "terms": []
+ },
+ "/readiness/supplier/winners": {
+  "words": 29,
+  "prose": 22,
+  "first": null,
+  "text": "Choose the CPV codes of what you make on your supplier profile, and this page lists every company that wins those contracts. Add CPV codes to my supplier profile",
+  "terms": []
+ },
+ "/requirements": {
+  "words": 30,
+  "prose": 107,
+  "first": "li",
+  "text": "The codes, registrations, certificates and licences a company needs to take part, and the eligibility rules: open one for who issues it, its cost and time, and its source. Identification",
+  "terms": [
+   "HSEM"
+  ]
+ },
+ "/regulation": {
+  "words": 39,
+  "prose": 21,
+  "first": "li",
+  "text": "What changed in the rules that decide who may supply European defence programmes. Newest event first last checked 18 Oct 2026 About this data Atom feed All 17 In force 11 Adopted 2 Proposed 1 Announced 1 Unconfirmed 2",
+  "terms": []
+ },
+ "/networks/consortium-gaps": {
+  "words": 32,
+  "prose": 72,
+  "first": "form",
+  "text": "Organisations funded at least twice in one capability area that never had a partner from the country you choose: a place to look for a partner the established consortia do not have.",
+  "terms": []
+ },
+ "/networks/ukraine-partners": {
+  "words": 21,
+  "prose": 77,
+  "first": "form",
+  "text": "Organisations that led an EU-funded project with a Ukrainian participant: primes that already work with Ukrainian companies, and consortia to join.",
+  "terms": []
+ },
+ "/market": {
+  "words": 18,
+  "prose": 18,
+  "first": "form",
+  "text": "How many defence procurement notices are published, by month, country and subject: counts of notices, never of money.",
+  "terms": []
+ },
+ "/methodology": {
+  "words": 20,
+  "prose": 920,
+  "first": "li",
+  "text": "What happens to a notice between the source and this site, and where the limits are. From source to screen",
+  "terms": []
+ },
+ "/about": {
+  "words": 124,
+  "prose": 213,
+  "first": "li",
+  "text": "Public notices about defence and dual-use work are spread over many portals, formats and languages. We bring them into one place and make them easy to check. Why we exist A supplier who wants to work for European defence buyers has to watch TED, national portals and funding programmes, each with its",
+  "terms": []
+ },
+ "/glossary": {
+  "words": 21,
+  "prose": 21,
+  "first": "dl",
+  "text": "The terms of tenders and funding calls in plain words; not legal advice, the notice and the legal text are authoritative.",
+  "terms": [
+   "PLACSP",
+   "CORDIS",
+   "EDIDP",
+   "PADR",
+   "HSEM",
+   "FSTP"
+  ]
+ }
+}

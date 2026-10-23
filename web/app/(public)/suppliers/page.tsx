@@ -19,6 +19,7 @@ import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
 import { CountryLabel } from '@/components/dg/data-display';
 import { Card } from '@/components/dg/card';
+import { AboutData } from '@/components/dg/about-data';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { DataTable } from '@/components/dg/data-table';
 import { boxCls } from '@/components/dg/field';
@@ -129,28 +130,122 @@ export default async function SuppliersPage({ searchParams }: Props) {
       {result.staleAsOf && <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(result.staleAsOf, formatDateTimeUtc)}</p>}
       <FilterNotices notices={notices} />
 
-      <Card title="What this map covers" id="coverage">
-        <p className="m-0 text-body">
-          {coverageText(Boolean(placsp))}
-        </p>
+      {/* WP-88: what the map covers, its counts, sources and licences are one collapsed block; the page opens with the list. */}
+      <AboutData summary="How we count">
+        <p className="m-0" id="coverage">{coverageText(Boolean(placsp))}</p>
         {summary && (
-          <p className="m-0 text-small text-ink-muted">
+          <p className="m-0">
             {formatNumber(summary.suppliers)} {plural(summary.suppliers, 'supplier')} and {formatNumber(summary.awards)} {plural(summary.awards, 'win')} in {formatNumber(summary.noticesWithSupplier)} {plural(summary.noticesWithSupplier, 'contract')}
             {summary.firstPublished && summary.lastPublished ? `, published ${formatDateUtc(summary.firstPublished)} to ${formatDateUtc(summary.lastPublished)} UTC` : ''}.
             {' '}{formatNumber(summary.skippedNaturalPersons)} {summary.skippedNaturalPersons === 1 ? 'winner that is a natural person (a sole trader under their own name) is' : 'winners that are natural persons (sole traders under their own name) are'} left out.
-            Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''} Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).
           </p>
         )}
-      </Card>
-
+        <p className="m-0">
+          Counts of suppliers and wins, every group shown however small. Winners that are natural persons are counted, never named. The map ranks
+          nobody by value; a supplier's wins are a count of contracts, each with its notice and link, and its page sums the values of the notices that name it alone.
+          A contract is in every CPV division its notice has a code in, so the divisions add up to more than the total.
+        </p>
+        <p className="m-0">Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''} Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).</p>
+      </AboutData>
+      <LiveListScope>
+      <section aria-labelledby="results-heading" className="flex flex-col gap-4">
+        <h2 id="results-heading" className="m-0 text-h2">
+          {result.total === 0 ? 'No suppliers' : `Suppliers (${formatNumber(result.total)})`}
+        </h2>
+        <LiveForm defaults={{ sort: 'awards' }}>
+        <form method="get" action="/suppliers" role="search" aria-label="Find suppliers" className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-small font-semibold">Company name
+            <input name="q" defaultValue={f.q} maxLength={100} className={INPUT} />
+          </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">Supplier's country, for example DE
+            <input name="country" defaultValue={f.country} maxLength={20} className={`${INPUT} w-40`} />
+          </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">Buyer's country, for example ES
+            <input name="buyerCountry" defaultValue={f.buyerCountry} maxLength={20} className={`${INPUT} w-40`} aria-describedby="country-help" />
+          </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">Product, for example ammunition
+            <input name="product" defaultValue={f.product} maxLength={60} className={`${INPUT} w-48`} aria-describedby="product-help" />
+          </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">CPV code, for example 35
+            <input name="cpv" defaultValue={f.cpv} maxLength={40} className={`${INPUT} w-40`} />
+          </label>
+          <label className="flex flex-col gap-1 text-small font-semibold">Order
+            <span className={cn(boxCls(), 'relative text-small font-normal')}>
+              <ListboxSelect name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order"
+                className="text-small font-normal"
+                options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }]} />
+            </span>
+          </label>
+          <Button type="submit" variant="primary">Search</Button>
+          {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
+        </form>
+        </LiveForm>
+        <AboutData summary="How the search works">
+          <p id="product-help" className="m-0">
+            A product word is read as CPV codes, from a short list of words for the main defence products (drone, explosives, body armour, tank, and a few more)
+            and otherwise from the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>; suppliers are
+            listed that won notices with any CPV code starting with one of them. The page shows the codes it used. Not sure of the word? Browse the finder and copy a code into the CPV box.
+          </p>
+          <p id="country-help" className="m-0">
+            The supplier's country is where the winner is registered, as the notice states it. The buyer's country is the country of the
+            buyer that awarded the contract: the countries of the supplier report. With the report's CPV codes and countries the list gives
+            each company the number of contracts “who to approach” gives it.
+          </p>
+          <p id="order-help" className="m-0">
+            “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
+            reseller with many small awards can come first. Choose “Name” for a neutral order.
+          </p>
+        </AboutData>
+        {match && (
+          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small">
+            {match.prefixes.length === 0
+              ? <>No code in the CPV finder has “{f.product}” in its title. Try a shorter or more general word, or browse the <Link href="/cpv" className="font-semibold">CPV finder</Link>.</>
+              : match.via === 'keyword'
+                ? <>“{f.product}” is read as {match.codes.map((c) => `${c.code} ${c.title}`).join('; ')} (our list of product words, with the codes and titles of the CPV vocabulary).
+                  {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length})` : ''}.
+                  {match.note ? ` ${match.note}` : ''}
+                  {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>
+                : <>“{f.product}” matches {match.matched} {match.matched === 1 ? 'code' : 'codes'} of the finder, for example {match.codes.slice(0, 3).map((c) => `${c.code} ${c.title}`).join('; ')}.
+                {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length}; use a narrower word for the rest)` : ''}.
+                {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>}
+          </p>
+        )}
+        <ResultsRegion className="flex flex-col gap-4">
+        {result.total === 0 ? (
+          <EmptyState title={unknown.length > 0 ? 'Not a country' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
+            {unknown.length > 0
+              ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
+              : `Only companies named as winners in a TED result notice${placsp ? ' or an award result of Spain’s national procurement portal' : ''} of the defence-relevant scope, published in the last three years, are listed. Try a shorter name.`}
+          </EmptyState>
+        ) : (
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {result.items.map((s) => (
+              <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface p-4">
+                <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{displayName(s.name, 'title')}</Link>
+                <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
+                  <CountryLabel code={s.country} />
+                  <span>
+                    {formatNumber(s.awardCount)} {s.awardCount === 1 ? 'win' : 'wins'}
+                    {s.firstYear ? `, ${s.firstYear === s.lastYear ? s.firstYear : `${s.firstYear} to ${s.lastYear}`}` : ''}
+                  </span>
+                  {s.cpvDivisions.length > 0 && <span>CPV {s.cpvDivisions.join(', ')}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {result.maxOffset !== undefined && result.total > result.maxOffset && (
+          <p className="m-0 max-w-prose text-small text-ink-muted">
+            The list shows the first {formatNumber(result.maxOffset)} of {formatNumber(result.total)}. Search by company name, or narrow by country or product group, to reach the others.
+          </p>
+        )}
+        <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
+        </ResultsRegion>
+      </section>
+      </LiveListScope>
       {summary && summary.byCpv.length > 0 && (
         <section aria-labelledby="aggregate" className="flex flex-col gap-4">
           <h2 id="aggregate" className="m-0 text-h2">By product group and country</h2>
-          <p className="m-0 max-w-prose text-small text-ink-muted">
-            Counts of suppliers and wins, every group shown however small. Winners that are natural persons are counted, never named. The map ranks
-            nobody by value; a supplier's wins are a count of contracts, each with its notice and link, and its page sums the values of the notices that name it alone.
-            A contract is in every CPV division its notice has a code in, so the divisions add up to more than the total.
-          </p>
           <AutoGrid min={420}>
             <Card title="By CPV division" headingLevel="h3" className="self-start">
               <DataTable label="Suppliers and wins per CPV division" minWidth={380}>
@@ -198,100 +293,6 @@ export default async function SuppliersPage({ searchParams }: Props) {
         </section>
       )}
 
-      <LiveListScope>
-      <section aria-labelledby="results-heading" className="flex flex-col gap-4">
-        <h2 id="results-heading" className="m-0 text-h2">
-          {result.total === 0 ? 'No suppliers' : `Suppliers (${formatNumber(result.total)})`}
-        </h2>
-        <LiveForm defaults={{ sort: 'awards' }}>
-        <form method="get" action="/suppliers" role="search" aria-label="Find suppliers" className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-small font-semibold">Company name
-            <input name="q" defaultValue={f.q} maxLength={100} className={INPUT} />
-          </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Supplier's country, for example DE
-            <input name="country" defaultValue={f.country} maxLength={20} className={`${INPUT} w-40`} />
-          </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Buyer's country, for example ES
-            <input name="buyerCountry" defaultValue={f.buyerCountry} maxLength={20} className={`${INPUT} w-40`} aria-describedby="country-help" />
-          </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Product, for example ammunition
-            <input name="product" defaultValue={f.product} maxLength={60} className={`${INPUT} w-48`} aria-describedby="product-help" />
-          </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">CPV code, for example 35
-            <input name="cpv" defaultValue={f.cpv} maxLength={40} className={`${INPUT} w-40`} />
-          </label>
-          <label className="flex flex-col gap-1 text-small font-semibold">Order
-            <span className={cn(boxCls(), 'relative text-small font-normal')}>
-              <ListboxSelect name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order"
-                className="text-small font-normal"
-                options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }]} />
-            </span>
-          </label>
-          <Button type="submit" variant="primary">Search</Button>
-          {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
-        </form>
-        </LiveForm>
-        <p id="product-help" className="m-0 max-w-prose text-small text-ink-muted">
-          A product word is read as CPV codes, from a short list of words for the main defence products (drone, explosives, body armour, tank, and a few more)
-          and otherwise from the titles of the codes in the <Link href="/cpv" className="font-semibold">CPV finder</Link>; suppliers are
-          listed that won notices with any CPV code starting with one of them. The page shows the codes it used. Not sure of the word? Browse the finder and copy a code into the CPV box.
-        </p>
-        <p id="country-help" className="m-0 max-w-prose text-small text-ink-muted">
-          The supplier's country is where the winner is registered, as the notice states it. The buyer's country is the country of the
-          buyer that awarded the contract: the countries of the supplier report. With the report's CPV codes and countries the list gives
-          each company the number of contracts “who to approach” gives it.
-        </p>
-        <p id="order-help" className="m-0 max-w-prose text-small text-ink-muted">
-          “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
-          reseller with many small awards can come first. Choose “Name” for a neutral order.
-        </p>
-        {match && (
-          <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small">
-            {match.prefixes.length === 0
-              ? <>No code in the CPV finder has “{f.product}” in its title. Try a shorter or more general word, or browse the <Link href="/cpv" className="font-semibold">CPV finder</Link>.</>
-              : match.via === 'keyword'
-                ? <>“{f.product}” is read as {match.codes.map((c) => `${c.code} ${c.title}`).join('; ')} (our list of product words, with the codes and titles of the CPV vocabulary).
-                  {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length})` : ''}.
-                  {match.note ? ` ${match.note}` : ''}
-                  {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>
-                : <>“{f.product}” matches {match.matched} {match.matched === 1 ? 'code' : 'codes'} of the finder, for example {match.codes.slice(0, 3).map((c) => `${c.code} ${c.title}`).join('; ')}.
-                {' '}Filtering by the prefixes {match.prefixes.join(', ')}{match.truncated ? ` (the first ${match.prefixes.length}; use a narrower word for the rest)` : ''}.
-                {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>}
-          </p>
-        )}
-        <ResultsRegion className="flex flex-col gap-4">
-        {result.total === 0 ? (
-          <EmptyState title={unknown.length > 0 ? 'Not a country' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
-            {unknown.length > 0
-              ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
-              : `Only companies named as winners in a TED result notice${placsp ? ' or a PLACSP award result' : ''} of the defence-relevant scope, published in the last three years, are listed. Try a shorter name.`}
-          </EmptyState>
-        ) : (
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
-            {result.items.map((s) => (
-              <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface p-4">
-                <Link href={`/suppliers/${s.slug}`} className="inline-flex min-h-8 items-center break-words text-h3 font-semibold">{displayName(s.name, 'title')}</Link>
-                <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-small text-ink-muted">
-                  <CountryLabel code={s.country} />
-                  <span>
-                    {formatNumber(s.awardCount)} {s.awardCount === 1 ? 'win' : 'wins'}
-                    {s.firstYear ? `, ${s.firstYear === s.lastYear ? s.firstYear : `${s.firstYear} to ${s.lastYear}`}` : ''}
-                  </span>
-                  {s.cpvDivisions.length > 0 && <span>CPV {s.cpvDivisions.join(', ')}</span>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {result.maxOffset !== undefined && result.total > result.maxOffset && (
-          <p className="m-0 max-w-prose text-small text-ink-muted">
-            The list shows the first {formatNumber(result.maxOffset)} of {formatNumber(result.total)}. Search by company name, or narrow by country or product group, to reach the others.
-          </p>
-        )}
-        <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
-        </ResultsRegion>
-      </section>
-      </LiveListScope>
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { visit } from './helpers';
+import { openAbout, visit } from './helpers';
 
 /**
  * The fixes of WP-38, from the persona walk-throughs of 18 October 2026 (docs/verification/product/verify2-ux.md, U1 to U16).
@@ -213,6 +213,8 @@ test('U9: the supplier map searches by product through the CPV finder and links 
   await visit(page, '/suppliers?product=ammunition', { title: /supplier map/i, h1: 'Companies' });
   const main = page.locator('#main');
   await expect(main.getByLabel(/^Product, for example ammunition/)).toHaveValue('ammunition');
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(main.getByRole('link', { name: 'CPV finder' }).first()).toHaveAttribute('href', '/cpv');
   await expect(main.getByRole('status').filter({ hasText: /“ammunition” matches \d+ codes? of the finder/ })).toContainText('3533');
   await expect(main.getByText(/a count, not a ranking/)).toBeVisible();
@@ -225,12 +227,14 @@ test('U9: the supplier map searches by product through the CPV finder and links 
 test('U10: the directory opens on the defence programmes and one visible link shows all', async ({ page }) => {
   await visit(page, '/organisations', { title: /organisations/i, h1: 'Companies' });
   const main = page.locator('#main');
-  await expect(main.getByRole('status').filter({ hasText: /Showing the European Defence Fund and its predecessors/ })).toBeVisible();
+  await expect(main.getByRole('status').filter({ hasText: /Showing the European Defence Fund and its two predecessor programmes/ })).toBeVisible();
   await expect(main.getByRole('link', { name: /Kyiv Institute/i })).toHaveCount(0);
   await main.getByRole('link', { name: 'Show all programmes' }).click();
   await expect(page).toHaveURL(/programme=all/);
   await expect(main.getByRole('link', { name: /Kyiv Institute/i })).toBeVisible();
   await expect(main.getByRole('link', { name: /Show only the European Defence Fund/ })).toBeVisible();
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(main.getByText(/shown under Spain although its address is recorded in Italy/)).toBeVisible();
 });
 
@@ -239,8 +243,8 @@ test('U10: the Ukraine partners analysis says what the defence programmes hold a
   await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Ukraine partners' });
   const main = page.locator('#main');
   const opened = main.getByRole('status').filter({ hasText: /Showing all programmes/ });
-  await expect(opened).toContainText('No project of the European Defence Fund and its predecessors (EDIDP, PADR) started in or after 2021 has a Ukrainian participant');
-  await expect(opened.getByRole('link', { name: /Show only the European Defence Fund and its predecessors/ })).toBeVisible();
+  await expect(opened).toContainText('No project of the European Defence Fund and its two predecessor programmes started in or after 2021 has a Ukrainian participant');
+  await expect(opened.getByRole('link', { name: /Show only the European Defence Fund and its two predecessor programmes/ })).toBeVisible();
   await expect(main.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
   // a programme the visitor chose stays as chosen, and the page says what all the others hold
   await visit(page, '/networks/ukraine-partners?programme=EDF', { title: /Ukrainian organisations/i, h1: 'Ukraine partners' });
@@ -248,10 +252,13 @@ test('U10: the Ukraine partners analysis says what the defence programmes hold a
   await main.getByRole('link', { name: 'Show all programmes' }).click();
   await expect(page).toHaveURL(/programme=all/);
   await expect(main.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
-  // a table wider than the screen says it scrolls
+  // WP-88: on a phone the table reads as cards (one row a block), so it fits and no "scroll sideways" line is needed at any width
   const hint = main.getByText(/More columns to the right: scroll sideways/);
-  if (isMobile(page)) await expect(hint.first()).toBeVisible();
-  else await expect(hint).toHaveCount(0);
+  await expect(hint).toHaveCount(0);
+  if (isMobile(page)) {
+    const row = main.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).locator('tbody tr').first();
+    expect(await row.evaluate((r) => getComputedStyle(r).display)).toBe('block');
+  }
 });
 
 // ---------------------------------------------------------------- U11: consortium gaps
@@ -262,6 +269,8 @@ test('U11: the gap analysis uses selects for the programme and the country and e
   await expect(main.getByLabel('With no participant from')).toHaveValue('PL');
   await expect(main.getByLabel('Programme')).toHaveValue('EDF');
   await expect(main.getByRole('combobox', { name: 'With no participant from' })).toBeVisible();
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(main.getByText(/our plain reading\s+of the abbreviation/)).toBeVisible();
   await expect(main.getByRole('link', { name: 'GROUND' })).toBeVisible();
   await expect(main.getByText('Ground combat')).toBeVisible();

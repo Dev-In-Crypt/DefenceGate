@@ -11,9 +11,9 @@ export function placspNote(sources: SupplierSourceNote[] | undefined | null): Su
   return (sources ?? []).find((s) => PLACSP_CODES.includes(s.code)) ?? null;
 }
 
-/** The short name of the source of one notice. */
+/** The short name of the source of one notice. WP-88: a person's words, not the portal's code (PLACSP is named in About this data). */
 export function sourceLabel(code: string | undefined): string {
-  return code && PLACSP_CODES.includes(code) ? 'PLACSP' : 'TED';
+  return code && PLACSP_CODES.includes(code) ? 'Spanish portal' : 'TED';
 }
 
 /** The coverage paragraph of /suppliers. WP-85: the same contracts as the supplier report's "who to approach", over the same three years. */

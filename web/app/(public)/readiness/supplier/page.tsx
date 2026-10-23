@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { buildMetadata } from '@/lib/seo';
 import { Callout } from '@/components/dg/blocks';
-import { ContentPage, PageSection } from '@/components/dg/content-page';
+import { AboutData } from '@/components/dg/about-data';
+import { ContentPage } from '@/components/dg/content-page';
 import { SupplierForm } from '@/components/readiness/supplier';
 
 export const metadata: Metadata = buildMetadata({
@@ -15,12 +16,13 @@ export default function SupplierPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Supplier profile', href: '/readiness/supplier' }]}
       title="Supplier profile"
-      lead="For a company that makes parts or materials and wants defence work. Say what you make and what you hold; the results start with the companies that win defence contracts for what you make, then who buys it, then what the buyers' routes ask of you, rule by rule."
+      lead="Say what you make and what you hold: the results show who wins defence contracts for it, who buys it, and what their rules ask of you."
     >
-      <PageSection title="Who this is for">
-        <div className="flex max-w-prose flex-col gap-3 text-body" data-supplier-audience>
+      {/* WP-88: who it is for and what it gives, collapsed; the form follows one sentence. */}
+      <AboutData summary="Who this is for and what you get">
+        <div className="flex max-w-prose flex-col gap-3" data-supplier-audience>
           <p className="m-0">
-            Manufacturers in Spain that make civilian products today, such as automotive components, castings, machined parts or electronics, and
+            For a company that makes parts or materials and wants defence work. Manufacturers in Spain that make civilian products today, such as automotive components, castings, machined parts or electronics, and
             want to supply defence buyers: the Ministry of Defence, the NATO Support and Procurement Agency (NSPA), and the prime contractors that
             build for them.
           </p>
@@ -41,10 +43,12 @@ export default function SupplierPage() {
             says so and gives no answer of its own. A company established elsewhere can use it too; the Spanish rules then do not apply.
           </p>
         </div>
-      </PageSection>
-      <Callout title="Your answers stay in this browser">
+      </AboutData>
+      <Callout title="Your answers are not stored on our server">
+        <AboutData summary="What is kept and what is sent">
         <p className="m-0">They are saved in this browser, on this device, together with the answers of the readiness check. There is no account and no copy on our server.</p>
         <p className="m-0">Two requests leave your browser: the one that computes the verdict, with the answers the rules read, and the one for who wins and who buys what you make, with your CPV codes and nothing else. The server does not store or log them.</p>
+        </AboutData>
       </Callout>
       <SupplierForm />
     </ContentPage>

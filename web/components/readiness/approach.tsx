@@ -10,6 +10,7 @@ import { Tag } from '@/components/dg/tag';
 import { ValueTotalsBlock } from '@/components/dg/value-totals';
 import { ErrorState, Skeleton } from '@/components/dg/feedback';
 import type { DemandState } from './use-readiness';
+import { AboutData } from '@/components/dg/about-data';
 
 type Result = DemandState & { retry: () => void };
 
@@ -21,6 +22,10 @@ export function ApproachExplainer() {
     <div className="flex max-w-prose flex-col gap-2 text-body" data-approach-explainer>
       <p className="m-0">
         Automotive suppliers usually enter defence as subcontractors: they sell to the prime contractors and their large suppliers, not to a ministry.
+      </p>
+      {/* WP-88: one sentence; the evidence and what the list cannot show are collapsed. */}
+      <AboutData summary="Why this list comes first">
+      <p className="m-0">
         In Spain, Indra opened a supplier selection for automotive firms in 2026 for its military vehicle programmes (
         <a href={INDRA_SOURCE} target="_blank" rel="noopener noreferrer">elDiario.es, 16 June 2026</a>).
       </p>
@@ -29,6 +34,7 @@ export function ApproachExplainer() {
         defence-scope contracts under your CPV codes; a company marked as a prime contractor or large defence group is one to offer your work to as a
         subcontractor; the others supply the buyers directly.
       </p>
+      </AboutData>
     </div>
   );
 }
@@ -116,12 +122,14 @@ export function ApproachMap({ result, hasCodes }: { result: Result; hasCodes: bo
       {d.total.winners > a.winners.length && (
         <p className="m-0" data-approach-all><a href={winnersHref()} className="font-semibold">{allWinnersLabel(d.total.winners)}</a></p>
       )}
-      <p className="m-0 max-w-prose text-small text-ink-muted">
+      <AboutData summary="How we count">
+      <p className="m-0">
         A contract here is a procurement with a published winner, counted once however many notices publish it. Under each company, Contract values sums the values of its contracts per currency. The
         latest notice is the newest publication among them: for Spain’s national portal (PLACSP) the date the procurement was published, since its
         award date is not stored. Marked by name: a group member that carries the group’s name; a subsidiary under another name is not marked.
       </p>
-      <p className="m-0 max-w-prose text-small text-ink-muted">{d.winnersFrom} {d.coverage}</p>
+      <p className="m-0">{d.winnersFrom} {d.coverage}</p>
+      </AboutData>
     </div>
   );
 }

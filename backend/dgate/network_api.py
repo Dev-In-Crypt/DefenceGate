@@ -283,12 +283,13 @@ def _require_member(conn, org: dict[str, Any]) -> None:
         raise HTTPException(404, "no such organisation")
 
 
+# WP-88: plain words (the UX audit of 22 Oct 2026 found "alias", "exact normalised name" and "Lowest confidence 0.95").
 RESOLUTION_WORDS = {
     "pic": "matched by its PIC, the participant identification code the source states",
-    "alias": "matched to a name decided before (an alias)",
-    "exact_name": "matched by its exact normalised name within the country",
+    "alias": "matched to a spelling of its name that was linked to it before",
+    "exact_name": "matched by the same name (ignoring accents, capitals and the legal form) in the same country",
     "exact_name_ambiguous": "matched by a name that more than one organisation of the country carries; "
-                            "the best known was chosen and the pair is queued for review",
+                            "the best known was chosen and the pair is queued for a person to check",
     "national_id": "matched by a national registration number",
     "vat": "matched by a VAT number",
 }
@@ -306,9 +307,9 @@ def resolution_note(methods: dict[str, int], lowest: float | None, pic: str | No
         parts.append(f"all {n} {what}" if n == total else f"{n} of {total} {what}")
     note = "Participations: " + "; ".join(parts) + "."
     if lowest is not None:
-        note += f" Lowest confidence {lowest:.2f}."
+        note += f" How sure the least certain match is: {lowest:.2f} on a scale to 1 (1 is certain)."
     if not pic:
-        note += " No PIC is held, so it was recognised by name."
+        note += " The sources give it no PIC, so it was recognised by its name."
     return note
 
 
@@ -873,8 +874,8 @@ def ukraine_partners(
                    "CORDIS in the copy we read lags the newest Horizon Europe starts; EDF projects are those of the "
                    "factsheets published so far.",
                    "A project counts from the year it started (call year for EDF).",
-                   "A project whose coordinator the source does not state is counted in `projects` but not under any "
-                   "coordinator."],
+                   "A project whose coordinator the source does not state is counted in the project total but not under "
+                   "any coordinator."],
         "sources": _sources(conn),
     }
 
@@ -960,10 +961,10 @@ def consortium_gaps(
     return {
         "programme": programmes, "topic": topic, "lacking": lack, "minProjects": minProjects,
         "projectsInArea": len(area),
-        "definition": ("Capability area: the projects of the programme(s) named, narrowed by `topic`, which is the "
-                       "EDF capability category (for example CYBER, GROUND) or the start of a topic code. The "
-                       "data holds no finer taxonomy. Category: the country of establishment of a participant, "
-                       f"as the source states it. An organisation is listed when it took part in at least "
+        "definition": ("Capability area: the projects of the programme(s) named, narrowed by the topic you give, which "
+                       "is the EDF capability category (for example CYBER, GROUND) or the start of a topic code. The "
+                       "data holds no finer taxonomy. Country: where a participant is established (its country of "
+                       f"establishment), as the source states it. An organisation is listed when it took part in at least "
                        f"{minProjects} projects of the area and no project of the area it took part in had a "
                        f"participant established in {lack}. Consortia as such are not listed: the data does not "
                        "identify a consortium beyond the projects its members share."),

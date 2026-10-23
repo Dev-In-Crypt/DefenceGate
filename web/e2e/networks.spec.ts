@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { pace, visit } from './helpers';
+import { openAbout, pace, visit } from './helpers';
 
 /**
  * The networks pages (WP-28): the organisations directory with its filters, an organisation's profile (funding table and
@@ -27,6 +27,8 @@ test('/organisations: the directory lists the organisations with their counts an
   // most projects first: Bravo and Alpha hold two or three projects each, Kyiv and Echo one
   await expect(cards.first().getByRole('heading', { level: 2 })).toContainText(/alpha systems|bravo/i);
   await expect(page.getByRole('link', { name: /Kyiv Institute/i })).toBeVisible();
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(page.getByText(/EDF factsheets state none per participant/i).first()).toBeVisible();
   await expect(page.getByText(/Licence: Commission Decision 2011\/833\/EU/i).first()).toBeVisible();
   await expect(page.getByText(/by a language model/i).first()).toBeVisible();
@@ -40,6 +42,8 @@ test('/organisations: the defence scope puts the defence count first and labels 
   await expect(first.getByText('Projects, all programmes', { exact: true })).toBeVisible();
   await expect(first.getByText('Coordinated, all programmes', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Sort')).toHaveValue('defence');
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(page.getByText(/Defence projects are those of the European Defence Fund/)).toBeVisible();
 });
 
@@ -74,6 +78,8 @@ test('/organisations: a filter that matches nothing says so', async ({ page }) =
 test('an organisation profile: facts, how it was recognised, and its sections', async ({ page }) => {
   await visit(page, ALPHA, { title: /Alpha Systems/i, h1: /Alpha Systems/i, text: ['How we recognised this organisation', 'By programme'] });
   await expect(page.getByText('As coordinator', { exact: true }).first()).toBeVisible();
+  // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
+  await openAbout(page);
   await expect(page.getByText('999000001')).toBeVisible();
   await expect(page.getByText(/matched by its PIC/i).first()).toBeVisible();
   const sections = page.getByRole('navigation', { name: 'Sections of this profile' });
@@ -136,7 +142,10 @@ test('an EDF project says its participants were read by a model and what the che
 });
 
 test('the Ukraine partners analysis names the coordinator and the Ukrainian participant, and states its definition', async ({ page }) => {
-  await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian organisations/i, h1: 'Ukraine partners', text: ['What this counts', 'Limits'] });
+  await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian organisations/i, h1: 'Ukraine partners' });
+  // WP-88: the definition and the limits are in the collapsed How we count (owner-approved copy change)
+  await openAbout(page);
+  for (const t of ['What this counts', 'Limits']) await expect(page.getByText(t, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/country of establishment, as the source states it, is Ukraine/i)).toBeVisible();
   const table = page.getByRole('table', { name: /Coordinators with a Ukrainian participant/i });
   await expect(table.getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
@@ -144,7 +153,9 @@ test('the Ukraine partners analysis names the coordinator and the Ukrainian part
 });
 
 test('the consortium gaps analysis defines its area and category, and lists repeat participants', async ({ page }) => {
-  await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=UA', { title: /Repeat participants/i, h1: 'Consortium gaps', text: ['What this counts', 'Limits'] });
+  await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=UA', { title: /Repeat participants/i, h1: 'Consortium gaps' });
+  await openAbout(page);
+  for (const t of ['What this counts', 'Limits']) await expect(page.getByText(t, { exact: true }).first()).toBeVisible();
   await expect(page.getByText(/Capability area:/i)).toBeVisible();
   await expect(page.getByRole('table', { name: /Organisations funded repeatedly/i }).getByRole('link', { name: /Bravo/i })).toBeVisible();
   await expect(page.getByText(/by a language model/i).first()).toBeVisible();

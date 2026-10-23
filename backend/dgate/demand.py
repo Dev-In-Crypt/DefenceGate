@@ -132,7 +132,7 @@ def prime_of(canonical_name: str | None) -> dict[str, Any] | None:
 COVERAGE = ("Direct buying by defence bodies, as published on TED and the national portals we read; not the sub-tier "
             "needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a "
             "2025 ECIPE policy brief; we have not re-checked that figure). National coverage differs: Spain (PLACSP) "
-            "and Poland (e-ZamГіwienia) in full, Germany (the federal procurement office's portal) since 2025, France "
+            "and Poland (e-Zamówienia) in full, Germany (the federal procurement office's portal) since 2025, France "
             "(BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer.")
 WINNERS_TED = ("Winners are those named in TED result notices; most contracts below the EU thresholds name no winner "
                "here. Natural persons are never counted or named.")

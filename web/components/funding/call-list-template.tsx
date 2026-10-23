@@ -60,7 +60,7 @@ export function CallListTemplate({
   return (
     <>
       <PageHeader crumbs={crumbs} title={title} lead={intro}
-        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`} />
+        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources · Deadlines in UTC${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`} />
 
       {/* Before the chips and the filters: from the top of the page to the first call in a few stops (WP-58). */}
       <SkipToResults />

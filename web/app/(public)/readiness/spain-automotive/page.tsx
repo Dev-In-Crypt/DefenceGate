@@ -47,7 +47,7 @@ function Sample({ d }: { d: Demand }) {
         </ul>
         {d.approach && (
           <p className="m-0" data-demand-sample-approach>
-            {plural(d.total.winners, 'company', 'companies')} won them; {plural(d.approach.winners.length, 'company', 'companies')}{d.kMin > 1 ? ` won ${d.kMin} or more and` : ''}
+            {plural(d.total.winners, 'company', 'companies')} won them; {plural(d.approach.winners.length, 'company', 'companies')}{d.kMin > 1 ? ` won ${d.kMin} or more and` : ''}{' '}
             would be named in the report, {plural(d.approach.winners.filter((w) => w.prime).length, 'of them is', 'of them are')} marked as a prime
             contractor or large defence group.
           </p>
@@ -65,9 +65,9 @@ export default async function SpainAutomotivePage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Spain automotive', href: '/readiness/spain-automotive' }]}
       title="Supplier readiness: Spain automotive"
-      lead="For civilian manufacturers in Spain, such as automotive component suppliers, that are considering defence work. You say what you make; the report starts with the companies that win defence contracts for it in five countries, then who buys it, then the rules, each with its source."
+      lead="For civilian manufacturers in Spain, such as automotive suppliers, considering defence work: say what you make, and the report shows who wins and who buys it in five countries, then the rules."
     >
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3" data-useful>
         <Button href="/readiness/supplier" iconRight={ArrowRight}>Start the supplier profile</Button>
       </div>
 
@@ -87,7 +87,7 @@ export default async function SpainAutomotivePage() {
         <ul className="m-0 flex list-disc flex-col gap-2 pl-5 text-body text-ink-muted">
           <li>
             <strong className="text-ink">Who to approach.</strong> The companies that won defence-scope contracts under the CPV codes you choose in Spain,
-            Germany, France, Poland and the Netherlands over the last three years, from TED and the Spanish national portal (PLACSP), each contract counted
+            Germany, France, Poland and the Netherlands over the last three years, from TED and the Spanish national procurement portal, each contract counted
             once: how many contracts, the sum of their values per currency where a notice states one for that company alone, the buyers they win
             from, the countries, the date of the latest notice, and a link
             to their supplier page. Prime contractors and large defence groups are marked, with the source of the list. Every company is named, from one award up;
@@ -129,8 +129,8 @@ export default async function SpainAutomotivePage() {
 
       {sample && <Sample d={sample} />}
 
-      <Callout title="Your answers stay in this browser">
-        <p className="m-0">There is no account and no copy on our server. Two requests leave your browser: the one that computes the verdict, with the answers the rules read, and the one for the demand map, with your CPV codes and nothing else. The server does not store or log them.</p>
+      <Callout title="Your answers are not stored on our server">
+        <p className="m-0">They stay in this browser: there is no account and no copy on our server. Two requests leave your browser: the one that computes the verdict, with the answers the rules read, and the one for the demand map, with your CPV codes and nothing else. The server does not store or log them.</p>
       </Callout>
 
       <section lang="es" aria-labelledby="s-resumen" className="flex min-w-0 flex-col gap-2" data-summary-es>

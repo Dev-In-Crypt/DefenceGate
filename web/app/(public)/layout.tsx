@@ -3,6 +3,7 @@ import { Footer } from '@/components/dg/footer';
 import { getAccountStatus } from '@/lib/account';
 import { AccountsOpenProvider } from '@/components/account/accounts-open';
 import { RouteFocus } from '@/components/dg/route-focus';
+import { PrintOpenDetails } from '@/components/dg/print-open-details';
 
 /**
  * Reads no cookie, so public pages stay statically renderable. The status call is cached for 60 seconds and any
@@ -23,6 +24,8 @@ export default async function PublicLayout({ children }: { children: React.React
       </main>
       <Footer />
       <RouteFocus />
+      {/* WP-88: every collapsed "About this data" prints open, on every public page. */}
+      <PrintOpenDetails />
     </>
   );
 }

@@ -239,7 +239,8 @@ def test_profile_says_how_each_participation_was_recognised(client, world):
     body = client.get(f"/v1/organisations/{slug_of(client, world.A)}").json()
     assert body["resolution"]["participations"] == {"pic": 2, "exact_name": 2}
     assert "2 of 4 matched by its PIC" in body["resolution"]["note"]
-    assert "2 of 4 matched by its exact normalised name" in body["resolution"]["note"]
+    # WP-88: plain words (owner-approved copy change of 22 Oct 2026)
+    assert "2 of 4 matched by the same name (ignoring accents, capitals and the legal form)" in body["resolution"]["note"]
     assert body["resolution"]["lowestConfidence"] == 0.9
     assert {s["code"] for s in body["sources"]} == {"cordis", "edf_factsheets"}
     assert all(s["licence"] for s in body["sources"])
@@ -248,8 +249,8 @@ def test_profile_says_how_each_participation_was_recognised(client, world):
 def test_resolution_note_wording():
     assert resolution_note({}, None, None) == "No participation is held for this organisation."
     note = resolution_note({"pic": 3}, 1.0, "999000001")
-    assert note.startswith("Participations: all 3 matched by its PIC") and "Lowest confidence 1.00" in note
-    assert "No PIC is held" in resolution_note({"exact_name": 1}, 0.9, None)
+    assert note.startswith("Participations: all 3 matched by its PIC") and "least certain match is: 1.00 on a scale to 1" in note
+    assert "The sources give it no PIC" in resolution_note({"exact_name": 1}, 0.9, None)
 
 
 def test_profile_of_an_organisation_with_no_project_or_unknown_is_404_and_a_removed_one_410(conn, client, world):
