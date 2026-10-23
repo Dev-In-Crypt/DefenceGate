@@ -1948,10 +1948,14 @@ def list_buyers(
     prefixes = cpv_prefixes(cpv)
     if prefixes:
         # WP-89: the buyers (families) with at least one of their counted notices (the core scope the counts are of)
-        # under one of the codes; the counts stay all of their notices. A semi-join over the GIN index.
-        where.append(f"org.id IN (SELECT COALESCE(m.head_org_id, o.buyer_org_id) FROM opportunity o {_FAMILY_O} "
-                     f"WHERE {' AND '.join(_core_where())} AND {CPV_HEADS})")
-        params.append(prefixes)
+        # under one of the codes; the counts stay all of their notices. The families are read first, on their own
+        # (0.06 s over the GIN index on production): as a semi-join inside the list's query the planner ran it past
+        # the 5 s statement timeout on 23 October 2026.
+        ids = [r["id"] for r in conn.execute(
+            f"SELECT DISTINCT COALESCE(m.head_org_id, o.buyer_org_id) AS id FROM opportunity o {_FAMILY_O} "
+            f"WHERE {' AND '.join(_core_where())} AND {CPV_HEADS}", (prefixes,)).fetchall()]
+        where.append("org.id = ANY(%s)")
+        params.append(ids)
     # The aggregate and its join to `organisation` are computed first, each as a step of its
     # own (MATERIALIZED), and the filters run over the few thousand families that come out:
     # `?q=de` timed out at 5 s on 16 October 2026 because the name filter was run over all
