@@ -62,7 +62,8 @@ AIM_PROGRAMMES = ("EDF", "EDIP")
 _BLOCK = re.compile(r"</?(?:p|div|br|h[1-6]|ul|ol|tr|table|section)\b[^>]*>", re.I)
 _ITEM = re.compile(r"<li\b[^>]*>", re.I)
 _TAG = re.compile(r"<[^>]+>")
-_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'])")
+# "e.g." and "i.e." end no sentence: "integrated systems (e.g. Air and missile defence)" was cut at "(e.g." (23 Oct 2026)
+_SPLIT = re.compile(r"(?<=[.!?])(?<!\be\.g\.)(?<!\bi\.e\.)\s+(?=[A-Z(\"'])")
 
 # A year is not a figure of a system; every other digit is treated as one.
 _YEAR = re.compile(r"\b(?:19|20)\d{2}\b")

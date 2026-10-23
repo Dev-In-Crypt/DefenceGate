@@ -253,3 +253,8 @@ def test_who_may_apply_is_read_from_the_calls_own_facts_first(facts, expected):
 def test_the_evidence_is_the_quote_it_rests_on():
     assert who_apply.decide({"entity_types": fact(["Ministries of defence"], quote="Only ministries may apply.")})[2] \
         == "Only ministries may apply."
+
+
+def test_an_abbreviation_ends_no_sentence():
+    parts = ts._SPLIT.split("This topic aims at actions supporting integrated systems (e.g. Air defence) for Member States. Second one.")
+    assert parts[0].endswith("for Member States.") and len(parts) == 2
