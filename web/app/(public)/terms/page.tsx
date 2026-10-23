@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/seo';
-import { Callout, Clause, ClauseGroup, ClauseList } from '@/components/dg/blocks';
+import { Clause, ClauseGroup, ClauseList } from '@/components/dg/blocks';
 import { ContentPage } from '@/components/dg/content-page';
 
 export const revalidate = 3600;
@@ -22,20 +22,8 @@ export default function TermsPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Terms of use', href: '/terms' }]}
       title="Terms of use"
-      lead="Version 2.0, published 14 October 2026. The short version comes first; the numbered terms below are the binding text. They replace version 1.1 of 13 October 2026; earlier versions are kept and available on request."
+      lead="Version 2.0, published 14 October 2026. The numbered terms below are the binding text. They replace version 1.1 of 13 October 2026; earlier versions are kept and available on request."
     >
-      <Callout title="In short">
-        <ClauseList items={[
-          'DefenceGate is an information service for business use. It republishes public notices and funding calls and links each one to its original source.',
-          'We are not the author or owner of those notices and we do not check what they say. The original source is authoritative. What we show can be late, incomplete or wrong. Check the source before you act.',
-          'The defence or dual-use label, the normalised names and the links between sources are produced by us and by automated rules. They are indications, not determinations.',
-          'We give no legal, procurement, export-control, sanctions or financial advice and we are not affiliated with any publisher, government or EU body.',
-          'You use the service at your own responsibility. Our liability is limited as far as the law allows.',
-          'Do not scrape around our limits, feed the service into AI tools, or resell our compilation.',
-          'To report a mistake, ask for a correction or removal, or raise a rights matter, see term 19.',
-        ]} />
-      </Callout>
-
       <ClauseGroup>
       <Clause n={1} title="Who provides the service and what applies">
         <p className={P}>DefenceGate is provided by the operator identified in the <Link href="/imprint" className="font-semibold">imprint</Link> (“we”, “us”). These terms govern your use of the website and of any account (“the service”). The data endpoints that serve this site are not a supported programming interface and may change or be withdrawn without notice; term 13 applies to automated use.</p>
