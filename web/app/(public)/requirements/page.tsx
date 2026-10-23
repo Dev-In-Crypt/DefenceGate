@@ -2,9 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { ArrowRight } from 'lucide-react';
-import { getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, costStatement, joinWords, programmeName, requirementSlug, siteDay, timeStatement } from '@/lib/readiness';
+import { getRequirement, getRequirements } from '@/lib/readiness-api';
+import { CATEGORY_WORD, costStatement, issuerFor, joinWords, programmeName, requirementSlug, siteDay, timeStatement, type IssuerAnswer } from '@/lib/readiness';
 import type { RequirementSummary } from '@/lib/readiness-types';
+import { safeHttpUrl } from '@/lib/safe-url';
+import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
+import { Select } from '@/components/dg/form';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
@@ -27,13 +30,33 @@ const TERM_OF: Record<string, { id: string; term: string }> = {
   'REQ-FSC-ES': { id: 'hsem', term: 'HSEM' }, 'REQ-HSES-ES': { id: 'hses', term: 'HSES' }, 'REQ-PIC': { id: 'pic', term: 'PIC' },
 };
 
+/** WP-91: who issues a document in the chosen country, as plainly as our sources allow (an unverified issuer is said to be one). */
+function IssuerLine({ a, country }: { a: IssuerAnswer; country: string }) {
+  if (a.kind === 'verified') {
+    const url = safeHttpUrl(a.issuer.url);
+    return (
+      <p className="m-0 text-small" data-issuer="verified">
+        <strong>{a.issuer.country === '*' ? `Issued for ${countryName(country)} by` : `Issued in ${countryName(country)} by`}:</strong>{' '}
+        {url ? <a href={url} target="_blank" rel="noopener noreferrer">{a.issuer.name}</a> : a.issuer.name}
+      </p>
+    );
+  }
+  return (
+    <p className="m-0 text-small" data-issuer={a.kind}>
+      {a.text}
+      {a.kind === 'unverified' && a.link && <> <a href={a.link.url} target="_blank" rel="noopener noreferrer" className="font-semibold">{a.link.label}<span className="sr-only"> (opens in new tab)</span></a>.</>}
+    </p>
+  );
+}
+
 /** One requirement: name, summary, then Cost and Time as facts (label above value) pinned to the bottom, so the cards of a row line up. */
-function RequirementCard({ r }: { r: RequirementSummary }) {
+function RequirementCard({ r, issuer, country }: { r: RequirementSummary; issuer?: IssuerAnswer; country?: string }) {
   const document = r.kind === 'document';
   return (
     <Card as="li" className="gap-3">
       <h3 className="m-0 text-h3"><Link href={`/requirements/${requirementSlug(r.code)}`} className="text-inherit">{r.name}</Link>{TERM_OF[r.code] && <> <InfoLink id={TERM_OF[r.code].id} term={TERM_OF[r.code].term} /></>}</h3>
       <p className="m-0 text-body text-ink-muted">{r.summary}</p>
+      {issuer && country && <IssuerLine a={issuer} country={country} />}
       {document && (
         <FactsGrid className="mt-auto" items={[
           { label: 'Cost', value: `${costStatement(r.cost)}${r.cost?.label ? ` (${r.cost.label})` : ''}` },
@@ -47,7 +70,16 @@ function RequirementCard({ r }: { r: RequirementSummary }) {
   );
 }
 
-export default async function RequirementsPage() {
+/** The countries of the readiness check (its wizard's list, without "another country"). */
+const COUNTRIES = Object.entries({ ...BUYER_COUNTRIES, LI: 'Liechtenstein', UA: 'Ukraine', TR: 'Türkiye', US: 'United States' })
+  .map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, 'en'));
+
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function RequirementsPage({ searchParams }: Props) {
+  const raw = (await searchParams).country;
+  // WP-91 (UX audit 6: the page read as Spain's): who issues each document in the visitor's country, from the same issuer rows
+  const country = typeof raw === 'string' && /^[A-Z]{2}$/.test(raw) ? raw : '';
   let items: RequirementSummary[] = [];
   let failed = false;
   try {
@@ -60,6 +92,12 @@ export default async function RequirementsPage() {
     failed = true;
   }
   const documents = items.filter((r) => r.kind === 'document');
+  const issuers = new Map<string, IssuerAnswer>(country
+    ? (await Promise.all(documents.map(async (r) => {
+      const d = await getRequirement(r.code).catch(() => null);
+      return d ? [[r.code, issuerFor(r.code, d.issuers, country)] as const] : [];
+    }))).flat()
+    : []);
   const rules = items.filter((r) => r.kind === 'rule');
   const categories = [...new Set(documents.map((r) => r.category))];
   const list = {
@@ -74,10 +112,14 @@ export default async function RequirementsPage() {
       lead="The codes, registrations, certificates and licences a company needs to take part, and the eligibility rules: open one for who issues it, its cost and time, and its source."
     >
       {failed && <ErrorState title="The catalogue could not be loaded" retryHref="/requirements" />}
+      <form method="get" action="/requirements" aria-label="Who issues them in your country" className="flex flex-wrap items-end gap-3">
+        <Select name="country" label="Who issues them in your country" placeholder="Choose a country" options={COUNTRIES} defaultValue={country} className="w-72" />
+        <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Show</button>
+      </form>
       {items.length > 0 && <JsonLd data={list} />}
       {categories.map((c) => (
         <PageSection key={c} id={`cat-${c}`} title={CATEGORY_WORD[c] ?? c}>
-          <AutoGrid as="ul" min={400} pairs>{documents.filter((r) => r.category === c).map((r) => <RequirementCard key={r.code} r={r} />)}</AutoGrid>
+          <AutoGrid as="ul" min={400} pairs>{documents.filter((r) => r.category === c).map((r) => <RequirementCard key={r.code} r={r} issuer={issuers.get(r.code)} country={country} />)}</AutoGrid>
         </PageSection>
       ))}
       {rules.length > 0 && (

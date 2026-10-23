@@ -5,7 +5,7 @@ import { ArrowRight, ChevronDown, Pencil, Printer } from 'lucide-react';
 import { Icon } from '@/components/dg/icon';
 import { countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
-import { SUPPLY_ROUTES, answerProblems, hasSupplier, wantsEuFunding } from '@/lib/profile';
+import { SUPPLY_ROUTES, answerProblems, hasSupplier, skippedFields, wantsEuFunding } from '@/lib/profile';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
@@ -56,12 +56,12 @@ export function AnswerProblems({ problems }: { problems: { step: number; text: s
  * funding programmes follow, collapsed under "If you also want EU funding" unless it said it wants it. Someone who came for EU funding (the
  * readiness check) sees the programmes first, as before.
  */
-function Programmes({ assessments, supplier, euFunding }: { assessments: Assessment['assessments']; supplier: boolean; euFunding: boolean }) {
+function Programmes({ assessments, supplier, euFunding, skipped = [] }: { assessments: Assessment['assessments']; supplier: boolean; euFunding: boolean; skipped?: string[] }) {
   // the national route first (the Spanish Ministry of Defence), then NATO and NSPA (SUPPLY_ROUTES), then any other route
   const rank = (code: string) => { const i = (SUPPLY_ROUTES as readonly string[]).indexOf(code); return i < 0 ? 99 : i; };
   const routes = assessments.filter((a) => a.kind === 'route').sort((x, y) => rank(x.programme) - rank(y.programme));
   const funding = assessments.filter((a) => a.kind !== 'route');
-  const card = (a: Assessment['assessments'][number]) => <ProgrammeCard key={a.programme} a={a} supplier={supplier} />;
+  const card = (a: Assessment['assessments'][number]) => <ProgrammeCard key={a.programme} a={a} supplier={supplier} skipped={skipped} />;
   if (!supplier) {
     return (
       <section aria-labelledby="programmes" className="flex flex-col gap-4">
@@ -127,7 +127,7 @@ export function ResultsView() {
       {result.state === 'error' && <ErrorState title="The check could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && (
         <>
-          <Programmes assessments={result.data.assessments} supplier={hasSupplier(profile)} euFunding={wantsEuFunding(profile)} />
+          <Programmes assessments={result.data.assessments} supplier={hasSupplier(profile)} euFunding={wantsEuFunding(profile)} skipped={skippedFields(profile)} />
           {(result.data.consultants ?? []).length > 0 && (
             <section aria-labelledby="consultants" className="flex flex-col gap-3">
               <h2 id="consultants" className="m-0 text-h2">Where you need a specialist</h2>

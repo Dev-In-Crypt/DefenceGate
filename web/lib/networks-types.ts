@@ -109,6 +109,8 @@ export interface ProjectHistory {
 
 export interface UkrainePartners {
   since: number; definition: string;
+  /** WP-91: the order of the coordinators, in a sentence (defence projects first, then dual-use, then the rest). Absent on older API builds. */
+  order?: string;
   /** The programmes asked for (empty: all). */
   programme?: string[];
   /** Projects with a Ukrainian participant per programme, before the programme filter. */
@@ -116,6 +118,8 @@ export interface UkrainePartners {
   totals: { projects: number; coordinators: number; ukrainianOrganisations: number; projectsCoordinatedFromUkraine: number };
   coordinators: {
     organisation: OrgRef; projects: number; ukrainianOrganisations: number; lastYear: number | null; programmes: string[];
+    /** WP-91: of its projects, those of the defence programmes and those of the calls labelled dual-use. */
+    defenceProjects?: number; dualUseProjects?: number;
     ukrainianParticipants: { organisation: OrgRef; projects: number }[]; recentProjects: ProjectRef[];
   }[];
   ukrainianOrganisations: { organisation: OrgRef; projects: number; coordinated: number; lastYear: number | null }[];
@@ -132,6 +136,8 @@ export interface ConsortiumGaps {
 
 export interface OrgFilters {
   q?: string; country?: string[]; programme?: string[]; role?: string[]; minProjects?: number;
+  /** WP-91: words of the projects an organisation took part in (acronym, title, EDF category), with the search's synonyms. */
+  topic?: string;
   /** `programme=all`: the visitor switched the defence-relevant default off (see DEFENCE_PROGRAMMES in lib/networks.ts). */
   allProgrammes?: boolean;
   sort?: 'defence' | 'projects' | 'name'; page?: number; pageSize?: number;

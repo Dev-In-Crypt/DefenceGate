@@ -109,8 +109,10 @@ export function parseOrgFilters(sp: SearchParams): OrgFilters {
   const all = programmes.includes('ALL');
   const sort = (ORG_SORTS as readonly string[]).includes(asked) ? (asked as 'defence' | 'projects' | 'name')
     : defaultOrgSort({ programme: all ? [] : programmes, allProgrammes: all });
+  const topic = Array.from((first(sp.topic) ?? '').trim()).slice(0, MAX_QUERY).join('').trim();
   return {
     q: q || undefined,
+    ...(topic ? { topic } : {}),
     country: tokens(sp.country, (c) => c.toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)),
     programme: all ? [] : programmes,
     ...(all ? { allProgrammes: true } : {}),
@@ -123,6 +125,7 @@ export function parseOrgFilters(sp: SearchParams): OrgFilters {
 function params(f: OrgFilters): URLSearchParams {
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
+  if (f.topic) p.set('topic', f.topic);
   if (f.country?.length) p.set('country', f.country.join(','));
   if (f.allProgrammes) p.set('programme', 'all');
   else if (f.programme?.length) p.set('programme', f.programme.join(','));
@@ -151,7 +154,7 @@ export function orgApiQuery(f: OrgFilters): string {
 }
 
 export function activeOrgFilterCount(f: OrgFilters): number {
-  return [f.q, f.country?.length, f.programme?.length || f.allProgrammes, f.role?.length, f.minProjects].filter(Boolean).length;
+  return [f.q, f.topic, f.country?.length, f.programme?.length || f.allProgrammes, f.role?.length, f.minProjects].filter(Boolean).length;
 }
 
 export function yearsLabel(first: number | null, last: number | null): string {

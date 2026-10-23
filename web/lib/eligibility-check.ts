@@ -96,6 +96,13 @@ export function factDisplay(key: string, facts: EligibilityFacts): string {
   const f = facts[key];
   if (!f) return '';
   if (key === 'consortium_required' && consortiumUnclear(facts)) return `The document is unclear, read it: ${unclearConsortiumText(facts)}`;
+  // WP-91 (UX audit 6): never a bare "No" when a single applicant must meet a condition or a partner from one country is asked
+  // (the Ukraine Support Instrument: a single applicant must be Ukrainian, so from Poland a Ukrainian partner is needed).
+  if (key === 'consortium_required' && f.value === false) {
+    const single = singleApplicantCondition(facts);
+    if (single) return `Not for every applicant. ${single}`;
+    if (partnerNeeds(facts).ukraine) return `Not for every applicant: ${ownNote(f)}`;
+  }
   return factText(f);
 }
 

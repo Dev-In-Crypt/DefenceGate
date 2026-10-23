@@ -42,6 +42,18 @@ export type SafeRole = 'contractor' | 'subcontractor_involved' | 'other_supplier
 export type ApplicantKind = 'company_or_research' | 'contracting_authority' | 'international_organisation' | 'seap' | 'eda' | '';
 export type Status = 'held' | 'in_progress' | 'not_held' | 'not_applicable';
 export type SizeClass = 'micro' | 'small' | 'medium' | 'large' | '';
+/**
+ * WP-91 (UX audit 6): what the company offers. `software_services`: the questions on the components of an end product (their origin, a
+ * restricted third country, components from Ukraine or the EEA EFTA states) are not asked. The rules that read them are not "not
+ * applicable": their text is about the end product of the action, which a software or services company may be part of, so they stay
+ * open ("check") in the results, and say why. Additive to version 3: a block without it reads ''.
+ */
+export type Offering = 'products' | 'software_services' | '';
+/** The answers about components a software or services company is not asked (see `Offering`). */
+export const COMPONENT_FIELDS = ['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta'] as const;
+/** The fields of the rules left open because the company makes software or services, for the results to say so. */
+export const skippedFields = (p: Profile): string[] => (p.offering === 'software_services' ? [...COMPONENT_FIELDS] : []);
+const TOPICS_MAX = 300;
 
 /** A process the supplier runs (kept for its own summary and the demand map; no rule reads it). */
 export const PROCESSES = [
@@ -316,6 +328,10 @@ export interface Profile {
   legalForm: LegalForm;
   /** Optional: unanswered is unknown, never "a company". */
   applicantKind: ApplicantKind;
+  /** WP-91: products, or software and services only (the component questions are then not asked). */
+  offering: Offering;
+  /** WP-91: the company's topics in its own words, comma-separated ("drone software, autonomy"): the order of "Fits my profile". Never sent. */
+  topics: string;
   // step 2: ownership and control
   management: Management;
   managementCountry: string;
@@ -371,7 +387,7 @@ export function roadmapOnlyCodes(country: string): string[] {
 
 export function emptyProfile(): Profile {
   return {
-    version: 3, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', management: '', managementCountry: '',
+    version: 3, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', offering: '', topics: '', management: '', managementCountry: '',
     control: '', uaOccupied: '', uaPartner: '', seapPartner: '', regime: '', componentPct: '', restricted: '', uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
     supplier: emptySupplier(),
   };
@@ -435,6 +451,8 @@ export function parseProfile(raw: unknown): Profile {
     country: countryCode(r.country),
     legalForm: oneOf(r.legalForm, ['legal_person', 'natural_person', 'no_legal_personality', ''], ''),
     applicantKind: oneOf(r.applicantKind, ['company_or_research', 'contracting_authority', 'international_organisation', 'seap', 'eda', ''], ''),
+    offering: oneOf(r.offering, ['products', 'software_services', ''], ''),
+    topics: text(r.topics, TOPICS_MAX),
     management: r.version === 1 ? (r.managementSameCountry === false ? 'other' : '') : oneOf(r.management, ['same', 'other', ''], ''),
     managementCountry: countryCode(r.managementCountry),
     control: oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], ''),
@@ -539,9 +557,10 @@ export function toRequest(p: Profile): AssessRequest | null {
       executive_management_country: managementCountryOf(p),
       third_country_control: p.control === 'no' || p.control === 'ua_eea_only' || p.control === 'other' ? p.control : null,
       ua_non_government_controlled_area: p.country === 'UA' ? tri(p.uaOccupied) : null,
-      non_eu_component_cost_pct: parsePct(p.componentPct),
-      restricted_third_country_component: tri(p.restricted),
-      components_from_ua_or_eea_efta: tri(p.uaEeaComponents),
+      // not asked of a software or services company (WP-91): a leftover answer is not sent, so the rules ask instead of reading it
+      non_eu_component_cost_pct: p.offering === 'software_services' ? null : parsePct(p.componentPct),
+      restricted_third_country_component: p.offering === 'software_services' ? null : tri(p.restricted),
+      components_from_ua_or_eea_efta: p.offering === 'software_services' ? null : tri(p.uaEeaComponents),
       // a Ukrainian company is itself the entity the rule asks for; the question is not asked of it, so a leftover answer is not sent
       ua_partner: p.country === 'UA' ? null : tri(p.uaPartner),
       safe_role: p.safeRole === '' || p.safeRole === 'unsure' ? null : p.safeRole,
@@ -601,8 +620,10 @@ export function unanswered(p: Profile): Unanswered[] {
   need(2, !p.control, 'Whether your company is controlled from outside the EU');
   need(2, p.country === 'UA' && !p.uaOccupied, 'Whether you are established in an area of Ukraine the government does not control');
   need(3, !p.regime, 'Which export regime your main product is in');
-  need(3, !p.restricted, 'Whether a component comes from a third country that contravenes the security and defence interests of the Union');
-  need(3, !p.uaEeaComponents, 'Whether components originate in Ukraine or an EEA EFTA state');
+  // a software or services company is not asked about components (WP-91): those rules stay open in the results, with the reason
+  const products = p.offering !== 'software_services';
+  need(3, products && !p.restricted, 'Whether a component comes from a third country that contravenes the security and defence interests of the Union');
+  need(3, products && !p.uaEeaComponents, 'Whether components originate in Ukraine or an EEA EFTA state');
   need(3, !p.safeRole, 'Your role in a SAFE-supported procurement');
   need(5, !p.classified, 'Whether you will handle classified information');
   need(5, !p.exportIntent, 'Whether you export, or plan to export');

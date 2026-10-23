@@ -94,10 +94,12 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
             <ul className="m-0 list-disc pl-5 [&>li+li]:mt-1">{data.limits.map((l) => <li key={l}>{l}</li>)}</ul>
           </AboutData>
           <ContentSection title="Coordinators">
+            {/* WP-91 (UX audit 6): with all programmes shown, civil research led the table; the API now orders defence-relevant work first */}
+            {data.order && <p className="m-0 max-w-prose text-small text-ink-muted" data-order>{data.order}</p>}
             {data.coordinators.length === 0 ? <p className="m-0">No project started in or after {data.since} matches.</p> : (
               <TableBox label="Coordinators with a Ukrainian participant">
                 <table className="stack-sm w-full min-w-[720px] border-collapse text-left text-small">
-                  <caption className="sr-only">Coordinators with a Ukrainian participant, most projects first</caption>
+                  <caption className="sr-only">Coordinators with a Ukrainian participant, defence and dual-use projects first</caption>
                   <thead>
                     <tr className="border-b border-line">
                       <th scope="col" className="py-2 pr-4 font-semibold">Coordinator</th>

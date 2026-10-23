@@ -37,6 +37,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from . import textsearch
 from .classify import CORE_SQL, DEFENCE_PROGRAMMES
 from .funding import get_conn, make_slug
 from .listcache import cache_list
@@ -135,8 +136,23 @@ def _sources(conn, codes: tuple[str, ...] = SOURCES) -> list[dict[str, Any]]:
 
 # ================================================================== directory
 
+# WP-91 (UX audit 6: a drone start-up could search organisations by name only). The words of a project the topic search reads:
+# its acronym, title and EDF capability category, folded as `dg_fold` folds: the stored column and trigram index of migration 0107.
+PROJECT_TOPIC_TEXT = "topic_fold"
+MAX_TOPIC_WORDS = 4
+
+
+def topic_alternatives(topic: str | None) -> list[list[str]]:
+    """For each word of a topic search (at most MAX_TOPIC_WORDS, stop words dropped), the word and its synonyms
+    (textsearch.SYNONYMS): a project matches when its text holds, for every word, one of them at the start of a word."""
+    query = textsearch.parse((topic or "").replace("\x00", ""))
+    if query is None:
+        return []
+    return [[" ".join(alt) for alt in group] for group in query.alternatives[:MAX_TOPIC_WORDS]]
+
+
 def _directory_where(country: str | None, programme: str | None, role: str | None, q: str | None,
-                     min_projects: int) -> tuple[str, list[Any]]:
+                     min_projects: int, topic: str | None = None) -> tuple[str, list[Any]]:
     where, params = ["projects >= %s"], [min_projects]
     countries = _codes(country, "country", pattern=re.compile(r"^[A-Z]{2}$"), max_items=20)
     if countries:
@@ -153,6 +169,26 @@ def _directory_where(country: str | None, programme: str | None, role: str | Non
     for w in search_words((q or "").replace("\x00", "").strip()):
         where.append("dg_fold(name) LIKE dg_word_pattern(%s)")
         params.append(w)
+    groups = topic_alternatives(topic)
+    if groups:
+        # the organisations (live, through merges) with an active participation in a project whose text has every word
+        parts: list[str] = []
+        for g in groups:
+            ors = []
+            for alt in g:
+                # a word of up to three letters is a whole word (as textsearch: "AI" is not "aircraft"); longer, a word start
+                if len(alt) <= 3:
+                    ors.append(f"({PROJECT_TOPIC_TEXT} LIKE dg_word_pattern(%s) AND "
+                               f"({PROJECT_TOPIC_TEXT} || ' ') LIKE rtrim(dg_word_pattern(%s), '%%') || ' %%')")
+                    params.extend([alt, alt])
+                else:
+                    ors.append(f"{PROJECT_TOPIC_TEXT} LIKE dg_word_pattern(%s)")
+                    params.append(alt)
+            parts.append("(" + " OR ".join(ors) + ")")
+        where.append(f"""organisation_id IN (
+            SELECT COALESCE(l.live_id, pa.organisation_id) FROM participation pa
+              LEFT JOIN organisation_merged_live l ON l.id = pa.organisation_id
+             WHERE pa.active AND pa.project_id IN (SELECT id FROM project WHERE {" AND ".join(parts)}))""")
     return " AND ".join(where), params
 
 
@@ -178,6 +214,7 @@ def list_organisations(
     programme: str | None = Query(None, max_length=200, description="comma-separated programme codes, e.g. EDF,HORIZON"),
     role: str | None = Query(None, max_length=200, description="coordinator, participant, partner, ..."),
     q: str | None = Query(None, max_length=100),
+    topic: str | None = Query(None, max_length=100, description="words of the projects' titles (acronym and EDF category too)"),
     minProjects: int = Query(1, ge=1, le=100_000),
     sort: str | None = Query(None, pattern="^(projects|defence|name)$",
                              description="projects = all programmes; defence = EDF, EDIDP, PADR projects; "
@@ -188,7 +225,7 @@ def list_organisations(
 ):
     if (page - 1) * pageSize > MAX_OFFSET:
         raise _bad(f"page: results beyond the first {MAX_OFFSET:,} are not served; narrow the filters")
-    where, params = _directory_where(country, programme, role, q, minProjects)
+    where, params = _directory_where(country, programme, role, q, minProjects, topic if isinstance(topic, str) else None)
     sort = directory_sort(sort, programme)
     order = ORDER[sort]
     rows = conn.execute(
@@ -789,6 +826,20 @@ def _org_rows(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
         (list(ids),)).fetchall()}
 
 
+# WP-91 (UX audit 6: with no defence-programme project, the page opened on civil research only). Which projects of the wider
+# view are defence-relevant: the defence programmes (2), and the research our funding list labels dual-use (1), read from the
+# project's call code as the EU portal connector reads a call (`sources/eu_portal.py`: Cluster 3 Civil Security, Cluster 4 Digital,
+# Industry and Space, the EIC) and their predecessors' security calls (Horizon 2020 Secure Societies, FP7 Security).
+DUAL_USE_CALLS = re.compile(r"^(HORIZON-CL3|HORIZON-CL4|HORIZON-EIC|H2020-SU-|H2020-SEC-|H2020-BES-|H2020-DRS-|H2020-FCT-|H2020-DS-|FP7-SEC)")
+
+
+def relevance(programme: str | None, call_code: str | None) -> int:
+    """2 for a project of a defence programme, 1 for one of the dual-use calls above, 0 otherwise."""
+    if (programme or "") in DEFENCE_PROGRAMMES:
+        return 2
+    return 1 if DUAL_USE_CALLS.match((call_code or "").upper()) else 0
+
+
 @router.get("/v1/analytics/ukraine-partners")
 @cache_list("ukraine_partners", ttl=15 * 60)
 def ukraine_partners(
@@ -809,7 +860,7 @@ def ukraine_partners(
                  mine AS MATERIALIZED (SELECT pa.project_id, pa.organisation_id AS raw, pa.role FROM participation pa
                                         WHERE pa.organisation_id = ANY(ARRAY(SELECT id FROM fam)) AND pa.active)
             SELECT mine.project_id, fam.live AS ua_org, mine.role AS ua_role, p.id, p.acronym, p.title,
-                   pr.code AS programme, {YEAR} AS year,
+                   pr.code AS programme, p.call_code, {YEAR} AS year,
                    CASE WHEN cl.suppressed THEN NULL ELSE COALESCE(cl.live_id, c.organisation_id) END AS coord
               FROM mine JOIN fam ON fam.id = mine.raw
               JOIN project p ON p.id = mine.project_id
@@ -831,8 +882,10 @@ def ukraine_partners(
     by_ua: dict[int, dict[str, Any]] = {}
     for r in pairs:
         projects[r["project_id"]] = r
-        u = by_ua.setdefault(r["ua_org"], {"projects": set(), "coordinated": set(), "last": 0})
+        u = by_ua.setdefault(r["ua_org"], {"projects": set(), "coordinated": set(), "last": 0, "relevant": set()})
         u["projects"].add(r["project_id"])
+        if relevance(r["programme"], r["call_code"]):
+            u["relevant"].add(r["project_id"])
         u["last"] = max(u["last"], r["year"] or 0)
         coord = r["coord"]
         if coord == r["ua_org"]:
@@ -845,9 +898,16 @@ def ukraine_partners(
         c["programmes"].add(r["programme"])
         c["last"] = max(c["last"], r["year"] or 0)
     ukrainian_led = {pid for pid, r in projects.items() if r["coord"] and orgs[r["coord"]]["country"] == "UA"}
-    ranked = sorted(by_coord.items(), key=lambda kv: (-len(kv[1]["projects"]), -len(kv[1]["ua"]), kv[0]))
+    def relevant(c: dict[str, Any]) -> tuple[int, int]:
+        """(defence-programme projects, dual-use projects) of a coordinator."""
+        marks = [relevance(r["programme"], r["call_code"]) for r in c["projects"].values()]
+        return marks.count(2), marks.count(1)
+
+    # WP-91: defence projects first, then dual-use ones, then the rest; within each, most projects first as before
+    ranked = sorted(by_coord.items(), key=lambda kv: (tuple(-n for n in relevant(kv[1])), -len(kv[1]["projects"]),
+                                                      -len(kv[1]["ua"]), kv[0]))
     ranked = [kv for kv in ranked if not orgs[kv[0]]["suppressed"]][:50]
-    ua_ranked = sorted(by_ua.items(), key=lambda kv: (-len(kv[1]["projects"]), kv[0]))[:20]
+    ua_ranked = sorted(by_ua.items(), key=lambda kv: (-len(kv[1]["relevant"]), -len(kv[1]["projects"]), kv[0]))[:20]
     return {
         "since": since, "programme": programmes, "byProgramme": by_programme,
         "definition": "A coordinator is the organisation that leads a funded project (the prime of its consortium). "
@@ -855,6 +915,9 @@ def ukraine_partners(
                       "active participant whose country of establishment, as the source states it, is Ukraine. "
                       "Ukrainian coordinators are counted apart. This says who partnered with Ukrainian "
                       "organisations, not who controls them or what they supplied.",
+        "order": "Coordinators with projects of the defence programmes come first, then those with projects of the calls we label "
+                 "dual-use (Horizon Europe Clusters 3 and 4 and the EIC, Horizon 2020 Secure Societies and Digital Security, FP7 "
+                 "Security), then the rest; within each, most projects first.",
         "totals": {"projects": len(projects), "coordinators": len(by_coord),
                    "ukrainianOrganisations": len(by_ua), "projectsCoordinatedFromUkraine": len(ukrainian_led)},
         "coordinators": [{
@@ -864,10 +927,13 @@ def ukraine_partners(
             "ukrainianParticipants": [
                 {"organisation": org_ref({**orgs[uid], "id": uid}), "projects": len(pids)}
                 for uid, pids in sorted(c["ua"].items(), key=lambda kv: (-len(kv[1]), kv[0]))[:5]],
+            "defenceProjects": relevant(c)[0], "dualUseProjects": relevant(c)[1],
             "recentProjects": [_project_ref(r) for r in sorted(
-                c["projects"].values(), key=lambda r: (r["year"] or 0, r["id"]), reverse=True)[:3]],
+                c["projects"].values(), key=lambda r: (relevance(r["programme"], r["call_code"]), r["year"] or 0, r["id"]),
+                reverse=True)[:3]],
         } for cid, c in ranked],
         "ukrainianOrganisations": [{"organisation": org_ref({**orgs[uid], "id": uid}), "projects": len(u["projects"]),
+                                    "relevantProjects": len(u["relevant"]),
                                     "coordinated": len(u["coordinated"]), "lastYear": u["last"] or None}
                                    for uid, u in ua_ranked if not orgs[uid]["suppressed"]],
         "limits": ["Country is the country of establishment that CORDIS or the EDF factsheet states for the participant.",

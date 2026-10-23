@@ -9,8 +9,10 @@ import { Icon } from './icon';
  * The tools of a result list, under the filters: the CSV of the current result (a plain link, not a
  * client-routed one, so nothing prefetches the file) and a way to the deadline calendar.
  */
-export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, className, total, status, atLeast }: {
+export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, icsHref, className, total, status, atLeast }: {
   csvHref: string; calendarHref?: string; className?: string;
+  /** WP-91: the calendar file of exactly this result (the funding search's /funding.ics). */
+  icsHref?: string;
   /** WP-87: the Atom feed of the changes of this result (the list's filters travel with it). */
   feedHref?: string;
   /** How many rows the result has and its status filter: said when the file will hold fewer (site-qa2:N8). */
@@ -38,6 +40,11 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, cla
       <Link href={calendarHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
         <Icon icon={CalendarDays} size="inline" />Deadline calendar of this search
       </Link>
+      {icsHref && (
+        <a href={icsHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold" data-search-ics>
+          <Icon icon={CalendarDays} size="inline" />Calendar file of this search (.ics)
+        </a>
+      )}
       {feedHref && (
         <a href={feedHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
           <Icon icon={Rss} size="inline" />Changes of this search (Atom feed)

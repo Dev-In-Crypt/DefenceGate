@@ -64,6 +64,7 @@ export const CURRENCIES: readonly string[] = ['EUR', 'PLN', 'SEK', 'CZK', 'RON',
 export const PROGRAMMES: Record<ProgrammeCode, { label: string; name: string; slug: string }> = {
   EDF: { label: 'EDF', name: 'European Defence Fund', slug: 'edf' },
   EDIP: { label: 'EDIP', name: 'European Defence Industry Programme', slug: 'edip' },
+  'EDIP-USI': { label: 'EDIP USI', name: 'EDIP Ukraine Support Instrument', slug: 'edip-usi' },
   HORIZON: { label: 'Horizon Europe', name: 'Horizon Europe', slug: 'horizon' },
   DIGITAL: { label: 'Digital Europe', name: 'Digital Europe Programme', slug: 'digital' },
   CEF: { label: 'Connecting Europe', name: 'Connecting Europe Facility', slug: 'cef' },

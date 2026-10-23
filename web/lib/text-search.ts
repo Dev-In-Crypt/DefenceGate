@@ -6,11 +6,30 @@
 import type { SearchInfo } from './types';
 
 const STOP = new Set(['a', 'an', 'and', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);
-const SYNONYMS: string[][] = [
+/** The API's table (backend/dgate/textsearch.py SYNONYMS), row for row: lib/wp91.check.ts holds the two equal. */
+export const SYNONYMS: string[][] = [
   ['drone', 'uas', 'uav', 'unmanned', 'rpas'],
   ['logistics', 'supply', 'mobility'],
-  ['ai', 'artificial intelligence'],
+  ['ai', 'artificial intelligence', 'machine learning'],
+  ['software', 'algorithms', 'computing', 'data fusion', 'simulation'],
+  ['autonomy', 'autonomous', 'uncrewed', 'robotic', 'robotics', 'swarm'],
+  ['cyber', 'cybersecurity', 'cyber security', 'cyber defence'],
+  ['sme', 'smes', 'small and medium', 'pme', 'pyme', 'msp'],
 ];
+
+/**
+ * WP-91 (UX audit 6): a programme a visitor searches for that no source we read publishes as one of its own. The empty result says so
+ * instead of "nothing matches". No link: no source in this repository names an official page for it.
+ */
+const NOT_COLLECTED: Record<string, string> = {
+  eudis: 'EUDIS, the EU Defence Innovation Scheme, is not a programme we collect: no source we read publishes calls under that name. Calls the EU portal files under the European Defence Fund are listed here as EDF.',
+};
+
+/** The sentences for the words of a search that name a programme we do not collect. */
+export function notCollected(q: string | undefined): string[] {
+  if (!q) return [];
+  return [...new Set(fold(q).split(' ').filter((w) => NOT_COLLECTED[w]))].map((w) => NOT_COLLECTED[w]);
+}
 
 /** Lower case, no accents, words separated by single spaces. */
 export function fold(text: string): string {

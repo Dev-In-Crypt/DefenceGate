@@ -229,6 +229,34 @@ export function groupIssuers(issuers: RIssuer[]): { singles: RIssuer[]; groups: 
   return { singles, groups };
 }
 
+/**
+ * WP-91 (UX audit 6: "Issued by: PL National codification bureau (NCB) of the country / UNVERIFIED: ..."). NSPA's NCAGE request page: the
+ * address of the requirements seed's REQ-NCAGE row for every other country (`*`); lib/wp91.check.ts holds the two equal.
+ */
+export const NSPA_NCAGE_URL = 'https://eportal.nspa.nato.int/Codification/CageTool/request-new-cage';
+
+/** Who issues a requirement in one country, as plainly as our sources allow (never a body we have not verified). */
+export type IssuerAnswer =
+  | { kind: 'verified'; issuer: RIssuer }
+  | { kind: 'unverified'; text: string; link: { label: string; url: string } | null }
+  | { kind: 'none'; text: string };
+
+export function issuerFor(code: string, issuers: RIssuer[], country: string): IssuerAnswer {
+  const name = countryName(country);
+  const own = issuers.filter((i) => i.country === country);
+  const verified = own.find((i) => i.verificationStatus === 'V') ?? (own.length === 0 ? issuers.find((i) => i.country === '*' && i.verificationStatus === 'V') : undefined);
+  if (verified) return { kind: 'verified', issuer: verified };
+  const ncage = code === 'REQ-NCAGE';
+  if (own.length > 0) {
+    return {
+      kind: 'unverified',
+      text: `Not verified in our sources: we have not confirmed which body issues ${ncage ? 'NCAGE codes' : 'this'} in ${name}.${ncage ? ' For a NATO member the national codification bureau does; NSPA’s NCAGE page is where a request starts.' : ' Ask the national authority before you rely on any name.'}`,
+      link: ncage ? { label: 'NSPA: request an NCAGE code', url: NSPA_NCAGE_URL } : null,
+    };
+  }
+  return { kind: 'none', text: `The body that issues this in ${name} has not been collected. We list none rather than guess.` };
+}
+
 /** The slug of a requirement page: `REQ-AQAP2110` is `/requirements/aqap2110`. */
 export function requirementSlug(code: string): string {
   return code.replace(/^REQ-/, '').toLowerCase();

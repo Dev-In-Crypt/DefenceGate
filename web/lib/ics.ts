@@ -93,7 +93,11 @@ function event(e: CalendarEntry, dtstamp: string): string[] {
  * The calendar file, CRLF lines, at most ICS_MAX_EVENTS events in the order given. `tendersBeyond`: open tenders the API did not
  * send (past its 3,000). Either cut is said in the calendar's description, never left silent (WP-87).
  */
-export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: { tendersBeyond?: number; longRunning?: number } = {}): string {
+export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: {
+  tendersBeyond?: number; longRunning?: number;
+  /** WP-91: the calendar's own name and a sentence of its own (a funding search, one call); the defaults are the deadline calendar's. */
+  name?: string; about?: string;
+} = {}): string {
   const dtstamp = stamp(at);
   const cut = entries.length > ICS_MAX_EVENTS;
   const beyond = Math.max(0, opts.tendersBeyond ?? 0);
@@ -110,8 +114,8 @@ export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: 
     'PRODID:-//DefenceGate//Deadline calendar//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:DefenceGate deadlines',
-    `X-WR-CALDESC:${icsText(`Deadlines of open defence tenders and funding calls, and the opening days of calls that have not opened, in UTC. The original notice is authoritative.${note ? ` ${note}` : ''}`, DESCRIPTION_MAX)}`,
+    `X-WR-CALNAME:${icsText(opts.name ?? 'DefenceGate deadlines', SUMMARY_MAX)}`,
+    `X-WR-CALDESC:${icsText(`${opts.about ?? 'Deadlines of open defence tenders and funding calls, and the opening days of calls that have not opened, in UTC.'} The original notice is authoritative.${note ? ` ${note}` : ''}`, DESCRIPTION_MAX)}`,
     ...entries.slice(0, ICS_MAX_EVENTS).flatMap((e) => event(e, dtstamp)),
     'END:VCALENDAR',
   ];

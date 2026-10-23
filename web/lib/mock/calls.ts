@@ -2,7 +2,7 @@ import raw from './calls.json';
 import { sourceById } from './sources';
 import { deadlineState, now } from '../deadline';
 import { PROGRAMMES } from '../taxonomy';
-import type { Call, CallFilters, CallStatus, CountryCode, CurrencyCode, EligibilityItem, Paginated, ProgrammeCode, Regime } from '../types';
+import type { Call, CallFilters, CallStatus, CountryCode, CurrencyCode, EligibilityItem, Paginated, ProgrammeCode, Regime, RuleOutcome, RulesApply, WhoMayApply } from '../types';
 import { DEFAULT_CURRENCY, DEFAULT_PAGE_SIZE, defaultCallSort } from '../filters';
 import { parseQuery } from '../text-search';
 
@@ -15,6 +15,8 @@ interface RawCall {
   actionType: string | null; fundingRate: string | null; scope: string[];
   sourceId: string; retrievedAt: string; publishedAt?: string; firstSeenAt?: string;
   eligibility?: EligibilityItem[]; conditionsText?: string; cascade?: boolean; ukraine?: boolean;
+  /** The EU portal's SME flag (or a national call whose applicants name SMEs): `whoMayApply` is then `companies`. */
+  forSmes?: boolean;
 }
 const data = raw as unknown as { eligibility: Record<string, EligibilityItem[]>; calls: RawCall[] };
 
@@ -35,6 +37,20 @@ function mockPartnerArea(topic: string): string | null {
   if (rest.length > 1 && /^\d{2}$/.test(rest[0]) && /^[A-Z]+$/.test(rest[1])) rest.shift();
   const family = t.slice(1, year).join('-');
   return /^[A-Z]+$/.test(rest[0] ?? '') ? `Horizon Europe, ${family}, destination ${rest[0]}` : `Horizon Europe, ${family}`;
+}
+
+/**
+ * Who may apply, as the API's `WHO_MAY_APPLY` reads it (backend/dgate/funding.py): the EDIP actions of common procurement, support for
+ * SEAPs and preparation of projects of common interest are for public bodies; any other call of the defence fund or EDIP, and a call
+ * flagged for SMEs, is open to companies; anything else says nothing.
+ */
+export function mockWho(programme: string, topic: string, forSmes = false): WhoMayApply | null {
+  const t = `-${topic.toUpperCase()}-`;
+  if (['EDF', 'EDIP', 'EDIP-USI'].includes(programme)) {
+    if (t.includes('-EDIP-') && (t.includes('-CPA-') || (t.includes('-SA-') && t.includes('-SEAP-')) || (t.includes('-CSA-') && t.includes('-PREP-')))) return 'public';
+    return 'companies';
+  }
+  return forSmes ? 'companies' : null;
 }
 
 /** Mirrors the API: ids are 1-based positions, slug is "<id>-<words>", conditionsText is detail-only. */
@@ -63,6 +79,7 @@ function toCall(r: RawCall, index: number, ref: Date, detail: boolean): Call {
     eligibility: r.eligibility ?? data.eligibility[eligKey] ?? [],
     cascade: r.cascade ?? null,
     openToUkraine: r.ukraine ?? null,
+    whoMayApply: mockWho(r.programme, r.topicId, r.forSmes),
     publishedAt: r.publishedAt ?? null,
     firstSeenAt: r.firstSeenAt ?? FIRST_SEEN, lastSeenAt: r.retrievedAt,
     source: {
@@ -119,6 +136,8 @@ function mockDetail(r: RawCall): Partial<Call> {
     ];
     out.conditionsText = Array.from({ length: 80 }, (_, i) => `Condition ${i} of the call text is published by the source.`).join(' ');
   }
+  // the EDIP topics the portal files under the EDF (the demo's other EDIP calls stand for the programme's own, with no block)
+  if (r.topicId.startsWith('EDF-EDIP-')) out.rulesApply = mockEdipRules(r.programme === 'EDIP-USI' ? 'EDIP-USI' : 'EDIP', r.topicId);
   if (r.programme === 'EDF') {
     out.rulesApply = {
       regime: { code: 'EDF', name: 'European Defence Fund', why: 'The topic code starts with EDF- and the programme is the EDF.' },
@@ -132,10 +151,62 @@ function mockDetail(r: RawCall): Partial<Call> {
       }],
       alsoRead: null,
       notice: 'Indicative, not legal advice. The call text and the contracting authority decide.',
+      byCountry: {
+        EU: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.'), MGMT('EDF', 'an associated country')],
+        EEA_EFTA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'met', [], 'Your company is established in an EU Member State or an EEA EFTA state. These are the Union and an associated country of the EDF.'), MGMT('EDF', 'an associated country')],
+        UA: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'conditional', [], 'Your company is established in Ukraine. Treat your participation as conditional on the association agreement, not confirmed.'), MGMT('EDF', 'an associated country')],
+        OTHER: [LEGAL('EDF'), o('EDF-ESTABLISH', 'Established in the Union or an associated country', 'not_met', [], 'Your company is established outside the EU and the EEA EFTA states, and not in Ukraine. EDF recipients must be established in the Union or in an associated country.'), MGMT('EDF', 'an associated country')],
+      },
+      forCompany: [],
     };
   }
   return out;
 }
+
+const o = (rule: string, title: string, outcome: RuleOutcome['outcome'], asks: string[], reason: string): RuleOutcome => ({ rule, title, outcome, asks, reason });
+const LEGAL = (p: string) => o(`${p}-LEGAL-ENTITY`, 'Legal entity: a legal person, or an entity without legal personality that is accepted', 'unknown', ['legal_form'], 'Answer the questions that are missing to see whether this applies to you.');
+const MGMT = (p: string, where: string) => o(`${p}-EXEC-MGMT`, `Executive management in the Union or ${where}`, 'unknown', ['executive_management_country'], 'Answer the questions that are missing to see whether this applies to you.');
+
+/** The rules block of the demo's EDIP and Ukraine Support Instrument calls, as backend/dgate/rules_apply.py builds it from the seed (WP-91). */
+function mockEdipRules(programme: 'EDIP' | 'EDIP-USI', topic: string): RulesApply {
+  const usi = programme === 'EDIP-USI';
+  const est = (outcome: RuleOutcome['outcome'], reason: string) => usi
+    ? o('USI-ESTABLISH', 'Established in the Union or in Ukraine', outcome, [], reason)
+    : o('EDIP-ESTABLISH', 'Established in the Union or an associated country', outcome, [], reason);
+  const involves = (outcome: RuleOutcome['outcome'], asks: string[]) => o('USI-INVOLVES-UA', 'The action involves Ukraine', outcome, asks,
+    outcome === 'met' ? 'The action involves a legal entity established in Ukraine: your company, if it is established there.' : 'Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium.');
+  const p = usi ? 'USI' : 'EDIP';
+  const where = usi ? 'in Ukraine' : 'an associated country';
+  const byCountry: NonNullable<RulesApply['byCountry']> = usi ? {
+    EU: [LEGAL(p), est('met', 'Your company is established in an EU Member State or in Ukraine.'), MGMT(p, where), involves('unknown', ['ua_partner'])],
+    EEA_EFTA: [LEGAL(p), est('not_met', 'Your company is established outside the EU and Ukraine. EEA EFTA states are not named in this Article.'), MGMT(p, where), involves('unknown', ['ua_partner'])],
+    UA: [LEGAL(p), est('met', 'Your company is established in an EU Member State or in Ukraine.'), MGMT(p, where),
+      o('USI-TERRITORY', 'Not established in a non-government controlled area of Ukraine', 'unknown', ['ua_non_government_controlled_area'], 'Answer the questions that are missing to see whether this applies to you.'), involves('met', [])],
+    OTHER: [LEGAL(p), est('not_met', 'Your company is established outside the EU and Ukraine.'), MGMT(p, where), involves('unknown', ['ua_partner'])],
+  } : {
+    EU: [LEGAL(p), est('met', 'Your company is established in an EU Member State.'), MGMT(p, where)],
+    EEA_EFTA: [LEGAL(p), est('conditional', 'Your company is established in an EEA EFTA state. These count as associated countries of the Programme only if they apply the Regulation in accordance with the EEA Agreement. Check whether yours does.'), MGMT(p, where)],
+    UA: [LEGAL(p), est('not_met', 'Ukraine is not an associated country of the Programme; Ukrainian companies are covered by the Ukraine Support Instrument, which has its own card.'), MGMT(p, where)],
+    OTHER: [LEGAL(p), est('not_met', 'Your company is established outside the EU and the EEA EFTA states.'), MGMT(p, where)],
+  };
+  const cpa = topic.toUpperCase().includes('-CPA-');
+  return {
+    regime: usi
+      ? { code: 'EDIP-USI', name: 'EDIP Ukraine Support Instrument', why: 'The topic code starts with EDF-EDIP-USI-: a call of the Ukraine Support Instrument, which the portal files under the EDF.' }
+      : { code: 'EDIP', name: 'European Defence Industry Programme', why: 'The topic code starts with EDF-EDIP-P-: an EDIP call, which the portal files under the EDF.' },
+    encoded: true, action: cpa ? 'common_procurement' : 'industrial_reinforcement',
+    programme: { code: programme, name: usi ? 'EDIP: Ukraine Support Instrument' : 'European Defence Industry Programme (EDIP): the Programme', legalBasis: 'Regulation (EU) 2025/2643' },
+    rules: [...new Map(Object.values(byCountry).flat().map((x) => [x.rule, x])).values()].map((x) => ({
+      rule: x.rule, title: x.title, kind: 'establishment', requirement: null,
+      source: { url: 'http://data.europa.eu/eli/reg/2025/2643/oj', ref: 'Regulation (EU) 2025/2643', text: null, origin: 'primary', verificationStatus: 'V', lastReviewed: '2026-10-18' },
+    })),
+    alsoRead: null, notice: 'Indicative, not legal advice. The call text and the contracting authority decide.',
+    byCountry,
+    forCompany: cpa ? [o('EDIP-CPA-APPLICANT', 'Who may apply: contracting authorities, international organisations, SEAPs and the EDA', 'not_met', [], 'A company or research body may not apply to a common procurement action.')] : [],
+  };
+}
+
+const rawOf = (id: string): RawCall | undefined => data.calls[Number(id) - 1];
 
 export function allCalls(ref: Date = now(), detail = false): Call[] {
   return data.calls.map((r, i) => toCall(r, i, ref, detail));
@@ -158,7 +229,9 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
       const st = deadlineState(c.deadline, ref);
       if (c.status !== 'open' || (st !== 'soon' && st !== 'urgent')) return false;
     }
-    if (f.programme && !f.programme.includes(c.programme)) return false;
+    // WP-91: as the API, EDF holds every call the portal files under it (EDIP's included), EDIP its own calls and the instrument's
+    if (f.programme && !f.programme.some((p) => p === c.programme || (p === 'EDF' && c.programme === 'EDIP-USI') || (p === 'EDIP' && c.programme === 'EDIP-USI'))) return false;
+    if (f.who && c.whoMayApply !== f.who) return false;
     if (f.regime && !f.regime.includes(c.regime)) return false;
     if (f.country && !f.country.includes(c.funderCountry)) return false;
     if (f.deadlineFrom || f.deadlineTo) {
@@ -173,7 +246,9 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
       if (f.budgetMin !== undefined && amount < f.budgetMin) return false;
       if (f.budgetMax !== undefined && amount > f.budgetMax) return false;
     }
-    if (f.q && !(query && query.matches([c.title, c.originalTitle, c.issuer].filter(Boolean).join(' '), [c.callId, c.topicId].filter(Boolean).join(' ')))) return false;
+    // the API's search text (backend/dgate/funding.py SEARCH_TEXT): the titles, the issuer, the source's topic keywords, SME where flagged
+    const text = [c.title, c.originalTitle, c.issuer, ...c.scope, rawOf(c.id)?.forSmes ? 'SME' : null].filter(Boolean).join(' ');
+    if (f.q && !(query && query.matches(text, [c.callId, c.topicId].filter(Boolean).join(' ')))) return false;
     return true;
   });
   // The calls with cascade funding among those that match every other filter (the API's `cascadeTotal`).

@@ -6,7 +6,10 @@ import type { ValueTotals } from './value-totals';
 export type CountryCode = 'EU' | 'PL' | 'SE' | 'FR' | 'ES' | 'FI' | 'DE' | 'IT' | 'NL';
 /** ISO 4217 as the source states it. Amounts are never converted. */
 export type CurrencyCode = string;
-export type ProgrammeCode = 'EDF' | 'EDIP' | 'HORIZON' | 'DIGITAL' | 'CEF' | 'NATIONAL';
+/** WP-91: 'EDIP-USI' is a topic of EDIP's Ukraine Support Instrument, which the portal files under the EDF (the API reads it from the topic code). */
+export type ProgrammeCode = 'EDF' | 'EDIP' | 'EDIP-USI' | 'HORIZON' | 'DIGITAL' | 'CEF' | 'NATIONAL';
+/** WP-91: who may apply, as the API reads it from the rules and the stored call data; null where nothing we hold says. */
+export type WhoMayApply = 'companies' | 'public';
 export type Regime = 'defence' | 'dual-use';
 export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
@@ -109,6 +112,8 @@ export interface Call {
    * "unknown", never "no". Absent on older API builds.
    */
   openToUkraine?: boolean | null;
+  /** WP-91: `companies` (a company can take part), `public` (only public bodies may apply); null or absent where nothing we hold says. */
+  whoMayApply?: WhoMayApply | null;
   /** The source's own date for the call, where it states one. */
   publishedAt: IsoDateTime | null;
   firstSeenAt: IsoDateTime;
@@ -165,7 +170,17 @@ export interface RulesApply {
   }[];
   alsoRead: { label: string; ref: string; text: string; url: string } | null;
   notice: string;
+  /**
+   * WP-91: the engine's outcome of each establishment rule for one country of each group (EU, EEA_EFTA, UA, OTHER), with only the
+   * country and the kind of action known (`asks`: the answers a rule still needs). Absent where no rules are encoded.
+   */
+  byCountry?: Record<'EU' | 'EEA_EFTA' | 'UA' | 'OTHER', RuleOutcome[]>;
+  /** WP-91: the rules on who may apply, for a company or research body (`not_met`: a company cannot apply to this call). */
+  forCompany?: RuleOutcome[];
 }
+
+/** One rule's outcome in the summary of a call (see `RulesApply.byCountry`). */
+export interface RuleOutcome { rule: string; title: string; outcome: 'met' | 'not_met' | 'conditional' | 'unknown' | 'to_obtain' | 'info'; asks: string[]; reason: string }
 
 /** Where some of a call's rules are written: its call document, the work programme's general annexes, or the topic's own text. */
 export interface EligibilitySourceInfo {
@@ -213,6 +228,8 @@ export interface CallFilters {
   cascade?: boolean;
   /** Only calls open to Ukrainian participants (the flag is true; unknown is not included). */
   ukraine?: boolean;
+  /** WP-91: who may apply (`whoMayApply`): a call nothing we hold speaks for is in neither. */
+  who?: WhoMayApply;
   page?: number;
   pageSize?: number;
 }
@@ -854,6 +871,8 @@ export interface Partner {
   /** Projects of the area the organisation took part in (a project counted once). */
   projects: number;
   coordinated: number;
+  /** WP-91: of those, the projects whose title shares a topic word of the call (they rank first). Absent on older API builds. */
+  topical?: number;
   firstYear: number | null;
   lastYear: number | null;
   /** The newest projects, at most three. */
@@ -862,7 +881,11 @@ export interface Partner {
 export interface PartnersAnswer {
   call: { id: string; slug: string; topic: string | null };
   /** Null when the call's code names no area the project data can be compared with. */
-  area: { kind: string; label: string; rule: string; projects: number; organisations: number; firstYear: number | null; lastYear: number | null; broaderThanCall: boolean } | null;
+  area: {
+    kind: string; label: string; rule: string; projects: number; organisations: number; firstYear: number | null; lastYear: number | null; broaderThanCall: boolean;
+    /** WP-91: the call title's topic words, the synonyms searched with them, and how many projects of the area share one (they rank first). */
+    topicWords?: string[]; topicAlso?: string[]; topicalProjects?: number;
+  } | null;
   partners: Partner[];
   /** Organisations of the whole area by country, before the country filter. */
   countries: { country: string; organisations: number }[];

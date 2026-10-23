@@ -3,10 +3,13 @@ import { Button } from '../dg/button';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FilterPanel } from './filter-panel';
 import { COUNTRIES, CURRENCIES, FUNDER_COUNTRIES, PROGRAMMES, PROGRAMME_CODES, REGIMES, REGIME_CODES } from '@/lib/taxonomy';
-import { DEFAULT_CURRENCY, DEFAULT_STATUS, MAX_QUERY_LENGTH, PARAM, activeFilterCount, defaultCallSort } from '@/lib/filters';
+import { DEFAULT_CURRENCY, DEFAULT_STATUS, MAX_QUERY_LENGTH, PARAM, WHO_VALUES, WHO_WORDS, activeFilterCount, defaultCallSort } from '@/lib/filters';
 import type { CallFilters, CallStatusFilter, CountryCode } from '@/lib/types';
 
-export type FilterGroup = 'status' | 'programme' | 'regime' | 'country' | 'cascade' | 'ukraine';
+export type FilterGroup = 'status' | 'programme' | 'regime' | 'country' | 'cascade' | 'ukraine' | 'who';
+
+/** WP-91: the programme choices. EDF is every call the portal files under it (EDIP's included); the Ukraine Support Instrument has its own. */
+const PROGRAMME_LABEL: Partial<Record<string, string>> = { EDF: 'EDF and EDIP', 'EDIP-USI': 'EDIP USI (Ukraine Support Instrument)' };
 
 const STATUS_OPTIONS: { value: CallStatusFilter; label: string }[] = [
   { value: 'open', label: 'Open' }, { value: 'forthcoming', label: 'Opens soon' },
@@ -39,7 +42,7 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
   return (
     <FilterPanel activeCount={activeFilterCount(filters)} defaults={{ [PARAM.status]: DEFAULT_STATUS }}>
       <form method="get" action={basePath} role="search" aria-label="Filter funding calls" className={FORM}>
-        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Whole words; counter-drone and counter drone are the same, and drone also finds unmanned." />
+        <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Titles, IDs and the source’s topic keywords, whole words; drone also finds unmanned." />
         {show('status') && (
           <FoldGroup legend="Status">
             {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? 'open') === o.value} />)}
@@ -47,8 +50,8 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
         )}
         {show('programme') && (
           <FoldGroup legend="Programme" count={filters.programme?.length}>
-            {/* EDIP calls are filed under EDF by the portal: an EDIP filter would always be empty. */}
-            {PROGRAMME_CODES.filter((p) => p !== 'EDIP').map((p) => <Choice key={p} name={PARAM.programme} value={p} label={p === 'EDF' ? 'EDF (with EDIP)' : PROGRAMMES[p].label} defaultChecked={filters.programme?.includes(p)} />)}
+            {/* EDIP calls are filed under EDF by the portal: EDF holds them all; the Ukraine Support Instrument is offered on its own (WP-91). */}
+            {PROGRAMME_CODES.filter((p) => p !== 'EDIP').map((p) => <Choice key={p} name={PARAM.programme} value={p} label={PROGRAMME_LABEL[p] ?? PROGRAMMES[p].label} defaultChecked={filters.programme?.includes(p)} />)}
           </FoldGroup>
         )}
         {show('regime') && (
@@ -85,6 +88,15 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
             <p className="m-0 text-small text-ink-muted">
               A call is counted only where its document, its text or its programme’s regulation says Ukrainian entities may take part.
               A call that is not counted may still be open: its answer is unknown. See the <Link href="/glossary#open-to-ukraine" className="font-semibold">glossary</Link>.
+            </p>
+          </FoldGroup>
+        )}
+        {show('who') && (
+          <FoldGroup legend="Who may apply" open={false} count={filters.who ? 1 : 0}>
+            <Choice type="radio" name={PARAM.who} value="" label="Anyone" defaultChecked={!filters.who} />
+            {WHO_VALUES.map((w) => <Choice key={w} type="radio" name={PARAM.who} value={w} label={WHO_WORDS[w]} defaultChecked={filters.who === w} />)}
+            <p className="m-0 text-small text-ink-muted">
+              From the programme’s rules and what the source states: companies (SMEs included) can take part in EDF and EDIP calls and in calls the source marks for SMEs or companies; a few EDIP calls are for contracting authorities, SEAPs and the EDA only. A call the data says nothing about is in neither.
             </p>
           </FoldGroup>
         )}

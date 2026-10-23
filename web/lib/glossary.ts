@@ -182,7 +182,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
   {
     id: 'usi', term: 'USI', full: 'Ukraine Support Instrument',
-    body: 'Some calls of the EDIP programme are run under the Ukraine Support Instrument: their identifiers contain EDIP-USI and the call text names the instrument. They are listed with the EDF calls.',
+    body: 'Some calls of the EDIP programme are run under the Ukraine Support Instrument: their identifiers contain EDIP-USI and the call text names the instrument. The portal files them under the EDF; here they are labelled EDIP USI, have a programme filter of their own, and are included in “EDF and EDIP”.',
     source: 'EU Funding & Tenders Portal',
   },
   {

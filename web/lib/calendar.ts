@@ -3,14 +3,15 @@
  * calls that have a deadline, from the public API helpers only. Nothing is converted or invented: an entry is
  * the notice's own deadline.
  */
-import { getCalls, getTenderCalendar, isCallSlug, isTenderSlug } from './api';
+import { getCalls, getTenderCalendar, isTenderSlug } from './api';
 import { entryFromItem, type CalendarEntry } from './calendar-tenders';
-import { getCallDeadline, now } from './deadline';
-import { formatDateLabelledUtc } from './format';
+import { now } from './deadline';
 import { tenderOnly } from './calendar-counts';
-import { ROLLING_NOTE } from './ics';
 import { DEFAULT_TENDER_SCOPE, parseTenderFilters, toTenderQuery, type SearchParams } from './filters';
-import type { TenderFilters } from './types';
+import type { CallFilters, TenderFilters } from './types';
+import { callEntries } from './calendar-calls';
+
+export { callEntries };
 
 export type { CalendarEntry, CalendarEvent, CalendarKind } from './calendar-tenders';
 export type KindFilter = 'all' | 'tenders' | 'funding';
@@ -59,39 +60,27 @@ async function loadTenders(ref: Date, filters: TenderFilters): Promise<{ entries
 /** Calls that have not opened yet (`Opens soon`): the opening day, still to come, and the planned deadline. */
 export async function loadUpcomingCalls(ref: Date): Promise<CalendarEntry[]> {
   const r = await getCalls({ status: 'forthcoming', pageSize: CALL_PAGE, page: 1 }, { cacheable: true });
-  const today = ref.toISOString().slice(0, 10);
-  const entries: CalendarEntry[] = [];
-  for (const c of r.items) {
-    if (c.status !== 'forthcoming' || !isCallSlug(c.slug)) continue;
-    const base = { kind: 'funding', id: c.id, title: c.title, href: `/funding/${c.slug}`, who: c.issuer ?? c.programmeName,
-      country: c.funderCountry, sourceName: c.source.sourceName, note: null } as const;
-    if (c.openingDate && dayOf(c.openingDate) >= today) {
-      entries.push({ ...base, key: `funding-${c.id}-opens`, event: 'opens', deadline: c.openingDate, dateOnly: true, when: formatDateLabelledUtc(c.openingDate) });
-    }
-    const d = getCallDeadline(c, ref);
-    if (c.deadline && d.iso && d.state !== 'closed') {
-      entries.push({ ...base, key: `funding-${c.id}`, event: 'deadline', planned: true, deadline: c.deadline, dateOnly: d.dateOnly === true, when: d.utc });
-    }
-  }
-  return entries;
+  return r.items.filter((c) => c.status === 'forthcoming').flatMap((c) => callEntries(c, ref));
 }
 
 async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcoming: CalendarEntry[]; openCalls: (string | null)[] }> {
   const [r, upcoming] = await Promise.all([getCalls({ status: 'open', pageSize: CALL_PAGE, page: 1 }, { cacheable: true }), loadUpcomingCalls(ref)]);
-  const entries: CalendarEntry[] = [];
-  for (const c of r.items) {
-    const d = getCallDeadline(c, ref);
-    // A rolling call past its last cut-off is open but has no coming deadline to put on a calendar.
-    if (c.status !== 'open' || !c.deadline || !d.iso || d.state === 'closed' || d.rolling || !isCallSlug(c.slug)) continue;
-    entries.push({
-      key: `funding-${c.id}`, kind: 'funding', event: 'deadline', id: c.id, title: c.title, href: `/funding/${c.slug}`,
-      deadline: c.deadline, dateOnly: d.dateOnly === true, when: d.utc,
-      who: c.issuer ?? c.programmeName, country: c.funderCountry, sourceName: c.source.sourceName,
-      // The source's date is a cut-off of a call that keeps taking submissions: the file must not call it the end.
-      rolling: c.rolling === true, note: c.rolling === true ? ROLLING_NOTE : null,
-    });
-  }
+  const entries = r.items.filter((c) => c.status === 'open').flatMap((c) => callEntries(c, ref));
   return { entries, upcoming, openCalls: r.items.filter((c) => c.status === 'open').map((c) => c.funderCountry ?? null) };
+}
+
+/**
+ * WP-91: the calendar of a funding search (/funding.ics), with exactly the list's filters. The statuses with dates to come:
+ * an Open or Closing-soon list gives its calls' deadlines, an Opens-soon list the opening days and planned deadlines, All both. A
+ * Closed list has none (null). `CALL_PAGE` is a ceiling the file names when it cuts.
+ */
+export async function loadFundingSearch(f: CallFilters, ref: Date = now()): Promise<{ entries: CalendarEntry[]; total: number } | null> {
+  const status = f.status ?? 'open';
+  if (status === 'closed') return null;
+  const asked: CallFilters['status'][] = status === 'all' ? ['open', 'forthcoming'] : [status];
+  const pages = await Promise.all(asked.map((s) => getCalls({ ...f, status: s, sort: undefined, page: 1, pageSize: CALL_PAGE })));
+  const entries = pages.flatMap((p) => p.items).flatMap((c) => callEntries(c, ref)).sort(byTime);
+  return { entries, total: pages.reduce((n, p) => n + p.total, 0) };
 }
 
 const byTime = (a: CalendarEntry, b: CalendarEntry) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key);

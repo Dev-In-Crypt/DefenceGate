@@ -21,6 +21,7 @@ import type { EligibilityFacts } from './eligibility-check';
 import { applicantFit, fitOf, fitsProfile, programmeFit, programmesOfCall, shownFit, withProgramme, type Fit, type FitResult } from './fit';
 import { PROFILE_KEY, loadProfile, toRequest, type Profile } from './profile';
 import { assess } from './readiness';
+import { topicScore, topicWords } from './funding-path';
 import type { Assessment } from './readiness-types';
 
 interface Entry { state: 'read' | 'not_read' | 'no_source'; facts: EligibilityFacts; programme: string; topic: string }
@@ -35,10 +36,12 @@ export interface FitSnapshot {
   counts: Record<Fit, number>;
   loaded: number;
   version: number;
+  /** WP-91: the topics of the saved profile (`Profile.topics`, folded): "Fits my profile" lists the calls that hold most of them first. */
+  topics: string[];
 }
 
 const EMPTY_COUNTS: Record<Fit, number> = { yes: 0, check: 0, no: 0, unknown: 0 };
-const SERVER: FitSnapshot = { ready: false, hasProfile: false, onlyFits: false, counts: EMPTY_COUNTS, loaded: 0, version: 0 };
+const SERVER: FitSnapshot = { ready: false, hasProfile: false, onlyFits: false, counts: EMPTY_COUNTS, loaded: 0, version: 0, topics: [] };
 
 const MAX_IDS = 100;
 const WAIT_MS = 40;
@@ -88,7 +91,7 @@ function recount(): void {
     loaded += 1;
     counts[shownFit(fitFor(id))] += 1;      // a "yes" that carries a condition counts, and is shown, as "conditions to check"
   }
-  snapshot = { ready: true, hasProfile: hasProfile(), onlyFits, counts, loaded, version: snapshot.version + 1 };
+  snapshot = { ready: true, hasProfile: hasProfile(), onlyFits, counts, loaded, version: snapshot.version + 1, topics: topicWords(profile?.topics ?? '') };
   for (const l of listeners) l();
 }
 
@@ -97,8 +100,11 @@ function readProfile(): boolean {
   try { raw = window.localStorage.getItem(PROFILE_KEY); } catch { /* blocked storage: no profile */ }
   if (snapshot.ready && raw === rawProfile) return false;
   rawProfile = raw;
+  const before = profile;
   profile = raw === null ? null : loadProfile();
-  programmes = { data: null, settled: false, asked: false };        // another profile, another verdict
+  // another profile, another verdict; a change of the topics alone (WP-91) or of the date changes no rule's answer
+  const same = (p: Profile | null) => (p ? JSON.stringify({ ...p, topics: '', updatedAt: null }) : null);
+  if (!snapshot.ready || same(before) !== same(profile)) programmes = { data: null, settled: false, asked: false };
   return true;
 }
 
@@ -180,6 +186,11 @@ export const getServerSnapshot = (): FitSnapshot => SERVER;
 /** Read the profile again (the hook of the filter calls it once on mount). */
 export function refresh(): void {
   if (readProfile()) recount();
+}
+
+/** WP-91: how many of the profile's topics a call's text holds (0 without topics). */
+export function topicsMatched(s: FitSnapshot, text: string): number {
+  return s.topics.length > 0 ? topicScore(s.topics, text) : 0;
 }
 
 /** An item is hidden by "Fits my profile" when its facts are in and it is neither eligible nor worth a look. */

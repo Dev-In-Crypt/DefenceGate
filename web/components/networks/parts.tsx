@@ -125,6 +125,9 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
       defaults={{ programme: PROGRAMME_CHOICES.map((p) => p.value).filter((v) => DEFENCE_PROGRAMMES.includes(v)).join(',') }}>
       <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
         <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
+        {/* WP-91 (UX audit 6): who worked on a topic, from the titles of the projects we hold (synonyms as in the funding search) */}
+        <TextInput name="topic" maxLength={100} label="Project topic" placeholder="For example drone, cyber, radar" defaultValue={filters.topic ?? ''}
+          hint="Words of the projects’ titles, acronyms and EDF categories; drone also finds unmanned, UAS and UAV. Every word must be in one project." />
         <FoldGroup legend="Programme" count={filters.programme?.length}>
           {PROGRAMME_CHOICES.map((p) => (
             <Choice key={p.value} name="programme" value={p.value} label={p.label} defaultChecked={effectiveProgrammes(filters).includes(p.value)} />

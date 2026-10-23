@@ -25,8 +25,11 @@ export const PARAM = {
   q: 'q', programme: 'programme', regime: 'regime', country: 'country', status: 'status',
   from: 'from', to: 'to', min: 'min', max: 'max', currency: 'currency', sort: 'sort', page: 'page', view: 'view',
   scope: 'scope', goods: 'goods', hasOpen: 'hasOpen', cpv: 'cpv', year: 'year', cascade: 'cascade', ukraine: 'ukraine',
-  cpvMain: 'cpvMain', notCpv: 'notCpv', size: 'size',
+  cpvMain: 'cpvMain', notCpv: 'notCpv', size: 'size', who: 'who',
 } as const;
+/** WP-91: the values of `who` (the API's `whoMayApply`). */
+export const WHO_VALUES = ['companies', 'public'] as const;
+export const WHO_WORDS: Record<(typeof WHO_VALUES)[number], string> = { companies: 'Companies can take part', public: 'Public buyers only' };
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
 const SORTS: CallSort[] = ['deadline-asc', 'deadline-desc', 'budget-desc'];
@@ -89,6 +92,7 @@ export function parseCallFilters(sp: SearchParams): CallFilters {
     sort: oneOf(first(sp[PARAM.sort]), SORTS) ?? defaultCallSort(status),
     cascade: first(sp[PARAM.cascade]) === 'true' ? true : undefined,
     ukraine: first(sp[PARAM.ukraine]) === 'true' ? true : undefined,
+    who: oneOf(first(sp[PARAM.who]), WHO_VALUES),
     page: page && page >= 1 ? Math.min(Math.floor(page), MAX_PAGE) : 1,
     pageSize: DEFAULT_PAGE_SIZE,
   };
@@ -123,6 +127,7 @@ export function toQuery(f: CallFilters, extra: Partial<Record<string, string | u
   if (f.sort && f.sort !== defaultCallSort(f.status)) p.set(PARAM.sort, f.sort);
   if (f.cascade) p.set(PARAM.cascade, 'true');
   if (f.ukraine) p.set(PARAM.ukraine, 'true');
+  if (f.who) p.set(PARAM.who, f.who);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
   const s = p.toString();
@@ -134,6 +139,7 @@ export function activeFilterCount(f: CallFilters): number {
     f.q, f.programme?.length, f.regime?.length, f.country?.length,
     f.status !== DEFAULT_STATUS ? f.status : undefined,
     f.deadlineFrom, f.deadlineTo, f.budgetMin, f.budgetMax, f.currency, f.cascade ? 'cascade' : undefined, f.ukraine ? 'ukraine' : undefined,
+    f.who,
   ].filter((v) => v !== undefined && v !== 0 && v !== '').length;
 }
 
@@ -156,6 +162,7 @@ export function describeCallFilters(f: CallFilters): string[] {
   else if (f.currency) out.push(`a budget stated in ${f.currency}`);
   if (f.cascade) out.push('financial support to third parties');
   if (f.ukraine) out.push('open to Ukrainian participants');
+  if (f.who) out.push(WHO_WORDS[f.who].toLowerCase());
   return out;
 }
 
@@ -178,6 +185,7 @@ export function broadenings(f: CallFilters): Broadening[] {
   if (f.budgetMin !== undefined || f.budgetMax !== undefined) out.push({ label: 'with any budget', filters: { ...base, budgetMin: undefined, budgetMax: undefined } });
   if (f.cascade) out.push({ label: 'without the financial-support filter', filters: { ...base, cascade: undefined } });
   if (f.ukraine) out.push({ label: 'without the Ukraine filter', filters: { ...base, ukraine: undefined } });
+  if (f.who) out.push({ label: 'whoever may apply', filters: { ...base, who: undefined } });
   return out;
 }
 
@@ -489,6 +497,7 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
       codes(PARAM.regime, REGIME_CODES, 'regime');
       choice(PARAM.cascade, ['true']);
       choice(PARAM.ukraine, ['true']);
+      choice(PARAM.who, WHO_VALUES);
     }
     const from = day(PARAM.from);
     const to = day(PARAM.to);

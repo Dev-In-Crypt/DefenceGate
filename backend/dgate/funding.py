@@ -46,7 +46,7 @@ EU_PROGRAMMES = {"EDF": "EDF", "EDIDP": "EDF", "EDIP": "EDIP",
                  "HORIZON": "HORIZON", "DIGITAL": "DIGITAL", "CEF2027": "CEF"}
 # The chips a request may name (the label and the filter read the one table above), and
 # the chip of a stored EU programme this table does not know yet: Horizon, the broadest.
-PROGRAMME_CHIPS = {*EU_PROGRAMMES.values(), "NATIONAL"}
+PROGRAMME_CHIPS = {*EU_PROGRAMMES.values(), "NATIONAL", "EDIP-USI"}
 FALLBACK_CHIP = "HORIZON"
 REGIME_VALUES = {"defence": "defence", "dual-use": "dual_use", "dual_use": "dual_use"}
 NATIONAL_PROGRAMME = re.compile(r"^[A-Z]{2}-")
@@ -200,6 +200,8 @@ class FundingCall(BaseModel):
     # Open to Ukrainian participants: true or false where a source we hold says so, null where nothing
     # does (dgate/ukraine.py). Null is "unknown", not "no".
     openToUkraine: bool | None = None
+    # WP-91: `companies` (a company can take part), `public` (only public bodies may apply), null where nothing we hold says.
+    whoMayApply: str | None = None
     publishedAt: datetime | None
     firstSeenAt: datetime
     lastSeenAt: datetime
@@ -359,11 +361,46 @@ def make_slug(call_id: int, title: str) -> str:
     return f"{call_id}-{words}" if words else str(call_id)
 
 
-def programme_of(code: str) -> str:
-    """The design's programme chip for a stored programme code."""
+def programme_of(code: str, topic_code: str | None = None) -> str:
+    """The design's programme chip for a stored programme code. With the topic code (WP-91): the portal files the
+    EDIP calls under the EDF, and the topic code tells them apart (`regime.regime_of`), so an EDF-EDIP-USI- topic is
+    `EDIP-USI` and an EDF-EDIP-P- topic `EDIP`, never `EDF` (UX audit 6: the list said EDF where /regulation says no
+    EDF call is open to Ukraine)."""
     if NATIONAL_PROGRAMME.match(code):
         return "NATIONAL"
+    if code == "EDF" and topic_code:
+        from .regime import regime_of
+
+        regime = regime_of(code, topic_code)
+        if regime is not None and regime.code in ("EDIP", "EDIP-USI"):
+            return regime.code
     return EU_PROGRAMMES.get(code, FALLBACK_CHIP)
+
+
+# The same reading in SQL, for the programme filter: the topic prefixes of `regime.regime_of`.
+_USI_SQL = "(p.code = 'EDF' AND upper(COALESCE(c.topic_code, '')) LIKE 'EDF-EDIP-USI-%%')"
+_EDIP_SQL = ("(p.code = 'EDIP' OR (p.code = 'EDF' AND (upper(COALESCE(c.topic_code, '')) LIKE 'EDF-EDIP-P-%%' "
+             f"OR {_USI_SQL[1:-1]})))")
+
+# Who may apply (WP-91, UX audit 6), from what the rules and the stored call data state, as one SQL expression that the
+# list, the card and the filter all read: `public` where the readiness rules say only public bodies may apply (the EDIP
+# actions of common procurement, support for SEAPs and preparation of projects of common interest: rules EDIP-CPA-APPLICANT,
+# EDIP-SEAP-APPLICANT, EDIP-PREP-APPLICANT, the tokens of `regime.action_of`); `companies` where a company can take part: a
+# call of the defence fund or EDIP (their recipients are legal entities, public or private: rules EDF-LEGAL-ENTITY,
+# EDIP-LEGAL-ENTITY, USI-LEGAL-ENTITY), a topic the EU portal flags for SMEs, a Polish call whose applicant types name an SME,
+# a micro or a large enterprise, a Spanish call whose beneficiary types name companies or SMEs; null where nothing we hold says.
+_T = "('-' || upper(COALESCE(c.topic_code, '')) || '-')"
+WHO_MAY_APPLY = f"""(CASE
+    WHEN p.code IN ('EDF', 'EDIP') AND {_T} LIKE '%%-EDIP-%%' AND (
+         {_T} LIKE '%%-CPA-%%' OR ({_T} LIKE '%%-SA-%%' AND {_T} LIKE '%%-SEAP-%%')
+         OR ({_T} LIKE '%%-CSA-%%' AND {_T} LIKE '%%-PREP-%%')) THEN 'public'
+    WHEN p.code IN ('EDF', 'EDIDP', 'EDIP') THEN 'companies'
+    WHEN c.conditions_raw->>'for_smes' = 'true' THEN 'companies'
+    WHEN p.code = 'PL-NCBR' AND jsonb_typeof(c.conditions_raw->'applicant_types') = 'array'
+         AND c.conditions_raw->'applicant_types' ?| array['sme', 'micro', 'large_enterprise'] THEN 'companies'
+    WHEN p.code = 'ES-BDNS' AND (c.conditions_raw->>'beneficiary_types') ~* '(empresa|pyme|aut[oó]nom)' THEN 'companies'
+    END)"""
+WHO_VALUES = ("companies", "public")
 
 
 def _day(value: Any) -> datetime | None:
@@ -583,7 +620,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
     out = {
         "id": str(r["id"]),
         "slug": make_slug(r["id"], r["title"]),
-        "programme": programme_of(prog),
+        "programme": programme_of(prog, r.get("topic_code")),
         "programmeName": r["programme_name"],
         "funder": redact_emails(funder_of(prog, r.get("issuer"), r["programme_name"])),
         "callId": r.get("call_identifier"),
@@ -615,6 +652,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "eligibility": redact_emails(eligibility_rows(prog, cond, r)),
         "cascade": r.get("cascade"),
         "openToUkraine": r.get("open_to_ukraine"),
+        "whoMayApply": r.get("who_may_apply"),
         "publishedAt": _day(r.get("published_at")),
         "firstSeenAt": r["first_seen_at"],
         "lastSeenAt": r["last_seen_at"],
@@ -640,7 +678,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
 
 
 SELECT = f"""
-    SELECT c.*, {EFFECTIVE_STATUS} AS effective_status,
+    SELECT c.*, {EFFECTIVE_STATUS} AS effective_status, {WHO_MAY_APPLY} AS who_may_apply,
            p.code AS programme_code, p.name AS programme_name,
            s.code AS source_code, s.name AS source_name, s.licence AS source_licence,
            s.attribution AS source_attribution, s.commercial_ok AS source_commercial_ok
@@ -648,6 +686,19 @@ SELECT = f"""
       JOIN programme p ON p.id = c.programme_id
       LEFT JOIN source s ON s.id = c.source_id
 """
+
+
+# What the word search reads of a call (WP-91, UX audit 6: "software", "autonomy", "SME" found nothing): the title, the issuer,
+# the Swedish title, and the topic words the source states (the EU portal's tags, the Polish register's thematic areas, the
+# Spanish sectors), and the word SME where the EU portal flags the topic for SMEs. Identifiers are searched by their start.
+SEARCH_TEXT = """SELECT c.id,
+           concat_ws(' ', c.title, c.issuer, c.conditions_raw->>'title_sv', c.conditions_raw->>'tags',
+                     c.conditions_raw->>'thematic_areas',
+                     CASE WHEN jsonb_typeof(c.conditions_raw->'sectors') = 'array'
+                          THEN jsonb_path_query_array(c.conditions_raw->'sectors', '$[*].name')::text END,
+                     CASE WHEN c.conditions_raw->>'for_smes' = 'true' THEN 'SME' END) AS text,
+           concat_ws(' ', c.topic_code, c.call_identifier) AS codes
+      FROM call c WHERE NOT c.suppressed"""
 
 
 def _like(text: str) -> str:
@@ -682,6 +733,8 @@ def list_funding(
     cascade: str | None = Query(None, pattern="^true$"),
     # Only `true` is a filter: calls the flag says are open to Ukrainian participants (unknown is not included).
     ukraine: str | None = Query(None, pattern="^true$"),
+    # WP-91: who may apply, as `whoMayApply` states it: `companies` or `public` (a call nothing we hold speaks for is in neither).
+    who: str | None = Query(None, pattern="^(companies|public)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
@@ -701,10 +754,7 @@ def list_funding(
     if q and q.replace("\x00", "").strip():
         # Word search over the call texts, in Python (textsearch.py): the SQL then takes the ids.
         query = textsearch.parse(q.replace("\x00", ""))
-        hits = [r["id"] for r in conn.execute(
-            """SELECT c.id, concat_ws(' ', c.title, c.issuer, c.conditions_raw->>'title_sv') AS text,
-                      concat_ws(' ', c.topic_code, c.call_identifier) AS codes
-                 FROM call c WHERE NOT c.suppressed""").fetchall()
+        hits = [r["id"] for r in conn.execute(SEARCH_TEXT).fetchall()
                 if query is not None and query.matches(r["text"], r["codes"])]
         where.append("c.id = ANY(%s)")
         params.append(hits)
@@ -719,7 +769,13 @@ def list_funding(
                                  f"use {', '.join(sorted(PROGRAMME_CHIPS))}")
     if wanted:
         clauses: list[str] = []
-        stored = [code for code, chip in EU_PROGRAMMES.items() if chip in wanted]
+        # EDIP: the programme's own code and the EDIP topics the portal files under the EDF (the Ukraine Support Instrument
+        # is part of EDIP); EDIP-USI: those topics only. EDF stays every call the portal files under it (the chip "EDF and EDIP").
+        stored = [code for code, chip in EU_PROGRAMMES.items() if chip in wanted and chip != "EDIP"]
+        if "EDIP" in wanted:
+            clauses.append(_EDIP_SQL)
+        if "EDIP-USI" in wanted:
+            clauses.append(_USI_SQL)
         if stored:
             clauses.append("p.code = ANY(%s)")
             params.append(stored)
@@ -746,6 +802,11 @@ def list_funding(
     if countries:
         where.append("COALESCE(c.country, 'EU') = ANY(%s)")
         params.append(countries)
+
+    # called as a plain function (accounts.run_search) a parameter left out is its Query object, not a value
+    if isinstance(who, str) and who in WHO_VALUES:
+        where.append(f"{WHO_MAY_APPLY} = %s")
+        params.append(who)
 
     if from_:
         where.append("c.deadline_at >= %s")

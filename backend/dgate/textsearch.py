@@ -34,7 +34,12 @@ STOP_WORDS = frozenset({"a", "an", "and", "for", "in", "of", "on", "or", "the", 
 SYNONYMS: tuple[tuple[str, ...], ...] = (
     ("drone", "uas", "uav", "unmanned", "rpas"),
     ("logistics", "supply", "mobility"),
-    ("ai", "artificial intelligence"),
+    ("ai", "artificial intelligence", "machine learning"),
+    # WP-91 (UX audit 6, a drone-software start-up): words its founder typed that found nothing. Kept to the same idea per row.
+    ("software", "algorithms", "computing", "data fusion", "simulation"),
+    ("autonomy", "autonomous", "uncrewed", "robotic", "robotics", "swarm"),
+    ("cyber", "cybersecurity", "cyber security", "cyber defence"),
+    ("sme", "smes", "small and medium", "pme", "pyme", "msp"),
 )
 
 MAX_TERMS = 8

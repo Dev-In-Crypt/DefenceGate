@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { fitLabel, shownFit } from '@/lib/fit';
 import { useFit, useFitState } from '@/lib/fit-hooks';
-import { fitFor, hiddenByFilter, isLoaded, setOnlyFits } from '@/lib/fit-store';
+import { fitFor, hiddenByFilter, isLoaded, refresh, setOnlyFits, topicsMatched } from '@/lib/fit-store';
+import { useProfile } from '@/components/readiness/use-readiness';
 import { cn } from '@/lib/utils';
-import { Choice } from '../dg/form';
+import { Choice, TextInput } from '../dg/form';
 import { Icon } from '../dg/icon';
 
 /**
@@ -31,10 +32,32 @@ export function FitBadge({ id, className }: { id: string; className?: string }) 
   );
 }
 
-/** A list item that "Fits my profile" can hide. Server-rendered children, so the list itself stays a server page. */
-export function FitItem({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
+/**
+ * A list item that "Fits my profile" can hide. Server-rendered children, so the list itself stays a server page. WP-91: with the filter
+ * on and topics in the saved profile, a call that holds more of them comes first (CSS `order` in the list's flex column: the server's
+ * order is kept for the rest), and says which.
+ */
+export function FitItem({ id, children, className, text = '' }: { id: string; children: React.ReactNode; className?: string; text?: string }) {
   const s = useFit(id);
-  return <li hidden={hiddenByFilter(s, id)} className={className}>{children}</li>;
+  const matched = s.onlyFits && s.hasProfile ? topicsMatched(s, text) : 0;
+  return (
+    <li hidden={hiddenByFilter(s, id)} className={className} style={matched > 0 ? { order: -matched } : undefined} data-topics-matched={matched || undefined}>
+      {matched > 0 && <p className="m-0 mb-1 text-small font-bold text-ink">Matches {matched} of your {s.topics.length === 1 ? 'topic' : `${s.topics.length} topics`}</p>}
+      {children}
+    </li>
+  );
+}
+
+/** WP-91: the company's topics, kept in the saved profile in this browser (never sent): the order of "Fits my profile". */
+function Topics() {
+  const { profile, ready, update } = useProfile();
+  if (!ready || !profile) return null;
+  return (
+    <TextInput label="Your topics (optional)" maxLength={300} className="max-w-form" value={profile.topics}
+      placeholder="For example: software, autonomy, counter-drone"
+      hint="Comma-separated. Kept with your profile in this browser only. Matched like the search: drone also finds unmanned, software also finds algorithms."
+      onChange={(e) => { update((p) => ({ ...p, topics: e.target.value })); window.setTimeout(refresh, 0); }} />
+  );
 }
 
 /**
@@ -56,7 +79,8 @@ export function FitFilter({ className }: { className?: string }) {
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <Choice label="Fits my profile" checked={s.onlyFits} onChange={(e) => setOnlyFits(e.target.checked)}
-        hint="Keeps the calls on this page that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules." />
+        hint="Keeps the calls on this page that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules. With your topics below, the calls that name them come first." />
+      <Topics />
       <p role="status" className="m-0 text-small text-ink-muted">
         {s.loaded === 0 ? 'Checking the calls on this page…' : (
           <>

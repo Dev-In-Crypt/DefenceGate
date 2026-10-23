@@ -35,7 +35,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from . import db, eligibility
+from . import db, eligibility, textsearch
 from .funding import SOURCE_TEXT_SOURCES, make_slug, programme_of
 from .listcache import cache_list
 from .normalise import redact_emails
@@ -144,6 +144,42 @@ def area_label(topic_code: str | None) -> str | None:
     return found[0].label if found else None
 
 
+# ----------------------------------------------------------------------------- the topic of a call (WP-91)
+
+# Words of a call title that say nothing about its topic: they are in the titles of most calls and projects alike.
+GENERIC_WORDS = frozenset("""
+    system systems capability capabilities technology technologies solution solutions development developments defence defense
+    european europe union platform platforms product products support next generation advanced other related including purpose
+    establishing managing maintaining functioning possible future project projects implementation roadmap common interest
+    preparing maturing call open innovative innovation novel improved enhanced based new research action actions programme
+    pools readiness industrial structures structure
+""".split())
+MAX_TOPIC_WORDS = 6
+
+
+def topic_words(title: str | None) -> list[str]:
+    """The words of a call title that name its topic (4 letters or more, not in GENERIC_WORDS), at most MAX_TOPIC_WORDS."""
+    out: list[str] = []
+    for w in textsearch.words(title or ""):
+        if len(w) >= 4 and w not in GENERIC_WORDS and w not in textsearch.STOP_WORDS and w not in out:
+            out.append(w)
+    return out[:MAX_TOPIC_WORDS]
+
+
+def topic_query(title: str | None) -> textsearch.Query | None:
+    """The call's topic words with their synonyms (textsearch.SYNONYMS: "unmanned" also finds drone, UAS, UAV)."""
+    words = topic_words(title)
+    return textsearch.parse(" ".join(words)) if words else None
+
+
+def is_topical(query: textsearch.Query | None, text: str | None) -> bool:
+    """A project title shares at least one topic word of the call (or one of its synonyms)."""
+    if query is None:
+        return False
+    have = textsearch.words(text or "")
+    return any(any(textsearch._phrase_in(alt, have) for alt in group) for group in query.alternatives)
+
+
 # ----------------------------------------------------------------------------- the queries
 
 _YEAR_EXPR = "COALESCE(EXTRACT(YEAR FROM pr.start_date)::int, pr.call_year)"
@@ -165,7 +201,8 @@ def _area_projects(conn, area: Area, source_id: int) -> list[dict[str, Any]]:
     if area.regex:
         clauses.append("upper(pr.call_code) ~ %s")
         params.append(area.regex)
-    return conn.execute(f"SELECT pr.id, {_YEAR_EXPR} AS year FROM project pr WHERE {' AND '.join(clauses)}", params).fetchall()
+    return conn.execute(f"SELECT pr.id, {_YEAR_EXPR} AS year, pr.acronym, pr.title FROM project pr WHERE {' AND '.join(clauses)}",
+                        params).fetchall()
 
 
 def _organisations(conn, project_ids: list[int]) -> list[dict[str, Any]]:
@@ -187,9 +224,11 @@ def _organisations(conn, project_ids: list[int]) -> list[dict[str, Any]]:
              GROUP BY head.id""", (project_ids,)).fetchall()
 
 
-def _evidence(conn, project_ids: list[int], heads: dict[int, list[int]]) -> dict[int, list[dict[str, Any]]]:
+def _evidence(conn, project_ids: list[int], heads: dict[int, list[int]],
+              topical: set[int] | None = None) -> dict[int, list[dict[str, Any]]]:
     """The newest projects of each listed organisation: from its own participations (an index on the organisation),
-    not from a second pass over the whole area."""
+    not from a second pass over the whole area. The projects that share the call's topic come first (WP-91)."""
+    topical = topical or set()
     owner = {m: h for h, members in heads.items() for m in members}
     rows = conn.execute(
         f"""SELECT DISTINCT ON (pa.organisation_id, pr.id) pa.organisation_id AS member, pr.id AS project, pr.acronym,
@@ -204,15 +243,20 @@ def _evidence(conn, project_ids: list[int], heads: dict[int, list[int]]) -> dict
         if known is None or (r["role"] == "coordinator" and known["role"] != "coordinator"):
             seen[head][r["project"]] = {"projectId": str(r["project"]), "acronym": r["acronym"], "title": r["title"],
                                         "year": r["year"], "role": r["role"]}
-    return {h: sorted(found.values(), key=lambda e: (-(e["year"] or 0), -int(e["projectId"])))[:EVIDENCE_PER_PARTNER]
+    return {h: sorted(found.values(), key=lambda e: (int(e["projectId"]) not in topical, -(e["year"] or 0),
+                                                     -int(e["projectId"])))[:EVIDENCE_PER_PARTNER]
             for h, found in seen.items()}
 
 
 def partners_of(conn, topic_code: str | None, *, country: str | None = None, prefer: str | None = None,
-                limit: int = 20) -> dict[str, Any]:
+                limit: int = 20, title: str | None = None) -> dict[str, Any]:
     """`country` keeps only that country. `prefer` keeps every country but lists that one first (U1 of the UX
     verification: the page promised the visitor's own country first, and a sort done by the browser over the 20
-    largest organisations of the whole area found none, because the Polish ones rank below the top 20)."""
+    largest organisations of the whole area found none, because the Polish ones rank below the top 20).
+
+    `title` (WP-91, UX audit 6: an EDIP topic fell back to the EDF's largest organisations, Leonardo and Indra): the
+    organisations whose projects of the area share a topic word of the call's title (or a synonym) rank first, by the
+    number of such projects, then as before. The words are said in the answer (`area.topicWords`)."""
     areas = areas_of(topic_code)
     base: dict[str, Any] = {"area": None, "partners": [], "countries": [], "total": 0, "country": country, "prefer": prefer}
     if not areas:
@@ -247,31 +291,53 @@ def partners_of(conn, topic_code: str | None, *, country: str | None = None, pre
     by_country: dict[str, int] = {}
     for o in orgs:
         by_country[o["country"]] = by_country.get(o["country"], 0) + 1
+    query = topic_query(title)
+    topical_ids = {r["id"] for r in found if is_topical(query, f"{r.get('acronym') or ''} {r.get('title') or ''}")}
+    topical = _topical_counts(conn, topical_ids) if topical_ids else {}
     listed = sorted((o for o in orgs if not country or o["country"] == country),
-                    key=lambda o: (bool(prefer) and not country and o["country"] != prefer,
+                    key=lambda o: (bool(prefer) and not country and o["country"] != prefer, -topical.get(o["id"], 0),
                                    -o["projects"], -(o["last"] or 0), -o["coordinated"], o["id"]))[:limit]
-    evidence = _evidence(conn, [r["id"] for r in found], {o["id"]: o["members"] for o in listed}) if listed else {}
+    evidence = _evidence(conn, [r["id"] for r in found], {o["id"]: o["members"] for o in listed}, topical_ids) if listed else {}
+    countries = [{"country": c, "organisations": n} for c, n in sorted(by_country.items(), key=lambda kv: (-kv[1], kv[0]))[:40]]
+    # A call of the Ukraine Support Instrument asks for a Ukrainian entity: Ukraine is in the choice even when no Ukrainian
+    # organisation took part in an earlier project of the area (it then says 0).
+    if (topic_code or "").upper().startswith("EDF-EDIP-USI-") and not any(c["country"] == "UA" for c in countries):
+        countries.append({"country": "UA", "organisations": by_country.get("UA", 0)})
     years = [r["year"] for r in found if r["year"]]
     return {
         "area": {"kind": area.kind, "label": area.label, "rule": area.rule, "projects": len(found),
                  "organisations": len(orgs), "firstYear": min(years, default=None), "lastYear": max(years, default=None),
                  # The narrower area had too few organisations, so the broader one answered.
-                 "broaderThanCall": area is not areas[0], "generic": area.generic},
+                 "broaderThanCall": area is not areas[0], "generic": area.generic,
+                 "topicWords": query.terms if query else [], "topicAlso": query.also if query else [],
+                 "topicalProjects": len(topical_ids)},
         "partners": [{
             "organisationId": str(o["id"]),
             "slug": make_slug(o["id"], o["display_name"] or o["canonical_name"]),
             "name": redact_emails(o["display_name"] or o["canonical_name"]),
             "country": o["country"], "projects": o["projects"], "coordinated": o["coordinated"],
             "firstYear": o["first"], "lastYear": o["last"], "evidence": evidence[o["id"]],
+            "topical": topical.get(o["id"], 0),
         } for o in listed],
-        "countries": [{"country": c, "organisations": n}
-                      for c, n in sorted(by_country.items(), key=lambda kv: (-kv[1], kv[0]))[:40]],
+        "countries": countries,
         "total": by_country.get(country, 0) if country else len(orgs),
         "country": country,
         "prefer": prefer,
-        "note": ("This topic has no earlier counterpart by area, so these are the organisations that took part most often "
-                 "in any EDF project, the same list as for every other topic of its kind.") if area.generic else None,
+        "note": (("This topic has no earlier counterpart by area. The organisations whose EDF projects share a word of its "
+                  "title are listed first; after them come those that took part most often in any EDF project.")
+                 if topical_ids else
+                 ("This topic has no earlier counterpart by area, and no EDF project title shares a word of its title, so these "
+                  "are the organisations that took part most often in any EDF project.")) if area.generic else None,
     }
+
+
+def _topical_counts(conn, project_ids: set[int]) -> dict[int, int]:
+    """For each live organisation, how many of these projects it took part in (through `merged_into`, as `_organisations`)."""
+    rows = conn.execute(
+        """SELECT COALESCE(o.merged_into, o.id) AS head, count(DISTINCT pa.project_id) AS n
+             FROM participation pa JOIN organisation o ON o.id = pa.organisation_id
+            WHERE pa.project_id = ANY(%s) AND pa.active GROUP BY 1""", (list(project_ids),)).fetchall()
+    return {r["head"]: r["n"] for r in rows}
 
 
 def _sources_read_at(conn) -> dict[str, Any]:
@@ -306,7 +372,7 @@ def get_partners(
     if row["suppressed"]:
         raise removed()
     out = partners_of(conn, row["topic_code"], country=country.upper() if country else None,
-                      prefer=prefer.upper() if prefer else None, limit=limit)
+                      prefer=prefer.upper() if prefer else None, limit=limit, title=row["title"])
     out["call"] = {"id": str(row["id"]), "slug": make_slug(row["id"], row["title"]), "topic": row["topic_code"]}
     out["source"] = _sources_read_at(conn)
     return out

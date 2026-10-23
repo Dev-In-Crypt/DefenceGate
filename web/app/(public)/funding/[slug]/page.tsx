@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { ExternalLink } from 'lucide-react';
+import { CalendarPlus, ExternalLink } from 'lucide-react';
 import { getCall, getOpenCallsForRelated, relatedCallsFrom, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { callStatusKind, getCallDeadline } from '@/lib/deadline';
@@ -31,12 +31,15 @@ import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 import { LongText } from '@/components/funding/long-text';
 import { mergeSameText } from '@/lib/long-text';
+import { whatItFunds } from '@/lib/funding-path';
+import { WHO_WORDS } from '@/lib/filters';
+import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
 /** The glossary entry that explains each programme chip. */
-const PROGRAMME_GLOSSARY: Partial<Record<string, string>> = { EDF: 'edf', EDIP: 'edip', HORIZON: 'horizon-europe', DIGITAL: 'digital-europe', CEF: 'cef' };
+const PROGRAMME_GLOSSARY: Partial<Record<string, string>> = { EDF: 'edf', EDIP: 'edip', 'EDIP-USI': 'usi', HORIZON: 'horizon-europe', DIGITAL: 'digital-europe', CEF: 'cef' };
 
 /** A value that reads as a sentence (not a figure or a name) takes the whole row of a facts grid. */
 const isLong = (v: React.ReactNode) => typeof v === 'string' && v.length > 70;
@@ -111,7 +114,9 @@ export default async function CallDetailPage({ params }: Props) {
   const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
   const edip = call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') ? call.rulesApply.regime.name : null;
   // The parts of the page that are present, in order: the index links to them.
-  const canApply = Boolean(call.documentEligibility) || call.eligibilityState === 'not_read' || (call.programme === 'EDF' && !closed);
+  // EDF and EDIP calls (the Ukraine Support Instrument's included: WP-91 labels them by their instrument) have readiness rules
+  const defenceFund = call.programme === 'EDF' || call.programme === 'EDIP' || call.programme === 'EDIP-USI';
+  const canApply = Boolean(call.documentEligibility) || call.eligibilityState === 'not_read' || (defenceFund && !closed);
   const part = (title: string, label = title) => ({ id: panelId(title), label });
   const toc = [
     hasScope && part('Scope'), part('Who can apply'), call.rulesApply && part('Rules that apply'), ukraine && part('Ukrainian participants'),
@@ -137,6 +142,7 @@ export default async function CallDetailPage({ params }: Props) {
             <Tag>{REGIMES[call.regime]}</Tag>
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
+            {call.whoMayApply && <Tag>{WHO_WORDS[call.whoMayApply]}</Tag>}
             <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
           </div>
         )}
@@ -151,6 +157,12 @@ export default async function CallDetailPage({ params }: Props) {
           </p>
         )}
         <p className="m-0 max-w-prose text-body text-ink-muted">{funderLine(call)}</p>
+        {/* WP-91 (UX audit 6): what the call funds and whether one can apply, on the first screen (phone included) */}
+        <p className="m-0 max-w-prose text-body" data-what-it-funds>
+          <strong>What it funds:</strong> <span lang={nonEnglish ? call.titleLanguage : undefined}>{whatItFunds({ ...call, title: displayName(call.title) })}</span>
+          {sourceUrl && <> <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">Read the topic description at {sourceDisplay(call.source.sourceName)}<span className="sr-only"> (opens in new tab)</span></a>.</>}
+        </p>
+        {!closed && <ApplySummary call={call} />}
         {call.status === 'open' && call.sourceStatus === 'forthcoming' && (
           <p className="m-0 max-w-prose text-body text-ink-muted">
             The source still lists this call as forthcoming. Its opening date has passed and its deadline is ahead, so we show it as open.
@@ -216,6 +228,12 @@ export default async function CallDetailPage({ params }: Props) {
             <DeadlineBadge info={d} opening={opens} size="lg" className="hidden w-full lg:flex" />
             <SaveButton kind="call" refId={call.id} />
             <FollowButton kind="programme" refId={call.programme} label={`Follow ${programme.label}`} />
+            {/* WP-91: the call's deadline (and its opening day, before it opens) as a calendar file */}
+            {!closed && (call.deadline || (upcoming && call.openingDate)) && (
+              <a href={`/funding.ics?call=${call.slug}`} download className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-call-ics>
+                <Icon icon={CalendarPlus} size="inline" />Add to my calendar (.ics)
+              </a>
+            )}
             {sourceUrl ? (
               <Button href={sourceUrl} external variant="text" className="self-start">View original at {sourceDisplay(call.source.sourceName)}</Button>
             ) : (
@@ -264,7 +282,8 @@ export default async function CallDetailPage({ params }: Props) {
           <Panel title="Ukrainian participants">
             <p className="m-0 text-body">
               {ukraine}{' '}
-              {call.openToUkraine === true && call.rulesApply?.regime.code === 'EDIP-USI' && 'Entities established in the non-government controlled areas of Ukraine are not eligible. '}
+              {/* WP-91: the territory note concerns a Ukrainian company only (the saved profile's country) */}
+              {call.openToUkraine === true && call.rulesApply?.regime.code === 'EDIP-USI' && <UkraineOnly>Entities established in the non-government controlled areas of Ukraine are not eligible. </UkraineOnly>}
               See the <Link href="/glossary#open-to-ukraine" className="font-semibold">glossary</Link>.
             </p>
             {call.ukraineBasis?.evidence && (
@@ -299,7 +318,7 @@ export default async function CallDetailPage({ params }: Props) {
             </ul>
             {!closed && <div className="border-t border-line pt-5"><CallReadiness callId={call.id} /></div>}
           </Panel>
-        ) : call.programme === 'EDF' && !closed ? (
+        ) : defenceFund && !closed ? (
           // EDF and EDIP calls have readiness rules even when no document was read (WP-29).
           <Panel title="Can you apply?">
             <CallReadiness callId={call.id} />

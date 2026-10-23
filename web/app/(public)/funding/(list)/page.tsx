@@ -10,13 +10,16 @@ import { SaveSearch } from '@/components/account/save-search';
 export const revalidate = 60;
 const CALENDAR_LIMIT = 500;
 const MAX_ALTERNATIVES = 4;
+const FALLBACK_ITEMS = 3;
 
 // Entry chips are filter links on this page (the filter values are the API's codes); there are no per-filter hub pages.
 const CHIPS: EntryChip[] = [
   { label: 'Open now', href: '/funding?status=open' },
   { label: 'Closing soon', href: '/funding?status=closing-soon' },
-  // EDIP calls (identifiers EDF-EDIP-...) are filed under EDF by the portal, so there is one chip for both.
+  // EDIP calls (identifiers EDF-EDIP-...) are filed under EDF by the portal, so there is one chip for both; the Ukraine Support Instrument has its own (WP-91).
   { label: 'EDF and EDIP', href: '/funding?programme=EDF' },
+  { label: 'EDIP USI (Ukraine)', href: '/funding?programme=EDIP-USI' },
+  { label: 'Open to companies', href: '/funding?who=companies' },
   { label: 'Horizon Europe', href: '/funding?programme=HORIZON' },
   { label: 'Digital Europe', href: '/funding?programme=DIGITAL' },
   { label: 'National', href: '/funding?programme=NATIONAL' },
@@ -59,6 +62,15 @@ export default async function FundingHubPage({ searchParams }: Props) {
       total: (await getCalls({ ...b.filters, pageSize: 1 }).catch(() => null))?.total ?? 0,
     })))).filter((a) => a.total > 0)
     : [];
+  // WP-91 (UX audit 6: /funding?country=PL was a dead end): an empty Open or Closing-soon list shows, for the same filters, the calls
+  // that open next and the ones that closed last, with a sentence that says so. Every entry chip lands on calls or on this.
+  const empty = result.total === 0 && view === 'list' && (filters.status === 'open' || filters.status === 'closing-soon');
+  const [upcoming, closed] = empty
+    ? await Promise.all([
+      getCalls({ ...filters, status: 'forthcoming', sort: undefined, page: 1, pageSize: FALLBACK_ITEMS }).catch(() => null),
+      getCalls({ ...filters, status: 'closed', sort: undefined, page: 1, pageSize: FALLBACK_ITEMS }).catch(() => null),
+    ])
+    : [null, null];
   return (
     <CallListTemplate
       title="Funding"
@@ -66,6 +78,8 @@ export default async function FundingHubPage({ searchParams }: Props) {
       basePath="/funding"
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Funding', href: '/funding' }]}
       filters={filters} result={result} view={view} health={health} chips={CHIPS} alternatives={alternatives}
+      fallback={empty ? { upcoming: upcoming?.items ?? [], upcomingTotal: upcoming?.total ?? 0, closed: closed?.items ?? [], closedTotal: closed?.total ?? 0 } : undefined}
+      icsHref={`/funding.ics${toQuery({ ...filters, page: 1 })}`}
       notices={ignoredFilters(sp, 'funding')}
       saveSearch={<SaveSearch kind="call" filters={filtersFromQuery(toQuery({ ...filters, page: 1 }))} />}
       exportHref={`/funding/export.csv${toQuery({ ...filters, page: 1 })}`}

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { getRequirement, getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, OBLIGATION_WORD, costStatement, faqOf, formatDays, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
+import { NSPA_NCAGE_URL, CATEGORY_WORD, OBLIGATION_WORD, costStatement, faqOf, formatDays, groupIssuers, originWords, publicPassage, publicRef, requirementCode, requirementSlug, ruleSentence, siteDay, statusWords } from '@/lib/readiness';
 import { countryName } from '@/lib/taxonomy';
 import { plural } from '@/lib/format';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
@@ -145,6 +145,12 @@ export default async function RequirementPage({ params }: { params: Params }) {
                   <span className="max-w-prose">{g.countries.join(', ')}</span>
                   {g.notes && <span className="text-small text-ink-muted">{g.notes}</span>}
                   <span className="text-small text-ink-muted">{statusWords(g.verificationStatus, 'notes')}</span>
+                  {/* WP-91: for these countries the bureau is not verified in our sources; NSPA's page is where a request starts */}
+                  {r.code === 'REQ-NCAGE' && g.verificationStatus === 'U' && (
+                    <a href={NSPA_NCAGE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-small font-semibold" data-nspa-link>
+                      NSPA: request an NCAGE code<span className="sr-only"> (opens in new tab)</span>
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>

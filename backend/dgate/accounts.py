@@ -629,7 +629,7 @@ def revoke_session(session_id: str, conn=Depends(get_conn), user=Depends(current
 _TENDER_KEYS = {"q", "country", "cpv", "status", "scope", "goods", "buyer", "from", "to", "min", "max",
                 "currency", "sort", "cpvMain", "notCpv"}
 _CALL_KEYS = {"q", "programme", "regime", "country", "status", "from", "to", "min", "max",
-              "currency", "sort"}
+              "currency", "sort", "who"}
 _ENUMS = {
     ("tender", "status"): {"open", "closed", "all"},
     ("tender", "scope"): {"relevant", "core", "supply", "all"},
@@ -638,6 +638,7 @@ _ENUMS = {
     ("tender", "sort"): {"deadline-asc", "published-desc"},
     ("call", "status"): {"open", "forthcoming", "closing-soon", "closed", "all"},
     ("call", "sort"): {"deadline-asc", "deadline-desc", "budget-desc"},
+    ("call", "who"): {"companies", "public"},
 }
 _MAX_LEN = {"q": 100, "country": 200, "cpv": 400, "notCpv": 400, "programme": 200, "regime": 100}
 
@@ -702,7 +703,7 @@ def _call_kwargs(kind: str, filters: dict[str, str]) -> dict[str, Any]:
                     buyer=int(f["buyer"]) if "buyer" in f else None)
     else:
         base.update(programme=f.get("programme"), regime=f.get("regime"),
-                    status=f.get("status", "open"), cascade=None, ukraine=None)
+                    status=f.get("status", "open"), cascade=None, ukraine=None, who=f.get("who"))
     return base
 
 
@@ -919,6 +920,7 @@ def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
 
 PROGRAMME_NAMES = {"EDF": "European Defence Fund", "EDIP": "European Defence Industry Programme",
+                   "EDIP-USI": "EDIP Ukraine Support Instrument",
                    "HORIZON": "Horizon Europe", "DIGITAL": "Digital Europe",
                    "NATIONAL": "National programmes"}
 
@@ -928,11 +930,12 @@ def _programmes(conn) -> dict[str, dict[str, Any]]:
     from .funding import EFFECTIVE_STATUS, programme_of
 
     rows = conn.execute(
-        f"""SELECT p.code, p.name, ({EFFECTIVE_STATUS} = 'open') AS is_open, c.deadline_at
+        f"""SELECT p.code, p.name, c.topic_code, ({EFFECTIVE_STATUS} = 'open') AS is_open, c.deadline_at
               FROM call c JOIN programme p ON p.id = c.programme_id""").fetchall()
     out: dict[str, dict[str, Any]] = {}
     for r in rows:
-        chip = programme_of(r["code"])
+        # the chip the call is labelled with (WP-91: an EDIP or a Ukraine Support Instrument topic filed under the EDF is not EDF)
+        chip = programme_of(r["code"], r["topic_code"])
         entry = out.setdefault(chip, {"code": chip, "name": PROGRAMME_NAMES.get(chip, chip),
                                       "openCount": 0})
         if r["is_open"]:

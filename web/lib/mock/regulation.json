@@ -57,7 +57,7 @@
    },
    "status": "unconfirmed",
    "title": "EDF: Ukraine's association is pending the signature of the agreement (not confirmed in force)",
-   "whatChanged": "The EDF call documents of 2026 say, in a footnote to the list of countries associated to the EDF, that participation of entities established in Ukraine is pending the signature of the association agreement to the EDF (10 of 10 call documents read, the latest versions dated 8 September 2026). The Commission's page on support to Ukraine, which carries no date, says Ukraine \"has been fully associated\" to the European Defence Fund. We found no Official Journal text of the agreement, no Council decision on it and no notice of its entry into force, and steps taken in Ukraine, as the press reports them, do not settle the EU side. Until a primary text settles it, the readiness check treats a company established in Ukraine as conditional on the association agreement for the EDF, and DefenceGate marks no European Defence Fund call as open to Ukraine or as closed to it."
+   "whatChanged": "The EDF call documents of 2026 say, in a footnote to the list of countries associated to the EDF, that participation of entities established in Ukraine is pending the signature of the association agreement to the EDF (10 of 10 call documents read, the latest versions dated 8 September 2026). The Commission's page on support to Ukraine, which carries no date, says Ukraine \"has been fully associated\" to the European Defence Fund. We found no Official Journal text of the agreement, no Council decision on it and no notice of its entry into force, and steps taken in Ukraine, as the press reports them, do not settle the EU side. Until a primary text settles it, the readiness check treats a company established in Ukraine as conditional on the association agreement for the EDF, and DefenceGate marks no European Defence Fund call as open to Ukraine or as closed to it. The calls of EDIP's Ukraine Support Instrument, which the portal files under the EDF (topic codes EDF-EDIP-USI-), are another instrument: they are labelled EDIP USI on the funding pages and marked open to Ukraine."
   },
   {
    "affected": "Canadian suppliers, who may take part in SAFE procurement on the agreement's terms, and EU suppliers competing with them.",
@@ -124,6 +124,11 @@
      "code": "/funding?status=all&ukraine=true",
      "kind": "page",
      "label": "Funding calls open to Ukraine"
+    },
+    {
+     "code": "/funding?status=all&programme=EDIP-USI",
+     "kind": "page",
+     "label": "Calls of the Ukraine Support Instrument (EDIP USI)"
     },
     {
      "code": "/glossary#open-to-ukraine",

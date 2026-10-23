@@ -30,6 +30,13 @@ const VERDICT: Record<Verdict, { icon: typeof CircleCheck; word: string; cls: st
 };
 const WORD: Record<Verdict, string> = { yes: 'Allowed', check: 'Check', no: 'Not allowed' };
 
+/** WP-91: the sentence on Ukraine's non-government-controlled areas concerns a Ukrainian company only; for any other country it is left out. */
+const NGCA = /non-government[- ]controlled areas? of Ukraine/i;
+function shownNote(key: string, note: string, country: string): string {
+  if (key !== 'eligible_countries' || country === 'UA') return note;
+  return (note.match(/[^.;!?]+[.;!?]*/g) ?? []).map((s) => s.trim()).filter((s) => s && !NGCA.test(s)).join(' ');
+}
+
 export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId, closed = false }: {
   facts: EligibilityFacts; documentUrl: string | null; readAt: string; basis?: 'call_document' | 'work_programme'; sources?: EligibilitySourceInfo[];
   /** The call's id: with it, the panel also shows "Your readiness for this call" from the saved profile (WP-32). */
@@ -80,7 +87,7 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
               <dd className="m-0 flex min-w-0 flex-col gap-1 text-body">
                 <span className={k === 'consortium_required' && consortiumUnclear(facts) ? 'font-semibold' : undefined}>{factDisplay(k, facts)}</span>
                 {fromProgramme && f.scope && <span className="text-label font-bold text-ink">{SCOPE_WORDS[f.scope]}</span>}
-                {f.note && <span className="text-small text-ink-muted">{f.note}</span>}
+                {f.note && shownNote(k, f.note, p.country) && <span className="text-small text-ink-muted">{shownNote(k, f.note, p.country)}</span>}
                 <q className="text-small text-ink-muted">{cleanQuote(f.quote)}</q>
               </dd>
             </div>

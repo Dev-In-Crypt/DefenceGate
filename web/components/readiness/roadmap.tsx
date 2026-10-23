@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, Check, Play } from 'lucide-react';
 import { countryName } from '@/lib/taxonomy';
 import { answerProblems, roadmapProgrammes, withStatus, type Profile, type Status } from '@/lib/profile';
-import { CATEGORY_WORD, costHeadline, costStatement, isoDay, joinWords, programmeName, requirementSlug, timeHeadline, timeStatement } from '@/lib/readiness';
+import { CATEGORY_WORD, costHeadline, costStatement, isoDay, issuerFor, joinWords, programmeName, requirementSlug, timeHeadline, timeStatement } from '@/lib/readiness';
 import type { Roadmap, RoadmapStep, RoadmapTotals } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Button } from '@/components/dg/button';
@@ -69,15 +69,27 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
         <p className="m-0 font-bold">Issued by</p>
         {s.issuers.length > 0 ? (
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {s.issuers.map((i) => (
-              <li key={i.name} className="flex flex-col text-body">
-                <span>
-                  {i.country !== '*' && <><abbr title={countryName(i.country)} className="font-mono no-underline">{i.country}</abbr>{' '}</>}
-                  {safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}
-                </span>
-                {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
-              </li>
-            ))}
+            {s.issuers.map((i) => {
+              // WP-91: an issuer our sources have not verified is said plainly (and, for the NCAGE code, NSPA's page is where to start)
+              const a = i.status === 'U' && i.country !== '*' ? issuerFor(s.code, [{ ...i, verificationStatus: i.status }], i.country) : null;
+              if (a && a.kind === 'unverified') {
+                return (
+                  <li key={i.name} className="flex flex-col text-body" data-issuer-unverified>
+                    <span>{a.text}</span>
+                    {a.link && <a href={a.link.url} target="_blank" rel="noopener noreferrer" className="font-semibold">{a.link.label}<span className="sr-only"> (opens in new tab)</span></a>}
+                  </li>
+                );
+              }
+              return (
+                <li key={i.name} className="flex flex-col text-body">
+                  <span>
+                    {i.country !== '*' && <><abbr title={countryName(i.country)} className="font-mono no-underline">{i.country}</abbr>{' '}</>}
+                    {safeHttpUrl(i.url) ? <a href={i.url as string} target="_blank" rel="noopener noreferrer">{i.name}</a> : i.name}
+                  </span>
+                  {i.notes && <span className="text-small text-ink-muted">{i.notes}</span>}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="m-0 text-small text-ink-muted">{s.issuerNote ?? `The body that issues this in ${countryName(country)} has not been collected.`}</p>

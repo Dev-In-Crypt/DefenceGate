@@ -100,7 +100,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
     if (current === 1 && (!profile.country || !profile.legalForm)) { setNeedCountry(!profile.country); setNeedForm(!profile.legalForm); setFocusTarget('error'); return; }
     // An answer that cannot be used is refused here, with its reason beside the field, and not dropped later (WP-53, T6).
     if (current === 2 && profile.management === 'other' && !profile.managementCountry) { setNeedManagement(true); setFocusTarget('error'); return; }
-    if (current === 3 && pctProblem(profile.componentPct)) { setFocusTarget('error'); return; }
+    if (current === 3 && profile.offering !== 'software_services' && pctProblem(profile.componentPct)) { setFocusTarget('error'); return; }
     if (current === 5) {
       update((p) => ({ ...p, step: 6 }));
       router.push('/readiness/results');
@@ -172,6 +172,13 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               options={[...LEGAL_FORM_OPTIONS]}
               error={needForm ? 'Choose the legal form to go on.' : undefined}
               onChange={(v) => { setNeedForm(false); set('legalForm', v); }} />
+            <Radios legend="What do you offer?" name="offering" value={profile.offering}
+              hint="If you make software or services only, the questions about the components of an end product are left out. The rules on component origin are not dropped: they concern the end product of the action, so your results keep them open to check."
+              options={[
+                { value: 'products', label: 'Products: equipment, parts or materials' },
+                { value: 'software_services', label: 'We make software or services (no physical product of our own)' },
+              ]}
+              onChange={(v) => set('offering', v)} />
             <Radios legend="What kind of organisation are you? (optional)" name="applicant-kind" value={profile.applicantKind}
               hint="Only a few calls care: EDIP calls for common procurement are open to contracting authorities, international organisations, SEAPs and the European Defence Agency, not to companies. Leave it empty if you do not know; it is then never read as “a company”."
               options={[
@@ -232,16 +239,29 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 { value: 'unknown', label: 'I do not know yet' },
               ]}
               onChange={(v) => set('regime', v)} />
-            <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={12}
-              hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. Leave empty if you do not know."
-              value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value)}
-              error={pctProblem(profile.componentPct) ?? undefined} />
-            <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
-              hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
-              value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />
-            <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua-eea-components"
-              hint="EDIP and the Ukraine Support Instrument count components from these places differently from SAFE, so the 35 % limit cannot be judged without this answer."
-              value={profile.uaEeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaEeaComponents', v)} />
+            {profile.offering === 'software_services' ? (
+              <p className="m-0 max-w-prose rounded-md bg-surface-inset p-3 text-small" data-skipped-components>
+                You said you make software or services, so the three questions about the components of an end product are not asked. The rules
+                on component origin (at most 35 % of the component cost from outside the Union, no component from a third country that contravenes
+                its security interests) apply to the end product of a funded action, not to a company as such: your results show them as open,
+                to check with whoever supplies that product.{' '}
+                <button type="button" onClick={() => set('offering', 'products')}
+                  className="inline-flex min-h-11 items-center border-0 bg-transparent p-0 font-sans text-small font-semibold text-link underline">Answer them anyway</button>
+              </p>
+            ) : (
+              <>
+                <TextInput className="max-w-form" label="Share of component cost from outside the EU, the EEA EFTA states and Ukraine (%)" inputMode="decimal" maxLength={12}
+                  hint="For the main end product you would supply, as a share of the estimated cost of its components, not of the contract value. Leave empty if you do not know."
+                  value={profile.componentPct} onChange={(e) => set('componentPct', e.target.value)}
+                  error={pctProblem(profile.componentPct) ?? undefined} />
+                <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
+                  hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
+                  value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />
+                <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua-eea-components"
+                  hint="EDIP and the Ukraine Support Instrument count components from these places differently from SAFE, so the 35 % limit cannot be judged without this answer."
+                  value={profile.uaEeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaEeaComponents', v)} />
+              </>
+            )}
             <Radios legend="In a SAFE-supported procurement, what would your role be?" name="safe-role" value={profile.safeRole}
               hint="SAFE binds the contractor and the subcontractors involved in the common procurement: those that provide critical inputs, are allocated at least 15 % of the value of the contract and need access to classified information. A supplier below that is not bound by its rules on establishment and control."
               options={[...SAFE_ROLE_OPTIONS]}

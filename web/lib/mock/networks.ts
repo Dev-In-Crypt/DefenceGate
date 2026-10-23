@@ -3,6 +3,7 @@
  * Invented organisations and projects ("Alpha Systems GmbH"); the shapes are those of the API (lib/networks-types.ts).
  * Nothing here is real, and the pages say "Demo" nowhere: a production build without the API refuses to start.
  */
+import { parseQuery } from '../text-search';
 import type {
   ConsortiumGaps, FundingRow, OrgFilters, OrgFunding, OrgListItem, OrgPage, OrgProfile, OrgProjectPage, OrgRef, PartnerPage,
   ProjectDetail, ProjectHistory, ProjectRef, SourceNote, UkrainePartners,
@@ -61,12 +62,15 @@ export function findOrg(slug: string): MockOrg | undefined {
 
 export function queryOrgs(f: OrgFilters): OrgPage {
   const q = (f.q ?? '').toLowerCase();
+  const topic = f.topic ? parseQuery(f.topic) : null;
   let items = ORGS.map(item).filter((i) =>
     i.projects >= (f.minProjects ?? 1)
     && (!f.country?.length || f.country.includes(i.country))
     && (!f.programme?.length || f.programme.some((p) => i.programmes.includes(p)))
     && (!f.role?.length || ORGS.some((o) => o.id === Number(i.id) && projectsOf(o).some((p) => p.members.some(([m, r]) => m.id === o.id && f.role?.includes(r)))))
-    && (!q || i.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q.normalize('NFD').replace(/[̀-ͯ]/g, ''))));
+    && (!q || i.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q.normalize('NFD').replace(/[̀-ͯ]/g, '')))
+    // WP-91: as the API's `topic`: an organisation with a project whose acronym and title hold every word (or a synonym)
+    && (!topic || ORGS.some((o) => o.id === Number(i.id) && projectsOf(o).some((p) => topic.matches(`${p.acronym} ${p.title}`)))));
   items = f.sort === 'name' ? items.sort((a, b) => a.name.localeCompare(b.name))
     : f.sort === 'defence' ? items.sort((a, b) => b.defenceProjects - a.defenceProjects || b.projects - a.projects || a.name.localeCompare(b.name))
       : items.sort((a, b) => b.projects - a.projects || a.name.localeCompare(b.name));
@@ -183,6 +187,7 @@ export function ukrainePartners(since: number, programmes: string[] = []): Ukrai
   return {
     since, programme: programmes, byProgramme: [{ code: 'H2020', projects: 1 }],
     definition: 'A coordinator is the organisation that leads a funded project (the prime of its consortium). It is listed when a project it coordinated, started in or after the year given, had an active participant whose country of establishment, as the source states it, is Ukraine. Ukrainian coordinators are counted apart. This says who partnered with Ukrainian organisations, not who controls them or what they supplied.',
+    order: 'Coordinators with projects of the defence programmes come first, then those with projects of the calls we label dual-use (Horizon Europe Clusters 3 and 4 and the EIC, Horizon 2020 Secure Societies and Digital Security, FP7 Security), then the rest; within each, most projects first.',
     totals: shown ? { projects: 1, coordinators: 1, ukrainianOrganisations: 1, projectsCoordinatedFromUkraine: 0 } : { projects: 0, coordinators: 0, ukrainianOrganisations: 0, projectsCoordinatedFromUkraine: 0 },
     coordinators: shown ? [{ organisation: ref(A), projects: 1, ukrainianOrganisations: 1, lastYear: 2019, programmes: ['H2020'],
       ukrainianParticipants: [{ organisation: ref(C), projects: 1 }], recentProjects: [ref3(PROJECTS[0])] }] : [],

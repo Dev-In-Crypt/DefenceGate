@@ -81,6 +81,9 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   const countries = [{ value: '', label: 'All countries' }, ...d.countries.map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})` }))];
   // The call names no capability category (or the category is too small): the list is the whole programme's, and says so.
   const wide = d.area !== null && (d.area.kind === 'edf' || d.area.kind === 'horizon-family');
+  // WP-91: the organisations whose projects share a topic word of the call's title rank first (the API says which words)
+  const topical = d.area?.topicalProjects ?? 0;
+  const words = d.area?.topicWords ?? [];
   const ownHere = own ? d.countries.find((c) => c.country === own)?.organisations ?? 0 : 0;
   const hint = own && !country
     ? ownHere > 0
@@ -112,7 +115,9 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
                 ? 'The narrower area of this call has too few organisations, so this list is'
                 : d.area.kind === 'edf' ? 'The code of this call names no capability category, so this list is' : 'This list is'}
               {' '}compared with the <strong>whole programme</strong>: {d.area.label}. {d.area.rule}
-              {' '}It is led by the largest organisations of the programme. Choose a country first to see organisations closer to you.
+              {' '}{topical > 0
+                ? 'The organisations whose projects share a word of this call’s title are listed first; after them come the largest of the programme.'
+                : 'It is led by the largest organisations of the programme.'} Choose a country first to see organisations closer to you.
             </p>
           ) : (
             <p className="m-0 text-body">Compared with <strong>{d.area.label}</strong>. {d.area.rule}</p>
@@ -121,9 +126,16 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
           <p className="m-0 text-small text-ink-muted">
             {d.area.projects === 0 ? 'No earlier project of this area is held yet.' : (
               <>{formatNumber(d.area.organisations)} {plural(d.area.organisations, 'organisation')} in {formatNumber(d.area.projects)} {plural(d.area.projects, 'project')}{d.area.firstYear ? `, ${d.area.firstYear} to ${d.area.lastYear}` : ''}.
-                {' '}Ranked by the number of these projects an organisation took part in, then by the latest year.</>
+                {' '}{topical > 0 ? 'Ranked first by the projects on this call’s topic, then ' : 'Ranked '}by the number of these projects an organisation took part in, then by the latest year.</>
             )}
           </p>
+          {words.length > 0 && (
+            <p className="m-0 text-small text-ink-muted" data-topic-words>
+              {topical > 0
+                ? `${topical} ${plural(topical, 'project')} of this area share a word of the call’s title: ${words.join(', ')}${(d.area.topicAlso ?? []).length > 0 ? ` (also searched: ${(d.area.topicAlso ?? []).join(', ')})` : ''}.`
+                : `No project of this area shares a word of the call’s title (${words.join(', ')}), so the list is by size.`}
+            </p>
+          )}
           {!wide && picker}
           {partners.length === 0 ? (
             <p className="m-0 text-body text-ink-muted">{d.note ?? (country ? `No organisation from ${countryName(country)} took part in an earlier project of this area.` : 'No organisation found.')}</p>
@@ -137,7 +149,7 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
                   </p>
                   <p className="m-0 text-small">
                     {p.projects} {p.projects === 1 ? 'project' : 'projects'} in this area{p.coordinated > 0 ? `, ${p.coordinated} as coordinator` : ''}
-                    {p.lastYear ? `, latest ${p.lastYear}` : ''}.
+                    {p.lastYear ? `, latest ${p.lastYear}` : ''}{p.topical ? `; ${p.topical} on this call’s topic` : ''}.
                   </p>
                   {p.evidence.length > 0 && (
                     <p className="m-0 break-words text-small text-ink-muted">
