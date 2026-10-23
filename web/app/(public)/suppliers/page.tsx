@@ -14,6 +14,7 @@ import { displayName } from '@/lib/display-name';
 import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
+import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
 import { Pagination } from '@/components/dg/pagination';
 import { Button } from '@/components/dg/button';
 import { CountryLabel } from '@/components/dg/data-display';
@@ -123,8 +124,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
   if (result.total > 0 && f.page > last) redirect(href(f, last));
   return (
     <>
-      <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Suppliers', href: '/suppliers' }]} title="Defence supplier map"
-        lead={`Which companies have won defence-relevant contracts that a buyer published in TED${placsp ? " or in Spain's national procurement portal (PLACSP)" : ''}, where they are and how often. This is the open segment of the market, not all of it.`} />
+      {/* WP-86: the Won contracts tab of Companies; what the map covers and does not is the card under it. */}
+      <PageHeader crumbs={companyCrumbs('suppliers')} title="Companies"><CompaniesTabs current="suppliers" /></PageHeader>
       {result.staleAsOf && <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">{staleNote(result.staleAsOf, formatDateTimeUtc)}</p>}
       <FilterNotices notices={notices} />
 

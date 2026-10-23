@@ -24,7 +24,7 @@ export default async function SupplierReportPage() {
     <>
       <div className="print:hidden">
         <Breadcrumbs items={[
-          { label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Supplier profile', href: '/readiness/supplier' },
+          { label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Supplier profile', href: '/readiness/supplier' },
           { label: 'Report', href: '/readiness/supplier/report' },
         ]} />
       </div>

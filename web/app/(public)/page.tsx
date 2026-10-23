@@ -2,22 +2,21 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Building2, Clock, GitCompare, Layers, Link2, SearchCheck, ShieldCheck } from 'lucide-react';
 import { getAccountStatus } from '@/lib/account';
-import { getCalls, getChanges, getHealth, getSiteStats, getTenderScopeCounts, getTenders, lastDataUpdate } from '@/lib/api';
+import { getCalls, getChanges, getHealth, getSiteStats, getTenders, lastDataUpdate } from '@/lib/api';
 import { portalWords } from '@/lib/coverage-copy';
-import { staleNote, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
+import { valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { toTenderQuery } from '@/lib/filters';
 import { formatDateTimeUtc, formatNumber, repeatedCallBudgets } from '@/lib/format';
 import { buildMetadata, faqJsonLd, organizationJsonLd } from '@/lib/seo';
-import { BUYER_COUNTRIES, SCOPE_CHOICES, TENDER_SCOPES, cpvDivisionLabel } from '@/lib/taxonomy';
-import { countsNote } from '@/lib/list-count';
+import { BUYER_COUNTRIES, cpvDivisionLabel } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
-import { Select, TextInput } from '@/components/dg/form';
-import { AudienceGrid, BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
+import { BenefitGrid, Callout, Faq, Steps, type FaqItem } from '@/components/dg/blocks';
 import { CallCard, TenderCard } from '@/components/dg/cards';
 import { EmptyState, JsonLd } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { CARD_PADDING, CARD_SURFACE, Card } from '@/components/dg/card';
 import { Icon } from '@/components/dg/icon';
+import { SiteSearchForm } from '@/components/dg/site-search';
 
 export const revalidate = 60;
 const SAMPLE_SIZE = 3;
@@ -45,13 +44,6 @@ const benefits = (names: string) => [
   { icon: ShieldCheck, title: 'Know what we cover', body: 'Every source, when it last ran and whether it met the minimum we expect are public, with the span of publication dates held. Known gaps are listed on the status page.' },
   { icon: Layers, title: 'Tenders and funding side by side', body: 'EU and national funding calls are in the same directory as the procurement notices and on one deadline calendar. They are searched separately.' },
   { icon: Building2, title: 'The buyer in context', body: 'Open a buyer to see its current and past notices in one place before you decide to bid.' },
-];
-
-const AUDIENCE = [
-  { who: 'Suppliers and SMEs', body: 'Find the notices that fit what you make, and see deadlines before they pass.' },
-  { who: 'Primes and business development', body: 'See buyers across countries and the amendments to their notices in one place, without re-reading each portal.' },
-  { who: 'Bid and grant writers', body: 'Check dates, budgets and eligibility fields against the original, with the source one click away.' },
-  { who: 'Consultants and advisers', body: 'Keep one current picture of the market to brief clients, with the source one click away.' },
 ];
 
 const STEPS = [
@@ -101,17 +93,13 @@ export default async function LandingPage() {
   const health = await getHealth().catch(() => null);
   const portals = portalWords(health?.sources ?? []);
   const faq = faqItems(portals).map((f) => (accountsOpen && f.q === 'Do I need an account?' ? { ...f, a: ACCOUNT_ANSWER_OPEN } : f));
-  const [stats, current, dated, closingCalls, counts, goodsOpen, changes, exampleCounts] = await Promise.all([
+  const [stats, current, dated, closingCalls, changes, exampleCounts] = await Promise.all([
     getSiteStats().catch(() => null),
     // Current: not past its deadline, and with no deadline only if published within the last year.
     getTenders({ pageSize: 1 }, { cacheable: true }).catch(() => null),
     // With a stated deadline that has not passed: the ones a reader can still act on by date.
     getTenders({ deadlineFrom: today, pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
     getCalls({ status: 'closing-soon', pageSize: SAMPLE_SIZE }, { cacheable: true }).catch(() => null),
-    // What is in here: open notices by scope, as the list's own filter counts them (one request, three counts).
-    getTenderScopeCounts({}),
-    // The "Defence goods only" switch narrows whichever scope is chosen; on the default scope it is a part of core.
-    getTenders({ goods: 'defence', pageSize: 1 }, { cacheable: true }).catch(() => null),
     getChanges({ pageSize: 1 }).catch(() => null),
     Promise.all(EXAMPLES.map((e) => getTenders({ country: [e.country], cpv: [e.cpv], pageSize: 1 }, { cacheable: true }).then((r) => r.total).catch(() => 0))),
   ]);
@@ -126,27 +114,26 @@ export default async function LandingPage() {
   const closingCallItems = closingCalls.items;
   const budgetRepeats = repeatedCallBudgets(closingCallItems);
   const missing = valueMissingNotes(health?.sources ?? []);
-  const stale = [current, dated].map((r) => r?.staleAsOf).find(Boolean);
-  // The goods tile earns its place only when its number differs from core's (it was 300 = 300 on 16 October 2026).
-  const showGoods = goodsOpen !== null && counts !== null && goodsOpen.total !== counts.core;
   return (
     <>
       <JsonLd data={organizationJsonLd()} />
       <JsonLd data={faqJsonLd(faq)} />
 
-      {/* Hero: the copy at the left and the figures at the right start at the top of the card; the links under the lead; the finder runs under both, full width. The figures column is 20rem so the book's 56/60 headline (balanced) takes two lines at 1280 px, not three. */}
+      {/* Hero (WP-86): for whom in one sentence, three tasks, one search over everything; the figures at the right (under it on a
+          phone, after the tasks). The figures column is 20rem so the book's 56/60 headline (balanced) takes two lines at 1280 px. */}
       <section aria-labelledby="hero" className={`grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-10 lg:gap-y-5 ${CARD_SURFACE} ${CARD_PADDING}`}>
         <div className="flex min-w-0 flex-col gap-5">
           <h1 id="hero" className="m-0 text-display-sm [text-wrap:balance] md:text-display">Defence and dual-use tenders and funding, in one place.</h1>
           <p className="m-0 max-w-prose text-body text-ink-muted md:text-h3 md:font-normal">
-            Notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
+            For suppliers, bid teams and advisers: notices from TED and national portals, each linked to its original source, with changes to dates, values and status kept.
           </p>
-          <div className="flex flex-wrap items-center gap-x-5">
-            <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
-            <Link href="/funding" className="inline-flex min-h-11 items-center text-small font-bold">Funding calls</Link>
-            <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">What changed</Link>
-            <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
-          </div>
+          <nav aria-label="Start here" className="flex flex-wrap gap-3">
+            <Button href="/tenders" iconRight={ArrowRight}>Find a tender</Button>
+            <Button href="/funding" iconRight={ArrowRight}>Find funding</Button>
+            <Button href="/readiness/spain-automotive" variant="secondary" className="whitespace-normal text-left">I make parts: who buys and who wins my products?</Button>
+          </nav>
+          <SiteSearchForm id="home-search" />
+          <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>
         </div>
         <dl aria-label="Live data" className="m-0 grid grid-cols-2 content-start gap-3">
           <Counter label="Tenders with a deadline ahead" value={dated ? formatNumber(dated.total) : null} asOf={dated?.staleAsOf} />
@@ -156,15 +143,6 @@ export default async function LandingPage() {
           <Counter wide label="Last collection run" value={stats ? formatDateTimeUtc(stats.lastUpdate) : health ? formatDateTimeUtc(lastDataUpdate(health)) : null} />
         </dl>
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
-          <form method="get" action="/tenders" role="search" aria-label="Find tenders by country and product code" className="rounded-lg border border-transparent bg-surface-inset p-4">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] md:items-end">
-              <Select name="country" label="Country of the buyer" placeholder="Any country"
-                options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
-              <TextInput name="cpv" label="Product code (CPV)" placeholder="For example 35 or 35120000" maxLength={200} inputMode="numeric" />
-              <TextInput search name="q" label="Or a word in the title or the name of the buyer" placeholder="For example uniforms" maxLength={100} />
-              <Button type="submit" iconRight={ArrowRight} className="justify-self-start">Find tenders</Button>
-            </div>
-          </form>
           <div className="flex flex-wrap items-center gap-x-5">
             {examples.length > 0 && (
               <>
@@ -183,6 +161,35 @@ export default async function LandingPage() {
             <Link href="/cpv" className="inline-flex min-h-11 items-center text-small font-bold">Not sure of the code? CPV finder</Link>
           </div>
         </div>
+      </section>
+
+      {/* WP-86: the first useful lists right under the hero (on a phone they were some 9,000 px down). */}
+      <section aria-labelledby="closing-tenders" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="closing-tenders" className="m-0 text-h2">Tenders closing next</h2>
+          <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
+        </div>
+        {closingTenders.items.length === 0 ? (
+          <EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />
+        ) : (
+          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
+            {closingTenders.items.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="closing" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="closing" className="m-0 text-h2">Funding calls closing soon</h2>
+          <Link href="/funding?status=closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
+        </div>
+        {closingCallItems.length === 0 ? (
+          <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
+        ) : (
+          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
+            {closingCallItems.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" budgetRepeated={budgetRepeats.has(c.id)} /></li>)}
+          </ul>
+        )}
       </section>
 
       {/* The three parts: one block (the hero tiles and this section said the same thing). */}
@@ -212,7 +219,7 @@ export default async function LandingPage() {
               from the Commission’s factsheets, which a language model reads. A funding call page lists organisations from earlier projects of the same area.
             </p>
             <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/organisations" className="inline-flex min-h-11 items-center">Organisations in funded projects</Link>
+              <Link href="/organisations" className="inline-flex min-h-11 items-center">Companies in EU-funded projects</Link>
             </p>
           </Card>
           <Card as="li" className="gap-2">
@@ -222,38 +229,13 @@ export default async function LandingPage() {
               and, on a call page, whether you can get them before the deadline. Each rule shows the text it rests on.
             </p>
             <p className="m-0 mt-auto flex flex-wrap gap-x-4 text-small font-bold">
-              <Link href="/readiness" className="inline-flex min-h-11 items-center">Readiness check</Link>
+              <Link href="/check" className="inline-flex min-h-11 items-center">Check my company</Link>
               <Link href="/requirements" className="inline-flex min-h-11 items-center">Requirements</Link>
             </p>
           </Card>
         </AutoGrid>
         <p className="m-0 max-w-prose text-small text-ink-muted">
           None of this is legal advice or a promise of eligibility: the call text and the contracting authority decide.
-        </p>
-      </section>
-
-      <section aria-labelledby="inside" className={`flex flex-col gap-4 ${CARD_SURFACE} ${CARD_PADDING}`}>
-        <h2 id="inside" className="m-0 text-h2">What is in here</h2>
-        {stale && <p role="status" className="m-0 text-small text-ink-muted">{staleNote(stale, formatDateTimeUtc)}</p>}
-        <p className="m-0 max-w-prose text-body text-ink-muted">
-          Open tenders, by the scope names of the tender filter. The first is the default list: the other two together.
-        </p>
-        <AutoGrid as="dl" min={240} className="gap-y-4">
-          <Counter label={SCOPE_CHOICES.relevant.short} value={counts ? formatNumber(counts.relevant) : null} sub={`Open tenders. ${SCOPE_CHOICES.relevant.hint}`} />
-          <Counter label={SCOPE_CHOICES.core.short} value={counts ? formatNumber(counts.core) : null}
-            sub={`${SCOPE_CHOICES.core.hint}${showGoods || goodsOpen === null ? '' : ' The “Defence goods only” switch gives the same list.'}`} />
-          {showGoods && goodsOpen && (
-            <Counter label="Core, defence goods only" value={formatNumber(goodsOpen.total)} sub="Of the core notices, those that state the directive or a military product code themselves: the “Defence goods only” switch." />
-          )}
-          <Counter label={SCOPE_CHOICES.supply.short} value={counts ? formatNumber(counts.supply) : null} sub={SCOPE_CHOICES.supply.hint} />
-        </AutoGrid>
-        {countsNote(counts) && <p className="m-0 max-w-prose text-small text-ink-muted">{countsNote(counts)}</p>}
-        <p className="m-0 max-w-prose text-small text-ink-muted">{TENDER_SCOPES.supply.also}</p>
-        <p className="m-0 max-w-prose text-small text-ink-muted">
-          Not in these counts: notices that are only dual-use (reachable with the scope &ldquo;All&rdquo;) and closed notices. We read the national portals and feeds of {portals.names}; every
-          other country appears through TED only. The{' '}
-          <Link href="/data" className="font-semibold">status page</Link> lists every source, its span of dates and the known gaps; the{' '}
-          <Link href="/methodology" className="font-semibold">methodology</Link> says how a notice is judged.
         </p>
       </section>
 
@@ -278,42 +260,9 @@ export default async function LandingPage() {
         <BenefitGrid items={benefits(portals.names)} />
       </section>
 
-      <section aria-labelledby="who" className="flex flex-col gap-4">
-        <h2 id="who" className="m-0 text-h2">Built for the people who bid, advise and write</h2>
-        <AudienceGrid items={AUDIENCE} />
-      </section>
-
       <section aria-labelledby="how" className="flex flex-col gap-4">
         <h2 id="how" className="m-0 text-h2">How it works</h2>
         <Steps items={STEPS} />
-      </section>
-
-      <section aria-labelledby="closing-tenders" className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="closing-tenders" className="m-0 text-h2">Tenders closing next</h2>
-          <Link href="/tenders" className="inline-flex min-h-11 items-center text-small font-bold">All current tenders</Link>
-        </div>
-        {closingTenders.items.length === 0 ? (
-          <EmptyState title="No tenders to show right now" action={<Button variant="secondary" href="/tenders">Browse all tenders</Button>} />
-        ) : (
-          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingTenders.items.map((t) => <li key={t.id} className="min-w-0"><TenderCard tender={t} headingLevel="h3" valueNote={valueMissingNote(missing, t.source.sourceId)} /></li>)}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="closing" className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="closing" className="m-0 text-h2">Funding calls closing soon</h2>
-          <Link href="/funding?status=closing-soon" className="inline-flex min-h-11 items-center text-small font-bold">All calls closing within 30 days</Link>
-        </div>
-        {closingCallItems.length === 0 ? (
-          <EmptyState title="No calls close in the next 30 days" action={<Button variant="secondary" href="/funding">Browse all open calls</Button>} />
-        ) : (
-          <ul className="m-0 grid list-none gap-4 p-0 lg:grid-cols-3">
-            {closingCallItems.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" budgetRepeated={budgetRepeats.has(c.id)} /></li>)}
-          </ul>
-        )}
       </section>
 
       {/* Only a block that does something: while accounts are closed it only promised (the FAQ and /alerts say what is planned). */}

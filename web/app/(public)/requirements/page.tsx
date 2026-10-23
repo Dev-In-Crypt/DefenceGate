@@ -64,7 +64,7 @@ export default async function RequirementsPage() {
     <ContentPage
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Requirements', href: '/requirements' }]}
-      title="Requirements for EU defence programmes"
+      title="Requirements"
       lead="What separates a company from taking part: the codes, registrations, certificates and licences, and the eligibility rules. For each one: who issues it (in the countries covered so far), what it costs and how long it takes, with the source and the date it was last reviewed."
     >
       {failed && <ErrorState title="The catalogue could not be loaded" retryHref="/requirements" />}

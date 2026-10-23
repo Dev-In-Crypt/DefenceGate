@@ -315,3 +315,13 @@ def test_contract_winners_of_one_name_are_merged_and_public_winners_are_not(conn
     assert {merged[a], merged[b]} == {None, a} or {merged[a], merged[b]} == {None, b}
     assert {merged[c], merged[d]} - {None} in ({c}, {d})                      # the address after the legal form is cut
     assert merged[e] is None and merged[f] is None and got["left_public_body"] == 1
+
+
+def test_the_site_search_lists_tenders_in_the_lists_default_order(client, conn):
+    """WP-86's search runs each list with its defaults: its tender group follows the core-first order and the list's total."""
+    put(conn, "SUPPLY-SOON", kind="supply", deadline=NOW + timedelta(days=2), title="Armoured spares supply")
+    put(conn, "CORE-LATER", deadline=NOW + timedelta(days=20), title="Armoured spares core")
+    got = get(client, "/v1/search", q="armoured")["tenders"]
+    listed = get(client, "/v1/tenders", q="armoured")
+    assert [t["noticeId"] for t in got["items"]] == [t["noticeId"] for t in listed["items"]] == ["CORE-LATER", "SUPPLY-SOON"]
+    assert got["total"] == listed["total"] == 2

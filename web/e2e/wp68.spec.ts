@@ -12,7 +12,6 @@ import { visit } from './helpers';
  */
 
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
-const isMobile = (w: number | undefined) => (w ?? 1280) < 700;
 const group = (page: Page, name: RegExp | string) => page.getByRole('group', { name });
 
 test('the entry page: audience, what you get, what it is not, the button to start, metadata', async ({ page }) => {
@@ -45,13 +44,14 @@ test('the entry page: audience, what you get, what it is not, the button to star
   await expect(page).toHaveURL(/\/readiness\/supplier$/);
 });
 
-test('the entry page is linked from /readiness, the Readiness menu and the sitemap', async ({ page, request }) => {
+test('the entry page is linked from /readiness, Check my company, the home page and the sitemap', async ({ page, request }) => {
   await visit(page, '/readiness', { title: /readiness check/i, h1: 'Readiness check' });
   await expect(page.locator('#main').getByRole('link', { name: /civilian manufacturer in Spain/ })).toHaveAttribute('href', '/readiness/spain-automotive');
-  await expect(page.locator('footer nav[aria-label="Readiness"] a[href="/readiness/spain-automotive"]')).toHaveText('Spain automotive');
-  if (!isMobile(page.viewportSize()?.width)) {
-    await expect(page.locator('header nav[aria-label="Main"] #sub-Readiness a[href="/readiness/spain-automotive"]')).toHaveText('Spain automotive');
-  }
+  // WP-86: the menu's Readiness group became the one entry, Check my company, which links the landing; so does home
+  await visit(page, '/check', { title: /Check my company/, h1: 'Check my company' });
+  await expect(page.locator('#main a[href="/readiness/spain-automotive"]')).toHaveCount(1);
+  await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
+  await expect(page.locator('#main a[href="/readiness/spain-automotive"]').first()).toBeVisible();
   const xml = await (await request.get('/sitemap.xml')).text();
   expect(xml).toContain('/readiness/spain-automotive</loc>');
 });

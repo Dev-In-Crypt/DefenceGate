@@ -274,5 +274,6 @@ test('the home page names the three parts', async ({ page }) => {
   for (const name of [/1\. What is open to me\?/, /2\. Who is already inside\?/, /3\. What do I need to qualify\?/]) {
     await expect(page.getByRole('heading', { name })).toBeVisible();
   }
-  await expect(page.getByLabel('Three questions, three parts').getByRole('link', { name: 'Readiness check' })).toHaveAttribute('href', '/readiness');
+  // WP-86: the third part leads to the one entry of the checks
+  await expect(page.getByLabel('Three questions, three parts').getByRole('link', { name: 'Check my company' })).toHaveAttribute('href', '/check');
 });

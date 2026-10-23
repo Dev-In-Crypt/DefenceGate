@@ -13,7 +13,7 @@ export const metadata: Metadata = buildMetadata({
 export default function SupplierPage() {
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Supplier profile', href: '/readiness/supplier' }]}
+      crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Supplier profile', href: '/readiness/supplier' }]}
       title="Supplier profile"
       lead="For a company that makes parts or materials and wants defence work. Say what you make and what you hold; the results start with the companies that win defence contracts for what you make, then who buys it, then what the buyers' routes ask of you, rule by rule."
     >

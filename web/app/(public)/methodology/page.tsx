@@ -27,7 +27,7 @@ export default async function MethodologyPage() {
     <ContentPage
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Methodology', href: '/methodology' }]}
-      title="How we collect and classify"
+      title="Methodology"
       lead="What happens to a notice between the source and this site, and where the limits are."
     >
       <PageSection id="flow" title="From source to screen">

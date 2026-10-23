@@ -12,16 +12,17 @@ const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
 const box = (page: Page, selector: string) =>
   page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { top: r.top + window.scrollY, left: r.left, width: r.width, height: r.height }; });
 
-test('home: the figures sit at the top of the hero, to the right of the copy, the finder runs full width under both, and the hero is not taller than 760 px', async ({ page }) => {
+test('home: the figures sit at the top of the hero, to the right of the copy, the search is in the copy column, and the hero is not taller than 760 px', async ({ page }) => {
   test.skip(isMobile(page), 'the hero is one column on a phone');
   await visit(page, '/', { title: /DefenceGate/, h1: 'Defence and dual-use tenders and funding' });
   const hero = await box(page, 'section[aria-labelledby="hero"]');
   const h1 = await box(page, '#hero');
   const figures = await box(page, 'dl[aria-label="Live data"]');
+  // WP-86: the full-width tenders finder became the site search, under the tasks in the copy column (left of the figures)
   const form = await box(page, 'section[aria-labelledby="hero"] form[role="search"]');
   expect(hero.height, 'hero height').toBeLessThanOrEqual(760);
-  expect(form.width, 'the finder spans the module (under the copy and the figures)').toBeGreaterThan(hero.width * 0.8);
-  expect(form.top, 'the finder is under the figures').toBeGreaterThan(figures.top + figures.height - 1);
+  expect(form.left + form.width, 'the search is left of the figures').toBeLessThanOrEqual(figures.left);
+  expect(form.top, 'the search is on the first screen').toBeLessThan(page.viewportSize()!.height);
   expect(figures.left, 'the figures are right of the headline').toBeGreaterThan(h1.left + h1.width / 2);
   expect(figures.top - hero.top, 'the figures start at the top of the hero, not 600 px down').toBeLessThanOrEqual(60);
 });
@@ -67,7 +68,7 @@ test('/imprint: the seven fields stand in two columns and every value is still a
 });
 
 test('/networks/ukraine-partners opens on a view that has content and says why it is not the defence view', async ({ page }) => {
-  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations', text: ['What this counts'] });
+  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Ukraine partners', text: ['What this counts'] });
   await expect(page.getByText(/No project of the European Defence Fund and its predecessors/)).toBeVisible();
   await expect(page.getByRole('link', { name: /Show only the European Defence Fund/ })).toBeVisible();
   await expect(page.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
@@ -84,11 +85,13 @@ test('the 404 page: its five links fill their rows', async ({ page }) => {
   for (const r of rows) expect(Math.abs(r.span - rows[0].span), 'every row has the same width').toBeLessThanOrEqual(2);
 });
 
-test('the footer is a compact card (360 px or less from lg) and keeps its links', async ({ page }) => {
+test('the footer is a compact card (400 px or less from lg) and keeps its links', async ({ page }) => {
   await visit(page, '/about', { title: /About/i, h1: 'About' });
   const footer = page.locator('footer');
-  if (!isMobile(page)) expect((await footer.boundingBox())!.height).toBeLessThanOrEqual(360);
-  for (const name of ['Imprint', 'Privacy', 'Terms', 'About', 'Source status', 'Funding calls', 'Readiness check']) {
+  // WP-86: six groups (the header's four, About the data, About) and the legal line: 360 became 400.
+  if (!isMobile(page)) expect((await footer.boundingBox())!.height).toBeLessThanOrEqual(400);
+  // WP-86: each label is the h1 of its page
+  for (const name of ['Imprint', 'Privacy notice', 'Terms of use', 'About DefenceGate', 'Source status', 'Funding', 'Check my company']) {
     await expect(footer.getByRole('link', { name, exact: true })).toBeVisible();
   }
   // links are at least 32 px high (44 on a phone)

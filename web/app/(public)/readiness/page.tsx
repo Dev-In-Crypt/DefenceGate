@@ -27,7 +27,7 @@ export default async function ReadinessPage() {
   const requirements = await requirementNames();
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }]}
+      crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Readiness check', href: '/readiness' }]}
       title="Readiness check"
       lead="Five short sets of questions about your company. For each programme you get a verdict, and for each rule the reason and the text of the source. Then an ordered list of what to obtain, who issues it, and what it costs."
     >

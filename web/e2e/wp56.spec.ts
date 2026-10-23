@@ -62,18 +62,20 @@ test('C5: /regulation says its intro once', async ({ page }) => {
 test('C5: every group of the footer is a group of the header, with the same names and addresses', async ({ page }) => {
   test.skip(isMobile(page.viewportSize()?.width), 'the desktop header has the sub menus in the page');
   await visit(page, '/about', { title: /About/i, h1: 'About' });
+  // WP-86: a small menu names its group in `data-group`; the Tenders menu (Tenders, Market overview) stands in the footer's
+  // Directory with the other lists, every other group under its own name.
   const groups = await page.locator('header nav[aria-label="Main"] div[id^="sub-"]').evaluateAll((els) =>
-    els.map((e) => ({ title: e.id.replace(/^sub-/, ''), links: [...e.querySelectorAll('a')].map((a) => ({ label: a.textContent?.trim() ?? '', href: a.getAttribute('href') })) })));
+    els.map((e) => ({ title: e.getAttribute('data-group') ?? '', links: [...e.querySelectorAll('a')].map((a) => ({ label: a.textContent?.trim() ?? '', href: a.getAttribute('href') })) })));
   expect(groups.length).toBeGreaterThanOrEqual(3);
   for (const g of groups) {
-    const nav = page.locator(`footer nav[aria-label="${g.title}"]`);
-    await expect(nav, `the footer has the group ${g.title}`).toHaveCount(1);
-    for (const l of g.links) await expect(nav.locator(`a[href="${l.href}"]`).filter({ hasText: new RegExp(`^${l.label}$`) }), `${g.title}: ${l.label}`).toHaveCount(1);
+    const title = g.title === 'Tenders' ? 'Directory' : g.title;
+    const nav = page.locator(`footer nav[aria-label="${title}"]`);
+    await expect(nav, `the footer has the group ${title}`).toHaveCount(1);
+    for (const l of g.links) await expect(nav.locator(`a[href="${l.href}"]`).filter({ hasText: new RegExp(`^${l.label}$`) }), `${title}: ${l.label}`).toHaveCount(1);
   }
-  const top = await page.locator('header nav[aria-label="Main"] > a').evaluateAll((els) => els.map((a) => ({ label: a.textContent?.trim() ?? '', href: a.getAttribute('href') })));
-  for (const t of top.filter((x) => ['/market', '/pricing'].includes(x.href ?? ''))) {
-    await expect(page.locator(`footer a[href="${t.href}"]`).filter({ hasText: new RegExp(`^${t.label}$`) })).toHaveCount(1);
-  }
+  // and every top-level link of the header is in the footer under the same label
+  const top = await page.locator('header nav[aria-label="Main"] a').evaluateAll((els) => els.map((a) => ({ label: a.textContent?.trim() ?? '', href: a.getAttribute('href') })));
+  for (const t of top) await expect(page.locator(`footer a[href="${t.href}"]`).filter({ hasText: new RegExp(`^${t.label}$`) }), t.label).toHaveCount(1);
 });
 
 test('T24: ?programme=edf is the same filter as ?programme=EDF, and the budget sort says which currency leads', async ({ page }) => {

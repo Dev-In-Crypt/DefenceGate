@@ -61,7 +61,7 @@ export default async function SpainAutomotivePage() {
   const sample = await getDemandSample();
   return (
     <ContentPage
-      crumbs={[{ label: 'Home', href: '/' }, { label: 'Readiness check', href: '/readiness' }, { label: 'Spain automotive', href: '/readiness/spain-automotive' }]}
+      crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Spain automotive', href: '/readiness/spain-automotive' }]}
       title="Supplier readiness: Spain automotive"
       lead="For civilian manufacturers in Spain, such as automotive component suppliers, that are considering defence work. You say what you make; the report starts with the companies that win defence contracts for it in five countries, then who buys it, then the rules, each with its source."
     >

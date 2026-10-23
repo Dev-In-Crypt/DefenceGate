@@ -20,7 +20,7 @@ async function openFilters(page: Page) {
 test('/organisations: the directory lists the organisations with their counts and says where the data comes from', async ({ page }) => {
   // all programmes: the directory opens on the defence ones (WP-38, U10), and the demo set has one civil-only organisation
   await visit(page, '/organisations?programme=all', {
-    title: /organisations/i, h1: 'Organisations in funded projects', text: ['Where this comes from', 'Showing 1–4 of 4 organisations'],
+    title: /organisations/i, h1: 'Companies', text: ['Where this comes from', 'Showing 1–4 of 4 organisations'],
   });
   const cards = page.getByRole('article');
   await expect(cards).toHaveCount(4);
@@ -34,7 +34,7 @@ test('/organisations: the directory lists the organisations with their counts an
 
 // WP-43 (verification 3, finding 4): the defence directory counted and sorted by every programme (CNRS: 4,336 projects, 10 in the EDF).
 test('/organisations: the defence scope puts the defence count first and labels the all-programme figures', async ({ page }) => {
-  await visit(page, '/organisations', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations', { title: /organisations/i, h1: 'Companies' });
   const first = page.getByRole('article').first();
   await expect(first.getByText('Defence projects', { exact: true })).toBeVisible();
   await expect(first.getByText('Projects, all programmes', { exact: true })).toBeVisible();
@@ -44,7 +44,7 @@ test('/organisations: the defence scope puts the defence count first and labels 
 });
 
 test('/organisations: over all programmes the first figure is every project and the defence ones are named beside it', async ({ page }) => {
-  await visit(page, '/organisations?programme=all', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations?programme=all', { title: /organisations/i, h1: 'Companies' });
   const first = page.getByRole('article').first();
   await expect(first.getByText('Projects', { exact: true })).toBeVisible();
   await expect(first.getByText('Of which defence', { exact: true })).toBeVisible();
@@ -52,11 +52,11 @@ test('/organisations: over all programmes the first figure is every project and 
 });
 
 test('/organisations: search folds accents, and the country filter travels in the URL', async ({ page }) => {
-  await visit(page, '/organisations?q=ingenierie', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations?q=ingenierie', { title: /organisations/i, h1: 'Companies' });
   await expect(page.getByRole('article')).toHaveCount(1);
   await expect(page.getByRole('link', { name: /Bravo/i })).toBeVisible();
 
-  await visit(page, '/organisations?programme=all', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations?programme=all', { title: /organisations/i, h1: 'Companies' });
   await openFilters(page);
   await page.getByLabel('Country of the organisation').selectOption('UA');
   await page.getByRole('button', { name: 'Apply filters' }).click();
@@ -67,7 +67,7 @@ test('/organisations: search folds accents, and the country filter travels in th
 });
 
 test('/organisations: a filter that matches nothing says so', async ({ page }) => {
-  await visit(page, '/organisations?q=nothinglikethis', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations?q=nothinglikethis', { title: /organisations/i, h1: 'Companies' });
   await expect(page.getByText('No organisations match these filters')).toBeVisible();
 });
 
@@ -136,7 +136,7 @@ test('an EDF project says its participants were read by a model and what the che
 });
 
 test('the Ukraine partners analysis names the coordinator and the Ukrainian participant, and states its definition', async ({ page }) => {
-  await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations', text: ['What this counts', 'Limits'] });
+  await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian organisations/i, h1: 'Ukraine partners', text: ['What this counts', 'Limits'] });
   await expect(page.getByText(/country of establishment, as the source states it, is Ukraine/i)).toBeVisible();
   const table = page.getByRole('table', { name: /Coordinators with a Ukrainian participant/i });
   await expect(table.getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
@@ -144,7 +144,7 @@ test('the Ukraine partners analysis names the coordinator and the Ukrainian part
 });
 
 test('the consortium gaps analysis defines its area and category, and lists repeat participants', async ({ page }) => {
-  await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=UA', { title: /Repeat participants/i, h1: 'Gaps in consortia', text: ['What this counts', 'Limits'] });
+  await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=UA', { title: /Repeat participants/i, h1: 'Consortium gaps', text: ['What this counts', 'Limits'] });
   await expect(page.getByText(/Capability area:/i)).toBeVisible();
   await expect(page.getByRole('table', { name: /Organisations funded repeatedly/i }).getByRole('link', { name: /Bravo/i })).toBeVisible();
   await expect(page.getByText(/by a language model/i).first()).toBeVisible();

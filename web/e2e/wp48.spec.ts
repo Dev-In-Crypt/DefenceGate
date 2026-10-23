@@ -171,7 +171,8 @@ test('home: the links stand under the lead in the left column and the two column
     const left = hero.children[0].getBoundingClientRect();
     const figures = hero.querySelector('dl[aria-label="Live data"]')!.getBoundingClientRect();
     const lead = hero.children[0].querySelector('p')!.getBoundingClientRect();
-    const all = Array.from(hero.querySelectorAll('a')).find((a) => a.textContent === 'All current tenders')!.getBoundingClientRect();
+    // WP-86: the text links became the three task buttons; "Find a tender" stands first
+    const all = Array.from(hero.querySelectorAll('a')).find((a) => a.textContent === 'Find a tender')!.getBoundingClientRect();
     const free = Array.from(hero.querySelectorAll('p')).find((p) => p.textContent === 'Free to browse. No account needed.')!.getBoundingClientRect();
     return { left, figures, lead, all, free };
   });

@@ -10,7 +10,7 @@ import { pace, visit } from './helpers';
 test('/suppliers: what the map covers, the search, and the list or the honest empty state', async ({ page }) => {
   await visit(page, '/suppliers', {
     title: /supplier map/i,
-    h1: 'Defence supplier map',
+    h1: 'Companies',
     text: ['What this map covers', 'TED holds only part of'],
   });
   const search = page.getByRole('search', { name: 'Find suppliers' });
@@ -23,7 +23,7 @@ test('/suppliers: what the map covers, the search, and the list or the honest em
 });
 
 test('/suppliers?country=XX&q=...: a search that finds nothing says so and offers a way back', async ({ page }) => {
-  await visit(page, '/suppliers?country=ZZ&q=nonexistentcompanyname', { title: /supplier map/i, h1: 'Defence supplier map' });
+  await visit(page, '/suppliers?country=ZZ&q=nonexistentcompanyname', { title: /supplier map/i, h1: 'Companies' });
   await expect(page.getByText('No suppliers match')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Clear filters' })).toHaveAttribute('href', '/suppliers');
 });
@@ -49,7 +49,7 @@ test('a supplier page: its notices, the coverage caveat and no ranking, when the
 for (const [word, code, title] of [['drone', '35613000', 'Unmanned aerial vehicles'], ['explosives', '24600000', 'Explosives'],
   ['body armour', '35815000', 'Garments for anti-ballistic protection'], ['tank', '35411000', 'Battle tanks']] as const) {
   test(`/suppliers?product=${word}: the word is read as CPV codes and the page shows which`, async ({ page }) => {
-    await visit(page, `/suppliers?product=${encodeURIComponent(word)}`, { title: /supplier map/i, h1: 'Defence supplier map' });
+    await visit(page, `/suppliers?product=${encodeURIComponent(word)}`, { title: /supplier map/i, h1: 'Companies' });
     const status = page.locator('#main').getByRole('status').filter({ hasText: /is read as/ });
     await expect(status).toContainText(`${code} ${title}`);
     await expect(page.locator('#main').getByText(/No code in the CPV finder has/)).toHaveCount(0);

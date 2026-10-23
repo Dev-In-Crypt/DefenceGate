@@ -73,12 +73,12 @@ test('the branded select: Tab from the open list chooses and moves on from the s
 test('Escape on a link of a header menu returns focus to its button', async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) < 1280, 'the menus of the bar are shown from xl');
   await visit(page, '/', { title: /DefenceGate/, h1: /.+/ });
-  const button = page.getByRole('button', { name: 'Network: more pages' });
+  const button = page.getByRole('button', { name: 'Companies: more pages' });
   await button.focus();
   await page.keyboard.press('Enter');
   await expect(button).toHaveAttribute('aria-expanded', 'true');
   await page.keyboard.press('Tab');
-  await expect(page.locator('#sub-Network a').first()).toBeFocused();
+  await expect(page.locator('#sub-companies a').first()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(button).toBeFocused();
   await expect(button).toHaveAttribute('aria-expanded', 'false');

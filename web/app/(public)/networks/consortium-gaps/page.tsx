@@ -51,7 +51,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Gaps in consortia', href: '/networks/consortium-gaps' }]}
-      title="Gaps in consortia"
+      title="Consortium gaps"
       lead="Organisations that were funded at least twice in the same capability area and never had a participant established in a chosen country. A starting point for finding a partner the established consortia do not yet have."
       wide
     >

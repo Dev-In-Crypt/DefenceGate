@@ -82,7 +82,7 @@ const card = (page: Page, name: string) => page.getByRole('article', { name });
 // ---------------------------------------------------------------- the catalogue
 
 test('/requirements lists the requirements with their cost, time and source date', async ({ page }) => {
-  await visit(page, '/requirements', { title: /requirements/i, h1: 'Requirements for EU defence programmes', text: ['About the costs', 'Eligibility rules of the programmes'] });
+  await visit(page, '/requirements', { title: /requirements/i, h1: 'Requirements', text: ['About the costs', 'Eligibility rules of the programmes'] });
   await expect(page.getByRole('link', { name: 'NCAGE code' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'AQAP 2110 quality assurance certification' })).toBeVisible();
   await expect(page.getByText('vendor range, not a benchmark').first()).toBeVisible();

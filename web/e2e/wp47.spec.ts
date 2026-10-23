@@ -165,7 +165,7 @@ test('the tables of a profile keep their width and scroll inside their own box; 
 });
 
 test('a supplier page lists its buyers in a table, and a supplier in the list is a target of at least 32 px', async ({ page }) => {
-  await visit(page, '/suppliers', { title: /supplier map/i, h1: 'Defence supplier map' });
+  await visit(page, '/suppliers', { title: /supplier map/i, h1: 'Companies' });
   const first = page.locator('#results-heading').locator('xpath=following::ul[1]//a').first();
   const h = await first.evaluate((e) => e.getBoundingClientRect().height);
   expect(h).toBeGreaterThanOrEqual(32);

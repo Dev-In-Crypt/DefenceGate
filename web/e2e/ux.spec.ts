@@ -201,7 +201,7 @@ test('U8: the roadmap says "no time needed", shows no converted figure and does 
 
 test('U13: the programme keys are shown as names on the requirements pages', async ({ page }) => {
   await page.route('**/api/readiness/assess', (route) => route.fulfill({ status: 503, body: '{}' }));
-  await visit(page, '/requirements', { title: /requirements/i, h1: /Requirements for EU defence programmes/ });
+  await visit(page, '/requirements', { title: /requirements/i, h1: 'Requirements' });
   const main = page.locator('#main');
   await expect(main.getByText(/Appears in the rules of/).first()).toBeVisible();
   await expect(main.getByText(/\b(GENERAL|NATO-SUPPLY|EDIP-USI)\b/)).toHaveCount(0);
@@ -210,20 +210,20 @@ test('U13: the programme keys are shown as names on the requirements pages', asy
 // ---------------------------------------------------------------- U9: suppliers
 
 test('U9: the supplier map searches by product through the CPV finder and links to it', async ({ page }) => {
-  await visit(page, '/suppliers?product=ammunition', { title: /supplier map/i, h1: 'Defence supplier map' });
+  await visit(page, '/suppliers?product=ammunition', { title: /supplier map/i, h1: 'Companies' });
   const main = page.locator('#main');
   await expect(main.getByLabel(/^Product, for example ammunition/)).toHaveValue('ammunition');
   await expect(main.getByRole('link', { name: 'CPV finder' }).first()).toHaveAttribute('href', '/cpv');
   await expect(main.getByRole('status').filter({ hasText: /“ammunition” matches \d+ codes? of the finder/ })).toContainText('3533');
   await expect(main.getByText(/a count, not a ranking/)).toBeVisible();
-  await visit(page, '/suppliers?product=zzzzqqq', { title: /supplier map/i, h1: 'Defence supplier map' });
+  await visit(page, '/suppliers?product=zzzzqqq', { title: /supplier map/i, h1: 'Companies' });
   await expect(page.locator('#main').getByRole('status').filter({ hasText: /No code in the CPV finder has/ })).toBeVisible();
 });
 
 // ---------------------------------------------------------------- U10: programmes and countries
 
 test('U10: the directory opens on the defence programmes and one visible link shows all', async ({ page }) => {
-  await visit(page, '/organisations', { title: /organisations/i, h1: 'Organisations in funded projects' });
+  await visit(page, '/organisations', { title: /organisations/i, h1: 'Companies' });
   const main = page.locator('#main');
   await expect(main.getByRole('status').filter({ hasText: /Showing the European Defence Fund and its predecessors/ })).toBeVisible();
   await expect(main.getByRole('link', { name: /Kyiv Institute/i })).toHaveCount(0);
@@ -236,14 +236,14 @@ test('U10: the directory opens on the defence programmes and one visible link sh
 
 test('U10: the Ukraine partners analysis says what the defence programmes hold and what the others hold', async ({ page }) => {
   // WP-46: when the defence programmes have no project with a Ukrainian participant the page opens on all programmes, says so, and keeps the link back.
-  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations' });
+  await visit(page, '/networks/ukraine-partners', { title: /Ukrainian organisations/i, h1: 'Ukraine partners' });
   const main = page.locator('#main');
   const opened = main.getByRole('status').filter({ hasText: /Showing all programmes/ });
   await expect(opened).toContainText('No project of the European Defence Fund and its predecessors (EDIDP, PADR) started in or after 2021 has a Ukrainian participant');
   await expect(opened.getByRole('link', { name: /Show only the European Defence Fund and its predecessors/ })).toBeVisible();
   await expect(main.getByRole('table', { name: /Coordinators with a Ukrainian participant/i }).getByRole('link', { name: /Alpha Systems/i })).toBeVisible();
   // a programme the visitor chose stays as chosen, and the page says what all the others hold
-  await visit(page, '/networks/ukraine-partners?programme=EDF', { title: /Ukrainian organisations/i, h1: 'Who partners with Ukrainian organisations' });
+  await visit(page, '/networks/ukraine-partners?programme=EDF', { title: /Ukrainian organisations/i, h1: 'Ukraine partners' });
   await expect(main.getByRole('status').filter({ hasText: /Showing .*European Defence Fund/ })).toContainText('All programmes together hold 1 more project');
   await main.getByRole('link', { name: 'Show all programmes' }).click();
   await expect(page).toHaveURL(/programme=all/);
@@ -257,7 +257,7 @@ test('U10: the Ukraine partners analysis says what the defence programmes hold a
 // ---------------------------------------------------------------- U11: consortium gaps
 
 test('U11: the gap analysis uses selects for the programme and the country and explains the capability codes', async ({ page }) => {
-  await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=PL', { title: /Repeat participants/i, h1: 'Gaps in consortia' });
+  await visit(page, '/networks/consortium-gaps?topic=CYBER&lacking=PL', { title: /Repeat participants/i, h1: 'Consortium gaps' });
   const main = page.locator('#main');
   await expect(main.getByLabel('With no participant from')).toHaveValue('PL');
   await expect(main.getByLabel('Programme')).toHaveValue('EDF');
@@ -308,38 +308,38 @@ test('U15: the home page names the three parts in the first screen', async ({ pa
   const parts = page.getByRole('list', { name: 'The three parts of DefenceGate' });
   await expect(parts).toBeVisible();
   for (const name of [/1\. What is open to me\?/, /2\. Who is already inside\?/, /3\. What do I need to qualify\?/]) await expect(parts.getByText(name)).toBeVisible();
-  await expect(parts.getByRole('link', { name: 'Readiness check' })).toHaveAttribute('href', '/readiness');
-  // WP-46: the hero tiles and the "Three questions" section were one message twice; the section is now the only block and
-  // starts right under the hero. On a desktop screen the list is in the first screen; on a phone (hero = copy, finder, figures)
-  // it is within the first two screens, and in both before "What is in here".
+  await expect(parts.getByRole('link', { name: 'Check my company' })).toHaveAttribute('href', '/check');
+  // WP-46: the hero tiles and the "Three questions" section were one message twice; the section is the only block saying it.
+  // WP-86 (owner-approved home): the hero's tasks and search come first, then the lists closing next (the first useful thing),
+  // then the three parts, before "Why DefenceGate"; "What is in here" is gone from home.
   const top = await parts.evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-  const height = page.viewportSize()!.height;
-  expect(top, 'in the first screen (two on a phone)').toBeLessThan(isMobile(page) ? 2 * height : height);
-  const inHere = await page.getByRole('heading', { name: 'What is in here' }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-  expect(top, 'before "What is in here"').toBeLessThan(inHere);
+  const at = (name: string | RegExp) => page.getByRole('heading', { name }).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+  expect(top, 'after the closing funding calls').toBeGreaterThan(await at('Funding calls closing soon'));
+  expect(top, 'before "Why DefenceGate"').toBeLessThan(await at('Why DefenceGate'));
+  await expect(page.getByRole('heading', { name: 'What is in here' })).toHaveCount(0);
 });
 
 test('U16: a small menu opens from a button that says it is open, and closes with Escape', async ({ page }) => {
   test.skip(isMobile(page), 'the bar menus are the desktop navigation');
   await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
   const nav = page.getByRole('navigation', { name: 'Main' });
-  const toggle = nav.getByRole('button', { name: 'Network: more pages' });
+  const toggle = nav.getByRole('button', { name: 'Companies: more pages' });
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(nav.getByRole('link', { name: 'Suppliers' })).toBeHidden();
+  await expect(nav.getByRole('link', { name: 'Ukraine partners' })).toBeHidden();
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await expect(nav.getByRole('link', { name: 'Suppliers' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Ukraine partners' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('U16: the mobile menu opens with focus on its first link and Escape returns it to the button', async ({ page }) => {
+test('U16: the mobile menu opens with focus on its first field (the search, WP-86) and Escape returns it to the button', async ({ page }) => {
   test.skip(!isMobile(page), 'the mobile menu is below md');
   await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
   const button = page.getByRole('button', { name: 'Open menu' });
   await button.click();
   const menu = page.getByRole('navigation', { name: 'Main menu' });
-  await expect(menu.getByRole('link', { name: 'Funding' })).toBeFocused();
+  await expect(menu.getByRole('searchbox')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open menu' })).toBeFocused();

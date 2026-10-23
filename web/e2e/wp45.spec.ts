@@ -11,12 +11,12 @@ const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1280) < 700;
 
 const PAGES: { path: string; title: RegExp; h1: string | RegExp }[] = [
   { path: '/regulation', title: /regulatory tracker/i, h1: 'Regulatory tracker' },
-  { path: '/requirements', title: /requirements/i, h1: /Requirements for EU defence programmes/ },
+  { path: '/requirements', title: /requirements/i, h1: 'Requirements' },
   { path: '/data/sovereignty', title: /where the data runs/i, h1: 'Where the data runs' },
   { path: '/privacy', title: /privacy/i, h1: 'Privacy notice' },
   { path: '/terms', title: /terms of use/i, h1: 'Terms of use' },
   { path: '/glossary', title: /glossary/i, h1: 'Glossary' },
-  { path: '/methodology', title: /classifies/i, h1: /collect and classify/i },
+  { path: '/methodology', title: /classifies/i, h1: 'Methodology' },
   { path: '/about', title: /About/i, h1: 'About' },
   { path: '/data', title: /source status/i, h1: 'Source status' },
   { path: '/changes', title: /what changed/i, h1: 'What changed' },
@@ -83,7 +83,7 @@ test('/regulation: the status chips hide entries, never remove them, and a perma
 });
 
 test('/requirements: a group with one card gives it the whole row, and Cost and Time are not squeezed into narrow columns', async ({ page }) => {
-  await visit(page, '/requirements', { title: /requirements/i, h1: /Requirements for EU defence programmes/ });
+  await visit(page, '/requirements', { title: /requirements/i, h1: 'Requirements' });
   const rows = await page.evaluate(() => [...document.querySelectorAll('main section ul')].map((ul) => {
     const box = ul.getBoundingClientRect();
     const cards = [...ul.children].map((li) => li.getBoundingClientRect());
