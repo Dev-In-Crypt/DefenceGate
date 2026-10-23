@@ -78,6 +78,7 @@ _LEGAL_FORMS = frozenset("""
     aktiengesellschaft gesellschaft genossenschaft verein gie eig ev scpa scarl lda unipessoal
     societe sociedad sociedade societa entreprise entreprises etablissements etablissement ets
     groupement consortium konsorcjum
+    sau slne sll slp sal sc scoop coop sccl scl sad sat aie sgps
     ооо оод еоод ад еад дздд дззд тов прат пат ао зао
 """.split())
 _BUSINESS = frozenset("""
@@ -192,10 +193,55 @@ def is_joint_venture(name: str) -> bool:
     return bool(_JOINT_VENTURE.search(name or ""))
 
 
-def _es_person_name(tokens: list[str]) -> bool:
-    words = [t for t in tokens if t.lower() not in _ES_PARTICLES]
-    return (2 <= len(words) <= 5 and all(t.replace("-", "").isalpha() for t in words)
-            and all(t.isupper() or _title(t) for t in words))
+# WP-94: a Spanish name is a person's only when it holds a common given name and no trade word. Without the
+# given name the rule flagged 518 company names on production (DISA GAS S.A.U, CONTINENTAL TIRES, HIERROS BUENO
+# SAL); a person whose given name is not here, and who states no DNI or NIE, is published (the owner's choice).
+# Folded: lower case, no accents. Names that are also common trade or place words (Victoria, Santiago, Luz, Paz,
+# Salvador, Belén, Fátima, Ángeles) are left out.
+_ES_GIVEN = frozenset("""
+    juan jose antonio manuel francisco javier jesus david daniel carlos miguel alejandro rafael pedro angel
+    pablo sergio fernando jorge luis alberto alvaro diego adrian raul enrique ramon vicente ivan ruben oscar
+    andres joaquin eduardo victor roberto jaime ignacio alfonso mario marcos ricardo emilio julio julian
+    tomas agustin gonzalo felix hugo guillermo cristian mariano lorenzo martin nicolas sebastian gabriel
+    samuel ismael marc jordi josep joan xavier xavi pau oriol sergi albert aitor inaki iker unai mikel jon
+    gorka asier xabier xose xoan borja cesar arturo benito bernardo cristobal esteban federico gregorio
+    gustavo hector isidro jacinto leandro leonardo lucas marcelino mateo mauricio nestor rodrigo rogelio
+    teodoro valentin abel adolfo alfredo anselmo aurelio bartolome basilio camilo celestino clemente damian
+    dionisio eloy elias eugenio fabian faustino fermin florencio gerardo german gines isaac jeronimo juanjo
+    joaquim marcelo moises narciso pascual joao goncalo rui nuno tiago paulo duarte vasco afonso
+    maria carmen ana isabel dolores pilar teresa rosa josefa francisca antonia laura cristina marta lucia
+    mercedes elena manuela concepcion raquel sara paula rosario beatriz encarnacion julia silvia patricia
+    irene montserrat montse monica alicia sonia rocio sandra yolanda esther andrea marina nuria inmaculada
+    margarita susana eva veronica natalia claudia noelia gabriela daniela sofia carla amparo lorena lidia
+    ines consuelo begona ainhoa itziar maite nerea leire amaia idoia arantxa olga catalina luisa emilia
+    soledad estefania eugenia adela alejandra almudena amalia asuncion blanca celia clara elisa eloisa
+    gemma ignacia jimena juana lourdes macarena magdalena mariana matilde miriam noemi olivia ruth vanesa
+    virginia ximena joana anabel rebeca tamara judith marisol mireia neus fernanda conceicao graca
+""".split())
+# trade and corporate words of Spanish names, on top of _CORPORATE (folded)
+_ES_TRADE = frozenset("""
+    centro centros talleres taller suministros suministro comercial comerciales servicios proyectos hermandad
+    autoescuela almacen almacenes hierros neumaticos neumaticas concesiones integracion formacion auditores
+    auditoria iberia iberica espagne gas clientes turbo lingua obras construccion reformas instalaciones
+    montajes distribuciones distribuidora ingenieria ingenieros consultores consultoria asesores asesoria
+    gestion gestoria transportes recambios mantenimiento limpiezas limpieza seguridad electricidad electrica
+    electricas fontaneria carpinteria cerrajeria pinturas imprenta grafica graficas farmacia farmaceutica
+    farmaceuticos laboratorio laboratorios clinica colegio academia escuela instituto federacion empresa
+    empresas industrias fabrica productos maquinaria vehiculos especiales automoviles motor motores
+    ferreteria materiales tecnologia tecnologias soluciones informatica electronica telecomunicaciones
+    energia ambiental medioambiente aguas hermanos hijos sucesores herederos armeria deportes optica
+    uniformes textil textiles confecciones calzados alimentacion restaurante hotel viajes agencia estudio
+    estudios diseno publicidad comunicacion editorial libreria papeleria oficina muebles mobiliario equipos
+    equipamientos san santa santo nuestra senora ayuntamiento diputacion consejo junta club global nacional
+    mediterraneo abogados cia tires tyres
+""".split())
+
+
+def _es_person_name(tokens: list[str], words: set[str]) -> bool:
+    shape = [t for t in tokens if t.lower() not in _ES_PARTICLES]
+    return (2 <= len(shape) <= 5 and all(t.replace("-", "").isalpha() for t in shape)
+            and all(t.isupper() or _title(t) for t in shape)
+            and bool(words & _ES_GIVEN) and not words & (_CORPORATE | _ES_TRADE))
 
 
 def person_reason(name: str, identifier: str | None = None, country: str | None = None) -> str | None:
@@ -231,8 +277,8 @@ def person_reason(name: str, identifier: str | None = None, country: str | None 
             return "person_in_trading_name"
     if is_joint_venture(raw) and country in (None, "", "ES"):
         return None                     # a UTE: its members are blanked one by one (joint_venture_name)
-    if country == "ES" and not has_marker and _es_person_name(tokens):
-        return "person_name"            # GARCIA LOPEZ JUAN, MARTINEZ SANCHEZ, ANTONIO; also an autónomo's trade name
+    if country == "ES":                 # GARCIA LOPEZ JUAN, MARTINEZ SANCHEZ, ANTONIO; nothing else for Spain
+        return "person_name" if _es_person_name(tokens, words) else None
     if has_marker or not 2 <= len(tokens) <= 4:
         return None
     titled = [t for t in tokens if _title(t)]

@@ -191,15 +191,45 @@ def test_a_landed_payload_is_not_redacted_twice():
 
 ES_PERSONS = [
     ("GARCIA LOPEZ JUAN", None), ("JOSE LUIS FERNANDEZ RUIZ", None), ("FERNANDEZ RUIZ JOSE LUIS", None),
-    ("MARTINEZ SANCHEZ, ANTONIO", None), ("MARIA DEL CARMEN DE LA FUENTE", None), ("RECAMBIOS GOMEZ", None),
+    ("MARTINEZ SANCHEZ, ANTONIO", None), ("MARIA DEL CARMEN DE LA FUENTE", None),
     ("ANY NAME AT ALL S.L.", "12345678Z"), ("ANY NAME", "X1234567L"), ("ANY NAME", "***1234**"),
     ("Juan García López", None),
+    # WP-94: loaded before the ES rule, stated no number
+    ("GABRIELA GARCIA CARRASCAL", None), ("JUAN JOSE FERNANDEZ BALONGO", None), ("JOSE ANTONIO GARCIA VERA", None),
+    ("GARCIA LOPEZ, JUAN", None), ("Juan José Fernández", None), ("RECAMBIOS GOMEZ", "12345678Z"),
+    ("DISA GAS S.A.U", "***1234**"),
 ]
 ES_COMPANIES = [
     ("TALLERES HERMANOS PEREZ S.L.", None), ("INDRA SISTEMAS, S.A.", None), ("GARCIA LOPEZ JUAN", "B12345678"),
     ("NAVANTIA", None), ("UTE INDRA - ISDEFE", "U12345678"), ("UNION TEMPORAL DE EMPRESAS ALFA Y BETA", None),
     ("Indra Sistemas, S.A.", "ESA28599033"),
+    # WP-94: flagged by the dry run of clean_suppliers on production (23 Oct 2026); no number stated. Until WP-94
+    # "RECAMBIOS GOMEZ" (no given name, no number) was read as an autónomo's trade name: it is published now.
+    ("RECAMBIOS GOMEZ", None),
+    *((n, None) for n in (
+        "DISA GAS S.A.U", "CONTINENTAL TIRES", "NEUMATICAS DE VIGO SAU", "CEESUR INTEGRACION SLL",
+        "CENTRO DE FORMACION CASE", "EULEN CENTRO ESPECIAL DE EMPLEO", "CANARAGUA CONCESIONES, S.A.U", "PLASFOC, SAU",
+        "ECOSTUDI SIMA SLP", "SGS TECNOS", "REPSOL COMERCIAL", "URO VEHICULOS ESPECIALES", "ORANGE ESPAGNE, S.A.U.",
+        "IBERDROLA CLIENTES SAU", "Mazars Auditores, S.L.P.", "AUTOESCUELA DAMAS",
+        "HERMANDAD FARMACEUTICA DEL MEDITERRANEO", "GARMIN IBERIA, S.A.U", "Armería Marcos S.C", "HIERROS BUENO SAL",
+        "MONDRAGON LINGUA-ALECOP, S. COOP.", "Voith Turbo S.A.U", "ALMACEN DE CONSTRUCCION CUARTE",
+        "Jucansur de Obras y Const.S.L.", "JOSE ANTONIO GARCIA S. A. U.", "JUAN PEREZ S.L.L.", "MARIA LOPEZ S.COOP",
+        "TALLERES JUAN GARCIA")),
+    ("JUAN GARCIA LOPEZ", "B12345678"),
 ]
+
+
+def test_a_spanish_legal_form_is_read_dotted_spaced_or_run_together():
+    for form in ("S.A.U", "S. A. U.", "SAU", "S.L.L.", "SLP", "S.L.U.", "SAL", "S.C.", "S. COOP.", "S.COOP", "COOP"):
+        assert awards.person_reason(f"JUAN GARCIA LOPEZ {form}", None, "ES") is None, form
+
+
+def test_clean_suppliers_reads_the_stated_number():
+    from dgate.ops.clean_suppliers import verdict
+    assert verdict("JUAN GARCIA LOPEZ", "ES", "B12345678") is None
+    assert verdict("JUAN GARCIA LOPEZ", "ES", None) == "person_name"
+    assert verdict("DISA GAS S.A.U", "ES", "12345678Z") == "person_identifier"
+    assert verdict("DISA GAS S.A.U", "ES", None) is None
 
 
 @pytest.mark.parametrize("name,ident", ES_PERSONS)

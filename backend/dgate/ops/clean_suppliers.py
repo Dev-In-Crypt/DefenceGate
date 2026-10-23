@@ -44,9 +44,10 @@ def _digits(text: str) -> set[str]:
     return {s, s.lstrip("0")} - {""}
 
 
-def verdict(name: str, country: str | None) -> str | None:
-    """Why a stored winner string is no supplier, or None."""
-    person = person_reason(name, None, country)
+def verdict(name: str, country: str | None, ident: str | None = None) -> str | None:
+    """Why a stored winner string is no supplier, or None. The stated number decides first (a CIF is an entity's,
+    a DNI, NIE or the publisher's mask a person's), as in the loader."""
+    person = person_reason(name, None if looks_like_contact(ident) else ident, country)
     if person:
         return person
     problem, cleaned = clean_supplier_name(name)
@@ -75,7 +76,7 @@ def run(conn, *, write: bool = False) -> dict[str, Any]:
         elif ident and not normalise_identifier(ident, r["country"]):
             out["identifier_not_a_number"] += 1
             blank_ids.append(r["id"])
-        why = verdict(r["name"], r["country"])
+        why = verdict(r["name"], r["country"], ident)
         if not why:
             continue
         out["excluded"][why] += 1
