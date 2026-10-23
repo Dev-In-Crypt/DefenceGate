@@ -71,8 +71,8 @@ test('product groups, main code only, excluded codes, page size, deadline preset
   await expect(form.getByText(/English names of the notice's product codes/)).toBeVisible();
   const country = form.locator('details', { hasText: 'Buyer country' });
   expect(await country.evaluate((d) => (d as HTMLDetailsElement).open)).toBe(true);
-  await expect(form.getByLabel('Main CPV code only')).toBeVisible();
-  await expect(form.getByLabel('Leave out CPV codes')).toBeVisible();
+  await expect(form.getByLabel('Main product code only')).toBeVisible();
+  await expect(form.getByLabel('Leave out product codes')).toBeVisible();
   await form.locator('[data-cpv-presets] a', { hasText: 'Radar and sonar' }).click();
   await expect(page).toHaveURL(/\/tenders\?cpv=35722%2C35723%2C38115%2C38113$/);
   await openFilters(page);

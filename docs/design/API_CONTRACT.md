@@ -1297,3 +1297,22 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
 - Supplier values (`/v1/suppliers/{slug}` `values`, `approach.winners[].values`): `suspect`, the contracts whose value is under
   1,000 (a unit price), in no sum; a notice row has `valueSuspect`. Profile `notices` are one row per contract, a second
   publication of the same procurement listed under it in `alsoPublished`; `buyers` are per buyer family.
+
+## Changes of 23 October 2026 (WP-90: the analyst path, UX audit section 5)
+
+- `q` on `/v1/tenders` (and everything that reads the list's filters: export, scope counts, calendar, changes): a word also matches
+  when it begins a word of the English CPV title of one of the notice's own codes (`dgate/cpv_labels.py`, the CPV 2008 vocabulary
+  in `dgate/data/cpv-full.json`; words of 3 letters or more; a word in more than 200 titles is read on the titles only). The
+  English title TED gives was already searched. No migration: the GIN index `opp_cpv_heads` (0099) answers the code part.
+- New filters on `/v1/tenders`, `/v1/tenders/export`, `/v1/tenders/scope-counts`, `/v1/tenders/calendar` and `/v1/changes`:
+  `cpvMain=true` (`cpv` reads the notice's main code, the first, only) and `notCpv` (comma list of 2 to 8 digit prefixes, a
+  check digit dropped, else 422: no code of the notice under them). Saved searches accept both.
+- `/v1/changes`: `status` (`open|closed|planned|all`, the list's status as of now; absent: every status); `kind` also
+  `deadline`, `value` (value or currency), `status`: the amendments that changed that field. `week` may be the week under way:
+  its events from Monday to now (`windowTo` is now); a week to come is 404. `/v1/digest` still has no issue for it.
+- `GET /v1/tenders/{slug}`: `subject` (the first sentence of the notice's stored description, at most 300 characters, null when it
+  holds a figure with a physical unit, a specification word or anything that reads as a contact) and `documentsUrl` (the
+  procurement documents' address where a source states it as such: `de_bkms`, BT-15, for the notice or its twin). Not on lists.
+- New `GET /v1/buyers/{slug}/suppliers`: `{items: [{slug, name, country, awards}], suppliers, contracts, attribution}`, the
+  award set of the supplier map (`award_set.scope`) under the buyer family, most contracts first, at most 10; natural persons are
+  never in it. Kept 30 minutes; rate cost 3.

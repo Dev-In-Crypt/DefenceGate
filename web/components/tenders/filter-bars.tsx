@@ -81,9 +81,9 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
         </div>
         <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
           hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />
-        <Choice name={PARAM.cpvMain} value="true" label="Main CPV code only" defaultChecked={filters.cpvMain === true}
+        <Choice name={PARAM.cpvMain} value="true" label="Main product code only" defaultChecked={filters.cpvMain === true}
           hint="Reads the code a notice names first, not the others it lists." />
-        <TextInput name={PARAM.notCpv} maxLength={200} label="Leave out CPV codes" placeholder="For example 3511" defaultValue={filters.notCpv?.join(', ') ?? ''}
+        <TextInput name={PARAM.notCpv} maxLength={200} label="Leave out product codes" placeholder="For example 3511" defaultValue={filters.notCpv?.join(', ') ?? ''}
           hint="Leaves out a notice with any code that starts with these digits (3511: fire-fighting equipment)." />
         <FoldGroup legend="Status">
           {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? DEFAULT_TENDER_STATUS) === o.value} />)}

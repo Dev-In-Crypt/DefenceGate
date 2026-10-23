@@ -895,6 +895,9 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
     stops after a page. `= ANY(...)` over the same one value made it walk the whole list index and
     filter (the Malta list and a buyer page read most of 290,000 index entries per page)."""
     api = _api()
+    # WP-90: an endpoint called as a plain function (a test, a job) passes its `Query(...)` defaults for the filters it leaves out
+    cpv_main = cpv_main is True
+    not_cpv = not_cpv if isinstance(not_cpv, str) else None
     eff = api.EFFECTIVE_STATUS_SQL
     where = ["o.is_defence = TRUE", "NOT o.suppressed", api.SCOPE_SQL[scope]]
     if goods:
