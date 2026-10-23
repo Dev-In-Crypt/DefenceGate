@@ -159,3 +159,10 @@ test('the supplier profile’s controls are at least 24 px', async ({ page }) =>
     .map((el) => `${el.tagName} ${el.getAttribute('type') ?? ''} ${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`));
   expect(small).toEqual([]);
 });
+
+test('the footer says its collection run is of any source, and links the source status', async ({ page }) => {
+  await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
+  const link = page.locator('footer').getByRole('link', { name: 'Last collection run (any source)' });
+  await expect(link).toHaveAttribute('href', '/data');
+  await expect(page.locator('footer')).not.toContainText(/Last collection run \d/);
+});

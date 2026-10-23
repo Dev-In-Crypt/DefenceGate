@@ -239,6 +239,15 @@ def test_one_contract_published_twice_is_one_row_and_a_unit_price_is_in_no_sum(c
     assert unit["valueAmount"] == 48.0 and unit["valueSuspect"] is True
     assert prof["values"]["byCurrency"] == [{"currency": "EUR", "amount": 250_000.0, "count": 1, "lotEstimates": 0}]
     assert prof["values"]["suspect"] == 1 and prof["values"]["withoutValue"] == 1
+    # a PLACSP awarded amount of 300 is a contract total (a Spanish minor contract): summed, not flagged
+    conn.execute("UPDATE award SET value_amount = 300, value_currency = 'EUR' WHERE opportunity_id = "
+                 "(SELECT id FROM opportunity WHERE native_id = '2-2026')")
+    conn.commit()
+    again = get(client, f"/v1/suppliers/{slug}")
+    placsp = [n for n in again["notices"] if n["noticeId"] == "2-2026"][0]
+    assert placsp["valueAmount"] == 300.0 and placsp["valueSuspect"] is False
+    assert again["values"]["byCurrency"] == [{"currency": "EUR", "amount": 300.0, "count": 1, "lotEstimates": 0}]
+    assert again["values"]["suspect"] == 1                    # the TED-stated EUR 48 still is
     # the buyer table is per buyer family: two rows of one body are one line
     assert len(prof["buyers"]) == 1 and prof["buyers"][0]["awards"] == 3
 

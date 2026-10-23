@@ -187,14 +187,7 @@ the rename assertion of `test_buyer_family.py`; the short line of `test_wp49.py`
 
 ## 13. Open decisions
 
-- **The 1,000 threshold on PLACSP awarded amounts.** Production now holds 31,933 PLACSP award values, 1,013 of them under EUR 1,000.
-  A PLACSP awarded amount is a total without VAT, and a Spanish minor contract can legitimately be EUR 300. With this change those
-  1,013 are shown as "probably a unit price" and left out of the sums. The rule was asked for ("e.g. < EUR 1,000"); whether it
-  should apply to PLACSP's awarded amounts too, or only to TED's stated values, or with another threshold, is the owner's call
-  (one constant, `suppliers.SUSPECT_VALUE_MAX`, and the source in `sums_select` if PLACSP is to be exempt).
 - `/changes.atom?week=&kind=` stays the last 14 days with the two parameters dropped (WP-52's tested decision) rather than a 422.
-- The footer's "Last collection run" (WP-86's file) is the run of any source; the lists now say "Latest run of its sources ...
-  (source)". WP-86 may name it or say "of any source".
 - The scope names are shared (`SCOPE_CHOICES`): the home page's counters (WP-86) now read "All defence", "Military goods and
   works", "Other purchases by armed forces".
 
@@ -207,3 +200,19 @@ the rename assertion of `test_buyer_family.py`; the short line of `test_wp49.py`
    `SELECT id, country, canonical_name, eu_pic, national_reg_no, vat_number, merged_into FROM organisation WHERE id IN (426742, 428552);`
 4. `python -m dgate.ops.build_digest --yes` (or wait for the worker's daily run): the last two weeks get `regime` on their calls.
 5. Nothing else: no migration; the list snapshots (`ops.warm_lists`) pick up the new parameters of `/v1/changes` at their next run.
+
+## 15. Follow-ups of 23 October 2026 (coordinator)
+
+- **PLACSP awarded amounts are exempt from the unit-price rule.** Production holds 31,933 PLACSP award values, 1,013 under
+  EUR 1,000: they are contract totals without VAT (a Spanish minor contract of EUR 300 is real). The flag "probably a unit price"
+  and the exclusion from sums now apply only to a value a notice states (TED's `total`/`lot_sum`), never to kind `awarded`
+  (`suppliers.sums_select`, `suppliers.is_suspect`). Tests: unit `test_wp81_values.py::test_a_placsp_awarded_amount_under_a_thousand_is_a_contract_total_not_a_unit_price`
+  and the changed SQL assertions; integration `test_wp87.py::test_one_contract_published_twice_is_one_row_and_a_unit_price_is_in_no_sum`
+  (a PLACSP awarded EUR 300 is summed and not flagged; the TED-stated EUR 48 still is).
+- **Footer**: "Last collection run (any source)", linked to /data (`dg/footer.tsx`), so it no longer reads against the lists'
+  "Latest run of its sources ... (source)". e2e `wp87.spec.ts` (the footer test).
+- Ran after these changes: ruff (clean); unit `test_wp81_values.py`, `test_wp87.py`, `test_wp66_demand.py` (26 passed);
+  integration `test_wp87.py`, `test_supplier_map.py`, `test_wp80_approach.py`, `test_placsp_award_twins.py` (66 passed); tsc;
+  lib checks (all ok); `next build`; Playwright `wp87`, `wp81`, `wp85`, `suppliers`, `layout`, `wp86` (86 passed, 4 skipped) and
+  the specs that read the footer, `routes`, `wp46`, `wp56`, `wp59` (83 passed, 3 skipped). Full Playwright and full integration not
+  re-run (section 12 is the run before these two changes).

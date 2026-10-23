@@ -43,7 +43,8 @@ export async function Footer() {
             </p>
           </div>
           <div className="flex flex-col gap-0.5 font-sans text-small text-ink-muted lg:text-right">
-            <span>{health.sources.length} sources · Last collection run {formatDateTimeUtc(lastDataUpdate(health))}</span>
+            {/* WP-87: the newest run of any source; each list names the run of its own sources, so this one says it is "any" */}
+            <span>{health.sources.length} sources · <Link href="/data">Last collection run (any source)</Link> {formatDateTimeUtc(lastDataUpdate(health))}</span>
             <span>All dates in UTC · <a href="/changes.atom" className="inline-flex min-h-11 items-center font-semibold text-ink lg:min-h-8">Atom feed of changes</a></span>
           </div>
         </div>

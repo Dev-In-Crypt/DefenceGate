@@ -80,16 +80,24 @@ PROFILE_NOTICES = 50
 PROFILE_BUYERS = 20
 # WP-87: a contract value below this (in its own currency) is shown as published but read as a unit price, not the
 # contract's value: "EUR 48 over 1 contract" was a price per item. Such values are left out of every sum, and counted.
+# Only a value a notice states (TED's `total` or `lot_sum`): a PLACSP awarded amount (kind `awarded`) is the contract's total
+# without VAT, and a Spanish minor contract of EUR 300 is real (owner, 23 October 2026: 1,013 of 31,933 are under EUR 1,000).
 SUSPECT_VALUE_MAX = 1000
+
+
+def is_suspect(amount, kind: str | None) -> bool:
+    """The Python twin of the SQL rule: a stated value (not a PLACSP awarded amount) under SUSPECT_VALUE_MAX."""
+    return amount is not None and kind != "awarded" and amount < SUSPECT_VALUE_MAX
 
 
 def sums_select(org: str = "") -> str:
     """The outer SELECT of a value sum over rows `x(ok, shared, va, vc, vk)`: a value under SUSPECT_VALUE_MAX is not
     `ok` but `suspect` (WP-87). Grouped by position: an output name `ok` would be read as the input column."""
-    good = f"(x.ok AND x.va >= {SUSPECT_VALUE_MAX})"
+    bad = f"(x.ok AND x.va < {SUSPECT_VALUE_MAX} AND x.vk IS DISTINCT FROM 'awarded')"
+    good = f"(x.ok AND NOT {bad})"
     head = f"{org}, " if org else ""
     n = 5 if org else 4
-    return (f"SELECT {head}{good} AS ok, (x.ok AND x.va < {SUSPECT_VALUE_MAX}) AS suspect, x.shared, "
+    return (f"SELECT {head}{good} AS ok, {bad} AS suspect, x.shared, "
             f"CASE WHEN {good} THEN x.vc END AS vc, sum(x.va) FILTER (WHERE {good}) AS amount, count(*) AS n, "
             f"count(*) FILTER (WHERE {good} AND x.vk = 'lot_sum') AS lots"), "GROUP BY " + ", ".join(
                 str(i) for i in range(1, n + 1))
@@ -536,7 +544,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
     # 474829-2024 and 467138-2024, one Lithuanian contract) is listed under the first, not as a 13th row of 12
     rows = conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
-                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, o.source_url, a.id AS award_id,
+                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, v.vk, o.source_url, a.id AS award_id,
                    (SELECT code FROM source WHERE id = o.source_id) AS source_code, {KEY_HASH} AS k
               {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES * 4}""",
         p).fetchall()
@@ -612,7 +620,7 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
             "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
             "valueAmount": float(r["va"]) if r["va"] is not None else None,
             "valueCurrency": r["vc"].strip() if r["va"] is not None else None,
-            "valueSuspect": r["va"] is not None and r["va"] < SUSPECT_VALUE_MAX,
+            "valueSuspect": is_suspect(r["va"], r["vk"]),
             "sourceUrl": r["source_url"], "source": r["source_code"],
             "alsoPublished": also.get(r["award_id"], []) + [
                 x for x in same.get(r["award_id"], [])
