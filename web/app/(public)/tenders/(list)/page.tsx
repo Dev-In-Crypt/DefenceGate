@@ -66,8 +66,8 @@ export default async function TendersPage({ searchParams }: Props) {
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' }]}
       title="Tenders"
-      intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and changes to dates, values and status are kept in its version history."
-      meta={`${tenderSources} tender sources${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}${stamps.list ? ` · ${stamps.list}` : ''}`}
+      intro="Procurement notices from defence buyers in one list, each linked to its source with its changes kept: filter, then open a notice."
+      meta={`${tenderSources} tender sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}${stamps.list ? ` · ${stamps.list}` : ''}`}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} countsNote={stamps.scope} />}
       calendarHref={calendarHrefFor(filters)}
       feedHref={`/changes.atom${toChangeQuery({

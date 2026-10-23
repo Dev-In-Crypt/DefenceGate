@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { visit } from './helpers';
+import { openAbout, visit } from './helpers';
 
 /** Below the `lg` breakpoint the filters sit behind a "Filters" button; open it so the text is on screen. */
 async function openFilters(page: import('@playwright/test').Page) {
@@ -98,6 +98,8 @@ test('a buyer’s years add up to its total, and the amendment share waits for s
   await expect(page.getByText(/^Not shown yet: we have watched this buyer’s notices only since Sep 2026/)).toBeVisible();
   const card = page.getByRole('heading', { name: 'Notices per year' }).locator('xpath=..');
   const counts = (await card.locator('tbody td').allInnerTexts()).map((t) => Number(t.replace(/\D/g, '')));
+  // WP-88: the method is in the collapsed How we count (owner-approved copy change)
+  await openAbout(page);
   const lead = await page.getByText(/defence notices in our archive \(the “Tenders in archive” above/).innerText();
   const total = Number(/['’]s ([\d,]+) defence notices/.exec(lead)?.[1].replace(/,/g, ''));
   expect(total).toBeGreaterThan(0);
@@ -108,7 +110,7 @@ test('a buyer’s years add up to its total, and the amendment share waits for s
 test('a supplier’s unit price is shown as published and left out of the sums', async ({ page }) => {
   await visit(page, '/suppliers/1-demo-airframes-gmbh', { title: /Demo Airframes/i, h1: 'Demo Airframes GmbH' });
   await expect(page.locator('td [data-value-suspect]')).toHaveText('value as published, probably a unit price');
-  await page.getByText('Contract values').first().click();
+  await page.getByText('Contract values', { exact: true }).first().click();
   await expect(page.locator('[data-value-totals] [data-value-suspect]')).toHaveText(
     '1 contract states a value under 1,000 (probably a unit price, not the contract’s value) and is left out of the sums.');
 });

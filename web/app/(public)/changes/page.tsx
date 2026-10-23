@@ -13,6 +13,7 @@ import type { Change } from '@/lib/types';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
 import { EmptyState } from '@/components/dg/feedback';
+import { AboutData } from '@/components/dg/about-data';
 import { FilterNotices } from '@/components/dg/filter-notices';
 import { PageHeader } from '@/components/dg/page-header';
 import { Select, TextInput } from '@/components/dg/form';
@@ -65,8 +66,7 @@ export default async function ChangesPage({ searchParams }: Props) {
       lead={<>
         {filters.week
           ? `New notices and amendments seen in ${weekLabel(filters.week)}. An amendment is a deadline, value, status or procedure that moved, with the old and the new value.`
-          : 'New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value.'}{' '}
-        No account is needed, and the Atom feed does what an alert would.
+          : 'New notices and amendments seen in the last 14 days: a deadline, value, status or procedure that moved, with the old and the new value.'}
       </>} />
   );
   const country = filters.country?.[0] ?? '';
@@ -155,12 +155,15 @@ export default async function ChangesPage({ searchParams }: Props) {
               <a href="#funding-heading" className="font-semibold">below</a>, apart from the notices.
             </p>
           )}
-          <p className="m-0 max-w-prose text-small text-ink-muted">
+          <AboutData summary="How we count">
+          <p className="m-0">
             Taken from our own archive, which began in September 2026: an amendment is a change we observed in a source, on the day we saw it, which may be
             later than the day the buyer made it. Our own corrections and re-readings are never listed, nor are changes we only learned of by loading a
             source&rsquo;s older notices (a notice&rsquo;s own page lists those as earlier changes). A notice counts as new only if it was published in these
             days. A notice published in several places is listed once. One entry is one notice on one day.
           </p>
+          <p className="m-0">No account is needed: the list’s Atom feed does what an alert would.</p>
+          </AboutData>
         </div>
         <nav aria-label="Follow this list" className="flex flex-col lg:border-l lg:border-line lg:pl-6">
           <a href={feedHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">

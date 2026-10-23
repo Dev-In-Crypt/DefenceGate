@@ -113,9 +113,9 @@ export function DemandMap({ result }: { result: DemandResult }) {
         ))}
       </ul>
       {d.byCountry.map((c) => <Country key={c.country} c={c} kMin={d.kMin} />)}
-      <AboutData summary="Sources and what the counts mean">
+      <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{d.sources.map((s) => s.attribution).join(' ')}</p>
+      <AboutData summary="What the counts mean">
         <p className="m-0">{d.winnersFrom} {d.notice}</p>
-        <p className="m-0">{d.sources.map((s) => s.attribution).join(' ')}</p>
       </AboutData>
     </div>
   );

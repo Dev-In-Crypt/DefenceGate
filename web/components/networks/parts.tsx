@@ -156,7 +156,10 @@ export function DataSources({ sources, amountNote, only, children }: { sources: 
   return (
     <section aria-labelledby="data-sources" className="flex flex-col gap-1 rounded-lg border border-transparent bg-surface p-5 sm:p-7">
       <h2 id="data-sources" className="m-0 text-h3">Where this comes from</h2>
-      <p className="m-0 max-w-prose text-small text-ink-muted">The European Commission&rsquo;s public records of EU-funded projects, organisation-level facts only.</p>
+      {/* WP-88: each source's attribution and licence stay on screen; read dates, notes, amounts and method are collapsed. */}
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small text-ink-muted" data-attribution>
+        {shown.map((s) => <li key={s.code} className="max-w-prose">{s.attribution}. Licence: {s.licence}.</li>)}
+      </ul>
       <AboutData>
       <ul className="m-0 flex list-none flex-col gap-3 p-0">
         {shown.map((s) => (

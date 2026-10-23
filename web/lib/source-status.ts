@@ -103,6 +103,18 @@ const formatStamp = (iso: string) => {
 };
 
 /** The "Met expected minimum" cell: a run is compared with the minimum we set for that source, not with the source. */
+/**
+ * WP-88: a source by a name a reader knows: PLACSP as the Spanish platform it is, the EU portal without its internal code (SEDIA).
+ * The attribution line keeps the source's own wording.
+ */
+export function sourceDisplay(name: string): string {
+  const n = (name ?? '').trim();
+  if (n === 'PLACSP') return 'Plataforma de Contratación (Spain)';
+  const m = /^PLACSP \((.+)\)$/.exec(n);
+  if (m) return m[1];
+  return n.replace(/\s*\(SEDIA\)$/, '');
+}
+
 export function minimumMet(coverage: number | null): string {
   if (coverage === null) return 'Not measured';
   if (coverage >= 1) return 'Yes';

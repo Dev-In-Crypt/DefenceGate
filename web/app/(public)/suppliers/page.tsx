@@ -145,7 +145,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
           nobody by value; a supplier's wins are a count of contracts, each with its notice and link, and its page sums the values of the notices that name it alone.
           A contract is in every CPV division its notice has a code in, so the divisions add up to more than the total.
         </p>
-        <p className="m-0">Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''} Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).</p>
+        <p className="m-0">Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).</p>
       </AboutData>
       <LiveListScope>
       <section aria-labelledby="results-heading" className="flex flex-col gap-4">
@@ -240,6 +240,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
         )}
         <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
+        {/* WP-88: the attribution the sources' terms ask for stays on screen, never only in a collapsed block. */}
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''}</p>
         </ResultsRegion>
       </section>
       </LiveListScope>

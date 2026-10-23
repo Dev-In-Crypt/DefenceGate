@@ -4,7 +4,7 @@ import { now } from '@/lib/deadline';
 import { formatDateTimeUtc, formatNumber } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata } from '@/lib/seo';
-import { gapSentence, heldSpan, lateRuleSentence, minimumMet, sourceFreshness, sourcePage, statusReasonLine, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
+import { gapSentence, heldSpan, lateRuleSentence, minimumMet, sourceDisplay, sourceFreshness, sourcePage, statusReasonLine, STALE_AFTER_DAYS, type FreshnessKind } from '@/lib/source-status';
 import { portalWords } from '@/lib/coverage-copy';
 import Link from 'next/link';
 import type { SourceHealth, SourceType } from '@/lib/types';
@@ -16,6 +16,7 @@ import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { EmptyState } from '@/components/dg/feedback';
 import { RunStatusPill } from '@/components/dg/tag';
 import { Button } from '@/components/dg/button';
+import { AboutData } from '@/components/dg/about-data';
 
 export const revalidate = 60;
 
@@ -41,7 +42,7 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
     // One surface: the facts are hairline rows on the card (no inset box inside it, no card inside a card).
     <Card as="article" className="h-full">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="m-0 min-w-0 text-h3">{s.name}</h3>
+        <h3 className="m-0 min-w-0 text-h3">{sourceDisplay(s.name)}</h3>
         <RunStatusPill status={fresh.kind} />
       </div>
       {s.country && <span className="text-small"><CountryLabel code={s.country} /></span>}
@@ -62,9 +63,9 @@ function SourceCard({ s, asOf }: { s: SourceHealth; asOf: Date }) {
           </>
         )}
         <FactCell label="Licence" className="col-span-full py-2"><span className="font-sans text-body">{s.licence}</span></FactCell>
-        <FactCell label="Attribution" className="col-span-full py-2"><span className="font-sans text-body">{s.attribution}</span></FactCell>
+        <FactCell label="Attribution" className="col-span-full py-2"><span className="font-sans text-body" data-attribution>{s.attribution}</span></FactCell>
       </dl>
-      {url && <Button href={url} external variant="text" className="self-start">Open {s.name}<span className="sr-only"> (opens in new tab)</span></Button>}
+      {url && <Button href={url} external variant="text" className="self-start">Open {sourceDisplay(s.name)}<span className="sr-only"> (opens in new tab)</span></Button>}
     </Card>
   );
 }
@@ -83,13 +84,16 @@ export default async function DataPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Source status', href: '/data' }]}
       title="Source status"
-      lead="Every source we collect from and when it last ran. Met expected minimum compares what a run fetched with the minimum we expect from that source; it is not a share of everything the source publishes."
+      lead="Every source we collect from, when it last ran and whether that run went well."
     >
-      <p className="m-0 max-w-prose text-body text-ink-muted">
+      <AboutData summary="What the statuses mean">
+      <p className="m-0">Met expected minimum compares what a run fetched with the minimum we expect from that source; it is not a share of everything the source publishes.</p>
+      <p className="m-0">
         <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was not late for how often that source is collected
         ({lateRule ? `a run is late for ${lateRule}` : `a run is late after ${STALE_AFTER_DAYS} days`}). It does not mean the source is fully collected. A late run is shown as stale, a load made once as a one-off load,
         and a source that failed or has never run as such. A run that finished with a problem is partial, and its card says why, also when it fetched the minimum.
       </p>
+      </AboutData>
 
       <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Sources">{health.sources.length}</FactCell>

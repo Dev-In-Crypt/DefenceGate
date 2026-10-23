@@ -1,28 +1,28 @@
 {
  "/suppliers": {
   "words": 26,
-  "prose": 21,
+  "prose": 25,
   "first": "form",
   "text": "Companies named as winners of defence contracts in public award notices of the last three years. Also: Ukraine partners Consortium gaps How we count Suppliers (5)",
   "terms": []
  },
  "/organisations": {
   "words": 28,
-  "prose": 63,
+  "prose": 52,
   "first": "form",
   "text": "Companies and research bodies that took part in EU-funded defence and research projects: the European Defence Fund, Horizon Europe, Horizon 2020 and FP7. Also: Ukraine partners Consortium gaps",
   "terms": []
  },
  "/suppliers/1-demo-airframes-gmbh": {
   "words": 0,
-  "prose": 51,
+  "prose": 55,
   "first": "dl",
   "text": "",
   "terms": []
  },
  "/organisations/101-alpha-systems-gmbh": {
   "words": 7,
-  "prose": 36,
+  "prose": 25,
   "first": "dl",
   "text": "European Defence Fund Horizon 2020 Horizon Europe",
   "terms": []
@@ -115,14 +115,14 @@
  },
  "/networks/consortium-gaps": {
   "words": 32,
-  "prose": 72,
+  "prose": 61,
   "first": "form",
   "text": "Organisations funded at least twice in one capability area that never had a partner from the country you choose: a place to look for a partner the established consortia do not have.",
   "terms": []
  },
  "/networks/ukraine-partners": {
   "words": 21,
-  "prose": 77,
+  "prose": 66,
   "first": "form",
   "text": "Organisations that led an EU-funded project with a Ukrainian participant: primes that already work with Ukrainian companies, and consortia to join.",
   "terms": []
@@ -136,7 +136,7 @@
  },
  "/methodology": {
   "words": 20,
-  "prose": 920,
+  "prose": 935,
   "first": "li",
   "text": "What happens to a notice between the source and this site, and where the limits are. From source to screen",
   "terms": []
@@ -158,6 +158,7 @@
    "CORDIS",
    "EDIDP",
    "PADR",
+   "LCSP",
    "HSEM",
    "FSTP"
   ]

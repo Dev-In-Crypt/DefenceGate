@@ -134,6 +134,8 @@ const LEGAL_BASES: Record<string, string> = {
   '32014L0024': 'Directive 2014/24/EU (public procurement)',
   '32014L0025': 'Directive 2014/25/EU (utilities procurement)',
   '32014L0023': 'Directive 2014/23/EU (concessions)',
+  // WP-88: PLACSP's code for an ordinary contract, in words (Spain's public sector contracts law)
+  'Ley 9/2017 (LCSP)': 'Spanish public sector contracts law (Ley 9/2017)',
 };
 export function legalBasisLabel(code: string): string | null {
   const k = code.trim();

@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTimeUtc } from '@/lib/format';
+import { sourceDisplay } from '@/lib/source-status';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { TENDER_CHECKED_LABEL } from '@/lib/tender-status';
 import type { SourceAttribution } from '@/lib/types';
@@ -24,10 +25,10 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
     return (
       // Provenance of a list card: one hairline above it, 13/18 sans (not a monospace sentence), the link at the right end.
       <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-0 border-t border-line pt-1 font-sans text-mono text-ink-muted', className)}>
-        <span className="min-w-0 flex-1 basis-64 [overflow-wrap:anywhere]">{source.sourceName} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
+        <span className="min-w-0 flex-1 basis-64 [overflow-wrap:anywhere]" data-attribution>{sourceDisplay(source.sourceName)} · {retrievedLabel} {retrieved} · {source.licence} · {source.attribution}</span>
         {url ? (
           <a href={url} target="_blank" rel="noopener noreferrer" className="relative z-10 inline-flex min-h-8 items-center text-small font-bold text-link">
-            View original<span className="sr-only">{subject && <>: <span lang={subjectLang}>{subject}</span>,</>} at {source.sourceName} (opens in new tab)</span>
+            View original<span className="sr-only">{subject && <>: <span lang={subjectLang}>{subject}</span>,</>} at {sourceDisplay(source.sourceName)} (opens in new tab)</span>
           </a>
         ) : (
           <span className="text-small">The source gives no link to this record</span>
@@ -38,11 +39,11 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       <dl className="m-0 grid grid-cols-1 gap-x-4 gap-y-0 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-y-1 font-sans text-mono">
-        <dt className="text-ink-muted">Source</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 font-semibold text-ink">{source.sourceName}</dd>
+        <dt className="text-ink-muted">Source</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 font-semibold text-ink">{sourceDisplay(source.sourceName)}</dd>
         <dt className="text-ink-muted">{retrievedLabel}</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 font-mono text-mono tabular-nums text-ink"><time dateTime={source.retrievedAt}>{retrieved}</time></dd>
         {source.checkedAt && (<><dt className="text-ink-muted">{TENDER_CHECKED_LABEL}</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 font-mono text-mono tabular-nums text-ink"><time dateTime={source.checkedAt}>{formatDateTimeUtc(source.checkedAt)}</time></dd></>)}
         <dt className="text-ink-muted">Licence</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink">{source.licence}</dd>
-        <dt className="text-ink-muted">Attribution</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink">{source.attribution}</dd>
+        <dt className="text-ink-muted">Attribution</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 text-ink" data-attribution>{source.attribution}</dd>
         {version && (<><dt className="text-ink-muted">Version</dt><dd className="m-0 mb-2 min-w-0 [overflow-wrap:anywhere] sm:mb-0 font-mono text-mono tabular-nums text-ink">{version}</dd></>)}
       </dl>
       {url ? (
@@ -50,7 +51,7 @@ export function SourceBadge({ source, variant = 'full', version, retrievedLabel 
           View original <Icon icon={ExternalLink} size="inline" /><span className="sr-only">(opens in new tab)</span>
         </a>
       ) : (
-        <p className="m-0 font-sans text-small">The source gives no link to this record. Search for it by its identifier at {source.sourceName}.</p>
+        <p className="m-0 font-sans text-small">The source gives no link to this record. Search for it by its identifier at {sourceDisplay(source.sourceName)}.</p>
       )}
     </div>
   );

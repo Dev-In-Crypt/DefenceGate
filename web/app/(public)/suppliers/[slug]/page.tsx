@@ -66,12 +66,13 @@ export default async function SupplierPage({ params }: Props) {
         )}
         {/* WP-88: one line; the coverage, the method and the removal route are in About this data. */}
         <p className="m-0 max-w-prose text-body">Contracts this company won in published award notices of the last three years; it may have won more that are not published here.</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{s.attribution}</p>
         <AboutData>
         <p className="m-0">
           This is what buyers published in TED result notices{fromPlacsp(s) ? " and in the award results of Spain's national procurement portal (PLACSP); an award published in both is counted once and listed under one of them," : ''} of the defence-relevant scope, published in the last three years:
           the same contracts the supplier report counts in “who to approach”. A contract published in several notices is counted once. TED holds only part of European defence
           spending (about a tenth, by a 2025 ECIPE brief we have not re-checked), so a company can have won far more than is shown here. There is no ranking and no share; a value appears only on a notice that names one
-          winner, and Contract values sums those values per currency. {s.attribution} To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
+          winner, and Contract values sums those values per currency. To ask for a removal, see the <Link href="/privacy" className="font-semibold">privacy notice</Link>.
         </p>
         </AboutData>
         {s.values && (

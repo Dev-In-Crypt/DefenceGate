@@ -151,7 +151,9 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
           )}
         </>
       )}
-      <p className="m-0 text-small text-ink-muted">Who has worked in the same area, not a recommendation.</p>
+      <p className="m-0 text-small text-ink-muted" data-attribution>
+        Who has worked in the same area, not a recommendation. Sources: {d.source?.sources.join(' and ') ?? 'CORDIS and the EDF factsheets'}.{d.source?.licence ? ` Licence: ${d.source.licence}.` : ''}
+      </p>
       <AboutData>
       <p className="m-0">
         An organisation that took part in an earlier project is not necessarily looking for partners, or a fit for this call: this is who has worked in the same area,

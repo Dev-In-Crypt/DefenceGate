@@ -51,7 +51,13 @@ const SEL = 'form, table, dl, article, li:not(nav li), [data-useful]';
       }
       return { words: words.length, prose, first: useful ? useful.tagName.toLowerCase() : null, text: words.join(' ').slice(0, 300) };
     }, SEL);
-    const vis = await p.evaluate(() => (document.querySelector('main') || document.body).innerText);
+    // a source's own credit line ([data-attribution], kept on screen by the sources' terms) is not jargon
+    const vis = await p.evaluate(() => {
+      const main = document.querySelector('main') || document.body;
+      let t = main.innerText;
+      for (const a of main.querySelectorAll('[data-attribution]')) t = t.replace(a.innerText, '');
+      return t;
+    });
     res[u].terms = TERMS.map((re) => (vis.match(re) || [null])[0]).filter(Boolean);
     console.log(u.padEnd(48), String(res[u].words).padStart(4), String(res[u].prose).padStart(5), res[u].first, res[u].terms.join(' | '));
   }

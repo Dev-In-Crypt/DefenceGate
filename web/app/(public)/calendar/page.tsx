@@ -99,7 +99,7 @@ export default async function CalendarPage({ searchParams }: Props) {
   return (
     <>
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Deadline calendar', href: '/calendar' }]} title="Deadline calendar"
-        lead="The deadlines of open defence tenders and open funding calls, soonest first. Times are UTC; a notice that gives only a date shows only the date. Each entry links to its record and its source." />
+        lead="The deadlines of open defence tenders and funding calls, soonest first, each linked to its record and source; times in UTC, or the date alone where only a date is given." />
 
       <div className="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-4">

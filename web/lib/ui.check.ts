@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { displayName, upperShare } from './display-name';
 import { CONFIDENCE_HREF, basisChips, clearanceView, confidenceCell, confidenceView, militaryCodeChip, scopeGroupNote, subcontractingView } from './tender-basis';
 import { formatChangeValue } from './change-format';
-import { gapSentence, heldSpan, listUpdatedAt, minimumMet, monthRanges, sourceFreshness } from './source-status';
+import { gapSentence, heldSpan, listUpdatedAt, minimumMet, monthRanges, sourceDisplay, sourceFreshness } from './source-status';
 import { barLayout, daysText, monthLabel, niceMax, percentText, shareOf } from './market';
 import { cpvGroupName, cpvGroupTitle, cpvName } from './cpv';
 import { defaultTenderSort, ignoredFilters, isDay, lastPage, parseTenderFilters, toTenderQuery } from './filters';
@@ -342,11 +342,11 @@ async function runnerChecks(): Promise<void> {
 
 // WP-23 (16 October 2026): the confidence badge says the level and the reason, in words; the CSV cell is the level only
 const hi = confidenceView({ level: 'high', basis: ['Military product code', 'Defence buyer'] });
-assert.equal(hi?.text, 'High confidence');
+assert.equal(hi?.text, 'Clearly defence');   // WP-88: the level in plain words
 assert.equal(hi?.sentence, 'Military product code; Defence buyer.');
-assert.equal(hi?.name, 'High confidence: Military product code; Defence buyer.');     // the accessible name carries the level and the reason
-assert.equal(confidenceView({ level: 'low', basis: [] })?.name, 'Low confidence');       // no reason: the level alone, no empty sentence
-assert.equal(confidenceView({ level: 'medium', basis: ['Defence buyer'] })?.text, 'Medium confidence');
+assert.equal(hi?.name, 'Clearly defence: Military product code; Defence buyer.');     // the accessible name carries the level and the reason
+assert.equal(confidenceView({ level: 'low', basis: [] })?.name, 'Possibly defence');       // no reason: the level alone, no empty sentence
+assert.equal(confidenceView({ level: 'medium', basis: ['Defence buyer'] })?.text, 'Probably defence');
 assert.equal(confidenceView(undefined), null);                                          // an older API build: no badge
 assert.equal(confidenceView({ level: 'certain', basis: ['x'] }), null);                 // a level this build does not know is not shown as a wrong word
 assert.equal(confidenceCell({ level: 'medium', basis: ['Defence buyer'] }), 'medium');
@@ -355,5 +355,11 @@ assert.equal(confidenceCell({ level: '', basis: [] }), '');
 assert.ok(CONFIDENCE_HREF.startsWith('/methodology#') && CONFIDENCE_HREF.endsWith('s-how-sure-are-we'));
 // the badge never replaces the chips: the same notice gives the same chips with and without a level
 assert.deepEqual(basisChips({ scope: 'core', legalBasis: '32009L0081', confidence: { level: 'high', basis: [] } }), ['Defence directive (2009/81/EC)']);
+
+// WP-88: a source by a name a reader knows; other names unchanged
+assert.equal(sourceDisplay('PLACSP'), 'Plataforma de Contratación (Spain)');
+assert.equal(sourceDisplay('PLACSP (Plataforma de Contratación del Sector Público, Spain)'), 'Plataforma de Contratación del Sector Público, Spain');
+assert.equal(sourceDisplay('EU Funding and Tenders Portal (SEDIA)'), 'EU Funding and Tenders Portal');
+assert.equal(sourceDisplay('TED'), 'TED');
 
 runnerChecks().then(() => console.log('ui checks passed'), (err) => { console.error(err); process.exit(1); });

@@ -100,7 +100,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
           </FactCell>
         </FactsGrid>
         {variantsLine(buyer.nameVariants) && <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
-        <p className="m-0 max-w-prose text-small text-ink-muted">Counts cover defence notices only. Each notice below shows its own source.</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted">Counts cover defence notices only; each notice shows its own source.</p>
         {buyer.organisationSlug && (
           <p className="m-0 max-w-prose text-body">
             Also took part in funded projects: <Link href={`/organisations/${buyer.organisationSlug}`} className="font-semibold">see its projects, partners and EU funding</Link>.

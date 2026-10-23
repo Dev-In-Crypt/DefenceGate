@@ -5,7 +5,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { getHealth, getTender, getTenders, getTenderVersions, isTenderSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { getTenderDeadline, localDeadline } from '@/lib/deadline';
-import { VALUE_MISSING_MEANS, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
+import { VALUE_MISSING_MEANS, sourceDisplay, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -21,6 +21,7 @@ import { AmountDisplay, CountryLabel, FactCell, LangLabel } from '@/components/d
 import { SourceBadge } from '@/components/dg/source-badge';
 import { VersionTimeline } from '@/components/dg/version-timeline';
 import { Button } from '@/components/dg/button';
+import { AboutData } from '@/components/dg/about-data';
 import { Card, slugId } from '@/components/dg/card';
 import { AlertsLine } from '@/components/dg/alerts-line';
 import { BasisChips, ClassifiedNote } from '@/components/dg/basis-chips';
@@ -177,7 +178,7 @@ export default async function TenderDetailPage({ params }: Props) {
                   legal ? (
                     <>
                       <span className="font-sans">{legal}</span>
-                      {tender.legalBasis.trim().toLowerCase() !== 'other' && (
+                      {tender.legalBasis.trim().toLowerCase() !== 'other' && /^3\d{4}L\d{4}$/i.test(tender.legalBasis.trim()) && (
                         <div className="mt-1 font-mono text-small font-normal text-ink-muted">Code {tender.legalBasis}</div>
                       )}
                     </>
@@ -205,7 +206,7 @@ export default async function TenderDetailPage({ params }: Props) {
             <SaveButton kind="tender" refId={tender.id} />
             {tender.buyerId && <FollowButton kind="buyer" refId={tender.buyerId} label="Follow this buyer" />}
             {sourceUrl && (
-              <Button href={sourceUrl} external variant="text" className="self-start">View original at {tender.source.sourceName}</Button>
+              <Button href={sourceUrl} external variant="text" className="self-start">View original at {sourceDisplay(tender.source.sourceName)}</Button>
             )}
             <Button href={`/tenders/${tender.slug}/evidence`} variant="text" icon={Printer} className="self-start">Print evidence</Button>
             <AlertsLine />
@@ -237,7 +238,7 @@ export default async function TenderDetailPage({ params }: Props) {
             <ul className="m-0 flex list-none flex-col p-0">
               {tender.sameNotice.map((n, i) => {
                 const url = safeHttpUrl(n.url);
-                const name = sourceNames.get(n.source) ?? n.source;
+                const name = sourceDisplay(sourceNames.get(n.source) ?? n.source);
                 return (
                   <li key={`${n.source}-${i}`} className={cn('flex flex-wrap items-center justify-between gap-2 py-2', i > 0 && 'border-t border-line')}>
                     <span className="text-body font-semibold">{name}</span>
@@ -250,10 +251,12 @@ export default async function TenderDetailPage({ params }: Props) {
         )}
 
         <Panel title="Version history">
-          <p className="m-0 text-small text-ink-muted">
-            We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. Earlier versions are never overwritten or deleted. History starts when we first saw the notice; our archive began in September 2026.
-            {' '}{versions.length > 1 ? `${versions.length} versions observed.` : 'One version observed so far.'}
-          </p>
+          <p className="m-0 text-small text-ink-muted">{versions.length > 1 ? `${versions.length} versions observed.` : 'One version observed so far.'}</p>
+          <AboutData summary="What counts as a new version">
+            <p className="m-0">
+              We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. Earlier versions are never overwritten or deleted. History starts when we first saw the notice; our archive began in September 2026.
+            </p>
+          </AboutData>
           {versions.length > 0
             ? <VersionTimeline versions={versions} />
             : <p className="m-0 text-body text-ink-muted">The version history could not be read for this notice.</p>}

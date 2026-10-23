@@ -16,8 +16,8 @@ export interface GlossaryEntry {
 
 export const GLOSSARY: GlossaryEntry[] = [
   {
-    id: 'scope', term: 'Scope (defence-relevant, core, supplies)',
-    body: 'Defence-relevant is the default list: the core defence notices and the supplies to defence buyers together. Core means the notice itself is defence, by the defence procurement directive or a military product code. Supplies to defence buyers are notices that are here because their buyer is a defence body, or because of a single defence signal from the wrong kind of buyer. Each card says why it is on the list. A military code bought by a municipality or a hospital is dual-use and only appears under All.',
+    id: 'scope', term: 'Scope (All defence, Military goods and works, Other purchases by armed forces)',
+    body: 'All defence is the two groups together. Military goods and works are notices that are defence themselves, by the defence procurement directive or a military product code. Other purchases by armed forces are notices that are here because their buyer is a defence body, or because of a single defence signal from the wrong kind of buyer. Each card says why it is on the list. A military code bought by a municipality or a hospital is dual-use and appears only under Everything.',
     see: { label: 'How a notice is judged', href: '/methodology' },
   },
   {
@@ -242,6 +242,11 @@ export const GLOSSARY: GlossaryEntry[] = [
     body: 'The Spanish company security clearance, needed by bidders and subcontractors at any level that access classified information. Who issues it depends on whose information it is.',
     source: 'Ministerio de Defensa',
     see: { label: 'The requirement', href: '/requirements' },
+  },
+  {
+    id: 'lcsp', term: 'LCSP', full: 'Ley 9/2017 de Contratos del Sector Público',
+    body: 'Spain’s public sector contracts law, the legal basis the Spanish platform states for an ordinary public contract. Defence and security contracts in Spain can fall under a separate law instead.',
+    source: 'BOE (Boletín Oficial del Estado)',
   },
   {
     id: 'hses', term: 'HSES', full: 'Habilitación de Seguridad de Establecimiento',

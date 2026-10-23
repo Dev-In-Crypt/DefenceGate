@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
+import { sourceDisplay } from '@/lib/source-status';
 import { cn } from '@/lib/utils';
 import { dayOf, groupByDay, monthWeeks, truncateTitle, type CalendarEntry } from '@/lib/calendar';
 import { displayName } from '@/lib/display-name';
@@ -29,7 +30,7 @@ function EntryRow({ e }: { e: CalendarEntry }) {
         className="[overflow-wrap:anywhere] py-1 text-body font-semibold text-ink no-underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-[''] group-hover:underline">
         {displayName(e.title)}
       </Link>
-      <span className="[overflow-wrap:anywhere] text-small text-ink-muted">{displayName(e.who, 'title')} · {e.sourceName}</span>
+      <span className="[overflow-wrap:anywhere] text-small text-ink-muted">{displayName(e.who, 'title')} · {sourceDisplay(e.sourceName)}</span>
       {e.note && (
         <p className="m-0 flex items-start gap-1.5 text-small text-ink-muted">
           <Icon icon={TriangleAlert} size="inline" className="mt-0.5 shrink-0" /><span>{e.note}</span>
