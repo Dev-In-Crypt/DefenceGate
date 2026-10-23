@@ -261,9 +261,9 @@ def test_a_profile_states_the_notices_and_shows_a_value_only_where_one_supplier_
     # WP-81 (owner decision of 22 October 2026): the sum of values per currency, only from a notice naming this one
     # winner; 2-2026 names a person beside it, so its value would be shared, and is counted as such
     assert rh["values"] == {"byCurrency": [{"currency": "EUR", "amount": 1_000_000.0, "count": 1, "lotEstimates": 0}],
-                            "of": 2, "withoutValue": 1, "shared": 1}
+                            "of": 2, "withoutValue": 1, "shared": 1, "suspect": 0}
     # Indra's one notice states 5,000,000 for two winners: attributed to neither, no sum
-    assert indra["values"] == {"byCurrency": [], "of": 1, "withoutValue": 1, "shared": 1}
+    assert indra["values"] == {"byCurrency": [], "of": 1, "withoutValue": 1, "shared": 1, "suspect": 0}
     # still nothing the product must not carry: no share, no rank, no dependency score
     assert not {"share", "rank", "dependency"} & set(rh)
 
@@ -271,7 +271,7 @@ def test_a_profile_states_the_notices_and_shows_a_value_only_where_one_supplier_
 def test_a_profile_sums_values_per_currency_beyond_the_listed_notices_and_without_removed_ones(conn, env, client):
     # WP-81: per currency, never converted; a sum of lot estimates counted apart; a placeholder and an estimate are no
     # value; a notice removed on request is out of the sum as of every count; the sum covers every notice, not the 50 listed
-    rows = [("70-2026", 1000.0, "EUR", "total"), ("71-2026", 2000.0, "EUR", "lot_sum"), ("72-2026", 500.0, "PLN", "total"),
+    rows = [("70-2026", 1000.0, "EUR", "total"), ("71-2026", 2000.0, "EUR", "lot_sum"), ("72-2026", 5000.0, "PLN", "total"),
             ("73-2026", 1.0, "EUR", "total"), ("74-2026", 9000.0, "EUR", "estimated"), ("75-2026", 4000.0, "EUR", "total")]
     for pn, *_ in rows:
         put_notice(conn, pn)
@@ -289,8 +289,8 @@ def test_a_profile_sums_values_per_currency_beyond_the_listed_notices_and_withou
     assert rh["noticeCount"] == 5 + suppliers_module.PROFILE_NOTICES
     assert all(n["noticeId"] not in {"70-2026", "71-2026", "72-2026"} for n in rh["notices"])   # older than the 50 listed
     assert rh["values"] == {"byCurrency": [{"currency": "EUR", "amount": 3000.0, "count": 2, "lotEstimates": 1},
-                                           {"currency": "PLN", "amount": 500.0, "count": 1, "lotEstimates": 0}],
-                            "of": rh["noticeCount"], "withoutValue": rh["noticeCount"] - 3, "shared": 0}
+                                           {"currency": "PLN", "amount": 5000.0, "count": 1, "lotEstimates": 0}],
+                            "of": rh["noticeCount"], "withoutValue": rh["noticeCount"] - 3, "shared": 0, "suspect": 0}
 
 
 def test_one_registration_number_written_two_ways_is_shown_once(conn, env, client):

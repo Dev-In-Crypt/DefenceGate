@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { ArrowRight } from 'lucide-react';
 import { cpvDictionaryTitle } from '@/lib/cpv';
-import { buyerLine, directiveShare, type Demand } from '@/lib/demand';
+import { approachSentence, buyerLine, directiveShare, type Demand } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { getDemandSample } from '@/lib/readiness-api';
 import { buildMetadata } from '@/lib/seo';
@@ -47,9 +47,7 @@ function Sample({ d }: { d: Demand }) {
         </ul>
         {d.approach && (
           <p className="m-0" data-demand-sample-approach>
-            {plural(d.total.winners, 'company', 'companies')} won them; {plural(d.approach.winners.length, 'company', 'companies')}{d.kMin > 1 ? ` won ${d.kMin} or more and` : ''}{' '}
-            would be named in the report, {plural(d.approach.winners.filter((w) => w.prime).length, 'of them is', 'of them are')} marked as a prime
-            contractor or large defence group.
+            {approachSentence(d)}
           </p>
         )}
         <p className="m-0 text-small text-ink-muted">{d.coverage}</p>

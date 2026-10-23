@@ -6,7 +6,11 @@ import type { CalendarEntry } from './calendar';
 import { absoluteUrl } from './seo';
 import { countryName } from './taxonomy';
 
-export const ICS_MAX_EVENTS = 500;
+/**
+ * A ceiling, not a cut that happens: the API serves up to 3,000 open tenders and there are some 60 calls (WP-87; it was 500 and
+ * the feed of 1,486 open tenders silently held the first 500). When it does cut, the calendar's description says so.
+ */
+export const ICS_MAX_EVENTS = 5000;
 /** Said in the calendar file and on the page for a call with several cut-offs or continuous submission. */
 export const ROLLING_NOTE = 'Continuous submission or several cut-offs: this is the next cut-off the source states (the last one when all have passed), and the call may stay open after it.';
 /**
@@ -85,9 +89,18 @@ function event(e: CalendarEntry, dtstamp: string): string[] {
   return lines;
 }
 
-/** The calendar file, CRLF lines, at most ICS_MAX_EVENTS events in the order given. */
-export function buildIcs(entries: CalendarEntry[], at: Date = new Date()): string {
+/**
+ * The calendar file, CRLF lines, at most ICS_MAX_EVENTS events in the order given. `tendersBeyond`: open tenders the API did not
+ * send (past its 3,000). Either cut is said in the calendar's description, never left silent (WP-87).
+ */
+export function buildIcs(entries: CalendarEntry[], at: Date = new Date(), opts: { tendersBeyond?: number } = {}): string {
   const dtstamp = stamp(at);
+  const cut = entries.length > ICS_MAX_EVENTS;
+  const beyond = Math.max(0, opts.tendersBeyond ?? 0);
+  const note = [
+    cut ? `This file holds the first ${ICS_MAX_EVENTS} of ${entries.length} events; narrow the address with filters (kind, country, cpv, from, to) for the rest.` : null,
+    beyond > 0 ? `${beyond} open tenders with later deadlines are not in it; narrow it with filters or see the tenders list.` : null,
+  ].filter(Boolean).join(' ');
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -95,7 +108,7 @@ export function buildIcs(entries: CalendarEntry[], at: Date = new Date()): strin
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'X-WR-CALNAME:DefenceGate deadlines',
-    `X-WR-CALDESC:${icsText('Deadlines of open defence tenders and funding calls, and the opening days of calls that have not opened, in UTC. The original notice is authoritative.', DESCRIPTION_MAX)}`,
+    `X-WR-CALDESC:${icsText(`Deadlines of open defence tenders and funding calls, and the opening days of calls that have not opened, in UTC. The original notice is authoritative.${note ? ` ${note}` : ''}`, DESCRIPTION_MAX)}`,
     ...entries.slice(0, ICS_MAX_EVENTS).flatMap((e) => event(e, dtstamp)),
     'END:VCALENDAR',
   ];

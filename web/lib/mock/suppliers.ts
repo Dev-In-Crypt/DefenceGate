@@ -3,7 +3,7 @@
  * companies, so the supplier pages have something to lay out in the demo build and in the end-to-end tests. Shapes only; the numbers
  * are made up, which is why this is never used with an API configured.
  */
-import type { Paginated, Supplier, SupplierFilters, SupplierItem, SupplierSummary } from '../types';
+import type { Paginated, Supplier, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
 
 const ITEMS: SupplierItem[] = [
   { id: '1', slug: '1-demo-airframes-gmbh', name: 'Demo Airframes GmbH', country: 'DE', awardCount: 14, firstYear: 2023, lastYear: 2026, cpvDivisions: ['35', '34'] },
@@ -48,6 +48,9 @@ export function findSupplier(slug: string): Supplier | null {
     values: {
       byCurrency: [{ currency: 'EUR', amount: [1_200_000, 1_500_000, 1_800_000].slice(0, valued).reduce((a, b) => a + b, 0), count: valued, lotEstimates: 0 }],
       of: s.awardCount, withoutValue: s.awardCount - valued, shared: Math.min(3, s.awardCount - valued),
+      // WP-87: a contract whose published value is a unit price (the 7th row below), in no sum. A further contract of the
+      // supplier's beyond the rows the demo lists, so the counts above stay as they were.
+      suspect: 1,
     },
     byYear: [{ year: 2023, awards: 1 }, { year: 2024, awards: 4 }, { year: 2025, awards: 6 }, { year: 2026, awards: s.awardCount - 11 > 0 ? s.awardCount - 11 : 1 }],
     byCpv: s.cpvDivisions.map((d, i) => ({ division: d, awards: Math.max(1, s.awardCount - i * 3) })),
@@ -56,12 +59,17 @@ export function findSupplier(slug: string): Supplier | null {
       { slug: '2-demo-defence-materiel-administration', name: 'Demo Defence Materiel Administration', country: 'DE', awards: 5 },
       { slug: '3-demo-logistics-and-support-command', name: 'Demo Logistics and Support Command', country: 'PL', awards: 3 },
     ],
-    notices: Array.from({ length: 6 }, (_, i) => ({
+    notices: Array.from({ length: 6 }, (_, i): SupplierNotice => ({
       id: String(900 + i), slug: String(900 + i), noticeId: `2026/S 0${i + 1}0-00${i}`, title: `Framework agreement for demonstration item ${i + 1}`,
       buyerName: i % 3 === 0 ? 'Demo Armaments Agency' : 'Demo Defence Materiel Administration', buyerCountry: i % 3 === 0 ? 'FR' : 'DE',
       publishedAt: `2026-0${(i % 9) + 1}-1${i}T00:00:00Z`, cpv: '35120000', winnersInNotice: i % 2 === 0 ? 1 : 3,
       valueAmount: i % 2 === 0 ? 1_200_000 + i * 150_000 : null, valueCurrency: i % 2 === 0 ? 'EUR' : null, sourceUrl: null,
-    })),
+    })).concat([{
+      // WP-87: "EUR 48 over 1 contract" in the audit: a price per item published as the value
+      id: '906', slug: '906', noticeId: '2026/S 070-006', title: 'Supply of fasteners at a unit price', buyerName: 'Demo Armaments Agency',
+      buyerCountry: 'FR', publishedAt: '2026-07-16T00:00:00Z', cpv: '35120000', winnersInNotice: 1, valueAmount: 48, valueCurrency: 'EUR',
+      valueSuspect: true, sourceUrl: null,
+    }]),
     noticeCount: s.awardCount, namesAsStated: [s.name, s.name.toUpperCase()], identifiers: [`DE${100000000 + Number(s.id)}`],
     attribution: 'Source: TED, © European Union.',
   };

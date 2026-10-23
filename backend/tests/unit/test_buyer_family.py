@@ -74,7 +74,12 @@ def test_polish_armament_agency_with_and_without_the_treasury():
          "agencja uzbrojenia")
     same("PL", "skarb panstwa - inspektorat uzbrojenia", "inspektorat uzbrojenia",
          "skarb panstwa-inspektorat uzbrojenia")
-    apart("PL", "agencja uzbrojenia", "inspektorat uzbrojenia")      # a rename is not a merge
+    # WP-87 (owner, 22 October 2026): the renamed body is one buyer with its successor, by the curated rename list,
+    # with that method and its confidence stored (was: "a rename is not a merge")
+    same("PL", "agencja uzbrojenia", "inspektorat uzbrojenia", "skarb panstwa - inspektorat uzbrojenia")
+    renamed = family_of("PL", "inspektorat uzbrojenia")
+    assert (renamed.method, renamed.confidence) == ("curated_rename", 0.95)
+    assert family_of("PL", "agencja uzbrojenia").method == "rule:agencja_uzbrojenia"
     apart("PL", "agencja uzbrojenia", "wojskowy instytut techniczny uzbrojenia")
     apart("PL", "agencja uzbrojenia", "agencja mienia wojskowego")
 

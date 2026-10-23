@@ -11,7 +11,8 @@ export const ONE_OFF_SOURCES: readonly string[] = ['pl_atlas'];
 const DAY_MS = 86_400_000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
-export type FreshnessKind = 'ok' | 'partial' | 'failed' | 'never' | 'stale' | 'one-off';
+/** `ok-incremental` (WP-87): finished, on time, with no minimum to compare it with (Met expected minimum: Not measured). */
+export type FreshnessKind = 'ok' | 'ok-incremental' | 'partial' | 'failed' | 'never' | 'stale' | 'one-off';
 
 export interface Freshness {
   kind: FreshnessKind;
@@ -26,7 +27,7 @@ export interface Freshness {
 export interface SourceRhythm { updateFreq?: string | null; staleAfterHours?: number | null; stale?: boolean | null }
 
 export function sourceFreshness(
-  s: { id: string; status: 'ok' | 'partial' | 'failed' | 'never'; lastRunAt: string | null } & SourceRhythm,
+  s: { id: string; status: 'ok' | 'partial' | 'failed' | 'never'; lastRunAt: string | null; coverage?: number | null; records?: number } & SourceRhythm,
   ref: Date,
 ): Freshness {
   if (s.lastRunAt === null || s.status === 'never') return { kind: 'never', note: null };
@@ -43,7 +44,13 @@ export function sourceFreshness(
   const late = s.stale !== undefined ? s.stale === true : age > STALE_AFTER_DAYS * DAY_MS;
   if (late) return { kind: s.status === 'ok' ? 'stale' : s.status, note: `Stale: last ran ${days} days ago` };
   const monthly = (s.updateFreq ?? '').trim().toLowerCase() === 'monthly';
-  return { kind: s.status, note: monthly && age > STALE_AFTER_DAYS * DAY_MS ? `Collected monthly, last ran ${days} days ago` : null };
+  const note = monthly && age > STALE_AFTER_DAYS * DAY_MS ? `Collected monthly, last ran ${days} days ago` : null;
+  // WP-87: an OK run with no minimum to meet ("Not measured") is not plain OK: SEDIA's run of 1 record read only what changed
+  if (s.status === 'ok' && s.coverage === null) {
+    const what = typeof s.records === 'number' ? `it fetched ${s.records.toLocaleString('en-GB')} ${s.records === 1 ? 'record' : 'records'}, ` : '';
+    return { kind: 'ok-incremental', note: [note, `No minimum is set for this source, so the run is not measured against one: ${what}reading only what changed since the run before.`].filter(Boolean).join('. ') };
+  }
+  return { kind: s.status, note };
 }
 
 /**
@@ -80,6 +87,20 @@ export function listUpdatedAt(page: { meta?: unknown } | null | undefined): stri
   const t = (meta as { updatedAt?: unknown }).updatedAt;
   return typeof t === 'string' && t !== '' && !Number.isNaN(new Date(t).getTime()) ? t : null;
 }
+
+/**
+ * WP-87: "Latest run of a source of this list: 22 Oct 2026, 07:29 UTC (TED)". One definition (the newest successful or partial run
+ * of the sources that feed the list), and the source named, so it is not read as the footer's run of any source.
+ */
+export function updatedLine(iso: string, source: string | null | undefined): string {
+  return `Latest run of its sources: ${formatStamp(iso)}${source ? ` (${source})` : ''}`;
+}
+
+const formatStamp = (iso: string) => {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+};
 
 /** The "Met expected minimum" cell: a run is compared with the minimum we set for that source, not with the source. */
 export function minimumMet(coverage: number | null): string {

@@ -93,7 +93,7 @@ export default async function DataPage() {
 
       <dl className="facts-grid m-0 border-b border-line">
         <FactCell label="Sources">{health.sources.length}</FactCell>
-        <FactCell label="OK (run on time)">{count('ok')}</FactCell>
+        <FactCell label="OK (run on time)">{count('ok', 'ok-incremental')}</FactCell>
         <FactCell label="Stale (run late)">{count('stale')}</FactCell>
         <FactCell label="One-off loads">{count('one-off')}</FactCell>
         <FactCell label="Partial, failed or never run">{count('partial', 'failed', 'never')}</FactCell>

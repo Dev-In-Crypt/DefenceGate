@@ -1381,7 +1381,8 @@
      "byCurrency": [],
      "of": 73,
      "withoutValue": 73,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1420,7 +1421,8 @@
      "byCurrency": [],
      "of": 56,
      "withoutValue": 56,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1454,7 +1456,8 @@
      ],
      "of": 49,
      "withoutValue": 48,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1500,7 +1503,8 @@
      ],
      "of": 40,
      "withoutValue": 39,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1546,7 +1550,8 @@
      ],
      "of": 38,
      "withoutValue": 36,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1585,7 +1590,8 @@
      "byCurrency": [],
      "of": 36,
      "withoutValue": 36,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1612,7 +1618,8 @@
      "byCurrency": [],
      "of": 36,
      "withoutValue": 36,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1651,7 +1658,8 @@
      "byCurrency": [],
      "of": 32,
      "withoutValue": 32,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1690,7 +1698,8 @@
      "byCurrency": [],
      "of": 31,
      "withoutValue": 31,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1729,7 +1738,8 @@
      "byCurrency": [],
      "of": 31,
      "withoutValue": 31,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1775,7 +1785,8 @@
      ],
      "of": 30,
      "withoutValue": 29,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1814,7 +1825,8 @@
      "byCurrency": [],
      "of": 27,
      "withoutValue": 27,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1847,7 +1859,8 @@
      "byCurrency": [],
      "of": 24,
      "withoutValue": 24,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1893,7 +1906,8 @@
      ],
      "of": 24,
      "withoutValue": 22,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1932,7 +1946,8 @@
      "byCurrency": [],
      "of": 23,
      "withoutValue": 23,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -1971,7 +1986,8 @@
      "byCurrency": [],
      "of": 18,
      "withoutValue": 18,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2010,7 +2026,8 @@
      "byCurrency": [],
      "of": 17,
      "withoutValue": 17,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2049,7 +2066,8 @@
      "byCurrency": [],
      "of": 15,
      "withoutValue": 15,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2076,7 +2094,8 @@
      "byCurrency": [],
      "of": 15,
      "withoutValue": 15,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2109,7 +2128,8 @@
      "byCurrency": [],
      "of": 14,
      "withoutValue": 14,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2148,7 +2168,8 @@
      "byCurrency": [],
      "of": 13,
      "withoutValue": 13,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2181,7 +2202,8 @@
      "byCurrency": [],
      "of": 13,
      "withoutValue": 13,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2208,7 +2230,8 @@
      "byCurrency": [],
      "of": 12,
      "withoutValue": 12,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2247,7 +2270,8 @@
      "byCurrency": [],
      "of": 12,
      "withoutValue": 12,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2286,7 +2310,8 @@
      "byCurrency": [],
      "of": 12,
      "withoutValue": 12,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2332,7 +2357,8 @@
      ],
      "of": 11,
      "withoutValue": 9,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2378,7 +2404,8 @@
      ],
      "of": 11,
      "withoutValue": 10,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2417,7 +2444,8 @@
      "byCurrency": [],
      "of": 11,
      "withoutValue": 11,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2450,7 +2478,8 @@
      "byCurrency": [],
      "of": 10,
      "withoutValue": 10,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2489,7 +2518,8 @@
      "byCurrency": [],
      "of": 9,
      "withoutValue": 9,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2529,7 +2559,8 @@
      ],
      "of": 4,
      "withoutValue": 3,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {
@@ -2568,7 +2599,8 @@
      ],
      "of": 3,
      "withoutValue": 2,
-     "shared": 0
+     "shared": 0,
+     "suspect": 0
     },
     "buyers": [
      {

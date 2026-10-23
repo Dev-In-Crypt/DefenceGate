@@ -43,10 +43,14 @@ export function buyerProfile(buyer: Buyer, ref: Date = new Date()): BuyerProfile
     asOf: ref.toISOString(),
     tenderCount: buyer.tenderCount,
     openNow: buyer.openCount,
-    perYear: Array.from({ length: 6 }, (_, i) => ({ year: year - 5 + i, count: Math.round(buyer.tenderCount / 6) })),
+    // WP-87: the years add up to the total: what the six years do not hold is "Before ..."
+    perYear: Array.from({ length: 6 }, (_, i) => ({ year: year - 5 + i, count: Math.floor(buyer.tenderCount / 7) })),
+    perYearEarlier: buyer.tenderCount - 6 * Math.floor(buyer.tenderCount / 7),
+    perYearUndated: 0,
     cpvGroups: [{ group: '354', count: buyer.tenderCount }],
     responseWindow: { notices: buyer.tenderCount, median: 28, p25: 21, p75: 40 },
-    amendments: { notices: buyer.tenderCount, amended: 0, share: 0 },
+    // the archive began in September 2026: too short to say how often a buyer amends (WP-87)
+    amendments: { notices: buyer.tenderCount, amended: 0, share: 0, observedFrom: '2026-09-18T06:00:00Z' },
     sources: [{ id: 'ted', name: 'TED', count: buyer.tenderCount }],
     basis: {
       perYear: 'Counts of this buyer\'s notices by year of publication, not contract value.',

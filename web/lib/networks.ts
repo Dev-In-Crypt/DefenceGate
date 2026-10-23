@@ -198,3 +198,15 @@ export function fundingGroups(rows: FundingRow[]): FundingGroup[] {
   }
   return out.sort((a, b) => b.totalProjects - a.totalProjects || a.programme.localeCompare(b.programme));
 }
+
+/**
+ * WP-87: the words for an EU contribution we hold no figure of. The EDF factsheets publish no amount per participant (only CORDIS
+ * does, for Horizon and its forerunners), so an organisation or a programme row of EDF projects only says so; "Not stated" beside
+ * Leonardo's 74 EDF projects read as an error.
+ */
+export function contributionMissing(programmes: readonly string[]): string {
+  const codes = programmes.map((p) => p.toUpperCase());
+  return codes.length > 0 && codes.every((c) => c === 'EDF' || c === 'EDIDP' || c === 'PADR')
+    ? 'Not published per participant (EDF factsheets state no amounts)'
+    : 'Not stated';
+}

@@ -94,12 +94,30 @@ def key_of(raw: str) -> tuple[str, str]:
     legacy = normalise_org_name(raw)
     if not raw:
         return "", legacy
-    key = normalise_org_name(transliterate(raw))
+    key = normalise_org_name(transliterate(_cut_address(raw)))
     # a hyphen or an ampersand is spacing, not a letter: "KOCH- INSTITUT", "KOCH-INSTITUT" and
     # "KOCH INSTITUT" are one name, and so are "A&B" and "A & B" (the legacy key keeps both)
     key = re.sub(r"[-&]+", " ", key)
     key = _strip_extra_forms(re.sub(r"\s+", " ", key).strip())
     return key, legacy
+
+
+# Legal forms after which a name may go on with its address (WP-87: "HENSOLDT NEXEYA FRANCE SAS 1 rue ..." beside
+# "Hensoldt Nexeya France"). The short ones that are words as well (as, ab, se, ev, kg) are left out.
+_CUT_FORMS = ("gmbh", "mbh", "ag", "sas", "sa", "sarl", "srl", "spa", "bv", "nv", "ltd", "limited", "plc", "llc",
+              "inc", "oy", "oyj", "sl", "slu", "sau", "sro", "aps")
+
+
+def _cut_address(raw: str) -> str:
+    """The raw name without an address written after its legal form: a legal-form word that is not the first word,
+    followed by at least two more words of which one holds a digit (a street number, a postcode). The name up to and
+    with its form is kept (the key strips the form as before); a name with no such tail is returned as it is."""
+    words = raw.split()
+    for i in range(1, len(words) - 2):
+        if (_form_tokens(words[i]) in ([f] for f in _CUT_FORMS)
+                and any(any(ch.isdigit() for ch in w) for w in words[i + 1:])):
+            return " ".join(words[:i + 1])
+    return raw
 
 
 # ------------------------------------------------------------------ legal form (WP-41)

@@ -240,7 +240,8 @@ export interface Paginated<T> {
   /** `/v1/funding`: calls open to Ukrainian participants among those that match every filter but this one. Absent on older API builds. */
   ukraineTotal?: number | null;
   /** `/v1/tenders` and `/v1/funding`: `updatedAt` is when the newest successful or partial collection run of the list's sources finished (UTC), null before any. Absent on older API builds. */
-  meta?: { updatedAt?: string | null } | null;
+  /** `updatedBy` (WP-87): the source whose run that was, named on the page. */
+  meta?: { updatedAt?: string | null; updatedBy?: string | null } | null;
   /** `/v1/tenders`: when this page was worked out (a kept page says when it was made). Absent on older API builds. */
   asOf?: IsoDateTime;
   /** Set by lib/api.ts, never by the API: the data service did not answer, and this is its last good answer, received at this time. */
@@ -356,7 +357,8 @@ export interface ScopeCounts {
   /** When the counts were worked out. */
   asOf?: IsoDateTime;
 }
-export type TenderSort = 'deadline-asc' | 'deadline-desc' | 'published-desc';
+/** `core-first` (WP-87): the default of the open list, the core notices first, each part soonest deadline first. */
+export type TenderSort = 'core-first' | 'deadline-asc' | 'deadline-desc' | 'published-desc';
 export interface TenderFilters {
   q?: string;
   country?: string[];
@@ -458,7 +460,8 @@ export interface ChangePage {
   funding?: FundingChange[];
   /** How many such calls there are in all, whatever the page. */
   fundingTotal?: number;
-  meta?: { updatedAt?: string | null } | null;
+  /** `updatedBy` (WP-87): the source whose run that was, named on the page. */
+  meta?: { updatedAt?: string | null; updatedBy?: string | null } | null;
   /** See Paginated.staleAsOf. */
   staleAsOf?: IsoDateTime;
 }
@@ -510,6 +513,8 @@ export interface DigestCall {
   eligibility: string | null;
   eligibilityState: 'read' | 'not_read' | 'no_source';
   changes: FieldChange[];
+  /** WP-87: defence | dual-use; the API lists the defence calls of a section first. Absent from issues stored before. */
+  regime?: Regime | null;
 }
 export interface DigestCounts {
   tendersNew: number;
@@ -542,7 +547,8 @@ export interface Digest {
   country: string | null;
   previousWeek: string | null;
   nextWeek: string | null;
-  meta?: { updatedAt?: string | null } | null;
+  /** `updatedBy` (WP-87): the source whose run that was, named on the page. */
+  meta?: { updatedAt?: string | null; updatedBy?: string | null } | null;
   staleAsOf?: IsoDateTime;
 }
 export interface DigestWeek {
@@ -561,6 +567,14 @@ export interface ChangeFilters {
   /** An ISO week of the digest (`2026-W42`) instead of the last 14 days, and one kind of change in it: where the digest's "the list has the rest" leads. */
   week?: string;
   kind?: ChangeKind;
+  /** WP-87: the tender list's other filters, read by the API as the list reads them. */
+  q?: string;
+  cpv?: string[];
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  valueMin?: number;
+  valueMax?: number;
+  currency?: CurrencyCode;
   page?: number;
   pageSize?: number;
 }
@@ -619,9 +633,13 @@ export interface BuyerProfile {
   tenderCount: number;
   openNow: number;
   perYear: { year: number; count: number }[];
+  /** WP-87: notices published before the first year shown, and without a publication date: with them the years add up to `tenderCount`. */
+  perYearEarlier?: number;
+  perYearUndated?: number;
   cpvGroups: { group: string; count: number }[];
   responseWindow: { notices: number; median: number | null; p25: number | null; p75: number | null };
-  amendments: { notices: number; amended: number; share: number | null };
+  /** `observedFrom` (WP-87): when the archive first saw the oldest of these notices; the share is shown once that is six months back. */
+  amendments: { notices: number; amended: number; share: number | null; observedFrom?: IsoDateTime | null };
   sources: { id: string; name: string; count: number }[];
   basis: Record<string, string>;
 }
@@ -855,6 +873,8 @@ export interface SupplierNotice {
   winnersInNotice: number;
   valueAmount: number | null;
   valueCurrency: string | null;
+  /** WP-87: the value is under 1,000: shown as published, probably a unit price, left out of every sum. */
+  valueSuspect?: boolean;
   sourceUrl: string | null;
   /** Where the notice shown is from: ted, es_placsp, es_placsp_agg (WP-61; absent from older APIs, read as ted). */
   source?: string;

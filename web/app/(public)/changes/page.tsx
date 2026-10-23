@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Rss } from 'lucide-react';
 import { getChanges } from '@/lib/api';
 import { weekLabel } from '@/lib/digest';
-import { CHANGE_MAX_PAGE, ignoredFilters, lastPage, parseChangeFilters, toChangeQuery, PARAM, type SearchParams } from '@/lib/filters';
+import { CHANGE_MAX_PAGE, MAX_QUERY_LENGTH, ignoredFilters, lastPage, parseChangeFilters, toChangeQuery, toTenderQuery, PARAM, type SearchParams } from '@/lib/filters';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
@@ -15,7 +15,7 @@ import { Button } from '@/components/dg/button';
 import { EmptyState } from '@/components/dg/feedback';
 import { FilterNotices } from '@/components/dg/filter-notices';
 import { PageHeader } from '@/components/dg/page-header';
-import { Select } from '@/components/dg/form';
+import { Select, TextInput } from '@/components/dg/form';
 import { Icon } from '@/components/dg/icon';
 import { Pagination } from '@/components/dg/pagination';
 import { Tag } from '@/components/dg/tag';
@@ -33,7 +33,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: 'What changed in the last 14 days',
     description: 'New defence and dual-use notices and the amendments to their deadline, value, status or procedure, taken from our archive of observed changes. With an Atom feed.',
     path: '/changes',
-    noindex: toChangeQuery({ country: f.country, scope: f.scope, week: f.week, kind: f.kind, page: f.page }) !== '',
+    noindex: toChangeQuery({ ...f, pageSize: undefined }) !== '',
   });
   return { ...meta, alternates: { ...meta.alternates, types: { 'application/atom+xml': '/changes.atom' } } };
 }
@@ -76,6 +76,14 @@ export default async function ChangesPage({ searchParams }: Props) {
         options={Object.entries(BUYER_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
       <Select name={PARAM.scope} label="What to include" placeholder={SCOPE_CHOICES.relevant.label} defaultValue={filters.scope ?? ''}
         className="sm:min-w-72" options={SCOPE_OPTIONS} />
+      {/* WP-87: the tender list's search and CPV filter, read by the API as the list reads them */}
+      <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''} className="sm:min-w-56" />
+      <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35" defaultValue={filters.cpv?.join(', ') ?? ''} className="sm:min-w-40" />
+      {/* the list's other filters this page came with (deadline and value range, defence goods) travel with the form */}
+      {[...new URLSearchParams(toTenderQuery({
+        goods: filters.goods, deadlineFrom: filters.deadlineFrom, deadlineTo: filters.deadlineTo,
+        valueMin: filters.valueMin, valueMax: filters.valueMax, currency: filters.currency,
+      }))].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       {filters.week && <input type="hidden" name="week" value={filters.week} />}
       {filters.kind && <input type="hidden" name="kind" value={filters.kind} />}
       <div className="flex items-center gap-3">
@@ -111,7 +119,8 @@ export default async function ChangesPage({ searchParams }: Props) {
   const last = lastPage(data.total, data.pageSize);
   if (data.total > 0 && (filters.page ?? 1) > last) redirect(`/changes${toChangeQuery({ ...filters, page: last })}`);
   if (data.total === 0 && (filters.page ?? 1) > 1) return <>{header}<FilterNotices notices={notices} />{filterForm}{firstPage}</>;
-  const feedHref = `/changes.atom${toChangeQuery({ country: filters.country, scope: filters.scope })}`;
+  // WP-87: the feed of exactly this list (every filter but the page; a feed is always the last 14 days)
+  const feedHref = `/changes.atom${toChangeQuery({ ...filters, week: undefined, kind: undefined, page: undefined, pageSize: undefined })}`;
   // A rolling window ends now; a week ends at the next Monday 00:00 (exclusive), so its last day is the second before.
   const windowLast = filters.week ? new Date(new Date(data.windowTo).getTime() - 1000).toISOString() : data.windowTo;
   const from = data.total === 0 ? 0 : (data.page - 1) * data.pageSize + 1;

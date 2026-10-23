@@ -44,7 +44,16 @@ from pydantic import BaseModel
 from . import db
 from .config import settings
 from .suppress import removed
-from .tenders import CORE, FIELD_LABELS, PLACEHOLDER_VALUE_MAX, TIMELINE_SQL, _api, _id_of, timeline
+from .tenders import (
+    CORE,
+    FIELD_LABELS,
+    PLACEHOLDER_VALUE_MAX,
+    TIMELINE_SQL,
+    _api,
+    _id_of,
+    collapse_clauses,
+    timeline,
+)
 
 router = APIRouter()
 
@@ -416,6 +425,9 @@ class Amendments(BaseModel):
     notices: int
     amended: int
     share: float | None
+    # WP-87 (buyer profile): when the archive first saw the oldest of these notices. A share over a few weeks of
+    # watching says nothing about how often a buyer amends, so the page shows it once this is HISTORY_DAYS old.
+    observedFrom: datetime | None = None
 
 
 class ResponseWindow(BaseModel):
@@ -460,7 +472,9 @@ def market_stats(year: int | None = Query(None, ge=MARKET_FIRST_YEAR, le=2100),
 # ----------------------------------------------------------- buyer profile
 
 PROFILE_BASIS = {
-    "perYear": "Counts of this buyer's notices by year of publication, not contract value.",
+    "perYear": "Counts of this buyer's notices by year of publication, not contract value. Notices published "
+               "before the first year shown, and notices without a publication date, are counted on their own, "
+               "so the rows add up to the total.",
     "cpvGroups": "This buyer's notices, all years, with at least one code in the 3-digit "
                  "CPV group; a notice counts once in each group it has.",
     "responseWindow": "Days from publication to the stated deadline over this buyer's "
@@ -473,9 +487,16 @@ PROFILE_BASIS = {
 
 def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any] | None:
     """The buyer's own core-scope notices, or None when it has none (the buyer page's
-    404). `openNow` is as of now, with the status rule the tender list uses."""
+    404). `openNow` is as of now, with the status rule the tender list uses.
+
+    WP-87: one unit everywhere, the notices the buyer's tender list shows: a notice published in TED and in a
+    national portal is one (the list's collapse rules, `tenders.collapse_clauses`), so the total is the page's
+    "Tenders in archive" and the sources add up to it (BAAINBw: 3,335 against "0 of 5,380 notices"). The years
+    add up to it too: `earlier` and `undated` hold what the shown years do not."""
     today = today or datetime.now(timezone.utc).date()
-    where, params = _buyer_scope(org_id)
+    own, one = _buyer_scope(org_id)
+    where = f"{own} AND {collapse_clauses([own])}"
+    params = one * 4
     head = conn.execute(
         f"""SELECT count(*) AS n, count(*) FILTER (WHERE {_api().EFFECTIVE_STATUS_SQL} = 'open')
                    AS open_n
@@ -489,6 +510,15 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
               FROM opportunity o WHERE {where} AND o.published_at >= %s AND o.published_at <= %s
              GROUP BY 1""", params + [date(first_year, 1, 1), today]).fetchall()
     by_year = {r["y"]: r["n"] for r in rows}
+    dated = conn.execute(
+        f"""SELECT count(*) FILTER (WHERE o.published_at < %s) AS earlier,
+                   count(*) FILTER (WHERE o.published_at IS NULL OR o.published_at > %s) AS undated
+              FROM opportunity o WHERE {where}""", [date(first_year, 1, 1), today] + params).fetchone()
+    amendments = amendment_share(conn, where, params)
+    amendments["observedFrom"] = conn.execute(
+        f"""SELECT min(v.observed_at) AS t FROM opportunity o
+              JOIN opportunity_version v ON v.opportunity_id = o.id AND v.version = 1 WHERE {where}""",
+        params).fetchone()["t"]
     return {
         "buyerId": str(head_id),
         "asOf": datetime.now(timezone.utc),
@@ -498,9 +528,11 @@ def buyer_profile(conn, org_id: int, today: date | None = None) -> dict[str, Any
         "openNow": head["open_n"],
         "perYear": [{"year": y, "count": by_year.get(y, 0)}
                     for y in range(first_year, today.year + 1)],
+        "perYearEarlier": dated["earlier"],
+        "perYearUndated": dated["undated"],
         "cpvGroups": cpv_groups(conn, where, params, TOP_CPV_BUYER),
         "responseWindow": response_window(conn, where, params),
-        "amendments": amendment_share(conn, where, params),
+        "amendments": amendments,
         "sources": notices_per_source(conn, where, params),
         "basis": dict(PROFILE_BASIS),
     }
@@ -519,6 +551,10 @@ class BuyerProfile(BaseModel):
     tenderCount: int
     openNow: int
     perYear: list[YearCount]
+    # WP-87: notices published before the first year of `perYear`, and without a publication date (or dated in the
+    # future): with them the years add up to `tenderCount`
+    perYearEarlier: int = 0
+    perYearUndated: int = 0
     cpvGroups: list[CpvGroupCount]
     responseWindow: ResponseWindow
     amendments: Amendments
@@ -645,11 +681,19 @@ def last_run_finished(conn, kind: str) -> datetime | None:
     """When the newest successful or partial collection run of an active source of this
     kind (`tender` or `grant`) finished: what a list means by "updated". A failed run
     added nothing, so it does not count. `ingest_run` is a few hundred rows."""
-    return conn.execute(
-        """SELECT max(r.finished_at) AS t
+    return last_run(conn, kind)[0]
+
+
+def last_run(conn, kind: str) -> tuple[datetime | None, str | None]:
+    """(`last_run_finished`, the name of the source whose run that was). WP-87: a list says which source
+    its "updated" time is, so that it does not read as the footer's run of any source."""
+    row = conn.execute(
+        """SELECT r.finished_at AS t, s.name
              FROM ingest_run r JOIN source s ON s.id = r.source_id
-            WHERE s.kind = %s AND s.active AND r.status IN ('success', 'partial')""",
-        (kind,)).fetchone()["t"]
+            WHERE s.kind = %s AND s.active AND r.status IN ('success', 'partial') AND r.finished_at IS NOT NULL
+            ORDER BY r.finished_at DESC LIMIT 1""",
+        (kind,)).fetchone()
+    return (row["t"], row["name"]) if row else (None, None)
 
 
 def cached_last_run(conn, kind: str) -> datetime | None:
@@ -662,3 +706,16 @@ def cached_last_run(conn, kind: str) -> datetime | None:
     except psycopg.errors.QueryCanceled:
         conn.rollback()
         return None
+
+
+def list_meta(conn, kind: str) -> dict[str, Any]:
+    """The `meta` of a list: when the newest run of its sources finished, and which source that was
+    (cached like `cached_last_run`; empty when the read does not finish in the API role's budget)."""
+    try:
+        got = cached(("last-run-by", kind), lambda: (lambda r: r if r[0] else None)(last_run(conn, kind)),
+                     LAST_RUN_SECONDS)
+    except psycopg.errors.QueryCanceled:
+        conn.rollback()
+        got = None
+    at, by = got or (None, None)          # no run yet is not cached, like `cached_last_run`
+    return {"updatedAt": at, "updatedBy": by}

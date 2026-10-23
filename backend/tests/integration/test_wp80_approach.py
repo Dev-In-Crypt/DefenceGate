@@ -145,9 +145,9 @@ def test_values_are_summed_only_where_a_notice_names_this_one_winner(world, post
     # of 100,000 is its own; 2-2026 names two winners (shared, attributed to none); DE-1 states no total or lot sum
     t = by_name(post())["Talleres Norte SL"]
     assert t["values"] == {"byCurrency": [{"currency": "EUR", "amount": 100000.0, "count": 1, "lotEstimates": 0}],
-                           "of": 3, "withoutValue": 2, "shared": 1}
+                           "of": 3, "withoutValue": 2, "shared": 1, "suspect": 0}
     assert by_name(post())["Rheinmetall Landsysteme GmbH"]["values"] == {"byCurrency": [], "of": 3, "withoutValue": 3,
-                                                                         "shared": 0}
+                                                                         "shared": 0, "suspect": 0}
 
 
 def set_value(conn, native: str, amount: float, currency: str, kind: str | None) -> None:
@@ -159,10 +159,10 @@ def set_value(conn, native: str, amount: float, currency: str, kind: str | None)
 def test_values_are_summed_per_currency_never_converted_and_lot_estimates_are_counted_apart(world, post, conn):
     set_value(conn, "DE-R0", 1000.0, "EUR", "total")
     set_value(conn, "DE-R1", 2500.5, "EUR", "lot_sum")
-    set_value(conn, "DE-R2", 300.0, "PLN", "total")
+    set_value(conn, "DE-R2", 3000.0, "PLN", "total")
     v = by_name(post())["Rheinmetall Landsysteme GmbH"]["values"]
     assert v["byCurrency"] == [{"currency": "EUR", "amount": 3500.5, "count": 2, "lotEstimates": 1},
-                               {"currency": "PLN", "amount": 300.0, "count": 1, "lotEstimates": 0}]
+                               {"currency": "PLN", "amount": 3000.0, "count": 1, "lotEstimates": 0}]
     assert (v["of"], v["withoutValue"], v["shared"]) == (3, 0, 0)
 
 
@@ -194,12 +194,12 @@ def test_a_twin_pair_is_valued_once(world, post, conn):
 
 def test_a_placsp_awarded_amount_counts_for_its_winner_even_with_several_winners_in_the_folder(world, post, conn):
     # WP-81: the amount is per result (lot) naming this one winner, so the notice's count of winners does not void it
-    conn.execute("UPDATE award SET value_amount = 900, value_currency = 'EUR', winners_in_notice = 2 "
+    conn.execute("UPDATE award SET value_amount = 9000, value_currency = 'EUR', winners_in_notice = 2 "
                  "WHERE opportunity_id = (SELECT id FROM opportunity WHERE native_id = 'ES-S0')")
     conn.commit()
     v = by_name(post())["Recambios Sur SL"]["values"]
-    assert v == {"byCurrency": [{"currency": "EUR", "amount": 900.0, "count": 1, "lotEstimates": 0}],
-                 "of": 2, "withoutValue": 1, "shared": 0}
+    assert v == {"byCurrency": [{"currency": "EUR", "amount": 9000.0, "count": 1, "lotEstimates": 0}],
+                 "of": 2, "withoutValue": 1, "shared": 0, "suspect": 0}
 
 
 def test_a_natural_person_is_never_named_and_never_given_a_sum(world, post, conn):

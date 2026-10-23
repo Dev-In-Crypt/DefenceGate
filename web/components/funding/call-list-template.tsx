@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { CalendarDays, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTimeUtc, plural, repeatedCallBudgets } from '@/lib/format';
-import { DEFAULT_CURRENCY, PARAM, describeCallFilters, toQuery } from '@/lib/filters';
-import { listUpdatedAt } from '@/lib/source-status';
+import { DEFAULT_CURRENCY, PARAM, defaultCallSort, describeCallFilters, dualUseStart, toQuery } from '@/lib/filters';
+import { listUpdatedAt, updatedLine } from '@/lib/source-status';
 import { fundersWithCoverage } from '@/lib/taxonomy';
 import type { CallFilters, Health, ListView, Paginated, Call } from '@/lib/types';
 import type { Crumb } from '@/lib/seo';
@@ -53,6 +53,8 @@ export function CallListTemplate({
   // The time of the data (`meta.updatedAt`), never the render time; left out when the API does not send it.
   const updated = listUpdatedAt(result);
   const repeats = repeatedCallBudgets(result.items);
+  // WP-87: in the default order the defence calls come first; the dual-use ones (the API orders them last) get a heading of their own
+  const dualAt = dualUseStart(result.items, (filters.sort ?? defaultCallSort(filters.status)) === defaultCallSort(filters.status));
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
   const viewHref = (v: ListView) => `${basePath}${toQuery({ ...filters, page: 1 }, { [PARAM.view]: v === 'calendar' ? v : undefined })}`;
@@ -60,7 +62,7 @@ export function CallListTemplate({
   return (
     <>
       <PageHeader crumbs={crumbs} title={title} lead={intro}
-        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources · Deadlines in UTC${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}`} />
+        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}`} />
 
       {/* Before the chips and the filters: from the top of the page to the first call in a few stops (WP-58). */}
       <SkipToResults />
@@ -127,7 +129,12 @@ export function CallListTemplate({
             <CallCalendar calls={result.items} />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-4 p-0">
-              {result.items.map((c) => <FitItem key={c.id} id={c.id}><CallCard call={c} budgetRepeated={repeats.has(c.id)} /></FitItem>)}
+              {result.items.map((c, i) => (
+                <FitItemWithHeading key={c.id} heading={i === dualAt}
+                  others={`${basePath}${toQuery({ ...filters, regime: ['defence'], page: 1 })}`}>
+                  <FitItem id={c.id}><CallCard call={c} budgetRepeated={repeats.has(c.id)} /></FitItem>
+                </FitItemWithHeading>
+              ))}
             </ul>
           )}
 
@@ -140,6 +147,22 @@ export function CallListTemplate({
         </ResultsRegion>
       </div>
       </LiveListScope>
+    </>
+  );
+}
+
+/** The heading of the dual-use part of the list (WP-87), before its first call; the call itself as it is otherwise. */
+function FitItemWithHeading({ heading, others, children }: { heading: boolean; others: string; children: React.ReactNode }) {
+  if (!heading) return <>{children}</>;
+  return (
+    <>
+      <li className="flex flex-col gap-1 pt-2" data-dual-use-heading>
+        <h3 className="m-0 text-h3">Dual-use calls</h3>
+        <p className="m-0 max-w-prose text-small text-ink-muted">
+          Calls for research and products with civil and defence uses, listed after the defence calls. <Link href={others} className="font-semibold">Show only defence calls</Link>.
+        </p>
+      </li>
+      {children}
     </>
   );
 }

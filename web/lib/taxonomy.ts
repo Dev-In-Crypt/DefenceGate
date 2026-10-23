@@ -105,9 +105,9 @@ export function programmeBySlug(slug: string): ProgrammeCode | undefined {
  * code alone from a police, prison, border, customs or tax body.
  */
 export const TENDER_SCOPES: Record<'core' | 'supply', { label: string; hint: string; also?: string }> = {
-  core: { label: 'Defence notice', hint: 'The notice itself is defence.' },
+  core: { label: 'Military goods and works', hint: 'The notice itself is defence.' },
   supply: {
-    label: 'Supplies to a defence buyer',
+    label: 'Other purchase by armed forces',
     hint: 'Only the buyer is a defence body; the notice itself is not marked as defence.',
     also: 'This list also holds notices with a single defence signal from the wrong kind of buyer: “Filed under the defence procurement directive by a civil buyer”, and “Security-body purchase of a military-type product code” (police, prison, border, customs or tax bodies).',
   },
@@ -120,12 +120,12 @@ export const TENDER_SCOPES: Record<'core' | 'supply', { label: string; hint: str
  */
 export const SCOPE_CHOICES: Record<'relevant' | 'core' | 'supply' | 'all', { label: string; short: string; hint: string }> = {
   relevant: {
-    label: 'Defence-relevant (core + supplies to defence buyers)', short: 'Defence-relevant',
+    label: 'All defence', short: 'All defence',
     hint: 'Both lists below together. This is what the site shows unless you choose another.',
   },
-  core: { label: 'Core: the notice itself is defence', short: 'Core defence notices', hint: TENDER_SCOPES.core.hint },
-  supply: { label: 'Supplies to defence buyers only', short: 'Supplies to defence buyers', hint: TENDER_SCOPES.supply.hint },
-  all: { label: 'All, including notices that are only dual-use', short: 'All notices', hint: 'Everything we hold that has any defence signal, also a military code bought by a municipality or a hospital.' },
+  core: { label: 'Military goods and works', short: 'Military goods and works', hint: TENDER_SCOPES.core.hint },
+  supply: { label: 'Other purchases by armed forces', short: 'Other purchases by armed forces', hint: TENDER_SCOPES.supply.hint },
+  all: { label: 'Everything, also dual-use purchases of civil buyers', short: 'All notices', hint: 'Everything we hold that has any defence signal, also a military code bought by a municipality or a hospital.' },
 };
 
 /** Legal bases we can name. Anything else is shown as the source gives it. */
@@ -170,6 +170,11 @@ export function procedureLabel(procedure: string): string | null {
  * division level of the rest. Codes outside this table are shown as a bare code, never guessed.
  */
 const CPV_LABELS: Record<string, string> = {
+  // WP-87: the four divisions /suppliers showed without a name (titles from the CPV 2008 vocabulary, lib/data/cpv-full.json)
+  '16': 'Agricultural machinery',
+  '41': 'Collected and purified water',
+  '76': 'Services related to the oil and gas industry',
+  '77': 'Agricultural, forestry, horticultural, aquacultural and apicultural services',
   '03': 'Agricultural, farming, fishing, forestry and related products',
   '09': 'Petroleum products, fuel, electricity and other sources of energy',
   '14': 'Mining, basic metals and related products',

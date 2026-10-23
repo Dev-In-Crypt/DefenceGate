@@ -30,8 +30,10 @@ export function SkipToResults() {
  * filter column, results column (count, sort, items, pagination). `children` are the <li> items.
  */
 export function ListPage({
-  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, children,
+  crumbs, title, intro, head, meta, scope, listNote, filterBar, filterExtra, exportHref, exportStatus, noun, page, pageSize, total, sort, clearHref, emptyTitle, emptyText, hrefFor, footnote, notices = [], totalText, reachable, limitNote, calendarHref = '/calendar?kind=tenders', feedHref, children,
 }: {
+  /** WP-87: the calendar and the Atom feed of this result, with its filters. */
+  calendarHref?: string; feedHref?: string;
   crumbs: Crumb[]; title: string; intro?: string; meta?: string; filterBar: React.ReactNode;
   /** Under the title in place of (or after) the intro: the tabs of Companies (WP-86). */
   head?: React.ReactNode;
@@ -72,7 +74,7 @@ export function ListPage({
         <div className={FILTER_COLUMN}>
           <SkipToResults />
           {filterBar}{filterExtra}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="hidden lg:flex" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="hidden lg:flex" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </div>
         <ResultsRegion id="results" tabIndex={-1} aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4 outline-none">
           {scope}
@@ -93,7 +95,7 @@ export function ListPage({
           <Pagination page={page} total={reachable ?? total} pageSize={pageSize} hrefFor={hrefFor} />
           {footnote && (typeof footnote === 'string' ? <p className="m-0 max-w-prose text-small text-ink-muted">{footnote}</p> : footnote)}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=tenders" className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </ResultsRegion>
       </div>
       </LiveListScope>

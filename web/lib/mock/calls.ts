@@ -183,7 +183,10 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
   if (f.ukraine) items = items.filter((c) => c.openToUkraine === true);
 
   const sort = f.sort ?? defaultCallSort(status);
+  // Like the API (WP-87): the default order lists the defence calls first, then the dual-use ones, each part in its own order.
+  const defenceFirst = sort === defaultCallSort(status);
   items = items.sort((a, b) => {
+    if (defenceFirst && a.regime !== b.regime) return a.regime === 'dual-use' ? 1 : -1;
     // Closed calls always last; calls without a deadline after those with one.
     const closedA = a.status === 'closed', closedB = b.status === 'closed';
     if (closedA !== closedB) return closedA ? 1 : -1;

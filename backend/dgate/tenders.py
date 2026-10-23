@@ -42,7 +42,7 @@ from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from .classify import (
@@ -80,6 +80,43 @@ PLACEHOLDER_VALUE_MAX = 1
 # A national deadline this far from its TED twin's is read as a typo in the national source
 # (data-correctness DC2/DC8, 14 October 2026), and the twin's is shown with its provenance.
 TWIN_DEADLINE_DIFFERS_DAYS = 90
+# WP-87: the anomaly of a notice whose TED twin's (first) deadline has passed while its own, later one has not.
+FIRST_DEADLINE_PASSED = "first-deadline-passed"
+
+
+def shown_deadline(own: datetime | None, twin: datetime | None,
+                   now: datetime | None = None) -> tuple[datetime | None, str | None, bool]:
+    """(the deadline a notice shows, `deadlineFrom`, whether its TED twin's first deadline has passed).
+
+    A national deadline more than TWIN_DEADLINE_DIFFERS_DAYS from its TED twin's is replaced by the twin's (a typo
+    in the national source), except when the twin's has passed and the notice's own is still ahead (WP-87). That is
+    a dynamic purchasing system or a framework: TED states the first round's deadline, the national notice the end
+    of the system, which takes requests until then. The list's status (`status_conditions`, the notice's own
+    deadline) already listed it as open, and the card said "Closed" beside it. Now the card keeps the notice's own
+    deadline, stays open and says the first deadline has passed."""
+    if own is None or twin is None or abs(own - twin) <= timedelta(days=TWIN_DEADLINE_DIFFERS_DAYS):
+        return own, None, False
+    now = now or datetime.now(timezone.utc)
+    if twin < now <= own:
+        return own, None, True
+    return twin, "ted_twin", False
+
+
+def known_params(request: Request) -> None:
+    """A dependency that refuses a query parameter the endpoint does not take (422) instead of ignoring it:
+    `/v1/changes?cpv=35` answered every change as if the code had been read (WP-87). The answer names the
+    parameters the endpoint takes, never the one sent."""
+    route = request.scope.get("route")
+    if route is None or not hasattr(route, "dependant"):
+        return
+    names: set[str] = set()
+    todo = [route.dependant]
+    while todo:                          # the endpoint's own parameters and those of its dependencies
+        d = todo.pop()
+        names.update(p.alias for p in d.query_params)
+        todo.extend(d.dependencies)
+    if set(request.query_params) - names:
+        raise HTTPException(422, "unknown query parameter; this endpoint takes: " + ", ".join(sorted(names)))
 # A tender deadline further ahead than this is flagged (`deadline-more-than-1y`): 8.3 % of
 # the open set on 14 October 2026, most of it a typo in the source. Calls keep the 3-year
 # rule of `funding.anomalies`: a grant's cut-offs are legitimately far ahead.
@@ -464,7 +501,8 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
               checked: datetime | None = None,
               amended: bool | None = None,
               buyer_page: bool = True,
-              last_change_kind: str | None = None) -> dict[str, Any]:
+              last_change_kind: str | None = None,
+              buyer_head: int | None = None) -> dict[str, Any]:
     api = _api()
     title_en = redact_emails(r.get("title_en"))
     original = redact_emails(r["title_original"])
@@ -476,14 +514,14 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
     if procedure is None and extra.get("procedure"):
         procedure = procedure_label(extra["procedure"])
         procedure_from = "ted_twin" if procedure else None
-    if (deadline is not None and extra.get("deadline") is not None
-            and abs(deadline - extra["deadline"]) > timedelta(days=TWIN_DEADLINE_DIFFERS_DAYS)):
-        deadline, deadline_from = extra["deadline"], "ted_twin"
+    deadline, deadline_from, first_passed = shown_deadline(deadline, extra.get("deadline"))
     eff = api.effective_status(r.get("status"), deadline, r.get("published_at"),
                                superseded=superseded)
     notes = anomalies(deadline, r.get("published_at"))
     if deadline_from:
         notes.append("deadline-differs-from-ted-twin")
+    if first_passed:
+        notes.append(FIRST_DEADLINE_PASSED)
     if (deadline is not None and "deadline-more-than-3y" not in notes and deadline
             > datetime.now(timezone.utc) + timedelta(days=TENDER_DEADLINE_HORIZON_DAYS)):
         notes.append("deadline-more-than-1y")
@@ -519,7 +557,10 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         "originalLanguage": r.get("original_language") if other else None,
         "buyerId": str(org_id) if org_id else None,
         # Null when the buyer has no page (`buyers_with_page`): a link to a 404 is worse than a name.
-        "buyerSlug": make_slug(org_id, org_name) if org_id and buyer_page else None,
+        # WP-87: the family's head, whose page it is: a member's own id (/buyers/28871-baainbw) read as a second
+        # BAAINBw although its page redirects to the head
+        "buyerSlug": (make_slug(buyer_head or org_id, names.get(buyer_head or org_id) or org_name)
+                      if org_id and buyer_page else None),
         "buyerName": buyer_name,
         "buyerCanonicalName": org_name if org_id else None,
         "country": r.get("country"),
@@ -641,7 +682,10 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
     """`checked`: also say when each notice's source was last collected (`source.checkedAt`).
     Only the API's own endpoints ask: the account role reads no run table."""
     ids = [r["id"] for r in rows]
-    names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
+    orgs = sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")})
+    heads = {r["id"]: r["head"] for r in conn.execute(
+        "SELECT x.id, dgate_buyer_head(x.id) AS head FROM unnest(%s::bigint[]) AS x(id)", (orgs,)).fetchall()} if orgs else {}
+    names = _buyer_names(conn, sorted(set(orgs) | set(heads.values())))
     info = _version_info(conn, ids)
     versions = {i: n for i, (n, _, _) in info.items()}
     twins = _api()._twins(conn, ids)
@@ -662,7 +706,8 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
             first_seen=span.get(r["id"], (None, None))[0], twin_extra=extras.get(r["id"]),
             checked=runs.get(r["source_code"]), amended=amended,
             buyer_page=r.get("buyer_org_id") in paged,
-            last_change_kind="amendment" if amended else "first_seen"))
+            last_change_kind="amendment" if amended else "first_seen",
+            buyer_head=heads.get(r.get("buyer_org_id"))))
     return out
 
 
@@ -762,6 +807,13 @@ ORDER_DEADLINE_ASC = "o.deadline_at ASC NULLS LAST, o.id ASC"
 ORDER_OPEN_DEADLINE = "(o.deadline_at IS NULL), o.deadline_at ASC, o.id ASC"
 ORDER_DEADLINE_DESC = "o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST, o.id DESC"
 ORDER_PUBLISHED_DESC = "coalesce(o.published_at, o.notice_date) DESC NULLS LAST, o.id DESC"
+
+
+def core_first(status: str, scope: str, sort: str | None) -> bool:
+    """WP-87: whether a list leads with its core notices: the default view (open, the defence-relevant scope, no
+    sort asked for) and an explicit `core-first`. Musical instruments and stair repairs bought by a defence body
+    stood first because their deadline was soonest; a core notice now always comes before them."""
+    return status == "open" and scope == "relevant" and sort in (None, "core-first")
 
 
 def tender_order(sort: str | None, status: str, eff: str) -> str:
@@ -1001,7 +1053,7 @@ def list_tenders(
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
     currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
-    sort: str | None = Query(None, pattern="^(deadline-asc|deadline-desc|published-desc)$"),
+    sort: str | None = Query(None, pattern="^(core-first|deadline-asc|deadline-desc|published-desc)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
     confidence: str | None = Query(None, max_length=40),
@@ -1015,7 +1067,10 @@ def list_tenders(
       - the total is counted up to `TOTAL_CAP`; a longer list says `totalCapped` (or repeats the exact
         total a snapshot holds for the same filters)
       - `all` with no sort, or sorted by deadline, is the open notices (soonest deadline first) and then
-        the rest, as two reads: the open part is a few thousand rows, found by index"""
+        the rest, as two reads: the open part is a few thousand rows, found by index
+      - WP-87: the default view (open, the defence-relevant scope, no sort asked for, or `core-first`) leads with
+        the core notices (the notice itself is defence), soonest deadline first, then the other purchases of
+        defence buyers; the same two-read way. The total is the same list's: only the order changes"""
     where, params, eff = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
                                          to, min_, max_, currency, conn=conn)
     levels = _confidence_levels(confidence)
@@ -1029,6 +1084,8 @@ def list_tenders(
     if status == "all" and sort in (None, "deadline-asc"):
         parts = [(status_conditions("open", eff), ORDER_OPEN_DEADLINE),
                  (status_conditions("rest", eff), ORDER_DEADLINE_ASC)]
+    elif core_first(status, scope, sort):
+        parts = [([CORE], ORDER_OPEN_DEADLINE), ([f"NOT ({CORE})"], ORDER_OPEN_DEADLINE)]
     else:
         parts = [([], tender_order(sort, status, eff))]
 
@@ -1057,7 +1114,7 @@ def list_tenders(
         else:
             n_rest, capped = _count(conn, where, params, rest_extra)
         total, capped = n_open + n_rest, capped or open_capped
-        if capped:
+        if capped and status == "all":
             # "At least" is never below the Open list of the same filters (re-audit of the data pages, NEW-2:
             # "at least 112" for Bundeswehr, Open alone 116). The Open list collapses twins among open notices
             # only; here an open notice whose twin is closed is counted in the rest, which the time box did not
@@ -1084,12 +1141,12 @@ def list_tenders(
     if capped and rows:
         # "At least": never fewer than what has been read, and a full page may be followed by another.
         total = max(total, start + len(rows) + (1 if len(rows) >= pageSize else 0))
-    from .stats import cached_last_run  # stats imports this module
+    from .stats import list_meta  # stats imports this module
 
     return {"items": _present(conn, rows, checked=with_meta is True), "total": total,
             "totalCapped": capped, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
             "asOf": datetime.now(timezone.utc),
-            "meta": {"updatedAt": cached_last_run(conn, "tender") if with_meta is True else None}}
+            "meta": list_meta(conn, "tender") if with_meta is True else {}}
 
 
 EXPORT_MAX_LIMIT = 2000
@@ -1225,23 +1282,30 @@ class CalendarPage(BaseModel):
     asOf: datetime
 
 
-@router.get("/v1/tenders/calendar", response_model=CalendarPage)
+@router.get("/v1/tenders/calendar", response_model=CalendarPage, dependencies=[Depends(known_params)])
 @cache_list("tender-calendar", ttl=5 * 60)
 def tender_calendar(
+    q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
+    cpv: str | None = Query(None, max_length=400),
     scope: str = Query("relevant", pattern="^(relevant|core|supply|all)$"),
+    goods: str | None = Query(None, pattern="^defence$"),
     from_: date | None = Query(None, alias="from"),
     to: date | None = None,
+    min_: float | None = Query(None, alias="min", ge=0, le=1e13),
+    max_: float | None = Query(None, alias="max", ge=0, le=1e13),
+    currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
     maxItems: int = Query(CALENDAR_LIMIT, ge=1, le=CALENDAR_LIMIT),
     conn=Depends(get_conn),
 ):
     """The open notices that state a deadline, soonest first, with nothing but what a calendar draws
     (WP-52, T9). The list endpoint serves 250 notices a page and the calendar read five pages of it: the 500
     earliest of 1,529, so November had no tender. This is the whole range in one answer, in the list's own
-    status, scope and collapse rules and with the same deadline the notice's page shows (a national deadline
-    90 days or more from its TED twin's is replaced by the twin's)."""
-    where, params, eff = _tender_filters(None, country, None, "open", scope, None, None, from_, to,
-                                         None, None, None)
+    status, scope and collapse rules and with the same deadline the notice's page shows (`shown_deadline`).
+    WP-87: the list's own filters (q, country, cpv, scope, goods, dates, value), read by `_tender_filters` as the
+    list reads them, so a filtered list and its calendar hold the same notices; any other parameter is a 422."""
+    where, params, eff = _tender_filters(q, country, cpv, "open", scope, goods, None, from_, to,
+                                         min_, max_, currency)
     where.append("o.deadline_at IS NOT NULL")
     rows = _rows(conn, where, params, [], ORDER_OPEN_DEADLINE, maxItems + 1, 0)
     truncated = len(rows) > maxItems
@@ -1251,14 +1315,14 @@ def tender_calendar(
     names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
     items = []
     for r in rows:
-        deadline, deadline_from = r["deadline_at"], None
-        twin = (extras.get(r["id"]) or {}).get("deadline")
-        if twin is not None and abs(deadline - twin) > timedelta(days=TWIN_DEADLINE_DIFFERS_DAYS):
-            deadline, deadline_from = twin, "ted_twin"
+        deadline, deadline_from, first_passed = shown_deadline(r["deadline_at"],
+                                                               (extras.get(r["id"]) or {}).get("deadline"))
         eff_status = api.effective_status(r.get("status"), deadline, r.get("published_at"))
         notes = anomalies(deadline, r.get("published_at"))
         if deadline_from:
             notes.append("deadline-differs-from-ted-twin")
+        if first_passed:
+            notes.append(FIRST_DEADLINE_PASSED)
         if "deadline-more-than-3y" not in notes and deadline > datetime.now(timezone.utc) + timedelta(
                 days=TENDER_DEADLINE_HORIZON_DAYS):
             notes.append("deadline-more-than-1y")

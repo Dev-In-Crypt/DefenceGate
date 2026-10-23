@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { cpvGroupName } from '@/lib/cpv';
 import { formatNumber, plural } from '@/lib/format';
-import { daysText, percentText } from '@/lib/market';
+import { amendmentsShown, daysText, percentText, profileYearBars } from '@/lib/market';
 import type { BuyerProfile } from '@/lib/types';
 import { FactCell } from '@/components/dg/data-display';
 import { BarChart, RankTable } from './charts';
@@ -16,13 +16,15 @@ const BASIS = 'm-0 max-w-prose text-small text-ink-muted';
 export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; name: string }) {
   const w = profile.responseWindow;
   const a = profile.amendments;
-  const years = profile.perYear;
-  const lastYear = years[years.length - 1]?.year;
+  // WP-87: the years with the notices before them and those without a date, so the bars add up to the total
+  const bars = profileYearBars(profile);
+  const counted = bars.reduce((n, b) => n + b.primary, 0);
+  const watched = amendmentsShown(a, profile.asOf);
   return (
     <section aria-labelledby="buyer-profile" className="flex flex-col gap-4">
       <h2 id="buyer-profile" className="m-0 text-h2">Profile</h2>
       <p className="m-0 max-w-prose text-body text-ink-muted">
-        Counts of {name}&apos;s defence notices in our archive, from {profile.sources.length === 1 ? 'one source' : `${profile.sources.length} sources`}.
+        Counts of {name}&apos;s {formatNumber(profile.tenderCount)} defence notices in our archive (the “Tenders in archive” above: a notice published in TED and in a national portal is one), from {profile.sources.length === 1 ? 'one source' : `${profile.sources.length} sources`}.
         They count notices, not contract value, and are only as complete as those sources: see <Link href="/data" className="font-semibold">source status</Link>.
       </p>
       <dl className="facts-grid m-0 border-b border-line">
@@ -34,10 +36,18 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
           </span>
         </FactCell>
         <FactCell label="With an amendment">
-          <span>{percentText(a.share)}</span>
-          <span className="block font-sans text-small font-normal text-ink-muted">
-            {formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}, counted from when we first saw each one (September 2026 at the earliest).
-          </span>
+          {watched.shown ? (
+            <>
+              <span>{percentText(a.share)}</span>
+              <span className="block font-sans text-small font-normal text-ink-muted">
+                {formatNumber(a.amended)} of {formatNumber(a.notices)} {plural(a.notices, 'notice')}, counted from when we first saw each one ({watched.since}).
+              </span>
+            </>
+          ) : (
+            <span className="block font-sans text-small font-normal text-ink-muted" data-amendments-pending>
+              Not shown yet: we have watched this buyer’s notices only since {watched.since}, too short to say how often it amends. Shown after six months.
+            </span>
+          )}
         </FactCell>
       </dl>
 
@@ -47,8 +57,8 @@ export function BuyerProfileSection({ profile, name }: { profile: BuyerProfile; 
           <BarChart
             id="buyer-years"
             title={`Notices published per year by ${name}`}
-            summary={`${formatNumber(years.reduce((n, y) => n + y.count, 0))} ${plural(years.reduce((n, y) => n + y.count, 0), 'notice')} over the last ${years.length} ${plural(years.length, 'year')}.`}
-            bars={years.map((y) => ({ label: String(y.year), primary: y.count, partial: y.year === lastYear }))}
+            summary={`${formatNumber(counted)} ${plural(counted, 'notice')}, the total above.`}
+            bars={bars}
             primaryName="Notices"
             labelHeader="Year"
           />

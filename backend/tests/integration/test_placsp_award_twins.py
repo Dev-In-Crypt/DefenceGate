@@ -131,7 +131,7 @@ def test_one_award_in_ted_and_placsp_counts_once_and_the_numbered_record_stands_
     assert [(float(r["value_amount"]), r["value_currency"]) for r in stored] == [(250000.0, "EUR")]
     assert notice["valueAmount"] == 250000.0 and notice["valueCurrency"] == "EUR"
     assert profile["values"] == {"byCurrency": [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}],
-                                 "of": 1, "withoutValue": 0, "shared": 0}
+                                 "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
     assert before["profiles"][0]["values"]["byCurrency"] == []     # off: the TED notice states none, PLACSP is not read
 
 
@@ -152,7 +152,7 @@ def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, e
     assert notice["source"] == "ted" and [r["source"] for r in notice["alsoPublished"]] == ["es_placsp"]
     assert got["profiles"][0]["values"] == {
         "byCurrency": [{"currency": "EUR", "amount": 250000.0, "count": 1, "lotEstimates": 0}],
-        "of": 1, "withoutValue": 0, "shared": 0}
+        "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
     assert notice["valueAmount"] == 250000.0
     # without a PLACSP amount, the TED value stands, still once
     conn.execute("UPDATE award SET value_amount = NULL, value_currency = NULL")
@@ -178,7 +178,7 @@ def test_a_placsp_row_standing_for_the_pair_takes_the_ted_value_when_it_states_n
     [profile] = got["profiles"]
     assert profile["notices"][0]["source"] == "es_placsp" and profile["notices"][0]["valueAmount"] == 7000.0
     assert profile["values"] == {"byCurrency": [{"currency": "EUR", "amount": 7000.0, "count": 1, "lotEstimates": 0}],
-                                 "of": 1, "withoutValue": 0, "shared": 0}
+                                 "of": 1, "withoutValue": 0, "shared": 0, "suspect": 0}
 
 
 def test_one_number_on_two_organisations_is_one_winner(conn, env, monkeypatch):

@@ -6,8 +6,10 @@ import {
   activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
-import { countsAsOf, cutSentence, reachableTotal, totalWords } from '@/lib/list-count';
-import { listUpdatedAt, staleNote, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
+import { cutSentence, listStamps, reachableTotal, totalWords } from '@/lib/list-count';
+import { calendarHrefFor } from '@/lib/calendar';
+import { toChangeQuery } from '@/lib/filters';
+import { listUpdatedAt, staleNote, updatedLine, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
 import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
 import { TenderCard } from '@/components/dg/cards';
@@ -19,6 +21,8 @@ import { SaveSearch } from '@/components/account/save-search';
 export const revalidate = 60;
 
 const SORT_OPTIONS = [
+  // WP-87: the open list's default, the military goods and works first (only for Open, the scope All defence)
+  { value: 'core-first', label: 'Military goods and works first, then soonest deadline' },
   { value: 'deadline-asc', label: 'Deadline, soonest first' },
   { value: 'deadline-desc', label: 'Deadline, latest first' },
   { value: 'published-desc', label: 'Published, newest first' },
@@ -56,14 +60,21 @@ export default async function TendersPage({ searchParams }: Props) {
   const tenderSources = health.sources.filter((s) => s.type === 'tenders').length;
   // The time of the data (`meta.updatedAt`), never the render time; the line is left out when the API does not send it.
   const updated = listUpdatedAt(result);
-  const countedAt = countsAsOf(result.asOf);
+  // WP-87: one stamp for the list and its scope counts when they are of the same minute; two, each named, when not
+  const stamps = listStamps(result, scopeCounts);
   return (
     <ListPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Tenders', href: '/tenders' }]}
       title="Tenders"
       intro="Procurement notices from defence buyers, in one list. Every deadline is in UTC, every notice links to its source, and changes to dates, values and status are kept in its version history."
-      meta={`${tenderSources} tender sources${updated ? ` · Data updated ${formatDateTimeUtc(updated)}` : ''}${countedAt ? ` · ${countedAt}` : ''}`}
-      filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} />}
+      meta={`${tenderSources} tender sources${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}${stamps.list ? ` · ${stamps.list}` : ''}`}
+      filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} countsNote={stamps.scope} />}
+      calendarHref={calendarHrefFor(filters)}
+      feedHref={`/changes.atom${toChangeQuery({
+        country: filters.country, scope: filters.scope === 'relevant' ? undefined : filters.scope, goods: filters.goods, q: filters.q,
+        cpv: filters.cpv, deadlineFrom: filters.deadlineFrom, deadlineTo: filters.deadlineTo, valueMin: filters.valueMin,
+        valueMax: filters.valueMax, currency: filters.currency,
+      })}`}
       // The accounts service keeps open, closed and all; a saved search for Planned would be refused.
       filterExtra={filters.status === 'planned' ? undefined : <SaveSearch kind="tender" filters={filtersFromQuery(toTenderQuery({ ...filters, page: 1 }))} />}
       // Every status and scope with nothing to narrow them is refused by the export (400): no link to a refusal.

@@ -115,14 +115,15 @@ test('the tenders CSV downloads for the default scope and for closed notices, ne
 
 test('/tenders: the default scope is defence-relevant, with counts, and an explicit scope keeps its meaning', async ({ page }) => {
   await visit(page, '/tenders', { title: /tenders/i, h1: 'Tenders' });
-  const relevant = page.getByLabel(/Defence-relevant \(core \+ supplies to defence buyers\)/);
+  // WP-87: the plain names of the owner's choice ("All defence", "Military goods and works", "Other purchases by armed forces")
+  const relevant = page.getByLabel(/^All defence/);
   await expect(relevant).toBeChecked();
   // The three choices say how many each leads to; the count is a number, not a dash.
   await openFilters(page);
-  await expect(page.getByText(/Core: the notice itself is defence/)).toBeVisible();
-  await expect(page.getByText(/Supplies to defence buyers only/)).toBeVisible();
+  await expect(page.getByLabel(/^Military goods and works/)).toBeVisible();
+  await expect(page.getByLabel(/^Other purchases by armed forces/)).toBeVisible();
   await visit(page, '/tenders?scope=core', { title: /tenders/i, h1: 'Tenders' });
-  await expect(page.getByLabel(/Core: the notice itself is defence/)).toBeChecked();
+  await expect(page.getByLabel(/^Military goods and works/)).toBeChecked();
 });
 
 test('a tender card says why it is on the list and shows the deadline in the buyer’s time', async ({ page }) => {

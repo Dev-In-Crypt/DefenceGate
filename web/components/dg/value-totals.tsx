@@ -1,4 +1,4 @@
-import { sumLines, VALUE_RULES, withoutValueLine, type ValueTotals } from '@/lib/value-totals';
+import { sumLines, suspectLine, VALUE_RULES, withoutValueLine, type ValueTotals } from '@/lib/value-totals';
 import { Details } from './details';
 
 /**
@@ -8,6 +8,7 @@ import { Details } from './details';
 export function ValueTotalsBlock({ values, noun, scope, className }: { values: ValueTotals; noun: string; scope: string; className?: string }) {
   const lines = sumLines(values, noun);
   const without = withoutValueLine(values, noun);
+  const suspect = suspectLine(values, noun);
   return (
     <Details summary="Contract values" className={className}>
       <div data-value-totals className="flex flex-col gap-2">
@@ -19,6 +20,7 @@ export function ValueTotalsBlock({ values, noun, scope, className }: { values: V
           <p className="m-0 text-ink">No value to sum.</p>
         )}
         {without && <p className="m-0" data-value-without>{without}</p>}
+        {suspect && <p className="m-0" data-value-suspect>{suspect}</p>}
         <p className="m-0">{scope} {VALUE_RULES}</p>
       </div>
     </Details>

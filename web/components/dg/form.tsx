@@ -42,11 +42,11 @@ export function Textarea({ label, hint, error, className, ...rest }: FieldProps 
   );
 }
 
-/** Native checkbox/radio, 20px, ink border, primary fill when checked. */
+/** Native checkbox/radio, 24px (WP-87: the box itself meets the 24 px target size, not only its 44 px label row), ink border, primary fill when checked. */
 export function Choice({ type = 'checkbox', label, hint, ...rest }: { type?: 'checkbox' | 'radio'; label: React.ReactNode; hint?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>) {
   return (
     <label className={cn('flex min-h-11 cursor-pointer items-start gap-2.5 pt-3 text-body', rest.disabled && 'cursor-not-allowed text-ink-muted')}>
-      <input type={type} className={cn('mt-0.5 size-5 shrink-0 cursor-[inherit] border-strong border-ink accent-primary', type === 'checkbox' ? 'rounded-[6px]' : 'rounded-pill')} {...rest} />
+      <input type={type} className={cn('size-6 shrink-0 cursor-[inherit] border-strong border-ink accent-primary', type === 'checkbox' ? 'rounded-[6px]' : 'rounded-pill')} {...rest} />
       <span className="flex flex-col">
         <span>{label}</span>
         {hint && <span className="text-small text-ink-muted">{hint}</span>}

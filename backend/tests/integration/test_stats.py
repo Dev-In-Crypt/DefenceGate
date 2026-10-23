@@ -268,7 +268,10 @@ def test_a_buyer_profile_is_the_buyers_own_core_notices(client, conn):
     assert {c["group"] for c in body["cpvGroups"]} == {"354", "358"}
     assert {(s["id"], s["count"]) for s in body["sources"]} == {("ted", 4), ("fr_boamp", 1)}
     assert body["responseWindow"]["notices"] == 5 and body["responseWindow"]["median"] == 21
-    assert body["amendments"] == {"notices": 5, "amended": 0, "share": 0.0}
+    observed = body["amendments"].pop("observedFrom")         # WP-87: since when these notices are watched
+    assert body["amendments"] == {"notices": 5, "amended": 0, "share": 0.0} and observed is not None
+    # WP-87: the years add up to the total with the notices before them and those without a date
+    assert sum(y["count"] for y in body["perYear"]) + body["perYearEarlier"] + body["perYearUndated"] == body["tenderCount"]
     assert body["openNow"] == client.get(f"/v1/buyers/{slug}").json()["openCount"]
 
 

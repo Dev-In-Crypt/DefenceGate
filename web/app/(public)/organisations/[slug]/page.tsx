@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { formatDateUtc, formatNumber } from '@/lib/format';
-import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, formatEur, isNetworkSlug, methodWord, programmeName, yearsLabel } from '@/lib/networks';
+import { DEFENCE_PROGRAMMES, PARTNER_PAGE_SIZE, PROGRAMME_CHOICES, PROJECT_PAGE_SIZE, contributionMissing, formatEur, isNetworkSlug, methodWord, programmeName, yearsLabel } from '@/lib/networks';
 import { AboutData, InfoLink } from '@/components/dg/about-data';
 import { getOrganisation, getOrganisationFunding, getOrganisationProjects, getPartners } from '@/lib/networks-api';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
@@ -90,7 +90,7 @@ export default async function OrganisationPage({ params, searchParams }: Props) 
           <FactCell label="Projects, all programmes"><span className="tabular-nums">{org.counts.projects}</span></FactCell>
           <FactCell label="As coordinator"><span className="tabular-nums">{org.counts.coordinated}</span></FactCell>
           <FactCell label="EU contribution">
-            {org.counts.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(org.counts.euContribution)}
+            {org.counts.euContribution === null ? <span className="font-sans">{contributionMissing(org.programmes.map((p) => p.code))}</span> : formatEur(org.counts.euContribution)}
           </FactCell>
           <FactCell label="Active"><span>{yearsLabel(org.counts.firstYear, org.counts.lastYear)}</span></FactCell>
         </FactsGrid>
@@ -161,7 +161,7 @@ function Overview({ org }: { org: OrgProfile }) {
               <FactsGrid key={p.code || 'none'} className="facts-grid--4 border-b-0 [&>div:first-child]:border-t-0">
                 <Fact label="Programme">{p.name || p.code}</Fact>
                 <Fact label="Projects" mono>{p.projects}</Fact>
-                <Fact label="EU contribution" mono>{p.euContribution === null ? <span className="font-sans">Not stated</span> : formatEur(p.euContribution)}</Fact>
+                <Fact label="EU contribution" mono>{p.euContribution === null ? <span className="font-sans">{contributionMissing([p.code])}</span> : formatEur(p.euContribution)}</Fact>
                 <Fact label="Years" mono>{yearsLabel(p.firstYear, p.lastYear)}</Fact>
               </FactsGrid>
             ))}

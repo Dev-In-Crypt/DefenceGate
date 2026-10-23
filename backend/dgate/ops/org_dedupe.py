@@ -20,6 +20,11 @@ and none of these holds in the group (then it is left alone, for the family laye
   * two different legal forms among the names (RENK AG and RENK GmbH are two bodies)
   * a row removed on request (suppressed)
 
+WP-87: the rows looked at are the organisations of a project AND the contract winners of the supplier map (an award
+row): "Hensoldt Optronics GmbH" and "Rolls-Royce Solutions GmbH" stood twice on /suppliers because no winner was ever
+in the focus. A group that only winners bring in is left alone when one of its rows is a public body
+(`buyer_family.is_public_body`, `public_body`): public bodies are never merged by this company rule.
+
 The head of a group is the row that holds a PIC, else one with a readable name, else the oldest. Each other row is merged with
 `db.merge_organisations` (method, confidence and evidence stored; aliases and notices re-pointed;
 nothing deleted; the alias remembers `prev_organisation_id`, which is how the existing merge is undone).
@@ -38,6 +43,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .. import db, networks
+from ..buyer_family import is_public_body
 from ..config import settings
 from ..resolution.cascade import clean_vat
 from ..resolution.names import fold_key, key_of, legal_form_of
@@ -64,7 +70,7 @@ def key_of_row(row: dict[str, Any]) -> str:
 
 
 def plan(rows: list[dict[str, Any]], forms: dict[int, set[str]] | None = None,
-         focus: set[int] | None = None) -> tuple[list[Group], dict[str, int]]:
+         focus: set[int] | None = None, projects: set[int] | None = None) -> tuple[list[Group], dict[str, int]]:
     """The groups to merge, and how many groups were left alone and why.
 
     rows: id, country, canonical, display, pic, reg, vat, suppressed (live rows only).
@@ -72,7 +78,9 @@ def plan(rows: list[dict[str, Any]], forms: dict[int, set[str]] | None = None,
     project: the 24,000 procurement buyers that differ by a hyphen are the buyer list's display layer,
     `buyer_family_member`, and are not merged here).
     forms: the legal-form classes of the names each row has been called, beyond its display name
-    (from its aliases); the display name's own class is always counted."""
+    (from its aliases); the display name's own class is always counted.
+    projects: of the focus, the organisations of a project. A group with none of them (contract winners only, WP-87)
+    is left alone when a row of it is a public body."""
     by_key: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
         k = r.get("key") or key_of_row(r)
@@ -90,6 +98,11 @@ def plan(rows: list[dict[str, Any]], forms: dict[int, set[str]] | None = None,
         keys = {m["key"] for m in members}
         if any(m.get("suppressed") for m in members):
             left["suppressed"] += 1
+        elif (projects is not None and not any(m["id"] in projects for m in members)
+              and any(is_public_body(m.get("display") or m["canonical"], m["country"],
+                                     defence_buyer=bool(m.get("defence_buyer")), org_role=m.get("role"))
+                      for m in members)):
+            left["public_body"] += 1
         elif len(pics) > 1:
             left["different_pics"] += 1
         elif len(regs) > 1:
@@ -123,6 +136,14 @@ def participants(conn) -> set[int]:
             WHERE pa.active""").fetchall()}
 
 
+def winners(conn) -> set[int]:
+    """WP-87: the live organisations that won a contract of the supplier map (a current award row)."""
+    return {r["org"] for r in conn.execute(
+        """SELECT DISTINCT COALESCE(l.live_id, a.organisation_id) AS org
+             FROM award a LEFT JOIN organisation_merged_live l ON l.id = a.organisation_id
+            WHERE a.superseded_at IS NULL AND a.excluded_reason IS NULL""").fetchall()}
+
+
 def load(conn) -> tuple[list[dict[str, Any]], dict[int, set[str]], set[int]]:
     """The live organisations that could be merged, as `plan` wants them, the legal-form classes of the
     aliases of those, and the focus.
@@ -130,7 +151,7 @@ def load(conn) -> tuple[list[dict[str, Any]], dict[int, set[str]], set[int]]:
     Two passes so that the 430,000 organisations are never held as rows: the first streams id, country
     and name through a named cursor and keeps only the buckets (country, key without spaces) -> ids
     (about 100 MB); the second fetches the full rows of the buckets that have two rows and touch the focus."""
-    focus = participants(conn)
+    focus = participants(conn) | winners(conn)
     buckets: dict[tuple[str, str], list[int]] = defaultdict(list)
     with conn.cursor(name="org_dedupe_names") as cur:
         cur.itersize = 20000
@@ -148,9 +169,11 @@ def load(conn) -> tuple[list[dict[str, Any]], dict[int, set[str]], set[int]]:
         chunk = ids[n:n + 5000]
         rows += [{"id": r["id"], "country": r["country"].strip(), "canonical": r["canonical_name"],
                   "display": r["display_name"], "pic": r["eu_pic"], "reg": r["national_reg_no"],
-                  "vat": r["vat_number"], "suppressed": r["suppressed"]}
+                  "vat": r["vat_number"], "suppressed": r["suppressed"],
+                  "defence_buyer": r["is_defence_buyer"], "role": r["org_role"]}
                  for r in conn.execute(
-                     """SELECT id, country, canonical_name, display_name, eu_pic, national_reg_no, vat_number, suppressed
+                     """SELECT id, country, canonical_name, display_name, eu_pic, national_reg_no, vat_number, suppressed,
+                               is_defence_buyer, org_role
                           FROM organisation WHERE id = ANY(%s)""", (chunk,)).fetchall()]
         for a in conn.execute("SELECT organisation_id, raw_name FROM organisation_alias WHERE organisation_id = ANY(%s)",
                               (chunk,)).fetchall():
@@ -162,7 +185,7 @@ def load(conn) -> tuple[list[dict[str, Any]], dict[int, set[str]], set[int]]:
 
 def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sample: int = 15) -> dict[str, int]:
     rows, forms, focus = load(conn)
-    groups, left = plan(rows, forms, focus)
+    groups, left = plan(rows, forms, focus, participants(conn))
     merged = 0
     counts = {"groups": len(groups), "rows_to_merge": sum(len(g.members) for g in groups), **{f"left_{k}": v for k, v in left.items()}}
     out(f"organisations in a candidate bucket: {len(rows)}; groups to merge: {len(groups)} ({counts['rows_to_merge']} rows); left alone: {left}")

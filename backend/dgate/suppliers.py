@@ -78,6 +78,29 @@ MAX_OFFSET = 500
 MAX_BIGINT = 9_223_372_036_854_775_807
 PROFILE_NOTICES = 50
 PROFILE_BUYERS = 20
+# WP-87: a contract value below this (in its own currency) is shown as published but read as a unit price, not the
+# contract's value: "EUR 48 over 1 contract" was a price per item. Such values are left out of every sum, and counted.
+# Only a value a notice states (TED's `total` or `lot_sum`): a PLACSP awarded amount (kind `awarded`) is the contract's total
+# without VAT, and a Spanish minor contract of EUR 300 is real (owner, 23 October 2026: 1,013 of 31,933 are under EUR 1,000).
+SUSPECT_VALUE_MAX = 1000
+
+
+def is_suspect(amount, kind: str | None) -> bool:
+    """The Python twin of the SQL rule: a stated value (not a PLACSP awarded amount) under SUSPECT_VALUE_MAX."""
+    return amount is not None and kind != "awarded" and amount < SUSPECT_VALUE_MAX
+
+
+def sums_select(org: str = "") -> str:
+    """The outer SELECT of a value sum over rows `x(ok, shared, va, vc, vk)`: a value under SUSPECT_VALUE_MAX is not
+    `ok` but `suspect` (WP-87). Grouped by position: an output name `ok` would be read as the input column."""
+    bad = f"(x.ok AND x.va < {SUSPECT_VALUE_MAX} AND x.vk IS DISTINCT FROM 'awarded')"
+    good = f"(x.ok AND NOT {bad})"
+    head = f"{org}, " if org else ""
+    n = 5 if org else 4
+    return (f"SELECT {head}{good} AS ok, {bad} AS suspect, x.shared, "
+            f"CASE WHEN {good} THEN x.vc END AS vc, sum(x.va) FILTER (WHERE {good}) AS amount, count(*) AS n, "
+            f"count(*) FILTER (WHERE {good} AND x.vk = 'lot_sum') AS lots"), "GROUP BY " + ", ".join(
+                str(i) for i in range(1, n + 1))
 
 def valued(wn: str, amount: str, currency: str, kind: str) -> str:
     """WP-81: the SQL condition "this notice's value is this winner's": the notice names one winner (a value shared
@@ -112,7 +135,8 @@ def value_of(award_id: str, twins: str) -> str:
 def value_totals(rows: list[dict[str, Any]], of: int) -> dict[str, Any]:
     """WP-81: the sums of one supplier from rows `{ok, shared, vc, amount, n, lots}` (one row per group of its
     procurements, each counted once: valued or not, several winners or not, the currency), out of `of` procurements.
-    Per currency, never converted, the largest count first."""
+    Per currency, never converted, the largest count first. WP-87: rows marked `suspect` (a value under
+    SUSPECT_VALUE_MAX, probably a unit price) are in no sum and are counted as `suspect`."""
     sums: dict[str, dict[str, Any]] = {}
     for r in rows:                  # a currency can come in two rows (a PLACSP lot amount in a notice of several winners)
         if r["ok"]:
@@ -123,8 +147,10 @@ def value_totals(rows: list[dict[str, Any]], of: int) -> dict[str, Any]:
     by = [{**s, "amount": round(s["amount"], 2)} for s in sums.values()]
     by.sort(key=lambda v: (-v["count"], v["currency"]))
     valued_n = sum(v["count"] for v in by)
-    return {"byCurrency": by, "of": of, "withoutValue": max(of - valued_n, 0),
-            "shared": sum(r["n"] for r in rows if not r["ok"] and r["shared"])}
+    suspect = sum(r["n"] for r in rows if r.get("suspect"))
+    return {"byCurrency": by, "of": of, "withoutValue": max(of - valued_n - suspect, 0),
+            "shared": sum(r["n"] for r in rows if not r["ok"] and not r.get("suspect") and r["shared"]),
+            "suspect": suspect}
 
 
 class SupplierItem(BaseModel):
@@ -178,6 +204,8 @@ class SupplierNotice(BaseModel):
     winnersInNotice: int
     valueAmount: float | None
     valueCurrency: str | None
+    # WP-87: the value is under SUSPECT_VALUE_MAX: shown as published, probably a unit price, in no sum
+    valueSuspect: bool = False
     sourceUrl: str | None
     source: str = "ted"                       # where the notice shown is from: ted, es_placsp, es_placsp_agg
     alsoPublished: list[NoticeRef] = []       # the same award in the other source, counted once (WP-61)
@@ -196,6 +224,7 @@ class ValueTotals(BaseModel):
     of: int                                   # the procurements behind the sums
     withoutValue: int                         # of them, those with no value given to this winner
     shared: int                               # of those, the ones naming several winners
+    suspect: int = 0                          # WP-87: of them, those whose value is under 1,000 (a unit price): in no sum
 
 
 class Supplier(SupplierItem):
@@ -505,25 +534,42 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
         p).fetchall()
     by_year = sorted(Counter(r["year"] for r in per).items(), key=lambda x: -(x[0] or 0))
     by_cpv = sorted(Counter(r["division"] for r in per if r["division"]).items(), key=lambda x: (-x[1], x[0]))
+    # WP-87: per buyer family (the buyer list's unit): two organisation rows of one body were two rows of the table
+    # ("Intendente de las Palmas" twice)
     buyer_rows = conn.execute(
-        f"""SELECT o.buyer_org_id AS id, count(DISTINCT {KEY_HASH}) AS awards
+        f"""SELECT dgate_buyer_head(o.buyer_org_id) AS id, count(DISTINCT {KEY_HASH}) AS awards
               {base} AND o.buyer_org_id IS NOT NULL AND NOT o.buyer_withheld
              GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT {PROFILE_BUYERS}""", p).fetchall()
-    notices = conn.execute(
+    # WP-87: one row per contract (`KEY`), as the count is: a second notice of the same procurement (Hensoldt Sensors:
+    # 474829-2024 and 467138-2024, one Lithuanian contract) is listed under the first, not as a 13th row of 12
+    rows = conn.execute(
         f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
-                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, o.source_url, a.id AS award_id,
-                   (SELECT code FROM source WHERE id = o.source_id) AS source_code
-              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES}""",
+                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, v.vk, o.source_url, a.id AS award_id,
+                   (SELECT code FROM source WHERE id = o.source_id) AS source_code, {KEY_HASH} AS k
+              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC LIMIT {PROFILE_NOTICES * 4}""",
         p).fetchall()
+    notices: list[dict[str, Any]] = []
+    same: dict[int, list[dict[str, Any]]] = {}
+    first: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        if r["k"] in first:
+            if r["native_id"] != first[r["k"]]["native_id"]:
+                same[first[r["k"]]["award_id"]].append(
+                    {"source": r["source_code"], "noticeId": r["native_id"], "sourceUrl": r["source_url"]})
+            continue
+        if len(notices) < PROFILE_NOTICES:
+            first[r["k"]] = r
+            same[r["award_id"]] = []
+            notices.append(r)
     # WP-81: each procurement once (the profile's count), valued by `value_of` (the notice rows use the same)
+    outer, group = sums_select()
     sums = conn.execute(
-        f"""SELECT ok, shared, CASE WHEN ok THEN vc END AS vc, sum(va) FILTER (WHERE ok) AS amount, count(*) AS n,
-                   count(*) FILTER (WHERE ok AND vk = 'lot_sum') AS lots
+        f"""{outer}
               FROM (SELECT DISTINCT ON ({KEY_HASH}) v.va IS NOT NULL AS ok,
                            a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk
                       {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)}
                      ORDER BY {KEY_HASH}, 1 DESC, (v.vk = 'awarded') DESC, (v.vk = 'total') DESC, v.va DESC) x
-             GROUP BY 1, 2, 3""", p).fetchall()
+             {group}""", p).fetchall()
     stated = conn.execute(
         f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
              ORDER BY 2 DESC, (a.name_as_stated = upper(a.name_as_stated)), 1 LIMIT 5""",
@@ -574,7 +620,11 @@ def get_supplier(slug: str, conn=Depends(get_conn)):
             "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
             "valueAmount": float(r["va"]) if r["va"] is not None else None,
             "valueCurrency": r["vc"].strip() if r["va"] is not None else None,
-            "sourceUrl": r["source_url"], "source": r["source_code"], "alsoPublished": also.get(r["award_id"], [])})
+            "valueSuspect": is_suspect(r["va"], r["vk"]),
+            "sourceUrl": r["source_url"], "source": r["source_code"],
+            "alsoPublished": also.get(r["award_id"], []) + [
+                x for x in same.get(r["award_id"], [])
+                if x["noticeId"] not in {y["noticeId"] for y in also.get(r["award_id"], [])}]})
     return {
         **item,
         "values": value_totals(sums, head["n"]),

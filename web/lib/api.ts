@@ -225,12 +225,14 @@ export async function getTenderScopeCounts(filters: TenderFilters = {}): Promise
  * Every open notice that states a deadline, for the deadline calendar (GET /v1/tenders/calendar, up to 3,000, soonest
  * first). It replaces five pages of the list, which held the 500 earliest of 1,529 (UX audit T9).
  */
-export async function getTenderCalendar(): Promise<CalendarPage> {
+export async function getTenderCalendar(filters: TenderFilters = {}): Promise<CalendarPage> {
+  // WP-87: the tender list's own filters, as the list sends them (status, sort and page are not the calendar's)
+  const query = toTenderQuery({ ...filters, status: undefined, sort: undefined, page: undefined, buyer: undefined });
   if (API_BASE) {
-    const path = '/v1/tenders/calendar';
-    return withLastGood(`calendar:${path}`, () => httpOrThrow<CalendarPage>(path, 'revalidate', LIST_REVALIDATE_SECONDS), { persist: true });
+    const path = `/v1/tenders/calendar${query}`;
+    return withLastGood(`calendar:${path}`, () => httpOrThrow<CalendarPage>(path, 'revalidate', LIST_REVALIDATE_SECONDS), { persist: query === '' });
   }
-  return tenderMock.queryCalendar();
+  return tenderMock.queryCalendar(now(), filters);
 }
 
 /**

@@ -41,6 +41,19 @@ export function countsAsOf(asOf: string | null | undefined): string | null {
 }
 
 /**
+ * WP-87: the stamps of a tender list page. The list and its scope counts are two answers, each kept a few minutes: when they are of
+ * the same minute both say the one time ("Counts as of 11:05 UTC"); otherwise the header names the list's time and the scope box
+ * its own, with why they can differ. Two bare "Counts as of" of different times was the audit's finding.
+ */
+export function listStamps(list: { asOf?: string | null }, scope: { asOf?: string | null } | null | undefined): { list: string | null; scope: string | null } {
+  const a = list.asOf ? formatTimeUtc(list.asOf) : '';
+  const b = scope?.asOf ? formatTimeUtc(scope.asOf) : '';
+  if (!a) return { list: null, scope: b ? `Scope counts as of ${b}` : null };
+  if (!b || a === b) return { list: `Counts as of ${a}`, scope: b ? `Counts as of ${b}` : null };
+  return { list: `List as of ${a}`, scope: `Scope counts as of ${b}, worked out apart from the list (as of ${a}); notices that opened or closed in between make them differ` };
+}
+
+/**
  * The two notes together, for a place that shows the three counts without a filter (the home page, beside tiles that carry a date):
  * "Counts as of 19 Oct 2026, 11:05 UTC. Core and supplies ...". null when there is neither.
  */

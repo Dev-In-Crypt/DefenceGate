@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays, Download } from 'lucide-react';
+import { CalendarDays, Download, Rss } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportCap, EXPORT_ROW_CAP } from '@/lib/export-cache';
 import { buttonVariants } from './button';
@@ -9,8 +9,10 @@ import { Icon } from './icon';
  * The tools of a result list, under the filters: the CSV of the current result (a plain link, not a
  * client-routed one, so nothing prefetches the file) and a way to the deadline calendar.
  */
-export function ResultTools({ csvHref, calendarHref = '/calendar', className, total, status, atLeast }: {
+export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, className, total, status, atLeast }: {
   csvHref: string; calendarHref?: string; className?: string;
+  /** WP-87: the Atom feed of the changes of this result (the list's filters travel with it). */
+  feedHref?: string;
   /** How many rows the result has and its status filter: said when the file will hold fewer (site-qa2:N8). */
   total?: number; status?: string;
   /** The total is a lower bound (the count stopped at its cap): "at least". */
@@ -34,8 +36,13 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', className, to
         </p>
       )}
       <Link href={calendarHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
-        <Icon icon={CalendarDays} size="inline" />Deadline calendar
+        <Icon icon={CalendarDays} size="inline" />Deadline calendar of this search
       </Link>
+      {feedHref && (
+        <a href={feedHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
+          <Icon icon={Rss} size="inline" />Changes of this search (Atom feed)
+        </a>
+      )}
     </div>
   );
 }

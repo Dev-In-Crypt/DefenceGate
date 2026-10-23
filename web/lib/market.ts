@@ -62,3 +62,27 @@ export function daysText(days: number | null): string {
   if (days === null) return 'Not measured';
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
+
+/** WP-87: the bars of a buyer's notices per year: the years shown, with "Earlier" before them and "No date" after when they hold
+ * notices, so the bars add up to `tenderCount` (BAAINBw: 4,324 over the years against 3,335 in the archive). */
+export function profileYearBars(p: { perYear: { year: number; count: number }[]; perYearEarlier?: number; perYearUndated?: number }): { label: string; primary: number; partial?: boolean }[] {
+  const last = p.perYear[p.perYear.length - 1]?.year;
+  const first = p.perYear[0]?.year;
+  return [
+    ...((p.perYearEarlier ?? 0) > 0 ? [{ label: first ? `Before ${first}` : 'Earlier', primary: p.perYearEarlier ?? 0 }] : []),
+    ...p.perYear.map((y) => ({ label: String(y.year), primary: y.count, partial: y.year === last })),
+    ...((p.perYearUndated ?? 0) > 0 ? [{ label: 'No date', primary: p.perYearUndated ?? 0 }] : []),
+  ];
+}
+
+/** Six months of watching before an amendment share says anything about a buyer (WP-87; the archive began in September 2026). */
+export const AMENDMENT_HISTORY_DAYS = 183;
+
+/** Whether a buyer's amendment share is shown, and since when its notices were watched ("Sep 2026"). An API that does not say when
+ * is read as the archive's start, September 2026. */
+export function amendmentsShown(a: { observedFrom?: string | null }, asOf: string): { shown: boolean; since: string } {
+  const from = a.observedFrom ? new Date(a.observedFrom) : new Date('2026-09-01T00:00:00Z');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const since = `${months[from.getUTCMonth()]} ${from.getUTCFullYear()}`;
+  return { shown: new Date(asOf).getTime() - from.getTime() >= AMENDMENT_HISTORY_DAYS * 86_400_000, since };
+}
