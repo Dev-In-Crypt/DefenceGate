@@ -7,7 +7,7 @@
  *   const p = loadProfile();            // null before the wizard has been started
  *   p?.country                          // 'UA', 'ES', ... or 'XX' for a country that is not listed
  *
- * What leaves the browser is `toRequest(profile)`: the answers the rules read (fourteen fields, plus the supplier page's answers that rules read) and the
+ * What leaves the browser is `toRequest(profile)`: the answers the rules read (fifteen fields, plus the supplier page's answers that rules read) and the
  * status of each requirement, sent to POST /api/readiness/assess to compute the verdict. The company
  * name and the size class are kept here for the page and are never part of that request.
  *

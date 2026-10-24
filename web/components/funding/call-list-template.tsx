@@ -17,7 +17,7 @@ import { FILTER_COLUMN, SkipToResults } from '../dg/list-page';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
-import { FitFilter, FitItem } from './fit-badge';
+import { FitFilter, FitItem, type WholeList } from './fit-badge';
 import { SortSelect } from './filter-panel';
 import { LiveListScope, ResultsRegion } from '../dg/live-list';
 import { CallCalendar } from './call-calendar';
@@ -41,6 +41,7 @@ export interface Fallback { upcoming: Call[]; upcomingTotal: number; closed: Cal
 /** Shared template for /funding and every /funding/* list sub-page. */
 export function CallListTemplate({
   title, intro, basePath, crumbs, filters, result, view, health, chips = [], hide, saveSearch, exportHref, notices = [], alternatives = [], fallback, icsHref,
+  fitAll = false, subscribe,
 }: {
   title: string; intro: string; basePath: string; crumbs: Crumb[]; filters: CallFilters;
   result: Paginated<Call>; view: ListView; health: Health; chips?: EntryChip[]; hide?: FilterGroup[];
@@ -56,6 +57,10 @@ export function CallListTemplate({
   fallback?: Fallback;
   /** The calendar file of this search (WP-91: /funding.ics with the list's filters). */
   icsHref?: string;
+  /** WP-99: "Fits my profile" is on: every call of the search is on this page (`fit=1`), so the filter and the topics see all of them. */
+  fitAll?: boolean;
+  /** WP-99: the "Subscribe to this search" block (calendar and Atom feed of these filters). */
+  subscribe?: React.ReactNode;
 }) {
   // An empty result has one heading, the empty state's: the count line is then a paragraph, not a second h2.
   const Count = result.total === 0 ? 'p' : 'h2';
@@ -67,6 +72,9 @@ export function CallListTemplate({
   const from = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const to = Math.min(result.total, result.page * result.pageSize);
   const viewHref = (v: ListView) => `${basePath}${toQuery({ ...filters, page: 1 }, { [PARAM.view]: v === 'calendar' ? v : undefined })}`;
+  const whole: WholeList = { on: fitAll, total: result.total, onHref: `${basePath}${toQuery({ ...filters, page: 1 }, { fit: '1' })}#results`, offHref: `${basePath}${toQuery({ ...filters, page: 1 })}` };
+  // WP-99 (p09): the deadline calendar of this search keeps the search
+  const calendarHref = viewHref('calendar');
 
   return (
     <>
@@ -94,13 +102,14 @@ export function CallListTemplate({
           <FilterBar filters={filters} basePath={basePath} hide={hide} view={view === 'calendar' ? view : undefined}
             countries={fundersWithCoverage(health.sources, filters.country)} cascadeTotal={result.cascadeTotal} ukraineTotal={result.ukraineTotal} />
           {saveSearch}
-          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" icsHref={filters.status === 'closed' ? undefined : icsHref} className="hidden lg:flex" total={result.total} status={filters.status} />}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="hidden lg:flex" total={result.total} status={filters.status} />}
+          {result.total > 0 && filters.status !== 'closed' && subscribe && <div className="hidden lg:block">{subscribe}</div>}
         </div>
 
         <ResultsRegion id="results" tabIndex={-1} aria-labelledby="results-heading" className="flex min-w-0 flex-col gap-4 outline-none">
           <div className="flex flex-wrap items-center gap-3">
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
-              {result.total === 0 ? 'No calls' : view === 'calendar' ? `${result.total} ${plural(result.total, 'call')}` : `Showing ${from}–${to} of ${result.total} ${plural(result.total, 'call')}`}
+              {result.total === 0 ? 'No calls' : view === 'calendar' || fitAll ? `${result.total} ${plural(result.total, 'call')}` : `Showing ${from}–${to} of ${result.total} ${plural(result.total, 'call')}`}
             </Count>
             {view === 'list' && <SortSelect value={filters.sort ?? 'deadline-asc'} options={sortOptions(filters.currency ?? DEFAULT_CURRENCY)} />}
             <div role="group" aria-label="View" className="flex rounded-pill border border-transparent bg-surface p-1">
@@ -115,7 +124,7 @@ export function CallListTemplate({
           </div>
 
           <FilterNotices notices={notices} />
-          {view === 'list' && result.total > 0 && <FitFilter />}
+          {view === 'list' && result.total > 0 && <FitFilter whole={whole} />}
           {result.search && result.search.alsoSearched.length > 0 && (
             <p className="m-0 text-small text-ink-muted">Also searched: {result.search.alsoSearched.join(', ')}.</p>
           )}
@@ -167,12 +176,13 @@ export function CallListTemplate({
             </ul>
           )}
 
-          {view === 'list' && (
+          {view === 'list' && !fitAll && (
             <Pagination page={result.page} total={result.total} pageSize={result.pageSize}
               hrefFor={(p) => `${basePath}${toQuery({ ...filters, page: p })}`} />
           )}
           {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref="/calendar?kind=funding" icsHref={filters.status === 'closed' ? undefined : icsHref} className="lg:hidden" total={result.total} status={filters.status} />}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="lg:hidden" total={result.total} status={filters.status} />}
+          {result.total > 0 && filters.status !== 'closed' && subscribe && <div className="lg:hidden">{subscribe}</div>}
         </ResultsRegion>
       </div>
       </LiveListScope>

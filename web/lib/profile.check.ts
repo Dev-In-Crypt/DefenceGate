@@ -13,7 +13,7 @@ const ua: Profile = {
 // Nothing can be asked before a country is chosen.
 assert.equal(toRequest(emptyProfile()), null);
 
-// The request holds the fourteen fields the rules read and the statuses; the name and the size never travel.
+// The request holds the fifteen fields the rules read and the statuses; the name and the size never travel.
 const req = toRequest(ua)!;
 assert.deepEqual(req.profile, {
   country: 'UA', legal_form: 'legal_person', applicant_kind: null, executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
@@ -174,7 +174,7 @@ const written = exportProfile(partial);
 const back = importProfile(written);
 assert.ok(back.ok);
 if (back.ok) assert.deepEqual({ ...back.profile, updatedAt: null }, { ...parseProfile(partial), updatedAt: null }, 'what was written is what is read back');
-assert.equal(importProfile('{"version":5}').ok, false);
+assert.equal(importProfile('{"version":6}').ok, false);
 assert.equal(importProfile('{}').ok, false);
 assert.equal(importProfile('[1,2]').ok, false);
 assert.equal(importProfile('not json').ok, false);

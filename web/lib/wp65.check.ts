@@ -26,14 +26,13 @@ const v2 = {
 };
 const read = parseProfile(v2);
 assert.equal(read.version, 5, 'written back as the current version (5 since WP-99)');
-for (const [k, v] of Object.entries(v2)) if (k !== 'version') assert.deepEqual((read as unknown as Record<string, unknown>)[k], v, `version 2 answer ${k} kept`);
 for (const [k, v] of Object.entries(v2)) if (k !== 'version') assert.deepEqual((read as unknown as Record<string, unknown>)[k === 'uaEeaComponents' ? 'uaComponents' : k], v, `version 2 answer ${k} kept`);
 assert.equal(parseProfile({ ...v2, version: 1, managementSameCountry: false, managementCountry: 'FR' }).managementCountry, 'FR', 'version 1 still read');
 assert.equal(parseProfile({ ...v2, version: 1 }).statuses['REQ-ISO9001'], 'held');
 assert.deepEqual(parseProfile({ ...v2, version: 6 }), emptyProfile(), 'an unknown version is refused');
 assert.equal(read.eeaComponents, v2.uaEeaComponents, 'WP-99: the joint "no" answers both component questions');
 // a version 2 profile sends what it sent before: no supplier field appears in its request
-assert.equal(Object.keys(toRequest(read)!.profile).length, 14, 'WP-93 adds no field while its questions are unanswered');
+assert.equal(Object.keys(toRequest(read)!.profile).length, 15, 'WP-93 adds no field while its questions are unanswered (WP-99: the component answer is two fields)');
 assert.equal(hasSupplier(read), false);
 // import of an older file, and export and import of a version 3 one
 const old = importProfile(JSON.stringify(v2));
