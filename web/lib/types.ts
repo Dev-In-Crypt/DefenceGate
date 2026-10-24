@@ -379,8 +379,10 @@ export interface Tender {
   /** WP-95, the notice's own page only: the legal-entity winners (a supplier page link where there is one); natural persons are counted, never named. */
   awardedTo?: AwardedTo[];
   awardedPersons?: number;
-  /** WP-95: what the award states and what kind of amount it is. */
-  awardValue?: { amount: number; currency: string; kind: ValueKind } | null;
+  /** WP-95: what the award states and what kind of amount it is. WP-103: `setAside`, a figure the notice states that its own estimate contradicts (the kind is then `estimate`). */
+  awardValue?: { amount: number; currency: string; kind: ValueKind; setAside?: number | null } | null;
+  /** WP-103: whether the notice was read for its winners; false: an award whose winners DefenceGate has not read yet. Absent on older APIs. */
+  winnersRead?: boolean;
 }
 
 /** WP-95: what an amount is: the contract awarded, a framework agreement's ceiling, or the buyer's estimate. */

@@ -116,8 +116,11 @@ CPV_DUAL_USE_DIVISIONS = {
 
 # BT-01-notice. Matching is loose because the field is not always a clean
 # CELEX reference in practice.
+# WP-103 (persona p01): Spain's Ley 24/2011 de contratos del sector público en los ámbitos de la defensa y de la
+# seguridad is the transposition of Directive 2009/81/EC; PLACSP states it as the national regime (national code 2,
+# `sources/placsp._NATIONAL_LAW`) where it names no directive. 2,861 notices carried it, none counted as the directive.
 _LEGAL_BASIS_DEFENCE = re.compile(
-    r"(2009[/\-]81|32009L0081)", re.IGNORECASE
+    r"(2009[/\-]81|32009L0081|ley\s+24/2011)", re.IGNORECASE
 )
 
 
@@ -403,7 +406,8 @@ def classify(
 
     if legal_basis and _LEGAL_BASIS_DEFENCE.search(legal_basis):
         sig.legal_basis = True
-        sig.reasons.append("legal basis is Directive 2009/81/EC")
+        sig.reasons.append("legal basis is Directive 2009/81/EC" if "24/2011" not in legal_basis
+                           else "legal basis is Ley 24/2011, Spain's transposition of Directive 2009/81/EC")
 
     military_groups: set[str] = set()
     for code in codes:

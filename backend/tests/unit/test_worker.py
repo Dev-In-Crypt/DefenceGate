@@ -127,7 +127,28 @@ def test_every_job_is_reachable_from_the_cli():
                                 "topics", "bdns", "ncbr", "tenderned", "de-bkms", "vinnova", "aid", "matine",
                                 "alerts", "backup-freshness", "link-twins", "requalify", "controls",
                                 "buyer-families", "warm-lists", "cascade-flags", "digest",
-                                "cordis", "edf", "consortium-snapshot", "placsp-awards-catchup"}
+                                "cordis", "edf", "consortium-snapshot", "placsp-awards-catchup",
+                                "ted-awards"}   # WP-103
+
+
+def test_the_ted_award_load_is_daily_bounded_and_away_from_the_heavy_jobs(monkeypatch):
+    """WP-103 (owner, 24 October 2026): the TED award load runs daily in the worker, at most a bounded batch, at an hour
+    no ingest, twin, digest, backup or networks job holds, and records its run under `ted_awards`."""
+    jobs = {job.id: job for job in worker.build_scheduler().get_jobs()}
+    fields = {f.name: str(f) for f in jobs["ted_awards_daily"].trigger.fields}
+    assert (fields["hour"], fields["minute"], fields["day_of_week"]) == ("14", "10", "*")
+    taken = set()
+    for jid, job in jobs.items():
+        f = {x.name: str(x) for x in job.trigger.fields}
+        if jid != "ted_awards_daily" and f["hour"] not in ("*",) and "," not in f["hour"]:
+            taken.add(int(f["hour"]))
+    assert 14 not in taken
+    assert any(line.startswith("ted_awards") and "1500" in line for line in worker.describe_schedule())
+    seen = {}
+    monkeypatch.setattr(worker, "run_awards", lambda **kw: seen.update(kw))
+    monkeypatch.setattr(worker, "source_run_status", lambda sources: [(s, "success", 1, None) for s in sources])
+    assert worker.JOBS["ted-awards"]().status == "success"
+    assert seen == {"limit": 1500}
 
 
 # ------------------------------------------------- PLACSP award catch-up (WP-61)

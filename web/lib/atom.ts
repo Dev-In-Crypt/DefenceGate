@@ -70,14 +70,17 @@ export function feedSubtitle(windowDays: number, total: number, held: number, pa
 function summary(c: Change): string {
   const t = c.tender;
   const where = t.country ? `${t.buyerName} (${t.country})` : t.buyerName;
-  if (c.kind === 'new') return `New notice from ${where}.`;
-  if (c.kind === 'award') return `New award notice from ${where}.`;
+  // WP-103: a new notice cancelled since says so (persona p04: "New" in the feed, "Cancelled" on the page)
+  const since = t.statusNative === 'cancelled' ? ' Cancelled since.' : '';
+  if (c.kind === 'new') return `New notice from ${where}.${since}`;
+  if (c.kind === 'award') return `New award notice from ${where}.${since}`;
   const lines = c.changes.map((l) => `${l.label}: ${l.before ?? 'not stated'} to ${l.after ?? 'not stated'}`);
   return `Amended notice from ${where}. ${lines.join('. ')}.`;
 }
 
 export function entryTitle(c: Change): string {
-  return `${c.kind === 'new' ? 'New' : c.kind === 'award' ? 'New award' : 'Amended'}: ${c.tender.title}`;
+  const head = c.kind === 'new' ? 'New' : c.kind === 'award' ? 'New award' : 'Amended';
+  return `${head}${c.kind !== 'amended' && c.tender.statusNative === 'cancelled' ? ' (cancelled since)' : ''}: ${c.tender.title}`;
 }
 
 /** Funding entries have their own kinds (`call-new`, `call-amended`), so a reader can tell them from notices. */

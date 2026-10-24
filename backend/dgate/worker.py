@@ -27,7 +27,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Sequence
 
 from . import db
-from .awards import refresh_award_twins
+from .awards import refresh_award_twins, run_awards
 from .config import settings
 from .ops.notify import notify, ping
 from .pipeline import (
@@ -280,6 +280,13 @@ def placsp_awards_catchup(today: date | None = None) -> None:
     got = placsp_archives.run(todo, placsp.MAIN, floor=3 * 2**30, resume=True, pause=1.0)
     if got["failed"] or got["stopped"]:
         raise RuntimeError(f"PLACSP award catch-up did not finish: {got}")
+
+
+def job_ted_awards() -> JobResult:
+    """WP-103: the winners of the TED result notices not read yet (core scope and VEAT, `awards.candidates`), at most
+    `ted_awards_limit` a run; `run_awards` records its `ingest_run` (floor: every notice asked is returned) and renews
+    the award twins and the supplier value orders, as the CLI does."""
+    return run_job("ted_awards_daily", lambda: run_awards(limit=settings().ted_awards_limit), sources=["ted_awards"])
 
 
 def job_placsp_awards_catchup() -> JobResult:
@@ -1087,6 +1094,7 @@ JOBS: dict[str, Callable[[], JobResult]] = {
     "edf": job_edf,
     "consortium-snapshot": job_consortium_snapshot,
     "placsp-awards-catchup": job_placsp_awards_catchup,
+    "ted-awards": job_ted_awards,
     "requalify": job_requalify,
     "backup": job_backup,
     "ted-history": job_ted_history,
@@ -1154,6 +1162,8 @@ def build_scheduler():
     # After the twins and the buyer families (09:15, 10:15): the week's notices are collapsed by then.
     sched.add_job(job_digest, CronTrigger(hour=(cfg.twins_hour + 2) % 24, minute=0),
                   id="digest_daily", max_instances=1, misfire_grace_time=3600)
+    sched.add_job(job_ted_awards, CronTrigger(hour=cfg.ted_awards_hour, minute=cfg.ted_awards_minute),
+                  id="ted_awards_daily", max_instances=1, misfire_grace_time=3600)
     sched.add_job(job_requalify,
                   CronTrigger(day_of_week="sun", hour=cfg.requalify_hour, minute=0),
                   id="requalify_weekly", max_instances=1, misfire_grace_time=7200)
@@ -1228,6 +1238,8 @@ def describe_schedule() -> list[str]:
         f"(financial support to third parties, set on each call from its text and facts)",
         f"digest         {(cfg.twins_hour + 2) % 24:02d}:00 UTC  "
         f"(weekly digest issues: last two complete weeks and any missing)",
+        f"ted_awards     {cfg.ted_awards_hour:02d}:{cfg.ted_awards_minute:02d} UTC  "
+        f"(winners of TED result notices not read yet, core scope and VEAT, at most {cfg.ted_awards_limit})",
         f"requalify      Sun {cfg.requalify_hour:02d}:00 UTC  "
         f"(notices the rules now qualify, every source, last {cfg.requalify_days} days)",
         *([f"ted_history    {(cfg.ted_hour + 1) % 24:02d}:{cfg.ted_minute:02d} UTC  "

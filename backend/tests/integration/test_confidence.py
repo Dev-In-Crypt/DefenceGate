@@ -72,7 +72,8 @@ def test_every_tender_carries_its_level_and_the_reason(client, conn):
         main = nid != "MED-CPV-NOT-MAIN"
         assert c == {"level": level, "basis": confidence(
             legal_basis=lb, military_cpv=cpv, buyer=buyer, buyer_class=cls, main_military=main)[1],
-            "label": label(level, buyer=buyer, military_cpv=cpv)}
+            # WP-103: the label also says the directive and the kind of buyer (never "Weak" on a directive notice)
+            "label": label(level, buyer=buyer, military_cpv=cpv, legal_basis=lb, buyer_class=cls)}
     # the detail page and the export say the same as the list
     tid = got["HI-BOTH"]["id"]
     assert client.get(f"/v1/tenders/{tid}").json()["confidence"]["level"] == "high"

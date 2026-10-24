@@ -130,6 +130,9 @@ assert.equal(rfc3339('not a date'), '1970-01-01T00:00:00Z');
 assert.equal(tagId('https://example.org', 'changes', 'all'), 'tag:example.org,2026:changes:all');
 assert.equal(tagId('not a url', 'x'), 'tag:defencegatehub.com,2026:x');
 assert.equal(entryTitle(changes[1]).startsWith('New: '), true);
+// WP-103 (persona p04, AU ZLT-50): a new notice cancelled since is not only "New" in the feed
+assert.equal(entryTitle({ ...changes[1], tender: tender({ status: 'closed', statusNative: 'cancelled' }) }), 'New (cancelled since): Armoured vehicles');
+assert.equal(entryTitle({ ...changes[0], tender: tender({ statusNative: 'cancelled' }) }).startsWith('Amended: '), true);
 
 // ---- filters of the page and of the feed ----
 assert.deepEqual(parseChangeFilters({}), { country: undefined, scope: undefined, page: 1, pageSize: 25 });

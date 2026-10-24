@@ -36,7 +36,7 @@ import httpx
 import psycopg
 
 from . import db
-from .award_value import TED_VALUE_FIELDS, ted_value
+from .award_value import TED_VALUE_FIELDS, ted_value, ted_value_set_aside
 from .classify import CORE_SQL, military_cpv_codes
 from .config import settings
 from .normalise import _country2, looks_like_contact, normalise_identifier, redact_emails
@@ -52,7 +52,11 @@ log = logging.getLogger(__name__)
 SOURCE_CODE = "ted_awards"
 # The notice types that carry winners (TED `notice-type` can-standard, can-social, can-desg and the
 # voluntary ex ante notices), as the `notice_subtype` column stores them; measured 18 October 2026.
-AWARD_SUBTYPES = ("29", "30", "31", "33", "34", "35", "36", "37", "E1", "E2", "E3", "E4", "E5", "E6")
+# WP-103: the eForms voluntary ex ante notices are subtypes 25 to 28 (TED `veat`), which the list missed: F.B. Design's
+# fifteen patrol boats for the Guardia di Finanza (375694-2026, EUR 50.8 m) was never read (persona p07); 461 VEAT
+# notices of the core scope had no winner read on 24 October 2026.
+AWARD_SUBTYPES = ("25", "26", "27", "28", "29", "30", "31", "33", "34", "35", "36", "37",
+                  "E1", "E2", "E3", "E4", "E5", "E6")
 # eForms is mandatory from 25 October 2023 and optional from 25 October 2022; before that the API
 # states no winner at all (measured: 735 of 10,894 result notices of 2023 name one, 9,859 of 11,795 of
 # 2024). Older notices are not asked for.
@@ -420,6 +424,8 @@ class Read:
     # WP-95: the notice's own value (amount, currency, kind), TED; the framework notice a call-off is based on
     notice_value: tuple[float | None, str | None, str | None] | None = None
     framework_id: int | None = None
+    # WP-103: the notice's figure set aside as implausible (`award_value.ted_value_set_aside`), kept on the notice row
+    value_set_aside: float | None = None
 
 
 def _lists(value: Any) -> list[list[str]]:
@@ -683,8 +689,8 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
     conn.execute(
         """INSERT INTO award_notice (opportunity_id, raw_key, winners_seen, winners_kept, skipped_person,
                                      skipped_no_country, status, payload_hash, payload_updated_at,
-                                     value_amount, value_currency, value_kind, framework_id)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                     value_amount, value_currency, value_kind, framework_id, value_set_aside)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
            ON CONFLICT (opportunity_id) DO UPDATE
               SET raw_key = EXCLUDED.raw_key, winners_seen = EXCLUDED.winners_seen,
                   winners_kept = EXCLUDED.winners_kept, skipped_person = EXCLUDED.skipped_person,
@@ -693,7 +699,8 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
                   framework_id = EXCLUDED.framework_id, read_at = now()
             WHERE EXCLUDED.payload_hash IS NOT NULL""",
         (opp["id"], raw_key, read.winners_seen, kept, read.counts["skipped_person"],
-         read.counts["skipped_no_country"], status, payload_hash, payload_updated_at, va, vc, vk, read.framework_id))
+         read.counts["skipped_no_country"], status, payload_hash, payload_updated_at, va, vc, vk, read.framework_id,
+         read.value_set_aside))
     c["notices_" + status] += 1
     for k, v in read.counts.items():
         c[k] += v
@@ -708,7 +715,8 @@ RESULT_NOTICE_PARAMS = {"subtypes": list(AWARD_SUBTYPES), "legacy": list(LEGACY_
 
 def candidates(conn: psycopg.Connection, src_id: int, since: date, limit: int | None) -> list[dict[str, Any]]:
     """TED result notices of the core scope that no run has read yet, newest first: eForms ones by subtype, older
-    ones by notice type (WP-95)."""
+    ones by notice type (WP-95). Core only (owner decision of 22 October 2026): a notice kept by its listed buyer alone
+    (728479-2026) is not read, and its page says its winners are outside the scope whose winners are read (WP-103)."""
     return conn.execute(
         f"""SELECT o.id, o.native_id, o.cpv_codes, {VALUE_COLUMNS} FROM opportunity o
              WHERE o.source_id = %(src)s AND o.is_defence AND NOT o.suppressed AND {CORE_SQL}
@@ -785,7 +793,9 @@ def read_ted_notice(rec: dict[str, Any], opp: dict[str, Any], client: httpx.Clie
             rec = {**rec, **legacy}
             read = read_award(rec)
             counters["legacy_with_winners"] += 1
-    return rec, with_values(read, ted_value(rec, opp))
+    read = with_values(read, ted_value(rec, opp))
+    read.value_set_aside = ted_value_set_aside(rec, opp)
+    return rec, read
 
 
 def refresh_award_twins(conn: psycopg.Connection) -> int:
@@ -828,6 +838,9 @@ def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
                 load_awards(conn, client, writer, src_id, ted_id, since=since, limit=limit,
                             counters=c, pause=pause, sleep=nap)
                 writer.drain()
+                # WP-103: the floor is every notice asked: one TED did not return makes the run partial, not success
+                conn.execute("UPDATE ingest_run SET expected_min = %s WHERE id = %s",
+                             (c["candidates"] - c["skipped_bad_number"], run_id))
                 refresh_award_twins(conn)
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["awards_new"], changed=0,
                               detail=dict(c))
