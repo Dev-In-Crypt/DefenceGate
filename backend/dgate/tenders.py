@@ -42,6 +42,7 @@ from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
+import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
@@ -312,6 +313,8 @@ class Buyer(BaseModel):
     # (`scope=core`). Only on the buyer's own page.
     openCoreCount: int | None = None
     scope: str = "relevant"
+    # WP-98b: with `cpv=`, the buyer's notices under the codes (each once, as the list shows them); else None.
+    cpvCount: int | None = None
 
 
 class BuyerPage(BaseModel):
@@ -319,6 +322,9 @@ class BuyerPage(BaseModel):
     total: int
     page: int
     pageSize: int
+    # WP-98b: false when the counts under the codes could not be collapsed in time (`under_codes`): a notice published in
+    # TED and in a national portal may then be counted twice in `cpvCount`.
+    cpvCountCollapsed: bool = True
 
 
 def _api():
@@ -1999,13 +2005,37 @@ def buyer_base(conn) -> list[list[Any]]:
     return stats.cached(("buyer-base",), compute, BUYER_BASE_SECONDS, store=stats._list_cache, limit=stats.LIST_CACHED)
 
 
+# WP-98b: the time the collapsed count under the codes may take before the plain one is given (the list's budget is 5 s; the
+# plain count is the WP-89 step's own 0.06 s). Measured on a synthetic archive of production's size: 0.3 s (343) to 1.1 s (35).
+UNDER_CODES_MS = 2500
+
+
+def under_codes(conn, prefixes: list[str]) -> tuple[dict[int, int], bool]:
+    """WP-98b (p02): per buyer family, its counted notices (`_core_where`) under the codes, each once as the list shows it (a
+    national notice and its TED twin, a rectificatif and its parent, a re-publication: the collapse rules over the same filters,
+    of the same family), and True. The collapse is tested on every notice under the codes (a second for the whole of division
+    35); past UNDER_CODES_MS the plain count is given instead, and False: a notice and its copy may then count twice."""
+    w = [*_core_where(), CPV_HEADS]
+    head = (f"SELECT COALESCE(m.head_org_id, o.buyer_org_id) AS id, count(*) AS n FROM opportunity o {_FAMILY_O} "
+            f"WHERE {' AND '.join(w)}")
+    budget = conn.execute("SELECT current_setting('statement_timeout') AS t").fetchone()["t"]
+    try:
+        with conn.transaction():       # a savepoint: a cancelled statement loses nothing else, and its timeout goes with it
+            conn.execute("SELECT set_config('statement_timeout', %s, true)", (f"{UNDER_CODES_MS}ms",))
+            rows = conn.execute(f"{head} AND {collapse_clauses(w, same_buyer=True)} GROUP BY 1", (prefixes,) * 4).fetchall()
+            conn.execute("SELECT set_config('statement_timeout', %s, true)", (budget,))
+        return {r["id"]: r["n"] for r in rows}, True
+    except psycopg.errors.QueryCanceled:
+        return {r["id"]: r["n"] for r in conn.execute(f"{head} GROUP BY 1", (prefixes,)).fetchall()}, False
+
+
 @router.get("/v1/buyers", response_model=BuyerPage)
 @cache_list("buyers", ttl=5 * 60)
 def list_buyers(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
     hasOpen: bool = False,
-    sort: str = Query("tenders", pattern="^(tenders|name)$"),
+    sort: str = Query("tenders", pattern="^(tenders|name|cpv)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=100),
     cpv: str | None = Query(None, max_length=200),
@@ -2036,16 +2066,19 @@ def list_buyers(
     if hasOpen:
         where.append("org.open_n > 0")
     prefixes = cpv_prefixes(cpv)
+    under: dict[int, int] = {}
+    collapsed = True
     if prefixes:
         # WP-89: the buyers (families) with at least one of their counted notices (the core scope the counts are of)
         # under one of the codes; the counts stay all of their notices. The families are read first, on their own
         # (0.06 s over the GIN index on production): as a semi-join inside the list's query the planner ran it past
         # the 5 s statement timeout on 23 October 2026.
-        ids = [r["id"] for r in conn.execute(
-            f"SELECT DISTINCT COALESCE(m.head_org_id, o.buyer_org_id) AS id FROM opportunity o {_FAMILY_O} "
-            f"WHERE {' AND '.join(_core_where())} AND {CPV_HEADS}", (prefixes,)).fetchall()]
+        # WP-98b: with how many of them each (`cpvCount`, and the order `sort=cpv`).
+        under, collapsed = under_codes(conn, prefixes)
         where.append("org.id = ANY(%s)")
-        params.append(ids)
+        params.append(list(under))
+    # WP-98b: most notices under the codes first (without codes, `cpv` is the default order)
+    by_cpv = sort == "cpv" and bool(prefixes)
     # The aggregate and its join to `organisation` are computed first, each as a step of its
     # own (MATERIALIZED), and the filters run over the few thousand families that come out:
     # `?q=de` timed out at 5 s on 16 October 2026 because the name filter was run over all
@@ -2058,6 +2091,10 @@ def list_buyers(
               "WHERE o.id = ANY(ARRAY(SELECT org_id FROM a))) ")
     base = "FROM org" + ((" WHERE " + " AND ".join(where)) if where else "")
     order = "org.canonical_name, org.id" if sort == "name" else "org.n DESC, org.id"
+    if by_cpv:
+        order = "u.n DESC, org.n DESC, org.id"
+        base = base.replace("FROM org", "FROM org JOIN unnest(%s::bigint[], %s::bigint[]) AS u(id, n) ON u.id = org.id", 1)
+        params = [list(under), list(under.values()), *params]
     rows = conn.execute(
         f"""{with_a}SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
                    org.n, org.open_n, org.last_published, org.variants,
@@ -2071,7 +2108,8 @@ def list_buyers(
     else:
         total = conn.execute(f"{with_a}SELECT count(*) AS n {base}", base_args + params).fetchone()["n"]
     names = _buyer_names(conn, [r["id"] for r in rows])
-    return {"items": [_buyer(r, names) for r in rows], "total": total,
+    return {"items": [{**_buyer(r, names), "cpvCount": under.get(r["id"], 0) if prefixes else None} for r in rows],
+            "cpvCountCollapsed": collapsed, "total": total,
             "page": page, "pageSize": pageSize}
 
 

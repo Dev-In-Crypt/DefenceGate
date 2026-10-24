@@ -17,6 +17,8 @@ import { ClassifiedNote } from '@/components/dg/basis-chips';
 import { ListPage } from '@/components/dg/list-page';
 import { TenderFilterBar } from '@/components/tenders/filter-bars';
 import { SaveSearch } from '@/components/account/save-search';
+import { FilterChips } from '@/components/tenders/filter-chips';
+import { CoverageNote } from '@/components/dg/coverage-note';
 
 export const revalidate = 60;
 
@@ -68,6 +70,8 @@ export default async function TendersPage({ searchParams }: Props) {
       title="Tenders"
       intro="Procurement notices from defence buyers in one list, each linked to its source with its changes kept: filter, then open a notice."
       meta={`${tenderSources} tender sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}${stamps.list ? ` · ${stamps.list}` : ''}`}
+      // WP-98b: the filters as chips (phone) and what we collect for the chosen countries, above the results (an empty one too)
+      scope={<><FilterChips filters={filters} basePath="/tenders" /><CoverageNote countries={filters.country} /></>}
       filterBar={<TenderFilterBar filters={filters} basePath="/tenders" scopeCounts={scopeCounts} countsNote={stamps.scope} />}
       calendarHref={calendarHrefFor(filters)}
       // WP-90: the change feed (and the calendar file) of this search are in one control above the results, with every filter

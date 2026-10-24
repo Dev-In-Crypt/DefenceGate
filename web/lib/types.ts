@@ -1,6 +1,6 @@
 // Domain types. They follow docs/design/API_CONTRACT.md (/v1/funding, /v1/tenders, /v1/buyers, /v1/sources),
 // which is authoritative.
-import type { ValueTotals } from './value-totals';
+import type { ValueSum, ValueTotals } from './value-totals';
 
 /** Funder countries we collect. 'EU' = an EU programme. */
 export type CountryCode = 'EU' | 'PL' | 'SE' | 'FR' | 'ES' | 'FI' | 'DE' | 'IT' | 'NL';
@@ -660,6 +660,8 @@ export interface Buyer {
   isDefenceBuyer: boolean;
   /** Other organisation rows of the same body shown under this buyer (0 when none). */
   nameVariants: number;
+  /** WP-98b: with a CPV filter, its tenders under the codes (each once, as the tender list shows them); else null. */
+  cpvCount?: number | null;
   /** The profile of the same body in the networks layer (/organisations/<slug>), when it took part in funded projects. */
   organisationSlug?: string | null;
 }
@@ -721,7 +723,8 @@ export interface BuyerProfile {
   basis: Record<string, string>;
 }
 
-export type BuyerSort = 'tenders' | 'name';
+/** WP-98b: `cpv`, most tenders under the CPV filter's codes first (only with a CPV filter). */
+export type BuyerSort = 'tenders' | 'name' | 'cpv';
 export interface BuyerFilters {
   q?: string;
   country?: string[];
@@ -944,6 +947,8 @@ export interface SupplierItem {
   lastYear: number | null;
   /** CPV divisions (two digits) of the notices the supplier won. */
   cpvDivisions: string[];
+  /** WP-98b: on the list, the contract values of the wins the filters select, per currency, never converted (WP-95: contract values only). */
+  contractValues?: ValueSum[];
 }
 export interface SupplierNotice {
   id: string;
@@ -997,7 +1002,9 @@ export interface Supplier extends SupplierItem {
   /** WP-96: the curated company group it is listed under (a parent and its subsidiaries, never merged), with its source. */
   group?: { key: string; name: string; source: string; members: number } | null;
 }
-export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
+/** WP-98b: `sort` value-XXX orders by the contract values in currency XXX; `source` ted lists TED's winners only. */
+export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: SupplierSort; source?: 'ted'; page?: number; pageSize?: number }
+export type SupplierSort = 'awards' | 'name' | `value-${string}`;
 export interface SupplierSummary {
   /** A group of fewer suppliers than this is not published. */
   kMin: number;

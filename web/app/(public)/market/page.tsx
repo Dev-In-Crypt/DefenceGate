@@ -15,6 +15,7 @@ import { BarChart, RankTable } from '@/components/market/charts';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { EmptyState } from '@/components/dg/feedback';
+import { CoverageNote } from '@/components/dg/coverage-note';
 
 export const revalidate = 3600;
 
@@ -93,6 +94,9 @@ export default async function MarketPage({ searchParams }: Props) {
           Open {SCOPE_CHOICES.core.label.toLowerCase()} in the tender list
         </Link>.
       </p>
+
+      {/* WP-98b (p06, p07): what we collect for the country, so a small count or a step in the months reads as coverage */}
+      <CoverageNote countries={[stats.country ?? filters.country ?? '']} />
 
       <dl className="facts-grid m-0 border-b border-line">
         <FactCell label={`Notices of ${SCOPE_CHOICES.core.label.toLowerCase()}, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>

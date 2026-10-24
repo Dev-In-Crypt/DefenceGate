@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ApiError, getSuppliers, getSupplierSummary } from '@/lib/api';
-import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
+import { CURRENCIES, countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { MAX_PAGE, ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
@@ -12,6 +12,9 @@ import { cpvForWords } from '@/lib/cpv';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
 import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
+import { listValueLine } from '@/lib/value-totals';
+import { CoverageNote } from '@/components/dg/coverage-note';
+import type { SupplierSort } from '@/lib/types';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
 import { CompaniesTabs, companyCrumbs } from '@/components/dg/companies-tabs';
@@ -42,12 +45,16 @@ function parse(sp: SearchParams) {
   const buyerCountry = first(sp.buyerCountry).replace(/[^\p{L}\p{M}\s,.'’&-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   const cpv = first(sp.cpv).replace(/[^0-9,]/g, '').slice(0, 40);
   const product = first(sp.product).replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-  const sort = first(sp.sort) === 'name' ? ('name' as const) : ('awards' as const);
+  // WP-98b: or the contract values in one currency, largest first
+  const asked = first(sp.sort);
+  const sort: SupplierSort = asked === 'name' ? 'name' : VALUE_SORTS.some((o) => o.value === asked) ? (asked as SupplierSort) : 'awards';
+  // WP-98b (p07): TED's winners only, so countries can be compared on one source
+  const source = first(sp.source) === 'ted' ? ('ted' as const) : undefined;
   const n = Number(first(sp.page));
   const page = Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), MAX_PAGE) : 1;
   // WP-96: a curated company group (`/suppliers?group=rheinmetall`), its key as the API knows it
   const group = first(sp.group).toLowerCase().replace(/[^a-z]/g, '').slice(0, 40);
-  return { q, country, buyerCountry, cpv, product, sort, page, group };
+  return { q, country, buyerCountry, cpv, product, sort, source, page, group };
 }
 
 function href(f: ReturnType<typeof parse>, page: number): string {
@@ -58,6 +65,7 @@ function href(f: ReturnType<typeof parse>, page: number): string {
   if (f.cpv) p.set('cpv', f.cpv);
   if (f.product) p.set('product', f.product);
   if (f.group) p.set('group', f.group);
+  if (f.source) p.set('source', f.source);
   if (f.sort !== 'awards') p.set('sort', f.sort);
   if (page > 1) p.set('page', String(page));
   return `/suppliers${p.size ? `?${p.toString()}` : ''}`;
@@ -65,7 +73,7 @@ function href(f: ReturnType<typeof parse>, page: number): string {
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parse(await searchParams);
-  let noindex = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group || f.page > 1 || f.sort !== 'awards');
+  let noindex = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group || f.source || f.page > 1 || f.sort !== 'awards');
   if (!noindex) {
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
   }
@@ -95,12 +103,14 @@ function withProduct(f: ReturnType<typeof parse>) {
 }
 
 const INPUT = 'min-h-11 rounded-md border border-input-edge bg-surface px-3 font-normal';
+/** WP-98b: one order per currency the site shows amounts in; a sum in one currency is never set against another's. */
+const VALUE_SORTS = CURRENCIES.map((c) => ({ value: `value-${c}`, label: `Contract values in ${c}, largest first` }));
 
 export default async function SuppliersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const f = parse(sp);
   const notices = ignoredFilters(sp, 'suppliers');
-  const filtered = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group);
+  const filtered = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group || f.source);
   const { match, unknown, none, api } = withProduct(f);
   let result;
   let full;
@@ -144,8 +154,9 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
         )}
         <p className="m-0">
-          Counts of suppliers and wins, every group shown however small. Winners that are natural persons are counted, never named. The map ranks
-          nobody by value; a supplier's wins are a count of contracts, each with its notice and link, and its page sums the values of the notices that name it alone.
+          Counts of suppliers and wins, every group shown however small. Winners that are natural persons are counted, never named. A supplier's wins
+          are a count of contracts, each with its notice and link; its contract values are the sums of the values of the notices that name it alone, per currency.
+          The list is ordered by value only when you choose it.
           A contract is in every CPV division its notice has a code in, so the divisions add up to more than the total.
         </p>
         <p className="m-0">Names are as the buyer published them (<Link href="/methodology" className="font-semibold">methodology</Link>).</p>
@@ -182,9 +193,18 @@ export default async function SuppliersPage({ searchParams }: Props) {
             <span className={cn(boxCls(), 'relative text-small font-normal')}>
               <ListboxSelect name="sort" defaultValue={f.sort} aria-describedby="order-help" accessibleName="Order"
                 className="text-small font-normal"
-                options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }]} />
+                options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }, ...VALUE_SORTS]} />
             </span>
           </label>
+          {(placsp || f.source) && (
+            <label className="flex flex-col gap-1 text-small font-semibold">Sources
+              <span className={cn(boxCls(), 'relative text-small font-normal')}>
+                <ListboxSelect name="source" defaultValue={f.source ?? ''} aria-describedby="source-help" accessibleName="Sources"
+                  className="text-small font-normal"
+                  options={[{ value: '', label: 'TED and PLACSP' }, { value: 'ted', label: 'TED only (compare countries)' }]} />
+              </span>
+            </label>
+          )}
           <Button type="submit" variant="primary">Search</Button>
           {filtered && <Button variant="secondary" href="/suppliers">Clear</Button>}
         </form>
@@ -202,7 +222,13 @@ export default async function SuppliersPage({ searchParams }: Props) {
           </p>
           <p id="order-help" className="m-0">
             “Most wins first” is the number of wins in the notices we hold, nothing more: a count, not a ranking of size, quality or standing, and a small
-            reseller with many small awards can come first. Choose “Name” for a neutral order.
+            reseller with many small awards can come first. Choose “Name” for a neutral order. “Contract values in EUR” orders by the sum of the contract
+            values the notices state for the company alone, in that currency only (nothing is converted; a company with none in it comes last): many
+            contracts state no value, so it is not a ranking of size either.
+          </p>
+          <p id="source-help" className="m-0">
+            Spain&rsquo;s national award results (PLACSP) are read and no other country&rsquo;s, so Spanish winners fill the list. “TED only” lists the winners of TED&rsquo;s
+            result notices alone, the one source every country has, for a comparison between countries.
           </p>
         </AboutData>
         {match && (
@@ -219,12 +245,19 @@ export default async function SuppliersPage({ searchParams }: Props) {
                 {f.cpv ? ' The CPV box is ignored while a product is given.' : ''}</>}
           </p>
         )}
+        {/* WP-98b: whose award results are read for the countries asked (the buyer's, else the supplier's), above an empty list too */}
+        <CoverageNote countries={(api.buyerCountry || api.country).split(',').filter(Boolean)} kind="awards" />
+        {placsp && !f.source && (api.buyerCountry || api.country) && (
+          <p className="m-0 max-w-prose text-small text-ink-muted" data-ted-only-link>
+            Comparing countries? <Link href={href({ ...f, source: 'ted' }, 1)} className="font-semibold">Show TED&rsquo;s winners only</Link>, the one source every country has.
+          </p>
+        )}
         <ResultsRegion className="flex flex-col gap-4">
         {result.total === 0 ? (
           <EmptyState title={unknown.length > 0 ? 'Not a country' : 'No suppliers match'} action={<Button variant="secondary" href="/suppliers">Clear filters</Button>}>
             {unknown.length > 0
               ? `“${unknown.join(', ')}” is not a country code or an English country name. Use a code such as DE or DEU, or a name such as Germany.`
-              : `Only companies named as winners in a TED result notice${placsp ? ' or an award result of Spain’s national procurement portal' : ''} of the defence-relevant scope, published in the last three years, are listed. Try a shorter name.`}
+              : `Only companies named as winners in a TED result notice${placsp && !f.source ? ' or an award result of Spain’s national procurement portal' : ''} of the defence-relevant scope, published in the last three years, are listed. Try a shorter name.`}
           </EmptyState>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
@@ -239,6 +272,8 @@ export default async function SuppliersPage({ searchParams }: Props) {
                   </span>
                   {s.cpvDivisions.length > 0 && <span>CPV {s.cpvDivisions.join(', ')}</span>}
                 </span>
+                {/* WP-98b: the contract values of these wins (WP-95: contract values only), per currency */}
+                {s.contractValues && <span className="text-small text-ink" data-contract-values>{listValueLine(s.contractValues, s.awardCount)}</span>}
               </li>
             ))}
           </ul>

@@ -1316,3 +1316,14 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
 - New `GET /v1/buyers/{slug}/suppliers`: `{items: [{slug, name, country, awards}], suppliers, contracts, attribution}`, the
   award set of the supplier map (`award_set.scope`) under the buyer family, most contracts first, at most 10; natural persons are
   never in it. Kept 30 minutes; rate cost 3.
+
+## Changes of 24 October 2026 (WP-98b: presets, buyer and supplier orders, coverage; persona round of 23 October, C 5-7)
+
+- `GET /v1/buyers?cpv=`: each item has `cpvCount`, its notices of the counted set under the codes, each once as the tender list
+  shows it (the collapse rules over the same filters, within the family); null without `cpv`. `sort=cpv` orders by it (most
+  first, then `tenderCount`); without `cpv` it is the default order. The page has `cpvCountCollapsed` (true unless the collapsed
+  count took longer than 2.5 s, `tenders.UNDER_CODES_MS`: then the plain count, a notice and its copy may count twice).
+- `GET /v1/suppliers`: each item has `contractValues: [{currency, amount, count, lotEstimates}]`, the contract values of the wins
+  the filters select, as the profile's `values.byCurrency` sums them (WP-95: contract values only, a unit price in no sum, never
+  converted). `sort=value-XXX` (a three-letter currency) orders by the sum in that currency, largest first, a supplier with none
+  in it last. `source=ted`: the winners of TED's own result notices only (no PLACSP award result). Rate cost +2 for a value order.
