@@ -40,10 +40,11 @@ test('the report starts with who to approach, then who buys, then the rules as a
   const sent = await asSupplier(page, { ...profile, supplier: { ...profile.supplier, region: 'ES-GA' } });
   await visit(page, '/readiness/supplier/report', { title: /supplier readiness report/i, h1: 'Supplier readiness report' });
   await expect(page.locator('[data-item]').first()).toBeVisible();
+  // the open-now section renders when the demand answer is in: wait for it before reading the order (a race in CI, 24 Oct)
+  await expect(page.locator('[data-approach-winner]').first()).toBeVisible();
   const order = await page.locator('[data-report-section]').evaluateAll((els) => els.map((e) => e.getAttribute('data-report-section')));
   expect(order).toEqual(['r-open', 'r-approach', 'r-demand', 'r-results', 'r-roadmap', 'r-profile', 'r-about']);   // WP-97: open now first
   expect(sent).toHaveLength(1);                                   // one request feeds both sections
-  await expect(page.locator('[data-approach-winner]').first()).toBeVisible();
   await noSideScroll(page);
 
   const s = page.locator('[data-report-section="r-approach"]');
