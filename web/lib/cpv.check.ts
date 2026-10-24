@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 import { PRODUCT_KEYWORDS, cpvForWords, cpvPrefix, cpvTitle } from './cpv';
 import { countryName, cpvDivisionLabel } from './taxonomy';
 
-const ammo = cpvForWords('ammunition');
+// The finder's titles (WP-101: "ammunition" alone is now a listed word, below; these words are not)
+const ammo = cpvForWords('ammunition for warfare');
+assert.equal(ammo.via, 'title');
 assert.ok(ammo.matched > 0 && ammo.prefixes.length > 0, 'the finder knows the word');
 assert.ok(ammo.prefixes.every((p) => /^\d{2,8}$/.test(p)), 'prefixes are digits');
 assert.ok(ammo.prefixes.some((p) => p.startsWith('3533')), 'ammunition is in 3533');
@@ -43,7 +45,11 @@ assert.deepEqual(cpvForWords('body armour').prefixes, ['35815']);
 assert.deepEqual(cpvForWords('Body  Armor').prefixes, ['35815'], 'the American spelling, any spacing');
 assert.deepEqual(cpvForWords('bullet-proof').prefixes, ['35815'], 'a hyphen is a space');
 assert.deepEqual(cpvForWords('bulletproof').prefixes, ['35815']);
-assert.deepEqual(cpvForWords('ammo').prefixes, ['3533']);
+// WP-101 (p04): ammunition is the group 353 (weapons, ammunition and associated parts: Mesko's 35300000) and the explosives 2461, the
+// codes of the tender list's ammunition group, no longer 3533 alone
+assert.deepEqual(cpvForWords('ammo').prefixes, ['353', '2461']);
+assert.deepEqual(cpvForWords('ammunition').prefixes, ['353', '2461']);
+assert.ok(cpvForWords('ammunition').prefixes.some((p) => '35330000'.startsWith(p)), 'ammunition still covers 3533');
 const tank = cpvForWords('tank');
 assert.deepEqual(tank.prefixes, ['35411'], 'a tank is a battle tank, not a heating tank (44600000)');
 assert.ok(!tank.prefixes.some((p) => '44600000'.startsWith(p)));
@@ -52,7 +58,7 @@ assert.deepEqual(cpvForWords('armored vehicles').prefixes, ['3541']);
 // The whole query must be listed words; anything else is searched in the finder's titles as before.
 assert.equal(cpvForWords('drone zzzz').via, 'title');
 assert.deepEqual(cpvForWords('drone zzzz').prefixes, []);
-assert.equal(cpvForWords('ammunition').via, 'title', 'a word the finder knows keeps the finder');
+assert.equal(cpvForWords('ammunition for warfare').via, 'title', 'a word the finder knows keeps the finder');
 assert.deepEqual(cpvForWords('drone tank').prefixes, ['35411', '35613', '347112'], 'two listed words give both');
 // The list itself: official codes, titles that agree with the finder's where it holds the code, and no word in two entries.
 const seen = new Map<string, number>();

@@ -391,6 +391,8 @@ CPV_PREFIX = re.compile(r"^[0-9]{2,8}$")
 # WP-89: a notice with any CPV code under one of the prefixes (as typed: the tender list's `cpv` reading), over the
 # defence-scope GIN index of migration 0099 (`award_set.CPV_MATCH` with the prefixes as given).
 CPV_HEADS = "dgate_cpv_heads(o.cpv_codes) && %s::text[]"
+# WP-101: the same over the code heads stored for the search (`opportunity_search`, migration 0113)
+TS_CPV_HEADS = "ts.cpv_heads && %s::text[]"
 
 
 def cpv_prefixes(value: str | None, name: str = "cpv") -> list[str]:
@@ -956,6 +958,11 @@ RX_TERMS = 4            # WP-98: terms per regular expression of a synonym group
 MAX_SEARCH_WORDS = 6
 
 
+# WP-101: a search that is a TED notice number (220199-2026, 2026/S 203-724451) asks for that notice, whatever its status:
+# the global search reads it in every status (`search.opens_on`) and the site's list opens on All for it (web/lib/search.ts).
+NOTICE_NUMBER = re.compile(r"^(?:\d{1,8}-(?:19|20)\d{2}|(?:19|20)\d{2}/S \d{1,3}-\d{1,8})$", re.IGNORECASE)
+
+
 def search_words(text: str) -> list[str]:
     """The words of a search text, split where `dg_fold` splits (migration 0054); a piece
     that is only punctuation is dropped, and at most MAX_SEARCH_WORDS are used."""
@@ -1011,10 +1018,13 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         # WP-98: the words in any order, each slot of `search_terms.expand` filled by the typed words or a term of its group in
         # another language ("fardamento": "uniform", "Bekleidung" ...); a run of words is also read against the English
         # titles of the codes together ("spare parts": 34330000), where one of them alone names too many codes.
-        per_word = ("(dg_fold(o.title_en) LIKE dg_word_pattern(%s) "
-                    "OR dg_fold(o.title_original) LIKE dg_word_pattern(%s) "
-                    "OR (dg_fold(o.buyer_name_raw) LIKE dg_word_pattern(%s) "
-                    "AND NOT o.buyer_withheld){labels})")
+        # WP-101: over `opportunity_search` (migration 0113), the same texts folded once when the notice was written: a
+        # candidate of the trigram indexes is re-checked against stored text, where `dg_fold` of the title per term made
+        # "Drehteile Frästeile" 12.6 s on production. A withheld buyer has no name there. The condition is a correlated
+        # EXISTS so that the collapse rules (`collapse_clauses`, which rewrite `o.` for the twin) read the twin's own row.
+        per_word = ("(ts.title_en LIKE dg_word_pattern(%s) "
+                    "OR ts.title_original LIKE dg_word_pattern(%s) "
+                    "OR ts.buyer_name LIKE dg_word_pattern(%s){labels})")
         slots = []
         for alts in expand(words).slots:
             alt_sql = []
@@ -1022,40 +1032,38 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
             singles = alts[1:]
             if singles:
                 # The other terms of a group as one regular expression per column ("a word begins with one of them",
-                # a term of several words as that phrase, over the same trigram indexes): one fold of each title per
-                # row, where a LIKE per word folded it dozens of times (fardamento: 4.9 s against 0.7 s, spare parts
-                # 3.5 s, on the synthetic archive). In chunks of RX_TERMS: over a longer alternation pg_trgm keeps
-                # fewer trigrams and the index hands back ten times the matches to re-check (drone: 12,966 candidates
-                # for 1,306 matches; 4 terms: exact). Titles only: a product word in another language names no buyer,
-                # and over the buyer names the short terms (UAV, UAS) made 15,000 index candidates to re-check (5 s for
-                # q=drone&status=all). The code overlaps go last: `dgate_cpv_heads` costs more per row than a regex.
+                # a term of several words as that phrase, over the same trigram indexes). In chunks of RX_TERMS: over a
+                # longer alternation pg_trgm keeps fewer trigrams and the index hands back ten times the matches to
+                # re-check (drone: 12,966 candidates for 1,306 matches; 4 terms: exact). Titles only: a product word in
+                # another language names no buyer, and over the buyer names the short terms (UAV, UAS) made 15,000 index
+                # candidates to re-check (5 s for q=drone&status=all). The code overlaps go last.
                 folded = [re.escape(" ".join(fold_words(" ".join(t)))) for t in singles]
                 for k in range(0, len(folded), RX_TERMS):
                     rx = " (?:" + "|".join(folded[k:k + RX_TERMS]) + ")"
-                    alt_sql.append("dg_fold(o.title_en) ~ %s OR dg_fold(o.title_original) ~ %s")
+                    alt_sql.append("ts.title_en ~ %s OR ts.title_original ~ %s")
                     params += [rx] * 2
                 codes = sorted({c for t in singles
                                 for c in (codes_for_word(t[0]) if len(t) == 1 else codes_for_words(tuple(t)))})
                 if codes:
-                    alt_sql.append(CPV_HEADS)
+                    alt_sql.append(TS_CPV_HEADS)
                     params.append(codes)
             for alt in alts[:1]:
                 ands = []
                 for w in alt:
                     codes = codes_for_word(w)
-                    ands.append(per_word.format(labels=f" OR {CPV_HEADS}" if codes else ""))
+                    ands.append(per_word.format(labels=f" OR {TS_CPV_HEADS}" if codes else ""))
                     params += [w] * 3 + ([list(codes)] if codes else [])
                 together = codes_for_words(tuple(alt)) if len(alt) > 1 else ()
                 if together:
                     params.append(list(together))
-                alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {CPV_HEADS}" if together else ""))
+                alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {TS_CPV_HEADS}" if together else ""))
             slots.append("(" + " OR ".join(alt_sql) + ")")
         # (one slot of several words has just read them together)
         together = codes_for_words(tuple(words)) if len(words) > 1 and len(slots) > 1 else ()
         if together:
             params.append(list(together))
-        where.append("((" + " AND ".join(slots) + ")" + (f" OR {CPV_HEADS}" if together else "")
-                     + " OR o.native_id ILIKE %s)")
+        where.append("EXISTS (SELECT 1 FROM opportunity_search ts WHERE ts.id = o.id AND ((" + " AND ".join(slots) + ")"
+                     + (f" OR {TS_CPV_HEADS}" if together else "") + " OR ts.native_id ILIKE %s))")
         params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
     if len(countries) == 1:

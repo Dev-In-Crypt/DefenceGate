@@ -28,10 +28,15 @@ export interface Expanded {
 
 const key = (words: string[]) => words.flatMap(foldWords).join(' ');
 
-/** As search_terms.expand: the longest term of a group at each position is a slot any term of the group fills. */
+/**
+ * As search_terms.expand: the longest term of a group at each position is a slot any term of the group fills. WP-101: a run of
+ * terms of one group ("Drehteile Frästeile") is one slot, any term of the group or all the typed words.
+ */
 export function expand(words: string[]): Expanded {
   const folded = words.map((w) => foldWords(w).join(' '));
   const out: Expanded = { slots: [], also: [], groups: [] };
+  const typedKeys: Set<string>[] = [];
+  const slotGroup: (SearchTermGroup | null)[] = [];
   let i = 0;
   while (i < words.length) {
     let best: { n: number; g: SearchTermGroup } | null = null;
@@ -41,16 +46,27 @@ export function expand(words: string[]): Expanded {
         if (f.length && f.join(' ') === folded.slice(i, i + f.length).join(' ') && (!best || f.length > best.n)) best = { n: f.length, g };
       }
     }
-    if (!best) { out.slots.push([[words[i]]]); i += 1; continue; }
-    const typed = words.slice(i, i + best.n);
-    const alts = subsumed([typed, ...best.g.terms.map((t) => t.split(SEPARATORS).filter(Boolean))]);
-    out.slots.push(alts);
-    for (const a of alts.slice(1)) { const l = a.join(' '); if (!out.also.includes(l)) out.also.push(l); }
+    if (!best) { out.slots.push([[words[i]]]); typedKeys.push(new Set()); slotGroup.push(null); i += 1; continue; }
+    let typed = words.slice(i, i + best.n);
+    const keys = new Set([key(typed)]);
+    if (slotGroup.length && slotGroup[slotGroup.length - 1] === best.g) {
+      typed = [...out.slots.pop()![0], ...typed];
+      for (const k of typedKeys.pop()!) keys.add(k);
+      slotGroup.pop();
+    }
+    out.slots.push(subsumed([typed, ...best.g.terms.map((t) => t.split(SEPARATORS).filter(Boolean))]).slice(0, MAX_ALTERNATIVES));
+    typedKeys.push(keys);
+    slotGroup.push(best.g);
     if (!out.groups.includes(best.g)) out.groups.push(best.g);
     i += best.n;
   }
+  out.slots.forEach((alts, s) => {
+    for (const a of alts.slice(1)) { const l = a.join(' '); if (!typedKeys[s].has(key(a)) && !out.also.includes(l)) out.also.push(l); }
+  });
   return out;
 }
+
+const MAX_ALTERNATIVES = 40;
 
 function subsumed(alts: string[][]): string[][] {
   const one = alts.filter((a) => a.length === 1).map((a) => foldWords(a[0])[0]).filter(Boolean);
@@ -79,6 +95,17 @@ export function matchesSlots(slots: string[][][], titles: (string | null | undef
   const t = titles.flatMap(words);
   const all = [...t, ...words(buyer)];
   return slots.every(([typed, ...terms]) => typed.every((w) => begins(w, all)) || terms.some((term) => phrase(term, t)));
+}
+
+/**
+ * WP-101: a TED notice number (220199-2026, 2026/S 203-724451), as the API reads it (backend/dgate/tenders.py NOTICE_NUMBER): the
+ * search asks for that notice whatever its status, so the tender list opens on All for it (an awarded notice was "not found" in Open).
+ */
+export const NOTICE_NUMBER = /^(?:\d{1,8}-(?:19|20)\d{2}|(?:19|20)\d{2}\/S \d{1,3}-\d{1,8})$/i;
+
+/** The tender list's query for these words (`/tenders?...`): a notice number in every status. */
+export function tenderListQuery(q: string): Record<string, string> {
+  return NOTICE_NUMBER.test(q) ? { q, status: 'all' } : { q };
 }
 
 /** The full names an abbreviation stands for, when the search is exactly that abbreviation (a space inside it optional). */

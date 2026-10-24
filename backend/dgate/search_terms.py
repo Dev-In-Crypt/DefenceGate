@@ -25,7 +25,7 @@ from .normalise import _TRANSLITERATE
 
 DATA = Path(__file__).parent / "data" / "search-terms.json"
 SEPARATORS = re.compile(r"[\s\-–—/_.,;:()\"'’]+")      # dg_fold's (migration 0054), as tenders.SEARCH_SEPARATORS
-MAX_ALTERNATIVES = 24
+MAX_ALTERNATIVES = 40
 
 
 def fold_words(text: str) -> list[str]:
@@ -92,10 +92,16 @@ def _subsumed(alts: list[list[str]]) -> list[list[str]]:
 
 
 def expand(words: list[str]) -> Expanded:
-    """The slots of a search's words (`tenders.search_words`): the longest term of a group at each position first."""
+    """The slots of a search's words (`tenders.search_words`): the longest term of a group at each position first.
+
+    WP-101: a run of terms of one group is one slot ("Drehteile Frästeile": any term of the spare-parts group, or both
+    words), not a slot per term. Two slots of one group asked for the group twice, which is the same notices (every term
+    of the group fills either), at twice the work: the search ran past the API's 5 s on production every time."""
     gs = groups()
     folded = [" ".join(fold_words(w)) for w in words]
     out = Expanded()
+    typed_keys: list[set[tuple[str, ...]]] = []      # per slot: the typed terms, never "also" searched
+    slot_group: list[Group | None] = []
     i = 0
     while i < len(words):
         best: tuple[int, Group] | None = None
@@ -106,19 +112,28 @@ def expand(words: list[str]) -> Expanded:
                     best = (n, g)
         if best is None:
             out.slots.append([[words[i]]])
+            typed_keys.append(set())
+            slot_group.append(None)
             i += 1
             continue
         n, g = best
         typed = words[i:i + n]
-        alts = _subsumed([typed] + [list(t) for t in g.terms])[:MAX_ALTERNATIVES]
-        out.slots.append(alts)
-        for alt in alts[1:]:
-            label = " ".join(alt)
-            if label not in out.also:
-                out.also.append(label)
+        keys = {tuple(w for x in typed for w in fold_words(x))}
+        if slot_group and slot_group[-1] is g:
+            typed = out.slots.pop()[0] + typed
+            keys |= typed_keys.pop()
+            slot_group.pop()
+        out.slots.append(_subsumed([typed] + [list(t) for t in g.terms])[:MAX_ALTERNATIVES])
+        typed_keys.append(keys)
+        slot_group.append(g)
         if g not in out.groups:
             out.groups.append(g)
         i += n
+    for alts, keys in zip(out.slots, typed_keys, strict=True):
+        for alt in alts[1:]:
+            label = " ".join(alt)
+            if tuple(w for x in alt for w in fold_words(x)) not in keys and label not in out.also:
+                out.also.append(label)
     return out
 
 

@@ -165,7 +165,14 @@ export function allTenders(ref: Date = now()): Tender[] {
 
 const time = (iso: string) => new Date(iso).getTime();
 
+/**
+ * WP-101: a search of the demo data that fails as the API does when it answers 503, so the end-to-end tests can see the list's
+ * error state (an error with "Try again", never "No tenders match"). Demo data only: with the API the site never reads this file.
+ */
+export const DEMO_UNAVAILABLE = 'demo-unavailable-503';
+
 export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Tender> {
+  if (f.q === DEMO_UNAVAILABLE) throw new Error('GET /v1/tenders failed (503, demo)');
   const q = f.q?.toLowerCase();
   const terms = f.q ? expand(f.q.split(/[\s\-–—/_.,;:()"'’]+/u).filter(Boolean).slice(0, 6)) : null;
   const status = f.status ?? 'open';

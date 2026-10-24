@@ -11,7 +11,7 @@ import * as tenderMock from './mock/tenders';
 import { DEFENCE_PROGRAMMES } from './networks';
 import type { OrgListItem } from './networks-types';
 import type { Buyer, Call, SupplierItem, Tender } from './types';
-import { buyerNames, foldWords } from './search-terms';
+import { buyerNames, foldWords, tenderListQuery } from './search-terms';
 
 const API_BASE = process.env.DG_API_URL;
 export const SEARCH_LIMIT = 5;
@@ -47,10 +47,10 @@ export function searchQuery(raw: string | string[] | undefined): string {
   return q.length >= SEARCH_MIN ? q : '';
 }
 
-/** Where each group's "see all" leads: the list itself, searched for the same words. */
+/** Where each group's "see all" leads: the list itself, searched for the same words (a notice number in every status). */
 export function seeAllHref(group: keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed'>, q: string): string {
   const path = { tenders: '/tenders', funding: '/funding', buyers: '/buyers', suppliers: '/suppliers', organisations: '/organisations' }[group];
-  return `${path}?${new URLSearchParams({ q })}`;
+  return `${path}?${new URLSearchParams(group === 'tenders' ? tenderListQuery(q) : { q })}`;
 }
 
 const group = <T>(p: { items: T[]; total: number; totalCapped?: boolean; totalExact?: boolean }): SearchGroup<T> =>
@@ -61,7 +61,8 @@ export async function getSearch(q: string): Promise<SiteSearch> {
     // Shaped by the visitor: never cached, charged to the visitor (lib/api.ts visitorHeaders).
     return httpOrThrow<SiteSearch>(`/v1/search?${new URLSearchParams({ q, limit: String(SEARCH_LIMIT) })}`, 'no-store');
   }
-  const tenders = tenderMock.queryTenders({ q, pageSize: SEARCH_LIMIT });
+  // the list each group opens on (search.py opens_on): a notice number in every status
+  const tenders = tenderMock.queryTenders({ q, pageSize: SEARCH_LIMIT, ...(tenderListQuery(q).status ? { status: 'all' as const } : {}) });
   const buyers = group(tenderMock.queryBuyers({ q, pageSize: SEARCH_LIMIT }));
   const first = buyers.items[0];
   const buyerNamed = Boolean(first) && (buyerNames(q).length > 0 || foldWords(first.name).join('') === foldWords(q).join(''));

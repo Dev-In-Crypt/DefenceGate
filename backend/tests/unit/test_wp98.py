@@ -80,13 +80,13 @@ def test_a_word_that_is_no_abbreviation_names_nothing():
 def test_the_search_sql_of_a_group_is_a_few_regular_expressions_over_the_titles():
     where, params, _ = tenders._tender_filters("fardamento", None, None, "open", "relevant", None, None, None, None, None,
                                                None, None)
-    search = next(w for w in where if "dg_fold(o.title_en)" in w)
+    search = next(w for w in where if "ts.title_en" in w)              # WP-101: the folded titles stored for the search
     rx = [p for p in params if isinstance(p, str) and p.startswith(" (?:")]
     assert rx and all(p.count("|") < tenders.RX_TERMS for p in rx)
-    assert "buyer_name_raw) ~" not in search                      # a product word names no buyer
+    assert "buyer_name ~" not in search                           # a product word names no buyer
     assert " ".join(where).count("%s") == len(params)              # every placeholder has its value
     # the typed word still reads the buyer's name as before
-    assert "dg_fold(o.buyer_name_raw) LIKE dg_word_pattern(%s)" in search
+    assert "ts.buyer_name LIKE dg_word_pattern(%s)" in search
     info = tenders.search_info("fardamento")
     assert info["searchGroups"][0]["id"] == "uniforms" and "Bekleidung" in info["alsoSearched"]
     assert tenders.search_info(None) == {"alsoSearched": [], "searchGroups": []}
