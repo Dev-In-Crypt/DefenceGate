@@ -5,7 +5,7 @@ import { clearProfile, emptyProfile, loadProfile, saveProfile, toRequest, type P
 import { ASSESS_FAILED, AssessError, assess } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 import { DEMAND_FAILED, DemandError, demandRequest, fetchDemand, type Demand } from '@/lib/demand';
-import { recall, remember } from '@/lib/answer-cache';
+import { recall, shared } from '@/lib/answer-cache';
 
 /**
  * The profile of the visitor, from and to localStorage only. `ready` is false on the server and for the first
@@ -65,8 +65,9 @@ export function useAssessment(profile: Profile | null, programmes: string[] | nu
       return;
     }
     setResult((r) => (r.state === 'done' ? r : { state: 'loading' }));
-    assess(JSON.parse(key), controller.signal).then(
-      (data) => { remember('assess', key, data); if (mine === seq.current) setResult({ state: 'done', data }); },
+    // WP-112: not aborted when the page is left; the next page waits for the same request (`shared`)
+    shared('assess', key, () => assess(JSON.parse(key))).then(
+      (data) => { if (mine === seq.current && !controller.signal.aborted) setResult({ state: 'done', data }); },
       (e: unknown) => {
         if (controller.signal.aborted || mine !== seq.current) return;
         setResult({ state: 'error', message: e instanceof AssessError ? e.message : ASSESS_FAILED });
@@ -101,8 +102,8 @@ export function useDemand(profile: Profile | null): DemandState & { retry: () =>
       return;
     }
     setResult({ state: 'loading' });
-    fetchDemand(JSON.parse(key), controller.signal).then(
-      (data) => { remember('demand', key, data); if (!controller.signal.aborted) setResult({ state: 'done', data }); },
+    shared('demand', key, () => fetchDemand(JSON.parse(key))).then(
+      (data) => { if (!controller.signal.aborted) setResult({ state: 'done', data }); },
       (e: unknown) => {
         if (controller.signal.aborted) return;
         setResult({ state: 'error', message: e instanceof DemandError ? e.message : DEMAND_FAILED });

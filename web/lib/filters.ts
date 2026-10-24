@@ -419,13 +419,15 @@ export function toChangeQuery(f: ChangeFilters): string {
 /** The first year the market page offers: the archive holds notices back to 2021, and TED history before 2024 is partial. */
 export const MARKET_FIRST_YEAR = 2021;
 
-export function parseMarketFilters(sp: SearchParams, thisYear: number = new Date().getUTCFullYear()): { year?: number; country?: string; cpv?: string[] } {
+export function parseMarketFilters(sp: SearchParams, thisYear: number = new Date().getUTCFullYear()): { year?: number; country?: string; cpv?: string[]; scope?: 'relevant' } {
   const y = Number(first(sp[PARAM.year]));
   const year = Number.isInteger(y) && y >= MARKET_FIRST_YEAR && y <= thisYear ? y : undefined;
   const c = (first(sp[PARAM.country]) ?? '').trim().toUpperCase();
   const country = COUNTRY_CODES.includes(c) ? c : undefined;
   const cpv = cpvList(sp[PARAM.cpv]);           // WP-89: as on /tenders
-  return { ...(year ? { year } : {}), ...(country ? { country } : {}), ...(cpv ? { cpv } : {}) };
+  // WP-112 (p06): all defence, also the services armed forces buy; the API takes it with a country or codes only
+  const scope = first(sp.scope) === 'relevant' && (country || cpv) ? 'relevant' as const : undefined;
+  return { ...(year ? { year } : {}), ...(country ? { country } : {}), ...(cpv ? { cpv } : {}), ...(scope ? { scope } : {}) };
 }
 
 /* ---- What a list page was asked for and did not use ---- */

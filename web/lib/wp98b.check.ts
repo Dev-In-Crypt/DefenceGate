@@ -74,8 +74,8 @@ assert.deepEqual(eur.slice(0, 2), ['Demo Ordnance SA', 'Demo Airframes GmbH']);
 assert.equal(querySuppliers({ sort: 'value-PLN' }).items[0].name, 'Demo Protective Textiles sp. z o.o.');
 assert.ok(!querySuppliers({ source: 'ted' }).items.some((s) => s.country === 'ES'));
 assert.equal(listValueLine([{ currency: 'EUR', amount: 1243802.4, count: 2, lotEstimates: 0 }, { currency: 'PLN', amount: 7e6, count: 2, lotEstimates: 0 }], 6),
-  'Contract values: EUR 1,243,802 over 2 of 6 contracts; PLN 7,000,000 over 2');
-assert.equal(listValueLine([], 3), 'Contract values: none stated for this company alone');
+  'Contract values: EUR 1,243,802 over 2 of 6 contracts; PLN 7,000,000 over 2; 2 more with a framework ceiling, an estimate or no value of their own (not added)');
+assert.equal(listValueLine([], 3), 'Contract values: none stated for this company alone (a framework ceiling or an estimate is not added)');
 
 // ---------------------------------------------------------------- 7. the coverage constant, held to the sources
 // The countries whose own tender portal or feed a migration registers (kind 'tender', a country), less the one-off Atlas load and

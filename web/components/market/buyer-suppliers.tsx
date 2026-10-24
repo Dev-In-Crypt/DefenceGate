@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { displayName } from '@/lib/display-name';
 import { formatNumber, plural } from '@/lib/format';
 import { moneyLine } from '@/lib/market-money';
+import { restNote } from '@/lib/value-totals';
 import type { BuyerSuppliers } from '@/lib/types';
 import { AboutData } from '@/components/dg/about-data';
 import { CountryLabel } from '@/components/dg/data-display';
@@ -39,7 +40,10 @@ export function BuyerTopSuppliers({ data, name, cpv }: { data: BuyerSuppliers; n
               <th scope="row" className="font-normal"><Link href={`/suppliers/${s.slug}`} className="font-semibold">{displayName(s.name, 'title')}</Link></th>
               <td>{s.country ? <CountryLabel code={s.country} /> : 'Not stated'}</td>
               <td className="text-right font-mono tabular-nums">{formatNumber(s.awards)}</td>
-              <td className="text-small" data-top-supplier-value>{moneyLine(s.contractValues) ?? 'None stated'}</td>
+              <td className="text-small" data-top-supplier-value>{/* WP-112 (p06: Seko Benelux "EUR 24.3 M over 2 contracts" of 3): the cell accounts for every contract */}
+                {moneyLine(s.contractValues)
+                  ? `${moneyLine(s.contractValues)}${restNote((s.contractValues ?? []).reduce((k, v) => k + v.count, 0), s.awards)}`
+                  : 'None stated (a framework ceiling or an estimate is not added)'}</td>
             </tr>
           ))}
         </tbody>

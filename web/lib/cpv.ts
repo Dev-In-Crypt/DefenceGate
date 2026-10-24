@@ -4,6 +4,7 @@
  */
 import data from './data/cpv.json';
 import keywordData from './data/product-keywords.json';
+import groupData from './data/cpv-groups.json';
 import { cpvDivisionLabel, cpvLabel } from './taxonomy';
 
 const CODES = data.codes as Record<string, string>;
@@ -29,9 +30,12 @@ export interface CpvRow {
 export interface CpvGroup { id: string; title: string | null; rows: CpvRow[] }
 export interface CpvSection { id: string; title: string; intro: string; groups: CpvGroup[] }
 
-/** The vocabulary's title of a 3-digit group (`351` is the title of 35100000), or null when we do not hold it. */
+/**
+ * The vocabulary's title of a 3-digit group (`351` is the title of 35100000), or null when we do not hold it. WP-112 (p04: "group 374" and
+ * "group 246" without a title on /market): every group of the official vocabulary (lib/data/cpv-groups.json, 17 kB), not only the selection's.
+ */
 export function cpvGroupTitle(group: string): string | null {
-  return /^\d{3}$/.test(group) ? (CODES[`${group}00000`] ?? null) : null;
+  return /^\d{3}$/.test(group) ? (CODES[`${group}00000`] ?? (groupData.groups as Record<string, string>)[group] ?? null) : null;
 }
 
 /** Folded as the API's `dg_fold` (and `cpv_labels.fold`): lower case, no accents, the separators one space, a leading space. */

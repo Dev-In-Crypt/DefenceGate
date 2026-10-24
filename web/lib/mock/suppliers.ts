@@ -24,7 +24,7 @@ const VALUES: Record<string, SupplierItem['contractValues']> = {
 };
 const sumIn = (s: SupplierItem, cur: string) => s.contractValues?.find((v) => v.currency === cur)?.amount;
 
-export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> & { groupTotals: ValueSum[] | null } {
+export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> & { groupTotals: ValueSum[] | null; placsp: boolean } {
   const q = (f.q ?? '').trim().toLowerCase();
   const countries = (f.country ?? '').split(',').filter(Boolean);
   const cpv = (f.cpv ?? '').split(',').filter(Boolean);
@@ -50,7 +50,8 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> & { 
     }
     groupTotals = [...by.values()].sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
   }
-  return { items, total: items.length, page: 1, pageSize: f.pageSize ?? 20, groupTotals };
+  // WP-112: in the demo data the Spanish companies are the ones with PLACSP wins
+  return { items, total: items.length, page: 1, pageSize: f.pageSize ?? 20, groupTotals, placsp: items.some((s) => s.country === 'ES') };
 }
 
 export function supplierSummary(): SupplierSummary {
@@ -134,7 +135,7 @@ export function supplierContracts(slug: string): SupplierContracts | null {
     frameworkNoticeId: n.framework?.noticeId ?? null, source: n.source ?? 'ted', sourceName: 'TED (Tenders Electronic Daily)', sourceUrl: n.sourceUrl,
     licence: 'Commission Decision 2011/833/EU (reuse permitted with attribution)', attribution: 'Source: TED, © European Union.',
   }));
-  return { slug: s.slug, name: s.name, total: items.length, cap: 5000, items };
+  return { slug: s.slug, name: s.name, total: items.length, cap: 5000, items, identifiers: s.identifiers };
 }
 
 /**

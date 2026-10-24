@@ -77,6 +77,21 @@ export const PROGRAMME_NAME: Record<string, string> = {
   'ES-MOD': 'Spanish defence supplier (MoD)', GENERAL: 'the general requirements',
 };
 export const programmeName = (code: string): string => PROGRAMME_NAME[code] ?? code;
+
+/** WP-112: the routes that are one country's own: their rules say nothing about a company of another country. */
+export const ROUTE_COUNTRY: Record<string, string> = { 'ES-MOD': 'ES' };
+
+/**
+ * WP-112 (p03: ISO 9001 and EN 9100 "Appear in the rules of Spanish defence supplier (MoD)" on /requirements for Germany): the routes
+ * whose rules name a requirement, for the visitor's country. Another country's own route is left out; when only such routes name it,
+ * the line says that no rule we hold for this country does (no source is put in its place). `countryWord`: "Germany".
+ */
+export function appearsLine(programmes: readonly string[], country = '', countryWord = country): string {
+  const own = programmes.filter((p) => !country || !ROUTE_COUNTRY[p] || ROUTE_COUNTRY[p] === country);
+  if (own.length > 0) return `Appears in the rules of ${joinWords(own.map(programmeName))}. `;
+  if (programmes.length === 0) return '';
+  return `No rule we hold for ${countryWord} names it; we hold it from the rules of ${joinWords(programmes.map(programmeName))} only. `;
+}
 /** "A, B and C" */
 export function joinWords(items: string[]): string {
   return items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;

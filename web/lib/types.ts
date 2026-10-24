@@ -699,7 +699,8 @@ export interface Buyer {
 export interface MarketMonth { month: string; count: number; ted: number; partial: boolean }
 export interface MarketStats {
   asOf: IsoDateTime;
-  scope: 'core';
+  /** WP-112: `relevant` (all defence) when asked with a country or codes. */
+  scope: 'core' | 'relevant';
   unit: 'notices published';
   /** The window of every figure but `months`, as dates: the rolling 12 months, or the calendar year asked for. */
   windowFrom: string;
@@ -735,7 +736,11 @@ export interface MarketMoney {
 }
 
 /** The market page's selectors: a calendar year (the rolling 12 months when absent) and one buyer country. */
-export interface MarketFilters { year?: number; country?: string; /** WP-89: CPV prefixes, as on /tenders. */ cpv?: string[] }
+export interface MarketFilters {
+  year?: number; country?: string; /** WP-89: CPV prefixes, as on /tenders. */ cpv?: string[];
+  /** WP-112: `relevant` counts all defence (the tender list's default), with a country or codes only; military goods and works otherwise. */
+  scope?: 'relevant';
+}
 
 /** GET /v1/buyers/{slug}/profile: the buyer's own core-scope notices, counted. */
 /** WP-90, GET /v1/buyers/{slug}/suppliers: who won this buyer's contracts (the supplier map's award set), most first, at most 10. */
@@ -1073,7 +1078,11 @@ export interface SupplierContract {
   licence: string;
   attribution: string;
 }
-export interface SupplierContracts { slug: string; name: string; total: number; cap: number; items: SupplierContract[] }
+export interface SupplierContracts {
+  slug: string; name: string; total: number; cap: number; items: SupplierContract[];
+  /** WP-112: its registration numbers as its page shows them (absent from an older API). */
+  identifiers?: string[];
+}
 /** WP-98b: `sort` value-XXX orders by the contract values in currency XXX; `source` ted lists TED's winners only. */
 export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: SupplierSort; source?: 'ted'; page?: number; pageSize?: number }
 export type SupplierSort = 'awards' | 'name' | `value-${string}`;

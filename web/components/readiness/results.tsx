@@ -5,7 +5,7 @@ import { ArrowRight, ChevronDown, Pencil, Printer } from 'lucide-react';
 import { Icon } from '@/components/dg/icon';
 import { COUNTRIES, countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
-import { SUPPLY_ROUTES, answerProblems, hasSupplier, skippedFields, wantsEuFunding, type Profile } from '@/lib/profile';
+import { SUPPLY_ROUTES, answerProblems, hasSupplier, providesServices, skippedFields, wantsEuFunding, type Profile } from '@/lib/profile';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
@@ -202,7 +202,7 @@ export function ResultsView({ fromSupplier = false }: { fromSupplier?: boolean }
       {/* WP-97: what is open now in the company's own country under its codes comes first */}
       <OpenNowBlock result={demand} country={profile.country} />
       <ApproachSummary result={demand} country={profile.country} cpv={profile.supplier.cpv} />
-      <DemandSummary result={demand} country={profile.country} />
+      <DemandSummary result={demand} country={profile.country} services={providesServices(profile)} />
       {(result.state === 'loading' || result.state === 'idle') && <Loading />}
       {result.state === 'error' && <ErrorState title="The check could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && (

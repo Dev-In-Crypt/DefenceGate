@@ -89,7 +89,9 @@ def test_the_market_takes_a_cpv_filter(client, conn):
     assert parts["countries"]["total"] == 2
     assert {c["country"]: c["count"] for c in parts["countries"]["items"]} == {"DE": 1, "ES": 1}
     assert sum(m["count"] for m in parts["months"]) == 2
-    assert {g["group"] for g in parts["cpvGroups"]} == {"343", "354"}        # a notice counts in each of its groups
+    # WP-112 (p04): with codes asked, only the groups under them (DE-2's 354 is another product of the same notice)
+    assert {g["group"] for g in parts["cpvGroups"]} == {"343"}
+    assert {g["group"] for g in every["cpvGroups"]} == {"343", "354"}         # without codes a notice counts in each of its groups
     assert get(client, "/v1/stats/market", cpv="343", country="ES")["countries"]["total"] == 1
     assert client.get("/v1/stats/market", params={"cpv": "x1"}).status_code == 422
 

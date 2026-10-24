@@ -5,7 +5,7 @@
  */
 import type { Profile } from './profile';
 import { formatMoney } from './format';
-import { AUTOMOTIVE_SET } from './cpv';
+import { AUTOMOTIVE_SET, cpvPrefix } from './cpv';
 import { fetchPatiently } from './answer-cache';
 import type { ValueSum, ValueTotals } from './value-totals';
 
@@ -46,6 +46,11 @@ export interface ApproachWinner {
   /** WP-97: a dealer of parts, tyres or hardware by its name (Recambios, Neumáticos, Ferretería): a competitor or distributor, not a customer. */
   distributor?: boolean;
   edfProjects: number; defenceBuyer: boolean;
+  /**
+   * WP-112 (p01, p02: O-rings of a pipeline notice and a vehicle maker's lot of a 23-code supply contract under the company's codes): every
+   * contract of it matched only by an additional code of its notice, or by a catch-all notice of more than 20 codes; absent before.
+   */
+  byOtherCodeOnly?: boolean;
 }
 export interface Approach {
   winners: ApproachWinner[];
@@ -152,6 +157,12 @@ export function approachSentence(d: Pick<Demand, 'total' | 'approach' | 'kMin'>)
     + `${listed === named ? '' : `, and all ${named} on its list of winners`}. ${n(primes, 'of those listed is', 'of those listed are')} marked as a prime contractor or large defence group.`;
 }
 
+/** WP-112: whether the winner at `i` is the first of its prime group in the list (its source line is shown there only). */
+export function firstOfGroup(ws: readonly ApproachWinner[], i: number): boolean {
+  const g = ws[i]?.prime?.group;
+  return !g || ws.findIndex((w) => w.prime?.group === g) === i;
+}
+
 /** The primes and large defence groups among the named winners, the realistic way in for a subcontractor. */
 export function primesOf(a: Approach): ApproachWinner[] {
   return a.winners.filter((w) => w.prime !== null);
@@ -162,16 +173,19 @@ export function primesOf(a: Approach): ApproachWinner[] {
  * the company's own country (Suyfa, JPG, MADZEAL for a Spanish one), the primes and large defence groups (those of its country first), and
  * the other winners. A Spanish user saw eight German primes before any Spanish winner.
  */
-export function approachGroups(a: Approach, country: string): { home: ApproachWinner[]; primes: ApproachWinner[]; others: ApproachWinner[]; dealers: ApproachWinner[] } {
-  const primes = primesOf(a);
+export function approachGroups(a: Approach, country: string): { home: ApproachWinner[]; primes: ApproachWinner[]; others: ApproachWinner[]; dealers: ApproachWinner[]; side: ApproachWinner[] } {
+  // WP-112: a winner matched only by an additional code of its notices is listed apart, last, prime or not
+  const main = a.winners.filter((w) => !w.byOtherCodeOnly);
+  const primes = main.filter((w) => w.prime !== null);
   // WP-97: the dealers of parts, tyres and hardware apart, own country first: competitors or distributors of a maker, not its customers
-  const plain = a.winners.filter((w) => !w.prime && !w.distributor);
-  const dealers = a.winners.filter((w) => !w.prime && w.distributor);
+  const plain = main.filter((w) => !w.prime && !w.distributor);
+  const dealers = main.filter((w) => !w.prime && w.distributor);
   return {
     home: plain.filter((w) => w.country === country),
     primes: ownFirst(primes, country),
     others: plain.filter((w) => w.country !== country),
     dealers: ownFirst(dealers, country),
+    side: ownFirst(a.winners.filter((w) => w.byOtherCodeOnly), country),
   };
 }
 
@@ -203,6 +217,15 @@ export function supplierHref(slug: string, request: DemandRequest | null): strin
   if (!request) return `/suppliers/${slug}`;
   const p = new URLSearchParams({ cpv: request.cpv.join(','), buyerCountry: request.countries.join(',') });
   return `/suppliers/${slug}?${p.toString()}`;
+}
+
+/**
+ * WP-112 (p02: the army's top suppliers led by a vehicle maker on the page the report linked): a buyer's page under the report's codes, so
+ * its open tenders and top suppliers are those of the company's trade. `codes`: 8-digit codes or prefixes; each is read at its level.
+ */
+export function buyerHref(slug: string, codes: readonly string[] = []): string {
+  const prefixes = [...new Set(codes.map(cpvPrefix))];
+  return `/buyers/${slug}${prefixes.length ? `?${new URLSearchParams({ cpv: prefixes.join(',') }).toString()}` : ''}`;
 }
 
 export class DemandError extends Error {

@@ -350,6 +350,9 @@ class SupplierPage(BaseModel):
     # WP-104: with `group`, the group's contract values per currency (never converted): every company of the list under
     # the same filters, each procurement once per company, as each card's own `contractValues` sums them. None otherwise.
     groupTotals: list[ValueSum] | None = None
+    # WP-112 (p03, p04, p06: the Spanish "Origen de los datos" under a list of Polish, Dutch or German companies): whether a win
+    # of this page's companies under these filters is from PLACSP, so the page credits PLACSP only then. None from an older answer.
+    placsp: bool | None = None
 
 
 class Count(BaseModel):
@@ -697,6 +700,10 @@ def list_suppliers(
                               {**params, "page_orgs": [r["id"] for r in rows]}).fetchall():
             values.setdefault(v["org"], []).append(
                 {"currency": v["vc"], "amount": float(v["amount"]), "count": v["n"], "lotEstimates": 0})
+    # WP-112: the source credit per page: PLACSP only when one of the page's wins under these filters is from it
+    placsp_rows = bool(rows) and not ted_only and settings().placsp_awards_public and conn.execute(
+        f"SELECT EXISTS (SELECT 1 {FROM} WHERE {cond} AND org.id = ANY(%(page_orgs)s) AND NOT ({NOT_PLACSP})) AS x",
+        {**params, "page_orgs": [r["id"] for r in rows]}).fetchone()["x"]
     group_totals = None
     if isinstance(group, str) and group:
         # WP-104: the group's sum is the sum of its companies' sums (Leonardo group, persona round of 24 October)
@@ -708,7 +715,7 @@ def list_suppliers(
                       for r in rows],
             "total": total, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET, "withheld": False,
             # WP-98c: the time of a stored order, and whether an award load finished after it
-            "valuesAsOf": as_of, "valuesBehind": values_behind(conn, as_of)}
+            "valuesAsOf": as_of, "valuesBehind": values_behind(conn, as_of), "placsp": bool(placsp_rows)}
 
 
 @router.get("/v1/suppliers/summary", response_model=Summary)
@@ -871,20 +878,7 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
     # WP-81: each procurement once (the profile's count), valued by `value_of` (the notice rows use the same)
     sums = list(best(rows).values())
     frameworks = framework_refs(conn, [r["framework_id"] for r in notices if r["framework_id"]])
-    stated = conn.execute(
-        f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
-             ORDER BY 2 DESC, (a.name_as_stated = upper(a.name_as_stated)), 1 LIMIT 5""",
-        p).fetchall()
-    idents = conn.execute(
-        f"""SELECT a.identifier_as_stated AS v, count(*) AS n {base} AND a.identifier_as_stated IS NOT NULL
-             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 30""", p).fetchall()
-    numbers: dict[str, str] = {}              # one spelling of each number: "DE 129 415 943" is "DE129415943"
-    for r in idents:
-        # Only a number-shaped value is a registration number. A telephone number or an address typed into the
-        # field is contact data (verify2-abuse N1), a word is nothing: neither is shown, whatever is stored.
-        key = None if looks_like_contact(r["v"]) else normalise_identifier(r["v"], org["country"])
-        if key:
-            numbers.setdefault(key, redact_emails(r["v"]))
+    stated, numbers = _stated(conn, base, p, org)
     buyer_ids = [r["id"] for r in buyer_rows]
     names = _buyer_names(conn, buyer_ids)
     countries = {r["id"]: r["country"] for r in conn.execute(
@@ -909,7 +903,7 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
         note = placsp_note(conn, f"""o.id IN (SELECT a.opportunity_id {base})""", p)
         if note:
             # TED is named either way: a win shown from PLACSP lists its TED publication under it.
-            day = f", as last updated on {note['lastUpdated']:%Y-%m-%d}" if note["lastUpdated"] else ""
+            day = f", this company's award results there as last updated on {note['lastUpdated']:%Y-%m-%d}" if note["lastUpdated"] else ""
             attribution = (TED_NOTE["attribution"] + " " + note["attribution"].rstrip(".")
                            + f"{day}. Winners as named in each notice; natural persons are never named.")
     out_notices = []
@@ -949,6 +943,26 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
     }
 
 
+def _stated(conn, base: str, p: dict[str, Any], org: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """The names the notices state for a supplier (most used first, a mixed-case one before a capitals-only one) and its
+    registration numbers (one spelling of each: "DE 129 415 943" is "DE129415943"), over its award rows `base`."""
+    stated = conn.execute(
+        f"""SELECT a.name_as_stated AS v, count(*) AS n {base} GROUP BY 1
+             ORDER BY 2 DESC, (a.name_as_stated = upper(a.name_as_stated)), 1 LIMIT 5""",
+        p).fetchall()
+    idents = conn.execute(
+        f"""SELECT a.identifier_as_stated AS v, count(*) AS n {base} AND a.identifier_as_stated IS NOT NULL
+             GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 30""", p).fetchall()
+    numbers: dict[str, str] = {}
+    for r in idents:
+        # Only a number-shaped value is a registration number. A telephone number or an address typed into the
+        # field is contact data (verify2-abuse N1), a word is nothing: neither is shown, whatever is stored.
+        key = None if looks_like_contact(r["v"]) else normalise_identifier(r["v"], org["country"])
+        if key:
+            numbers.setdefault(key, redact_emails(r["v"]))
+    return stated, numbers
+
+
 # WP-100: the most contracts one supplier's file lists (the largest supplier held 408 on 23 October 2026)
 CONTRACTS_MAX = 5000
 
@@ -982,6 +996,7 @@ class SupplierContracts(BaseModel):
     total: int                                # the supplier's contracts, all of them
     cap: int = CONTRACTS_MAX                  # the most `items` holds; `total` above it says the list is cut
     items: list[SupplierContract]
+    identifiers: list[str] = []               # WP-112: its registration numbers, as on its page
 
 
 @router.get("/v1/suppliers/{slug}/contracts", response_model=SupplierContracts)
@@ -1014,8 +1029,11 @@ def get_supplier_contracts(slug: str, conn=Depends(get_conn)):
             "frameworkNoticeId": (frameworks.get(r["framework_id"]) or {}).get("noticeId"),
             "source": r["source_code"], "sourceName": src.get("name") or r["source_code"], "sourceUrl": r["source_url"],
             "licence": src.get("licence") or "", "attribution": src.get("attribution") or ""})
-    name = (org["display_name"] or org["canonical_name"]).strip()
-    return {"slug": make_slug(org_id, name), "name": name, "total": len(rows), "items": items}
+    # WP-112 (p07: "LEONARDO - SOCIETA PER AZIONI" in the file, "Leonardo S.p.A." on the page): the page's name and numbers
+    stated, numbers = _stated(conn, base, p, org)
+    name = _name({**org, "shown": stated[0]["v"] if stated else None})
+    return {"slug": make_slug(org_id, name), "name": name, "total": len(rows), "items": items,
+            "identifiers": list(numbers.values())[:3]}
 
 
 def company_group_of(conn, org_id: int) -> dict[str, Any] | None:
@@ -1094,7 +1112,7 @@ def buyer_suppliers(slug: str, cpv: str | None = Query(None, max_length=200), co
                              p).fetchone()["n"]
     note =placsp_note(conn, f"o.id IN (SELECT a.opportunity_id {FROM} WHERE {scope()} AND {own})", p) if (
         settings().placsp_awards_public) else None
-    day = f", as last updated on {note['lastUpdated']:%Y-%m-%d}" if note and note["lastUpdated"] else ""
+    day = f", this buyer's award results there as last updated on {note['lastUpdated']:%Y-%m-%d}" if note and note["lastUpdated"] else ""
     attribution = (TED_NOTE["attribution"] + (f" {note['attribution'].rstrip('.')}{day}." if note else "")
                    + " Winners as named in each notice; natural persons are never named.")
     # WP-105: every supplier's contract values with this buyer in one statement; the listed ones shown, all of them summed

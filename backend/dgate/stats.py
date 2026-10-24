@@ -75,6 +75,15 @@ TIMELINE_CHUNK = 500
 # the planner can use it.
 CORE_NOTICES = f"o.is_defence AND NOT o.suppressed AND {CORE}"
 
+
+def scope_notices(scope: str = "core") -> str:
+    """WP-112 (p06: /market?country=NL&cpv=60 counted 17 transport notices, the tender list 137): the notices the market counts,
+    military goods and works (`core`, the default) or all defence (`relevant`: also the services and supplies the armed forces
+    buy, as the tender list opens)."""
+    if scope == "relevant":
+        return f"o.is_defence AND NOT o.suppressed AND {_api().SCOPE_SQL['relevant']}"
+    return CORE_NOTICES
+
 # A version that changed only the publication date is not an amendment (tenders.timeline);
 # nor is one annotated with a `db.NOT_AMENDMENT_NOTES` kind.
 CHANGING_FIELDS = [f for f in FIELD_LABELS if f != "published_at"]
@@ -198,11 +207,11 @@ def month_starts(today: date, n: int = MONTHS) -> list[date]:
 
 
 def _scope(since: date, today: date, country: str | None = None,
-           cpv: list[str] | None = None) -> tuple[str, list[Any]]:
+           cpv: list[str] | None = None, scope: str = "core") -> tuple[str, list[Any]]:
     """Core-scope notices published from `since` to `today` (a date in the future is
     not a publication), of one buyer country when asked, and (WP-89) with a CPV code under one of the
     prefixes `cpv` when asked (the tender list's reading, over the GIN index of migration 0099)."""
-    where = f"{CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s"
+    where = f"{scope_notices(scope)} AND o.published_at >= %s AND o.published_at <= %s"
     params: list[Any] = [since, today]
     if country:
         where += " AND o.country = %s"
@@ -227,7 +236,7 @@ def _buyer_scope(org_id: int) -> tuple[str, list[Any]]:
 
 def notices_per_month(conn, today: date, months: int = MONTHS, *,
                       starts: list[date] | None = None, country: str | None = None,
-                      cpv: list[str] | None = None) -> list[dict[str, Any]]:
+                      cpv: list[str] | None = None, scope: str = "core") -> list[dict[str, Any]]:
     """Notices published per calendar month, all sources and TED alone, zero-filled.
     The month `today` is in is incomplete and says so. `starts` (the months of one calendar
     year) replaces the trailing `months`; `country` keeps one buyer country."""
@@ -242,7 +251,7 @@ def notices_per_month(conn, today: date, months: int = MONTHS, *,
                    count(*) FILTER (
                        WHERE o.source_id = (SELECT id FROM source WHERE code = 'ted')) AS ted
               FROM opportunity o
-             WHERE {CORE_NOTICES} AND o.published_at >= %s AND o.published_at <= %s{extra}
+             WHERE {scope_notices(scope)} AND o.published_at >= %s AND o.published_at <= %s{extra}
              GROUP BY 1""", (starts[0], min(today, _month_end(starts[-1])), *args)).fetchall()
     found = {r["month"]: r for r in rows}
     return [{"month": f"{d:%Y-%m}", "count": found[d]["n"] if d in found else 0,
@@ -293,12 +302,19 @@ def response_window(conn, where: str, params: list[Any]) -> dict[str, Any]:
     return {"notices": row["n"], "median": q[1], "p25": q[0], "p75": q[2]}
 
 
-def cpv_groups(conn, where: str, params: list[Any], top: int) -> list[dict[str, Any]]:
-    """The 3-digit CPV groups with most notices; a notice counts once per group."""
+def cpv_groups(conn, where: str, params: list[Any], top: int, prefixes: list[str] | None = None) -> list[dict[str, Any]]:
+    """The 3-digit CPV groups with most notices; a notice counts once per group. WP-112 (p04: jewellery, luggage and sports
+    goods under ammunition codes, the additional codes of the matched notices): with `prefixes`, only the groups under them
+    (a prefix of two digits keeps its division's groups), as the contract values by group already do (`money.market_money`)."""
+    under = ""
+    args: list[Any] = []
+    if prefixes:
+        under = " AND left(c, 3) LIKE ANY(%s)"
+        args = [sorted({p[:3] + "%" for p in prefixes})]
     rows = conn.execute(
         "SELECT g, count(*) AS n FROM (SELECT DISTINCT o.id, left(c, 3) AS g "
-        f"FROM opportunity o, unnest(o.cpv_codes) AS c WHERE {where} AND c ~ '^[0-9]{{3}}') t "
-        "GROUP BY g ORDER BY n DESC, g LIMIT %s", params + [top]).fetchall()
+        f"FROM opportunity o, unnest(o.cpv_codes) AS c WHERE {where} AND c ~ '^[0-9]{{3}}'{under}) t "
+        "GROUP BY g ORDER BY n DESC, g LIMIT %s", params + args + [top]).fetchall()
     return [{"group": r["g"], "count": r["n"]} for r in rows]
 
 
@@ -374,7 +390,7 @@ def window_words(basis: dict[str, str], year: int | None) -> dict[str, str]:
 
 
 def market(get_conn, today: date | None = None, *, year: int | None = None,
-           country: str | None = None, cpv: list[str] | None = None) -> dict[str, Any]:
+           country: str | None = None, cpv: list[str] | None = None, scope: str = "core") -> dict[str, Any]:
     """Each figure is cached on its own for the hour. The API role has a 5 s budget and a
     cold cache can spend it on one query (a 36-month scan took 11.7 s on a busy server on
     13 October 2026, before migration 0038): the request then fails with a 503, and the
@@ -388,19 +404,19 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
     else:
         since, until, starts = today - timedelta(days=WINDOW_DAYS), today, None
     cpv = list(cpv or []) or None
-    where, params = _scope(since, until, country, cpv)
+    where, params = _scope(since, until, country, cpv, scope)
     sections = {
-        "months": lambda c: notices_per_month(c, today, starts=starts, country=country, cpv=cpv),
+        "months": lambda c: notices_per_month(c, today, starts=starts, country=country, cpv=cpv, scope=scope),
         "countries": lambda c: notices_per_country(c, where, params),
         "sources": lambda c: notices_per_source(c, where, params),
         "amendments": lambda c: amendments_watched(c, where, params),
         "responseWindow": lambda c: response_window(c, where, params),
-        "cpvGroups": lambda c: cpv_groups(c, where, params, TOP_CPV_MARKET),
+        "cpvGroups": lambda c: cpv_groups(c, where, params, TOP_CPV_MARKET, cpv),
     }
     got: dict[str, dict[str, Any]] = {}
     for name, fn in sections.items():
         got[name] = cached(
-            ("market", name, today, year, country, tuple(cpv or ())),
+            ("market", name, today, year, country, tuple(cpv or ()), scope),
             lambda fn=fn: {"at": datetime.now(timezone.utc), "data": fn(get_conn())})
     # WP-105: the contract values of the supplier map's award set in the same window, country and codes. Not kept when there
     # is no snapshot yet (None is never cached), and never the reason the overview fails.
@@ -413,7 +429,7 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
         "money": paid,
         "basisMoney": MONEY_BASIS,
         "asOf": min(part["at"] for part in got.values()),     # the oldest figure on the page
-        "scope": "core",
+        "scope": scope,
         "unit": "notices published",
         "windowFrom": since,
         "windowTo": until,
@@ -422,7 +438,7 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
         "cpv": cpv,
         "sourceCount": len(got["sources"]["data"]),
         **{name: part["data"] for name, part in got.items()},
-        "basis": window_words(BASIS, year),
+        "basis": window_words(BASIS if scope == "core" else RELEVANT_BASIS, year),
     }
 
 
@@ -534,18 +550,27 @@ class MarketStats(BaseModel):
 
 
 MARKET_FIRST_YEAR = 2017
+RELEVANT_BASIS = {**BASIS, "months": BASIS["months"].replace(
+    "Only notices that state the defence directive or carry a military CPV code are counted.",
+    "Notices of all defence are counted: those that state the defence directive or carry a military CPV code, and the services "
+    "and supplies that defence buyers buy (the tender list's default).")}
 
 
 @router.get("/v1/stats/market", response_model=MarketStats)
 def market_stats(year: int | None = Query(None, ge=MARKET_FIRST_YEAR, le=2100),
                  country: str | None = Query(None, pattern="^[A-Za-z]{2}$"),
-                 cpv: str | None = Query(None, max_length=200)):
+                 cpv: str | None = Query(None, max_length=200),
+                 scope: str = Query("core", pattern="^(core|relevant)$")):
     if year is not None and year > datetime.now(timezone.utc).year:
         raise HTTPException(422, "year is in the future")
+    # WP-112: all defence only for one country or some codes: the whole market in that scope has no index of its own (the
+    # 36-month series reads `opp_core_published`) and could spend the API's 5 s budget cold
+    if scope == "relevant" and not (country or cpv):
+        raise HTTPException(422, "scope=relevant needs a country or CPV codes")
     from .tenders import cpv_prefixes
     prefixes = cpv_prefixes(cpv)
     with _Lazy() as get_conn:
-        return market(get_conn, year=year, country=country.upper() if country else None, cpv=prefixes)
+        return market(get_conn, year=year, country=country.upper() if country else None, cpv=prefixes, scope=scope)
 
 
 # ----------------------------------------------------------- buyer profile

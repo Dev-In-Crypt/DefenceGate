@@ -52,6 +52,12 @@ export const BUYER_COUNTRIES: Record<string, string> = {
 };
 export const BUYER_COUNTRY_CODES: string[] = Object.keys(BUYER_COUNTRIES);
 
+/** WP-112 (p02): the buyer countries for a filter, the chosen ones first, then alphabetical by English name. */
+export function countryOrder(selected: readonly string[] = []): string[] {
+  const byName = Object.keys(BUYER_COUNTRIES).sort((a, b) => BUYER_COUNTRIES[a].localeCompare(BUYER_COUNTRIES[b], 'en'));
+  return [...byName.filter((c) => selected.includes(c)), ...byName.filter((c) => !selected.includes(c))];
+}
+
 /** Every funder country the API can return. The filter narrows this to those with coverage. */
 export const FUNDER_COUNTRIES: CountryCode[] = ['EU', 'PL', 'SE', 'FR', 'ES', 'FI', 'DE', 'IT', 'NL'];
 

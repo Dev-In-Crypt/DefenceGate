@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { allWinnersLabel, approachGroups, approachOthersLine, openHref, supplierHref, winnersHref, type ApproachWinner, type Demand, type DemandRequest } from '@/lib/demand';
+import { allWinnersLabel, approachGroups, buyerHref, firstOfGroup, approachOthersLine, openHref, supplierHref, winnersHref, type ApproachWinner, type Demand, type DemandRequest } from '@/lib/demand';
 import { codeKind, type CodeKind } from '@/lib/cpv';
 import { VALUE_RULES } from '@/lib/value-totals';
 import { formatDateUtc } from '@/lib/format';
@@ -10,7 +10,8 @@ import { countryInText, countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { Tag } from '@/components/dg/tag';
 import { ValueTotalsBlock } from '@/components/dg/value-totals';
-import { ErrorState, Skeleton } from '@/components/dg/feedback';
+import { ErrorState } from '@/components/dg/feedback';
+import { Computing } from './demand';
 import type { DemandState } from './use-readiness';
 import { AboutData } from '@/components/dg/about-data';
 
@@ -63,7 +64,7 @@ export function ApproachExplainer({ country = '', cpv = [] }: { country?: string
  * One named winner. `request` (WP-89): the profile's codes and countries, carried by the link to its supplier page; `rules={false}`: the
  * sums' scope and rules are stated once under the list, not under each company (the printed report repeated them 38 times).
  */
-export function Winner({ w, scope, request = null, rules = true, full = false }: { w: ApproachWinner; scope: string; request?: DemandRequest | null; rules?: boolean; full?: boolean }) {
+export function Winner({ w, scope, request = null, rules = true, full = false, source = true }: { w: ApproachWinner; scope: string; request?: DemandRequest | null; rules?: boolean; full?: boolean; source?: boolean }) {
   const src = w.prime ? safeHttpUrl(w.prime.sourceUrl) : null;
   return (
     <li className="report-item flex flex-col gap-1.5 border-t border-line py-3 first:border-t-0" data-approach-winner={w.prime ? 'prime' : w.distributor ? 'dealer' : 'other'}
@@ -84,12 +85,18 @@ export function Winner({ w, scope, request = null, rules = true, full = false }:
         <p className="m-0 text-small text-ink-muted" data-short-hidden>
           Wins most from:{' '}
           {w.buyers.map((b, i) => (
-            <span key={b.slug}>{i > 0 && '; '}<Link href={`/buyers/${b.slug}`}>{b.name}</Link> ({b.contracts})</span>
+            <span key={b.slug}>{i > 0 && '; '}<Link href={buyerHref(b.slug, request?.cpv ?? [])}>{b.name}</Link> ({b.contracts})</span>
           ))}
         </p>
       )}
       {w.values && <ValueTotalsBlock values={w.values} noun="contract" scope={scope} rules={rules} />}
-      {w.prime && <p className="m-0 text-small text-ink-muted" data-short-hidden>Listed by name from: {src ? <a href={src} target="_blank" rel="noopener noreferrer">{w.prime.source}</a> : w.prime.source}.</p>}
+      {w.byOtherCodeOnly && (
+        <p className="m-0 text-small text-ink-muted" data-approach-other-code>
+          Matched only by an additional code of its notices (their main code is another product’s, or the notice lists more than 20 codes).
+        </p>
+      )}
+      {/* WP-112 (p06: the same source line five times): once per group in a list */}
+      {w.prime && source && <p className="m-0 text-small text-ink-muted" data-short-hidden data-prime-source>Listed by name from: {src ? <a href={src} target="_blank" rel="noopener noreferrer">{w.prime.source}</a> : w.prime.source}.</p>}
     </li>
   );
 }
@@ -149,17 +156,18 @@ export function ApproachMap({ result, hasCodes, country, request }: { result: Re
       </div>
     );
   }
-  if (result.state === 'idle' || result.state === 'loading') return <div role="status" aria-label="Finding who wins these contracts"><Skeleton className="h-40" /></div>;
+  if (result.state === 'idle' || result.state === 'loading') return <Computing what="Finding who wins these contracts" />;
   if (result.state === 'error') return <ErrorState title="The list could not be computed" onRetry={result.retry}>{result.message}</ErrorState>;
   const d = result.data;
   const a = d.approach;
-  const { home, primes, others: abroad, dealers } = approachGroups(a, country);
+  const { home, primes, others: abroad, dealers, side } = approachGroups(a, country);
   const others = approachOthersLine(a, d.kMin);
   const scope = winnersScope(d);
   // WP-97: the short print keeps the first ten of each list (`data-print-full` items are left out of it)
   const list = (ws: ApproachWinner[], key: string, keep = SHORT_PRINT) => (
     <ul className="m-0 flex list-none flex-col p-0">{ws.map((w, i) => (
-      <Winner key={`${key}-${i}-${w.name}`} w={w} scope={scope} request={request} rules={false} full={i >= keep} />
+      <Winner key={`${key}-${i}-${w.name}`} w={w} scope={scope} request={request} rules={false} full={i >= keep}
+        source={firstOfGroup(ws, i)} />
     ))}</ul>
   );
   return (
@@ -203,6 +211,16 @@ export function ApproachMap({ result, hasCodes, country, request }: { result: Re
           {list(dealers, 'd')}
         </div>
       )}
+      {side.length > 0 && (
+        <div className="flex flex-col gap-1" data-approach-side data-print-full>
+          <h3 className="m-0 text-h4">Matched by an additional code only</h3>
+          <p className="m-0 max-w-prose text-small text-ink-muted">
+            These won contracts whose notices carry one of your codes only among their additional codes, or among more than 20 codes: the contract
+            may be for another product (gaskets in a pipeline order, a vehicle in a mixed supply contract).
+          </p>
+          {list(side, 's')}
+        </div>
+      )}
       {others && <p className="m-0 max-w-prose text-small text-ink-muted" data-approach-others>{others}</p>}
       {d.total.winners > a.winners.length && (
         <p className="m-0" data-approach-all><a href={winnersHref()} className="font-semibold">{allWinnersLabel(d.total.winners)}</a></p>
@@ -228,7 +246,7 @@ export function ApproachSummary({ result, country, cpv }: { result: Result; coun
     <section aria-labelledby="approach" className="flex flex-col gap-3" data-approach-summary-section>
       <h2 id="approach" className="m-0 text-h2">Who to approach</h2>
       <ApproachExplainer country={country} cpv={cpv} />
-      {result.state === 'loading' && <div role="status" aria-label="Finding who wins these contracts"><Skeleton className="h-40" /></div>}
+      {result.state === 'loading' && <Computing what="Finding who wins these contracts" />}
       {result.state === 'error' && <ErrorState title="The list could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && <ShortList d={result.data} country={country} cpv={cpv} />}
     </section>
@@ -286,7 +304,7 @@ function ShortList({ d, country, cpv }: { d: Demand; country: string; cpv: strin
       <h3 className="m-0 text-h4">{title}</h3>
       {ws.length === 0
         ? <p className="m-0 text-small text-ink-muted">None among the winners under your codes.</p>
-        : <ul className="m-0 flex list-none flex-col p-0">{ws.map((w, i) => <Winner key={`${key}-${i}-${w.name}`} w={w} scope={winnersScope(d)} request={request} />)}</ul>}
+        : <ul className="m-0 flex list-none flex-col p-0">{ws.map((w, i) => <Winner key={`${key}-${i}-${w.name}`} w={w} scope={winnersScope(d)} request={request} source={firstOfGroup(ws, i)} />)}</ul>}
     </div>
   );
   return (

@@ -268,6 +268,7 @@ export async function marketCsvResponse(url: URL): Promise<Response> {
     if (filters.year) q.set('year', String(filters.year));
     if (filters.country) q.set('country', filters.country);
     if (filters.cpv?.length) q.set('cpv', filters.cpv.join(','));
+    if (filters.scope) q.set('scope', filters.scope);
     const rows = marketRows(stats, terms, absoluteUrl(`/market${q.size ? `?${q.toString()}` : ''}`));
     return csvResponse({ body: toCsv(MARKET_HEADER, rows), total: rows.length, rows: rows.length, cap: rows.length }, 'defencegate-market');
   } catch (err) {

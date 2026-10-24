@@ -3,7 +3,7 @@ import { Button } from '../dg/button';
 import { Choice, FoldGroup, Select, TextInput } from '../dg/form';
 import { FORM_BUTTONS } from '../funding/filter-bar';
 import { FilterPanel } from '../funding/filter-panel';
-import { BUYER_COUNTRIES, CURRENCIES, SCOPE_CHOICES } from '@/lib/taxonomy';
+import { BUYER_COUNTRIES, CURRENCIES, SCOPE_CHOICES, countryOrder } from '@/lib/taxonomy';
 import {
   DEFAULT_CURRENCY, DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, MAX_QUERY_LENGTH, PARAM, TENDER_PAGE_SIZE, TENDER_PAGE_SIZES, activeBuyerFilterCount,
   activeTenderFilterCount, defaultBuyerSort, defaultTenderSort, toTenderQuery,
@@ -29,7 +29,8 @@ const FORM = 'flex flex-col gap-3 rounded-lg border border-transparent bg-surfac
 function CountryChoices({ selected, open = false }: { selected: string[] | undefined; open?: boolean }) {
   return (
     <FoldGroup legend="Buyer country" open={open} scroll count={selected?.length}>
-      {Object.keys(BUYER_COUNTRIES).map((c) => (
+      {/* WP-112 (p02: on a phone Portugal sat far below, the list ordered by how much we hold): the chosen ones first, then by name */}
+      {countryOrder(selected).map((c) => (
         <Choice key={c} name={PARAM.country} value={c} defaultChecked={selected?.includes(c)}
           label={<span className="inline-flex gap-2"><span className="font-mono text-mono-strong">{c}</span><span className="sr-only">{'\u00a0'}</span>{BUYER_COUNTRIES[c]}</span>} />
       ))}

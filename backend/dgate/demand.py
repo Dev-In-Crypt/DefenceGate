@@ -50,7 +50,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from . import award_set
 from .award_set import CPV_MATCH, KEY, NOTICES, prefix
-from .classify import DEFENCE_PROGRAMMES
+from .classify import CATCH_ALL_CODES, DEFENCE_PROGRAMMES
 from .config import settings
 from .funding import get_conn, make_slug
 from .normalise import redact_emails
@@ -147,10 +147,22 @@ _PRIMES = tuple((group, re.compile(rx), src) for group, rx, src in PRIMES)
 JOINT_VENTURE = re.compile(r"^(ute|u t e)\b|\bunion temporal\b")
 
 
-def prime_of(canonical_name: str | None) -> dict[str, Any] | None:
-    """The prime or large defence group a winner's normalised name belongs to, with the source of the list; None if none."""
+# WP-112 (persona round 4, p03, p06: the Indra line "supplier selection for automotive firms" five times in a logistics report
+# and in a machining one): a group whose only source is about one trade is marked for that trade's codes only. Indra is not in
+# the SIPRI Top 100 of 2024 (the fact sheet's annex table, read on 24 October 2026: Navantia rank 88, no Indra), so its mark
+# stands on the elDiario.es report alone, which is about vehicle makers' suppliers: CPV division 34 (transport equipment) and
+# group 354 (military vehicles).
+ONLY_FOR: dict[str, tuple[str, ...]] = {"Indra": ("34", "354")}
+
+
+def prime_of(canonical_name: str | None, prefixes: list[str] | None = None) -> dict[str, Any] | None:
+    """The prime or large defence group a winner's normalised name belongs to, with the source of the list; None if none.
+    `prefixes`: the CPV prefixes of the answer; a group of `ONLY_FOR` is then marked only when one of them is in its trade."""
     name = canonical_name or ""
     for group, rx, (source, url) in _PRIMES:
+        trade = ONLY_FOR.get(group)
+        if trade and prefixes is not None and not any(p.startswith(t) for p in prefixes for t in trade):
+            continue
         if rx.search(name):
             return {"group": group, "jointVenture": bool(JOINT_VENTURE.search(name)), "source": source, "sourceUrl": url}
     return None
@@ -215,7 +227,11 @@ WITH m AS MATERIALIZED (
            COALESCE(f.head_org_id, o.buyer_org_id) AS bk,                    -- dgate_buyer_head, as a join
            o.buyer_withheld AS bw, o.buyer_name_raw,
            o.source_id = (SELECT id FROM source WHERE code = 'ted') AS is_ted,
-           o.cpv_codes, hashtextextended({KEY}, 0) AS key
+           o.cpv_codes, hashtextextended({KEY}, 0) AS key,
+           -- WP-112: the notice names the trade asked: its main (first) code is under one of the codes, and it is no
+           -- catch-all list of codes (a supply contract of 23 codes from uniforms to food, won by a vehicle maker)
+           (dgate_cpv_heads(o.cpv_codes[1:1]) && %(prefixes)s::text[]
+            AND cardinality(o.cpv_codes) <= {CATCH_ALL_CODES}) AS trade
       FROM opportunity o
       LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
                              AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
@@ -248,7 +264,7 @@ WITH m AS MATERIALIZED (
     -- WP-85: the winners of these notices are the award set's rows (`award_set.scope`: legal entities, the PLACSP switch,
     -- an award that TED and PLACSP both publish once), exactly as the supplier map counts them
     SELECT m.country, m.key, m.id, m.day, org.id AS org, org.country AS org_country, a.name_as_stated, a.id AS award_id,
-           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn,
+           a.winners_in_notice AS wn, m.bk, m.bw, m.buyer_name_raw AS bn, m.trade,
            org.canonical_name AS cn, org.is_defence_buyer AS db
       FROM m JOIN award a ON a.opportunity_id = m.id
       JOIN opportunity o ON o.id = m.id
@@ -257,7 +273,7 @@ WITH m AS MATERIALIZED (
      WHERE {award_set.scope()}
 ), ap AS (
     -- WP-80, who to approach: each winner across the countries asked (WP-81: K_MIN is 1, every legal entity)
-    SELECT org, count(DISTINCT key) AS n, max(day) AS last, array_agg(DISTINCT country ORDER BY country) AS countries,
+    SELECT org, count(DISTINCT key) AS n, count(DISTINCT key) FILTER (WHERE trade) AS nt, max(day) AS last, array_agg(DISTINCT country ORDER BY country) AS countries,
            mode() WITHIN GROUP (ORDER BY name_as_stated) AS name, min(cn) AS cn, min(org_country) AS org_country,
            COALESCE(bool_or(db), FALSE) AS db
       FROM aw GROUP BY org HAVING count(DISTINCT key) >= {K_MIN}
@@ -275,11 +291,11 @@ WITH m AS MATERIALIZED (
 ), an AS (
     SELECT country, count(DISTINCT key) AS n FROM aw GROUP BY GROUPING SETS ((country), ())
 ), w AS (
-    SELECT country, org, org_country, count(DISTINCT key) AS n,
+    SELECT country, org, org_country, count(DISTINCT key) AS n, count(DISTINCT key) FILTER (WHERE trade) AS nt,
            mode() WITHIN GROUP (ORDER BY name_as_stated) AS name
       FROM aw GROUP BY country, org, org_country
 ), wt AS (
-    SELECT * FROM (SELECT w.*, row_number() OVER (PARTITION BY country ORDER BY n DESC, name, org) AS r
+    SELECT * FROM (SELECT w.*, row_number() OVER (PARTITION BY country ORDER BY nt > 0 DESC, n DESC, name, org) AS r
                      FROM w WHERE n >= {K_MIN}) x WHERE r <= {TOP_WINNERS}
 ), wr AS (
     SELECT DISTINCT ON (aw.country, aw.org, aw.key) aw.country, aw.org, aw.id, aw.day
@@ -331,11 +347,13 @@ def _edf_projects(conn, orgs: list[int]) -> dict[int, int]:
     return {r["org"]: r["n"] for r in rows}
 
 
-def _ranked(r: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every winner of the answer (`ap`), the most contracts first, each with its prime mark."""
-    rows = sorted(r["ap"] or [], key=lambda w: (-w["n"], w["name"], w["org"]))
+def _ranked(r: dict[str, Any], prefixes: list[str] | None = None) -> list[dict[str, Any]]:
+    """Every winner of the answer (`ap`), each with its prime mark: first those with a contract whose notice names the trade
+    (WP-112: its main code under the codes, no catch-all list; `trade`), the most contracts first, then those matched only by
+    an additional code of their notices (the O-rings and gaskets of a pipeline notice, under vehicle parts)."""
+    rows = sorted(r["ap"] or [], key=lambda w: (not w.get("nt"), -w["n"], w["name"], w["org"]))
     for w in rows:
-        w["prime"] = prime_of(w["cn"])
+        w["prime"] = prime_of(w["cn"], prefixes)
     return rows
 
 
@@ -433,7 +451,8 @@ def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[s
                 "buyers": buyers.get(w["org"], []), "countries": w["countries"],
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
                 "distributor": not w["prime"] and distributor_of(w["cn"]),
-                "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}
+                "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"]),
+                "byOtherCodeOnly": not w.get("nt")}
 
     return [item(w) for w in listed]
 
@@ -449,18 +468,34 @@ SELECT org.id AS org, min(org.canonical_name) AS cn, min(org.country) AS country
  WHERE {{scope}} AND NOT o.buyer_withheld
    AND o.buyer_org_id = ANY(ARRAY(SELECT unnest(%(bks)s::bigint[]) UNION
                                   SELECT org_id FROM buyer_family_member WHERE head_org_id = ANY(%(bks)s)))
+   AND dgate_cpv_heads(o.cpv_codes) && %(trades)s::text[]
  GROUP BY org.id"""
 PRIMES_AT_BUYERS = 10
 
 
-def primes_at_buyers(conn, bks: list[int], winners: set[int], since: date) -> list[dict[str, Any]]:
+def trades(prefixes: list[str]) -> list[str]:
+    """WP-112 (p02, p06: Indra, Navantia and Rheinmetall Landsysteme as primes for a uniform maker and a logistics firm): the
+    trade of each prefix, for the primes at the same buyers: its CPV division, and in division 35 (all security and defence
+    equipment, from uniforms to warships) its group (358 personal equipment, 354 military vehicles); vehicles and military
+    vehicles are one trade (`RELATED_TRADES`: the parts maker's customers build both)."""
+    heads = {p[:3] if p.startswith("35") and len(p) >= 3 else p[:2] for p in prefixes}
+    return sorted(heads | {r for h in heads for r in RELATED_TRADES.get(h, ())})
+
+
+RELATED_TRADES: dict[str, tuple[str, ...]] = {"34": ("354",), "354": ("34",)}
+
+
+def primes_at_buyers(conn, bks: list[int], winners: set[int], since: date,
+                     prefixes: list[str] | None = None) -> list[dict[str, Any]]:
     """WP-105: the curated primes (one member per group, the one with most contracts) that won defence-scope contracts from
-    these buyer families in the window but none of the answer's procurements, most contracts first."""
-    if not bks:
+    these buyer families in the window but none of the answer's procurements, most contracts first. WP-112: contracts of
+    the same trade only (`trades`: a vehicle maker's other vehicle contracts, not a shipyard's ships)."""
+    if not bks or not prefixes:
         return []
     best_of: dict[str, dict[str, Any]] = {}
-    for w in conn.execute(AT_BUYERS.format(scope=award_set.scope()), {"bks": bks, "since": since}).fetchall():
-        p = prime_of(w["cn"])
+    for w in conn.execute(AT_BUYERS.format(scope=award_set.scope()),
+                          {"bks": bks, "since": since, "trades": trades(prefixes)}).fetchall():
+        p = prime_of(w["cn"], prefixes)
         if not p or w["org"] in winners or p["jointVenture"]:
             continue
         if p["group"] not in best_of or w["n"] > best_of[p["group"]]["contracts"]:
@@ -471,14 +506,15 @@ def primes_at_buyers(conn, bks: list[int], winners: set[int], since: date) -> li
 
 
 def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]], home: str | None = None,
-             at_buyers: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+             at_buyers: list[dict[str, Any]] | None = None, prefixes: list[str] | None = None) -> dict[str, Any]:
     """Who to approach (WP-80): the companies that win these procurements, across the countries asked, every legal entity
     named (WP-81). The most contracts first; every prime or large defence group is listed, past the first APPROACH too, and
     (WP-105) the first APPROACH winners of the company's own country `home`. Every one of them, a page at a time:
     `winners_page` (POST /v1/readiness/winners)."""
-    rows = _ranked(r)
+    rows = _ranked(r, prefixes)
     own = {w["org"] for w in [w for w in rows if home and w["org_country"] == home][:APPROACH]}
-    listed = [w for i, w in enumerate(rows) if i < APPROACH or w["prime"] or w["org"] in own]
+    # WP-112: a prime is listed past the first APPROACH only for a contract whose notice names the trade
+    listed = [w for i, w in enumerate(rows) if i < APPROACH or (w["prime"] and w.get("nt")) or w["org"] in own]
     shown = {w["org"] for w in listed}
     per_org: dict[int, int] = {}
     for w in winners:                       # per country; a procurement is in one country, so the sum is the total
@@ -490,6 +526,8 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]], home: str |
                   "awards": sum(n for o, n in per_org.items() if o not in big)},
         "more": {"winners": len(big - shown), "awards": sum(per_org[o] for o in big - shown)},
         "primesAtBuyers": at_buyers or [],
+        "byOtherCodeOnly": {"winners": sum(1 for w in rows if not w.get("nt")),
+                            "awards": sum(w["n"] for w in rows if not w.get("nt"))},
     }
 
 
@@ -517,7 +555,7 @@ def winners_page(conn, codes: list[str], countries: list[str], page: int, today:
     report's list stops at APPROACH; this one does not). The same statement as `demand`, so the same budget."""
     today = today or datetime.now(timezone.utc).date()
     r, since, public = _answer(conn, codes, countries, today)
-    rows = _ranked(r)
+    rows = _ranked(r, list(dict.fromkeys(prefix(c) for c in codes)))
     start = (page - 1) * WINNERS_PAGE
     note = placsp_note(conn, "o.id = ANY(%s)", (r["award_ids"] or [],)) if public and r["award_ids"] else None
     return {"since": since.isoformat(), "until": today.isoformat(), "countries": countries, "total": len(rows),
@@ -605,7 +643,8 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
                   "awarded": awards.get(None, 0), "winners": len({w["org"] for w in winners})},
         "byCountry": [country_block(cc) for cc in countries],
         "approach": approach(conn, r, winners, home, primes_at_buyers(
-            conn, sorted({k for xs in tops.values() for b in xs for k in b["bks"]}), {w["org"] for w in r["ap"] or []}, since)),
+            conn, sorted({k for xs in tops.values() for b in xs for k in b["bks"]}), {w["org"] for w in r["ap"] or []}, since,
+            prefixes), prefixes),
         "coverage": COVERAGE,
         "winnersFrom": WINNERS_WITH_PLACSP if note else WINNERS_TED,
         "sources": [TED_NOTE] + ([note] if note else []),
@@ -715,6 +754,7 @@ class ApproachWinner(BaseModel):
     distributor: bool = False                 # WP-97: a dealer of parts, tyres or hardware by its name
     edfProjects: int
     defenceBuyer: bool
+    byOtherCodeOnly: bool = False             # WP-112: every contract of it matched by an additional code of its notice only
 
 
 class ApproachCount(BaseModel):
@@ -735,6 +775,7 @@ class Approach(BaseModel):
     below: ApproachCount          # winners with fewer than kMin procurements (WP-81: kMin is 1, so none)
     more: ApproachCount           # winners with kMin or more past the first APPROACH (no prime among them)
     primesAtBuyers: list[PrimeAtBuyers] = []   # WP-105: curated primes that win other contracts from the same buyers
+    byOtherCodeOnly: ApproachCount = ApproachCount(winners=0, awards=0)   # WP-112: matched by additional codes only
 
 
 class Demand(BaseModel):

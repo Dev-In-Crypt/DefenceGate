@@ -63,6 +63,31 @@ export function coverageLine(country: string, kind: 'tenders' | 'awards' = 'tend
   return `${name}: TED + ${n.portal}${n.since ? ` (since ${n.since})` : ''}${n.awards ? ', awards too' : ''}${n.note ? `; ${n.note}` : ''}`;
 }
 
+/** WP-112: the short name of each tender source a count can come from, as the coverage line says it. */
+export const SOURCE_SHORT: Record<string, string> = {
+  ted: 'TED', pl_ezam: 'e-Zamówienia', pl_atlas: 'Atlas Przetargów (a one-off load of its archive of past notices)',
+  es_placsp: 'PLACSP', es_placsp_agg: 'PLACSP’s regional platforms', de_bkms: 'the federal notice service', fr_boamp: 'BOAMP',
+  nl_tenderned: 'TenderNed',
+};
+
+const SOURCE_COUNTRY: Record<string, string> = {
+  pl_ezam: 'PL', pl_atlas: 'PL', es_placsp: 'ES', es_placsp_agg: 'ES', de_bkms: 'DE', fr_boamp: 'FR', nl_tenderned: 'NL',
+};
+
+/**
+ * WP-112 (p04: "Poland: TED + e-Zamówienia" above a count of three sources, Atlas Przetargów among them): the line for one country from the
+ * sources the count on the page actually holds (`counted`: source ids, largest first), TED first. Falls back to `coverageLine`.
+ */
+export function countedLine(country: string, counted: readonly string[]): string {
+  // a national source of another country is not this country's (it cannot hold its notices); TED alone: the usual line
+  const ids = [...new Set(counted)].filter((id) => id === 'ted' || !SOURCE_COUNTRY[id] || SOURCE_COUNTRY[id] === country)
+    .sort((a, b) => Number(b === 'ted') - Number(a === 'ted'));
+  if (!ids.some((id) => id !== 'ted')) return coverageLine(country);
+  const n = NATIONAL_COVERAGE[country];
+  const said = ids.map((id) => SOURCE_SHORT[id] ?? id);
+  return `${countryName(country)}: ${said.join(' + ')}${n?.note ? `; ${n.note}` : ''}`;
+}
+
 /** The lines of the countries chosen, one sentence each; none for no country (or more than `max`, a line each says nothing then). */
 export function coverageLines(countries: string[] | undefined, kind: 'tenders' | 'awards' = 'tenders', max = 6): string[] {
   const codes = [...new Set((countries ?? []).filter((c) => c && c !== 'EU'))];

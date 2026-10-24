@@ -95,10 +95,14 @@ def test_primes_that_win_other_contracts_from_the_same_buyers(conn):
     mal = org(conn, "jae mando de apoyo logistico", "ES")
     award(conn, notice(conn, "A-1", buyer=mal, country="ES"), org(conn, "talleres norte", "ES"), "Talleres Norte SL")
     indra = org(conn, "indra sistemas", "ES")
-    for k in range(3):                                  # radar, not under the automotive code
-        award(conn, notice(conn, f"R-{k}", buyer=mal, country="ES", cpv="35720000"), indra, "INDRA SISTEMAS SA")
+    for k in range(3):                                  # military-vehicle parts, not under the automotive code
+        award(conn, notice(conn, f"R-{k}", buyer=mal, country="ES", cpv="35420000"), indra, "INDRA SISTEMAS SA")
     ute = org(conn, "ute indra sistemas thales", "ES")  # a joint venture is not the way in on its own
-    award(conn, notice(conn, "R-9", buyer=mal, country="ES", cpv="35720000"), ute, "UTE Indra Thales")
+    award(conn, notice(conn, "R-9", buyer=mal, country="ES", cpv="35420000"), ute, "UTE Indra Thales")
+    # WP-112 (p02, p06): a prime of another trade at the same buyer (radar for a parts maker) is not listed
+    for k in range(5):
+        award(conn, notice(conn, f"RAD-{k}", buyer=mal, country="ES", cpv="35720000"), org(conn, f"thales radar {k}", "FR"),
+              "Thales Radar SAS", "FR")
     idv = org(conn, "idv defensa vehicles espana s l u antes iveco espana", "ES")
     award(conn, notice(conn, "V-1", buyer=mal, country="ES", cpv="34100000"), idv, "IDV Defensa Vehicles España SLU")
     iveco = org(conn, "iveco espana", "ES")             # the civil truck maker: no prime

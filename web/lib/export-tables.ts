@@ -48,7 +48,7 @@ export function winnerCells(t: Partial<Pick<Tender, 'awardedTo'>>): [string, str
 }
 
 export const SUPPLIER_CONTRACT_HEADER = [
-  'supplier', 'notice_id', 'title', 'buyer', 'buyer_country', 'published', 'cpv', 'value', 'currency', 'value_kind',
+  'supplier', 'company_number', 'notice_id', 'title', 'buyer', 'buyer_country', 'published', 'cpv', 'value', 'currency', 'value_kind',
   'in_contract_sum', 'winners_in_notice', 'framework_notice_id', 'source_name', 'source_url', 'licence', 'attribution', 'page_url',
   'result_truncated',
 ];
@@ -58,10 +58,11 @@ export const SUPPLIER_CONTRACT_HEADER = [
  * (a contract value that is not a unit price): framework ceilings and estimates are listed, never summed. A notice naming several
  * winners states no value for this one; the others are counted (`winners_in_notice`), never named.
  */
-export function supplierContractRow(name: string, c: SupplierContract, pageUrl: (path: string) => string, truncated: boolean): Cell[] {
+export function supplierContractRow(name: string, c: SupplierContract, pageUrl: (path: string) => string, truncated: boolean, numbers: readonly string[] = []): Cell[] {
   const has = c.valueAmount !== null;
   return [
-    name, c.noticeId, c.title, c.buyerName, c.buyerCountry, isoUtc(c.publishedAt, c.publishedAt !== null && isMidnight(c.publishedAt)), c.cpv,
+    // WP-112 (p07): the name as the supplier's page shows it, and its registration numbers ("; " between two)
+    name, numbers.length ? numbers.join('; ') : null, c.noticeId, c.title, c.buyerName, c.buyerCountry, isoUtc(c.publishedAt, c.publishedAt !== null && isMidnight(c.publishedAt)), c.cpv,
     has ? c.valueAmount : null, has ? c.valueCurrency : null, has && c.valueKind ? KIND[c.valueKind] ?? c.valueKind : null,
     c.inContractSum ? 'yes' : 'no', c.winnersInNotice, c.frameworkNoticeId,
     c.sourceName, c.sourceUrl, c.licence, c.attribution, pageUrl(`/tenders/${c.slug}`), truncated ? 'true' : 'false',
@@ -69,7 +70,7 @@ export function supplierContractRow(name: string, c: SupplierContract, pageUrl: 
 }
 
 export function supplierContractRows(s: SupplierContracts, pageUrl: (path: string) => string): Cell[][] {
-  return s.items.map((c) => supplierContractRow(s.name, c, pageUrl, s.total > s.items.length));
+  return s.items.map((c) => supplierContractRow(s.name, c, pageUrl, s.total > s.items.length, s.identifiers ?? []));
 }
 
 export const MARKET_HEADER = [

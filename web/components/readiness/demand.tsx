@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { cpvDictionaryTitle } from '@/lib/cpv';
-import { allWinnersLabel, buyerAmount, buyerLine, directiveShare, otherWinnersLine, ownFirst, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
+import { allWinnersLabel, buyerAmount, buyerHref, buyerLine, directiveShare, otherWinnersLine, ownFirst, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { placspCredit, placspNote } from '@/lib/supplier-sources';
@@ -14,6 +14,19 @@ import { useCpvVocabulary, type DemandState } from './use-readiness';
 import { AboutData } from '@/components/dg/about-data';
 
 export type DemandResult = DemandState & { retry: () => void };
+
+/**
+ * WP-112 (p02: grey skeletons for more than 4 s with no word): what is being computed, in words, while the demand answer is on its way.
+ * One request feeds "who to approach" and "who buys"; it counts three years of notices under the codes in seven countries.
+ */
+export function Computing({ what }: { what: string }) {
+  return (
+    <div role="status" className="flex flex-col gap-2" data-computing>
+      <p className="m-0 text-small text-ink-muted">{what}: counting three years of defence notices under your codes in seven countries. This usually takes 5 to 15 seconds; if the server is busy, the page waits and asks again on its own.</p>
+      <Skeleton className="h-40" />
+    </div>
+  );
+}
 
 /** A notice: its page here and, for paper, its address at the source (the report's print rules print it after the link). */
 function Ref({ r }: { r: DemandRef }) {
@@ -31,7 +44,7 @@ function Ref({ r }: { r: DemandRef }) {
 }
 
 /** `home` (WP-97): the company's own country, first and printed in full; another country's notice lists are left out of the short print. */
-function Country({ c, kMin, home = false, credit = null }: { c: DemandCountry; kMin: number; home?: boolean; credit?: string | null }) {
+function Country({ c, kMin, home = false, credit = null, codes = [] }: { c: DemandCountry; kMin: number; home?: boolean; credit?: string | null; codes?: readonly string[] }) {
   const others = otherWinnersLine(c, kMin);
   const foreign = home ? {} : { 'data-print-full': '' };
   return (
@@ -53,7 +66,7 @@ function Country({ c, kMin, home = false, credit = null }: { c: DemandCountry; k
                   const amount = buyerAmount(b);
                   return (
                     <li key={b.slug} data-demand-buyer={b.core ? 'core' : 'other'} {...(!home && i >= 3 ? { 'data-print-full': '' } : {})}>
-                      <Link href={`/buyers/${b.slug}`}>{b.name}</Link>{' '}
+                      <Link href={buyerHref(b.slug, codes)}>{b.name}</Link>{' '}
                       <span className="text-small text-ink-muted">({b.core ? 'core defence buyer' : 'other defence-scope buyer'}, {b.procurements} {b.procurements === 1 ? 'procurement' : 'procurements'})</span>
                       {/* WP-97: what it awarded under the codes, contract values only (framework ceilings and estimates are not added) */}
                       {b.awardedValue && <span className="block text-small" data-demand-buyer-value {...(amount ? {} : { 'data-short-hidden': '' })}>{amount ? `Awarded: ${amount}` : 'Awarded: no contract value stated'}</span>}
@@ -107,7 +120,7 @@ function Coverage({ d }: { d: Demand }) {
 /** The whole map, for the printable report. `result`: the one demand request of the page (WP-80: "who to approach" reads it too). */
 export function DemandMap({ result, country = '' }: { result: DemandResult; country?: string }) {
   const vocab = useCpvVocabulary();
-  if (result.state === 'idle' || result.state === 'loading') return <div role="status" aria-label="Computing the demand map"><Skeleton className="h-40" /></div>;
+  if (result.state === 'idle' || result.state === 'loading') return <Computing what="Computing the demand map" />;
   if (result.state === 'error') return <ErrorState title="The demand map could not be computed" onRetry={result.retry}>{result.message}</ErrorState>;
   const d = result.data;
   const placsp = placspNote(d.sources);
@@ -129,7 +142,7 @@ export function DemandMap({ result, country = '' }: { result: DemandResult; coun
         ))}
       </ul>
       {ownFirst(d.byCountry, country).map((c) => (
-        <Country key={c.country} c={c} kMin={d.kMin} home={c.country === country}
+        <Country key={c.country} c={c} kMin={d.kMin} home={c.country === country} codes={d.codes.map((x) => x.prefix)}
           credit={c.country === 'ES' && placsp ? placspCredit(placsp, formatDateUtc) : null} />
       ))}
       <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{d.sources.filter((s) => s !== placsp).map((s) => s.attribution).join(' ')}</p>
@@ -142,12 +155,14 @@ export function DemandMap({ result, country = '' }: { result: DemandResult; coun
 }
 
 /** The short version for the results page: one row per country, the coverage line, and the way to the full map. */
-export function DemandSummary({ result, country = '' }: { result: DemandResult; country?: string }) {
+export function DemandSummary({ result, country = '', services = false }: { result: DemandResult; country?: string; services?: boolean }) {
   if (result.state === 'idle') return null;
+  // WP-112 (p06): a services company sells, it does not make
+  const heading = services ? 'Who buys what you sell' : 'Who buys what you make';
   return (
     <section aria-labelledby="demand" className="flex flex-col gap-3" data-demand-summary-section>
-      <h2 id="demand" className="m-0 text-h2">Who buys what you make</h2>
-      {result.state === 'loading' && <div role="status" aria-label="Computing the demand map"><Skeleton className="h-40" /></div>}
+      <h2 id="demand" className="m-0 text-h2">{heading}</h2>
+      {result.state === 'loading' && <Computing what="Computing the demand map" />}
       {result.state === 'error' && <ErrorState title="The demand map could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && (
         <>
@@ -155,7 +170,7 @@ export function DemandSummary({ result, country = '' }: { result: DemandResult; 
             Defence-scope procurements with a code under your {result.data.codes.length} CPV {result.data.codes.length === 1 ? 'code' : 'codes'} in
             the last three years, by country.
           </p>
-          <DataTable label="Who buys what you make, by country" minWidth={520}>
+          <DataTable label={`${heading}, by country`} minWidth={520}>
             <thead>
               <tr><th scope="col">Country</th><th scope="col">Procurements</th><th scope="col">Under Directive 2009/81/EC</th><th scope="col">Buyers (core / other)</th><th scope="col">With a published winner</th></tr>
             </thead>
