@@ -112,7 +112,8 @@ export function PrimesAtBuyers({ a }: { a: Demand['approach'] }) {
         {xs.map((p) => {
           const src = safeHttpUrl(p.prime.sourceUrl);
           return (
-            <li key={p.slug} className="report-item flex flex-col gap-0.5 border-t border-line py-2 first:border-t-0" data-prime-at-buyers={p.prime.group}>
+            // one wrapped line per prime (it was three stacked lines): the full report's print stays within its page budget
+            <li key={p.slug} className="report-item flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-line py-1.5 first:border-t-0" data-prime-at-buyers={p.prime.group}>
               <span className="text-body">
                 <Link href={`/suppliers/${p.slug}`} className="font-semibold">{p.name}</Link>
                 {p.country && <span className="text-small text-ink-muted"> ({countryName(p.country)})</span>}

@@ -46,7 +46,10 @@ const PRINT_CSS = `
   .report [data-value-totals] { display: none; }
   /* WP-89: on paper, each winner of the demand map with its newest notice (all of them are named under "Who to approach"), and tighter rows */
   .report [data-demand-winner] [data-demand-notice]:not(:first-child) { display: none; }
-  .report .report-item { padding-top: 0.35rem; padding-bottom: 0.35rem; }
+  .report .report-item { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  /* round 3: the demand map has seven countries (Portugal and Italy added), so its winner rows print without their screen gaps */
+  .report [data-demand-winner] { row-gap: 0; }
+  .report [data-demand-who-won] > ul { row-gap: 0.15rem; }
   /* WP-97: the short version (5 to 10 pages): the first ten of each list, the own country's notices, the step plan; no appendix */
   .report[data-print="short"] [data-print-full], .report[data-print="short"] [data-short-hidden] { display: none !important; }
   /* the explainers ("How we count") and the per-country winners, which "Who to approach" already names, are in the full print only */
