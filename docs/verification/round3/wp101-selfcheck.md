@@ -99,7 +99,14 @@ stored heads. So the cost was the fold per term, not the number of matches, and 
 - Change: `web/app/(public)/tenders/(list)/error.tsx`: Try again is `router.refresh()` and `reset()` in a transition (the button is
   away while it runs). The demo data fail for one search (`lib/mock/tenders.ts DEMO_UNAVAILABLE`) so the state can be tested; with
   the API the site never reads that file. Fewer 503s: item 1.
-- Test: `web/e2e/wp101.spec.ts` (the error heading, no "No tenders match", the search kept, Try again reads again).
+- Test: `web/e2e/wp101.spec.ts` (HTTP 500 and the error heading, no "No tenders match", the search kept, Try again reads again).
+
+## Runs (D:\DEFENCEGATE TESTS\wp101, Postgres 17 on 55501, fresh database)
+
+ruff clean; unit 3677 passed; integration 1330 passed (a first run failed `test_accounts` least-privileged role: `dgate_app` had no
+SELECT on the new table; granted in 0113, the suite then green on a freshly created database); tsc clean; all lib checks ok
+(`node scripts/run-checks.mjs`, including `wp101.check.ts`); `next build` ok; Playwright wp101, ux, wp98, wp86, suppliers, routes,
+wp89, wp97, wp98b specs: all passed, desktop and 375 px.
 
 ### 4. Product words in tender search, CPV picker and supplier product filter
 

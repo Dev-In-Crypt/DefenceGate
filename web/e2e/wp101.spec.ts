@@ -10,14 +10,14 @@ import { DEMO_UNAVAILABLE } from '../lib/mock/tenders';
 
 test('a tender list the data service could not answer is an error with Try again, not an empty result', async ({ page }) => {
   const res = await page.goto(`/tenders?q=${DEMO_UNAVAILABLE}`, { waitUntil: 'load' });
-  expect(res?.status()).toBe(200);
+  expect(res?.status()).toBe(500);                 // a failed read is an error page, never a 200 empty list
   const main = page.locator('#main');
   await expect(main.getByRole('heading', { name: 'We could not load tenders' })).toBeVisible();
   await expect(main.getByText('No tenders match these filters')).toHaveCount(0);
   const retry = main.getByRole('button', { name: 'Try again' });
   await expect(retry).toBeVisible();
   // the filters are kept, and Try again reads the list again (here it fails again, so the error stays)
-  await expect(main.getByRole('searchbox').first()).toHaveValue(DEMO_UNAVAILABLE);
+  await expect(main.locator('input[name="q"]').first()).toHaveValue(DEMO_UNAVAILABLE);   // in the folded filter panel on a phone
   await retry.click();
   await expect(main.getByRole('heading', { name: 'We could not load tenders' })).toBeVisible();
 });
