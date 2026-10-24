@@ -57,7 +57,7 @@ test('the readiness results lead to the Digital Europe, EIC and national calls w
 
 test('a funding search can be subscribed to, and its calendar keeps the search', async ({ page, request }) => {
   await visit(page, '/funding?q=space&status=all', { title: /funding/i, h1: 'Funding' });
-  const box = page.locator('[data-subscribe-funding]').first();
+  const box = page.locator('[data-subscribe-funding]:visible');
   await box.locator('summary').click();
   await expect(box.locator('[data-subscribe-webcal]')).toHaveAttribute('href', /^webcal:\/\/.+\/funding\.ics\?q=space&status=all$/);
   await expect(box.locator('[data-subscribe-atom]')).toHaveAttribute('href', '/funding.atom?q=space&status=all');
@@ -76,12 +76,12 @@ test('a funding search can be subscribed to, and its calendar keeps the search',
 test('the Ukraine partners table labels each coordinator, takes a keyword and keeps it in its links', async ({ page }) => {
   await visit(page, '/networks/ukraine-partners?programme=all', { title: /Ukrainian/, h1: 'Ukraine partners' });
   await expect(page.getByRole('columnheader', { name: 'Projects are' })).toBeVisible();
-  await expect(page.locator('[data-group]').first()).toHaveText(/^(Defence|Dual-use|Civil)$/);
+  await expect(page.locator('[data-ua-group]').first()).toHaveText(/^(Defence|Dual-use|Civil)$/);
   await page.getByLabel('Project keyword').fill('alpha');
   await page.getByRole('button', { name: 'Apply' }).click();
   await expect(page).toHaveURL(/q=alpha/);
   await expect(page.locator('[data-keyword]')).toContainText('Only projects whose acronym or title has “alpha”');
-  await expect(page.locator('[data-group]')).toHaveCount(1);
+  await expect(page.locator('[data-ua-group]')).toHaveCount(1);
   await visit(page, '/networks/ukraine-partners?programme=all&q=nothingmatches', { title: /Ukrainian/, h1: 'Ukraine partners' });
   await expect(page.getByText(/No project started in or after \d+ matches/)).toBeVisible();
 });

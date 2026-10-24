@@ -141,7 +141,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
                     {shown.map((c) => (
                       <tr key={c.organisation.id ?? c.organisation.name} className="border-b border-line align-top last:border-0">
                         <th scope="row" className="py-2 pr-4 font-normal"><OrgLink org={c.organisation} />{c.organisation.country ? <span className="text-ink-muted"> ({c.organisation.country})</span> : null}</th>
-                        <td data-label="Projects are" className="py-2 pr-4" data-group={groupOf(c)}>{groupOf(c)}</td>
+                        <td data-label="Projects are" className="py-2 pr-4" data-ua-group={groupOf(c)}>{groupOf(c)}</td>
                         <td data-label="Projects" className="py-2 pr-4 text-right font-mono tabular-nums">{c.projects}<span className="block text-ink-muted">{yearsLabel(null, c.lastYear)}</span></td>
                         <td data-label="Ukrainian participants" className="py-2 pr-4">
                           <ul className="m-0 list-none p-0">{c.ukrainianParticipants.map((u) => <li key={u.organisation.id ?? u.organisation.name}><OrgLink org={u.organisation} /> <span className="text-ink-muted">({u.projects})</span></li>)}</ul>
