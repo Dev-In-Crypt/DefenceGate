@@ -54,7 +54,7 @@ test('the entry page is linked from /readiness, Check my company, the home page 
   // WP-97: home leads every supplier to the supplier profile (the Spain page was the button for every visitor)
   await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
   await expect(page.locator('#main a[href="/readiness/supplier"]').first()).toBeVisible();
-  const xml = await (await request.get('/sitemap.xml')).text();
+  const xml = await (await request.get('/sitemaps/pages.xml')  /* WP-114: the index's file of pages */).text();
   expect(xml).toContain('/readiness/spain-automotive</loc>');
 });
 

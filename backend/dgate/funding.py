@@ -350,11 +350,23 @@ class SourceHealth(BaseModel):
     # the expected minimum met: the minimum measures how much arrived, not whether all of it could be used (T18).
     statusReason: str | None = None
     statusReasonKind: str | None = None
+    # WP-114: since when the runs have said the same (`refused`: the first run of the unbroken row that was refused), null
+    # for any other kind
+    statusReasonSince: datetime | None = None
+
+
+class ControlAlert(BaseModel):
+    """WP-114: a data check (ops/controls.py) in alert, in a fixed sentence: the owner looks at /data, not at /v1/health."""
+    control: str
+    since: datetime | None = None
+    checkedAt: datetime
+    message: str
 
 
 class Health(BaseModel):
     generatedAt: datetime
     sources: list[SourceHealth]
+    alerts: list[ControlAlert] = []
 
 
 # ----------------------------------------------------------------- mapping
@@ -1003,20 +1015,28 @@ RUN_REASONS = {
     "stale_feed": "The source's live feed had published nothing new for longer than expected when the run ended.",
     "quarantined": "Some records were set aside for review and are not shown.",
     "failed": "The last run did not finish.",
+    "interrupted": "The last run was cut off by a restart of the service; it is run again when the service starts.",
     "other": "The run finished with a problem; the records it did read are kept.",
 }
 _UNREADABLE = re.compile(r"^(\d{1,6}) (\w+) could not be read$")
+_REFUSED = re.compile(re.escape(db.REFUSED_TEXT) + r"(\d{3})\)")
 
 
 def run_reason(status: str | None, fetched: int, floor: int | None,
                message: str | None) -> tuple[str | None, str | None]:
     """(kind, sentence) for a run that is not `success`. The sentence is chosen here, from the kind: the
     run's own message is an exception text and stays in the table."""
+    text = (message or "").strip()
+    # WP-114: the two causes a reader must be told in their own words: the source refuses us (pl_ezam, 24 October 2026:
+    # 403 to every request, and /data said only "fewer records than the minimum"), and a run a restart cut off.
+    if status in ("failed", "partial") and (m := _REFUSED.search(text)):
+        return "refused", f"The source refuses access (HTTP {m.group(1)}); no new records arrive from it until it lets us in again."
+    if status == "failed" and text.startswith(db.INTERRUPTED_TEXT):
+        return "interrupted", RUN_REASONS["interrupted"]
     if status == "failed":
         return "failed", RUN_REASONS["failed"]
     if status != "partial":
         return None, None
-    text = (message or "").strip()
     if floor and fetched < floor:
         return "below_minimum", RUN_REASONS["below_minimum"]
     if text.startswith("live feed stale"):
@@ -1031,6 +1051,52 @@ def run_reason(status: str | None, fetched: int, floor: int | None,
     if "quarantined" in text:
         return "quarantined", RUN_REASONS["quarantined"]
     return "other", RUN_REASONS["other"]
+
+
+def run_signals(conn, now: datetime | None = None) -> dict[str, dict[str, Any]]:
+    """WP-114, per source code, from its finished runs of the last 30 days, newest first:
+      - `refusedSince`: the start of the unbroken row of newest runs whose message says the source refused access
+      - `zeroRuns`: how many newest runs in a row fetched nothing although the source has a minimum (a floor)
+      - `zeroDay`: every run of the last 24 hours (one at least) was such a run
+    (pl_ezam on 24 October 2026: eight runs, every one 0 records, health "ok" and the stale flag 72 hours away)."""
+    now = now or datetime.now(timezone.utc)
+    rows = conn.execute(
+        """SELECT s.code, r.started_at, r.finished_at, r.records_fetched, r.expected_min, r.error_message
+             FROM ingest_run r JOIN source s ON s.id = r.source_id
+            WHERE r.finished_at IS NOT NULL AND r.started_at > %s
+            ORDER BY s.code, r.started_at DESC""", (now - timedelta(days=30),)).fetchall()
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        sig = out.setdefault(r["code"], {"refusedSince": None, "zeroRuns": 0, "zeroDay": None,
+                                         "_refusing": True, "_zero": True})
+        if sig["_refusing"] and _REFUSED.search(r["error_message"] or ""):
+            sig["refusedSince"] = r["started_at"]
+        else:
+            sig["_refusing"] = False
+        empty = (r["expected_min"] or 0) > 0 and not r["records_fetched"]
+        if sig["_zero"] and empty:
+            sig["zeroRuns"] += 1
+        else:
+            sig["_zero"] = False
+        if r["finished_at"] > now - timedelta(hours=24):
+            sig["zeroDay"] = empty if sig["zeroDay"] is None else sig["zeroDay"] and empty
+    return {code: {"refusedSince": s["refusedSince"], "zeroRuns": s["zeroRuns"], "zeroDay": bool(s["zeroDay"])}
+            for code, s in out.items()}
+
+
+CONTROL_MESSAGES = {
+    "placsp_links": "Spanish data check in alert: PLACSP notices without a publication date or TED notices of Spain not "
+                    "linked to their PLACSP copy are above their limit.",
+    "atlas_zenodo": "Polish Atlas data check in alert: the published dataset changed since it was last checked.",
+}
+
+
+def control_alerts(conn) -> list[dict[str, Any]]:
+    """WP-114: the data checks in alert, each in a fixed sentence (the detail stays on /v1/health)."""
+    return [{"control": r["control"], "since": r["alert_since"], "checkedAt": r["checked_at"],
+             "message": CONTROL_MESSAGES.get(r["control"], f"Data check {r['control']} in alert.")}
+            for r in conn.execute("SELECT control, alert_since, checked_at FROM control_check "
+                                  "WHERE status = 'alert' ORDER BY control").fetchall()]
 
 
 @router.get("/v1/sources", response_model=Health)
@@ -1050,15 +1116,22 @@ def list_sources(conn=Depends(get_conn)):
             ORDER BY s.code, r.started_at DESC NULLS LAST""").fetchall()
     sources = []
     now = datetime.now(timezone.utc)
+    signals = run_signals(conn, now)
     for r in rows:
         floor, fetched = r["expected_min"], r["records_fetched"] or 0
-        after = STALE_AFTER_HOURS_BY_FREQ.get((r["update_freq"] or "").strip().lower())
+        freq = (r["update_freq"] or "").strip().lower()
+        after = STALE_AFTER_HOURS_BY_FREQ.get(freq)
         kind, reason = run_reason(r["status"], fetched, floor, r["error_message"])
+        sig = signals.get(r["code"], {})
+        since = sig.get("refusedSince") if kind == "refused" else None
+        if since is not None:
+            reason = f"{reason} Refused since {since.astimezone(timezone.utc):%d %b %Y %H:%M} UTC."
         sources.append({
             "updateFreq": r["update_freq"], "staleAfterHours": after,
+            # WP-114: a daily source whose every run of the last day fetched nothing is late now, not after 72 hours
             "stale": None if after is None or r["finished_at"] is None
-            else (now - r["finished_at"]) > timedelta(hours=after),
-            "statusReason": reason, "statusReasonKind": kind,
+            else (now - r["finished_at"]) > timedelta(hours=after) or (freq == "daily" and bool(sig.get("zeroDay"))),
+            "statusReason": reason, "statusReasonKind": kind, "statusReasonSince": since,
             "id": r["code"], "name": r["name"], "country": r["country"],
             "type": "grants" if r["kind"] == "grant" else "tenders",
             "url": r["base_url"], "lastRunAt": r["finished_at"],
@@ -1073,5 +1146,5 @@ def list_sources(conn=Depends(get_conn)):
             **(spans.get(r["code"], {"heldFrom": None, "heldTo": None, "heldCount": 0})
                if spans else {}),
         })
-    return {"generatedAt": now, "sources": sources}
+    return {"generatedAt": now, "sources": sources, "alerts": control_alerts(conn)}
 

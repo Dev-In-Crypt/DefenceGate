@@ -22,11 +22,13 @@ os.environ.setdefault("DGATE_RATE_LIMIT", "0")
 os.environ.setdefault("DGATE_LIST_CACHE_SECONDS", "0")
 # The nightly completeness control asks the portals for their day totals: never from tests.
 os.environ.setdefault("DGATE_COMPLETENESS_CHECK", "0")
+# WP-114: a job run is recorded in the database; the unit tests of the worker have none (the integration test turns it on).
+os.environ.setdefault("DGATE_JOB_RUNS", "0")
 
 TABLES = """award, award_notice, compaction_pending, backfill_day, enrichment_job, enrichment, opportunity_version, opportunity_capability, opportunity,
             organisation_merge_candidate, organisation_alias, organisation,
             call, raw_ingest, ingest_run,
-            app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check,
+            app_user, app_login_token, app_auth_event, app_hit_daily, backup_status, control_check, job_run,
             suppression, data_request, list_snapshot, award_twin_set,
             call_eligibility, call_document_text, llm_usage, digest_issue,
             programme_requirement, requirement_issuer, requirement_prerequisite, requirement,

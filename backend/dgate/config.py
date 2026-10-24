@@ -211,6 +211,9 @@ class Settings:
     # --- database -------------------------------------------------------
     dsn: str = field(repr=False, default_factory=lambda: _env(
         "DGATE_DSN", "postgresql://dgate:dgate@localhost:5432/dgate"))
+    # WP-114: every run of a scheduled job is recorded in `job_run` (worker.run_job); "0" turns it off (the unit tests,
+    # which have no database)
+    job_runs: bool = field(default_factory=lambda: os.environ.get("DGATE_JOB_RUNS") != "0")
     # WP-96: the folder of the defence buyer lists (seeds/); empty: found next to the package, in the working directory or
     # at /app/seeds (`pipeline.seeds_dir`)
     seeds_dir: str = field(default_factory=lambda: _env("DGATE_SEEDS_DIR", ""))

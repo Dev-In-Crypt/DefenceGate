@@ -92,6 +92,7 @@ export default async function DataPage() {
         <span className="font-semibold text-ink">What OK means:</span> the last run finished and fetched at least that minimum, and it was not late for how often that source is collected
         ({lateRule ? `a run is late for ${lateRule}` : `a run is late after ${STALE_AFTER_DAYS} days`}). It does not mean the source is fully collected. A late run is shown as stale, a load made once as a one-off load,
         and a source that failed or has never run as such. A run that finished with a problem is partial, and its card says why, also when it fetched the minimum.
+        A daily source whose every run of the last day fetched nothing is stale at once.
       </p>
       </AboutData>
 
@@ -103,6 +104,21 @@ export default async function DataPage() {
         <FactCell label="Partial, failed or never run">{count('partial', 'failed', 'never')}</FactCell>
         <FactCell label="Status as of"><time dateTime={health.generatedAt}>{formatDateTimeUtc(health.generatedAt)}</time></FactCell>
       </dl>
+
+      {(health.alerts ?? []).length > 0 && (
+        // WP-114: a data check in alert is said where the owner looks, not only in /v1/health
+        <PageSection title="Data checks in alert">
+          <ul className="m-0 grid gap-2 pl-5 text-body" data-check-alerts>
+            {(health.alerts ?? []).map((a) => (
+              <li key={a.control}>
+                {a.message}{' '}
+                {a.since ? <>In alert since <time dateTime={a.since}>{formatDateTimeUtc(a.since)}</time>; </> : null}
+                last checked <time dateTime={a.checkedAt}>{formatDateTimeUtc(a.checkedAt)}</time>.
+              </li>
+            ))}
+          </ul>
+        </PageSection>
+      )}
 
       {health.sources.length === 0 ? (
         <EmptyState title="No sources reported">The source list is empty. Check back later.</EmptyState>

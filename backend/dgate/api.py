@@ -37,7 +37,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import classify, db
 from .config import require_production_secrets, settings
-from .hardening import BodyLimit, HeadAsGet, RateLimit, SecurityHeaders
+from .hardening import BodyLimit, ETag, HeadAsGet, RateLimit, SecurityHeaders
 from .listcache import cache_list
 from .normalise import http_url, normalise_org_name, redact_emails
 from .suppress import WITHHELD_NAME, removed
@@ -70,6 +70,7 @@ app = FastAPI(
     lifespan=_lifespan,
 )
 app.add_middleware(BodyLimit)         # innermost: its 413 still gets the security headers
+app.add_middleware(ETag)              # WP-114: inside the headers, so a 304 carries them too
 app.add_middleware(SecurityHeaders)
 app.add_middleware(RateLimit)
 app.add_middleware(HeadAsGet)         # outermost: a HEAD is routed, charged and secured as the GET it stands for
@@ -888,6 +889,24 @@ def _under_floor(error: str | None) -> bool:
     return not error or bool(_FLOOR_MESSAGE.match(error))
 
 
+# WP-114: this many newest runs in a row with nothing fetched (and a minimum expected) make a source unhealthy
+ZERO_RUNS_UNHEALTHY = 2
+
+
+def _last_jobs(conn) -> dict[str, Any]:
+    """The newest run of each job in `job_run` (migration 0126): when it started and finished, how it ended. Not its
+    detail: a failed job's is an exception text, which can name an object-store address (as the run errors above)."""
+    try:
+        with conn.transaction():       # a savepoint: before the migration the table is not there
+            rows = conn.execute(
+                """SELECT DISTINCT ON (job) job, started_at, finished_at, status
+                     FROM job_run ORDER BY job, started_at DESC""").fetchall()
+    except psycopg.Error:
+        return {}
+    return {r["job"]: {"started_at": r["started_at"], "finished_at": r["finished_at"], "status": r["status"]}
+            for r in rows}
+
+
 @app.get("/v1/health")
 def health(conn=Depends(get_conn_reserved)):
     """Coverage health, not just liveness.
@@ -927,6 +946,10 @@ def health(conn=Depends(get_conn_reserved)):
     unhealthy: list[str] = []
     warnings: list[str] = []
     stuck_after = timedelta(hours=db.STALE_RUN_HOURS)
+    from .funding import control_alerts, run_signals
+
+    signals = run_signals(conn, now)
+    alerts = control_alerts(conn)
     for r in rows:
         # Only what a reader of the coverage needs. The run's error text is a
         # `str(exception)` and has held an object-store URL; it stays in the table.
@@ -939,8 +962,14 @@ def health(conn=Depends(get_conn_reserved)):
         if check:
             # Latest complete days against the portal's own day totals (ops/controls.py).
             item["completeness"] = _completeness_line(check)
+        sig = signals.get(r["code"], {})
+        if sig.get("refusedSince"):
+            item["refused_since"] = sig["refusedSince"]
         if running is not None and now - running > stuck_after:
             item["health"] = "unhealthy"            # a run nobody finished
+        elif sig.get("refusedSince") or sig.get("zeroRuns", 0) >= ZERO_RUNS_UNHEALTHY:
+            # WP-114: the source refuses us, or its last runs fetched nothing at all: not a warning (pl_ezam, 24 Oct)
+            item["health"] = "unhealthy"
         elif r["status"] is None:
             item["status"] = "running" if running is not None else "never_run"
             item["health"] = "running" if running is not None else "unhealthy"
@@ -968,9 +997,13 @@ def health(conn=Depends(get_conn_reserved)):
     return {
         # A backup that is stale is a degraded service: the archive timeline exists
         # nowhere else. Ages only, never a file name or a path (`db.backup_freshness`).
-        "status": "degraded" if unhealthy or backup["status"] == "stale" else "ok",
+        # WP-114: a data check in alert degrades it too (placsp_links was in alert while this said "ok")
+        "status": "degraded" if unhealthy or backup["status"] == "stale" or alerts else "ok",
         "unhealthy_sources": unhealthy,
         "warning_sources": warnings,
+        "alerting_controls": [a["control"] for a in alerts],
+        # WP-114: the last run of every scheduled job (`job_run`), so a slot a restart skipped shows
+        "jobs": _last_jobs(conn),
         "backup": backup,
         "controls": {c["control"]: {"status": c["status"], "checked_at": c["checked_at"],
                                     **c["detail"]}

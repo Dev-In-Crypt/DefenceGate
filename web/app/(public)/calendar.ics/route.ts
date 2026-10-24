@@ -1,3 +1,4 @@
+import { withEtag } from '@/lib/etag';
 import { filterEntries, loadCalendar, parseCalendarParams } from '@/lib/calendar';
 import { searchParamsOf } from '@/lib/export';
 import { feedName } from '@/lib/feed-name';
@@ -10,7 +11,12 @@ import { ICS_MAX_EVENTS, buildIcs } from '@/lib/ics';
  * every event the filters give (ICS_MAX_EVENTS is a ceiling the description names when it cuts). `kind` (all, tenders, funding),
  * `country` and the tender list's filters (WP-87) narrow it like the page; any other parameter is a 422. Cached for an hour.
  */
+/** WP-114: with an ETag, and 304 for a reader who holds the same file (`lib/etag.ts`). */
 export async function GET(request: Request): Promise<Response> {
+  return withEtag(request, await build(request));
+}
+
+async function build(request: Request): Promise<Response> {
   const sp = searchParamsOf(new URL(request.url));
   // WP-87: a feed cannot show a notice, so a parameter it does not read is refused, never dropped in silence
   const unknown = unknownParams(sp, CALENDAR_PARAMS);

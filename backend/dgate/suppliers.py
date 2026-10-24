@@ -51,7 +51,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -837,6 +837,22 @@ def _award_rows(conn, base: str, p: dict[str, Any], twins: str) -> list[dict[str
                    (SELECT n.framework_id FROM award_notice n WHERE n.opportunity_id = o.id) AS framework_id
               {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC""",
         p).fetchall()
+
+
+@router.get("/v1/suppliers/slugs")
+@cache_list("supplier-slugs", ttl=60 * 60)
+def supplier_slugs(conn=Depends(get_conn)):
+    """WP-114: every supplier that has a page (the award set, `award_set.scope`), for the sitemap, with the slug its page
+    answers under (the name of `get_supplier`: the spelling most of its award rows state, a mixed-case one before a
+    capitals-only one, then alphabetical) and its newest award notice's date as `updatedAt`."""
+    rows = conn.execute(
+        f"""SELECT DISTINCT ON (id) id, canonical_name, shown, max(day) OVER (PARTITION BY id) AS day
+              FROM (SELECT org.id, org.canonical_name, a.name_as_stated AS shown, count(*) AS n,
+                           max(COALESCE(o.published_at, o.notice_date)) AS day
+                      {FROM} WHERE {scope()} GROUP BY 1, 2, 3) t
+             ORDER BY id, n DESC, (shown = upper(shown)), shown""", {"since": since()}).fetchall()
+    now = datetime.now(timezone.utc)
+    return [{"slug": make_slug(r["id"], _name(r)), "updatedAt": _day(r["day"]) or now} for r in rows]
 
 
 @router.get("/v1/suppliers/{slug}", response_model=Supplier)

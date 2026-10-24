@@ -206,19 +206,72 @@ def _candidates(conn, scope_sql: str, country_sql: str, params: list[Any],
              WHERE o.is_defence AND NOT o.suppressed AND {scope_sql}{country_sql}
                AND o.published_at >= %s AND v.observed_at >= %s{upper_new}""",
         params + [published_from, since] + upper_args).fetchall()
-    upper_amended = " AND v.observed_at < %s" if until else ""
-    amended_rows = conn.execute(
+    amended = None if until else _snapshot_candidates(conn, since)
+    if amended is None:
+        amended = set(amended_candidates(conn, since, until))
+    return ({r["id"]: r["observed_at"] for r in new_rows}, sorted(amended),
+            {r["id"] for r in new_rows if r["is_award"]})
+
+
+def amended_candidates(conn, since: datetime, until: datetime | None = None) -> dict[int, datetime]:
+    """The notices with a candidate amendment observed in [since, until), with the newest such observation: the
+    archive scan of `_candidates`. 5.3-5.7 s over the 14 days on production (24 October 2026: 313k versions of the
+    window touch a listed field, 397k remap notes to hash), so `/changes` reads it from the worker's snapshot
+    (`CANDIDATES_KEY`) and scans only what was observed since (1-3 ms)."""
+    upper = " AND v.observed_at < %s" if until else ""
+    rows = conn.execute(
         f"""WITH annotated AS MATERIALIZED (
                 SELECT opportunity_version_id AS vid FROM opportunity_version_note
                  WHERE kind = ANY(%s) AND created_at >= %s)
-            SELECT DISTINCT v.opportunity_id AS id
+            SELECT v.opportunity_id AS id, max(v.observed_at) AS at
               FROM opportunity_version v
              WHERE v.observed_at >= %s AND v.version > 1 AND v.changed_fields && %s::text[]
-               AND NOT EXISTS (SELECT 1 FROM annotated a WHERE a.vid = v.id){upper_amended}
+               AND NOT EXISTS (SELECT 1 FROM annotated a WHERE a.vid = v.id){upper}
+             GROUP BY v.opportunity_id
              LIMIT {CANDIDATE_LIMIT}""",
-        [list(NOT_A_CHANGE), since, since, list(CHANGE_FIELDS)] + upper_args).fetchall()
-    return ({r["id"]: r["observed_at"] for r in new_rows}, [r["id"] for r in amended_rows],
-            {r["id"] for r in new_rows if r["is_award"]})
+        [list(NOT_A_CHANGE), since, since, list(CHANGE_FIELDS)] + ([until] if until else [])).fetchall()
+    return {r["id"]: r["at"] for r in rows}
+
+
+# WP-114: the amendment candidates of the last CANDIDATES_SPAN_DAYS, kept by the worker in `list_snapshot`
+# (ops/warm_lists, every four hours and at its start). A candidate is only a pre-filter: `_amendments` reads each
+# notice's timeline with its notes again, so a note written after the snapshot can only make one candidate too many.
+CANDIDATES_KEY = "changes-candidates"
+CANDIDATES_SPAN_DAYS = WINDOW_DAYS + 1
+# The scan after the snapshot starts this much before it: a load commits its versions in batches, and a version stamped
+# (clock_timestamp) shortly before the snapshot may not have been visible to it.
+# ponytail: a single transaction holding versions for longer than this would be missed until the next snapshot (4 h).
+CANDIDATES_OVERLAP = timedelta(hours=1)
+
+
+def compute_candidates(conn) -> dict[str, Any]:
+    """The body of the `CANDIDATES_KEY` snapshot: the span it covers and [notice id, newest observation (epoch s)]."""
+    upto = conn.execute("SELECT now() AS t").fetchone()["t"]
+    since = upto - timedelta(days=CANDIDATES_SPAN_DAYS)
+    found = amended_candidates(conn, since)
+    return {"from": since.isoformat(), "upto": upto.isoformat(),
+            "ids": [[oid, at.timestamp()] for oid, at in sorted(found.items())]}
+
+
+def _snapshot_candidates(conn, since: datetime) -> set[int] | None:
+    """The candidates since `since` from the snapshot plus the scan of what came after it; None when there is no usable
+    snapshot (none, older than `listcache.SNAPSHOT_HOURS`, or not reaching back to `since`): the caller scans."""
+    from .listcache import SNAPSHOT_HOURS
+
+    try:
+        with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
+            row = conn.execute(
+                "SELECT body FROM list_snapshot WHERE key = %s AND computed_at > now() - make_interval(hours => %s)",
+                (CANDIDATES_KEY, SNAPSHOT_HOURS)).fetchone()
+    except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+        return None
+    body = row["body"] if row else None
+    if not body or datetime.fromisoformat(body["from"]) > since:
+        return None
+    upto = datetime.fromisoformat(body["upto"])
+    edge = since.timestamp()
+    out = {int(oid) for oid, at in body["ids"] if at >= edge}
+    return out | set(amended_candidates(conn, max(since, upto - CANDIDATES_OVERLAP)))
 
 
 def _amendments(conn, ids: list[int], since: datetime,

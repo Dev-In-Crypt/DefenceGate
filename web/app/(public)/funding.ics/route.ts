@@ -1,3 +1,4 @@
+import { withEtag } from '@/lib/etag';
 import { getCall, REMOVED, whenRemoved } from '@/lib/api';
 import { callEntries, loadFundingSearch } from '@/lib/calendar';
 import { now } from '@/lib/deadline';
@@ -33,7 +34,12 @@ function calendar(body: string, filename: string, disposition: 'inline' | 'attac
  *
  * A parameter the file does not read, or a value it cannot use, is refused (as /calendar.ics, WP-87). Cached for an hour.
  */
+/** WP-114: with an ETag, and 304 for a reader who holds the same file (`lib/etag.ts`). */
 export async function GET(request: Request): Promise<Response> {
+  return withEtag(request, await build(request));
+}
+
+async function build(request: Request): Promise<Response> {
   const sp = searchParamsOf(new URL(request.url));
   const hour = new Date();
   hour.setUTCMinutes(0, 0, 0);

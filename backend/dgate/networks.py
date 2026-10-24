@@ -646,6 +646,7 @@ def run_edf(*, years: set[int] | None = None, max_files: int | None = None, http
     own = http is None
     http = http or new_client(timeout=120, follow_redirects=True, headers={"User-Agent": USER_AGENT})
     c: Counter = Counter()
+    failed: list[str] = []
     try:
         with db.connect(cfg.dsn) as conn, BundleWriter(build_store(), code) as writer:
             robots = edf.robots(http)
@@ -719,6 +720,9 @@ def run_edf(*, years: set[int] | None = None, max_files: int | None = None, http
                         except (llm.LLMError, ValueError, httpx.HTTPError) as exc:
                             conn.rollback()
                             c["files_failed"] += 1
+                            # WP-114: kept in the run's detail. The run of 17 October 2026 said "1 factsheets could
+                            # not be read" and which one was only in a container log that a redeploy erased.
+                            failed.append(f"{link.filename}: {type(exc).__name__}: {str(exc)[:200]}")
                             log.warning("edf: %s failed: %s", link.filename, exc)
                             continue
                         _checkpoint(conn, writer, run_id, c)
@@ -732,7 +736,7 @@ def run_edf(*, years: set[int] | None = None, max_files: int | None = None, http
                            if c["files_without_participants"] else None)
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["new"],
                               changed=c["changed"], status="partial" if problem else "success",
-                              error=problem, detail=dict(c))
+                              error=problem, detail={**dict(c), **({"failed_files": failed[:20]} if failed else {})})
                 if c["factsheets_read"] or c["factsheets_held"] or c["factsheets_recent"]:
                     _switch_on(conn, code)
             except Exception as exc:

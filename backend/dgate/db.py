@@ -328,6 +328,18 @@ def start_run(conn: psycopg.Connection, code: str, expected_min: int | None = No
     return row["id"]
 
 
+# WP-114: the answers that mean the source refuses us (not a fault a retry of ours mends), and the words a run's message
+# says it in. The health check and /v1/sources read them back (`funding.run_reason`, `REFUSED_TEXT`).
+REFUSED_STATUSES = (401, 403, 451)
+REFUSED_TEXT = "source refused access (HTTP "
+# The message `close_interrupted_runs` writes: a run a restart (a deploy) cut off.
+INTERRUPTED_TEXT = "interrupted: the process that opened this run did not close it"
+
+
+def refused_access(status: int) -> str:
+    return f"{REFUSED_TEXT}{status})"
+
+
 def finish_run(
     conn: psycopg.Connection, run_id: int, *,
     fetched: int, new: int, changed: int,
@@ -456,13 +468,12 @@ def close_interrupted_runs(conn: psycopg.Connection, kind: Any = _OWN_KIND,
     rows = conn.execute(
         """UPDATE ingest_run
               SET status = 'failed', finished_at = clock_timestamp(),
-                  error_message = coalesce(error_message,
-                      'interrupted: the process that opened this run did not close it')
+                  error_message = coalesce(error_message, %(text)s)
             WHERE status = 'running'
               AND ((%(kind)s::text IS NOT NULL AND split_part(owner, ':', 1) = %(kind)s::text)
                    OR started_at < clock_timestamp() - interval '1 hour' * %(hours)s)
         RETURNING id""",
-        {"kind": own, "hours": stale_hours},
+        {"kind": own, "hours": stale_hours, "text": INTERRUPTED_TEXT},
     ).fetchall()
     conn.commit()
     ids = [r["id"] for r in rows]

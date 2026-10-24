@@ -85,6 +85,31 @@ _RUNNING: set[str] = set()
 _RUNNING_LOCK = threading.Lock()
 
 
+def record_start(name: str) -> int | None:
+    """WP-114: a `job_run` row for a job that starts (migration 0126), its id; None when it could not be written. The
+    history used to be the container log only, which a redeploy erases. Never fails the job."""
+    if not settings().job_runs:
+        return None
+    try:
+        with db.connect(settings().dsn) as conn:
+            return conn.execute("INSERT INTO job_run (job, owner) VALUES (%s, %s) RETURNING id",
+                                (name, db.RUN_KIND)).fetchone()["id"]
+    except Exception as exc:  # noqa: BLE001 - a record is a record, not the job
+        log.warning("job %s: run not recorded: %s", name, type(exc).__name__)
+        return None
+
+
+def record_finish(run_id: int | None, status: str, detail: str = "") -> None:
+    if run_id is None:
+        return
+    try:
+        with db.connect(settings().dsn) as conn:
+            conn.execute("UPDATE job_run SET finished_at = clock_timestamp(), status = %s, detail = %s WHERE id = %s",
+                         (status, detail[:2000] or None, run_id))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("job run %s: end not recorded: %s", run_id, type(exc).__name__)
+
+
 def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -> JobResult:
     """Run one job, decide honestly whether it worked, and be loud if not.
 
@@ -103,6 +128,10 @@ def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -
         # while the catch-up is still on the same job must not start it twice.
         log.warning("job %s is already running in this process; this start is skipped", name)
         return JobResult(name, "success", 0.0, "already running")
+    return _run_job(name, fn, slug, sources, record_start(name))
+
+
+def _run_job(name: str, fn: Callable[[], None], slug: str, sources: Sequence[str], run_id: int | None) -> JobResult:
     started = time.monotonic()
     ping(slug, "start")
     try:
@@ -112,6 +141,7 @@ def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -
         log.exception("job %s failed", name)
         ping(slug, "fail")
         notify(f"[dgate] job {name} FAILED after {elapsed:.0f}s: {exc}")
+        record_finish(run_id, "failed", str(exc))
         return JobResult(name, "failed", elapsed, str(exc))
     finally:
         with _RUNNING_LOCK:
@@ -131,10 +161,12 @@ def run_job(name: str, fn: Callable[[], None], *, sources: Sequence[str] = ()) -
         detail = "; ".join(bad)
         ping(slug, "fail")
         notify(f"[dgate] job {name} finished but coverage is degraded: {detail}")
+        record_finish(run_id, "partial", detail)
         return JobResult(name, "partial", elapsed, detail)
 
     ping(slug, "success")
     log.info("job %s succeeded in %.0fs", name, elapsed)
+    record_finish(run_id, "success")
     return JobResult(name, "success", elapsed)
 
 
@@ -557,6 +589,13 @@ def job_controls() -> JobResult:
     from .ops import controls
 
     started = time.monotonic()
+    run_id = record_start("controls")
+    result = _controls(controls, started)
+    record_finish(run_id, result.status, result.detail)
+    return result
+
+
+def _controls(controls, started: float) -> JobResult:
     try:
         with db.connect(settings().dsn) as conn:
             done = [controls.check_placsp(conn)]
@@ -1008,7 +1047,13 @@ def close_interrupted_runs() -> list[int]:
     """
     try:
         with db.connect(settings().dsn) as conn:
-            return db.close_interrupted_runs(conn)
+            closed = db.close_interrupted_runs(conn)
+            if settings().job_runs:
+                # WP-114: the jobs this kind of process left running are `interrupted` (a deploy recreated the worker)
+                with conn.transaction():
+                    conn.execute("UPDATE job_run SET status = 'interrupted', finished_at = clock_timestamp() "
+                                 "WHERE status = 'running' AND owner = %s", (db.RUN_KIND,))
+            return closed
     except Exception as exc:  # noqa: BLE001 - a start-up tidy must not block start-up
         log.warning("could not close interrupted runs: %s", exc)
         return []
@@ -1055,12 +1100,84 @@ def catch_up() -> list[JobResult]:
     return results
 
 
+# WP-114: the scheduled jobs `catch_up_jobs` does not cover: the ingest jobs and the backups have catch-ups of their own
+# (by the sources' last success, by the newest dump), the hourly ones run again within the hour, and the TED history is
+# resumed by `start_backfill_thread`.
+OWN_CATCH_UP = {"backup_nightly", "backup_verify", "backup_freshness", "alerts_hourly", "ted_history_daily"}
+# A job that runs this seldom and has no record at all is not started by a restart: its first scheduled slot is kept
+# (a monthly crawl of CORDIS or of the EDF factsheets is hours of requests to a public site, and a model budget).
+UNRECORDED_MAX_PERIOD = timedelta(days=1)
+
+
+def last_slot(trigger, now: datetime) -> tuple[datetime | None, timedelta | None]:
+    """(the trigger's most recent fire time at or before `now`, the time between its last two fire times)."""
+    t = now - timedelta(days=32)
+    fires: list[datetime] = []
+    while True:
+        t = trigger.get_next_fire_time(fires[-1] if fires else None, t)
+        if t is None or t > now:
+            break
+        fires.append(t)
+        t = t + timedelta(seconds=1)
+    if not fires:
+        return None, None
+    return fires[-1], (fires[-1] - fires[-2]) if len(fires) > 1 else None
+
+
+def last_job_start(names: Sequence[str]) -> datetime | None:
+    """When a job (under any of its `names`) last started, by `job_run`."""
+    with db.connect(settings().dsn) as conn:
+        row = conn.execute("SELECT max(started_at) AS t FROM job_run WHERE job = ANY(%s)", (list(names),)).fetchone()
+    return row["t"] if row else None
+
+
+def job_names(job_id: str) -> tuple[str, ...]:
+    """The names a scheduled job's runs are recorded under: its run_job name is its id, or its id without `_daily`."""
+    return (job_id, job_id.removesuffix("_daily"))
+
+
+def catch_up_jobs(sched=None, now: datetime | None = None) -> list[JobResult]:
+    """Every other scheduled job whose last slot passed since it last started (WP-114, coverage audit of 24 October
+    2026: the worker recreated at 15:53 had skipped the 14:10 ted_awards slot, and digest, warm_lists and the rest
+    are skipped the same way until their next slot). Run oldest slot first, so the order of a day is kept (the twins,
+    then the buyer families, then the digest). A job with no record yet runs if it is daily or more often."""
+    cfg = settings()
+    if not cfg.catch_up_on_start or not cfg.job_runs:
+        return []
+    sched = sched or build_scheduler()
+    now = now or _now()
+    covered = OWN_CATCH_UP | set(daily_jobs())
+    due: list[tuple[datetime, Callable[[], JobResult], str]] = []
+    for job in sched.get_jobs():
+        if job.id in covered:
+            continue
+        slot, period = last_slot(job.trigger, now)
+        if slot is None:
+            continue
+        try:
+            started = last_job_start(job_names(job.id))
+        except Exception as exc:  # noqa: BLE001 - a start-up check must not block start-up
+            log.warning("catch-up: cannot read job_run for %s: %s", job.id, type(exc).__name__)
+            continue
+        if started is not None and started >= slot:
+            continue
+        if started is None and (period is None or period > UNRECORDED_MAX_PERIOD):
+            log.info("catch-up: %s has no recorded run; its next slot runs it", job.id)
+            continue
+        due.append((slot, job.func, job.id))
+    results = []
+    for slot, func, job_id in sorted(due, key=lambda d: d[0]):
+        log.warning("catch-up: %s missed its slot of %s UTC, running now", job_id, f"{slot:%Y-%m-%d %H:%M}")
+        results.append(func())
+    return results
+
+
 def job_catch_up() -> JobResult:
     """The catch-up as a single job, for `--once catch-up`."""
     wait_for_database()
     close_interrupted_runs()
     ensure_buyer_list()
-    results = catch_up_backups() + catch_up()
+    results = catch_up_backups() + catch_up() + catch_up_jobs()
     if not results:
         return JobResult("catch_up", "success", 0.0, "nothing was stale")
     worst = min(results, key=lambda r: ("failed", "partial", "success").index(r.status))
@@ -1337,7 +1454,7 @@ def _catch_up_in_background(database_ready: bool) -> None:
         if database_ready:
             start_backfill_thread()
             threading.Thread(target=warm_first_views, name="first-views", daemon=True).start()
-            results = catch_up_backups() + catch_up()
+            results = catch_up_backups() + catch_up() + catch_up_jobs()
         else:
             # Loud rather than silent: a catch-up that could not run is a gap that
             # is still open, and the next scheduled slot may be a day away.

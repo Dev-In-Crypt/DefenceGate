@@ -174,16 +174,18 @@ def check_placsp(conn, *, now: datetime | None = None) -> dict[str, Any]:
 
 def _save(conn, control: str, status: str, state: dict, detail: dict, now: datetime) -> None:
     conn.execute(
-        """INSERT INTO control_check (control, status, checked_at, state, detail)
-           VALUES (%s, %s, %s, %s::jsonb, %s::jsonb)
+        """INSERT INTO control_check (control, status, checked_at, state, detail, alert_since)
+           VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, CASE WHEN %s = 'alert' THEN %s::timestamptz END)
            ON CONFLICT (control) DO UPDATE
               SET status = EXCLUDED.status, checked_at = EXCLUDED.checked_at,
                   state = CASE WHEN EXCLUDED.state = '{}'::jsonb THEN control_check.state
                                ELSE EXCLUDED.state END,
                   detail = EXCLUDED.detail,
+                  alert_since = CASE WHEN EXCLUDED.status = 'alert'
+                                     THEN COALESCE(control_check.alert_since, EXCLUDED.checked_at) END,
                   alerted_at = CASE WHEN EXCLUDED.status = 'ok' THEN NULL
                                     ELSE control_check.alerted_at END""",
-        (control, status, now, json.dumps(state), json.dumps(detail, default=str)))
+        (control, status, now, json.dumps(state), json.dumps(detail, default=str), status, now))
     conn.commit()
 
 

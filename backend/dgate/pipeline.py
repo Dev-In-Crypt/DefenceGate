@@ -1607,7 +1607,7 @@ def run_ezamowienia(days: int | None = 2, *,
             if refresh_limit > 0:
                 targets = ezam_refresh_targets(conn, src_id, refresh_limit)
                 log.info("%s: %s open notices to re-read", code, len(targets))
-                refreshed, unreadable, missing, in_a_row = 0, 0, 0, 0
+                refreshed, unreadable, missing, in_a_row, refusals = 0, 0, 0, 0, 0
                 client = new_client(headers={"User-Agent": ezamowienia.USER_AGENT,
                                              "Accept": "application/json"},
                                     follow_redirects=True)
@@ -1622,10 +1622,17 @@ def run_ezamowienia(days: int | None = 2, *,
                             unreadable += 1
                             in_a_row += 1
                             log.warning("%s: re-read of %s failed: %s", code, number, exc)
+                            refused = (exc.response.status_code if isinstance(exc, httpx.HTTPStatusError)
+                                       and exc.response.status_code in db.REFUSED_STATUSES else None)
+                            refusals = refusals + 1 if refused else 0
                             if in_a_row >= 3:
                                 # The source is unwell. What is left is the
                                 # oldest-read set again tomorrow.
                                 problems.append("re-read stopped after 3 failures in a row")
+                                if refusals >= 3:
+                                    # WP-114: said in words the health check and /data read (`funding.run_reason`):
+                                    # the portal refuses us, which no retry of ours will mend (24 October 2026).
+                                    problems.append(db.refused_access(refused))
                                 break
                             continue
                         if record is None:

@@ -1,4 +1,4 @@
-import { FEED_PAGE_ENTRIES, getChangesForFeed } from '@/lib/api';
+import { ApiError, FEED_MAX_PAGE, FEED_PAGE_ENTRIES, getChangesForFeed } from '@/lib/api';
 import { buildAtom, etagOf, feedSubtitle } from '@/lib/atom';
 import { searchSummary } from '@/lib/feed-name';
 import { CHANGE_PARAMS, parseChangeFilters, toChangeQuery, unknownParams } from '@/lib/filters';
@@ -23,7 +23,18 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
   const { week: _week, kind: _kind, page: asked = 1, pageSize: _size, ...filters } = parseChangeFilters(sp);
-  const data = await getChangesForFeed(filters, asked).catch(() => null);
+  // WP-114: a page past what the feed can ever hold is not an outage (page=999 answered 502: the API refuses page > 100)
+  if (asked > FEED_MAX_PAGE) {
+    return new Response(`This feed has at most ${FEED_MAX_PAGE} pages.`, {
+      status: 404, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=300' },
+    });
+  }
+  const data = await getChangesForFeed(filters, asked).catch((e: unknown) => (e instanceof ApiError && e.status === 422 ? 'refused' : null));
+  if (data === 'refused') {
+    return new Response('The change feed cannot read these filters.', {
+      status: 422, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    });
+  }
   if (!data) {
     return new Response('The change feed could not be built right now. Try again in a few minutes.', {
       status: 502, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },

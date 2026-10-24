@@ -545,6 +545,12 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
 /** The parameters /changes and /changes.atom read (WP-87): the tender list's filters, the digest week and the kind of change. */
 export const CHANGE_PARAMS = ['country', 'scope', 'goods', 'q', 'cpv', 'cpvMain', 'notCpv', 'status', 'from', 'to', 'min', 'max', 'currency', 'week', 'kind', 'page'] as const;
 /** The parameters /calendar and /calendar.ics read (WP-87): its own (kind, view, month, page) and the tender list's filters. */
+/**
+ * WP-114: the parameters the CSV exports read (the list's filters, and the tender file's publication range and part cursor):
+ * any other is refused as the feeds refuse it (`/tenders/export.csv?bogus=1` was answered as if it were not there).
+ */
+export const TENDER_EXPORT_PARAMS = ['q', 'country', 'status', 'scope', 'goods', 'cpv', 'cpvMain', 'notCpv', 'from', 'to', 'min', 'max', 'currency', 'sort', 'page', 'size', 'publishedFrom', 'publishedTo', 'cursor'] as const;
+export const CALL_EXPORT_PARAMS = ['q', 'programme', 'regime', 'country', 'status', 'from', 'to', 'min', 'max', 'currency', 'sort', 'page', 'cascade', 'ukraine', 'who'] as const;
 export const CALENDAR_PARAMS = ['kind', 'country', 'view', 'month', 'page', 'q', 'cpv', 'cpvMain', 'notCpv', 'scope', 'goods', 'from', 'to', 'min', 'max', 'currency'] as const;
 
 /**

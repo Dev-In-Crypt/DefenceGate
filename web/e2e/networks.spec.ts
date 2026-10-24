@@ -168,6 +168,6 @@ test('an unknown organisation or project is a 404 and a made-up address never re
 });
 
 test('the sitemap lists the directory and the analyses', async ({ request }) => {
-  const xml = await (await request.get('/sitemap.xml')).text();
+  const xml = await (await request.get('/sitemaps/pages.xml')  /* WP-114: the index's file of pages */).text();
   for (const path of ['/organisations', '/networks/ukraine-partners', '/organisations/101-alpha-systems-gmbh']) expect(xml).toContain(path);
 });
