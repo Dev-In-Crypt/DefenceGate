@@ -675,6 +675,7 @@ def redact_stored(conn, *, write: bool = False) -> dict[str, int]:
 
 _CONDITION = re.compile(r"\b(?:only|unless|except|provided|if\s+(?:the|they|it)\b)", re.I)
 CONFLICT = "The document also states that a single applicant may apply ({}): check the call document."
+_ONLY_SINGLE = re.compile(r"\bonly\s+single\s+applications?\b", re.I)
 
 
 def _served_fact(fact: dict[str, Any], scope: str, name: str = "", topic_code: str | None = None,
@@ -727,7 +728,16 @@ def reconcile(facts: dict[str, Any]) -> dict[str, Any]:
 
     single = s is not None and s["value"] is True
     condition = ((s or {}).get("note") or "").rstrip(". ")
-    if single and c is not None and c["value"] is True:
+    only_single = next((f["quote"] for f in (c, s) if f and _ONLY_SINGLE.search(f.get("quote") or "")), None)
+    if single and only_single:
+        # Round 3 (p09, call 114): "Only single applications by a SEAP are allowed": no consortium at all; a stated
+        # minimum is the applicant's own membership (the SEAP's members), not partners of the application.
+        out["consortium_required"] = {
+            "value": False, "quote": only_single, "scope": (c or s)["scope"],
+            "confidence": min(f["confidence"] for f in (c, s) if f),
+            "note": f"Applications are single only: {condition or only_single.rstrip('. ')}."
+                    + (f" The minimum of {n} is the applicant's own membership, not a consortium." if n >= 2 else "")}
+    elif single and c is not None and c["value"] is True:
         del out["single_applicant_allowed"]
         said = CONFLICT.format(condition or "no condition given")
         out["consortium_required"] = {**c, "note": f"{c['note']} {said}" if c.get("note") else said}

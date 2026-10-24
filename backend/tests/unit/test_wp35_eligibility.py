@@ -251,6 +251,13 @@ def test_reconcile_contradictions():
     got = eligibility.reconcile({"consortium_required": fact(False), "min_entities": fact(3),
                                  "single_applicant_allowed": fact(True, "Only a SEAP may apply alone.")})
     assert got["consortium_required"]["value"] is True and "single_applicant_allowed" not in got
+    # round 3 (call 114): only single applications: no consortium, the minimum is the SEAP's own membership
+    got = eligibility.reconcile({"consortium_required": fact(True, "The SEAP must have at least 3 members.",
+                                                             "Only single applications by a SEAP are allowed."),
+                                 "min_entities": fact(3),
+                                 "single_applicant_allowed": fact(True, "Only a SEAP may submit a single application.")})
+    assert got["consortium_required"]["value"] is False and "single_applicant_allowed" in got
+    assert "membership" in got["consortium_required"]["note"] and "check the call document" not in got["consortium_required"]["note"]
     # a plain single applicant with an optional consortium is consistent
     same = {"consortium_required": fact(False), "min_entities": fact(3), "single_applicant_allowed": fact(True)}
     assert eligibility.reconcile(same) == same
