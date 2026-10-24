@@ -8,6 +8,7 @@ import {
 import { formatDateTimeUtc } from '@/lib/format';
 import { cutSentence, listStamps, reachableTotal, totalWords } from '@/lib/list-count';
 import { calendarHrefFor } from '@/lib/calendar';
+import { NOTICE_NUMBER } from '@/lib/search-terms';
 import { SubscribeToSearch } from '@/components/tenders/subscribe';
 import { listUpdatedAt, staleNote, updatedLine, valueMissingNote, valueMissingNotes } from '@/lib/source-status';
 import { tooBroad } from '@/lib/export-cache';
@@ -52,6 +53,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function TendersPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseTenderFilters(sp);
+  // WP-101: a notice number is looked for in every status unless a status was chosen (Open hid an awarded notice: 220199-2026)
+  if (filters.q && NOTICE_NUMBER.test(filters.q) && sp.status === undefined) redirect(`/tenders${toTenderQuery({ ...filters, status: 'all', sort: undefined, page: 1 })}`);
   const [result, health, scopeCounts] = await Promise.all([getTenders(filters), getHealth(), getTenderScopeCounts(filters)]);
   const missing = valueMissingNotes(health.sources);
   const stale = staleNote(result.staleAsOf, formatDateTimeUtc);

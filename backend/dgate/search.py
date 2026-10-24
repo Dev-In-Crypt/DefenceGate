@@ -29,7 +29,7 @@ from .funding import get_conn, list_funding
 from .network_api import list_organisations
 from .search_terms import buyer_names, fold_words
 from .suppliers import list_suppliers
-from .tenders import list_buyers, list_tenders, search_info
+from .tenders import NOTICE_NUMBER, list_buyers, list_tenders, search_info
 
 router = APIRouter()
 
@@ -42,6 +42,15 @@ GROUPS = {"tenders": list_tenders, "funding": list_funding, "buyers": list_buyer
 # Where the site's list opens on something other than the endpoint's default: the organisation directory opens on the
 # defence programmes (web/lib/networks.ts DEFENCE_PROGRAMMES), so its "see all" link and this group count the same.
 OPENS_ON = {"organisations": {"programme": ",".join(DEFENCE_PROGRAMMES)}}
+
+
+def opens_on(name: str, q: str) -> dict[str, Any]:
+    """The filters the list `name` opens on for these words. WP-101: a notice number is looked for in every status (the
+    site's tender list opens on All for it as well): Open hid an awarded notice (220199-2026)."""
+    out = dict(OPENS_ON.get(name, {}))
+    if name == "tenders" and NOTICE_NUMBER.match(q):
+        out["status"] = "all"
+    return out
 
 
 def _defaults(fn) -> dict[str, Any]:
@@ -96,7 +105,7 @@ def search(q: str = Query(min_length=2, max_length=100), limit: int = Query(5, g
         try:
             with conn.transaction():
                 conn.execute(f"SET LOCAL statement_timeout = {left}")
-                page = fn(**{**_defaults(fn), **OPENS_ON.get(name, {}), "q": q, "pageSize": limit}, conn=conn)
+                page = fn(**{**_defaults(fn), **opens_on(name, q), "q": q, "pageSize": limit}, conn=conn)
         except psycopg.errors.QueryCanceled:
             out[name] = {"error": "slow"}
             continue

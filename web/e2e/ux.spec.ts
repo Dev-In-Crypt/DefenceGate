@@ -217,7 +217,8 @@ test('U9: the supplier map searches by product through the CPV finder and links 
   // WP-88: the method, coverage and caveats are in the collapsed About this data (owner-approved copy change, 22 Oct 2026)
   await openAbout(page);
   await expect(main.getByRole('link', { name: 'CPV finder' }).first()).toHaveAttribute('href', '/cpv');
-  await expect(main.getByRole('status').filter({ hasText: /“ammunition” matches \d+ codes? of the finder/ })).toContainText('3533');
+  // WP-101 (p04): ammunition is a listed product word now, read as the group 353 and the explosives 2461 (it was the finder's 3533 only)
+  await expect(main.getByRole('status').filter({ hasText: /“ammunition” is read as/ })).toContainText('35300000');
   await expect(main.getByText(/a count, not a ranking/)).toBeVisible();
   await visit(page, '/suppliers?product=zzzzqqq', { title: /supplier map/i, h1: 'Companies' });
   await expect(page.locator('#main').getByRole('status').filter({ hasText: /No code in the CPV finder has/ })).toBeVisible();

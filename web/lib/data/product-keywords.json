@@ -19,7 +19,7 @@
       "codes": [{ "code": "24613000", "title": "Signalling flares, rain rockets, fog signals and pyrotechnic articles" }]
     },
     {
-      "words": ["detonator", "detonators", "fuse", "fuses", "igniter", "igniters"],
+      "words": ["detonator", "detonators", "fuse", "fuses", "igniter", "igniters", "detonating cord", "detonating cords", "zünder", "lont", "lonty", "zapalniki"],
       "codes": [{ "code": "24615000", "title": "Fuses, caps, igniters and electric detonators" }]
     },
     {
@@ -40,8 +40,12 @@
       "codes": [{ "code": "35410000", "title": "Armoured military vehicles" }]
     },
     {
-      "words": ["ammo"],
-      "codes": [{ "code": "35330000", "title": "Ammunition" }]
+      "words": ["ammo", "ammunition", "munitions", "munition", "amunicja", "municiones", "munitie", "munizioni"],
+      "codes": [
+        { "code": "35300000", "title": "Weapons, ammunition and associated parts" },
+        { "code": "24610000", "title": "Prepared explosives" }
+      ],
+      "note": "Ammunition is read as the CPV group of weapons, ammunition and associated parts (353) and the prepared explosives (2461), the codes of the tender list’s ammunition group; for ammunition alone use the CPV box (3533)."
     },
     {
       "words": ["radar", "radars"],
@@ -96,7 +100,7 @@
       "note": "Vehicle parts, civil and military: the codes the defence buyers use for the spare parts of their vehicles."
     },
     {
-      "words": ["casting", "castings", "cast part", "cast parts", "cast iron", "cast-iron", "iron castings", "aluminium castings", "aluminum castings", "die casting", "die castings", "foundry", "foundry parts"],
+      "words": ["casting", "castings", "cast part", "cast parts", "cast iron", "cast-iron", "iron castings", "aluminium castings", "aluminum castings", "die casting", "die castings", "foundry", "foundry parts", "gussteile", "druckguss", "piezas fundidas", "fonderie"],
       "codes": [
         { "code": "44470000", "title": "Cast-iron products" },
         { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
@@ -115,7 +119,7 @@
       "note": "The CPV has no code for forgings as such: the part codes a forged part is bought under (shafts, mechanical vehicle parts). Forging machines are 42634000."
     },
     {
-      "words": ["machined", "machined part", "machined parts", "machining", "turned", "turned part", "turned parts", "cnc", "cnc machining", "precision parts", "milled parts"],
+      "words": ["machined", "machined part", "machined parts", "machining", "turned", "turned part", "turned parts", "cnc", "cnc machining", "precision parts", "milled parts", "drehteile", "frästeile", "fraesteile", "zerspanung", "zerspanungsteile", "präzisionsteile", "cnc-teile", "mecanizado", "piezas mecanizadas", "usinage", "pièces usinées"],
       "codes": [
         { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
         { "code": "34330000", "title": "Spare parts for goods vehicles, vans and cars" },
@@ -126,7 +130,7 @@
       "note": "The CPV has no code for machined parts as such: the part codes they are bought under. Machine tools and machining centres are 42600000."
     },
     {
-      "words": ["stamping", "stampings", "stamped part", "stamped parts", "pressing", "pressings", "pressed part", "pressed parts", "sheet metal parts", "metal stampings"],
+      "words": ["stamping", "stampings", "stamped part", "stamped parts", "pressing", "pressings", "pressed part", "pressed parts", "sheet metal parts", "metal stampings", "stanzteile", "blechteile", "estampación", "piezas estampadas", "emboutissage"],
       "codes": [
         { "code": "34320000", "title": "Mechanical spare parts except engines and engine parts" },
         { "code": "34330000", "title": "Spare parts for goods vehicles, vans and cars" },
@@ -150,7 +154,7 @@
       "note": "Plastic products. Machinery for working plastics is 42994200."
     },
     {
-      "words": ["wiring harness", "wiring harnesses", "harness", "harnesses", "cable harness", "cable harnesses", "wiring loom", "wiring looms"],
+      "words": ["wiring harness", "wiring harnesses", "harness", "harnesses", "cable harness", "cable harnesses", "wiring loom", "wiring looms", "wiring", "wiring set", "wiring sets", "cable set", "cable sets", "kabelbaum", "kabelbäume", "kabelsatz", "mazo de cables", "arnés", "faisceau de câbles"],
       "codes": [
         { "code": "31611000", "title": "Wiring sets" },
         { "code": "31612000", "title": "Electrical wiring looms for engines" },
@@ -201,6 +205,19 @@
         { "code": "44550000", "title": "Springs" }
       ],
       "note": "Fasteners and springs (division 44). A washer here is a fastener, not a washing machine."
+    },
+    {
+      "words": ["cyber", "cybersecurity", "cyber security", "cyber defence", "cyber defense", "cybersécurité", "cyberdéfense", "ssi", "cybersicherheit", "it-sicherheit", "informationssicherheit", "ciberseguridad", "cyberbezpieczeństwo", "security software", "information security", "it security"],
+      "codes": [
+        { "code": "48730000", "title": "Security software package" },
+        { "code": "48731000", "title": "File security software package" },
+        { "code": "48732000", "title": "Data security software package" },
+        { "code": "48760000", "title": "Virus protection software package" },
+        { "code": "72212730", "title": "Security software development services" },
+        { "code": "72150000", "title": "Computer audit consultancy and hardware consultancy services" },
+        { "code": "72800000", "title": "Computer audit and testing services" }
+      ],
+      "note": "The CPV has no code for cyber security as such: the security software packages (4873, 4876), security software development (72212730) and computer audit and testing (7215, 728) it is bought under. IT services in general are 72, software 48."
     }
   ]
 }

@@ -12,7 +12,8 @@
       "id": "spare-parts", "label": "Spare parts and machined parts", "cpv": ["3432", "3433", "34913", "35421", "35521"],
       "terms": ["spare parts", "machined parts", "machining", "turned parts", "milled parts", "Ersatzteile", "Drehteile", "Frästeile",
                 "Fraesteile", "recambios", "repuestos", "pièces détachées", "pièces de rechange", "części zamienne", "reserveonderdelen",
-                "peças sobressalentes", "ricambi"]
+                "peças sobressalentes", "ricambi", "Zerspanung", "CNC", "Präzisionsteile", "mecanizado", "piezas mecanizadas",
+                "usinage", "pièces usinées", "obróbka skrawaniem", "verspaning", "lavorazioni meccaniche"]
     },
     {
       "id": "drones", "label": "Drones and unmanned systems", "cpv": ["35613"],
@@ -32,7 +33,8 @@
       "id": "ammunition", "label": "Ammunition, explosives and pyrotechnics", "cpv": ["353", "2461"],
       "terms": ["ammunition", "explosives", "pyrotechnics", "amunicja", "amunicji", "materiały wybuchowe", "Munition", "Sprengstoff",
                 "Sprengstoffe", "munitions", "explosifs", "municiones", "munición", "explosivos", "munitie", "explosieven", "munições",
-                "munizioni", "esplosivi"]
+                "munizioni", "esplosivi", "detonators", "detonating cord", "detonatory", "lont", "lonty", "zapalniki", "Zünder",
+                "Sprengschnur", "détonateurs", "cordeau détonant", "detonadores", "cordón detonante"]
     },
     {
       "id": "night-vision", "label": "Night vision", "cpv": ["38632"],
@@ -44,6 +46,30 @@
       "terms": ["body armour", "body armor", "ballistic vest", "ballistic vests", "bulletproof vest", "bullet-proof vests", "Schutzweste",
                 "Schutzwesten", "gilet pare-balles", "gilets pare-balles", "chaleco antibalas", "chalecos antibalas", "kamizelka kuloodporna",
                 "kamizelki kuloodporne", "kogelwerend vest", "colete balístico", "giubbotto antiproiettile"]
+    },
+    {
+      "id": "wiring", "label": "Wiring harnesses and cable sets", "cpv": ["31611", "31612", "35422"],
+      "terms": ["wiring", "harness", "harnesses", "cable harness", "wiring loom", "Kabelbaum", "Kabelbäume", "Kabelsatz", "mazo de cables",
+                "mazos de cables", "arnés", "arneses", "cableado", "faisceau de câbles", "faisceaux de câbles", "câblage",
+                "wiązka przewodów", "wiązki przewodów", "wiązki kablowe", "okablowanie", "kabelboom", "kabelbomen", "cablaggio", "cablaggi"]
+    },
+    {
+      "id": "stampings", "label": "Stampings and pressed parts", "cpv": ["3432", "3433", "35421"],
+      "terms": ["stamping", "stampings", "stamped parts", "pressed parts", "sheet metal parts", "Stanzteile", "Blechteile", "Tiefziehteile",
+                "estampación", "piezas estampadas", "emboutissage", "pièces embouties", "tłoczenie", "wytłoczki", "persdelen", "stampaggio",
+                "tranciatura"]
+    },
+    {
+      "id": "castings", "label": "Castings and foundry parts", "cpv": ["44470", "3432", "34312", "35421"],
+      "terms": ["casting", "castings", "cast parts", "foundry", "die casting", "Gussteile", "Gießerei", "Druckguss", "piezas fundidas",
+                "fundición de piezas", "fonderie", "pièces de fonderie", "odlewy", "odlewnia", "gietwerk", "gietstukken", "pressofusione"]
+    },
+    {
+      "id": "cyber", "label": "Cyber security", "cpv": ["4873", "4876", "7221273", "728"],
+      "terms": ["cyber", "cybersecurity", "cyber security", "cyber defence", "cyber defense", "cybersécurité", "cyberdéfense", "SSI",
+                "sécurité informatique", "Cybersicherheit", "IT-Sicherheit", "Informationssicherheit", "Cyberabwehr", "ciberseguridad",
+                "ciberdefensa", "seguridad informática", "cyberbezpieczeństwo", "cyberobrona", "cyberveiligheid", "cibersegurança",
+                "cibersicurezza", "sicurezza informatica"]
     }
   ],
   "buyers": [
@@ -51,6 +77,13 @@
     { "abbr": "DMO", "country": "NL", "names": ["Defensie Materieel Organisatie", "Ministerie van Defensie"] },
     { "abbr": "DGA", "country": "FR", "names": ["Direction générale de l'armement"] },
     { "abbr": "JAE MALE", "country": "ES", "names": ["Jefatura de Asuntos Económicos del Mando de Apoyo Logístico", "JAE MALE", "JAEMALE"] },
-    { "abbr": "FMV", "country": "SE", "names": ["Försvarets materielverk"] }
+    { "abbr": "FMV", "country": "SE", "names": ["Försvarets materielverk"] },
+    { "abbr": "RBLog", "country": "PL", "names": ["Regionalna Baza Logistyczna"] },
+    { "abbr": "AU", "country": "PL", "names": ["Agencja Uzbrojenia"] },
+    { "abbr": "WOG", "country": "PL", "names": ["Wojskowy Oddział Gospodarczy"] },
+    { "abbr": "JW", "country": "PL", "names": ["Jednostka Wojskowa"] },
+    { "abbr": "NAVARM", "country": "IT", "names": ["Armamenti Navali", "NAVARM"] },
+    { "abbr": "TERRARM", "country": "IT", "names": ["Armamenti Terrestri", "TERRARM"] },
+    { "abbr": "ARMAEREO", "country": "IT", "names": ["Armamenti Aeronautici", "ARMAEREO"] }
   ]
 }
