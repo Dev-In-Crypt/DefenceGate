@@ -831,6 +831,8 @@ export interface SourceHealth {
 export interface Health {
   generatedAt: IsoDateTime;
   sources: SourceHealth[];
+  /** WP-114: the data checks in alert, each in the API's fixed sentence; `since` null when not known. Absent on older API builds. */
+  alerts?: { control: string; since: IsoDateTime | null; checkedAt: IsoDateTime; message: string }[];
 }
 
 export interface SiteStats {

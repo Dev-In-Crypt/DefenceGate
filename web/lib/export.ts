@@ -4,7 +4,7 @@
  */
 import { ApiError, REMOVED, getCalls, getHealth, getMarketStats, getSupplierContracts, getTenderExportPage, isCallSlug, isTenderSlug, whenRemoved } from './api';
 import { callStatusKind, getCallDeadline } from './deadline';
-import { WHO_BADGE, parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
+import { CALL_EXPORT_PARAMS, TENDER_EXPORT_PARAMS, WHO_BADGE, parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, unknownParams, type SearchParams } from './filters';
 import { programmeNameOf } from './funding-feed';
 import { REGIMES } from './taxonomy';
 import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, VALUE_KIND_NOT_STATED, csvValueKind, marketRows, supplierContractRows, winnerCells } from './export-tables';
@@ -219,7 +219,15 @@ export function nextPartUrl(url: URL, cursor: string): string {
   return absoluteUrl(`${url.pathname}?${q.toString()}`);
 }
 
+/** WP-114: a parameter a file does not read is a 422 naming it, as the Atom feeds answer; null when all are read. */
+export function refuseUnknown(url: URL, known: readonly string[]): Response | null {
+  const unknown = unknownParams(searchParamsOf(url), known);
+  return unknown.length ? text(422, `${unknown.join('\n')}\nThis file reads: ${known.join(', ')}.`) : null;
+}
+
 export async function tendersCsvResponse(url: URL, forwardedFor: string | null = null): Promise<Response> {
+  const refused = refuseUnknown(url, TENDER_EXPORT_PARAMS);
+  if (refused) return refused;
   const parsed = parseTenderFilters(searchParamsOf(url));
   const extras = exportExtras(url);
   if ('bad' in extras) return text(400, extras.bad);
@@ -286,6 +294,8 @@ export async function marketCsvResponse(url: URL): Promise<Response> {
 }
 
 export async function callsCsvResponse(url: URL, forwardedFor: string | null = null): Promise<Response> {
+  const refused = refuseUnknown(url, CALL_EXPORT_PARAMS);
+  if (refused) return refused;
   const parsed = parseCallFilters(searchParamsOf(url));
   const filters = { ...parsed, pageSize: CALL_PAGE };
   const cap = exportCap(parsed.status, EXPORT_CAP);

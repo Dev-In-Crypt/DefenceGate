@@ -136,7 +136,7 @@ test('the old addresses still answer; /companies opens the Won contracts tab; th
     '/readiness/spain-automotive', '/market', '/data', '/methodology', '/digest', '/pricing', '/pack', '/alerts', '/glossary', '/cpv']) {
     expect((await request.get(path)).status(), path).toBe(200);
   }
-  const sitemap = await (await request.get('/sitemap.xml')).text();
+  const sitemap = await (await request.get('/sitemaps/pages.xml')  /* WP-114: the index's file of pages */).text();
   for (const p of ['/check', '/suppliers', '/organisations', '/readiness']) expect(sitemap, p).toContain(`${p}</loc>`);
   expect(sitemap).not.toContain('/companies</loc>');
   expect(sitemap).not.toContain('/search</loc>');

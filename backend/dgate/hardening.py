@@ -15,6 +15,7 @@ process (it does). Behind more than one worker it would need a shared store.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import ipaddress
 import math
@@ -44,6 +45,11 @@ LOCAL_PEERS = {"127.0.0.1", "::1", "localhost"}
 # private address (never anyone from the internet: Caddy puts the visitor's address in
 # front) get a bucket sized for the whole site instead.
 INTERNAL_FACTOR = 20.0
+# WP-114 (coverage audit, 24 October 2026: the API refused the site's own renders 27 times in 3 h): a visitor's
+# address the site's server forwards is a person browsing pages, each of which costs several API requests (a filtered
+# company list is 7-9 tokens with its summary), and an office behind one NAT address is several people. Such a visitor
+# gets buckets this many times larger than a client calling the API directly: still per visitor, never shared.
+FORWARDED_FACTOR = 4.0
 
 
 # The visit counter's calls (`/v1/internal/hit` and `/v1/internal/hits`) are not charged.
@@ -100,6 +106,9 @@ HEAVY_PATHS["/v1/health"] = 5
 # The slug lists are the whole catalogue of the networks (2,000 organisations, the EDF projects): like the others.
 HEAVY_PATHS["/v1/organisations/slugs"] = 20
 HEAVY_PATHS["/v1/projects/slugs"] = 20
+# WP-114: the sitemap's pages of tenders (up to 50,000 a page) and the suppliers with a page
+HEAVY_PATHS["/v1/tenders/sitemap"] = 20
+HEAVY_PATHS["/v1/suppliers/slugs"] = 20
 
 # Lists whose cost depends on their shape: each page evaluates the filtered set, and a
 # text search is a sequential scan of every notice (0.7 s), `status=all` and `scope=all`
@@ -234,10 +243,11 @@ def _forwarded_client(request: Request) -> str | None:
 
 
 class RateLimit(BaseHTTPMiddleware):
-    def __init__(self, app: Any, buckets: TokenBuckets | None = None) -> None:
+    def __init__(self, app: Any, buckets: TokenBuckets | None = None, forwarded: TokenBuckets | None = None) -> None:
         super().__init__(app)
         self.buckets = buckets or TokenBuckets()
         self.internal = TokenBuckets(CAPACITY * INTERNAL_FACTOR, REFILL_PER_SECOND * INTERNAL_FACTOR)
+        self.forwarded = forwarded or TokenBuckets(CAPACITY * FORWARDED_FACTOR, REFILL_PER_SECOND * FORWARDED_FACTOR)
 
     async def dispatch(self, request: Request, call_next):
         from .config import settings
@@ -246,6 +256,7 @@ class RateLimit(BaseHTTPMiddleware):
         if peer in LOCAL_PEERS or not settings().rate_limit:
             return await call_next(request)
         internal = is_internal(peer)
+        buckets = self.internal if internal else self.buckets
         if internal:
             # The site's own server forwards the visitor's address (it is the first
             # `X-Forwarded-For` entry Caddy set, which the visitor cannot choose) so that a
@@ -255,14 +266,13 @@ class RateLimit(BaseHTTPMiddleware):
             # Caddy has its client's public address as `peer` and never reaches here.
             forwarded = _forwarded_client(request)
             if forwarded is not None:
-                peer, internal = forwarded, False
+                peer, buckets = forwarded, self.forwarded
         if request.url.path.startswith(UNCHARGED_PREFIX):
             # The site's own visit counter: it is aggregated and flushed by the site every
             # few seconds, and charging it to the one bucket every page render shares let
             # the counter's traffic starve the pages (review of 12 October 2026, H1).
             return await call_next(request)
         cost = request_cost(request.url.path, dict(request.query_params))
-        buckets = self.internal if internal else self.buckets
         allowed, wait = buckets.take(client_key(peer), cost)
         if not allowed:
             return JSONResponse({"detail": "rate limit exceeded"}, status_code=429,
@@ -351,6 +361,65 @@ class HeadAsGet:
             await send(message)
 
         await self.app({**scope, "method": "GET"}, receive, without_body)
+
+
+ETAG_PREFIX = "/v1/"
+# Private or per-visitor answers are not given a validator: they are `no-store` and never asked for again unchanged.
+ETAG_SKIPPED = ("/v1/account", "/v1/internal")
+
+
+def _etag_matches(header: str, etag: str) -> bool:
+    """RFC 9110 weak comparison of an If-None-Match list against our tag."""
+    tags = [t.strip() for t in header.split(",")]
+    return "*" in tags or any(t.removeprefix("W/") == etag.removeprefix("W/") for t in tags)
+
+
+class ETag:
+    """WP-114: an ETag on every successful GET of the JSON API, and 304 Not Modified when the caller already holds that
+    body (`If-None-Match`), as the site's Atom feeds do (coverage audit of 24 October 2026: a conditional request
+    downloaded the whole body again). The tag is a hash of the body: whatever made the body, the same bytes are the same
+    tag, so a kept list, a snapshot and a fresh read agree. The body is still computed (and charged): what is saved is
+    the transfer. A response that streams in several parts (none of the JSON routes) passes untouched."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        path = scope.get("path", "")
+        if (scope["type"] != "http" or scope["method"] != "GET" or not path.startswith(ETAG_PREFIX)
+                or path.startswith(ETAG_SKIPPED)):
+            await self.app(scope, receive, send)
+            return
+        asked = dict(scope["headers"]).get(b"if-none-match", b"").decode("latin-1")
+        start: dict[str, Any] = {}
+        passed = False
+
+        async def tagged(message) -> None:
+            nonlocal passed
+            if message["type"] == "http.response.start":
+                start.update(message)
+                if message["status"] != 200:
+                    passed = True
+                    await send(message)
+                return
+            if passed or message.get("more_body"):
+                if not passed:
+                    passed = True
+                    await send(start)
+                await send(message)
+                return
+            body = message.get("body", b"")
+            etag = '"' + hashlib.blake2b(body, digest_size=12).hexdigest() + '"'
+            headers = [(k, v) for k, v in start.get("headers", []) if k.lower() != b"etag"] + [(b"etag", etag.encode())]
+            if asked and _etag_matches(asked, etag):
+                kept = [(k, v) for k, v in headers if k.lower() not in (b"content-length", b"content-type")]
+                await send({"type": "http.response.start", "status": 304, "headers": kept})
+                await send({"type": "http.response.body", "body": b""})
+                return
+            await send({**start, "headers": headers})
+            await send(message)
+
+        await self.app(scope, receive, tagged)
 
 
 class SecurityHeaders(BaseHTTPMiddleware):

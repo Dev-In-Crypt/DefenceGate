@@ -40,6 +40,17 @@ services:
     #   effective_io_concurrency 200  SSD: bitmap heap scans prefetch
     #   shared_preload_libraries=pg_stat_statements  so the remaining sequential scans can be attributed
     #                               (then: CREATE EXTENSION IF NOT EXISTS pg_stat_statements)
+    #   max_parallel_workers_per_gather 1, max_parallel_workers 2  (WP-114, coverage audit of 24 October 2026:
+    #                               11 "could not map dynamic shared memory segment" errors and 340 parallel workers
+    #                               aborted in 48 h). The defaults (2 per gather, 8 in all) let four queries at once
+    #                               start eight helper processes on two cores: no faster, each with its own work_mem
+    #                               per node and its own /dev/shm segment, and under load the 256 MB shm and the
+    #                               ~180 MB of free RAM ran out. One helper per query and two in all keep the one big
+    #                               scan that profits (the health count) parallel and bound the rest.
+    #   jit off                     the change scan and the list counts compiled 22 functions per call (EXPLAIN of
+    #                               24 Oct) to save microseconds on 0.1-2 s queries: CPU spent for nothing on 2 cores
+    #   work_mem stays 16MB         with at most two helpers the worst case is bounded by the process count; lowering
+    #                               it would push the list sorts (a few MB) to disk for no memory gained
     # shm_size: parallel workers exchange data through /dev/shm, 64 MB by default in a container.
     shm_size: 256mb
     command:
@@ -60,6 +71,12 @@ services:
       - effective_io_concurrency=200
       - -c
       - shared_preload_libraries=pg_stat_statements
+      - -c
+      - max_parallel_workers_per_gather=1
+      - -c
+      - max_parallel_workers=2
+      - -c
+      - jit=off
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dgate}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
@@ -287,7 +304,14 @@ services:
       # The same value as the API's DGATE_INTERNAL_SECRET. Server-side only: it is read by the
       # account module and the middleware and never reaches a browser.
       DG_INTERNAL_SECRET: ${DGATE_INTERNAL_SECRET:?set DGATE_INTERNAL_SECRET in infra/.env}
-    mem_limit: 512m
+      # WP-114: V8's heap stops at 448 MB and collects before the container's limit is reached, instead of the kernel
+      # killing next-server (24 Oct 17:54 UTC: 252 MB RSS in a 512 MB limit plus a second node process). The limit is
+      # 768 MB: the heap, ~250 MB of native memory (buffers, image and fetch caches) and room for a spike.
+      # Host budget (3.8 GB, no swap; docker stats 24 Oct): postgres ~0.95 GB (768 MB shared_buffers), worker 0.1-0.6 GB
+      # (2 GB ceiling for a night load), api ~0.2 GB (512 MB), web ~0.25 GB: 1.5-2.0 GB in use, the rest page cache.
+      # Limits are ceilings, not reservations.
+      NODE_OPTIONS: --max-old-space-size=448
+    mem_limit: 768m
     pids_limit: 256
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

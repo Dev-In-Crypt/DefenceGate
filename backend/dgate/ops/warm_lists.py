@@ -62,7 +62,8 @@ def _defaults(endpoint) -> dict:
 
 def views(countries: list[str]) -> list[tuple[str, str, dict]]:
     """(endpoint name, snapshot key, arguments) of every view to compute."""
-    out = []
+    # WP-114: first, the amendment candidates every /changes window reads (before the change pages below, which read it)
+    out = [("changes-candidates", changes.CANDIDATES_KEY, {})]
     for fn, name in ((tenders.list_tenders, "tenders"), (tenders.tender_scope_counts, "tender-scope-counts")):
         base = _defaults(fn.__wrapped__)
         if "with_meta" in base:
@@ -76,6 +77,11 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
                 for page in PAGES:
                     kw2 = {**kw, "page": page, "pageSize": TENDER_PAGE_SIZE}
                     out.append((name, snapshot_key(name, kw2), kw2))
+            if name == "tenders":
+                # WP-114: every scope, first page: its exact total, which the live list repeats on any page (`_snapshot_total`).
+                # The wider list said "at least 11,560" beside an exact 315,232 for the narrower default scope.
+                kw = {**base, "status": status, "country": None, "scope": "all", "page": 1, "pageSize": TENDER_PAGE_SIZE}
+                out.append((name, snapshot_key(name, kw), kw))
     base = _defaults(changes.list_changes.__wrapped__)
     base["with_meta"] = True
     for size in CHANGE_PAGE_SIZES:
@@ -116,7 +122,7 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
 
 # WP-98c: the views the first reader after a deploy must not wait for (the Atom feed's pages, the supplier value orders),
 # written at the worker's start when missing or older than four hours, without the ten minutes of the whole run.
-FIRST_VIEWS = ("changes", "supplier-values", "contract-values")
+FIRST_VIEWS = ("changes-candidates", "changes", "supplier-values", "contract-values")
 
 
 def run_first(conn) -> dict[str, int]:
@@ -140,7 +146,9 @@ def _write_views(conn, todo, kept: list[str], write: bool) -> tuple[int, int]:
             continue
         fn = FUNCTIONS.get(name, tenders.tender_scope_counts)
         try:
-            if name == "buyer-base":
+            if name == "changes-candidates":
+                body = changes.compute_candidates(conn)
+            elif name == "buyer-base":
                 # One pass over every core notice, tested for twins (seconds): the buyer pages read it.
                 body = jsonable_encoder(tenders.compute_buyer_base(conn, exact=True))
             elif name == "contract-values":

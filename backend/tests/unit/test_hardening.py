@@ -107,7 +107,9 @@ def _limited_app(monkeypatch, *, capacity: float, secret: str = ""):
         monkeypatch.delenv("DGATE_INTERNAL_SECRET", raising=False)
     config.reset_cache()
     app = FastAPI()
-    app.add_middleware(RateLimit, buckets=TokenBuckets(capacity=capacity, refill=0.0))
+    # WP-114: a forwarded visitor has buckets of his own (`FORWARDED_FACTOR` larger by default), here as small as the rest
+    app.add_middleware(RateLimit, buckets=TokenBuckets(capacity=capacity, refill=0.0),
+                       forwarded=TokenBuckets(capacity=capacity, refill=0.0))
 
     @app.get("/v1/tenders")
     def tenders():

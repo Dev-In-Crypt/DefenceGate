@@ -98,6 +98,14 @@ NOT_TWIN = ("a.id NOT IN (SELECT tw.award_id FROM award_twin_set tw JOIN award k
             f"WHERE {_as_preferred(BASE)})")
 
 
+# The award rows of the organisations `%(orgs)s` (live ids), written so that the planner starts from them: the award
+# rows of the ids and of the rows merged into them (`award_organisation`, `organisation_merged_into`), and only then the
+# rest of the set's conditions. `org.id = ANY(...)` alone sits behind COALESCE(merged_into, id) and cannot drive the
+# join: the tender page's winners query read the whole award table, 335 ms x 7,346 calls (WP-114, 24 October 2026).
+OF_ORGS = ("org.id = ANY(%(orgs)s) AND a.organisation_id IN (SELECT m.id FROM organisation m WHERE m.id = ANY(%(orgs)s) "
+           "UNION ALL SELECT m.id FROM organisation m WHERE m.merged_into = ANY(%(orgs)s))")
+
+
 def scope() -> str:
     """The SQL condition of the set over FROM's aliases (parameter `%(since)s`): BASE, and without the PLACSP winners
     unless they are switched on; with them on, a TED+PLACSP twin once (`NOT_TWIN`)."""

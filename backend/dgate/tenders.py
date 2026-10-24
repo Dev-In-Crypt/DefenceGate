@@ -261,6 +261,9 @@ class Tender(BaseModel):
     statusNative: str | None
     amended: bool
     versionCount: int
+    # WP-114: the DefenceGate corrections the version history (`/versions`) lists besides `versionCount`: the two add up
+    # to its entries
+    correctionCount: int = 0
     securityClearance: bool
     subcontracting: bool
     sameNotice: list[dict[str, Any]]
@@ -440,6 +443,7 @@ def _split(value: str | None, name: str, *, upper: bool = False, max_length: int
 
 
 CPV_PREFIX = re.compile(r"^[0-9]{2,8}$")
+COUNTRY_CODE = re.compile(r"^[A-Z]{2}$")
 # WP-89: a notice with any CPV code under one of the prefixes (as typed: the tender list's `cpv` reading), over the
 # defence-scope GIN index of migration 0099 (`award_set.CPV_MATCH` with the prefixes as given).
 CPV_HEADS = "dgate_cpv_heads(o.cpv_codes) && %s::text[]"
@@ -572,7 +576,7 @@ def _observed(conn, ids: list[int]) -> dict[int, datetime]:
     return {i: last for i, (_, last) in _observed_span(conn, ids).items()}
 
 
-def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None, int]]:
+def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None, int, int]]:
     """For each notice: how many real versions it has (the first, and each later one that
     changed something a reader can see: see `timeline`) and when the newest of them was
     observed. A bulk re-reading of the same payload (`remapped`, `reread`) is neither:
@@ -593,12 +597,16 @@ def _version_info(conn, ids: list[int]) -> dict[int, tuple[int, datetime | None,
         entries = timeline(group)
         real = [e for e in entries[1:] if not e.get("historic")]
         last = real[-1] if real else (entries[0] if entries else None)
-        out[oid] = (len(entries), last["detectedAt"] if last else None, len(real))
+        # WP-114: and how many entries the page's version history (`/versions`, corrections shown) holds beyond these:
+        # the DefenceGate corrections (versionCount 1 beside a history of 2, coverage audit of 24 October 2026)
+        shown = timeline(group, corrections=True)
+        out[oid] = (len(entries), last["detectedAt"] if last else None, len(real),
+                    max(0, len(shown) - len(entries)))
     return out
 
 
 def _version_counts(conn, ids: list[int]) -> dict[int, int]:
-    return {oid: n for oid, (n, _, _) in _version_info(conn, ids).items()}
+    return {oid: n for oid, (n, _, _, _) in _version_info(conn, ids).items()}
 
 
 def _source_runs(conn) -> dict[str, datetime]:
@@ -850,7 +858,7 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
         "SELECT x.id, dgate_buyer_head(x.id) AS head FROM unnest(%s::bigint[]) AS x(id)", (orgs,)).fetchall()} if orgs else {}
     names = _buyer_names(conn, sorted(set(orgs) | set(heads.values())))
     info = _version_info(conn, ids)
-    versions = {i: n for i, (n, _, _) in info.items()}
+    versions = {i: n for i, (n, _, _, _) in info.items()}
     twins = _api()._twins(conn, ids)
     span = _observed_span(conn, ids)
     over = _superseded(conn, rows)
@@ -860,7 +868,7 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
     paged = buyers_with_page(conn, rows)
     out = []
     for r in rows:
-        seen = info.get(r["id"], (0, None, 0))
+        seen = info.get(r["id"], (0, None, 0, 0))
         amended = seen[2] > 0 if r["id"] in info else None
         out.append(to_tender(
             r, names, versions, twins.get(r["id"], []),
@@ -871,6 +879,7 @@ def _present(conn, rows: list[dict[str, Any]], *, checked: bool = False) -> list
             buyer_page=r.get("buyer_org_id") in paged,
             last_change_kind="amendment" if amended else "first_seen",
             buyer_head=heads.get(r.get("buyer_org_id"))))
+        out[-1]["correctionCount"] = seen[3]
     return out
 
 
@@ -1127,13 +1136,17 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
                      + (f" OR {TS_MAIN_HEADS}" if together else "") + " OR ts.native_id ILIKE %s))")
         params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
+    if any(not COUNTRY_CODE.match(c) for c in countries):
+        # WP-114: what the organisation directory refuses too (`country=1!` was a list of nothing, answered 200)
+        raise HTTPException(422, "country: two-letter country codes (DE, PL)")
     if len(countries) == 1:
         where.append("o.country = %s")
         params.append(countries[0])
     elif countries:
         where.append("o.country = ANY(%s)")
         params.append(countries)
-    prefixes = _split(cpv, "cpv", max_length=api.MAX_PREFIX_LENGTH)
+    # WP-114: digits only, as `notCpv` (`cpv=abc` was a LIKE 'abc%' that matched nothing, answered 200)
+    prefixes = cpv_prefixes(cpv)
     if prefixes:
         clauses = []
         for p in prefixes:
@@ -1299,7 +1312,7 @@ def _kept_in_snapshot(kwargs: dict[str, Any]) -> bool:
     return kwargs.get("status") != "open"
 
 
-@router.get("/v1/tenders", response_model=TenderPage)
+@router.get("/v1/tenders", response_model=TenderPage, dependencies=[Depends(known_params)])
 @cache_list("tenders", ttl=5 * 60, snapshot=_kept_in_snapshot)
 def list_tenders(
     q: str | None = Query(None, max_length=100),
@@ -1446,7 +1459,7 @@ def export_sql(where: list[str], limit: int, cursor: int | None) -> tuple[str, i
             + f"{keyset} ORDER BY o.id DESC LIMIT %s"), 4
 
 
-@router.get("/v1/tenders/export", response_model=TenderExportPage)
+@router.get("/v1/tenders/export", response_model=TenderExportPage, dependencies=[Depends(known_params)])
 def export_tenders(
     q: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
@@ -1506,7 +1519,7 @@ class ScopeCounts(BaseModel):
     asOf: datetime | None = None
 
 
-@router.get("/v1/tenders/scope-counts", response_model=ScopeCounts)
+@router.get("/v1/tenders/scope-counts", response_model=ScopeCounts, dependencies=[Depends(known_params)])
 @cache_list("tender-scope-counts", ttl=5 * 60, snapshot=_kept_in_snapshot)
 def tender_scope_counts(
     q: str | None = Query(None, max_length=100),
@@ -1611,7 +1624,11 @@ def tender_calendar(
     rows = rows[:maxItems]
     api = _api()
     extras = _twin_extras(conn, rows)
-    names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")}))
+    # WP-114: only the buyers whose notice states no usable name of its own are looked up. Asking for every buyer of
+    # the open set (459 on 24 October 2026) counted all their notices: 0.76-0.85 s of the calendar's 1.2-1.4 s, and the
+    # 503 of a cold call under load.
+    names = _buyer_names(conn, sorted({r["buyer_org_id"] for r in rows if r.get("buyer_org_id")
+                                       and not clean_buyer_name(r["buyer_name_raw"])}))
     items = []
     for r in rows:
         deadline, deadline_from, first_passed = shown_deadline(r["deadline_at"],
@@ -1662,6 +1679,42 @@ def tender_slugs(conn=Depends(get_conn)):
     now = datetime.now(timezone.utc)
     return [{"slug": make_slug(r["id"], redact_emails(r["title"]) or ""),
              "updatedAt": seen.get(r["id"]) or _day(r["published_at"]) or now} for r in rows]
+
+
+# WP-114: the sitemap pages of the tenders, by id: page n holds the core notices with an id in
+# [n * SITEMAP_ID_SPAN, (n + 1) * SITEMAP_ID_SPAN). Ids are unique, so a page never holds more than the 50,000 URLs a
+# sitemap may, and a page is a range of the primary key: no count, no offset, the same cost at any depth.
+SITEMAP_ID_SPAN = 50_000
+
+
+class SlugItem(BaseModel):
+    slug: str
+    updatedAt: datetime
+
+
+class SitemapPage(BaseModel):
+    page: int
+    pages: int
+    items: list[SlugItem]
+
+
+# Not kept in the API's memory (a page is up to 50,000 rows, megabytes): the site keeps each sitemap page an hour.
+@router.get("/v1/tenders/sitemap", response_model=SitemapPage, dependencies=[Depends(known_params)])
+def tender_sitemap(page: int = Query(0, ge=0, le=10_000), conn=Depends(get_conn)):
+    """The core notices a sitemap lists (the pages that are not `noindex`: the core scope, any status), one id range a page
+    (`SITEMAP_ID_SPAN`); `pages` is how many ranges there are, some of them possibly empty. `updatedAt` is the publication
+    date (the notice date when none is stated): the version table is not read (see `tender_slugs`)."""
+    api = _api()
+    top = conn.execute("SELECT max(id) AS m FROM opportunity").fetchone()["m"] or 0
+    rows = conn.execute(
+        f"""SELECT o.id, COALESCE(o.title_en, o.title_original) AS title, COALESCE(o.published_at, o.notice_date) AS day
+              FROM opportunity o
+             WHERE o.id >= %s AND o.id < %s AND o.is_defence AND NOT o.suppressed AND {api.SCOPE_SQL['core']}
+             ORDER BY o.id""", (page * SITEMAP_ID_SPAN, (page + 1) * SITEMAP_ID_SPAN)).fetchall()
+    now = datetime.now(timezone.utc)
+    return {"page": page, "pages": top // SITEMAP_ID_SPAN + 1,
+            "items": [{"slug": make_slug(r["id"], redact_emails(r["title"]) or ""), "updatedAt": _day(r["day"]) or now}
+                      for r in rows]}
 
 
 def _id_of(slug: str, what: str) -> int:
@@ -1725,7 +1778,7 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
     paged: set[int] = set()
     if rows:
         paged = {r["id"] for r in conn.execute(
-            f"SELECT DISTINCT org.id {award_set.FROM} WHERE {award_set.scope()} AND org.id = ANY(%(orgs)s)",
+            f"SELECT DISTINCT org.id {award_set.FROM} WHERE {award_set.scope()} AND {award_set.OF_ORGS}",
             {"since": award_set.since(), "orgs": [r["id"] for r in rows]}).fetchall()}
     winners = []
     for r in sorted(rows, key=lambda r: (r["name_as_stated"] or "").lower()):
@@ -1802,7 +1855,7 @@ def award_summaries(conn, keys: dict[int, list[int]]) -> dict[int, dict[str, Any
     paged: set[int] = set()
     if rows:
         paged = {r["id"] for r in conn.execute(
-            f"SELECT DISTINCT org.id {award_set.FROM} WHERE {award_set.scope()} AND org.id = ANY(%(orgs)s)",
+            f"SELECT DISTINCT org.id {award_set.FROM} WHERE {award_set.scope()} AND {award_set.OF_ORGS}",
             {"since": award_set.since(), "orgs": sorted({r["id"] for r in rows})}).fetchall()}
     by_key: dict[int, list[dict[str, Any]]] = {}
     for r in rows:

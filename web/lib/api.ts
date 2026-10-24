@@ -291,6 +291,24 @@ export async function getTenderVersions(slug: string): Promise<TenderVersion[]> 
 }
 
 /** Slugs for the sitemap (open and last 12 months, core scope, at most 5,000). */
+/**
+ * WP-114: one page of the sitemap's tenders (GET /v1/tenders/sitemap): the core notices of one id range, every status;
+ * `pages` is how many ranges there are. Kept an hour, as the sitemap.
+ */
+export async function getTenderSitemapPage(page: number): Promise<{ page: number; pages: number; items: { slug: string; updatedAt: string }[] }> {
+  if (API_BASE) return httpOrThrow(`/v1/tenders/sitemap?page=${page}`, 'revalidate', SITEMAP_REVALIDATE_SECONDS);
+  return { page, pages: 1, items: page === 0 ? await getAllTenderSlugs() : [] };
+}
+
+/** WP-114: every supplier that has a page, with the slug it answers under (GET /v1/suppliers/slugs). */
+export async function getAllSupplierSlugs(): Promise<{ slug: string; updatedAt: string }[]> {
+  if (API_BASE) return httpOrThrow<{ slug: string; updatedAt: string }[]>('/v1/suppliers/slugs', 'revalidate', SITEMAP_REVALIDATE_SECONDS);
+  return supplierMock.querySuppliers({ pageSize: 100 } as Parameters<typeof supplierMock.querySuppliers>[0]).items
+    .map((s) => ({ slug: s.slug, updatedAt: `${s.lastYear}-01-01T00:00:00Z` }));
+}
+
+export const SITEMAP_REVALIDATE_SECONDS = 3600;
+
 export async function getAllTenderSlugs(): Promise<{ slug: string; updatedAt: string }[]> {
   if (API_BASE) return httpOrThrow<{ slug: string; updatedAt: string }[]>('/v1/tenders/slugs');
   return tenderMock.allTenders().filter((t) => t.scope === 'core').map((t) => ({ slug: t.slug, updatedAt: t.source.retrievedAt }));
