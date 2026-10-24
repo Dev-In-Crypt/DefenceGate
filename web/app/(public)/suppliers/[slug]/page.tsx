@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SUSPECT_NOTE, SUSPECT_VALUE_MAX, VALUE_KIND_LABEL } from '@/lib/value-totals';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { ApiError, getSupplier, isSupplierSlug, REMOVED, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { countryName, cpvDivisionLabel } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
@@ -52,8 +52,15 @@ export default async function SupplierPage({ params, searchParams }: Props) {
   if (!isSupplierSlug(slug)) notFound();
   const sp = await searchParams;
   const under = { cpv: one(sp.cpv), buyerCountry: one(sp.buyerCountry) };
-  // an unreadable code list is the API's 422: the page then shows the total alone
-  const got = await (under.cpv ? getSupplier(slug, under).catch(() => getSupplier(slug)) : getSupplier(slug)).catch(whenRemoved);
+  // an unreadable code list is the API's 422: the page then shows the total alone. WP-112 (p01: the URO page without "N of them under your
+  // codes"): any other failure of the read with the codes (a 429 of a shared address, a timeout) is said, not silently dropped
+  let underFailed = false;
+  const got = await (under.cpv
+    ? getSupplier(slug, under).catch((e: unknown) => {
+      if (!(e instanceof ApiError && e.status === 422)) underFailed = true;
+      return getSupplier(slug);
+    })
+    : getSupplier(slug)).catch(whenRemoved);
   if (got === REMOVED) return <RemovedOnRequest what="supplier" />;
   if (!got) notFound();
   const s = { ...got, name: displayName(got.name, 'title') };      // the case of the name is for the eye; the stored name is not changed
@@ -68,6 +75,11 @@ export default async function SupplierPage({ params, searchParams }: Props) {
             {s.underCodes && (
               <span className="block font-sans text-small font-normal text-ink-muted" data-under-codes>
                 {formatNumber(s.underCodes.contracts)} of them under your CPV codes{s.underCodes.buyerCountries.length ? `, in ${s.underCodes.buyerCountries.map(countryName).join(', ')}` : ''}, as in your supplier report
+              </span>
+            )}
+            {!s.underCodes && underFailed && (
+              <span className="block font-sans text-small font-normal text-ink-muted" data-under-codes-failed>
+                How many are under your CPV codes could not be read just now; reload the page in a minute.
               </span>
             )}
           </FactCell>

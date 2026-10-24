@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
 import { ArrowRight } from 'lucide-react';
 import { getRequirement, getRequirements } from '@/lib/readiness-api';
-import { CATEGORY_WORD, costStatement, issuerFor, joinWords, programmeName, requirementSlug, siteDay, timeStatement, type IssuerAnswer } from '@/lib/readiness';
+import { CATEGORY_WORD, appearsLine, costStatement, issuerFor, requirementSlug, siteDay, timeStatement, type IssuerAnswer } from '@/lib/readiness';
 import type { RequirementSummary } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
@@ -66,7 +66,7 @@ function RequirementCard({ r, issuer, country }: { r: RequirementSummary; issuer
         ]} />
       )}
       <p className={document ? 'm-0 text-small text-ink-muted' : 'm-0 mt-auto text-small text-ink-muted'}>
-        {r.programmes.length > 0 ? `Appears in the rules of ${joinWords(r.programmes.map(programmeName))}. ` : ''}Last reviewed {siteDay(r.lastReviewed)}.
+        {appearsLine(r.programmes, country ?? '', country ? countryName(country) : '')}Last reviewed {siteDay(r.lastReviewed)}.
       </p>
     </Card>
   );

@@ -32,7 +32,7 @@ assert.deepEqual(apartLines({ ...mixed, frameworks: [{ currency: 'EUR', amount: 
 ]);
 assert.deepEqual(apartLines(mixed), []);
 assert.equal(totalLine({ ...none, frameworks: [{ currency: 'EUR', amount: 1, count: 1, lotEstimates: 0 }] }, 'contract'),
-  'no contract value; ceilings or estimates only');
+  'no contract value; of the 3 contracts, 1 with a framework ceiling only, 3 with no value for this company alone (ceilings, estimates and unit prices are not added)');
 assert.equal(withoutValueLine({ byCurrency: [], of: 1, withoutValue: 1, shared: 1 }, 'contract'),
   '1 of 1 contract states no value for this company alone; it names several winners.');
 assert.equal(withoutValueLine({ ...mixed, withoutValue: 2, shared: 2 }, 'contract'),

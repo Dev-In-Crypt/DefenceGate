@@ -133,6 +133,9 @@ export default async function SuppliersPage({ searchParams }: Props) {
   }
   const summary = f.page === 1 && !filtered ? full : null;
   const placsp = placspNote(full?.sources);
+  // WP-112 (p03, p04, p06): the credit under the list is for the sources of the companies on this page: PLACSP's only when one of their wins
+  // under these filters is from it (the API says so; an older answer without the field keeps the map's credit)
+  const pageCredit = placsp && result.placsp !== false ? placsp : null;
   const reachable = Math.min(result.total, result.maxOffset ?? result.total);
   const last = lastPage(reachable, result.pageSize);
   if (result.total > 0 && f.page > last) redirect(href(f, last));
@@ -206,7 +209,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
                 options={[{ value: 'awards', label: 'Most wins first' }, { value: 'name', label: 'Name, A to Z' }, ...VALUE_SORTS]} />
             </span>
           </label>
-          {(placsp || f.source) && (
+          {(pageCredit || f.source) && (
             <label className="flex flex-col gap-1 text-small font-semibold">Sources
               <span className={cn(boxCls(), 'relative text-small font-normal')}>
                 <ListboxSelect name="source" defaultValue={f.source ?? ''} aria-describedby="source-help" accessibleName="Sources"
@@ -257,7 +260,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         {/* WP-98b: whose award results are read for the countries asked (the buyer's, else the supplier's), above an empty list too */}
         <CoverageNote countries={(api.buyerCountry || api.country).split(',').filter(Boolean)} kind="awards" />
-        {placsp && !f.source && (api.buyerCountry || api.country) && (
+        {pageCredit && !f.source && (api.buyerCountry || api.country) && (
           <p className="m-0 max-w-prose text-small text-ink-muted" data-ted-only-link>
             Comparing countries? <Link href={href({ ...f, source: 'ted' }, 1)} className="font-semibold">Show TED&rsquo;s winners only</Link>, the one source every country has.
           </p>
@@ -295,7 +298,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
         )}
         <Pagination page={result.page} total={reachable} pageSize={result.pageSize} hrefFor={(p) => href(f, p)} />
         {/* WP-88: the attribution the sources' terms ask for stays on screen, never only in a collapsed block. */}
-        <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>Source: TED, © European Union.{placsp ? ` ${placspCredit(placsp, formatDateUtc)}` : ''}</p>
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>Source: TED, © European Union.{pageCredit ? ` ${placspCredit(pageCredit, formatDateUtc)}` : ''}</p>
         </ResultsRegion>
       </section>
       </LiveListScope>

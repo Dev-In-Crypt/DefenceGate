@@ -67,10 +67,32 @@ export function withoutValueLine(v: ValueTotals, noun: string): string | null {
  * contract"), or "no stated value" when there is none to sum. The details (what states no value, the unit prices) stay inside.
  */
 export function totalLine(v: ValueTotals, noun: string): string {
-  if (v.byCurrency.length === 0) return (v.frameworks?.length || v.estimates?.length) ? 'no contract value; ceilings or estimates only' : 'no stated value';
+  // WP-112 (p06, p07: "EUR 15.9 M over 1 contract" for 3 contracts, two of them frameworks; Leonardo "10 + 2 SEK + 4 no value" of 18): the
+  // line accounts for every contract, by what its notice states, and says that ceilings and estimates are not added
+  const count = (xs: ValueSum[] | undefined) => (xs ?? []).reduce((k, s) => k + s.count, 0);
+  const contracts = count(v.byCurrency);
+  const ceilings = count(v.frameworks);
+  const estimates = count(v.estimates);
+  const unitPrices = Math.max(0, v.of - contracts - ceilings - estimates - v.withoutValue);
   const sums = v.byCurrency.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${n(s.count, noun)}`).join('; ');
-  // the sum is not the company's whole: say how many state no value of their own (the line is all that prints)
-  return v.withoutValue > 0 ? `${sums}; ${formatNumber(v.withoutValue)} of ${n(v.of, noun)} state none` : sums;
+  const rest = [
+    ceilings > 0 ? `${formatNumber(ceilings)} with a framework ceiling only` : null,
+    estimates > 0 ? `${formatNumber(estimates)} with an estimate only` : null,
+    unitPrices > 0 ? `${formatNumber(unitPrices)} with a unit price only` : null,
+    v.withoutValue > 0 ? `${formatNumber(v.withoutValue)} with no value for this company alone` : null,
+  ].filter(Boolean);
+  const apart = ceilings + estimates + unitPrices;
+  if (contracts === 0 && apart === 0) return 'no stated value';
+  const head = contracts > 0 ? sums : 'no contract value';
+  if (rest.length === 0) return head;
+  if (apart === 0) return `${head}; ${formatNumber(v.withoutValue)} of ${n(v.of, noun)} state none`;
+  return `${head}; of the ${n(v.of, noun)}, ${rest.join(', ')} (ceilings, estimates and unit prices are not added)`;
+}
+
+/** WP-112: "; 2 more with a framework ceiling, an estimate or no value (not added)" after a list's sums of `counted` of `of` contracts. */
+export function restNote(counted: number, of: number): string {
+  const rest = of - counted;
+  return rest > 0 ? `; ${formatNumber(rest)} more with a framework ceiling, an estimate or no value of their own (not added)` : '';
 }
 
 /**
@@ -78,8 +100,9 @@ export function totalLine(v: ValueTotals, noun: string): string {
  * wins the filters select): "Contract values: EUR 1,243,802 over 2 of 6 contracts; PLN 7,000,000 over 2". Only words; nothing summed.
  */
 export function listValueLine(sums: ValueSum[], of: number): string {
-  if (sums.length === 0) return 'Contract values: none stated for this company alone';
-  return `Contract values: ${sums.map((s, i) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${i === 0 ? `${formatNumber(s.count)} of ${n(of, 'contract')}` : formatNumber(s.count)}`).join('; ')}`;
+  if (sums.length === 0) return 'Contract values: none stated for this company alone (a framework ceiling or an estimate is not added)';
+  return `Contract values: ${sums.map((s, i) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${i === 0 ? `${formatNumber(s.count)} of ${n(of, 'contract')}` : formatNumber(s.count)}`).join('; ')}`
+    + restNote(sums.reduce((k, s) => k + s.count, 0), of);
 }
 
 /**

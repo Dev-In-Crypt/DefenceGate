@@ -109,6 +109,9 @@ export default async function MarketPage({ searchParams }: Props) {
       {/* WP-89: the market of one's own products (the tender list's CPV reading) */}
       <TextInput name={PARAM.cpv} maxLength={200} label="CPV code (optional)" placeholder="For example 343 or 34320000" className="sm:min-w-56"
         defaultValue={filters.cpv?.join(', ') ?? ''} />
+      {/* WP-112 (p06: transport in the Netherlands, 17 here and 137 in the tender list): what is counted */}
+      <Select name="scope" label="What is counted" defaultValue={filters.scope ?? ''} className="sm:min-w-56"
+        options={[{ value: '', label: SCOPE_CHOICES.core.label }, { value: 'relevant', label: `${SCOPE_CHOICES.relevant.label} (with a country or a code)` }]} />
       <div className="flex items-center gap-3">
         <Button type="submit">Show</Button>
         <Link href="/market" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
@@ -140,7 +143,9 @@ export default async function MarketPage({ searchParams }: Props) {
   const a = stats.amendments;
   const watched = amendmentsShown(a, stats.asOf);
   const asked = new URLSearchParams({ ...(filters.year ? { year: String(filters.year) } : {}), ...(filters.country ? { country: filters.country } : {}), ...(filters.cpv?.length ? { cpv: filters.cpv.join(',') } : {}) });
+  if (stats.scope === 'relevant') asked.set('scope', 'relevant');
   const marketQuery = asked.size > 0 ? `?${asked.toString()}` : '';
+  const counted = stats.scope === 'relevant' ? SCOPE_CHOICES.relevant : SCOPE_CHOICES.core;
 
   return (
     <ContentPage
@@ -154,19 +159,21 @@ export default async function MarketPage({ searchParams }: Props) {
       {/* WP-96: the set every figure counts, named once beside them, with the tender list of the same set (the list opens on
           All defence and shows a notice published in two sources once, so its default count differs: NL 384 here, 524 there) */}
       <p className="m-0 max-w-prose text-body" data-market-scope>
-        Every figure counts notices of <strong>{SCOPE_CHOICES.core.label.toLowerCase()}</strong> only, as each source published them: award notices
-        and corrections included, and a notice published in TED and in a national portal counted once per source. The tender list opens
-        on {SCOPE_CHOICES.relevant.label} and shows such a notice once, so its default count is not this one.{' '}
-        <Link href={`/tenders?${new URLSearchParams({ ...(stats.country ? { country: stats.country } : {}), status: 'all', scope: 'core', ...(codes?.length ? { cpv: codes.join(',') } : {}) })}`} className={LINK}>
-          Open {SCOPE_CHOICES.core.label.toLowerCase()} in the tender list
+        Every figure counts notices of <strong>{counted.label.toLowerCase()}</strong>{stats.scope === 'relevant' ? ' (military goods and works, and the services and supplies defence buyers buy)' : ' only'}, as each source published them: award notices
+        and corrections included, and a notice published in TED and in a national portal counted once per source.
+        {stats.scope === 'relevant'
+          ? ' The tender list shows a notice published in two sources once, so its count can be lower than this one. '
+          : ` The tender list opens on ${SCOPE_CHOICES.relevant.label} and shows such a notice once, so its default count is not this one; choose “${SCOPE_CHOICES.relevant.label}” above, with a country or a code, to count the services too. `}
+        <Link href={`/tenders?${new URLSearchParams({ ...(stats.country ? { country: stats.country } : {}), status: 'all', scope: stats.scope === 'relevant' ? 'relevant' : 'core', ...(codes?.length ? { cpv: codes.join(',') } : {}) })}`} className={LINK}>
+          Open {counted.label.toLowerCase()} in the tender list
         </Link>.
       </p>
 
       {/* WP-98b (p06, p07): what we collect for the country, so a small count or a step in the months reads as coverage */}
-      <CoverageNote countries={[stats.country ?? filters.country ?? '']} />
+      <CoverageNote countries={[stats.country ?? filters.country ?? '']} counted={stats.sources.filter((s) => s.count > 0).map((s) => s.id)} />
 
       <dl className="facts-grid m-0 border-b border-line">
-        <FactCell label={`Notices of ${SCOPE_CHOICES.core.label.toLowerCase()}, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
+        <FactCell label={`Notices of ${counted.label.toLowerCase()}, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
         <FactCell label={yearOf ? `Notices, ${yearOf}, by month below` : 'Notices, last 36 months'}>{formatNumber(inMonths)}</FactCell>
         <FactCell label="Sources that published them">{stats.sourceCount}</FactCell>
         <FactCell label="Typical response window">

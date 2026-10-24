@@ -188,7 +188,8 @@ assert.deepEqual(
 assert.deepEqual(cpvName('50640000'), { label: 'Repair and maintenance services of warships', exact: true });
 assert.deepEqual(cpvName('79710000'), { label: 'Business services: law, marketing, consulting, recruitment, printing and security', exact: false });
 assert.equal(cpvName('99999999'), null);
-assert.equal(cpvGroupName('452'), 'Construction work: group 452');
+// WP-112: every group's own title is held now (lib/data/cpv-groups.json); the division fallback stays for a group the vocabulary lacks
+assert.equal(cpvGroupName('452'), 'Works for complete or part construction and civil engineering work');
 assert.equal(cpvGroupName('351'), 'Emergency and security equipment');
 assert.equal(cpvGroupName('999'), null);
 assert.equal(legalBasisLabel('32009L0081'), 'Directive 2009/81/EC (defence and security procurement)');

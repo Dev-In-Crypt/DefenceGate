@@ -412,7 +412,7 @@ export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<B
 const SUPPLIER_PAGE_SIZE = 20;
 
 /** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is five invented companies (lib/mock/suppliers.ts). */
-export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string; valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null }> {
+export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string; valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null; placsp?: boolean | null }> {
   if (!API_BASE) return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
@@ -426,7 +426,7 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
   const filtered = p.size > 0;
   p.set('pageSize', String(f.pageSize ?? SUPPLIER_PAGE_SIZE));
   const path = `/v1/suppliers?${p.toString()}`;
-  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem> & { valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null }>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
+  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem> & { valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null; placsp?: boolean | null }>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
 }
 
 /** The public aggregate (GET /v1/suppliers/summary). null when the API has no supplier map yet. */
@@ -475,6 +475,7 @@ export async function getMarketStats(filters: MarketFilters = {}): Promise<Marke
   if (filters.year) p.set('year', String(filters.year));
   if (filters.country) p.set('country', filters.country);
   if (filters.cpv?.length) p.set('cpv', filters.cpv.join(','));
+  if (filters.scope) p.set('scope', filters.scope);
   const q = p.toString();
   return http<MarketStats>(`/v1/stats/market${q ? `?${q}` : ''}`, q ? 'no-store' : 'revalidate');
 }
