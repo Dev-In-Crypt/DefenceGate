@@ -150,10 +150,18 @@ def placsp_metrics(conn) -> dict[str, Any]:
               AND t.published_at >= current_date - 365
               AND t.published_at < current_date - %s
               AND NOT EXISTS (SELECT 1 FROM opportunity n WHERE n.ted_ref = t.native_id
-                                 AND n.source_id <> t.source_id)""",
+                                 AND n.source_id <> t.source_id)
+              -- WP-113: a national row holds one `ted_ref`, the procedure's first TED publication; the procedure's
+              -- later ones (its award notice) are its twins through the eForms procedure identifier: 764 of the 833
+              -- "unlinked" Spanish TED notices of 24 October 2026 were these
+              AND NOT (t.procedure_identifier IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM opportunity n WHERE n.procedure_identifier = t.procedure_identifier
+                       AND n.source_id <> t.source_id))""",
         (ted, UNLINKED_AFTER_DAYS)).fetchone()
     dates = conn.execute(
-        """SELECT count(*) FILTER (WHERE o.published_at IS NULL) AS missing, count(*) AS n
+        # WP-113: an award or contract entry without a call notice states its own date (`notice_date`, served as the
+        # notice date): 17,741 of the 17,757 rows without a publication date of 24 October 2026. Missing is neither.
+        """SELECT count(*) FILTER (WHERE o.published_at IS NULL AND o.notice_date IS NULL) AS missing, count(*) AS n
              FROM opportunity o JOIN source s ON s.id = o.source_id
             WHERE s.code IN ('es_placsp', 'es_placsp_agg')""").fetchone()
     rate = dates["missing"] / dates["n"] if dates["n"] else 0.0

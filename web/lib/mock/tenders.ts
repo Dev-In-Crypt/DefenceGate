@@ -111,7 +111,9 @@ const RAW_VERSIONS: Record<string, TenderVersion[]> = {
  * WP-90: what the notice's own page adds (GET /v1/tenders/{slug}): the first sentence of the description where it reads as a commercial
  * subject, and the address of the procurement documents where a source names one (invented, as everything here).
  */
-const DETAIL: Record<string, Partial<Pick<Tender, 'subject' | 'documentsUrl' | 'awardedTo' | 'awardedPersons' | 'awardValue' | 'otherBuyers'>>> = {
+const DETAIL: Record<string, Partial<Pick<Tender, 'subject' | 'documentsUrl' | 'awardedTo' | 'awardedPersons' | 'awardValue' | 'otherBuyers' | 'valueFrom'>>> = {
+  // WP-113: a national notice whose value is its TED twin's says so
+  'dostawa-materialow-eksploatacyjnych-warsztatow': { valueFrom: 'ted_twin' },
   'framework-agreement-machined-aluminium-housings': {
     subject: 'Framework agreement for the supply of machined aluminium housings for vehicle electronics, in two lots.',
     documentsUrl: 'https://www.example.org/demo-documents/561204-2026',

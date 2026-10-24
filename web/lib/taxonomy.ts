@@ -162,7 +162,8 @@ const DE_LEGAL_BASES: Record<string, string> = {
 };
 export function legalBasisLabel(code: string): string | null {
   const k = code.trim();
-  if (k.toLowerCase() === 'other') return 'Other legal basis (not one of the EU procurement directives)';
+  // WP-113: TED's pre-eForms spelling of the same code (5,977 notices showed "CODE_OTHERS")
+  if (k.toLowerCase() === 'other' || k.toUpperCase() === 'CODE_OTHERS') return 'Other legal basis (not one of the EU procurement directives)';
   const de = /^de-(.+)$/i.exec(k);
   if (de) return DE_LEGAL_BASES[de[1].toLowerCase()] ?? `German national procurement rules (${de[1].toUpperCase()})`;
   return LEGAL_BASES[k] ?? LEGAL_BASES[k.toUpperCase()] ?? null;
@@ -183,6 +184,8 @@ const PROCEDURES: Record<string, string> = {
   'negociado con publicidad': 'Negotiated procedure with prior publication', 'procedimiento negociado con publicidad': 'Negotiated procedure with prior publication',
   'negociado sin publicidad': 'Negotiated procedure without prior publication', 'procedimiento negociado sin publicidad': 'Negotiated procedure without prior publication',
   'dialogue competitif': 'Competitive dialogue', 'dialogo competitivo': 'Competitive dialogue', 'concurrentiegerichte dialoog': 'Competitive dialogue',
+  // WP-113: PLACSP code 7, a contract awarded under a framework agreement
+  'derivado de acuerdo marco': 'Contract based on a framework agreement',
   // WP-96: the eForms procedure codes, as TED and the German notice service state them, and the German national ones (`de-`)
   'neg w call': 'Negotiated procedure with prior publication', 'neg wo call': 'Negotiated procedure without prior publication',
   'comp dial': 'Competitive dialogue', 'innovation': 'Innovation partnership', 'comp tend': 'Competitive tendering (concession)',

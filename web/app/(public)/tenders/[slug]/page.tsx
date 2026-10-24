@@ -230,6 +230,8 @@ export default async function TenderDetailPage({ params }: Props) {
               ) : (
               <FactCell label={noticeValueLabel(tender)}>
                 <AmountDisplay money={tender.estimatedValue} size="lg" />
+                {/* WP-113: a figure the notice does not state, taken from its TED twin, says where it is from */}
+                {tender.estimatedValue && tender.valueFrom === 'ted_twin' && <div className="mt-1 font-sans text-small font-normal text-ink-muted" data-value-from-twin>Not stated in this notice; as given in the TED notice of the same procurement</div>}
                 {(!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && missingNote && (
                   <div className="mt-1 font-sans text-small font-normal text-ink-muted">{missingNote}{missingNote.startsWith('No usable') && <> {VALUE_MISSING_MEANS}</>}</div>
                 )}

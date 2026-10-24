@@ -36,6 +36,11 @@ WP-96 (run each with `--epoch 96`): fr_boamp, an eForms deadline written with a 
 its own day (a November deadline stated "+02:00" was an hour early); de_bkms, a notice without BT-15 links its own
 page on oeffentlichevergabe.de; pl_ezam, the notice-details page (the old search-list address is PAGE_NOT_FOUND).
 
+WP-113 (epoch 113, run by `ops.wp113_rederive`): fr_boamp, the national forms' deadline in the buyer's zone and overseas
+buyers' wall times in their own zone, the legal basis of the other directives; nl_tenderned, the rectified deadline and
+the flagged main CPV first (an attribute update: the same codes are not a version); de_bkms, the notice's own page as
+the link and BT-15 as the documents link; es_placsp, procedure code 7 named.
+
 Facts are never erased: when the mapper now returns nothing for a value, a date, a CPV
 list or a link the row already holds, the stored value is kept. Status and procedure,
 which were wrong rather than missing, are replaced. The one exception is a field a mapper
@@ -164,13 +169,13 @@ FIELDS = (
     "status", "status_native", "procedure_type", "legal_basis", "title_original", "title_en",
     "value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
     "ted_ref", "related_native_id", "country", "lot_count", "notice_date", "notice_kind",
-    "source_url",
+    "source_url", "documents_url",
 )
 
 # Facts: a mapper that now yields nothing does not erase what is stored.
 PRESERVE = ("value_amount", "value_currency", "published_at", "deadline_at", "cpv_codes",
             "ted_ref", "related_native_id", "title_en", "legal_basis", "country", "lot_count",
-            "notice_date", "notice_kind", "source_url")
+            "notice_date", "notice_kind", "source_url", "documents_url")
 
 # Columns that are not versioned: updated in place when they differ.
 DIRECT = ("status_native", "ted_ref", "related_native_id", "title_en", "lot_count",
@@ -201,6 +206,10 @@ def plan(current_payload: dict[str, Any], serving: dict[str, Any], new: Opportun
     changed = [f for f in db.VERSIONED_FIELDS if not db.same_value(f, current[f], payload.get(f))]
     direct = {c: getattr(candidate, c) for c in DIRECT
               if getattr(candidate, c) != serving.get(c)}
+    # WP-113: the main CPV is the first code of the serving row; the same codes in another order are not a version
+    # (`db.same_value`: a CPV list is a set), so a corrected main code (TenderNed's flagged one) is an attribute update
+    if "cpv_codes" not in changed and candidate.cpv_codes and serving.get("cpv_codes") is not None             and list(candidate.cpv_codes) != list(serving["cpv_codes"]):
+        direct["cpv_codes"] = list(candidate.cpv_codes)
     transitions = [f"{f}:{current[f]}>{payload.get(f)}" for f in ("status", "procedure_type")
                    if f in changed]
     return Change(candidate, changed, direct, transitions)
@@ -239,7 +248,7 @@ def _apply(conn, opp_id: int, version: int, raw_hash: str, change: Change, sourc
 def run(source: str, *, write: bool = False, limit: int | None = None, batch: int = 200,
         workers: int = 1, epoch: int = 1, latest_raw: bool = False,
         dsn: str | None = None, status: str | None = None,
-        no_deadline: bool = False) -> Result:
+        no_deadline: bool = False, procedure: str | None = None) -> Result:
     from ..reprocess import _read_batch
 
     if source not in MAPPERS:
@@ -258,10 +267,11 @@ def run(source: str, *, write: bool = False, limit: int | None = None, batch: in
                 WHERE o.source_id = %s
                   AND (%s::text IS NULL OR o.status = %s)
                   AND (NOT %s OR o.deadline_at IS NULL)
+                  AND (%s::text IS NULL OR o.procedure_type = %s)
                   AND NOT EXISTS (SELECT 1 FROM remap_marker m
                                    WHERE m.source_code = %s AND m.native_id = o.native_id)
                 ORDER BY o.id LIMIT %s""",
-            (src_id, status, status, no_deadline, marker, limit)).fetchall()]
+            (src_id, status, status, no_deadline, procedure, procedure, marker, limit)).fetchall()]
         log.info("remap %s: %s notices to do%s", source, len(numbers),
                  "" if write else " (dry run: nothing is written)")
         store = build_store()

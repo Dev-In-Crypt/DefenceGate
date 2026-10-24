@@ -21,6 +21,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Any, Iterator
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 log = logging.getLogger(__name__)
@@ -115,6 +116,9 @@ class Opportunity:
     # WP-95: the buyers of a joint procurement after the first (`buyer_name_raw`), as the notice names them
     # (TED's buyer-name list). An attribute: not versioned, left out of the payload while empty.
     other_buyers: list[str] | None = None
+    # WP-113: the procurement documents on the buyer's platform (BT-15), where the notice states them and the link is
+    # its own `source_url` no longer (the German service: the notice's page is). Payload only, left out while empty.
+    documents_url: str | None = None
     # signals, populated by classify.py
     is_defence: bool = False
     sig_legal_basis: bool = False
@@ -1347,6 +1351,23 @@ _FR_STATUS = {
 }
 
 
+# WP-113: the other directives, as `perimetre` names them (DIRECTIVE-24 is 2014/24/EU) or an eForms notice states
+# them (`cbc:RegulatoryDomain`, 32014L0024 on 24-21716): 5,409 BOAMP notices showed no legal basis where TED,
+# TenderNed and the German service show 2014/24.
+_FR_PERIMETER_ACTS = {"DIRECTIVE-24": "32014L0024", "DIRECTIVE-25": "32014L0025", "DIRECTIVE-23": "32014L0023"}
+_FR_CELEX = frozenset({"32009L0081", "32014L0024", "32014L0025", "32014L0023"})
+
+
+def _fr_legal_basis(perimetre: str, body: dict[str, Any]) -> str | None:
+    if perimetre in _FR_DEFENCE_PERIMETERS:
+        return "32009L0081"
+    for node in _fr_nodes(body, ("EFORMS", "*", "cbc:RegulatoryDomain")):
+        text = (_fr_text(node) or "").upper()
+        if text in _FR_CELEX:
+            return text
+    return _FR_PERIMETER_ACTS.get(perimetre)
+
+
 def _fr_status(record: dict[str, Any], has_deadline: bool) -> str:
     nature = str(record.get("nature") or "").strip().upper()
     status = _FR_STATUS.get(nature)
@@ -1633,7 +1654,7 @@ def _fr_text(value: Any) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
-def _fr_eforms_deadline(body: dict[str, Any]) -> datetime | None:
+def _fr_eforms_deadline(body: dict[str, Any], zone: str = _FR_TZ) -> datetime | None:
     """The latest end of an offers period in an eForms notice, as the notice states it.
 
     The date and the time each carry an offset; the time's is read first, as TED's
@@ -1648,25 +1669,86 @@ def _fr_eforms_deadline(body: dict[str, Any]) -> datetime | None:
                     continue
                 stamp = _parse_datetime(_fr_text(period.get("cbc:EndDate")),
                                         _fr_text(period.get("cbc:EndTime")),
-                                        default_tz=ZoneInfo(_FR_TZ))
+                                        default_tz=ZoneInfo(zone))
                 if stamp is not None:
-                    stamps.append(_paris_wall_time(stamp))
+                    stamps.append(_paris_wall_time(stamp, zone))
     return max(stamps) if stamps else None
 
 
-def _paris_wall_time(stamp: datetime) -> datetime:
-    """A French deadline written with a Paris offset (+01:00 or +02:00) as the wall time it is in Paris on that day.
+def _paris_wall_time(stamp: datetime, zone: str = _FR_TZ) -> datetime:
+    """A French deadline written with a Paris offset (+01:00 or +02:00) as the wall time it is on that day in the
+    buyer's zone (Paris, or an overseas one: `_fr_zone`).
 
     BOAMP writes the offset in force when the notice is published, not on the deadline's date: a notice of October
     states "12:00:00+02:00" for 19 November, when Paris is at +01:00, and BOAMP's own page says "12h00", which is
     11:00 UTC, where reading the offset gave 10:00 (WP-96, p10 /tenders/269424). So the printed time is read in
-    Europe/Paris for the date itself; any other offset (Z, an overseas one) is the notice's own and stays."""
+    the zone for the date itself. WP-113: an overseas buyer's notice carries the same Paris offset on its own local
+    wall time (26-98817, DID Saint-Denis de La Reunion, "12:00:00.000+02:00" for 12:00 Reunion). Any other offset
+    (Z, an overseas one) is the notice's own and stays."""
     if stamp.utcoffset() in (timedelta(hours=1), timedelta(hours=2)):
-        return stamp.replace(tzinfo=ZoneInfo(_FR_TZ))
+        return stamp.replace(tzinfo=ZoneInfo(zone))
     return stamp
 
 
-def _fr_legacy_deadline(body: dict[str, Any]) -> datetime | None:
+# WP-113: the zone of a French buyer outside metropolitan France, by the first three digits of its postcode or its
+# department code (971-978, 986-988). Metropolitan France and Corsica are Europe/Paris.
+_FR_OVERSEAS_TZ = {
+    "971": "America/Guadeloupe", "972": "America/Martinique", "973": "America/Cayenne",
+    "974": "Indian/Reunion", "975": "America/Miquelon", "976": "Indian/Mayotte",
+    "977": "America/St_Barthelemy", "978": "America/Marigot",
+    "986": "Pacific/Wallis", "987": "Pacific/Tahiti", "988": "Pacific/Noumea",
+}
+
+
+def _fr_buyer_postcode(body: dict[str, Any]) -> str | None:
+    """The buyer's postcode: the national form's `organisme.cp`, or in eForms the address of the organisation the
+    contracting party names (ORG-0001 as a rule; the review body and others are listed beside it)."""
+    for org in _fr_nodes(body, ("*", "organisme")):
+        if isinstance(org, dict) and _fr_text(org.get("cp")):
+            return _fr_text(org.get("cp"))
+    ids = {_fr_text(n) for n in _fr_nodes(body, ("EFORMS", "*", "cac:ContractingParty", "cac:Party",
+                                                   "cac:PartyIdentification", "cbc:ID"))}
+    for org in _fr_walk(body, "efac:Organization"):
+        for item in org if isinstance(org, list) else [org]:
+            company = item.get("efac:Company") if isinstance(item, dict) else None
+            if not isinstance(company, dict):
+                continue
+            own = _fr_text((company.get("cac:PartyIdentification") or {}).get("cbc:ID"))
+            if own in ids:
+                return _fr_text((company.get("cac:PostalAddress") or {}).get("cbc:PostalZone"))
+    return None
+
+
+def _fr_zone(record: dict[str, Any], body: dict[str, Any]) -> str:
+    """The time zone a BOAMP notice's wall times are in: the buyer's own (postcode first; else the first department
+    the record lists, which is the buyer's: 26-103716 lists 973, 972, 971 for a buyer in Cayenne)."""
+    code = (_fr_buyer_postcode(body) or "").replace(" ", "")[:3]
+    if not code.isdigit():
+        depts = record.get("code_departement")
+        first = depts[0] if isinstance(depts, list) and depts else depts
+        code = str(first or "").strip()[:3]
+    return _FR_OVERSEAS_TZ.get(code, _FR_TZ)
+
+
+def _fr_national_deadline(record: dict[str, Any], body: dict[str, Any], zone: str) -> datetime | None:
+    """The offers deadline of the national forms (FNSimple, MAPA): `dateReceptionOffres`, a wall time without an
+    offset, in the buyer's zone. WP-113: DILA's `datelimitereponse` repeats it with a false "+00:00" (26-98956,
+    "2026-10-29T16:00:00+00:00" for 16:00 in Paris: 124 of 124 such notices since 2025 were an hour or two late), so
+    where the body states none the column's printed time is read in the same zone."""
+    stamps = [parse_iso_datetime(text[:19], default_tz=ZoneInfo(zone))
+              for node in _fr_walk(body, "dateReceptionOffres")
+              for item in (node if isinstance(node, list) else [node])
+              if (text := _fr_text(item))]
+    stamps = [s for s in stamps if s is not None]
+    if stamps:
+        return max(stamps)
+    if not any(k in body for k in ("FNSimple", "MAPA")):
+        return None
+    column = _fr_text(record.get("datelimitereponse"))
+    return parse_iso_datetime(column[:19], default_tz=ZoneInfo(zone)) if column else None
+
+
+def _fr_legacy_deadline(body: dict[str, Any], zone: str = _FR_TZ) -> datetime | None:
     """The offers deadline of a notice in the schemas of 2015-2022, `CONDITION_DELAI.RECEPT_OFFRES`.
 
     1,792 stored `open` rows had no deadline and about 1,400 of them state one here
@@ -1683,9 +1765,9 @@ def _fr_legacy_deadline(body: dict[str, Any]) -> datetime | None:
                 continue
             fixed = text[-6:] == "+01:00" and len(text) > 6
             stamp = parse_iso_datetime(text[:-6] if fixed else text,
-                                       default_tz=ZoneInfo(_FR_TZ))
+                                       default_tz=ZoneInfo(zone))
             if stamp is not None:
-                stamps.append(_paris_wall_time(stamp))
+                stamps.append(_paris_wall_time(stamp, zone))
     return max(stamps) if stamps else None
 
 
@@ -1729,10 +1811,12 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
     perimetre = str(record.get("perimetre") or "")
     nature = str(record.get("nature") or "")
     amount, currency = _fr_value(body)
-    deadline = (_fr_eforms_deadline(body)
+    zone = _fr_zone(record, body)
+    deadline = (_fr_eforms_deadline(body, zone)
+                or _fr_national_deadline(record, body, zone)
                 or parse_iso_datetime(record.get("datelimitereponse"),
                                       default_tz=ZoneInfo(_FR_TZ))
-                or _fr_legacy_deadline(body))
+                or _fr_legacy_deadline(body, zone))
     status = _fr_status(record, deadline is not None)
     if status == "open" and deadline is None and _fr_diffusion_over(record):
         # A call that states no deadline and is no longer published (25-122054, 26-33404
@@ -1747,7 +1831,7 @@ def from_boamp(record: dict[str, Any]) -> Opportunity:
         country="FR",
         original_language="FR",
         procedure_type=(record.get("procedure_libelle") or record.get("nature_libelle")),
-        legal_basis=("32009L0081" if perimetre in _FR_DEFENCE_PERIMETERS else None),
+        legal_basis=_fr_legal_basis(perimetre, body),
         value_amount=amount,
         value_currency=currency,
         published_at=_parse_date(record.get("dateparution")),
@@ -1974,9 +2058,12 @@ def _nl_legal_basis(framework: Any, form_text: str, european: bool) -> str | Non
 
 
 def _nl_cpv(detail: dict[str, Any]) -> list[str]:
+    """The detail's CPV codes, the one it flags as the main object (`isHoofdOpdracht`) first (WP-113: the first
+    listed was taken as the main code, wrong on 150 of 481 publications, 422883: 34900000 for 42400000)."""
     codes: list[str] = []
     listed = detail.get("cpvCodes")
-    for entry in listed if isinstance(listed, list) else []:
+    listed = sorted(listed, key=lambda e: not (isinstance(e, dict) and e.get("isHoofdOpdracht") is True))         if isinstance(listed, list) else []
+    for entry in listed:
         code = str(entry.get("code") if isinstance(entry, dict) else entry or "")[:8]
         if code.isdigit() and code not in codes:
             codes.append(code)
@@ -2023,7 +2110,9 @@ def from_tenderned(record: dict[str, Any]) -> Opportunity:
         procedure_type=_dict(record.get("procedure")).get("omschrijving"),
         legal_basis=legal_basis,
         published_at=_parse_date(record.get("publicatieDatum")),
-        deadline_at=parse_iso_datetime(record.get("sluitingsDatum"),
+        # WP-113: the detail carries the deadline as the latest rectification set it; the list row keeps the first
+        # one (428231: rectified to 16 Nov, served closed on 19 Aug)
+        deadline_at=parse_iso_datetime(detail.get("sluitingsDatum") or record.get("sluitingsDatum"),
                                        default_tz=ZoneInfo(_NL_TZ)),
         cpv_codes=_nl_cpv(detail),
         source_url=tenderned.notice_url(record),
@@ -2075,9 +2164,15 @@ def from_de_bkms(record: dict[str, Any]) -> Opportunity:
     opp = from_ted(fields)
     opp.source_code = de_bkms.SOURCE_CODE
     opp.native_id = str(native_id)
-    # BT-15 (the documents on the buyer's platform) when the notice states it, else (WP-96) the notice's own page on
-    # oeffentlichevergabe.de, built from its eForms notice id: 70 of 72 open German notices had no link at all
-    opp.source_url = http_url(documents_url) or de_bkms.notice_page(str(native_id))
+    # WP-113: the notice's own page on oeffentlichevergabe.de (built from its eForms notice id) is the original; BT-15
+    # is the buyer's platform, where the documents are, and was the link until now: 7,634 notices opened a platform
+    # page and 115 a bare home page (https://www.meinauftrag.rib.de) that does not lead to the notice. BT-15 is kept
+    # as the documents link unless it is such a home page; it is the only link of a notice without an eForms id.
+    documents = http_url(documents_url)
+    if documents and urlsplit(documents).path.strip("/") == "" and not urlsplit(documents).query:
+        documents = None
+    opp.documents_url = documents
+    opp.source_url = de_bkms.notice_page(str(native_id)) or documents
     opp.country = opp.country or "DE"
     opp.original_language = opp.original_language or "DE"
     opp.ted_ref = ted_ref

@@ -100,7 +100,9 @@ def test_the_german_notice_links_to_its_documents_on_the_buyers_platform():
     url = ("https://vergabeplattform.bwi.de/NetServer/TenderingProcedureDetails?"
            "function=_Details&amp;TenderOID=54321-Tender-18c6cdda559-62b24c881b2c9a16")
     opp = from_de_bkms(strip_personal_data(_record(_with_documents(url))))
-    assert opp.source_url == url.replace("&amp;", "&")
+    # WP-113: the platform page is the documents link; the notice's link is its own page on oeffentlichevergabe.de
+    assert opp.documents_url == url.replace("&amp;", "&")
+    assert opp.source_url == "https://oeffentlichevergabe.de/ui/de/search/details?noticeId=129f4d26-440e-4017-91b5-df3a10cf3f30"
 
 
 def test_a_link_that_is_not_http_is_refused():

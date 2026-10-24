@@ -40,6 +40,25 @@ _PUBLIC = re.compile(r"\b(?:public (?:bod(?:y|ies)|authorit\w*|entit\w*|legal en
                      r"defence agenc\w*|international organisations?)\b", re.I)
 
 
+_ELIGIBLE_ARE = re.compile(r"\blegal entit\w*\s*\((?:public|private) (?:or|and) (?:public|private)", re.I)
+# WP-113 (/funding/170): a national call's own text naming SMEs as the applicants (Vinnova's web text, in Swedish and as served)
+_SME_CALL = re.compile(r"[^.]*\b(?:(?:is |are )?aimed at (?:\w+ ){0,2}small and medium-sized enterprises|"
+                       r"riktar sig till (?:\w+ ){0,2}små och medelstora företag)[^.]*\.?", re.I)
+
+
+def own_text_facts(cond: dict[str, Any] | None, text: str | None) -> dict[str, Any]:
+    """The facts of a call whose rules no document reading holds (state `no_source`): the rules the agency's page states in fixed words
+    (`conditions_raw.rules_read`, AID: eligibility.page_rules) and a call text that names SMEs as the applicants."""
+    page = eligibility.page_rules(cond)
+    facts: dict[str, Any] = dict(page["facts"]) if page else {}
+    for candidate in [text, *((cond or {}).get("web_text_sv") or [])]:
+        m = _SME_CALL.search(str(candidate or ""))
+        if m:
+            facts["sme_only"] = {"value": True, "quote": m.group(0).strip(), "scope": "call_document", "note": None, "confidence": 1.0}
+            break
+    return facts
+
+
 def _kind(item: str) -> str | None:
     if _PRIVATE.search(item):
         return "companies"
@@ -61,8 +80,17 @@ def decide(facts: dict[str, Any]) -> tuple[str | None, bool | None, str | None]:
     sme = facts.get("sme_only")
     if sme and sme["scope"] in OWN_SCOPES and sme["value"] is True:
         return "companies", True, (sme.get("quote") or "")[:EVIDENCE_MAX] or None
+    # WP-113 (/funding/188 RAPID): a cap on the applicant's consolidated staff count is a rule for a company
+    cap = facts.get("max_group_headcount")
+    if cap and cap["scope"] in OWN_SCOPES and cap.get("value") is not None:
+        return "companies", None, (cap.get("note") or cap.get("quote") or "")[:EVIDENCE_MAX] or None
     types = facts.get("entity_types")
     if not (types and types["scope"] in OWN_SCOPES and isinstance(types["value"], list) and types["value"]):
+        # WP-113 (/funding/125): the entity list was not verified, but the verified "not only SMEs" fact quotes the call's own
+        # sentence on who may apply ("be legal entities (public or private bodies)")
+        quote = str((sme or {}).get("quote") or "")
+        if sme and sme["scope"] in OWN_SCOPES and sme["value"] is False and _ELIGIBLE_ARE.search(quote) and _kind(quote) == "companies":
+            return "companies", None, quote[:EVIDENCE_MAX]
         return None, None, None
     kinds = [_kind(str(t)) for t in types["value"]]
     evidence = (types.get("quote") or "")[:EVIDENCE_MAX] or None
@@ -105,7 +133,7 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
     # `changed`: the who-may-apply answer; `research_changed`: only the research answer (WP-109) changed
     counts = {"calls": len(rows), "public": 0, "companies": 0, "designated": 0, "sme_only": 0, "research": 0, "changed": 0, "research_changed": 0}
     for r in rows:
-        facts = served[r["id"]]["facts"]
+        facts = served[r["id"]]["facts"] or own_text_facts(r["conditions_raw"], r["eligibility_text"])
         who, sme, evidence = decide(facts)
         research = research_of(facts)
         if who:

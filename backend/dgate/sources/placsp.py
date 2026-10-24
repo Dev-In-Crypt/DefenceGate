@@ -73,13 +73,16 @@ def map_status(code: str | None) -> str:
 # utilities directive, 4 the army's, under the defence directive); 3 = 20 of 21 entries
 # have no call notice at all; 100 = all six are a state railway company's own rules, 999 =
 # buyers outside the usual kinds. The list file itself sits on a host this project does
-# not fetch (robots.txt Disallow). Codes 5-8 and 10-12 are in the same published table
+# not fetch (robots.txt Disallow). Codes 5, 6, 8 and 10-12 are in the same published table
 # but were seen once or not at all, so they stay as the bare code until verified.
 PROCEDURE_NAMES = {
     "1": "Abierto",
     "2": "Restringido",
     "3": "Negociado sin publicidad",
     "4": "Negociado con publicidad",
+    # WP-113: 8,185 entries by 24 October 2026 (none on 12 October), 3,048 of them titled as a call-off of a framework
+    # agreement; the published table's name for the code
+    "7": "Derivado de acuerdo marco",
     "9": "Abierto simplificado",
     "13": "Licitación con negociación",
     "100": "Normas internas",

@@ -181,6 +181,51 @@ def closing(record: dict[str, Any], *, now: datetime | None = None) -> datetime 
     return datetime.combine(day, time(23, 59, 59), tzinfo=BRUSSELS).astimezone(UTC)
 
 
+# WP-113: the call document's own deadline line, "Deadline for submission: 1 October 2026 – 17:00:00 CEST" (41 of the 109
+# stored call documents on 24 October 2026). The portal's record states the day only.
+_MONTHS = {m: i for i, m in enumerate(("january", "february", "march", "april", "may", "june", "july", "august",
+                                        "september", "october", "november", "december"), 1)}
+_DOCUMENT_DEADLINE = re.compile(
+    r"deadline[^\n:]{0,40}:\s*(?P<d>\d{1,2})\s+(?P<m>[A-Za-z]+)\s+(?P<y>20\d{2})\s*[–—-]?\s*"
+    r"(?P<hh>\d{1,2}):(?P<mm>\d{2})(?::\d{2})?\s*(?:CET|CEST|\(?Brussels)", re.I)
+
+
+def document_closing(text: str | None, day: date) -> datetime | None:
+    """The closing instant a call document states for `day` (the portal's own closing day), in Brussels time; None when it states
+    no time for that day. Only a time is added: a document line for another day (another topic, another stage) is not used."""
+    for m in _DOCUMENT_DEADLINE.finditer(text or ""):
+        month = _MONTHS.get(m.group("m").lower())
+        if month is None:
+            continue
+        try:
+            stated = date(int(m.group("y")), month, int(m.group("d")))
+            if stated == day:
+                return datetime.combine(day, time(int(m.group("hh")), int(m.group("mm"))), tzinfo=BRUSSELS).astimezone(UTC)
+        except ValueError:
+            continue
+    return None
+
+
+def with_document_time(conn, call: Any) -> Any:
+    """A date-only deadline with the time the stored call document states for that day (`document_closing`), else unchanged.
+    The documents are the ones the call's stored detail lists (`conditions_raw.documents`, label "Call document"); their text is
+    the one already read (`call_document_text`): nothing is fetched here."""
+    if call.deadline_precision != "date" or call.deadline_at is None:
+        return call
+    row = conn.execute(
+        """SELECT string_agg(t.text, E'\\n') AS text FROM call c
+             JOIN programme p ON p.id = c.programme_id
+             CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.conditions_raw->'documents', '[]'::jsonb)) d
+             JOIN call_document_text t ON t.url = d->>'url'
+            WHERE p.code = %s AND c.native_id = %s AND d->>'label' ILIKE '%%call document%%'""",
+        (call.programme_code, call.native_id)).fetchone()
+    stated = document_closing(row["text"] if row else None, call.deadline_at.astimezone(BRUSSELS).date())
+    if stated is None:
+        return call
+    call.deadline_at, call.deadline_precision = stated, None
+    return call
+
+
 def published_at(record: dict[str, Any]) -> date | None:
     """The day the portal published the topic (`publicationDateLong`)."""
     return _epoch_day(record.get("publicationDateLong"))

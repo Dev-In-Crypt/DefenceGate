@@ -237,6 +237,7 @@ class Result:
         else:
             self.direct += 1
         self.by_field.update(change.changed)
+        self.by_field.update(f"{k} (attribute)" for k in change.direct)     # WP-113: reported too
         self.transitions.update(change.transitions)
 
     def __str__(self) -> str:
