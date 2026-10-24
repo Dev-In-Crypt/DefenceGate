@@ -44,7 +44,7 @@ from typing import Any
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, model_serializer
 
 from . import award_set
 from .classify import (
@@ -172,6 +172,16 @@ class AwardValue(BaseModel):
     amount: float
     currency: str
     kind: str                        # contract | framework | estimate (dgate/award_value.py)
+    # WP-103: the figure the notice states that its own estimate contradicts (set aside; `kind` is then estimate); left
+    # out of the JSON when there is none, so the object is as before for every other notice
+    setAside: float | None = None
+
+    @model_serializer(mode="wrap")
+    def _without_empty_set_aside(self, handler):
+        out = handler(self)
+        if out.get("setAside") is None:
+            out.pop("setAside", None)
+        return out
 
 
 class Tender(BaseModel):
@@ -256,6 +266,8 @@ class Tender(BaseModel):
     awardedTo: list[AwardedTo] = []
     awardedPersons: int = 0
     awardValue: AwardValue | None = None
+    # WP-103: whether the notice (or its other publication) was read for its winners: false, the page says not yet
+    winnersRead: bool = False
 
 
 class SearchGroupRef(BaseModel):
@@ -596,7 +608,7 @@ def to_tender(r: dict[str, Any], names: dict[int, str], versions: dict[int, int]
         procedure_from = "ted_twin" if procedure else None
     deadline, deadline_from, first_passed = shown_deadline(deadline, extra.get("deadline"))
     eff = api.effective_status(r.get("status"), deadline, r.get("published_at"),
-                               superseded=superseded)
+                               superseded=superseded, procedure=r.get("procedure_type"))
     notes = anomalies(deadline, r.get("published_at"))
     if deadline_from:
         notes.append("deadline-differs-from-ted-twin")
@@ -1502,7 +1514,8 @@ def tender_calendar(
     for r in rows:
         deadline, deadline_from, first_passed = shown_deadline(r["deadline_at"],
                                                                (extras.get(r["id"]) or {}).get("deadline"))
-        eff_status = api.effective_status(r.get("status"), deadline, r.get("published_at"))
+        eff_status = api.effective_status(r.get("status"), deadline, r.get("published_at"),
+                                          procedure=r.get("procedure_type"))
         notes = anomalies(deadline, r.get("published_at"))
         if deadline_from:
             notes.append("deadline-differs-from-ted-twin")
@@ -1582,7 +1595,10 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
     notice and of its other publications (`sameNotice`) that are legal entities (`award_set.WINNERS`: not removed, not a
     natural person, not a placeholder, not superseded), each once, with a link to their supplier page where the
     supplier map lists them (`award_set.scope`), and the persons counted. The value: the notice's own (TED, with its
-    kind), else the one winner's."""
+    kind), else the one winner's.
+    WP-103: `winnersRead` says whether any of the notices was read for its winners at all (an `award_notice` row): an
+    award page with no winner names says "not read yet" rather than nothing (728479-2026, persona p04); and a figure the
+    notice states but its own estimate contradicts is given apart (`awardValue.setAside`, `award_value.contradicted`)."""
     rows = conn.execute(
         f"""SELECT DISTINCT ON (org.id) org.id, a.name_as_stated, a.supplier_country, a.value_amount, a.value_currency,
                    a.value_kind
@@ -1595,8 +1611,11 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
         """SELECT COALESCE(max(skipped_person), 0) AS persons,
                   (array_agg(value_amount ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS va,
                   (array_agg(value_currency ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS vc,
-                  (array_agg(value_kind ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS vk
-             FROM award_notice WHERE opportunity_id = ANY(%s)""", (ids[0], ids[0], ids[0], ids)).fetchone()
+                  (array_agg(value_kind ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS vk,
+                  (array_agg(value_set_aside ORDER BY opportunity_id = %s DESC)
+                       FILTER (WHERE value_kind IS NOT NULL))[1] AS sa,
+                  count(*) AS read
+             FROM award_notice WHERE opportunity_id = ANY(%s)""", (ids[0], ids[0], ids[0], ids[0], ids)).fetchone()
     paged: set[int] = set()
     if rows:
         paged = {r["id"] for r in conn.execute(
@@ -1613,11 +1632,13 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
                         "valueKind": (r["value_kind"] or "contract") if has_value else None})
     value = None
     if notice and notice["vk"] and notice["va"] is not None and notice["va"] > PLACEHOLDER_VALUE_MAX and notice["vc"]:
-        value = {"amount": float(notice["va"]), "currency": notice["vc"].strip(), "kind": notice["vk"]}
+        value = {"amount": float(notice["va"]), "currency": notice["vc"].strip(), "kind": notice["vk"],
+                 "setAside": float(notice["sa"]) if notice["sa"] is not None else None}
     elif len(winners) == 1 and winners[0]["valueAmount"] is not None and not (notice and notice["persons"]):
         value = {"amount": winners[0]["valueAmount"], "currency": winners[0]["valueCurrency"],
                  "kind": winners[0]["valueKind"]}
-    return {"awardedTo": winners, "awardedPersons": int(notice["persons"]) if notice else 0, "awardValue": value}
+    return {"awardedTo": winners, "awardedPersons": int(notice["persons"]) if notice else 0, "awardValue": value,
+            "winnersRead": bool(notice and notice["read"])}
 
 
 # The sources whose notice link is the address of the procurement documents (BT-15): de_bkms (WP-72).

@@ -57,7 +57,8 @@ export function militaryCodeChip(military: string[] | null | undefined, all: str
   return total > codes.length ? `Military product code (CPV ${shown}, among ${total} codes)` : `Military product code (CPV ${shown})`;
 }
 
-const DEFENCE_DIRECTIVE = /(2009[/-]81|32009L0081)/i;
+// WP-103: Spain's Ley 24/2011 transposes the directive (PLACSP states it as the national regime), as the API's classifier reads it
+const DEFENCE_DIRECTIVE = /(2009[/-]81|32009L0081|ley\s+24\/2011)/i;
 /** The reasons a notice is listed, in the plain words of the owner's decision of 16 October 2026. */
 export const DIRECTIVE_CHIP = 'Defence directive (2009/81/EC)';
 export const BUYER_CHIP = 'Defence buyer';

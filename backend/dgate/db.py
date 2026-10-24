@@ -1039,6 +1039,16 @@ def _same_entry_state(prev: dict[str, Any], payload: dict[str, Any]) -> bool:
     return held == new.date()
 
 
+def older_mapping(prev: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """WP-103: whether the held version was written by the mapper before 12 October 2026 and the incoming one by the
+    mapper since: the held one has no entry stamp (`source_updated_at`, kept since then) and the incoming one has.
+    The older mapper read the value with VAT, no legal basis, and the feed's stamp as the publication date, so what
+    the two say differently in the fields the mapper owns is the reading, not the publisher: on 15 October 2026 at
+    06:49, 17 PLACSP notices read again showed "value changed" (71,000 to 58,677.69, i.e. / 1.21) and a publication
+    date months back as amendments (persona p10), because the entry had been stamped again since the held version."""
+    return not prev.get("source_updated_at") and bool(payload.get("source_updated_at"))
+
+
 def upsert_opportunity(
     conn: psycopg.Connection, opp: Opportunity, raw_hash: str, src_id: int,
 ) -> tuple[int, str]:
@@ -1200,7 +1210,7 @@ def upsert_opportunity(
     # was `open` and is `forthcoming` now).
     owned = MAPPER_OWNED | (
         {"status"} if prev.get("status_native") == payload.get("status_native") else set())
-    if set(changed) <= owned and _same_entry_state(prev, payload):
+    if set(changed) <= owned and (_same_entry_state(prev, payload) or older_mapping(prev, payload)):
         # The entry says it was last changed when it already was, and only what the mapper
         # reads differently moved: our correction, not the publisher's amendment. The
         # replay, the historical backfill and a live walk reaching a held entry all come

@@ -302,7 +302,7 @@ def _row_to_out(r: dict[str, Any], same_notice: list[dict[str, Any]] | None = No
         buyer_class=r.get("buyer_class"),
         dual_use=bool(r.get("dual_use")),
         status=r["eff_status"] if "eff_status" in r else effective_status(
-            r.get("status"), r.get("deadline_at"), r.get("published_at")),
+            r.get("status"), r.get("deadline_at"), r.get("published_at"), procedure=r.get("procedure_type")),
         status_native=r.get("status_native"),
         same_notice=same_notice or [],
     )
@@ -349,31 +349,46 @@ SUPERSEDED_SQL = ("dgate_superseded(o.id, o.source_id, o.native_id, o.ted_ref, "
 # A planned notice (`forthcoming`: a prior information notice) is not closed while its deadline, if it
 # states one, is ahead (WP-52, T8): it is neither open for tenders nor closed, so it is listed under
 # `status=planned` and `all`, and a passed deadline makes it `expired` like any other.
+# WP-103 (personas p03, p07, p10): a planned notice that states no deadline is not planned forever: one published over
+# PLANNED_WITHOUT_DEADLINE_DAYS ago is `expired` too (a prior information notice announces a call within twelve months:
+# "Planned" stood on BAAINBw notices of 2017 to 2020 and on 4,613 of the 5,196 planned TED notices of 24 October 2026).
+# And an open notice of a procedure without a call for competition (`*-wo-call`: the German "Verhandlungsvergabe ohne
+# Teilnahmewettbewerb" and the like, de_bkms 283577) that states no deadline is not open to anyone who reads it: the
+# buyer invites whom it chooses. It is served `expired` (listed as closed), never "Open" with no deadline and no call.
+PLANNED_WITHOUT_DEADLINE_DAYS = 365
+NO_CALL_PROCEDURE = "wo-call"           # the end of the procedure code
 EFFECTIVE_STATUS_SQL = f"""(CASE
     WHEN o.status = 'open' AND (
          o.deadline_at < now()
       OR (o.deadline_at IS NULL
           AND (o.published_at < (now() - interval '{OPEN_WITHOUT_DEADLINE_DAYS} days')
+               OR right(o.procedure_type, {len(NO_CALL_PROCEDURE)}) = '{NO_CALL_PROCEDURE}'
                OR {SUPERSEDED_SQL})))
     THEN 'expired'
     WHEN o.status = 'forthcoming' AND o.deadline_at < now() THEN 'expired'
+    WHEN o.status = 'forthcoming' AND o.deadline_at IS NULL
+         AND o.published_at < (now() - interval '{PLANNED_WITHOUT_DEADLINE_DAYS} days') THEN 'expired'
     ELSE o.status END)"""
 
 
 def effective_status(status: str | None, deadline_at: datetime | None,
                      published_at: date | None, now: datetime | None = None,
-                     superseded: bool = False) -> str | None:
+                     superseded: bool = False, procedure: str | None = None) -> str | None:
     """The Python twin of EFFECTIVE_STATUS_SQL, for a row already fetched. `superseded`
     is SUPERSEDED_SQL for that row (it needs the other rows, so the caller asks the
-    database); it only counts for a notice with no deadline of its own."""
+    database); it only counts for a notice with no deadline of its own. `procedure`: the
+    stored `procedure_type` (WP-103: a procedure without a call)."""
     now = now or datetime.now(timezone.utc)
     if status == "forthcoming":
-        return "expired" if deadline_at is not None and deadline_at < now else status
+        if deadline_at is not None:
+            return "expired" if deadline_at < now else status
+        old = published_at is not None and published_at < (now - timedelta(days=PLANNED_WITHOUT_DEADLINE_DAYS)).date()
+        return "expired" if old else status
     if status != "open":
         return status
     if deadline_at is not None:
         return "expired" if deadline_at < now else "open"
-    if superseded:
+    if superseded or (procedure or "").endswith(NO_CALL_PROCEDURE):
         return "expired"
     if published_at is not None and published_at < (now - timedelta(
             days=OPEN_WITHOUT_DEADLINE_DAYS)).date():

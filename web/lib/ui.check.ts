@@ -50,6 +50,8 @@ assert.equal(upperShare('1234'), 0);
 // ---- Why a notice is listed: the signals, never a generic "Defence notice" ----
 assert.deepEqual(basisChips({ legalBasis: '32009L0081', scope: 'core' }), ['Defence directive (2009/81/EC)']);
 assert.deepEqual(basisChips({ legalBasis: '2009/81/EC', scope: 'core' }), ['Defence directive (2009/81/EC)']);
+// WP-103 (persona p01, /tenders/146480): Spain's transposition, as PLACSP states it, is the directive
+assert.deepEqual(basisChips({ legalBasis: 'Ley 24/2011 (defensa y seguridad)', scope: 'core' }), ['Defence directive (2009/81/EC)']);
 assert.deepEqual(basisChips({ legalBasis: '32014L0024', scope: 'core', buyerClass: 'fire_rescue' }), ['Military product code (CPV)', 'Fire and rescue body']);
 assert.deepEqual(
   basisChips({ scope: 'supply', buyerClass: 'defence', dualUse: true, securityClearance: true }),

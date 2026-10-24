@@ -20,11 +20,14 @@ export function ChangeEntry({ change }: { change: Change }) {
   const t = change.tender;
   const isNew = change.kind === 'new' || change.kind === 'award';
   const isAward = change.kind === 'award';
+  // WP-103 (persona p04, AU ZLT-50): a notice first collected that has since been cancelled says so, as its page does
+  const cancelled = isNew && t.statusNative === 'cancelled';
   const more = (change.repeats ?? 1) - 1;
   return (
     <Card as="article" className="h-full gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {isNew ? <Tag kind="programme">{isAward ? 'New award' : 'New'}</Tag> : <StatusPill status="amended" />}
+        {cancelled && <span data-cancelled><Tag>Cancelled since</Tag></span>}
         {t.country && <Tag>{t.country}</Tag>}
         <time dateTime={change.detectedAt} className="ml-auto font-mono text-mono text-ink-muted">Seen {formatDateTimeUtc(change.detectedAt)}</time>
       </div>

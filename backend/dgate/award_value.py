@@ -41,9 +41,19 @@ KINDS = (CONTRACT, FRAMEWORK, ESTIMATE)
 #   BT-709-LotResult     framework maximum value per lot
 #   BT-720-Tender        tender value, per winning tender
 # and the currencies the daily pull already reads.
+# WP-103: and the same fields under TED's own names, which the persona audit of 24 October read on the notices the site had
+# wrong (p10 ted-verify.json): `framework-maximum-value-lot` (BT-709) on STRABAG 638010-2024 (EUR 280,000,000) and Arquus
+# 38915-2026 (EUR 2,449,392,735, equal to its result value), `tender-value` (BT-720). Both spellings are read alike.
 TED_VALUE_FIELDS = ["BT-161-NoticeResult", "BT-118-NoticeResult", "BT-709-LotResult", "BT-720-Tender",
+                    "framework-maximum-value-lot", "tender-value",
                     "total-value-cur", "result-value-cur-notice", "estimated-value-cur-proc"]
-_EFORMS_VALUE_KEYS = ("BT-161-NoticeResult", "BT-118-NoticeResult", "BT-709-LotResult", "BT-720-Tender")
+_EFORMS_VALUE_KEYS = ("BT-161-NoticeResult", "BT-118-NoticeResult", "BT-709-LotResult", "BT-720-Tender",
+                      "framework-maximum-value-lot", "tender-value")
+# A notice's figure of a billion or more that its own estimate puts a hundred times lower was entered in the wrong unit
+# (the mapper's rule for the notice value, `normalise._CONTRADICTED_*`): World Aviation 220199-2026 states a result of EUR
+# 7,274,615,930 for one lot estimated at EUR 7,317,073.17, which topped the whole EUR ranking of suppliers (persona p10).
+CONTRADICTED_FROM = 1e9
+CONTRADICTED_RATIO = 100
 
 # Whole words of a title that make it a call-off, or a framework / dynamic purchasing system (EU languages the
 # archive holds most). The call-off words are tested first: "CB en AM" and "contratos basados en acuerdo marco"
@@ -56,9 +66,16 @@ _CALL_OFF = re.compile(
     r"|call[- ]offs?(?![a-z])|mini[- ]competition|contratt[oi]\s+attuativ|appalt[oi]\s+specific|march[ée]s?\s+subs[ée]quent"
     r"|umow[ay]\s+wykonawcz|zam[óo]wieni[ea]\s+wykonawcz|nadere\s+overeenkomst|einzelabruf|abrufauftrag",
     re.IGNORECASE)
+# WP-103 (persona p07, Indra): Spanish call-off titles write the "CB" (contrato basado) or "basado" apart from the "AM"
+# (acuerdo marco) they name: "CB Cuarto AM 2024/...", "20º CB en el AM 1640/22", "5º Basado AM 202340A1", "CB Nº2 Acuerdo
+# Marco", "Basado acuerdo marco exp. ...", "CB EN 24_AM 1388", "Quinto CD AM" (contrato derivado). The two words anywhere
+# in one title make it a call-off.
+_CALL_OFF_WORD = re.compile(r"(?<![a-z0-9])c\.?\s?[bd]\.?(?![a-z])|(?<![a-z])(?:basad|derivad)[oa]s?(?![a-z])",
+                            re.IGNORECASE)
+_FRAMEWORK_WORD = re.compile(r"(?<![a-z])a\.?\s?m(?![a-z])|acuerdos?\s+marco", re.IGNORECASE)
 _FRAMEWORK = re.compile(
     r"framework|acuerdos?\s+marco|(?<![a-z])a\.?\s?m\.?\s+\d|accord[oi]\s+quadro|accords?[- ]cadres?|rahmenvertr[aä]g"
-    r"|rahmenvereinbarung|raamovereenkomst|raamcontract|rammeaftale|rammeavtale|ramavtal|puitesopimus|puitej[aä]rjestely"
+    r"|rahmenvereinba\w*|raamovereenkomst|raamcontract|rammeaftale|rammeavtale|ramavtal|puitesopimus|puitej[aä]rjestely"
     r"|umow[ay]\s+ramow|r[aá]mcov[aá]\s+(?:dohoda|zmluva|smlouva)|keretmeg[aá]llapod|acordo[- ]quadro|acord[- ]cadru"
     r"|okvirn\w*\s+sporazum|raamleping|dynamic\s+purchasing|sistema\s+din[aá]mico\s+de\s+adquisici|dynamisches\s+beschaffungssystem"
     r"|syst[eè]me\s+d.acquisition\s+dynamique|(?<![a-z])dps(?![a-z])",
@@ -70,7 +87,7 @@ def kind_of_title(*titles: str | None) -> str | None:
     text = " ".join(t for t in titles if t)
     if not text:
         return None
-    if _CALL_OFF.search(text):
+    if _CALL_OFF.search(text) or (_CALL_OFF_WORD.search(text) and _FRAMEWORK_WORD.search(text)):
         return CONTRACT
     if _FRAMEWORK.search(text):
         return FRAMEWORK
@@ -135,39 +152,61 @@ def _currency(value: Any) -> str | None:
     return v[:3] if len(v) >= 3 and v[:3].isalpha() else None
 
 
+def contradicted(amount: float | None, opp: dict[str, Any]) -> bool:
+    """WP-103: whether `amount` is a figure in the wrong unit: a billion or more, and over CONTRADICTED_RATIO times the
+    notice's own estimate (the serving row's value where the mapper read an estimate or a sum of lot estimates)."""
+    if amount is None or amount < CONTRADICTED_FROM or opp.get("value_kind") not in ("estimated", "lot_sum"):
+        return False
+    stored = float(opp["value_amount"]) if opp.get("value_amount") is not None else None
+    return _usable(stored) and amount > CONTRADICTED_RATIO * stored
+
+
 def ted_value(rec: dict[str, Any] | None, opp: dict[str, Any]) -> tuple[float | None, str | None, str | None]:
     """(amount, currency, kind) of a TED result notice from its award record `rec` (with `TED_VALUE_FIELDS`, or None)
     and its serving row `opp` (value_amount, value_currency, value_kind, notice_subtype, title_original, title_en).
     A record that states one of the eForms value fields decides; one that states none (an older-format notice, a
     record fetched before WP-95, an eForms notice TED answers without them) leaves the stored value as the mapper
     chose it: a total is a contract value unless the title says framework, a sum of lot estimates an estimate.
+    WP-103: a figure the notice's own estimate contradicts (`contradicted`) is set aside (`ted_value_set_aside`) and
+    the estimate stands, as an estimate.
     ponytail: an eForms notice whose framework maximum TED leaves out is then read as a contract value."""
+    return _ted_value(rec, opp)[:3]
+
+
+def ted_value_set_aside(rec: dict[str, Any] | None, opp: dict[str, Any]) -> float | None:
+    """WP-103: the figure `ted_value` set aside as implausible (`contradicted`), or None."""
+    return _ted_value(rec, opp)[3]
+
+
+def _ted_value(rec: dict[str, Any] | None, opp: dict[str, Any]) -> tuple[float | None, str | None, str | None, float | None]:
     rec = rec or {}
     cur = (_currency(rec.get("total-value-cur")) or _currency(rec.get("result-value-cur-notice"))
            or _currency(rec.get("estimated-value-cur-proc")) or _currency(opp.get("value_currency")))
     stored = float(opp["value_amount"]) if opp.get("value_amount") is not None else None
     if any(k in rec for k in _EFORMS_VALUE_KEYS):
+        estimate = (stored, cur, ESTIMATE) if _usable(stored) and cur else (None, None, None)
         frame = _amount(rec.get("BT-118-NoticeResult"))
         if not _usable(frame):
-            lots = [a for a in _amounts(rec.get("BT-709-LotResult")) if _usable(a)]
+            lots = [a for a in _amounts(rec.get("BT-709-LotResult")) or _amounts(rec.get("framework-maximum-value-lot"))
+                    if _usable(a)]
             frame = sum(lots) if lots else None
-        if _usable(frame):
-            return round(frame, 2), cur, FRAMEWORK
         notice = _amount(rec.get("BT-161-NoticeResult"))
-        if _usable(notice):
-            return round(notice, 2), cur, CONTRACT
-        tenders = [a for a in _amounts(rec.get("BT-720-Tender")) if _usable(a)]
-        if tenders:
-            return round(sum(tenders), 2), cur, CONTRACT
+        tenders = [a for a in _amounts(rec.get("BT-720-Tender")) or _amounts(rec.get("tender-value")) if _usable(a)]
+        for amount, kind in ((frame, FRAMEWORK), (notice, CONTRACT), (sum(tenders) if tenders else None, CONTRACT)):
+            if not _usable(amount):
+                continue
+            if contradicted(amount, opp):
+                return (*estimate, round(amount, 2))
+            return round(amount, 2), cur, kind, None
         # the award states its values as placeholders (712069-2026: -1): what TED filled `total-value` with is the
         # procedure's estimate
-        return (stored, cur, ESTIMATE) if _usable(stored) and cur else (None, None, None)
+        return (*estimate, None)
     # no eForms value field: the stored value as the mapper chose it
     if not _usable(stored) or not cur:
-        return None, None, None
+        return None, None, None, None
     kind = opp.get("value_kind")
     if kind == "total":
-        return stored, cur, kind_of_title(opp.get("title_original"), opp.get("title_en")) or CONTRACT
+        return stored, cur, kind_of_title(opp.get("title_original"), opp.get("title_en")) or CONTRACT, None
     if kind in ("lot_sum", "estimated"):
-        return stored, cur, ESTIMATE
-    return None, None, None
+        return stored, cur, ESTIMATE, None
+    return None, None, None, None

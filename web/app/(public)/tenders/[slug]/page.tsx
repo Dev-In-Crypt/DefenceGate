@@ -187,6 +187,12 @@ export default async function TenderDetailPage({ params }: Props) {
             {awardedPersons > 0 && `${awardedTo.length > 0 ? '; and ' : ''}${awardedPersons === 1 ? 'a natural person' : `${awardedPersons} natural persons`}, not named`}
           </p>
         )}
+        {/* WP-103: an award whose winners have not been read is said to be so, not left to look like an award to nobody */}
+        {awardedTo.length === 0 && awardedPersons === 0 && tender.winnersRead === false && tender.statusNative === 'awarded' && (
+          <p className="m-0 max-w-prose text-body" data-winners-not-read>
+            <span className="text-ink-muted">Awarded to: </span>not read yet by DefenceGate; the original notice names the winners
+          </p>
+        )}
         {/* WP-90: the subject in the notice's own words (its first sentence, commercial only: the API leaves out a specification or a contact) */}
         {tender.subject && (
           <p className="m-0 max-w-prose text-body" data-subject>
@@ -209,7 +215,9 @@ export default async function TenderDetailPage({ params }: Props) {
                 <FactCell label={AWARD_VALUE_LABEL[award.kind]}>
                   <AmountDisplay money={{ amount: award.amount, currency: award.currency }} size="lg" />
                   {award.kind === 'framework' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">The most that may be bought under the framework agreement, not a contract value</div>}
-                  {award.kind === 'estimate' && <div className="mt-1 font-sans text-small font-normal text-ink-muted">The award states no value; this is the buyer’s estimate</div>}
+                  {award.kind === 'estimate' && !award.setAside && <div className="mt-1 font-sans text-small font-normal text-ink-muted">The award states no value; this is the buyer’s estimate</div>}
+                  {/* WP-103: a published figure the notice's own estimate contradicts is said, and not used */}
+                  {award.kind === 'estimate' && award.setAside ? <div className="mt-1 font-sans text-small font-normal text-ink-muted" data-set-aside>The award states {formatMoney({ amount: award.setAside, currency: award.currency })}, over a hundred times the buyer’s estimate: most likely an entry in the wrong unit, so it is in no sum or ranking; this is the buyer’s estimate</div> : null}
                 </FactCell>
               ) : (
               <FactCell label="Estimated value">
@@ -319,7 +327,8 @@ export default async function TenderDetailPage({ params }: Props) {
         )}
 
         <Panel title="Version history">
-          <p className="m-0 text-small text-ink-muted">{versions.length > 1 ? `${versions.length} versions observed.` : 'One version observed so far.'}</p>
+          {/* WP-103: the count is of the versions listed; DefenceGate's own corrections are counted apart, under it (persona p10: "3 versions observed" over one) */}
+          <p className="m-0 text-small text-ink-muted" data-version-count>{ownVersions.length > 1 ? `${ownVersions.length} versions observed` : 'One version observed so far'}{corrections.length > 0 ? `, and ${corrections.length} ${corrections.length === 1 ? 'correction' : 'corrections'} by DefenceGate (below).` : '.'}</p>
           <AboutData summary="What counts as a new version">
             <p className="m-0">
               We keep a new version when the title, buyer, country, procedure, legal basis, value, currency, publication date, deadline, product codes, source link or status changes. Earlier versions are never overwritten or deleted. History starts when we first saw the notice; our archive began in September 2026.

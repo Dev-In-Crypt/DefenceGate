@@ -19,6 +19,25 @@ Expected effect (persona audit of 23 October 2026): Rheinmetall Landsysteme 3905
 854350-2025 (DKK 97 m) become framework ceilings; 712069-2026 (EUR 1.16 m) an estimate; the MADZEAL IVECO framework
 (TED 389204-2026 / PLACSP 2025/AR43U/00001894E) a ceiling with its call-off 2026/AR43U/00002206E linked to it. The
 contract sums of the suppliers fall by what those were; the ceilings and estimates are shown apart.
+
+WP-103 (persona round of 24 October 2026):
+
+    python -m dgate.ops.award_values --all          # step 1 for every TED notice with winners, not only those without
+                                                    # a kind: the kinds a --no-fetch run took from the titles are
+                                                    # asked again (asks TED; refused with --no-fetch)
+
+  3. (no TED request) TED notices whose held figure its own estimate contradicts (`award_value.contradicted`, a billion
+     or more and over a hundred times the estimate): the estimate stands as the value, kind estimate, and the figure is
+     kept in `award_notice.value_set_aside`.
+  4. (no TED request) PLACSP award rows held as a framework ceiling whose title reads as a call-off under the widened
+     rule ("CB Cuarto AM", "5º Basado AM", "CB Nº2 Acuerdo Marco"): a contract.
+  After a write the supplier value orders are renewed (`awards.refresh_award_twins`).
+
+Expected on production (read-only counts of 24 October 2026, docs/verification/round3/wp103-selfcheck.md): step 3
+World Aviation 220199-2026 (EUR 7,274,615,930 set aside, EUR 7,317,073.17 estimate); step 4 the 29 Indra call-offs of
+persona p07 (EUR 59.5 m back in Indra's contract sum) among the PLACSP rows held as framework; --all STRABAG 638010-2024
+(EUR 280 m) and Arquus 38915-2026 (EUR 2,449,392,735) framework ceilings, about 90 requests for the 8,887 TED notices
+with winners.
 """
 
 from __future__ import annotations
@@ -31,35 +50,51 @@ from typing import Any
 
 from .. import db
 from ..award_set import PLACSP_IDS
-from ..award_value import TED_VALUE_FIELDS, placsp_kind, ted_value
-from ..awards import VALUE_COLUMNS
+from ..award_value import (
+    CONTRACT,
+    ESTIMATE,
+    FRAMEWORK,
+    TED_VALUE_FIELDS,
+    contradicted,
+    kind_of_title,
+    placsp_kind,
+    ted_value,
+    ted_value_set_aside,
+)
+from ..awards import VALUE_COLUMNS, refresh_award_twins
 from ..config import settings
 from ..placsp_awards import framework_of
 from ..sources import USER_AGENT, new_client, ted
 
-
-def _ted_rows(conn) -> list[dict[str, Any]]:
-    return conn.execute(
-        f"""SELECT n.opportunity_id AS id, o.native_id, n.value_amount AS n_va, n.value_currency AS n_vc,
-                   n.value_kind AS n_vk, n.winners_seen, {VALUE_COLUMNS}
-              FROM award_notice n JOIN opportunity o ON o.id = n.opportunity_id
-             WHERE o.source_id = (SELECT id FROM source WHERE code = 'ted') AND n.winners_kept > 0
-               AND n.value_kind IS NULL           -- not derived yet: a loaded or written kind is never replaced
-             ORDER BY n.opportunity_id""").fetchall()
+_TED_ROWS = f"""SELECT n.opportunity_id AS id, o.native_id, n.value_amount AS n_va, n.value_currency AS n_vc,
+                       n.value_kind AS n_vk, n.value_set_aside AS n_sa, n.winners_seen, {VALUE_COLUMNS}
+                  FROM award_notice n JOIN opportunity o ON o.id = n.opportunity_id
+                 WHERE o.source_id = (SELECT id FROM source WHERE code = 'ted')"""
 
 
-def _write_ted(conn, r: dict[str, Any], value: tuple, c: Counter, write: bool) -> None:
+def _ted_rows(conn, every: bool = False) -> list[dict[str, Any]]:
+    # not derived yet: a loaded or written kind is never replaced, unless `every` (WP-103 --all: asked again)
+    pending = "" if every else " AND n.value_kind IS NULL"
+    return conn.execute(f"{_TED_ROWS} AND n.winners_kept > 0{pending} ORDER BY n.opportunity_id").fetchall()
+
+
+def _same(held: Any, new: float | None) -> bool:
+    return held is None if new is None else held is not None and float(held) == new
+
+
+def _write_ted(conn, r: dict[str, Any], value: tuple, c: Counter, write: bool, set_aside: float | None = None) -> None:
     va, vc, vk = value
-    same = (r["n_vk"] == vk and r["n_vc"] == vc
-            and (r["n_va"] is None if va is None else r["n_va"] is not None and float(r["n_va"]) == va))
+    same = r["n_vk"] == vk and r["n_vc"] == vc and _same(r["n_va"], va) and _same(r.get("n_sa"), set_aside)
     c[f"ted_{vk or 'none'}"] += 1
     if same:
         return
     c["ted_notices_changed"] += 1
+    if r["n_vk"] and vk != r["n_vk"]:
+        c[f"ted_{r['n_vk']}_to_{vk or 'none'}"] += 1
     if not write:
         return
-    conn.execute("UPDATE award_notice SET value_amount = %s, value_currency = %s, value_kind = %s "
-                 "WHERE opportunity_id = %s", (va, vc, vk, r["id"]))
+    conn.execute("UPDATE award_notice SET value_amount = %s, value_currency = %s, value_kind = %s, value_set_aside = %s "
+                 "WHERE opportunity_id = %s", (va, vc, vk, set_aside, r["id"]))
     if r["winners_seen"] == 1:
         c["ted_award_rows"] += conn.execute(
             """UPDATE award SET value_amount = %s, value_currency = %s, value_kind = %s
@@ -68,9 +103,10 @@ def _write_ted(conn, r: dict[str, Any], value: tuple, c: Counter, write: bool) -
             (va, vc, vk, r["id"], va, vc, vk)).rowcount
 
 
-def run_ted(conn, *, fetch: bool, write: bool, pause: float = 1.0, examples: list[str] | None = None) -> Counter:
+def run_ted(conn, *, fetch: bool, write: bool, pause: float = 1.0, examples: list[str] | None = None,
+            every: bool = False) -> Counter:
     c: Counter = Counter()
-    rows = _ted_rows(conn)
+    rows = _ted_rows(conn, every)
     c["ted_notices"] = len(rows)
     client = new_client(headers={"User-Agent": USER_AGENT}) if fetch else None
     try:
@@ -91,12 +127,31 @@ def run_ted(conn, *, fetch: bool, write: bool, pause: float = 1.0, examples: lis
                 if examples is not None and value[2] in ("framework", "estimate") and len(examples) < 15:
                     examples.append(f"{r['native_id']}: {value[2]} {value[0]} {value[1]} (stored {r['value_amount']} "
                                     f"{r['value_kind']})")
-                _write_ted(conn, r, value, c, write)
+                _write_ted(conn, r, value, c, write, ted_value_set_aside(rec, r))
             if write:
                 conn.commit()
     finally:
         if client is not None:
             client.close()
+    return c
+
+
+def run_set_aside(conn, *, write: bool, examples: list[str] | None = None) -> Counter:
+    """WP-103, step 3: a held TED figure that the notice's own estimate contradicts is set aside; the estimate stands."""
+    c: Counter = Counter()
+    rows = conn.execute(f"""{_TED_ROWS} AND n.value_kind IN ('{CONTRACT}', '{FRAMEWORK}') AND n.value_amount >= 1e9
+                             ORDER BY n.opportunity_id""").fetchall()
+    for r in rows:
+        if not contradicted(float(r["n_va"]), r):
+            continue
+        c["ted_values_set_aside"] += 1
+        if examples is not None and len(examples) < 15:
+            examples.append(f"{r['native_id']}: {r['n_vk']} {r['n_va']} {r['n_vc']} set aside, estimate "
+                            f"{r['value_amount']} {r['value_currency']}")
+        _write_ted(conn, r, (float(r["value_amount"]), r["value_currency"], ESTIMATE), Counter(), write,
+                   float(r["n_va"]))
+    if write:
+        conn.commit()
     return c
 
 
@@ -119,6 +174,12 @@ def run_placsp(conn, *, write: bool, examples: list[str] | None = None) -> Count
                 c["placsp_rows_changed"] += 1
                 if write:
                     conn.execute("UPDATE award SET value_kind = %s WHERE id = %s", (kind, r["id"]))
+        elif r["value_kind"] == FRAMEWORK and kind_of_title(r["title_original"]) == CONTRACT:
+            # WP-103, step 4: a call-off the narrower title rule of WP-95 read as its framework's ceiling
+            c["placsp_call_offs_framework_to_contract"] += 1
+            c["placsp_call_offs_amount_eur"] += round(float(r["value_amount"]))
+            if write:
+                conn.execute("UPDATE award SET value_kind = %s WHERE id = %s", (CONTRACT, r["id"]))
         if r["opportunity_id"] in seen:
             continue
         seen.add(r["opportunity_id"])
@@ -141,13 +202,22 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="dgate.ops.award_values", description=__doc__.split("\n\n")[0])
     p.add_argument("--yes", action="store_true", help="write (the default is a report)")
     p.add_argument("--no-fetch", action="store_true", help="ask TED nothing: the stored values and titles only")
+    p.add_argument("--all", action="store_true", help="WP-103: ask TED again for every notice with winners, not only "
+                                                      "those without a kind (needs the fetch)")
     a = p.parse_args(argv)
+    if a.all and a.no_fetch:
+        p.error("--all asks TED again; it cannot run with --no-fetch")
     examples: list[str] = []
     links: list[str] = []
+    set_aside: list[str] = []
     with db.connect(settings().dsn) as conn:
-        c = run_ted(conn, fetch=not a.no_fetch, write=a.yes, examples=examples)
+        c = run_ted(conn, fetch=not a.no_fetch, write=a.yes, examples=examples, every=a.all)
+        c.update(run_set_aside(conn, write=a.yes, examples=set_aside))
         c.update(run_placsp(conn, write=a.yes, examples=links))
-        if not a.yes:
+        if a.yes:
+            c["award_twin_pairs"] = refresh_award_twins(conn)      # and the supplier value orders (WP-98c)
+            conn.commit()
+        else:
             conn.rollback()
     print("written" if a.yes else "report only (add --yes to write)")
     for k in sorted(c):
@@ -155,6 +225,10 @@ def main(argv: list[str] | None = None) -> int:
     if examples:
         print("TED ceilings and estimates (first 15):")
         for e in examples:
+            print("  " + e)
+    if set_aside:
+        print("TED figures set aside as implausible (first 15):")
+        for e in set_aside:
             print("  " + e)
     if links:
         print("PLACSP call-offs linked to their framework (first 30):")

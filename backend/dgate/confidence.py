@@ -92,14 +92,24 @@ def confidence(*, legal_basis: bool, military_cpv: bool, buyer: bool,
     return LOW, basis
 
 
-def label(level: str, *, buyer: bool, military_cpv: bool) -> str:
-    """WP-95: the level in words, by what it rests on (never a probability word)."""
+def label(level: str, *, buyer: bool, military_cpv: bool, legal_basis: bool = False,
+          buyer_class: str | None = None) -> str:
+    """WP-95: the level in words, by what it rests on (never a probability word).
+    WP-103 (personas p04, p05): a notice filed under the defence and security directive is never called a "Weak defence
+    signal": 10 million 7.62 rounds for the Polish police and the Cyprus police's UAVs, both under 2009/81/EC, were, while
+    a Danish UAV system under the civil directive was "Clearly defence". The level is unchanged (it is the measured
+    precision); the words say what it rests on: the directive, and the kind of buyer."""
     if level == HIGH:
         return "Clearly defence"
     if level == MEDIUM:
         if buyer:
             return "Defence buyer, some military codes" if military_cpv else "Defence buyer, ordinary purchase"
         return "Defence directive, unlisted buyer"
+    if legal_basis:
+        if buyer_class == "security":
+            return "Defence and security directive, security buyer"
+        return ("Defence directive, unlisted buyer" if buyer_class in (None, *_DEFENCE_OR_UNKNOWN)
+                else "Defence directive, civil buyer")
     return "Weak defence signal"
 
 
@@ -120,7 +130,8 @@ def confidence_of_row(r: dict[str, Any]) -> dict[str, Any]:
         dual_use=bool(r.get("dual_use")), buyer_class=r.get("buyer_class"),
         main_military=main_is_military(r.get("cpv_codes")))
     return {"level": level, "basis": basis,
-            "label": label(level, buyer=bool(r.get("sig_buyer")), military_cpv=military)}
+            "label": label(level, buyer=bool(r.get("sig_buyer")), military_cpv=military,
+                           legal_basis=bool(r.get("sig_legal_basis")), buyer_class=r.get("buyer_class"))}
 
 
 def _main_military_sql() -> str:
