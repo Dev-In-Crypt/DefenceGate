@@ -12,7 +12,7 @@ import { cpvForWords } from '@/lib/cpv';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
 import { coverageText, placspCredit, placspNote } from '@/lib/supplier-sources';
-import { listValueLine } from '@/lib/value-totals';
+import { groupValueLine, listValueLine } from '@/lib/value-totals';
 import { CoverageNote } from '@/components/dg/coverage-note';
 import type { SupplierSort } from '@/lib/types';
 import { EmptyState } from '@/components/dg/feedback';
@@ -176,8 +176,11 @@ export default async function SuppliersPage({ searchParams }: Props) {
         {f.group && (
           <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small" data-group-view>
             The companies of a curated company group (a parent and its subsidiaries, from the source named on each company&rsquo;s page). Each
-            is a company of its own with its own contracts; nothing is merged or added up across them. <Link href="/suppliers" className="font-semibold">Show every supplier</Link>
+            is a company of its own with its own contracts; nothing is merged across them. <Link href="/suppliers" className="font-semibold">Show every supplier</Link>
           </p>
+        )}
+        {f.group && groupValueLine(result.groupTotals) && (
+          <p className="m-0 max-w-prose text-small text-ink" data-group-total>{groupValueLine(result.groupTotals)}</p>
         )}
         <LiveForm defaults={{ sort: 'awards' }}>
         <form method="get" action="/suppliers" role="search" aria-label="Find suppliers" className="flex flex-wrap items-end gap-3">

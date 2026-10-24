@@ -34,6 +34,8 @@ const NAME_KNOWN = [
   // legal forms that are no word
   'SAS', 'SARL', 'SRO', 'DOO', 'UAB', 'SIA', 'ASA', 'EOOD', 'OOD', 'JSC', 'CLG', 'LBG', 'EEIG', 'ASBL', 'ETS', 'SLU', 'SAU',
   'IKE', 'SCPA', 'SNC', 'AIE', 'GIE', 'ApS', 'Kft', 'Lda', 'ehf', 'mbH', 'gGmbH',
+  // WP-104: the mark of a Spanish state company (Sociedad Mercantil Estatal), "NAVANTIA SA, SME": not the word "Sme"
+  'SME',
   'GmbH', 'Ltd', 'LLC', 'PLC', 'NV', 'BV', 'SRL', 'OYJ',
 ];
 const NAME_KNOWN_BY_KEY = new Map(NAME_KNOWN.map((k) => [k.toLowerCase(), k]));
@@ -162,8 +164,16 @@ export function displayName(text: string, kind: NameKind = 'sentence'): string {
   return shoutCase(text, kind);
 }
 
+/** WP-104: a name of at most three words of at most four letters each, all in capitals, is a row of abbreviations ("DID SDS":
+ * Direction d'Infrastructure de la Defense, Saint-Denis), not a shouted name: it is not cased ("Did Sds"). */
+function abbreviations(text: string): boolean {
+  const words = text.split(/[\s,.;/()-]+/).filter((w) => LETTER.test(w));
+  return words.length > 0 && words.length <= 3 && words.every((w) => letterCount(w) <= 4 && !LOWER.test(w));
+}
+
 function shoutCase(text: string, kind: NameKind): string {
   if (upperShare(text) < 0.6 || capitalWordShare(text) < 0.75) return text;
+  if (kind === 'title' && abbreviations(text)) return text;
   return text.split(/(\s+[-–—]\s+)/).map((part, i) => {
     if (i % 2 === 1 || !part.trim()) return part;
     if (part.trim().split(/\s+/).length === 1 && letterCount(part) <= 4) return part;

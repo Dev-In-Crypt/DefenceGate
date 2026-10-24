@@ -82,6 +82,17 @@ export function listValueLine(sums: ValueSum[], of: number): string {
   return `Contract values: ${sums.map((s, i) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${i === 0 ? `${formatNumber(s.count)} of ${n(of, 'contract')}` : formatNumber(s.count)}`).join('; ')}`;
 }
 
+/**
+ * WP-104: the total of a curated company group (`/suppliers?group=leonardo`): its companies' contract values added up per currency,
+ * never converted. Null when the API sent none (no group asked); a sentence saying so when no company states a value.
+ */
+export function groupValueLine(sums: ValueSum[] | null | undefined): string | null {
+  if (!sums) return null;
+  if (sums.length === 0) return 'Group total: no company of the group states a contract value under these filters.';
+  return `Group total of contract values: ${sums.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${n(s.count, 'contract')}`).join('; ')}`
+    + ' (added up per currency, never converted; a contract two companies of the group won together counts for each).';
+}
+
 /** WP-87: the value under which a contract's figure is read as a unit price (the API's SUPPLIERS.SUSPECT_VALUE_MAX). */
 export const SUSPECT_VALUE_MAX = 1000;
 /** The cell of a contract whose value is under SUSPECT_VALUE_MAX. */

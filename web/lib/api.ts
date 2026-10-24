@@ -6,6 +6,7 @@
  */
 import { headers } from 'next/headers';
 import { TtlCache } from './export-cache';
+import type { ValueSum } from './value-totals';
 import type { Buyer, BuyerFilters, BuyerProfile, BuyerSuppliers, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierContracts, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
@@ -409,7 +410,7 @@ export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<B
 const SUPPLIER_PAGE_SIZE = 20;
 
 /** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is five invented companies (lib/mock/suppliers.ts). */
-export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string; valuesAsOf?: string | null; valuesBehind?: boolean }> {
+export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string; valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null }> {
   if (!API_BASE) return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
@@ -423,7 +424,7 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
   const filtered = p.size > 0;
   p.set('pageSize', String(f.pageSize ?? SUPPLIER_PAGE_SIZE));
   const path = `/v1/suppliers?${p.toString()}`;
-  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem> & { valuesAsOf?: string | null; valuesBehind?: boolean }>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
+  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem> & { valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null }>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
 }
 
 /** The public aggregate (GET /v1/suppliers/summary). null when the API has no supplier map yet. */

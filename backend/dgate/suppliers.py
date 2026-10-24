@@ -344,6 +344,9 @@ class SupplierPage(BaseModel):
     # (the order may then miss its newest contracts; each card's own values are summed now). None: summed now.
     valuesAsOf: datetime | None = None
     valuesBehind: bool = False
+    # WP-104: with `group`, the group's contract values per currency (never converted): every company of the list under
+    # the same filters, each procurement once per company, as each card's own `contractValues` sums them. None otherwise.
+    groupTotals: list[ValueSum] | None = None
 
 
 class Count(BaseModel):
@@ -691,7 +694,14 @@ def list_suppliers(
                               {**params, "page_orgs": [r["id"] for r in rows]}).fetchall():
             values.setdefault(v["org"], []).append(
                 {"currency": v["vc"], "amount": float(v["amount"]), "count": v["n"], "lotEstimates": 0})
-    return {"items": [{**_item(r), "contractValues": sorted(values.get(r["id"], []), key=lambda s: (-s["count"], s["currency"]))}
+    group_totals = None
+    if isinstance(group, str) and group:
+        # WP-104: the group's sum is the sum of its companies' sums (Leonardo group, persona round of 24 October)
+        group_totals = [{"currency": r["vc"], "amount": float(r["amount"]), "count": r["n"], "lotEstimates": 0}
+                        for r in conn.execute(
+            f"""SELECT cv.vc, sum(cv.amount) AS amount, sum(cv.n)::int AS n FROM ({contract_values_sql(cond, twins)}) cv
+                 GROUP BY cv.vc ORDER BY sum(cv.n) DESC, cv.vc""", params).fetchall()]
+    return {"groupTotals": group_totals, "items": [{**_item(r), "contractValues": sorted(values.get(r["id"], []), key=lambda s: (-s["count"], s["currency"]))}
                       for r in rows],
             "total": total, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET, "withheld": False,
             # WP-98c: the time of a stored order, and whether an award load finished after it

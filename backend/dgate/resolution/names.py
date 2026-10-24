@@ -67,6 +67,9 @@ _EXTRA_FORMS: tuple[tuple[str, ...], ...] = (
     ("aktiengesellschaft",), ("gesellschaft", "mit", "beschrankter", "haftung"),
     ("sociedade", "anonima"), ("societa", "per", "azioni"), ("societe", "anonyme"),
     ("anonymi", "etaireia"), ("anonymos", "etaireia"), ("etaireia", "periorismenis", "efthynis"),
+    # WP-104: the mark of a Spanish state company (Sociedad Mercantil Estatal: "NAVANTIA, S.A., S.M.E.", "NAVANTIA SA,
+    # SME"), which the name carries after its form, and the singular the notices misspell ("Leonardo, Societa per Azione")
+    ("s", "m", "e"), ("sme",), ("societa", "per", "azione"),
 )
 _EXTRA_BY_LEN = sorted(_EXTRA_FORMS, key=len, reverse=True)
 
@@ -143,7 +146,7 @@ _FORM_CLASSES: dict[str, tuple[tuple[str, ...], ...]] = {
     "sarl": (("sarl",), ("s", "a", "r", "l"), ("societe", "a", "responsabilite", "limitee")),
     "sl": (("sl",), ("s", "l"), ("sociedad", "limitada"), ("slu",), ("s", "l", "u")),
     "srl": (("srl",), ("s", "r", "l"), ("societa", "a", "responsabilita", "limitata")),
-    "spa": (("spa",), ("s", "p", "a"), ("societa", "per", "azioni")),
+    "spa": (("spa",), ("s", "p", "a"), ("societa", "per", "azioni"), ("societa", "per", "azione")),
     "bv": (("bv",), ("b", "v"), ("besloten", "vennootschap")),
     "nv": (("nv",), ("n", "v"), ("naamloze", "vennootschap")),
     "zoo": (("sp", "z", "o", "o"), ("spzoo",), ("spolka", "z", "ograniczona", "odpowiedzialnoscia")),

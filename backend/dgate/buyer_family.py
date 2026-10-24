@@ -39,7 +39,10 @@ NAMED: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
     # The Federal Office for Bundeswehr Equipment, IT and In-Service Support. Its desks
     # (K2 4, G2 1, E3 6 ...), its Koblenz seat, its tender collection point and the
     # misspelt long names (the notices are typed by hand) are all the one federal office.
-    ("baainbw", "DE", re.compile(r"^(?:baainbw\b|bundesamt fu(?:r|er) ausr(?:u|ue)stung\b)"),
+    # WP-104: also its name typed twice at the start ("Bundesamt für Bundesamt für Ausrüstung ...") and with two words
+    # swapped ("Bundesamt für Informationstechnik, Ausrüstung und Nutzung der Bundeswehr").
+    ("baainbw", "DE", re.compile(r"^(?:baainbw\b|(?:bundesamt fu(?:r|er) )?bundesamt fu(?:r|er) ausr(?:u|ue)stung\b"
+                                 r"|bundesamt fu(?:r|er) informationstechnik ausr(?:u|ue)stung und nutzung\b)"),
      "one federal office; the names begin with its name or its abbreviation"),
     # The Navy arsenal: two sites (Wilhelmshaven, Rostock/Warnowwerft), one authority.
     ("marinearsenal", "DE", re.compile(r"^marinearsenal\b"),
@@ -57,12 +60,32 @@ NAMED: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
     # WP-96: the Dutch Ministry of Defence publishes as the ministry, as its materiel organisation (DMO, 7 spellings), its
     # service centres (CDC), its support command (DOSCO), its armed services and logistics centres, in Dutch and English
     # ("Ministry of Defence (MoD)", "Defence Materiel Organisation (DMO)"): one ministry, one buyer with its units.
+    # WP-104: and the English names with the country in front ("Netherlands Ministry of Defence", "Dutch ...", "The
+    # Netherlands Ministry of Defence (MoDNL)", "NL ...", "NLD ..."), misspelt ("Ministery of Defence", "Ministery van
+    # Defence") and the armed services in English ("Royal Netherlands Air Force, Logistic Centre Woensdrecht").
     ("nl_defensie", "NL", re.compile(
-        r"^(?:ministerie van defensie|ministry of defen[cs]e\b|defensie materieel organisatie|defen[cs]e materi[ae]l"
+        r"^(?:ministerie van defensie|(?:(?:the )?netherlands |dutch |nld? )?ministe?ry (?:of|van) defen[cs]e\b"
+        r"|defensie materieel organisatie|defen[cs]e materi[ae]l"
         r" organi[sz]ation|dmo\b|commando dienstencentra|cdc\b|defensie ondersteuningscommando|dosco\b"
         r"|commando (?:landstrijdkrachten|zeestrijdkrachten|luchtstrijdkrachten)|clas\b|czsk\b|clsk\b"
-        r"|koninklijke (?:marine|landmacht|luchtmacht)\b|logisti(?:ek|c) cent(?:rum|re) woensdrecht|matlogco\b)"),
+        r"|koninklijke (?:marine|landmacht|luchtmacht)\b|royal netherlands (?:navy|army|air force)\b"
+        r"|logisti(?:ek|c) cent(?:rum|re) woensdrecht|matlogco\b)"),
      "one ministry: the Ministerie van Defensie and its units (DMO, CDC, DOSCO, the armed services), Dutch and English"),
+    # WP-104: the three technical directorates of the Italian Secretariat General of Defence / National Armaments
+    # Directorate (SGD/DNA), each one office with its abbreviation, written with or without the ministry and the
+    # secretariat in front ("Ministero della Difesa - SGD-DNA - Direzione degli Armamenti Terrestri", "TERRARM").
+    ("it_terrarm", "IT", re.compile(r"\barmamenti terrestri\b|\bterrarm\b"),
+     "one directorate (Direzione degli Armamenti Terrestri, TERRARM), with and without the ministry in front"),
+    ("it_armaereo", "IT", re.compile(r"\barmamenti aeronautici\b|\barmaereo\b"),
+     "one directorate (Direzione degli Armamenti Aeronautici e per l'Aeronavigabilita, ARMAEREO)"),
+    ("it_navarm", "IT", re.compile(r"\barmamenti navali\b|\bnavarm\b"),
+     "one directorate (Direzione degli Armamenti Navali, NAVARM), with and without the ministry in front"),
+    # WP-104: the Portuguese Army and Air Force publish as the service, as its staff (Estado-Maior), its logistics
+    # command and its directorates, with and without the ministry in front: one service each, its units under it.
+    ("pt_exercito", "PT", re.compile(r"\bexercito\b"),
+     "one service (Exercito Portugues): its staff, logistics command and directorates"),
+    ("pt_forca_aerea", "PT", re.compile(r"\bforca aerea\b|\bfap\b"),
+     "one service (Forca Aerea Portuguesa): its staff, logistics command (CLAFA) and directorates (DAT, DMSA)"),
     # Spain's army logistics command's economic affairs office, written JAEMALE, Jae Male and JAE MALE.
     ("jae_male", "ES", re.compile(r"^jae ?male\b"),
      "one office (Jefatura de Asuntos Economicos del Mando de Apoyo Logistico), with and without a space"),
@@ -71,23 +94,34 @@ NAMED: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
 # WP-96: spellings of one name that the stored form keeps apart, per country: a German abbreviation and a typo of the
 # notices ("Staatl. Hochbauamt" / "Staatliches Hochbauamt", "Beschafffungsamt des BMI").
 _SPELLINGS: dict[str, tuple[tuple[re.Pattern[str], str], ...]] = {
-    "DE": ((re.compile(r"^staatl\b"), "staatliches"), (re.compile(r"\bbeschafffung"), "beschaffung")),
+    # WP-104: "Staatliche Hochbauamt" (the article dropped) is the Staatliches Hochbauamt too
+    "DE": ((re.compile(r"^staatl(?:iche)?\b"), "staatliches"), (re.compile(r"\bbeschafffung"), "beschaffung")),
 }
+# WP-104: "Bundesrepublik Deutschland, vertreten durch das BMVg, vertreten durch das Staatliche Hochbauamt Ulm": the
+# State or a Land contracts through an office, which runs the procedure and is the buyer the notice names last. The
+# office the last "vertreten durch" (or "endvertreten durch") names, with its article, when that is two words or more.
+_DE_REPRESENTED = re.compile(r"^.*\b(?:end)?vertreten (?:durch|d)\s+(?:(?:das|die|den|dem|der|d)\s+)?(\S+\s+\S.*)$")
 # The State Treasury ('Skarb Panstwa') in front of a Polish budget unit, and the seat after a numbered logistics base or
 # military economic department ('1 Regionalna Baza Logistyczna w Walczu'): one unit with and without them.
 _PL_TREASURY = re.compile(r"^skarb panstwa\s+")
 _PL_SEAT = re.compile(r"^(\d+ (?:regionalna baza logistyczna|wojskowy oddzial gospodarczy)) w \w+$")
+# WP-104: the patron a Polish body is named after ("Akademia Wojsk Ladowych imienia generala Tadeusza Kosciuszki"): one
+# body with and without it
+_PL_PATRON = re.compile(r"^(\S+\s+\S.*?)\s+(?:imienia|im)\s+\S.*$")
 
 
 def _spelled(country: str, name: str) -> str:
     """The name with a dash read as a space and the country's spellings made one (`_SPELLINGS`, the Polish treasury
     prefix and seat)."""
     out = re.sub(r"\s*-\s*", " ", name).strip()
+    if country == "DE" and (m := _DE_REPRESENTED.match(out)):
+        out = m.group(1)
     for rx, repl in _SPELLINGS.get(country, ()):
         out = rx.sub(repl, out)
     if country == "PL":
         out = _PL_TREASURY.sub("", out)
         out = _PL_SEAT.sub(r"\1", out)
+        out = _PL_PATRON.sub(r"\1", out)
     return re.sub(r"\s+", " ", out)
 
 # Renamed bodies (WP-87, owner decision of 22 October 2026): a curated list of a predecessor's names and the family of
@@ -124,11 +158,15 @@ def family_of(country: str | None, name: str | None) -> Family | None:
     n = (name or "").strip()
     if not c or not n:
         return None
+    spelled = _spelled(c, n)
+    # WP-104: the rules read the spelled name too ("Bundesrepublik Deutschland vertreten durch das Bundesamt fuer
+    # Ausruestung ..." is the BAAINBw)
+    names = (n, spelled) if spelled != n else (n,)
     for country_, pattern, label, confidence, _evidence in RENAMES:
-        if c == country_ and pattern.search(n):
+        if c == country_ and any(pattern.search(x) for x in names):
             return Family(f"{c}:rule:{label}", CURATED_RENAME, confidence)
     for label, country_, pattern, _why in NAMED:
-        if c == country_ and pattern.search(n):
+        if c == country_ and any(pattern.search(x) for x in names):
             # "rule:" cannot occur in a normalised name, so a row that is merely called "hil"
             # never lands in the key of the HIL rule
             return Family(f"{c}:rule:{label}", f"rule:{label}", RULE)
@@ -136,7 +174,6 @@ def family_of(country: str | None, name: str | None) -> Family | None:
         stripped = _fr_stripped(n)
         if stripped and stripped != n:
             return Family(f"{c}:{stripped}", "fr_ministry", RULE)
-    spelled = _spelled(c, n)
     if spelled and spelled != n:
         # WP-96: dash, abbreviation, typo, treasury prefix or seat variants of one name
         return Family(f"{c}:{spelled}", "spelling_variant", RULE)
