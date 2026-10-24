@@ -126,9 +126,9 @@ def test_a_list_item_states_the_subject_without_the_part_number(client, conn):
     tid = store(conn, replace(opp("37631-LIKE"), description="GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE 2520410039852"))
     change = store(conn, replace(opp("269322-LIKE"), description="Modification de la date limite de réception des offres"))
     items = {i["id"]: i for i in get(client, "/v1/tenders")["items"]}
-    assert items[str(tid)]["subject"] == "GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE"
+    assert items[str(tid)]["subject"] == "GELENKWELLE MIT AUSGLEICHSGELENK"   # WP-110: the cut word goes
     assert items[str(change)]["subject"] is None
-    assert get(client, f"/v1/tenders/{tid}")["subject"] == "GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE"
+    assert get(client, f"/v1/tenders/{tid}")["subject"] == "GELENKWELLE MIT AUSGLEICHSGELENK"
 
 
 # ============================================================== 3. the procedure's other notices

@@ -231,8 +231,21 @@ export function cpvForWords(words: string, max = 20): ProductMatch {
   };
 }
 
-/** Every code we hold with its official title: the finder's selection and the codes of the curated product words. */
-const DICTIONARY = new Map<string, string>([...PRODUCT_KEYWORDS.flatMap((e) => e.codes.map((c) => [c.code, c.title] as const)), ...Object.entries(CODES)]);
+/**
+ * WP-110 (p01: the landing /readiness/spain-automotive showed 34322000 without a name): the official titles of the codes of the one-click
+ * sets (CODE_SETS) that neither the finder's selection nor the product words hold, verbatim from the full vocabulary (lib/wp110.check.ts
+ * holds each to lib/data/cpv-full.json), so every set code is named without loading the full list.
+ */
+const SET_TITLES: Record<string, string> = {
+  '09100000': 'Fuels', '24612000': 'Miscellaneous explosives', '34322000': 'Brakes and brake parts', '34913000': 'Miscellaneous spare parts',
+  '39500000': 'Textile articles', '50211000': 'Repair and maintenance services of aircraft', '50241000': 'Repair and maintenance services of ships',
+  '50650000': 'Repair and maintenance services of military aircrafts, missiles and spacecrafts', '55500000': 'Canteen and catering services',
+  '63100000': 'Cargo handling and storage services', '79993000': 'Building and facilities management services',
+  '80600000': 'Training services in defence and security materials', '90900000': 'Cleaning and sanitation services',
+};
+
+/** Every code we hold with its official title: the finder's selection, the codes of the curated product words and of the code sets. */
+const DICTIONARY = new Map<string, string>([...Object.entries(SET_TITLES), ...PRODUCT_KEYWORDS.flatMap((e) => e.codes.map((c) => [c.code, c.title] as const)), ...Object.entries(CODES)]);
 
 /** The official title of a code of the dictionary (finder selection or product words), or null. */
 export function cpvDictionaryTitle(code: string): string | null {
@@ -330,6 +343,37 @@ export const CODE_SETS: CodeSet[] = [
   { key: 'services', label: 'Services to the armed forces', codes: SERVICES_SET,
     covers: 'transport, cargo handling and storage, fuels, facilities management, cleaning, catering, vehicle repair, defence training and IT services' },
 ];
+
+/**
+ * WP-110 (p01: a profile saved before WP-105 kept the old automotive set, its report said 6 open where the new set finds 8): the earlier
+ * versions of a set, as they were shipped (git history of this file: WP-89 / WP-97 automotive with 35420000 and 35421000, WP-97 machining).
+ */
+export const PREVIOUS_SETS: Partial<Record<CodeSet['key'], readonly (readonly string[])[]>> = {
+  automotive: [['34300000', '34320000', '34330000', '35420000', '35421000', '34322000', '34312000', '44470000', '44530000', '31611000']],
+  machining: [['35421000', '35521000', '35641000', '34731000', '34320000', '42141000', '35340000']],
+};
+
+export interface SetUpdate { set: CodeSet; add: string[]; remove: string[]; codes: string[] }
+
+/**
+ * A set whose earlier version the codes hold whole, while they lack some of its current codes: what updating it would do. Only the earlier
+ * version's own codes that the current one dropped are removed and the current one's missing codes added (never past `max`); every other
+ * code, chosen by the visitor, stays where it is. Null when no set is out of date.
+ */
+export function setUpdate(codes: readonly string[], max = 15): SetUpdate | null {
+  for (const set of CODE_SETS) {
+    for (const old of PREVIOUS_SETS[set.key] ?? []) {
+      if (!old.every((c) => codes.includes(c)) || set.codes.every((c) => codes.includes(c))) continue;
+      // a code another set holds, chosen whole, stays (35421000 is also a machining code)
+      const others = CODE_SETS.filter((s) => s !== set && s.codes.every((c) => codes.includes(c))).flatMap((s) => s.codes);
+      const remove = old.filter((c) => !set.codes.includes(c) && !others.includes(c));
+      const kept = codes.filter((c) => !remove.includes(c));
+      const add = set.codes.filter((c) => !kept.includes(c)).slice(0, Math.max(0, max - kept.length));
+      return { set, add, remove, codes: [...kept, ...add] };
+    }
+  }
+  return null;
+}
 
 /** WP-97: what kind of codes a profile holds, for the words of its report: services (CPV divisions 50 to 98), else the set it overlaps most. */
 export type CodeKind = 'services' | 'automotive' | 'machining' | 'ammunition' | 'goods' | 'none';

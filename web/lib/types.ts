@@ -241,6 +241,9 @@ export interface CallFilters {
   pageSize?: number;
 }
 
+/** WP-110: a code the search words name (backend tenders.cpv_hints); `prefix` is what the list's CPV filter takes. */
+export interface CpvHint { code: string; title: string; prefix: string }
+
 /** `/v1/funding` with a search text: the words searched and the synonyms searched as well. */
 export interface SearchInfo {
   terms: string[];
@@ -259,6 +262,8 @@ export interface Paginated<T> {
   /** WP-98, `/v1/tenders`: the terms of other languages the words were also read as (lib/search-terms.ts), and their product groups. */
   alsoSearched?: string[];
   searchGroups?: { id: string; label: string; cpv: string[] }[];
+  /** WP-110, `/v1/tenders`: "Did you mean CPV 31611000 Wiring sets?": codes the words name, with their official titles. */
+  cpvHints?: CpvHint[];
   /** `/v1/suppliers`: always false since WP-81 (a group of fewer than three suppliers was withheld before). */
   withheld?: boolean;
   search?: SearchInfo | null;
@@ -983,6 +988,8 @@ export interface SupplierItem {
   id: string;
   slug: string;
   name: string;
+  /** WP-110, the site search only: found by this name it was published under, not by its own ("Konsorcjum: MEGMAR ... Leonardo Poland"). */
+  matchedAs?: string;
   country: string;
   awardCount: number;
   firstYear: number | null;

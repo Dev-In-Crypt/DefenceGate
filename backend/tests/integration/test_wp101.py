@@ -44,10 +44,12 @@ def test_two_words_of_one_group_find_what_either_finds(client, conn):  # noqa: F
     put(conn, "M-4", "Zerspanung von Bauteilen")
     put(conn, "M-5", "Reinigung der Kaserne")
     page = get(client, "/v1/tenders", q="Drehteile Frästeile")
-    assert ids(page) == ["M-1", "M-2", "M-3", "M-4"]
-    assert "Drehteile" not in page["alsoSearched"] and "Ersatzteile" in page["alsoSearched"]
-    assert ids(get(client, "/v1/tenders", q="Frästeile Drehteile", status="all")) == ["M-1", "M-2", "M-3", "M-4"]
-    assert ids(get(client, "/v1/tenders", q="CNC")) == ["M-1", "M-2", "M-3", "M-4"]
+    # WP-110: machining is a group of its own: the general spare-parts order (M-3) is no longer a machining result (p03)
+    assert ids(page) == ["M-1", "M-2", "M-4"]
+    assert "Drehteile" not in page["alsoSearched"] and "Zerspanung" in page["alsoSearched"]
+    assert ids(get(client, "/v1/tenders", q="Frästeile Drehteile", status="all")) == ["M-1", "M-2", "M-4"]
+    assert ids(get(client, "/v1/tenders", q="CNC")) == ["M-1", "M-2", "M-4"]
+    assert ids(get(client, "/v1/tenders", q="Ersatzteile")) == ["M-3"]
 
 
 @pytest.mark.parametrize("q, want", [

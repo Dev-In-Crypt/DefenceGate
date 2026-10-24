@@ -42,6 +42,8 @@ class Group:
     cpv: tuple[str, ...]
     terms: tuple[tuple[str, ...], ...]       # each term as its words, as written
     folded: tuple[tuple[str, ...], ...]      # the same, folded
+    # WP-110: the codes whose main-code notices are the product itself (the search's code part; never a secondary code)
+    anchors: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -56,7 +58,8 @@ def _data() -> tuple[tuple[Group, ...], tuple[BuyerAbbreviation, ...]]:
     raw = json.loads(DATA.read_text(encoding="utf-8"))
     groups = tuple(Group(g["id"], g["label"], tuple(g["cpv"]),
                          tuple(tuple(SEPARATORS.split(t.strip())) for t in g["terms"]),
-                         tuple(tuple(fold_words(t)) for t in g["terms"])) for g in raw["groups"])
+                         tuple(tuple(fold_words(t)) for t in g["terms"]), tuple(g.get("anchors", ())))
+                   for g in raw["groups"])
     buyers = tuple(BuyerAbbreviation(b["abbr"], b["country"], tuple(tuple(fold_words(n)) for n in b["names"]))
                    for b in raw["buyers"])
     return groups, buyers
@@ -73,6 +76,8 @@ class Expanded:
     # The terms searched beyond the typed words, for the page's "also searched" line, and the groups they came from.
     also: list[str] = field(default_factory=list)
     groups: list[Group] = field(default_factory=list)
+    # WP-110: the group of each slot (None: a word of no group), in the order of `slots`
+    slot_groups: list[Group | None] = field(default_factory=list)
 
 
 def _subsumed(alts: list[list[str]]) -> list[list[str]]:
@@ -129,6 +134,7 @@ def expand(words: list[str]) -> Expanded:
         if g not in out.groups:
             out.groups.append(g)
         i += n
+    out.slot_groups = slot_group
     for alts, keys in zip(out.slots, typed_keys, strict=True):
         for alt in alts[1:]:
             label = " ".join(alt)

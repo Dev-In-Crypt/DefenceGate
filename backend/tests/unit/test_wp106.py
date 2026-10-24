@@ -14,7 +14,8 @@ MIGRATION = Path(__file__).resolve().parents[2] / "migrations" / "0118_wp106_lis
 
 @pytest.mark.parametrize("text, subject", [
     # BAAINBw 37631: the part's name and its NATO stock number (13 digits): the number goes, the name stays
-    ("GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE 2520410039852", "GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE"),
+    # WP-110 (p03): the word the source cut at its 40-character field ("FAHRZE") goes too
+    ("GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE 2520410039852", "GELENKWELLE MIT AUSGLEICHSGELENK"),
     ("6003114831-BAAINBw Ersatzteile Leopard 2", "BAAINBw Ersatzteile Leopard 2"),
     # BOAMP 269322: the description of a change notice is not the subject
     ("Modification de la date limite de réception des offres", None),

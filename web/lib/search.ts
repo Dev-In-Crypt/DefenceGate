@@ -10,7 +10,7 @@ import * as supplierMock from './mock/suppliers';
 import * as tenderMock from './mock/tenders';
 import { DEFENCE_PROGRAMMES } from './networks';
 import type { OrgListItem } from './networks-types';
-import type { Buyer, Call, SupplierItem, Tender } from './types';
+import type { Buyer, Call, CpvHint, SupplierItem, Tender } from './types';
 import { buyerNames, foldWords, tenderListQuery } from './search-terms';
 
 const API_BASE = process.env.DG_API_URL;
@@ -23,8 +23,9 @@ export interface SearchGroup<T> {
   /** The list's total is a floor ("at least"). */
   atLeast: boolean;
   items: T[];
-  /** `slow`: not answered within the search's time budget; `refused`: the list refused the words. */
-  error: 'slow' | 'refused' | null;
+  /** `slow`: not answered within the search's time budget; `refused`: the list refused the words; `busy` (WP-110): no
+   * database connection was free for this part in time. */
+  error: 'slow' | 'refused' | 'busy' | null;
 }
 export interface SiteSearch {
   q: string;
@@ -36,6 +37,8 @@ export interface SiteSearch {
   /** WP-98: the tender part's terms of other languages and their product groups (lib/search-terms.ts). */
   alsoSearched?: string[];
   searchGroups?: { id: string; label: string; cpv: string[] }[];
+  /** WP-110: "Did you mean CPV 31611000 Wiring sets?" (backend tenders.cpv_hints). */
+  cpvHints?: CpvHint[];
   /** WP-98: the first buyer is the one the words name (an abbreviation's family, or the name itself). */
   buyerNamed?: boolean;
 }
@@ -48,7 +51,7 @@ export function searchQuery(raw: string | string[] | undefined): string {
 }
 
 /** Where each group's "see all" leads: the list itself, searched for the same words (a notice number in every status). */
-export function seeAllHref(group: keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed'>, q: string): string {
+export function seeAllHref(group: keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed' | 'cpvHints'>, q: string): string {
   const path = { tenders: '/tenders', funding: '/funding', buyers: '/buyers', suppliers: '/suppliers', organisations: '/organisations' }[group];
   return `${path}?${new URLSearchParams(group === 'tenders' ? tenderListQuery(q) : { q })}`;
 }
@@ -68,7 +71,7 @@ export async function getSearch(q: string): Promise<SiteSearch> {
   const buyerNamed = Boolean(first) && (buyerNames(q).length > 0 || foldWords(first.name).join('') === foldWords(q).join(''));
   return {
     q,
-    alsoSearched: tenders.alsoSearched, searchGroups: tenders.searchGroups, buyerNamed,
+    alsoSearched: tenders.alsoSearched, searchGroups: tenders.searchGroups, cpvHints: tenders.cpvHints, buyerNamed,
     tenders: group(tenders),
     funding: group(callsMock.queryCalls({ q, pageSize: SEARCH_LIMIT })),
     buyers,

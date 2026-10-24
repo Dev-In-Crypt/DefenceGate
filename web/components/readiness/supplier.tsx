@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, X } from 'lucide-react';
-import { CODE_SETS, cpvDictionaryTitle, cpvSearch, productNote, type CodeSet } from '@/lib/cpv';
+import { CODE_SETS, cpvDictionaryTitle, cpvSearch, productNote, setUpdate, type CodeSet } from '@/lib/cpv';
 import {
   CERTIFICATES, CPV_MAX, CPV_MIN, DE_QUESTIONS, DUAL_USE_QUESTION, ES_CLEARANCES, EXPORT_HOLDING, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, SERVICE_PROCESSES, clearanceAnswer,
   cpvProblem, holds, isEu, monthProblem, naceProblem, pctProblem, providesServices, savedSupplier, supplierProblems, withClearance, withHeld,
@@ -294,6 +294,7 @@ function CpvPicker({ codes, onChange, error, services = false }: { codes: string
   // removable below; a services company sees the services set first
   const sets = services ? [...CODE_SETS].sort((a, b) => Number(b.key === 'services') - Number(a.key === 'services')) : CODE_SETS;
   const [added, setAdded] = useState<{ set: string; n: number } | null>(null);
+  const update = setUpdate(codes, CPV_MAX);
   const addSet = (set: CodeSet) => {
     const room = Math.max(0, CPV_MAX - codes.length);
     const take = set.codes.filter((c) => !codes.includes(c)).slice(0, room);
@@ -306,6 +307,15 @@ function CpvPicker({ codes, onChange, error, services = false }: { codes: string
       hint={services
         ? `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you sell, on your results and in your report); no rule of the check reads them. Search by a word of the service (“warehousing”, “transport”, “catering”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`
         : `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
+      {update && (
+        // WP-110: a profile saved with an earlier version of a set is offered the current one; its own other codes stay
+        <div className="mt-2 flex flex-col gap-1 rounded-md border border-line p-3" data-cpv-set-update={update.set.key}>
+          <p className="m-0 text-body">
+            {`Your codes hold an earlier version of “${update.set.label}”. The current set ${update.add.length ? `adds ${update.add.join(', ')}` : ''}${update.add.length && update.remove.length ? ' and ' : ''}${update.remove.length ? `drops ${update.remove.join(', ')}` : ''}; the other codes you chose stay.`}
+          </p>
+          <div><Button type="button" variant="secondary" onClick={() => { onChange(update.codes); setAdded({ set: update.set.label, n: update.add.length }); }}>Update to the current set</Button></div>
+        </div>
+      )}
       <div className="mt-2 flex flex-col gap-2" data-cpv-suggested>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {sets.map((set) => (
