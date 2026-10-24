@@ -447,6 +447,15 @@ class CompanyGroupRef(BaseModel):
     members: int
 
 
+class Namesake(BaseModel):
+    """WP-111: another contract winner of the same country under the same name, kept apart by its own number."""
+    slug: str
+    name: str
+    country: str | None
+    identifiers: list[str]
+    awards: int
+
+
 class Supplier(SupplierItem):
     underCodes: UnderCodes | None = None
     group: CompanyGroupRef | None = None
@@ -459,6 +468,8 @@ class Supplier(SupplierItem):
     namesAsStated: list[str]
     identifiers: list[str]
     attribution: str
+    namesakes: list[Namesake] = []
+    ownNumbers: list[str] = []          # WP-111: the row's own numbers (`supplier_identity.own_number`), which keep it apart
 
 
 class Group(BaseModel):
@@ -940,6 +951,7 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
         "notices": out_notices, "noticeCount": head["n"],
         "namesAsStated": [redact_emails(r["v"]) for r in stated], "identifiers": list(numbers.values())[:3],
         "attribution": attribution,
+        **_namesakes(conn, org_id, org),
     }
 
 
@@ -961,6 +973,20 @@ def _stated(conn, base: str, p: dict[str, Any], org: dict[str, Any]) -> tuple[li
         if key:
             numbers.setdefault(key, redact_emails(r["v"]))
     return stated, numbers
+
+
+def _namesakes(conn, org_id: int, org: dict[str, Any]) -> dict[str, Any]:
+    """WP-111: the other winners of this name and the numbers that keep them apart (`supplier_identity.namesakes`)."""
+    from .supplier_identity import namesakes, own_number
+
+    others = namesakes(conn, org_id, org["country"], org["canonical_name"])
+    if not others:
+        return {}
+    own = conn.execute("SELECT national_reg_no, vat_number FROM organisation WHERE id = %s", (org_id,)).fetchone()
+    return {"namesakes": [{**{k: v for k, v in o.items() if k != "id"}, "slug": make_slug(o["id"], o["name"])}
+                          for o in others],
+            "ownNumbers": sorted({n for n in (own_number(x, org["country"]) for x in (own["national_reg_no"],
+                                                                                        own["vat_number"])) if n})}
 
 
 # WP-100: the most contracts one supplier's file lists (the largest supplier held 408 on 23 October 2026)

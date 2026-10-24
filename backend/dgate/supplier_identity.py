@@ -124,3 +124,60 @@ def stated_country_check(name: str, identifier: str | None, stated: str | None,
         if form in _FORM_USUAL:
             return _FORM_USUAL[form], "legal_form"
     return stated, None
+
+
+# WP-111 (p07, p10): identifiers a notice gives in the winner's number field that are not the company's own number. The
+# Spanish defence buyers (PLACSP) give a foreign winner without a Spanish tax number a code of their own: the country, zeros,
+# "CGC" and a sequence ("DE0000CGC00430" for Heckler & Koch, "IL0000CGC62412" for an Elbit company, 94 award rows on
+# 24 October 2026): it names the buyer's file of the supplier, not a register entry.
+_BUYER_CODE = re.compile(r"^(?:[A-Z]{2})?0*CGC\d+$")
+# Countries whose company numbers have one fixed shape (after `company_number`): Italy, the codice fiscale / partita IVA, 11
+# digits with a check digit (written without its leading zeros as often as with them); the United Kingdom, a Companies House
+# number (8 digits, or 2 letters and 6) or a VAT number (9 or 12 digits). A value of no such shape ("0006001333" for Leonardo
+# from an Irish notice, "0898937602" for Leonardo UK from a Portuguese one) is a portal's or buyer's own reference.
+_GB_NUMBER = re.compile(r"^(?:\d{8}|[A-Z]{2}\d{6}|\d{9}|\d{12})$")
+
+
+def own_number(raw: str | None, country: str | None) -> str | None:
+    """The company's own registration or VAT number in the comparable form (`company_number`), or None when the value is a
+    buyer's or a portal's code (`_BUYER_CODE`) or has no shape a company number of its country has. An Italian number
+    written without its leading zeros is given with them ("401990585" is 00401990585)."""
+    n = company_number(raw, country)
+    if not n or _BUYER_CODE.match(n):
+        return None
+    c = (country or "").upper()
+    if c == "IT" and n.isdigit():
+        n = n.zfill(11)
+        # digits 8 to 10 are the issuing tax office: 001 to 100, or 120, 121, 888, 999 ("0006001333" padded passes the
+        # check digit by chance, office 133)
+        office = int(n[7:10]) if len(n) == 11 else 0
+        return n if piva_valid(n) and (1 <= office <= 100 or office in (120, 121, 888, 999)) else None
+    if c in ("GB", "UK"):
+        if n.isdigit() and len(n) in (6, 7):
+            n = n.zfill(8)                 # a Companies House number without its leading zeros
+        return n if _GB_NUMBER.match(n) else None
+    return n
+
+
+def namesakes(conn, org_id: int, country: str | None, canonical_name: str | None) -> list[dict]:
+    """WP-111 (owner, 24 October 2026: companies with different registration numbers are different companies): the other
+    contract winners of the same country under the same name, each with the numbers it holds, so a supplier page says why
+    it stands apart (Rheinmetall Electronics GmbH three times: DE811127845, DE119356818, DE251121155) and links the others."""
+    if not canonical_name:
+        return []
+    rows = conn.execute(
+        """SELECT o.id, COALESCE(o.display_name, o.canonical_name) AS name, o.country, o.national_reg_no, o.vat_number,
+                  (SELECT count(*) FROM award a WHERE a.organisation_id = o.id AND a.superseded_at IS NULL
+                      AND a.excluded_reason IS NULL) AS awards
+             FROM organisation o
+            WHERE o.country = %s AND lower(o.canonical_name) = lower(%s) AND o.id <> %s
+              AND o.merged_into IS NULL AND NOT o.suppressed AND o.individual_reason IS NULL
+            ORDER BY o.id LIMIT 10""", (country, canonical_name, org_id)).fetchall()
+    out = []
+    for r in rows:
+        if not r["awards"]:
+            continue
+        numbers = sorted({n for n in (own_number(x, r["country"]) for x in (r["national_reg_no"], r["vat_number"])) if n})
+        out.append({"id": r["id"], "name": r["name"], "country": (r["country"] or "").strip() or None,
+                    "identifiers": numbers, "awards": r["awards"]})
+    return out

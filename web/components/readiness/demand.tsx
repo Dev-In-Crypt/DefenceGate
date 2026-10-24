@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { cpvDictionaryTitle } from '@/lib/cpv';
+import { displayName } from '@/lib/display-name';
 import { allWinnersLabel, buyerAmount, buyerHref, buyerLine, directiveShare, otherWinnersLine, ownFirst, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -35,7 +36,7 @@ function Ref({ r }: { r: DemandRef }) {
     <li className="report-item flex flex-col gap-0.5 border-t border-line py-2 first:border-t-0" data-demand-notice={r.id}>
       <Link href={`/tenders/${r.slug}`} className="font-semibold">{r.title || r.noticeId}</Link>
       <span className="text-small text-ink-muted">
-        {[r.buyerName, r.publishedAt ? formatDateUtc(r.publishedAt) : null, r.noticeId, r.directive ? 'Directive 2009/81/EC' : null].filter(Boolean).join(' · ')}
+        {[r.buyerName ? displayName(r.buyerName, 'title') : null, r.publishedAt ? formatDateUtc(r.publishedAt) : null, r.noticeId, r.directive ? 'Directive 2009/81/EC' : null].filter(Boolean).join(' · ')}
         {/* WP-89: on paper the notice number stands for it (the source's address printed after every notice filled pages) */}
         {url && <span className="print:hidden"> · <a href={url} target="_blank" rel="noopener noreferrer">At the source</a></span>}
       </span>
@@ -66,7 +67,7 @@ function Country({ c, kMin, home = false, credit = null, codes = [] }: { c: Dema
                   const amount = buyerAmount(b);
                   return (
                     <li key={b.slug} data-demand-buyer={b.core ? 'core' : 'other'} {...(!home && i >= 3 ? { 'data-print-full': '' } : {})}>
-                      <Link href={buyerHref(b.slug, codes)}>{b.name}</Link>{' '}
+                      <Link href={buyerHref(b.slug, codes)}>{displayName(b.name, 'title')}</Link>{' '}
                       <span className="text-small text-ink-muted">({b.core ? 'core defence buyer' : 'other defence-scope buyer'}, {b.procurements} {b.procurements === 1 ? 'procurement' : 'procurements'})</span>
                       {/* WP-97: what it awarded under the codes, contract values only (framework ceilings and estimates are not added) */}
                       {b.awardedValue && <span className="block text-small" data-demand-buyer-value {...(amount ? {} : { 'data-short-hidden': '' })}>{amount ? `Awarded: ${amount}` : 'Awarded: no contract value stated'}</span>}

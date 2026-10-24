@@ -492,7 +492,9 @@ export async function getBuyerProfile(buyer: Buyer): Promise<BuyerProfile | null
 }
 
 /** WP-90: who won this buyer's contracts (GET /v1/buyers/{slug}/suppliers). null when the API cannot answer: the page renders without it. */
-export async function getBuyerSuppliers(buyer: Buyer, cpv?: string[]): Promise<BuyerSuppliers | null> {
+/** WP-111: the buyer's top suppliers could not be read now (a timeout, a refusal under load): the page says so instead of leaving the table out. */
+export const UNAVAILABLE = 'unavailable' as const;
+export async function getBuyerSuppliers(buyer: Buyer, cpv?: string[]): Promise<BuyerSuppliers | typeof UNAVAILABLE | null> {
   if (!isBuyerSlug(buyer.slug)) return null;
   if (!API_BASE) return supplierMock.buyerSuppliers(buyer, cpv);
   // WP-105: under the page's CPV filter, as its tenders are (a filtered answer is not kept by the site)
@@ -500,7 +502,7 @@ export async function getBuyerSuppliers(buyer: Buyer, cpv?: string[]): Promise<B
   try {
     return await http<BuyerSuppliers>(`/v1/buyers/${encodeURIComponent(buyer.slug)}/suppliers${q}`, q ? 'no-store' : 'revalidate', DETAIL_REVALIDATE_SECONDS);
   } catch {
-    return null;
+    return UNAVAILABLE;
   }
 }
 

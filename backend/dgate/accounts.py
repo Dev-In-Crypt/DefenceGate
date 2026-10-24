@@ -898,7 +898,7 @@ def _calls_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
 
 
 def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
-    from .tenders import _buyer, _buyer_names, buyer_base
+    from .tenders import _buyer, _buyer_names, buyer_base, family_defence
 
     if not ids:
         return {}
@@ -909,7 +909,7 @@ def _buyers_by_id(conn, ids: list[int]) -> dict[str, dict[str, Any]]:
     org_ids, totals, open_n, last_published, variants = buyer_base(conn)
     at = {org: i for i, org in enumerate(org_ids)}
     found = conn.execute(
-        """SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer
+        f"""SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer
              FROM organisation org WHERE org.id = ANY(%s)""",
         ([h for h in sorted(set(heads.values())) if h in at],)).fetchall()
     rows = [{**r, "n": totals[at[r["id"]]], "open_n": open_n[at[r["id"]]],

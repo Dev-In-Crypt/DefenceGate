@@ -689,6 +689,8 @@ export interface Buyer {
   isDefenceBuyer: boolean;
   /** Other organisation rows of the same body shown under this buyer (0 when none). */
   nameVariants: number;
+  /** WP-111: on the buyer's own page, the names the family's other rows publish under (each once, most notices first). */
+  variantNames?: string[];
   /** WP-98b: with a CPV filter, its tenders under the codes (each once, as the tender list shows them); else null. */
   cpvCount?: number | null;
   /** The profile of the same body in the networks layer (/organisations/<slug>), when it took part in funded projects. */
@@ -1055,6 +1057,10 @@ export interface Supplier extends SupplierItem {
   attribution: string;
   /** WP-96: the curated company group it is listed under (a parent and its subsidiaries, never merged), with its source. */
   group?: { key: string; name: string; source: string; members: number } | null;
+  /** WP-111: other winners of the same country under the same name, kept apart because each holds its own company number. */
+  namesakes?: { slug: string; name: string; country: string | null; identifiers: string[]; awards: number }[];
+  /** WP-111: this company's own numbers, the ones that keep it apart from its namesakes. */
+  ownNumbers?: string[];
 }
 /** WP-100, GET /v1/suppliers/{slug}/contracts: every contract of a supplier (one row per procurement), for its CSV. */
 export interface SupplierContract {

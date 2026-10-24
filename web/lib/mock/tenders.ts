@@ -342,6 +342,8 @@ export function allBuyers(ref: Date = now()): Buyer[] {
       tenderCount: mine.length, openCount: open.length, openCoreCount: open.filter((t) => t.scope === 'core').length,
       lastPublishedAt: published.at(-1) ?? null, isDefenceBuyer: b.defence,
       nameVariants: i === 0 ? 2 : 0,
+      // WP-111: the names the family's other rows publish under (the buyer's own page)
+      ...(i === 0 ? { variantNames: ['Skarb Panstwa - Demo Armaments Agency', 'DEMO ARMAMENTS AGENCY, WARSZAWA'] } : {}),
     };
   });
 }

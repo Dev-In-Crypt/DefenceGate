@@ -99,6 +99,17 @@ export default async function SupplierPage({ params, searchParams }: Props) {
             <span className="block text-small text-ink-muted">Source of the list: {s.group.source}.</span>
           </p>
         )}
+        {/* WP-111 (p07, p10; owner: companies with different registration numbers are different companies) */}
+        {(s.namesakes?.length ?? 0) > 0 && (
+          <p className="m-0 max-w-prose text-body" data-namesakes>
+            {(s.namesakes?.length ?? 0) === 1 ? 'Another company' : `${s.namesakes?.length} other companies`} won contracts under this name:{' '}
+            {(s.namesakes ?? []).map((n, i) => (
+              <span key={n.slug}>{i > 0 && '; '}<Link href={`/suppliers/${n.slug}`} className="font-semibold">{displayName(n.name, 'title')}</Link>
+                {n.identifiers.length ? ` (number ${n.identifiers.join(', ')})` : ' (no number stated)'}, {formatNumber(n.awards)} {n.awards === 1 ? 'award' : 'awards'}</span>
+            ))}.
+            {' '}They are listed apart because each holds {s.ownNumbers?.length ? `a company number of its own (this one: ${s.ownNumbers.join(', ')})` : 'a company number of its own'}: we join two records only on evidence that they are one company.
+          </p>
+        )}
         {/* WP-88: one line; the coverage, the method and the removal route are in About this data. */}
         {/* WP-90: the open segment said where it cannot be missed, in one line; the coverage and the method stay in About this data */}
         <p className="m-0 max-w-prose rounded-md border-l-4 border-ink bg-surface-inset px-4 py-2.5 text-body font-semibold" data-open-segment>
