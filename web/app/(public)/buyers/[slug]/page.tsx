@@ -127,10 +127,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
         {((open?.items.length ?? 0) > 0 || earlier.items.length > 0) && <ClassifiedNote tenders={[...(open?.items ?? []), ...(planned?.items ?? []), ...earlier.items]} />}
       </PageHeader>
 
-      {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
-
-      {suppliers && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} />}
-
+      {/* WP-100: the open tenders before the profile's tables and charts (on a phone they started 3,900 px down, five screens) */}
       {/* WP-90: the buyer's own tenders under a CPV code */}
       <form method="get" action={`/buyers/${buyer.slug}`} role="search" aria-label="Filter this buyer's tenders"
         className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:items-end" data-buyer-cpv>
@@ -156,7 +153,7 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
                 {open.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
               </ul>
               {open.total > open.items.length && (
-                <p className="m-0 text-small text-ink-muted">Showing {open.items.length} of {open.total} open tenders.</p>
+                <p className="m-0 text-small text-ink-muted">Showing {formatNumber(open.items.length)} of {formatNumber(open.total)} open tenders.</p>
               )}
             </>
           ) : (
@@ -174,10 +171,14 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
             {planned.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
           </ul>
           {planned.total > planned.items.length && (
-            <p className="m-0 text-small text-ink-muted">Showing {planned.items.length} of {planned.total} planned tenders.</p>
+            <p className="m-0 text-small text-ink-muted">Showing {formatNumber(planned.items.length)} of {formatNumber(planned.total)} planned tenders.</p>
           )}
         </section>
       )}
+
+      {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
+
+      {suppliers && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} />}
 
       <section aria-labelledby="earlier-tenders" className="flex flex-col gap-4">
         <h2 id="earlier-tenders" className="m-0 text-h2">Earlier tenders</h2>

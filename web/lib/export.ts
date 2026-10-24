@@ -2,9 +2,10 @@
  * CSV export of the public fields of a /tenders or /funding result. Used by the two `export.csv` route
  * handlers. Same filters as the list pages (lib/filters.ts parsers), data only through lib/api.ts.
  */
-import { ApiError, getCalls, getTenderExportPage, isCallSlug, isTenderSlug } from './api';
+import { ApiError, REMOVED, getCalls, getHealth, getMarketStats, getSupplierContracts, getTenderExportPage, isCallSlug, isTenderSlug, whenRemoved } from './api';
 import { callStatusKind, getCallDeadline } from './deadline';
-import { parseCallFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
+import { parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
+import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, csvValueKind, marketRows, supplierContractRows } from './export-tables';
 import {
   EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PAGE_MIN, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate,
   TtlCache, collectByCursor, exportCap, listOrder, tooBroad,
@@ -12,7 +13,7 @@ import {
 import { clientIp } from './hits';
 import { safeHttpUrl } from './safe-url';
 import { absoluteUrl } from './seo';
-import { anomalyNotes, tenderStatusView, valueKindLabel } from './tender-status';
+import { anomalyNotes, tenderStatusView } from './tender-status';
 import { basisChips, confidenceCell } from './tender-basis';
 import type { Call, Paginated, Tender } from './types';
 import { isMidnight, isoUtc, toCsv, truncationRow, type Cell } from './csv';
@@ -44,7 +45,7 @@ export function tenderRow(t: Tender, truncated = false): Cell[] {
   return [
     t.id, t.noticeId, t.title, t.buyerName, t.country, (t.cpvCodes?.length ? t.cpvCodes : t.cpv ? [t.cpv] : []).join(' '), t.procedure,
     isoUtc(t.publishedAt, t.publishedAt !== null && isMidnight(t.publishedAt)), isoUtc(dl, dateOnly),
-    value?.amount, value?.currency, value ? valueKindLabel(t.valueKind) : null,
+    value?.amount, value?.currency, value ? csvValueKind(t) : null,
     tenderStatusView(t).word, anomalyNotes(t).join(' | '),
     t.source.sourceName, safeHttpUrl(t.source.url) ?? '', t.source.licence, t.source.attribution, isoUtc(t.source.retrievedAt),
     isTenderSlug(t.slug) ? absoluteUrl(`/tenders/${t.slug}`) : '',
@@ -121,8 +122,8 @@ async function collect<T extends { id: string }>(fetchOne: (page: number) => Pro
   return { items: once.slice(0, cap), total: first.total };
 }
 
-/** `total` is null when the file was cut: the export never counts the rest. */
-interface Built { body: string; total: number | null; rows: number; cap: number }
+/** `total` is null when the file was cut: the export never counts the rest. `next`: the address of the next part (WP-100). */
+interface Built { body: string; total: number | null; rows: number; cap: number; next?: string }
 
 /**
  * A built export is kept for ten minutes (30 at most, by normalised query: the parsed filters with defaults left
@@ -147,6 +148,9 @@ function csvResponse(b: Built, name: string): Response {
       ...(b.total === null ? { 'x-truncated': 'true' } : { 'x-total-matching': String(b.total) }),
       'x-rows': String(b.rows),
       'x-row-cap': String(b.cap),
+      // WP-100: the cap, in words, and where the rest is (RFC 8288)
+      'x-row-cap-note': `At most ${b.cap.toLocaleString('en-GB')} rows a file${b.next ? '; this one was cut there and the next part is in the Link header' : ''}.`,
+      ...(b.next ? { 'x-next-part': b.next, link: `<${b.next}>; rel="next"` } : {}),
     },
   });
 }
@@ -170,23 +174,98 @@ function failure(err: unknown): Response {
   return unavailable();
 }
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * WP-100: what the tenders file reads beyond the list's filters: a publication-date range (`publishedFrom`, `publishedTo`,
+ * inclusive days; the list has no such filter, so a time series is read a year at a time), and `cursor`, where the part
+ * before stopped (a result longer than one file comes in parts: a cut file names the next in its `Link` and `x-next-part`
+ * headers, and every row says `result_truncated = true`). A malformed value is a 400, never ignored.
+ */
+export function exportExtras(url: URL): { publishedFrom?: string; publishedTo?: string; cursor: string | null } | { bad: string } {
+  const out: { publishedFrom?: string; publishedTo?: string; cursor: string | null } = { cursor: null };
+  for (const k of ['publishedFrom', 'publishedTo'] as const) {
+    const v = url.searchParams.get(k);
+    if (v === null || v === '') continue;
+    if (!DAY.test(v) || Number.isNaN(Date.parse(`${v}T00:00:00Z`))) return { bad: `${k}=${v} is not a day (use YYYY-MM-DD).` };
+    out[k] = v;
+  }
+  const cursor = url.searchParams.get('cursor');
+  if (cursor) {
+    if (!/^\d{1,18}$/.test(cursor)) return { bad: `cursor=${cursor} is not a cursor of this export (take it from next_part_url).` };
+    out.cursor = cursor;
+  }
+  return out;
+}
+
+/** The address of the next part: this file's own query with the cursor where it stopped. */
+export function nextPartUrl(url: URL, cursor: string): string {
+  const q = new URLSearchParams(url.searchParams);
+  q.set('cursor', cursor);
+  return absoluteUrl(`${url.pathname}?${q.toString()}`);
+}
+
 export async function tendersCsvResponse(url: URL, forwardedFor: string | null = null): Promise<Response> {
   const parsed = parseTenderFilters(searchParamsOf(url));
-  if (tooBroad(parsed)) return text(400, `This export would hold every notice of every status and scope. ${NARROW}`);
+  const extras = exportExtras(url);
+  if ('bad' in extras) return text(400, extras.bad);
+  const { cursor: from, ...published } = extras;
+  if (tooBroad({ ...parsed, ...published })) return text(400, `This export would hold every notice of every status and scope. ${NARROW}`);
   const cap = exportCap(parsed.status, EXPORT_CAP);
+  const key = new URLSearchParams(toTenderQuery({ ...parsed, page: 1 }));
+  for (const [k, v] of Object.entries({ ...published, cursor: from ?? '' })) if (v) key.set(k, v);
   try {
-    const r = await runner.get(`tenders${toTenderQuery({ ...parsed, page: 1 })}`, async () => {
+    const r = await runner.get(`tenders?${key.toString()}`, async () => {
       // By cursor over the API's export endpoint (a keyed scan, no count): a page costs the same at any depth.
-      const { items: read, more } = await collectByCursor(
-        (cursor, size) => getTenderExportPage(parsed, cursor, size), cap, { retryable: retryableStatus });
-      // The order asked for (`sort`) is applied to what was read. A result longer than the limit holds the most
-      // recently added notices, in that order: the limit is by date added, not by the sort (said in the page and on /data).
-      const items = listOrder(read, parsed.status, parsed.sort);
-      return { body: toCsv(TENDER_HEADER, items.map((t) => tenderRow(t, more))), total: more ? null : items.length, rows: items.length, cap };
+      const { items: read, more, cursor } = await collectByCursor(
+        (c, size) => getTenderExportPage(parsed, c, size, published), cap, { retryable: retryableStatus, from });
+      // The list's order (its `sort`, or its default) is applied to what was read. A result longer than the limit holds the
+      // most recently added notices, in that order, and names the next part: the limit is by date added, not by the sort.
+      const items = listOrder(read, parsed.status, parsed.sort, parsed.scope);
+      const next = more && cursor ? nextPartUrl(url, cursor) : '';
+      return {
+        body: toCsv(TENDER_HEADER, items.map((t) => tenderRow(t, more))), total: more ? null : items.length, rows: items.length, cap,
+        ...(next ? { next } : {}),
+      };
     }, clientIp(forwardedFor));
     return 'busy' in r ? busy() : csvResponse(r.value, 'defencegate-tenders');
   } catch (err) {
     console.error('tenders csv export failed:', err instanceof Error ? err.message : String(err));
+    return failure(err);
+  }
+}
+
+/** WP-100: every contract of a supplier (its page lists the newest 50), with the tender file's attribution columns. */
+export async function supplierContractsCsvResponse(slug: string): Promise<Response> {
+  try {
+    const got = await getSupplierContracts(slug).catch(whenRemoved);
+    if (got === REMOVED) return text(410, 'This supplier was removed from DefenceGate on request.');
+    if (!got) return text(404, 'There is no such supplier.');
+    const cut = got.total > got.items.length;
+    return csvResponse({
+      body: toCsv(SUPPLIER_CONTRACT_HEADER, supplierContractRows(got, absoluteUrl)), total: cut ? null : got.total, rows: got.items.length, cap: got.cap,
+    }, `defencegate-supplier-${got.slug}`);
+  } catch (err) {
+    console.error('supplier csv export failed:', err instanceof Error ? err.message : String(err));
+    return failure(err);
+  }
+}
+
+/** WP-100: the market page's tables (/market, the same year, country and CPV), one row per bar or table row. */
+export async function marketCsvResponse(url: URL): Promise<Response> {
+  const filters = parseMarketFilters(searchParamsOf(url));
+  try {
+    const [stats, health] = await Promise.all([getMarketStats(filters), getHealth().catch(() => null)]);
+    if (!stats) return unavailable();
+    const terms = new Map((health?.sources ?? []).map((s) => [s.id, { name: s.name, licence: s.licence, attribution: s.attribution }]));
+    const q = new URLSearchParams();
+    if (filters.year) q.set('year', String(filters.year));
+    if (filters.country) q.set('country', filters.country);
+    if (filters.cpv?.length) q.set('cpv', filters.cpv.join(','));
+    const rows = marketRows(stats, terms, absoluteUrl(`/market${q.size ? `?${q.toString()}` : ''}`));
+    return csvResponse({ body: toCsv(MARKET_HEADER, rows), total: rows.length, rows: rows.length, cap: rows.length }, 'defencegate-market');
+  } catch (err) {
+    console.error('market csv export failed:', err instanceof Error ? err.message : String(err));
     return failure(err);
   }
 }

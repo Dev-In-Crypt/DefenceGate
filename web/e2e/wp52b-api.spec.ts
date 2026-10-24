@@ -29,7 +29,8 @@ test('T9: November shows its 593 deadlines, twelve pages of at most 50, and the 
   }
   // The whole calendar: 1,449 deadlines, paged.
   await visit(page, '/calendar', { title: /calendar/i, h1: 'Deadline calendar' });
-  await expect(page.locator('#results-heading')).toContainText('1449 upcoming deadlines');
+  // WP-100: one number format on the page (1,449, as beside it)
+  await expect(page.locator('#results-heading')).toContainText('1,449 upcoming deadlines');
 });
 
 test('T3: a closed list of 287,634 stops at position 10,000 and says so; a search that cannot be counted reads "at least"', async ({ page }) => {

@@ -261,6 +261,8 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
           {variants && <p className="m-0 text-small text-ink-muted">{variants}</p>}
         </div>
         <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-start-1')}>
+          {/* WP-98b: with a CPV filter, its tenders under the codes (the list's order), before all of its tenders */}
+          {typeof buyer.cpvCount === 'number' && <ListFact label="Under these codes"><span className="tabular-nums" data-cpv-count>{buyer.cpvCount}</span></ListFact>}
           <ListFact label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></ListFact>
           <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></ListFact>
           <ListFact label="Last published">

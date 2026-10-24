@@ -3,7 +3,7 @@
  * companies, so the supplier pages have something to lay out in the demo build and in the end-to-end tests. Shapes only; the numbers
  * are made up, which is why this is never used with an API configured.
  */
-import type { BuyerSuppliers, Paginated, Supplier, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
+import type { BuyerSuppliers, Paginated, Supplier, SupplierContract, SupplierContracts, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
 
 const ITEMS: SupplierItem[] = [
   { id: '1', slug: '1-demo-airframes-gmbh', name: 'Demo Airframes GmbH', country: 'DE', awardCount: 14, firstYear: 2023, lastYear: 2026, cpvDivisions: ['35', '34'] },
@@ -13,6 +13,16 @@ const ITEMS: SupplierItem[] = [
   { id: '5', slug: '5-demo-sensors-sl', name: 'Demo Sensors S.L.', country: 'ES', awardCount: 2, firstYear: 2026, lastYear: 2026, cpvDivisions: ['35', '38'] },
 ];
 
+/** WP-98b: the list's contract values of each demo company (invented), per currency; the Spanish one's wins are PLACSP's (no TED view). */
+const VALUES: Record<string, SupplierItem['contractValues']> = {
+  1: [{ currency: 'EUR', amount: 4_500_000, count: 3, lotEstimates: 0 }],
+  2: [{ currency: 'EUR', amount: 12_000_000, count: 2, lotEstimates: 0 }],
+  3: [{ currency: 'PLN', amount: 7_000_000, count: 2, lotEstimates: 0 }, { currency: 'EUR', amount: 250_000, count: 1, lotEstimates: 0 }],
+  4: [],
+  5: [{ currency: 'EUR', amount: 300_000, count: 1, lotEstimates: 0 }],
+};
+const sumIn = (s: SupplierItem, cur: string) => s.contractValues?.find((v) => v.currency === cur)?.amount;
+
 export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
   const q = (f.q ?? '').trim().toLowerCase();
   const countries = (f.country ?? '').split(',').filter(Boolean);
@@ -20,12 +30,15 @@ export function querySuppliers(f: SupplierFilters): Paginated<SupplierItem> {
   // every demo supplier has the same three demo buyers (findSupplier): a buyer country among theirs keeps them all
   const buyers = (f.buyerCountry ?? '').split(',').filter(Boolean);
   // WP-96: a curated group's members are, in the demo data, the companies whose name begins with the group's key
-  let items = ITEMS.filter((s) => (!q || s.name.toLowerCase().includes(q))
+  let items = ITEMS.map((s) => ({ ...s, contractValues: VALUES[s.id] ?? [] })).filter((s) => (!q || s.name.toLowerCase().includes(q))
+    && (f.source !== 'ted' || s.country !== 'ES')
     && (!f.group || s.name.toLowerCase().startsWith(f.group))
     && (countries.length === 0 || countries.includes(s.country))
     && (buyers.length === 0 || buyers.some((b) => ['FR', 'DE', 'PL'].includes(b)))
     && (cpv.length === 0 || cpv.some((c) => s.cpvDivisions.some((d) => d.startsWith(c.slice(0, 2))))));
   if (f.sort === 'name') items = [...items].sort((a, b) => a.name.localeCompare(b.name));
+  const cur = f.sort?.startsWith('value-') ? f.sort.slice(6) : null;
+  if (cur) items = [...items].sort((a, b) => (sumIn(b, cur) ?? -1) - (sumIn(a, cur) ?? -1) || b.awardCount - a.awardCount);
   return { items, total: items.length, page: 1, pageSize: f.pageSize ?? 20 };
 }
 
@@ -97,6 +110,20 @@ export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?:
     noticeCount: s.awardCount, namesAsStated: [s.name, s.name.toUpperCase()], identifiers: [`DE${100000000 + Number(s.id)}`],
     attribution: 'Source: TED, © European Union.',
   };
+}
+
+/** WP-100: GET /v1/suppliers/{slug}/contracts in the demo: the profile's notices, one contract each, with TED's licence. */
+export function supplierContracts(slug: string): SupplierContracts | null {
+  const s = findSupplier(slug);
+  if (!s) return null;
+  const items: SupplierContract[] = s.notices.map((n) => ({
+    noticeId: n.noticeId, slug: n.slug, title: n.title, buyerName: n.buyerName, buyerCountry: n.buyerCountry, publishedAt: n.publishedAt,
+    cpv: n.cpv, winnersInNotice: n.winnersInNotice, valueAmount: n.valueAmount, valueCurrency: n.valueCurrency, valueKind: n.valueAmount === null ? null : n.valueKind ?? 'contract',
+    inContractSum: n.valueAmount !== null && (n.valueKind ?? 'contract') === 'contract' && !n.valueSuspect,
+    frameworkNoticeId: n.framework?.noticeId ?? null, source: n.source ?? 'ted', sourceName: 'TED (Tenders Electronic Daily)', sourceUrl: n.sourceUrl,
+    licence: 'Commission Decision 2011/833/EU (reuse permitted with attribution)', attribution: 'Source: TED, © European Union.',
+  }));
+  return { slug: s.slug, name: s.name, total: items.length, cap: 5000, items };
 }
 
 /**

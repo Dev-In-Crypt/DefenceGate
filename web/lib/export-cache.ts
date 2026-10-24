@@ -83,25 +83,32 @@ export function exportCap(status: string | undefined, cap: number): number {
 /** Every status and every scope with nothing to narrow them is the whole archive: refused before any database time is spent. */
 export function tooBroad(f: {
   status?: string; scope?: string; q?: string; country?: unknown[]; cpv?: unknown[]; buyer?: unknown;
-  deadlineFrom?: string; deadlineTo?: string; valueMin?: number; valueMax?: number;
+  deadlineFrom?: string; deadlineTo?: string; valueMin?: number; valueMax?: number; publishedFrom?: string; publishedTo?: string;
 }): boolean {
-  const narrowed = Boolean(f.q || f.country?.length || f.cpv?.length || f.buyer || f.deadlineFrom || f.deadlineTo
+  const narrowed = Boolean(f.q || f.country?.length || f.cpv?.length || f.buyer || f.deadlineFrom || f.deadlineTo || f.publishedFrom || f.publishedTo
     || f.valueMin !== undefined || f.valueMax !== undefined);
   return f.status === 'all' && f.scope === 'all' && !narrowed;
 }
 
 /**
- * The list's order for a file read by id. With a `sort` (the list's own parameter) that order is used: `deadline-asc`,
- * `deadline-desc`, `published-desc`; none last. With none, the soonest deadline first (the latest first for closed).
- * The file used to ignore `sort` (UX walk-through 16 October 2026): 1,000 rows came out in the order of the id.
+ * The list's order for a file read by id, as the API orders the list (dgate/tenders.py `list_tenders`). With a `sort`
+ * (the list's own parameter) that order is used: `deadline-asc`, `deadline-desc`, `published-desc`; none last. With none
+ * (or `core-first`), the soonest deadline first (the latest first for closed and planned), and WP-100: the list's default
+ * view (open, All defence) leads with its military goods and works (`scope` core), and `status=all` with its open notices,
+ * as the list does. The file used to ignore `sort` (UX walk-through 16 October 2026), then read `core-first` as a newest
+ * deadline first (persona round of 23 October 2026, p09: 30 October at the top of a list that starts with 23 October).
  */
-export function listOrder<T extends { deadline: string | null; publishedAt?: string | null }>(
-  items: T[], status: string | undefined, sort?: string,
+export function listOrder<T extends { deadline: string | null; publishedAt?: string | null; scope?: string; status?: string }>(
+  items: T[], status: string | undefined, sort?: string, scope = 'relevant',
 ): T[] {
-  const by = sort ?? (status === 'closed' || status === 'planned' ? 'deadline-desc' : 'deadline-asc');
+  const coreFirst = (status ?? 'open') === 'open' && scope === 'relevant' && (sort === undefined || sort === 'core-first');
+  const by = sort === undefined || sort === 'core-first' ? (status === 'closed' || status === 'planned' ? 'deadline-desc' : 'deadline-asc') : sort;
+  const openFirst = status === 'all' && by === 'deadline-asc';
+  const group = (t: T) => (coreFirst ? (t.scope === 'core' ? 0 : 1) : openFirst ? (t.status === 'open' ? 0 : 1) : 0);
   const sign = by === 'deadline-asc' ? 1 : -1;
   const at = (t: T) => Date.parse((by === 'published-desc' ? t.publishedAt : t.deadline) ?? '');
   return [...items].sort((a, b) => {
+    if (group(a) !== group(b)) return group(a) - group(b);
     const x = at(a), y = at(b);
     if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) === Number.isNaN(y) ? 0 : Number.isNaN(x) ? 1 : -1;
     return sign * (x - y);
@@ -118,11 +125,12 @@ export function listOrder<T extends { deadline: string | null; publishedAt?: str
 export async function collectByCursor<T>(
   fetchPage: (cursor: string | null, size: number) => Promise<{ items: T[]; nextCursor: string | null }>,
   cap: number,
-  opts: { retryable: (err: unknown) => boolean; sleep?: (ms: number) => Promise<void>; start?: number; backoffMs?: number },
-): Promise<{ items: T[]; more: boolean }> {
+  opts: { retryable: (err: unknown) => boolean; sleep?: (ms: number) => Promise<void>; start?: number; backoffMs?: number; from?: string | null },
+): Promise<{ items: T[]; more: boolean; cursor: string | null }> {
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   let size = Math.min(opts.start ?? EXPORT_PAGE_START, cap);
-  let cursor: string | null = null;
+  // WP-100: `from` is where an earlier part of the file stopped (its `cursor`): the next part starts there
+  let cursor: string | null = opts.from ?? null;
   const items: T[] = [];
   for (;;) {
     const want = Math.min(size, cap - items.length);
@@ -137,8 +145,8 @@ export async function collectByCursor<T>(
     }
     items.push(...page.items);
     cursor = page.nextCursor;
-    if (cursor === null) return { items, more: false };
-    if (items.length >= cap) return { items, more: true };
+    if (cursor === null) return { items, more: false, cursor };
+    if (items.length >= cap) return { items, more: true, cursor };
   }
 }
 

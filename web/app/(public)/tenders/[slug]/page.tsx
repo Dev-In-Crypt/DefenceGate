@@ -36,6 +36,8 @@ export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }> };
 
 const RELATED_LIMIT = 3;
+/** WP-100: a title longer than this is cut to four lines on a phone (about 18 characters a line at the phone's title size). */
+const LONG_TITLE = 80;
 /** WP-95: the label of an award's value by its kind. */
 const AWARD_VALUE_LABEL = { contract: 'Awarded value', framework: 'Framework ceiling', estimate: 'Estimated value' } as const;
 const ROW = 'grid gap-1 break-words py-2.5 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4';
@@ -122,6 +124,8 @@ export default async function TenderDetailPage({ params }: Props) {
   const awardedTo = tender.awardedTo ?? [];
   const awardedPersons = tender.awardedPersons ?? 0;
   const award = tender.awardValue && !isPlaceholderAmount(tender.awardValue.amount) ? tender.awardValue : null;
+  // WP-100: four lines of the phone's title size hold about this much
+  const longTitle = title.length > LONG_TITLE;
 
   return (
     <>
@@ -137,8 +141,23 @@ export default async function TenderDetailPage({ params }: Props) {
           </div>
         )}
         title={title}
-        titleProps={{ lang: nonEnglish ? (tender.titleLanguage ?? undefined) : undefined, className: closed ? 'text-ink-muted' : 'text-ink' }}
+        // WP-100: on a phone a long title is cut to four lines (the whole of it is under "Full title"), so the deadline and the
+        // link to the original are on the first screen: a notice whose description is its title put them 2,000 and 4,200 px down
+        titleProps={{ lang: nonEnglish ? (tender.titleLanguage ?? undefined) : undefined, className: cn(closed ? 'text-ink-muted' : 'text-ink', longTitle && 'max-lg:line-clamp-4') }}
       >
+        {longTitle && (
+          <details className="text-small lg:hidden" data-full-title>
+            <summary className="min-h-11 cursor-pointer py-2 font-bold">Full title</summary>
+            <p className="m-0 max-w-prose text-body" lang={nonEnglish ? (tender.titleLanguage ?? undefined) : undefined}>{title}</p>
+          </details>
+        )}
+        {/* WP-100: the deadline and the original first on a phone (from lg they head the side column) */}
+        <div className="d-top flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-4 sm:p-5 lg:hidden" data-phone-first>
+          <DeadlineBadge info={d} size="lg" className="w-full" local={local} />
+          {sourceUrl && (
+            <Button href={sourceUrl} external variant="text" className="self-start">View original at {sourceDisplay(tender.source.sourceName)}</Button>
+          )}
+        </div>
         {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
         {tender.originalTitle && (
           <p className="m-0 max-w-prose text-body text-ink-muted">
@@ -181,8 +200,7 @@ export default async function TenderDetailPage({ params }: Props) {
       </PageHeader>
 
       <DetailLayout
-        // Deadline first on mobile: the hero element.
-        top={<DeadlineBadge info={d} size="lg" className="w-full" local={local} />}
+        // Deadline first on mobile: the hero element, in the page header now (WP-100)
         facts={(
           <Card title="Key facts">
             <FactsGrid className={IN_CARD}>

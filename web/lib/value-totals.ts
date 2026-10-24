@@ -73,6 +73,15 @@ export function totalLine(v: ValueTotals, noun: string): string {
   return v.withoutValue > 0 ? `${sums}; ${formatNumber(v.withoutValue)} of ${n(v.of, noun)} state none` : sums;
 }
 
+/**
+ * WP-98b: the supplier list's value line, from the sums the list gives each supplier (`contractValues`, the API's byCurrency for the
+ * wins the filters select): "Contract values: EUR 1,243,802 over 2 of 6 contracts; PLN 7,000,000 over 2". Only words; nothing summed.
+ */
+export function listValueLine(sums: ValueSum[], of: number): string {
+  if (sums.length === 0) return 'Contract values: none stated for this company alone';
+  return `Contract values: ${sums.map((s, i) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${i === 0 ? `${formatNumber(s.count)} of ${n(of, 'contract')}` : formatNumber(s.count)}`).join('; ')}`;
+}
+
 /** WP-87: the value under which a contract's figure is read as a unit price (the API's SUPPLIERS.SUSPECT_VALUE_MAX). */
 export const SUSPECT_VALUE_MAX = 1000;
 /** The cell of a contract whose value is under SUSPECT_VALUE_MAX. */

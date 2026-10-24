@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Download, List } from 'lucide-react';
 import { now } from '@/lib/deadline';
-import { formatMonthUtc, plural } from '@/lib/format';
+import { formatMonthUtc, formatNumber, plural } from '@/lib/format';
 import {
   calendarQuery, dayOf, filterEntries, loadCalendar, monthOf, pageOf, parseCalendarParams, resolveMonth, shiftMonth,
   type CalendarParams, type KindFilter,
@@ -93,6 +93,8 @@ export default async function CalendarPage({ searchParams }: Props) {
     calls: filterEntries(data.entries, { ...p, kind: 'funding' }).length,
   }, today);
   const feedEvents = filterEntries([...data.entries, ...data.upcoming], p).length;
+  // WP-100: the feed's events beyond the deadlines listed here, said in the same line (1,503 events beside 1,457 deadlines)
+  const feedOpenings = filterEntries(data.upcoming, p).length;
   // The same address for a calendar app that subscribes: `webcal://` opens it there instead of downloading a file.
   const subscribe = absoluteUrl(feed).replace(/^https?:/, 'webcal:');
 
@@ -130,7 +132,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           <section aria-labelledby="feed-heading" className="flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5">
             <h2 id="feed-heading" className="m-0 text-h3">Calendar feed</h2>
             <p className="m-0 text-small text-ink-muted">
-              Add this address to your calendar app to follow the deadlines above, and the opening days of funding calls that have not opened, with the filters you chose. {feedLine(feedEvents)} Times are UTC. The feed is refreshed hourly from data collected once a day.
+              Add this address to your calendar app to follow the deadlines this page lists, and the opening days of funding calls that have not opened, with the filters you chose. {feedLine(feedEvents, 5000, feedOpenings)} Times are UTC. The feed is refreshed hourly from data collected once a day.
             </p>
             <a href={subscribe} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
               <Icon icon={CalendarPlus} size="inline" />Subscribe in your calendar app
@@ -154,7 +156,7 @@ export default async function CalendarPage({ searchParams }: Props) {
           <div className="flex flex-wrap items-center gap-3">
             {/* An empty result has one heading, the empty state's. */}
             <Count id="results-heading" className="m-0 mr-auto text-body font-semibold" aria-live="polite">
-              {total === 0 ? 'No deadlines' : p.view === 'month' ? `${total} ${total === 1 ? 'deadline' : 'deadlines'} in ${formatMonthUtc(`${month}-01T00:00:00Z`)}` : `${total} upcoming ${total === 1 ? 'deadline' : 'deadlines'}`}
+              {total === 0 ? 'No deadlines' : p.view === 'month' ? `${formatNumber(total)} ${total === 1 ? 'deadline' : 'deadlines'} in ${formatMonthUtc(`${month}-01T00:00:00Z`)}` : `${formatNumber(total)} upcoming ${total === 1 ? 'deadline' : 'deadlines'}`}
             </Count>
             <div role="group" aria-label="View" className="flex rounded-pill bg-surface p-1">
               {(['list', 'month'] as const).map((v) => (
@@ -206,7 +208,7 @@ export default async function CalendarPage({ searchParams }: Props) {
               {total > LIST_PAGE && (
                 <>
                   <p className="m-0 text-small text-ink-muted">
-                    Showing {firstShown}–{firstShown + shown.length - 1} of {total} {plural(total, 'deadline')}{p.view === 'month' ? ' in this month' : ''}.
+                    Showing {formatNumber(firstShown)}–{formatNumber(firstShown + shown.length - 1)} of {formatNumber(total)} {plural(total, 'deadline')}{p.view === 'month' ? ' in this month' : ''}.
                   </p>
                   <Pagination page={paged.page} total={total} pageSize={LIST_PAGE} hrefFor={(n) => href({ page: n })} />
                 </>

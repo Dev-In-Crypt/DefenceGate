@@ -15,6 +15,9 @@ import { BarChart, RankTable } from '@/components/market/charts';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { EmptyState } from '@/components/dg/feedback';
+import { Icon } from '@/components/dg/icon';
+import { Download } from 'lucide-react';
+import { CoverageNote } from '@/components/dg/coverage-note';
 
 export const revalidate = 3600;
 
@@ -73,6 +76,8 @@ export default async function MarketPage({ searchParams }: Props) {
   const w = stats.responseWindow;
   const a = stats.amendments;
   const watched = amendmentsShown(a, stats.asOf);
+  const asked = new URLSearchParams({ ...(filters.year ? { year: String(filters.year) } : {}), ...(filters.country ? { country: filters.country } : {}), ...(filters.cpv?.length ? { cpv: filters.cpv.join(',') } : {}) });
+  const marketQuery = asked.size > 0 ? `?${asked.toString()}` : '';
 
   return (
     <ContentPage
@@ -93,6 +98,9 @@ export default async function MarketPage({ searchParams }: Props) {
           Open {SCOPE_CHOICES.core.label.toLowerCase()} in the tender list
         </Link>.
       </p>
+
+      {/* WP-98b (p06, p07): what we collect for the country, so a small count or a step in the months reads as coverage */}
+      <CoverageNote countries={[stats.country ?? filters.country ?? '']} />
 
       <dl className="facts-grid m-0 border-b border-line">
         <FactCell label={`Notices of ${SCOPE_CHOICES.core.label.toLowerCase()}, ${from} to ${to}${where}`}>{formatNumber(stats.countries.total)}</FactCell>
@@ -117,6 +125,10 @@ export default async function MarketPage({ searchParams }: Props) {
         </FactCell>
         <FactCell label="Figures as of"><time dateTime={stats.asOf}>{formatDateTimeUtc(stats.asOf)}</time></FactCell>
       </dl>
+      {/* WP-100: the tables below as one file, with the sources' licence and attribution on every row */}
+      <a href={`/market/export.csv${marketQuery}`} download className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-market-csv>
+        <Icon icon={Download} size="inline" />Download these tables (CSV)
+      </a>
 
       <ContentSection title="Notices published per month">
         <BarChart

@@ -18,6 +18,10 @@ export interface AtomOptions {
   subtitle: string;
   /** Used for `updated` when there is no entry. */
   generatedAt: string;
+  /** WP-100: the feed is paged (RFC 5005): the paths of its first, previous and next pages, where there are such. */
+  first?: string;
+  prev?: string;
+  next?: string;
 }
 
 /** XML 1.0 forbids most control characters; a stray one in a title would make the whole feed unreadable. */
@@ -50,9 +54,17 @@ export function tagId(origin: string, ...parts: string[]): string {
  * The feed's subtitle. It promises the whole window; when the feed holds fewer entries than the window has (the cap
  * of the paged read), it says how many and that they are the newest, and nothing is said when it holds them all.
  */
-export function feedSubtitle(windowDays: number, total: number, held: number): string {
+export function feedSubtitle(windowDays: number, total: number, held: number, page?: { page: number; pages: number; size: number }): string {
   const base = `New defence and dual-use notices and amendments to their deadline, value, status or procedure, and new funding calls and moved funding dates, from the last ${windowDays} days. Our archive began in September 2026.`;
-  return held < total ? `${base} This feed holds the newest ${held.toLocaleString('en-GB')} of the ${total.toLocaleString('en-GB')} changes; the page lists them all.` : base;
+  const n = (v: number) => v.toLocaleString('en-GB');
+  // WP-100: a page after the first says which entries it holds; the first page says how many there are and where the rest is
+  if (page && page.page > 1) {
+    const from = (page.page - 1) * page.size + 1;
+    return `${base} Page ${n(page.page)} of ${n(page.pages)} of this feed: changes ${n(from)} to ${n(from + held - 1)} of ${n(total)}, newest first.`;
+  }
+  if (held >= total) return base;
+  const rest = page && page.pages > 1 ? ` The older ones are on the next pages of this feed (${n(page.size)} a page).` : '';
+  return `${base} This feed holds the newest ${n(held)} of the ${n(total)} changes; the page lists them all.${rest}`;
 }
 
 function summary(c: Change): string {
@@ -111,6 +123,7 @@ export function buildAtom(changes: Change[], o: AtomOptions, funding: FundingCha
     `  <updated>${rfc3339(updated)}</updated>`,
     `  <link rel="self" type="application/atom+xml" href="${xmlText(self)}"/>`,
     `  <link rel="alternate" type="text/html" href="${xmlText(`${o.origin}${o.pagePath}`)}"/>`,
+    ...(['first', 'prev', 'next'] as const).filter((r) => o[r]).map((r) => `  <link rel="${r === 'prev' ? 'previous' : r}" type="application/atom+xml" href="${xmlText(`${o.origin}${o[r]}`)}"/>`),
     '  <author><name>DefenceGate</name></author>',
     ...entries,
     '</feed>',

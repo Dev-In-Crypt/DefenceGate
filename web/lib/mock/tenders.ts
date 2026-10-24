@@ -327,10 +327,13 @@ export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer
   const q = f.q?.toLowerCase();
   // Only buyers with at least one notice of the default scope are listed (WP-96: it was the core scope).
   // WP-89: a CPV filter keeps the buyers with a core notice under one of the prefixes; their counts stay all of their notices
-  const withCode = f.cpv?.length
-    ? new Set(allTenders(ref).filter((t) => t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))).map((t) => t.buyerId))
-    : null;
-  let items = allBuyers(ref).filter((b) => {
+  // WP-98b: how many each has under the codes (`cpvCount`, and the order `cpv`)
+  const under = new Map<string, number>();
+  if (f.cpv?.length) {
+    for (const t of allTenders(ref)) if (t.buyerId && t.cpvCodes.some((c) => f.cpv!.some((p) => c.startsWith(p)))) under.set(t.buyerId, (under.get(t.buyerId) ?? 0) + 1);
+  }
+  const withCode = f.cpv?.length ? under : null;
+  let items = allBuyers(ref).map((b) => ({ ...b, cpvCount: withCode ? (under.get(b.id) ?? 0) : null })).filter((b) => {
     if (b.tenderCount === 0) return false;
     if (withCode && !withCode.has(b.id)) return false;
     if (f.hasOpen && b.openCount === 0) return false;
@@ -339,7 +342,8 @@ export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer
     if (q && !b.name.toLowerCase().includes(q) && !buyerNames(q).some((n) => namesAll(n, b.name))) return false;
     return true;
   });
-  items = items.sort((a, b) => ((f.sort ?? 'tenders') === 'name' ? a.name.localeCompare(b.name) : b.tenderCount - a.tenderCount || a.name.localeCompare(b.name)));
+  items = items.sort((a, b) => ((f.sort ?? 'tenders') === 'name' ? a.name.localeCompare(b.name)
+    : (f.sort === 'cpv' && withCode ? (b.cpvCount ?? 0) - (a.cpvCount ?? 0) : 0) || b.tenderCount - a.tenderCount || a.name.localeCompare(b.name)));
   const pageSize = f.pageSize ?? BUYER_PAGE_SIZE;
   const page = f.page ?? 1;
   return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };

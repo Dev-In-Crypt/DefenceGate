@@ -2,7 +2,7 @@ import type {
   BuyerFilters, BuyerSort, CallFilters, CallSort, CallStatusFilter, ChangeFilters, ChangeKindFilter, CountryCode, ListView, ProgrammeCode, Regime,
   TenderFilters, TenderScopeFilter, TenderSort, TenderStatusFilter,
 } from './types';
-import { BUYER_COUNTRY_CODES, COUNTRIES, PROGRAMME_CODES, REGIME_CODES, countryName } from './taxonomy';
+import { BUYER_COUNTRY_CODES, COUNTRIES, CURRENCIES, PROGRAMME_CODES, REGIME_CODES, countryName } from './taxonomy';
 
 /** Next.js page searchParams shape. */
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -207,12 +207,14 @@ export function defaultTenderSort(status: TenderStatusFilter | undefined): Tende
   return status === 'closed' || status === 'planned' ? 'deadline-desc' : DEFAULT_TENDER_SORT;
 }
 export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
+/** WP-98b (p02): with a CPV filter the buyers that bought most under the codes lead; without one, most tenders. */
+export const defaultBuyerSort = (cpv: string[] | undefined): BuyerSort => (cpv?.length ? 'cpv' : DEFAULT_BUYER_SORT);
 
 const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'planned', 'all'];
 const TENDER_SCOPES: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
 const GOODS = ['defence'] as const;
 const TENDER_SORTS: TenderSort[] = ['core-first', 'deadline-asc', 'deadline-desc', 'published-desc'];
-const BUYER_SORTS: BuyerSort[] = ['tenders', 'name'];
+const BUYER_SORTS: BuyerSort[] = ['tenders', 'name', 'cpv'];
 const COUNTRY_CODES: string[] = BUYER_COUNTRY_CODES;
 
 /** CPV prefixes: digits only, 2 to 8 long (a trailing check digit, as in 35120000-1, is dropped), at most 20. */
@@ -296,12 +298,15 @@ export function activeTenderFilterCount(f: TenderFilters): number {
 }
 
 export function parseBuyerFilters(sp: SearchParams): BuyerFilters {
+  const cpv = cpvList(sp[PARAM.cpv]);
+  const sort = oneOf(first(sp[PARAM.sort]), BUYER_SORTS);
   return {
     q: searchText(first(sp[PARAM.q])),
     country: list<string>(sp[PARAM.country], COUNTRY_CODES, upper),
-    cpv: cpvList(sp[PARAM.cpv]),
+    cpv,
     hasOpen: first(sp[PARAM.hasOpen]) === 'true' ? true : undefined,
-    sort: oneOf(first(sp[PARAM.sort]), BUYER_SORTS) ?? DEFAULT_BUYER_SORT,
+    // `cpv` without codes is the default order
+    sort: sort && !(sort === 'cpv' && !cpv) ? sort : defaultBuyerSort(cpv),
     page: pageOf(first(sp[PARAM.page])),
     pageSize: BUYER_PAGE_SIZE,
   };
@@ -313,7 +318,7 @@ export function toBuyerQuery(f: BuyerFilters): string {
   if (f.country?.length) p.set(PARAM.country, f.country.join(','));
   if (f.cpv?.length) p.set(PARAM.cpv, f.cpv.join(','));
   if (f.hasOpen) p.set(PARAM.hasOpen, 'true');
-  if (f.sort && f.sort !== DEFAULT_BUYER_SORT) p.set(PARAM.sort, f.sort);
+  if (f.sort && f.sort !== defaultBuyerSort(f.cpv)) p.set(PARAM.sort, f.sort);
   if (f.page && f.page > 1) p.set(PARAM.page, String(f.page));
   const s = p.toString();
   return s ? `?${s}` : '';
@@ -469,7 +474,9 @@ export function ignoredFilters(sp: SearchParams, kind: ListKind): string[] {
   }
   if (kind === 'suppliers') {
     for (const v of many(PARAM.cpv)) if (!/^\d{2,8}$/.test(v)) bad(PARAM.cpv, v, 'CPV codes are 2 to 8 digits');
-    choice(PARAM.sort, ['awards', 'name']);
+    // WP-98b: the order by contract values in one currency, and TED's winners only
+    choice(PARAM.sort, ['awards', 'name', ...CURRENCIES.map((c) => `value-${c}`)]);
+    choice('source', ['ted']);
     pageNumber();
     return out;
   }
