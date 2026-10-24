@@ -403,7 +403,7 @@ export function SupplierReport({ names }: { names: Record<string, string> }) {
             <p className="m-0 max-w-prose text-small text-ink-muted">
               {result.data.notice} Rules last reviewed on {isoDay(result.data.rulesReviewed)}. Generated on {formatStamp(now().toISOString())}.
               {profile.supplier.cpv.length > 0
-                ? 'Two requests left this browser to make it: the one that computes the verdict, with the answers the rules read, and the one for the demand map, with your CPV codes and nothing else; the server does not store or log either.'
+                ? 'Two requests left this browser to make it: the one that computes the verdict, with the answers the rules read, and the one for the demand map, with your CPV codes and, when it is one of the map’s countries, your country, and nothing else; the server does not store or log either. This browser tab keeps both answers for ten minutes, so that the report and your results page ask once.'
                 : 'The only thing that left this browser to make it is the request that computes the verdict, with the answers the rules read; the server does not store or log it.'}
             </p>
           </Section>

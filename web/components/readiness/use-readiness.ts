@@ -5,6 +5,7 @@ import { clearProfile, emptyProfile, loadProfile, saveProfile, toRequest, type P
 import { ASSESS_FAILED, AssessError, assess } from '@/lib/readiness';
 import type { Assessment } from '@/lib/readiness-types';
 import { DEMAND_FAILED, DemandError, demandRequest, fetchDemand, type Demand } from '@/lib/demand';
+import { recall, remember } from '@/lib/answer-cache';
 
 /**
  * The profile of the visitor, from and to localStorage only. `ready` is false on the server and for the first
@@ -57,9 +58,15 @@ export function useAssessment(profile: Profile | null, programmes: string[] | nu
     }
     const controller = new AbortController();
     const mine = ++seq.current;
+    // WP-105: the answer the results page got for these very answers, a moment ago, is not asked again (the API's rate limit)
+    const kept = recall<Assessment>('assess', key);
+    if (kept) {
+      setResult({ state: 'done', data: kept });
+      return;
+    }
     setResult((r) => (r.state === 'done' ? r : { state: 'loading' }));
     assess(JSON.parse(key), controller.signal).then(
-      (data) => { if (mine === seq.current) setResult({ state: 'done', data }); },
+      (data) => { remember('assess', key, data); if (mine === seq.current) setResult({ state: 'done', data }); },
       (e: unknown) => {
         if (controller.signal.aborted || mine !== seq.current) return;
         setResult({ state: 'error', message: e instanceof AssessError ? e.message : ASSESS_FAILED });
@@ -76,7 +83,7 @@ export type DemandState =
   | { state: 'error'; message: string }
   | { state: 'done'; data: Demand };
 
-/** The demand map for the profile's CPV codes (WP-66), asked again only when the codes change. Nothing is kept. */
+/** The demand map for the profile's CPV codes (WP-66), asked again only when the codes change; kept in the tab a few minutes (WP-105). */
 export function useDemand(profile: Profile | null): DemandState & { retry: () => void } {
   const [result, setResult] = useState<DemandState>({ state: 'idle' });
   const [attempt, setAttempt] = useState(0);
@@ -88,9 +95,14 @@ export function useDemand(profile: Profile | null): DemandState & { retry: () =>
       return;
     }
     const controller = new AbortController();
+    const kept = recall<Demand>('demand', key);           // WP-105: as for the readiness check
+    if (kept) {
+      setResult({ state: 'done', data: kept });
+      return;
+    }
     setResult({ state: 'loading' });
     fetchDemand(JSON.parse(key), controller.signal).then(
-      (data) => { if (!controller.signal.aborted) setResult({ state: 'done', data }); },
+      (data) => { remember('demand', key, data); if (!controller.signal.aborted) setResult({ state: 'done', data }); },
       (e: unknown) => {
         if (controller.signal.aborted) return;
         setResult({ state: 'error', message: e instanceof DemandError ? e.message : DEMAND_FAILED });

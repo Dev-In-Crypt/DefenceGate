@@ -141,13 +141,22 @@ export function supplierContracts(slug: string): SupplierContracts | null {
  * WP-90: GET /v1/buyers/{slug}/suppliers in the demo: the demo suppliers whose profile lists the buyer (findSupplier's three demo
  * buyers), with fewer contracts the later the supplier comes, most first.
  */
-export function buyerSuppliers(buyer: { slug: string }): BuyerSuppliers {
-  const items = ITEMS.flatMap((s) => {
+export function buyerSuppliers(buyer: { slug: string }, cpv?: string[]): BuyerSuppliers {
+  // WP-105: a CPV filter keeps the demo suppliers with a division under it; each carries its demo contract values
+  const items = ITEMS.filter((s) => !cpv?.length || cpv.some((c) => s.cpvDivisions.some((d) => d.startsWith(c.slice(0, 2))))).flatMap((s) => {
     const row = findSupplier(s.slug)?.buyers.find((b) => b.slug === buyer.slug);
-    return row ? [{ slug: s.slug, name: s.name, country: s.country, awards: Math.max(1, row.awards - Number(s.id) + 1) }] : [];
+    return row ? [{ slug: s.slug, name: s.name, country: s.country, awards: Math.max(1, row.awards - Number(s.id) + 1), contractValues: VALUES[s.id] ?? [] }] : [];
   }).sort((a, b) => b.awards - a.awards || a.name.localeCompare(b.name));
+  const total = new Map<string, { currency: string; amount: number; count: number; lotEstimates: number }>();
+  for (const v of items.flatMap((s) => s.contractValues)) {
+    const t = total.get(v.currency) ?? { currency: v.currency, amount: 0, count: 0, lotEstimates: 0 };
+    total.set(v.currency, { ...t, amount: t.amount + v.amount, count: t.count + v.count });
+  }
+  const sums = [...total.values()].sort((a, b) => b.count - a.count || a.currency.localeCompare(b.currency));
+  const awards = items.reduce((n, s) => n + s.awards, 0);
   return {
-    items, suppliers: items.length, contracts: items.reduce((n, s) => n + s.awards, 0),
+    items, suppliers: items.length, contracts: awards, cpv: cpv ?? [], contractValues: sums,
+    awardsWithSupplier: awards, valued: sums.reduce((n, s) => n + s.count, 0),
     attribution: 'Source: TED (Tenders Electronic Daily), © European Union. Winners as named in each notice; natural persons are never named.',
   };
 }

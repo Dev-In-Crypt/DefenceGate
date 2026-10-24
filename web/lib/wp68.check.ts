@@ -12,6 +12,7 @@ import {
   savedSupplier, supplierAsks, toRequest, withClearance, type Answer, type Profile,
 } from './profile';
 import { SAMPLE_CPV, isDemand } from './demand';
+import { AUTOMOTIVE_SET } from './cpv';
 import mockDemand from './mock/demand.json';
 
 const fixture = (key: string) => JSON.parse(readFileSync(`e2e/fixtures/request-${key}.json`, 'utf8'));
@@ -89,7 +90,8 @@ assert.equal(askedAt('de_ausfuhrliste'), '/readiness/supplier#sp-export');
 assert.equal(askedAt('REQ-EXPORT'), '/readiness?step=4', 'the export authorisation stays linked to step 4, where everyone is asked');
 
 // ------------------------------------------------------------- the live sample: a well-formed answer only
-assert.deepEqual([...SAMPLE_CPV], ['34300000', '34100000', '35421000', '42600000', '44300000']);
+// WP-105 (p01): the landing counts the codes of the profile's automotive button, as the report does
+assert.deepEqual([...SAMPLE_CPV], [...AUTOMOTIVE_SET]);
 assert.ok(isDemand(mockDemand), 'the demo answer has the shape');
 for (const bad of [null, {}, { ...mockDemand, total: null }, { ...mockDemand, byCountry: [{ country: 'ES' }] }, { ...mockDemand, coverage: 3 }]) assert.equal(isDemand(bad), false);
 

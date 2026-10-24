@@ -1719,7 +1719,7 @@
    ],
    "key": "EU-DUALUSE-EXPERT",
    "rule": "EU-DUALUSE-EXPERT",
-   "text": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
+   "text": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (the authority of the EU country where you are established; your roadmap names it where our sources do), or an export-control specialist, settles it. This service gives no control-list parameters.",
    "title": "Is your item a listed dual-use item? (classification)"
   },
   {
@@ -2098,7 +2098,7 @@
        "question": "Do you hold: Export authorisation for dual-use or military items?"
       }
      ],
-     "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
+     "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (the authority of the EU country where you are established; your roadmap names it where our sources do), or an export-control specialist, settles it. This service gives no control-list parameters.",
      "denominator": null,
      "kind": "export",
      "note": null,

@@ -1,15 +1,19 @@
 /**
  * The demand map of the supplier report (WP-66): who in defence buys what the company makes, from the CPV codes of the supplier page.
- * The one call: `POST /api/readiness/demand` with the codes and the five countries, and nothing else of the profile. The server keeps
+ * The one call: `POST /api/readiness/demand` with the codes, the seven countries and (WP-105) the company’s own country, and nothing else of the profile. The server keeps
  * nothing. Pure except `fetchDemand`.
  */
 import type { Profile } from './profile';
 import { formatMoney } from './format';
+import { AUTOMOTIVE_SET } from './cpv';
+import { fetchPatiently } from './answer-cache';
 import type { ValueSum, ValueTotals } from './value-totals';
 
-export const DEMAND_COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL'] as const;
+/** WP-105: Portugal and Italy too (from TED; we read no national portal of theirs). */
+export const DEMAND_COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL', 'PT', 'IT'] as const;
 
-export interface DemandRequest { cpv: string[]; countries: string[] }
+/** `home` (WP-105): the company's own country when it is one of the map's, so its own winners are named past the first 30. */
+export interface DemandRequest { cpv: string[]; countries: string[]; home?: string }
 
 export interface DemandRef {
   id: string; slug: string; noticeId: string; title: string; buyerName: string | null; publishedAt: string | null;
@@ -49,6 +53,12 @@ export interface Approach {
   below: { winners: number; awards: number };
   /** Winners with kMin or more past the first 30 (a prime is never among them). */
   more: { winners: number; awards: number };
+  /** WP-105: curated primes that won none of these procurements but other defence contracts from the same buyers (absent from an older answer). */
+  primesAtBuyers?: PrimeAtBuyers[];
+}
+export interface PrimeAtBuyers {
+  name: string; slug: string; country: string | null; contracts: number;
+  prime: { group: string; jointVenture: boolean; source: string; sourceUrl: string };
 }
 export interface Demand {
   since: string; until: string; kMin: number; countries: string[];
@@ -58,17 +68,22 @@ export interface Demand {
   sources: { code: string; name: string; attribution: string; lastUpdated?: string | null }[];
 }
 
-/** The request for a profile: its CPV codes (at most 15, as the supplier page keeps them) and the five countries; null without codes. */
+/**
+ * The request for a profile: its CPV codes (at most 15, as the supplier page keeps them), the map's countries and (WP-105) the company's
+ * own country when it is one of them; null without codes.
+ */
 export function demandRequest(p: Profile): DemandRequest | null {
   const cpv = p.supplier.cpv.filter((c) => /^\d{8}$/.test(c)).slice(0, 15);
-  return cpv.length ? { cpv, countries: [...DEMAND_COUNTRIES] } : null;
+  if (!cpv.length) return null;
+  const home = (DEMAND_COUNTRIES as readonly string[]).includes(p.country) ? p.country : undefined;
+  return home ? { cpv, countries: [...DEMAND_COUNTRIES], home } : { cpv, countries: [...DEMAND_COUNTRIES] };
 }
 
 /**
- * WP-68: the codes of the sample on /readiness/spain-automotive: the vehicle-parts profile of the WP-65/66 samples (the page prints their
- * official titles). The page shows the API's live answer for them, or nothing.
+ * WP-68: the codes of the sample on /readiness/spain-automotive. WP-105 (p01: the landing counted 482 winners, the report 256): the codes of
+ * the supplier profile's automotive button, so the landing and the report count the same codes. The page shows the API's live answer, or nothing.
  */
-export const SAMPLE_CPV = ['34300000', '34100000', '35421000', '42600000', '44300000'] as const;
+export const SAMPLE_CPV = AUTOMOTIVE_SET;
 
 /** Whether a body is a demand answer the page can show (a live read from the API, so it is checked before use). */
 export function isDemand(d: unknown): d is Demand {
@@ -96,7 +111,8 @@ export function otherWinnersLine(c: DemandCountry, kMin: number): string | null 
   const head = `${winners} ${winners === 1 ? 'other winner' : 'other winners'} (${awards} ${awards === 1 ? 'award' : 'awards'})`;
   return kMin > 1
     ? `${head} not named: a winner is named only with at least ${kMin} awards here, and at most ten per country.`
-    : `${head} not listed here: the list shows the ten with the most awards per country, and the report names them all under Who to approach.`;
+    // WP-105 (p01, p04): "the report names them all under Who to approach" was not so (that list stops too); the list of every winner does
+    : `${head} not listed here: the list shows the ten with the most awards per country; every one of them is on the list of all winners for these codes.`;
 }
 
 /** The winners not named in "who to approach", in words: the mosaic rule, and the end of the list. */
@@ -107,7 +123,13 @@ export function approachOthersLine(a: Approach, kMin: number): string | null {
     parts.push(`${n(a.below.winners, 'other winner', 'other winners')} with fewer than ${kMin} awards each (${n(a.below.awards, 'award', 'awards')} together) ` +
       `${a.below.winners === 1 ? 'is' : 'are'} counted, not named.`);
   }
-  if (a.more.winners > 0) {
+  if (a.more.winners > 0 && kMin <= 1) {
+    // WP-105 (p01: "37 are named below" then "the list stops at 30"): the list is the 30 with the most contracts, every prime and the
+    // company's own country's winners, so it can be longer than 30
+    parts.push(`${n(a.more.winners, 'more winner', 'more winners')} (${n(a.more.awards, 'award', 'awards')}) ${a.more.winners === 1 ? 'is' : 'are'} not ` +
+      'listed here: the list names the 30 with the most contracts, every prime contractor or large defence group, and the winners of your own ' +
+      'country; every winner is on the list of all winners for these codes.');
+  } else if (a.more.winners > 0) {
     parts.push(`${n(a.more.winners, 'more winner', 'more winners')} with ${kMin} or more awards (${n(a.more.awards, 'award', 'awards')}) ` +
       `${a.more.winners === 1 ? 'is' : 'are'} not listed: the list stops at 30, and every prime contractor or large defence group is on it.`);
   }
@@ -213,7 +235,7 @@ export function allWinnersLabel(n: number, country?: string): string {
 }
 
 async function post<T>(path: string, request: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetchPatiently(path, {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(request), signal, cache: 'no-store', credentials: 'omit',
   }).catch((e: unknown) => {

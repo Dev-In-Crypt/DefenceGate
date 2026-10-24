@@ -31,7 +31,7 @@ import time
 from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
-from .. import changes, db, suppliers, tenders
+from .. import changes, db, money, suppliers, tenders
 from ..config import settings
 from ..listcache import snapshot_key, stored
 
@@ -88,6 +88,7 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
     # WP-98c: the supplier list's value orders, unfiltered (the whole set, and TED's rows)
     for ted_only in (False, True):
         out.append(("supplier-values", suppliers.value_order_key(ted_only), {"ted_only": ted_only}))
+    out.append(("contract-values", money.MONEY_KEY, {}))         # WP-105: the market overview's contract values
     for name in ("tender-slugs", "buyer-slugs"):
         out.append((name, snapshot_key(name, {}), {}))
     return out
@@ -115,7 +116,7 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
 
 # WP-98c: the views the first reader after a deploy must not wait for (the Atom feed's pages, the supplier value orders),
 # written at the worker's start when missing or older than four hours, without the ten minutes of the whole run.
-FIRST_VIEWS = ("changes", "supplier-values")
+FIRST_VIEWS = ("changes", "supplier-values", "contract-values")
 
 
 def run_first(conn) -> dict[str, int]:
@@ -142,6 +143,8 @@ def _write_views(conn, todo, kept: list[str], write: bool) -> tuple[int, int]:
             if name == "buyer-base":
                 # One pass over every core notice, tested for twins (seconds): the buyer pages read it.
                 body = jsonable_encoder(tenders.compute_buyer_base(conn, exact=True))
+            elif name == "contract-values":
+                body = money.compute(conn)
             elif name == "supplier-values":
                 body = suppliers.compute_value_order(conn, kw["ted_only"])
             else:

@@ -75,7 +75,10 @@ for (const l of [...de, ...pl, ...countryRoute('NL'), ...countryRoute('FR')]) {
 const nl = countryRoute('NL');
 assert.equal(nl[0].title, 'Supplying the armed forces of the Netherlands');
 // every route link outside this site is a source already in the repository
-const known = ['https://oeffentlichevergabe.de/', 'https://www.gesetze-im-internet.de/awv_2013/__8.html', 'https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html', 'https://ezamowienia.gov.pl/', NSPA_NCAGE_URL];
+const known = ['https://oeffentlichevergabe.de/', 'https://www.gesetze-im-internet.de/awv_2013/__8.html', 'https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html', 'https://ezamowienia.gov.pl/', NSPA_NCAGE_URL,
+  // WP-105: the export authorities of the Netherlands and Italy, the issuers of REQ-EXPORT in the requirements seed
+  'https://www.rijksoverheid.nl/themas/economie/exportcontrole-strategische-goederen/vraag-en-antwoord/exportcontrole-strategische-goederen/wanneer-heb-ik-een-vergunning-nodig-voor-de-export-van-militaire-goederen',
+  'https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:1990-07-09;185~art7bis'];
 const seed = readFileSync(join('..', 'backend', 'seeds', 'requirements.json'), 'utf8') + readFileSync(join('..', 'docs', 'sources', 'de_national.md'), 'utf8')
   + readFileSync(join('..', 'backend', 'dgate', 'sources', 'ezamowienia.py'), 'utf8');
 for (const l of Object.values(COUNTRY_ROUTES).flat()) if (l.link && !l.link.url.startsWith('/')) {

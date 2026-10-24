@@ -298,7 +298,10 @@ def store_value_orders(conn) -> int:
             """INSERT INTO list_snapshot (key, body, computed_at) VALUES (%s, %s, now())
                ON CONFLICT (key) DO UPDATE SET body = EXCLUDED.body, computed_at = EXCLUDED.computed_at""",
             (value_order_key(ted_only), Jsonb(compute_value_order(conn, ted_only))))
-    return 2
+    # WP-105: and the contract values the market overview sums (`money`), from the same rows at the same moment
+    from . import money
+    money.store(conn)
+    return 3
 
 
 def values_behind(conn, at: datetime | None) -> bool:
@@ -1046,6 +1049,8 @@ class BuyerSupplier(BaseModel):
     name: str
     country: str | None
     awards: int
+    # WP-105: the contract values of its contracts with this buyer (under the codes asked), per currency, as its page sums them
+    contractValues: list[ValueSum] = []
 
 
 class BuyerSuppliers(BaseModel):
@@ -1054,19 +1059,29 @@ class BuyerSuppliers(BaseModel):
     suppliers: int
     contracts: int
     attribution: str
+    # WP-105: the CPV prefixes the list is narrowed to (none: every code), and the sum of the contract values of all its
+    # suppliers' contracts with this buyer, per currency (`valued` of `awardsWithSupplier` contracts and winners state one)
+    cpv: list[str] = []
+    contractValues: list[ValueSum] = []
+    awardsWithSupplier: int = 0               # contracts and their winners: a contract with two winners counts twice
+    valued: int = 0
 
 
 @router.get("/v1/buyers/{slug}/suppliers", response_model=BuyerSuppliers)
 @cache_list("buyer-suppliers", ttl=30 * 60)
-def buyer_suppliers(slug: str, conn=Depends(get_conn)):
+def buyer_suppliers(slug: str, cpv: str | None = Query(None, max_length=200), conn=Depends(get_conn)):
     """Who won this buyer's contracts (WP-90, the analyst's "top suppliers of this buyer"): the award set of the
     supplier map (`award_set.scope`: defence scope, last three years, legal entities only, a TED+PLACSP twin once),
     under the buyer's family (every organisation row of the body, migration 0055), most contracts first, at most
-    BUYER_TOP. A natural person is never named (`award_set.WINNERS`); a buyer removed on request has none."""
+    BUYER_TOP. A natural person is never named (`award_set.WINNERS`); a buyer removed on request has none.
+    WP-105 (persona round of 24 October 2026, p01, p03, p06): `cpv` narrows it as the buyer page's tender filter does (any
+    code of a notice under a prefix), and each supplier carries the contract values of its contracts with this buyer, with
+    their sum over every supplier, by the supplier pages' rule (`contract_values_sql`: contract values only)."""
     org_id = _id_of(slug, "buyer")
+    where, fp = _filters(None, None, cpv)
     ids = conn.execute("SELECT dgate_family_ids(%s) AS ids", (org_id,)).fetchone()["ids"] or [org_id]
-    p = {"since": since(), "ids": list(ids), "limit": BUYER_TOP}
-    own = "o.buyer_org_id = ANY(%(ids)s) AND NOT o.buyer_withheld"
+    p = {**fp, "since": since(), "ids": list(ids), "limit": BUYER_TOP}
+    own = " AND ".join(["o.buyer_org_id = ANY(%(ids)s) AND NOT o.buyer_withheld", *where])
     rows = conn.execute(
         f"""WITH base AS (
               SELECT org.id, org.country, org.canonical_name, count(DISTINCT {KEY_HASH}) AS n
@@ -1082,6 +1097,20 @@ def buyer_suppliers(slug: str, conn=Depends(get_conn)):
     day = f", as last updated on {note['lastUpdated']:%Y-%m-%d}" if note and note["lastUpdated"] else ""
     attribution = (TED_NOTE["attribution"] + (f" {note['attribution'].rstrip('.')}{day}." if note else "")
                    + " Winners as named in each notice; natural persons are never named.")
+    # WP-105: every supplier's contract values with this buyer in one statement; the listed ones shown, all of them summed
+    values: dict[int, list[dict[str, Any]]] = {}
+    total: dict[str, dict[str, Any]] = {}
+    for v in conn.execute(contract_values_sql(f"{scope()} AND {own}", _twins(False)), p).fetchall():
+        s = {"currency": v["vc"], "amount": float(v["amount"]), "count": v["n"], "lotEstimates": 0}
+        values.setdefault(v["org"], []).append(s)
+        t = total.setdefault(v["vc"], {**s, "amount": 0.0, "count": 0})
+        t["amount"] = round(t["amount"] + s["amount"], 2)
+        t["count"] += s["count"]
+    pairs = conn.execute(f"SELECT count(DISTINCT (org.id, {KEY_HASH})) AS n {FROM} WHERE {scope()} AND {own}",
+                         p).fetchone()["n"]
+    order = lambda xs: sorted(xs, key=lambda s: (-s["count"], s["currency"]))  # noqa: E731
     return {"items": [{"slug": make_slug(r["id"], _name(r)), "name": _name(r), "country": r["country"],
-                       "awards": r["n"]} for r in rows],
-            "suppliers": rows[0]["total_rows"] if rows else 0, "contracts": contracts, "attribution": attribution}
+                       "awards": r["n"], "contractValues": order(values.get(r["id"], []))} for r in rows],
+            "suppliers": rows[0]["total_rows"] if rows else 0, "contracts": contracts, "attribution": attribution,
+            "cpv": fp.get("prefixes", []), "contractValues": order(list(total.values())),
+            "awardsWithSupplier": pairs, "valued": sum(s["count"] for s in total.values())}

@@ -291,7 +291,9 @@ export function isMachineCode(code: string, dictionary: ReadonlyMap<string, stri
  * the vehicle and military-vehicle part codes the defence buyers use for spare parts, and the product codes of castings, fasteners and
  * wiring. Official codes and titles; the demand map counts under each.
  */
-export const AUTOMOTIVE_SET = ['34300000', '34320000', '34330000', '35420000', '35421000', '34322000', '34312000', '44470000', '44530000', '31611000'] as const;
+// WP-105 (p01): military vehicles and associated parts as a whole (35400000, the class 354: "Suministro de repuestos para vehículos BRI II"
+// is coded 35400000 itself), in place of its parts code 35420000 and 35421000, which it covers
+export const AUTOMOTIVE_SET = ['34300000', '34320000', '34330000', '35400000', '34322000', '34312000', '44470000', '44530000', '31611000'] as const;
 
 /**
  * WP-97 (persona round of 23 October 2026): the other one-click starts, official CPV 2008 codes. Services: transport (60), cargo handling
@@ -303,14 +305,26 @@ export const AUTOMOTIVE_SET = ['34300000', '34320000', '34330000', '35420000', '
  */
 export const SERVICES_SET = ['60000000', '63100000', '09100000', '79993000', '90900000', '55500000', '50100000', '80600000', '72000000'] as const;
 export const AMMUNITION_SET = ['35330000', '35340000', '24610000', '24611000', '24612000', '24613000', '24615000'] as const;
-export const MACHINING_SET = ['35421000', '35521000', '35641000', '34731000', '34320000', '42141000', '35340000'] as const;
+// WP-105 (p03: the profile's set and the tender list's group differed, "Open now in Germany (0)" against 1): one list, read by the supplier
+// profile and by the tender list's "Machined parts and spare parts" (lib/analyst.ts); aircraft parts are in AVIATION_SET
+export const MACHINING_SET = ['35421000', '35521000', '35641000', '34320000', '34330000', '34913000', '35340000', '44530000'] as const;
+// WP-105 (p02, p07): uniforms and textiles (the tender list's group), ships and naval, aircraft and aviation, official CPV 2008 codes
+export const UNIFORM_SET = ['35810000', '18100000', '18200000', '18300000', '18800000', '35113400', '39500000'] as const;
+export const NAVAL_SET = ['34500000', '35500000', '50640000', '50241000'] as const;
+export const AVIATION_SET = ['34700000', '35600000', '50650000', '50211000'] as const;
 
-export interface CodeSet { key: 'automotive' | 'machining' | 'ammunition' | 'services'; label: string; covers: string; codes: readonly string[] }
+export interface CodeSet { key: 'automotive' | 'machining' | 'ammunition' | 'services' | 'uniforms' | 'naval' | 'aviation'; label: string; covers: string; codes: readonly string[] }
 export const CODE_SETS: CodeSet[] = [
   { key: 'automotive', label: 'Automotive supplier', codes: AUTOMOTIVE_SET,
     covers: 'vehicle and military-vehicle parts, engine and brake parts, cast-iron products, fasteners and wiring sets' },
-  { key: 'machining', label: 'Precision machining and aerospace parts', codes: MACHINING_SET,
-    covers: 'mechanical spare parts of military vehicles, warships and military aircraft, aircraft parts, gearing and parts of firearms' },
+  { key: 'machining', label: 'Machined parts and spare parts', codes: MACHINING_SET,
+    covers: 'mechanical spare parts of military vehicles, warships and military aerospace equipment, other mechanical and miscellaneous spare parts, spare parts for vehicles, parts of firearms and ammunition, and fasteners' },
+  { key: 'uniforms', label: 'Uniforms, textiles and protective gear', codes: UNIFORM_SET,
+    covers: 'individual equipment, occupational clothing and workwear, outerwear and garments, footwear, protective and safety clothing, and textile articles' },
+  { key: 'naval', label: 'Ships and naval', codes: NAVAL_SET,
+    covers: 'ships and boats, warships and their parts, and the repair and maintenance of warships and ships' },
+  { key: 'aviation', label: 'Aircraft and aviation', codes: AVIATION_SET,
+    covers: 'aircraft and their parts, military aircraft, missiles and spacecraft, and the repair and maintenance of military and other aircraft' },
   { key: 'ammunition', label: 'Ammunition and explosives maker', codes: AMMUNITION_SET,
     covers: 'ammunition and its parts, explosives, propellants, pyrotechnic articles, fuses and detonators' },
   { key: 'services', label: 'Services to the armed forces', codes: SERVICES_SET,

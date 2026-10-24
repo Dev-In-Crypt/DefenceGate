@@ -3869,8 +3869,8 @@
        "verificationStatus": "V"
       },
       "texts": {
-       "conditional": "Your item is, or may be, in Annex I of Regulation (EU) 2021/821, and you export or may export outside the EU. Whether it is listed is decided by a classification: ask your competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA).",
-       "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
+       "conditional": "Your item is, or may be, in Annex I of Regulation (EU) 2021/821, and you export or may export outside the EU. Whether it is listed is decided by a classification: ask your competent authority (the authority of the EU country where you are established; your roadmap names it where our sources do).",
+       "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (the authority of the EU country where you are established; your roadmap names it where our sources do), or an export-control specialist, settles it. This service gives no control-list parameters.",
        "met": "You hold the export authorisation.",
        "not_applicable": "This concerns items that may be listed dual-use items and are exported outside the EU.",
        "not_met": "An authorisation is required for the export of dual-use items listed in Annex I.",
@@ -4808,6 +4808,20 @@
      "notes": "Named as the competent authority for Poland. A complete EU-wide list of competent authorities has not been assembled. UNVERIFIED: the notes name the same authority for both regimes; another authority may be competent for military goods.",
      "url": null,
      "verificationStatus": "S"
+    },
+    {
+     "country": "NL",
+     "name": "CDIU (Centrale Dienst voor In- en Uitvoer) of Dutch Customs, on behalf of the Ministry of Foreign Affairs: for military goods",
+     "notes": "Rijksoverheid.nl (read 24 October 2026): the forms for military goods are at the CDIU of Dutch Customs, which reviews the application on behalf of the Ministry of Foreign Affairs against the Dutch arms export policy. UNVERIFIED: the authority for dual-use items was not read.",
+     "url": "https://www.rijksoverheid.nl/themas/economie/exportcontrole-strategische-goederen/vraag-en-antwoord/exportcontrole-strategische-goederen/wanneer-heb-ik-een-vergunning-nodig-voor-de-export-van-militaire-goederen",
+     "verificationStatus": "V"
+    },
+    {
+     "country": "IT",
+     "name": "UAMA (Unità per le autorizzazioni dei materiali d'armamento), Ministry of Foreign Affairs: for armament materials",
+     "notes": "Law 185/1990, article 7-bis (read 24 October 2026): UAMA is the national authority competent for the authorisations for the trade in armament materials. UNVERIFIED: the authority for dual-use items was not read.",
+     "url": "https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:1990-07-09;185~art7bis",
+     "verificationStatus": "V"
     }
    ],
    "kind": "document",
@@ -4937,8 +4951,8 @@
       "verificationStatus": "V"
      },
      "texts": {
-      "conditional": "Your item is, or may be, in Annex I of Regulation (EU) 2021/821, and you export or may export outside the EU. Whether it is listed is decided by a classification: ask your competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA).",
-      "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (Spain: Secretaría de Estado de Comercio; Germany: BAFA), or an export-control specialist, settles it. This service gives no control-list parameters.",
+      "conditional": "Your item is, or may be, in Annex I of Regulation (EU) 2021/821, and you export or may export outside the EU. Whether it is listed is decided by a classification: ask your competent authority (the authority of the EU country where you are established; your roadmap names it where our sources do).",
+      "consultant": "Export classification: whether your item matches an entry of Annex I of Regulation (EU) 2021/821 is a technical classification. A classification request to the competent authority (the authority of the EU country where you are established; your roadmap names it where our sources do), or an export-control specialist, settles it. This service gives no control-list parameters.",
       "met": "You hold the export authorisation.",
       "not_applicable": "This concerns items that may be listed dual-use items and are exported outside the EU.",
       "not_met": "An authorisation is required for the export of dual-use items listed in Annex I.",

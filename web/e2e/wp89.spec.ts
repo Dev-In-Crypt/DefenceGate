@@ -126,11 +126,11 @@ test('CPV search: castings finds the products before the machines, machined part
   await expect(page.locator('#q-cpv label').filter({ hasText: '34320000' }).first()).toBeVisible();
   await search.fill('');
   await page.getByRole('button', { name: 'Automotive supplier: suggested codes' }).click();
-  await expect(page.locator('[data-cpv-suggested] [role="status"]')).toHaveText('10 codes of “Automotive supplier” added. Remove below the ones that do not fit what you do.');
+  await expect(page.locator('[data-cpv-suggested] [role="status"]')).toHaveText('9 codes of “Automotive supplier” added. Remove below the ones that do not fit what you do.');   // WP-105: 35400000 in place of 35420000 and 35421000
   const chosen = page.getByRole('list', { name: 'Your CPV codes' }).locator('li');
-  await expect(chosen).toHaveCount(10);
-  await page.getByRole('button', { name: 'Remove 31611000' }).click();
   await expect(chosen).toHaveCount(9);
+  await page.getByRole('button', { name: 'Remove 31611000' }).click();
+  await expect(chosen).toHaveCount(8);
 });
 
 test('/buyers and /market take a CPV code', async ({ page }, info) => {

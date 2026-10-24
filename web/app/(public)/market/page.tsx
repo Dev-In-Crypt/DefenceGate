@@ -18,12 +18,15 @@ import { EmptyState } from '@/components/dg/feedback';
 import { Icon } from '@/components/dg/icon';
 import { Download } from 'lucide-react';
 import { CoverageNote } from '@/components/dg/coverage-note';
+import { DataTable } from '@/components/dg/data-table';
+import { moneyLine, valuedShare } from '@/lib/market-money';
+import type { MarketMoney, MoneyTotals } from '@/lib/types';
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Market overview',
-  description: 'How many defence procurement notices are published, by month, country and subject. Counts of notices, not contract value.',
+  description: 'How many defence procurement notices are published, by month, country and subject, and the contract values awarded by country, subject and buyer.',
   path: '/market',
 });
 
@@ -31,6 +34,66 @@ export const metadata: Metadata = buildMetadata({
 const LINK = 'font-semibold';
 
 type Props = { searchParams: Promise<SearchParams> };
+
+/** WP-105: the market's contract values: in all, by buyer country, by CPV group and for the buyers with the most valued contracts. */
+function Money({ m, basis, cpvLink }: { m: MarketMoney; basis: string; cpvLink: string }) {
+  const cell = (t: MoneyTotals) => <td className="text-small" data-money-cell>{moneyLine(t.byCurrency) ?? 'None stated'}</td>;
+  const share = (t: MoneyTotals) => <td className="text-small text-ink-muted">{valuedShare(t.of, t.withoutValue)}</td>;
+  if (m.total.of === 0) {
+    return (
+      <p className="m-0 max-w-prose text-body" data-market-money-empty>
+        No awarded contract of the supplier map falls in this choice: the contract values cover the award notices of the last three years.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4" data-market-money>
+      <p className="m-0 max-w-prose text-body" data-market-money-total>
+        {formatDateUtc(m.since)} to {formatDateUtc(m.until)}: <strong>{moneyLine(m.total.byCurrency) ?? 'no contract value stated'}</strong>{' '}
+        (of the {formatNumber(m.total.of)} contracts and their winners in the award notices we read, {formatNumber(m.total.of - m.total.withoutValue)} state a contract value).
+      </p>
+      <AutoGrid min={460}>
+        <DataTable label="Contract values awarded by buyer country" minWidth={420}>
+          <thead><tr><th scope="col">Buyer country</th><th scope="col">Contract values</th><th scope="col">Coverage</th></tr></thead>
+          <tbody>
+            {m.byCountry.map((c) => (
+              <tr key={c.country} data-money-country={c.country}>
+                <th scope="row" className="font-normal"><Link href={`/suppliers?buyerCountry=${c.country}${cpvLink}`} className={LINK}><CountryLabel code={c.country} /></Link></th>
+                {cell(c)}{share(c)}
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+        <DataTable label="Contract values awarded by CPV group" minWidth={420}>
+          <thead><tr><th scope="col">CPV group</th><th scope="col">Contract values</th><th scope="col">Coverage</th></tr></thead>
+          <tbody>
+            {m.byCpvGroup.map((g) => (
+              <tr key={g.group} data-money-group={g.group}>
+                <th scope="row" className="font-normal"><span className="font-mono tabular-nums">{g.group}</span> {cpvGroupName(g.group) ?? 'Group'}</th>
+                {cell(g)}{share(g)}
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      </AutoGrid>
+      {m.byBuyer.length > 0 && (
+        <DataTable label="Buyers with the most contracts that state a value" minWidth={420}>
+          <thead><tr><th scope="col">Buyer</th><th scope="col">Country</th><th scope="col">Contract values</th><th scope="col">Coverage</th></tr></thead>
+          <tbody>
+            {m.byBuyer.map((b) => (
+              <tr key={b.slug} data-money-buyer>
+                <th scope="row" className="font-normal"><Link href={`/buyers/${b.slug}`} className={LINK}>{b.name}</Link></th>
+                <td>{b.country ? <CountryLabel code={b.country} /> : 'Not stated'}</td>
+                {cell(b)}{share(b)}
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
+      )}
+      <AboutData summary="How we count"><p className="m-0" data-money-basis>{basis}</p></AboutData>
+    </div>
+  );
+}
 
 export default async function MarketPage({ searchParams }: Props) {
   const filters = parseMarketFilters(await searchParams);
@@ -84,7 +147,7 @@ export default async function MarketPage({ searchParams }: Props) {
       wide
       crumbs={crumbs}
       title="Market overview"
-      lead="How many defence procurement notices are published, by month, country and subject: counts of notices, never of money."
+      lead="How many defence procurement notices are published, by month, country and subject, and the contract values awarded in the contracts we read."
     >
       {selectors}
 
@@ -199,6 +262,13 @@ export default async function MarketPage({ searchParams }: Props) {
           rows={stats.sources.map((s) => ({ key: s.id, label: s.name, count: s.count }))}
         />
         <AboutData summary="How we count"><p className="m-0">{stats.basis.sources}</p></AboutData>
+      </ContentSection>
+
+      {/* WP-105 (p07: "no spending totals by country, CPV or buyer"): the contract values awarded, contracts only, per currency */}
+      <ContentSection title="Contract values awarded">
+        {stats.money ? <Money m={stats.money} basis={stats.basisMoney ?? ''} cpvLink={cpvLink} /> : (
+          <p className="m-0 max-w-prose text-body" data-market-money-none>The contract values are being summed; they are shown once the next computation is stored (within a few hours).</p>
+        )}
       </ContentSection>
 
       <ContentSection title="Reading these figures" split>

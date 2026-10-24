@@ -709,6 +709,18 @@ export interface MarketStats {
   responseWindow: { notices: number; median: number | null; p25: number | null; p75: number | null };
   cpvGroups: { group: string; count: number }[];
   basis: Record<string, string>;
+  /** WP-105: the contract values awarded in the window (the supplier map's contracts), null while none is stored; absent from an older API. */
+  money?: MarketMoney | null;
+  basisMoney?: string;
+}
+
+/** WP-105: one slice of the market's contract values: the sums per currency, out of how many contracts (a contract and its winner). */
+export interface MoneyTotals { byCurrency: ValueSum[]; of: number; withoutValue: number }
+export interface MarketMoney {
+  asOf: IsoDateTime; since: string; until: string; total: MoneyTotals;
+  byCountry: (MoneyTotals & { country: string })[];
+  byCpvGroup: (MoneyTotals & { group: string })[];
+  byBuyer: (MoneyTotals & { slug: string; name: string; country: string | null })[];
 }
 
 /** The market page's selectors: a calendar year (the rolling 12 months when absent) and one buyer country. */
@@ -717,11 +729,17 @@ export interface MarketFilters { year?: number; country?: string; /** WP-89: CPV
 /** GET /v1/buyers/{slug}/profile: the buyer's own core-scope notices, counted. */
 /** WP-90, GET /v1/buyers/{slug}/suppliers: who won this buyer's contracts (the supplier map's award set), most first, at most 10. */
 export interface BuyerSuppliers {
-  items: { slug: string; name: string; country: string | null; awards: number }[];
+  /** WP-105: `contractValues`, the contract values of its contracts with this buyer per currency, as its supplier page sums them. */
+  items: { slug: string; name: string; country: string | null; awards: number; contractValues?: ValueSum[] }[];
   /** Every supplier and contract of the buyer in the award set, not only the ten listed. */
   suppliers: number;
   contracts: number;
   attribution: string;
+  /** WP-105: the CPV prefixes asked (none: every code); the sum over every supplier; contracts and winners in all, and how many state a value. */
+  cpv?: string[];
+  contractValues?: ValueSum[];
+  awardsWithSupplier?: number;
+  valued?: number;
 }
 
 export interface BuyerProfile {

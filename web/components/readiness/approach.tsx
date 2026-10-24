@@ -94,6 +94,40 @@ export function Winner({ w, scope, request = null, rules = true, full = false }:
   );
 }
 
+/**
+ * WP-105 (p01: Indra, Santa Bárbara Sistemas and Iveco Defence were nowhere in an automotive maker's report): the primes and large defence
+ * groups of our list that won none of the procurements under the codes, but other defence contracts from the same buyers.
+ */
+export function PrimesAtBuyers({ a }: { a: Demand['approach'] }) {
+  const xs = a.primesAtBuyers ?? [];
+  if (xs.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 pt-2" data-approach-primes-at-buyers>
+      <h4 className="m-0 text-body font-bold">Primes that win other contracts from the same buyers</h4>
+      <p className="m-0 max-w-prose text-small text-ink-muted">
+        On our list of prime contractors and large defence groups, these won no published contract under your codes, but other defence-scope
+        contracts from the buyers that buy what you make (any code, the same three years): the programmes they build for those buyers may need your parts.
+      </p>
+      <ul className="m-0 flex list-none flex-col p-0">
+        {xs.map((p) => {
+          const src = safeHttpUrl(p.prime.sourceUrl);
+          return (
+            <li key={p.slug} className="report-item flex flex-col gap-0.5 border-t border-line py-2 first:border-t-0" data-prime-at-buyers={p.prime.group}>
+              <span className="text-body">
+                <Link href={`/suppliers/${p.slug}`} className="font-semibold">{p.name}</Link>
+                {p.country && <span className="text-small text-ink-muted"> ({countryName(p.country)})</span>}
+                {' '}<Tag wrap>{`Prime or large defence group: ${p.prime.group}`}</Tag>
+              </span>
+              <span className="text-small">{p.contracts} {p.contracts === 1 ? 'contract' : 'contracts'} from these buyers under other codes.</span>
+              <span className="text-small text-ink-muted" data-short-hidden>Listed by name from: {src ? <a href={src} target="_blank" rel="noopener noreferrer">{p.prime.source}</a> : p.prime.source}.</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /** WP-81: what the sums under each winner cover, the list's own period, countries and sources. */
 export function winnersScope(d: Pick<Demand, 'since' | 'until' | 'countries' | 'sources'>): string {
   return `The contracts of this list: ${formatDateUtc(d.since)} to ${formatDateUtc(d.until)}, in ${d.countries.map(countryName).join(', ')}, from ${d.sources.some((s) => s.code.startsWith('es_placsp')) ? 'TED and PLACSP' : 'TED'}.`;
@@ -153,6 +187,7 @@ export function ApproachMap({ result, hasCodes, country, request }: { result: Re
             2024, and the Spanish and other EU vehicle and defence makers we list, each with its source). Primes may still buy what you make from their own suppliers; that is not published.
           </p>
         ) : list(primes, 'p', SHORT_PRIMES)}
+        <PrimesAtBuyers a={a} />
       </div>
       {abroad.length > 0 && (
         <div className="flex flex-col gap-1" data-approach-abroad data-print-full>

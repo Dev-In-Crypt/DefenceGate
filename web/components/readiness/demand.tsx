@@ -5,6 +5,7 @@ import { cpvDictionaryTitle } from '@/lib/cpv';
 import { allWinnersLabel, buyerAmount, buyerLine, directiveShare, otherWinnersLine, ownFirst, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
+import { placspCredit, placspNote } from '@/lib/supplier-sources';
 import { countryName } from '@/lib/taxonomy';
 import { Button } from '@/components/dg/button';
 import { DataTable } from '@/components/dg/data-table';
@@ -30,7 +31,7 @@ function Ref({ r }: { r: DemandRef }) {
 }
 
 /** `home` (WP-97): the company's own country, first and printed in full; another country's notice lists are left out of the short print. */
-function Country({ c, kMin, home = false }: { c: DemandCountry; kMin: number; home?: boolean }) {
+function Country({ c, kMin, home = false, credit = null }: { c: DemandCountry; kMin: number; home?: boolean; credit?: string | null }) {
   const others = otherWinnersLine(c, kMin);
   const foreign = home ? {} : { 'data-print-full': '' };
   return (
@@ -91,6 +92,8 @@ function Country({ c, kMin, home = false }: { c: DemandCountry; kMin: number; ho
               <ul className="m-0 flex list-none flex-col p-0">{c.latest.map((r) => <Ref key={r.id} r={r} />)}</ul>
             </div>
           )}
+          {/* WP-105 (p03, p06): the Spanish portal's credit under Spain's figures only, not under every country's */}
+          {credit && <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution data-country-attribution>{credit}</p>}
         </>
       )}
     </section>
@@ -107,6 +110,7 @@ export function DemandMap({ result, country = '' }: { result: DemandResult; coun
   if (result.state === 'idle' || result.state === 'loading') return <div role="status" aria-label="Computing the demand map"><Skeleton className="h-40" /></div>;
   if (result.state === 'error') return <ErrorState title="The demand map could not be computed" onRetry={result.retry}>{result.message}</ErrorState>;
   const d = result.data;
+  const placsp = placspNote(d.sources);
   return (
     <div className="flex flex-col gap-4" data-demand>
       <p className="m-0 max-w-prose text-body">
@@ -124,8 +128,11 @@ export function DemandMap({ result, country = '' }: { result: DemandResult; coun
           <li key={c.code} data-demand-code={c.code}><span className="font-mono">{c.code}</span> {vocab?.get(c.code) ?? cpvDictionaryTitle(c.code) ?? ''}: {c.procurements}</li>
         ))}
       </ul>
-      {ownFirst(d.byCountry, country).map((c) => <Country key={c.country} c={c} kMin={d.kMin} home={c.country === country} />)}
-      <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{d.sources.map((s) => s.attribution).join(' ')}</p>
+      {ownFirst(d.byCountry, country).map((c) => (
+        <Country key={c.country} c={c} kMin={d.kMin} home={c.country === country}
+          credit={c.country === 'ES' && placsp ? placspCredit(placsp, formatDateUtc) : null} />
+      ))}
+      <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{d.sources.filter((s) => s !== placsp).map((s) => s.attribution).join(' ')}</p>
       <AboutData summary="What the counts mean">
         <p className="m-0">{d.winnersFrom} {d.notice}</p>
         <p className="m-0">A buyer’s amount is the sum of the contract values of its awarded procurements under your codes, per currency, each contract once, from notices that give the value to one winner; framework ceilings and estimates are never added.</p>

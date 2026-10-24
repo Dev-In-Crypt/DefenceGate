@@ -3,7 +3,7 @@
  * subscriptions of a search (its deadline calendar and its change feed) with exactly its filters. Pure and import-light:
  * lib/wp90.check.ts runs it on its own.
  */
-import { cpvPrefix } from './cpv';
+import { AVIATION_SET, MACHINING_SET, NAVAL_SET, UNIFORM_SET, cpvPrefix } from './cpv';
 import { DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, toChangeQuery, toTenderQuery } from './filters';
 import { SCOPE_CHOICES, countryName } from './taxonomy';
 import type { TenderFilters } from './types';
@@ -21,11 +21,13 @@ export const CPV_PRESETS = [
   // WP-98b (p04): the energetic materials and initiators (2461x: explosives, propellants, pyrotechnics, fuses and detonators) with 353
   { id: 'weapons', label: 'Ammunition, weapons, explosives and pyrotechnics', group: 'goods', codes: ['35300000', '24610000'] },
   // WP-98b (p02): clothing, footwear, textiles and protective clothing, not only 3581 and 181
-  { id: 'uniforms', label: 'Uniforms, footwear and protective gear', group: 'goods',
-    codes: ['35810000', '18100000', '18200000', '18300000', '18800000', '35113400', '39500000'] },
+  // WP-105: the supplier profile's buttons read the same lists (lib/cpv.ts), so a profile and the tender list count the same codes
+  { id: 'uniforms', label: 'Uniforms, footwear and protective gear', group: 'goods', codes: UNIFORM_SET },
   // WP-98b (p03): the mechanical spare parts of the CPV (military vehicles, warships, aircraft; vehicles; other), parts of firearms, fasteners
-  { id: 'parts', label: 'Machined parts and spare parts', group: 'goods',
-    codes: ['35421000', '35521000', '35641000', '34320000', '34330000', '34913000', '35340000', '44530000'] },
+  { id: 'parts', label: 'Machined parts and spare parts', group: 'goods', codes: MACHINING_SET },
+  // WP-105 (p07): ships and naval, aircraft and aviation
+  { id: 'naval', label: 'Ships and naval', group: 'goods', codes: NAVAL_SET },
+  { id: 'aviation', label: 'Aircraft and aviation', group: 'goods', codes: AVIATION_SET },
   // WP-98b (p06): services an armed force buys
   { id: 'transport', label: 'Transport and logistics', group: 'services', codes: ['60100000', '63100000', '63520000', '63700000'] },
   { id: 'fuel', label: 'Fuel', group: 'services', codes: ['09100000'] },

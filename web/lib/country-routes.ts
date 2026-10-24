@@ -83,7 +83,36 @@ export const COUNTRY_ROUTES: Record<string, RouteLine[]> = {
     },
     { ...ncageLine('PL') },
   ],
+  // WP-105 (p06, p07): the export authority for military goods, from the official pages read on 24 October 2026 (the issuers of REQ-EXPORT in
+  // the requirements seed); the rest of the route is not covered
+  NL: [
+    notCoveredRoute('NL'),
+    {
+      key: 'nl-export', title: 'Export control of military goods (CDIU)', open: false,
+      text: 'The forms for exporting military goods are at the Central Import and Export Service (CDIU) of Dutch Customs, which reviews the application on behalf of the Ministry of Foreign Affairs against the Dutch arms export policy (Rijksoverheid). The authority for dual-use items is not covered yet: check with the CDIU.',
+      link: { label: 'Rijksoverheid: export licence for military goods', url: 'https://www.rijksoverheid.nl/themas/economie/exportcontrole-strategische-goederen/vraag-en-antwoord/exportcontrole-strategische-goederen/wanneer-heb-ik-een-vergunning-nodig-voor-de-export-van-militaire-goederen' },
+    },
+    { ...ncageLine('NL') },
+  ],
+  IT: [
+    notCoveredRoute('IT'),
+    {
+      key: 'it-export', title: 'Export control of armament materials (UAMA)', open: false,
+      text: 'The Unit for the authorisations of armament materials (UAMA) of the Ministry of Foreign Affairs is the national authority for the authorisations to trade in armament materials (Law 185/1990, article 7-bis). The authority for dual-use items is not covered yet: check with UAMA.',
+      link: { label: 'Law 185/1990, article 7-bis (Normattiva)', url: 'https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:1990-07-09;185~art7bis' },
+    },
+    { ...ncageLine('IT') },
+  ],
 };
+
+/** The plain line of a country whose national supplier route our sources do not settle. */
+function notCoveredRoute(country: string): RouteLine {
+  return {
+    key: 'route', title: `Supplying the armed forces of ${countryInText(country)}`, open: true, link: null,
+    text: notCovered(country, 'a national supplier route (registrations, licences and security clearances of your country)',
+      'the buyer named in each tender, whose documents state what a bidder must hold; the NATO and EU steps of your roadmap apply as they are'),
+  };
+}
 
 /**
  * The national route lines for a company of this country: Germany's and Poland's above; none for Spain (its route is in the rules); for any
@@ -93,10 +122,12 @@ export function countryRoute(country: string): RouteLine[] {
   if (!country || country === 'ES' || country === 'XX') return [];
   if (COUNTRY_ROUTES[country]) return COUNTRY_ROUTES[country];
   return [
+    notCoveredRoute(country),
+    // WP-105: no other country's export authority is named to this one (a Dutch company read "Spain: …; Germany: BAFA")
     {
-      key: 'route', title: `Supplying the armed forces of ${countryInText(country)}`, open: true, link: null,
-      text: notCovered(country, 'a national supplier route (registrations, licences and security clearances of your country)',
-        'the buyer named in each tender, whose documents state what a bidder must hold; the NATO and EU steps of your roadmap apply as they are'),
+      key: 'export', title: 'Export control', open: true, link: null,
+      text: notCovered(country, 'which authority licenses exports of military and dual-use items',
+        'the export-control authority of your country; the EU dual-use rule on your results applies to your answers'),
     },
     ncageLine(country),
   ];

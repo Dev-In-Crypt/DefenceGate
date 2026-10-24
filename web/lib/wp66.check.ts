@@ -13,8 +13,10 @@ import mock from './mock/demand.json';
 
 const profile = parseProfile(JSON.parse(readFileSync('e2e/fixtures/profile-es-sup-civil.json', 'utf8')));
 const req = demandRequest(profile);
-assert.deepEqual(req, { cpv: ['34300000', '34100000', '35421000', '42600000', '44300000'], countries: ['ES', 'DE', 'FR', 'PL', 'NL'] });
-assert.deepEqual(Object.keys(req ?? {}), ['cpv', 'countries'], 'nothing else of the profile is sent');
+// WP-105: the seven countries of the map, and the company's own country (ES), so its own winners are named past the first 30
+assert.deepEqual(req, { cpv: ['34300000', '34100000', '35421000', '42600000', '44300000'], countries: ['ES', 'DE', 'FR', 'PL', 'NL', 'PT', 'IT'], home: 'ES' });
+assert.deepEqual(Object.keys(req ?? {}), ['cpv', 'countries', 'home'], 'nothing else of the profile is sent');
+assert.deepEqual(Object.keys(demandRequest({ ...profile, country: 'BE' }) ?? {}), ['cpv', 'countries'], 'a country outside the map is not sent');
 assert.equal(demandRequest({ ...profile, supplier: { ...profile.supplier, cpv: [] } }), null, 'no codes, no request');
 assert.equal(demandRequest({ ...profile, supplier: { ...profile.supplier, cpv: ['34300000', 'x', '343'] } })?.cpv.length, 1);
 

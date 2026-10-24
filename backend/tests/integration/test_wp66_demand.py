@@ -188,9 +188,10 @@ def test_the_index_answers_the_prefix_match(conn, world):
     {"cpv": []},
     {"cpv": [f"{30000000 + i * 100000}" for i in range(16)]},
     {"cpv": ["3430000"]},
-    {"cpv": ["34300000"], "countries": ["IT"]},
+    {"cpv": ["34300000"], "countries": ["BE"]},                     # WP-105: Italy and Portugal are map countries now
     {"cpv": ["34300000"], "countries": []},
-    {"cpv": ["34300000"], "countries": ["ES", "DE", "FR", "PL", "NL", "ES"]},
+    {"cpv": ["34300000"], "countries": ["ES", "DE", "FR", "PL", "NL", "PT", "IT", "ES"]},
+    {"cpv": ["34300000"], "home": "BE"},
     {"cpv": ["34300000"], "secretField": "Talleres Norte"},
 ])
 def test_a_wrong_request_is_refused_without_echoing_it(conn, client, body):
