@@ -89,6 +89,18 @@ New: `backend/dgate/search_terms.py`, `backend/dgate/data/search-terms.json`, `b
 and /search pages, `lib/search.ts`, `lib/types.ts`, `lib/mock/tenders.ts`, the tender search hint, `list-page.tsx` (empty text may
 hold a link).
 
+### After merging integration (b480e8e, then f395b8f: WP-100, WP-98b, WP-99)
+
+Two conflicts, both kept: `list_buyers` order (WP-98b's `sort=cpv` by the count under the codes when asked; otherwise WP-98's named
+buyer first, then most tenders) and the tender search hint (WP-98's sentence, WP-98b's preset rows below it). `_tender_filters` merged
+without conflict (WP-100's export parameters are outside it). Synonyms: WP-99's funding table (`textsearch.SYNONYMS`, ASAP -> EDIP) and
+this map are kept apart on purpose: the funding rows are funding ideas over a few hundred English calls ("logistics" -> supply,
+mobility), which would be wrong for tender titles, and the tender map holds product words of seven languages; the one shared idea,
+drone, is a superset here. Migrations: 0111 (this), 0112 (WP-99). Runs on the merged code: ruff clean; unit **3643 passed**;
+integration **1316 passed**, 0 failed (11 min 37 s); tsc 0; lib checks all ok; next build 0; Playwright **761 passed, 57 skipped**,
+0 failed (a first run beside the integration suite failed `digest.spec.ts` and `wp49.spec.ts` once each on time boxes; the rerun alone
+passed everything).
+
 ## 4. Migration 0111
 
 Two trigram GIN indexes, `organisation_name_fold` on `dg_fold(organisation.canonical_name)` and `award_name_fold` on
