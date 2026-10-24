@@ -19,7 +19,7 @@ const UA = {
   statuses: {}, classified: 'no', exportIntent: 'none',
 };
 
-test('the readiness check asks the size, group and controlling-country questions and keeps them in version 4', async ({ page }) => {
+test('the readiness check asks the size, group and controlling-country questions and keeps them in version 5', async ({ page }) => {
   await save(page, { ...UA, step: 1, control: 'other' });
   await visit(page, '/readiness?step=1', { title: /readiness check/i, h1: 'Readiness check' });
   await group(page, /Which of these is your organisation/).getByLabel('A company', { exact: true }).check();
@@ -35,7 +35,7 @@ test('the readiness check asks the size, group and controlling-country questions
   await expect(group(page, /share of the estimated cost of the components/)).toBeVisible();
   await group(page, /share of the estimated cost of the components/).getByLabel('35 % or less', { exact: true }).check();
   const p = await stored(page);
-  expect(p).toMatchObject({ version: 4, orgKind: 'company', headcount: '250_499', inGroup: 'yes', groupHeadcount: '2000plus', controlCountry: 'cn', investor: 'no', componentBand: 'le35' });
+  expect(p).toMatchObject({ version: 5, orgKind: 'company', headcount: '250_499', inGroup: 'yes', groupHeadcount: '2000plus', controlCountry: 'cn', investor: 'no', componentBand: 'le35' });
   expect(p.country).toBe('UA');                                                 // the old answers are kept
 });
 

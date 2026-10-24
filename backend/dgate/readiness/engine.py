@@ -60,6 +60,15 @@ FIELDS: dict[str, dict[str, Any]] = {
     "non_eu_component_cost_pct": {"kind": "pct", "label": "What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine?"},
     "restricted_third_country_component": {"kind": "bool", "label": "Does any component of your end product come from a third country that contravenes the Union's security and defence interests?"},
     "components_from_ua_or_eea_efta": {"kind": "bool", "label": "Do any components of your end product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"},
+    # WP-99: the two places apart, because the Ukraine Support Instrument counts Ukraine as inside and an EEA EFTA state as outside, and the
+    # EDIP Programme the other way round for Ukraine. The joint answer above is still taken from an older client (dgate/readiness/api.py).
+    "components_from_ua": {"kind": "bool", "label": "Do any components of your end product originate in Ukraine?"},
+    "components_from_eea_efta": {"kind": "bool", "label": "Do any components of your end product originate in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"},
+    # WP-99: who controls a company controlled from outside the EU (asked after the control question): Ukraine is allowed under the
+    # Ukraine Support Instrument.
+    "control_country": {"kind": "enum", "values": ("ua", "eea", "cn", "ru_by", "other_non_eu"),
+                        "asked_after": ("third_country_control", ("ua_eea_only", "other")),
+                        "label": "Which country controls your company?"},
     "safe_role": {"kind": "enum", "values": ("contractor", "subcontractor_involved", "other_supplier"),
                   "label": "In a SAFE-supported procurement, would you be the contractor, a subcontractor that is allocated at least 15 % of the contract value, provides critical inputs and needs access to classified information, or another supplier?"},
     "handles_classified": {"kind": "bool", "label": "Will you handle classified information?"},
@@ -149,6 +158,9 @@ class Profile:
     non_eu_component_cost_pct: float | None = None
     restricted_third_country_component: bool | None = None
     components_from_ua_or_eea_efta: bool | None = None
+    components_from_ua: bool | None = None
+    components_from_eea_efta: bool | None = None
+    control_country: str | None = None
     safe_role: str | None = None
     handles_classified: bool | None = None
     product_regime: str = "unknown"
@@ -187,7 +199,16 @@ class Profile:
     us_components: bool | None = None
 
     def fields(self) -> dict[str, Any]:
-        return {name: getattr(self, name) for name in FIELDS}
+        out = {name: getattr(self, name) for name in FIELDS}
+        # WP-99: the joint answer and the two separate ones say the same where they overlap. A joint "no" is a "no" for each place; a
+        # joint "yes" says neither which, so a rule on one place asks. The separate answers give the joint one (EDIP counts both outside).
+        ua, eea, joint = out["components_from_ua"], out["components_from_eea_efta"], out["components_from_ua_or_eea_efta"]
+        if joint is False:
+            out["components_from_ua"] = False if ua is None else ua
+            out["components_from_eea_efta"] = False if eea is None else eea
+        elif joint is None and (ua is not None or eea is not None):
+            out["components_from_ua_or_eea_efta"] = True if (ua or eea) else (False if ua is False and eea is False else None)
+        return out
 
 
 # --------------------------------------------------------------------------- validation
@@ -433,11 +454,17 @@ def assess_rule(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, st
         consultant=rule.texts.get("consultant") if outcome in CONSULTANT_OUTCOMES and not declared else None)
 
 
+def _asked(name: str, fields: Mapping[str, Any]) -> bool:
+    """A follow-up question (`asked_after`) is asked only once the question it follows has the answer that leads to it."""
+    after = FIELDS[name].get("asked_after")
+    return after is None or fields.get(after[0]) in after[1]
+
+
 def _outcome(rule: Rule, fields: Mapping[str, Any], statuses: Mapping[str, str]) -> tuple[str, list[str], bool]:
     """(outcome, the fields still to answer, whether the outcome is the company's own "Not applicable to us")."""
     def missing(*exprs: Expr | None) -> list[str]:
         # the context of a call is not something the company can answer
-        asks = [f for e in exprs for f in fields_in(e) if fields.get(f) is None and not FIELDS[f].get("context")]
+        asks = [f for e in exprs for f in fields_in(e) if fields.get(f) is None and not FIELDS[f].get("context") and _asked(f, fields)]
         # a requirement the questionnaire does not ask: its code stands for the question (`Requirement.extras["question"]`)
         asks += [c for e in exprs for c in statuses_in(e) if statuses.get(c) == STATUS_UNKNOWN and c not in asks]
         return asks

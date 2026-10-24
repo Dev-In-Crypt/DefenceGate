@@ -114,7 +114,7 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   // WP-97: reached from the supplier page, "Change my answers" leads back there
   await expect(page.getByRole('link', { name: 'Change my answers' })).toHaveAttribute('href', '/readiness/supplier');
   const block = await stored(page);
-  expect(block.version).toBe(4);        // WP-93: the current version
+  expect(block.version).toBe(5);        // WP-99: the current version
   expect(block.supplier.cpv).toHaveLength(5);
   expect(block.supplier.expiry).toEqual({ ISO9001: '2027-05' });
   expect(block.control).toBe('no');      // "no foreign investor" answered the wizard's empty control question
@@ -139,9 +139,10 @@ test('a version 2 profile of the wizard: every answer is read, the results link 
   expect((await stored(page)).version).toBe(2);           // reading does not write
   await group(page, 'Registrations you hold').getByLabel(/^RID/).check();
   const block = await stored(page);
-  expect(block.version).toBe(4);        // WP-93: the current version
+  expect(block.version).toBe(5);        // WP-99: the current version
   expect(block.statuses).toEqual({ 'REQ-ISO9001': 'held', 'REQ-RID': 'held' });
-  for (const [k, v] of Object.entries(ES_V2)) if (!['version', 'updatedAt', 'statuses'].includes(k)) expect(block[k], k).toEqual(v);
+  // WP-99: the joint component answer "no" is the answer to both questions
+  for (const [k, v] of Object.entries(ES_V2)) if (!['version', 'updatedAt', 'statuses'].includes(k)) expect(block[k === 'uaEeaComponents' ? 'uaComponents' : k], k).toEqual(v);
 });
 
 test('targets are at least 44 px high', async ({ page }) => {

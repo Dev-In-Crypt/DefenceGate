@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
-import { CONTROL_OPTIONS, COUNTRY_OPTIONS, ComponentShareQuestion, ControlCountryQuestion, EXPORT_OPTIONS, InvestorQuestion, LEGAL_FORM_OPTIONS, MANAGEMENT_OPTIONS, Radios, SAFE_ROLE_OPTIONS, SizeQuestions, YES_NO_UNSURE } from './wizard';
+import { COUNTRY_OPTIONS, ComponentOriginQuestions, ComponentShareQuestion, ControlQuestion, EXPORT_OPTIONS, InvestorQuestion, LEGAL_FORM_OPTIONS, MANAGEMENT_OPTIONS, Radios, SAFE_ROLE_OPTIONS, SizeQuestions, YES_NO_UNSURE } from './wizard';
 import { useCpvVocabulary, useProfile } from './use-readiness';
 
 /** The autonomous communities and cities of Spain, by their ISO 3166-2 codes. */
@@ -235,15 +235,12 @@ export function SupplierForm({ offer = null }: { offer?: 'services' | 'products'
               <Select className="max-w-form" label="Country of the executive management" placeholder="Choose a country" options={COUNTRY_OPTIONS}
                 value={profile.managementCountry} onChange={(e) => update((p) => ({ ...p, managementCountry: e.target.value }))} />
             )}
-            <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control" value={profile.control} options={[...CONTROL_OPTIONS]}
-              hint="Think of the ultimate owners, not only the first shareholder." onChange={(v) => update((p) => ({ ...p, control: v }))} />
-            <ControlCountryQuestion profile={profile} update={update} />
+            <ControlQuestion profile={profile} update={update} hint="Think of the ultimate owners, not only the first shareholder." />
             <InvestorQuestion profile={profile} update={update} />
             <ComponentShareQuestion profile={profile} update={update} />
             <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
               value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, restricted: v }))} />
-            <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua_eea_components"
-              value={profile.uaEeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, uaEeaComponents: v }))} />
+            <ComponentOriginQuestions profile={profile} update={update} />
             {profile.country !== 'UA' && (
               <Radios legend="Does your planned consortium include a legal entity established in Ukraine, with its executive management structure there?" name="ua_partner"
                 hint="Only the Ukraine Support Instrument asks for one." value={profile.uaPartner} options={[...YES_NO_UNSURE]}

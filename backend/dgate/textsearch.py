@@ -40,6 +40,8 @@ SYNONYMS: tuple[tuple[str, ...], ...] = (
     ("autonomy", "autonomous", "uncrewed", "robotic", "robotics", "swarm"),
     ("cyber", "cybersecurity", "cyber security", "cyber defence"),
     ("sme", "smes", "small and medium", "pme", "pyme", "msp"),
+    # WP-99: ASAP (the Act in Support of Ammunition Production) also finds the EDIP calls; no primary source we hold names a successor
+    ("asap", "edip"),
 )
 
 MAX_TERMS = 8

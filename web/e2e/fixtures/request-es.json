@@ -1,7 +1,8 @@
 {
  "profile": {
   "applicant_kind": "company_or_research",
-  "components_from_ua_or_eea_efta": false,
+  "components_from_eea_efta": false,
+  "components_from_ua": false,
   "country": "ES",
   "executive_management_country": "ES",
   "export_intent": "outside_eu",

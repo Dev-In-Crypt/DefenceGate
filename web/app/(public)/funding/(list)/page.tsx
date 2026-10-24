@@ -6,11 +6,14 @@ import { activeFilterCount, broadenings, ignoredFilters, lastPage, parseCallFilt
 import { buildMetadata, listViewTitle } from '@/lib/seo';
 import { CallListTemplate, type EntryChip } from '@/components/funding/call-list-template';
 import { SaveSearch } from '@/components/account/save-search';
+import { SubscribeToFunding } from '@/components/funding/subscribe';
 
 export const revalidate = 60;
 const CALENDAR_LIMIT = 500;
 const MAX_ALTERNATIVES = 4;
 const FALLBACK_ITEMS = 3;
+/** WP-99: "Fits my profile" on (`fit=1`): every call of the search on one page, at most the API's page ceiling, so the filter sees them all. */
+const FIT_ALL = 500;
 
 // Entry chips are filter links on this page (the filter values are the API's codes); there are no per-filter hub pages.
 const CHIPS: EntryChip[] = [
@@ -34,13 +37,14 @@ const CHIPS: EntryChip[] = [
 type Props = { searchParams: Promise<SearchParams> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const f = parseCallFilters(await searchParams);
+  const sp = await searchParams;
+  const f = parseCallFilters(sp);
   // Filtered views are shareable but canonicalise to /funding and stay out of the index.
   return buildMetadata({
     title: listViewTitle('Defence and dual-use funding calls', 'Funding calls', { page: f.page, countries: f.country, q: f.q, filters: activeFilterCount(f) }),
     description: 'Open EU and national funding calls for defence and dual-use projects: EDF (including its EDIP calls), Horizon Europe, Digital Europe and national programmes. Deadlines in UTC, collected daily.',
     path: '/funding',
-    noindex: activeFilterCount(f) > 0 || (f.page ?? 1) > 1,
+    noindex: activeFilterCount(f) > 0 || (f.page ?? 1) > 1 || sp.fit === '1',
   });
 }
 
@@ -48,13 +52,14 @@ export default async function FundingHubPage({ searchParams }: Props) {
   const sp = await searchParams;
   const filters = parseCallFilters(sp);
   const view = parseView(sp);
+  const fitAll = view === 'list' && sp.fit === '1';
   const [result, health] = await Promise.all([
-    getCalls(view === 'calendar' ? { ...filters, page: 1, pageSize: CALENDAR_LIMIT } : filters),
+    getCalls(view === 'calendar' ? { ...filters, page: 1, pageSize: CALENDAR_LIMIT } : fitAll ? { ...filters, page: 1, pageSize: FIT_ALL } : filters),
     getHealth(),
   ]);
   // A page past the end is the last page, not an empty list.
   const last = lastPage(result.total, result.pageSize);
-  if (view === 'list' && result.total > 0 && (filters.page ?? 1) > last) redirect(`/funding${toQuery({ ...filters, page: last })}`);
+  if (view === 'list' && !fitAll && result.total > 0 && (filters.page ?? 1) > last) redirect(`/funding${toQuery({ ...filters, page: last })}`);
   // An empty list says which filter to loosen: each looser search is counted (one call each, at most four).
   const alternatives = result.total === 0 && view === 'list'
     ? (await Promise.all(broadenings(filters).slice(0, MAX_ALTERNATIVES).map(async (b) => ({
@@ -83,6 +88,8 @@ export default async function FundingHubPage({ searchParams }: Props) {
       notices={ignoredFilters(sp, 'funding')}
       saveSearch={<SaveSearch kind="call" filters={filtersFromQuery(toQuery({ ...filters, page: 1 }))} />}
       exportHref={`/funding/export.csv${toQuery({ ...filters, page: 1 })}`}
+      fitAll={fitAll}
+      subscribe={<SubscribeToFunding filters={filters} />}
     />
   );
 }

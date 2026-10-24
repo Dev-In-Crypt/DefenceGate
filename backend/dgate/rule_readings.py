@@ -73,7 +73,10 @@ def eic(text: str, topic: str) -> dict[str, dict[str, Any]]:
 
 # ----------------------------------------------------------------- Digital Europe call documents, per topic
 
-_HEADING = re.compile(r"^\s*(?P<code>[A-Z][A-Z0-9]*(?:-\s?[A-Z0-9]+){3,})\s*-{1,2}\s+(?P<title>[A-Z][^\n]*)$", re.M)
+# WP-99: the stored texts of production separate the code from the title with an en or em dash ("...-11-NCC – Enhancing", "...-12- CBCH —
+# Cross-Border", "...-09-UPTAKE– Uptake"), not "-" or "--": only the headings with a hyphen were found, so of the ECCC topics only the ones
+# named again in a "For the topic" paragraph (NATCH, NCH) were read. A heading is one line (a code split over two lines is a table row).
+_HEADING = re.compile(r"^[ \t]*(?P<code>[A-Z][A-Z0-9]*(?:-[ \t]?[A-Z0-9]+){3,})[ \t]*(?:-{1,2}|[–—])[ \t]*(?P<title>[A-Z][^\n]*)$", re.M)
 _SECTION_END = re.compile(r"^\s*\d{1,2}\.\s+Available\s+budget\b", re.M | re.I)
 _DESIGNATED = (
     re.compile(r"only\s+entities\s+designated\s+(?:at\s+Member\s+State\s+level\s+)?as\s+(?P<who>[A-Z][\w\s]+?)\s+are\s+allowed\s+to\s+apply", re.I),
@@ -103,17 +106,27 @@ def _same(mine: str, other: str) -> bool:
     return len(short) >= 3 and short[0] == long[0] and all(ch in it for ch in short)
 
 
+def _wrapped_toc(text: str, m: re.Match[str]) -> bool:
+    """A table-of-contents line whose title wraps: its dot leaders are on the next line."""
+    start = m.end() + 1
+    end = text.find("\n", start)
+    return "...." in text[start:end if end >= 0 else len(text)]
+
+
 def topic_section(text: str, topic: str) -> str:
     """The part of a call document about one topic: from its heading to the next topic's, or to "3. Available budget". Lines of the
     table of contents (dot leaders) and of the budget table are not headings."""
-    heads = [m for m in _HEADING.finditer(text) if "...." not in m.group(0) and "EUR" not in m.group("title")]
+    heads = [m for m in _HEADING.finditer(text) if "...." not in m.group(0) and "EUR" not in m.group("title") and not _wrapped_toc(text, m)]
+    found = ""
     for i, m in enumerate(heads):
         if not _same(topic, _norm_code(m.group("code"))):
             continue
         end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
         stop = _SECTION_END.search(text, m.end())
-        return text[m.end():min(end, stop.start() if stop else end)]
-    return ""
+        part = text[m.end():min(end, stop.start() if stop else end)]
+        # the same heading twice (a page header repeats it): the topic's section is the longest part
+        found = part if len(part) > len(found) else found
+    return found
 
 
 def _for_this_topic(text: str, topic: str) -> list[str]:
@@ -130,16 +143,18 @@ def designated(text: str, topic: str) -> dict[str, dict[str, Any]]:
     if not topic.upper().startswith("DIGITAL-"):
         return {}
     section = topic_section(text, topic)
-    for part in [section, *_for_this_topic(text, topic)]:
-        for pattern in _DESIGNATED:
-            m = pattern.search(part)
-            if not m:
-                continue
+    parts = [section, *_for_this_topic(text, topic)]
+    # WP-99: the strongest phrase first, wherever it is ("only entities designated ... are allowed to apply" in the eligibility section
+    # beats "targeted stakeholders are public bodies acting as ..." in the topic's own section)
+    for pattern, part in ((pattern, part) for pattern in _DESIGNATED for part in parts):
+        m = pattern.search(part)
+        if m:
             who = _clean(m.group("who"))
-            # the sentence, from its start (after a full stop, a colon or a heading line) to its full stop
+            # the sentence, from its start (after a full stop, a colon or a heading line) to its full stop; a page footer or the heading
+            # "Targeted stakeholders" before it is not part of it
             start = max(part.rfind(".", 0, m.start()), part.rfind(":", 0, m.start()), part.rfind("\n\n", 0, m.start())) + 1
             end = part.find(".", m.end())
-            quote = re.sub(r"^\s*Targeted\s+stakeholders\s+", "", part[start:end + 1 if end >= 0 else len(part)], flags=re.I)
+            quote = re.sub(r"^.*?Targeted\s+stakeholders\s+", "", part[start:end + 1 if end >= 0 else len(part)], flags=re.I | re.S)
             partners = _PARTNERS.search(section)
             others = re.sub(r"^\s*Targeted\s+stakeholders\s+", "", partners.group(0), flags=re.I) if partners else ""
             note = f"Others may take part in a consortium with them: {_clean(others)}" if partners else None

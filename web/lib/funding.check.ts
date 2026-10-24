@@ -91,7 +91,7 @@ assert.ok(ics.includes('SUMMARY:Deadline\\, call not open yet: Maturing projects
 assert.ok(ics.includes('SUMMARY:Deadline: Open now'));
 assert.ok(ics.includes('DTSTART;VALUE=DATE:20261103'));
 const unfolded = ics.replace(/\r\n /g, '');
-assert.ok(unfolded.includes('No time is published\\; the call documents we have read set the cut-off at 17:00 Brussels time'), 'an EU portal call says what its documents give');
+assert.ok(unfolded.includes('The source publishes a day and no time\\; the call document may set a cut-off hour') && !unfolded.includes('17:00'), 'an EU portal call says what its page says (WP-99)');
 assert.ok(unfolded.includes('Planned opening 3 Nov 2026 (date only). The source may move it.'));
 
 // ---- F5: funding entries in the feed, under their own categories -------------------------------------------------

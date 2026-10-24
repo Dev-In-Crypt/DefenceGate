@@ -89,7 +89,8 @@ def derive(data: dict[str, Any]) -> None:
         payload = api.assess_payload(content, body.profile.to_engine(), body.statuses)
         assessments[key] = {
             "assessments": [{"programme": a["programme"], "name": a["name"], "verdict": a["verdict"], "blocking": a["blocking"],
-                             "rules": [{"rule": r["rule"], "title": r["title"], "requirement": r["requirement"]} for r in a["rules"]]}
+                             "rules": [{"rule": r["rule"], "title": r["title"], "requirement": r["requirement"], "outcome": r["outcome"]}
+                                       for r in a["rules"]]}
                             for a in payload["assessments"]],
             "roadmap": {"steps": [{"code": s["code"], "name": s["name"], "blockingFor": s["blockingFor"]} for s in payload["roadmap"]["steps"]]},
         }

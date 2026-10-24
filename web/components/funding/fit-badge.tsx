@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { fitLabel, shownFit } from '@/lib/fit';
 import { useFit, useFitState } from '@/lib/fit-hooks';
@@ -61,12 +63,22 @@ function Topics() {
 }
 
 /**
- * The switch "Fits my profile": keep the calls of this page that are eligible or worth a look, hide the ones that are
- * not eligible and the ones whose rules were not read. It filters what is on the page, and says how many it hides.
- * Not shown without a saved profile, with a link to the readiness check instead.
+ * WP-99: on a paged list the filter works over the whole result, not one page: switched on, it opens the same search with every call on one
+ * page (`fit=1`, at most the API's 500), and the topics rank all of them. `on` is that page; the two links are the search with and without it.
  */
-export function FitFilter({ className }: { className?: string }) {
+export interface WholeList { on: boolean; onHref: string; offHref: string; total: number }
+
+/**
+ * The switch "Fits my profile": keep the calls that are eligible or worth a look, hide the ones that are not eligible and the ones whose
+ * rules were not read, and say how many it hides. With `whole` (the funding list) it works over every call of the search; without it
+ * (the digest, the change feed: one page each) over what is on the page. Not shown without a saved profile, with a link to the readiness
+ * check instead.
+ */
+export function FitFilter({ className, whole }: { className?: string; whole?: WholeList }) {
   const s = useFitState();
+  const router = useRouter();
+  // the page of every call is the filter switched on: it is on there, whatever the last page left it
+  useEffect(() => { if (whole?.on) setOnlyFits(true); }, [whole?.on]);
   if (!s.ready) return null;
   if (!s.hasProfile) {
     return (
@@ -78,13 +90,16 @@ export function FitFilter({ className }: { className?: string }) {
   const hidden = s.counts.no + s.counts.unknown;
   return (
     <div className={cn('flex flex-col gap-1', className)}>
-      <Choice label="Fits my profile" checked={s.onlyFits} onChange={(e) => setOnlyFits(e.target.checked)}
-        hint="Keeps the calls on this page that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules. With your topics below, the calls that name them come first." />
+      <Choice label="Fits my profile" checked={s.onlyFits} onChange={(e) => {
+        setOnlyFits(e.target.checked);
+        if (whole && e.target.checked !== whole.on) router.push(e.target.checked ? whole.onHref : whole.offHref, { scroll: false });
+      }}
+        hint={`Keeps the calls ${whole ? 'of this search' : 'on this page'} that are eligible or where nothing known blocks you, judged on the rules read from each call’s document and, for EDF and EDIP calls, on the programme’s rules. Hides the blocked ones and the ones without rules. With your topics below, the calls that name them come first${whole ? ', across the whole list' : ''}.`} />
       <Topics />
       <p role="status" className="m-0 text-small text-ink-muted">
-        {s.loaded === 0 ? 'Checking the calls on this page…' : (
+        {s.loaded === 0 ? `Checking the calls ${whole?.on ? 'of this search' : 'on this page'}…` : (
           <>
-            On this page: {s.counts.yes} eligible on the rules read, {s.counts.check} where nothing known blocks you but conditions are left to check,
+            {whole?.on ? `Of the ${whole.total} calls of this search` : 'On this page'}: {s.counts.yes} eligible on the rules read, {s.counts.check} where nothing known blocks you but conditions are left to check,
             {' '}{s.counts.no} blocked, {s.counts.unknown} without rules to compare.
             {s.onlyFits && hidden > 0 ? ` ${hidden} hidden.` : ''}
           </>

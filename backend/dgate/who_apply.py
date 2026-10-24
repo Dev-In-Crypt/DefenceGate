@@ -4,6 +4,8 @@ The list badge ("Companies can take part" / "Public buyers only", funding.WHO_MA
 programme rules alone. Where the call document (or the topic's own conditions) has been read
 (`call_eligibility`, served through `eligibility.read_many`), its verified facts decide instead:
 
+  * `designated_applicants` with no consortium  -> designated (WP-99: "Designated bodies only");
+    route for others
   * `sme_only` true                            -> companies, and `sme_only` (the card adds "SMEs only");
   * an entity type naming a company or a       -> companies;
     private legal entity
@@ -21,8 +23,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import eligibility
+from . import eligibility, verdict
 
+# the same test as the verdict's designated line (verdict.check, web/lib/eligibility-check.ts)
+_PARTNER_ROUTE = re.compile(r"partners?|in (?:a )?consortium with|may (?:also )?join", re.I)
 OWN_SCOPES = ("call_document", "topic", "programme")   # WP-93: the EIC work programme read for the topic is its own text
 EVIDENCE_MAX = 400
 
@@ -48,6 +52,12 @@ def _kind(item: str) -> str | None:
 
 def decide(facts: dict[str, Any]) -> tuple[str | None, bool | None, str | None]:
     """(who, sme_only, evidence) from one call's served facts; (None, None, None) when they say nothing."""
+    # WP-99: only designated bodies may apply (National Cyber Hubs, the Cross-Border Cyber Hubs' public bodies), with no route for anybody
+    # else: not "Companies can take part" because the entity list also names legal entities. With a consortium route (the NCC topic) a
+    # company can take part, as a partner, and the list below decides.
+    des = facts.get("designated_applicants")
+    if des and des["scope"] in OWN_SCOPES and not _PARTNER_ROUTE.search(verdict.own_note(des)):
+        return "designated", None, (des.get("quote") or str(des.get("value") or ""))[:EVIDENCE_MAX] or None
     sme = facts.get("sme_only")
     if sme and sme["scope"] in OWN_SCOPES and sme["value"] is True:
         return "companies", True, (sme.get("quote") or "")[:EVIDENCE_MAX] or None
@@ -71,7 +81,7 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
              FROM call ORDER BY id""").fetchall()
     served = eligibility.read_many(
         conn, [(r["id"], r["conditions_raw"], r["eligibility_text"], r["topic_code"], r["type_of_action"]) for r in rows])
-    counts = {"calls": len(rows), "public": 0, "companies": 0, "sme_only": 0, "changed": 0}
+    counts = {"calls": len(rows), "public": 0, "companies": 0, "designated": 0, "sme_only": 0, "changed": 0}
     for r in rows:
         who, sme, evidence = decide(served[r["id"]]["facts"])
         if who:

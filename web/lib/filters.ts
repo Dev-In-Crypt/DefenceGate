@@ -30,6 +30,8 @@ export const PARAM = {
 /** WP-91: the values of `who` (the API's `whoMayApply`). */
 export const WHO_VALUES = ['companies', 'public'] as const;
 export const WHO_WORDS: Record<(typeof WHO_VALUES)[number], string> = { companies: 'Companies can take part', public: 'Public buyers only' };
+/** WP-99: the badge of a call, the filter's words and the one for a call open only to designated bodies (National Cyber Hubs, NCCs). */
+export const WHO_BADGE: Record<string, string> = { ...WHO_WORDS, designated: 'Designated bodies only' };
 
 const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
 const SORTS: CallSort[] = ['deadline-asc', 'deadline-desc', 'budget-desc'];
