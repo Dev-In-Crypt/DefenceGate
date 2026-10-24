@@ -111,11 +111,16 @@ async function main() {
   await sleep(120);
   assert.equal(store.fitFor('5').fit, 'unknown');
   assert.ok(store.isLoaded('5'));
+  assert.ok(store.lookupFailed('5'), 'WP-102: a failed look-up is said as such, not as "rules not read"');
+  store.setOnlyFits(true);
+  assert.equal(store.hiddenByFilter(store.getSnapshot(), '5'), false, 'WP-102: a failed look-up hides nothing');
+  store.setOnlyFits(false);
   const before = requests.length;
   store.unmount('5');
   store.mount('5');
   await sleep(120);
   assert.equal(requests.length, before + 1, 'asked again');
+  assert.equal(store.lookupFailed('5'), false);
   store.unmount('5');
 
   // 6. A profile saved after the first page is seen by the next item (a client-side navigation).

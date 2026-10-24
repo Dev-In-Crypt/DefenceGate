@@ -45,6 +45,7 @@ _EIC_MIDCAP = re.compile(r"a\s+single\s+company\s+classified\s+as\s+a\s+small\s+
                          r"(?:\s+or\s+for\s+\S+blended\s+finance\S+\s+in\s+exceptional\s+cases\s+for\s+rapid\s+scale\s+up\s+purposes)?", re.I)
 _EIC_PRECOMMIT = re.compile(r"The\s+pre-commitment\s+represents\s+at\s+least\s+20\s?%\s+of\s+the\s+total\s+target\s+funding\s+round"
                             r"(?:\s+you\s+are\s+aiming\s+to\s+raise)?\.?", re.I)
+_EIC_SINGLE = re.compile(r"In\s+the\s+case\s+of\s+single\s+beneficiary\s+projects,\s+mid-?\s?caps\s+and\s+larger\s+companies\s+will\s+not\s+be\s+permitted\.", re.I)
 
 
 def _is_eic(topic: str) -> bool:
@@ -63,6 +64,11 @@ def eic(text: str, topic: str) -> dict[str, dict[str, Any]]:
             note = (f"A small mid-cap (up to 499 employees) may apply only for “investment component only” support, or for blended finance "
                     f"in exceptional cases: {_clean(mid.group(0))}") if mid else None
             out["sme_only"] = _fact(True, sme.group(0), note)
+    if "PATHFINDER" in t or "PATHFINDERCHALLENGES" in t:
+        # WP-102 (B12): the Pathfinder section's rule, the same for every Challenge topic (the model read it for 128, not for 130)
+        single = _EIC_SINGLE.search(text)
+        if single:
+            out["single_beneficiary_excludes"] = _fact("mid-caps and larger companies", single.group(0))
     if "STEP" in t.split("-") or "DEFENCE" in t.split("-"):
         pre = _EIC_PRECOMMIT.search(text)
         if pre:
@@ -82,6 +88,10 @@ _DESIGNATED = (
     re.compile(r"only\s+entities\s+designated\s+(?:at\s+Member\s+State\s+level\s+)?as\s+(?P<who>[A-Z][\w\s]+?)\s+are\s+allowed\s+to\s+apply", re.I),
     re.compile(r"This\s+(?:topic|call)\s+targets\s+exclusively\s+(?P<who>[A-Z][\w\s]+?)(?=\s+which\b|\s+that\b|,|\.)", re.I),
     re.compile(r"target(?:ed)?\s+stakeholders\s+(?:under\s+[^.]{0,30}?)?are\s+(?P<who>public\s+bodies\s+acting\s+as\s+[A-Z][\w\s]+?)(?=,|\.|\s+as\s+identified)", re.I),
+    # WP-102 (A23, COORDPREP): "The action is targeted at public bodies that have been designated or entrusted by the relevant Member State
+    # with responsibilities in the area of cybersecurity, ..." (others join as partners: _PARTNERS)
+    re.compile(r"The\s+action\s+is\s+targeted\s+at\s+(?P<who>public\s+bodies\s+that\s+have\s+been\s+designated\s+or\s+entrusted\s+by\s+the\s+relevant\s+"
+               r"Member\s+State\s+with\s+responsibilities\s+in\s+the\s+area\s+of\s+cybersecurity)", re.I),
 )
 _PARTNERS = re.compile(r"[^.]*\b(?:other\s+relevant\s+public\s+or\s+private\s+partners\s+may\s+also\s+participate|in\s+consortium\s+with)\b[^.]*\.", re.I)
 
@@ -163,10 +173,83 @@ def designated(text: str, topic: str) -> dict[str, dict[str, Any]]:
 
 
 def read_document(text: str, topic: str | None) -> dict[str, dict[str, Any]]:
-    """Every reading of a stored call text for one topic (the EIC work programme or a call document)."""
-    if not topic or not text:
+    """Every reading of a stored call text for one topic (the EIC work programme or a call document); without a topic, what the general
+    annexes state for every call of a kind (WP-102)."""
+    if not text:
         return {}
+    if not topic:
+        return general_annexes(text)
     return {**eic(text, topic), **designated(text, topic)}
+
+
+# ----------------------------------------------------------------- WP-102: the Horizon Europe general annexes
+
+# Annex H, "Requirements for all types of actions supporting PCP or PPI": the procurers prepare and execute the procurement; others take part
+# only in additional activities and only without a conflict of interest (B6: a supplier is no beneficiary of a PPI). Served for PCP and PPI
+# actions only (eligibility._served_fact).
+_PCP_PPI = re.compile(r"Other\s+entities\s+\(e\.g\.\s*end\s*-?\s*users\)\s+that\s+do\s+not\s+have\s+a\s+conflict\s+of\s+interest\s+with\s+the\s+PCP/PPI"
+                      r"[^.]*\.", re.I)
+
+
+def general_annexes(text: str) -> dict[str, dict[str, Any]]:
+    m = _PCP_PPI.search(text or "")
+    if not m:
+        return {}
+    return {"procurement_conflict": _fact(True, m.group(0), "The procurement is prepared and executed by public procurers (or entities with "
+                                                              "their mandate); other entities take part only in additional activities.")}
+
+
+# ----------------------------------------------------------------- WP-102: the topic's conditions as the portal publishes them
+
+_FOOTNOTE = re.compile(r"\[\[.*?\]\]", re.S)
+_INVOLVES = re.compile(r"This\s+topic\s+requires\s+the\s+(?:active\s+)?involvement,?\s+as\s+beneficiaries,?\s+of:?\s+(?P<who>at\s+least\s+\d+\s+[^.]+?)\.(?=\s|$)", re.I)
+_CAP = re.compile(r"Participation\s+of\s+non-SME\s+industries\s+and\s+Research\s+and\s+Technology\s+Organisations\s+\(RTOs\)\s+is\s+not\s+excluded,\s+"
+                  r"but\s+it\s+must\s+be\s+limited\s+to\s+(?P<n>\d{1,2})\s?%\s+of\s+the\s+proposed\s+budget\.", re.I)
+_CONTROL = re.compile(r"entities\s+established\s+in\s+an\s+eligible\s+country\s+listed\s+above,\s+but\s+which\s+are\s+directly\s+or\s+indirectly\s+controlled\s+"
+                      r"by\s+a\s+non-eligible\s+country\s+or\s+by\s+a\s+non-eligible\s+country\s+entity,\s+(?P<verb>shall|may)\s+not\s+participate\s+in\s+the\s+action"
+                      r"(?P<unless>\s+unless\s+it\s+can\s+be\s+demonstrated,\s+by\s+means\s+of\s+guarantees\s+approved\s+by\s+the\s+eligible\s+country\s+of\s+establishment[^.]*)?\.", re.I)
+_JU_COUNTRIES = re.compile(r"participation\s+is\s+limited\s+to\s+legal\s+entities\s+established\s+in\s+(?P<who>Member\s+States\s+or\s+Participating\s+States\s+of\s+the\s+"
+                           r"[A-Za-z]+\s+JU)\s*\[\s*At\s+the\s+moment\s+of\s+the\s+adoption\s+of\s+[^,\]]{0,60},\s+the\s+Participating\s+States\s+of\s+[A-Za-z]+\s+JU\s+are\s+"
+                           r"(?P<list>[^\]]{10,900}?)\.?\s*\]", re.I)
+_JU_LATER = re.compile(r"In\s+addition,\s+legal\s+entities\s+which\s+are\s+established\s+in\s+associated\s+countries\s+to\s+Horizon\s+Europe\s+that\s+become\s+a\s+"
+                       r"participant\s+state\s+to\s+[A-Za-z]+\s+JU\s+before\s+the\s+signature\s+of\s+the\s+grant\s+agreement\s+will\s+also\s+become\s+eligible\.", re.I)
+_MSCA_DN = re.compile(r"[^.]*must\s+fulfil\s+all\s+the\s+admissibility\s+and\s+eligibility\s+conditions\s+of\s+the\s+MSCA\s+Doctoral\s+Networks\s+call[^.]*\.", re.I)
+# The rule that sentence points to, in the MSCA part of the work programme (Horizon Europe Work Programme 2026-2027, 2. Marie
+# Skłodowska-Curie Actions, MSCA Doctoral Networks, 1.3.1 Participating organisations), word for word.
+MSCA_DN_SOURCE = "Horizon Europe Work Programme 2026-2027, 2. Marie Skłodowska-Curie Actions, MSCA Doctoral Networks, 1.3.1 Participating organisations"
+MSCA_DN_RULE = ("Applications must be submitted by a consortium including at least three independent legal entities, each established in a "
+                "different EU Member State or Horizon Europe Associated Country and with at least one of them established in an EU Member State.")
+
+
+def read_conditions(text: str | None, topic: str | None) -> dict[str, dict[str, Any]]:
+    """The rules a Horizon Europe topic's conditions text (the portal's, `call.eligibility_text`) states in fixed words. Read when the call
+    is served (eligibility.assemble), so nothing is stored: the quote is the text's own, without its footnotes."""
+    if not text or not (topic or "").upper().startswith("HORIZON-"):
+        return {}
+    flat = re.sub(r"\s+", " ", _FOOTNOTE.sub("", text))
+    out: dict[str, dict[str, Any]] = {}
+    m = _INVOLVES.search(flat)
+    if m:
+        out["required_partners"] = _fact(f"{m.group('who').strip()}, as beneficiaries", m.group(0))
+    m = _CAP.search(flat)
+    if m:
+        out["non_sme_budget_cap"] = _fact(int(m.group("n")), m.group(0))
+    m = _CONTROL.search(flat)
+    if m:
+        out["ownership_control_restriction"] = _fact(True, m.group(0), (
+            "Participation is possible only with guarantees approved by the eligible country of establishment." if m.group("unless")
+            else "Entities controlled from a non-eligible country shall not participate; the text states no way round."))
+    m = _JU_COUNTRIES.search(flat)
+    if m:
+        later = _JU_LATER.search(flat)
+        out["eligible_countries"] = _fact(f"{m.group('who')}: {m.group('list').strip()}", m.group(0), later.group(0) if later else None)
+    m = _MSCA_DN.search(flat)
+    if m:
+        note = f"The MSCA Doctoral Networks rule ({MSCA_DN_SOURCE}): {MSCA_DN_RULE}"
+        out["consortium_required"] = _fact(True, m.group(0).strip(), note)
+        out["min_entities"] = _fact(3, m.group(0).strip(), note)
+        out["min_countries"] = _fact(3, m.group(0).strip(), note)
+    return out
 
 
 # ----------------------------------------------------------------- the AID's pages (France)

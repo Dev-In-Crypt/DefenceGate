@@ -73,7 +73,10 @@ const shown = (id: number, p: Profile) => shownFit(withProgramme(fitOf(factsOf(i
 const yes = (p: Profile) => IDS.filter((id) => shown(id, p) === 'yes');
 
 // before this package no call could be a yes (the profile had no answer about partners); now four can, and they are the four open to a company
-assert.deepEqual(yes(company()), [118, 113, 116, 117]);
+// WP-102: 116's facts hold no rule on where applicants must be established, so it is never "eligible" (RAPID 188): a check that says so
+assert.deepEqual(yes(company()), [118, 113, 117]);
+assert.equal(shown(116, company()), 'check');
+assert.ok(fitOf(factsOf(116), company()).result!.lines.some((l) => l.key === 'country' && /was not read/.test(l.reason)));
 for (const id of [114, 193, 110, 111, 112]) assert.equal(shown(id, company()), 'no', `${id} is open to contracting authorities and SEAPs, not to a company`);
 
 // each answer matters, and an answer that is missing leaves the line a check, never a no
@@ -83,7 +86,9 @@ assert.equal(shown(118, company({ uaPartner: 'no' })), 'check');
 assert.equal(shown(118, company({ uaPartner: 'unsure' })), 'check');
 assert.equal(shown(113, company({ seapPartner: '' })), 'yes', 'call 113 asks only for the Ukrainian entity');
 assert.equal(shown(113, company({ uaPartner: '' })), 'check');
-assert.equal(shown(116, company({ uaPartner: '' })), 'yes', 'calls 116 and 117 do not ask for a Ukrainian entity');
+// WP-102: 116 is a check whatever the answer (its establishment rule was not read), so 117 shows it
+assert.equal(shown(117, company({ uaPartner: '' })), 'yes', 'calls 116 and 117 do not ask for a Ukrainian entity');
+assert.equal(fitOf(factsOf(116), company({ uaPartner: '' })).result!.lines.find((l) => l.key === 'consortium')!.verdict, 'yes');
 assert.equal(shown(116, company({ seapPartner: '' })), 'check');
 assert.equal(shown(116, company({ seapPartner: 'no' })), 'check');
 assert.equal(shown(117, company({ seapPartner: 'unsure' })), 'check');

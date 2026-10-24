@@ -55,6 +55,10 @@ let programmes: { data: Assessment | null; settled: boolean; asked: boolean } = 
 const mounted = new Map<string, number>();         // id -> items on the page showing it
 const entries = new Map<string, Entry | null>();   // null: asked and nothing came back
 const asked = new Set<string>();
+/** WP-102 (BM-01 69): calls whose look-up failed (a 429 or a network error): never shown as "rules not read". Asked once more after RETRY_MS. */
+const failed = new Set<string>();
+const retried = new Set<string>();
+const RETRY_MS = 4000;
 let queue: string[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
@@ -131,6 +135,7 @@ async function flush(): Promise<void> {
         state: Entry['state']; programme?: string; topic?: string; facts?: Record<string, { value: unknown; note?: string | null; quote?: string | null; scope?: string }>;
       }> };
       for (const id of ids) {
+        failed.delete(id);
         const item = body.items?.[id];
         entries.set(id, item ? {
           state: item.state, programme: item.programme ?? '', topic: item.topic ?? '',
@@ -140,7 +145,10 @@ async function flush(): Promise<void> {
       }
     } catch {
       // The badge stays "unknown": a failed look-up is never read as a verdict. A later page asks again.
-      for (const id of ids) { asked.delete(id); entries.set(id, null); }
+      for (const id of ids) { asked.delete(id); entries.set(id, null); failed.add(id); }
+      const again = ids.filter((id) => !retried.has(id));
+      for (const id of again) retried.add(id);
+      if (again.length > 0) setTimeout(() => { for (const id of again) if (mounted.has(id) && !asked.has(id)) { asked.add(id); queue.push(id); } if (queue.length > 0 && timer === null) timer = setTimeout(() => { void flush(); }, WAIT_MS); }, RETRY_MS);
     }
     ensureProgrammes();
     recount();
@@ -191,7 +199,12 @@ export function topicsMatched(s: FitSnapshot, text: string): number {
   return s.topics.length > 0 ? topicScore(s.topics, text) : 0;
 }
 
-/** An item is hidden by "Fits my profile" when its facts are in and it is neither eligible nor worth a look. */
+/** WP-102: the look-up of this call's facts failed (the badge and the call page say so instead of "rules not read"). */
+export function lookupFailed(id: string): boolean {
+  return failed.has(id);
+}
+
+/** An item is hidden by "Fits my profile" when its facts are in and it is neither eligible nor worth a look (a failed look-up hides nothing). */
 export function hiddenByFilter(s: FitSnapshot, id: string): boolean {
-  return s.onlyFits && s.hasProfile && isLoaded(id) && !fitsProfile(fitFor(id).fit);
+  return s.onlyFits && s.hasProfile && isLoaded(id) && !failed.has(id) && !fitsProfile(fitFor(id).fit);
 }

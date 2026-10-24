@@ -239,7 +239,7 @@ test('"Fits my profile" lists the calls with the visitor’s topics first', asyn
   await visit(page, '/funding', FUNDING);
   await page.getByLabel('Fits my profile').check();
   const first = page.locator('[data-topics-matched]').first();
-  await expect(first).toContainText('Matches 1 of your topic');
+  await expect(first).toContainText('Matches your topic');      // WP-102: was "Matches 1 of your topic"
   await expect(first).toContainText('Space situational awareness data fusion');
   const order = await first.evaluate((li) => getComputedStyle(li).order);
   expect(Number(order)).toBeLessThan(0);

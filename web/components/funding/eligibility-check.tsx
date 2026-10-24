@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
 import { check, consortiumUnclear, factDisplay, FACT_LABELS, SCOPE_WORDS, type CallContext, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
-import { checkProfileOf, linesSummary } from '@/lib/fit';
+import { checkProfileOf, linesSummary, shownFit, verdictLines } from '@/lib/fit';
+import { useFit } from '@/lib/fit-hooks';
+import { fitFor, isLoaded } from '@/lib/fit-store';
 import { cleanQuote } from '@/lib/quote';
 import type { EligibilitySourceInfo } from '@/lib/types';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -60,7 +62,14 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
   // An edited form is another case: what only the saved profile knows (`more`: legal form, executive management, partners) no longer applies to it (WP-53).
   // WP-93: and so are its staff count, its kind and who controls it
   const set = <K extends keyof Profile>(k: K, v: Profile[K]) => { setEdited(true); setP((x) => ({ ...x, [k]: v, more: undefined, kind: undefined, size: undefined, controller: undefined, investor: undefined })); };
-  const result = check(facts, p, ctx);
+  // WP-102 (one verdict per call page: 114, 118): untouched, the form shows the saved profile's one verdict (lib/fit.ts callFit, the list
+  // badge's and "Your readiness for this call"'s), with the programme's lines; changed, it is another case and the document alone speaks.
+  const store = useFit(callId ?? '');
+  const one = callId && held && !edited && store.hasProfile && isLoaded(callId) ? fitFor(callId) : null;
+  const own = check(facts, p, ctx);
+  const result = one && one.fit !== 'unknown'
+    ? { verdict: (shownFit(one) === 'no' ? 'no' : shownFit(one) === 'yes' ? 'yes' : 'check') as Verdict, lines: verdictLines(one) }
+    : own;
   const answered = result.lines.length > 0;
   const shown = Object.keys(FACT_LABELS).filter((k) => facts[k]);
   const doc = documentUrl ? safeHttpUrl(documentUrl) : null;

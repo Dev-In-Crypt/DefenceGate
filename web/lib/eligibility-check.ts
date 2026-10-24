@@ -88,6 +88,10 @@ export const FACT_LABELS: Record<string, string> = {
   investor_precommitment: 'Investor pre-commitment required',
   max_group_headcount: 'Largest staff count (with the group)',
   staff_nationality: 'Nationality of the staff',
+  // WP-102: composition rules a topic adds, read by fixed patterns (backend/dgate/rule_readings.py)
+  non_sme_budget_cap: 'Largest budget share of non-SME industries and RTOs (%)',
+  single_beneficiary_excludes: 'Not permitted as a single beneficiary',
+  procurement_conflict: 'Procurement of innovation: others only without a conflict of interest',
 };
 
 // ---------------------------------------------------------------- WP-93: countries, association, size, control
@@ -116,9 +120,21 @@ export function namedCountries(text: string): Set<string> {
  * state Norway; Ukraine pending its agreement, ukraine.py EDF_PENDING, so not listed either way).
  */
 export const ASSOCIATED: Record<string, { name: string; yes: string[]; no: string[] }> = {
-  HORIZON: { name: 'Horizon Europe', yes: ['IS', 'NO', 'UA'], no: [] },
+  // WP-102: the countries associated to the entire programme, and Liechtenstein, which does not intend to associate (ASSOCIATION_SOURCES)
+  HORIZON: { name: 'Horizon Europe', yes: ['AL', 'AM', 'BA', 'EG', 'FO', 'GE', 'IS', 'IL', 'XK', 'MD', 'ME', 'MK', 'NO', 'RS', 'CH', 'TN', 'TR', 'UA'], no: ['LI'] },
   EDIP: { name: 'the EDIP Programme', yes: ['NO'], no: ['UA'] },
   EDF: { name: 'the European Defence Fund', yes: ['NO'], no: [] },
+};
+
+/** WP-102: the primary-source clause each Horizon Europe entry rests on (backend/dgate/verdict.py ASSOCIATION_SOURCES, word for word). */
+export const ASSOCIATION_SOURCES: Record<string, { document: string; url: string; yes: string; listed: string; no: string }> = {
+  HORIZON: {
+    document: 'EU Grants: List of participating countries (HE): V4.2 - 07.10.2026',
+    url: 'https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/common/guidance/list-3rd-country-participation_horizon-euratom_en.pdf',
+    yes: 'The association agreements with the following countries have now started to produce legal effects (either through provisional application or their entry into force)',
+    listed: 'Albania; Armenia; Bosnia and Herzegovina; Egypt (associated to the entire Programme for award procedures implementing Union budget for the year 2025 and onwards); Faroe Islands; Georgia; Iceland; Israel; Kosovo; Moldova; Montenegro; North Macedonia; Norway; Serbia; Switzerland (associated to the entire Programme for award procedures implementing Union budget for the year 2025 and onwards); Tunisia; Türkiye; Ukraine',
+    no: 'Liechtenstein does not intend to associate to Horizon Europe.',
+  },
 };
 
 /** The programme whose association a call's country text refers to: named in the text itself, else the call's own. */
@@ -240,6 +256,8 @@ export function factDisplay(key: string, facts: EligibilityFacts): string {
     if (single) return `Not for every applicant. ${single}`;
     if (partnerNeeds(facts).ukraine) return `Not for every applicant: ${ownNote(f)}`;
   }
+  // WP-102 (131): never a bare "No" under "Reserved for SMEs" where the call names only SMEs and small mid-caps
+  if (key === 'sme_only' && f.value === false && smallKindsOnly(facts)) return `Not for SMEs alone, and not for every company: only ${sizeRule(facts)!.words}.`;
   return factText(f);
 }
 
@@ -253,7 +271,8 @@ function withNote(line: Line, fact: EligibilityFact | undefined, note: string = 
 }
 
 /** Words in a fact's note or quote that name a way round a restriction: a guarantee, a screening, an exemption, a narrower scope. */
-const EXCEPTION = /guarantee|exempt|exception|unless|screening|derogat|approved by|china|high[- ]risk|only (?:applies|if|for)|limited to/i;
+// WP-102: "guarantees" (the route), not the verb of "In order to guarantee the protection of the strategic interests" (CS-ECCC 34-37)
+const EXCEPTION = /guarantees|exempt|exception|unless|screening|derogat|approved by|china|high[- ]risk|only (?:applies|if|for)|limited to/i;
 
 /** Applicant kinds a company (or other profile) is plainly covered by, when a call lists the kinds that may apply. */
 const COVERS: Record<OrgType, RegExp> = {
@@ -271,7 +290,7 @@ function ownNote(f: EligibilityFact | undefined): string {
 }
 
 /** Words that name a size class below "large": a list of kinds that only has these does not cover a large company (V2-C U2, call 131). */
-const SMALL_ONLY = /\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?/i;
+const SMALL_ONLY = /(?<!non-)\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?/i;
 
 /** Whether one kind of applicant named by a call plainly covers a profile (V2-C U2: "SME company" and "Small mid-cap company (up to 499 employees)" do not cover a large company). */
 export function covers(org: OrgType, kind: string): boolean {
@@ -407,6 +426,9 @@ export function partnerLine(facts: EligibilityFacts, p: Profile): Line | null {
   return { key: 'consortium', label: 'Partners', verdict: 'yes', reason: `The call attaches conditions to who applies with whom, and your answers meet them: ${met.join('; ')}.`, quote };
 }
 
+/** WP-102: the label of a designated-bodies line that leaves others a route as partners; the badge names it (lib/fit.ts fitLabel). */
+export const PARTNER_ONLY = 'Only as a partner';
+
 export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): Result {
   const lines: Line[] = [];
   const midcapCovered = (k: string) => p.orgType === 'large' && p.size !== undefined && p.size.max <= 499 && /mid-?\s?caps?/i.test(k);
@@ -414,7 +436,9 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
   // Who may apply: a call that names the kinds of applicant it is open to is not open to a profile that is not
   // plainly one of them (call 78 of 17 October 2026: an EDIC or a government-appointed mechanism only). A list is read
   // as possibly partial, so the verdict is "check", never "no".
-  const types = facts.entity_types;
+  // WP-102 (p05, 191): where only designated bodies may apply, that line says who may apply; a list of legal entities beside it is not
+  // "your organisation is covered by it" under a verdict that blocks
+  const types = facts.designated_applicants && p.country ? undefined : facts.entity_types;
   if (types && Array.isArray(types.value) && types.value.length > 0) {
     const kinds = types.value.map(String);
     if (!p.orgType) lines.push({ key: 'entity', label: 'Who may apply', verdict: 'check', reason: `The call names who may apply: ${kinds.join('; ')}. Check that your organisation is one of them.`, quote: types.quote });
@@ -430,7 +454,7 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     const note = ownNote(designated);
     const partners = /partners?|in (?:a )?consortium with|may (?:also )?join/i.test(note);
     lines.push(partners
-      ? { key: 'designated', label: 'Only these may apply', verdict: 'check', reason: `Only ${who} may apply; anybody else can take part only as a partner in a consortium with one. ${note}`, quote: designated.quote }
+      ? { key: 'designated', label: PARTNER_ONLY, verdict: 'check', reason: `Only ${who} may apply; anybody else can take part only as a partner in a consortium with one. ${note}`, quote: designated.quote }
       : { key: 'designated', label: 'Only these may apply', verdict: p.kind === 'public' || p.orgType === 'public' ? 'check' : 'no', reason: `Only ${who} may apply. You are not eligible unless your organisation is one.`, quote: designated.quote });
   }
   // WP-93 (fix 9): "at least 2 Border or Coast Guard Authorities as beneficiaries" is who must be in the consortium, not who may apply.
@@ -454,22 +478,28 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
 
   const rule = sizeRule(facts);
   const sme = facts.sme_only;
-  // WP-93 (fix 2): SMEs and small mid-caps are companies; a university or a public body is not one.
-  if (rule && (p.kind === 'university' || p.kind === 'public' || (p.kind === undefined && p.orgType === 'public'))) {
-    lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: `The call is for companies: ${rule.words}. ${p.kind === 'university' ? 'A university' : 'A public body'} is not one.`, quote: rule.fact.quote });
+  // WP-93 (fix 2): SMEs and small mid-caps are companies; a university or a public body is not one. WP-102: nor is the form's "university or
+  // research body" (it has no `kind`), and a research organisation of 250 staff or more is no SME and cannot use the small mid-cap route (B13).
+  const sizeQuote = rule?.fact.quote;
+  if (rule && (p.kind === 'university' || p.kind === 'public' || (!p.kind && (p.orgType === 'public' || p.orgType === 'university')))) {
+    const who = p.kind === 'university' ? 'A university' : p.orgType === 'public' ? 'A public body' : 'A university or a research body';
+    lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: `The call is for companies: ${rule.words}. ${who} is not one.`, quote: sizeQuote });
+  } else if (rule && p.kind === 'research' && p.size && p.size.min > 249) {
+    lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: `The call is for companies: ${rule.words}. A research organisation of ${staff(p.size)} staff is not an SME, and the small mid-cap route is for companies.`, quote: sizeQuote });
   } else if (rule && p.kind === 'research') {
-    lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call is for companies: ${rule.words}. A research organisation may apply only if it is such an enterprise.`, quote: rule.fact.quote });
+    lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call is for companies: ${rule.words}. A research organisation may apply only if it is such an enterprise.`, quote: sizeQuote });
   } else if (rule && p.size) {
     lines.push(sizeLine(rule, p.size));
+  } else if (rule && p.orgType) {
+    // No staff count (the form of the call page): the size class decides what it can. WP-102: never "not reserved for SMEs" where the call
+    // names only SMEs and small mid-caps (131); the same "check" as the "Who may apply" line for a large company (V3-B).
+    if (p.orgType === 'sme') lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: rule.limit === 249 ? 'The call is reserved for SMEs and you are one.' : `The call is for ${rule.words}, and you are an SME.`, quote: sizeQuote }, rule.fact));
+    else if (p.orgType === 'large' && rule.midcap) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call is reserved for SMEs; a small mid-cap (up to 499 staff) may apply only on a condition: ${rule.midcap}`, quote: sizeQuote });
+    else if (p.orgType === 'large' && rule.limit === 499) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${(smallKindsOnly(facts) ?? []).join('; ')}. It does not name a large company, so check your size class against the document before you go on.`, quote: sizeQuote });
+    else if (p.orgType === 'large' || rule.limit === 249) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: 'The call is reserved for SMEs.', quote: sizeQuote });
+    else lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${(smallKindsOnly(facts) ?? []).join('; ')}. Check that you are one of them.`, quote: sizeQuote });
   } else if (sme && p.orgType) {
-    if (sme.value === true && p.orgType !== 'sme' && rule?.midcap && p.orgType === 'large') lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call is reserved for SMEs; a small mid-cap (up to 499 staff) may apply only on a condition: ${rule.midcap}`, quote: sme.quote });
-    else if (sme.value === true && p.orgType !== 'sme') lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: 'The call is reserved for SMEs.', quote: sme.quote });
-    else if (sme.value === true) lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is reserved for SMEs and you are one.', quote: sme.quote }, sme));
-    else if (p.orgType === 'large' && smallKindsOnly(facts)) {
-      // The flag says "not reserved for SMEs" (small mid-caps are also eligible), but the call names no kind bigger than that: the same
-      // "check" as the "Who may apply" line, in words that do not contradict it (V3-B, call 131).
-      lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${smallKindsOnly(facts)!.join('; ')}. It does not name a large company, so check your size class against the document before you go on.`, quote: sme.quote });
-    } else lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is not reserved for SMEs.', quote: sme.quote }, sme));
+    lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is not reserved for SMEs.', quote: sme.quote }, sme));
   }
 
   const np = facts.natural_persons_allowed;
@@ -504,15 +534,17 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
       const way = `${own.note ?? ''} ${own.quote}`;
       const ctl = p.controller ?? '';
       const kind = controlKind(way);
-      const fromEligible = controllerEligible(c, ctl, ctx);
+      const fromEligible = controllerStatus(c, ctl, ctx);
       const line = (verdict: Verdict, reason: string): Line => ({ key: 'control', label: 'Ownership control', verdict, reason, quote: own.quote });
       // WP-93 (fixes 3 and 8): who controls the company decides a restriction that names one country, or that the controlling country meets.
-      if (fromEligible) lines.push(line('yes', `The call restricts control from outside the eligible countries, and your company is controlled from ${ctl === 'ua' ? 'Ukraine' : 'an EEA EFTA state'}, which is eligible under it.`));
+      if (fromEligible === 'yes') lines.push(line('yes', `The call restricts control from outside the eligible countries, and your company is controlled from ${ctl === 'ua' ? 'Ukraine' : 'an EEA EFTA state'}, which is eligible under it.`));
       else if (kind === 'china_only' && ctl === 'cn') lines.push(line('no', 'Entities controlled by China, or by a legal entity established in China, are not eligible under this call, and you said your company is controlled from China.'));
       else if (kind === 'china_only' && ctl !== '') lines.push(line('yes', 'The restriction concerns control by China only, and you said your company is controlled from another country.'));
       else if (kind === 'china_no_guarantee' && ctl === 'cn') lines.push(line('no', 'Entities controlled from outside the eligible countries may take part only with guarantees, and the call says entities controlled by China cannot submit guarantees.'));
+      // WP-102: "an EEA EFTA state" where only some of them are eligible (Horizon Europe: Liechtenstein is not associated)
+      else if (fromEligible === 'some') lines.push(line('check', 'The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company.'));
       else lines.push(EXCEPTION.test(way)
-        ? line('check', `The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction${own.note ? `: ${own.note}` : ''}. Read it before you decide.`)
+        ? line('check', `The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction${ownNote(own) ? `: ${ownNote(own)}` : ''}. Read it before you decide.`)
         : line('no', 'Entities controlled from outside the eligible countries are excluded, and the document names no exception.'));
     }
     else if (p.controlledAbroad === 'unsure') lines.push({ key: 'control', label: 'Ownership control', verdict: 'check', reason: 'Entities controlled from outside the eligible countries are excluded. Find out who controls your company.', quote: own.quote });
@@ -546,6 +578,19 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
   if (nationality && p.country) {
     lines.push({ key: 'nationality', label: 'Nationality of the staff', verdict: 'check', reason: `Only staff of ${String(nationality.value)} nationality may submit the application and work on the project. Check that yours are.`, quote: nationality.quote });
   }
+  // WP-102: the composition rules a topic adds (backend/dgate/rule_readings.py, each with its sentence)
+  const cap = facts.non_sme_budget_cap;
+  if (typeof cap?.value === 'number' && p.country && (p.orgType === 'large' || p.kind === 'research')) {
+    lines.push({ key: 'cap', label: 'Share of the budget', verdict: 'check', reason: `Non-SME industries and research and technology organisations may take part, but together within ${cap.value} % of the proposed budget.`, quote: cap.quote });
+  }
+  const singleNo = facts.single_beneficiary_excludes;
+  if (singleNo && p.country && p.orgType === 'large') {
+    lines.push({ key: 'single', label: 'Applying alone', verdict: 'check', reason: `In a single-beneficiary project ${String(singleNo.value)} are not permitted: you can take part only in a consortium.`, quote: singleNo.quote });
+  }
+  const procurement = facts.procurement_conflict;
+  if (procurement?.value === true && p.country && p.orgType !== 'public' && p.kind !== 'public') {
+    lines.push({ key: 'procurement', label: 'Procurement of innovation', verdict: 'check', reason: 'The procurement is prepared and carried out by public procurers. Other entities may take part only in additional activities, and only without a conflict of interest with the procurement: a company that could bid in it cannot be a beneficiary.', quote: procurement.quote });
+  }
 
   // A general rule of the work programme annexes is neither a firm "no" nor a plain "yes": the topic may change it.
   const settled = lines.map((l): Line => {
@@ -563,6 +608,7 @@ export const LINE_FACT: Record<string, string> = {
   consortium: 'consortium_required', control: 'ownership_control_restriction', entity: 'entity_types',
   designated: 'designated_applicants', required: 'required_partners', investor: 'investor_precommitment',
   group: 'max_group_headcount', nationality: 'staff_nationality',
+  cap: 'non_sme_budget_cap', single: 'single_beneficiary_excludes', procurement: 'procurement_conflict',
 };
 
 export const SCOPE_WORDS = {
@@ -584,7 +630,12 @@ export function controlKind(way: string): 'china_only' | 'china_no_guarantee' | 
 
 /** Whether the country that controls a company is itself eligible under the call (control from Ukraine, or from every EEA EFTA state). */
 export function controllerEligible(c: EligibilityFact | undefined, ctl: Controller, ctx?: CallContext): boolean {
-  if (!c || (ctl !== 'ua' && ctl !== 'eea')) return false;
-  const codes = ctl === 'ua' ? ['UA'] : ['IS', 'LI', 'NO'];
-  return codes.every((code) => countryStatus(c, code, ctx).verdict === 'yes');
+  return controllerStatus(c, ctl, ctx) === 'yes';
+}
+
+/** WP-102: 'yes' when every country the answer may mean is eligible (Ukraine; the three EEA EFTA states), 'some' when only some are, else 'no'. */
+export function controllerStatus(c: EligibilityFact | undefined, ctl: Controller, ctx?: CallContext): 'yes' | 'some' | 'no' {
+  if (!c || (ctl !== 'ua' && ctl !== 'eea')) return 'no';
+  const ok = (ctl === 'ua' ? ['UA'] : ['IS', 'LI', 'NO']).map((code) => countryStatus(c, code, ctx).verdict === 'yes');
+  return ok.every(Boolean) ? 'yes' : ok.some(Boolean) ? 'some' : 'no';
 }

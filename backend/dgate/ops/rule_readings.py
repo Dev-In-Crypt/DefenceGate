@@ -2,7 +2,10 @@
 
   * `call_eligibility` rows read per topic (key `<document>#<topic>`): the stored text of the document (`call_document_text`) is read
     again for the topic, and a reading replaces the model's fact of the same name in `fields` (EIC Accelerator `sme_only`, EIC STEP
-    `investor_precommitment`, Digital Europe `designated_applicants`). The quote is the text's own, so it is `verified`.
+    `investor_precommitment`, Digital Europe `designated_applicants`; WP-102: EIC Pathfinder `single_beneficiary_excludes`, the
+    COORDPREP-type designated bodies). The quote is the text's own, so it is `verified`.
+  * WP-102: rows of a whole document (the general annexes): Annex H's `procurement_conflict` (served for PCP and PPI actions only).
+    The rules of a topic's portal text (rule_readings.read_conditions) are read when served and need nothing here.
   * AID calls: the latest stored page of each call (raw store) is read for its rules, kept in `conditions_raw.rules_read`.
 
 Only rows whose value would change are written, so a second run writes nothing. The report names every row and fact.
@@ -53,13 +56,14 @@ def eu_rows(conn, result: Result, *, write: bool) -> None:
     rows = conn.execute(
         """SELECT e.url, e.fields, e.document_url, t.text
              FROM call_eligibility e LEFT JOIN call_document_text t ON t.url = e.document_url
-            WHERE position('#' in e.url) > 0 ORDER BY e.url""").fetchall()
+            WHERE e.scope IN ('call_document', 'general') ORDER BY e.url""").fetchall()
     for r in rows:
         result.rows += 1
         if not r["text"]:
             result.no_text += 1
             continue
-        topic = r["url"].split("#", 1)[1]
+        # WP-102: a row of the whole document (the general annexes) is read for what they state for every call of a kind (PCP/PPI)
+        topic = r["url"].split("#", 1)[1] if "#" in r["url"] else None
         try:
             read = read_document(r["text"], topic)
         except Exception as exc:  # one unreadable row is not the run

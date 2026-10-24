@@ -260,7 +260,10 @@ def test_a_list_of_member_states_alone_or_a_general_rule_is_never_closed():
     ("UA", {"programme": "HORIZON", "topic": "HORIZON-CL3-2026-01-BM-01"}, "yes"),
     ("UA", {"programme": "EDF", "topic": "EDF-EDIP-P-2027-LS-IRA-PE"}, "no"),
     ("NO", {"programme": "EDF", "topic": "EDF-EDIP-P-2027-LS-IRA-PE"}, "yes"),
-    ("CH", {"programme": "HORIZON", "topic": "HORIZON-CL3-2026-01-BM-01"}, "check"),
+    # WP-102: associated to the entire programme from 2025 (the Commission's list of participating countries, V4.2); was "check" before
+    ("CH", {"programme": "HORIZON", "topic": "HORIZON-CL3-2026-01-BM-01"}, "yes"),
+    ("LI", {"programme": "HORIZON", "topic": "HORIZON-CL3-2026-01-BM-01"}, "no"),
+    ("GB", {"programme": "HORIZON", "topic": "HORIZON-CL3-2026-01-BM-01"}, "check"),     # associated to parts of the programme only
     ("NO", None, "check"),
 ])
 def test_associated_countries_are_read_per_programme(country, ctx, want):
