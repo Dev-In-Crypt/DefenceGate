@@ -84,31 +84,51 @@ the whole set apart.
 * Keys: the Spanish state-company mark (S.M.E., SME) and the misspelt *Società per Azione* are legal-form tokens
   (`resolution/names.py`); an Italian name's leading *Società* is dropped where the name states S.p.A./S.r.l. (`core_key`).
 * The report prints every pair it would merge (`pair HEAD <- MEMBER method confidence`).
+* Owner decisions of 24 October (second commit):
+  * `stated_number_prefix` (0.90): a row with no number of its own whose award rows state a number the other row
+    holds, and whose name begins with the other's (Navantia Sistemas). Never when the rest of the name brings a legal
+    form or a partnership word (UTE, Sp. J, Sp. K, S.L. ... SL UTE) or a joining sign or word the other name lacks
+    (-, &, +, /, comma, y/e/i/und/and/et/en): the dry run without that guard took joint ventures and partnerships
+    (JUMABEDA ... UTE, SERANCO S.A.U.- PRACE S.A., CLAYMORE Sp. z o.o. Sp. J, STAR SAN DUO ... Sp. K., Seyntex-Sioen),
+    which stay apart.
+  * `curated_source_review` (0.90): `REVIEWED` in `ops/supplier_dedupe.py`, rows a person read in the source, found by
+    the company row's number and the other rows' folded names (rows of those names holding a number are never taken),
+    with the evidence stored in `organisation_merge_candidate.evidence`. Entry: Works 11 Sp. z o.o.
+  * Both methods are in `METHODS`, so `--undo-batch` undoes them.
+  * Award rows: a merge never moves an award row (`award.organisation_id` stays; the supplier map reads
+    `COALESCE(merged_into, id)`), so the `(opportunity_id, organisation_id)` key is never touched where both names are
+    winners of one notice (753670-2023, 629838-2023): both rows stay, the procurement counts once for the company
+    (`count(DISTINCT key)`), and undo needs nothing more than clearing `merged_into`. Tested.
 
 **Tests.** `tests/unit/test_wp104.py` (`test_a_conflicting_row_no_longer_keeps_a_shared_number_apart`,
 `test_a_row_without_a_number_between_two_numbers_joins_neither`,
 `test_one_number_in_two_countries_is_one_company_where_a_country_is_decided`,
-`test_divisions_typos_and_the_state_company_mark_are_the_company`, `test_keys_of_the_state_company_mark_and_the_misspelt_form`);
+`test_divisions_typos_and_the_state_company_mark_are_the_company`, `test_keys_of_the_state_company_mark_and_the_misspelt_form`,
+`test_a_row_without_its_own_number_joins_the_row_its_stated_number_names_under_its_name`,
+`test_the_reviewed_works_11_variants_join_the_company_row`, `test_pilatus_constructions_aeronautiques_is_listed_in_the_pilatus_group`);
+`tests/integration/test_wp104.py::test_reviewed_variants_and_a_stated_number_merge_with_their_evidence_and_undo` (both names
+winners of one notice: both award rows stay, the company's count is 2 procurements, evidence stored, undo);
 `tests/integration/test_wp104.py::test_shared_numbers_merge_across_a_conflict_and_a_wrong_country_with_undo` (merge, the
 award rows' country, the fix record, idempotent, undo puts back merges and countries). The WP-96 tests stay as they were and pass.
 
-**After (production dry run with the new code): 32 groups, 39 rows** (exact pairs below). Left alone:
+**After (production dry run with the new code, owner decisions included): 42 groups, 52 rows** (exact pairs in Appendix B).
+Left alone:
 `different_company_numbers 67, different_legal_forms 17, spacing_on_a_short_key 7`.
 
 The persona items:
 
 | Item | Production evidence | Result |
 |---|---|---|
-| Heckler & Koch x2 (x5 rows) | 427567 *Heckler Koch GmbH* (27 awards, HRB 481250, N0047964B), 431166 (N0047964B), 427723 (N0047964B), 428135 *Heckler und Koch* (DE232899163 in TED; N0047964B in a PLACSP notice), 433974 *HECKLER AND KOCH GMBH.* (PLACSP code 0000CGC00430 only) | 431166, 427723, 428135 merged into 427567 (`company_number` 0.97: N0047964B, the Spanish tax number of the company, stated for each). 433974 stays (another number). Judgment call to confirm: 428135 is also recorded with DE232899163 (a VAT number; 427567's own is a register number, another kind) |
-| Rheinmetall Electronics GmbH x3 | 426698 DE811127845 (32 awards), 428360 DE119356818 (4; the same number is stated for Rheinmetall Project Solutions GmbH, so probably a group VAT number), 430165 DE251121155 (1) | **not merged**: three numbers, the owner's rule. A person (owner) decides whether DE119356818 is the group's VAT number |
+| Heckler & Koch x2 (x5 rows; merge of 428135 confirmed by the owner) | 427567 *Heckler Koch GmbH* (27 awards, HRB 481250, N0047964B), 431166 (N0047964B), 427723 (N0047964B), 428135 *Heckler und Koch* (DE232899163 in TED; N0047964B in a PLACSP notice), 433974 *HECKLER AND KOCH GMBH.* (PLACSP code 0000CGC00430 only) | 431166, 427723, 428135 merged into 427567 (`company_number` 0.97: N0047964B, the Spanish tax number of the company, stated for each). 433974 stays (another number). 428135 is also recorded with DE232899163 (a VAT number; 427567's own is a register number, another kind): merge confirmed by the owner |
+| Rheinmetall Electronics GmbH x3 | 426698 DE811127845 (32 awards), 428360 DE119356818 (4; the same number is stated for Rheinmetall Project Solutions GmbH, so probably a group VAT number), 430165 DE251121155 (1) | **not merged**: three numbers; the owner decided to keep the three rows separate |
 | Leonardo variants and divisions | 426671 Leonardo S.p.A. (00401990585 / 00881841001) | merged into it: 437203 *Leonardo, Società per Azione* (00881841001, `company_number`), 430393 *... Aircraft Division* and 431219 *... Divisione Sistemi di Difesa* (00881841001, `company_number_division`), 439305 *SOCIETA LEONARDO S.P.A.* (`name_key`). *Leonardo Spa_149684* (0006001333) stays: another number |
 | Leonardo group, group total | group view listed 6 companies; PZL-Świdnik (427593) and Leonardo Belgium (431099) outside; no total | `ops/company_groups`: PZL-Świdnik (with or without the parent's name) and Leonardo Belgium added; `/v1/suppliers?group=` returns `groupTotals` (the companies' contract sums per currency, never converted) and the page shows "Group total of contract values: ..." under the group note (its copy no longer says nothing is added up) |
-| Pilatus (check) | 428700 *pilatus aircraft ltd* CH (16 awards, 15030004652 stated in TED 28855-2025), 439344 *PILATUS AIRCRAFT LIMITED* BG (3 awards, Bulgarian notices, 15030004652), 429359 *PILATUS Constructions Aéronautiques SA* CH (1 award, no number) | 439344 merged into 428700 (one number, one name; its award rows to CH). 429359 stays: no number and another legal form; it is probably the company's French name, a person decides |
-| Navantia SA Sme | 427121 *NAVANTIA SA, SME* (204 awards, A84076397), 420165 *NAVANTIA S.A.* (54, A84076397) | merged (`company_number`), head 427121. The display keeps "SME" in capitals (web `display-name.ts`: it is the state-company mark S.M.E., not a size label): "Navantia SA, SME". *NAVANTIA SISTEMAS* (A84076397) stays: its name names no division |
+| Pilatus (check) | 428700 *pilatus aircraft ltd* CH (16 awards, 15030004652 stated in TED 28855-2025), 439344 *PILATUS AIRCRAFT LIMITED* BG (3 awards, Bulgarian notices, 15030004652), 429359 *PILATUS Constructions Aéronautiques SA* CH (1 award, no number) | 439344 merged into 428700 (one number, one name; its award rows to CH). 429359 stays: no number and another legal form; owner decision: kept separate (its stated name is not Pilatus Aircraft Ltd's, no number) and listed with the others in a new curated company group `pilatus` (display only; source: Pilatus Aircraft Ltd's company information) |
+| Navantia SA Sme | 427121 *NAVANTIA SA, SME* (204 awards, A84076397), 420165 *NAVANTIA S.A.* (54, A84076397) | merged (`company_number`), head 427121. The display keeps "SME" in capitals (web `display-name.ts`: it is the state-company mark S.M.E., not a size label): "Navantia SA, SME". *NAVANTIA SISTEMAS* 429848 (both its award rows state A84076397, no number of its own): merged into 427121 (`stated_number_prefix` 0.90), owner decision |
 | Elbit C4I & Cyber x3 | one Israeli row 411947 (514046283, two spellings of one row) and one Spanish row 431178 (A79201430, a Spanish company number) | not merged: two numbers, two companies |
 | BSS Holland BV / B.V. | one row (428058, 34310311) | no duplicate row; the two spellings are the names as published, printed where a page shows the stated name |
 | Thales Nederland x2 | one row (409486); "1 contract" in the report is the count under the report's codes, 5+ on /companies all codes | no duplicate row |
-| Works 11 / Works (check) | 428445 *WORKS 11 Sp. z o.o.* (19, NIP 6462895170); 439434 *Works Sp. z o.o.* and 439544 *WORKSS - 11 Sp. z o.o.* stand as second winners in the same notices as Works 11 (753670-2023, 629838-2023), 439885 *Works11 Sp. z o. o.* (315699-2023); none of the three has a number | not merged: no number, and the source names two winners in each of those notices; probably typing variants, a person decides |
+| Works 11 / Works (check) | 428445 *WORKS 11 Sp. z o.o.* (19, NIP 6462895170); 439434 *Works Sp. z o.o.* and 439544 *WORKSS - 11 Sp. z o.o.* stand as second winners in the same notices as Works 11 (753670-2023, 629838-2023), 439885 *Works11 Sp. z o. o.* (315699-2023); none of the three has a number | owner decision from the source: 439885, 439544, 439434 merged into 428445 (`curated_source_review` 0.90). Evidence: 'Works11 Sp. z o. o.' TED 315699-2023; 'WORKSS - 11 Sp. z o.o.' TED 629838-2023, which also lists 'WORKS 11- Sp. z o.o.'; 'Works Sp. z o.o.' TED 753670-2023, buyer JW 2305 (where Works 11 has 9 wins), which also lists 'Works 11 Sp. z o.o.' |
 
 ## 4. Display names (web `lib/display-name.ts`)
 
@@ -126,12 +146,12 @@ All in `D:\DEFENCEGATE TESTS\wp104\` against the worktree's code (`sync.ps1`, `b
 | Run | Result |
 |---|---|
 | ruff | clean |
-| unit (`pytest`) | 3,655 passed |
-| integration (`pytest -m integration`, Postgres 17 on 55504) | 1,325 passed (17 min) |
+| unit (`pytest`) | 3,658 passed (second commit; 3,655 at the first) |
+| integration (`pytest -m integration`, Postgres 17 on 55504) | 1,326 passed (second commit, 14 min; 1,325 at the first) |
 | web `tsc --noEmit` | clean |
 | web lib checks (`node scripts/run-checks.mjs`, 52 files, `wp104.check.ts` new) | all ok |
 | `next build` (mock) | ok |
-| Playwright `e2e/wp104.spec.ts`, `e2e/wp96.spec.ts`, `e2e/suppliers.spec.ts` (desktop and mobile-375) | 26 passed |
+| Playwright `e2e/wp104.spec.ts`, `e2e/wp96.spec.ts`, `e2e/suppliers.spec.ts` (desktop and mobile-375) | 26 passed (first commit; the second changes no web file) |
 
 ## 6. Files touched outside the package's own files
 
@@ -148,18 +168,22 @@ All in `D:\DEFENCEGATE TESTS\wp104\` against the worktree's code (`sync.ps1`, `b
 
 1. After the deploy: `python -m dgate.ops.buyer_families --changes` (expect about 175 set / 28 removed, including
    `remove 13000 -> 9770`), then `--yes`. The daily worker run would do the same.
-2. `python -m dgate.ops.supplier_dedupe` (expect 32 groups, 39 rows, every pair printed as `pair HEAD <- MEMBER`), then
+2. `python -m dgate.ops.supplier_dedupe` (expect 42 groups, 52 rows, every pair printed as `pair HEAD <- MEMBER`), then
    `--yes`; keep the printed `--undo-batch FROM TO` line. Undo: `python -m dgate.ops.supplier_dedupe --undo-batch FROM TO --yes`
    (merges and the country corrections of that window).
-3. `python -m dgate.ops.company_groups` then `--yes` (PZL-Świdnik and Leonardo Belgium join the Leonardo group).
+3. `python -m dgate.ops.company_groups` then `--yes` (after step 2; PZL-Świdnik and Leonardo Belgium join the Leonardo
+   group, the new Pilatus group lists Pilatus Aircraft Ltd and Pilatus Constructions Aéronautiques SA; dry run before the
+   merges: 69 members, 12 to write).
 4. The list caches refresh on their own (supplier list 5 minutes; the value orders at the next award load or within 4 hours).
 
 ## 8. Open items
 
-* Rheinmetall Electronics GmbH: three numbers (DE811127845, DE119356818, DE251121155); owner decision whether DE119356818 is a
-  group VAT number (then a curated rule, with its source, could join it).
-* Pilatus Constructions Aéronautiques SA, Navantia Sistemas, Works / WORKSS - 11 / Works11: probably the same companies, no
-  evidence by number; a person decides (a reviewed merge would go through `ops.accept_merge_candidates`).
+* Owner decisions of 24 October applied (second commit): Rheinmetall Electronics stays three rows; Heckler & Koch 428135
+  merged; Navantia Sistemas and the Works 11 variants merged; Pilatus Constructions Aéronautiques SA separate, in the
+  Pilatus group.
+* `stated_number_prefix` also merges, on production, 9 more rows of the same shape (IBM Deutschland's Flensburg branch,
+  ETRA AIR, KenBIT Polska, Aerotechnika M & T, BARPIMO Coatings, Novelec Ebro, Continental Tyres, TKT Servicios, Ingloba):
+  listed in Appendix B for review before `--yes`.
 * Search finding NAVARM / TERRARM / ARMAEREO by abbreviation is WP-101's (the families now hold the rows).
 * The Portuguese Navy (Marinha) units were not reported and are left as they are.
 
@@ -378,7 +402,7 @@ All in `D:\DEFENCEGATE TESTS\wp104\` against the worktree's code (`sync.ps1`, `b
 `head` then `<- member country awards name numbers method confidence`; `(award rows to XX)`: the member's award rows move to the company's country first.
 
 ```
-winners 11313 groups 32 rows 39 left {'spacing_on_a_short_key': 7, 'different_company_numbers': 67, 'different_legal_forms': 17}
+winners 11313 groups 42 rows 52 left {'spacing_on_a_short_key': 7, 'different_company_numbers': 67, 'different_legal_forms': 17}
 head 426671 IT awards 25 'LEONARDO - SOCIETA PER AZIONI' numbers ['00401990585', '00881841001', '401990585'] country IT
    <- 437203 IT awards 2 'Leonardo, Societá per Azione' ['00881841001'] company_number 0.97
    <- 430393 IT awards 1 'Leonardo S.p.A. – Aircraft Division' ['00881841001'] company_number_division 0.95
@@ -388,12 +412,23 @@ head 427567 DE awards 27 'Heckler Koch GmbH' numbers ['000N0047964B', '481250', 
    <- 428135 DE awards 9 'Heckler und Koch' ['232899163', 'N0047964B'] company_number 0.97
    <- 431166 DE awards 8 'HECKLER & KOCH GMBH' ['N0047964B'] company_number 0.97
    <- 427723 DE awards 4 'Heckler and Koch GmbH' ['000N0047964BN0047964B', 'N0047964B'] company_number 0.97
+head 428445 PL awards 19 'WORKS 11 Sp. z o.o.' numbers ['6462895170'] country PL
+   <- 439434 PL awards 1 'Works Sp. z o.o.' [] curated_source_review 0.9
+   <- 439544 PL awards 1 'WORKSS - 11 Sp. z o.o.' [] curated_source_review 0.9
+   <- 439885 PL awards 1 'Works11 Sp. z o. o.' [] curated_source_review 0.9
+head 427121 ES awards 204 'NAVANTIA SA, SME' numbers ['A84076397'] country ES
+   <- 420165 ES awards 54 'NAVANTIA S.A.' ['A84076397', 'B84076397'] company_number 0.97
+   <- 429848 ES awards 2 'NAVANTIA SISTEMAS' ['A84076397'] stated_number_prefix 0.9
 head 429483 ES awards 20 'EQUIPAMIENTOS SDAL S.L.' numbers ['B81993222'] country ES
    <- 430059 ES awards 15 'Equiamientos SDAL SL' ['B81993222'] company_number 0.97
    <- 438118 ES awards 2 'EQUIPAMIENTO SDAL SL' ['B81993222'] company_number 0.97
 head 432464 ES awards 2 'Iturri SA, El Siglo 1870 SL, Integral Thermal Shield SL, Climb Wear SL' numbers ['U88593124'] country ES
    <- 432477 ES awards 1 'Iturri SA, El Siglo 1870 SL, IntegralThermal Shield SL y Climb Wear SL' ['U88593124'] company_number 0.97
    <- 432540 ES awards 1 'Iturri SA, El Siglo 1870SL, Integral Thermal Shield SL y Climb Wear SL' ['U88593124'] company_number 0.97
+head 402125 DE awards 9 'IBM DEUTSCHLAND GMBH' numbers ['145178813'] country DE
+   <- 430409 DE awards 1 'IBM Deutschland GmbH Niederl. Flensburg' ['145178813'] stated_number_prefix 0.9
+head 403968 ES awards 7 'ETRA AIR SL' numbers ['B67918383'] country ES
+   <- 438962 ES awards 1 'ETRA AIR SL (ETRAIR)' ['B67918383'] stated_number_prefix 0.9
 head 405287 DE awards 14 'THALES DEUTSCHLAND GMBH' numbers ['122269850', '301675630', '812331104'] country DE
    <- 428200 DE awards 10 'Thales Deutschland' ['122269850'] company_number 0.97
 head 411427 DK awards 5 'TERMA AS' numbers ['41881828', '49776268'] country DK
@@ -406,8 +441,6 @@ head 426685 IT awards 2 'ELETTRONICA SPA' numbers [] country IT
    <- 439473 IT awards 1 'SOCIETA ELETTRONICA SPA' [] name_key 0.95
 head 426744 FR awards 16 'SAFRAN ELECTRONICS & DEFENSE' numbers ['039480107911', '480107911', 'CRS480107911'] country FR
    <- 435712 ES awards 2 'SAFRAN ELECTRONICS & DEFENSE' ['480107911', 'FR039480107911'] company_number 0.97  (award rows to FR)
-head 427121 ES awards 204 'NAVANTIA SA, SME' numbers ['A84076397'] country ES
-   <- 420165 ES awards 54 'NAVANTIA S.A.' ['A84076397', 'B84076397'] company_number 0.97
 head 427614 LT awards 22 'UAB DEFENSA' numbers ['300005349'] country LT
    <- 430988 LV awards 1 'UAB DEFENSA' ['300005349'] company_number 0.97  (award rows to LT)
 head 427615 EE awards 9 'Baltic Fox OÜ' numbers ['101269588', '11535997'] country EE
@@ -428,6 +461,10 @@ head 428700 CH awards 16 'pilatus aircraft ltd' numbers ['105943984', '150300046
    <- 439344 BG awards 3 'PILATUS AIRCRAFT LIMITED' ['15030004652'] company_number 0.97  (award rows to CH)
 head 429101 IL awards 2 'AERONAUTICS' numbers ['512551425'] country IL
    <- 433157 ES awards 1 'AERONAUTICS LTD' ['512551425'] company_number 0.97  (award rows to IL)
+head 429252 PL awards 5 'KenBIT Sp. z o.o.' numbers ['0000884493'] country PL
+   <- 430349 PL awards 1 'KenBIT Polska Sp. z o.o.' ['0000884493'] stated_number_prefix 0.9
+head 429473 HU awards 1 'AEROTECHNIKA M & T Zrt.' numbers ['12013786241'] country HU
+   <- 430557 HU awards 1 'Aerotechnika M & T Budapest Repüléstechnikai Szolgáltató Zrt.' ['12013786241'] stated_number_prefix 0.9
 head 429896 EE awards 5 'eqqus Ltd OÜ' numbers ['10717064'] country EE
    <- 430736 LV awards 3 'Eqqus Ltd. OU' ['10717064', 'EE10717064'] company_number 0.97  (award rows to EE)
 head 429994 PL awards 2 'SZCZĘŚNIAK Pojazdy Specjalne Sp. z o.o.' numbers ['241073251', '5472099801'] country PL
@@ -442,12 +479,102 @@ head 432487 ES awards 5 'HEWLETT PACKARD SERVICIOS ESPAÑA, S.L.U.' numbers ['B8
    <- 432629 ES awards 1 'HEWLETT PAKARD SERVICIOS ESPAÑA, S.L.U.' ['B82591470'] company_number 0.97
 head 432858 ES awards 3 'fabios e hijos' numbers ['B14514194'] country ES
    <- 437645 CO awards 1 'fabios e hijos' ['B14514194'] company_number 0.97  (award rows to ES)
+head 433638 ES awards 1 'BARPIMO SA' numbers ['A26004960'] country ES
+   <- 435555 ES awards 1 'BARPIMO COATINGS S.A.' ['A26004960'] stated_number_prefix 0.9
+head 433949 ES awards 1 'novelec' numbers ['B99423824'] country ES
+   <- 436894 ES awards 1 'NOVELEC EBRO S.L.' ['B99423824'] stated_number_prefix 0.9
+head 434378 ES awards 1 'CONTINENTAL' numbers ['B83916056'] country ES
+   <- 436401 ES awards 1 'CONTINENTAL TYRES SL' ['B83916056'] stated_number_prefix 0.9
 head 434743 ES awards 4 'SIEMENS, S.A.' numbers ['A28006377'] country ES
    <- 436502 ES awards 2 'SIEMENS, S.A., DIVISION SMART INFRAESTRUCTURE' ['A28006377'] company_number_division 0.95
 head 435586 ES awards 1 'INSTALACIONES TÉCNICAS CONTRERAS S.L. (ITECO S.L.)' numbers ['B18676734'] country ES
    <- 436129 GD awards 1 'INSTALACIONES TÉCNICAS CONTRERAS S.L. (ITECO S.L.)' ['B18676734'] company_number 0.97  (award rows to ES)
+head 435848 ES awards 2 'TKT Servicios Informáticos' numbers ['B90011198'] country ES
+   <- 434726 ES awards 1 'TKT SERVICIOS' ['B90011198'] stated_number_prefix 0.9
+head 437680 ES awards 2 'INGLOBA SEGURIDAD S.A' numbers ['A86376803'] country ES
+   <- 438704 ES awards 1 'Ingloba,S.A.' ['A86376803'] stated_number_prefix 0.9
 head 439476 IT awards 2 'TECNODIFE SRL' numbers [] country IT
    <- 439306 IT awards 1 'SOCIETA TECNODIFE SRL' [] name_key 0.95
 head 439608 IT awards 1 'Società ORIZZONTE SISTEMI NAVALI S.p.A' numbers [] country IT
    <- 439652 IT awards 1 'Orizzonte Sistemi Navali S.p.A.' [] name_key 0.95
+```
+
+## Appendix C. Company groups (production dry run before the merges, 24 October 2026)
+
+```
+rheinmetall: 26 companies  (Rheinmetall AG, annual report: list of shareholdings (https://www.rheinmetall.com/en/investor-relations))
+      420406  RHEINMETALL WAFFE MUNITION GMBH
+      426698  RHEINMETALL ELECTRONICS GMBH
+      426763  RHEINMETALL TECHNICAL PUBLICATIONS GMBH
+      426931  Rheinmetall Italia S.p.A.
+      427038  Rheinmetall Protection Systems GmbH
+      427143  RHEINMETALL PROJECT SOLUTIONS GMBH
+      427233  RHEINMETALL DEFENCE NEDERLAND B.V
+      427234  RHEINMETALL LANDSYSTEME GMBH
+      427709  Rheinmetall Soldier Electronics GmbH
+      428000  Rheinmetall MAN Military Vehicles GmbH
+      428184  RHEINMETALL EXPAL MUNITIONS, S.A.U.
+      428360  Rheinmetall Electronics GmbH
+      429167  Rheinmetall Air Defence AG
+      429387  Rheinmetall Waffe Munition Schweiz AG
+      429399  RheinmetallMAN Military Vehicles GmbH
+      429709  Rheinmetall Polska Sp. z. o.o.
+      430165  Rheinmetall Electronics GmbH
+      430309  Rheinmetall Technical Publications GmbH Ndl. Penzberg
+      430367  RHEINMETALL EXPAL MUNITION, S.A.
+      430412  Rheinmetall Project Solutions GmbH
+      430474  Rheinmetall Waffe Munition ARGES GmbH
+      430524  Rheinmetall Canada Inc.
+      430559  RHEINMETALL DENEL MUNITION (PTY) LTD
+      433669  RHEINMETALL DENERL MUNITION (Pty) Ltd
+      439727  RHEINMETALL WAFFE MUNITION GmbH
+      439987  Rheinmetall Canada Inc
+leonardo: 9 companies  (Leonardo S.p.A., integrated annual report: consolidated companies (https://www.leonardo.com/en/investors))
+      382508  LEONARDO UK LTD
+      412040  LEONARDO GERMANY GMBH
+      426671  LEONARDO - SOCIETA PER AZIONI
+      427593  LEONARDO PZL-ŚWIDNIK S.A.
+      429964  LEONARDO UK LTD
+      430205  Leonardo Electronics Division
+      431099  Leonardo Belgium S.A.
+      431221  Leonardo Spa_149684
+      437203  Leonardo, Societá per Azione
+saab: 9 companies  (Saab AB, annual report: group companies (https://www.saab.com/investors))
+      394573  SAAB AB
+      426792  SAAB DYNAMICS AB
+      426991  Saab Barracuda AB
+      427436  SAAB DEUTSCHLAND GMBH
+      428303  Saab Finland Oy
+      430383  SAAB GRINTEK DEFENCE LTD
+      430385  Saab Danmark A/S
+      431338  Saab Barracuda AS
+      439291  Saab Deutschland GmbH
+pilatus: 3 companies  (Pilatus Aircraft Ltd (Pilatus Flugzeugwerke AG), Stans: company information (https://www.pilatus-aircraft.com))
+      428700  pilatus aircraft ltd
+      429359  PILATUS Constructions Aéronautiques SA
+      439344  PILATUS AIRCRAFT LIMITED
+pgz: 22 companies  (Polska Grupa Zbrojeniowa S.A.: companies of the PGZ group (https://www.pgzsa.pl))
+       27452  wojskowe zaklady lacznosci nr 2
+      426930  PIT-RADWAR S.A.
+      427332  HUTA STALOWA WOLA S.A.
+      427687  MESKO S.A.
+      427706  Fabryka Broni "ŁUCZNIK" - Radom Sp. z o. o.
+      427707  Rosomak Spółka Akcyjna
+      427827  Zakłady Mechaniczne "TARNÓW" S.A.
+      427971  Wojskowe Zakłady Łączności Nr 1 S.A.
+      428046  WOJSKOWE ZAKŁADY LOTNICZE NR 1 S.A., ul. Dubois 119, 93-465 Łódź
+      428125  Wojskowe Zakłady Elektroniczne S.A.
+      428222  PIT - RADWAR SP.A.
+      428272  WOJSKOWE ZAKŁADY UZBROJENIA SPÓŁKA AKCYJNA
+      428376  PGZ Stocznia Wojenna Sp. z o.o.
+      430628  Wojskowe Zakłady Lotnicze Nr2 S.A.
+      430717  HUTA STALOWA WOLA S.A.
+      439309  Wojskowe Zakłady Motoryzacyjne S. A.
+      439456  Wojskowe Zakłady Elektroniczne S.A. oraz PIT - RADWAR S.A.
+      439602  Wojskowe Zakłady Łączności Nr 1 w Zegrzu
+      439688  Wojskowe Zakłady Lotnicze Nr2 S.A.
+      439833  WOJSKOWE ZAKŁADY LOTNICZE NR 1 SA
+      439861  ROSOMAK Spółka Akcyjna ul. Powstańców 5/7 41-100 Siemianowice Śląskie
+      439954  Mesko Spółka Skcyjna
+{'members': 69, 'written': 0, 'removed': 0, 'to_write': 12, 'to_remove': 0}  (dry run: nothing written, add --yes)
 ```

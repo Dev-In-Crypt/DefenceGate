@@ -22,6 +22,11 @@ are one company when
                       ("Leonardo S.p.A. - Aircraft Division" with Leonardo's own number): a division has no legal
                       personality of its own                                                             0.95
 
+  stated_number_prefix  (WP-104) a row with no number of its own whose award rows state a number the other row
+                      holds, and whose name begins with the other's (Navantia Sistemas, A84076397)        0.90
+  curated_source_review  (WP-104) rows a person read in the source (`REVIEWED`: the company row's number, the other
+                      rows' names, the evidence stored with the merge; Works 11 Sp. z o.o.)               0.90
+
 A shared number joins rows of two countries only under one name key (WP-104: a winner filed under its buyer's country
 by the notices that state its number). Nothing joined may contradict it:
 
@@ -65,8 +70,32 @@ from .accept_merge_candidates import _FORM_WORDS, name_similarity
 log = logging.getLogger("supplier_dedupe")
 
 DETECTED_BY = "ops.supplier_dedupe"
+# WP-104, owner decision of 24 October 2026: rows a person read in the source and found to be one company, each by the
+# number the company row holds and the names (folded as `stated_key`) the other rows carry, with the evidence stored.
+CURATED_REVIEW = "curated_source_review"
+
+
+@dataclass(frozen=True)
+class Reviewed:
+    country: str
+    number: str                    # the company row's number (`company_number` form)
+    names: frozenset[str]          # the other rows' names, `stated_key`; rows of them holding a number are never taken
+    evidence: str
+
+
+REVIEWED: tuple[Reviewed, ...] = (
+    Reviewed("PL", "6462895170", frozenset({"works11spzoo", "workss11spzoo", "worksspzoo"}),
+             "WORKS 11 Sp. z o.o. (NIP 6462895170): 'Works11 Sp. z o. o.' (TED 315699-2023), 'WORKSS - 11 Sp. z o.o.' "
+             "(TED 629838-2023, which also lists 'WORKS 11- Sp. z o.o.') and 'Works Sp. z o.o.' (TED 753670-2023, buyer "
+             "JW 2305, which also lists 'Works 11 Sp. z o.o.') are typing variants of the one company; read by the "
+             "orchestrator on production, 24 October 2026"),
+)
+
 METHODS = {"company_number": 0.97, "name_key": 0.95, "company_number_division": 0.95, "it_tax_pair": 0.90,
-           "name_key_spaces": 0.90}
+           "name_key_spaces": 0.90, "stated_number_prefix": 0.90, CURATED_REVIEW: 0.90}
+# the methods of the first pass (`plan`): evidence by number, or a person's review of the source
+NUMBER_METHODS = frozenset({"company_number", "company_number_division", "it_tax_pair", "stated_number_prefix",
+                            CURATED_REVIEW})
 MIN_FOLD = 12
 MIN_KEY = 4
 
@@ -81,6 +110,7 @@ class Row:
     awards: int
     public: bool
     stated: dict[str, set[str]] = field(default_factory=dict)   # stated name (folded) -> numbers stated with it
+    own: set[str] = field(default_factory=set)                   # WP-104: the row's own numbers (not the stated ones)
 
     @property
     def key(self) -> str:
@@ -134,7 +164,8 @@ def load(conn) -> list[Row]:
                        {f for f in map(legal_form_of, (r["name"], *(r["aliases"] or ()))) if f}, r["n"],
                        is_public_body(r["name"], country, defence_buyer=bool(r["is_defence_buyer"]),
                                       org_role=r["org_role"]),
-                       dict(stated)))
+                       dict(stated),
+                       {n for n in (company_number(x, country) for x in (r["national_reg_no"], r["vat_number"])) if n}))
     return out
 
 
@@ -199,6 +230,32 @@ def _division_of(a: Row, b: Row) -> bool:
     """One name is the other's followed by words that name a division."""
     short, long_ = sorted((a.key, b.key), key=len)
     return bool(short) and long_.startswith(short + " ") and bool(_DIVISION.search(long_[len(short):]))
+
+
+def _stated_prefix(a: Row, b: Row) -> bool:
+    """WP-104: one of the two has no number of its own, only numbers its award rows state, one of which the other holds,
+    and its name begins with the other's ("NAVANTIA SISTEMAS", whose two award rows state A84076397, and NAVANTIA S.A.,
+    S.M.E.). The name test keeps out the joint ventures that state a partner's number ("UTE NAVANTIA S.A. E INDRA"), and
+    a name that goes on to name another company or a partnership is never taken: a legal form or a partnership word
+    after the shared part ("JUMABEDA, S.L. CONST ... SL", "CLAYMORE Sp. z o.o. Sp. J", "STAR SAN DUO ... Sp. K."), or a
+    joining sign or word the other name does not have ("SERANCO, S.A.U.- PRACE S.A.", "Seyntex-Sioen", "... & ...").
+    ponytail: a name test, not a register; it leaves some spellings of one company apart rather than join two."""
+    for x, y in ((a, b), (b, a)):
+        if not x.own and x.numbers & y.numbers and y.key and x.key.startswith(y.key + " "):
+            tail = x.key[len(y.key):].split()
+            if any(w in _TAIL_STOP for w in tail):
+                continue
+            if any(ch in x.name and ch not in y.name for ch in "-&+/,"):
+                continue
+            if _JOINING.search(x.name.lower()) and not _JOINING.search(y.name.lower()):
+                continue
+            return True
+    return False
+
+
+_TAIL_STOP = _FORM_WORDS | {"s", "ute", "sp", "spolka", "sociedad", "soc", "coop", "partner", "partners", "j", "k",
+                            "consorcio", "konsorcjum", "kft", "zrt", "korlatolt", "co", "kg"}
+_JOINING = re.compile(r"\s(?:y|e|i|und|and|et|en)\s")
 
 
 def _pair_conflict(a: Row, b: Row, it_keys: set[tuple[int, int]]) -> str | None:
@@ -266,6 +323,15 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
                     join(a, b, "company_number")
                 elif a.country == b.country and _division_of(a, b):
                     join(a, b, "company_number_division")
+                elif a.country == b.country and _stated_prefix(a, b):
+                    join(a, b, "stated_number_prefix")
+    for rv in REVIEWED:
+        heads = [r for r in rows if r.country == rv.country and rv.number in r.numbers and not r.public]
+        if len(heads) == 1:
+            for r in rows:
+                if (r.country == rv.country and not r.numbers and not r.public
+                        and stated_key(r.name) in rv.names):
+                    join(heads[0], r, CURATED_REVIEW)
     for members in buckets.values():
         if members[0].country != "IT":
             continue
@@ -302,7 +368,7 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
         parts = members_of()
         links: dict[int, set[int]] = defaultdict(set)
         for (a, b), method in edges.items():
-            if (method in ("company_number", "company_number_division", "it_tax_pair")) == number_pass:
+            if (method in NUMBER_METHODS) == number_pass:
                 pa, pb = find(a), find(b)
                 if pa != pb:
                     links[pa].add(pb)
@@ -399,7 +465,9 @@ def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sampl
             result["recountried"] += 1
         for oid, method, conf in g["members"]:
             db.merge_organisations(conn, g["head"], oid, method=method, confidence=conf,
-                                   evidence=f"supplier rule {method}; numbers {g['numbers'][:4]}",
+                                   evidence=next((rv.evidence for rv in REVIEWED if method == CURATED_REVIEW
+                                                  and rv.number in g["numbers"]),
+                                                 f"supplier rule {method}; numbers {g['numbers'][:4]}"),
                                    detected_by=DETECTED_BY, allow_identifier_conflict=True,
                                    allow_other_country=oid in g["recountry"])
             result["merged"] += 1

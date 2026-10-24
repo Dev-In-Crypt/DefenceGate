@@ -150,17 +150,51 @@ def test_divisions_typos_and_the_state_company_mark_are_the_company():
             row(6, "Leonardo Spa_149684", "IT", {"0006001333"}),                    # another number: another
             row(7, "Leonardo Electronics Ltd", "GB", {"00401990585"}),               # another country, another key
             row(10, "NAVANTIA SA, SME", "ES", {"A84076397"}, 204), row(11, "NAVANTIA S.A.", "ES", {"A84076397"}, 54),
-            row(12, "NAVANTIA SISTEMAS", "ES", {"A84076397"}, 2)]                    # a name, not a division
+            row(12, "NAVANTIA SISTEMAS", "ES", {"A84076397"}, 2)]      # not a division; joins by its stated number (4.)
     groups, _, _ = plan(rows)
     assert members(groups) == {1: [(2, "company_number"), (3, "company_number_division"),
                                    (4, "company_number_division"), (5, "name_key")],
-                               10: [(11, "company_number")]}
+                               10: [(11, "company_number"), (12, "stated_number_prefix")]}
 
 
 def test_keys_of_the_state_company_mark_and_the_misspelt_form():
     assert key_of("NAVANTIA SA, SME")[0] == key_of("NAVANTIA S.A., S.M.E.")[0] == key_of("NAVANTIA S.A.")[0] == "navantia"
     assert key_of("Leonardo, Societá per Azione")[0] == "leonardo" and legal_form_of("Leonardo, Societa per Azione") == "spa"
     assert core_key("SOCIETA LEONARDO S.P.A.") == "leonardo" and core_key("Societa Generale") == "societa generale"
+
+
+def test_a_row_without_its_own_number_joins_the_row_its_stated_number_names_under_its_name():
+    head = row(10, "NAVANTIA SA, SME", "ES", {"A84076397"}, 204)
+    sistemas = row(12, "NAVANTIA SISTEMAS", "ES", {"A84076397"}, 2)                  # stated only, no own number
+    ute = row(13, "UTE NAVANTIA S.A. E INDRA SISTEMAS S.A.", "ES", {"A84076397"})   # a partner's number: never
+    owned = row(14, "NAVANTIA DIGITAL", "ES", {"A84076397"})
+    owned.own = {"A84076397"}                                                         # its own number: not this rule
+    head.own = {"A84076397"}
+    groups, _, _ = plan([head, sistemas, ute, owned])
+    assert members(groups) == {10: [(12, "stated_number_prefix")]}
+    # a name that goes on to name another company or a partnership is never taken
+    others = [row(20, "JUMABEDA, S.L.", "ES", {"B30658132"}, 67),
+              row(21, "JUMABEDA, S.L.GARCIGAS INST SL UTE", "ES", {"B30658132"}),
+              row(30, "Seyntex NV", "BE", {"0423039962"}, 14), row(31, "Seyntex-Sioen", "BE", {"0423039962"}),
+              row(40, "CLAYMORE Sp. z o. o.", "PL", {"7811950383"}, 6),
+              row(41, "CLAYMORE Sp. z o.o. Sp. J", "PL", {"7811950383"}),
+              row(50, "SERANCO S.A.U.", "ES", {"A79189940"}, 22), row(51, "SERANCO S.A.U.- PRACE S.A.", "ES", {"A79189940"})]
+    assert plan(others)[0] == []
+
+
+def test_the_reviewed_works_11_variants_join_the_company_row():
+    rows = [row(1, "WORKS 11 Sp. z o.o.", "PL", {"6462895170"}, 19), row(2, "Works11 Sp. z o. o.", "PL"),
+            row(3, "WORKSS - 11 Sp. z o.o.", "PL"), row(4, "Works Sp. z o.o.", "PL"),
+            row(5, "Works Sp. z o.o.", "CZ"), row(6, "Works Sp. z o.o.", "PL", {"1111111111"})]   # another country, a number
+    groups, _, _ = plan(rows)
+    assert members(groups) == {1: [(2, "curated_source_review"), (3, "curated_source_review"),
+                                   (4, "curated_source_review")]}
+
+
+def test_pilatus_constructions_aeronautiques_is_listed_in_the_pilatus_group():
+    assert group_of("PILATUS Constructions Aéronautiques SA", "CH")[0].key == "pilatus"
+    assert group_of("Pilatus Aircraft Ltd", "CH")[0].key == "pilatus"
+    assert group_of("Pilatus Bau AG", "CH") is None
 
 
 def test_the_leonardo_group_takes_pzl_swidnik_and_belgium():

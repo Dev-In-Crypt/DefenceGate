@@ -62,6 +62,13 @@ GROUPS: tuple[CompanyGroup, ...] = (
         re.compile(r"^saab(?: aktiebolag)?$"),
         re.compile(r"^saab (?:dynamics|kockums|finland|danmark|denmark|norge|norway|deutschland|germany|uk|australia"
                    r"|bofors|barracuda|technologies|grintek|defen[cs]e|south africa|inc|nederland|polska|seaeye)\b")),
+    # WP-104 (owner decision of 24 October 2026): Pilatus Constructions Aeronautiques SA states no number and another
+    # name than Pilatus Aircraft Ltd, so it is not merged; it is listed beside it (display only)
+    CompanyGroup(
+        "pilatus", "Pilatus", "Pilatus Aircraft Ltd (Pilatus Flugzeugwerke AG), Stans: company information "
+        "(https://www.pilatus-aircraft.com)", "CH",
+        re.compile(r"^pilatus(?: aircraft| flugzeugwerke)?$"),
+        re.compile(r"^pilatus (?:constructions aeronautiques|flugzeugwerke|aircraft|business aircraft|australia)\b")),
     CompanyGroup(
         "pgz", "Polska Grupa Zbrojeniowa (PGZ)", "Polska Grupa Zbrojeniowa S.A.: companies of the PGZ group "
         "(https://www.pgzsa.pl)", "PL",

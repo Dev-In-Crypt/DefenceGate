@@ -140,6 +140,41 @@ def test_shared_numbers_merge_across_a_conflict_and_a_wrong_country_with_undo(co
                         (pil_bg,)).fetchone()["supplier_country"] == "BG"
 
 
+def test_reviewed_variants_and_a_stated_number_merge_with_their_evidence_and_undo(conn, client):
+    one = notice(conn, "60-2026", "Jednostka Wojskowa Nr 2305")
+    works = winner(conn, one, "WORKS 11 Sp. z o.o.", "PL", "NIP 646-289-51-70")
+    # the same notice lists a typing variant as a second winner: both award rows stay, the procurement counts once
+    variant = conn.execute("INSERT INTO organisation (canonical_name, display_name, country) VALUES "
+                           "('works', 'Works Sp. z o.o.', 'PL') RETURNING id").fetchone()["id"]
+    conn.execute("""INSERT INTO award (opportunity_id, organisation_id, supplier_country, name_as_stated, winners_in_notice,
+                                       cpv_main, resolution_method, resolution_confidence)
+                    VALUES (%s, %s, 'PL', 'Works Sp. z o.o.', 2, '35400000', 'exact_name', 1.0)""", (one, variant))
+    conn.execute("""INSERT INTO award (opportunity_id, organisation_id, supplier_country, name_as_stated, identifier_as_stated,
+                                       winners_in_notice, cpv_main, resolution_method, resolution_confidence)
+                    VALUES (%s, %s, 'PL', 'Works 11 Sp. z o.o.', '6462895170', 1, '35400000', 'alias', 0.9)""",
+                 (notice(conn, "61-2026", "Jednostka Wojskowa Nr 2305"), works))
+    nav = winner(conn, notice(conn, "62-2026", "Armada", country="ES"), "NAVANTIA S.A.", "ES", "A84076397")
+    conn.execute("UPDATE organisation SET national_reg_no = 'A84076397' WHERE id = %s", (nav,))
+    sistemas = winner(conn, notice(conn, "63-2026", "Armada", country="ES"), "NAVANTIA SISTEMAS", "ES", "A84076397")
+    conn.commit()
+    lines: list[str] = []
+    done = supplier_dedupe.run(conn, apply=True, out=lines.append)
+    rows = {r["id"]: r for r in conn.execute(
+        "SELECT id, merged_into, merge_method FROM organisation WHERE id = ANY(%s)", ([variant, sistemas],)).fetchall()}
+    assert (rows[variant]["merged_into"], rows[variant]["merge_method"]) == (works, "curated_source_review")
+    assert (rows[sistemas]["merged_into"], rows[sistemas]["merge_method"]) == (nav, "stated_number_prefix")
+    evidence = conn.execute("SELECT evidence FROM organisation_merge_candidate WHERE match_method = 'curated_source_review'"
+                            ).fetchone()["evidence"]
+    assert "TED 753670-2023" in evidence
+    assert conn.execute("SELECT count(*) AS n FROM award WHERE opportunity_id = %s", (one,)).fetchone()["n"] == 2
+    stats.reset_cache()
+    item = next(i for i in client.get("/v1/suppliers", params={"q": "works"}).json()["items"] if i["id"] == str(works))
+    assert item["awardCount"] == 2                                    # two procurements, not three award rows
+    start, end = done["batch_window"]
+    supplier_dedupe.undo_batch(conn, start, end, apply=True, out=lines.append)
+    assert conn.execute("SELECT count(*) AS n FROM organisation WHERE merged_into IS NOT NULL").fetchone()["n"] == 0
+
+
 # ------------------------------------------------------------------ 3. group totals
 
 def test_a_company_group_shows_its_total_per_currency(conn, client):
