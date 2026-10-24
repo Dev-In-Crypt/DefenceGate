@@ -31,7 +31,13 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .normalise import Opportunity, normalise_identifier, normalise_org_name, scrub_opportunity
+from .normalise import (
+    Opportunity,
+    normalise_identifier,
+    normalise_org_name,
+    scrub_opportunity,
+    strip_name_contacts,
+)
 
 log = logging.getLogger(__name__)
 
@@ -671,6 +677,8 @@ def _resolve_organisation(
     nearly equal are written to `organisation_merge_candidate` and wait for a
     person: a poisoned alias table is worse than none.
     """
+    # WP-115: the alias keeps the name as stated, so a contact block written into it goes before it is stored
+    raw_name = strip_name_contacts(raw_name)
     if not raw_name or not country:
         return None
     norm = normalise_org_name(raw_name)
@@ -845,6 +853,10 @@ def merge_organisations(
             (a["national_reg_no"], method, confidence, keep))
     if a["is_defence_buyer"] and not k["is_defence_buyer"]:
         conn.execute("UPDATE organisation SET is_defence_buyer = TRUE WHERE id = %s", (keep,))
+    # WP-115: rows merged into `absorbed` earlier now point at `keep`, so merged_into never forms a chain
+    # (3 chains A->B->C held 7 awards on 24 October 2026). Each re-point is logged with the pointer it had,
+    # which is how `ops.undo_merges` puts it back.
+    repoint_merged(conn, absorbed, keep, method=method)
     conn.execute(
         """UPDATE organisation
               SET merged_into = %s, merge_method = %s, merge_confidence = %s, merged_at = now()
@@ -861,6 +873,27 @@ def merge_organisations(
         (keep, absorbed, keep, absorbed, method, round(confidence, 2), evidence[:500],
          detected_by))
     return {"aliases": len(aliases), "notices": len(notices)}
+
+
+def repoint_merged(conn: psycopg.Connection, old_head: int, new_head: int, *, method: str) -> int:
+    """Point every row merged into `old_head` at `new_head`, logging each in `organisation_repair`."""
+    moved = conn.execute(
+        "UPDATE organisation SET merged_into = %s WHERE merged_into = %s AND id <> %s RETURNING id",
+        (new_head, old_head, new_head)).fetchall()
+    for r in moved:
+        log_repair(conn, r["id"], "repoint_merged_into", old_value=str(old_head), new_value=str(new_head),
+                   method=method, detected_by="db.merge_organisations")
+    return len(moved)
+
+
+def log_repair(conn: psycopg.Connection, org_id: int, action: str, *, old_value: str | None,
+               new_value: str | None, method: str, detected_by: str) -> None:
+    """One line of `organisation_repair` (migration 0127): what a correction changed on a row, for its undo.
+    Never a contact detail: `old_value` stays NULL for those."""
+    conn.execute(
+        """INSERT INTO organisation_repair (organisation_id, action, old_value, new_value, method, detected_by)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        (org_id, action, old_value, new_value, method, detected_by))
 
 
 def is_defence_buyer(conn: psycopg.Connection, org_id: int | None) -> bool:

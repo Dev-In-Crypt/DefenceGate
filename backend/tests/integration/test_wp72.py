@@ -20,6 +20,8 @@ from dgate.ops import accept_merge_candidates, linked_defence, remap_source
 from dgate.rawstore import build_store, storage_key
 from dgate.sources.ted import content_hash
 
+from .wp115_links import link
+
 pytestmark = pytest.mark.integration
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures" / "de_bkms"
@@ -189,9 +191,11 @@ def test_the_remap_gives_a_held_german_notice_its_link_once(conn, fs_store):
 # ------------------------------------------------------------- (5) merge candidates
 
 def _organisation(conn, name: str, *, reg: str | None = None, country: str = "FR") -> int:
-    return conn.execute(
+    oid = conn.execute(
         """INSERT INTO organisation (canonical_name, country, confidence, review_status, national_reg_no)
            VALUES (%s, %s, 0.95, 'auto', %s) RETURNING id""", (name, country, reg)).fetchone()["id"]
+    link(conn, oid)        # WP-115: the merge queue skips rows nothing references
+    return oid
 
 
 def test_identifier_candidates_are_merged_with_method_and_confidence_and_the_rest_waits(conn):

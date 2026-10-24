@@ -109,6 +109,16 @@ def plan(conn, rows: list[dict[str, Any]], methods: tuple[str, ...] = (METHOD,))
     stays = {r["id"]: r["merged_into"] for r in conn.execute(
         "SELECT id, merged_into FROM organisation WHERE merged_into IS NOT NULL").fetchall()
         if r["id"] not in members}
+    # WP-115: a row that pointed at a member and was moved on to the member's head when the member was merged
+    # (`db.repoint_merged`) points at the member again after the undo
+    repointed = [(r["organisation_id"], int(r["old_value"]), int(r["new_value"])) for r in conn.execute(
+        """SELECT DISTINCT ON (r.organisation_id) r.organisation_id, r.old_value, r.new_value
+             FROM organisation_repair r JOIN organisation o ON o.id = r.organisation_id
+            WHERE r.action = 'repoint_merged_into' AND r.old_value = ANY(%s)
+              AND o.merged_into::text = r.new_value
+            ORDER BY r.organisation_id, r.id DESC""", ([str(m) for m in members],)).fetchall()]
+    for org, old, _new in repointed:
+        stays[org] = old
 
     def live(x: int) -> int:
         for _ in range(16):
@@ -174,7 +184,8 @@ def plan(conn, rows: list[dict[str, Any]], methods: tuple[str, ...] = (METHOD,))
              and (h["country"], h["canonical_name"]) not in seeded]
 
     return {"members": sorted(members), "heads": heads, "aliases": aliases, "notices": notices,
-            "notices_kept": kept, "numbers": numbers, "flags": flags, "head_rows": hrows}
+            "notices_kept": kept, "numbers": numbers, "flags": flags, "head_rows": hrows,
+            "repointed": repointed}
 
 
 def sample_notices(conn, notices: list[tuple[int, int, int]], n: int = 20) -> list[dict[str, Any]]:
@@ -229,6 +240,8 @@ def run(conn, *, apply: bool = False, start: str = START, end: str = END,
     conn.execute(
         """UPDATE organisation SET merged_into = NULL, merge_method = NULL, merge_confidence = NULL,
                   merged_at = NULL WHERE id = ANY(%s)""", (p["members"],))
+    for org, old, new in p["repointed"]:
+        conn.execute("UPDATE organisation SET merged_into = %s WHERE id = %s AND merged_into = %s", (old, org, new))
     for alias_id, org, prev in p["aliases"]:
         conn.execute("UPDATE organisation_alias SET organisation_id = %s, prev_organisation_id = %s "
                      "WHERE id = %s", (org, prev, alias_id))

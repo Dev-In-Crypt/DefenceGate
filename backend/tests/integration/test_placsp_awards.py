@@ -49,8 +49,8 @@ def result(lot: str, party: str, code: str = "8") -> str:
             f"</cac:AwardedTenderedProject></cac:TenderResult>")
 
 
-ALFA = winner("ALFA DEFENSA INVENTADA, S.L.", "B99999990")
-BETA = winner("BETA SISTEMAS INVENTADOS SA", "A99999991")
+ALFA = winner("ALFA DEFENSA INVENTADA, S.L.", "B99999997")
+BETA = winner("BETA SISTEMAS INVENTADOS SA", "A99999971")
 PERSON = winner("PEREZ GOMEZ ANTONIO", "***9999**")
 
 
@@ -123,7 +123,7 @@ def test_the_walk_files_the_notice_and_its_company_winners_and_keeps_no_person(c
     assert (notice["winners_seen"], notice["winners_kept"], notice["skipped_person"], notice["status"]) == \
         (2, 1, 1, "loaded")
     org = conn.execute("SELECT * FROM organisation o JOIN award a ON a.organisation_id = o.id").fetchone()
-    assert org["country"] == "ES" and org["national_reg_no"] == "B99999990"
+    assert org["country"] == "ES" and org["national_reg_no"] == "B99999997"
     # no person: not in organisation, alias, award, nor the raw store
     for table, col in (("organisation", "canonical_name"), ("organisation_alias", "raw_name"),
                        ("award", "name_as_stated")):

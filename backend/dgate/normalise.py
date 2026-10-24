@@ -490,6 +490,22 @@ _TRANSLITERATE = str.maketrans({
 })
 
 
+# WP-115: a telephone number, a fax number or an e-mail address written into an organisation's name, and all that
+# follows it (805 stored names carried "tel <number>", aliases 95 e-mail addresses and 693 telephone numbers; coverage
+# audit, 24 October 2026). A label counts only before a digit, "+" or "(": "Tel Aviv University" keeps its name.
+_NAME_CONTACT = re.compile(
+    r"\b(?:tel|t[eé]l[eé]phone|telefon|telefono|tel[eé]fono|phone|fax|tlf|tfno)\b\.?\s*[:.]?\s*(?=[\d(+])"
+    r"|[\w.+-]+@[\w-]+(?:\.[\w-]+)+|\be-?mail\b\s*:?|\+\d[\d\s().-]{6,}\d",
+    re.IGNORECASE)
+
+
+def strip_name_contacts(name: str | None) -> str:
+    """An organisation name without the contact details written into it: cut at the first telephone, fax or
+    e-mail and everything after it (the stated contact block is "Tel ... Fax ... E-Mail ... www ...")."""
+    m = _NAME_CONTACT.search(name or "")
+    return (name or "")[:m.start()].rstrip(" ,;:-/(") if m else (name or "")
+
+
 def normalise_org_name(raw: str, *, strip_noise: bool = False, fold_state: bool = False) -> str:
     """Canonical form for entity resolution.
 
@@ -500,6 +516,7 @@ def normalise_org_name(raw: str, *, strip_noise: bool = False, fold_state: bool 
     without it across sources, and that difference alone should never create a
     duplicate organisation.
     """
+    raw = strip_name_contacts(raw)
     if not raw:
         return ""
     s = unicodedata.normalize("NFKD", raw)
@@ -648,7 +665,54 @@ def normalise_identifier(raw: Any, country: str | None = None) -> str | None:
         return None
     if len(set(s)) <= 2:
         return None
-    return s
+    valid = _REGISTER_CHECKS.get(cc)
+    if valid is None:
+        return s
+    # WP-115: in these countries only a number of the register's own shape and check digit is one. A case
+    # reference typed into the field ("DEZ/26/019/2020", "ZP.271.2.2021") split one Polish hospital into
+    # 340 organisation rows, each with its own "registration number" (coverage audit, 24 October 2026).
+    for cand in (s, s[len(cc):] if s.startswith(cc) else None):     # ESA28015865 is the CIF A28015865
+        if cand and valid(cand):
+            return cand
+    return None
+
+
+def _pl_register_number(s: str) -> bool:
+    """A Polish NIP (10 digits), REGON (9 or 14) or KRS (10, written with its leading zeros), by its check digit.
+    An 11-digit PESEL is a natural person's number and never an organisation's."""
+    if not s.isdigit():
+        return False
+    weights = {9: (8, 9, 2, 3, 4, 5, 6, 7), 14: (2, 4, 8, 5, 0, 9, 7, 3, 6, 1, 2, 4, 8)}
+    if len(s) in weights:                                   # REGON: a remainder of 10 is check digit 0
+        return sum(int(d) * w for d, w in zip(s[:-1], weights[len(s)], strict=True)) % 11 % 10 == int(s[-1])
+    if len(s) == 10:
+        if s.startswith("000"):                             # KRS 0000123456 (no check digit); no tax office is 000
+            return True
+        c = sum(int(d) * w for d, w in zip(s[:-1], (6, 5, 7, 2, 3, 4, 5, 6, 7), strict=True)) % 11
+        return c != 10 and c == int(s[-1])
+    return False
+
+
+_NIF_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+
+def _es_register_number(s: str) -> bool:
+    """A Spanish NIF: a DNI (8 digits and a letter), an NIE (X, Y or Z, 7 digits, a letter) or a CIF (a letter of
+    the entity type, 7 digits, a check digit or letter), each by its check character."""
+    m = re.fullmatch(r"([XYZ\d])(\d{7})([A-Z])", s)
+    if m:
+        lead = str("XYZ".index(m[1])) if m[1] in "XYZ" else m[1]
+        return _NIF_LETTERS[int(lead + m[2]) % 23] == m[3]
+    m = re.fullmatch(r"([ABCDEFGHJNPQRSUVW])(\d{7})([0-9A-J])", s)
+    if not m:
+        return False
+    d = [int(x) for x in m[2]]
+    total = d[1] + d[3] + d[5] + sum(sum(divmod(2 * d[i], 10)) for i in (0, 2, 4, 6))
+    c = (10 - total % 10) % 10
+    return m[3] in (str(c), "JABCDEFGHI"[c])
+
+
+_REGISTER_CHECKS = {"PL": _pl_register_number, "ES": _es_register_number}
 
 
 # ------------------------------------------------------------ TED mapping
