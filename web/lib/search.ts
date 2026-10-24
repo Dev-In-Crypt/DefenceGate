@@ -11,6 +11,7 @@ import * as tenderMock from './mock/tenders';
 import { DEFENCE_PROGRAMMES } from './networks';
 import type { OrgListItem } from './networks-types';
 import type { Buyer, Call, SupplierItem, Tender } from './types';
+import { buyerNames, foldWords } from './search-terms';
 
 const API_BASE = process.env.DG_API_URL;
 export const SEARCH_LIMIT = 5;
@@ -32,6 +33,11 @@ export interface SiteSearch {
   buyers: SearchGroup<Buyer>;
   suppliers: SearchGroup<SupplierItem>;
   organisations: SearchGroup<OrgListItem>;
+  /** WP-98: the tender part's terms of other languages and their product groups (lib/search-terms.ts). */
+  alsoSearched?: string[];
+  searchGroups?: { id: string; label: string; cpv: string[] }[];
+  /** WP-98: the first buyer is the one the words name (an abbreviation's family, or the name itself). */
+  buyerNamed?: boolean;
 }
 
 /** The words as the search takes them: trimmed, at most 100 characters, nothing when shorter than two. */
@@ -42,7 +48,7 @@ export function searchQuery(raw: string | string[] | undefined): string {
 }
 
 /** Where each group's "see all" leads: the list itself, searched for the same words. */
-export function seeAllHref(group: keyof Omit<SiteSearch, 'q'>, q: string): string {
+export function seeAllHref(group: keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed'>, q: string): string {
   const path = { tenders: '/tenders', funding: '/funding', buyers: '/buyers', suppliers: '/suppliers', organisations: '/organisations' }[group];
   return `${path}?${new URLSearchParams({ q })}`;
 }
@@ -55,11 +61,16 @@ export async function getSearch(q: string): Promise<SiteSearch> {
     // Shaped by the visitor: never cached, charged to the visitor (lib/api.ts visitorHeaders).
     return httpOrThrow<SiteSearch>(`/v1/search?${new URLSearchParams({ q, limit: String(SEARCH_LIMIT) })}`, 'no-store');
   }
+  const tenders = tenderMock.queryTenders({ q, pageSize: SEARCH_LIMIT });
+  const buyers = group(tenderMock.queryBuyers({ q, pageSize: SEARCH_LIMIT }));
+  const first = buyers.items[0];
+  const buyerNamed = Boolean(first) && (buyerNames(q).length > 0 || foldWords(first.name).join('') === foldWords(q).join(''));
   return {
     q,
-    tenders: group(tenderMock.queryTenders({ q, pageSize: SEARCH_LIMIT })),
+    alsoSearched: tenders.alsoSearched, searchGroups: tenders.searchGroups, buyerNamed,
+    tenders: group(tenders),
     funding: group(callsMock.queryCalls({ q, pageSize: SEARCH_LIMIT })),
-    buyers: group(tenderMock.queryBuyers({ q, pageSize: SEARCH_LIMIT })),
+    buyers,
     suppliers: group(supplierMock.querySuppliers({ q, pageSize: SEARCH_LIMIT })),
     organisations: group(networksMock.queryOrgs({ q, programme: DEFENCE_PROGRAMMES, pageSize: SEARCH_LIMIT })),
   };

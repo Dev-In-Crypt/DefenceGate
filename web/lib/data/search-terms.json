@@ -1,0 +1,56 @@
+{
+  "_source": "Curated by DefenceGate (WP-98, persona round of 23 October 2026, section C). One keyword map, no language model, read by the tender search of the API (backend/dgate/search_terms.py, a byte-identical copy at backend/dgate/data/search-terms.json) and of the demo data (web/lib/search-terms.ts).",
+  "_rules": "groups: the words of a search that are one of a group's terms (a term of several words: those words, in that order) may be matched by any term of the group; each word of a term must begin a word of the title or the buyer's name, accents and punctuation folded as dg_fold folds them, in any order. cpv: the product codes (prefixes, as the tender list's CPV filter reads them; every code is one of the CPV 2008 vocabulary) the empty result suggests. buyers: a search that is exactly an abbreviation (folded; a space inside it optional) also finds the buyer families whose head or member name holds every word of one of the names, and lists them first.",
+  "groups": [
+    {
+      "id": "uniforms", "label": "Uniforms, footwear and protective clothing", "cpv": ["3581", "181", "182", "183", "188", "35113400"],
+      "terms": ["uniform", "uniforms", "clothing", "footwear", "boots", "workwear", "fardamento", "uniformes", "vestuário", "botas", "calçado",
+                "vêtements", "habillement", "chaussures", "uniforme", "calzado", "Bekleidung", "Uniformen", "Stiefel", "Schuhe",
+                "odzież", "mundury", "umundurowanie", "obuwie", "kleding", "laarzen", "calzature"]
+    },
+    {
+      "id": "spare-parts", "label": "Spare parts and machined parts", "cpv": ["3432", "3433", "34913", "35421", "35521"],
+      "terms": ["spare parts", "machined parts", "machining", "turned parts", "milled parts", "Ersatzteile", "Drehteile", "Frästeile",
+                "Fraesteile", "recambios", "repuestos", "pièces détachées", "pièces de rechange", "części zamienne", "reserveonderdelen",
+                "peças sobressalentes", "ricambi"]
+    },
+    {
+      "id": "drones", "label": "Drones and unmanned systems", "cpv": ["35613"],
+      "terms": ["drone", "drones", "Drohne", "Drohnen", "dron", "drony", "UAV", "UAS", "RPAS", "unmanned", "uncrewed", "bezzałogowy",
+                "bezzałogowe", "onbemande"]
+    },
+    {
+      "id": "fuel", "label": "Fuel", "cpv": ["091"],
+      "terms": ["fuel", "fuels", "brandstof", "brandstoffen", "Kraftstoff", "Kraftstoffe", "Treibstoff", "combustible", "combustibles",
+                "carburant", "carburants", "paliwo", "paliwa", "combustível", "carburante"]
+    },
+    {
+      "id": "logistics", "label": "Transport and logistics", "cpv": ["601", "63"],
+      "terms": ["logistics", "logistiek", "Logistik", "logística", "logistique", "logistyka"]
+    },
+    {
+      "id": "ammunition", "label": "Ammunition, explosives and pyrotechnics", "cpv": ["353", "2461"],
+      "terms": ["ammunition", "explosives", "pyrotechnics", "amunicja", "amunicji", "materiały wybuchowe", "Munition", "Sprengstoff",
+                "Sprengstoffe", "munitions", "explosifs", "municiones", "munición", "explosivos", "munitie", "explosieven", "munições",
+                "munizioni", "esplosivi"]
+    },
+    {
+      "id": "night-vision", "label": "Night vision", "cpv": ["38632"],
+      "terms": ["night vision", "nightglasses", "Nachtsicht", "Nachtsichtgeräte", "vision nocturne", "visión nocturna", "noktowizor",
+                "noktowizory", "noktowizyjne", "nachtzicht", "visão noturna", "visione notturna"]
+    },
+    {
+      "id": "body-armour", "label": "Body armour", "cpv": ["35815"],
+      "terms": ["body armour", "body armor", "ballistic vest", "ballistic vests", "bulletproof vest", "bullet-proof vests", "Schutzweste",
+                "Schutzwesten", "gilet pare-balles", "gilets pare-balles", "chaleco antibalas", "chalecos antibalas", "kamizelka kuloodporna",
+                "kamizelki kuloodporne", "kogelwerend vest", "colete balístico", "giubbotto antiproiettile"]
+    }
+  ],
+  "buyers": [
+    { "abbr": "BAAINBw", "country": "DE", "names": ["Bundesamt für Ausrüstung, Informationstechnik und Nutzung der Bundeswehr"] },
+    { "abbr": "DMO", "country": "NL", "names": ["Defensie Materieel Organisatie", "Ministerie van Defensie"] },
+    { "abbr": "DGA", "country": "FR", "names": ["Direction générale de l'armement"] },
+    { "abbr": "JAE MALE", "country": "ES", "names": ["Jefatura de Asuntos Económicos del Mando de Apoyo Logístico", "JAE MALE", "JAEMALE"] },
+    { "abbr": "FMV", "country": "SE", "names": ["Försvarets materielverk"] }
+  ]
+}

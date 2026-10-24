@@ -61,7 +61,7 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
       <form method="get" action={basePath} role="search" aria-label="Filter tenders" className={FORM}>
         {/* WP-90: what the words are matched against, said where they are typed */}
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''}
-          hint="Searches titles in the original language and in English where TED gives one, buyer names, and the English names of the notice's product codes." />
+          hint="Searches titles in the original language and in English where TED gives one, buyer names, and the English names of the notice's product codes. Every word must match, in any order; the main product words (uniforms, spare parts, drones, fuel, ammunition and a few more) are also searched in other European languages." />
         <div className="flex flex-col gap-1.5" data-cpv-presets>
           <span className="text-label text-ink">Product groups</span>
           <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">

@@ -27,8 +27,9 @@ from pydantic import BaseModel
 from .classify import DEFENCE_PROGRAMMES
 from .funding import get_conn, list_funding
 from .network_api import list_organisations
+from .search_terms import buyer_names, fold_words
 from .suppliers import list_suppliers
-from .tenders import list_buyers, list_tenders
+from .tenders import list_buyers, list_tenders, search_info
 
 router = APIRouter()
 
@@ -71,6 +72,11 @@ class SearchOut(BaseModel):
     suppliers: Group
     organisations: Group
     tookMs: int
+    # WP-98: the tender part's other-language terms and their product groups (`tenders.search_info`)
+    alsoSearched: list[str] = []
+    searchGroups: list[dict[str, Any]] = []
+    # WP-98: the first buyer is the one the words name (an abbreviation's family, or the name itself)
+    buyerNamed: bool = False
 
 
 @router.get("/v1/search", response_model=SearchOut)
@@ -99,5 +105,8 @@ def search(q: str = Query(min_length=2, max_length=100), limit: int = Query(5, g
             continue
         at_least = bool(page.get("totalCapped")) or page.get("totalExact") is False
         out[name] = {"total": page["total"], "atLeast": at_least, "items": page["items"][:limit]}
+    first = (out["buyers"].get("items") or [None])[0]
+    out["buyerNamed"] = first is not None and (
+        bool(buyer_names(q)) or "".join(fold_words(first.get("name") or "")) == "".join(fold_words(q)))
     out["tookMs"] = int((time.monotonic() - start) * 1000)
-    return out
+    return {**out, **search_info(q)}

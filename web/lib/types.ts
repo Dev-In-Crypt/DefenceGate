@@ -254,6 +254,9 @@ export interface Paginated<T> {
   maxOffset?: number;
   /** `/v1/tenders`: the count stopped at its cap, so `total` is "at least this many". Absent on older API builds. */
   totalCapped?: boolean;
+  /** WP-98, `/v1/tenders`: the terms of other languages the words were also read as (lib/search-terms.ts), and their product groups. */
+  alsoSearched?: string[];
+  searchGroups?: { id: string; label: string; cpv: string[] }[];
   /** `/v1/suppliers`: always false since WP-81 (a group of fewer than three suppliers was withheld before). */
   withheld?: boolean;
   search?: SearchInfo | null;

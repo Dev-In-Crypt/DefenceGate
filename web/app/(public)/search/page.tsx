@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
 import { SiteSearchForm } from '@/components/dg/site-search';
 import { ErrorState } from '@/components/dg/feedback';
+import { AlsoSearched, GroupSuggestions } from '@/components/tenders/search-terms-note';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -20,7 +21,7 @@ export const metadata: Metadata = buildMetadata({
   noindex: true,
 });
 
-type Key = keyof Omit<SiteSearch, 'q'>;
+type Key = keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed'>;
 interface Row { href: string; title: string; line: string }
 
 const where = (country: string | null | undefined) => (country ? countryName(country) : null);
@@ -58,7 +59,8 @@ const GROUPS: { title: string; parts: { key: Key; label?: string; noun: string }
  * open count (its whole family, the tender list's default scope), linked to its page. Only when the words name few buyers.
  */
 function BuyerTenders({ s }: { s: SiteSearch }) {
-  const b = s.buyers.error || (s.buyers.total ?? 0) > 3 ? undefined : s.buyers.items[0];
+  // WP-98: also when many buyers match, if the first is the one the words name (BAAINBw, DMO, "Ministère de la Défense")
+  const b = s.buyers.error || ((s.buyers.total ?? 0) > 3 && !s.buyerNamed) ? undefined : s.buyers.items[0];
   if (!b || b.openCount === 0) return null;
   return (
     <p className="m-0 text-body" data-buyer-tenders>
@@ -82,7 +84,11 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
           <Link href={all} className="font-semibold">Search the list itself</Link>
         </p>
       ) : g.total === 0 ? (
-        <p className="m-0 text-body text-ink-muted">No {part.noun} match.</p>
+        <div className="m-0 text-body text-ink-muted">
+          No {part.noun} match.
+          {part.key === 'tenders' && <AlsoSearched also={s.alsoSearched} />}
+          {part.key === 'tenders' && <GroupSuggestions groups={s.searchGroups} hrefFor={(cpv) => `/tenders?${new URLSearchParams({ cpv: cpv.join(',') })}`} />}
+        </div>
       ) : (
         <>
           <ul className="m-0 flex list-none flex-col p-0">
@@ -96,6 +102,7 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
             ))}
           </ul>
           <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">See all {total} {part.noun}</Link>
+          {part.key === 'tenders' && <AlsoSearched also={s.alsoSearched} />}
         </>
       )}
     </div>

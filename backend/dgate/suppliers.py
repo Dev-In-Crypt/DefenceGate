@@ -460,12 +460,19 @@ def _filters(q: str | None, country: str | None, cpv: str | None,
     words = search_words((q or "").replace("\x00", "").strip())
     named = groups_named(words)
     # WP-96: words that name a curated company group ("Polska Grupa Zbrojeniowa", "PGZ") find its members too
-    member = " OR org.id IN (SELECT org_id FROM company_group_member WHERE group_key = ANY(%(named)s))" if named else ""
-    for i, w in enumerate(words):
-        # Each word begins a word of the supplier's normalised name or of a name as stated.
-        where.append(f"(dg_fold(org.canonical_name) LIKE dg_word_pattern(%(q{i})s) "
-                     f"OR dg_fold(a.name_as_stated) LIKE dg_word_pattern(%(q{i})s){member})")
-        params[f"q{i}"] = w
+    member = " UNION SELECT org_id FROM company_group_member WHERE group_key = ANY(%(named)s)" if named else ""
+    if words:
+        # Every word begins a word of the supplier's normalised name or of one name it was published under, in any order.
+        # WP-98: the companies are found first, by the trigram indexes of migration 0111 (an InitPlan, run once), and the
+        # award set is then read for them only: the name test on every award row of the set took 1.2 s a search and the
+        # global search's Companies part said "took too long" (persona round of 23 October 2026).
+        canonical = " AND ".join(f"dg_fold(canonical_name) LIKE dg_word_pattern(%(q{i})s)" for i in range(len(words)))
+        stated = " AND ".join(f"dg_fold(name_as_stated) LIKE dg_word_pattern(%(q{i})s)" for i in range(len(words)))
+        where.append("org.id = ANY(ARRAY("
+                     "SELECT COALESCE(x.merged_into, x.id) FROM organisation x WHERE x.id IN ("
+                     f"SELECT id FROM organisation WHERE {canonical} "
+                     f"UNION SELECT organisation_id FROM award WHERE {stated}){member}))")
+        params.update({f"q{i}": w for i, w in enumerate(words)})
     if named:
         params["named"] = named
     if group:

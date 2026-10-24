@@ -51,7 +51,7 @@ export function ListPage({
   exportStatus?: string;
   noun: string; page: number; pageSize: number; total: number;
   sort: { value: string; options: { value: string; label: string }[] };
-  clearHref: string; emptyTitle: string; emptyText: string; hrefFor: (page: number) => string;
+  clearHref: string; emptyTitle: string; emptyText: React.ReactNode; hrefFor: (page: number) => string;
   footnote?: React.ReactNode;
   /** Parameters that were not used (see lib/filters.ts ignoredFilters). */
   notices?: string[];

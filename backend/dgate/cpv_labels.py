@@ -46,3 +46,15 @@ def codes_for_word(word: str) -> tuple[str, ...]:
     needle = " " + w
     got = tuple(code for code, title in _titles() if needle in title)
     return got if len(got) <= MAX_CODES else ()
+
+
+@lru_cache(maxsize=512)
+def codes_for_words(words: tuple[str, ...]) -> tuple[str, ...]:
+    """WP-98: the codes whose English title has, for every one of `words`, a word beginning with it, in any order: "spare
+    parts" finds 34330000 Spare parts for goods vehicles, vans and cars, where "parts" alone names too many codes to be
+    read. Empty when a word is too short or the words name more than MAX_CODES codes."""
+    ws = [fold(w).strip() for w in words]
+    if not ws or any(len(w) < MIN_WORD or " " in w for w in ws):
+        return ()
+    got = tuple(code for code, title in _titles() if all(" " + w in title for w in ws))
+    return got if len(got) <= MAX_CODES else ()

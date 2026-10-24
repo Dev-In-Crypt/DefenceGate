@@ -55,7 +55,7 @@ from .classify import (
     scope_group_of,
 )
 from .confidence import CONFIDENCE_SQL, LEVELS, confidence_of_row
-from .cpv_labels import codes_for_word
+from .cpv_labels import codes_for_word, codes_for_words
 from .db import same_value
 from .funding import (
     Budget,
@@ -69,6 +69,7 @@ from .funding import (
 )
 from .listcache import cache_list
 from .normalise import http_url, redact_emails
+from .search_terms import buyer_names, expand, fold_words
 from .suppress import WITHHELD_NAME, removed
 
 router = APIRouter()
@@ -256,6 +257,12 @@ class Tender(BaseModel):
     awardValue: AwardValue | None = None
 
 
+class SearchGroupRef(BaseModel):
+    id: str
+    label: str
+    cpv: list[str]
+
+
 class TenderPage(BaseModel):
     items: list[Tender]
     total: int
@@ -270,6 +277,16 @@ class TenderPage(BaseModel):
     # read as one of time (WP-52, T13).
     asOf: datetime | None = None
     meta: ListMeta = ListMeta()
+    # WP-98: the terms of other languages the search words were also read as, and the product groups they belong to
+    # (`search_terms`), so the page can say what else was searched and, with nothing found, offer the group's codes.
+    alsoSearched: list[str] = []
+    searchGroups: list[SearchGroupRef] = []
+
+
+def search_info(q: str | None) -> dict[str, Any]:
+    """WP-98: `alsoSearched` and `searchGroups` of a search text (empty without one)."""
+    e = expand(search_words((q if isinstance(q, str) else "").replace("\x00", "").strip()))
+    return {"alsoSearched": e.also, "searchGroups": [{"id": g.id, "label": g.label, "cpv": list(g.cpv)} for g in e.groups]}
 
 
 class FieldChange(BaseModel):
@@ -890,6 +907,7 @@ def tender_order(sort: str | None, status: str, eff: str) -> str:
 
 
 SEARCH_SEPARATORS = re.compile(r"[\s\-–—/_.,;:()\"'’]+")
+RX_TERMS = 4            # WP-98: terms per regular expression of a synonym group (see `_tender_filters`)
 MAX_SEARCH_WORDS = 6
 
 
@@ -945,16 +963,54 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         # name, accents and punctuation folded on both sides (migration 0054); the notice number is matched
         # as typed. The folded titles are trigram-indexed. WP-90: or the English title of one of the notice's
         # own CPV codes (`cpv_labels`, over the GIN index of migration 0099).
+        # WP-98: the words in any order, each slot of `search_terms.expand` filled by the typed words or a term of its group in
+        # another language ("fardamento": "uniform", "Bekleidung" ...); a run of words is also read against the English
+        # titles of the codes together ("spare parts": 34330000), where one of them alone names too many codes.
         per_word = ("(dg_fold(o.title_en) LIKE dg_word_pattern(%s) "
                     "OR dg_fold(o.title_original) LIKE dg_word_pattern(%s) "
                     "OR (dg_fold(o.buyer_name_raw) LIKE dg_word_pattern(%s) "
                     "AND NOT o.buyer_withheld){labels})")
-        clauses = []
-        for w in words:
-            codes = codes_for_word(w)
-            clauses.append(per_word.format(labels=f" OR {CPV_HEADS}" if codes else ""))
-            params += [w] * 3 + ([list(codes)] if codes else [])
-        where.append("((" + " AND ".join(clauses) + ") OR o.native_id ILIKE %s)")
+        slots = []
+        for alts in expand(words).slots:
+            alt_sql = []
+            # The typed words stay words in any order (below); the group's other terms are phrases, as written
+            singles = alts[1:]
+            if singles:
+                # The other terms of a group as one regular expression per column ("a word begins with one of them",
+                # a term of several words as that phrase, over the same trigram indexes): one fold of each title per
+                # row, where a LIKE per word folded it dozens of times (fardamento: 4.9 s against 0.7 s, spare parts
+                # 3.5 s, on the synthetic archive). In chunks of RX_TERMS: over a longer alternation pg_trgm keeps
+                # fewer trigrams and the index hands back ten times the matches to re-check (drone: 12,966 candidates
+                # for 1,306 matches; 4 terms: exact). Titles only: a product word in another language names no buyer,
+                # and over the buyer names the short terms (UAV, UAS) made 15,000 index candidates to re-check (5 s for
+                # q=drone&status=all). The code overlaps go last: `dgate_cpv_heads` costs more per row than a regex.
+                folded = [re.escape(" ".join(fold_words(" ".join(t)))) for t in singles]
+                for k in range(0, len(folded), RX_TERMS):
+                    rx = " (?:" + "|".join(folded[k:k + RX_TERMS]) + ")"
+                    alt_sql.append("dg_fold(o.title_en) ~ %s OR dg_fold(o.title_original) ~ %s")
+                    params += [rx] * 2
+                codes = sorted({c for t in singles
+                                for c in (codes_for_word(t[0]) if len(t) == 1 else codes_for_words(tuple(t)))})
+                if codes:
+                    alt_sql.append(CPV_HEADS)
+                    params.append(codes)
+            for alt in alts[:1]:
+                ands = []
+                for w in alt:
+                    codes = codes_for_word(w)
+                    ands.append(per_word.format(labels=f" OR {CPV_HEADS}" if codes else ""))
+                    params += [w] * 3 + ([list(codes)] if codes else [])
+                together = codes_for_words(tuple(alt)) if len(alt) > 1 else ()
+                if together:
+                    params.append(list(together))
+                alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {CPV_HEADS}" if together else ""))
+            slots.append("(" + " OR ".join(alt_sql) + ")")
+        # (one slot of several words has just read them together)
+        together = codes_for_words(tuple(words)) if len(words) > 1 and len(slots) > 1 else ()
+        if together:
+            params.append(list(together))
+        where.append("((" + " AND ".join(slots) + ")" + (f" OR {CPV_HEADS}" if together else "")
+                     + " OR o.native_id ILIKE %s)")
         params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
     if len(countries) == 1:
@@ -1075,10 +1131,30 @@ def _count(conn, where: list[str], params: list[Any], extra: list[str] | None = 
     return min(big, TOTAL_CAP), big > TOTAL_CAP
 
 
+FEW_ROWS = 3000
+# A rare word is counted well inside this; a common one gives up early and is read along the index as before.
+FEW_BUDGET_MS = 600
+
+
+def _few(conn, where: list[str], params: list[Any], extra: list[str], order: str, searched: bool) -> int | None:
+    """WP-98: how many notices a searched part of a list holds, when that is at most FEW_ROWS (else None). Such a part
+    is read by its matches and sorted (`_rows(few=True)`) instead of walked along the order's index: for a rare word
+    (`q=drone&status=all`: 686 of 357,000) the walk read most of the closed notices to find a page and ran past the
+    5 s statement timeout on production (503, persona round of 23 October 2026). The count is the one the list would
+    make anyway, in its time box, and is reused as the part's total."""
+    if not searched or order == ORDER_OPEN_DEADLINE or EXACT_TOTALS.get():
+        return None                      # the open order is never walked along an index (see ORDER_OPEN_DEADLINE)
+    n = _count_up_to(conn, " AND ".join([*where, *extra]), where, params, FEW_ROWS, FEW_BUDGET_MS)
+    return n if n is not None and n <= FEW_ROWS else None
+
+
 def _rows(conn, where: list[str], params: list[Any], extra: list[str], order: str,
-          limit: int, offset: int) -> list[dict[str, Any]]:
-    """`limit` notices from position `offset` of one part of a list, in `order`."""
+          limit: int, offset: int, few: bool = False) -> list[dict[str, Any]]:
+    """`limit` notices from position `offset` of one part of a list, in `order`. `few`: the part is small (`_few`); the
+    same order, written so that no index can serve it, so the planner reads the matches and sorts them."""
     cond = " AND ".join([*where, *extra])
+    if few:
+        order = "(o.id IS NULL), " + order
     return conn.execute(
         f"{TENDER_SELECT} WHERE {cond} AND {collapse_clauses(where)} ORDER BY {order} LIMIT %s OFFSET %s",
         params * 4 + [limit, offset]).fetchall()
@@ -1164,6 +1240,7 @@ def list_tenders(
 
     rows: list[dict[str, Any]] = []
     total, capped = 0, False
+    searched = bool(search_words((q if isinstance(q, str) else "").replace("\x00", "").strip()))
     if len(parts) == 2:
         (open_extra, open_order), (rest_extra, rest_order) = parts
         n_open, open_capped = _count(conn, where, params, open_extra)
@@ -1179,10 +1256,13 @@ def list_tenders(
         want = pageSize - len(rows)
         got_rest: list[dict[str, Any]] | None = None
         rest_start = max(0, start - n_open)
+        few = _few(conn, where, params, rest_extra, rest_order, searched) if served and want > 0 else None
         if served and want > 0:
-            got_rest = _rows(conn, where, params, rest_extra, rest_order, want, rest_start)
+            got_rest = _rows(conn, where, params, rest_extra, rest_order, want, rest_start, few=few is not None)
             rows += got_rest
-        if got_rest is not None and len(got_rest) < want and (got_rest or rest_start == 0):
+        if few is not None:
+            n_rest, capped = few, False                               # counted in full by `_few`
+        elif got_rest is not None and len(got_rest) < want and (got_rest or rest_start == 0):
             n_rest, capped = rest_start + len(got_rest), False       # the end of the list was read
         else:
             n_rest, capped = _count(conn, where, params, rest_extra)
@@ -1201,10 +1281,13 @@ def list_tenders(
     else:
         extra, order = parts[0]
         fetched = False
+        few = _few(conn, where, params, extra, order, searched) if served else None
         if served:
-            rows = _rows(conn, where, params, extra, order, pageSize, start)
+            rows = _rows(conn, where, params, extra, order, pageSize, start, few=few is not None)
             fetched = True
-        if fetched and len(rows) < pageSize and (rows or start == 0):
+        if few is not None:
+            total = few
+        elif fetched and len(rows) < pageSize and (rows or start == 0):
             total = start + len(rows)                                # the end of the list was read
         else:
             total, capped = _count(conn, where, params, extra)
@@ -1220,7 +1303,7 @@ def list_tenders(
     return {"items": _present(conn, rows, checked=with_meta is True), "total": total,
             "totalCapped": capped, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
             "asOf": datetime.now(timezone.utc),
-            "meta": list_meta(conn, "tender") if with_meta is True else {}}
+            "meta": list_meta(conn, "tender") if with_meta is True else {}, **search_info(q)}
 
 
 EXPORT_MAX_LIMIT = 2000
@@ -2023,12 +2106,30 @@ def list_buyers(
         # (migration 0054) so that "Ausrüstung" finds "ausrustung"; each word must begin
         # a word.
         # A family is found by the name of any of its members as well as by its head's.
-        like = " AND ".join(["dg_fold({c}) LIKE dg_word_pattern(%s)"] * len(words))
-        where.append(
-            f"(({like.format(c='org.canonical_name')}) OR org.id IN ("
-            "SELECT fm.head_org_id FROM buyer_family_member fm "
-            f"JOIN organisation mo ON mo.id = fm.org_id WHERE {like.format(c='mo.canonical_name')}))")
-        params += words + words
+        def named(ws: list[str] | tuple[str, ...]) -> str:
+            like = " AND ".join(["dg_fold({c}) LIKE dg_word_pattern(%s)"] * len(ws))
+            params.extend([*ws, *ws])
+            return (f"(({like.format(c='org.canonical_name')}) OR org.id IN ("
+                    "SELECT fm.head_org_id FROM buyer_family_member fm "
+                    f"JOIN organisation mo ON mo.id = fm.org_id WHERE {like.format(c='mo.canonical_name')}))")
+
+        # WP-98: an abbreviation (BAAINBw, DMO, DGA, JAE MALE: `search_terms`) also finds the family by its full name
+        full = buyer_names(text)
+        if full:
+            # The families named in full are found first, on their own, by the trigram index of migration 0111 (as a
+            # condition of the list's query each name cost 0.5 s more on the synthetic archive)
+            names = " OR ".join("(" + " AND ".join(["dg_fold(o.canonical_name) LIKE dg_word_pattern(%s)"] * len(n)) + ")"
+                                for n in full)
+            heads = [r["id"] for r in conn.execute(
+                "SELECT DISTINCT COALESCE(fm.head_org_id, o.id) AS id FROM organisation o "
+                f"LEFT JOIN buyer_family_member fm ON fm.org_id = o.id WHERE {names}",
+                [w for n in full for w in n]).fetchall()]
+            where.append(f"({named(words)} OR org.id = ANY(%s))")
+            params.append(heads)
+            first, first_params = "(org.id = ANY(%s))", [heads]
+        else:
+            where.append(named(words))
+            first, first_params = "(dg_fold(org.canonical_name) = dg_fold(%s))", [text]
     countries = _split(country, "country", upper=True, max_length=2)
     if countries:
         where.append("org.country = ANY(%s)")
@@ -2058,12 +2159,17 @@ def list_buyers(
               "WHERE o.id = ANY(ARRAY(SELECT org_id FROM a))) ")
     base = "FROM org" + ((" WHERE " + " AND ".join(where)) if where else "")
     order = "org.canonical_name, org.id" if sort == "name" else "org.n DESC, org.id"
+    order_params: list[Any] = []
+    if words and sort != "name":
+        # WP-98: the buyer the words name comes first: the family an abbreviation stands for, else a name that is the
+        # search itself ("Ministère de la Défense"), then the rest, most tenders first
+        order, order_params = f"{first} DESC, {order}", first_params
     rows = conn.execute(
         f"""{with_a}SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer,
                    org.n, org.open_n, org.last_published, org.variants,
                    count(*) OVER () AS total_rows {base}
              ORDER BY {order} LIMIT %s OFFSET %s""",
-        base_args + params + [pageSize, (page - 1) * pageSize]).fetchall()
+        base_args + params + order_params + [pageSize, (page - 1) * pageSize]).fetchall()
     if rows:
         total = rows[0]["total_rows"]
     elif page == 1:

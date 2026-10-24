@@ -16,6 +16,7 @@ import { TenderCard } from '@/components/dg/cards';
 import { ClassifiedNote } from '@/components/dg/basis-chips';
 import { ListPage } from '@/components/dg/list-page';
 import { TenderFilterBar } from '@/components/tenders/filter-bars';
+import { AlsoSearched, GroupSuggestions } from '@/components/tenders/search-terms-note';
 import { SaveSearch } from '@/components/account/save-search';
 
 export const revalidate = 60;
@@ -82,9 +83,14 @@ export default async function TendersPage({ searchParams }: Props) {
       sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: SORT_OPTIONS }}
       notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"
-      listNote={<ClassifiedNote tenders={result.items} />}
+      listNote={<><AlsoSearched also={result.alsoSearched} /><ClassifiedNote tenders={result.items} /></>}
       emptyTitle="No tenders match these filters"
-      emptyText="Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and a military product code bought by a municipality or a hospital (dual-use) is hidden unless you choose the scope All."
+      emptyText={<>
+        Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and a military product code bought by a municipality or a hospital (dual-use) is hidden unless you choose the scope All.
+        {/* WP-98: the words name a product group: its codes find notices whatever language their titles are in */}
+        <AlsoSearched also={result.alsoSearched} />
+        <GroupSuggestions groups={result.searchGroups} hrefFor={(cpv) => `/tenders${toTenderQuery({ ...filters, q: undefined, cpv, page: 1 })}`} />
+      </>}
       hrefFor={(p) => `/tenders${toTenderQuery({ ...filters, page: p })}`}
       footnote="Amounts are shown in the currency the source states and are never converted or added up across currencies."
     >

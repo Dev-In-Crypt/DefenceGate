@@ -2,6 +2,7 @@ import { sourceById } from './sources';
 import { now } from '../deadline';
 import { cpvTitle, titleHasWord } from '../cpv';
 import { weekMonday, weekOf } from '../digest';
+import { buyerNames, expand, matchesSlots, namesAll } from '../search-terms';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
 import type {
   Buyer, BuyerFilters, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
@@ -165,6 +166,7 @@ const time = (iso: string) => new Date(iso).getTime();
 
 export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Tender> {
   const q = f.q?.toLowerCase();
+  const terms = f.q ? expand(f.q.split(/[\s\-–—/_.,;:()"'’]+/u).filter(Boolean).slice(0, 6)) : null;
   const status = f.status ?? 'open';
   const scope = f.scope ?? 'relevant';
   const currency = f.currency ?? 'EUR';
@@ -193,7 +195,9 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
       if (f.valueMax !== undefined && v.amount > f.valueMax) return false;
     }
     // WP-90: or every word begins a word of the English title of one of the notice's own CPV codes
+    // WP-98: or the words in any order, each slot filled by the typed words or a term of its group in another language
     if (q && ![t.title, t.originalTitle, t.buyerName, t.noticeId].some((s) => s?.toLowerCase().includes(q))
+      && !(terms && matchesSlots(terms.slots, [t.title, t.originalTitle], t.buyerName))
       && !q.split(/\s+/).filter(Boolean).every((w) => t.cpvCodes.some((c) => titleHasWord(cpvTitle(c), w)))) return false;
     return true;
   });
@@ -213,7 +217,10 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   }
   const pageSize = f.pageSize ?? TENDER_PAGE_SIZE;
   const page = f.page ?? 1;
-  return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, totalCapped: false, page, pageSize, asOf: ref.toISOString() };
+  return {
+    items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, totalCapped: false, page, pageSize, asOf: ref.toISOString(),
+    alsoSearched: terms?.also ?? [], searchGroups: (terms?.groups ?? []).map(({ id, label, cpv }) => ({ id, label, cpv })),
+  };
 }
 
 /**
@@ -328,7 +335,8 @@ export function queryBuyers(f: BuyerFilters, ref: Date = now()): Paginated<Buyer
     if (withCode && !withCode.has(b.id)) return false;
     if (f.hasOpen && b.openCount === 0) return false;
     if (f.country && (!b.country || !f.country.includes(b.country))) return false;
-    if (q && !b.name.toLowerCase().includes(q)) return false;
+    // WP-98: an abbreviation (BAAINBw, DMO) also finds the buyer by its full name
+    if (q && !b.name.toLowerCase().includes(q) && !buyerNames(q).some((n) => namesAll(n, b.name))) return false;
     return true;
   });
   items = items.sort((a, b) => ((f.sort ?? 'tenders') === 'name' ? a.name.localeCompare(b.name) : b.tenderCount - a.tenderCount || a.name.localeCompare(b.name)));
