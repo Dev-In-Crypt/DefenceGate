@@ -116,8 +116,8 @@ def test_a_vat_number_is_trusted_only_against_a_name_that_shares_its_words(conn)
 
 
 def test_a_registration_number_resolves_like_a_vat_number(conn):
-    oid = _org(conn, "polska grupa zbrojeniowa", "PL", national_reg_no="5252500000")
-    r = resolve(conn, "Polska Grupa Zbrojeniowa S.A.", "PL", {"reg": "PL5252500000"})
+    oid = _org(conn, "polska grupa zbrojeniowa", "PL", national_reg_no="5252500006")
+    r = resolve(conn, "Polska Grupa Zbrojeniowa S.A.", "PL", {"reg": "PL5252500006"})
     assert r.org_id == oid and r.method == "national_id"
 
 

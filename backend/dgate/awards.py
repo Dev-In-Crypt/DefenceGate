@@ -44,7 +44,13 @@ from .award_value import (
 )
 from .classify import CORE_SQL, military_cpv_codes
 from .config import settings
-from .normalise import _country2, looks_like_contact, normalise_identifier, redact_emails
+from .normalise import (
+    _country2,
+    looks_like_contact,
+    normalise_identifier,
+    normalise_org_name,
+    redact_emails,
+)
 from .rawstore import BundleWriter, build_store, storage_key
 from .resolution import Resolution, resolve
 from .resolution.cascade import add_review
@@ -640,6 +646,32 @@ def _namesake_guard(conn: psycopg.Connection, res: Resolution, w: Winner) -> Res
     return Resolution(other, "national_id_new", db.CONF_IDENTIFIER_ATTACHED, created=True)
 
 
+def same_name_as_buyer(winner: str | None, buyer: str | None) -> bool:
+    """The winner's name is the buyer's: the same words of four letters or more ("Het Ministerie van Defensie" and
+    "Ministerie van Defensie"). A notice's award section that names the buyer itself (TED 624641-2025: the Dutch
+    Ministry of Defence as the winner of its own award, filed as a Swedish supplier) is not a contract won."""
+    ta, tb = db._tokens(normalise_org_name(winner or "")), db._tokens(normalise_org_name(buyer or ""))
+    return bool(ta) and ta == tb
+
+
+def is_buyer_body(conn: psycopg.Connection, buyer_org_id: int | None, org_id: int | None) -> bool:
+    """`org_id` is the notice's buyer: the same organisation once merges are followed, or one buyer family or
+    directory family with it (`buyer_family_member`, `organisation_family_member`)."""
+    if buyer_org_id is None or org_id is None:
+        return False
+    a, b = db._live(conn, buyer_org_id), db._live(conn, org_id)
+    if a == b:
+        return True
+    return conn.execute(
+        """WITH h AS (
+               SELECT x.id, COALESCE(bfm.head_org_id, x.id) AS bhead, COALESCE(ofm.head_org_id, x.id) AS ohead
+                 FROM unnest(%s::bigint[]) AS x(id)
+                 LEFT JOIN buyer_family_member bfm ON bfm.org_id = x.id
+                 LEFT JOIN organisation_family_member ofm ON ofm.org_id = x.id)
+           SELECT (count(DISTINCT bhead) = 1 OR count(DISTINCT ohead) = 1) AS one FROM h""",
+        ([a, b],)).fetchone()["one"]
+
+
 def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], read: Read,
                  raw_key: str | None, c: Counter, *, payload_hash: str | None = None,
                  payload_updated_at: Any = None) -> None:
@@ -651,13 +683,21 @@ def store_notice(conn: psycopg.Connection, src_id: int, opp: dict[str, Any], rea
     current again. TED notices are read once and never pass a hash."""
     kept = 0
     current: list[int] = []
+    buyer = conn.execute("SELECT buyer_org_id, buyer_name_raw FROM opportunity WHERE id = %s",
+                         (opp["id"],)).fetchone() or {"buyer_org_id": None, "buyer_name_raw": None}
     for w in read.winners:
+        if same_name_as_buyer(w.name, buyer["buyer_name_raw"]):
+            c["skipped_buyer_as_winner"] += 1        # before resolving: no organisation row is made for it
+            continue
         res = resolve(conn, w.name, w.country, {"reg": w.identifier},
                       {"source_id": src_id, "candidates": False})
         if res.org_id is None:
             c["skipped_unresolved"] += 1
             continue
         res = _namesake_guard(conn, res, w)
+        if is_buyer_body(conn, buyer["buyer_org_id"], res.org_id):
+            c["skipped_buyer_as_winner"] += 1
+            continue
         _attach_reg(conn, res.org_id, w.identifier, w.country)
         row = conn.execute(
             """INSERT INTO award (opportunity_id, organisation_id, supplier_country, name_as_stated,

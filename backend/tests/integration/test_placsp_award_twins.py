@@ -128,7 +128,7 @@ def test_one_award_in_ted_and_placsp_counts_once_and_the_numbered_record_stands_
     assert notice["source"] == "es_placsp"
     assert notice["alsoPublished"] == [{"source": "ted", "noticeId": "500001-2026",
                                         "sourceUrl": "https://ted.example/500001-2026"}]
-    assert profile["identifiers"] == ["B99999990"]
+    assert profile["identifiers"] == ["B99999997"]
     s = after["summary"]
     assert (s["suppliers"], s["awards"], s["noticesWithSupplier"]) == (1, 1, 1)
     # WP-81: the PLACSP result's awarded amount without VAT (250,000) is the award's value, once
@@ -144,7 +144,7 @@ def test_one_award_in_ted_and_placsp_counts_once_and_the_numbered_record_stands_
 
 def test_the_ted_record_stands_for_the_award_when_it_states_a_number_too(conn, env, monkeypatch):
     ted_result(conn, "500002-2026")
-    load_ted(conn, [rec("500002-2026", [("Alfa Defensa Inventada, S.L.", "ESP", "ESB99999990")])])
+    load_ted(conn, [rec("500002-2026", [("Alfa Defensa Inventada, S.L.", "ESP", "ESB99999997")])])
     load_placsp(conn, with_procedure(awarded(result("1", ALFA))))
     # WP-81: the TED notice states a value too; the PLACSP twin's awarded amount is preferred, and the pair counts once
     conn.execute("UPDATE opportunity SET value_amount = 1500, value_currency = 'EUR', value_kind = 'total' "
@@ -194,7 +194,7 @@ def test_one_number_on_two_organisations_is_one_winner(conn, env, monkeypatch):
     """The cascade kept two bodies (another name in TED, the number written as a VAT number), but both rows state
     one number: one award. The TED row stands for it (both state a number; TED first)."""
     ted_result(conn, "500003-2026")
-    load_ted(conn, [rec("500003-2026", [("Grupo Alfa Inventado Sociedad Limitada", "ESP", "ES-B99999990")])])
+    load_ted(conn, [rec("500003-2026", [("Grupo Alfa Inventado Sociedad Limitada", "ESP", "ES-B99999997")])])
     load_placsp(conn, with_procedure(awarded(result("1", ALFA))))
     assert conn.execute("SELECT count(DISTINCT organisation_id) AS n FROM award").fetchone()["n"] == 2
     public(monkeypatch, True)
@@ -349,12 +349,12 @@ def many_twins(conn) -> None:
     load_placsp(conn, with_procedure(awarded(result("1", ALFA) + result("2", BETA))))      # Beta: no twin
     pid = "1b2c3d4e-0000-4000-8000-000000000022"                                  # same number, two bodies
     ted_result(conn, "500022-2026", pid=pid)
-    load_ted(conn, [rec("500022-2026", [("Grupo Gamma Inventado Sociedad Limitada", "ESP", "ES-B99999992")])])
-    load_placsp(conn, with_procedure(awarded(result("1", winner("GAMMA INVENTADA SL", "B99999992")),
+    load_ted(conn, [rec("500022-2026", [("Grupo Gamma Inventado Sociedad Limitada", "ESP", "ES-B99999989")])])
+    load_placsp(conn, with_procedure(awarded(result("1", winner("GAMMA INVENTADA SL", "B99999989")),
                                              folder="2026/ETSAE0921/00004444E"), pid=pid))
     ted_result(conn, "500023-2026", pid=None)                                     # the twin link, no identifier
-    load_ted(conn, [rec("500023-2026", [("Delta Inventada SA", "ESP", "ESA99999993")])])
-    load_placsp(conn, awarded(result("1", winner("DELTA INVENTADA SA", "A99999993")), folder="2026/ETSAE0921/00005555E"))
+    load_ted(conn, [rec("500023-2026", [("Delta Inventada SA", "ESP", "ESA99999963")])])
+    load_placsp(conn, awarded(result("1", winner("DELTA INVENTADA SA", "A99999963")), folder="2026/ETSAE0921/00005555E"))
     conn.execute("UPDATE opportunity SET ted_ref = '500023-2026', twin_method = 'heuristic' WHERE native_id = %s",
                  ("2026/ETSAE0921/00005555E",))
     conn.commit()
@@ -431,8 +431,8 @@ def test_a_merged_supplier_is_one_profile_read_by_index(conn, env, monkeypatch):
     """The profile reads the award rows of the organisation and those merged into it (WP-75): both are counted."""
     for i in (1, 2):
         ted_result(conn, f"50004{i}-2026", pid=None)
-    load_ted(conn, [rec("500041-2026", [("Epsilon Inventada SA", "ESP", "ESA99999994")]),
-                    rec("500042-2026", [("Zeta Inventada SA", "ESP", "ESA99999995")])])
+    load_ted(conn, [rec("500041-2026", [("Epsilon Inventada SA", "ESP", "ESA99999955")]),
+                    rec("500042-2026", [("Zeta Inventada SA", "ESP", "ESA99999948")])])
     first, second = [r["organisation_id"] for r in conn.execute(
         "SELECT organisation_id FROM award ORDER BY id").fetchall()]
     assert first != second
@@ -512,7 +512,7 @@ def test_the_nightly_walk_lands_and_loads_the_award_results_like_the_archive_loa
     assert counts() == before
 
     # the winner renounced, the next one awarded: read again, the first marked superseded (not deleted)
-    walk(monkeypatch, live_page(awarded(result("1", winner("GAMMA INVENTADA SL", "B99999992")), status="RES",
+    walk(monkeypatch, live_page(awarded(result("1", winner("GAMMA INVENTADA SL", "B99999989")), status="RES",
                                         updated="2026-10-01T10:00:00.000+02:00")),
          datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc))
     rows = conn.execute("SELECT name_as_stated, superseded_at IS NOT NULL AS gone FROM award ORDER BY id").fetchall()

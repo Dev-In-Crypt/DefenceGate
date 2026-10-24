@@ -46,6 +46,10 @@ merged: different identifiers. The buyer list shows them as one buyer through th
     python -m dgate.ops.accept_merge_candidates                  # dry run: counts and 30 sampled pairs
     python -m dgate.ops.accept_merge_candidates --yes --limit 200 --sample 30   # one batch, then read it
     python -m dgate.ops.accept_merge_candidates --undo-batch FROM TO [--yes]     # undo a batch's window
+
+WP-115: pairs of two rows that nothing references (no notice, award or participation) are skipped and stay
+pending (`unlinked`); details are read 1,000 ids at a time; every statement stops after 60 s; a run merges at most 200
+groups unless `--limit` says otherwise.
 """
 
 from __future__ import annotations
@@ -127,14 +131,41 @@ def strong_pairs(conn) -> list[dict[str, Any]]:
             ORDER BY c.id""", (list(STRONG_METHODS), MIN_CONFIDENCE)).fetchall()]
 
 
+# WP-115: ids per detail query, and the longest any statement of this script may run. On 22-24 October 2026 one
+# detail query over 5,000 ids ran 44 times at 5.5 min mean (12 min max) beside the site: it read every notice once
+# per organisation (no index on opportunity.buyer_org_id over all notices until migration 0127).
+CHUNK = 1000
+STATEMENT_TIMEOUT = "60s"
+DEFAULT_LIMIT = 200
+
+
+def linked(conn, ids: set[int]) -> set[int]:
+    """The rows of `ids` that something references: a notice (as its buyer), an award or a project participation.
+    The others are 79 % of all organisations (24 October 2026: mostly buyers of notices the classifier did not
+    keep, resolved before the notice was dropped). A pair of two such rows is skipped by the merge queue: merging
+    them changes nothing a reader sees; the pair stays `pending`. A pair with one referenced row is decided as
+    before (a public parent body that publishes nothing still heads its units' buyer family)."""
+    out: set[int] = set()
+    chunk = sorted(ids)
+    for n in range(0, len(chunk), CHUNK):
+        part = chunk[n:n + CHUNK]
+        out.update(r["id"] for r in conn.execute(
+            """SELECT g.id FROM unnest(%s::bigint[]) AS g(id)
+                WHERE EXISTS (SELECT 1 FROM opportunity o WHERE o.buyer_org_id = g.id)
+                   OR EXISTS (SELECT 1 FROM award a WHERE a.organisation_id = g.id)
+                   OR EXISTS (SELECT 1 FROM participation p WHERE p.organisation_id = g.id)""",
+            (part,)).fetchall())
+    return out
+
+
 def organisations(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
     """The rows of `ids`, with what the rule reads: identifiers, flags, defence notices, whether
     the row publishes notices at all (`buys`), and up to five raw names of its aliases (they keep
     the legal form the stored name drops)."""
     out: dict[int, dict[str, Any]] = {}
     chunk = sorted(ids)
-    for n in range(0, len(chunk), 5000):
-        part = chunk[n:n + 5000]
+    for n in range(0, len(chunk), CHUNK):
+        part = chunk[n:n + CHUNK]
         for r in conn.execute(
                 """SELECT g.id, g.country, g.canonical_name AS name, g.display_name, g.suppressed,
                           g.individual_reason IS NOT NULL AS person,
@@ -363,15 +394,22 @@ def run(conn, *, apply: bool = False, limit: int | None = None, sample: int = 30
     pending = pending_by_method(conn)
     out("pending candidates by method: " + ", ".join(
         f"{r['match_method']}@{r['confidence']} {r['n']}" for r in pending))
+    conn.execute(f"SET statement_timeout = '{STATEMENT_TIMEOUT}'")
     pairs = strong_pairs(conn)
+    strong = len(pairs)
+    used = linked(conn, {i for p in pairs for i in (p["a"], p["b"])})
+    unlinked = [p for p in pairs if p["a"] not in used and p["b"] not in used]
+    pairs = [p for p in pairs if p["a"] in used or p["b"] in used]
     orgs = organisations(conn, {i for p in pairs for i in (p["a"], p["b"])})
     groups, refused = plan(pairs, orgs)
+    if unlinked:
+        refused["unlinked"] = len(unlinked)
     result: dict[str, Any] = {
-        "pending": sum(r["n"] for r in pending), "strong_candidates": len(pairs),
+        "pending": sum(r["n"] for r in pending), "strong_candidates": strong,
         "accepted_candidates": sum(len(g["candidates"]) for g in groups),
         "groups": len(groups), "rows_to_merge": sum(len(g["members"]) for g in groups),
         "refused": dict(refused), "merged": 0}
-    out(f"strong candidates ({'/'.join(STRONG_METHODS)} >= {MIN_CONFIDENCE}): {len(pairs)}; accepted "
+    out(f"strong candidates ({'/'.join(STRONG_METHODS)} >= {MIN_CONFIDENCE}): {strong}; accepted "
         f"{result['accepted_candidates']} in {len(groups)} groups ({result['rows_to_merge']} rows to "
         f"merge); refused {dict(refused)}")
     public = [p for p in pairs
@@ -445,8 +483,9 @@ def undo_batch(conn, start: str, end: str, *, apply: bool = False, out=print) ->
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--yes", action="store_true", help="merge; without it nothing changes")
-    p.add_argument("--limit", type=int, default=None,
-                   help="merge at most this many groups (the largest first); run again for the next batch")
+    p.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
+                   help="merge at most this many groups (the largest first, default %(default)s); run again "
+                        "for the next batch")
     p.add_argument("--sample", type=int, default=30,
                    help="how many pairs to print: accepted (dry run) or merged in this batch (--yes)")
     p.add_argument("--no-office-splits", action="store_true",

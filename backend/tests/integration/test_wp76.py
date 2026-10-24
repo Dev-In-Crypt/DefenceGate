@@ -7,6 +7,8 @@ import pytest
 from dgate import db
 from dgate.ops import accept_merge_candidates
 
+from .wp115_links import link
+
 pytestmark = pytest.mark.integration
 
 QUIET = {"out": lambda *_: None, "with_office_splits": False}
@@ -20,6 +22,7 @@ def org(conn, name: str, *, country="ES", reg=None) -> int:
         """INSERT INTO organisation_alias (organisation_id, raw_name, normalised_name, country_hint,
                                            match_method, confidence)
            VALUES (%s, %s, %s, %s, 'exact_name', 0.95)""", (oid, name, name, country))
+    link(conn, oid)        # WP-115: the merge queue skips rows nothing references
     return oid
 
 
