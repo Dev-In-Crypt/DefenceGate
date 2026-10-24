@@ -426,6 +426,9 @@ export function partnerLine(facts: EligibilityFacts, p: Profile): Line | null {
   return { key: 'consortium', label: 'Partners', verdict: 'yes', reason: `The call attaches conditions to who applies with whom, and your answers meet them: ${met.join('; ')}.`, quote };
 }
 
+/** WP-109: a sentence about the size of applicants (backend/dgate/verdict.py _SIZE_WORDS). */
+export const SIZE_WORDS = /\bsmes?\b|small and medium|mid-?\s?caps?|micro|employees|staff/i;
+
 /** WP-102: the label of a designated-bodies line that leaves others a route as partners; the badge names it (lib/fit.ts fitLabel). */
 export const PARTNER_ONLY = 'Only as a partner';
 
@@ -499,7 +502,8 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     else if (p.orgType === 'large' || rule.limit === 249) lines.push({ key: 'sme', label: 'Organisation size', verdict: 'no', reason: 'The call is reserved for SMEs.', quote: sizeQuote });
     else lines.push({ key: 'sme', label: 'Organisation size', verdict: 'check', reason: `The call names only these kinds of applicant: ${(smallKindsOnly(facts) ?? []).join('; ')}. Check that you are one of them.`, quote: sizeQuote });
   } else if (sme && p.orgType) {
-    lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is not reserved for SMEs.', quote: sme.quote }, sme));
+    // WP-109 (p09, 39): the sentence is shown only where it speaks of SMEs ("Any legal entity, regardless of its place of establishment" is not about size)
+    lines.push(withNote({ key: 'sme', label: 'Organisation size', verdict: 'yes', reason: 'The call is not reserved for SMEs.', quote: SIZE_WORDS.test(sme.quote ?? '') ? sme.quote : undefined }, sme));
   }
 
   const np = facts.natural_persons_allowed;

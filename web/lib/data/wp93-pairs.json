@@ -3809,7 +3809,7 @@
        "rule": "ES-NSFCC",
        "title": "NATO Facility Security Clearance Certificate (NSFCC)",
        "requirement": "REQ-FSC-ES",
-       "outcome": "unknown"
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-NATO-DOE",
@@ -7136,7 +7136,7 @@
   "P1|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -7839,7 +7839,7 @@
   "P10|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -8542,7 +8542,7 @@
   "P2|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -9245,7 +9245,7 @@
   "P3|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -9948,7 +9948,7 @@
   "P4|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -10656,7 +10656,7 @@
   "P5|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -11360,7 +11360,7 @@
   "P6|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -12065,7 +12065,7 @@
   "P7|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -12768,7 +12768,7 @@
   "P8|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {
@@ -13471,7 +13471,7 @@
   "P9|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Only if your staff are French nationals",
    "conditions": [],
    "lines": [
     {

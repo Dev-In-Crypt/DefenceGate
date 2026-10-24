@@ -11,7 +11,7 @@ export type ProgrammeCode = 'EDF' | 'EDIP' | 'EDIP-USI' | 'HORIZON' | 'DIGITAL' 
 /** WP-91: who may apply, as the API reads it from the rules and the stored call data; null where nothing we hold says. */
 export type WhoMayApply = 'companies' | 'public' | 'designated';
 /** The values of the filter `who` (WP-99: a call open only to designated bodies is in neither). */
-export type WhoFilter = 'companies' | 'public';
+export type WhoFilter = 'companies' | 'public' | 'research';
 export type Regime = 'defence' | 'dual-use';
 export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
@@ -116,6 +116,8 @@ export interface Call {
   openToUkraine?: boolean | null;
   /** WP-91: `companies` (a company can take part), `public` (only public bodies may apply); null or absent where nothing we hold says. */
   whoMayApply?: WhoMayApply | null;
+  /** WP-109: whether a university or a research organisation may apply; null or absent where nothing we hold says. */
+  researchMayApply?: boolean | null;
   /** WP-92: true where the call's own eligibility facts say it is reserved for SMEs; null or absent otherwise. */
   smeOnly?: boolean | null;
   /** WP-92, detail only: what the call funds, at most three commercial sentences of the topic description's Objective / Expected outcome. Null: none passed the filter. */
@@ -212,7 +214,7 @@ export interface CallDocument {
   url: string;
 }
 
-export type CallStatusFilter = 'open' | 'forthcoming' | 'closing-soon' | 'closed' | 'all';
+export type CallStatusFilter = 'open' | 'forthcoming' | 'open-forthcoming' | 'closing-soon' | 'closed' | 'all';
 export type CallSort = 'deadline-asc' | 'deadline-desc' | 'budget-desc';
 export type ListView = 'list' | 'calendar';
 

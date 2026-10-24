@@ -33,9 +33,15 @@ def test_an_edf_call_is_compared_first_with_its_capability_category_then_with_al
     assert category in narrow.label
 
 
-@pytest.mark.parametrize("topic", ["EDF-EDIP-P-2026-FNLC-CPA-CDS", "EDF-EDIP-USI-2027-LS-IRA-CUXS", "EDF-EDIP-P-2026-2027-FNLC-SA-SEAP"])
+@pytest.mark.parametrize("topic", ["EDF-EDIP-P-2026-2027-FNLC-SA-SEAP", "EDF-EDIP-P-2026-LS-IRA-EC"])
 def test_an_edip_call_names_no_category_so_it_is_compared_with_all_edf_projects(topic):
     assert kinds(topic) == ["edf"]
+
+
+# WP-109 (p08, 113): the counter-drone and the unmanned-systems topics name their categories in their titles (partners.EDIP_RELATED)
+@pytest.mark.parametrize("topic", ["EDF-EDIP-P-2026-FNLC-CPA-CDS", "EDF-EDIP-USI-2027-LS-IRA-CUXS"])
+def test_the_drone_edip_calls_are_compared_with_their_categories_first(topic):
+    assert kinds(topic) == ["edf-related", "edf"]
 
 
 def test_a_horizon_call_has_a_destination_and_its_round_is_not_the_destination():

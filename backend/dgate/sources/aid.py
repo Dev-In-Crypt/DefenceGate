@@ -280,6 +280,15 @@ def opening(text: str) -> date | None:
     return moment.astimezone(PARIS).date() if moment else None
 
 
+ISSUER = "Agence de l'innovation de défense (AID)"   # WP-109: with its accent, as the agency writes it
+
+
+def regime_of(slug: str, title: str) -> str:
+    """WP-109 (p05): every AID call is a defence call except RAPID, the scheme for dual innovation ("Régime d'APpui à
+    l'Innovation Duale": projects with civil applications and a defence interest), which is dual-use in the agency's own words."""
+    return "dual_use" if re.search(r"\brapid\b|innovation duale", f"{slug} {title}", re.I) else "defence"
+
+
 def kind_of(title: str) -> str | None:
     """What sort of call the page is, from its title. Not a grant in every case: the
     agency's expressions of interest and challenges are calls to suppliers."""

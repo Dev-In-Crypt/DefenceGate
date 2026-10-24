@@ -17,7 +17,7 @@ import { FILTER_COLUMN, SkipToResults } from '../dg/list-page';
 import { FilterNotices } from '../dg/filter-notices';
 import { Icon } from '../dg/icon';
 import { FilterBar, type FilterGroup } from './filter-bar';
-import { FitFilter, FitItem, type WholeList } from './fit-badge';
+import { FitFilter, FitList, type WholeList } from './fit-badge';
 import { SortSelect } from './filter-panel';
 import { LiveListScope, ResultsRegion } from '../dg/live-list';
 import { CallCalendar } from './call-calendar';
@@ -79,7 +79,7 @@ export function CallListTemplate({
   return (
     <>
       <PageHeader crumbs={crumbs} title={title} lead={intro}
-        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, result.meta?.updatedBy)}` : ''}`} />
+        meta={`${health.sources.filter((s) => s.type === 'grants').length} funding sources · Deadlines in UTC${updated ? ` · ${updatedLine(updated, null)}` : ''}`} />
 
       {/* Before the chips and the filters: from the top of the page to the first call in a few stops (WP-58). */}
       <SkipToResults />
@@ -168,14 +168,11 @@ export function CallListTemplate({
           ) : view === 'calendar' ? (
             <CallCalendar calls={result.items} />
           ) : (
-            <ul className="m-0 flex list-none flex-col gap-4 p-0">
-              {result.items.map((c, i) => (
-                <FitItemWithHeading key={c.id} heading={i === dualAt}
-                  others={`${basePath}${toQuery({ ...filters, regime: ['defence'], page: 1 })}`}>
-                  <FitItem id={c.id} text={[c.title, c.originalTitle, ...c.scope].filter(Boolean).join(' ')}><CallCard call={c} budgetRepeated={repeats.has(c.id)} /></FitItem>
-                </FitItemWithHeading>
-              ))}
-            </ul>
+            <FitList className="m-0 flex list-none flex-col gap-4 p-0" items={result.items.map((c, i) => ({
+              id: c.id, text: [c.title, c.originalTitle, ...c.scope].filter(Boolean).join(' '),
+              node: <CallCard call={c} budgetRepeated={repeats.has(c.id)} />,
+              heading: i === dualAt ? <DualUseHeading others={`${basePath}${toQuery({ ...filters, regime: ['defence'], page: 1 })}`} /> : undefined,
+            }))} />
           )}
 
           {view === 'list' && !fitAll && (
@@ -190,18 +187,14 @@ export function CallListTemplate({
   );
 }
 
-/** The heading of the dual-use part of the list (WP-87), before its first call; the call itself as it is otherwise. */
-function FitItemWithHeading({ heading, others, children }: { heading: boolean; others: string; children: React.ReactNode }) {
-  if (!heading) return <>{children}</>;
+/** The heading of the dual-use part of the list (WP-87), before its first call (left out while "Fits my profile" re-orders the list). */
+function DualUseHeading({ others }: { others: string }) {
   return (
-    <>
-      <li className="flex flex-col gap-1 pt-2" data-dual-use-heading>
-        <h3 className="m-0 text-h3">Dual-use calls</h3>
-        <p className="m-0 max-w-prose text-small text-ink-muted">
-          Calls for research and products with civil and defence uses, listed after the defence calls. <Link href={others} className="font-semibold">Show only defence calls</Link>.
-        </p>
-      </li>
-      {children}
-    </>
+    <li className="flex flex-col gap-1 pt-2" data-dual-use-heading>
+      <h3 className="m-0 text-h3">Dual-use calls</h3>
+      <p className="m-0 max-w-prose text-small text-ink-muted">
+        Calls for research and products with civil and defence uses, listed after the defence calls. <Link href={others} className="font-semibold">Show only defence calls</Link>.
+      </p>
+    </li>
   );
 }

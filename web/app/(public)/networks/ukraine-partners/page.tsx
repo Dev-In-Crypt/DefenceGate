@@ -100,7 +100,7 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
             ) : (
               <>Showing <strong>{codes.join() === DEFENCE_PROGRAMMES.join() ? DEFENCE_PROGRAMMES_WORDS : codes.map((c) => PROGRAMME_WORD[c] ?? c).join(', ')}</strong>.
                 {others.length > 0 && <> All programmes together hold {others.reduce((n, b) => n + b.projects, 0)} more {others.reduce((n, b) => n + b.projects, 0) === 1 ? 'project' : 'projects'} with a Ukrainian participant, in {others.map((b) => PROGRAMME_WORD[b.code] ?? b.code).join(', ')}. </>}
-                <Link href={`${base}&programme=all`} className="font-semibold">Show all programmes</Link>.</>
+                {' '}<Link href={`${base}&programme=all`} className="font-semibold">Show all programmes</Link>.</>
             )}
           </p>
           {/* WP-88: the definition, the totals and the limits are one collapsed block; the table follows the scope line. */}
@@ -124,7 +124,20 @@ export default async function UkrainePartnersPage({ searchParams }: Props) {
                 <Link href={pageHref(1).replace(`&q=${encodeURIComponent(q)}`, '')} className="font-semibold">Show every project</Link>.
               </p>
             )}
-            {data.coordinators.length === 0 ? <p className="m-0">No project started in or after {data.since} matches.</p> : (
+            {data.coordinators.length === 0 ? (
+              <div className="flex flex-col gap-2" data-no-match>
+                <p className="m-0">No project started in or after {data.since} matches.</p>
+                {/* WP-109 (p08: "drone" since 2021 was a dead end): the two ways on, the earlier years and the partners of the open calls */}
+                <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
+                  {data.since > 2014 && (
+                    <li><Link href={`/networks/ukraine-partners?since=2014${q ? `&q=${encodeURIComponent(q)}` : ''}&programme=all`} className="font-semibold">Look at projects since 2014, in all programmes</Link></li>
+                  )}
+                  <li>
+                    <Link href={`/funding?programme=EDF${q ? `&q=${encodeURIComponent(q)}` : ''}`} className="font-semibold">Open EDF and EDIP calls{q ? ` for “${q}”` : ''}</Link>: each call page lists the organisations of earlier EDF projects of its area, under “Partners from earlier projects”.
+                  </li>
+                </ul>
+              </div>
+            ) : (
               <TableBox label="Coordinators with a Ukrainian participant">
                 <table className="stack-sm w-full min-w-[720px] border-collapse text-left text-small">
                   <caption className="sr-only">Coordinators with a Ukrainian participant, defence and dual-use projects first</caption>

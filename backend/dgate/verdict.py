@@ -73,6 +73,7 @@ _COVERS = {
 _SMALL_ONLY = re.compile(r"(?<!non-)\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?", re.I)
 _LARGE = re.compile(r"\blarge\b", re.I)
 _MIDCAP = re.compile(r"mid-?\s?caps?", re.I)
+_SIZE_WORDS = re.compile(r"\bsmes?\b|small and medium|mid-?\s?caps?|micro|employees|staff", re.I)   # WP-109: eligibility-check.ts SIZE_WORDS
 
 
 def covers(org: str, kind: str) -> bool:
@@ -440,7 +441,9 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
         else:
             lines.append(_line("sme", "Organisation size", "check", f"The call names only these kinds of applicant: {'; '.join(small_kinds_only(facts) or [])}. Check that you are one of them.", q))
     elif sme and org:
-        lines.append(with_note(_line("sme", "Organisation size", "yes", "The call is not reserved for SMEs.", sme.get("quote")), sme))
+        # WP-109 (p09, 39): the sentence only where it speaks of size
+        q = sme.get("quote") if _SIZE_WORDS.search(sme.get("quote") or "") else None
+        lines.append(with_note(_line("sme", "Organisation size", "yes", "The call is not reserved for SMEs.", q), sme))
 
     np_ = facts.get("natural_persons_allowed")
     if np_ and org == "individual":
@@ -679,6 +682,14 @@ BLOCKED_AS = {
 NO_UA_PARTNER = "Not without a Ukrainian partner (you said none takes part)"
 # WP-102 (p05, 149): a call only designated bodies may apply to, others joining them as partners: said on the badge, not "nothing blocks you"
 PARTNER_ONLY_WORD = "Only as a partner of the bodies the call names"
+# WP-109: lib/fit.ts NATIONALITY_PREFIX, nationalityWord
+NATIONALITY_PREFIX = "Only if your staff are "
+_NATIONALITY = re.compile(r"Only staff of (.+?) nationality")
+
+
+def nationality_word(reason: str) -> str:
+    m = _NATIONALITY.search(reason)
+    return f"{NATIONALITY_PREFIX}{f'{m.group(1)} nationals' if m else 'of the nationality the call names'}"
 
 
 def _one_programme(a: dict[str, Any], steps: list[dict[str, Any]]) -> dict[str, Any]:
@@ -747,6 +758,11 @@ def fit_word(r: dict[str, Any]) -> str:
             return NO_UA_PARTNER
         if any(x["label"] == PARTNER_ONLY for x in ((r.get("result") or {}).get("lines") or [])):
             return PARTNER_ONLY_WORD
+        # WP-109 (owner, 24 Oct: the Cyber Defense Factory stays in "Fits" with its condition): the word names the condition
+        nationality = next((x for x in ((r.get("result") or {}).get("lines") or [])
+                            if x["key"] == "nationality" and x["verdict"] == "check"), None)
+        if nationality:
+            return nationality_word(nationality["reason"])
         n = condition_count(r)
         return f"Nothing known blocks you, {n} {'condition' if n == 1 else 'conditions'} to check" if n > 0 else "Nothing known blocks you"
     return "Eligible" if fit == "yes" else "Rules not read"

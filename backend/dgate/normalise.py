@@ -1747,11 +1747,12 @@ def from_aid(record: dict[str, Any], *, today: date | None = None) -> Call:
             **_aid_rules(text, record.get("modified") or record.get("published")),
         },
         status=aid.status(record, now=now),
-        regime="defence",
+        # WP-109 (p05): RAPID is the agency's scheme for dual innovation ("Régime d'APpui à l'Innovation Duale"), its own word
+        regime=aid.regime_of(str(slug), title),
         source_url=record.get("url"),
         type_of_action=aid.kind_of(title),
         country="FR",
-        issuer="Agence de l'innovation de defense (AID)",
+        issuer=aid.ISSUER,
     )
 
 

@@ -103,7 +103,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             {d.rolling && d.iso ? (
               <>
                 <span className="font-sans">Open: rolling submission</span>
-                <div className="font-sans text-small font-normal text-ink-muted">Last cut-off <time dateTime={d.iso}>{d.utc}</time></div>
+                <div className="font-sans text-small font-normal text-ink-muted">Last cut-off <time dateTime={d.iso}>{d.utc}</time> (passed; no next one published)</div>
               </>
             ) : d.iso ? (
               <>
@@ -127,7 +127,8 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
               </>
             )}
           </ListFact>
-          <ListFact label={call.callId ? 'Call ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.callId ?? call.topicId}</ListFact>
+          {/* WP-109 (p08): the topic, not the call, tells two topics of one call apart (EDF-EDIP-USI-2027 holds several) */}
+          <ListFact label={call.callId ? 'Topic ID' : 'Source ID'} tone={closed ? 'closed' : 'default'}>{call.topicId}</ListFact>
         </dl>
         <SourceBadge source={call.source} variant="inline" className={CARD_PROVENANCE} subject={displayName(call.title)} subjectLang={nonEnglish ? call.titleLanguage : undefined} />
       </div>

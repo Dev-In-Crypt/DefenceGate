@@ -202,6 +202,8 @@ class FundingCall(BaseModel):
     openToUkraine: bool | None = None
     # WP-91: `companies` (a company can take part), `public` (only public bodies may apply), null where nothing we hold says.
     whoMayApply: str | None = None
+    # WP-109: whether a university or a research organisation may apply (null: nothing we hold says)
+    researchMayApply: bool | None = None
     # WP-92: true where the call's own eligibility facts say it is reserved for SMEs (dgate/who_apply.py); null otherwise.
     smeOnly: bool | None = None
     publishedAt: datetime | None
@@ -409,6 +411,15 @@ WHO_MAY_APPLY = f"""COALESCE(c.who_may_apply_doc, CASE
     WHEN p.code = 'ES-BDNS' AND (c.conditions_raw->>'beneficiary_types') ~* '(empresa|pyme|aut[oó]nom)' THEN 'companies'
     END)"""
 WHO_VALUES = ("companies", "public")
+# WP-109: a call the scope rule no longer takes (migration 0121, ops/wp109_scope.py) is left out of every list and count
+IN_SCOPE = "NOT c.suppressed AND NOT c.out_of_scope"
+# WP-109 (p09): may a university or a research organisation apply? The call's own facts first (`research_may_apply_doc`, who_apply.py
+# `research_of`); else the programme's rule: EDF and Horizon Europe calls are open to legal entities, research bodies among them, except
+# the actions only public buyers or designated bodies may apply to; else unknown (NULL), and the filter leaves the call out.
+RESEARCH_MAY_APPLY = f"""COALESCE(c.research_may_apply_doc, CASE
+    WHEN {WHO_MAY_APPLY} IN ('public', 'designated') THEN false
+    WHEN p.code IN ('EDF', 'EDIDP', 'HORIZON') THEN true
+    END)"""
 
 
 def _day(value: Any) -> datetime | None:
@@ -450,12 +461,15 @@ def eligibility_rows(programme_code: str, cond: dict[str, Any], row: dict[str, A
         out.append({"label": label, "value": str(value).strip()})
 
     if not NATIONAL_PROGRAMME.match(programme_code):
-        add("Expected number of grants", cond.get("expected_grants"))
+        # WP-109 (p09, EIC STEP): an equity-only action (HORIZON-EIC-EQU) makes investments, not grants: named from its type of action
+        equity = bool(re.search(r"\bequity\b", str(row.get("type_of_action") or ""), re.I))
+        award, amount = ("investments", "Investment per company") if equity else ("grants", "Contribution per grant")
+        add(f"Expected number of {award}", cond.get("expected_grants"))
         low, high = cond.get("min_contribution"), cond.get("max_contribution")
         if low is not None and high is not None and low != high:
-            add("Contribution per grant", f"{_money(low, 'EUR')} to {_money(high, 'EUR')}")
+            add(amount, f"{_money(low, 'EUR')} to {_money(high, 'EUR')}")
         elif high is not None or low is not None:
-            add("Contribution per grant", _money(high if high is not None else low, "EUR"))
+            add(amount, _money(high if high is not None else low, "EUR"))
         if cond.get("for_smes"):
             add("SME-focused", "Yes")
         add("Deadline model", _nice(str(cond["deadline_model"])) if cond.get("deadline_model") else None)
@@ -661,6 +675,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         "cascade": r.get("cascade"),
         "openToUkraine": r.get("open_to_ukraine"),
         "whoMayApply": r.get("who_may_apply"),
+        "researchMayApply": r.get("research_may_apply"),
         "smeOnly": True if r.get("sme_only") is True else None,
         "publishedAt": _day(r.get("published_at")),
         "firstSeenAt": r["first_seen_at"],
@@ -682,6 +697,10 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
         text = r.get("eligibility_text") if may_serve else None
         out["conditionsText"] = redact_emails(text.strip()) if text and text.strip() else None
         summary = r.get("funds_summary") if may_serve else None
+        if not summary and prog == "FR-AID" and r.get("source_commercial_ok") is True:
+            # WP-109 (p05: Cyber Defense Factory, RAPID "no description"): the agency's own summary of the call (its page's lead,
+            # Licence Ouverte 2.0), stored by the connector; a description of the offer, not of any system
+            summary = (cond.get("summary") or "").strip() or None
         out["fundsSummary"] = redact_emails(summary) if summary else None
         out["whoCanApply"] = redact_emails(who_can_apply(out["conditionsText"], out["eligibility"]))
         out["documents"] = documents_of(cond) if may_serve else []
@@ -689,7 +708,7 @@ def to_call(r: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
 
 
 SELECT = f"""
-    SELECT c.*, {EFFECTIVE_STATUS} AS effective_status, {WHO_MAY_APPLY} AS who_may_apply,
+    SELECT c.*, {EFFECTIVE_STATUS} AS effective_status, {WHO_MAY_APPLY} AS who_may_apply, {RESEARCH_MAY_APPLY} AS research_may_apply,
            p.code AS programme_code, p.name AS programme_name,
            s.code AS source_code, s.name AS source_name, s.licence AS source_licence,
            s.attribution AS source_attribution, s.commercial_ok AS source_commercial_ok
@@ -732,7 +751,8 @@ def list_funding(
     programme: str | None = Query(None, max_length=200),
     regime: str | None = Query(None, max_length=100),
     country: str | None = Query(None, max_length=200),
-    status: str = Query("open", pattern="^(open|forthcoming|closing-soon|closed|all)$"),
+    # WP-109 (p09): `open-forthcoming`, the calls one can apply to now or soon, in one list
+    status: str = Query("open", pattern="^(open|forthcoming|open-forthcoming|closing-soon|closed|all)$"),
     from_: date | None = Query(None, alias="from"),
     to: date | None = None,
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
@@ -745,16 +765,18 @@ def list_funding(
     # Only `true` is a filter: calls the flag says are open to Ukrainian participants (unknown is not included).
     ukraine: str | None = Query(None, pattern="^true$"),
     # WP-91: who may apply, as `whoMayApply` states it: `companies` or `public` (a call nothing we hold speaks for is in neither).
-    who: str | None = Query(None, pattern="^(companies|public)$"),
+    who: str | None = Query(None, pattern="^(companies|public|research)$"),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(10, ge=1, le=500),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
-    where: list[str] = ["NOT c.suppressed"]
+    where: list[str] = [IN_SCOPE]
     params: list[Any] = []
 
-    if status == "closing-soon":
+    if status == "open-forthcoming":
+        where.append(f"{EFFECTIVE_STATUS} IN ('open', 'forthcoming')")
+    elif status == "closing-soon":
         where.append(f"{EFFECTIVE_STATUS} = 'open' AND c.deadline_at >= now() "
                      f"AND c.deadline_at <= now() + interval '{CLOSING_SOON_DAYS} days'")
     elif status != "all":
@@ -819,6 +841,8 @@ def list_funding(
     if isinstance(who, str) and who in WHO_VALUES:
         where.append(f"{WHO_MAY_APPLY} = %s")
         params.append(who)
+    elif who == "research":
+        where.append(f"{RESEARCH_MAY_APPLY} IS TRUE")
 
     if from_:
         where.append("c.deadline_at >= %s")

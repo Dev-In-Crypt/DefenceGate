@@ -194,8 +194,8 @@ def test_a_category_with_too_few_organisations_falls_back_to_all_edf_and_says_so
 
 
 def test_an_edip_call_is_compared_with_all_edf_projects(client, conn, space):
-    # counter-drone systems: no EDF category is named by the title (WP-41: AMDS, GNPS and C5ISRS now are)
-    _, slug = call(conn, "edip1", "EDF-EDIP-P-2026-FNLC-CPA-CDS")
+    # energetic components: no EDF category is named by the title (WP-41: AMDS, GNPS and C5ISRS now are; WP-109: CDS and CUXS too)
+    _, slug = call(conn, "edip1", "EDF-EDIP-P-2026-LS-IRA-EC")
     body = partners(client, slug)
     assert body["area"]["kind"] == "edf" and body["area"]["broaderThanCall"] is False and body["partners"]
     assert body["area"]["generic"] is True and "no earlier counterpart" in body["note"]

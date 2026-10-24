@@ -4,7 +4,9 @@
  */
 import { ApiError, REMOVED, getCalls, getHealth, getMarketStats, getSupplierContracts, getTenderExportPage, isCallSlug, isTenderSlug, whenRemoved } from './api';
 import { callStatusKind, getCallDeadline } from './deadline';
-import { parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
+import { WHO_BADGE, parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
+import { programmeNameOf } from './funding-feed';
+import { REGIMES } from './taxonomy';
 import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, VALUE_KIND_NOT_STATED, csvValueKind, marketRows, supplierContractRows, winnerCells } from './export-tables';
 import {
   EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PAGE_MIN, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate,
@@ -63,7 +65,11 @@ export function tenderRow(t: Tender, truncated = false): Cell[] {
 export const CALL_HEADER = [
   'id', 'title', 'funder', 'country', 'programme', 'call_id', 'topic_id', 'action_type', 'opening_date', 'deadline_utc',
   'value', 'currency', 'budget_scope', 'status', 'source_name', 'source_url', 'licence', 'attribution', 'retrieved_at_utc', 'page_url',
+  // WP-109 (p09): what the list's filters and badges say, so a file can be filtered as the page is
+  'who_may_apply', 'research_may_apply', 'regime', 'open_to_ukraine', 'min_consortium',
 ];
+
+const tri = (v: boolean | null | undefined): string => (v === true ? 'yes' : v === false ? 'no' : 'not stated');
 
 export function callRow(c: Call): Cell[] {
   const dl = c.deadline;
@@ -72,11 +78,13 @@ export function callRow(c: Call): Cell[] {
   const status = kind === 'closed' ? 'Closed' : kind === 'upcoming' ? 'Opens soon' : kind === 'pending' ? 'Opening date passed' : 'Open';
   const budget = c.budget && !isPlaceholderAmount(c.budget.amount) ? c.budget : null;
   return [
-    c.id, c.title, c.funder, c.funderCountry, c.programmeName, c.callId, c.topicId, c.actionType,
+    c.id, c.title, c.funder, c.funderCountry, programmeNameOf(c), c.callId, c.topicId, c.actionType,
     isoUtc(c.openingDate, c.openingDate !== null && isMidnight(c.openingDate)), isoUtc(dl, dl !== null && isMidnight(dl)),
     budget?.amount, budget?.currency, budget ? c.budgetScope : null, status,
     c.source.sourceName, safeHttpUrl(c.source.url) ?? '', c.source.licence, c.source.attribution, isoUtc(c.source.retrievedAt),
     isCallSlug(c.slug) ? absoluteUrl(`/funding/${c.slug}`) : '',
+    c.whoMayApply ? WHO_BADGE[c.whoMayApply] : 'not stated', tri(c.researchMayApply), REGIMES[c.regime] ?? c.regime, tri(c.openToUkraine),
+    c.eligibility.find((r) => r.label === 'Minimum consortium')?.value ?? '',
   ];
 }
 

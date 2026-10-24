@@ -1,18 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { CircleAlert, CircleCheck, CircleX } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { check, consortiumUnclear, factDisplay, FACT_LABELS, SCOPE_WORDS, type CallContext, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
-import { checkProfileOf, linesSummary, shownFit, verdictLines } from '@/lib/fit';
+import { consortiumUnclear, factDisplay, FACT_LABELS, SCOPE_WORDS, sizeRule, type CallContext, type EligibilityFacts, type Profile, type Verdict } from '@/lib/eligibility-check';
+import { asksUaPartner, fitLabel, linesSummary, shownFit, verdictLines, type Answers } from '@/lib/fit';
 import { useFit } from '@/lib/fit-hooks';
-import { fitFor, isLoaded } from '@/lib/fit-store';
+import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
 import { cleanQuote } from '@/lib/quote';
-import type { EligibilitySourceInfo } from '@/lib/types';
+import type { Call, EligibilitySourceInfo, RulesApply } from '@/lib/types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { Select } from '@/components/dg/form';
-import { useProfile } from '@/components/readiness/use-readiness';
 import { Icon } from '@/components/dg/icon';
+import { pageFit, usePageCase } from './apply-summary';
 import { cn } from '@/lib/utils';
 import { CallReadiness, FactsContext } from './call-readiness';
 
@@ -24,6 +23,15 @@ const TYPES = [
   { value: 'individual', label: 'Individual (natural person)' },
 ];
 const TRI = [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'Not sure' }];
+// the bands of the readiness check (lib/eligibility-check.ts BAND_RANGE)
+const BANDS = [
+  { value: 'lt50', label: 'Fewer than 50' }, { value: '50_249', label: '50 to 249' }, { value: '250_499', label: '250 to 499' },
+  { value: '500_1999', label: '500 to 1,999' }, { value: '2000plus', label: '2,000 or more' },
+];
+const CONTROLLERS = [
+  { value: 'ua', label: 'Ukraine' }, { value: 'eea', label: 'Iceland, Liechtenstein or Norway' }, { value: 'cn', label: 'China' },
+  { value: 'ru_by', label: 'Russia or Belarus' }, { value: 'other_non_eu', label: 'Another country (for example the United States)' },
+];
 
 const VERDICT: Record<Verdict, { icon: typeof CircleCheck; word: string; cls: string }> = {
   yes: { icon: CircleCheck, word: 'Nothing in the document excludes you so far', cls: 'text-ink' },
@@ -39,8 +47,10 @@ function shownNote(key: string, note: string, country: string): string {
   return (note.match(/[^.;!?]+[.;!?]*/g) ?? []).map((s) => s.trim()).filter((s) => s && !NGCA.test(s)).join(' ');
 }
 
-export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId, closed = false, ctx }: {
+export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_document', sources = [], callId, closed = false, ctx, rulesApply = null }: {
   facts: EligibilityFacts; documentUrl: string | null; readAt: string; basis?: 'call_document' | 'work_programme' | 'call_page'; sources?: EligibilitySourceInfo[];
+  /** WP-109: the programme's rules the API evaluated for each group of countries, so the form says what the first screen says. */
+  rulesApply?: RulesApply | null;
   /** WP-93: the call's programme and topic, so that "associated countries" are read as the list badge reads them. */
   ctx?: CallContext;
   /** The call's id: with it, the panel also shows "Your readiness for this call" from the saved profile (WP-32). */
@@ -48,29 +58,28 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
   /** The call has closed: its rules are listed for reference and there is no verdict, no form and no readiness block. */
   closed?: boolean;
 }) {
-  const [p, setP] = useState<Profile>({ country: '', orgType: '', hasPartners: '', controlledAbroad: '' });
-  // The answers the saved profile already holds are filled in (U4 of the UX verification: the form asked them again, empty).
-  // The partner question is the profile's gap: it stays the visitor's to answer. Once the visitor changes a field, the saved
-  // profile no longer overwrites it.
-  const { profile: saved, ready } = useProfile();
-  const held = ready && saved ? checkProfileOf(saved) : null;
-  const [edited, setEdited] = useState(false);
-  useEffect(() => {
-    if (held && !edited) setP((x) => ({ ...held, hasPartners: x.hasPartners }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the fields, not the object, are what changes
-  }, [held?.country, held?.orgType, held?.controlledAbroad, edited]);
-  // An edited form is another case: what only the saved profile knows (`more`: legal form, executive management, partners) no longer applies to it (WP-53).
-  // WP-93: and so are its staff count, its kind and who controls it
-  const set = <K extends keyof Profile>(k: K, v: Profile[K]) => { setEdited(true); setP((x) => ({ ...x, [k]: v, more: undefined, kind: undefined, size: undefined, controller: undefined, investor: undefined })); };
-  // WP-102 (one verdict per call page: 114, 118): untouched, the form shows the saved profile's one verdict (lib/fit.ts callFit, the list
-  // badge's and "Your readiness for this call"'s), with the programme's lines; changed, it is another case and the document alone speaks.
+  // WP-109 (one verdict per call page in every state): the form and the first screen share one case (`usePageCase`). Untouched, it is the
+  // saved profile's (U4: the form asked its answers again, empty) and the verdict is the profile's (lib/fit.ts callFit, the list badge's);
+  // changed, here or at the top, it is another case, judged by `answersFit` on the same facts and the programme's rules, the top's verdict too.
+  // What only the saved profile knows (`more`, its kind, its investor) no longer applies to a changed case (WP-53, WP-93).
+  const pc = usePageCase(callId ?? '');
+  const p = pc.answers;
+  const edited = !pc.profileMode;
+  const held = pc.profileMode;
+  const set = <K extends keyof Answers>(k: K, v: Answers[K]) => pc.set({ [k]: v, more: undefined, kind: undefined, size: undefined, investor: undefined } as Partial<Answers>);
   const store = useFit(callId ?? '');
-  const one = callId && held && !edited && store.hasProfile && isLoaded(callId) ? fitFor(callId) : null;
-  const own = check(facts, p, ctx);
-  const result = one && one.fit !== 'unknown'
-    ? { verdict: (shownFit(one) === 'no' ? 'no' : shownFit(one) === 'yes' ? 'yes' : 'check') as Verdict, lines: verdictLines(one) }
-    : own;
+  const loaded = callId && pc.profileMode && store.hasProfile && isLoaded(callId) && !lookupFailed(callId) ? fitFor(callId) : null;
+  // a profile verdict with nothing to compare ("Rules not read" in the list) leaves the form to the facts on this page, as before
+  const one = loaded && loaded.fit !== 'unknown' ? loaded : null;
+  const fit = pageFit({ programme: ctx?.programme ?? '', topicId: ctx?.topic ?? '', rulesApply, documentEligibility: { facts } as Call['documentEligibility'] }, pc, one);
+  const result = { verdict: (shownFit(fit) === 'no' ? 'no' : shownFit(fit) === 'yes' ? 'yes' : 'check') as Verdict, lines: verdictLines(fit) };
   const answered = result.lines.length > 0;
+  const word = fitLabel(fit).word;
+  // the questions this call needs beyond the four (WP-109): the staff count for a size rule, who controls the company for a restriction
+  // that names countries, a Ukrainian partner where the programme's rules ask for one
+  const asksSize = Boolean(sizeRule(facts) || facts.max_group_headcount);
+  const asksController = Boolean(facts.ownership_control_restriction?.value === true && p.controlledAbroad === 'yes');
+  const asksUa = asksUaPartner({ rulesApply }, p.country);
   const shown = Object.keys(FACT_LABELS).filter((k) => facts[k]);
   const doc = documentUrl ? safeHttpUrl(documentUrl) : null;
   const fromProgramme = basis === 'work_programme';
@@ -131,13 +140,18 @@ export function EligibilityCheck({ facts, documentUrl, readAt, basis = 'call_doc
           <Select label="What kind of organisation?" placeholder="Choose" options={TYPES} value={p.orgType} onChange={(e) => set('orgType', e.target.value as Profile['orgType'])} />
           <Select label="Do you already have consortium partners?" placeholder="Choose" options={TRI} value={p.hasPartners} onChange={(e) => set('hasPartners', e.target.value as Profile['hasPartners'])} />
           <Select label="Is your company controlled from outside the EU or associated countries?" placeholder="Choose" options={TRI} value={p.controlledAbroad} onChange={(e) => set('controlledAbroad', e.target.value as Profile['controlledAbroad'])} />
+          {asksSize && <Select label="Staff, counted with your group (linked enterprises)" placeholder="Choose" options={BANDS} value={p.headcount ?? ''} onChange={(e) => set('headcount', e.target.value)} />}
+          {asksController && <Select label="From which country is it controlled?" placeholder="Choose" options={CONTROLLERS} value={p.controller ?? ''} onChange={(e) => set('controller', e.target.value as Answers['controller'])} />}
+          {asksUa && <Select label="Does a legal entity established in Ukraine, with its executive management there, take part?" placeholder="Choose" options={TRI} value={p.uaPartner ?? ''} onChange={(e) => set('uaPartner', e.target.value as Answers['uaPartner'])} />}
         </div>
       </form>
 
       <div aria-live="polite" className="flex flex-col gap-3">
         {answered ? (
           <>
-            <p className={cn('m-0 flex items-center gap-2 text-h4', V.cls)}><Icon icon={V.icon} size="button" />{V.word}</p>
+            <p className={cn('m-0 flex items-center gap-2 text-h4', V.cls)} data-form-verdict={shownFit(fit)}><Icon icon={V.icon} size="button" />{V.word}</p>
+            {/* WP-109: the same words as the first screen and the list badge */}
+            <p className="m-0 text-body font-semibold" data-form-word>{word}</p>
             <p className="m-0 text-body font-semibold">{linesSummary(result.lines)}</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {result.lines.map((l) => (

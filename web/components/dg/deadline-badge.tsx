@@ -60,6 +60,8 @@ export function DeadlineBadge({ deadline, info, opening, size = 'md', className,
         <span className={cn('font-mono tabular-nums', lg ? 'text-mono-strong' : 'text-[12px] leading-4', t.date)}>
           Last cut-off <time dateTime={d.iso ?? undefined}>{d.utc}</time>
         </span>
+        {/* WP-109 (p09, EIC STEP): the cut-off held has passed and the source publishes no later one: said, not left to guess */}
+        <span className={cn('font-sans', lg ? 'text-small' : 'text-[12px] leading-4', t.date)} data-no-next-cutoff>That cut-off has passed; the source publishes no next one yet.</span>
       </div>
     );
   }

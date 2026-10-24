@@ -723,7 +723,7 @@ def list_calls(
     """
     from .funding import EFFECTIVE_STATUS
 
-    where: list[str] = ["NOT c.suppressed"]
+    where: list[str] = ["NOT c.suppressed AND NOT c.out_of_scope"]   # WP-109: migration 0121
     params: list[Any] = []
     if status == "evaluated":       # the source's own word; the effective status calls it closed
         where.append("c.status = 'evaluated'")

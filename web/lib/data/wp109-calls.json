@@ -1,0 +1,1041 @@
+{
+ "about": "WP-109: what production served on 24 October 2026 for the calls of the round-4 findings (GET /v1/funding/<id>, read-only): the document's facts and the programme's rules evaluated per group of countries (rulesApply.byCountry, forCompany); the rule texts are left out.",
+ "calls": {
+  "114": {
+   "id": "114",
+   "programme": "EDIP",
+   "topicId": "EDF-EDIP-P-2026-2027-FNLC-SA-SEAP",
+   "title": "Support for the functioning of SEAPs, including  for the purpose of establishing, managing and maintaining defence industrial readiness pools",
+   "facts": {
+    "entity_types": {
+     "value": [
+      "Established SEAP",
+      "SEAP in the process of being established, with an application for establishment already submitted to the Commission"
+     ],
+     "note": null,
+     "quote": "be an established SEAP within the meaning of Articles 40 to 51 of the EDIP Regulation, with at least 3 members from EU Member States, EDIP associated countries or Ukraine, of which at least 2 must be EU Member States (or a SEAP which is in the process of being established, with an application for the establishment of a SEAP already submitted to the Commission).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "funding_rate": {
+     "value": "Variable; no percentage rate stated.",
+     "note": "The call describes a fixed grant contribution calculated by SEAP membership, rather than stating a percentage.",
+     "quote": "Funding rate: variable (depending on the number of participating EU Member States and EDIP associated countries which are members of the SEAP)",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "min_entities": {
+     "value": 3,
+     "note": "This is the minimum number of SEAP members; the grant application itself is a single application by the SEAP.",
+     "quote": "The SEAP must have at least 3 members from EU Member States, EDIP associated countries or Ukraine, of which at least 2 must be EU Member States.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "cascade_funding": {
+     "value": false,
+     "note": null,
+     "quote": "Financial support to third parties (FSTP) is not allowed.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "eligible_countries": {
+     "value": "EU Member States, EDIP associated countries, and Ukraine",
+     "note": "At least 2 SEAP members must be from EU Member States.",
+     "quote": "The SEAP must have at least 3 members from EU Member States, EDIP associated countries or Ukraine, of which at least 2 must be EU Member States.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "consortium_required": {
+     "value": false,
+     "note": "Applications are single only: Only a SEAP may submit a single application. The minimum of 3 is the applicant's own membership, not a consortium.",
+     "quote": "Only single applications by a SEAP are allowed.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "natural_persons_allowed": {
+     "value": false,
+     "note": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+     "quote": "Natural persons are NOT eligible (with the exception of self -employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "single_applicant_allowed": {
+     "value": true,
+     "note": "Only a SEAP may submit a single application.",
+     "quote": "Only single applications by a SEAP are allowed.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "EDIP",
+     "name": "European Defence Industry Programme",
+     "why": "The topic code starts with EDF-EDIP-P-: an EDIP call, which the portal files under the EDF."
+    },
+    "encoded": true,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": {
+     "EU": [
+      {
+       "rule": "EDIP-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "EDIP-ESTABLISH",
+       "title": "Established in the Union or an associated country",
+       "outcome": "met",
+       "asks": [],
+       "reason": "Your company is established in an EU Member State."
+      },
+      {
+       "rule": "EDIP-EXEC-MGMT",
+       "title": "Executive management in the Union or an associated country",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      }
+     ],
+     "EEA_EFTA": [
+      {
+       "rule": "EDIP-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "EDIP-ESTABLISH",
+       "title": "Established in the Union or an associated country",
+       "outcome": "conditional",
+       "asks": [],
+       "reason": "Your company is established in an EEA EFTA state. These count as associated countries of the Programme only if they apply the Regulation in accordance with the EEA Agreement. Check whether yours does."
+      },
+      {
+       "rule": "EDIP-EXEC-MGMT",
+       "title": "Executive management in the Union or an associated country",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      }
+     ],
+     "UA": [
+      {
+       "rule": "EDIP-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "EDIP-ESTABLISH",
+       "title": "Established in the Union or an associated country",
+       "outcome": "not_met",
+       "asks": [],
+       "reason": "Your company is established outside the EU and the EEA EFTA states. Under the EDIP Programme, recipients must be established in the Union or in an associated country. Ukraine is not an associated country of the Programme; Ukrainian companies are covered by the Ukraine Support Instrument, which has its own card."
+      },
+      {
+       "rule": "EDIP-EXEC-MGMT",
+       "title": "Executive management in the Union or an associated country",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      }
+     ],
+     "OTHER": [
+      {
+       "rule": "EDIP-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "EDIP-ESTABLISH",
+       "title": "Established in the Union or an associated country",
+       "outcome": "not_met",
+       "asks": [],
+       "reason": "Your company is established outside the EU and the EEA EFTA states. Under the EDIP Programme, recipients must be established in the Union or in an associated country. Ukraine is not an associated country of the Programme; Ukrainian companies are covered by the Ukraine Support Instrument, which has its own card."
+      },
+      {
+       "rule": "EDIP-EXEC-MGMT",
+       "title": "Executive management in the Union or an associated country",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      }
+     ]
+    },
+    "forCompany": [
+     {
+      "rule": "EDIP-SEAP-APPLICANT",
+      "title": "Who may apply: an established SEAP",
+      "outcome": "not_met",
+      "asks": [],
+      "reason": "This call is for support to the functioning of SEAPs, and the call document admits only a SEAP as applicant. A company, a research body, a contracting authority or an international organisation cannot apply to it. A SEAP can have members from Ukraine, which does not make a Ukrainian entity an applicant."
+     }
+    ]
+   }
+  },
+  "118": {
+   "id": "118",
+   "programme": "EDIP-USI",
+   "topicId": "EDF-EDIP-USI-2026-LS-IRA-MAB",
+   "title": "Missiles, ammunition and bombs",
+   "facts": {
+    "sme_only": {
+     "value": false,
+     "note": null,
+     "quote": "be legal entities (public or private bodies)",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "entity_types": {
+     "value": [
+      "legal entities (public bodies)",
+      "legal entities (private bodies)"
+     ],
+     "note": "Entities without legal personality may exceptionally participate if the stated conditions are met. International organisations are eligible only if their members are exclusively EU Member States or Ukraine and their executive management structure is in a Member State or Ukraine.",
+     "quote": "be legal entities (public or private bodies)",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "funding_rate": {
+     "value": "100%",
+     "note": null,
+     "quote": "Industrial Reinforcement Actions (USI IRA) are managed as lump sum contributions on the basis of an estimated project budget where the activities will be reimbursed at the funding rate that applies to USI Industrial Reinforcement Actions (100%).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "min_entities": {
+     "value": 1,
+     "note": "For proposals including activities within the meaning of Article 12(1)(d) where no SEAP participates, at least 3 independent entities are required; only beneficiaries count.",
+     "quote": "Single applicants or consortia may apply.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "min_countries": {
+     "value": 1,
+     "note": "This is the minimum for the topic; consortia must include at least one legal entity established and having its executive management structures in Ukraine.",
+     "quote": "If a single applicant, it must be a legal entity established and having its executive management structure in Ukraine.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "cascade_funding": {
+     "value": false,
+     "note": null,
+     "quote": "Financial support to third parties (FSTP) is not allowed.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "eligible_countries": {
+     "value": "EU Member States (including overseas countries and territories (OCTs)) and Ukraine",
+     "note": "Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding.",
+     "quote": "be established in one of the eligible countries, i.e.: − EU Member States (including overseas countries and territories (OCTs)) − non-EU countries: − Ukraine",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "consortium_required": {
+     "value": false,
+     "note": null,
+     "quote": "Single applicants or consortia may apply.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "natural_persons_allowed": {
+     "value": false,
+     "note": "Exception: self-employed persons (sole traders) whose company has no legal personality separate from the natural person.",
+     "quote": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "single_applicant_allowed": {
+     "value": true,
+     "note": "A single applicant must be a legal entity established and having its executive management structure in Ukraine.",
+     "quote": "Single applicants or consortia may apply.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "ownership_control_restriction": {
+     "value": true,
+     "note": "The eligibility section specifies control by a non-associated third country other than Ukraine or by a non-associated third-country entity; exemptions or approved guarantees, including adequate FDI-screening mitigation measures, may apply.",
+     "quote": "Thus, for the purposes of participating in EDIP actions, beneficiaries and affiliated entities must not be subject to control by a non -associated third country or non -associated third -country entity and undergo an ownership control assessment procedure (template*) before grant signature.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "EDIP-USI",
+     "name": "EDIP Ukraine Support Instrument",
+     "why": "The topic code starts with EDF-EDIP-USI-: a call of the Ukraine Support Instrument, which the portal files under the EDF."
+    },
+    "encoded": true,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": {
+     "EU": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "met",
+       "asks": [],
+       "reason": "Your company is established in an EU Member State or in Ukraine."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_partner"
+       ],
+       "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
+      }
+     ],
+     "EEA_EFTA": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "not_met",
+       "asks": [],
+       "reason": "Your company is established outside the EU and Ukraine. Under the Ukraine Support Instrument, recipients must be established in the Union or in Ukraine. EEA EFTA states are not named in this Article."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_partner"
+       ],
+       "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
+      }
+     ],
+     "UA": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "met",
+       "asks": [],
+       "reason": "Your company is established in an EU Member State or in Ukraine."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-TERRITORY",
+       "title": "Not established in a non-government controlled area of Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_non_government_controlled_area"
+       ],
+       "reason": "Say whether your company is established in an area of Ukraine that the Ukrainian government does not control."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "met",
+       "asks": [],
+       "reason": "The action involves a legal entity established in Ukraine: your company, if it is established there, or the partner you named in your planned consortium. Its executive management structure must be in Ukraine too (see the rule on executive management)."
+      }
+     ],
+     "OTHER": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "not_met",
+       "asks": [],
+       "reason": "Your company is established outside the EU and Ukraine. Under the Ukraine Support Instrument, recipients must be established in the Union or in Ukraine. EEA EFTA states are not named in this Article."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_partner"
+       ],
+       "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
+      }
+     ]
+    },
+    "forCompany": []
+   }
+  },
+  "131": {
+   "id": "131",
+   "programme": "HORIZON",
+   "topicId": "HORIZON-EIC-2026-DEFENCE-01",
+   "title": "EIC defence call",
+   "facts": {
+    "sme_only": {
+     "value": false,
+     "note": "Stated in this topic's own conditions. Small mid-caps are also eligible.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "entity_types": {
+     "value": [
+      "SME company",
+      "Small mid-cap company (up to 499 employees)"
+     ],
+     "note": "Stated in this topic's own conditions. An investor may submit a proposal on behalf of an eligible SME or small mid-cap, provided a prior agreement exists with the company.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "min_entities": {
+     "value": 1,
+     "note": "Stated in this topic's own conditions.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "consortium_required": {
+     "value": false,
+     "note": "Stated in this topic's own conditions.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "investor_precommitment": {
+     "value": true,
+     "note": "The pre-commitment comes from a single qualified investor, for an equity investment; below 20 % of the round the proposal is ineligible.",
+     "quote": "The pre-commitment represents at least 20% of the total target funding round you are aiming to raise.",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "natural_persons_allowed": {
+     "value": false,
+     "note": "The listed applicants are companies or investors applying on behalf of an eligible company; natural persons are not listed.",
+     "quote": "The following entities are eligible to apply:",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "single_applicant_allowed": {
+     "value": true,
+     "note": "Stated in this topic's own conditions.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "eligible_countries": {
+     "value": "Union, Ukraine, or an EEA member associated to Horizon Europe",
+     "note": "Stated in this topic's own conditions.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established in the Union, in Ukraine or in an EEA member associated to Horizon Europe202 (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "ownership_control_restriction": {
+     "value": true,
+     "note": "Stated in this topic's own conditions. Applicants controlled by such a third country must provide guarantees; failure to provide them can result in the application being deemed non-eligible.",
+     "quote": "Should the applicant consider to be directly or indirectly controlled by a third country other than Ukraine or an EEA member associated to Horizon Europe or by legal entities of such a third country then the following steps should be taken:",
+     "confidence": 0.9,
+     "scope": "topic"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "HORIZON",
+     "name": "Horizon Europe",
+     "why": "A Horizon Europe call: its eligibility rules are in the work programme annexes and the topic, and no Horizon rules are encoded here."
+    },
+    "encoded": false,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": null,
+    "forCompany": null
+   }
+  },
+  "39": {
+   "id": "39",
+   "programme": "HORIZON",
+   "topicId": "HORIZON-CL3-2026-01-BM-01",
+   "title": "Advanced border surveillance and situational awareness",
+   "facts": {
+    "sme_only": {
+     "value": false,
+     "note": "General rule of the work programme annexes; the topic or the type of action may add or change it.",
+     "quote": "Any legal entity, regardless of its place of establishment, including legal entities from nonassociated third countries or international organisations (including international European research organisations) is eligible to participate (whether it is eligible for funding or not)",
+     "confidence": 1.0,
+     "scope": "general"
+    },
+    "entity_types": {
+     "value": [
+      "Natural persons who qualify as legal entities under applicable law",
+      "Legal persons",
+      "Entities without legal personality, exceptionally and subject to conditions"
+     ],
+     "note": "General rule of the work programme annexes; the topic or the type of action may add or change it. Entities without legal personality may participate only exceptionally, if their representatives can undertake legal obligations on their behalf and they provide equivalent safeguards for the EU’s financial interests.",
+     "quote": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name , exercise rights and be subject to obligations, or an entity without legal personality.",
+     "confidence": 1.0,
+     "scope": "general"
+    },
+    "funding_rate": {
+     "value": "Maximum rates listed: RIA 100%; IA 70% (up to 100% for non-profit legal entities); CSA 100%; CoFund 30–70%; IMDA 70% (up to 100% for non-profit legal entities); TMA 100%; PCP 100%; PPI 50%.",
+     "note": "General rule of the work programme annexes; the topic or the type of action may add or change it. These are action-type maximums; the rate for a grant is fixed in the specific call/topic conditions and the grant agreement.",
+     "quote": "The maximum Horizon Europe funding rates are as follows:",
+     "confidence": 0.8,
+     "scope": "general"
+    },
+    "eligible_countries": {
+     "value": "EU Member States or Associated countries",
+     "note": "Stated in this topic's own conditions. Applies to the required Border or Coast Guard Authority beneficiaries; broader country eligibility rules are not stated.",
+     "quote": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries.",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "natural_persons_allowed": {
+     "value": true,
+     "note": "General rule of the work programme annexes; the topic or the type of action may add or change it. Natural persons are included when they meet the stated legal-entity definition.",
+     "quote": "A ‘legal entity’ means any natural or legal person created and recognised as such under national law, EU law or international law, which has legal personality and which may, acting in its own name , exercise rights and be subject to obligations, or an entity without legal personality.",
+     "confidence": 1.0,
+     "scope": "general"
+    },
+    "required_partners": {
+     "value": "at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries, as beneficiaries",
+     "note": null,
+     "quote": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries.",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "min_entities": {
+     "value": 3,
+     "note": "General rule of the work programme annexes; the topic or the type of action may add or change it. For research and innovation actions the general rule is three independent legal entities from three countries. The topic's own conditions add: This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries.",
+     "quote": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes, as beneficiaries, three legal entities independent from each other and each established in a different country as follows:",
+     "confidence": 1.0,
+     "scope": "general"
+    },
+    "min_countries": {
+     "value": 3,
+     "note": "General rule of the work programme annexes; the topic or the type of action may add or change it. For research and innovation actions the general rule is three independent legal entities from three countries. The topic's own conditions add: This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries.",
+     "quote": "Unless otherwise provided for in the specific call/topic conditions, only legal entities forming a consortium are eligible to participate in actions provided that the consortium includes, as beneficiaries, three legal entities independent from each other and each established in a different country as follows:",
+     "confidence": 1.0,
+     "scope": "general"
+    },
+    "consortium_required": {
+     "value": true,
+     "note": "Stated in this topic's own conditions.",
+     "quote": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries.",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "single_applicant_allowed": {
+     "value": false,
+     "note": "Stated in this topic's own conditions.",
+     "quote": "This topic requires the active involvement, as beneficiaries, of at least 2 Border or Coast Guard Authorities from at least 2 different EU Member States or Associated countries.",
+     "confidence": 1.0,
+     "scope": "topic"
+    },
+    "ownership_control_restriction": {
+     "value": true,
+     "note": "Stated in this topic's own conditions. Entities established in an eligible country but directly or indirectly controlled by China, or by a legal entity established in China, are excluded.",
+     "quote": "In line with the “ restriction on control in innovation actions in critical technology areas ” delineated in General Annex B of the General Annexes, entities established in an eligible country but which are directly or indirectly controlled by China or by a legal entity established in China are not eligible to participate in the action.",
+     "confidence": 1.0,
+     "scope": "topic"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "HORIZON",
+     "name": "Horizon Europe",
+     "why": "A Horizon Europe call: its eligibility rules are in the work programme annexes and the topic, and no Horizon rules are encoded here."
+    },
+    "encoded": false,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": null,
+    "forCompany": null
+   }
+  },
+  "25": {
+   "id": "25",
+   "programme": "HORIZON",
+   "topicId": "HORIZON-EIC-2026-STEP",
+   "title": "EIC STEP Scale Up",
+   "facts": {
+    "sme_only": {
+     "value": false,
+     "note": "Small mid-caps are also eligible.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established within a Member State or an Associated Country (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "entity_types": {
+     "value": [
+      "SMEs",
+      "Small mid-caps",
+      "Investors applying on behalf of an eligible SME or small mid-cap, with a prior agreement"
+     ],
+     "note": null,
+     "quote": "An investor may submit a proposal on behalf of an eligible SME or small midcap as defined above, provided that a prior agreement exists with the company.",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "funding_rate": {
+     "value": "Equity-only investment; no grant component",
+     "note": null,
+     "quote": "The support will be in the form of equity-only investments managed by the EIC Fund.",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "min_entities": {
+     "value": 1,
+     "note": null,
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established within a Member State or an Associated Country (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "min_countries": {
+     "value": 1,
+     "note": "The call permits one applicant company established in one eligible country; it does not state a separate consortium country minimum.",
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established within a Member State or an Associated Country (see Annex 2).",
+     "confidence": 0.75,
+     "scope": "programme"
+    },
+    "eligible_countries": {
+     "value": "EU Member States and Associated Countries",
+     "note": null,
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established within a Member State or an Associated Country (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "consortium_required": {
+     "value": false,
+     "note": null,
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established within a Member State or an Associated Country (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "investor_precommitment": {
+     "value": true,
+     "note": "The pre-commitment comes from a single qualified investor, for an equity investment; below 20 % of the round the proposal is ineligible.",
+     "quote": "The pre-commitment represents at least 20% of the total target funding round you are aiming to raise.",
+     "confidence": 1.0,
+     "scope": "programme"
+    },
+    "single_applicant_allowed": {
+     "value": true,
+     "note": null,
+     "quote": "A single company classified as a SME or small mid-cap (up to 499 employees) established within a Member State or an Associated Country (see Annex 2).",
+     "confidence": 1.0,
+     "scope": "programme"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "HORIZON",
+     "name": "Horizon Europe",
+     "why": "A Horizon Europe call: its eligibility rules are in the work programme annexes and the topic, and no Horizon rules are encoded here."
+    },
+    "encoded": false,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": null,
+    "forCompany": null
+   }
+  },
+  "179": {
+   "id": "179",
+   "programme": "NATIONAL",
+   "topicId": "appel-projet-cyber-defense-factory",
+   "title": "Appel à projet pour la « Cyber Defense Factory »",
+   "facts": {
+    "staff_nationality": {
+     "value": "French",
+     "note": "Only staff of French nationality may submit the application and contribute to the project.",
+     "quote": "",
+     "confidence": 1.0,
+     "scope": "call_document"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "NATIONAL",
+     "name": "National programme",
+     "why": "A national call: its rules are the national funder's, and none are encoded here."
+    },
+    "encoded": false,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": null,
+    "forCompany": null
+   }
+  },
+  "113": {
+   "id": "113",
+   "programme": "EDIP-USI",
+   "topicId": "EDF-EDIP-USI-2027-LS-IRA-CUXS",
+   "title": "Unmanned systems and counter-unmanned systems",
+   "facts": {
+    "sme_only": {
+     "value": false,
+     "note": null,
+     "quote": "be legal entities (public or private bodies)",
+     "confidence": 0.8,
+     "scope": "call_document"
+    },
+    "entity_types": {
+     "value": [
+      "Public bodies",
+      "Private bodies"
+     ],
+     "note": null,
+     "quote": "be legal entities (public or private bodies)",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "funding_rate": {
+     "value": "100%",
+     "note": null,
+     "quote": "Industrial Reinforcement Actions (USI IRA) are managed as lump sum contributions on the basis of an estimated project budget where the activities will be reimbursed at the funding rate that applies to USI Industrial Reinforcement Actions (100%).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "min_entities": {
+     "value": 1,
+     "note": null,
+     "quote": "If a single applicant, it must be a legal entity established and having its executive management structure in Ukraine.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "min_countries": {
+     "value": 1,
+     "note": null,
+     "quote": "If a single applicant, it must be a legal entity established and having its executive management structure in Ukraine.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "cascade_funding": {
+     "value": false,
+     "note": null,
+     "quote": "Financial support to third parties (FSTP) is not allowed.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "eligible_countries": {
+     "value": "EU Member States (including overseas countries and territories (OCTs)); Ukraine",
+     "note": "Legal entities established in the non-government controlled areas of Ukraine are not eligible for funding.",
+     "quote": "be established in one of the eligible countries, i.e.: − EU Member States (including overseas countries and territories (OCTs)) − non-EU countries: − Ukraine",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "consortium_required": {
+     "value": false,
+     "note": null,
+     "quote": "Single applicants or consortia may apply.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "natural_persons_allowed": {
+     "value": false,
+     "note": "Exception: self-employed persons (sole traders) may apply where the company does not have legal personality separate from the natural person.",
+     "quote": "Natural persons are NOT eligible (with the exception of self-employed persons, i.e. sole traders, where the company does not have legal personality separate from that of the natural person).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "single_applicant_allowed": {
+     "value": true,
+     "note": "The single applicant must be established and have its executive management structure in Ukraine.",
+     "quote": "If a single applicant, it must be a legal entity established and having its executive management structure in Ukraine.",
+     "confidence": 1.0,
+     "scope": "call_document"
+    },
+    "ownership_control_restriction": {
+     "value": true,
+     "note": "Exceptions may apply under Article 26(9) of the EDIP Regulation or where approved guarantees, including adequate FDI-screening mitigation measures, are provided.",
+     "quote": "not be subject to control by a non-associated third country other than Ukraine or by a non-associated third-country entity (unless they are exempted under Article 26(9) of the EDIP Regulation or provide guarantees, including adequate mitigation measures pursuant to a FDI screening, approved by the EU Member State where they are established; see Annex 2).",
+     "confidence": 1.0,
+     "scope": "call_document"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "EDIP-USI",
+     "name": "EDIP Ukraine Support Instrument",
+     "why": "The topic code starts with EDF-EDIP-USI-: a call of the Ukraine Support Instrument, which the portal files under the EDF."
+    },
+    "encoded": true,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": {
+     "EU": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "met",
+       "asks": [],
+       "reason": "Your company is established in an EU Member State or in Ukraine."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_partner"
+       ],
+       "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
+      }
+     ],
+     "EEA_EFTA": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "not_met",
+       "asks": [],
+       "reason": "Your company is established outside the EU and Ukraine. Under the Ukraine Support Instrument, recipients must be established in the Union or in Ukraine. EEA EFTA states are not named in this Article."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_partner"
+       ],
+       "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
+      }
+     ],
+     "UA": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "met",
+       "asks": [],
+       "reason": "Your company is established in an EU Member State or in Ukraine."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-TERRITORY",
+       "title": "Not established in a non-government controlled area of Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_non_government_controlled_area"
+       ],
+       "reason": "Say whether your company is established in an area of Ukraine that the Ukrainian government does not control."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "met",
+       "asks": [],
+       "reason": "The action involves a legal entity established in Ukraine: your company, if it is established there, or the partner you named in your planned consortium. Its executive management structure must be in Ukraine too (see the rule on executive management)."
+      }
+     ],
+     "OTHER": [
+      {
+       "rule": "USI-LEGAL-ENTITY",
+       "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
+       "outcome": "unknown",
+       "asks": [
+        "legal_form"
+       ],
+       "reason": "Say what legal form your organisation has: a legal person (for example a company), a natural person (for example a sole trader), or an entity without legal personality."
+      },
+      {
+       "rule": "USI-ESTABLISH",
+       "title": "Established in the Union or in Ukraine",
+       "outcome": "not_met",
+       "asks": [],
+       "reason": "Your company is established outside the EU and Ukraine. Under the Ukraine Support Instrument, recipients must be established in the Union or in Ukraine. EEA EFTA states are not named in this Article."
+      },
+      {
+       "rule": "USI-EXEC-MGMT",
+       "title": "Executive management in the Union or in Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "executive_management_country"
+       ],
+       "reason": "Say where your company's executive management structures are established."
+      },
+      {
+       "rule": "USI-INVOLVES-UA",
+       "title": "The action involves Ukraine",
+       "outcome": "unknown",
+       "asks": [
+        "ua_partner"
+       ],
+       "reason": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
+      }
+     ]
+    },
+    "forCompany": []
+   }
+  },
+  "188": {
+   "id": "188",
+   "programme": "NATIONAL",
+   "topicId": "rapid-regime-dappui-linnovation-duale",
+   "title": "RAPID (Régime d’APpui à l’Innovation Duale)",
+   "facts": {
+    "max_group_headcount": {
+     "value": 1999,
+     "note": "The consolidated staff count, counted with the group, must be under 2000.",
+     "quote": "",
+     "confidence": 1.0,
+     "scope": "call_document"
+    }
+   },
+   "rulesApply": {
+    "regime": {
+     "code": "NATIONAL",
+     "name": "National programme",
+     "why": "A national call: its rules are the national funder's, and none are encoded here."
+    },
+    "encoded": false,
+    "rules": [],
+    "alsoRead": null,
+    "notice": "",
+    "byCountry": null,
+    "forCompany": null
+   }
+  }
+ }
+}

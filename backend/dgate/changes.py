@@ -138,7 +138,7 @@ def funding_events(conn, *, countries: list[str], now: datetime | None = None,
     # calls published months ago: they are not news (V-B D1: 50 of W39's 74 had opened before the week).
     published_from = (since - timedelta(days=PUBLISHED_SLACK_DAYS)).date()
     first = conn.execute(
-        f"{CALL_SELECT} WHERE NOT c.suppressed AND c.first_seen_at >= %s"
+        f"{CALL_SELECT} WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.first_seen_at >= %s"
         f"{' AND c.first_seen_at < %s' if bounded else ''} "
         f"AND (COALESCE(c.published_at, c.opens_at) IS NULL OR COALESCE(c.published_at, c.opens_at) >= %s) "
         f"AND {EFFECTIVE_STATUS} <> 'closed'{country_sql}",
@@ -162,7 +162,7 @@ def funding_events(conn, *, countries: list[str], now: datetime | None = None,
         line["after"] = m["after_value"]
     if moved:
         rows = {r["id"]: r for r in conn.execute(
-            f"{CALL_SELECT} WHERE NOT c.suppressed AND c.id = ANY(%s){country_sql}",
+            f"{CALL_SELECT} WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.id = ANY(%s){country_sql}",
             [[cid for cid, _ in moved], *extra]).fetchall()}
         for (cid, day), slot in moved.items():
             if cid not in rows or (cid, day) in events:

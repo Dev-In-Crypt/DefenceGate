@@ -9,7 +9,7 @@ import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, funderLine, openingPhrase, isoDatesToSite } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { sourceDisplay } from '@/lib/source-status';
-import { buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
+import { absoluteUrl, buildMetadata, callJsonLd, meetsMinimumContent } from '@/lib/seo';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { JsonLd } from '@/components/dg/feedback';
 import { AlertsLine } from '@/components/dg/alerts-line';
@@ -31,7 +31,7 @@ import { Icon } from '@/components/dg/icon';
 import { FollowButton, SaveButton } from '@/components/account/save-button';
 import { LongText } from '@/components/funding/long-text';
 import { mergeSameText } from '@/lib/long-text';
-import { whatItFunds } from '@/lib/funding-path';
+import { otherTopicCode, whatItFunds } from '@/lib/funding-path';
 import { WHO_BADGE } from '@/lib/filters';
 import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
 
@@ -112,6 +112,7 @@ export default async function CallDetailPage({ params }: Props) {
   // Two rows with the same sentence ("Described in section 6 of the call document.") are one row.
   const whoRows = mergeSameText(who);
   const ukraine = ukraineSentence(call.openToUkraine, call.ukraineBasis?.reason);
+  const documentCode = otherTopicCode(call.topicId, Object.values(call.documentEligibility?.facts ?? {}).map((f) => `${f.quote ?? ''} ${f.note ?? ''}`).join(' '));
   const edip = call.rulesApply && (call.rulesApply.regime.code === 'EDIP' || call.rulesApply.regime.code === 'EDIP-USI') ? call.rulesApply.regime.name : null;
   // The parts of the page that are present, in order: the index links to them.
   // EDF and EDIP calls (the Ukraine Support Instrument's included: WP-91 labels them by their instrument) have readiness rules
@@ -162,9 +163,9 @@ export default async function CallDetailPage({ params }: Props) {
         {/* WP-92: the topic description's own Objective / Expected outcome, commercial sentences only (backend topic_summary.py) */}
         {call.fundsSummary ? (
           <div className="m-0 max-w-prose text-body" data-what-it-funds data-funds-summary>
-            <p className="m-0"><strong>What it funds:</strong> {call.fundsSummary}</p>
+            <p className="m-0"><strong>What it funds:</strong> <span lang={call.programme === 'NATIONAL' && nonEnglish ? call.titleLanguage : undefined}>{call.fundsSummary}</span></p>
             <p className="m-0 text-small text-ink-muted">
-              From the topic description{sourceUrl
+              {call.programme === 'NATIONAL' ? 'The agency’s own summary of the call, in its language' : 'From the topic description'}{sourceUrl
                 ? <>; <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="font-semibold">see the full text<span className="sr-only"> at {sourceDisplay(call.source.sourceName)} (opens in new tab)</span></a>.</>
                 : '.'}
             </p>
@@ -201,12 +202,15 @@ export default async function CallDetailPage({ params }: Props) {
                 )}
               </FactCell>
               {call.callId && <FactCell label="Call ID">{call.callId}</FactCell>}
-              <FactCell label={call.callId ? 'Topic ID' : 'Source ID'}>{call.topicId}</FactCell>
+              <FactCell label={call.callId ? 'Topic ID' : 'Source ID'}>
+                {call.topicId}
+                {documentCode && <span className="block font-sans text-small text-ink-muted" data-document-code>The call document writes it {documentCode}.</span>}
+              </FactCell>
               {/* WP-90: the deadline in the facts too, the way the badge states it (date only, or a time in UTC; a cut-off of a rolling call) */}
               <FactCell label={call.rolling ? 'Cut-off' : 'Deadline'}>
                 {call.deadline && d.iso
-                  ? <span className="font-sans" data-key-deadline>{d.utc}</span>
-                  : <span className="font-sans" data-key-deadline>Not stated</span>}
+                  ? <span className="font-sans" data-key-deadline>{d.utc}{d.rolling ? ' (passed; the source publishes no next cut-off yet)' : ''}</span>
+                  : <span className="font-sans" data-key-deadline>Not stated by the source</span>}
               </FactCell>
               <FactCell label="Opening date">
                 {call.openingDate
@@ -286,7 +290,7 @@ export default async function CallDetailPage({ params }: Props) {
         </Panel>
 
         {call.rulesApply && (
-          <Panel title="Rules that apply">
+          <Panel title="Rules that apply" className="print:hidden">
             <RulesApplyBlock block={call.rulesApply} canApplyPanel={canApply} />
           </Panel>
         )}
@@ -308,13 +312,13 @@ export default async function CallDetailPage({ params }: Props) {
         )}
 
         {call.documentEligibility ? (
-          <Panel title="Can you apply?">
+          <Panel title="Can you apply?" className="print:hidden">
             <EligibilityCheck facts={call.documentEligibility.facts} documentUrl={call.documentEligibility.documentUrl} readAt={formatDateUtc(call.documentEligibility.extractedAt)}
               basis={call.documentEligibility.basis} sources={call.documentEligibility.sources} callId={call.id} closed={closed}
-              ctx={{ programme: call.programme, topic: call.topicId }} />
+              ctx={{ programme: call.programme, topic: call.topicId }} rulesApply={call.rulesApply} />
           </Panel>
         ) : call.eligibilityState === 'not_read' ? (
-          <Panel title="Can you apply?">
+          <Panel title="Can you apply?" className="print:hidden">
             <p className="m-0 text-body">
               The rules for this call have not been read yet, so there is no verdict here. They are written
               {(call.eligibilitySources ?? []).some((s) => s.scope === 'general') ? ' in the work programme’s general annexes' : ' in the source’s documents'}
@@ -334,7 +338,7 @@ export default async function CallDetailPage({ params }: Props) {
           </Panel>
         ) : defenceFund && !closed ? (
           // EDF and EDIP calls have readiness rules even when no document was read (WP-29).
-          <Panel title="Can you apply?">
+          <Panel title="Can you apply?" className="print:hidden">
             <CallReadiness callId={call.id} />
           </Panel>
         ) : null}
@@ -372,7 +376,7 @@ export default async function CallDetailPage({ params }: Props) {
         </Panel>
 
         {documents.length > 0 && (
-          <Panel title="Official documents">
+          <Panel title="Official documents" className="print:hidden">
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {documents.map((d) => (
                 <li key={d.url}>
@@ -388,13 +392,17 @@ export default async function CallDetailPage({ params }: Props) {
 
         {call.conditionsText && (
           // The source's own text, unedited. Not prose of ours. The first ~600 characters are on the page, the whole text is one tap away.
-          <Card title="Conditions as published by the source" anchor="conditions" id="conditions-heading" className="scroll-mt-4">
+          <Card title="Conditions as published by the source" anchor="conditions" id="conditions-heading" className="scroll-mt-4 print:hidden">
             <LongText text={call.conditionsText} pre />
           </Card>
         )}
 
         <Panel title="Source and attribution">
           <SourceBadge source={call.source} />
+          {/* WP-109 (p09: a call page printed on 7 A4 pages): the print is the summary; the long parts stay on the page */}
+          <p className="m-0 hidden text-small print:block" data-print-note>
+            Printed summary. The rules that apply, the eligibility check and the source’s own conditions are on the page: {absoluteUrl(`/funding/${call.slug}`)}
+          </p>
         </Panel>
       </DetailLayout>
 
