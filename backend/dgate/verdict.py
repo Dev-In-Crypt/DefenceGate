@@ -60,7 +60,9 @@ def _worst(a: str, b: str) -> str:
     return "no" if "no" in (a, b) else "check" if "check" in (a, b) else "yes"
 
 
-_EXCEPTION = re.compile(r"guarantee|exempt|exception|unless|screening|derogat|approved by|china|high[- ]risk|only (?:applies|if|for)|limited to", re.I)
+# WP-102: "guarantees" (the route), not the verb of "In order to guarantee the protection of the strategic interests", with which every
+# Horizon Europe Article 22(5) clause begins: it turned "shall not participate" into "a way round exists" (CS-ECCC 34-37).
+_EXCEPTION = re.compile(r"guarantees|exempt|exception|unless|screening|derogat|approved by|china|high[- ]risk|only (?:applies|if|for)|limited to", re.I)
 _COVERS = {
     "sme": re.compile(r"legal entit|private|compan|enterprise|business|firm|industr|\bsmes?\b|start-?up|mid-?cap", re.I),
     "large": re.compile(r"legal entit|private|compan|enterprise|business|firm|industr", re.I),
@@ -68,7 +70,7 @@ _COVERS = {
     "university": re.compile(r"legal entit|universit|research|academi|\brtos?\b", re.I),
     "individual": re.compile(r"natural person|individual|sole trader", re.I),
 }
-_SMALL_ONLY = re.compile(r"\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?", re.I)
+_SMALL_ONLY = re.compile(r"(?<!non-)\bsmes?\b|\bsmall\b|\bmicro\b|\bmedium\b|mid-?\s?caps?", re.I)
 _LARGE = re.compile(r"\blarge\b", re.I)
 _MIDCAP = re.compile(r"mid-?\s?caps?", re.I)
 
@@ -227,10 +229,29 @@ _NAMED = [
     (r"north macedonia", "MK"), (r"\bgeorgia\b", "GE"), (r"\barmenia\b", "AM"), (r"\btunisia\b", "TN"), (r"faroe", "FO"), (r"bosnia", "BA"), (r"kosovo", "XK"),
 ]
 # The same list, with its sources, as web/lib/eligibility-check.ts ASSOCIATED.
+# WP-102: Horizon Europe from the Commission's list of participating countries (V4.2, 7 October 2026): the countries associated to the
+# entire programme (Japan, New Zealand, Korea and the United Kingdom are associated to parts of it and stay a question), and Liechtenstein,
+# which the list says does not intend to associate. The clauses are kept with the list (`ASSOCIATION_SOURCES`).
 ASSOCIATED = {
-    "HORIZON": {"name": "Horizon Europe", "yes": ["IS", "NO", "UA"], "no": []},
+    "HORIZON": {"name": "Horizon Europe", "yes": ["AL", "AM", "BA", "EG", "FO", "GE", "IS", "IL", "XK", "MD", "ME", "MK", "NO", "RS", "CH", "TN", "TR", "UA"],
+                "no": ["LI"]},
     "EDIP": {"name": "the EDIP Programme", "yes": ["NO"], "no": ["UA"]},
     "EDF": {"name": "the European Defence Fund", "yes": ["NO"], "no": []},
+}
+# WP-102: the primary-source clause each Horizon Europe entry rests on (the same in web/lib/eligibility-check.ts ASSOCIATION_SOURCES).
+HE_LIST_URL = "https://ec.europa.eu/info/funding-tenders/opportunities/docs/2021-2027/common/guidance/list-3rd-country-participation_horizon-euratom_en.pdf"
+ASSOCIATION_SOURCES = {
+    "HORIZON": {
+        "document": "EU Grants: List of participating countries (HE): V4.2 - 07.10.2026", "url": HE_LIST_URL,
+        "yes": "The association agreements with the following countries have now started to produce legal effects (either through provisional "
+               "application or their entry into force)",
+        # the entries of that list associated to the entire programme, as the list writes them
+        "listed": "Albania; Armenia; Bosnia and Herzegovina; Egypt (associated to the entire Programme for award procedures implementing Union "
+                  "budget for the year 2025 and onwards); Faroe Islands; Georgia; Iceland; Israel; Kosovo; Moldova; Montenegro; North Macedonia; "
+                  "Norway; Serbia; Switzerland (associated to the entire Programme for award procedures implementing Union budget for the year "
+                  "2025 and onwards); Tunisia; Türkiye; Ukraine",
+        "no": "Liechtenstein does not intend to associate to Horizon Europe.",
+    },
 }
 
 
@@ -325,15 +346,25 @@ def control_kind(way: str) -> str:
 
 
 def controller_eligible(c: dict[str, Any] | None, ctl: str, ctx: dict[str, str] | None) -> bool:
+    return controller_status(c, ctl, ctx) == "yes"
+
+
+def controller_status(c: dict[str, Any] | None, ctl: str, ctx: dict[str, str] | None) -> str:
+    """WP-102: 'yes' when every country the answer may mean is eligible under the call (Ukraine; the three EEA EFTA states), 'some' when
+    only some are (Horizon Europe: Iceland and Norway are associated, Liechtenstein is not), else 'no'."""
     if not c or ctl not in ("ua", "eea"):
-        return False
+        return "no"
     codes = ["UA"] if ctl == "ua" else ["IS", "LI", "NO"]
-    return all(country_status(c, code, ctx)[0] == "yes" for code in codes)
+    ok = [country_status(c, code, ctx)[0] == "yes" for code in codes]
+    return "yes" if all(ok) else "some" if any(ok) else "no"
 
 
 LINE_FACT = {"country": "eligible_countries", "sme": "sme_only", "person": "natural_persons_allowed", "consortium": "consortium_required",
              "control": "ownership_control_restriction", "entity": "entity_types", "designated": "designated_applicants",
-             "required": "required_partners", "investor": "investor_precommitment", "group": "max_group_headcount", "nationality": "staff_nationality"}
+             "required": "required_partners", "investor": "investor_precommitment", "group": "max_group_headcount", "nationality": "staff_nationality",
+             "cap": "non_sme_budget_cap", "single": "single_beneficiary_excludes", "procurement": "procurement_conflict"}
+# WP-102: the label of a designated-bodies line that leaves others a route as partners; the badge names it (fit_word)
+PARTNER_ONLY = "Only as a partner"
 
 
 def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None = None) -> dict[str, Any]:
@@ -359,7 +390,7 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
     if designated and p["country"]:
         who, note = _str(designated["value"]), own_note(designated)
         if re.search(r"partners?|in (?:a )?consortium with|may (?:also )?join", note, re.I):
-            lines.append(_line("designated", "Only these may apply", "check", f"Only {who} may apply; anybody else can take part only as a partner in a consortium with one. {note}", designated.get("quote")))
+            lines.append(_line("designated", PARTNER_ONLY, "check", f"Only {who} may apply; anybody else can take part only as a partner in a consortium with one. {note}", designated.get("quote")))
         else:
             lines.append(_line("designated", "Only these may apply", "check" if kind == "public" or org == "public" else "no",
                                f"Only {who} may apply. You are not eligible unless your organisation is one.", designated.get("quote")))
@@ -381,25 +412,34 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
 
     rule = size_rule(facts)
     sme = facts.get("sme_only")
-    if rule and (kind in ("university", "public") or (kind is None and org == "public")):
-        who = "A university" if kind == "university" else "A public body"
+    # WP-102: the form of the call page has no `kind`: its "university or research body" is not a company either
+    if rule and (kind in ("university", "public") or (not kind and org in ("public", "university"))):
+        who = "A university" if kind == "university" else "A public body" if org == "public" else "A university or a research body"
         lines.append(_line("sme", "Organisation size", "no", f"The call is for companies: {rule['words']}. {who} is not one.", rule["fact"].get("quote")))
+    elif rule and kind == "research" and size is not None and size[0] > 249:
+        # WP-102 (B13): a research organisation of 250 staff or more is no SME, and the small mid-cap route is for companies
+        lines.append(_line("sme", "Organisation size", "no", f"The call is for companies: {rule['words']}. A research organisation of {_staff(size)} staff is not an SME, and the small mid-cap route is for companies.", rule["fact"].get("quote")))
     elif rule and kind == "research":
         lines.append(_line("sme", "Organisation size", "check", f"The call is for companies: {rule['words']}. A research organisation may apply only if it is such an enterprise.", rule["fact"].get("quote")))
     elif rule and size is not None:
         lines.append(size_line(rule, size))
-    elif sme and org:
-        q = sme.get("quote")
-        if sme["value"] is True and org != "sme" and rule and rule["midcap"] and org == "large":
+    elif rule and org:
+        # no staff count (the form of the call page): the size class decides what it can. WP-102: never "not reserved for SMEs" where the call
+        # names only SMEs and small mid-caps (131).
+        q = rule["fact"].get("quote")
+        if org == "sme":
+            words = "The call is reserved for SMEs and you are one." if rule["limit"] == 249 else f"The call is for {rule['words']}, and you are an SME."
+            lines.append(with_note(_line("sme", "Organisation size", "yes", words, q), rule["fact"]))
+        elif org == "large" and rule["midcap"]:
             lines.append(_line("sme", "Organisation size", "check", f"The call is reserved for SMEs; a small mid-cap (up to 499 staff) may apply only on a condition: {rule['midcap']}", q))
-        elif sme["value"] is True and org != "sme":
-            lines.append(_line("sme", "Organisation size", "no", "The call is reserved for SMEs.", q))
-        elif sme["value"] is True:
-            lines.append(with_note(_line("sme", "Organisation size", "yes", "The call is reserved for SMEs and you are one.", q), sme))
-        elif org == "large" and small_kinds_only(facts):
+        elif org == "large" and rule["limit"] == 499:
             lines.append(_line("sme", "Organisation size", "check", f"The call names only these kinds of applicant: {'; '.join(small_kinds_only(facts) or [])}. It does not name a large company, so check your size class against the document before you go on.", q))
+        elif org == "large" or rule["limit"] == 249:
+            lines.append(_line("sme", "Organisation size", "no", "The call is reserved for SMEs.", q))
         else:
-            lines.append(with_note(_line("sme", "Organisation size", "yes", "The call is not reserved for SMEs.", q), sme))
+            lines.append(_line("sme", "Organisation size", "check", f"The call names only these kinds of applicant: {'; '.join(small_kinds_only(facts) or [])}. Check that you are one of them.", q))
+    elif sme and org:
+        lines.append(with_note(_line("sme", "Organisation size", "yes", "The call is not reserved for SMEs.", sme.get("quote")), sme))
 
     np_ = facts.get("natural_persons_allowed")
     if np_ and org == "individual":
@@ -419,7 +459,8 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
             way = f"{own.get('note') or ''} {q or ''}"
             ctl = p.get("controller") or ""
             ck = control_kind(way)
-            if controller_eligible(c, ctl, ctx):
+            from_eligible = controller_status(c, ctl, ctx)
+            if from_eligible == "yes":
                 where = "Ukraine" if ctl == "ua" else "an EEA EFTA state"
                 lines.append(_line("control", "Ownership control", "yes", f"The call restricts control from outside the eligible countries, and your company is controlled from {where}, which is eligible under it.", q))
             elif ck == "china_only" and ctl == "cn":
@@ -428,8 +469,11 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
                 lines.append(_line("control", "Ownership control", "yes", "The restriction concerns control by China only, and you said your company is controlled from another country.", q))
             elif ck == "china_no_guarantee" and ctl == "cn":
                 lines.append(_line("control", "Ownership control", "no", "Entities controlled from outside the eligible countries may take part only with guarantees, and the call says entities controlled by China cannot submit guarantees.", q))
+            elif from_eligible == "some":
+                # WP-102: an answer "an EEA EFTA state" where Iceland and Norway are eligible and Liechtenstein is not (Horizon Europe)
+                lines.append(_line("control", "Ownership control", "check", "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company.", q))
             elif _EXCEPTION.search(way):
-                tail = f": {own['note']}" if own.get("note") else ""
+                tail = f": {own_note(own)}" if own_note(own) else ""
                 lines.append(_line("control", "Ownership control", "check", f"The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction{tail}. Read it before you decide.", q))
             else:
                 lines.append(_line("control", "Ownership control", "no", "Entities controlled from outside the eligible countries are excluded, and the document names no exception.", q))
@@ -462,6 +506,16 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
     nationality = facts.get("staff_nationality")
     if nationality and p["country"]:
         lines.append(_line("nationality", "Nationality of the staff", "check", f"Only staff of {_str(nationality['value'])} nationality may submit the application and work on the project. Check that yours are.", nationality.get("quote")))
+    # WP-102: the composition rules a topic adds (read by rule_readings.py from the stated text, each with its sentence)
+    cap = facts.get("non_sme_budget_cap")
+    if cap and _num(cap["value"]) and p["country"] and (org == "large" or kind == "research"):
+        lines.append(_line("cap", "Share of the budget", "check", f"Non-SME industries and research and technology organisations may take part, but together within {_str(cap['value'])} % of the proposed budget.", cap.get("quote")))
+    single_no = facts.get("single_beneficiary_excludes")
+    if single_no and p["country"] and org == "large":
+        lines.append(_line("single", "Applying alone", "check", f"In a single-beneficiary project {_str(single_no['value'])} are not permitted: you can take part only in a consortium.", single_no.get("quote")))
+    procurement = facts.get("procurement_conflict")
+    if procurement and procurement["value"] is True and p["country"] and org != "public" and kind != "public":
+        lines.append(_line("procurement", "Procurement of innovation", "check", "The procurement is prepared and carried out by public procurers. Other entities may take part only in additional activities, and only without a conflict of interest with the procurement: a company that could bid in it cannot be a beneficiary.", procurement.get("quote")))
 
     settled = []
     for line in lines:
@@ -545,6 +599,9 @@ def fit_of(facts: dict[str, Any] | None, profile: dict[str, Any] | None, ctx: di
         lines.append(partner)
     if not lines:
         return unknown
+    if not facts.get("eligible_countries"):
+        # WP-102 (RAPID 188): a call whose rule on where applicants must be established was not read is never "eligible"
+        lines.append(_line("country", "Country", "check", "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this.", None))
     verdict = "yes"
     for x in lines:
         verdict = _worst(verdict, x["verdict"])
@@ -599,7 +656,9 @@ def applicant_fit(chip: str, topic: str, profile: dict[str, Any] | None) -> dict
     rule = _APPLICANTS.get(action or "")
     if not rule or not profile or not profile.get("country"):
         return None
-    kind = profile.get("applicant_kind") or ""
+    # WP-102 (p01, 112): a profile that says what the organisation is (a company, a university, a research body) without the applicant-kind
+    # answer is a company or research body for these rules, not an unanswered question
+    kind = profile.get("applicant_kind") or ("company_or_research" if profile.get("org_kind") in ("company", "university", "research") else "")
     if kind == "":
         return {"fit": "check", "because": [f"{rule['title']}: say what kind of organisation you are"]}
     if kind in rule["plain"]:
@@ -617,6 +676,8 @@ BLOCKED_AS = {
 }
 # WP-99: lib/fit.ts NO_UA_PARTNER
 NO_UA_PARTNER = "Not without a Ukrainian partner (you said none takes part)"
+# WP-102 (p05, 149): a call only designated bodies may apply to, others joining them as partners: said on the badge, not "nothing blocks you"
+PARTNER_ONLY_WORD = "Only as a partner of the bodies the call names"
 
 
 def _one_programme(a: dict[str, Any], steps: list[dict[str, Any]]) -> dict[str, Any]:
@@ -683,6 +744,8 @@ def fit_word(r: dict[str, Any]) -> str:
     if fit == "check":
         if NO_UA_PARTNER in r["conditions"]:
             return NO_UA_PARTNER
+        if any(x["label"] == PARTNER_ONLY for x in ((r.get("result") or {}).get("lines") or [])):
+            return PARTNER_ONLY_WORD
         n = condition_count(r)
         return f"Nothing known blocks you, {n} {'condition' if n == 1 else 'conditions'} to check" if n > 0 else "Nothing known blocks you"
     return "Eligible" if fit == "yes" else "Rules not read"

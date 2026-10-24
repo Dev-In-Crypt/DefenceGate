@@ -3273,7 +3273,7 @@
      "value": "French",
      "note": "Only staff of French nationality may submit the application and contribute to the project.",
      "quote": "",
-     "confidence": 1,
+     "confidence": 1.0,
      "scope": "call_document"
     }
    }
@@ -3287,7 +3287,7 @@
      "value": 1999,
      "note": "The consolidated staff count, counted with the group, must be under 2000.",
      "quote": "",
-     "confidence": 1,
+     "confidence": 1.0,
      "scope": "call_document"
     }
    }
@@ -6861,7 +6861,7 @@
   "P1|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Nothing known blocks you, 3 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -6885,6 +6885,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -7068,7 +7073,7 @@
   "P1|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -7131,26 +7136,36 @@
   "P1|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P1|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -7554,7 +7569,7 @@
   "P10|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Nothing known blocks you, 3 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -7578,6 +7593,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -7761,7 +7781,7 @@
   "P10|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -7824,26 +7844,36 @@
   "P10|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P10|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -8247,7 +8277,7 @@
   "P2|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Nothing known blocks you, 3 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -8271,6 +8301,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -8454,7 +8489,7 @@
   "P2|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -8517,26 +8552,36 @@
   "P2|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P2|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -8940,7 +8985,7 @@
   "P3|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Nothing known blocks you, 3 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -8964,6 +9009,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -9147,7 +9197,7 @@
   "P3|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -9210,26 +9260,36 @@
   "P3|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P3|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -9633,7 +9693,7 @@
   "P4|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 3 conditions to check",
+   "word": "Nothing known blocks you, 4 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -9657,6 +9717,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -9772,7 +9837,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Stated in this topic's own conditions. Applicants controlled by such a third country must provide guarantees; failure to provide them can result in the application being deemed non-eligible.. Read it before you decide."
+     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Applicants controlled by such a third country must provide guarantees; failure to provide them can result in the application being deemed non-eligible.. Read it before you decide."
     },
     {
      "key": "investor",
@@ -9891,7 +9956,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Stated in this topic's own conditions. Participation may be allowed if guarantees are positively assessed by the eligible country of establishment. Entities controlled by China or a legal entity established in China cannot submit guarantees.. Read it before you decide."
+     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Participation may be allowed if guarantees are positively assessed by the eligible country of establishment. Entities controlled by China or a legal entity established in China cannot submit guarantees.. Read it before you decide."
     },
     {
      "key": "consortium",
@@ -9903,26 +9968,36 @@
   "P4|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P4|188": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "check",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the whole group. Check your group's consolidated staff count."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -10354,6 +10429,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -10589,7 +10669,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Stated in this topic's own conditions. Participation may be allowed if guarantees are positively assessed by the eligible country of establishment. Entities controlled by China or a legal entity established in China cannot submit guarantees.. Read it before you decide."
+     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Participation may be allowed if guarantees are positively assessed by the eligible country of establishment. Entities controlled by China or a legal entity established in China cannot submit guarantees.. Read it before you decide."
     },
     {
      "key": "consortium",
@@ -10601,26 +10681,36 @@
   "P5|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P5|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -11025,7 +11115,7 @@
   "P6|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Nothing known blocks you, 3 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -11049,6 +11139,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -11232,7 +11327,7 @@
   "P6|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -11295,26 +11390,36 @@
   "P6|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P6|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -11612,7 +11717,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Entities that do not meet this requirement may exceptionally participate if they have undergone FDI screening with adequate measures, or provide guarantees approved by the EU Member State or EDIP associated country where they are established.. Read it before you decide."
+     "reason": "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company."
     },
     {
      "key": "consortium",
@@ -11649,7 +11754,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Entities that do not meet this requirement may exceptionally participate if they have undergone FDI screening with adequate measures or provide guarantees approved by the country where they are established.. Read it before you decide."
+     "reason": "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company."
     },
     {
      "key": "consortium",
@@ -11719,7 +11824,7 @@
   "P7|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 3 conditions to check",
+   "word": "Nothing known blocks you, 4 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -11743,6 +11848,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -11859,7 +11969,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Stated in this topic's own conditions. Applicants controlled by such a third country must provide guarantees; failure to provide them can result in the application being deemed non-eligible.. Read it before you decide."
+     "reason": "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company."
     },
     {
      "key": "investor",
@@ -11927,7 +12037,7 @@
   "P7|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 3 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -11978,7 +12088,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Stated in this topic's own conditions. Participation may be allowed if guarantees are positively assessed by the eligible country of establishment. Entities controlled by China or a legal entity established in China cannot submit guarantees.. Read it before you decide."
+     "reason": "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company."
     },
     {
      "key": "consortium",
@@ -11990,26 +12100,36 @@
   "P7|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P7|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -12099,7 +12219,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Entities may exceptionally participate if they meet the stated FDI-screening or guarantee conditions.. Read it before you decide."
+     "reason": "The call restricts control from outside the eligible countries, and only some of the EEA EFTA states are eligible under it: check which one controls your company."
     },
     {
      "key": "consortium",
@@ -12413,7 +12533,7 @@
   "P8|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Nothing known blocks you, 3 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -12437,6 +12557,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -12620,7 +12745,7 @@
   "P8|149": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 4 conditions to check",
+   "word": "Only as a partner of the bodies the call names",
    "conditions": [],
    "lines": [
     {
@@ -12683,13 +12808,18 @@
   "P8|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -12703,6 +12833,11 @@
      "key": "group",
      "verdict": "no",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and your answers give 2000 or more."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -13106,7 +13241,7 @@
   "P9|116": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 3 conditions to check",
+   "word": "Nothing known blocks you, 4 conditions to check",
    "conditions": [
     "European Defence Industry Programme (EDIP): the Programme: a condition or an answer is still open"
    ],
@@ -13130,6 +13265,11 @@
      "key": "consortium",
      "verdict": "check",
      "reason": "The call attaches a condition to the consortium: For proposals including activities within the meaning of Article 12(1)(d) of the EDIP Regulation, if no SEAP participates, a consortium of at least 3 independent entities from 2 different EU Member States is required. You said no SEAP takes part in your consortium."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
@@ -13245,7 +13385,7 @@
     {
      "key": "control",
      "verdict": "check",
-     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Stated in this topic's own conditions. Applicants controlled by such a third country must provide guarantees; failure to provide them can result in the application being deemed non-eligible.. Read it before you decide."
+     "reason": "The call restricts entities controlled from outside the eligible countries, but the document allows a way round or narrows the restriction: Applicants controlled by such a third country must provide guarantees; failure to provide them can result in the application being deemed non-eligible.. Read it before you decide."
     },
     {
      "key": "investor",
@@ -13376,26 +13516,36 @@
   "P9|179": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Nothing known blocks you, 2 conditions to check",
    "conditions": [],
    "lines": [
     {
      "key": "nationality",
      "verdict": "check",
      "reason": "Only staff of French nationality may submit the application and work on the project. Check that yours are."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },
   "P9|188": {
-   "fit": "yes",
-   "shown": "yes",
-   "word": "Eligible",
+   "fit": "check",
+   "shown": "check",
+   "word": "Nothing known blocks you, 1 condition to check",
    "conditions": [],
    "lines": [
     {
      "key": "group",
      "verdict": "yes",
      "reason": "The call is for companies with fewer than 2000 staff, counted with the group, and yours is within that."
+    },
+    {
+     "key": "country",
+     "verdict": "check",
+     "reason": "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this."
     }
    ]
   },

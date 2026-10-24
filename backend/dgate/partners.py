@@ -57,7 +57,8 @@ EVIDENCE_PER_PARTNER = 3
 # (call 118) and the sentence of a control restriction (call 45: "controlled by China") were left out, and the two disagreed.
 FIT_FACTS = ("eligible_countries", "entity_types", "sme_only", "natural_persons_allowed", "consortium_required",
              "min_entities", "min_countries", "ownership_control_restriction", "single_applicant_allowed",
-             "designated_applicants", "required_partners", "investor_precommitment", "max_group_headcount", "staff_nationality")
+             "designated_applicants", "required_partners", "investor_precommitment", "max_group_headcount", "staff_nationality",
+             "non_sme_budget_cap", "single_beneficiary_excludes", "procurement_conflict")    # WP-102
 
 _SAFE = re.compile(r"^[A-Z0-9-]{1,40}$")
 _YEAR = re.compile(r"^20\d\d$")

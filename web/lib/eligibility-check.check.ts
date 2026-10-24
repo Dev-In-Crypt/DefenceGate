@@ -122,7 +122,10 @@ assert.equal(lines131.find((l) => l.key === 'sme')!.verdict, 'check');
 assert.doesNotMatch(lines131.find((l) => l.key === 'sme')!.reason, /not reserved for SMEs/);
 assert.match(lines131.find((l) => l.key === 'sme')!.reason, /SME company; Small mid-cap company \(up to 499 employees\).*does not name a large company/);
 assert.equal(check(smeKinds, largeCo).verdict, 'check');
-assert.equal(check(smeKinds, base).lines.find((l) => l.key === 'sme')!.reason, 'The call is not reserved for SMEs.', 'an SME is unaffected');
+// WP-102 (p05, p08, p09 on 131): an SME on a call for SMEs and small mid-caps is told so, never "not reserved for SMEs"
+assert.equal(check(smeKinds, base).lines.find((l) => l.key === 'sme')!.reason, 'The call is for SMEs and small mid-caps (up to 499 staff), and you are an SME.', 'an SME is covered');
+assert.equal(check(smeKinds, base).lines.find((l) => l.key === 'sme')!.verdict, 'yes');
+assert.equal(check(smeKinds, { ...base, orgType: 'university' }).lines.find((l) => l.key === 'sme')!.verdict, 'no', 'the form: a university or research body is no company');
 assert.equal(check(edf, largeCo).lines.find((l) => l.key === 'sme')!.reason, 'The call is not reserved for SMEs.', 'a call with no list of small kinds is unaffected');
 assert.equal(check({ ...edf, entity_types: q(['SME company', 'Large company'], 'q') }, largeCo).lines.find((l) => l.key === 'sme')!.verdict, 'yes', 'a list that names large companies');
 // V3-B: a note that describes a way round the ownership restriction is no condition on a company that is not controlled from outside.

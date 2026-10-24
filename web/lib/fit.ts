@@ -15,7 +15,7 @@
  * (a legal entity established in Ukraine, a SEAP): a condition of exactly those two kinds is met by the answer, and only then is the
  * line "yes". Without the answer, or with another condition on partners, it stays "check".
  */
-import { BAND_RANGE, EU27, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
+import { BAND_RANGE, EU27, PARTNER_ONLY, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
 import { controlCountryOf, managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
 import { plural } from './format';
@@ -115,6 +115,8 @@ export function fitOf(facts: EligibilityFacts | null | undefined, profile: Profi
   const partner = partnerLine(facts, cp);
   if (partner && !lines.some((l) => l.key === 'consortium')) lines.push(partner);
   if (lines.length === 0) return { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
+  // WP-102 (RAPID 188): a call whose rule on where applicants must be established was not read is never "eligible"
+  if (!facts.eligible_countries) lines.push({ key: 'country', label: 'Country', verdict: 'check', reason: "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this." });
   const verdict = lines.reduce<Verdict>((v, l) => (v === 'no' || l.verdict === 'no' ? 'no' : v === 'check' || l.verdict === 'check' ? 'check' : 'yes'), 'yes');
   const conditions: string[] = [];
   const n = facts.min_entities?.value;
@@ -179,7 +181,8 @@ export function applicantFit(chip: string, topic: string, profile: Profile | nul
   const action = actionOfCall(chip, topic);
   const rule = action ? APPLICANTS[action] : undefined;
   if (!rule || !profile || !profile.country) return null;
-  const kind = profile.applicantKind;
+  // WP-102 (p01, 112): a profile that says what the organisation is without the applicant-kind answer is a company or research body here
+  const kind: ApplicantKind | '' = profile.applicantKind || (['company', 'university', 'research'].includes(profile.orgKind) ? 'company_or_research' : '');
   if (kind === '') return { fit: 'check', because: [`${rule.title}: say what kind of organisation you are`] };
   if (rule.plain.includes(kind)) return { fit: 'yes', because: [] };
   // A contracting authority of a Member State is plainly one of those Article 11(2) names; of an EEA EFTA state or a group, a check.
@@ -209,6 +212,9 @@ export const BLOCKED_AS: Record<string, string> = {
  * those calls as "can only with a Ukrainian partner": a condition, not a block, but the badge says it first, never "nothing known blocks you".
  */
 export const NO_UA_PARTNER = 'Not without a Ukrainian partner (you said none takes part)';
+
+/** WP-102 (p05, 149): a call only designated bodies may apply to, others joining them as partners (backend/dgate/verdict.py PARTNER_ONLY_WORD). */
+export const PARTNER_ONLY_WORD = 'Only as a partner of the bodies the call names';
 
 function oneProgramme(a: ProgrammeAssessment, steps: RoadmapStep[]): ProgrammeFit {
   const fixable = new Set(steps.filter((s) => s.blockingFor.includes(a.programme)).map((s) => s.code));
@@ -307,6 +313,7 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
   }
   if (fit === 'check') {
     if (r.conditions.includes(NO_UA_PARTNER)) return { word: NO_UA_PARTNER, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
+    if (r.result?.lines.some((l) => l.label === PARTNER_ONLY)) return { word: PARTNER_ONLY_WORD, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
     const n = conditionCount(r);
     const word = n > 0 ? `Nothing known blocks you, ${n} ${n === 1 ? 'condition' : 'conditions'} to check` : 'Nothing known blocks you';
     return { word, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };

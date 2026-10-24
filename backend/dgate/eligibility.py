@@ -698,6 +698,8 @@ def _served_fact(fact: dict[str, Any], scope: str, name: str = "", topic_code: s
         # general consortium sentence is no fact of an action type the same annexes exempt from it.
         if names_other_action(quote, action) or (action in EXEMPT_FROM_CONSORTIUM and _ONLY_CONSORTIUM.search(quote)):
             return None
+    if name == "procurement_conflict" and action not in ("PCP", "PPI"):
+        return None          # WP-102: Annex H of the general annexes is a rule of PCP and PPI actions only
     if scope == "general" and name == "funding_rate" and action != "ACC" and "accelerator" in f"{value} {fact.get('note') or ''}".lower():
         return None          # V2-B6: the Accelerator's 70 % is not the rate of a Pathfinder Challenge
     if scope == "call_document" and name == "cascade_funding" and topic_code:
@@ -748,19 +750,21 @@ def read_many(conn, calls: list[tuple[Any, ...]]) -> dict[Any, dict[str, Any]]:
     fact says which it is (`scope`). `other_topic` has the quotes of facts left out because they are
     about another topic of the document."""
     mapped = {cid: (sources_of(cond, text, rest[0] if rest else None), rest[0] if rest else None,
-                    action_kind(rest[1]) if len(rest) > 1 else None)
+                    action_kind(rest[1]) if len(rest) > 1 else None, text)
               for cid, cond, text, *rest in calls}
-    keys = sorted({k for srcs, _, _ in mapped.values() for s in srcs for k in (s.key, s.document) if k})
+    keys = sorted({k for srcs, _, _, _ in mapped.values() for s in srcs for k in (s.key, s.document) if k})
     held = {r["url"]: r for r in conn.execute(
         "SELECT url, fields, extracted_at FROM call_eligibility WHERE url = ANY(%s)", (keys,)).fetchall()} if keys else {}
-    return {cid: assemble(srcs, held, topic, action) for cid, (srcs, topic, action) in mapped.items()}
+    return {cid: assemble(srcs, held, topic, action, text) for cid, (srcs, topic, action, text) in mapped.items()}
 
 
 def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: str | None,
-             action: str | None = None) -> dict[str, Any]:
+             action: str | None = None, conditions: str | None = None) -> dict[str, Any]:
     """One call's eligibility from its sources and the rows held (by key). A call-document source falls
     back to the document-level row read before rows were kept per topic, until its topic is read.
-    `action` is the kind of action (`action_kind`): it decides which sentence of the general annexes is about the call."""
+    `action` is the kind of action (`action_kind`): it decides which sentence of the general annexes is about the call. `conditions` is the
+    portal's conditions text of the call (`call.eligibility_text`): WP-102, what rule_readings.read_conditions finds in it replaces the
+    model's fact of the same name, as the topic's own."""
     if not srcs:
         return {"state": "no_source", "basis": None, "sources": [], "facts": {}, "other_topic": {}}
     rows = {s.key: held.get(s.key) or (held.get(s.document) if s.document else None) for s in srcs}
@@ -776,7 +780,7 @@ def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: st
             served = _served_fact(fact, s.scope, name, topic_code, action)
             if served and eic_own:
                 served = {**served, "scope": "programme", "note": _without_scope_note(served["note"])}
-            moved = as_required(served) if served and name == "entity_types" else None
+            moved = as_required(served, by_note=False) if served and name == "entity_types" else None
             if moved:
                 facts["required_partners"] = moved
             elif served:
@@ -784,6 +788,11 @@ def assemble(srcs: list[Source], held: dict[str, dict[str, Any]], topic_code: st
             elif (s.scope == "call_document" and fact.get("value") is not None and fact.get("quote")
                   and names_other_topic(fact["quote"], topic_code)):
                 other_topic[name] = fact["quote"]
+    from .rule_readings import read_conditions
+
+    for name, f in read_conditions(conditions, topic_code).items():
+        facts[name] = {"value": f["value"], "note": f["note"], "quote": f["quote"], "confidence": 1.0, "scope": "topic"}
+    facts = required_partners(facts)
     facts = reconcile(consortium_floor(facts, action, any(s.scope == "general" for s, _ in read)))
     sources = [{"scope": s.scope, "label": s.label, "url": s.url,
                 "extractedAt": rows[s.key]["extracted_at"] if rows[s.key] else None} for s in srcs]
@@ -802,17 +811,25 @@ def _without_scope_note(note: str | None) -> str | None:
 # at least 2 different EU Member States or Associated countries" is who must be in the consortium, not who may apply. Read as "Who may
 # apply: Border or Coast Guard Authorities", a company was told nothing in the list covers it (BM-01, BM-02); the same for the
 # practitioner portfolios of INFRA-03. Such an entity-types fact is served as `required_partners`.
-_INVOLVEMENT = re.compile(r"requires?\s+(?:the\s+)?(?:active\s+)?involvement,?\s+as\s+beneficiaries,?\s+of\s+(?P<who>at\s+least\s+\d+\s+[^.]+)", re.I)
+_INVOLVEMENT = re.compile(r"requires?\s+(?:the\s+)?(?:active\s+)?involvement,?\s+as\s+beneficiaries,?\s+of:?\s+(?P<who>at\s+least\s+\d+\s+[^.]+)", re.I)
 _PRACTITIONERS = re.compile(r"\brequired\s+practitioner|\bpractitioners?\s+should\s+represent", re.I)
+# WP-102 (A29, DRS-01): the note says the kinds are required beneficiaries ("Both are required to be involved as beneficiaries")
+_REQUIRED_KINDS = re.compile(r"required\s+to\s+be\s+involved\s+as\s+beneficiaries|required\s+participants\s+must\s+be\s+beneficiaries", re.I)
 
 
-def as_required(types: dict[str, Any] | None) -> dict[str, Any] | None:
-    """A served entity-types fact that names who must be in the consortium, as a `required_partners` fact; else None."""
+def as_required(types: dict[str, Any] | None, others: tuple[str, ...] = (), by_note: bool = True) -> dict[str, Any] | None:
+    """A served entity-types fact that names who must be in the consortium, as a `required_partners` fact; else None. `others`: the quotes
+    of the call's consortium facts, where the involvement sentence is when the kinds' own quote is only part of it (WP-102, DRS-01)."""
     if not types or types["scope"] == "general":
         return None
     m = _INVOLVEMENT.search(types["quote"] or "")
     if m:
         return {**types, "value": " ".join(m.group("who").split()).rstrip(" .") + ", as beneficiaries"}
+    if by_note and _REQUIRED_KINDS.search(types.get("note") or "") and isinstance(types["value"], list):
+        found = next((x for x in (_INVOLVEMENT.search(q or "") for q in others) if x), None)
+        if found:
+            return {**types, "value": " ".join(found.group("who").split()).rstrip(" .") + ", as beneficiaries", "quote": found.string.strip()}
+        return {**types, "value": "these kinds, as beneficiaries: " + "; ".join(str(v) for v in types["value"])}
     if _PRACTITIONERS.search(f"{types['quote']} {types.get('note') or ''}") and isinstance(types["value"], list):
         return {**types, "value": "practitioners as beneficiaries, of these kinds: " + "; ".join(str(v) for v in types["value"])}
     return None
@@ -821,7 +838,8 @@ def as_required(types: dict[str, Any] | None) -> dict[str, Any] | None:
 def required_partners(facts: dict[str, Any]) -> dict[str, Any]:
     """The served facts with such an entity-types fact moved to `required_partners` (assemble moves it as it reads it, so that the
     general annexes' list of who may apply, which it would have replaced, stays)."""
-    moved = as_required(facts.get("entity_types"))
+    others = tuple((facts.get(k) or {}).get("quote") or "" for k in ("consortium_required", "single_applicant_allowed"))
+    moved = as_required(facts.get("entity_types"), others)
     if not moved:
         return facts
     return {**{k: v for k, v in facts.items() if k != "entity_types"}, "required_partners": moved}
