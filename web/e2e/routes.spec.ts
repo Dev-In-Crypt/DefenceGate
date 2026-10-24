@@ -182,6 +182,7 @@ test('the tenders CSV is rectangular and says in a column whether it was cut', a
   expect(res.status()).toBe(200);
   const body = (await res.text()).replace(/^﻿/, '');
   const header = body.split(/\r?\n/)[0];
-  expect(header.endsWith('scope,why_listed,versions,result_truncated,confidence')).toBe(true);
+  // WP-106: the winner columns are appended after `confidence`; the order of the others never moves
+  expect(header.endsWith('scope,why_listed,versions,result_truncated,confidence,winners,winner_countries')).toBe(true);
   expect(body).not.toMatch(/^# Not the whole result/m);
 });

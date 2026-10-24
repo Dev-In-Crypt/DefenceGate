@@ -11,7 +11,7 @@ import { AutoGrid } from '../dg/auto-grid';
 import { Button } from '../dg/button';
 import { Card } from '../dg/card';
 import { PageHeader } from '../dg/page-header';
-import { Select } from '../dg/form';
+import { Select, TextInput } from '../dg/form';
 import { Icon } from '../dg/icon';
 import { Tag } from '../dg/tag';
 import { describeChange } from '../dg/version-timeline';
@@ -153,6 +153,9 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
         <Select name="country" label="Country" placeholder="All countries" defaultValue={filters.country ?? ''} className="sm:min-w-64"
           hint="A notice’s buyer country, or the funder country of a call."
           options={Object.entries(DIGEST_COUNTRIES).map(([code, name]) => ({ value: code, label: `${name} (${code})` }))} />
+        {/* WP-106 (p04): the tender sections by product code, read as the tender list reads `cpv` */}
+        <TextInput name="cpv" maxLength={200} label="CPV code" placeholder="For example 353, 2461" defaultValue={filters.cpv?.join(', ') ?? ''}
+          className="sm:min-w-48" hint="Narrows the notices; funding calls have no code." />
         <div className="flex items-center gap-3">
           <Button type="submit">Apply</Button>
           <Link href={basePath} className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
@@ -169,6 +172,12 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
       </details>
 
       <FitFilter />
+
+      {(issue.cpv?.length ?? 0) > 0 && (
+        <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink" data-digest-cpv>
+          The notices are those with a CPV code under {issue.cpv!.join(', ')}. Funding calls have no product code: they are all listed, as without the filter.
+        </p>
+      )}
 
       {fundingQuiet && (
         <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small text-ink">
@@ -211,7 +220,7 @@ export function DigestView({ issue, filters, basePath, feedHref, crumbs, notices
             {cut && (
               <p className="m-0 text-small text-ink-muted">
                 {cut} {isTender
-                  ? <>The <Link href={restOfTendersHref(issue.week, s.list === 'tendersNew' ? 'new' : 'amended', filters.country)} className="font-semibold">list of changes of this week</Link> has the rest.</>
+                  ? <>The <Link href={restOfTendersHref(issue.week, s.list === 'tendersNew' ? 'new' : 'amended', filters.country, filters.cpv)} className="font-semibold">list of changes of this week</Link> has the rest.</>
                   : <>The <Link href="/funding" className="font-semibold">funding list</Link> has the rest.</>}
               </p>
             )}

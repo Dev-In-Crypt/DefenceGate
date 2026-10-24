@@ -87,6 +87,9 @@ export function ListPage({
             <SortSelect value={sort.value} options={sort.options} />
           </div>
           <FilterNotices notices={notices} />
+          {/* Below lg the filters are folded away and the column is one. WP-106 (p09): the tools come before the results, not after
+              38,000 px of them on a phone. */}
+          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
           {subscribe}
           {total > 0 && listNote}
           {total === 0 ? (
@@ -97,8 +100,6 @@ export function ListPage({
           {limitNote && <p className="m-0 max-w-prose text-small text-ink-muted">{limitNote}</p>}
           <Pagination page={page} total={reachable ?? total} pageSize={pageSize} hrefFor={hrefFor} />
           {footnote && (typeof footnote === 'string' ? <p className="m-0 max-w-prose text-small text-ink-muted">{footnote}</p> : footnote)}
-          {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} feedHref={feedHref} className="lg:hidden" total={total} status={exportStatus} atLeast={totalText !== undefined} />}
         </ResultsRegion>
       </div>
       </LiveListScope>

@@ -180,8 +180,12 @@ def test_the_tender_page_states_a_commercial_subject_and_the_documents(client, c
     assert get(client, f"/v1/tenders/{twin['id']}")["documentsUrl"] == "https://www.evergabe-online.de/x?id=1"
     assert get(client, f"/v1/tenders/{spec}")["subject"] is None                   # a specification is not shown
     assert get(client, f"/v1/tenders/{person}")["subject"] is None                 # nor a contact
-    # the list serves neither (the notice's page only)
-    assert all(i["subject"] is None and i["documentsUrl"] is None for i in get(client, "/v1/tenders", scope="all")["items"])
+    # WP-106: the list serves the subject too, read the same way (a specification and a contact still none); the documents
+    # address stays the notice's page's
+    listed = {i["id"]: i for i in get(client, "/v1/tenders", scope="all")["items"]}
+    assert listed[str(tid)]["subject"] == "Supply of spare parts for military trucks."
+    assert listed[str(spec)]["subject"] is None and listed[str(person)]["subject"] is None
+    assert all(i["documentsUrl"] is None for i in listed.values())
 
 
 # ======================================================================= 5. a buyer's top suppliers

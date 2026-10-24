@@ -4,6 +4,12 @@ import { formatDateLabelledUtc, formatDateTimeUtc, openingPassed } from './forma
 /** Thresholds from the design system's deadline states. */
 export const SOON_DAYS = 30;
 export const URGENT_DAYS = 7;
+/**
+ * WP-106 (p01, p02, p04, p06): a tender is "Closing soon" within this many days only. At 30 days the chip stood on deadlines 19 to
+ * 24 days ahead (and 32 days was "Open"); a bid team reads "closing soon" as about a week. Funding calls keep SOON_DAYS: their
+ * list's "Closing soon" status is the API's 30 days.
+ */
+export const TENDER_SOON_DAYS = URGENT_DAYS;
 const DAY_MS = 86_400_000;
 
 /** Reference "now". NEXT_PUBLIC_DG_NOW pins it for demos, tests and screenshots. */
@@ -27,12 +33,12 @@ export function daysLeft(deadline: IsoDateTime | null, ref: Date = now()): numbe
   return Math.round((utcDay(d) - utcDay(ref)) / DAY_MS);
 }
 
-export function deadlineState(deadline: IsoDateTime | null, ref: Date = now()): DeadlineState {
+export function deadlineState(deadline: IsoDateTime | null, ref: Date = now(), soonDays: number = SOON_DAYS): DeadlineState {
   const days = daysLeft(deadline, ref);
   if (days === null) return 'none';
   if (days < 0) return 'closed';
   if (days <= URGENT_DAYS) return 'urgent';
-  if (days <= SOON_DAYS) return 'soon';
+  if (days <= soonDays) return 'soon';
   return 'normal';
 }
 
@@ -47,7 +53,7 @@ export function countdownLabel(days: number | null): string {
 
 export function stateLabel(state: DeadlineState): string {
   return {
-    normal: 'Deadline', soon: 'Closing soon', urgent: 'Closes this week', closed: 'Closed', none: 'No fixed deadline',
+    normal: 'Deadline', soon: 'Closing soon', urgent: `Closes within ${URGENT_DAYS} days`, closed: 'Closed', none: 'No fixed deadline',
   }[state];
 }
 
@@ -88,16 +94,25 @@ export interface DeadlineInfo {
   rolling?: boolean;
 }
 
-/** Single entry point for all deadline presentation. */
-export function getDeadline(deadline: IsoDateTime | null, ref: Date = now()): DeadlineInfo {
+/**
+ * The label of a deadline within URGENT_DAYS, in days and never by the week: "Closes this week" stood on Wednesday 28 October read on
+ * Saturday 24 October (WP-106, p01), and on a notice closing today (site-qa2:N13).
+ */
+export function urgentLabel(days: number): string {
+  if (days === 0) return 'Closes today';
+  if (days === 1) return 'Closes tomorrow';
+  return `Closes in ${days} days`;
+}
+
+/** Single entry point for all deadline presentation. `soonDays`: where "Closing soon" begins (TENDER_SOON_DAYS for a tender). */
+export function getDeadline(deadline: IsoDateTime | null, ref: Date = now(), soonDays: number = SOON_DAYS): DeadlineInfo {
   const days = daysLeft(deadline, ref);
-  const state = deadlineState(deadline, ref);
+  const state = deadlineState(deadline, ref, soonDays);
   return {
     iso: deadline, days, state,
     utc: deadline === null ? '' : formatDateTimeUtc(deadline),
     countdown: countdownLabel(days),
-    // "Closes this week" is wrong for a notice that closes today (site-qa2:N13).
-    label: days === 0 ? 'Closes today' : stateLabel(state),
+    label: state === 'urgent' && days !== null ? urgentLabel(days) : stateLabel(state),
   };
 }
 
@@ -111,16 +126,17 @@ export function getDeadline(deadline: IsoDateTime | null, ref: Date = now()): De
 export function getCallDeadline(
   call: Pick<Call, 'status' | 'deadline'> & Partial<Pick<Call, 'deadlineIsDate' | 'rolling'>>,
   ref: Date = now(),
+  soonDays: number = SOON_DAYS,
 ): DeadlineInfo {
   const { deadline } = call;
-  let info = getDeadline(deadline, ref);
+  let info = getDeadline(deadline, ref, soonDays);
   if (deadline !== null) {
     const d = new Date(deadline);
     const midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
     if (call.deadlineIsDate ?? midnight) {
       // A stamp at 00:00 UTC is the start of the day it names; the call is open until that day ends.
       const basis = midnight ? new Date(d.getTime() + DAY_MS - 1000).toISOString() : deadline;
-      info = { ...getDeadline(basis, ref), iso: deadline, utc: formatDateLabelledUtc(deadline), dateOnly: true };
+      info = { ...getDeadline(basis, ref, soonDays), iso: deadline, utc: formatDateLabelledUtc(deadline), dateOnly: true };
     }
   }
   if (call.status === 'open' && call.rolling === true && info.state === 'closed') {
@@ -146,13 +162,13 @@ export function getTenderDeadline(
 ): DeadlineInfo {
   const { deadline } = tender;
   const notClosed = tender.statusNative === 'forthcoming' || tender.statusNative === 'unknown';
-  if (deadline === null) return notClosed ? getDeadline(null, ref) : getCallDeadline(tender, ref);
+  if (deadline === null) return notClosed ? getDeadline(null, ref) : getCallDeadline(tender, ref, TENDER_SOON_DAYS);
   const d = new Date(deadline);
   const inferred = d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
   const dateOnly = tender.deadlineIsDate ?? inferred;
-  if (!dateOnly) return notClosed ? calm(getDeadline(deadline, ref)) : getCallDeadline(tender, ref);
+  if (!dateOnly) return notClosed ? calm(getDeadline(deadline, ref, TENDER_SOON_DAYS)) : getCallDeadline(tender, ref, TENDER_SOON_DAYS);
   const info: DeadlineInfo = {
-    ...getDeadline(new Date(d.getTime() + DAY_MS - 1000).toISOString(), ref),
+    ...getDeadline(new Date(d.getTime() + DAY_MS - 1000).toISOString(), ref, TENDER_SOON_DAYS),
     iso: deadline,
     utc: tender.deadlineIsDate ? formatDateLabelledUtc(deadline) : formatDateTimeUtc(deadline),
     dateOnly: true,

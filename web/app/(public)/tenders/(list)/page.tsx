@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getHealth, getTenderScopeCounts, getTenders } from '@/lib/api';
 import { filtersFromQuery } from '@/lib/account-format';
 import {
-  activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, toTenderQuery, type SearchParams,
+  activeTenderFilterCount, defaultTenderSort, ignoredFilters, lastPage, parseTenderFilters, tenderSortOptions, toTenderQuery, type SearchParams,
 } from '@/lib/filters';
 import { formatDateTimeUtc } from '@/lib/format';
 import { cutSentence, listStamps, reachableTotal, totalWords } from '@/lib/list-count';
@@ -22,14 +22,6 @@ import { FilterChips } from '@/components/tenders/filter-chips';
 import { CoverageNote } from '@/components/dg/coverage-note';
 
 export const revalidate = 60;
-
-const SORT_OPTIONS = [
-  // WP-87: the open list's default, the military goods and works first (only for Open, the scope All defence)
-  { value: 'core-first', label: 'Military goods and works first, then soonest deadline' },
-  { value: 'deadline-asc', label: 'Deadline, soonest first' },
-  { value: 'deadline-desc', label: 'Deadline, latest first' },
-  { value: 'published-desc', label: 'Published, newest first' },
-];
 
 type Props = { searchParams: Promise<SearchParams> };
 
@@ -84,7 +76,7 @@ export default async function TendersPage({ searchParams }: Props) {
       exportStatus={filters.status}
       noun="tenders" page={result.page} pageSize={result.pageSize} total={result.total}
       totalText={totalWords(result)} reachable={reachable} limitNote={cutSentence(result)}
-      sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: SORT_OPTIONS }}
+      sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: tenderSortOptions(filters.status) }}
       notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"
       listNote={<><AlsoSearched also={result.alsoSearched} /><ClassifiedNote tenders={result.items} /></>}

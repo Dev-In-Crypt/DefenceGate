@@ -150,6 +150,8 @@ class Digest(BaseModel):
     # Open calls with cascade funding today (not the week's).
     cascadeOpenNow: int
     country: str | None = None
+    # WP-106: the CPV prefixes the tender sections were narrowed to (`with_cpv`); empty for the whole issue
+    cpv: list[str] = []
     previousWeek: str | None = None
     nextWeek: str | None = None
     meta: ListMeta = ListMeta()
@@ -276,6 +278,21 @@ def build_all(conn, week: str, *, now: datetime | None = None,
     return {"": issue(""), **{c: issue(c) for c in only}}
 
 
+def with_cpv(conn, body: dict[str, Any], week: str, country: str, prefixes: list[str]) -> dict[str, Any]:
+    """WP-106 (p04: Poland week 42 was 408 notices of bread, paint and sanitary cabins): the issue with its tender sections
+    narrowed to notices with a code under one of the CPV prefixes, read as the tender list reads `cpv`. The week's events of
+    /changes (`changes.window_events`, the same window as the issue) filtered by the list's own rule (`changes._matching`).
+    Funding calls have no product code: their sections stay as they are, and the page says so."""
+    events, _, _ = changes.window_events(conn, None, [country] if country else [], None, week)
+    keep = changes._matching(conn, sorted({e["id"] for e in events}), q=None, cpv=",".join(prefixes), from_=None,
+                             to=None, min_=None, max_=None, currency=None)
+    events = [e for e in events if e["id"] in keep]
+    new_t = [e for e in events if e["kind"] in ("new", "award")]
+    amended_t = [e for e in events if e["kind"] == "amended"]
+    return {**body, "cpv": prefixes, "tendersNew": _tenders(conn, new_t), "tendersAmended": _tenders(conn, amended_t),
+            "counts": {**body["counts"], "tendersNew": len(new_t), "tendersAmended": len(amended_t)}}
+
+
 def empty_for(body: dict[str, Any], country: str) -> dict[str, Any]:
     """The issue of a country that had nothing in a stored week: the same week, nothing listed."""
     out = dict(body)
@@ -329,9 +346,11 @@ def refresh(conn, *, now: datetime | None = None, max_builds: int = 8, recompute
 def get_digest(
     week: str | None = Query(None, pattern=r"^\d{4}-W\d{2}$"),
     country: str | None = Query(None, pattern="^[A-Za-z]{2}$"),
+    cpv: str | None = Query(None, max_length=400),
     conn=Depends(get_conn),
     with_meta=Depends(serves_meta),
 ):
+    prefixes = T.cpv_prefixes(cpv)            # 422 for anything that is not a CPV prefix, as the list
     now = datetime.now(timezone.utc)
     weeks = all_weeks(now)
     chosen = week or last_complete_week(now)
@@ -349,6 +368,8 @@ def get_digest(
                 else _plain(build_all(conn, chosen, now=now, only=[code])[code]))
     else:
         body = _plain(build_all(conn, chosen, now=now, only=[])[""])
+    if prefixes:
+        body = _plain(with_cpv(conn, body, chosen, code, prefixes))
     i = weeks.index(chosen)
     from .stats import list_meta  # stats imports tenders
 

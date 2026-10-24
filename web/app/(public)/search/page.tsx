@@ -44,13 +44,14 @@ function rows(s: SiteSearch, key: Key): Row[] {
 }
 
 /** The groups in the menu's order; Companies is the two tabs of the Companies page. */
-const GROUPS: { title: string; parts: { key: Key; label?: string; noun: string }[] }[] = [
-  { title: 'Tenders', parts: [{ key: 'tenders', noun: 'open tenders' }] },
-  { title: 'Funding', parts: [{ key: 'funding', noun: 'open funding calls' }] },
-  { title: 'Buyers', parts: [{ key: 'buyers', noun: 'buyers' }] },
+// WP-106 (p07): `one`, the noun of a total of one ("See all 1 companies")
+const GROUPS: { title: string; parts: { key: Key; label?: string; noun: string; one: string }[] }[] = [
+  { title: 'Tenders', parts: [{ key: 'tenders', noun: 'open tenders', one: 'open tender' }] },
+  { title: 'Funding', parts: [{ key: 'funding', noun: 'open funding calls', one: 'open funding call' }] },
+  { title: 'Buyers', parts: [{ key: 'buyers', noun: 'buyers', one: 'buyer' }] },
   { title: 'Companies', parts: [
-    { key: 'suppliers', label: 'Won contracts', noun: 'companies that won contracts' },
-    { key: 'organisations', label: 'In EU-funded projects', noun: 'companies in EU-funded defence projects' },
+    { key: 'suppliers', label: 'Won contracts', noun: 'companies that won contracts', one: 'company that won contracts' },
+    { key: 'organisations', label: 'In EU-funded projects', noun: 'companies in EU-funded defence projects', one: 'company in EU-funded defence projects' },
   ] },
 ];
 
@@ -101,7 +102,7 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
               </li>
             ))}
           </ul>
-          <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">See all {total} {part.noun}</Link>
+          <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">See {g.total === 1 && !g.atLeast ? 'the' : 'all'} {total} {g.total === 1 && !g.atLeast ? part.one : part.noun}</Link>
           {part.key === 'tenders' && <AlsoSearched also={s.alsoSearched} />}
         </>
       )}

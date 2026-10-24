@@ -165,7 +165,7 @@ export default async function SupplierPage({ params, searchParams }: Props) {
             Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} notices of its ${formatNumber(s.noticeCount)} contracts` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or the Spanish portal' : ' and to the notice at TED'}.
           </p>
           {/* WP-100: every contract, beyond the 50 listed: buyer, date, value with its kind, source, licence and attribution on every row */}
-          <a href={`/suppliers/${s.slug}/contracts.csv`} download className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-supplier-csv>
+          <a href={`/suppliers/${s.slug}/contracts.csv`} className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-supplier-csv>
             <Icon icon={Download} size="inline" />Download all {formatNumber(s.noticeCount)} contracts (CSV)
           </a>
         </div>
@@ -187,6 +187,12 @@ export default async function SupplierPage({ params, searchParams }: Props) {
                   <th scope="row" className="font-normal">
                     <Link href={`/tenders/${n.slug}`} className="break-words">{n.title || n.noticeId}</Link>
                     <span className="block font-mono text-mono text-ink-muted">{fromPlacsp(s) ? `${sourceLabel(n.source)} ` : ''}{n.noticeId}</span>
+                    {/* WP-106 (p07): on a phone the value column is off the first screen of the table: the value under the title too */}
+                    {n.valueAmount !== null && (
+                      <span className="block font-mono text-small tabular-nums sm:hidden" data-phone-value>
+                        {`${formatNumber(n.valueAmount)} ${n.valueCurrency ?? ''}`}{n.valueKind && n.valueKind !== 'contract' ? ` (${VALUE_KIND_LABEL[n.valueKind]})` : ''}
+                      </span>
+                    )}
                     {(n.alsoPublished ?? []).length > 0 && (
                       <span className="block text-small text-ink-muted">
                         Also published in {(n.alsoPublished ?? []).map((r, i) => (

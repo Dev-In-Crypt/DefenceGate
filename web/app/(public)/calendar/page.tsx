@@ -12,11 +12,11 @@ import { pageOfDay } from '@/lib/calendar-tenders';
 import { calendarCounts, calendarNotices, feedLine } from '@/lib/calendar-counts';
 import { toTenderQuery, type SearchParams } from '@/lib/filters';
 import { absoluteUrl, buildMetadata } from '@/lib/seo';
-import { countryName } from '@/lib/taxonomy';
+import { BUYER_COUNTRY_CODES, countryName } from '@/lib/taxonomy';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/dg/feedback';
 import { PageHeader } from '@/components/dg/page-header';
-import { Choice, Fieldset } from '@/components/dg/form';
+import { Choice, Fieldset, TextInput } from '@/components/dg/form';
 import { Button } from '@/components/dg/button';
 import { Icon } from '@/components/dg/icon';
 import { FilterNotices } from '@/components/dg/filter-notices';
@@ -64,7 +64,9 @@ export default async function CalendarPage({ searchParams }: Props) {
   // A month outside the window the data covers is clamped to it, and the page says so.
   const { month, clamped } = resolveMonth(p.month, current, last);
 
-  const countries = [...new Set([...data.entries.map((e) => e.country), ...p.countries].filter((c): c is string => Boolean(c)))].sort();
+  // WP-106 (p09): every country a notice or a call can have, not only those of the entries in view (a country filter narrowed the
+  // list to the three chosen, and no other could be added)
+  const countries = [...new Set([...BUYER_COUNTRY_CODES, ...data.entries.map((e) => e.country), ...p.countries].filter((c): c is string => Boolean(c)))].sort();
   const entries = filterEntries(data.entries, p);
   const inMonth = entries.filter((e) => dayOf(e.deadline).startsWith(month));
   // Both views list their entries a page at a time (50): a month of 593 tenders is twelve pages, not one page of 600 cards.
@@ -118,8 +120,12 @@ export default async function CalendarPage({ searchParams }: Props) {
                   ))}
                 </Fieldset>
               )}
-              {/* The tender list's filters this calendar came with travel with the form (WP-87). */}
-              {[...new URLSearchParams(toTenderQuery(p.tender))].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+              {/* WP-106 (p04): the product code, on the calendar itself (it worked only through the link from /tenders) */}
+              <TextInput name="cpv" maxLength={200} label="CPV code (tenders)" placeholder="For example 353, 2461" defaultValue={p.tender.cpv?.join(', ') ?? ''}
+                hint="Funding calls have no code: with one, only tenders are listed." />
+              {/* The tender list's other filters this calendar came with travel with the form (WP-87). */}
+              {[...new URLSearchParams(toTenderQuery({ ...p.tender, cpv: undefined, cpvMain: undefined }))].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+              {p.tender.cpvMain && <input type="hidden" name="cpvMain" value="true" />}
               {p.view === 'month' && <input type="hidden" name="view" value="month" />}
               {p.view === 'month' && <input type="hidden" name="month" value={month} />}
               <div className="flex flex-wrap items-center gap-3">

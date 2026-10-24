@@ -2,7 +2,7 @@ import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
 import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
-import { anomalyNotes, isLongRunning, tenderChangedLabel, tenderStatusView } from '@/lib/tender-status';
+import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { WHO_BADGE } from '@/lib/filters';
 import { displayName } from '@/lib/display-name';
@@ -175,7 +175,11 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
   const d = getTenderDeadline(tender);
   const local = d.state === 'closed' ? null : localDeadline(d.iso, tender.country, d.dateOnly);
   const matched = matchedCpv(tender, cpvFilter);
-  const mainName = tender.cpv ? cpvOwnName(tender.cpv) : null;
+  // WP-106: the API's title from the full vocabulary first (34330000 had none), then the selection's
+  const mainName = tender.cpv ? (tender.cpvTitles?.[tender.cpv] ?? cpvOwnName(tender.cpv)) : null;
+  const award = tender.awardValue && !isPlaceholderAmount(tender.awardValue.amount) ? tender.awardValue : null;
+  const winners = winnersLine(tender, 2, (n) => displayName(n, 'title'));
+  const subject = subjectAddsTo(tender.subject, tender.title);
   const closed = d.state === 'closed';
   const soon = d.state === 'soon' || d.state === 'urgent';
   const longRunning = isLongRunning(tender) && !closed;
@@ -189,7 +193,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
             {tender.cpv && <Tag kind="programme">CPV {tender.cpv}</Tag>}
             {mainName && <span title={mainName} className="min-w-0 flex-1 truncate text-small text-ink-muted">{mainName}</span>}
             {tender.country && <Tag>{tender.country}</Tag>}
-            <span className="ml-auto flex shrink-0 flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
+            <span className="ml-auto flex min-w-0 max-w-full flex-wrap gap-2"><TenderStatusPills tender={tender} /></span>
           </div>
           {matched.length > 0 && (
             <p className="m-0 text-small text-ink-muted">
@@ -209,6 +213,10 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
             {nonEnglish && <LangLabel kind="language" code={tender.titleLanguage} />}
           </p>
           <OriginalTitle title={tender.originalTitle} lang={tender.originalLanguage} />
+          {/* WP-106 (p03, p06): what is bought, in the notice's own words, where the title is an internal number or a place */}
+          {subject && <p className="m-0 line-clamp-2 text-small" data-subject><span className="text-ink-muted">Subject: </span>{subject}</p>}
+          {/* WP-106 (p06): an award says whom it names in the list too */}
+          {winners && <p className="m-0 text-small" data-awarded-to><span className="text-ink-muted">Awarded to: </span><span className="font-semibold">{winners}</span></p>}
           <BasisChips tender={tender} lifted note={classifiedNote} />
         </div>
         <dl className={cn(LIST_FACTS, CARD_FACTS)}>
@@ -225,6 +233,13 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
               <span className="font-sans">{closed ? 'Closed' : 'No deadline stated'}</span>
             )}
           </ListFact>
+          {award ? (
+            // WP-106 (p06, p07): an award's value under the words of its kind, never "Estimated value" over a contract or a ceiling
+            <ListFact label={AWARD_VALUE_LABEL[award.kind]} tone={closed ? 'closed' : 'default'}>
+              <AmountDisplay money={{ amount: award.amount, currency: award.currency }} />
+              {award.kind === 'framework' && <div className="font-sans text-small font-normal text-ink-muted">The most that may be bought, not a contract value</div>}
+            </ListFact>
+          ) : (
           <ListFact label="Estimated value" tone={closed ? 'closed' : 'default'}>
             <AmountDisplay money={tender.estimatedValue} />
             {valueNote && (!tender.estimatedValue || isPlaceholderAmount(tender.estimatedValue.amount)) && (
@@ -234,6 +249,7 @@ export function TenderCard({ tender, headingLevel = 'h2', cpvFilter, valueNote, 
               <div className="font-sans text-small font-normal text-ink-muted">Sum of the values the notice states for its lots</div>
             )}
           </ListFact>
+          )}
           <ListFact label="Notice ID" tone={closed ? 'closed' : 'default'}>{tender.noticeId}</ListFact>
         </dl>
         <div className={cn('flex min-w-0 flex-col gap-2', CARD_PROVENANCE)}>

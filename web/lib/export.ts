@@ -5,7 +5,7 @@
 import { ApiError, REMOVED, getCalls, getHealth, getMarketStats, getSupplierContracts, getTenderExportPage, isCallSlug, isTenderSlug, whenRemoved } from './api';
 import { callStatusKind, getCallDeadline } from './deadline';
 import { parseCallFilters, parseMarketFilters, parseTenderFilters, toQuery, toTenderQuery, type SearchParams } from './filters';
-import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, csvValueKind, marketRows, supplierContractRows } from './export-tables';
+import { MARKET_HEADER, SUPPLIER_CONTRACT_HEADER, csvValueKind, marketRows, supplierContractRows, winnerCells } from './export-tables';
 import {
   EXPORT_CACHE_MAX, EXPORT_CACHE_TTL_MS, EXPORT_MAX_RUNNING, EXPORT_PAGE_MIN, EXPORT_PER_CLIENT, EXPORT_RETRY_AFTER_SECONDS, ExportRunner, Gate,
   TtlCache, collectByCursor, exportCap, listOrder, tooBroad,
@@ -35,22 +35,27 @@ export const TENDER_HEADER = [
   'scope', 'why_listed', 'versions', 'result_truncated',
   // WP-23: how sure we are, the level only. Appended last, so the column order of the file never moves.
   'confidence',
+  // WP-106 (p06, p07): who the award names, and their countries (`|` between winners). Appended last.
+  'winners', 'winner_countries',
 ];
 
 export function tenderRow(t: Tender, truncated = false): Cell[] {
   const dl = t.deadline;
   const dateOnly = dl !== null && (t.deadlineIsDate ?? isMidnight(dl));
-  // A placeholder amount (0, 0.01, 1) is not a value: blank, so a sum is not poisoned.
-  const value = t.estimatedValue && !isPlaceholderAmount(t.estimatedValue.amount) ? t.estimatedValue : null;
+  // A placeholder amount (0, 0.01, 1) is not a value: blank, so a sum is not poisoned. WP-106: an award's own value with its kind
+  // (the page's "Awarded value" or "Framework ceiling"), else the notice's.
+  const award = t.awardValue && !isPlaceholderAmount(t.awardValue.amount) ? { amount: t.awardValue.amount, currency: t.awardValue.currency } : null;
+  const value = award ?? (t.estimatedValue && !isPlaceholderAmount(t.estimatedValue.amount) ? t.estimatedValue : null);
   return [
     t.id, t.noticeId, t.title, t.buyerName, t.country, (t.cpvCodes?.length ? t.cpvCodes : t.cpv ? [t.cpv] : []).join(' '), t.procedure,
     isoUtc(t.publishedAt, t.publishedAt !== null && isMidnight(t.publishedAt)), isoUtc(dl, dateOnly),
-    value?.amount, value?.currency, value ? csvValueKind(t) : null,
+    value?.amount, value?.currency, value ? csvValueKind(award ? t : { ...t, awardValue: null }) : null,
     tenderStatusView(t).word, anomalyNotes(t).join(' | '),
     t.source.sourceName, safeHttpUrl(t.source.url) ?? '', t.source.licence, t.source.attribution, isoUtc(t.source.retrievedAt),
     isTenderSlug(t.slug) ? absoluteUrl(`/tenders/${t.slug}`) : '',
     t.scope, basisChips(t).join(' | '), t.versionCount, truncated ? 'true' : 'false',
     confidenceCell(t.confidence),
+    ...winnerCells(t),
   ];
 }
 

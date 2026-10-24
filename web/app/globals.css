@@ -112,6 +112,13 @@
     .bg-urgent, .bg-primary.text-on-primary { background: none !important; border: 1.5px solid var(--ink) !important; }
     /* A closed disclosure prints its text (QA m-16); components/dg/print-open-details.tsx opens them for browsers without ::details-content. */
     details::details-content { content-visibility: visible; }
+    /* WP-106 (p09): a page prints as a hand-out, without what only works on a screen: forms, buttons, menus and the "related" lists
+       (a funding call printed as 10 A4 pages with the menu and empty form boxes, the roadmap as 4). `data-print-hide` marks the rest. */
+    main form, main button, main select, nav, [role="search"], [data-print-hide], [data-apply-summary] { display: none !important; }
+    /* The roadmap and a call page are read whole: their content at three quarters of the screen size (CSS zoom, Chromium and Firefox 126+). */
+    main:has([data-apply-summary]) { zoom: 0.72; }
+    [data-roadmap-print] { zoom: 0.62; }
+    @page { margin: 14mm 12mm; }
   }
 }
 

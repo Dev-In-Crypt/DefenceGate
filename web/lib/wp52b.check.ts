@@ -61,7 +61,8 @@ assert.equal(parseTenderFilters({ status: 'planned' }).status, 'planned');
 assert.equal(parseTenderFilters({ status: 'planned' }).sort, 'deadline-desc', 'a planned list runs newest deadline first, like closed (the API default)');
 assert.equal(defaultTenderSort('planned'), 'deadline-desc');
 assert.equal(defaultTenderSort('open'), 'core-first');   // WP-87: the open list leads with the military goods and works
-assert.equal(defaultTenderSort('all'), 'deadline-asc');
+// WP-106 (p02, p04, p07): All is its open notices, then the rest newest deadline first (it read the rest oldest first: 2017 on top)
+assert.equal(defaultTenderSort('all'), 'open-first');
 assert.equal(toTenderQuery(parseTenderFilters({ status: 'planned' })), '?status=planned');
 assert.deepEqual(ignoredFilters({ status: 'planned' }, 'tenders'), [], 'planned is a known status');
 assert.equal(ignoredFilters({ status: 'upcoming' }, 'tenders').length, 1);

@@ -16,7 +16,8 @@ export default function RoadmapPage() {
       lead="What to obtain, in the order the dependencies allow, with who issues it and what it costs and takes."
       wide
     >
-      <RoadmapView />
+      {/* WP-106 (p09): printed smaller (globals.css, data-roadmap-print): a hand-out, not 4 to 7 A4 pages */}
+      <div data-roadmap-print><RoadmapView /></div>
     </ContentPage>
   );
 }

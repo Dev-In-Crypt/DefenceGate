@@ -97,6 +97,30 @@ export function sourceStatusWord(t: Pick<Tender, 'statusNative'>): string | null
   }
 }
 
+/** WP-95: the label of an award's value by its kind. WP-106: the list cards and the CSV use the same words. */
+export const AWARD_VALUE_LABEL = { contract: 'Awarded value', framework: 'Framework ceiling', estimate: 'Estimated value' } as const;
+
+/** WP-106: "Madzeal, S.L.; Indra Sistemas S.A. and 3 more", and the persons counted, never named; null with nobody named. */
+export function winnersLine(t: Pick<Tender, 'awardedTo' | 'awardedPersons'>, shown = 2, name: (s: string) => string = (s) => s): string | null {
+  const names = (t.awardedTo ?? []).map((w) => name(w.name));
+  const persons = t.awardedPersons ?? 0;
+  if (names.length === 0 && persons === 0) return null;
+  const rest = names.length - shown;
+  const head = names.slice(0, shown).join('; ') + (rest > 0 ? ` and ${rest} more` : '');
+  const people = persons > 0 ? `${persons === 1 ? 'a natural person' : `${persons} natural persons`}, not named` : '';
+  return [head, people].filter(Boolean).join(names.length > 0 && people ? '; and ' : '');
+}
+
+const folded = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+/** WP-106: the subject when it says more than the title (a card does not repeat the title under it); null otherwise. */
+export function subjectAddsTo(subject: string | null | undefined, title: string | null | undefined): string | null {
+  const s = (subject ?? '').trim();
+  if (!s) return null;
+  const a = folded(s), b = folded(title ?? '');
+  return a && !b.includes(a) ? s : null;
+}
+
 /** "Estimated value" qualifiers the API may send, as words. Anything else is shown as sent. */
 export function valueKindLabel(kind: string | null | undefined): string | null {
   const k = (kind ?? '').trim();

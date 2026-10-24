@@ -13,6 +13,20 @@ function publicationYears(): number[] {
   return Array.from({ length: year - MARKET_FIRST_YEAR + 1 }, (_, i) => year - i);
 }
 
+/** A plain GET form to the tender file with the result's own filters and a publication-date range (the export reads `publishedFrom`/`publishedTo`). */
+function PublishedRange({ csvHref }: { csvHref: string }) {
+  const [path, query = ''] = csvHref.split('?');
+  const kept = [...new URLSearchParams(query)].filter(([k]) => k !== 'publishedFrom' && k !== 'publishedTo');
+  return (
+    <form method="get" action={path} className="flex flex-wrap items-end gap-2" data-csv-range>
+      {kept.map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      <label className="flex flex-col gap-1 text-small">Published from<input type="date" name="publishedFrom" required className="min-h-11 rounded-md border border-line bg-surface px-2" /></label>
+      <label className="flex flex-col gap-1 text-small">to<input type="date" name="publishedTo" className="min-h-11 rounded-md border border-line bg-surface px-2" /></label>
+      <button type="submit" className={cn(buttonVariants({ variant: 'secondary' }))}><Icon icon={Download} size="button" />CSV of these days</button>
+    </form>
+  );
+}
+
 /**
  * The tools of a result list, under the filters: the CSV of the current result (a plain link, not a
  * client-routed one, so nothing prefetches the file) and a way to the deadline calendar.
@@ -34,7 +48,7 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, ics
   const tenders = csvHref.startsWith('/tenders/');
   return (
     <div className={cn('flex flex-col gap-2 rounded-lg border border-transparent bg-surface p-5', className)}>
-      <a href={csvHref} download className={cn(buttonVariants({ variant: 'secondary', fullWidth: true }))}>
+      <a href={csvHref} className={cn(buttonVariants({ variant: 'secondary', fullWidth: true }))}>
         <Icon icon={Download} size="button" />Download CSV
       </a>
       <p className="m-0 text-small text-ink-muted">The public fields of this result, up to 2,000 rows (1,000 when the status is All), with source, licence and attribution on every row.</p>
@@ -50,12 +64,14 @@ export function ResultTools({ csvHref, calendarHref = '/calendar', feedHref, ics
         <ul className="m-0 flex list-none flex-wrap gap-x-4 p-0" data-csv-years>
           {publicationYears().map((y) => (
             <li key={y}>
-              <a href={`${csvHref}${csvHref.includes('?') ? '&' : '?'}publishedFrom=${y}-01-01&publishedTo=${y}-12-31`} download
+              <a href={`${csvHref}${csvHref.includes('?') ? '&' : '?'}publishedFrom=${y}-01-01&publishedTo=${y}-12-31`}
                 className="inline-flex min-h-11 items-center gap-1 text-small font-bold"><Icon icon={Download} size="inline" />{y}</a>
             </li>
           ))}
         </ul>
       )}
+      {/* WP-106 (p07): any range of publication days, when a year holds more than one file does */}
+      {cut && tenders && <PublishedRange csvHref={csvHref} />}
       <Link href={calendarHref} className="inline-flex min-h-11 items-center gap-2 text-small font-bold">
         <Icon icon={CalendarDays} size="inline" />Deadline calendar of this search
       </Link>

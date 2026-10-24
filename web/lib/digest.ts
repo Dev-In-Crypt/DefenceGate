@@ -58,7 +58,15 @@ export function weekLabel(week: string): string {
   return `Week ${num}: ${from} to ${end.getUTCDate()} ${MONTHS[end.getUTCMonth()]} ${end.getUTCFullYear()}`;
 }
 
-export interface DigestFilters { country?: string }
+/** WP-106 (p04): `cpv` narrows the tender sections to notices with a code under one of these prefixes (the API's `cpv`). */
+export interface DigestFilters { country?: string; cpv?: string[] }
+
+/** CPV prefixes of a `cpv` parameter: 2 to 8 digits each (a check digit, 35120000-1, dropped), at most 20, as /tenders reads them. */
+export function digestCpv(v: string | string[] | undefined): string[] | undefined {
+  const raw = (Array.isArray(v) ? v : [v ?? '']).flatMap((s) => s.split(/[,\s]+/));
+  const out = [...new Set(raw.map((s) => /^(\d{8})-\d$/.exec(s)?.[1] ?? s).filter((s) => /^\d{2,8}$/.test(s)))].slice(0, 20);
+  return out.length ? out : undefined;
+}
 
 /** The countries an issue can be narrowed to: a buyer country of a notice, or `EU` for the Commission's own calls. */
 export const DIGEST_COUNTRIES: Record<string, string> = { ...BUYER_COUNTRIES, EU: 'European Union (EU programmes)' };
@@ -67,7 +75,8 @@ export const DIGEST_COUNTRIES: Record<string, string> = { ...BUYER_COUNTRIES, EU
 export function parseDigestFilters(sp: SearchParams): DigestFilters {
   const raw = Array.isArray(sp.country) ? sp.country[0] : sp.country;
   const code = (raw ?? '').trim().toUpperCase();
-  return Object.hasOwn(DIGEST_COUNTRIES, code) ? { country: code } : {};
+  const cpv = digestCpv(sp.cpv);
+  return { ...(Object.hasOwn(DIGEST_COUNTRIES, code) ? { country: code } : {}), ...(cpv ? { cpv } : {}) };
 }
 
 /** A `country` that was asked for and is not one of DIGEST_COUNTRIES: the page says it was ignored, the feed refuses it. */
@@ -78,7 +87,11 @@ export function unknownDigestCountry(sp: SearchParams): string | null {
 }
 
 export function digestQuery(f: DigestFilters): string {
-  return f.country ? `?country=${f.country}` : '';
+  const q = new URLSearchParams();
+  if (f.country) q.set('country', f.country);
+  if (f.cpv?.length) q.set('cpv', f.cpv.join(','));
+  const s = q.toString();
+  return s ? `?${s}` : '';
 }
 
 export function digestPath(week: string | null, f: DigestFilters = {}): string {
@@ -115,9 +128,10 @@ export function repeatsLabel(repeats: number | undefined): string | null {
  * Where a tender section's "has the rest" leads: the change list of that week and kind (`/changes?week=2026-W42&kind=new`,
  * API `/v1/changes?week=&kind=`), with the digest's country when it is a buyer country (`EU` is the Commission's own calls: no notice has it).
  */
-export function restOfTendersHref(week: string, kind: 'new' | 'amended', country?: string): string {
+export function restOfTendersHref(week: string, kind: 'new' | 'amended', country?: string, cpv?: string[]): string {
   const q = new URLSearchParams({ week, kind });
   if (country && Object.hasOwn(BUYER_COUNTRIES, country)) q.set('country', country);
+  if (cpv?.length) q.set('cpv', cpv.join(','));
   return `/changes?${q.toString()}`;
 }
 
@@ -150,23 +164,26 @@ export function countsSentence(d: Pick<Digest, 'counts'>): string {
   ].join(', ') + (c.cascade > 0 ? `; ${c.cascade} with cascade funding` : '') + '.';
 }
 
-export interface DigestAtomOptions { origin: string; country?: string; generatedAt: string }
+export interface DigestAtomOptions { origin: string; country?: string; generatedAt: string; cpv?: string[] }
 
 /**
  * The feed: one entry per issue (newest first), each with the counts and the first headlines. The entry's id is the
  * week, so a reader never shows an issue twice; `updated` is the end of the week the issue covers.
  */
 export function buildDigestAtom(issues: Digest[], o: DigestAtomOptions): string {
-  const q = o.country ? `?country=${o.country}` : '';
+  const q = digestQuery({ country: o.country, cpv: o.cpv });
   const self = `${o.origin}/digest.atom${q}`;
+  // WP-106: a feed narrowed to codes is another feed (its own id) and says so in its entries' titles
+  const codes = o.cpv?.length ? `CPV ${o.cpv.join(', ')}` : '';
+  const scope = [o.country, codes].filter(Boolean).join(', ');
   const updated = issues.reduce((m, d) => (d.weekTo > m ? d.weekTo : m), '') || o.generatedAt;
   const entries = issues.map((d) => {
     const text = [countsSentence(d), ...headlines(d, 10)].join('\n');
     return [
       '  <entry>',
-      `    <id>${xmlText(tagId(o.origin, 'digest', d.week, o.country ?? 'all'))}</id>`,
-      `    <title>${xmlText(`Weekly digest, ${weekLabel(d.week)}${o.country ? ` (${o.country})` : ''}`)}</title>`,
-      `    <link rel="alternate" type="text/html" href="${xmlText(`${o.origin}${digestPath(d.week, { country: o.country })}`)}"/>`,
+      `    <id>${xmlText(tagId(o.origin, 'digest', d.week, o.country ?? 'all', ...(o.cpv?.length ? [`cpv-${o.cpv.join('-')}`] : [])))}</id>`,
+      `    <title>${xmlText(`Weekly digest, ${weekLabel(d.week)}${scope ? ` (${scope})` : ''}`)}</title>`,
+      `    <link rel="alternate" type="text/html" href="${xmlText(`${o.origin}${digestPath(d.week, { country: o.country, cpv: o.cpv })}`)}"/>`,
       `    <updated>${rfc3339(d.weekTo)}</updated>`,
       `    <summary type="text">${xmlText(text)}</summary>`,
       '  </entry>',
@@ -175,7 +192,7 @@ export function buildDigestAtom(issues: Digest[], o: DigestAtomOptions): string 
   return [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">',
-    `  <id>${xmlText(tagId(o.origin, 'digest', o.country ?? 'all'))}</id>`,
+    `  <id>${xmlText(tagId(o.origin, 'digest', o.country ?? 'all', ...(o.cpv?.length ? [`cpv-${o.cpv.join('-')}`] : [])))}</id>`,
     '  <title>DefenceGate: weekly digest</title>',
     `  <subtitle>${xmlText('Each week: new and amended defence notices, new, opened and closing funding calls, and calls with cascade funding. One entry per week.')}</subtitle>`,
     `  <updated>${rfc3339(updated)}</updated>`,

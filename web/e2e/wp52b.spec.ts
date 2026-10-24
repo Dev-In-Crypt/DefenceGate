@@ -96,7 +96,7 @@ test('T10: "the list has the rest" of a digest week leads to a list that exists'
   expect(await page.locator('section[aria-labelledby="entries"] article').count()).toBeGreaterThan(0);
   await expect(page.locator('section[aria-labelledby="entries"] article').filter({ hasText: /^Amended/ })).toHaveCount(0);
   // The form keeps the week and the kind when a country is applied.
-  expect(await html(page, '/changes?week=2026-W41&kind=new')).toMatch(/<input type="hidden" name="week" value="2026-W41"\/>/);
+  expect(await html(page, '/changes?week=2026-W41&kind=new')).toMatch(/<select name="week"[^>]*>.*?<option value="2026-W41"[^>]*selected=""/s);   // WP-106: the period is a choice of the form now
   // A week that has not ended, or is outside the archive, is a 404; a week that is not one is ignored.
   for (const week of ['2026-W50', '2026-W30']) expect((await page.request.get(`/changes?week=${week}`)).status(), week).toBe(404);
   expect((await page.request.get('/changes?week=2026-W99')).status()).toBe(200);

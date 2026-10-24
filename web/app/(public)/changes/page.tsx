@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Rss } from 'lucide-react';
-import { getChanges } from '@/lib/api';
+import { getChanges, getDigestWeeks } from '@/lib/api';
 import { weekLabel, weekOf, weekSoFarLabel } from '@/lib/digest';
 import { now } from '@/lib/deadline';
 import { CHANGE_MAX_PAGE, MAX_QUERY_LENGTH, ignoredFilters, lastPage, parseChangeFilters, toChangeQuery, toTenderQuery, PARAM, type SearchParams } from '@/lib/filters';
@@ -70,7 +70,11 @@ export default async function ChangesPage({ searchParams }: Props) {
   const thisWeek = filters.week !== undefined && filters.week === weekOf(now());
   // A page past the API's last (100) is past the end of the list: an answer, not an outage (QA m-8)
   const pastEnd = (filters.page ?? 1) > CHANGE_MAX_PAGE;
-  const data = pastEnd ? null : await getChanges(filters).catch(() => null);
+  // WP-106 (p03): a period beyond the last 14 days: the archive's weeks, each the list behind its digest (the week under way too)
+  const [data, weeks] = await Promise.all([pastEnd ? null : getChanges(filters).catch(() => null), getDigestWeeks().catch(() => [])]);
+  const current = weekOf(now());
+  const periods = [{ value: current, label: weekSoFarLabel(current, now()) }, ...weeks.map((w) => ({ value: w.week, label: weekLabel(w.week) }))];
+  if (filters.week && !periods.some((o) => o.value === filters.week)) periods.push({ value: filters.week, label: weekLabel(filters.week) });
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'What changed', href: '/changes' }];
   const header = (
     <PageHeader crumbs={crumbs} title="What changed"
@@ -100,7 +104,8 @@ export default async function ChangesPage({ searchParams }: Props) {
       {/* WP-90: a subscription's own filters (main code only, the status) travel too */}
       {filters.cpvMain && <input type="hidden" name={PARAM.cpvMain} value="true" />}
       {filters.status && <input type="hidden" name={PARAM.status} value={filters.status} />}
-      {filters.week && <input type="hidden" name="week" value={filters.week} />}
+      <Select name="week" label="Period" placeholder="The last 14 days" defaultValue={filters.week ?? ''} className="sm:min-w-64" options={periods} />
+
       <div className="flex items-center gap-3">
         <Button type="submit">Apply</Button>
         <Link href="/changes" className="inline-flex min-h-11 items-center text-small font-bold">Clear</Link>
@@ -221,8 +226,9 @@ export default async function ChangesPage({ searchParams }: Props) {
           </EmptyState>
         ) : (
           <>
-          <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New</Tag>{FIRST_COLLECTED}</p>
-          <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New award</Tag>{FIRST_COLLECTED_AWARD}</p>
+          {/* WP-106 (p03): only the legend of what is listed ("New" stood over a list of amendments) */}
+          {data.items.some((c) => c.kind === 'new') && <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New</Tag>{FIRST_COLLECTED}</p>}
+          {data.items.some((c) => c.kind === 'award') && <p className="m-0 flex max-w-prose flex-wrap items-center gap-2 text-small text-ink-muted"><Tag kind="programme">New award</Tag>{FIRST_COLLECTED_AWARD}</p>}
           {byDay(data.items).map((g) => (
             <div key={g.day} className="flex flex-col gap-3">
               <h2 className="m-0 text-h3"><time dateTime={g.day}>{formatDateUtc(`${g.day}T00:00:00Z`)}</time></h2>

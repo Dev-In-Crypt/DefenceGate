@@ -98,20 +98,38 @@ export function tooBroad(f: {
  * as the list does. The file used to ignore `sort` (UX walk-through 16 October 2026), then read `core-first` as a newest
  * deadline first (persona round of 23 October 2026, p09: 30 October at the top of a list that starts with 23 October).
  */
-export function listOrder<T extends { deadline: string | null; publishedAt?: string | null; scope?: string; status?: string }>(
+export function listOrder<T extends {
+  deadline: string | null; publishedAt?: string | null; scope?: string; status?: string;
+  estimatedValue?: { amount: number; currency: string } | null; cpv?: string | null;
+}>(
   items: T[], status: string | undefined, sort?: string, scope = 'relevant',
 ): T[] {
+  // WP-106: by value (EUR first, then each other currency by itself, the largest first; a placeholder amount is none) and by main code
+  if (sort === 'value-desc' || sort === 'cpv-asc') {
+    const money = (t: T) => (t.estimatedValue && t.estimatedValue.amount > 1 ? t.estimatedValue : null);
+    const key = (t: T): [number, string, number] => {
+      if (sort === 'cpv-asc') return [t.cpv ? 0 : 1, t.cpv ?? '', 0];
+      const m = money(t);
+      return m ? [m.currency === 'EUR' ? 0 : 1, m.currency, -m.amount] : [2, '', 0];
+    };
+    return [...items].sort((a, b) => {
+      const x = key(a), y = key(b);
+      return x[0] - y[0] || x[1].localeCompare(y[1]) || x[2] - y[2];
+    });
+  }
   const coreFirst = (status ?? 'open') === 'open' && scope === 'relevant' && (sort === undefined || sort === 'core-first');
-  const by = sort === undefined || sort === 'core-first' ? (status === 'closed' || status === 'planned' ? 'deadline-desc' : 'deadline-asc') : sort;
+  // WP-106: `all` with no sort (`open-first`): its open notices soonest first, then the rest newest deadline first, as the list
+  const allDefault = status === 'all' && (sort === undefined || sort === 'open-first');
+  const by = sort === undefined || sort === 'core-first' || sort === 'open-first' ? (status === 'closed' || status === 'planned' ? 'deadline-desc' : 'deadline-asc') : sort;
   const openFirst = status === 'all' && by === 'deadline-asc';
   const group = (t: T) => (coreFirst ? (t.scope === 'core' ? 0 : 1) : openFirst ? (t.status === 'open' ? 0 : 1) : 0);
-  const sign = by === 'deadline-asc' ? 1 : -1;
+  const sign = (t: T) => (allDefault && t.status !== 'open' ? -1 : by === 'deadline-asc' ? 1 : -1);
   const at = (t: T) => Date.parse((by === 'published-desc' ? t.publishedAt : t.deadline) ?? '');
   return [...items].sort((a, b) => {
     if (group(a) !== group(b)) return group(a) - group(b);
     const x = at(a), y = at(b);
     if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) === Number.isNaN(y) ? 0 : Number.isNaN(x) ? 1 : -1;
-    return sign * (x - y);
+    return sign(a) * (x - y);
   });
 }
 
