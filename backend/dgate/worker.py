@@ -1300,6 +1300,19 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def warm_first_views() -> None:
+    """WP-98c: at start (a deploy), the Atom feed's API pages and the supplier value orders, when missing or older than four
+    hours (`ops.warm_lists.run_first`, seconds), so the first reader after a deploy does not wait for them. Never blocks the
+    start: a failure is logged, and the four-hourly run writes them anyway."""
+    from .ops import warm_lists
+
+    try:
+        with db.connect(settings().dsn) as conn:
+            log.info("first views: %s", warm_lists.run_first(conn))
+    except Exception:  # noqa: BLE001
+        log.exception("first views were not written")
+
+
 def start_catch_up_thread(database_ready: bool = True) -> threading.Thread:
     thread = threading.Thread(target=_catch_up_in_background, args=(database_ready,),
                               name="catch-up", daemon=True)
@@ -1311,6 +1324,7 @@ def _catch_up_in_background(database_ready: bool) -> None:
     try:
         if database_ready:
             start_backfill_thread()
+            threading.Thread(target=warm_first_views, name="first-views", daemon=True).start()
             results = catch_up_backups() + catch_up()
         else:
             # Loud rather than silent: a catch-up that could not run is a gap that

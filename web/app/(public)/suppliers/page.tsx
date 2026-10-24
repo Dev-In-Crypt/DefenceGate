@@ -166,6 +166,13 @@ export default async function SuppliersPage({ searchParams }: Props) {
         <h2 id="results-heading" className="m-0 text-h2">
           {result.total === 0 ? 'No suppliers' : `Suppliers (${formatNumber(result.total)})`}
         </h2>
+        {/* WP-98c: a value order read from the stored sums that an award load has overtaken says so */}
+        {result.valuesBehind && result.valuesAsOf && (
+          <p className="m-0 max-w-prose text-small text-ink-muted" data-values-behind>
+            Ordered by the contract values as summed on {formatDateTimeUtc(result.valuesAsOf)}; contracts read since then join the order at the next
+            update (each company&rsquo;s own values below are current).
+          </p>
+        )}
         {f.group && (
           <p role="status" className="m-0 max-w-prose rounded-md bg-surface-inset px-4 py-3 text-small" data-group-view>
             The companies of a curated company group (a parent and its subsidiaries, from the source named on each company&rsquo;s page). Each

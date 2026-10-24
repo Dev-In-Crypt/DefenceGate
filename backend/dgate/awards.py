@@ -794,9 +794,18 @@ def refresh_award_twins(conn: psycopg.Connection) -> int:
     refreshes apart (the second would insert pairs the first committed) and lets readers through."""
     conn.execute("LOCK TABLE award_twin_set IN EXCLUSIVE MODE")
     conn.execute("DELETE FROM award_twin_set")
-    return conn.execute(
+    pairs = conn.execute(
         """INSERT INTO award_twin_set (award_id, preferred_id, procedure_method, winner_method)
            SELECT award_id, preferred_id, procedure_method, winner_method FROM award_twin""").rowcount
+    # WP-98c: the supplier list's stored value orders read these pairs and the awards just loaded: renewed with them. A
+    # failure there (a savepoint) leaves the older orders, which the list then says are behind, and never the load.
+    from .suppliers import store_value_orders
+    try:
+        with conn.transaction():
+            store_value_orders(conn)
+    except Exception:  # noqa: BLE001
+        log.exception("supplier value orders were not renewed")
+    return pairs
 
 
 def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
