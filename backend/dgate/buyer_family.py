@@ -3,7 +3,7 @@
 A pure function over (country, normalised name). It decides nothing about the data: the
 rows stay as they are and `ops/buyer_families.py` stores the result in `buyer_family_member`,
 which the buyer list reads. Explicit rules, no fuzzy matching, no similarity score and no
-grouping across countries; a wrong group is worse than none, so a rule that cannot be
+grouping across countries (one listed exception, WP-111: an international organisation, `INTERNATIONAL`); a wrong group is worse than none, so a rule that cannot be
 defended from the names alone is not here.
 
 Rules, strongest first:
@@ -89,6 +89,25 @@ NAMED: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
     # Spain's army logistics command's economic affairs office, written JAEMALE, Jae Male and JAE MALE.
     ("jae_male", "ES", re.compile(r"^jae ?male\b"),
      "one office (Jefatura de Asuntos Economicos del Mando de Apoyo Logistico), with and without a space"),
+    # WP-111 (p06): the Dutch national police is one force since 2013 (Politie, "Politie Nederland"); the name alone, so a
+    # regional force of before 2013 ("Politieregio ...") and the police academy stay themselves
+    ("nl_politie", "NL", re.compile(r"^politie(?: nederland)?$"),
+     "one national police force (Politie), written with and without 'Nederland'"),
+    # WP-111 (p07): Agenzia Industrie Difesa (AID), the ministry's agency, with and without the ministry in front, its
+    # abbreviation, and its directorate general (the agency's own head office)
+    ("it_aid", "IT", re.compile(r"\bagenzia industrie difesa\b"),
+     "one agency (Agenzia Industrie Difesa, AID), with and without the ministry in front and its directorate general"),
+)
+
+# WP-111 (p06): international organisations, one legal person whose establishments sit in several countries and are each
+# filed under their seat's country: the one exception to "no family across countries". The European Space Agency's
+# headquarters (Paris), ESTEC (Noordwijk), ESOC (Darmstadt) and ESRIN (Frascati) are the one agency. Not a notice where a
+# prime contractor awards ("... contract to be awarded by OHB ... and not directly by ESA"), nor the EU Agency for the Space
+# Programme (EUSPA, Prague), which a notice named "European Space Agency for the Space Programme".
+INTERNATIONAL: tuple[tuple[str, re.Pattern[str], str], ...] = (
+    ("esa", re.compile(r"^(?:european space agency|agence spatiale europeenne|esa)\b(?!.*\b(?:not directly by esa"
+                       r"|space programme)\b)"),
+     "one intergovernmental agency (ESA): its headquarters and its establishments ESTEC, ESOC and ESRIN"),
 )
 
 # WP-96: spellings of one name that the stored form keeps apart, per country: a German abbreviation and a typo of the
@@ -165,6 +184,9 @@ def family_of(country: str | None, name: str | None) -> Family | None:
     for country_, pattern, label, confidence, _evidence in RENAMES:
         if c == country_ and any(pattern.search(x) for x in names):
             return Family(f"{c}:rule:{label}", CURATED_RENAME, confidence)
+    for label, pattern, _why in INTERNATIONAL:
+        if any(pattern.search(x) for x in names):
+            return Family(f"INT:rule:{label}", f"rule:{label}", RULE)
     for label, country_, pattern, _why in NAMED:
         if c == country_ and any(pattern.search(x) for x in names):
             # "rule:" cannot occur in a normalised name, so a row that is merely called "hil"

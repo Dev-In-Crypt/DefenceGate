@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { allWinnersLabel, approachGroups, approachOthersLine, openHref, supplierHref, winnersHref, type ApproachWinner, type Demand, type DemandRequest } from '@/lib/demand';
 import { codeKind, type CodeKind } from '@/lib/cpv';
+import { displayName } from '@/lib/display-name';
 import { VALUE_RULES } from '@/lib/value-totals';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -84,7 +85,7 @@ export function Winner({ w, scope, request = null, rules = true, full = false }:
         <p className="m-0 text-small text-ink-muted" data-short-hidden>
           Wins most from:{' '}
           {w.buyers.map((b, i) => (
-            <span key={b.slug}>{i > 0 && '; '}<Link href={`/buyers/${b.slug}`}>{b.name}</Link> ({b.contracts})</span>
+            <span key={b.slug}>{i > 0 && '; '}<Link href={`/buyers/${b.slug}`}>{displayName(b.name, 'title')}</Link> ({b.contracts})</span>
           ))}
         </p>
       )}

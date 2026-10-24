@@ -118,14 +118,18 @@ def test_shared_numbers_merge_across_a_conflict_and_a_wrong_country_with_undo(co
     conn.commit()
     lines: list[str] = []
     report = supplier_dedupe.run(conn, out=lines.append)
-    assert report["merged"] == 0 and report["rows_to_merge"] == 4
+    # WP-111 (p03, 24 October 2026): "DE0000CGC00430" is the code a Spanish defence buyer gives a foreign supplier, not a
+    # number of Heckler & Koch (`supplier_identity.own_number`), and "AND" is the "&": the fifth row now joins by its name
+    # (it stood apart in WP-104, the one Heckler & Koch record left)
+    assert report["merged"] == 0 and report["rows_to_merge"] == 5
     assert f"  pair {hk[0]} <- {hk[1]} company_number 0.97" in lines and f"  pair {pil} <- {pil_bg} company_number 0.97" in lines
+    assert f"  pair {hk[0]} <- {hk[4]} name_key 0.95" in lines
     done = supplier_dedupe.run(conn, apply=True, out=lines.append)
-    assert done["merged"] == 4 and done["recountried"] == 1
+    assert done["merged"] == 5 and done["recountried"] == 1
     rows = {r["id"]: r for r in conn.execute(
         "SELECT id, merged_into, merge_method, merge_confidence, country FROM organisation WHERE id = ANY(%s)",
         (hk + [pil, pil_bg],)).fetchall()}
-    assert {i for i in rows if rows[i]["merged_into"] == hk[0]} == set(hk[1:4]) and rows[hk[4]]["merged_into"] is None
+    assert {i for i in rows if rows[i]["merged_into"] == hk[0]} == set(hk[1:5])
     assert rows[pil_bg]["merged_into"] == pil and rows[pil_bg]["country"].strip() == "BG"       # the row keeps its country
     assert conn.execute("SELECT supplier_country FROM award WHERE organisation_id = %s",
                         (pil_bg,)).fetchone()["supplier_country"] == "CH"                      # its award rows move

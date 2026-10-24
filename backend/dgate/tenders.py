@@ -38,6 +38,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+from collections import defaultdict
 from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
@@ -359,6 +360,8 @@ class Buyer(BaseModel):
     scope: str = "relevant"
     # WP-98b: with `cpv=`, the buyer's notices under the codes (each once, as the list shows them); else None.
     cpvCount: int | None = None
+    # WP-111: on the buyer's own page, the names its other rows publish under (`variant_names`)
+    variantNames: list[str] = []
 
 
 class BuyerPage(BaseModel):
@@ -2159,8 +2162,10 @@ AGGREGATE = f"""
 
 def aggregate_sql(*, exact: bool = False) -> str:
     """The buyer aggregate (`org_id`, `n`, `open_n`, `last_published`, `variants`), one row
-    per buyer FAMILY (`org_id` is the head's id: migration 0055, `buyer_family_member`; a
-    buyer with no family is its own head).
+    per ORGANISATION (WP-111): `family_base` adds the rows of a family up when it is read, so a family the
+    worker's stored aggregate predates is counted whole (p07, 24 October 2026: the members merged into Direzione degli
+    Armamenti Terrestri after the stored aggregate left it at 177 notices last published 31.01.2024, where its page,
+    read live, said 435 with 28 of 2026). `open_n` and `variants` are 0 here: both are read live (`buyer_base`).
 
     `open_n` is counted as the buyer's own list counts it: the same scope (WP-96: relevant, the list default; it was core) and collapse (a national
     notice and its TED twin, a rectificatif and its parent, a re-publication: one each), so it equals
@@ -2170,14 +2175,12 @@ def aggregate_sql(*, exact: bool = False) -> str:
     on a busy one: the worker runs it (`ops/warm_lists`, stored as `list_snapshot` key `buyer-base`) and the
     API reads that. Without a stored result the API runs the plain count (`exact=False`: 1.2 to 2 s, every core
     notice once, a twin counted twice), which is what it always did. The family is a LEFT JOIN to a table of
-    some hundreds of rows, so the scan stays as it was."""
+    some hundreds of rows, so the scan stays as it was. A notice and its twin under two members of one family are
+    counted once (the collapse reads the families of the time it runs): per organisation, the twin that stays is
+    counted under its own row."""
     return f"""
-    SELECT t.org_id, t.n, COALESCE(op.open_n, 0) AS open_n, t.last_published,
-           COALESCE(v.variants, 0) AS variants
+    SELECT t.org_id, t.n, 0::bigint AS open_n, t.last_published, 0::bigint AS variants
       FROM ({_totals_sql(exact)}) t
-      LEFT JOIN ({_open_sql()}) op ON op.org_id = t.org_id
-      LEFT JOIN (SELECT head_org_id, count(*) AS variants
-                   FROM buyer_family_member GROUP BY head_org_id) v ON v.head_org_id = t.org_id
     """
 
 
@@ -2201,14 +2204,10 @@ def _totals_sql(exact: bool = False) -> str:
     base = _core_where()
     collapse = f" AND {collapse_clauses(base, same_buyer=True)}" if exact else ""
     return f"""
-    SELECT COALESCE(m.head_org_id, x.org_id) AS org_id, sum(x.n)::bigint AS n,
-           max(x.last_published) AS last_published
-      FROM (SELECT o.buyer_org_id AS org_id, count(*) AS n, max(o.published_at) AS last_published
-              FROM opportunity o
-             WHERE {" AND ".join(base)}{collapse}
-             GROUP BY o.buyer_org_id) x
-      {_FAMILY}
-     GROUP BY COALESCE(m.head_org_id, x.org_id)"""
+    SELECT o.buyer_org_id AS org_id, count(*)::bigint AS n, max(o.published_at) AS last_published
+      FROM opportunity o
+     WHERE {" AND ".join(base)}{collapse}
+     GROUP BY o.buyer_org_id"""
 
 
 def _open_sql() -> str:
@@ -2272,6 +2271,38 @@ def _stored_buyer_base(conn) -> list[list[Any]] | None:
     return cols
 
 
+def family_base(conn, cols: list[list[Any]]) -> list[list[Any]]:
+    """WP-111: the per-organisation aggregate (`aggregate_sql`) as one row per buyer family of NOW (`buyer_family_member`,
+    some thousand rows): the notices added up, the last publication the newest of any member, the variants the members
+    counted. The open counts are read live per family (a few thousand notices: the totals move slowly, the open set by
+    the hour), so "Open now" is the list's own count. A stored aggregate of the old shape (one row per family of its
+    day) is grouped the same way: a family made after it is still counted whole. The list and the buyer page read this
+    one result, so they say one number and one date for a family whatever was merged since the worker's last run."""
+    head_of = {r["org_id"]: r["head_org_id"] for r in conn.execute(
+        "SELECT org_id, head_org_id FROM buyer_family_member").fetchall()}
+    totals: dict[int, list[Any]] = {}
+    for org, n, last in zip(cols[0], cols[1], cols[3], strict=True):
+        head = head_of.get(org, org)
+        t = totals.setdefault(head, [0, None])
+        t[0] += n or 0
+        if last is not None and (t[1] is None or last > t[1]):
+            t[1] = last
+    variants: dict[int, int] = defaultdict(int)
+    for head in head_of.values():
+        variants[head] += 1
+    live = {r["org_id"]: r["open_n"] for r in conn.execute(_open_sql()).fetchall()}
+    heads = sorted(totals)
+    return [heads, [totals[h][0] for h in heads], [live.get(h, 0) for h in heads], [totals[h][1] for h in heads],
+            [variants.get(h, 0) for h in heads]]
+
+
+# WP-111 (p04): a family is a defence body when any of its rows is one: Agencja Uzbrojenia's flagged row has no notice of its
+# own, and the family's head ("Skarb Panstwa - Agencja Uzbrojenia") carried no badge though RBLog's did.
+def family_defence(alias: str) -> str:
+    return (f"({alias}.is_defence_buyer OR EXISTS (SELECT 1 FROM buyer_family_member fm JOIN organisation mo "
+            f"ON mo.id = fm.org_id WHERE fm.head_org_id = {alias}.id AND mo.is_defence_buyer))")
+
+
 def buyer_base(conn) -> list[list[Any]]:
     """The buyer aggregate, as five columns of values (`_BASE_TYPES`). It does not depend on any filter of the
     list (they run over its rows afterwards), but it reads every core notice and tests the list's collapse
@@ -2285,13 +2316,7 @@ def buyer_base(conn) -> list[list[Any]]:
 
     def compute() -> list[list[Any]]:
         stored = _stored_buyer_base(conn)
-        if stored is None:
-            return compute_buyer_base(conn)
-        # The totals are the worker's; the open counts are a few thousand notices and are read now, so
-        # "Open now" is the list's own count (the totals move slowly, the open set by the hour).
-        live = {r["org_id"]: r["open_n"] for r in conn.execute(_open_sql()).fetchall()}
-        stored[2] = [live.get(org, 0) for org in stored[0]]
-        return stored
+        return family_base(conn, compute_buyer_base(conn) if stored is None else stored)
 
     if settings().list_cache_seconds <= 0:          # 0 turns the list caches off, this one too
         return compute()
@@ -2397,7 +2422,7 @@ def list_buyers(
     # do that again if it were allowed to push the filter down, and read all 350,000 organisations
     # to join them (the ANY over the aggregate's ids makes that an index lookup of each).
     with_a = ("WITH a AS MATERIALIZED (" + agg + "), org AS MATERIALIZED ("
-              "SELECT o.id, o.canonical_name, o.country, o.is_defence_buyer, a.n, a.open_n, "
+              f"SELECT o.id, o.canonical_name, o.country, {family_defence('o')} AS is_defence_buyer, a.n, a.open_n, "
               "a.last_published, a.variants FROM a JOIN organisation o ON o.id = a.org_id "
               "WHERE o.id = ANY(ARRAY(SELECT org_id FROM a))) ")
     base = "FROM org" + ((" WHERE " + " AND ".join(where)) if where else "")
@@ -2454,8 +2479,8 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     org_ids, counts, open_n, last_published, variants = buyer_base(conn)
     at = org_ids.index(head) if head in org_ids else None
     row = conn.execute(
-        "SELECT org.id, org.canonical_name, org.country, org.is_defence_buyer FROM organisation org "
-        "WHERE org.id = %s", (head,)).fetchone() if at is not None else None
+        f"SELECT org.id, org.canonical_name, org.country, {family_defence('org')} AS is_defence_buyer "
+        "FROM organisation org WHERE org.id = %s", (head,)).fetchone() if at is not None else None
     if not row:
         if conn.execute("SELECT 1 FROM organisation WHERE id = %s AND suppressed",
                         (org_id,)).fetchone():
@@ -2472,6 +2497,28 @@ def get_buyer(slug: str, conn=Depends(get_conn)):
     else:
         out["openCoreCount"] = 0
     from .network_api import network_slug_of_buyer
-    out["organisationSlug"] = network_slug_of_buyer(
-        conn, conn.execute("SELECT dgate_family_ids(%s) AS ids", (row["id"],)).fetchone()["ids"])
+    family = conn.execute("SELECT dgate_family_ids(%s) AS ids", (row["id"],)).fetchone()["ids"]
+    out["organisationSlug"] = network_slug_of_buyer(conn, family)
+    out["variantNames"] = variant_names(conn, row["id"], family, out["name"])
+    return out
+
+
+def variant_names(conn, head: int, family: list[int] | None, shown: str) -> list[str]:
+    """WP-111 (p04): the names the family's other rows publish under (each row's commonest spelling, `_buyer_names`), each
+    once (case and accents aside) and not the name the page shows, so a reader sees which notices are this buyer
+    ("Agencja Uzbrojenia", "Skarb Panstwa - Agencja Uzbrojenia"). Most notices first."""
+    members = [i for i in (family or []) if i != head]
+    if not members:
+        return []
+    names = _buyer_names(conn, members)
+    counts = {r["buyer_org_id"]: r["n"] for r in conn.execute(
+        "SELECT buyer_org_id, count(*) AS n FROM opportunity WHERE buyer_org_id = ANY(%s) AND is_defence "
+        "AND NOT suppressed AND NOT buyer_withheld GROUP BY 1", (members,)).fetchall()}
+    seen = {tuple(fold_words(shown))}
+    out = []
+    for org in sorted(names, key=lambda i: (-counts.get(i, 0), names[i])):
+        key = tuple(fold_words(names[org]))
+        if names[org] and key not in seen:
+            seen.add(key)
+            out.append(names[org])
     return out

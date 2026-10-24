@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, REMOVED, whenRemoved } from '@/lib/api';
+import { getBuyer, getBuyerProfile, getBuyerSuppliers, getTenders, isBuyerSlug, REMOVED, UNAVAILABLE, whenRemoved } from '@/lib/api';
 import { RemovedOnRequest } from '@/components/dg/removed';
 import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatNumber, variantsLine } from '@/lib/format';
@@ -117,7 +117,15 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
               : <span className="font-sans">Not stated</span>}
           </FactCell>
         </FactsGrid>
-        {variantsLine(buyer.nameVariants) && <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>}
+        {variantsLine(buyer.nameVariants) && ((buyer.variantNames?.length ?? 0) > 0 ? (
+          /* WP-111 (p04): the names themselves, so a reader sees which notices are this buyer's */
+          <details className="max-w-prose text-small text-ink-muted" data-variant-names>
+            <summary className="cursor-pointer">{variantsLine(buyer.nameVariants)}: show the names</summary>
+            <ul className="m-0 mt-2 flex list-disc flex-col gap-1 pl-5">
+              {(buyer.variantNames ?? []).map((v) => <li key={v}>{v}</li>)}
+            </ul>
+          </details>
+        ) : <p className="m-0 max-w-prose text-small text-ink-muted">{variantsLine(buyer.nameVariants)}</p>)}
         <p className="m-0 max-w-prose text-small text-ink-muted">
           Counts cover the notices the tender list shows for this buyer under {SCOPE_CHOICES.relevant.label}: {SCOPE_CHOICES.core.label.toLowerCase()} and {SCOPE_CHOICES.supply.label.toLowerCase()}. Each notice shows its own source.
         </p>
@@ -148,8 +156,14 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
       )}
 
       {/* WP-105 (p06: on a phone it started 81,000 px down, after 28 open and 100 planned cards): who wins, with the money, first */}
-      {suppliers && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} cpv={cpv} />}
-      {suppliers && suppliers.items.length === 0 && cpv && (
+      {suppliers && suppliers !== UNAVAILABLE && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} cpv={cpv} />}
+      {/* WP-111 (p03): a supplier table that could not be read is said, not left out (under a code filter it looked as if the filter emptied it) */}
+      {suppliers === UNAVAILABLE && (
+        <p className="m-0 max-w-prose text-body" role="status" data-top-suppliers-unavailable>
+          The top suppliers of this buyer{cpv ? ` under ${cpv.join(', ')}` : ''} could not be loaded just now. Reload the page in a minute to see them.
+        </p>
+      )}
+      {suppliers && suppliers !== UNAVAILABLE && suppliers.items.length === 0 && cpv && (
         <p className="m-0 max-w-prose text-body" data-top-suppliers-none>No published award of this buyer in the last three years names a winner under {cpv.join(', ')}.</p>
       )}
 

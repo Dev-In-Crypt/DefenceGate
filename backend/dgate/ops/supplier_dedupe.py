@@ -42,6 +42,13 @@ without a number that two conflicting companies could be is joined to neither.
   * a public body (`buyer_family.is_public_body`: public bodies are never merged by a company rule; the buyer
     families group them), a row removed on request or marked a natural person
 
+WP-111: a number is the company's own only when it has the shape of one (`supplier_identity.own_number`): the code a
+Spanish defence buyer gives a foreign supplier ("DE0000CGC00430", Heckler & Koch) and a value of no shape an Italian or a
+British company number has ("0006001333" for Leonardo S.p.A., "0898937602" for Leonardo UK Ltd) are no evidence for or
+against; the name key reads "and" / "und" as the "&" they stand for; and a row with no number of its own whose name is
+another's with the Irish eTenders reference after it ("Leonardo Spa_149684") is that row (`name_key_portal_suffix`, 0.90).
+The report lists every pair it merges and every set it leaves apart, each with its numbers.
+
 The head is the row with the most award rows, then the one holding a number, then the oldest. Nothing is deleted: the
 absorbed row keeps `merged_into`, its method and confidence, and `ops.undo_merges`' logic undoes a run's window.
 Idempotent: a second run finds no group.
@@ -63,7 +70,7 @@ from ..awards import numbers_conflict
 from ..buyer_family import is_public_body
 from ..config import settings
 from ..resolution.names import fold_key, key_of, legal_form_of
-from ..supplier_identity import _FORM_COUNTRIES, company_number, piva_valid
+from ..supplier_identity import _FORM_COUNTRIES, own_number, piva_valid
 from . import undo_merges
 from .accept_merge_candidates import _FORM_WORDS, name_similarity
 
@@ -92,7 +99,7 @@ REVIEWED: tuple[Reviewed, ...] = (
 )
 
 METHODS = {"company_number": 0.97, "name_key": 0.95, "company_number_division": 0.95, "it_tax_pair": 0.90,
-           "name_key_spaces": 0.90, "stated_number_prefix": 0.90, CURATED_REVIEW: 0.90}
+           "name_key_spaces": 0.90, "stated_number_prefix": 0.90, CURATED_REVIEW: 0.90, "name_key_portal_suffix": 0.90}
 # the methods of the first pass (`plan`): evidence by number, or a person's review of the source
 NUMBER_METHODS = frozenset({"company_number", "company_number_division", "it_tax_pair", "stated_number_prefix",
                             CURATED_REVIEW})
@@ -120,12 +127,16 @@ class Row:
 # legal-form words the name key can still end with ("SAAB Aktiebolag" keys as "saab aktiebolag", "KNDS Deutschland GmbH
 # & Co. KG" as "knds deutschland co")
 _TAIL = _FORM_WORDS | {"co", "kg", "ohg", "mbh"}
+_PORTAL_SUFFIX = re.compile(r"(?<=[^\W\d_])_\d{1,6}\s*$")
+_AND = frozenset({"and", "und"})
 
 
 def core_key(name: str) -> str:
     """The name key (`resolution.names.key_of`) without the legal-form words left at its end. WP-104: and without an
     Italian company's "Societa" in front ("SOCIETA LEONARDO S.P.A." is Leonardo S.p.A.)."""
-    words = key_of(name or "")[0].split()
+    # WP-111: "and" / "und" between words, which "&" stands for ("HECKLER AND KOCH GMBH." is "Heckler & Koch GmbH"; the key
+    # reads "&" as a space)
+    words = [w for w in key_of(name or "")[0].split() if w not in _AND]
     while len(words) > 1 and words[-1] in _TAIL:
         words.pop()
     if len(words) > 1 and words[0] == "societa" and legal_form_of(name) in ("spa", "srl"):
@@ -153,19 +164,20 @@ def load(conn) -> list[Row]:
     out = []
     for r in rows:
         country = (r["country"] or "").strip()
-        nums = {n for n in (company_number(x, country) for x in (r["national_reg_no"], r["vat_number"], *(r["ids"] or ())))
+        # WP-111: a buyer's or a portal's code in the number field is no number of the company (`own_number`)
+        nums = {n for n in (own_number(x, country) for x in (r["national_reg_no"], r["vat_number"], *(r["ids"] or ())))
                 if n}
         stated: dict[str, set[str]] = defaultdict(set)
         for s in r["stated"] or ():
             name, _, ident = s.partition(chr(1))
-            if (n := company_number(ident, country)):
+            if (n := own_number(ident, country)):
                 stated[stated_key(name)].add(n)
         out.append(Row(r["id"], country, r["name"] or "", nums,
                        {f for f in map(legal_form_of, (r["name"], *(r["aliases"] or ()))) if f}, r["n"],
                        is_public_body(r["name"], country, defence_buyer=bool(r["is_defence_buyer"]),
                                       org_role=r["org_role"]),
                        dict(stated),
-                       {n for n in (company_number(x, country) for x in (r["national_reg_no"], r["vat_number"])) if n}))
+                       {n for n in (own_number(x, country) for x in (r["national_reg_no"], r["vat_number"])) if n}))
     return out
 
 
@@ -269,7 +281,7 @@ def _pair_conflict(a: Row, b: Row, it_keys: set[tuple[int, int]]) -> str | None:
     return None
 
 
-def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[str]]:
+def plan(rows: list[Row], apart: list[str] | None = None) -> tuple[list[dict[str, Any]], dict[str, int], list[str]]:
     """The groups to merge ({head, members: [(id, method, confidence)], names}), the groups left alone by reason, and
     report lines for the Italian pairs that wait (two numbers under one name, not stated together).
 
@@ -310,6 +322,18 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
                     join(a, b, "name_key_spaces")
                 else:
                     left["spacing_on_a_short_key"] += 1
+    # WP-111: a name with the Irish eTenders reference TED carries after it ("Leonardo Spa_149684", as after the buyer's "Irish
+    # Defence Forces_1144": `tenders.clean_buyer_name`) is the name without it, for a row that holds no number of its own
+    # (a row with a number of its own stays apart as before: its number may be another company's)
+    for r in rows:
+        if r.public or r.numbers or not _PORTAL_SUFFIX.search(r.name):
+            continue
+        bare = core_key(_PORTAL_SUFFIX.sub("", r.name))
+        if len(bare) < MIN_KEY:
+            continue
+        for b in buckets.get((r.country, fold_key(bare)), ()):
+            if b.id != r.id and b.key == bare:
+                join(r, b, "name_key_portal_suffix")
     for members in numbers.values():
         for i, a in enumerate(members):
             for b in members[i + 1:]:
@@ -395,6 +419,12 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
     for ids in linked.values():
         if (why := clash(ids)):
             left[why] += 1
+            if apart is not None:
+                # WP-111: every set left apart, with its evidence: the rows, their own numbers, the rule that linked them
+                rs = sorted((by_id[i] for i in ids), key=lambda r: r.id)
+                rules = sorted({m for k, m in edges.items() if k[0] in ids and k[1] in ids})
+                apart.append(f"  apart {why} [{', '.join(rules)}]: " + " | ".join(
+                    f"{r.id} {r.country} {r.name[:40]!r} {sorted(r.numbers) or 'no number'} {r.awards} awards" for r in rs))
     groups = []
     for ids in members_of().values():
         if len(ids) < 2 or clash(ids):    # a chain of safe joins that still meets a conflict: left whole
@@ -424,7 +454,8 @@ def plan(rows: list[Row]) -> tuple[list[dict[str, Any]], dict[str, int], list[st
 
 def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sample: int = 40) -> dict[str, Any]:
     rows = load(conn)
-    groups, left, waiting = plan(rows)
+    apart: list[str] = []
+    groups, left, waiting = plan(rows, apart)
     result: dict[str, Any] = {"winners": len(rows), "groups": len(groups),
                               "rows_to_merge": sum(len(g["members"]) for g in groups),
                               "left": left, "it_pairs_waiting": len(waiting), "merged": 0}
@@ -443,6 +474,10 @@ def run(conn, *, apply: bool = False, limit: int | None = None, out=print, sampl
     for g in groups:
         for oid, method, conf in g["members"]:
             out(f"  pair {g['head']} <- {oid} {method} {conf}")
+        # WP-111: the evidence of the group, under its pairs
+        out(f"    evidence {g['head']}: numbers {g['numbers'][:4]}; names " + " | ".join(n[:40] for n in g["names"]))
+    for line in apart:
+        out(line)
     for line in waiting[:sample]:
         out(line)
     if not apply:

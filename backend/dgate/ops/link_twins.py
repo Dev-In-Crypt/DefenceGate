@@ -46,7 +46,9 @@ METHODS = ("stated_ted_ref", "procedure_id", "heuristic")
 # the lower bound of the sample read by hand (see docs/sources/boamp.md, "TED reference").
 CONFIDENCE = {"stated_ted_ref": 1.0, "procedure_id": 0.98, "heuristic": 0.9,
               # no value on either side, deadline within a day (zones differ): weaker
-              "heuristic_novalue": 0.8}
+              "heuristic_novalue": 0.8,
+              # WP-111: two planned notices with no deadline and no value: the codes, the buyer and the days only
+              "heuristic_planned": 0.8}
 
 # Sources whose stored raw payload is the record as the source sent it, so the mapper can
 # read the procedure identifier again. PLACSP's raw payload is the mapped record, which
@@ -139,7 +141,7 @@ SELECT n.id AS nid, n.source_id AS nsrc, coalesce(n.related_native_id, n.native_
    AND {match}
    AND (n.procedure_identifier IS NULL OR t.procedure_identifier IS NULL)
    AND abs(t.published_at - n.published_at) <= 14
- WHERE n.source_id <> %(ted)s AND n.deadline_at IS NOT NULL AND n.published_at IS NOT NULL
+ WHERE n.source_id <> %(ted)s AND n.published_at IS NOT NULL
    AND {have}
    AND EXISTS (SELECT 1 FROM unnest(n.cpv_codes) a, unnest(t.cpv_codes) b
                 WHERE left(a, 5) = left(b, 5) AND length(a) >= 5 AND length(b) >= 5)
@@ -156,15 +158,21 @@ SELECT n.id AS nid, n.source_id AS nsrc, coalesce(n.related_native_id, n.native_
 # one-candidate-per-side rule is unchanged and the confidence is lower.
 _STRICT = ("t.deadline_at = n.deadline_at AND t.value_amount = n.value_amount "
            "AND t.value_currency = n.value_currency",
-           "n.value_amount IS NOT NULL AND n.value_currency IS NOT NULL")
+           "n.deadline_at IS NOT NULL AND n.value_amount IS NOT NULL AND n.value_currency IS NOT NULL")
 _LOOSE = ("t.deadline_at IS NOT NULL AND abs(extract(epoch FROM t.deadline_at - n.deadline_at)) <= 86400 "
           "AND t.value_amount IS NULL AND t.value_currency IS NULL",
-          "n.value_amount IS NULL AND n.value_currency IS NULL")
+          "n.deadline_at IS NOT NULL AND n.value_amount IS NULL AND n.value_currency IS NULL")
+# WP-111 (p03): a planned notice (prior information) states no deadline, so neither match above could tie BAAINBw's
+# Bekanntmachungsservice copy of a market survey (26 June 2026) to its TED notice 448143-2026 (30 June), and the buyer page
+# showed one procurement twice. Both planned, neither with a deadline, the same CPV codes exactly, the same buyer, published
+# within 14 days, and (as for every heuristic) each the other's only candidate.
+_PLANNED = ("t.status = 'forthcoming' AND t.deadline_at IS NULL AND t.cpv_codes = n.cpv_codes",
+            "n.status = 'forthcoming' AND n.deadline_at IS NULL")
 
 
-def heuristic_pairs(conn, *, loose: bool = False) -> list[tuple[int, str]]:
+def heuristic_pairs(conn, *, loose: bool = False, planned: bool = False) -> list[tuple[int, str]]:
     """(national row id, TED native id) for every row the heuristic would link."""
-    match, have = _LOOSE if loose else _STRICT
+    match, have = _PLANNED if planned else _LOOSE if loose else _STRICT
     sql = _PAIRS.replace("{match}", match).replace("{have}", have)
     return unambiguous(conn.execute(sql, {"ted": _ted_id(conn)}).fetchall())
 
@@ -200,6 +208,7 @@ def link_heuristic(conn, *, write: bool = False, source: str | None = None,
     only = _only(source, conn)
     pairs = [(p, "heuristic") for p in heuristic_pairs(conn)]
     pairs += [(p, "heuristic_novalue") for p in heuristic_pairs(conn, loose=True)]
+    pairs += [(p, "heuristic_planned") for p in heuristic_pairs(conn, planned=True)]
     if only is not None:
         keep = {r["id"] for r in conn.execute(
             "SELECT id FROM opportunity WHERE id = ANY(%s) AND source_id = %s",

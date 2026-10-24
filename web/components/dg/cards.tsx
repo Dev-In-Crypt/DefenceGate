@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now } from '@/lib/deadline';
-import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
+import { formatDateUtc, formatNumber, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
 import { AWARD_VALUE_LABEL, anomalyNotes, isLongRunning, subjectAddsTo, tenderChangedLabel, tenderStatusView, winnersLine } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
 import { WHO_BADGE } from '@/lib/filters';
@@ -278,9 +278,9 @@ export function BuyerCard({ buyer, headingLevel = 'h2' }: { buyer: Buyer; headin
         </div>
         <dl className={cn(LIST_FACTS, 'cq:col-start-2 cq:row-start-1')}>
           {/* WP-98b: with a CPV filter, its tenders under the codes (the list's order), before all of its tenders */}
-          {typeof buyer.cpvCount === 'number' && <ListFact label="Under these codes"><span className="tabular-nums" data-cpv-count>{buyer.cpvCount}</span></ListFact>}
-          <ListFact label="Tenders in archive"><span className="tabular-nums">{buyer.tenderCount}</span></ListFact>
-          <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{buyer.openCount}</span></ListFact>
+          {typeof buyer.cpvCount === 'number' && <ListFact label="Under these codes"><span className="tabular-nums" data-cpv-count>{formatNumber(buyer.cpvCount)}</span></ListFact>}
+          <ListFact label="Tenders in archive"><span className="tabular-nums" data-buyer-tenders>{formatNumber(buyer.tenderCount)}</span></ListFact>
+          <ListFact label="Open now" tone={buyer.openCount === 0 ? 'closed' : 'default'}><span className="tabular-nums">{formatNumber(buyer.openCount)}</span></ListFact>
           <ListFact label="Last published">
             {buyer.lastPublishedAt
               ? <time dateTime={buyer.lastPublishedAt}>{formatDateUtc(buyer.lastPublishedAt)} UTC</time>

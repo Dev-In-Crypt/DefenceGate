@@ -224,7 +224,8 @@ def all_groups(conn, extra_pairs: list[tuple[int, int]] = ()) -> list[Group]:
     return groups
 
 
-def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = (), out=None) -> dict[str, int]:
+def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = (), out=None,
+        refresh: bool = False) -> dict[str, int]:
     """`extra_pairs`: pairs to treat as `rejected_public_units` although not yet stored (the dry run
     of `ops.accept_merge_candidates`). `out`: where the rows that change are printed, one line each."""
     groups = all_groups(conn, extra_pairs)
@@ -254,6 +255,12 @@ def run(conn, *, write: bool = False, extra_pairs: list[tuple[int, int]] = (), o
         if gone:
             conn.execute("DELETE FROM buyer_family_member WHERE org_id = ANY(%s)", (gone,))
         conn.commit()
+        if refresh and (changed or gone):
+            # WP-111: the stored buyer aggregate is computed again at once (a pass over every notice, seconds), so a
+            # twin under two rows now one family is counted once on the list as it is on the buyer page (the command's
+            # --yes; without a stored aggregate the API counts each notice once, a twin twice, as it always did)
+            from . import warm_lists
+            warm_lists._write_views(conn, [v for v in warm_lists.views([]) if v[0] == "buyer-base"], [], True)
     return {"groups": len(groups), "members": len(wanted), "written": len(changed),
             "removed": len(gone), "notices": sum(g.notices for g in groups)}
 
@@ -282,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
             for line in report(conn):
                 print(line)
         print("rows that change (member -> head, method, confidence):")
-        counts = run(conn, write=args.yes, out=print)
+        counts = run(conn, write=args.yes, out=print, refresh=True)
     log.info("%s (%s)", ", ".join(f"{k} {v}" for k, v in counts.items()),
              "written" if args.yes else "dry run, nothing is written")
     return 0
