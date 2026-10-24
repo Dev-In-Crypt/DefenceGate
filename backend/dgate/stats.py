@@ -41,8 +41,9 @@ import psycopg
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from . import db
+from . import db, money
 from .config import settings
+from .suppliers import ValueSum
 from .suppress import removed
 from .tenders import (
     CORE,
@@ -401,7 +402,16 @@ def market(get_conn, today: date | None = None, *, year: int | None = None,
         got[name] = cached(
             ("market", name, today, year, country, tuple(cpv or ())),
             lambda fn=fn: {"at": datetime.now(timezone.utc), "data": fn(get_conn())})
+    # WP-105: the contract values of the supplier map's award set in the same window, country and codes. Not kept when there
+    # is no snapshot yet (None is never cached), and never the reason the overview fails.
+    try:
+        paid = cached(("market", "money", today, year, country, tuple(cpv or ())),
+                      lambda: money.market_money(get_conn(), since, until, country, cpv))
+    except Exception:  # noqa: BLE001
+        paid = None
     return {
+        "money": paid,
+        "basisMoney": MONEY_BASIS,
         "asOf": min(part["at"] for part in got.values()),     # the oldest figure on the page
         "scope": "core",
         "unit": "notices published",
@@ -461,6 +471,44 @@ class ResponseWindow(BaseModel):
     p75: int | None
 
 
+class MoneyTotals(BaseModel):
+    byCurrency: list[ValueSum]
+    of: int                      # contracts (a contract and its winner) in the slice
+    withoutValue: int            # of them, those with no contract value to sum
+
+
+class MoneyCountry(MoneyTotals):
+    country: str
+
+
+class MoneyGroup(MoneyTotals):
+    group: str
+
+
+class MoneyBuyer(MoneyTotals):
+    slug: str
+    name: str
+    country: str | None
+
+
+class MarketMoney(BaseModel):
+    asOf: datetime
+    since: str                   # the days the sums cover: the market's window cut to the award set's three years
+    until: str
+    total: MoneyTotals
+    byCountry: list[MoneyCountry]
+    byCpvGroup: list[MoneyGroup]
+    byBuyer: list[MoneyBuyer]
+
+
+MONEY_BASIS = ("Sums of the contract values awarded, per currency, never converted: the contracts of the supplier map (result "
+               "notices of the defence-relevant scope, the last three years, winners that are legal entities), each contract "
+               "of each winner once and valued as the supplier pages value it. Framework ceilings, estimates and unit prices "
+               "are never added; a contract that states no value of its own is counted as without value. A contract with "
+               "codes in several CPV groups is in each. Coverage is that of the award notices we read: TED everywhere, and "
+               "Spain's national portal (PLACSP) for Spanish buyers.")
+
+
 class MarketStats(BaseModel):
     asOf: datetime
     scope: str
@@ -481,6 +529,8 @@ class MarketStats(BaseModel):
     responseWindow: ResponseWindow
     cpvGroups: list[CpvGroupCount]
     basis: dict[str, str]
+    money: MarketMoney | None = None         # WP-105: None while the worker has stored no contract values
+    basisMoney: str = MONEY_BASIS
 
 
 MARKET_FIRST_YEAR = 2017

@@ -203,7 +203,7 @@ test('NL services: the services branch from /check, its processes, certificates 
     await expect(page.getByLabel(label)).toBeVisible();
   }
   const sets = await page.locator('[data-cpv-set]').evaluateAll((els) => els.map((e) => e.getAttribute('data-cpv-set')));
-  expect(sets).toEqual(['services', 'automotive', 'machining', 'ammunition']);
+  expect(sets).toEqual(['services', 'automotive', 'machining', 'uniforms', 'naval', 'aviation', 'ammunition']);   // WP-105: textiles, naval, aviation
   await page.getByRole('button', { name: 'Services to the armed forces: suggested codes' }).click();
   await expect(page.getByRole('list', { name: 'Your CPV codes' }).locator('li')).toHaveCount(9);
   if (info.project.name === 'desktop') await shot(page, 'nl-services-profile', true);

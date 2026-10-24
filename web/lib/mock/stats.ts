@@ -33,6 +33,24 @@ export function marketStats(ref: Date = new Date()): MarketStats {
     responseWindow: { notices: 1500, median: 35, p25: 24, p75: 49 },
     cpvGroups: [{ group: '354', count: 410 }, { group: '351', count: 300 }, { group: '353', count: 220 }],
     basis: BASIS,
+    // WP-105: made-up contract values in the API's shape
+    money: {
+      asOf: ref.toISOString(), since: new Date(ref.getTime() - 365 * 86_400_000).toISOString().slice(0, 10), until: ref.toISOString().slice(0, 10),
+      total: { byCurrency: [{ currency: 'EUR', amount: 182_400_000, count: 610, lotEstimates: 0 }, { currency: 'PLN', amount: 96_000_000, count: 120, lotEstimates: 0 }], of: 900, withoutValue: 170 },
+      byCountry: [
+        { country: 'ES', byCurrency: [{ currency: 'EUR', amount: 98_000_000, count: 420, lotEstimates: 0 }], of: 520, withoutValue: 100 },
+        { country: 'PL', byCurrency: [{ currency: 'PLN', amount: 96_000_000, count: 120, lotEstimates: 0 }], of: 160, withoutValue: 40 },
+        { country: 'DE', byCurrency: [{ currency: 'EUR', amount: 84_400_000, count: 190, lotEstimates: 0 }], of: 220, withoutValue: 30 },
+      ],
+      byCpvGroup: [
+        { group: '354', byCurrency: [{ currency: 'EUR', amount: 60_000_000, count: 200, lotEstimates: 0 }], of: 240, withoutValue: 40 },
+        { group: '351', byCurrency: [{ currency: 'EUR', amount: 22_000_000, count: 90, lotEstimates: 0 }], of: 110, withoutValue: 20 },
+      ],
+      byBuyer: [
+        { slug: '1-demo-armaments-agency', name: 'Demo Armaments Agency', country: 'DE', byCurrency: [{ currency: 'EUR', amount: 40_000_000, count: 80, lotEstimates: 0 }], of: 95, withoutValue: 15 },
+      ],
+    },
+    basisMoney: 'Sums of the contract values awarded, per currency, never converted: the contracts of the supplier map. Framework ceilings, estimates and unit prices are never added.',
   };
 }
 

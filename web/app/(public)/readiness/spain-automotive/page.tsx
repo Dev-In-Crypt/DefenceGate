@@ -14,7 +14,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = buildMetadata({
   title: 'Spain automotive: who to approach in defence',
-  description: 'For civilian manufacturers in Spain, such as automotive suppliers: who wins defence contracts under your CPV codes in five countries, who buys, and the rules.',
+  description: 'For civilian manufacturers in Spain, such as automotive suppliers: who wins defence contracts under your CPV codes in seven countries, who buys, and the rules.',
   path: '/readiness/spain-automotive',
 });
 
@@ -26,7 +26,7 @@ function Sample({ d }: { d: Demand }) {
     <ContentSection title="Live from the demand map">
       <div className="flex flex-col gap-3 text-body" data-demand-sample>
         <p className="m-0">
-          Five CPV codes an automotive parts maker might choose, counted by the demand map on {formatDateUtc(d.until)} for the three years from{' '}
+          The codes of the supplier profile’s automotive button, the codes your report counts when you choose it, counted by the demand map on {formatDateUtc(d.until)} for the three years from{' '}
           {formatDateUtc(d.since)}:
         </p>
         <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
@@ -35,7 +35,7 @@ function Sample({ d }: { d: Demand }) {
           ))}
         </ul>
         <p className="m-0">
-          In the five countries together: {plural(d.total.procurements, 'procurement', 'procurements')} by {buyerLine(d.total)}; under Directive 2009/81/EC:{' '}
+          In the seven countries together: {plural(d.total.procurements, 'procurement', 'procurements')} by {buyerLine(d.total)}; under Directive 2009/81/EC:{' '}
           {directiveShare(d.total)}.
         </p>
         <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
@@ -63,7 +63,7 @@ export default async function SpainAutomotivePage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Spain automotive', href: '/readiness/spain-automotive' }]}
       title="Supplier readiness: Spain automotive"
-      lead="For civilian manufacturers in Spain, such as automotive suppliers, considering defence work: say what you make, and the report shows who wins and who buys it in five countries, then the rules."
+      lead="For civilian manufacturers in Spain, such as automotive suppliers, considering defence work: say what you make, and the report shows who wins and who buys it in seven countries, then the rules."
     >
       <div className="flex flex-wrap gap-3" data-useful>
         <Button href="/readiness/supplier" iconRight={ArrowRight}>Start the supplier profile</Button>
@@ -92,7 +92,7 @@ export default async function SpainAutomotivePage() {
             a winner who is a natural person is never named.
           </li>
           <li>
-            <strong className="text-ink">Who buys what you make.</strong> The buyers of those codes in the five countries (core defence buyers and others),
+            <strong className="text-ink">Who buys what you make.</strong> The buyers of those codes in the seven countries (core defence buyers and others),
             how many procurements, how many under Directive 2009/81/EC, and the newest notices.
           </li>
           <li>
@@ -105,7 +105,7 @@ export default async function SpainAutomotivePage() {
         <p className="m-0 text-body text-ink-muted">
           Why this order: automotive suppliers usually enter defence as subcontractors of the prime contractors and their large suppliers, and in Spain
           the rules are already explained for free (the CAETRA guides of the Región de Murcia, a course of ACCIÓ in Catalonia) and regional programmes
-          have paid for the certifications. What we did not find elsewhere is who wins these contracts across the five countries.
+          have paid for the certifications. What we did not find elsewhere is who wins these contracts across the seven countries.
         </p>
         <p className="m-0 text-body text-ink-muted">
           The profile is one page. Where an answer needs a classification or a legal reading (export control, US-origin components, a foreign investor,

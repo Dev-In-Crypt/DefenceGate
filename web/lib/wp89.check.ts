@@ -130,7 +130,7 @@ assert.deepEqual(GRANTS.filter(isClosed).map((g) => g.region).sort(), ['ES-AR', 
 // ---------------------------------------------------------------- 6. the link to a winner's page carries the codes
 const req = demandRequest(p);
 assert.ok(req);
-assert.equal(supplierHref('12-suyfa', req), `/suppliers/12-suyfa?cpv=${req.cpv.join('%2C')}&buyerCountry=ES%2CDE%2CFR%2CPL%2CNL`);
+assert.equal(supplierHref('12-suyfa', req), `/suppliers/12-suyfa?cpv=${req.cpv.join('%2C')}&buyerCountry=ES%2CDE%2CFR%2CPL%2CNL%2CPT%2CIT`);   // WP-105: seven countries
 assert.equal(supplierHref('12-suyfa', null), '/suppliers/12-suyfa');
 
 // ---------------------------------------------------------------- 7. the summary line of contract values

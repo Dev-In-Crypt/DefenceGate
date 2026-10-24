@@ -84,7 +84,7 @@ test('a capped list links to every winner for these codes, a page at a time, eac
   await expect(page.getByText('Page 2 of')).toBeVisible();
   await expect(rows.first()).toContainText(DEMO.approach.winners[20].name);
   expect(sent.map((b) => b.page)).toEqual([1, 2]);
-  expect(Object.keys(sent[0]).sort()).toEqual(['countries', 'cpv', 'page']);   // the codes and countries only, nothing else of the profile
+  expect(Object.keys(sent[0]).sort()).toEqual(['countries', 'cpv', 'home', 'page']);   // the codes, countries and (WP-105) the own country only, nothing else of the profile
 });
 
 test('a supplier page: contract values collapsed, every notice counted, not only the listed ones', async ({ page }) => {

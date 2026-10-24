@@ -126,8 +126,8 @@ def test_the_worker_keeps_the_value_orders_and_the_feeds_first_page(client, conn
 def test_the_worker_start_writes_the_first_views_only_when_missing(conn):
     _put(conn, "W-98c-2", status="closed")
     first = warm_lists.run_first(conn)
-    assert first["failed"] == 0 and first["written"] == first["views"] == 6     # 4 change pages, 2 value orders
+    assert first["failed"] == 0 and first["written"] == first["views"] == 7     # 4 change pages, 2 value orders, WP-105: the contract values
     keys = {r["key"] for r in conn.execute("SELECT key FROM list_snapshot").fetchall()}
-    assert {suppliers.value_order_key(False), suppliers.value_order_key(True)} <= keys
+    assert {suppliers.value_order_key(False), suppliers.value_order_key(True), "contract-values"} <= keys
     assert not any(k.startswith("tenders?") for k in keys)                      # not the whole run
     assert warm_lists.run_first(conn)["views"] == 0                              # fresh: nothing to do

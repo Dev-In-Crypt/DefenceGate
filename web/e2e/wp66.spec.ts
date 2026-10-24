@@ -14,7 +14,7 @@ import { visit } from './helpers';
 
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
 const DEMO = JSON.parse(readFileSync(path.join(__dirname, '..', 'lib', 'mock', 'demand.json'), 'utf8'));
-const COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL'];
+const COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL', 'PT', 'IT'];   // WP-105: Portugal and Italy
 
 async function asSupplier(page: Page, profile: unknown): Promise<unknown[]> {
   const sent: unknown[] = [];
@@ -31,7 +31,7 @@ test('the report maps who buys the codes, per country, from the codes alone', as
   const map = page.locator('[data-report-section="r-demand"]');
   await expect(map.getByRole('heading', { name: 'Who buys what you make' })).toBeVisible();
   await expect(map.locator('[data-demand-country]')).toHaveCount(5);
-  expect(sent).toEqual([{ cpv: profile.supplier.cpv, countries: COUNTRIES }]);
+  expect(sent).toEqual([{ cpv: profile.supplier.cpv, countries: COUNTRIES, home: 'ES' }]);   // WP-105: and the company's own country
 
   const es = DEMO.byCountry[0];
   const spain = map.locator('[data-demand-country="ES"]');
@@ -48,7 +48,7 @@ test('the report maps who buys the codes, per country, from the codes alone', as
   await expect(spain.locator('[data-demand-notice]').first().getByRole('link').first()).toHaveAttribute('href', /^\/tenders\//);
   await expect(map.locator('[data-demand-coverage]')).toHaveText(DEMO.coverage);
   await expect(map.locator('[data-demand-coverage]')).toContainText('not the sub-tier needs of prime contractors');
-  await expect(page.locator('[data-report-section="r-about"]')).toContainText('with your CPV codes and nothing else');
+  await expect(page.locator('[data-report-section="r-about"]')).toContainText("with your CPV codes and, when it is one of the map’s countries, your country, and nothing else");
 
   // print: the map starts a page, and an address at the source is printed after its link
   await page.emulateMedia({ media: 'print' });

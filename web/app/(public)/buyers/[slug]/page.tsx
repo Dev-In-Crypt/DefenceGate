@@ -27,6 +27,8 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<SearchPa
 
 /** Open tenders are listed in full (up to this many), then the earlier ones page by page. */
 const OPEN_LIMIT = 100;
+/** WP-105: up to this many planned tenders are shown unfolded. */
+const PLANNED_OPEN = 3;
 
 function pageOf(sp: SearchParams): number {
   const raw = Array.isArray(sp.page) ? sp.page[0] : sp.page;
@@ -74,7 +76,8 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
     getTenders({ ...own, status: 'closed', sort: 'published-desc', page, pageSize: TENDER_PAGE_SIZE }, { cacheable: page === 1 && !cpv }),
     // The profile is an extra: a buyer page still renders when the API cannot answer it.
     page === 1 && buyer.tenderCount > 0 ? getBuyerProfile(buyer) : Promise.resolve(null),
-    page === 1 ? getBuyerSuppliers(buyer) : Promise.resolve(null),
+    // WP-105: under the page's CPV filter too, with contract values
+    page === 1 ? getBuyerSuppliers(buyer, cpv ?? undefined) : Promise.resolve(null),
   ]);
 
   // A page past the last one is the last one, not an empty list.
@@ -144,6 +147,12 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
         </p>
       )}
 
+      {/* WP-105 (p06: on a phone it started 81,000 px down, after 28 open and 100 planned cards): who wins, with the money, first */}
+      {suppliers && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} cpv={cpv} />}
+      {suppliers && suppliers.items.length === 0 && cpv && (
+        <p className="m-0 max-w-prose text-body" data-top-suppliers-none>No published award of this buyer in the last three years names a winner under {cpv.join(', ')}.</p>
+      )}
+
       {page === 1 && (
         <section aria-labelledby="open-tenders" className="flex flex-col gap-4">
           <h2 id="open-tenders" className="m-0 text-h2">Open tenders</h2>
@@ -167,9 +176,13 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
       {page === 1 && planned && planned.items.length > 0 && (
         <section aria-labelledby="planned-tenders" className="flex flex-col gap-4">
           <h2 id="planned-tenders" className="m-0 text-h2">Planned tenders</h2>
-          <ul className="m-0 flex list-none flex-col gap-4 p-0">
-            {planned.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
-          </ul>
+          {/* WP-105: folded when there are many (100 planned cards made the page 89,000 px tall on a phone) */}
+          <details open={planned.items.length <= PLANNED_OPEN} data-planned-fold>
+            <summary className="cursor-pointer text-body font-semibold">{`Show the ${formatNumber(planned.items.length)} planned ${planned.items.length === 1 ? 'tender' : 'tenders'}`}</summary>
+            <ul className="m-0 mt-4 flex list-none flex-col gap-4 p-0">
+              {planned.items.map((t) => <li key={t.id}><TenderCard tender={t} headingLevel="h3" classifiedNote={false} /></li>)}
+            </ul>
+          </details>
           {planned.total > planned.items.length && (
             <p className="m-0 text-small text-ink-muted">Showing {formatNumber(planned.items.length)} of {formatNumber(planned.total)} planned tenders.</p>
           )}
@@ -177,8 +190,6 @@ export default async function BuyerDetailPage({ params, searchParams }: Props) {
       )}
 
       {profile && profile.tenderCount > 0 && <BuyerProfileSection profile={profile} name={name} />}
-
-      {suppliers && suppliers.items.length > 0 && <BuyerTopSuppliers data={suppliers} name={name} />}
 
       <section aria-labelledby="earlier-tenders" className="flex flex-col gap-4">
         <h2 id="earlier-tenders" className="m-0 text-h2">Earlier tenders</h2>

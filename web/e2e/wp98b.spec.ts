@@ -30,7 +30,7 @@ test('product groups for goods and services, and the deadline presets in sight',
   const presets = page.locator('[data-cpv-presets]');
   await expect(presets.locator('[data-preset-group="goods"] a')).toHaveText([
     'Military electronics', 'Radar and sonar', 'Communications', 'Vehicles and parts', 'Ammunition, weapons, explosives and pyrotechnics',
-    'Uniforms, footwear and protective gear', 'Machined parts and spare parts']);
+    'Uniforms, footwear and protective gear', 'Machined parts and spare parts', 'Ships and naval', 'Aircraft and aviation']);   // WP-105
   await expect(presets.locator('[data-preset-group="services"] a')).toHaveText([
     'Transport and logistics', 'Fuel', 'Facility management and cleaning', 'Catering', 'Vehicle repair and maintenance', 'Training', 'IT services']);
   await expect(presets.getByRole('link', { name: 'Uniforms, footwear and protective gear' }))

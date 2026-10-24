@@ -49,7 +49,7 @@ for (const said of ['per currency, never converted', 'names this one winner', 'w
 // The API answers kMin 1: no winner is held back for having few awards, so the country line speaks of the end of the list only. The demo
 // answer (lib/mock/demand.json) is production's of 22 October under the old kMin 3, and its words stay those of that rule (wp66/wp80 checks).
 const country = { otherWinners: { winners: 7, awards: 9 } } as unknown as DemandCountry;
-assert.equal(otherWinnersLine(country, 1), '7 other winners (9 awards) not listed here: the list shows the ten with the most awards per country, and the report names them all under Who to approach.');
+assert.equal(otherWinnersLine(country, 1), '7 other winners (9 awards) not listed here: the list shows the ten with the most awards per country; every one of them is on the list of all winners for these codes.');   // WP-105: no false "names them all"
 assert.match(otherWinnersLine(country, 3) ?? '', /named only with at least 3 awards/);
 assert.equal(approachOthersLine({ winners: [], below: { winners: 0, awards: 0 }, more: { winners: 0, awards: 0 } }, 1), null);
 

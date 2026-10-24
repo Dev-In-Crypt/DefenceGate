@@ -5,6 +5,7 @@
  */
 import type { AssessRequest } from './profile';
 import { countryInText, countryName } from './taxonomy';
+import { fetchPatiently } from './answer-cache';
 import { formatDateUtc, plural } from './format';
 import type { Assessment, Outcome, RIssuer, RMoney, RSource, RSpan, RequirementDetail, RoadmapTotals, Verdict, VerificationStatus } from './readiness-types';
 
@@ -279,7 +280,7 @@ export const ASSESS_FAILED = 'The check could not be computed. Try again in a mo
 
 /** Compute the verdict: the one call that leaves the browser. Nothing is kept by the server. */
 export async function assess(request: AssessRequest, signal?: AbortSignal): Promise<Assessment> {
-  const res = await fetch('/api/readiness/assess', {
+  const res = await fetchPatiently('/api/readiness/assess', {
     method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(request), signal, cache: 'no-store', credentials: 'omit',
   }).catch((e: unknown) => {

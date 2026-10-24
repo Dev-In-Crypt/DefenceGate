@@ -488,11 +488,13 @@ export async function getBuyerProfile(buyer: Buyer): Promise<BuyerProfile | null
 }
 
 /** WP-90: who won this buyer's contracts (GET /v1/buyers/{slug}/suppliers). null when the API cannot answer: the page renders without it. */
-export async function getBuyerSuppliers(buyer: Buyer): Promise<BuyerSuppliers | null> {
+export async function getBuyerSuppliers(buyer: Buyer, cpv?: string[]): Promise<BuyerSuppliers | null> {
   if (!isBuyerSlug(buyer.slug)) return null;
-  if (!API_BASE) return supplierMock.buyerSuppliers(buyer);
+  if (!API_BASE) return supplierMock.buyerSuppliers(buyer, cpv);
+  // WP-105: under the page's CPV filter, as its tenders are (a filtered answer is not kept by the site)
+  const q = cpv?.length ? `?cpv=${encodeURIComponent(cpv.join(','))}` : '';
   try {
-    return await http<BuyerSuppliers>(`/v1/buyers/${encodeURIComponent(buyer.slug)}/suppliers`, 'revalidate', DETAIL_REVALIDATE_SECONDS);
+    return await http<BuyerSuppliers>(`/v1/buyers/${encodeURIComponent(buyer.slug)}/suppliers${q}`, q ? 'no-store' : 'revalidate', DETAIL_REVALIDATE_SECONDS);
   } catch {
     return null;
   }

@@ -25,8 +25,10 @@ def test_the_request_is_bounded_and_normalised():
     assert ok.countries == ["ES", "PL"]                           # the map's order, once each
     assert demand.DemandIn(cpv=["34300000"]).countries == list(demand.COUNTRIES)
     for bad in ({"cpv": []}, {"cpv": ["343"]}, {"cpv": ["3430000a"]}, {"cpv": [f"{31000000 + i}" for i in range(16)]},
-                {"cpv": ["34300000"], "countries": ["IT"]}, {"cpv": ["34300000"], "countries": []},
-                {"cpv": ["34300000"], "countries": ["ES", "DE", "FR", "PL", "NL", "ES"]},
+                # WP-105: Italy and Portugal are map countries now; Belgium is not
+                {"cpv": ["34300000"], "countries": ["BE"]}, {"cpv": ["34300000"], "countries": []},
+                {"cpv": ["34300000"], "home": "BE"},
+                {"cpv": ["34300000"], "countries": ["ES", "DE", "FR", "PL", "NL", "PT", "IT", "ES"]},
                 {"cpv": ["34300000"], "profile": {}}):
         with pytest.raises(ValidationError):
             demand.DemandIn(**bad)

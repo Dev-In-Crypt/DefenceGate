@@ -68,7 +68,9 @@ from .tenders import _day, clean_buyer_name
 
 router = APIRouter()
 
-COUNTRIES = ("ES", "DE", "FR", "PL", "NL")
+# WP-105 (persona round of 24 October 2026, p02, p07): Portugal and Italy too, from TED (we read no national portal of theirs)
+COUNTRIES = ("ES", "DE", "FR", "PL", "NL", "PT", "IT")
+Country = Literal["ES", "DE", "FR", "PL", "NL", "PT", "IT"]
 MAX_CODES = 15
 YEARS = award_set.YEARS
 TOP_BUYERS = 10
@@ -122,7 +124,9 @@ PRIMES: tuple[tuple[str, str, tuple[str, str]], ...] = (
     ("URO Vehículos Especiales", r"^uro vehiculos especiales\b",
      ("URO Vehículos Especiales: maker of the VAMTAC, in service with the Spanish Armed Forces (company page)",
       "https://urovesa.com/en/")),
-    ("Iveco Defence Vehicles (Leonardo)", r"\biveco defen[cs]e\b",
+    # WP-105: and its Spanish company under its new name ("IDV Defensa Vehicles España, antes Iveco España"); Iveco España
+    # itself, the civil truck maker's Spanish arm, is not marked
+    ("Iveco Defence Vehicles (Leonardo)", r"\biveco defen[cs]e\b|^idv defen[cs][ae] vehicles\b",
      ("Leonardo's agreement to acquire Iveco Defence, maker of armoured vehicles and military trucks (Leonardo press release, 30 July 2025)",
       "https://www.leonardo.com/en/press-release-detail/-/detail/30-07-2025-ldo-iveco-defence")),
     ("Escribano Mechanical & Engineering", r"^escribano mechanical\b",
@@ -155,7 +159,7 @@ COVERAGE = ("Direct buying by defence bodies, as published on TED and the nation
             "needs of prime contractors, which are not published. TED covers about a tenth of EU defence spending (a "
             "2025 ECIPE policy brief; we have not re-checked that figure). National coverage differs: Spain (PLACSP) "
             "and Poland (e-Zamówienia) in full, Germany (the federal procurement office's portal) since 2025, France "
-            "(BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer.")
+            "(BOAMP) since late 2023, the Netherlands (TenderNed) with one defence buyer; Portugal and Italy from TED only.")
 WINNERS_TED = ("Winners are those named in TED result notices; most contracts below the EU thresholds name no winner "
                "here. Natural persons are never counted or named.")
 WINNERS_WITH_PLACSP = ("Winners are those named in TED result notices and in PLACSP's award results (Spain); a winner "
@@ -168,8 +172,10 @@ NOTICE = ("Computed from the CPV codes and countries in the request; nothing was
 class DemandIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cpv: list[str] = Field(min_length=1, max_length=MAX_CODES)
-    countries: list[Literal["ES", "DE", "FR", "PL", "NL"]] = Field(default=list(COUNTRIES), min_length=1,
-                                                                    max_length=len(COUNTRIES))
+    countries: list[Country] = Field(default=list(COUNTRIES), min_length=1, max_length=len(COUNTRIES))
+    # WP-105: the company's own country, so that "who to approach" names its own country's winners past the first
+    # APPROACH too (a German machining firm saw only Spanish and Polish direct suppliers). Optional, not stored or logged.
+    home: Country | None = None
 
     @field_validator("cpv")
     @classmethod
@@ -393,7 +399,9 @@ def open_now(conn, country: str, prefixes: list[str]) -> dict[str, Any]:
     return {"count": min(n, SMALL_CAP), "atLeast": n > SMALL_CAP, "href": f"/tenders?country={country}&cpv={cpv}"}
 
 
-OPEN_BUDGET_MS = 400
+# WP-105: seven countries now (Portugal, Italy): 7 x 300 ms at worst, with the answer (0.7-1.3 s on production) and the primes at the
+# buyers (0.5 s), inside the 5 s budget
+OPEN_BUDGET_MS = 300
 
 
 def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -426,12 +434,47 @@ def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[s
     return [item(w) for w in listed]
 
 
-def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str, Any]:
+# WP-105 (persona round of 24 October 2026, p01): the primes on the curated list that won none of the answer's procurements but
+# won other defence-scope contracts from the same buyers (Indra, Santa Bárbara Sistemas and Iveco Defence win from JAE MALE, not
+# under an automotive maker's codes). The award set (`award_set.scope`) of the answer's top buyers' families, grouped by winner;
+# the prime test is `prime_of` in Python over the winners' names.
+AT_BUYERS = f"""
+SELECT org.id AS org, min(org.canonical_name) AS cn, min(org.country) AS country, count(DISTINCT {award_set.KEY_HASH}) AS n,
+       mode() WITHIN GROUP (ORDER BY a.name_as_stated) AS name
+  {award_set.FROM}
+ WHERE {{scope}} AND NOT o.buyer_withheld
+   AND o.buyer_org_id = ANY(ARRAY(SELECT unnest(%(bks)s::bigint[]) UNION
+                                  SELECT org_id FROM buyer_family_member WHERE head_org_id = ANY(%(bks)s)))
+ GROUP BY org.id"""
+PRIMES_AT_BUYERS = 10
+
+
+def primes_at_buyers(conn, bks: list[int], winners: set[int], since: date) -> list[dict[str, Any]]:
+    """WP-105: the curated primes (one member per group, the one with most contracts) that won defence-scope contracts from
+    these buyer families in the window but none of the answer's procurements, most contracts first."""
+    if not bks:
+        return []
+    best_of: dict[str, dict[str, Any]] = {}
+    for w in conn.execute(AT_BUYERS.format(scope=award_set.scope()), {"bks": bks, "since": since}).fetchall():
+        p = prime_of(w["cn"])
+        if not p or w["org"] in winners or p["jointVenture"]:
+            continue
+        if p["group"] not in best_of or w["n"] > best_of[p["group"]]["contracts"]:
+            name = redact_emails(w["name"]).strip()
+            best_of[p["group"]] = {"name": name, "slug": make_slug(w["org"], name), "country": w["country"],
+                                   "contracts": w["n"], "prime": p}
+    return sorted(best_of.values(), key=lambda x: (-x["contracts"], x["name"]))[:PRIMES_AT_BUYERS]
+
+
+def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]], home: str | None = None,
+             at_buyers: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Who to approach (WP-80): the companies that win these procurements, across the countries asked, every legal entity
-    named (WP-81). The most contracts first; every prime or large defence group is listed, past the first APPROACH too.
-    Every one of them, a page at a time: `winners_page` (POST /v1/readiness/winners)."""
+    named (WP-81). The most contracts first; every prime or large defence group is listed, past the first APPROACH too, and
+    (WP-105) the first APPROACH winners of the company's own country `home`. Every one of them, a page at a time:
+    `winners_page` (POST /v1/readiness/winners)."""
     rows = _ranked(r)
-    listed = rows[:APPROACH] + [w for w in rows[APPROACH:] if w["prime"]]
+    own = {w["org"] for w in [w for w in rows if home and w["org_country"] == home][:APPROACH]}
+    listed = [w for i, w in enumerate(rows) if i < APPROACH or w["prime"] or w["org"] in own]
     shown = {w["org"] for w in listed}
     per_org: dict[int, int] = {}
     for w in winners:                       # per country; a procurement is in one country, so the sum is the total
@@ -442,6 +485,7 @@ def approach(conn, r: dict[str, Any], winners: list[dict[str, Any]]) -> dict[str
         "below": {"winners": sum(1 for o in per_org if o not in big),
                   "awards": sum(n for o, n in per_org.items() if o not in big)},
         "more": {"winners": len(big - shown), "awards": sum(per_org[o] for o in big - shown)},
+        "primesAtBuyers": at_buyers or [],
     }
 
 
@@ -477,7 +521,8 @@ def winners_page(conn, codes: list[str], countries: list[str], page: int, today:
             "winnersFrom": WINNERS_WITH_PLACSP if note else WINNERS_TED, "sources": [TED_NOTE] + ([note] if note else [])}
 
 
-def demand(conn, codes: list[str], countries: list[str], today: date | None = None) -> dict[str, Any]:
+def demand(conn, codes: list[str], countries: list[str], today: date | None = None,
+           home: str | None = None) -> dict[str, Any]:
     today = today or datetime.now(timezone.utc).date()
     r, since, public = _answer(conn, codes, countries, today)
     counts = {x["country"]: x for x in r["c"] or []}
@@ -555,7 +600,8 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
                   "otherBuyers": len({b["bk"] for b in buyers} - {b["bk"] for b in buyers if b["core"]}),
                   "awarded": awards.get(None, 0), "winners": len({w["org"] for w in winners})},
         "byCountry": [country_block(cc) for cc in countries],
-        "approach": approach(conn, r, winners),
+        "approach": approach(conn, r, winners, home, primes_at_buyers(
+            conn, sorted({k for xs in tops.values() for b in xs for k in b["bks"]}), {w["org"] for w in r["ap"] or []}, since)),
         "coverage": COVERAGE,
         "winnersFrom": WINNERS_WITH_PLACSP if note else WINNERS_TED,
         "sources": [TED_NOTE] + ([note] if note else []),
@@ -672,10 +718,19 @@ class ApproachCount(BaseModel):
     awards: int
 
 
+class PrimeAtBuyers(BaseModel):
+    name: str
+    slug: str
+    country: str | None
+    contracts: int                # its defence-scope contracts from the answer's top buyers, any code, in the window
+    prime: Prime
+
+
 class Approach(BaseModel):
     winners: list[ApproachWinner]
     below: ApproachCount          # winners with fewer than kMin procurements (WP-81: kMin is 1, so none)
     more: ApproachCount           # winners with kMin or more past the first APPROACH (no prime among them)
+    primesAtBuyers: list[PrimeAtBuyers] = []   # WP-105: curated primes that win other contracts from the same buyers
 
 
 class Demand(BaseModel):
@@ -696,7 +751,7 @@ class Demand(BaseModel):
 @router.post("/v1/readiness/demand", response_model=Demand)
 def post_demand(body: DemandIn, conn=Depends(get_conn)):
     try:
-        return demand(conn, body.cpv, body.countries)
+        return demand(conn, body.cpv, body.countries, home=body.home)
     except TooBroad:
         raise HTTPException(422, {"code": "too_broad", "message": TOO_BROAD}) from None
 
