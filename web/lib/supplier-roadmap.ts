@@ -7,7 +7,7 @@
  * lib/wp67.check.ts runs it on the three sample companies.
  */
 import { CERTIFICATES, REGISTRATIONS, type Profile } from './profile';
-import { NOT_STATED, costStatement, joinWords, programmeName, timeStatement } from './readiness';
+import { NOT_STATED, costStatement, issuerFor, joinWords, programmeName, timeStatement } from './readiness';
 import type { Assessment, ProgrammeAssessment, RSource, RoadmapStep, RuleResult } from './readiness-types';
 
 export type Rag = 'red' | 'amber' | 'green';
@@ -106,7 +106,12 @@ export function supplierRoadmap(result: Assessment, profile: Profile, names: Rec
       cost: rag === 'green' ? null : costStatement(step?.cost ?? null),
       costLabel: rag === 'green' ? null : step?.cost?.label ?? null,
       time: rag === 'green' ? null : timeStatement(step?.days ?? null),
-      issuers: rag === 'green' ? [] : (step?.issuers ?? []).map((i) => i.name),
+      // WP-97: an issuer our sources have not verified in the company's country is said in the roadmap's words (`issuerFor`: for the NCAGE
+      // code, NSPA's request page is where it starts), never printed as "National codification bureau (NCB) of the country"
+      issuers: rag === 'green' ? [] : uniq((step?.issuers ?? []).map((i) => {
+        const a = i.status === 'U' && i.country !== '*' ? issuerFor(code, [{ ...i, verificationStatus: i.status }], i.country) : null;
+        return a && a.kind === 'unverified' ? a.text : i.name;
+      })),
       note: rag === 'green' ? null : step?.note ?? null,
       consultant: rag === 'green' ? [] : uniq(entries.map((e) => e.r.consultant).filter((c): c is string => !!c)),
       asks: rag === 'green' ? [] : uniq(entries.flatMap((e) => e.r.asks.map((q) => q.question))),

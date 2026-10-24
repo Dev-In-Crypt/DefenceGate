@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { cpvDictionaryTitle } from '@/lib/cpv';
-import { allWinnersLabel, buyerLine, directiveShare, otherWinnersLine, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
+import { allWinnersLabel, buyerAmount, buyerLine, directiveShare, otherWinnersLine, ownFirst, winnersHref, type Demand, type DemandCountry, type DemandRef } from '@/lib/demand';
 import { formatDateUtc } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { countryName } from '@/lib/taxonomy';
@@ -29,11 +29,13 @@ function Ref({ r }: { r: DemandRef }) {
   );
 }
 
-function Country({ c, kMin }: { c: DemandCountry; kMin: number }) {
+/** `home` (WP-97): the company's own country, first and printed in full; another country's notice lists are left out of the short print. */
+function Country({ c, kMin, home = false }: { c: DemandCountry; kMin: number; home?: boolean }) {
   const others = otherWinnersLine(c, kMin);
+  const foreign = home ? {} : { 'data-print-full': '' };
   return (
-    <section aria-labelledby={`d-${c.country}`} className="report-row flex flex-col gap-3 border-t border-line pt-4" data-demand-country={c.country}>
-      <h3 id={`d-${c.country}`} className="m-0 text-h3">{countryName(c.country)}</h3>
+    <section aria-labelledby={`d-${c.country}`} className="report-row flex flex-col gap-3 border-t border-line pt-4" data-demand-country={c.country} data-demand-home={home || undefined}>
+      <h3 id={`d-${c.country}`} className="m-0 text-h3">{countryName(c.country)}{home ? ' (your country)' : ''}</h3>
       {c.procurements === 0 ? (
         <p className="m-0 text-body">No defence-scope notice with these codes in the last three years.</p>
       ) : (
@@ -46,25 +48,30 @@ function Country({ c, kMin }: { c: DemandCountry; kMin: number }) {
             <div className="flex flex-col gap-1">
               <h4 className="m-0 text-body font-bold">Buyers with the most procurements</h4>
               <ol className="m-0 flex list-decimal flex-col gap-1 pl-6 text-body">
-                {c.topBuyers.map((b) => (
-                  <li key={b.slug} data-demand-buyer={b.core ? 'core' : 'other'}>
-                    <Link href={`/buyers/${b.slug}`}>{b.name}</Link>{' '}
-                    <span className="text-small text-ink-muted">({b.core ? 'core defence buyer' : 'other defence-scope buyer'}, {b.procurements})</span>
-                  </li>
-                ))}
+                {c.topBuyers.map((b, i) => {
+                  const amount = buyerAmount(b);
+                  return (
+                    <li key={b.slug} data-demand-buyer={b.core ? 'core' : 'other'} {...(!home && i >= 3 ? { 'data-print-full': '' } : {})}>
+                      <Link href={`/buyers/${b.slug}`}>{b.name}</Link>{' '}
+                      <span className="text-small text-ink-muted">({b.core ? 'core defence buyer' : 'other defence-scope buyer'}, {b.procurements} {b.procurements === 1 ? 'procurement' : 'procurements'})</span>
+                      {/* WP-97: what it awarded under the codes, contract values only (framework ceilings and estimates are not added) */}
+                      {b.awardedValue && <span className="block text-small" data-demand-buyer-value {...(amount ? {} : { 'data-short-hidden': '' })}>{amount ? `Awarded: ${amount}` : 'Awarded: no contract value stated'}</span>}
+                    </li>
+                  );
+                })}
               </ol>
             </div>
           )}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1" data-demand-who-won {...foreign}>
             <h4 className="m-0 text-body font-bold">Who won</h4>
             {c.winners === 0 ? <p className="m-0 text-body">No winner is published for these procurements in the sources we read.</p> : (
               <>
                 {c.topWinners.length > 0 && (
                   <ul className="m-0 flex list-none flex-col gap-2 p-0">
                     {c.topWinners.map((w, i) => (
-                      <li key={`${i}-${w.name}`}className="report-item flex flex-col gap-1" data-demand-winner>
-                        <span className="text-body"><strong>{w.name}</strong> ({countryName(w.country)}), {w.awards} awards</span>
-                        <ul className="m-0 flex list-none flex-col p-0">{w.notices.map((r) => <Ref key={r.id} r={r} />)}</ul>
+                      <li key={`${i}-${w.name}`} className="report-item flex flex-col gap-1" data-demand-winner>
+                        <span className="text-body"><strong>{w.name}</strong> ({countryName(w.country)}), {w.awards} {w.awards === 1 ? 'award' : 'awards'}</span>
+                        <ul className="m-0 flex list-none flex-col p-0" {...foreign}>{w.notices.map((r) => <Ref key={r.id} r={r} />)}</ul>
                       </li>
                     ))}
                   </ul>
@@ -79,7 +86,7 @@ function Country({ c, kMin }: { c: DemandCountry; kMin: number }) {
             )}
           </div>
           {c.latest.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" data-print-full>
               <h4 className="m-0 text-body font-bold">Newest procurements</h4>
               <ul className="m-0 flex list-none flex-col p-0">{c.latest.map((r) => <Ref key={r.id} r={r} />)}</ul>
             </div>
@@ -95,7 +102,7 @@ function Coverage({ d }: { d: Demand }) {
 }
 
 /** The whole map, for the printable report. `result`: the one demand request of the page (WP-80: "who to approach" reads it too). */
-export function DemandMap({ result }: { result: DemandResult }) {
+export function DemandMap({ result, country = '' }: { result: DemandResult; country?: string }) {
   const vocab = useCpvVocabulary();
   if (result.state === 'idle' || result.state === 'loading') return <div role="status" aria-label="Computing the demand map"><Skeleton className="h-40" /></div>;
   if (result.state === 'error') return <ErrorState title="The demand map could not be computed" onRetry={result.retry}>{result.message}</ErrorState>;
@@ -112,22 +119,23 @@ export function DemandMap({ result }: { result: DemandResult }) {
         On paper, each winner below is shown with its newest notice and a notice by its number; the report in the browser lists up to three, with
         the link to each at its source.
       </p>
-      <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small">
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 text-small" data-short-hidden>
         {d.codes.map((c) => (
           <li key={c.code} data-demand-code={c.code}><span className="font-mono">{c.code}</span> {vocab?.get(c.code) ?? cpvDictionaryTitle(c.code) ?? ''}: {c.procurements}</li>
         ))}
       </ul>
-      {d.byCountry.map((c) => <Country key={c.country} c={c} kMin={d.kMin} />)}
+      {ownFirst(d.byCountry, country).map((c) => <Country key={c.country} c={c} kMin={d.kMin} home={c.country === country} />)}
       <p className="m-0 max-w-prose text-small text-ink-muted" data-attribution>{d.sources.map((s) => s.attribution).join(' ')}</p>
       <AboutData summary="What the counts mean">
         <p className="m-0">{d.winnersFrom} {d.notice}</p>
+        <p className="m-0">A buyer’s amount is the sum of the contract values of its awarded procurements under your codes, per currency, each contract once, from notices that give the value to one winner; framework ceilings and estimates are never added.</p>
       </AboutData>
     </div>
   );
 }
 
 /** The short version for the results page: one row per country, the coverage line, and the way to the full map. */
-export function DemandSummary({ result }: { result: DemandResult }) {
+export function DemandSummary({ result, country = '' }: { result: DemandResult; country?: string }) {
   if (result.state === 'idle') return null;
   return (
     <section aria-labelledby="demand" className="flex flex-col gap-3" data-demand-summary-section>
@@ -145,7 +153,7 @@ export function DemandSummary({ result }: { result: DemandResult }) {
               <tr><th scope="col">Country</th><th scope="col">Procurements</th><th scope="col">Under Directive 2009/81/EC</th><th scope="col">Buyers (core / other)</th><th scope="col">With a published winner</th></tr>
             </thead>
             <tbody>
-              {result.data.byCountry.map((c) => (
+              {ownFirst(result.data.byCountry, country).map((c) => (
                 <tr key={c.country} data-demand-row={c.country}>
                   <th scope="row" className="font-semibold">{countryName(c.country)}</th>
                   <td>{c.procurements}</td>

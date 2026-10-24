@@ -33,7 +33,7 @@ def test_a_group_member_that_carries_the_group_name_is_marked(name, group):
     "advanced telecommunications lambda europa atl europa",       # "mbda" inside a word
     "fundacion santa barbara", "kongsberg automotive", "rolls royce motor cars", "saab automobile parts",
     "leonardo hotels", "babcock wanson", "thyssenkrupp rothe erde", "dassault systemes",
-    "iveco espana", "nammo palencia", "escribano mechanical engineering", "talleres norte", "", None,
+    "iveco espana", "nammo palencia", "talleres norte", "uro tecnica", "", None,
 ])
 def test_other_names_are_not_marked(name):
     assert demand.prime_of(name) is None

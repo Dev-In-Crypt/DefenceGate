@@ -14,11 +14,12 @@ import { visit } from './helpers';
 
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, 'fixtures', name), 'utf8'));
 const DEMO = JSON.parse(readFileSync(path.join(__dirname, '..', 'lib', 'mock', 'demand.json'), 'utf8'));
-type W = { name: string; country: string | null; contracts: number; slug: string | null; prime: { group: string } | null };
+type W = { name: string; country: string | null; contracts: number; slug: string | null; prime: { group: string } | null; distributor?: boolean };
 const WINNERS: W[] = DEMO.approach.winners;
 // WP-89: the primes of the company's own country (Spain, the fixture profiles) first, then the others, each most contracts first
 const PRIMES = [...WINNERS.filter((w) => w.prime && w.country === 'ES'), ...WINNERS.filter((w) => w.prime && w.country !== 'ES')];
-const HOME = WINNERS.filter((w) => !w.prime && w.country === 'ES');
+// WP-97: the dealers of parts and tyres (Ferretería, Recambios ...) are listed apart, not among the direct suppliers
+const HOME = WINNERS.filter((w) => !w.prime && !w.distributor && w.country === 'ES');
 
 /** `visit` measures before the demand answer arrives: measured again once the lists are on the page. */
 async function noSideScroll(page: Page) {
@@ -40,7 +41,7 @@ test('the report starts with who to approach, then who buys, then the rules as a
   await visit(page, '/readiness/supplier/report', { title: /supplier readiness report/i, h1: 'Supplier readiness report' });
   await expect(page.locator('[data-item]').first()).toBeVisible();
   const order = await page.locator('[data-report-section]').evaluateAll((els) => els.map((e) => e.getAttribute('data-report-section')));
-  expect(order).toEqual(['r-approach', 'r-demand', 'r-results', 'r-roadmap', 'r-profile', 'r-about']);
+  expect(order).toEqual(['r-open', 'r-approach', 'r-demand', 'r-results', 'r-roadmap', 'r-profile', 'r-about']);   // WP-97: open now first
   expect(sent).toHaveLength(1);                                   // one request feeds both sections
   await expect(page.locator('[data-approach-winner]').first()).toBeVisible();
   await noSideScroll(page);

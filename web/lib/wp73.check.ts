@@ -84,13 +84,13 @@ assert.deepEqual(supplierProblems({ ...es }).map((x) => x.id), [], 'a Spanish pr
 assert.equal(askedAt('legal_form'), '/readiness?step=1');
 assert.equal(askedAt('profile.handles_classified'), '/readiness?step=5');
 assert.equal(askedAt('pecal_certificate_wanted'), '/readiness/supplier#q-pecal_certificate_wanted');
-assert.equal(askedAt('pecal_system_9_months'), '/readiness/supplier#sp-spain', 'a follow-up links to the questions where its parent is asked');
+assert.equal(askedAt('pecal_system_9_months'), '/readiness/supplier#q-pecal_system_9_months', 'WP-97: a follow-up links to itself (to its parent while hidden: lib/wp97.check.ts)');
 assert.equal(askedAt('REQ-RID'), '/readiness/supplier#q-REQ-RID');
 assert.equal(askedAt('REQ-FSC-ES'), '/readiness/supplier#q-REQ-FSC-ES');
 assert.equal(askedAt('REQ-HSES-ES'), '/readiness/supplier#q-REQ-HSES-ES');
 assert.equal(askedAt('REQ-PIC'), '/readiness?step=4');
 // WP-68: the German questions are asked on the supplier page now; a field no page asks still has no link
-assert.equal(askedAt('de_vs_nfd'), '/readiness/supplier#sp-germany');
+assert.equal(askedAt('de_vs_nfd'), '/readiness/supplier#q-de_vs_nfd');   // WP-97: the question itself, not its block
 assert.equal(askedAt('pecal_unknown_field'), null);
 // the RID rule no longer says the questionnaire does not ask
 const seed = readFileSync('../backend/seeds/requirements.json', 'utf8');

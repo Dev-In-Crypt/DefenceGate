@@ -56,61 +56,71 @@
      "slug": "306-jefatura-de-asuntos-economicos-del-mando-de-apoyo-logistico",
      "name": "Jefatura de Asuntos Económicos del Mando de Apoyo Logístico",
      "core": true,
-     "procurements": 259
+     "procurements": 259,
+     "awardedValue": []
     },
     {
      "slug": "1978-jefatura-de-intendencia-de-asuntos-economicos-este",
      "name": "Jefatura de Intendencia de Asuntos Económicos Este",
      "core": true,
-     "procurements": 199
+     "procurements": 199,
+     "awardedValue": []
     },
     {
      "slug": "1924-jefatura-de-asuntos-economicos-de-la-fuerza-terrestre",
      "name": "Jefatura de Asuntos Económicos de la Fuerza Terrestre",
      "core": true,
-     "procurements": 95
+     "procurements": 95,
+     "awardedValue": []
     },
     {
      "slug": "2080-intendente-de-ferrol",
      "name": "Intendente de Ferrol",
      "core": true,
-     "procurements": 60
+     "procurements": 60,
+     "awardedValue": []
     },
     {
      "slug": "1929-intendente-de-san-fernando",
      "name": "Intendente de San Fernando",
      "core": true,
-     "procurements": 58
+     "procurements": 58,
+     "awardedValue": []
     },
     {
      "slug": "2372-intendente-de-cartagena",
      "name": "Intendente de Cartagena",
      "core": true,
-     "procurements": 56
+     "procurements": 56,
+     "awardedValue": []
     },
     {
      "slug": "421-direccion-de-adquisiciones-del-mando-de-apoyo-logistico-del",
      "name": "Dirección de Adquisiciones del Mando de Apoyo Logístico del Ejército del Aire y del Espacio",
      "core": true,
-     "procurements": 52
+     "procurements": 52,
+     "awardedValue": []
     },
     {
      "slug": "2559-intendente-de-las-palmas",
      "name": "Intendente de las Palmas",
      "core": true,
-     "procurements": 50
+     "procurements": 50,
+     "awardedValue": []
     },
     {
      "slug": "213-direccion-de-gestion-economica-de-la-jefatura-de-apoyo-logis",
      "name": "Dirección de Gestión Económica de la Jefatura de Apoyo Logístico de la Armada",
      "core": true,
-     "procurements": 45
+     "procurements": 45,
+     "awardedValue": []
     },
     {
      "slug": "1870-jefatura-de-intendencia-de-asuntos-economicos-sur",
      "name": "Jefatura de Intendencia de Asuntos Económicos Sur",
      "core": true,
-     "procurements": 45
+     "procurements": 45,
+     "awardedValue": []
     }
    ],
    "awarded": 1229,
@@ -577,7 +587,8 @@
      "sourceUrl": "https://contrataciondelestado.es/wps/poc?uri=deeplink:detalle_licitacion&idEvl=7R7LApR2uikIYE3ZiZ%2BxmQ%3D%3D",
      "directive": false
     }
-   ]
+   ],
+   "openNow": null
   },
   {
    "country": "DE",
@@ -590,61 +601,71 @@
      "slug": "330-bundesamt-fur-infrastruktur-umweltschutz-und-dienstleistunge",
      "name": "Bundesamt für Infrastruktur, Umweltschutz und Dienstleistungen der Bundeswehr",
      "core": true,
-     "procurements": 148
+     "procurements": 148,
+     "awardedValue": []
     },
     {
      "slug": "196-bundesamt-fur-ausrustung-informationstechnik-und-nutzung-der",
      "name": "Bundesamt für Ausrüstung, Informationstechnik und Nutzung der Bundeswehr",
      "core": true,
-     "procurements": 46
+     "procurements": 46,
+     "awardedValue": []
     },
     {
      "slug": "200-hil-heeresinstandsetzungslogistik-gmbh",
      "name": "HIL Heeresinstandsetzungslogistik GmbH",
      "core": true,
-     "procurements": 12
+     "procurements": 12,
+     "awardedValue": []
     },
     {
      "slug": "34208-bundeswehr-dienstleistungszentrum-munster",
      "name": "Bundeswehr-Dienstleistungszentrum Munster",
      "core": true,
-     "procurements": 11
+     "procurements": 11,
+     "awardedValue": []
     },
     {
      "slug": "28605-bundesrepublik-deutschland-vertreten-durch-das-bundesministe",
      "name": "Bundesrepublik Deutschland, vertreten durch das Bundesministerium des Innern und für Heimat, vertreten durch das Beschaffungsamt des BMI",
      "core": false,
-     "procurements": 8
+     "procurements": 8,
+     "awardedValue": []
     },
     {
      "slug": "30945-marinearsenal",
      "name": "Marinearsenal",
      "core": true,
-     "procurements": 7
+     "procurements": 7,
+     "awardedValue": []
     },
     {
      "slug": "177481-bundesamt-fur-auswartige-angelegenheiten",
      "name": "Bundesamt für Auswärtige Angelegenheiten",
      "core": false,
-     "procurements": 5
+     "procurements": 5,
+     "awardedValue": []
     },
     {
      "slug": "128609-gemeinde-ruppichteroth",
      "name": "Gemeinde Ruppichteroth",
      "core": false,
-     "procurements": 4
+     "procurements": 4,
+     "awardedValue": []
     },
     {
      "slug": "306899-bundeswehr-dienstleistungszentrum-doberlug-kirchhain",
      "name": "Bundeswehr-Dienstleistungszentrum Doberlug-Kirchhain",
      "core": true,
-     "procurements": 3
+     "procurements": 3,
+     "awardedValue": []
     },
     {
      "slug": "283500-bundeswehr-dienstleistungszentrum-torgelow",
      "name": "Bundeswehr-Dienstleistungszentrum Torgelow",
      "core": true,
-     "procurements": 3
+     "procurements": 3,
+     "awardedValue": []
     }
    ],
    "awarded": 25,
@@ -791,7 +812,8 @@
      "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/703787-2026",
      "directive": false
     }
-   ]
+   ],
+   "openNow": null
   },
   {
    "country": "FR",
@@ -804,61 +826,71 @@
      "slug": "34117-minarm-air-siae-ministere-des-armees",
      "name": "MINARM/AIR/SIAé (Ministère des Armées)",
      "core": true,
-     "procurements": 15
+     "procurements": 15,
+     "awardedValue": []
     },
     {
      "slug": "267-economat-des-armees",
      "name": "ECONOMAT DES ARMEES",
      "core": true,
-     "procurements": 7
+     "procurements": 7,
+     "awardedValue": []
     },
     {
      "slug": "171986-mindef-ema-sca-pfc-sud",
      "name": "MINDEF / EMA / SCA / PFC SUD",
      "core": true,
-     "procurements": 5
+     "procurements": 5,
+     "awardedValue": []
     },
     {
      "slug": "28590-direction-generale-de-larmement-domn-service-des-achats-d-ar",
      "name": "Direction Générale de l’Armement / DOMN / Service des achats d'armement",
      "core": true,
-     "procurements": 3
+     "procurements": 3,
+     "awardedValue": []
     },
     {
      "slug": "219054-minarm-ema-sca-pfc-sud-divap",
      "name": "MINARM/EMA/SCA/PFC SUD/DIVAP",
      "core": true,
-     "procurements": 3
+     "procurements": 3,
+     "awardedValue": []
     },
     {
      "slug": "28875-cea-cesta-33",
      "name": "CEA CESTA (33)",
      "core": false,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     },
     {
      "slug": "116173-commune-de-martigues",
      "name": "COMMUNE DE MARTIGUES",
      "core": false,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     },
     {
      "slug": "28627-commissariat-a-l-energie-atomique-et-aux-energies-alternativ",
      "name": "Commissariat à l'Energie Atomique et aux Energies Alternatives",
      "core": false,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     },
     {
      "slug": "257371-dicom-fag",
      "name": "DICOM FAG",
      "core": true,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     },
     {
      "slug": "33161-marine-dcssf-dssf-toulon",
      "name": "MARINE/DCSSF/DSSF/TOULON",
      "core": true,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     }
    ],
    "awarded": 7,
@@ -924,7 +956,8 @@
      "sourceUrl": "https://www.boamp.fr/pages/avis/?q=idweb:%2226-80052%22",
      "directive": false
     }
-   ]
+   ],
+   "openNow": null
   },
   {
    "country": "PL",
@@ -937,61 +970,71 @@
      "slug": "6968-3-regionalna-baza-logistyczna",
      "name": "3 Regionalna Baza Logistyczna",
      "core": true,
-     "procurements": 146
+     "procurements": 146,
+     "awardedValue": []
     },
     {
      "slug": "210-2-regionalna-baza-logistyczna",
      "name": "2. Regionalna Baza Logistyczna",
      "core": true,
-     "procurements": 134
+     "procurements": 134,
+     "awardedValue": []
     },
     {
      "slug": "501-4-regionalna-baza-logistyczna",
      "name": "4 Regionalna Baza Logistyczna",
      "core": true,
-     "procurements": 114
+     "procurements": 114,
+     "awardedValue": []
     },
     {
      "slug": "7396-43-wojskowy-oddzia-gospodarczy",
      "name": "43 Wojskowy Oddział Gospodarczy",
      "core": true,
-     "procurements": 112
+     "procurements": 112,
+     "awardedValue": []
     },
     {
      "slug": "7084-41-baza-lotnictwa-szkolnego",
      "name": "41. Baza Lotnictwa Szkolnego",
      "core": true,
-     "procurements": 77
+     "procurements": 77,
+     "awardedValue": []
     },
     {
      "slug": "7065-31-wojskowy-oddzia-gospodarczy",
      "name": "31 Wojskowy Oddział Gospodarczy",
      "core": true,
-     "procurements": 76
+     "procurements": 76,
+     "awardedValue": []
     },
     {
      "slug": "8377-wojskowy-instytut-techniczny-uzbrojenia",
      "name": "WOJSKOWY INSTYTUT TECHNICZNY UZBROJENIA",
      "core": true,
-     "procurements": 76
+     "procurements": 76,
+     "awardedValue": []
     },
     {
      "slug": "514-skarb-panstwa-13-wojskowy-oddzia-gospodarczy-13-wog",
      "name": "Skarb Państwa - 13 Wojskowy Oddział Gospodarczy (13 WOG)",
      "core": true,
-     "procurements": 69
+     "procurements": 69,
+     "awardedValue": []
     },
     {
      "slug": "10098-31-baza-lotnictwa-taktycznego-w-poznaniu-krzesinach",
      "name": "31 BAZA LOTNICTWA TAKTYCZNEGO W POZNANIU-KRZESINACH",
      "core": true,
-     "procurements": 61
+     "procurements": 61,
+     "awardedValue": []
     },
     {
      "slug": "189-45-wojskowy-oddzia-gospodarczy",
      "name": "45 Wojskowy Oddział Gospodarczy",
      "core": true,
-     "procurements": 57
+     "procurements": 57,
+     "awardedValue": []
     }
    ],
    "awarded": 34,
@@ -1258,7 +1301,8 @@
      "sourceUrl": "https://ezamowienia.gov.pl/mp-client/search/list/ogloszenia/08df2f56-f6aa-daa9-701a-d0000164ad47",
      "directive": false
     }
-   ]
+   ],
+   "openNow": null
   },
   {
    "country": "NL",
@@ -1271,37 +1315,43 @@
      "slug": "215-ministerie-van-defensie",
      "name": "Ministerie van Defensie",
      "core": true,
-     "procurements": 80
+     "procurements": 80,
+     "awardedValue": []
     },
     {
      "slug": "46720-politie",
      "name": "Politie",
      "core": false,
-     "procurements": 5
+     "procurements": 5,
+     "awardedValue": []
     },
     {
      "slug": "35465-ministerie-van-buitenlandse-zaken",
      "name": "Ministerie van Buitenlandse Zaken",
      "core": false,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     },
     {
      "slug": "200582-ris",
      "name": "RIS",
      "core": false,
-     "procurements": 2
+     "procurements": 2,
+     "awardedValue": []
     },
     {
      "slug": "61470-ministry-of-defence",
      "name": "Ministry of Defence",
      "core": true,
-     "procurements": 1
+     "procurements": 1,
+     "awardedValue": []
     },
     {
      "slug": "188162-ministry-of-defense-of-the-netherlands",
      "name": "Ministry of Defense of the Netherlands",
      "core": true,
-     "procurements": 1
+     "procurements": 1,
+     "awardedValue": []
     }
    ],
    "awarded": 15,
@@ -1367,7 +1417,8 @@
      "sourceUrl": "https://ted.europa.eu/en/notice/-/detail/574606-2026",
      "directive": false
     }
-   ]
+   ],
+   "openNow": null
   }
  ],
  "approach": {
@@ -1413,7 +1464,8 @@
     "lastAward": "2026-10-19",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "SUMINISTROS MERA SL",
@@ -1444,7 +1496,8 @@
     "lastAward": "2026-10-21",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "URO VEHICULOS ESPECIALES, S.A.",
@@ -1514,7 +1567,8 @@
     "lastAward": "2026-09-10",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "Suyfa Defence, S.L.",
@@ -1564,7 +1618,8 @@
     "lastAward": "2026-09-25",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "ITURRI S.A.",
@@ -1614,7 +1669,8 @@
     "lastAward": "2026-10-19",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "FERRETERIA ARIES SA",
@@ -1645,7 +1701,8 @@
     "lastAward": "2026-10-02",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "IVECO ESPAÑA, S.L.",
@@ -1688,7 +1745,8 @@
     "lastAward": "2026-01-13",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "SUMINISTROS SANTO DOMINGO SL",
@@ -1731,7 +1789,8 @@
     "lastAward": "2026-08-11",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "Ferretería Rafa S.L.",
@@ -1774,7 +1833,8 @@
     "lastAward": "2026-08-25",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "RECAMBIOS COLON CATARROJA SL",
@@ -1817,7 +1877,8 @@
     "lastAward": "2026-10-02",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "VOLVO GROUP ESPAÑA, S.A.U.",
@@ -1867,7 +1928,8 @@
     "lastAward": "2026-10-19",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "C & A COMERCIAL ARTIGAS E HIJOS SL",
@@ -1904,7 +1966,8 @@
     "lastAward": "2026-10-05",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "IBERDEFENSA MANTENIMIENTO TECNICO SL",
@@ -1947,7 +2010,8 @@
     "lastAward": "2026-09-16",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "MADZEAL, S.L.",
@@ -1997,7 +2061,8 @@
     "lastAward": "2026-10-20",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "COMERCIAL HERNANDO MORENO COHEMO SL",
@@ -2040,7 +2105,8 @@
     "lastAward": "2026-09-16",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "RECAMBIOS Y ACCESORIOS GGR, S.L.",
@@ -2083,7 +2149,8 @@
     "lastAward": "2026-09-30",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "SUMINISTROS IGBUR, S.L.U.",
@@ -2126,7 +2193,8 @@
     "lastAward": "2026-09-23",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "Advantage Servicios y Diseños",
@@ -2157,7 +2225,8 @@
     "lastAward": "2026-10-20",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "FERRETERIA ASENSI HERVAS SLU",
@@ -2194,7 +2263,8 @@
     "lastAward": "2026-09-24",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "EURONAVAL SERVICIOS INTEGRALES SL",
@@ -2237,7 +2307,8 @@
     "lastAward": "2026-09-04",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "EMPRESA MONFORTE SA",
@@ -2274,7 +2345,8 @@
     "lastAward": "2026-06-17",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "FERREGAS GARCIA-VASO, S.L.",
@@ -2305,7 +2377,8 @@
     "lastAward": "2026-09-10",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "FERRO SUMINISTROS INDUSTRIALES S.L.",
@@ -2348,7 +2421,8 @@
     "lastAward": "2026-09-24",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "GRUPO PEÑA AUTOMOCION, S.L.U",
@@ -2391,7 +2465,8 @@
     "lastAward": "2026-04-07",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "REDONDOYGARCIA, S.A.",
@@ -2434,7 +2509,8 @@
     "lastAward": "2025-11-20",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "Grupo de ingeniería, reconstrucción y recambios JPG S.A.",
@@ -2484,7 +2560,8 @@
     "lastAward": "2026-10-09",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "INTEGRACION TECNOLOGICA EMPRESARIAL, S.L.",
@@ -2534,7 +2611,8 @@
     "lastAward": "2026-06-03",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "UTE ITURRI,S.A.-GAUZON IBERICA,SLU LEY 18/1982",
@@ -2571,7 +2649,8 @@
     "lastAward": "2026-03-05",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "CORVUS INNOVA, SL",
@@ -2614,7 +2693,8 @@
     "lastAward": "2026-08-24",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "CONTINENTAL TIRES ESPAÑA S.L.",
@@ -2651,7 +2731,8 @@
     "lastAward": "2026-10-19",
     "prime": null,
     "edfProjects": 0,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": true
    },
    {
     "name": "SAAB AB",
@@ -2694,7 +2775,8 @@
      "sourceUrl": "https://www.sipri.org/publications/2025/sipri-fact-sheets/sipri-top-100-arms-producing-and-military-services-companies-2024"
     },
     "edfProjects": 3,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    },
    {
     "name": "Indra Sistemas, S.A.",
@@ -2743,7 +2825,8 @@
      "sourceUrl": "https://www.eldiario.es/motor/sector_y_mercado/fabricar-coches-componentes-vehiculos-militares-indra-busca-proveedores-automocion_1_13308288.html"
     },
     "edfProjects": 64,
-    "defenceBuyer": false
+    "defenceBuyer": false,
+    "distributor": false
    }
   ],
   "below": {

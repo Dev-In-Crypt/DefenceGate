@@ -51,8 +51,9 @@ test('the entry page is linked from /readiness, Check my company, the home page 
   // WP-86: the menu's Readiness group became the one entry, Check my company, which links the landing; so does home
   await visit(page, '/check', { title: /Check my company/, h1: 'Check my company' });
   await expect(page.locator('#main a[href="/readiness/spain-automotive"]')).toHaveCount(1);
+  // WP-97: home leads every supplier to the supplier profile (the Spain page was the button for every visitor)
   await visit(page, '/', { title: /DefenceGate/, h1: /tenders and funding/i });
-  await expect(page.locator('#main a[href="/readiness/spain-automotive"]').first()).toBeVisible();
+  await expect(page.locator('#main a[href="/readiness/supplier"]').first()).toBeVisible();
   const xml = await (await request.get('/sitemap.xml')).text();
   expect(xml).toContain('/readiness/spain-automotive</loc>');
 });
@@ -98,7 +99,7 @@ test('a German supplier: the German questions follow its "yes", the page sends t
   await group(page, /export authorisation for this item/).getByLabel('No', { exact: true }).check();
 
   await page.getByRole('button', { name: 'Save and see my results' }).click();
-  await expect(page).toHaveURL(/\/readiness\/results$/);
+  await expect(page).toHaveURL(/\/readiness\/results\?from=supplier$/);   // WP-97: the supplier path says so
   await expect.poll(() => posted.length).toBeGreaterThan(0);
   expect(posted[posted.length - 1]).toEqual(fixture('request-de-sup.json'));
 

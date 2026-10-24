@@ -31,13 +31,15 @@ const fixture = <T,>(name: string): T => JSON.parse(readFileSync(join('e2e', 'fi
 const demo: Demand = mock;
 const es = approachGroups(demo.approach, 'ES');
 assert.ok(es.home.length > 0 && es.home.every((w) => w.country === 'ES' && !w.prime), 'Spanish direct suppliers');
-assert.ok(es.home.some((w) => /Suyfa/i.test(w.name)) && es.home.some((w) => /RECAMBIOS COLON CATARROJA/.test(w.name)), 'the audit\'s names');
+// WP-97: a dealer of parts (Recambios ...) is listed apart, as a competitor or distributor
+assert.ok(es.home.some((w) => /Suyfa/i.test(w.name)) && es.dealers.some((w) => /RECAMBIOS COLON CATARROJA/.test(w.name)), 'the audit\'s names');
 assert.ok(es.primes.every((w) => w.prime) && es.primes[0].country === 'ES', 'a prime of the own country leads the primes (Indra before Saab)');
-assert.equal(es.home.length + es.primes.length + es.others.length, demo.approach.winners.length, 'every named winner once');
+assert.equal(es.home.length + es.primes.length + es.others.length + es.dealers.length, demo.approach.winners.length, 'every named winner once');
 assert.ok(es.home.every((w, i, xs) => i === 0 || xs[i - 1].contracts >= w.contracts), 'most contracts first');
 const de = approachGroups(demo.approach, 'DE');
 assert.equal(de.home.length, 0, 'a German company of this demo has no home winner');
 assert.equal(de.others.length, es.home.length, 'the Spanish winners are "other countries" for it');
+assert.equal(de.dealers.length, es.dealers.length);
 
 // ---------------------------------------------------------------- 2. CPV search for an automotive supplier
 const codes = (q: string) => cpvSearch(q, 50, CPV_FULL).map((c) => c.code);

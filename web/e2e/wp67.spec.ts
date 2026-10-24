@@ -42,7 +42,8 @@ for (const key of Object.keys(ORDER)) {
     const items = page.locator('[data-item]');
     await expect(items).toHaveCount(ORDER[key].length);
     expect(await items.evaluateAll((els) => els.map((e) => e.getAttribute('data-item')))).toEqual(ORDER[key]);
-    expect(posted).toEqual([fixture(`request-${key}.json`)]);
+    // WP-97: the report asks what the roadmap asks: the supply routes only, for a supplier that does not want EU funding
+    expect(posted).toEqual([{ ...fixture(`request-${key}.json`), programmes: ['ES-MOD', 'NATO-SUPPLY'] }]);
     expect(others).toEqual([]);
 
     await expect(page.locator('[data-disclaimer]')).toHaveText('Indicative, sources linked, not legal advice.');

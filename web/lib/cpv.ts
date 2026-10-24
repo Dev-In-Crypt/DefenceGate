@@ -292,3 +292,42 @@ export function isMachineCode(code: string, dictionary: ReadonlyMap<string, stri
  * wiring. Official codes and titles; the demand map counts under each.
  */
 export const AUTOMOTIVE_SET = ['34300000', '34320000', '34330000', '35420000', '35421000', '34322000', '34312000', '44470000', '44530000', '31611000'] as const;
+
+/**
+ * WP-97 (persona round of 23 October 2026): the other one-click starts, official CPV 2008 codes. Services: transport (60), cargo handling
+ * and storage (631), fuels (091), facilities management (79993), cleaning (909), canteen and catering (555), repair of vehicles (501, the
+ * vehicle class of division 50: the whole division matches too many notices for one map), defence training (806) and IT services (72).
+ * Ammunition and explosives: ammunition and its parts (3533, 3534) and the explosives, propellants, pyrotechnics and fuses of group 2461.
+ * Precision machining and aerospace parts: the mechanical spare parts of military vehicles, warships and military aircraft, aircraft
+ * parts, mechanical spare parts, gearing and parts of firearms.
+ */
+export const SERVICES_SET = ['60000000', '63100000', '09100000', '79993000', '90900000', '55500000', '50100000', '80600000', '72000000'] as const;
+export const AMMUNITION_SET = ['35330000', '35340000', '24610000', '24611000', '24612000', '24613000', '24615000'] as const;
+export const MACHINING_SET = ['35421000', '35521000', '35641000', '34731000', '34320000', '42141000', '35340000'] as const;
+
+export interface CodeSet { key: 'automotive' | 'machining' | 'ammunition' | 'services'; label: string; covers: string; codes: readonly string[] }
+export const CODE_SETS: CodeSet[] = [
+  { key: 'automotive', label: 'Automotive supplier', codes: AUTOMOTIVE_SET,
+    covers: 'vehicle and military-vehicle parts, engine and brake parts, cast-iron products, fasteners and wiring sets' },
+  { key: 'machining', label: 'Precision machining and aerospace parts', codes: MACHINING_SET,
+    covers: 'mechanical spare parts of military vehicles, warships and military aircraft, aircraft parts, gearing and parts of firearms' },
+  { key: 'ammunition', label: 'Ammunition and explosives maker', codes: AMMUNITION_SET,
+    covers: 'ammunition and its parts, explosives, propellants, pyrotechnic articles, fuses and detonators' },
+  { key: 'services', label: 'Services to the armed forces', codes: SERVICES_SET,
+    covers: 'transport, cargo handling and storage, fuels, facilities management, cleaning, catering, vehicle repair, defence training and IT services' },
+];
+
+/** WP-97: what kind of codes a profile holds, for the words of its report: services (CPV divisions 50 to 98), else the set it overlaps most. */
+export type CodeKind = 'services' | 'automotive' | 'machining' | 'ammunition' | 'goods' | 'none';
+export function codeKind(codes: readonly string[]): CodeKind {
+  const valid = codes.filter((c) => /^\d{8}$/.test(c));
+  if (valid.length === 0) return 'none';
+  const services = valid.filter((c) => Number(c.slice(0, 2)) >= 50).length;
+  if (services * 2 > valid.length) return 'services';
+  const overlap = (set: readonly string[]) => valid.filter((c) => set.includes(c)).length;
+  // automotive: the set, or any code of motor vehicles and their parts (341, 342, 343) and military-vehicle parts (3542)
+  const vehicle = valid.filter((c) => AUTOMOTIVE_SET.includes(c as never) || /^(341|342|343|3542)/.test(c)).length;
+  const best = (['automotive', 'ammunition', 'machining'] as const).map((k) => ({ k, n: k === 'automotive' ? vehicle : overlap(CODE_SETS.find((s) => s.key === k)!.codes) }))
+    .sort((a, b) => b.n - a.n)[0];
+  return best.n * 2 >= valid.length ? best.k : 'goods';
+}

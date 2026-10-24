@@ -57,6 +57,7 @@ from .normalise import redact_emails
 from .suppliers import (
     K_MIN,
     TED_NOTE,
+    ValueSum,
     ValueTotals,
     best,
     placsp_note,
@@ -116,7 +117,27 @@ PRIMES: tuple[tuple[str, str, tuple[str, str]], ...] = (
     ("Indra", r"\bindra\b",
      ("Indra's 2026 supplier selection for automotive firms (elDiario.es, 16 June 2026)",
       "https://www.eldiario.es/motor/sector_y_mercado/fabricar-coches-componentes-vehiculos-militares-indra-busca-proveedores-automocion_1_13308288.html")),
+    # WP-97: Spanish and other EU vehicle and defence makers beyond SIPRI, each with the public page read on 23 October 2026
+    # (docs/verification/product/wp97-selfcheck.md). Rheinmetall Expal Munitions is marked by "rheinmetall" above.
+    ("URO Vehículos Especiales", r"^uro vehiculos especiales\b",
+     ("URO Vehículos Especiales: maker of the VAMTAC, in service with the Spanish Armed Forces (company page)",
+      "https://urovesa.com/en/")),
+    ("Iveco Defence Vehicles (Leonardo)", r"\biveco defen[cs]e\b",
+     ("Leonardo's agreement to acquire Iveco Defence, maker of armoured vehicles and military trucks (Leonardo press release, 30 July 2025)",
+      "https://www.leonardo.com/en/press-release-detail/-/detail/30-07-2025-ldo-iveco-defence")),
+    ("Escribano Mechanical & Engineering", r"^escribano mechanical\b",
+     ("Escribano Mechanical & Engineering at FEINDEF 2025, the Madrid defence exhibition (EDR Magazine)",
+      "https://www.edrmagazine.eu/feindef-2025-escribano-unveils-two-new-turrets-the-guardian-30-t-and-the-guardian-2-0-pro-and-a-mock-up")),
 )
+# WP-97: a winner whose name says it sells parts, tyres or hardware it does not make (Recambios, Neumáticos, Ferretería...): a
+# competitor or distributor of a parts maker, not a customer. `ponytail:` name words only, no register of trades; extend with a case.
+DISTRIBUTOR = re.compile(r"\b(recambios?|repuestos?|neumaticos?|ferreteria|ferreterias|tyres?|tires|reifen|euromaster|"
+                         r"distribuciones|distribucion|distribuidora|autorecambios|suministros industriales)\b")
+
+
+def distributor_of(canonical_name: str | None) -> bool:
+    """Whether a winner's normalised name reads as a dealer of parts, tyres or hardware (WP-97)."""
+    return bool(DISTRIBUTOR.search(canonical_name or ""))
 _PRIMES = tuple((group, re.compile(rx), src) for group, rx, src in PRIMES)
 # A Spanish joint venture (UTE) of a prime and others: the way in is still the prime.
 JOINT_VENTURE = re.compile(r"^(ute|u t e)\b|\bunion temporal\b")
@@ -139,8 +160,9 @@ WINNERS_TED = ("Winners are those named in TED result notices; most contracts be
                "here. Natural persons are never counted or named.")
 WINNERS_WITH_PLACSP = ("Winners are those named in TED result notices and in PLACSP's award results (Spain); a winner "
                        "published in both is counted once. Natural persons are never counted or named.")
-NOTICE = ("Computed from the CPV codes and countries in the request; nothing was stored or logged. Counts of notices, "
-          "not of money: the stated values of notices are budgets or framework ceilings as often as contract values.")
+NOTICE = ("Computed from the CPV codes and countries in the request; nothing was stored or logged. Counts of notices; a "
+          "buyer's amount sums only the contract values of its awarded procurements under these codes, per currency, never "
+          "framework ceilings or estimates.")
 
 
 class DemandIn(BaseModel):
@@ -329,6 +351,51 @@ SELECT org.id AS org, hashtextextended({KEY}, 0) AS k, a.winners_in_notice > 1 A
 """
 
 
+# WP-97: the awarded values of the listed buyers' procurements under the codes (the answer's award rows), by the same rule as a
+# winner's (`value_of`, `best` per procurement and winner): only contract values are summed (WP-95), per currency, never converted.
+BUYER_VALUES = f"""
+SELECT COALESCE(f.head_org_id, o.buyer_org_id) AS bk, org.id AS org, hashtextextended({KEY}, 0) AS k,
+       a.winners_in_notice > 1 AS shared, v.va, v.vc, v.vk, v.vp
+  FROM award a
+  JOIN organisation raw_org ON raw_org.id = a.organisation_id
+  JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
+  JOIN opportunity o ON o.id = a.opportunity_id
+  LEFT JOIN opportunity t ON o.ted_ref IS NOT NULL AND t.native_id = o.ted_ref
+                         AND t.source_id = (SELECT id FROM source WHERE code = 'ted')
+  LEFT JOIN buyer_family_member f ON f.org_id = o.buyer_org_id
+  {value_of("a.id", "%(placsp)s")}
+ WHERE a.id = ANY(%(ids)s) AND COALESCE(f.head_org_id, o.buyer_org_id) = ANY(%(bks)s)
+"""
+
+
+def buyer_values(conn, r: dict[str, Any], bks: list[int]) -> dict[int, list[dict[str, Any]]]:
+    """Per buyer family: the sum of the contract values it awarded under the codes, per currency (`suppliers.value_totals`)."""
+    if not bks or not r["aw_ids"]:
+        return {}
+    per: dict[int, list[dict[str, Any]]] = {}
+    for v in conn.execute(BUYER_VALUES, {"ids": r["aw_ids"], "bks": bks, "placsp": settings().placsp_awards_public}).fetchall():
+        per.setdefault(v["bk"], []).append({**v, "k": (v["k"], v["org"])})
+    return {bk: value_totals(list(best(rows).values()), len(rows))["byCurrency"] for bk, rows in per.items()}
+
+
+def open_now(conn, country: str, prefixes: list[str]) -> dict[str, Any]:
+    """WP-97: the open tenders in one country under the codes, counted as /tenders counts its default view (status open, the
+    defence-relevant scope) for `?country=&cpv=` with the same prefixes, so the link shows the same number."""
+    from .tenders import SMALL_CAP, _count_up_to, _tender_filters
+
+    cpv = ",".join(prefixes)
+    where, params, _ = _tender_filters(None, country, cpv, "open", "relevant", None, None, None, None, None, None, None)
+    # The list's own count (same conditions, same collapse rules), stopped at SMALL_CAP and at OPEN_BUDGET_MS per country so the
+    # five countries stay well inside the API's 5 s budget: past the cap it is "at least 200"; out of time, no count (the link only).
+    n = _count_up_to(conn, " AND ".join(where), where, params, SMALL_CAP, OPEN_BUDGET_MS)
+    if n is None:
+        return {"count": 0, "atLeast": True, "href": f"/tenders?country={country}&cpv={cpv}"}
+    return {"count": min(n, SMALL_CAP), "atLeast": n > SMALL_CAP, "href": f"/tenders?country={country}&cpv={cpv}"}
+
+
+OPEN_BUDGET_MS = 400
+
+
 def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The "who to approach" entries of these winners: buyers, values, countries, page link, marks."""
     shown = {w["org"] for w in listed}
@@ -353,6 +420,7 @@ def _items(conn, r: dict[str, Any], listed: list[dict[str, Any]]) -> list[dict[s
                 "values": value_totals(sums.get(w["org"], []), w["n"], largest=True),
                 "buyers": buyers.get(w["org"], []), "countries": w["countries"],
                 "lastAward": str(w["last"])[:10] if w["last"] else None, "prime": w["prime"],
+                "distributor": not w["prime"] and distributor_of(w["cn"]),
                 "edfProjects": edf.get(w["org"], 0), "defenceBuyer": bool(w["db"])}
 
     return [item(w) for w in listed]
@@ -421,19 +489,36 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
     latest = r["l"] or []
     links = _notices(conn, [x["id"] for x in latest] + [x["id"] for x in refs])
 
-    def country_block(cc: str) -> dict[str, Any]:
-        mine = [b for b in buyers if b["country"] == cc]
+    def named_buyers(cc: str) -> list[dict[str, Any]]:
         # Two buyer families under one name (two organisation rows of one federal office) are one line here, under
         # the larger one's link; the counts above stay by family.
         same: dict[str, dict[str, Any]] = {}
-        for b in sorted((b for b in mine if b["name"]), key=lambda b: (-b["n"], b["bk"])):
+        for b in sorted((b for b in buyers if b["country"] == cc and b["name"]), key=lambda b: (-b["n"], b["bk"])):
             name = clean_buyer_name(b["name"])
             if name.casefold() in same:
                 same[name.casefold()]["n"] += b["n"]
                 same[name.casefold()]["core"] |= b["core"]
+                same[name.casefold()]["bks"].append(b["bk"])
             else:
-                same[name.casefold()] = {**b, "name": name}
-        named = sorted(same.values(), key=lambda b: (-b["n"], b["name"], b["bk"]))
+                same[name.casefold()] = {**b, "name": name, "bks": [b["bk"]]}
+        return sorted(same.values(), key=lambda b: (-b["n"], b["name"], b["bk"]))[:TOP_BUYERS]
+
+    tops = {cc: named_buyers(cc) for cc in countries}
+    paid = buyer_values(conn, r, sorted({k for xs in tops.values() for b in xs for k in b["bks"]}))
+    prefixes = list(dict.fromkeys(prefix(c) for c in codes))
+
+    def awarded_value(b: dict[str, Any]) -> list[dict[str, Any]]:
+        sums: dict[str, dict[str, Any]] = {}
+        for bk in b["bks"]:
+            for s in paid.get(bk, []):
+                cur = sums.setdefault(s["currency"], {**s, "amount": 0.0, "count": 0})
+                cur["amount"] = round(cur["amount"] + s["amount"], 2)
+                cur["count"] += s["count"]
+        return sorted(sums.values(), key=lambda s: (-s["count"], s["currency"]))
+
+    def country_block(cc: str) -> dict[str, Any]:
+        mine = [b for b in buyers if b["country"] == cc]
+        named = tops[cc]
         won = [w for w in winners if w["country"] == cc]
         listed = sorted((w for w in top if w["country"] == cc), key=lambda w: w["r"])
         shown = {w["org"] for w in listed}
@@ -444,7 +529,8 @@ def demand(conn, codes: list[str], countries: list[str], today: date | None = No
             "coreBuyers": sum(1 for b in mine if b["core"]),
             "otherBuyers": sum(1 for b in mine if not b["core"]),
             "topBuyers": [{"slug": make_slug(b["bk"], b["name"]), "name": b["name"], "core": b["core"],
-                           "procurements": b["n"]} for b in named[:TOP_BUYERS]],
+                           "procurements": b["n"], "awardedValue": awarded_value(b)} for b in named],
+            "openNow": open_now(conn, cc, prefixes),
             "awarded": awards.get(cc, 0),
             "winners": len(won),
             "topWinners": [{"name": redact_emails(w["name"]).strip(), "country": w["org_country"], "awards": w["n"],
@@ -494,6 +580,13 @@ class DemandBuyer(BaseModel):
     name: str
     core: bool
     procurements: int
+    awardedValue: list[ValueSum] = []         # WP-97: contract values it awarded under the codes, per currency
+
+
+class OpenNow(BaseModel):
+    count: int
+    atLeast: bool
+    href: str
 
 
 class DemandWinner(BaseModel):
@@ -520,6 +613,7 @@ class DemandCountry(BaseModel):
     topWinners: list[DemandWinner]
     otherWinners: OtherWinners
     latest: list[DemandRef]
+    openNow: OpenNow | None = None
 
 
 class DemandCode(BaseModel):
@@ -568,6 +662,7 @@ class ApproachWinner(BaseModel):
     countries: list[str]
     lastAward: str | None
     prime: Prime | None
+    distributor: bool = False                 # WP-97: a dealer of parts, tyres or hardware by its name
     edfProjects: int
     defenceBuyer: bool
 

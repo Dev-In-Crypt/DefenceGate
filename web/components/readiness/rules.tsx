@@ -4,7 +4,7 @@ import { OBLIGATION_WORD, OUTCOME_WORD, VERDICT_WORD, verdictMeaning, isoDay, or
 import type { Outcome, ProgrammeAssessment, RSource, RuleResult, Verdict } from '@/lib/readiness-types';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { cleanQuote } from '@/lib/quote';
-import { askedAt } from '@/lib/profile';
+import { askedAt, notSure, type Profile } from '@/lib/profile';
 import { Icon } from '@/components/dg/icon';
 import { cn } from '@/lib/utils';
 
@@ -91,10 +91,12 @@ export function ConsultantNote({ text }: { text: string }) {
 /** One programme: the verdict, why, and every rule behind it. */
 /** `general`: the rules that apply whichever route you take. They carry no verdict; what is not met is a to-do. `supplier` (WP-89): a missing
  * answer links to the supplier page where that page asks it too. */
-export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplier = false, skipped = [] }: {
+export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplier = false, skipped = [], profile = null }: {
   a: ProgrammeAssessment; headingLevel?: 'h2' | 'h3'; general?: boolean; supplier?: boolean;
   /** WP-91: fields not asked because the company makes software or services (`skippedFields`): said, not linked to a question. */
   skipped?: string[];
+  /** WP-97: the answers, so that "I am not sure" is shown as an answer (not as missing) and a hidden follow-up links to the question that shows it. */
+  profile?: Profile | null;
 }) {
   const H = headingLevel;
   const blockers = a.rules.filter((r) => a.blocking.includes(r.rule));
@@ -104,6 +106,9 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
   const apart = a.rules.filter((r) => r.outcome === 'not_applicable');
   const todo = a.rules.filter((r) => r.outcome === 'not_met' || r.outcome === 'to_obtain');
   const id = `prog-${a.programme}`;
+  // WP-97: "I am not sure" is an answer: the rule stays open and a specialist or the buyer settles it; it is not counted as missing
+  const unsure = profile ? a.missing.filter((m) => notSure(profile, m.field)) : [];
+  const missing = a.missing.filter((m) => !unsure.includes(m));
   return (
     <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7" data-programme={a.programme} data-verdict={a.verdict}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -137,13 +142,21 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
           <ul className="m-0 flex list-none flex-col gap-1 p-0">{conditions.map((r) => <li key={r.rule}>{r.title}</li>)}</ul>
         </div>
       )}
-      {a.missing.length > 0 && (
-        <div className="flex flex-col gap-1 text-small">
-          <p className="m-0 font-bold">{a.missing.length === 1 ? '1 answer is missing:' : `${a.missing.length} answers are missing:`}</p>
+      {unsure.length > 0 && (
+        <div className="flex flex-col gap-1 text-small" data-not-sure>
+          <p className="m-0 font-bold">{unsure.length === 1 ? 'You answered “I am not sure”; the rule stays open:' : `You answered “I am not sure” ${unsure.length} times; these rules stay open:`}</p>
           <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-            {a.missing.map((m) => {
+            {unsure.map((m) => <li key={m.field} data-not-sure-field={m.field}>{m.question} <span className="text-ink-muted">(ask a consultant or the buyer; change the answer on your profile once you know)</span></li>)}
+          </ul>
+        </div>
+      )}
+      {missing.length > 0 && (
+        <div className="flex flex-col gap-1 text-small" data-missing>
+          <p className="m-0 font-bold">{missing.length === 1 ? '1 answer is missing:' : `${missing.length} answers are missing:`}</p>
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {missing.map((m) => {
               // the wizard's step, the supplier profile's question (WP-65), or the wizard's step 4 for a requirement (WP-73)
-              const href = askedAt(m.field, supplier);
+              const href = askedAt(m.field, supplier, profile);
               const left = skipped.includes(m.field.replace(/^profile\./, ''));
               return (
                 <li key={m.field}>

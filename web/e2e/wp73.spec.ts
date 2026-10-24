@@ -63,7 +63,7 @@ test('a Spanish company that needs classified work: saved with no CPV code, noth
   await expect(hsem).toBeVisible();
   await hsem.getByLabel('I am not sure').check();
   await page.getByRole('button', { name: 'Save and see my results' }).click();
-  await expect(page).toHaveURL(/\/readiness\/results$/);
+  await expect(page).toHaveURL(/\/readiness\/results\?from=supplier$/);   // WP-97: the supplier path says so
   await expect.poll(() => posted.length).toBeGreaterThan(0);
   const sent = posted[posted.length - 1].statuses;
   for (const code of ['REQ-PIC', 'REQ-EXPORT', 'REQ-REOCE', 'REQ-FSC-ES']) expect(sent[code], code).toBe('unknown');
@@ -71,7 +71,9 @@ test('a Spanish company that needs classified work: saved with no CPV code, noth
   // MJ-4 with the generated answer of the sample firm: the route is "Conditional" (the HSEM needs an answer), never "Eligible"
   const card = page.getByRole('article', { name: 'Spanish defence supplier (MoD)' });
   await expect(card).toHaveAttribute('data-verdict', 'conditional');
-  await expect(card.getByRole('link', { name: /HSEM facility security clearance/ })).toHaveAttribute('href', '/readiness/supplier#q-REQ-FSC-ES');
+  // WP-97: "I am not sure" is an answer: the HSEM rule stays open and is said so, not counted among the missing answers
+  await expect(card.locator('[data-not-sure-field="REQ-FSC-ES"]')).toContainText('HSEM facility security clearance');
+  await expect(card.locator('[data-missing] a', { hasText: /HSEM facility security clearance/ })).toHaveCount(0);
   await expect(card).not.toContainText('Financial Regulation');
   await expect(card).toContainText('each rule above names its own source');
   await expect(card).not.toContainText('not asked by the questionnaire yet');

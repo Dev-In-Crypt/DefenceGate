@@ -102,7 +102,7 @@ test('home: one sentence for whom, three tasks and the search before anything el
   const start = page.getByRole('navigation', { name: 'Start here' });
   await expect(start.getByRole('link', { name: 'Find a tender' })).toHaveAttribute('href', '/tenders');
   await expect(start.getByRole('link', { name: 'Find funding' })).toHaveAttribute('href', '/funding');
-  await expect(start.getByRole('link', { name: 'I make parts: who buys and who wins my products?' })).toHaveAttribute('href', '/readiness/spain-automotive');
+  await expect(start.getByRole('link', { name: 'I make parts or provide services: who buys and who wins?' })).toHaveAttribute('href', '/readiness/supplier');   // WP-97: not the Spain page for every visitor
   await expect(page.getByRole('heading', { name: 'What is in here' })).toHaveCount(0);
   // the tasks and the search are on the first screen, at every width
   const bottom = await page.locator('#home-search').evaluate((el) => el.getBoundingClientRect().bottom);

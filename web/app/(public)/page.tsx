@@ -130,7 +130,7 @@ export default async function LandingPage() {
           <nav aria-label="Start here" className="flex flex-wrap gap-3">
             <Button href="/tenders" iconRight={ArrowRight}>Find a tender</Button>
             <Button href="/funding" iconRight={ArrowRight}>Find funding</Button>
-            <Button href="/readiness/spain-automotive" variant="secondary" className="whitespace-normal text-left">I make parts: who buys and who wins my products?</Button>
+            <Button href="/readiness/supplier" variant="secondary" className="whitespace-normal text-left">I make parts or provide services: who buys and who wins?</Button>
           </nav>
           <SiteSearchForm id="home-search" />
           <p className="m-0 text-small text-ink-muted">Free to browse. No account needed.</p>

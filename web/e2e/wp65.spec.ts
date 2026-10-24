@@ -100,7 +100,7 @@ test('a civilian castings maker: errors first, then exactly the request of the f
     await spain.getByRole('group', { name: q }).getByLabel('No', { exact: true }).check();
   }
   await page.getByRole('button', { name: 'Save and see my results' }).click();
-  await expect(page).toHaveURL(/\/readiness\/results$/);
+  await expect(page).toHaveURL(/\/readiness\/results\?from=supplier$/);   // WP-97: the supplier path says so
   await expect.poll(() => posted.length).toBeGreaterThan(0);
   // WP-93: the staff count is now a question of its own, answered on this page, and sent; the rest is exactly the fixture's request
   const want = fixture('request-es-sup-civil.json');
@@ -111,7 +111,8 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   await expect(card).toHaveAttribute('data-verdict', 'conditional');
   // the list of missing answers ("1 answer is missing:"), not the verdict's words "an answer is missing"
   await expect(card.getByText(/\d+ answers? (is|are) missing/)).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Change my supplier profile' })).toBeVisible();
+  // WP-97: reached from the supplier page, "Change my answers" leads back there
+  await expect(page.getByRole('link', { name: 'Change my answers' })).toHaveAttribute('href', '/readiness/supplier');
   const block = await stored(page);
   expect(block.version).toBe(4);        // WP-93: the current version
   expect(block.supplier.cpv).toHaveLength(5);

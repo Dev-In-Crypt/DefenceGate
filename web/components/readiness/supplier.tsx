@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, X } from 'lucide-react';
-import { AUTOMOTIVE_SET, cpvDictionaryTitle, cpvSearch, productNote } from '@/lib/cpv';
+import { CODE_SETS, cpvDictionaryTitle, cpvSearch, productNote, type CodeSet } from '@/lib/cpv';
 import {
-  CERTIFICATES, CPV_MAX, CPV_MIN, DE_QUESTIONS, DUAL_USE_QUESTION, ES_CLEARANCES, EXPORT_HOLDING, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, clearanceAnswer,
-  cpvProblem, holds, isEu, monthProblem, naceProblem, pctProblem, savedSupplier, supplierProblems, withClearance, withHeld,
+  CERTIFICATES, CPV_MAX, CPV_MIN, DE_QUESTIONS, DUAL_USE_QUESTION, ES_CLEARANCES, EXPORT_HOLDING, ES_QUESTIONS, EU_QUESTION, PROCESSES, REGISTRATIONS, SERVICE_PROCESSES, clearanceAnswer,
+  cpvProblem, holds, isEu, monthProblem, naceProblem, pctProblem, providesServices, savedSupplier, supplierProblems, withClearance, withHeld,
   type Answer, type EsQuestion, type Holding, type Profile, type Supplier,
 } from '@/lib/profile';
 import { cn } from '@/lib/utils';
@@ -39,13 +39,18 @@ function Part({ title, id, children }: { title: string; id: string; children: Re
  * filled in (the same block as the wizard: `dg.profile.v1`, version 3). Answers shared with the wizard (country, size, certificates,
  * classified information) are the same answers. Nothing is sent from here; the results page sends what the rules read.
  */
-export function SupplierForm() {
+export function SupplierForm({ offer = null }: { offer?: 'services' | 'products' | null } = {}) {
   const router = useRouter();
   const { profile, ready, update, stored } = useProfile();
   const [tried, setTried] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const [focusSummary, setFocusSummary] = useState(0);
   useEffect(() => { if (focusSummary) summaryRef.current?.focus(); }, [focusSummary]);
+  // WP-97: "/check" opens this page with the answer given ("?offer=services"), unless one is stored already
+  useEffect(() => {
+    if (!ready || !offer || !profile || profile.offering) return;
+    update((p) => ({ ...p, offering: offer === 'services' ? 'software_services' : 'products' }));
+  }, [ready, offer, profile, update]);
 
   if (!ready || profile === null) return <p role="status" className="m-0 text-body text-ink-muted">Loading your saved answers from this browser…</p>;
   const s = profile.supplier;
@@ -61,13 +66,15 @@ export function SupplierForm() {
   const problems = tried ? supplierProblems(profile) : [];
   const errorOf = (id: string) => problems.find((x) => x.id === id)?.text;
   const shown = (h: Holding) => !h.esOnly || es;
+  const services = providesServices(profile);
 
   const save = () => {
     const found = supplierProblems(profile);
     setTried(true);
     if (found.length > 0) { setFocusSummary((n) => n + 1); return; }
     update((p) => savedSupplier(p));
-    router.push('/readiness/results');
+    // WP-97: the results say "Supplier report" and lead back here when they are reached from this page
+    router.push('/readiness/results?from=supplier');
   };
 
   const holding = (h: Holding) => {
@@ -128,10 +135,15 @@ export function SupplierForm() {
         )}
       </Part>
 
-      <Part title="What you make" id="sp-make">
-        <CpvPicker codes={s.cpv} onChange={(codes) => setS('cpv', codes)} error={tried ? (cpvProblem(s.cpv) ?? undefined) : undefined} />
-        <Fieldset id="q-processes" legend="Processes you run (optional)" hint="Kept for your own summary. No rule reads them.">
-          {PROCESSES.map((x) => (
+      <Part title={services ? 'What you provide' : 'What you make'} id="sp-make">
+        {/* WP-97: products or services; the same answer as the readiness check's "What do you offer?" */}
+        <Radios legend="Do you sell products or services?" name="offering" value={profile.offering}
+          hint="Services: logistics, transport, fuel, facility services, catering, maintenance and repair, training or IT services. The processes and the suggested codes below follow the answer."
+          options={[{ value: 'products', label: 'We make products: equipment, parts or materials' }, { value: 'software_services', label: 'We provide services' }]}
+          onChange={(v) => update((p) => ({ ...p, offering: v }))} />
+        <CpvPicker codes={s.cpv} services={services} onChange={(codes) => setS('cpv', codes)} error={tried ? (cpvProblem(s.cpv) ?? undefined) : undefined} />
+        <Fieldset id="q-processes" legend={services ? 'Services you provide (optional)' : 'Processes you run (optional)'} hint="Kept for your own summary. No rule reads them.">
+          {(services ? SERVICE_PROCESSES : PROCESSES).map((x) => (
             <Choice key={x.value} label={x.label} checked={s.processes.includes(x.value)}
               onChange={(e) => setS('processes', e.target.checked ? [...s.processes, x.value] : s.processes.filter((v) => v !== x.value))} />
           ))}
@@ -189,9 +201,9 @@ export function SupplierForm() {
           <p className="m-0 max-w-prose text-small text-ink-muted">
             The German rules on the Geheimschutzbetreuung, the security officer and VS-NfD material read these answers; they apply to companies established in Germany. Leave a question empty, or answer “I am not sure”, and the rule stays open with its question on your results. The personnel security checks (Ü1 to Ü3) need no answer here: your results show that rule, with its source, once you say you need access to classified information.
           </p>
-          {profile.classified === 'yes'
+          {profile.classified === 'yes' || profile.classified === 'unsure'
             ? DE_QUESTIONS.filter((q) => q.field !== 'de_ausfuhrliste' && shownQ(q)).map((q) => question(q))
-            : <p className="m-0 max-w-prose text-small text-ink-muted" data-germany-waiting>These questions appear once you answer “Yes” to access to classified information above.</p>}
+            : <p className="m-0 max-w-prose text-small text-ink-muted" data-germany-waiting>These questions appear once you answer “Yes” or “I am not sure” to access to classified information above.</p>}
         </Part>
       )}
 
@@ -266,33 +278,41 @@ export function SupplierForm() {
 /** How many matches the picker lists (WP-73: the whole vocabulary matches more than the 20 of the selection did). */
 const SHOWN = 50;
 
-function CpvPicker({ codes, onChange, error }: { codes: string[]; onChange: (codes: string[]) => void; error?: string }) {
+function CpvPicker({ codes, onChange, error, services = false }: { codes: string[]; onChange: (codes: string[]) => void; error?: string; services?: boolean }) {
   const [query, setQuery] = useState('');
   const vocab = useCpvVocabulary();
   const found = query.trim() ? cpvSearch(query, SHOWN, vocab ?? undefined) : [];
   const note = query.trim() ? productNote(query) : null;
   const title = (code: string) => vocab?.get(code) ?? cpvDictionaryTitle(code) ?? '';
   const full = codes.length >= CPV_MAX;
-  // WP-89: the suggested set of an automotive parts maker, added to what is chosen (never past CPV_MAX), each code removable below
-  const suggested = AUTOMOTIVE_SET.filter((c) => !codes.includes(c));
-  const [added, setAdded] = useState<number | null>(null);
-  const addSuggested = () => {
+  // WP-89, WP-97: suggested sets (automotive, machining, ammunition, services), added to what is chosen (never past CPV_MAX), each code
+  // removable below; a services company sees the services set first
+  const sets = services ? [...CODE_SETS].sort((a, b) => Number(b.key === 'services') - Number(a.key === 'services')) : CODE_SETS;
+  const [added, setAdded] = useState<{ set: string; n: number } | null>(null);
+  const addSet = (set: CodeSet) => {
     const room = Math.max(0, CPV_MAX - codes.length);
-    const take = suggested.slice(0, room);
+    const take = set.codes.filter((c) => !codes.includes(c)).slice(0, room);
     onChange([...codes, ...take]);
-    setAdded(take.length);
+    setAdded({ set: set.label, n: take.length });
   };
   return (
     <Fieldset id="q-cpv" legend={`CPV codes of what you make (optional, up to ${CPV_MAX})`} error={error}
       hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
-      <div className="mt-2 flex flex-col gap-1" data-cpv-suggested>
-        <div>
-          <Button type="button" variant="secondary" onClick={addSuggested} disabled={suggested.length === 0 || full}>Automotive supplier: suggested codes</Button>
-        </div>
+      <div className="mt-2 flex flex-col gap-2" data-cpv-suggested>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {sets.map((set) => (
+            <li key={set.key} className="flex flex-col gap-0.5" data-cpv-set={set.key}>
+              <div>
+                <Button type="button" variant="secondary" className="whitespace-normal text-left" onClick={() => addSet(set)} disabled={set.codes.every((c) => codes.includes(c)) || full}>{`${set.label}: suggested codes`}</Button>
+              </div>
+              <p className="m-0 text-small text-ink-muted">{`Adds ${set.codes.length} codes: ${set.covers}.`}</p>
+            </li>
+          ))}
+        </ul>
         <p role="status" className="m-0 text-small text-ink-muted">
           {added === null
-            ? `Adds ${AUTOMOTIVE_SET.length} codes of vehicle and military-vehicle parts, engine and brake parts, cast-iron products, fasteners and wiring sets; remove the ones you do not make.`
-            : added === 0 ? 'No code added: they are chosen already, or your list is full.' : `${added} ${added === 1 ? 'code' : 'codes'} added. Remove below the ones you do not make.`}
+            ? 'Remove afterwards the codes that do not fit what you do.'
+            : added.n === 0 ? 'No code added: they are chosen already, or your list is full.' : `${added.n} ${added.n === 1 ? 'code' : 'codes'} of “${added.set}” added. Remove below the ones that do not fit what you do.`}
         </p>
       </div>
       <TextInput id="sp-cpv-search" search className="mt-2 max-w-form" label="Search the CPV codes" value={query} onChange={(e) => setQuery(e.target.value)}

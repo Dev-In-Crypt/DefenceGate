@@ -251,7 +251,7 @@ test('"Fits my profile" lists the calls with the visitor’s topics first', asyn
 test('the requirements say plainly that Poland’s NCAGE issuer is not verified, and link NSPA', async ({ page }) => {
   await visit(page, '/requirements?country=PL', { title: /Requirements/, h1: 'Requirements' });
   const ncage = page.locator('li', { has: page.getByRole('heading', { name: 'NCAGE code' }) });
-  await expect(ncage.locator('[data-issuer="unverified"]')).toContainText('Not verified in our sources: we have not confirmed which body issues NCAGE codes in Poland.');
+  await expect(ncage.locator('[data-issuer="unverified"]')).toContainText('Not covered yet for Poland: which office issues NCAGE codes');   // WP-97: one NCAGE sentence everywhere
   await expect(ncage.getByRole('link', { name: /NSPA: request an NCAGE code/ })).toHaveAttribute('href', 'https://eportal.nspa.nato.int/Codification/CageTool/request-new-cage');
   await shot(page, 'requirements-poland');
   await visit(page, '/requirements?country=ES', { title: /Requirements/, h1: 'Requirements' });

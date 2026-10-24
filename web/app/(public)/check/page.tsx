@@ -28,6 +28,12 @@ const CHOICES = [
     body: 'You make parts or materials and want defence work. Say what you make: see who wins defence contracts for it, who buys it, and what the buyers’ routes ask of you.',
     href: '/readiness/supplier', action: 'Start the supplier profile',
   },
+  {
+    // WP-97 (persona round of 23 October 2026): the services path; the same profile, with the services questions and codes
+    title: 'Supply services to the armed forces',
+    body: 'We provide services: logistics, transport, fuel, facility services, catering, maintenance and repair, training or IT. Say what you provide: see who wins those contracts, who buys them, and what the buyers’ routes ask of you.',
+    href: '/readiness/supplier?offer=services', action: 'Start with services',
+  },
 ] as const;
 
 export default function CheckPage() {
@@ -36,7 +42,7 @@ export default function CheckPage() {
       lead="Answer one question first, then the check that fits.">
       <section aria-labelledby="want" className="flex flex-col gap-4">
         <h2 id="want" className="m-0 text-h2">What do you want?</h2>
-        <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2">
+        <ul className="m-0 grid list-none gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
           {CHOICES.map((c) => (
             <li key={c.href} className="min-w-0">
               <Card className="h-full gap-3">

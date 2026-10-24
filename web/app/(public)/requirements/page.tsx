@@ -16,6 +16,8 @@ import { ContentPage, ContentSection, PageSection } from '@/components/dg/conten
 import { ErrorState, JsonLd } from '@/components/dg/feedback';
 import { FactsGrid } from '@/components/dg/facts-grid';
 import { InfoLink } from '@/components/dg/about-data';
+import { CountryRoute } from '@/components/readiness/report';
+import { requirementCountry } from '@/lib/profile';
 
 export const revalidate = 3600;
 
@@ -91,7 +93,10 @@ export default async function RequirementsPage({ searchParams }: Props) {
     if (process.env.NEXT_PHASE !== PHASE_PRODUCTION_BUILD) throw e;
     failed = true;
   }
-  const documents = items.filter((r) => r.kind === 'document');
+  // WP-97: with a country chosen, the requirements of another country's own route (Spain's RID, PECAL, HSEM ...) are left out
+  const all = items.filter((r) => r.kind === 'document');
+  const documents = country ? all.filter((r) => [null, country].includes(requirementCountry(r.code))) : all;
+  const elsewhere = all.length - documents.length;
   const issuers = new Map<string, IssuerAnswer>(country
     ? (await Promise.all(documents.map(async (r) => {
       const d = await getRequirement(r.code).catch(() => null);
@@ -117,6 +122,13 @@ export default async function RequirementsPage({ searchParams }: Props) {
         <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Show</button>
       </form>
       {items.length > 0 && <JsonLd data={list} />}
+      {country && elsewhere > 0 && (
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-requirements-elsewhere>
+          {`${elsewhere} ${elsewhere === 1 ? 'requirement of the Spanish route is' : 'requirements of the Spanish route are'} left out: they apply to companies established in Spain.`}{' '}
+          <Link href="/requirements?country=ES" className="font-semibold">Show Spain’s</Link>
+        </p>
+      )}
+      {country && <CountryRoute country={country} />}
       {categories.map((c) => (
         <PageSection key={c} id={`cat-${c}`} title={CATEGORY_WORD[c] ?? c}>
           <AutoGrid as="ul" min={400} pairs>{documents.filter((r) => r.category === c).map((r) => <RequirementCard key={r.code} r={r} issuer={issuers.get(r.code)} country={country} />)}</AutoGrid>

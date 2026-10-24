@@ -4,7 +4,8 @@
  * nothing. Pure except `fetchDemand`.
  */
 import type { Profile } from './profile';
-import type { ValueTotals } from './value-totals';
+import { formatMoney } from './format';
+import type { ValueSum, ValueTotals } from './value-totals';
 
 export const DEMAND_COUNTRIES = ['ES', 'DE', 'FR', 'PL', 'NL'] as const;
 
@@ -14,11 +15,18 @@ export interface DemandRef {
   id: string; slug: string; noticeId: string; title: string; buyerName: string | null; publishedAt: string | null;
   source: string; sourceUrl: string | null; directive: boolean;
 }
-export interface DemandBuyer { slug: string; name: string; core: boolean; procurements: number }
+export interface DemandBuyer {
+  slug: string; name: string; core: boolean; procurements: number;
+  /** WP-97: the contract values it awarded under the codes, per currency (contract values only; absent from an older answer). */
+  awardedValue?: ValueSum[];
+}
+/** WP-97: the open tenders under the codes in one country, as /tenders counts them, and the link to that list. */
+export interface OpenNow { count: number; atLeast: boolean; href: string }
 export interface DemandWinner { name: string; country: string; awards: number; notices: DemandRef[] }
 export interface DemandCounts { procurements: number; directive: number; coreBuyers: number; otherBuyers: number; awarded: number; winners: number }
 export interface DemandCountry extends DemandCounts {
   country: string; topBuyers: DemandBuyer[]; topWinners: DemandWinner[]; otherWinners: { winners: number; awards: number }; latest: DemandRef[];
+  openNow?: OpenNow | null;
 }
 /** WP-80: a company that wins these procurements, across the countries asked (WP-81: every legal entity, kMin is 1). */
 export interface ApproachWinner {
@@ -31,6 +39,8 @@ export interface ApproachWinner {
   /** The publication date of its newest notice (TED: the result notice; PLACSP: the procurement, the award date is not stored). */
   countries: string[]; lastAward: string | null;
   prime: { group: string; jointVenture: boolean; source: string; sourceUrl: string } | null;
+  /** WP-97: a dealer of parts, tyres or hardware by its name (Recambios, Neumáticos, Ferretería): a competitor or distributor, not a customer. */
+  distributor?: boolean;
   edfProjects: number; defenceBuyer: boolean;
 }
 export interface Approach {
@@ -130,13 +140,37 @@ export function primesOf(a: Approach): ApproachWinner[] {
  * the company's own country (Suyfa, JPG, MADZEAL for a Spanish one), the primes and large defence groups (those of its country first), and
  * the other winners. A Spanish user saw eight German primes before any Spanish winner.
  */
-export function approachGroups(a: Approach, country: string): { home: ApproachWinner[]; primes: ApproachWinner[]; others: ApproachWinner[] } {
+export function approachGroups(a: Approach, country: string): { home: ApproachWinner[]; primes: ApproachWinner[]; others: ApproachWinner[]; dealers: ApproachWinner[] } {
   const primes = primesOf(a);
+  // WP-97: the dealers of parts, tyres and hardware apart, own country first: competitors or distributors of a maker, not its customers
+  const plain = a.winners.filter((w) => !w.prime && !w.distributor);
+  const dealers = a.winners.filter((w) => !w.prime && w.distributor);
   return {
-    home: a.winners.filter((w) => !w.prime && w.country === country),
-    primes: [...primes.filter((w) => w.country === country), ...primes.filter((w) => w.country !== country)],
-    others: a.winners.filter((w) => !w.prime && w.country !== country),
+    home: plain.filter((w) => w.country === country),
+    primes: ownFirst(primes, country),
+    others: plain.filter((w) => w.country !== country),
+    dealers: ownFirst(dealers, country),
   };
+}
+
+/** WP-97: the company's own country first, the order of the rest kept (who buys, who wins, the sections of the report). */
+export function ownFirst<T extends { country: string | null }>(xs: readonly T[], country: string): T[] {
+  return [...xs.filter((x) => x.country === country), ...xs.filter((x) => x.country !== country)];
+}
+
+/** WP-97: "EUR 1,200,000 over 3 contracts; PLN 40,000 over 1 contract", the contract values a buyer awarded under the codes; null for none. */
+export function buyerAmount(b: DemandBuyer): string | null {
+  const xs = b.awardedValue ?? [];
+  if (xs.length === 0) return null;
+  return xs.map((s) => `${formatMoney({ currency: s.currency, amount: Math.round(s.amount) })} over ${s.count} ${s.count === 1 ? 'contract' : 'contracts'}`).join('; ');
+}
+
+/** WP-97: the link to the open tenders under the codes in a country: the answer's own (the same count), else built from the codes' prefixes. */
+export function openHref(d: Pick<Demand, 'codes' | 'byCountry'>, country: string): string {
+  const own = d.byCountry.find((c) => c.country === country)?.openNow?.href;
+  if (own) return own;
+  const cpv = [...new Set(d.codes.map((c) => c.prefix))].join(',');
+  return `/tenders?country=${country}&cpv=${cpv}`;
 }
 
 /**

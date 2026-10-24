@@ -82,8 +82,8 @@ assert.equal(answerLabel(DUAL_USE_QUESTION, 'unsure'), 'Not sure');
 
 // ------------------------------------------------------------- the results link the questions to the page
 for (const f of [...DE_QUESTIONS.map((q) => q.field), DUAL_USE_QUESTION.field]) assert.ok(supplierAsks(f), f);
-assert.equal(askedAt('de_vs_nfd'), '/readiness/supplier#sp-germany');
-assert.equal(askedAt('ghb_admitted'), '/readiness/supplier#sp-germany');
+assert.equal(askedAt('de_vs_nfd'), '/readiness/supplier#q-de_vs_nfd');   // WP-97: the question itself, not its block
+assert.equal(askedAt('ghb_admitted'), '/readiness/supplier#q-ghb_admitted');
 assert.equal(askedAt('dualuse_annex_i'), '/readiness/supplier#sp-export');
 assert.equal(askedAt('de_ausfuhrliste'), '/readiness/supplier#sp-export');
 assert.equal(askedAt('REQ-EXPORT'), '/readiness?step=4', 'the export authorisation stays linked to step 4, where everyone is asked');

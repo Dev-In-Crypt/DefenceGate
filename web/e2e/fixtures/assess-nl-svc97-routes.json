@@ -1,0 +1,629 @@
+{
+ "generatedAt": "2026-10-23T18:00:00+00:00",
+ "rulesReviewed": "2026-10-20",
+ "assessments": [
+  {
+   "programme": "NATO-SUPPLY",
+   "name": "NATO and NSPA supply",
+   "kind": "route",
+   "summary": "Supplying NATO bodies and the NATO Support and Procurement Agency (NSPA), and being assigned NATO stock numbers.",
+   "legalBasis": null,
+   "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
+   "verdict": "conditional",
+   "incomplete": true,
+   "blocking": [],
+   "conditions": [],
+   "toObtain": [],
+   "counts": {
+    "met": 0,
+    "not_met": 0,
+    "to_obtain": 0,
+    "conditional": 0,
+    "unknown": 1,
+    "not_applicable": 0,
+    "info": 2
+   },
+   "missing": [
+    {
+     "field": "REQ-NCAGE",
+     "question": "Do you hold: NCAGE code?"
+    }
+   ],
+   "rules": [
+    {
+     "rule": "NATO-NCAGE",
+     "title": "NCAGE code",
+     "outcome": "unknown",
+     "reason": "Answer the questions that are missing to see whether this applies to you.",
+     "obligation": "mandatory",
+     "kind": "registration",
+     "requirement": "REQ-NCAGE",
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [
+      {
+       "field": "REQ-NCAGE",
+       "question": "Do you hold: NCAGE code?"
+      }
+     ],
+     "source": {
+      "url": "https://eportal.nspa.nato.int/Codification/CageTool/",
+      "ref": "NSPA NCAGE Code Request Tool",
+      "text": "[DefenceGate technical appendix, NCAGE] a five-character entity identifier, required for NSN assignment, for registration in NATO and national supply systems, and for procurement through NSPA.",
+      "origin": "notes",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-09-07"
+     }
+    },
+    {
+     "rule": "NATO-AQAP",
+     "title": "AQAP quality certification",
+     "outcome": "info",
+     "reason": "AQAP 2110 (or 2310 for aviation and space) is required where a NATO or national contract names it. This service cannot know which of your target contracts do.",
+     "obligation": "conditional",
+     "kind": "contract",
+     "requirement": "REQ-AQAP2110",
+     "note": "For Spain this is stated in a primary source: the Ministry of Defence says the PECAL, based on the AQAP, specify the quality requirements that suppliers must meet in the defence contracts that include them (read on 20 October 2026; rule ES-PECAL-CONTRACT of the Spanish defence supplier route, verified). For other countries it rests on the research notes.",
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://nso.nato.int/",
+      "ref": "NATO Standardization Office",
+      "text": "[DefenceGate technical appendix, AQAP editions and who requires it] AQAP enters through individual contracts: when a prime or a national buyer names it, and it then cascades down the supply chain to subcontractors.",
+      "origin": "notes",
+      "verificationStatus": "S",
+      "lastReviewed": "2026-09-07"
+     }
+    },
+    {
+     "rule": "NATO-AQAP-ED",
+     "title": "AQAP editions as the Spanish Ministry of Defence lists them",
+     "outcome": "info",
+     "reason": "When a contract names an AQAP or a PECAL, check the edition. The Ministry of Defence lists: PECAL 2110 Ed. 4 = AQAP-2110 Ed. D V1; PECAL 2310 Ed. B V1 = AQAP-2310 Ed. B V1; PECAL 2131 Ed. 3 = AQAP-2131 Ed. C V1 (final inspection and test, relevant to build-to-print component makers). PECAL 2210 is a supplement to 2110 or 2310. The contractual AQAP/PECAL 2000 series is a civil standard such as ISO 9001 plus NATO-specific requirements.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/aseguramientocalidad/index.html",
+      "ref": "Ministerio de Defensa, Aseguramiento de la calidad (list of PECAL and AQAP editions)",
+      "text": "[Ministerio de Defensa, Aseguramiento de la calidad] Los requisitos de la serie de normas AQAP/PECAL 2000 contractuales son los requisitos de una norma civil (como por ejemplo, los de la ISO 9001) más una serie de requisitos específicos OTAN.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    }
+   ]
+  }
+ ],
+ "general": [
+  {
+   "programme": "GENERAL",
+   "name": "Requirements that apply whichever route you take",
+   "kind": "general",
+   "summary": "Export control, exporter registration and facility security clearance depend on what you make and where you sell, not on the programme.",
+   "legalBasis": null,
+   "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+   "verdict": "eligible",
+   "incomplete": false,
+   "blocking": [],
+   "conditions": [],
+   "toObtain": [],
+   "counts": {
+    "met": 0,
+    "not_met": 0,
+    "to_obtain": 0,
+    "conditional": 0,
+    "unknown": 0,
+    "not_applicable": 15,
+    "info": 1
+   },
+   "missing": [],
+   "rules": [
+    {
+     "rule": "G-REGIME",
+     "title": "Which export regime applies to your product",
+     "outcome": "info",
+     "reason": "You do not yet know whether your product is in the dual-use regime or the military regime. Find that out first: they are separate legal regimes with different licences, and a product can be in the military regime and not the dual-use one.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "ref": "DefenceGate technical appendix, Export control",
+      "text": "[DefenceGate technical appendix, Export control] Dual-use falls under 2021/821. Military goods fall under the Common Military List, with intra-EU transfers governed by Directive 2009/43/EC and separate licences. A product may sit in the military regime and not the dual-use one.",
+      "origin": "notes",
+      "verificationStatus": "S",
+      "lastReviewed": "2026-09-07"
+     }
+    },
+    {
+     "rule": "G-EXPORT",
+     "title": "Export authorisation for dual-use items",
+     "outcome": "not_applicable",
+     "reason": "This concerns dual-use items that are exported outside the Union. You said your product is not dual-use, or that you do not export it outside the EU.",
+     "obligation": "conditional",
+     "kind": "export",
+     "requirement": "REQ-EXPORT",
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "ref": "Regulation (EU) 2021/821, Article 3(1)",
+      "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-18"
+     }
+    },
+    {
+     "rule": "G-EXPORT-INTRA-DU",
+     "title": "Dual-use items moved inside the Union",
+     "outcome": "not_applicable",
+     "reason": "This concerns a dual-use product that is moved to other EU countries.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "ref": "Regulation (EU) 2021/821, Article 11(1) and (2)",
+      "text": "[Regulation (EU) 2021/821, Article 11(1), first sentence] An authorisation shall be required for intra-Union transfers of dual-use items listed in Annex IV.\n\n[Regulation (EU) 2021/821, Article 11(2), introductory words] A Member State may impose an authorisation requirement for the transfer of other dual-use items from its territory to another Member State in cases where at the time of transfer:",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-18"
+     }
+    },
+    {
+     "rule": "G-EXPORT-MIL",
+     "title": "Authorisation for military goods",
+     "outcome": "not_applicable",
+     "reason": "This concerns military goods that are moved to another EU country or exported. You said your product is not in the military regime, or that you do not export it.",
+     "obligation": "conditional",
+     "kind": "export",
+     "requirement": "REQ-EXPORT",
+     "note": "Article 4(2) of the Directive lets a Member State exempt some transfers, for example where the supplier or the recipient is a governmental body or part of the armed forces. UNVERIFIED: which authority issues military licences in Germany and Poland. The research notes name the authority for dual-use items only.",
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://eur-lex.europa.eu/eli/dir/2009/43/oj",
+      "ref": "Directive 2009/43/EC, Article 4(1); Council Common Position 2008/944/CFSP, Article 1(2)",
+      "text": "[Directive 2009/43/EC, Article 4(1), first sentence] The transfer of defence-related products between Member States shall be subject to prior authorisation.\n\n[Council Common Position 2008/944/CFSP, Article 1(2), last sentence] Member States’ legislation shall indicate in which case an export licence is required with respect to these applications.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-18"
+     }
+    },
+    {
+     "rule": "G-REOCE",
+     "title": "REOCE registration (Spanish exporters)",
+     "outcome": "not_applicable",
+     "reason": "This applies to Spanish exporters of controlled items only.",
+     "obligation": "conditional",
+     "kind": "export",
+     "requirement": "REQ-REOCE",
+     "note": "REOCE is open only to Spanish residents: a company resident elsewhere follows the rules of its own country.",
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.boe.es/eli/es/l/2007/12/28/53/con",
+      "ref": "Ley 53/2007, art. 12; Real Decreto 679/2014, art. 13",
+      "text": "[Ley 53/2007, art. 12] Será requisito previo al otorgamiento de cualquier autorización administrativa de las transferencias a que se refiere el artículo 4 de esta Ley la inscripción en el Registro Especial de Operadores de Comercio Exterior de Material de Defensa y de Doble Uso.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "G-HSEM",
+     "title": "Facility security clearance (Spain)",
+     "outcome": "not_applicable",
+     "reason": "This applies to Spanish companies that handle classified information.",
+     "obligation": "conditional",
+     "kind": "security",
+     "requirement": "REQ-FSC-ES",
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.defensa.gob.es/portalservicios/servicios/industriadefensa/seginfoemp/index.html",
+      "ref": "Ministerio de Defensa, SEGINFOEMP page; CNI, Oficina Nacional de Seguridad",
+      "text": "[Ministerio de Defensa, SEGINFOEMP page] Obtención, modificación del grado, suspensión o retirada de la Habilitación de Seguridad de Empresa (HSEM) y, en su caso, la Habilitación de Seguridad de Establecimiento (HSES) necesarias para que las empresas puedan participar en los contratos en los que se maneje información clasificada.\n\n[CNI, Oficina Nacional de Seguridad] Creada en 1983, la ONS tiene la misión de proteger la información clasificada mediante la habilitación de personas, empresas y organismos y la acreditación de sistemas TIC en los que se maneja dicha información.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "G-CLASSIFIED-OTHER",
+     "title": "Facility security clearance (other countries)",
+     "outcome": "not_applicable",
+     "reason": "This applies to companies that handle classified information.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.cni.es/oficina-nacional-de-seguridad",
+      "ref": "DefenceGate technical appendix, Facility and personnel security clearance; Ukraine requirements path",
+      "text": "[DefenceGate technical appendix, Facility and personnel security clearance] NSA and DSA contacts for other member states were not collected.",
+      "origin": "notes",
+      "verificationStatus": "U",
+      "lastReviewed": "2026-09-07"
+     }
+    },
+    {
+     "rule": "DE-GHB-ADMISSION",
+     "title": "Admission to the BMWE Geheimschutzbetreuung (Germany)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "obligation": "conditional",
+     "kind": "security",
+     "requirement": null,
+     "note": "UNVERIFIED: the duration of the admission (the BMWE says it depends on the case).",
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "ref": "BMWE Sicherheitsforum, FAQ “Fragen zum Geheimschutz” (09.03.2026)",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Der Antrag erfolgt durch einen sogenannten VS-Auftraggeber. [...] Ein Eigenantrag ist nicht möglich.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "DE-GHB-COST",
+     "title": "Cost of the Geheimschutzbetreuung (Germany)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "ref": "BMWE Sicherheitsforum, FAQ “Fragen zum Geheimschutz” (09.03.2026)",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Die Geheimschutzbetreuung des BMWE sind [sic] kostenfrei, einschließlich der Beratung während der Geheimschutzbetreuung.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "DE-GHB-BID",
+     "title": "No security notice needed to submit a bid (Germany)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies in classified tenders.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/659,0,0,1,0.html",
+      "ref": "BMWE Sicherheitsforum, Information zu Vergabeverfahren (Stand 10/2026)",
+      "text": "[BMWE, Information zu Vergabeverfahren] Nach den gesetzlichen Bestimmungen ist ein bestehender Sicherheitsbescheid und damit die Aufnahme in die Geheimschutzbetreuung keine zwingende Voraussetzung für die Angebotsabgabe.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "DE-VSNFD",
+     "title": "VS-NUR FÜR DEN DIENSTGEBRAUCH obligations (Germany)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies in contracts with VS-NfD material.",
+     "obligation": "conditional",
+     "kind": "security",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/659,0,0,1,0.html",
+      "ref": "BMWE Sicherheitsforum, Information zu Vergabeverfahren (Stand 10/2026)",
+      "text": "[BMWE, Information zu Vergabeverfahren] Wenn der Auftrag Verschlusssachen des Geheimhaltungsgrades „VS-NUR FÜR DEN DIENSTGEBRAUCH“ (VS-NfD) umfasst, ist kein Sicherheitsbescheid und damit auch keine Geheimschutzbetreuung erforderlich, allerdings verlangen Auftraggeber gem. § 7 Abs. 4 VSVgV bereits vor Gewährung dieses Zugangs die Verpflichtungserklärungen.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "DE-SIBE",
+     "title": "Security officer (Sicherheitsbevollmächtigter, Germany)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies that are to receive VS-VERTRAULICH or higher.",
+     "obligation": "conditional",
+     "kind": "security",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.bmwe-sicherheitsforum.de/ghb/allgemeines/222,0,0,1,0.html",
+      "ref": "BMWE Sicherheitsforum, FAQ (09.03.2026); SÜG § 25(3), https://www.gesetze-im-internet.de/s_g/__25.html",
+      "text": "[BMWE, FAQ Fragen zum Geheimschutz] Ja, jedes Unternehmen in der Geheimschutzbetreuung muss einen SiBe bestellen.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "DE-SUE",
+     "title": "Personnel security checks Ü1, Ü2, Ü3 (Germany)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies whose staff will access classified material.",
+     "obligation": "conditional",
+     "kind": "information",
+     "requirement": null,
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.gesetze-im-internet.de/s_g/__8.html",
+      "ref": "SÜG §§ 8, 9, 10, 17; durations: BT-Drs. 20/11836 (13.06.2024), https://dserver.bundestag.de/btd/20/118/2011836.pdf",
+      "text": "[SÜG § 8] Die einfache Sicherheitsüberprüfung ist für Personen durchzuführen, die 1. Zugang zu VS-VERTRAULICH eingestuften Verschlusssachen erhalten sollen oder ihn sich verschaffen können\n\n[BT-Drs. 20/11836, note to the table of durations] Anmerkung: Die Daten wurden nicht differenziert nach öffentlichem und nichtöffentlichem Bereich erfasst.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "DE-EXPORT-BAFA",
+     "title": "German licence for goods in Ausfuhrliste Part I (BAFA)",
+     "outcome": "not_applicable",
+     "reason": "This concerns German companies whose goods in Ausfuhrliste Part I leave Germany. For other dual-use items see the EU dual-use rules.",
+     "obligation": "conditional",
+     "kind": "export",
+     "requirement": "REQ-EXPORT",
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://www.gesetze-im-internet.de/awv_2013/__8.html",
+      "ref": "AWV § 8 and § 11; AWG § 13 (gesetze-im-internet.de)",
+      "text": "[AWV § 8] Die Ausfuhr der folgenden Güter bedarf der Genehmigung: 1. der in Teil I Abschnitt A der Ausfuhrliste genannten Güter und 2. der in Teil I Abschnitt B der Ausfuhrliste genannten Güter.\n\n[AWV § 11] Die Verbringung der in Teil I Abschnitt A der Ausfuhrliste genannten Güter bedarf der Genehmigung.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "EU-CERTIFIED-RECIPIENT",
+     "title": "Certified recipient under Directive 2009/43/EC",
+     "outcome": "not_applicable",
+     "reason": "This concerns companies in other EU states that receive defence-related products from other member states.",
+     "obligation": "recommended",
+     "kind": "information",
+     "requirement": null,
+     "note": "UNVERIFIED: amendments of the Directive after 2009, and the CERTIDER register itself.",
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "http://publications.europa.eu/resource/celex/32009L0043",
+      "ref": "Directive 2009/43/EC, art. 9(1) and 5(2)(b) (original 2009 text)",
+      "text": "[Directive 2009/43/EC, Article 9(1)] Member States shall designate competent authorities to carry out the certification of recipients established on their territory of defence-related products under transfer licences published by other Member States in accordance with Article 5(2)(b).",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-20"
+     }
+    },
+    {
+     "rule": "EU-DUALUSE-EXPERT",
+     "title": "Is your item a listed dual-use item? (classification)",
+     "outcome": "not_applicable",
+     "reason": "This concerns items that may be listed dual-use items and are exported outside the EU.",
+     "obligation": "conditional",
+     "kind": "export",
+     "requirement": "REQ-EXPORT",
+     "note": null,
+     "denominator": null,
+     "consultant": null,
+     "asks": [],
+     "source": {
+      "url": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
+      "ref": "Regulation (EU) 2021/821, Article 3(1)",
+      "text": "[Regulation (EU) 2021/821, Article 3(1)] An authorisation shall be required for the export of dual-use items listed in Annex I.",
+      "origin": "primary",
+      "verificationStatus": "V",
+      "lastReviewed": "2026-10-17"
+     }
+    }
+   ]
+  }
+ ],
+ "roadmap": {
+  "steps": [
+   {
+    "order": 1,
+    "code": "REQ-NCAGE",
+    "name": "NCAGE code",
+    "category": "identification",
+    "summary": "A five-character entity identifier from the NATO codification system. Needed for NATO and NSPA supply and for stock numbers. Free of charge.",
+    "status": "not_held",
+    "optional": false,
+    "when": null,
+    "blockingFor": [
+     "NATO-SUPPLY"
+    ],
+    "neededFor": [
+     {
+      "programme": "NATO-SUPPLY",
+      "rule": "NATO-NCAGE",
+      "title": "NCAGE code"
+     }
+    ],
+    "cost": {
+     "min": 0,
+     "max": 0,
+     "currency": null,
+     "basis": "free",
+     "text": "Free of charge (NSPA)",
+     "alt": null,
+     "label": null
+    },
+    "days": {
+     "min": 5,
+     "max": 20,
+     "text": "Up to 14 working days on average; routine priority is 10 calendar days, emergency is 3 working days",
+     "note": "Working days are converted to calendar days at 7/5 and rounded up: 3 working days is 5 calendar days and 14 working days is 20."
+    },
+    "variantUsed": null,
+    "branchNote": null,
+    "note": null,
+    "issuers": [
+     {
+      "country": "NL",
+      "name": "National codification bureau (NCB) of the country",
+      "url": null,
+      "notes": "UNVERIFIED: for NATO countries the request is handled by the national codification bureau, but the name and contact of the bureau were not collected for this country.",
+      "status": "U"
+     }
+    ],
+    "issuerNote": null,
+    "priceNote": null,
+    "prerequisites": [],
+    "parallelWith": [
+     2
+    ],
+    "verificationStatus": "V",
+    "lastReviewed": "2026-09-07",
+    "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
+    "origin": "notes"
+   },
+   {
+    "order": 2,
+    "code": "REQ-AQAP2110",
+    "name": "AQAP 2110 quality assurance certification",
+    "category": "quality",
+    "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",
+    "status": "not_held",
+    "optional": true,
+    "when": "when a contract names it",
+    "blockingFor": [],
+    "neededFor": [
+     {
+      "programme": "NATO-SUPPLY",
+      "rule": "NATO-AQAP",
+      "title": "AQAP quality certification"
+     }
+    ],
+    "cost": {
+     "min": 17000,
+     "max": 25000,
+     "currency": "USD",
+     "basis": "vendor_range",
+     "text": "USD 17,000 to 25,000 for a small firm that already holds ISO 9001 (vendor quote)",
+     "alt": null,
+     "label": "vendor range, not a benchmark"
+    },
+    "days": {
+     "min": 90,
+     "max": 120,
+     "text": "3-4 months",
+     "note": null
+    },
+    "variantUsed": "REQ-ISO9001",
+    "branchNote": "You hold ISO 9001 quality management certificate, so the range the source gives for a firm that already holds it is used.",
+    "note": null,
+    "issuers": [],
+    "issuerNote": "The body that issues this has not been collected for your country.",
+    "priceNote": null,
+    "prerequisites": [
+     {
+      "code": "REQ-ISO9001",
+      "name": "ISO 9001 quality management certificate",
+      "relation": "before",
+      "status": "held",
+      "step": null
+     }
+    ],
+    "parallelWith": [
+     1
+    ],
+    "verificationStatus": "S",
+    "lastReviewed": "2026-09-07",
+    "sourceUrl": "https://nso.nato.int/",
+    "origin": "notes"
+   }
+  ],
+  "tracks": [
+   [
+    "REQ-NCAGE"
+   ],
+   [
+    "REQ-AQAP2110"
+   ]
+  ],
+  "totals": {
+   "cost": [],
+   "freeSteps": [
+    "REQ-NCAGE"
+   ],
+   "days": {
+    "min": 5,
+    "max": 20
+   }
+  },
+  "totalsWithOptional": {
+   "cost": [
+    {
+     "currency": "USD",
+     "min": 17000,
+     "max": 25000,
+     "steps": [
+      "REQ-AQAP2110"
+     ]
+    }
+   ],
+   "freeSteps": [
+    "REQ-NCAGE"
+   ],
+   "days": {
+    "min": 90,
+    "max": 120
+   }
+  },
+  "unknownCost": [],
+  "unknownDuration": [],
+  "unknownCostWithOptional": [],
+  "unknownDurationWithOptional": [],
+  "notAdded": [],
+  "label": "vendor range, not a benchmark"
+ },
+ "consultants": [],
+ "call": null,
+ "notice": "This is a structured reading of the rules of each programme, with the text of the regulation beside every line. It is not legal advice and it does not replace the call text or the contracting authority. It does not cover the exclusion criteria and the financial and operational capacity checks of the Financial Regulation, or the conditions each call sets. The answers were not stored."
+}

@@ -11,7 +11,11 @@ export const metadata: Metadata = buildMetadata({
   path: '/readiness/supplier',
 });
 
-export default function SupplierPage() {
+type Props = { searchParams: Promise<{ offer?: string | string[] }> };
+
+export default async function SupplierPage({ searchParams }: Props) {
+  const asked = (await searchParams).offer;
+  const offer = asked === 'services' || asked === 'products' ? asked : null;
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Supplier profile', href: '/readiness/supplier' }]}
@@ -22,7 +26,7 @@ export default function SupplierPage() {
       <AboutData summary="Who this is for and what you get">
         <div className="flex max-w-prose flex-col gap-3" data-supplier-audience>
           <p className="m-0">
-            For a company that makes parts or materials and wants defence work. Manufacturers in Spain that make civilian products today, such as automotive components, castings, machined parts or electronics, and
+            For a company that makes parts or materials, or provides services such as logistics, transport, fuel, facility services, catering, maintenance or training, and wants defence work. Manufacturers in Spain that make civilian products today, such as automotive components, castings, machined parts or electronics, and
             want to supply defence buyers: the Ministry of Defence, the NATO Support and Procurement Agency (NSPA), and the prime contractors that
             build for them.
           </p>
@@ -50,7 +54,7 @@ export default function SupplierPage() {
         <p className="m-0">Two requests leave your browser: the one that computes the verdict, with the answers the rules read, and the one for who wins and who buys what you make, with your CPV codes and nothing else. The server does not store or log them.</p>
         </AboutData>
       </Callout>
-      <SupplierForm />
+      <SupplierForm offer={offer} />
     </ContentPage>
   );
 }

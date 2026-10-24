@@ -31,6 +31,12 @@ export function countryName(code: string): string {
   return COUNTRY_NAMES[code] ?? BUYER_COUNTRIES[code] ?? regionName(code) ?? code;
 }
 
+/** WP-97: a country's name inside a sentence: "the Netherlands", "the United Kingdom". */
+export function countryInText(code: string): string {
+  const n = countryName(code);
+  return /^(Netherlands|United Kingdom|United States|Czech Republic|United Arab Emirates)$/.test(n) ? `the ${n}` : n;
+}
+
 /**
  * Countries a tender buyer can be in: any ISO-2 the sources carry, not only funder
  * countries. Ordered by how much we hold (12 October 2026); a code outside the list is

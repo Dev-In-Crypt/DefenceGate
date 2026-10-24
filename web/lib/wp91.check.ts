@@ -146,7 +146,7 @@ assert.ok(seed.includes(NSPA_NCAGE_URL));
 const pl = issuerFor('REQ-NCAGE', ncage, 'PL');
 assert.equal(pl.kind, 'unverified');
 if (pl.kind === 'unverified') {
-  assert.match(pl.text, /^Not verified in our sources: we have not confirmed which body issues NCAGE codes in Poland\./);
+  assert.match(pl.text, /^Not covered yet for Poland: which office issues NCAGE codes/);   // WP-97: one NCAGE sentence everywhere
   assert.equal(pl.link?.url, NSPA_NCAGE_URL);
 }
 assert.equal(issuerFor('REQ-NCAGE', ncage, 'ES').kind, 'verified');

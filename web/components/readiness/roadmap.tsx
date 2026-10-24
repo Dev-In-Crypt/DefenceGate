@@ -14,6 +14,7 @@ import { EmptyState, ErrorState, Skeleton } from '@/components/dg/feedback';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { AnswerProblems, NoProfile } from './results';
 import { useAssessment, useProfile } from './use-readiness';
+import { CountryRoute } from './report';
 
 /** `steps`: how many steps the figures are over; `noCost` and `noTime`: how many of them state none (T7: the headline never reads as a complete or free plan when some do not). */
 function Totals({ title, totals, id, steps, noCost, noTime }: { title: string; totals: RoadmapTotals; id: string; steps: number; noCost: number; noTime: number }) {
@@ -250,6 +251,8 @@ export function RoadmapView() {
           <Link href="/readiness/supplier#sp-eu" className="font-semibold">say on your supplier profile that you also want EU funding</Link> to add it.
         </p>
       )}
+      {/* WP-97: the national route of the company's own country, beside the NATO and EU steps */}
+      <CountryRoute country={profile.country} />
       {(result.state === 'loading' || result.state === 'idle') && <div role="status" aria-label="Computing your roadmap"><Skeleton className="h-56" /></div>}
       {result.state === 'error' && <ErrorState title="The roadmap could not be computed" onRetry={result.retry}>{result.message}</ErrorState>}
       {result.state === 'done' && <RoadmapBody plan={result.data.roadmap} profile={profile} onMark={mark} />}

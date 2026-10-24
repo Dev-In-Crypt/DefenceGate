@@ -323,3 +323,37 @@ def test_every_winner_a_page_at_a_time_in_the_order_of_who_to_approach(world, po
     assert c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "page": 0}).status_code == 422
     one = c.post("/v1/readiness/winners", json={"cpv": ["34300000"], "countries": ["DE"]}).json()
     assert {w["name"] for w in one["winners"]} == {"Rheinmetall Landsysteme GmbH", "Talleres Norte SL"}
+
+
+# --------------------------------------------------------------------------- WP-97
+
+def test_wp97_a_dealer_by_name_is_marked_distributor_and_a_prime_never(world, post):
+    names = by_name(post())
+    assert names["Recambios Sur SL"]["distributor"] is True
+    assert names["Talleres Norte SL"]["distributor"] is False
+    assert names["Rheinmetall Landsysteme GmbH"]["distributor"] is False
+
+
+def test_wp97_a_buyer_amount_sums_contract_values_only(world, post):
+    # JAE MALE: 1-2026 (EUR 100,000, its only winner) counts; 2-2026 names two winners, so its value is nobody's; the
+    # PLACSP notices state no value. BAAINBw: DE-1 states 70,000 of no kind, not a total: no contract value.
+    d = post()
+    es = {b["name"]: b for b in next(c for c in d["byCountry"] if c["country"] == "ES")["topBuyers"]}
+    assert es["JAE MALE"]["awardedValue"] == [{"currency": "EUR", "amount": 100000.0, "count": 1, "lotEstimates": 0}]
+    de = {b["name"]: b for b in next(c for c in d["byCountry"] if c["country"] == "DE")["topBuyers"]}
+    assert de["BAAINBw"]["awardedValue"] == []
+
+
+def test_wp97_open_now_is_the_tender_list_count_with_the_same_link(world, post, conn):
+    mal = conn.execute("SELECT id FROM organisation WHERE canonical_name = 'jae mando de apoyo logistico'").fetchone()["id"]
+    opp = notice(conn, "ted", "OPEN-1", buyer=mal, country="ES", buyer_name="JAE MALE", core=True)
+    conn.execute("UPDATE opportunity SET status = 'open', deadline_at = now() + interval '20 days' WHERE id = %s", (opp,))
+    conn.commit()
+    d = post()
+    es = next(c for c in d["byCountry"] if c["country"] == "ES")["openNow"]
+    assert es["href"] == "/tenders?country=ES&cpv=343"
+    listed = TestClient(api.app).get("/v1/tenders?country=ES&cpv=343&status=open").json()
+    # the new notice and 1-2026, a core notice with no deadline published 30 days ago (still open by the list's rule)
+    assert es["count"] == listed["total"] == 2 and es["atLeast"] is False
+    assert opp in {int(i["id"]) for i in listed["items"]}
+    assert next(c for c in d["byCountry"] if c["country"] == "DE")["openNow"]["count"] == 0

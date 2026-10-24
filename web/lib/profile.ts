@@ -81,6 +81,15 @@ export const PROCESSES = [
   { value: 'welding', label: 'Welding' }, { value: 'electronics', label: 'Electronics' }, { value: 'plastics_composites', label: 'Plastics and composites' },
   { value: 'coatings', label: 'Coatings' }, { value: 'textiles', label: 'Textiles' }, { value: 'assembly', label: 'Assembly' },
 ] as const;
+/** WP-97: what a services company runs instead (asked when it says it provides services; kept for its own summary, no rule reads it). */
+export const SERVICE_PROCESSES = [
+  { value: 'logistics', label: 'Logistics and warehousing' }, { value: 'transport', label: 'Transport' }, { value: 'fuel', label: 'Fuel supply' },
+  { value: 'facility', label: 'Facility services (cleaning, building management)' }, { value: 'catering', label: 'Catering' },
+  { value: 'maintenance', label: 'Maintenance and repair' }, { value: 'training', label: 'Training' }, { value: 'it_services', label: 'IT services' },
+] as const;
+const ALL_PROCESSES = [...PROCESSES, ...SERVICE_PROCESSES];
+/** WP-97: a company that said it provides services (the wizard's "software or services" answer, `offering`). */
+export const providesServices = (p: Profile): boolean => p.offering === 'software_services';
 
 /**
  * Certificates and registrations of the supplier profile. With a `code`, holding it is the status of that requirement (the same answer as
@@ -92,6 +101,9 @@ export const CERTIFICATES: Holding[] = [
   { key: 'ISO9001', label: 'ISO 9001', code: 'REQ-ISO9001' }, { key: 'IATF16949', label: 'IATF 16949' }, { key: 'ISO27001', label: 'ISO/IEC 27001' },
   { key: 'EN9100', label: 'EN 9100', code: 'REQ-EN9100' }, { key: 'AQAP2110', label: 'AQAP 2110', code: 'REQ-AQAP2110' },
   { key: 'AQAP2310', label: 'AQAP 2310', code: 'REQ-AQAP2310' }, { key: 'PECAL', label: 'PECAL (Spanish Ministry of Defence quality certificate)', code: 'REQ-PECAL', esOnly: true },
+  // WP-97: the certificates a services company is asked for (no rule of this check reads them; kept for its summary and report)
+  { key: 'ISO14001', label: 'ISO 14001 (environmental management)' }, { key: 'ISO45001', label: 'ISO 45001 (occupational health and safety)' },
+  { key: 'ISO50001', label: 'ISO 50001 (energy management)' }, { key: 'VCA', label: 'VCA (safety checklist for contractors)' },
 ];
 export const REGISTRATIONS: Holding[] = [
   { key: 'RID', label: 'RID (Registro de la Industria de Defensa)', code: 'REQ-RID', esOnly: true },
@@ -107,29 +119,33 @@ const CERT_KEYS = CERTIFICATES.map((c) => c.key);
  */
 export interface EsQuestion {
   field: string; label: string; kind?: 'enum'; when?: (p: Profile) => boolean;
+  /** WP-97: the question whose answer makes this one appear: while it is hidden, a missing answer links there instead. */
+  parent?: string;
   /** The choices, when they are not yes / no / not sure (sent as the value itself: `kind` is then 'enum'). */
   options?: readonly { value: Exclude<Answer, ''>; label: string }[];
 }
 const ans = (p: Profile, field: string): Answer => p.supplier.answers[field] ?? '';
+/** WP-97: a follow-up is asked once its parent is answered yes or "I am not sure" (a "not sure" no longer hides the question the rule reads). */
+const open_ = (v: string): boolean => v === 'yes' || v === 'unsure';
 export const ES_QUESTIONS: EsQuestion[] = [
   { field: 'pecal_certificate_wanted', label: 'Do you want the PECAL certificate of your quality management system itself, and not only to meet PECAL requirements inside a contract?' },
-  { field: 'pecal_system_9_months', label: 'Has your PECAL quality system been in place, and audited by your management, for at least nine months?', when: (p) => ans(p, 'pecal_certificate_wanted') === 'yes' },
-  { field: 'pecal_prior_contract', label: 'In the last two years, have you had at least one Ministry of Defence contract with PECAL requirements, or a certificate of conformity signed by a DGAM quality representative (RAC)?', when: (p) => ans(p, 'pecal_certificate_wanted') === 'yes' },
+  { field: 'pecal_system_9_months', parent: 'pecal_certificate_wanted', label: 'Has your PECAL quality system been in place, and audited by your management, for at least nine months?', when: (p) => open_(ans(p, 'pecal_certificate_wanted')) },
+  { field: 'pecal_prior_contract', parent: 'pecal_certificate_wanted', label: 'In the last two years, have you had at least one Ministry of Defence contract with PECAL requirements, or a certificate of conformity signed by a DGAM quality representative (RAC)?', when: (p) => open_(ans(p, 'pecal_certificate_wanted')) },
   { field: 'pecal_2310_target', label: 'Do you target PECAL 2310 (aviation, space and defence)?' },
   { field: 'ncage_need_justified', label: 'Is a product of yours bought by the Ministry of Defence (so that it must be catalogued), or do you need an NCAGE code to register in the US System for Award Management (SAM)?', when: (p) => p.statuses['REQ-NCAGE'] !== 'held' },
   { field: 'specific_defence_use', label: 'Is your product for specific defence use (Article 346 of the Treaty on the Functioning of the EU), rather than a civilian product?' },
-  { field: 'homologation_mandatory', label: "Is your product on the Ministry of Defence's list of products for which homologation is mandatory?", when: (p) => ans(p, 'specific_defence_use') === 'yes' },
-  { field: 'homologated', label: 'Is your product homologated by the Ministry of Defence?', when: (p) => ans(p, 'specific_defence_use') === 'yes' && ans(p, 'homologation_mandatory') === 'yes' },
+  { field: 'homologation_mandatory', parent: 'specific_defence_use', label: "Is your product on the Ministry of Defence's list of products for which homologation is mandatory?", when: (p) => open_(ans(p, 'specific_defence_use')) },
+  { field: 'homologated', parent: 'homologation_mandatory', label: 'Is your product homologated by the Ministry of Defence?', when: (p) => open_(ans(p, 'specific_defence_use')) && open_(ans(p, 'homologation_mandatory')) },
   { field: 'es_defence_material_list', kind: 'enum', label: 'Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?', when: (p) => p.regime === 'military' },
-  { field: 'stores_classified', label: 'Will classified information be stored on your own premises?', when: (p) => p.classified === 'yes' },
+  { field: 'stores_classified', parent: 'classified', label: 'Will classified information be stored on your own premises?', when: (p) => open_(p.classified) },
   { field: 'nato_classified_contract', label: 'Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?' },
-  { field: 'nsfcc_held', label: 'Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?', when: (p) => ans(p, 'nato_classified_contract') === 'yes' },
-  { field: 'nato_staff_cleared', label: 'Do the staff who need access hold NATO personnel security clearances?', when: (p) => ans(p, 'nato_classified_contract') === 'yes' },
+  { field: 'nsfcc_held', parent: 'nato_classified_contract', label: 'Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?', when: (p) => open_(ans(p, 'nato_classified_contract')) },
+  { field: 'nato_staff_cleared', parent: 'nato_classified_contract', label: 'Do the staff who need access hold NATO personnel security clearances?', when: (p) => open_(ans(p, 'nato_classified_contract')) },
   { field: 'nato_icb_bid', label: 'Do you want to bid in a NATO international competitive bidding tender (NATO Security Investment Programme)?' },
-  { field: 'rid_capabilities_declared', label: 'Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?', when: (p) => ans(p, 'nato_icb_bid') === 'yes' },
-  { field: 'foreign_investor_authorised', label: 'Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?', when: (p) => p.supplier.foreignOwner === 'yes' },
+  { field: 'rid_capabilities_declared', parent: 'nato_icb_bid', label: 'Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?', when: (p) => open_(ans(p, 'nato_icb_bid')) },
+  { field: 'foreign_investor_authorised', parent: 'foreign_capital', label: 'Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?', when: (p) => open_(p.supplier.foreignOwner) },
   { field: 'receives_eea_defence_products', label: 'Do you receive defence-related products from other EEA states?' },
-  { field: 'certified_recipient', label: 'Are you certified by your national authority as a recipient of defence-related products under the general transfer licences of other member states?', when: (p) => ans(p, 'receives_eea_defence_products') === 'yes' },
+  { field: 'certified_recipient', parent: 'receives_eea_defence_products', label: 'Are you certified by your national authority as a recipient of defence-related products under the general transfer licences of other member states?', when: (p) => open_(ans(p, 'receives_eea_defence_products')) },
 ];
 const ES_FIELDS = new Set(ES_QUESTIONS.map((q) => q.field));
 
@@ -140,12 +156,12 @@ const ES_FIELDS = new Set(ES_QUESTIONS.map((q) => q.field));
  * no answer of its own, so nothing is asked for them.
  */
 export const DE_QUESTIONS: EsQuestion[] = [
-  { field: 'de_vs_vertraulich', label: 'Will material classified VS-VERTRAULICH or higher be handed to you for processing and storage?', when: (p) => p.classified === 'yes' },
-  { field: 'ghb_admitted', label: 'Is your company already under the BMWE Geheimschutzbetreuung (with a security notice)?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_vertraulich') === 'yes' },
-  { field: 'sibe_appointed', label: 'Have you appointed a security officer (Sicherheitsbevollmächtigter, SiBe)?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_vertraulich') === 'yes' },
-  { field: 'de_vs_nfd', label: 'Does the contract involve material classified VS-NUR FÜR DEN DIENSTGEBRAUCH (VS-NfD)?', when: (p) => p.classified === 'yes' },
-  { field: 'vsnfd_declaration_signed', label: 'Have you signed the commitment declaration (Verpflichtungserklärung) for VS-NfD?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_nfd') === 'yes' },
-  { field: 'vsnfd_merkblatt', label: 'Does your contract incorporate the VS-NfD-Merkblatt (GHB Anlage 4)?', when: (p) => p.classified === 'yes' && ans(p, 'de_vs_nfd') === 'yes' },
+  { field: 'de_vs_vertraulich', parent: 'classified', label: 'Will material classified VS-VERTRAULICH or higher be handed to you for processing and storage?', when: (p) => open_(p.classified) },
+  { field: 'ghb_admitted', parent: 'de_vs_vertraulich', label: 'Is your company already under the BMWE Geheimschutzbetreuung (with a security notice)?', when: (p) => open_(p.classified) && open_(ans(p, 'de_vs_vertraulich')) },
+  { field: 'sibe_appointed', parent: 'de_vs_vertraulich', label: 'Have you appointed a security officer (Sicherheitsbevollmächtigter, SiBe)?', when: (p) => open_(p.classified) && open_(ans(p, 'de_vs_vertraulich')) },
+  { field: 'de_vs_nfd', parent: 'classified', label: 'Does the contract involve material classified VS-NUR FÜR DEN DIENSTGEBRAUCH (VS-NfD)?', when: (p) => open_(p.classified) },
+  { field: 'vsnfd_declaration_signed', parent: 'de_vs_nfd', label: 'Have you signed the commitment declaration (Verpflichtungserklärung) for VS-NfD?', when: (p) => open_(p.classified) && open_(ans(p, 'de_vs_nfd')) },
+  { field: 'vsnfd_merkblatt', parent: 'de_vs_nfd', label: 'Does your contract incorporate the VS-NfD-Merkblatt (GHB Anlage 4)?', when: (p) => open_(p.classified) && open_(ans(p, 'de_vs_nfd')) },
   { field: 'de_ausfuhrliste', kind: 'enum', label: 'Is the item in the German export list (Ausfuhrliste) Part I Section A (arms) or Section B (national dual-use list)?',
     when: (p) => p.exportIntent !== 'none',
     options: [{ value: 'part_i_a', label: 'Yes, Part I Section A (arms)' }, { value: 'part_i_b', label: 'Yes, Part I Section B (national dual-use list)' },
@@ -172,11 +188,11 @@ export const answerLabel = (q: EsQuestion, v: Answer): string => q.options?.find
  * only when classified information is stored on its premises). The answer is the requirement's status: yes is held, no is not held, and
  * "I am not sure" or no answer leaves it unknown, so the rule asks instead of reading "Not met". The answer itself is kept in `answers`.
  */
-export interface StatusQuestion { code: string; label: string; when: (p: Profile) => boolean }
+export interface StatusQuestion { code: string; label: string; when: (p: Profile) => boolean; parent?: string }
 export const ES_CLEARANCES: StatusQuestion[] = [
-  { code: 'REQ-FSC-ES', label: 'Does your company hold a company security clearance (HSEM, habilitación de seguridad de empresa)?', when: (p) => p.classified === 'yes' },
-  { code: 'REQ-HSES-ES', label: 'Does your company hold an establishment security clearance (HSES) for the premises where classified information is stored?',
-    when: (p) => p.classified === 'yes' && ans(p, 'stores_classified') === 'yes' },
+  { code: 'REQ-FSC-ES', label: 'Does your company hold a company security clearance (HSEM, habilitación de seguridad de empresa)?', when: (p) => open_(p.classified) },
+  { code: 'REQ-HSES-ES', parent: 'stores_classified', label: 'Does your company hold an establishment security clearance (HSES) for the premises where classified information is stored?',
+    when: (p) => open_(p.classified) && open_(ans(p, 'stores_classified')) },
 ];
 const CLEARANCE_CODES = new Set(ES_CLEARANCES.map((q) => q.code));
 
@@ -408,6 +424,11 @@ export const STATUS_LABEL: Record<Status, string> = {
   held: 'We hold it', in_progress: 'In progress', not_held: 'We do not hold it', not_applicable: 'Not applicable to us',
 };
 
+/** WP-97: the country whose own route a requirement belongs to (Spain's RID, PECAL, REOCE, HSEM, HSES), or null for one of every country. */
+export function requirementCountry(code: string): string | null {
+  return STATUS_ITEMS.find((i) => i.code === code)?.esOnly ? 'ES' : null;
+}
+
 export function visibleCodes(country: string): string[] {
   return STATUS_ITEMS.filter((i) => !i.roadmapOnly && (!i.esOnly || country === 'ES')).map((i) => i.code);
 }
@@ -455,7 +476,7 @@ function parseSupplier(raw: unknown): Supplier {
     foreignCountry: countryCode(r.foreignCountry),
     nace: text(r.nace, 12),
     cpv: strings(r.cpv, (c) => /^\d{8}$/.test(c), CPV_MAX),
-    processes: strings(r.processes, (v) => PROCESSES.some((x) => x.value === v), PROCESSES.length),
+    processes: strings(r.processes, (v) => ALL_PROCESSES.some((x) => x.value === v), ALL_PROCESSES.length),
     held: strings(r.held, (v) => UNCODED.includes(v), UNCODED.length),
     expiry,
     usComponents: triOf(r.usComponents),
@@ -757,19 +778,42 @@ const SUPPLIER_PAGE_ASKS: Record<string, string> = {
  * Where the question behind an API `missing` field is asked (WP-73), or null when nothing on this site asks it: a field of the wizard links
  * to its step, a field or requirement of the supplier page to its question there, a requirement of the wizard's step 4 to that step.
  */
-export function askedAt(field: string, supplier = false): string | null {
+export function askedAt(field: string, supplier = false, profile: Profile | null = null): string | null {
   const f = field.replace(/^profile\./, '');
   // WP-89: a supplier answers on its own page what its verdicts still miss, the EU funding questions there too (#sp-eu)
   if (supplier && SUPPLIER_PAGE_ASKS[f]) return `/readiness/supplier#${SUPPLIER_PAGE_ASKS[f]}`;
   if (WIZARD_FIELDS.has(f)) return `/readiness?step=${stepOfField(f)}`;
-  // a follow-up question is shown only after the answer it depends on: its link goes to the Spanish questions, where that answer is asked
-  if (ES_QUESTIONS.some((q) => q.field === f && q.when)) return '/readiness/supplier#sp-spain';
   // WP-68: each shown only while the answers it depends on allow: the link goes to its block, which says what makes it appear
   if (f === DUAL_USE_QUESTION.field || f === 'de_ausfuhrliste') return '/readiness/supplier#sp-export';
-  if (DE_FIELDS.has(f)) return '/readiness/supplier#sp-germany';
+  // WP-97: a question of the Spanish or German rules links to its own field; one that is hidden for these answers (a follow-up whose
+  // parent is not answered yet) links to the field that makes it appear, so every link lands on a question of the page
+  const q = QUESTIONS.find((x) => x.field === f) ?? ES_CLEARANCES.find((x) => x.code === f);
+  if (q) {
+    const shown = !q.when || profile === null || q.when(profile);
+    if (shown) return `/readiness/supplier#q-${f}`;
+    const parent = 'field' in q ? q.parent : q.parent ?? 'classified';
+    if (!parent) return `/readiness/supplier#q-${f}`;
+    return askedAt(parent, supplier, profile) ?? `/readiness/supplier#q-${parent}`;
+  }
+  if (f === 'classified') return '/readiness/supplier#q-classified';
   if (SUPPLIER_ASKS.has(f)) return `/readiness/supplier#q-${f}`;
   if (STATUS_ITEMS.some((i) => i.code === f && !i.roadmapOnly)) return '/readiness?step=4';
   return null;
+}
+
+/**
+ * WP-97: whether the company answered "I am not sure" to the question behind an API `missing` field: an answer, not a missing one. The
+ * rule stays open; the results say so and leave it out of the count of missing answers.
+ */
+export function notSure(p: Profile, field: string): boolean {
+  const f = field.replace(/^profile\./, '');
+  const wizard: Record<string, string> = {
+    handles_classified: p.classified, third_country_control: p.control, safe_role: p.safeRole, restricted_third_country_component: p.restricted,
+    components_from_ua_or_eea_efta: p.uaEeaComponents, ua_partner: p.uaPartner, ua_non_government_controlled_area: p.uaOccupied,
+    non_eu_component_cost_pct: p.componentBand, control_country: p.controlCountry, investor_precommitment: p.investor, in_group: p.inGroup,
+    foreign_capital: p.supplier.foreignOwner, us_components: p.supplier.usComponents,
+  };
+  return (wizard[f] ?? p.supplier.answers[f]) === 'unsure';
 }
 
 /** Whether the supplier page asks the question behind an API `missing` field (a field the wizard asks is linked to the wizard first). */

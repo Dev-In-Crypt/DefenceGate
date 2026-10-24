@@ -4,7 +4,7 @@
  * lib/readiness.check.ts runs the pure parts on its own.
  */
 import type { AssessRequest } from './profile';
-import { countryName } from './taxonomy';
+import { countryInText, countryName } from './taxonomy';
 import { formatDateUtc, plural } from './format';
 import type { Assessment, Outcome, RIssuer, RMoney, RSource, RSpan, RequirementDetail, RoadmapTotals, Verdict, VerificationStatus } from './readiness-types';
 
@@ -241,6 +241,11 @@ export type IssuerAnswer =
   | { kind: 'unverified'; text: string; link: { label: string; url: string } | null }
   | { kind: 'none'; text: string };
 
+/** WP-97: who issues the NCAGE code where our sources have not verified the national office, in the plain "not covered yet" words. */
+export function ncageText(country: string): string {
+  return `Not covered yet for ${countryInText(country)}: which office issues NCAGE codes (for a NATO member, its national codification bureau). Check with NSPA, whose NCAGE request tool is where a request starts.`;
+}
+
 export function issuerFor(code: string, issuers: RIssuer[], country: string): IssuerAnswer {
   const name = countryName(country);
   const own = issuers.filter((i) => i.country === country);
@@ -250,7 +255,8 @@ export function issuerFor(code: string, issuers: RIssuer[], country: string): Is
   if (own.length > 0) {
     return {
       kind: 'unverified',
-      text: `Not verified in our sources: we have not confirmed which body issues ${ncage ? 'NCAGE codes' : 'this'} in ${name}.${ncage ? ' For a NATO member the national codification bureau does; NSPA’s NCAGE page is where a request starts.' : ' Ask the national authority before you rely on any name.'}`,
+      // WP-97: the NCAGE words are one sentence everywhere (requirements page, roadmap, report, country route: `ncageText`)
+      text: ncage ? ncageText(country) : `Not verified in our sources: we have not confirmed which body issues this in ${name}. Ask the national authority before you rely on any name.`,
       link: ncage ? { label: 'NSPA: request an NCAGE code', url: NSPA_NCAGE_URL } : null,
     };
   }
