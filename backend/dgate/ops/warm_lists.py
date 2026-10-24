@@ -31,7 +31,7 @@ import time
 from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
-from .. import changes, db, tenders
+from .. import changes, db, suppliers, tenders
 from ..config import settings
 from ..listcache import snapshot_key, stored
 
@@ -42,6 +42,10 @@ PAGES = (1, 2, 3)
 LIST_STATUSES = ("closed", "all")
 COUNT_STATUSES = ("closed", "all")
 CHANGE_PAGE_SIZES = (25, 100)  # the page (web/lib/filters.ts CHANGE_PAGE_SIZE) and the Atom feed
+# WP-98c: the Atom feed's first page reads the first two API pages of 200 (web/lib/api.ts FEED_PAGE_SIZE, FEED_PAGE_ENTRIES):
+# kept here so the first reader after a deploy or a quiet hour does not wait for the window to be computed (5.1 s cold)
+FEED_PAGE_SIZE = 200
+FEED_API_PAGES = (1, 2)
 
 
 def _defaults(endpoint) -> dict:
@@ -77,7 +81,13 @@ def views(countries: list[str]) -> list[tuple[str, str, dict]]:
     for size in CHANGE_PAGE_SIZES:
         kw = {**base, "pageSize": size}
         out.append(("changes", snapshot_key("changes", kw), kw))
+    for page in FEED_API_PAGES:
+        kw = {**base, "pageSize": FEED_PAGE_SIZE, "page": page}
+        out.append(("changes", snapshot_key("changes", kw), kw))
     out.append(("buyer-base", tenders.BUYER_BASE_KEY, {}))        # before the slugs, which read it
+    # WP-98c: the supplier list's value orders, unfiltered (the whole set, and TED's rows)
+    for ted_only in (False, True):
+        out.append(("supplier-values", suppliers.value_order_key(ted_only), {"ted_only": ted_only}))
     for name in ("tender-slugs", "buyer-slugs"):
         out.append((name, snapshot_key(name, {}), {}))
     return out
@@ -103,6 +113,20 @@ def run(conn, *, write: bool = False) -> dict[str, int]:
     return {"views": len(todo), "written": done, "failed": failed, "removed": removed}
 
 
+# WP-98c: the views the first reader after a deploy must not wait for (the Atom feed's pages, the supplier value orders),
+# written at the worker's start when missing or older than four hours, without the ten minutes of the whole run.
+FIRST_VIEWS = ("changes", "supplier-values")
+
+
+def run_first(conn) -> dict[str, int]:
+    """Write the FIRST_VIEWS that are missing or older than four hours (the worker's start-up)."""
+    have = {r["key"] for r in conn.execute(
+        "SELECT key FROM list_snapshot WHERE computed_at > now() - interval '4 hours'").fetchall()}
+    todo = [v for v in views([]) if v[0] in FIRST_VIEWS and v[1] not in have]
+    done, failed = _write_views(conn, todo, [], True)
+    return {"views": len(todo), "written": done, "failed": failed}
+
+
 FUNCTIONS = {"tenders": tenders.list_tenders, "changes": changes.list_changes,
              "tender-slugs": tenders.tender_slugs, "buyer-slugs": tenders.buyer_slugs}
 
@@ -118,6 +142,8 @@ def _write_views(conn, todo, kept: list[str], write: bool) -> tuple[int, int]:
             if name == "buyer-base":
                 # One pass over every core notice, tested for twins (seconds): the buyer pages read it.
                 body = jsonable_encoder(tenders.compute_buyer_base(conn, exact=True))
+            elif name == "supplier-values":
+                body = suppliers.compute_value_order(conn, kw["ted_only"])
             else:
                 body = jsonable_encoder(fn.__wrapped__(**kw, conn=conn))
             conn.execute(

@@ -339,6 +339,9 @@ async function buildFeedPage(filters: ChangeFilters, page: number, key: string):
   const built = { ...first, items, held: items.length, feedPage: page, feedPages: Math.min(FEED_MAX_PAGE, Math.max(1, Math.ceil(first.total / FEED_PAGE_ENTRIES))) };
   feedCache.set(key, built);
   feedStale.set(key, built);
+  // WP-98c: the unfiltered feed's pages are also kept on disk, so a restarted server (a deploy) has a page to serve while it
+  // builds the first one, and a build that fails serves the last one instead of a 502
+  if (key.startsWith('#')) void remember(`feed:${key}`, built, { persist: true });
   return built;
 }
 
@@ -355,7 +358,7 @@ export async function getChangesForFeed(filters: ChangeFilters, page = 1): Promi
     building = buildFeedPage(filters, page, key).finally(() => feedBuilding.delete(key));
     feedBuilding.set(key, building);
   }
-  const stale = feedStale.get(key);
+  const stale = feedStale.get(key) ?? (await recall<FeedPage>(`feed:${key}`))?.value;
   if (stale) {
     building.catch(() => undefined);
     return stale;
@@ -406,7 +409,7 @@ export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<B
 const SUPPLIER_PAGE_SIZE = 20;
 
 /** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is five invented companies (lib/mock/suppliers.ts). */
-export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string }> {
+export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string; valuesAsOf?: string | null; valuesBehind?: boolean }> {
   if (!API_BASE) return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
@@ -420,7 +423,7 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
   const filtered = p.size > 0;
   p.set('pageSize', String(f.pageSize ?? SUPPLIER_PAGE_SIZE));
   const path = `/v1/suppliers?${p.toString()}`;
-  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem>>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
+  return withLastGood(`suppliers:${path}`, () => httpOrThrow<Paginated<SupplierItem> & { valuesAsOf?: string | null; valuesBehind?: boolean }>(path, filtered ? 'no-store' : 'revalidate', LIST_REVALIDATE_SECONDS), { persist: !filtered });
 }
 
 /** The public aggregate (GET /v1/suppliers/summary). null when the API has no supplier map yet. */

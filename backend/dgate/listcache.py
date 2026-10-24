@@ -66,8 +66,7 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
 
             default = settings().list_cache_seconds
             size = kwargs.get("pageSize", kwargs.get("limit"))
-            # No size at all (the scope counts) is a small answer, and is kept.
-            if args or (size is not None and (not isinstance(size, int) or size > stats.LIST_MAX_PAGE)):
+            if args:
                 return fn(*args, **kwargs)
 
             def compute():
@@ -84,6 +83,11 @@ def cache_list(name: str, ttl: float | None = None, *, snapshot: bool = False):
                     if row:
                         return restore(row["body"])
                 return fn(*args, **kwargs)
+
+            # No size at all (the scope counts) is a small answer, and is kept. A larger page is not kept in memory, but a
+            # snapshot of it is still read (WP-98c: the Atom feed reads pages of 200, and computed them on every request).
+            if size is not None and (not isinstance(size, int) or size > stats.LIST_MAX_PAGE):
+                return compute()
 
             frozen = tuple(sorted(
                 (k, (v is True) if k == "with_meta" else v if isinstance(v, scalars) else repr(v))

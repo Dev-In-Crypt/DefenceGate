@@ -1327,3 +1327,14 @@ Rate limit: 15 tokens (the five list searches as separate requests cost 22).
   the filters select, as the profile's `values.byCurrency` sums them (WP-95: contract values only, a unit price in no sum, never
   converted). `sort=value-XXX` (a three-letter currency) orders by the sum in that currency, largest first, a supplier with none
   in it last. `source=ted`: the winners of TED's own result notices only (no PLACSP award result). Rate cost +2 for a value order.
+
+## Changes of 24 October 2026 (WP-98c: production timings after the WP-98b deploy)
+
+- `GET /v1/suppliers?sort=value-XXX` without a filter reads the value order from sums the worker stores (`list_snapshot`
+  keys `supplier-values:set` and `supplier-values:ted`: every supplier's contract-value sums per currency, the sums the list
+  and the profile show), renewed after every award load (`awards.refresh_award_twins`) and every four hours
+  (`ops/warm_lists`); with a filter, or none stored (older than 8 hours, or computed under the other PLACSP switch), it is
+  summed live as before. The page has `valuesAsOf` (the stored sums' time, null when summed live) and `valuesBehind` (an
+  award load finished after them: its contracts join the order at the next renewal; each card's own values are summed live).
+- `GET /v1/changes?pageSize=200&page=1|2` (the Atom feed's first page) is kept by the worker (`ops/warm_lists`), and a page
+  larger than 100 now reads its snapshot too (it is still not kept in memory).

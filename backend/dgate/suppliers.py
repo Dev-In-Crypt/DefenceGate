@@ -231,6 +231,84 @@ def contract_values_sql(cond: str, twins: str) -> str:
                 GROUP BY b.org, b.vc"""
 
 
+def _ted_cond() -> str:
+    return f"{BASE} AND {TED_ROWS}"
+
+
+def _twins(ted_only: bool) -> str:
+    return "TRUE" if settings().placsp_awards_public and not ted_only else "FALSE"
+
+
+# WP-98c: the value orders of the unfiltered list, stored (`list_snapshot`). /v1/suppliers?sort=value-EUR summed every
+# supplier's contract values at request time, a second pass over the whole award set: 5.8 s cold on production (a 503)
+# after the WP-98b deploy, 4.1 s warm.
+VALUE_ORDER_KEY = "supplier-values"
+VALUE_ORDER_SECONDS = 5 * 60
+
+
+def value_order_key(ted_only: bool) -> str:
+    return f"{VALUE_ORDER_KEY}:{'ted' if ted_only else 'set'}"
+
+
+def compute_value_order(conn, ted_only: bool) -> dict[str, Any]:
+    """Every supplier's contract-value sums of the whole set (or of TED's rows, `ted_only`), per currency, largest first:
+    the rows `contract_values_sql` gives, the same sums the list shows (and so the profile's). Stored by the worker
+    (`ops.warm_lists`, and after every award load: `awards.refresh_award_twins`) with the switch it was computed under."""
+    rows = conn.execute(
+        f"SELECT org, vc, amount FROM ({contract_values_sql(_ted_cond() if ted_only else scope(), _twins(ted_only))}) cv "
+        "ORDER BY vc, amount DESC, org", {"since": since()}).fetchall()
+    by: dict[str, list[list[Any]]] = {}
+    for r in rows:
+        orgs, amounts = by.setdefault(r["vc"], [[], []])
+        orgs.append(r["org"])
+        amounts.append(float(r["amount"]))
+    return {"placspPublic": settings().placsp_awards_public, "byCurrency": by}
+
+
+def stored_value_order(conn, ted_only: bool) -> tuple[dict[str, Any], datetime] | None:
+    """The stored order (at most `listcache.SNAPSHOT_HOURS` old, computed under today's PLACSP switch) with its time, or
+    None: then the order is summed live. Kept `VALUE_ORDER_SECONDS` in memory, one read shared by concurrent callers."""
+    from . import stats
+    from .listcache import SNAPSHOT_HOURS
+
+    def read() -> tuple[dict[str, Any], datetime] | None:
+        try:
+            with conn.transaction():        # a savepoint: a role that may not read the table loses nothing else
+                row = conn.execute("SELECT body, computed_at FROM list_snapshot WHERE key = %s "
+                                   "AND computed_at > now() - make_interval(hours => %s)",
+                                   (value_order_key(ted_only), SNAPSHOT_HOURS)).fetchone()
+        except Exception:  # noqa: BLE001 - a snapshot is a shortcut, never a failure
+            return None
+        if not row or row["body"].get("placspPublic") != settings().placsp_awards_public:
+            return None
+        return row["body"], row["computed_at"]
+
+    if settings().list_cache_seconds <= 0:
+        return read()
+    return stats.cached(("supplier-values", ted_only), read, VALUE_ORDER_SECONDS, store=stats._list_cache,
+                        limit=stats.LIST_CACHED)
+
+
+def store_value_orders(conn) -> int:
+    """Compute both stored orders and write them to `list_snapshot`, in the caller's transaction; the number written."""
+    from psycopg.types.json import Jsonb
+
+    for ted_only in (False, True):
+        conn.execute(
+            """INSERT INTO list_snapshot (key, body, computed_at) VALUES (%s, %s, now())
+               ON CONFLICT (key) DO UPDATE SET body = EXCLUDED.body, computed_at = EXCLUDED.computed_at""",
+            (value_order_key(ted_only), Jsonb(compute_value_order(conn, ted_only))))
+    return 2
+
+
+def values_behind(conn, at: datetime | None) -> bool:
+    """Whether an award load finished after `at` (None: the order was summed now, never behind)."""
+    if at is None:
+        return False
+    loaded = conn.execute("SELECT max(read_at) AS t FROM award_notice").fetchone()["t"]
+    return loaded is not None and loaded > at
+
+
 class SupplierItem(BaseModel):
     id: str
     slug: str
@@ -262,6 +340,10 @@ class SupplierPage(BaseModel):
     pageSize: int
     maxOffset: int = MAX_OFFSET              # the list serves no position beyond this
     withheld: bool = False                   # WP-81: always false (a small group was withheld before)
+    # WP-98c: a value order read from the stored sums: when they were computed, and whether an award load finished since
+    # (the order may then miss its newest contracts; each card's own values are summed now). None: summed now.
+    valuesAsOf: datetime | None = None
+    valuesBehind: bool = False
 
 
 class Count(BaseModel):
@@ -563,15 +645,24 @@ def list_suppliers(
     # (the PLACSP award results make Spain's list ten times longer than any other). No twin is left out then: twins are
     # a TED row and a PLACSP row.
     ted_only = source == "ted"
-    cond = " AND ".join([f"{BASE} AND {TED_ROWS}" if ted_only else scope()] + where)
-    twins = "TRUE" if settings().placsp_awards_public and not ted_only else "FALSE"
+    cond = " AND ".join([_ted_cond() if ted_only else scope()] + where)
+    twins = _twins(ted_only)
     order = "canonical_name, id" if sort == "name" else "n DESC, canonical_name, id"
     # WP-98b: the largest sum of contract values in one currency first (never converted); a supplier with none in it last
     by_value = ""
+    as_of = None
     if sort.startswith("value-"):
-        params["sort_currency"] = sort.removeprefix("value-")
-        by_value = (f", vx AS (SELECT org, amount FROM ({contract_values_sql(cond, twins)}) cv "
-                    "WHERE cv.vc = %(sort_currency)s)")
+        currency = sort.removeprefix("value-")
+        # WP-98c: without a filter, the stored order (`stored_value_order`); with one, or none stored, summed now
+        stored = None if where else stored_value_order(conn, ted_only)
+        if stored:
+            params["vx_org"], params["vx_amount"] = stored[0]["byCurrency"].get(currency, [[], []])
+            as_of = stored[1]
+            by_value = ", vx AS (SELECT * FROM unnest(%(vx_org)s::bigint[], %(vx_amount)s::numeric[]) AS t(org, amount))"
+        else:
+            params["sort_currency"] = currency
+            by_value = (f", vx AS (SELECT org, amount FROM ({contract_values_sql(cond, twins)}) cv "
+                        "WHERE cv.vc = %(sort_currency)s)")
         order = "sort_amount DESC NULLS LAST, n DESC, canonical_name, id"
     # The page is cut first and the shown spelling asked for its 20 rows only (asked before the cut it took a
     # second at page 40: 4,188 suppliers on 18 October 2026). `n`: procurements won (`award_set.KEY`).
@@ -602,7 +693,9 @@ def list_suppliers(
                 {"currency": v["vc"], "amount": float(v["amount"]), "count": v["n"], "lotEstimates": 0})
     return {"items": [{**_item(r), "contractValues": sorted(values.get(r["id"], []), key=lambda s: (-s["count"], s["currency"]))}
                       for r in rows],
-            "total": total, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET, "withheld": False}
+            "total": total, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET, "withheld": False,
+            # WP-98c: the time of a stored order, and whether an award load finished after it
+            "valuesAsOf": as_of, "valuesBehind": values_behind(conn, as_of)}
 
 
 @router.get("/v1/suppliers/summary", response_model=Summary)
