@@ -6,7 +6,7 @@ Web only; no migration, no backend change, no data change, nothing to run on pro
 Machine checks in the test copy `D:\DEFENCEGATE TESTS\wp116` (demo data, `DG_USE_MOCK=1`): `tsc --noEmit` 0; every `lib/*.check.ts`
 (`scripts/run-checks.mjs`) 0, new `lib/safe-url.check.ts`; `next build` 0; the whole Playwright suite at desktop and 375 px
 872 passed, 0 failed, 62 skipped (the existing skips of wp63's fake-API block), new `e2e/wp116.spec.ts` (desktop project set to 1440 px).
-Backend unchanged; its suite was run as well (see the end).
+Backend unchanged; its suite was run as well: ruff 0, unit 3830 passed, integration (Postgres 17 on 55516) exit 0 with no failure.
 
 | # | Before (evidence) | Change | Test | After |
 |---|---|---|---|---|
