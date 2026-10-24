@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { safeReturnPath } from '@/lib/safe-url';
 import { LogOut } from 'lucide-react';
 import { getAccountStatus, getUserState } from '@/lib/account';
 import { AppNav } from '@/components/account/app-nav';
@@ -23,9 +25,12 @@ function SignOut() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const state = await getUserState();
-  if (state.kind === 'anonymous') redirect('/signin');
+  // WP-116: sign-in returns to the page asked for (middleware.ts forwards the path; safeReturnPath keeps it to /app pages)
+  const asked = state.kind === 'anonymous' || state.kind === 'unauthorized' ? safeReturnPath((await headers()).get('x-dg-path')) : null;
+  const next = asked && asked !== '/app' ? `?next=${encodeURIComponent(asked)}` : '';
+  if (state.kind === 'anonymous') redirect(`/signin${next}`);
   // Server components cannot clear cookies: /auth/expired does, then goes to /signin.
-  if (state.kind === 'unauthorized') redirect('/auth/expired');
+  if (state.kind === 'unauthorized') redirect(`/auth/expired${next}`);
 
   const skip = (
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-surface focus:px-5 focus:py-3 focus:font-bold">

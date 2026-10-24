@@ -12,6 +12,7 @@ import { CARD_PADDING, CARD_SURFACE } from '@/components/dg/card';
 import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
 import { useProfile } from './use-readiness';
+import { SavedAnswersLoading } from './loading';
 
 export interface WizardRequirement { code: string; name: string; summary: string }
 
@@ -184,7 +185,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
   useEffect(() => { if (confirmClear) keepRef.current?.focus(); }, [confirmClear]);
 
   if (!ready || profile === null) {
-    return <p role="status" className="m-0 text-body text-ink-muted">Loading your saved answers from this browser…</p>;
+    return <SavedAnswersLoading />;
   }
   const missing = unanswered(profile);
   // A finished profile is changed where something is still unanswered; a profile in progress is resumed where it was left.

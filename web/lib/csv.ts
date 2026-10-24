@@ -13,9 +13,14 @@ export function csvCell(v: Cell): string {
   return /[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** UTF-8 with a byte-order mark (spreadsheets then read accents right), CRLF lines, header first. */
+/**
+ * UTF-8 with a byte-order mark (Excel on Windows then reads "Dirección" as UTF-8, not as ANSI), CRLF lines, header
+ * first. The mark is an escape, so an editor cannot drop it unseen. `fetch().text()` and TextDecoder strip it when they decode:
+ * check the bytes (EF BB BF), not the decoded text (WP-116; the audit's bom=false was its own decoder).
+ */
+export const CSV_BOM = '﻿';
 export function toCsv(header: string[], rows: Cell[][]): string {
-  return `﻿${[header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')}\r\n`;
+  return `${CSV_BOM}${[header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')}\r\n`;
 }
 
 /**

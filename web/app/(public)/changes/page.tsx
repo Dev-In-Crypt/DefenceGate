@@ -9,7 +9,7 @@ import { CHANGE_MAX_PAGE, MAX_QUERY_LENGTH, ignoredFilters, lastPage, parseChang
 import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/format';
 import { staleNote } from '@/lib/source-status';
 import { BUYER_COUNTRIES, SCOPE_CHOICES } from '@/lib/taxonomy';
-import { buildMetadata } from '@/lib/seo';
+import { NOT_FOUND_META, buildMetadata } from '@/lib/seo';
 import type { Change, ChangeKindFilter } from '@/lib/types';
 import { AutoGrid } from '@/components/dg/auto-grid';
 import { Button } from '@/components/dg/button';
@@ -31,6 +31,9 @@ type Props = { searchParams: Promise<SearchParams> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parseChangeFilters(await searchParams);
+  // WP-116: a week the archive does not have is the page's 404 (below), and the tab says so too (one row is asked; an outage
+  // is not taken for a missing week here)
+  if (f.week && await getChanges({ week: f.week, pageSize: 1 }).then((d) => d === null, () => false)) return NOT_FOUND_META;
   const meta = buildMetadata({
     title: 'What changed in the last 14 days',
     description: 'New defence and dual-use notices and the amendments to their deadline, value, status or procedure, taken from our archive of observed changes. With an Atom feed.',

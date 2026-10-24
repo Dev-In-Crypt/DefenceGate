@@ -1,10 +1,10 @@
-import { permanentRedirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { getBuyers } from '@/lib/api';
 import { lastPage, parseBuyerFilters, toBuyerQuery } from '@/lib/filters';
 import { forwardedSearch } from '@/lib/list-bounds';
 
 /**
- * A page past the end answers 308 to the last page here, before the page renders (see lib/list-bounds.ts).
+ * A page past the end answers 307 (temporary: the last page moves as the list grows; WP-116) to the last page here, before the page renders (see lib/list-bounds.ts).
  *
  * No loading.tsx beside this layout, on purpose (WP-54, as for /funding in WP-43): a loading file wraps the page in a Suspense boundary, and the
  * server then sends the skeleton in place and the list as a hidden block that only a script swaps in. Without scripts (and for a crawler that
@@ -22,7 +22,7 @@ export default async function BuyersListLayout({ children }: { children: React.R
     } catch {
       target = null;
     }
-    if (target) permanentRedirect(target);
+    if (target) redirect(target);
   }
   return children;
 }

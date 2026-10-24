@@ -1,16 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getAccountStatus } from '@/lib/account';
+import { NOT_FOUND_META } from '@/lib/seo';
 import { HeaderBar } from '@/components/dg/header-bar';
 import { Footer } from '@/components/dg/footer';
 import { Button } from '@/components/dg/button';
 import { AutoGrid } from '@/components/dg/auto-grid';
 
-export const metadata: Metadata = {
-  title: 'Page not found',
-  description: 'This address is not a page of DefenceGate. Browse defence tenders, buyers and funding calls from here.',
-  robots: { index: false, follow: true },
-};
+export const metadata: Metadata = NOT_FOUND_META;
 
 const LINKS = [
   { label: 'Funding calls', href: '/funding', text: 'Open EU and national funding calls.' },

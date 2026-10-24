@@ -424,7 +424,11 @@ const SUPPLIER_PAGE_SIZE = 20;
 
 /** The supplier map's list (GET /v1/suppliers). Without the API (a demo build) it is five invented companies (lib/mock/suppliers.ts). */
 export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<SupplierItem> & { staleAsOf?: string; valuesAsOf?: string | null; valuesBehind?: boolean; groupTotals?: ValueSum[] | null; placsp?: boolean | null }> {
-  if (!API_BASE) return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
+  if (!API_BASE) {
+    // Like the API (backend/dgate/suppliers.py): a group it does not know is refused with 422. In the demo a group is a name prefix.
+    if (f.group && supplierMock.querySuppliers({ group: f.group }).total === 0) throw new ApiError(422, 'group: unknown');
+    return supplierMock.querySuppliers({ ...f, pageSize: f.pageSize ?? SUPPLIER_PAGE_SIZE });
+  }
   const p = new URLSearchParams();
   if (f.q) p.set('q', f.q);
   if (f.country) p.set('country', f.country);

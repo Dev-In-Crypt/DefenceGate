@@ -15,6 +15,7 @@ import { Button } from '@/components/dg/button';
 import { Choice, Fieldset, Select, TextInput } from '@/components/dg/form';
 import { COUNTRY_OPTIONS, ComponentOriginQuestions, ComponentShareQuestion, ControlQuestion, EXPORT_OPTIONS, InvestorQuestion, LEGAL_FORM_OPTIONS, MANAGEMENT_OPTIONS, Radios, SAFE_ROLE_OPTIONS, SizeQuestions, YES_NO_UNSURE } from './wizard';
 import { useCpvVocabulary, useProfile } from './use-readiness';
+import { SavedAnswersLoading } from './loading';
 
 /** The autonomous communities and cities of Spain, by their ISO 3166-2 codes. */
 export const ES_REGIONS = [
@@ -52,7 +53,7 @@ export function SupplierForm({ offer = null }: { offer?: 'services' | 'products'
     update((p) => ({ ...p, offering: offer === 'services' ? 'software_services' : 'products' }));
   }, [ready, offer, profile, update]);
 
-  if (!ready || profile === null) return <p role="status" className="m-0 text-body text-ink-muted">Loading your saved answers from this browser…</p>;
+  if (!ready || profile === null) return <SavedAnswersLoading />;
   const s = profile.supplier;
   const es = profile.country === 'ES';
   const setS = <K extends keyof Supplier>(key: K, value: Supplier[K]) => update((p) => ({ ...p, supplier: { ...p.supplier, [key]: value } }));

@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { authVerify, BIND_COOKIE, clearCookie, isTokenShaped, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, setCookie } from '@/lib/account';
+import { readBind } from '@/lib/safe-url';
 
 export interface ConfirmState {
   /** `invalid` covers every refusal (wrong, used, expired, other browser): one message, no detail. */
@@ -16,7 +17,8 @@ export interface ConfirmState {
 export async function confirmSignIn(_prev: ConfirmState, form: FormData): Promise<ConfirmState> {
   const token = form.get('token');
   const jar = await cookies();
-  const binder = jar.get(BIND_COOKIE)?.value;
+  // WP-116: the cookie may carry the /app page the visitor asked for (lib/safe-url.ts readBind checks it again)
+  const { binder, next } = readBind(jar.get(BIND_COOKIE)?.value);
   if (!isTokenShaped(token) || !isTokenShaped(binder)) return { status: 'invalid' };
 
   const r = await authVerify(token, binder);
@@ -28,5 +30,6 @@ export async function confirmSignIn(_prev: ConfirmState, form: FormData): Promis
   await setCookie(SESSION_COOKIE, r.data.session, maxAge);
   await clearCookie(BIND_COOKIE);
 
-  redirect(r.data.isNew ? '/app/welcome' : '/app');
+  // A new account sees the welcome page first; a returning one the page it asked for
+  redirect(r.data.isNew ? '/app/welcome' : next ?? '/app');
 }
