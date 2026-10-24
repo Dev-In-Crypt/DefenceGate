@@ -22,7 +22,7 @@ export default function TermsPage() {
       toc
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Terms of use', href: '/terms' }]}
       title="Terms of use"
-      lead="Version 2.0, published 14 October 2026. The numbered terms below are the binding text. They replace version 1.1 of 13 October 2026; earlier versions are kept and available on request."
+      lead="Version 2.1, published 24 October 2026. The numbered terms below are the binding text. They replace version 2.0 of 14 October 2026 (term 12 now allows quoting in publications, the press and research); earlier versions are kept and available on request."
     >
       <ClauseGroup>
       <Clause n={1} title="Who provides the service and what applies">
@@ -87,7 +87,7 @@ export default function TermsPage() {
 
       <Clause n={12} title="Our rights">
         <p className={P}>We, or our licensors, hold the rights in what we add: the selection and arrangement of the records, the normalisation, the classification and labels, the version archive, the text we wrote, the design and the software, including any database right that arises in the compilation. We do not claim any right in the source data as published by its source, and nothing in these terms restricts what a source’s own licence lets you do with a notice you take from that source.</p>
-        <p className={P}>We grant you a limited, non-exclusive, non-transferable and revocable right to use the service and to use extracts for your own internal business purposes. Nothing in these terms restricts what the law allows a lawful user to do.</p>
+        <p className={P}>We grant you a limited, non-exclusive, non-transferable and revocable right to use the service and to use extracts for your own internal business purposes. You may also quote individual figures, notices and short extracts in publications, in the press and in research, if you name DefenceGate, the original source and the date. This does not permit bulk copying or resale of the database. Nothing in these terms restricts what the law allows a lawful user to do.</p>
       </Clause>
 
       <Clause n={13} title="Acceptable use">

@@ -150,7 +150,7 @@ export default async function DataPage() {
         <p className="m-0 text-body text-ink-muted">
           <span className="font-semibold text-ink">Licence of what we add.</span> The notices and calls keep the licence of the source that published them, listed on each source above; where it allows, you may take them from the source itself. What we add
           (the selection and arrangement, the normalisation, the defence label and the links between sources, the version archive and our texts) is ours, all rights reserved; the{' '}
-          <Link href="/terms" className="font-semibold">terms</Link> let you use extracts for your own internal business purposes and say what is not allowed. If you cite a number or a notice, name DefenceGate, the source of the notice and the date you read it.
+          <Link href="/terms" className="font-semibold">terms</Link> let you use extracts for your own internal business purposes and quote individual figures, notices and short extracts in publications, the press and research, and say what is not allowed. If you cite a number or a notice, name DefenceGate, the source of the notice and the date you read it.
         </p>
       </PageSection>
 
