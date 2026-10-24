@@ -2,6 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { authRequest, BIND_COOKIE, BIND_MAX_AGE_SECONDS, setCookie } from '@/lib/account';
+import { bindValue } from '@/lib/safe-url';
 
 export interface SignInState {
   /**
@@ -29,7 +30,8 @@ export async function requestSignIn(_prev: SignInState, form: FormData): Promise
   if (form.get('acceptTerms') !== 'on') return { status: 'terms', email };
 
   const binder = randomBytes(32).toString('base64url');
-  await setCookie(BIND_COOKIE, binder, BIND_MAX_AGE_SECONDS);
+  // WP-116: with the /app page to return to after the link (checked in bindValue; anything else is dropped)
+  await setCookie(BIND_COOKIE, bindValue(binder, String(form.get('next') ?? '')), BIND_MAX_AGE_SECONDS);
 
   const r = await authRequest(email, binder, { termsVersion, privacyVersion });
   if (r.ok) return { status: 'sent' };

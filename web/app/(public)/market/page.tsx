@@ -15,6 +15,7 @@ import { BarChart, RankTable } from '@/components/market/charts';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { EmptyState } from '@/components/dg/feedback';
+import { FilterNotices } from '@/components/dg/filter-notices';
 import { Icon } from '@/components/dg/icon';
 import { Download } from 'lucide-react';
 import { CoverageNote } from '@/components/dg/coverage-note';
@@ -96,9 +97,18 @@ function Money({ m, basis, cpvLink }: { m: MarketMoney; basis: string; cpvLink: 
 }
 
 export default async function MarketPage({ searchParams }: Props) {
-  const filters = parseMarketFilters(await searchParams);
+  const sp = await searchParams;
+  const filters = parseMarketFilters(sp);
   const stats = await getMarketStats(filters).catch(() => null);
   const thisYear = new Date().getUTCFullYear();
+  // WP-116: a year the page does not cover is said, as the calendar says a month outside it (it used to show the last 12 months silently)
+  const rawYear = sp[PARAM.year];
+  const askedYear = String((Array.isArray(rawYear) ? rawYear[0] : rawYear) ?? '').trim().slice(0, 12);
+  const yearNotices = askedYear && !filters.year
+    ? [/^\d{4}$/.test(askedYear)
+      ? `The market covers ${MARKET_FIRST_YEAR} to ${thisYear}. ${askedYear} is outside it, so the last 12 months are shown.`
+      : `Ignored filter: year=${askedYear} (use a year from ${MARKET_FIRST_YEAR} to ${thisYear}); the last 12 months are shown.`]
+    : [];
   const yearOptions = Array.from({ length: thisYear - MARKET_FIRST_YEAR + 1 }, (_, i) => String(thisYear - i)).map((y) => ({ value: y, label: y }));
   const selectors = (
     <form method="get" action="/market" role="search" aria-label="Choose the year and the country" className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:flex-row sm:flex-wrap sm:items-end">
@@ -123,6 +133,7 @@ export default async function MarketPage({ searchParams }: Props) {
     return (
       <ContentPage crumbs={crumbs} title="Market overview">
         {selectors}
+        <FilterNotices notices={yearNotices} />
         <EmptyState title="The overview is not available right now" action={<Button variant="secondary" href={`/market${filters.year || filters.country || filters.cpv ? `?${new URLSearchParams({ ...(filters.year ? { year: String(filters.year) } : {}), ...(filters.country ? { country: filters.country } : {}), ...(filters.cpv ? { cpv: filters.cpv.join(',') } : {}) })}` : ''}`}>Try again</Button>}>
           The figures are computed by the data service and could not be read. Your choice is kept: try again in a minute, or see the <Link href="/data" className={LINK}>source status</Link>.
         </EmptyState>
@@ -155,6 +166,7 @@ export default async function MarketPage({ searchParams }: Props) {
       lead="How many defence procurement notices are published, by month, country and subject, and the contract values awarded in the contracts we read."
     >
       {selectors}
+      <FilterNotices notices={yearNotices} />
 
       {/* WP-96: the set every figure counts, named once beside them, with the tender list of the same set (the list opens on
           All defence and shows a notice published in two sources once, so its default count differs: NL 384 here, 524 there) */}

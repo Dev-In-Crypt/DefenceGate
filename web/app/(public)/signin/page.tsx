@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getAccountStatus, getCurrentUser } from '@/lib/account';
 import { buildMetadata } from '@/lib/seo';
+import { safeReturnPath } from '@/lib/safe-url';
 import { Callout } from '@/components/dg/blocks';
 import { Button } from '@/components/dg/button';
 import { ContentPage } from '@/components/dg/content-page';
@@ -16,9 +17,14 @@ export const metadata: Metadata = buildMetadata({
   noindex: true,
 });
 
-export default async function SignInPage() {
+type Props = { searchParams: Promise<{ next?: string | string[] }> };
+
+export default async function SignInPage({ searchParams }: Props) {
+  // WP-116: the /app page that sent the visitor here; the form carries it, and sign-in returns there (lib/safe-url.ts: /app only)
+  const raw = (await searchParams).next;
+  const next = safeReturnPath(Array.isArray(raw) ? raw[0] : raw);
   const [status, user] = await Promise.all([getAccountStatus(), getCurrentUser()]);
-  if (user) redirect('/app');
+  if (user) redirect(next ?? '/app');
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Sign in', href: '/signin' }]}
@@ -26,7 +32,7 @@ export default async function SignInPage() {
       lead={status.open ? 'Enter your e-mail address and we send you a link. No password to remember.' : undefined}
     >
       {status.open && status.termsVersion && status.privacyVersion ? (
-        <SignInForm termsVersion={status.termsVersion} privacyVersion={status.privacyVersion} />
+        <SignInForm termsVersion={status.termsVersion} privacyVersion={status.privacyVersion} next={next} />
       ) : (
         <Callout title="Sign-in is not open yet">
           <p className="m-0">Accounts are not available at the moment. Browsing tenders, buyers and funding calls needs no account.</p>

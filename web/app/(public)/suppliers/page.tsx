@@ -7,7 +7,8 @@ import { formatDateTimeUtc, formatDateUtc, formatNumber, plural } from '@/lib/fo
 import { staleNote } from '@/lib/source-status';
 import { MAX_PAGE, ignoredFilters, lastPage, type SearchParams } from '@/lib/filters';
 import { FilterNotices } from '@/components/dg/filter-notices';
-import { MIN_LIST_ITEMS, buildMetadata, listViewTitle } from '@/lib/seo';
+import { MIN_LIST_ITEMS, NOT_FOUND_META, buildMetadata, listViewTitle } from '@/lib/seo';
+import { cache } from 'react';
 import { cpvForWords } from '@/lib/cpv';
 import { parseCountries } from '@/lib/country-input';
 import { displayName } from '@/lib/display-name';
@@ -71,8 +72,16 @@ function href(f: ReturnType<typeof parse>, page: number): string {
   return `/suppliers${p.size ? `?${p.toString()}` : ''}`;
 }
 
+/**
+ * WP-116: a curated group the API does not know (422) is a 404, and its tab says so too: the metadata and the page ask once per
+ * request (React cache), one row only.
+ */
+const groupUnknown = cache(async (group: string) =>
+  getSuppliers({ group, pageSize: 1 }).then(() => false, (e: unknown) => e instanceof ApiError && e.status === 422));
+
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const f = parse(await searchParams);
+  if (f.group && await groupUnknown(f.group)) return NOT_FOUND_META;
   let noindex = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group || f.source || f.page > 1 || f.sort !== 'awards');
   if (!noindex) {
     try { noindex = (await getSuppliers(withProduct(f).api)).items.length < MIN_LIST_ITEMS; } catch { noindex = true; }
@@ -112,6 +121,7 @@ export default async function SuppliersPage({ searchParams }: Props) {
   const notices = ignoredFilters(sp, 'suppliers');
   const filtered = Boolean(f.q || f.country || f.buyerCountry || f.cpv || f.product || f.group || f.source);
   const { match, unknown, none, api } = withProduct(f);
+  if (f.group && await groupUnknown(f.group)) notFound();
   let result;
   let full;
   try {

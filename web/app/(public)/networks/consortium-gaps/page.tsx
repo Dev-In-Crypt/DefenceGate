@@ -6,6 +6,7 @@ import { buildMetadata } from '@/lib/seo';
 import { BUYER_COUNTRIES, countryName } from '@/lib/taxonomy';
 import { EDF_CATEGORY_WORDS, GAP_PROGRAMMES } from '@/lib/networks';
 import { Select } from '@/components/dg/form';
+import { FilterNotices } from '@/components/dg/filter-notices';
 import { ContentPage, ContentSection } from '@/components/dg/content-page';
 import { EmptyState, ErrorState } from '@/components/dg/feedback';
 import { DataSources, OrgLink, TableBox } from '@/components/networks/parts';
@@ -20,11 +21,18 @@ const COUNTRIES = Object.entries({ UA: 'Ukraine', LI: 'Liechtenstein', TR: 'Tür
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
+/** Horizon programmes are too large to read whole: the API takes them with a topic code start only. */
+const NEEDS_TOPIC = new Set(['HORIZON', 'H2020']);
+
 function parse(sp: SearchParams) {
-  const programme = /^[A-Za-z0-9_-]{1,20}$/.test(one(sp.programme) ?? '') ? (one(sp.programme) as string).toUpperCase() : 'EDF';
+  // WP-116: a programme the form does not offer falls back to the EDF, as the select shows, and the page says so (it used to be
+  // sent on and refused, with the reason "a topic that is too broad")
+  const asked = (one(sp.programme) ?? '').trim();
+  const known = GAP_PROGRAMMES.some((p) => p.value === asked.toUpperCase());
+  const programme = known ? asked.toUpperCase() : 'EDF';
   const topic = (one(sp.topic) ?? '').trim().slice(0, 60);
   const lacking = /^[A-Za-z]{2}$/.test(one(sp.lacking) ?? '') ? (one(sp.lacking) as string).toUpperCase() : 'UA';
-  return { programme, topic: topic || undefined, lacking };
+  return { programme, topic: topic || undefined, lacking, unknownProgramme: asked && !known ? asked.slice(0, 20) : null };
 }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
@@ -38,17 +46,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function ConsortiumGapsPage({ searchParams }: Props) {
-  const q = parse(await searchParams);
+  const { unknownProgramme, ...q } = parse(await searchParams);
   let data = null;
   let problem: string | null = null;
   try {
     data = await getConsortiumGaps(q);
   } catch (e) {
-    // A refusal (4xx: a topic too broad) is an answer to the form; a service that did not answer is thrown, so the page answers
-    // 503 at the edge and not 200 (re-audit N2), and ../error.tsx says so.
+    // A refusal (4xx: a topic too broad, a Horizon programme without a topic) is an answer to the form; a service that did not
+    // answer is thrown, so the page answers 503 at the edge and not 200 (re-audit N2), and ../error.tsx says so.
     if (!(e instanceof ApiError && e.status >= 400 && e.status < 500)) throw e;
-    problem = 'This analysis could not be loaded. A topic that is too broad is refused: give a narrower topic.';
+    problem = NEEDS_TOPIC.has(q.programme) && !q.topic
+      ? 'This analysis could not be loaded. A Horizon programme is read by topic: give a topic code start, for example HORIZON-CL3.'
+      : 'This analysis could not be loaded. A topic that is too broad is refused: give a narrower topic.';
   }
+  const notices = unknownProgramme ? [`Unknown programme ${unknownProgramme}: the European Defence Fund is shown.`] : [];
   return (
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Organisations', href: '/organisations' }, { label: 'Gaps in consortia', href: '/networks/consortium-gaps' }]}
@@ -65,6 +76,7 @@ export default async function ConsortiumGapsPage({ searchParams }: Props) {
           hint="Ukraine unless you choose another country." />
         <button type="submit" className="inline-flex min-h-11 items-center rounded-pill border-strong border-ink bg-surface px-5 text-small font-bold text-ink">Apply</button>
       </form>
+      <FilterNotices notices={notices} />
       {problem && <ErrorState title={problem} retryHref="/networks/consortium-gaps" />}
       {data && (
         <>

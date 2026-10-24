@@ -65,8 +65,15 @@ export function middleware(request: NextRequest, event: NextFetchEvent) {
     }
   }
   // A list request past page 1 carries its query to the list layouts (lib/list-bounds.ts), which answer a page past
-  // the end with a 308 before anything streams. The header is only ever read to build that redirect.
+  // the end with a 307 before anything streams. The header is only ever read to build that redirect.
   const { pathname, search } = request.nextUrl;
+  // WP-116: the signed-in area's layout sends a visitor without a session to /signin with the page asked for (`next`); a layout
+  // is not told its path, so it is forwarded here (set, never appended: a header the client sent is replaced). The layout checks it.
+  if (pathname === '/app' || pathname.startsWith('/app/')) {
+    const forwarded = new Headers(request.headers);
+    forwarded.set('x-dg-path', `${pathname}${search}`);
+    return NextResponse.next({ request: { headers: forwarded } });
+  }
   if (request.method === 'GET' && LIST_PATHS.has(pathname) && /[?&]page=(?:[2-9]|\d{2,})(?:&|$)/.test(search)) {
     const forwarded = new Headers(request.headers);
     forwarded.set('x-dg-search', search.slice(1));

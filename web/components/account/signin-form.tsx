@@ -17,7 +17,7 @@ const MESSAGE: Partial<Record<SignInState['status'], string>> = {
   terms: 'Tick the box to accept the terms of use and the privacy notice.',
 };
 
-export function SignInForm({ termsVersion, privacyVersion }: { termsVersion: string; privacyVersion: string }) {
+export function SignInForm({ termsVersion, privacyVersion, next = null }: { termsVersion: string; privacyVersion: string; next?: string | null }) {
   const [state, action, pending] = useActionState(requestSignIn, initial);
 
   if (state.status === 'sent') {
@@ -46,6 +46,7 @@ export function SignInForm({ termsVersion, privacyVersion }: { termsVersion: str
       )}
       <input type="hidden" name="termsVersion" value={termsVersion} />
       <input type="hidden" name="privacyVersion" value={privacyVersion} />
+      {next && <input type="hidden" name="next" value={next} />}
       <Choice
         name="acceptTerms" required
         label={<>I act for a trade, business or profession, and I accept the <Link href="/terms" className="font-semibold">terms of use</Link> (version {termsVersion}).</>}

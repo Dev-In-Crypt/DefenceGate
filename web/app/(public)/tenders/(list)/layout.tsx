@@ -1,11 +1,11 @@
-import { permanentRedirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { getTenders } from '@/lib/api';
 import { lastPage, parseTenderFilters, toTenderQuery } from '@/lib/filters';
 import { forwardedSearch } from '@/lib/list-bounds';
 import { reachableTotal } from '@/lib/list-count';
 
 /**
- * A page past the end answers 308 to the last page here, before the page renders. The fetch is the page's own
+ * A page past the end answers 307 (temporary: the last page moves as the list grows; WP-116) to the last page here, before the page renders. The fetch is the page's own
  * (the same request, so it is made once); page 1 never passes through, and a list that failed is left to the page's
  * error state.
  *
@@ -27,7 +27,7 @@ export default async function TendersListLayout({ children }: { children: React.
     } catch {
       target = null;
     }
-    if (target) permanentRedirect(target);
+    if (target) redirect(target);
   }
   return children;
 }

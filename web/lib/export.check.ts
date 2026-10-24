@@ -17,6 +17,9 @@ assert.equal(csvCell('say "hi"'), '"say ""hi"""');
 assert.equal(csvCell('line\nbreak'), 'line break');
 assert.equal(csvCell(null), '');
 assert.equal(toCsv(['a', 'b'], [['1', '=2']]), '﻿a,b\r\n1,\'=2\r\n');
+// WP-116: the file's first three bytes are the UTF-8 byte-order mark, and "ó" is two bytes after it (not Latin-1)
+assert.deepEqual([...Buffer.from(toCsv(['Dirección'], []), 'utf8').subarray(0, 6)], [0xef, 0xbb, 0xbf, 0x44, 0x69, 0x72]);
+assert.equal(Buffer.from(toCsv(['ó'], []), 'utf8').subarray(3, 5).toString('hex'), 'c3b3');
 
 // Dates.
 assert.equal(isoUtc('2026-11-26T16:00:00Z'), '2026-11-26T16:00:00Z');

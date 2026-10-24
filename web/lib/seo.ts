@@ -10,6 +10,17 @@ export const SITE = {
   tagline: 'Your way into European defence supply chains.',
 } as const;
 
+/**
+ * The metadata of the site's 404 (app/not-found.tsx). A page that answers `notFound()` for one of its queries returns this
+ * from its generateMetadata as well: Next resolves the page's metadata on its own, so the tab otherwise keeps the page's
+ * title over the 404 body (WP-116: "/suppliers?group=defence" was titled "Defence supplier map").
+ */
+export const NOT_FOUND_META: Metadata = {
+  title: 'Page not found',
+  description: 'This address is not a page of DefenceGate. Browse defence tenders, buyers and funding calls from here.',
+  robots: { index: false, follow: true },
+};
+
 /** Minimum content rules: thin pages render robots noindex. */
 export const MIN_LIST_ITEMS = 3;
 
