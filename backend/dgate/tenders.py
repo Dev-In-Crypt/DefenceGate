@@ -1719,7 +1719,9 @@ def award_summaries(conn, keys: dict[int, list[int]]) -> dict[int, dict[str, Any
         """SELECT x.key, COALESCE(max(n.skipped_person), 0) AS persons,
                   (array_agg(n.value_amount ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS va,
                   (array_agg(n.value_currency ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vc,
-                  (array_agg(n.value_kind ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vk
+                  (array_agg(n.value_kind ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vk,
+                  (array_agg(n.value_set_aside ORDER BY n.opportunity_id = x.key DESC)
+                       FILTER (WHERE n.value_kind IS NOT NULL))[1] AS sa
              FROM unnest(%s::bigint[], %s::bigint[]) AS x(key, oid)
              JOIN award_notice n ON n.opportunity_id = x.oid
             GROUP BY x.key""", (ks, oids)).fetchall()}
@@ -1746,11 +1748,13 @@ def award_summaries(conn, keys: dict[int, list[int]]) -> dict[int, dict[str, Any
         persons = int(n["persons"]) if n else 0
         value = None
         if n and n["vk"] and n["va"] is not None and n["va"] > PLACEHOLDER_VALUE_MAX and n["vc"]:
-            value = {"amount": float(n["va"]), "currency": n["vc"].strip(), "kind": n["vk"]}
+            value = {"amount": float(n["va"]), "currency": n["vc"].strip(), "kind": n["vk"],
+                     "setAside": float(n["sa"]) if n["sa"] is not None else None}
         elif len(winners) == 1 and winners[0]["valueAmount"] is not None and not persons:
             value = {"amount": winners[0]["valueAmount"], "currency": winners[0]["valueCurrency"],
                      "kind": winners[0]["valueKind"]}
-        out[key] = {"awardedTo": winners, "awardedPersons": persons, "awardValue": value}
+        # WP-103 fields as `awarded` gives them (the test holds the two equal)
+        out[key] = {"awardedTo": winners, "awardedPersons": persons, "awardValue": value, "winnersRead": n is not None}
     return out
 
 
