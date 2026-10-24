@@ -411,6 +411,13 @@ class Settings:
     # national notices to their TED twins (`ops/link_twins`), which no ingest does.
     twins_hour: int = field(default_factory=lambda: _env_int("DGATE_TWINS_HOUR", 9))
     twins_minute: int = field(default_factory=lambda: _env_int("DGATE_TWINS_MINUTE", 15))
+    # WP-103 (owner, 24 October 2026): the TED award load (`pipeline awards`: core scope and VEAT), daily, at an hour no
+    # heavy job holds (ingests 04-07, health 07, twins / families / digest 09-11, Sunday requalify 12, backups and
+    # networks 02), and at most `ted_awards_limit` notices a run: 15 requests of 100 plus at most one document per
+    # older-format notice, well under an hour; a backlog drains over the following days.
+    ted_awards_hour: int = field(default_factory=lambda: _env_int("DGATE_TED_AWARDS_HOUR", 14))
+    ted_awards_minute: int = field(default_factory=lambda: _env_int("DGATE_TED_AWARDS_MINUTE", 10))
+    ted_awards_limit: int = field(default_factory=lambda: _env_int("DGATE_TED_AWARDS_LIMIT", 1500))
     # Weekly (Sunday): notices the classifier dropped at ingest and the rules now qualify,
     # for every source whose payloads are in the store, over the last `requalify_days`.
     requalify_hour: int = field(default_factory=lambda: _env_int("DGATE_REQUALIFY_HOUR", 12))

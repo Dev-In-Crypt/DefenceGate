@@ -60,17 +60,26 @@ TED or PLACSP, nothing written). Test copy D:\DEFENCEGATE TESTS\wp103 (Postgres 
   is kept by its listed buyer alone (scope supply); the loader read the core scope only, while the supplier map counts
   the whole defence scope (`award_set.NOTICES`): 22,171 can-standard notices of the defence scope had no read at all.
   And the TED award load is a command (`pipeline awards`), not a scheduled job: last runs 18 and 23 October.
-- Change: subtypes 25-28 are result notices; candidates are the defence scope (`is_defence`), the supplier map's own
-  scope. The tender API says `winnersRead`; an awarded page whose winners were not read says "Awarded to: not read yet by
-  DefenceGate; the original notice names the winners" instead of nothing.
-- Tests: unit `test_veat_notices_are_result_notices`; integration
-  `test_veat_and_supply_scope_result_notices_are_read_for_their_winners`,
-  `test_the_tender_page_says_whether_the_winners_were_read`.
-- After (on production, once run): the next `python -m dgate.pipeline awards` has about 33,000 candidates (result
-  notices of the defence scope since 2023 never read: 22,171 eForms can-standard, 8,222 older-format can-standard, 874
-  eForms VEAT, the rest can-social / can-desg / E-subtypes; 100 a request, one request a second: about 6 minutes of
-  requests, plus one document request per older-format notice whose record names no winner).
-- Open: scheduling the TED award load daily is an owner decision (it calls TED from the worker); not done here.
+- Change (second commit, after review): subtypes 25-28 are result notices. The loader stays core-scope only (owner
+  decision of 22 October 2026; the widening of the first commit is reverted). The tender API says `winnersRead`; an
+  awarded page whose winners were not read says so (`web/lib/award-lines.winnersNotReadLine`): a core notice "not read
+  yet by DefenceGate; the original notice names the winners"; a notice outside the core scope (728479-2026) "not read
+  by DefenceGate: winners are read for the notices of the defence core scope, and this notice is listed for its buyer
+  only; the original notice names them".
+- Scheduled (owner, 24 October 2026): `ted_awards_daily` in the worker at 14:10 UTC (no other job holds hour 14: ingests
+  04-07, health/controls 07, twins/families/digest 09-11, Sunday requalify 12, backups/networks 02; warm_lists at :50),
+  `run_awards(limit=1500)` (DGATE_TED_AWARDS_HOUR / _MINUTE / _LIMIT): 15 requests of 100 plus at most one document per
+  older-format notice, under 30 minutes; `ingest_run` under `ted_awards` with the floor set to every notice asked (one
+  TED does not return makes the run partial); `refresh_award_twins` and the supplier value orders after it, as the CLI.
+  Also `python -m dgate.worker --once ted-awards`.
+- Tests: unit `test_veat_notices_are_result_notices`, `test_worker.py::test_the_ted_award_load_is_daily_bounded_and_away_from_the_heavy_jobs`
+  (and the CLI job list gains `ted-awards`); integration `test_core_veat_notices_are_read_and_supply_scope_ones_are_not`,
+  `test_the_tender_page_says_whether_the_winners_were_read`; web lib check `wp103.check.ts`.
+- After (on production, recounted read-only under the core scope, 24 October 2026): the next award load has 461
+  candidates, all eForms VEAT (subtypes 25-28) of the core scope; every other core result notice since 2023 is read
+  already. Outside the core scope, 32,537 result notices stay unread by decision (23,647 eForms, 8,222 older-format
+  can-standard, 413 eForms VEAT, 173 older VEAT, 82 others); their pages carry the out-of-scope line. 461 notices are
+  5 requests: the first scheduled run drains it.
 
 ### 5. DefenceGate's own re-read versions are flagged and kept out of changes, feeds and counts
 
@@ -146,6 +155,7 @@ TED or PLACSP, nothing written). Test copy D:\DEFENCEGATE TESTS\wp103 (Postgres 
 - `backend/dgate/tenders.py`: `awarded()` returns `winnersRead` and `awardValue.setAside`; the two `effective_status`
   calls pass the procedure.
 - `backend/dgate/db.py`: `older_mapping` in `upsert_opportunity` (5).
+- `backend/dgate/worker.py`, `backend/dgate/config.py`: the daily `ted_awards_daily` job and its three settings (4).
 - `backend/dgate/confidence.py`: the label words (7).
 - `web/app/(public)/tenders/[slug]/page.tsx`, `web/lib/types.ts`: the not-read line, the set-aside sentence, the
   version count. `web/components/changes/change-entry.tsx`, `web/lib/atom.ts`: "cancelled since". `web/lib/tender-basis.ts`:
@@ -159,11 +169,12 @@ TED or PLACSP, nothing written). Test copy D:\DEFENCEGATE TESTS\wp103 (Postgres 
 4. `python -m dgate.ops.award_values --no-fetch` (report: 3 set aside, 612 call-offs to contract) then `--no-fetch --yes`.
 5. `python -m dgate.ops.award_values --all` (report; asks TED about 90 times) then `--all --yes` (STRABAG, Arquus and
    every kind derived without TED's fields).
-6. `python -m dgate.pipeline awards` (asks TED; about 33,000 candidates: VEAT and supply-scope result notices). Note: up
-   to 8,222 older-format notices may each need a document request (`legacy_award_record`), about 2.5 hours at one a
-   second; `--limit` splits the run.
+6. Nothing to run by hand for the award load: `ted_awards_daily` (14:10 UTC) reads the 461 core VEAT notices on its first
+   run. To run it at once: `python -m dgate.pipeline awards` (asks TED, 5 requests).
 
 ## Test changed to the new specification (not weakened)
+
+- `tests/unit/test_worker.py::test_every_job_is_reachable_from_the_cli`: the expected job set gains `ted-awards`.
 
 - `tests/integration/test_confidence.py::test_every_tender_carries_its_level_and_the_reason` computes the expected
   label with `label(...)`; it now passes the directive and the buyer class too (item 7). Same rows, same assertions.
@@ -173,6 +184,9 @@ TED or PLACSP, nothing written). Test copy D:\DEFENCEGATE TESTS\wp103 (Postgres 
 - ruff: clean. Unit: 3672 passed. Integration (Postgres 17, port 55503): 1329 passed, 0 failed (17 min 41 s).
 - Web: `tsc --noEmit` clean; `npm run check` (lib checks) all ok, including the new asserts in `atom.check.ts` and
   `ui.check.ts`.
-- Not done: no Playwright spec for the three tender-page lines (not-read winners, set-aside sentence, version count);
-  their data is covered by the integration tests of the API (`winnersRead`, `awardValue.setAside`). No web production
-  build was run (no lock taken).
+- Second round (revert of the scope widening, daily award job, page-line checks; fresh container): ruff clean, unit
+  3673 passed, integration 1329 passed (13 min 37 s); tsc clean; lib checks all ok incl. `wp103.check.ts`; `next build`
+  exit 0 under the lock.
+- Second round: the three tender-page lines (winners not read, set-aside figure, version count with the remapped
+  corrections apart) are functions in `web/lib/award-lines.ts`, held by the lib check `wp103.check.ts`; a production
+  build was run while holding D:\DEFENCEGATE TESTS\web-build.lock. No Playwright spec (the lib check covers the lines).

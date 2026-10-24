@@ -56,8 +56,9 @@ def winner(name: str) -> dict:
             "organisation-country-tenderer": ["ESP"]}
 
 
-def test_veat_and_supply_scope_result_notices_are_read_for_their_winners(conn, env):
-    """375694-2026 (VEAT, subtype 25) and 728479-2026 (kept by its buyer alone) were never candidates."""
+def test_core_veat_notices_are_read_and_supply_scope_ones_are_not(conn, env):
+    """375694-2026 (VEAT, subtype 25) was never a candidate; 728479-2026 (kept by its buyer alone) stays outside the
+    loader's core scope (owner decision of 22 October 2026)."""
     veat = result_notice(conn, "375694-2026", subtype="25", status_native="veat", core=True)
     supply = result_notice(conn, "728479-2026", subtype="29", status_native="can-standard", core=False)
     conn.commit()
@@ -65,17 +66,21 @@ def test_veat_and_supply_scope_result_notices_are_read_for_their_winners(conn, e
                                     "BT-161-NoticeResult": "50783895.10"},
                     "728479-2026": {"publication-number": "728479-2026", **winner("Textil Santanderina SA")}})
     c = awards.run_awards(client=fake.client(), pause=0, sleep=lambda s: None)
-    assert c["candidates"] == 2 and c["awards_new"] == 2
+    assert c["candidates"] == 1 and c["awards_new"] == 1
     read = {r["opportunity_id"]: r for r in conn.execute("SELECT * FROM award_notice").fetchall()}
-    assert set(read) == {veat, supply}
+    assert set(read) == {veat} and supply not in read
     assert (float(read[veat]["value_amount"]), read[veat]["value_kind"]) == (50783895.10, "contract")
 
 
 def test_the_tender_page_says_whether_the_winners_were_read(conn, client):
     oid = result_notice(conn, "728480-2026", subtype="29", status_native="can-standard", core=True)
+    supply = result_notice(conn, "728479-2026", subtype="29", status_native="can-standard", core=False)
     conn.commit()
     got = client.get(f"/v1/tenders/{oid}").json()
-    assert (got["awardedTo"], got["winnersRead"]) == ([], False)
+    assert (got["awardedTo"], got["winnersRead"], got["scope"]) == ([], False, "core")
+    # outside the core scope: the page says why its winners are not read (web: `winnersNotReadLine`)
+    got = client.get(f"/v1/tenders/{supply}").json()
+    assert (got["winnersRead"], got["scope"]) == (False, "supply")
     award_notice(conn, oid)
     conn.commit()
     assert client.get(f"/v1/tenders/{oid}").json()["winnersRead"] is True

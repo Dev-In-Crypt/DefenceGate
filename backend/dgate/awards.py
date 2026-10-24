@@ -37,7 +37,7 @@ import psycopg
 
 from . import db
 from .award_value import TED_VALUE_FIELDS, ted_value, ted_value_set_aside
-from .classify import military_cpv_codes
+from .classify import CORE_SQL, military_cpv_codes
 from .config import settings
 from .normalise import _country2, looks_like_contact, normalise_identifier, redact_emails
 from .rawstore import BundleWriter, build_store, storage_key
@@ -53,8 +53,8 @@ SOURCE_CODE = "ted_awards"
 # The notice types that carry winners (TED `notice-type` can-standard, can-social, can-desg and the
 # voluntary ex ante notices), as the `notice_subtype` column stores them; measured 18 October 2026.
 # WP-103: the eForms voluntary ex ante notices are subtypes 25 to 28 (TED `veat`), which the list missed: F.B. Design's
-# fifteen patrol boats for the Guardia di Finanza (375694-2026, EUR 50.8 m) was never read (persona p07); 874 VEAT
-# notices of the defence scope had no winner read on 24 October 2026.
+# fifteen patrol boats for the Guardia di Finanza (375694-2026, EUR 50.8 m) was never read (persona p07); 461 VEAT
+# notices of the core scope had no winner read on 24 October 2026.
 AWARD_SUBTYPES = ("25", "26", "27", "28", "29", "30", "31", "33", "34", "35", "36", "37",
                   "E1", "E2", "E3", "E4", "E5", "E6")
 # eForms is mandatory from 25 October 2023 and optional from 25 October 2022; before that the API
@@ -714,14 +714,12 @@ RESULT_NOTICE_PARAMS = {"subtypes": list(AWARD_SUBTYPES), "legacy": list(LEGACY_
 
 
 def candidates(conn: psycopg.Connection, src_id: int, since: date, limit: int | None) -> list[dict[str, Any]]:
-    """TED result notices of the defence scope that no run has read yet, newest first: eForms ones by subtype, older
-    ones by notice type (WP-95).
-    WP-103: the whole defence scope (`is_defence`), the scope the supplier map counts (`award_set.NOTICES`), not only the
-    core: a result notice kept by its listed buyer alone was never read, and its page said "Awarded" with no winner
-    (728479-2026, Spanish army dress uniforms, five winners; 22,171 such can-standard notices on 24 October 2026)."""
+    """TED result notices of the core scope that no run has read yet, newest first: eForms ones by subtype, older
+    ones by notice type (WP-95). Core only (owner decision of 22 October 2026): a notice kept by its listed buyer alone
+    (728479-2026) is not read, and its page says its winners are outside the scope whose winners are read (WP-103)."""
     return conn.execute(
         f"""SELECT o.id, o.native_id, o.cpv_codes, {VALUE_COLUMNS} FROM opportunity o
-             WHERE o.source_id = %(src)s AND o.is_defence AND NOT o.suppressed
+             WHERE o.source_id = %(src)s AND o.is_defence AND NOT o.suppressed AND {CORE_SQL}
                AND {RESULT_NOTICE_SQL} AND o.published_at >= %(since)s
                AND NOT EXISTS (SELECT 1 FROM award_notice n WHERE n.opportunity_id = o.id)
              ORDER BY o.published_at DESC, o.id LIMIT %(limit)s""",
@@ -840,6 +838,9 @@ def run_awards(*, since: date = DEFAULT_SINCE, limit: int | None = None,
                 load_awards(conn, client, writer, src_id, ted_id, since=since, limit=limit,
                             counters=c, pause=pause, sleep=nap)
                 writer.drain()
+                # WP-103: the floor is every notice asked: one TED did not return makes the run partial, not success
+                conn.execute("UPDATE ingest_run SET expected_min = %s WHERE id = %s",
+                             (c["candidates"] - c["skipped_bad_number"], run_id))
                 refresh_award_twins(conn)
                 db.finish_run(conn, run_id, fetched=c["fetched"], new=c["awards_new"], changed=0,
                               detail=dict(c))
