@@ -997,6 +997,29 @@ export interface Supplier extends SupplierItem {
   /** WP-96: the curated company group it is listed under (a parent and its subsidiaries, never merged), with its source. */
   group?: { key: string; name: string; source: string; members: number } | null;
 }
+/** WP-100, GET /v1/suppliers/{slug}/contracts: every contract of a supplier (one row per procurement), for its CSV. */
+export interface SupplierContract {
+  noticeId: string;
+  slug: string;
+  title: string;
+  buyerName: string | null;
+  buyerCountry: string | null;
+  publishedAt: IsoDateTime | null;
+  cpv: string | null;
+  winnersInNotice: number;
+  valueAmount: number | null;
+  valueCurrency: string | null;
+  valueKind: ValueKind | null;
+  /** In the profile's sum of contract values (a contract value that is not a unit price). */
+  inContractSum: boolean;
+  frameworkNoticeId: string | null;
+  source: string;
+  sourceName: string;
+  sourceUrl: string | null;
+  licence: string;
+  attribution: string;
+}
+export interface SupplierContracts { slug: string; name: string; total: number; cap: number; items: SupplierContract[] }
 export interface SupplierFilters { q?: string; country?: string; buyerCountry?: string; cpv?: string; group?: string; sort?: 'awards' | 'name'; page?: number; pageSize?: number }
 export interface SupplierSummary {
   /** A group of fewer suppliers than this is not published. */

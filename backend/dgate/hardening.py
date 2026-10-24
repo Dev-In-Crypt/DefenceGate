@@ -148,6 +148,8 @@ def request_cost(path: str, params: dict[str, str]) -> int:
         # the group (the k rule) first.
         return 3 + (2 if (params.get("q") or "").strip() else 0) + (
             2 if (params.get("country") or params.get("buyerCountry") or params.get("cpv")) else 0)
+    if path.startswith("/v1/suppliers/") and path.endswith("/contracts"):
+        return 5                       # WP-100: every award row of a supplier, valued (the profile's statement, uncut)
     if path == "/v1/suppliers/summary" or path.startswith(("/v1/organisations", "/v1/projects/", "/v1/suppliers/")):
         return 2
     # The change feed reads the archive's last 14 days and every page of it computes them

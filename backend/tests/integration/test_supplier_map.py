@@ -311,6 +311,25 @@ def test_one_registration_number_written_two_ways_is_shown_once(conn, env, clien
     assert prof["noticeCount"] == 2 and len(prof["identifiers"]) == 1
 
 
+def test_the_contracts_file_lists_every_contract_once_with_its_kind_source_and_licence(conn, env, client):
+    """WP-100 (persona p07): every contract of a supplier, beyond the 50 the page lists, one row per procurement,
+    valued as the profile's sums value it; a co-winner is counted, never named."""
+    run(scenario(conn))
+    rh = client.get(f"/v1/suppliers/{_slug(client, 'landsysteme')}/contracts").json()
+    assert rh["total"] == 2 and rh["cap"] == suppliers_module.CONTRACTS_MAX
+    assert [c["noticeId"] for c in rh["items"]] == ["2-2026", "1-2026"]          # newest first
+    two, one = rh["items"]
+    assert (one["valueAmount"], one["valueCurrency"], one["valueKind"], one["inContractSum"]) == (1_000_000.0, "EUR", "contract", True)
+    assert (two["valueAmount"], two["valueKind"], two["inContractSum"], two["winnersInNotice"]) == (None, None, False, 2)
+    assert one["source"] == "ted" and one["sourceUrl"] == "https://ted.example/1-2026" and one["licence"]
+    assert "Nečas" not in str(rh)
+    assert client.get("/v1/suppliers/999999-nobody/contracts").status_code == 404
+    slug = _slug(client, "nammo")
+    conn.execute("UPDATE organisation SET suppressed = TRUE WHERE id = %s", (int(slug.split("-")[0]),))
+    conn.commit()
+    assert client.get(f"/v1/suppliers/{slug}/contracts").status_code == 410
+
+
 def test_an_unknown_or_malformed_supplier_is_a_404_and_a_removed_one_is_gone(conn, env, client):
     run(scenario(conn))
     assert client.get("/v1/suppliers/999999-nobody").status_code == 404

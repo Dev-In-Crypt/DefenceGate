@@ -52,7 +52,8 @@ export function activeDeadlinePreset(f: Pick<TenderFilters, 'deadlineFrom' | 'de
 
 /** The ceilings of the two subscriptions, said beside them (each file says so too when it cuts: lib/ics.ts, lib/atom.ts). */
 export const CALENDAR_API_MAX = 3000;
-export const FEED_MAX = 2400;
+/** WP-100: the entries of one page of the Atom feed (lib/api.ts FEED_PAGE_ENTRIES); the older ones are on its next pages. */
+export const FEED_MAX = 400;
 
 export interface Subscription {
   /** The calendar file of the search (open tenders with a deadline), and the same as a webcal:// address a calendar app subscribes to. Null when the status holds no open tender. */

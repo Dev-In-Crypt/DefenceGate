@@ -3,7 +3,7 @@
  * companies, so the supplier pages have something to lay out in the demo build and in the end-to-end tests. Shapes only; the numbers
  * are made up, which is why this is never used with an API configured.
  */
-import type { BuyerSuppliers, Paginated, Supplier, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
+import type { BuyerSuppliers, Paginated, Supplier, SupplierContract, SupplierContracts, SupplierFilters, SupplierItem, SupplierNotice, SupplierSummary } from '../types';
 
 const ITEMS: SupplierItem[] = [
   { id: '1', slug: '1-demo-airframes-gmbh', name: 'Demo Airframes GmbH', country: 'DE', awardCount: 14, firstYear: 2023, lastYear: 2026, cpvDivisions: ['35', '34'] },
@@ -97,6 +97,20 @@ export function findSupplier(slug: string, under: { cpv?: string; buyerCountry?:
     noticeCount: s.awardCount, namesAsStated: [s.name, s.name.toUpperCase()], identifiers: [`DE${100000000 + Number(s.id)}`],
     attribution: 'Source: TED, © European Union.',
   };
+}
+
+/** WP-100: GET /v1/suppliers/{slug}/contracts in the demo: the profile's notices, one contract each, with TED's licence. */
+export function supplierContracts(slug: string): SupplierContracts | null {
+  const s = findSupplier(slug);
+  if (!s) return null;
+  const items: SupplierContract[] = s.notices.map((n) => ({
+    noticeId: n.noticeId, slug: n.slug, title: n.title, buyerName: n.buyerName, buyerCountry: n.buyerCountry, publishedAt: n.publishedAt,
+    cpv: n.cpv, winnersInNotice: n.winnersInNotice, valueAmount: n.valueAmount, valueCurrency: n.valueCurrency, valueKind: n.valueAmount === null ? null : n.valueKind ?? 'contract',
+    inContractSum: n.valueAmount !== null && (n.valueKind ?? 'contract') === 'contract' && !n.valueSuspect,
+    frameworkNoticeId: n.framework?.noticeId ?? null, source: n.source ?? 'ted', sourceName: 'TED (Tenders Electronic Daily)', sourceUrl: n.sourceUrl,
+    licence: 'Commission Decision 2011/833/EU (reuse permitted with attribution)', attribution: 'Source: TED, © European Union.',
+  }));
+  return { slug: s.slug, name: s.name, total: items.length, cap: 5000, items };
 }
 
 /**

@@ -42,7 +42,8 @@ export function SubscribeToSearch({ filters }: { filters: TenderFilters }) {
           <a href={s.atom} className={LINK} data-subscribe-atom><Icon icon={Rss} size="inline" />Atom feed of new tenders and changes</a>
           <p className="m-0 max-w-prose text-ink-muted">
             New tenders and moved deadlines, values, statuses and procedures of the last 14 days, for this search with its status as it is
-            today; up to {formatNumber(FEED_MAX)} entries, and the feed says so when it holds fewer than there are. Paste the address into a
+            today; the newest {formatNumber(FEED_MAX)} entries, and the older ones on the feed&rsquo;s next pages (the feed says how many there are). Its
+            name in your reader is this search. Paste the address into a
             feed reader.
           </p>
         </div>

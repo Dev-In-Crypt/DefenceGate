@@ -614,12 +614,9 @@ def supplier_summary(conn=Depends(get_conn)):
     }
 
 
-@router.get("/v1/suppliers/{slug}", response_model=Supplier)
-def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
-                 buyerCountry: str | None = Query(None, max_length=200), conn=Depends(get_conn)):
-    org_id = _id_of(slug, "supplier")
-    # WP-89: read (and refused when unreadable) before anything is counted
-    under_where, under_params = _filters(None, None, cpv, buyerCountry) if cpv else ([], {})
+def _resolve(conn, org_id: int) -> tuple[dict[str, Any], int, str, dict[str, Any]]:
+    """The supplier behind an id (the one it is merged into): refused when removed on request or a natural person, 404
+    when there is none; with the FROM ... WHERE of its award rows (`base`) and their parameters."""
     org = conn.execute(
         "SELECT id, canonical_name, display_name, country, suppressed, merged_into, individual_reason FROM organisation WHERE id = %s",
         (org_id,)).fetchone()
@@ -637,13 +634,37 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
     base = (f"{FROM} WHERE {scope()} AND org.id = %(org)s AND a.organisation_id = ANY(ARRAY("
             "SELECT %(org)s::bigint UNION ALL SELECT id FROM organisation WHERE merged_into = %(org)s))")
     p = {"org": org_id, "since": since()}
+    if not org:
+        raise HTTPException(404, "no such supplier")
+    return org, org_id, base, p
+
+
+def _award_rows(conn, base: str, p: dict[str, Any], twins: str) -> list[dict[str, Any]]:
+    """Every award row of a supplier, newest notice first, each valued by `value_of` (WP-95: with its kind)."""
+    return conn.execute(
+        f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
+                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, v.vk, v.vp,
+                   a.winners_in_notice > 1 AS shared, o.source_url, a.id AS award_id,
+                   (SELECT code FROM source WHERE id = o.source_id) AS source_code, {KEY_HASH} AS k,
+                   (SELECT n.framework_id FROM award_notice n WHERE n.opportunity_id = o.id) AS framework_id
+              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC""",
+        p).fetchall()
+
+
+@router.get("/v1/suppliers/{slug}", response_model=Supplier)
+def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
+                 buyerCountry: str | None = Query(None, max_length=200), conn=Depends(get_conn)):
+    org_id = _id_of(slug, "supplier")
+    # WP-89: read (and refused when unreadable) before anything is counted
+    under_where, under_params = _filters(None, None, cpv, buyerCountry) if cpv else ([], {})
+    org, org_id, base, p = _resolve(conn, org_id)
     twins = "TRUE" if settings().placsp_awards_public else "FALSE"     # WP-81: value a twin pair from either copy
     head = conn.execute(
         f"""SELECT count(DISTINCT {KEY_HASH}) AS n,
                    extract(year FROM min(COALESCE(o.published_at, o.notice_date)))::int AS first_year,
                    extract(year FROM max(COALESCE(o.published_at, o.notice_date)))::int AS last_year
               {base}""", p).fetchone()
-    if not org or not head["n"]:
+    if not head["n"]:
         raise HTTPException(404, "no such supplier")
     # WP-85: a procurement counts once (`award_set.KEY`), in the year and main CPV division of its newest notice, so
     # the years and the divisions each add up to the count
@@ -663,14 +684,7 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
     # WP-87: one row per contract (`KEY`), as the count is: a second notice of the same procurement (Hensoldt Sensors:
     # 474829-2024 and 467138-2024, one Lithuanian contract) is listed under the first, not as a 13th row of 12.
     # WP-95: every row of the supplier in one statement: the newest notices, the sums by kind and the largest contracts
-    rows = conn.execute(
-        f"""SELECT o.id, o.native_id, o.title_en, o.title_original, o.buyer_name_raw, o.buyer_withheld, o.country,
-                   COALESCE(o.published_at, o.notice_date) AS published_at, a.cpv_main, a.winners_in_notice, v.va, v.vc, v.vk, v.vp,
-                   a.winners_in_notice > 1 AS shared, o.source_url, a.id AS award_id,
-                   (SELECT code FROM source WHERE id = o.source_id) AS source_code, {KEY_HASH} AS k,
-                   (SELECT n.framework_id FROM award_notice n WHERE n.opportunity_id = o.id) AS framework_id
-              {FROM} {value_of("a.id", twins)} {base.removeprefix(FROM)} ORDER BY 8 DESC NULLS LAST, o.id DESC""",
-        p).fetchall()
+    rows = _award_rows(conn, base, p, twins)
     notices: list[dict[str, Any]] = []
     same: dict[int, list[dict[str, Any]]] = {}
     first: dict[int, dict[str, Any]] = {}
@@ -763,6 +777,75 @@ def get_supplier(slug: str, cpv: str | None = Query(None, max_length=200),
         "namesAsStated": [redact_emails(r["v"]) for r in stated], "identifiers": list(numbers.values())[:3],
         "attribution": attribution,
     }
+
+
+# WP-100: the most contracts one supplier's file lists (the largest supplier held 408 on 23 October 2026)
+CONTRACTS_MAX = 5000
+
+
+class SupplierContract(BaseModel):
+    """WP-100: one contract (procurement, `award_set.KEY`) of a supplier, as its CSV lists it: the notice whose value
+    stands for it (`best`, the one the profile's sums read), its kind and whether it is in the contract-value sum."""
+    noticeId: str
+    slug: str
+    title: str
+    buyerName: str | None
+    buyerCountry: str | None
+    publishedAt: datetime | None
+    cpv: str | None
+    winnersInNotice: int
+    valueAmount: float | None
+    valueCurrency: str | None
+    valueKind: str | None
+    inContractSum: bool
+    frameworkNoticeId: str | None
+    source: str
+    sourceName: str
+    sourceUrl: str | None
+    licence: str
+    attribution: str
+
+
+class SupplierContracts(BaseModel):
+    slug: str
+    name: str
+    total: int                                # the supplier's contracts, all of them
+    cap: int = CONTRACTS_MAX                  # the most `items` holds; `total` above it says the list is cut
+    items: list[SupplierContract]
+
+
+@router.get("/v1/suppliers/{slug}/contracts", response_model=SupplierContracts)
+def get_supplier_contracts(slug: str, conn=Depends(get_conn)):
+    """WP-100: every contract of a supplier, newest first, for the supplier page's CSV: buyer, date, value, its kind
+    (WP-95) and currency, the source link with its licence and attribution. The supplier is a legal entity (a natural
+    person has no page, `_resolve`); co-winners are counted (`winnersInNotice`), never named."""
+    org, org_id, base, p = _resolve(conn, _id_of(slug, "supplier"))
+    twins = "TRUE" if settings().placsp_awards_public else "FALSE"
+    rows = sorted(best(_award_rows(conn, base, p, twins)).values(),
+                  key=lambda r: (str(r["published_at"] or ""), r["id"]), reverse=True)
+    if not rows:
+        raise HTTPException(404, "no such supplier")
+    sources = {r["code"]: r for r in conn.execute(
+        "SELECT code, name, licence, attribution FROM source WHERE code = ANY(%s)",
+        (sorted({r["source_code"] for r in rows}),)).fetchall()}
+    frameworks = framework_refs(conn, [r["framework_id"] for r in rows if r["framework_id"]])
+    items = []
+    for r in rows[:CONTRACTS_MAX]:
+        title = redact_emails(r["title_en"] or r["title_original"]) or ""
+        has = r["va"] is not None
+        src = sources.get(r["source_code"]) or {}
+        items.append({
+            "noticeId": r["native_id"], "slug": make_slug(r["id"], title), "title": title,
+            "buyerName": None if r["buyer_withheld"] else r["buyer_name_raw"], "buyerCountry": r["country"],
+            "publishedAt": _day(r["published_at"]), "cpv": r["cpv_main"], "winnersInNotice": r["winners_in_notice"],
+            "valueAmount": float(r["va"]) if has else None, "valueCurrency": r["vc"].strip() if has else None,
+            "valueKind": r["vk"] if has else None,
+            "inContractSum": has and r["vk"] == CONTRACT and not is_suspect(float(r["va"]), r["vk"], bool(r["vp"])),
+            "frameworkNoticeId": (frameworks.get(r["framework_id"]) or {}).get("noticeId"),
+            "source": r["source_code"], "sourceName": src.get("name") or r["source_code"], "sourceUrl": r["source_url"],
+            "licence": src.get("licence") or "", "attribution": src.get("attribution") or ""})
+    name = (org["display_name"] or org["canonical_name"]).strip()
+    return {"slug": make_slug(org_id, name), "name": name, "total": len(rows), "items": items}
 
 
 def company_group_of(conn, org_id: int) -> dict[str, Any] | None:

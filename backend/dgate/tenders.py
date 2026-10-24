@@ -1261,14 +1261,24 @@ def export_tenders(
     limit: int = Query(EXPORT_DEFAULT_LIMIT, ge=1, le=EXPORT_MAX_LIMIT),
     cpvMain: bool = Query(False),
     notCpv: str | None = Query(None, max_length=400),
+    publishedFrom: date | None = None,
+    publishedTo: date | None = None,
     conn=Depends(get_conn),
 ):
     """One page of a CSV export: the notices the list would show for the same filters, newest id
     first, `limit` at a time (at most 2,000), with no total (that is the window count that made
     the list too slow for a long result). Call again with `cursor` = `nextCursor` until it is
-    null. Rows are read a moment apart: a caller de-duplicates by id. Not cached."""
+    null. Rows are read a moment apart: a caller de-duplicates by id. Not cached.
+
+    WP-100: `publishedFrom` / `publishedTo` (inclusive days, UTC) narrow it by publication date, the
+    notice date where none is stated (the date the list's "newest published" order reads), so a time
+    series can be read a year at a time."""
     where, params, _ = _tender_filters(q, country, cpv, status, scope, goods, buyer, from_,
                                        to, min_, max_, currency, conn=conn, cpv_main=cpvMain, not_cpv=notCpv)
+    for bound, op in ((publishedFrom, ">="), (publishedTo, "<=")):
+        if bound is not None:
+            where.append(f"coalesce(o.published_at, o.notice_date) {op} %s")
+            params.append(bound)
     after = int(cursor) if cursor is not None else None
     sql, repeats = export_sql(where, limit, after)
     args = params * repeats + ([after] if after is not None else []) + [limit + 1]

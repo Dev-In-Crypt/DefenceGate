@@ -6,10 +6,11 @@
  */
 import { headers } from 'next/headers';
 import { TtlCache } from './export-cache';
-import type { Buyer, BuyerFilters, BuyerProfile, BuyerSuppliers, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
+import type { Buyer, BuyerFilters, BuyerProfile, BuyerSuppliers, CalendarPage, Call, CallFilters, ChangeFilters, ChangePage, Digest, DigestWeek, Health, MarketFilters, MarketStats, Paginated, ScopeCounts, SiteStats, Supplier, SupplierContracts, SupplierFilters, SupplierItem, SupplierSummary, Tender, TenderFilters, TenderVersion } from './types';
 import { BUYER_PAGE_SIZE, CHANGE_PAGE_SIZE, DEFAULT_PAGE_SIZE, PARAM, TENDER_PAGE_SIZE, toBuyerQuery, toChangeQuery, toQuery, toTenderQuery } from './filters';
 import { PLACEHOLDER_AMOUNT_MAX } from './format';
 import { now } from './deadline';
+import { FEED_MAX } from './analyst';
 import { clientIp } from './hits';
 import { recall, remember } from './last-good';
 import * as callsMock from './mock/calls';
@@ -241,18 +242,26 @@ export async function getTenderCalendar(filters: TenderFilters = {}): Promise<Ca
  * allows 2,000), with no total. `nextCursor` goes back as `cursor` until it is null. Always read live.
  */
 export async function getTenderExportPage(
-  filters: TenderFilters, cursor: string | null, limit: number,
+  filters: TenderFilters, cursor: string | null, limit: number, published: { publishedFrom?: string; publishedTo?: string } = {},
 ): Promise<{ items: Tender[]; nextCursor: string | null }> {
   if (API_BASE) {
     const p = new URLSearchParams(tendersQuery(filters));
     for (const k of ['page', 'pageSize', 'sort']) p.delete(k);
     p.set('limit', String(limit));
     if (cursor) p.set('cursor', cursor);
+    // WP-100: by publication date (the API reads the notice date where none is stated)
+    if (published.publishedFrom) p.set('publishedFrom', published.publishedFrom);
+    if (published.publishedTo) p.set('publishedTo', published.publishedTo);
     return httpOrThrow<{ items: Tender[]; nextCursor: string | null }>(`/v1/tenders/export?${p.toString()}`, 'no-store');
   }
-  const page = cursor ? Number(cursor) : 1;
-  const r = tenderMock.queryTenders({ ...filters, page, pageSize: limit });
-  return { items: r.items, nextCursor: page * limit < r.total ? String(page + 1) : null };
+  // The demo build: the cursor is a row offset (a part of a file can be any size), the dates as the API reads them.
+  const inRange = (t: Tender) => {
+    const day = (t.publishedAt ?? t.noticeDate ?? '').slice(0, 10);
+    return (!published.publishedFrom || (day !== '' && day >= published.publishedFrom)) && (!published.publishedTo || (day !== '' && day <= published.publishedTo));
+  };
+  const all = tenderMock.queryTenders({ ...filters, page: 1, pageSize: 100_000 }).items.filter(inRange);
+  const at = cursor ? Number(cursor) : 0;
+  return { items: all.slice(at, at + limit), nextCursor: at + limit < all.length ? String(at + limit) : null };
 }
 
 /** `slug` is "<id>-<words>"; the API looks up the leading id only. Callers redirect when the returned slug differs. */
@@ -299,36 +308,59 @@ export async function getChanges(filters: ChangeFilters = {}): Promise<ChangePag
   return tenderMock.queryChanges(filters);
 }
 
-/** The Atom feed holds the newest entries of the window up to this many: 12 pages of 200 (the API's largest page). */
+/**
+ * WP-100: a page of the Atom feed holds this many entries, the newest first: two of the API's largest pages (200), read
+ * at once. The whole window in one feed was 12 requests one after the other, 12.5 s and 1.37 MB for 2,403 entries (persona
+ * round of 23 October 2026, p09); the older entries are on the feed's next page (RFC 5005 `rel="next"`).
+ */
 export const FEED_PAGE_SIZE = 200;
-export const FEED_MAX_ENTRIES = 2400;
-const feedCache = new TtlCache<ChangePage & { held: number }>(5 * 60_000, 20);
+/** The number the subscribe block says (lib/analyst.ts), so the two cannot drift apart. */
+export const FEED_PAGE_ENTRIES = FEED_MAX;
+const FEED_API_PAGES = FEED_PAGE_ENTRIES / FEED_PAGE_SIZE;
+/** The API serves 100 pages of a change list: the feed has at most this many pages. */
+export const FEED_MAX_PAGE = Math.floor(100 / FEED_API_PAGES);
+type FeedPage = ChangePage & { held: number; feedPage: number; feedPages: number };
+// Fresh for five minutes (as the API keeps its answer); after that a reader is served the last page built, up to 30
+// minutes old, while it is built again: the data changes once or twice a day, and a feed reader is never kept waiting.
+const feedCache = new TtlCache<FeedPage>(5 * 60_000, 40);
+const feedStale = new TtlCache<FeedPage>(30 * 60_000, 40);
+const feedBuilding = new Map<string, Promise<FeedPage | null>>();
+
+async function buildFeedPage(filters: ChangeFilters, page: number, key: string): Promise<FeedPage | null> {
+  const apiPages = Array.from({ length: FEED_API_PAGES }, (_, i) => (page - 1) * FEED_API_PAGES + 1 + i);
+  const got = await Promise.all(apiPages.map((p) => getChanges({ ...filters, page: p, pageSize: FEED_PAGE_SIZE })));
+  const [first] = got;
+  if (!first) return null;
+  // A page that fails fails the feed: a feed silently cut short is worse than one the reader fetches again.
+  if (got.some((g) => !g)) throw new ApiError(404, 'GET /v1/changes returned 404 for a page of the feed');
+  // Pages read a moment apart can overlap when the window moved between them: an entry is in the feed once.
+  const seen = new Set<string>();
+  const items = got.flatMap((g) => g!.items).filter((c) => !seen.has(c.id) && seen.add(c.id));
+  const built = { ...first, items, held: items.length, feedPage: page, feedPages: Math.min(FEED_MAX_PAGE, Math.max(1, Math.ceil(first.total / FEED_PAGE_ENTRIES))) };
+  feedCache.set(key, built);
+  feedStale.set(key, built);
+  return built;
+}
 
 /**
- * The whole change window for the Atom feed, as far as the API gives it: page after page until the window is read or
- * FEED_MAX_ENTRIES entries are held. `total` is the whole window, `held` how many entries are in `items`; the feed
- * says so in its subtitle when `held < total`. A page that fails fails the feed: a feed silently cut short is worse
- * than one the reader fetches again. Kept five minutes per query in this process: one feed is up to 12 requests.
+ * One page of the change window for the Atom feed (page 1: the newest FEED_PAGE_ENTRIES). `total` is the whole window,
+ * `held` how many entries this page holds, `feedPages` how many pages the window fills. Built once at a time per query.
  */
-export async function getChangesForFeed(filters: ChangeFilters): Promise<(ChangePage & { held: number }) | null> {
-  const key = toChangeQuery({ ...filters, page: 1 });
+export async function getChangesForFeed(filters: ChangeFilters, page = 1): Promise<FeedPage | null> {
+  const key = `${toChangeQuery({ ...filters, page: 1 })}#${page}`;
   const hit = feedCache.get(key);
   if (hit) return hit;
-  const first = await getChanges({ ...filters, page: 1, pageSize: FEED_PAGE_SIZE });
-  if (!first) return null;
-  const pages = Math.min(Math.ceil(first.total / FEED_PAGE_SIZE), FEED_MAX_ENTRIES / FEED_PAGE_SIZE);
-  const all = [...first.items];
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await getChanges({ ...filters, page, pageSize: FEED_PAGE_SIZE });
-    if (!next) throw new ApiError(404, `GET /v1/changes page ${page} returned 404`);
-    all.push(...next.items);
+  let building = feedBuilding.get(key);
+  if (!building) {
+    building = buildFeedPage(filters, page, key).finally(() => feedBuilding.delete(key));
+    feedBuilding.set(key, building);
   }
-  // Pages read a minute apart can overlap when the window moved between them: an entry is in the feed once (its id is its identity).
-  const seen = new Set<string>();
-  const items = all.filter((c) => !seen.has(c.id) && seen.add(c.id));
-  const whole = { ...first, items, held: items.length };
-  feedCache.set(key, whole);
-  return whole;
+  const stale = feedStale.get(key);
+  if (stale) {
+    building.catch(() => undefined);
+    return stale;
+  }
+  return building;
 }
 
 /**
@@ -406,6 +438,13 @@ export async function getSupplier(slug: string, under: { cpv?: string; buyerCoun
   if (under.cpv && under.buyerCountry) p.set('buyerCountry', under.buyerCountry);
   const q = p.toString();
   return http<Supplier>(`/v1/suppliers/${encodeURIComponent(slug)}${q ? `?${q}` : ''}`, q ? 'no-store' : 'revalidate', DETAIL_REVALIDATE_SECONDS);
+}
+
+/** WP-100: every contract of a supplier, for its CSV (GET /v1/suppliers/{slug}/contracts). null: no such supplier; a 410 throws (`whenRemoved`). */
+export async function getSupplierContracts(slug: string): Promise<SupplierContracts | null> {
+  if (!isSupplierSlug(slug)) return null;
+  if (!API_BASE) return supplierMock.supplierContracts(slug);
+  return http<SupplierContracts>(`/v1/suppliers/${encodeURIComponent(slug)}/contracts`, 'no-store');
 }
 
 export async function getBuyer(slug: string): Promise<Buyer | null> {

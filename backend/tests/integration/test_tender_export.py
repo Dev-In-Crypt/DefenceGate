@@ -115,3 +115,15 @@ def test_a_long_closed_result_pages_inside_the_api_roles_five_seconds(conn, sche
                 break
         assert len(got) == 1100 and len(set(got)) == 1100
         assert slowest < 5.0
+
+
+def test_published_from_and_to_narrow_the_export_by_publication_date(client, conn):
+    """WP-100 (persona p07): a time series is read a year at a time, not cut at the row limit."""
+    ids = _fill(conn, 4)
+    for oid, day in zip(ids, (date(2024, 3, 1), date(2025, 1, 1), date(2025, 12, 31), date(2026, 2, 1)), strict=True):
+        conn.execute("UPDATE opportunity SET published_at = %s WHERE id = %s", (day, oid))
+    conn.commit()
+    got, _ = _walk(client, 10, publishedFrom="2025-01-01", publishedTo="2025-12-31")
+    assert sorted(got) == sorted(str(i) for i in ids[1:3])
+    assert sorted(_walk(client, 10, publishedFrom="2026-01-01")[0]) == [str(ids[3])]
+    assert client.get("/v1/tenders/export", params={"publishedFrom": "not-a-day"}).status_code == 422

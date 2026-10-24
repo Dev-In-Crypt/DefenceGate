@@ -95,8 +95,10 @@ export function calendarCounts(data: CalendarCountsInput, p: Params, shown: { te
 }
 
 /** The feed's size, said under its address: every event, or where a ceiling cuts it. */
-export function feedLine(events: number, max = 5000): string {
+export function feedLine(events: number, max = 5000, openings = 0): string {
+  // WP-100: the events that are not a deadline listed on the page, in the same line (p09: 1,503 events beside 1,457 deadlines)
+  const split = openings > 0 ? `: ${formatNumber(events - openings)} ${events - openings === 1 ? 'deadline' : 'deadlines'} and ${formatNumber(openings)} opening ${openings === 1 ? 'day or planned deadline' : 'days and planned deadlines'} of calls not yet open` : '';
   return events > max
-    ? `It holds the first ${formatNumber(max)} of the ${formatNumber(events)} events these filters give; narrow them for the rest.`
-    : `It holds every one of the ${formatNumber(events)} events these filters give.`;
+    ? `It holds the first ${formatNumber(max)} of the ${formatNumber(events)} events these filters give${split}; narrow them for the rest.`
+    : `It holds every one of the ${formatNumber(events)} events these filters give${split}.`;
 }

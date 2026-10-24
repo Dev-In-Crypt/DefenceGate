@@ -18,6 +18,8 @@ import { DataTable } from '@/components/dg/data-table';
 import { FactsGrid } from '@/components/dg/facts-grid';
 import { CountryLabel, FactCell } from '@/components/dg/data-display';
 import { ValueTotalsBlock } from '@/components/dg/value-totals';
+import { Icon } from '@/components/dg/icon';
+import { Download } from 'lucide-react';
 
 export const revalidate = 300;
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
@@ -162,6 +164,10 @@ export default async function SupplierPage({ params, searchParams }: Props) {
           <p className="m-0 max-w-prose text-small text-ink-muted">
             Newest first{s.noticeCount > s.notices.length ? `, the latest ${s.notices.length} notices of its ${formatNumber(s.noticeCount)} contracts` : ''}. Each links to its own page{fromPlacsp(s) ? ', and names its source: TED or the Spanish portal' : ' and to the notice at TED'}.
           </p>
+          {/* WP-100: every contract, beyond the 50 listed: buyer, date, value with its kind, source, licence and attribution on every row */}
+          <a href={`/suppliers/${s.slug}/contracts.csv`} download className="inline-flex min-h-11 items-center gap-2 self-start text-small font-bold" data-supplier-csv>
+            <Icon icon={Download} size="inline" />Download all {formatNumber(s.noticeCount)} contracts (CSV)
+          </a>
         </div>
         <Card>
           <DataTable label="Result notices of this supplier" minWidth={760}>

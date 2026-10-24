@@ -1,5 +1,6 @@
 import { filterEntries, loadCalendar, parseCalendarParams } from '@/lib/calendar';
 import { searchParamsOf } from '@/lib/export';
+import { feedName } from '@/lib/feed-name';
 import { CALENDAR_PARAMS, unknownParams } from '@/lib/filters';
 import { ICS_MAX_EVENTS, buildIcs } from '@/lib/ics';
 
@@ -33,7 +34,11 @@ export async function GET(request: Request): Promise<Response> {
   const events = [...data.entries, ...data.upcoming].sort(
     (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key));
   const chosen = filterEntries(events, p);
+  // WP-100: the calendar's name in the app is its search ("DefenceGate tender deadlines: radar, DE+PL")
+  // (a funding calendar keeps its name: the funding feeds are WP-99's)
+  const name = feedName(kind === 'tenders' ? 'DefenceGate tender deadlines' : 'DefenceGate deadlines', { ...p.tender, country: countries });
   return new Response(buildIcs(chosen, hour, {
+    name,
     tendersBeyond: data.tendersTotal - data.tendersHeld, longRunning: kind === 'funding' ? 0 : data.longRunning,
     withoutDeadline: kind === 'funding' ? 0 : data.withoutDeadline,
   }), {
