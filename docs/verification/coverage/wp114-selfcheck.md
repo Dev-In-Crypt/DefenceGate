@@ -152,8 +152,9 @@ the feed/CSV/ics routes, `e2e/networks|wp68|wp86.spec.ts` (sitemap file), `docs/
 ## Runs
 
 Backend (local copy, Postgres 17 on 55514): ruff clean, unit 3834 passed, integration 1395 passed (16 min).
-Web: tsc clean, 63 lib checks ok (wp114 included), next build ok, Playwright 845 passed / 65 skipped (first run; final
-run below).
+Web: tsc clean, 63 lib checks ok (wp114 included), next build ok, Playwright full suite 846 passed / 66 skipped / 0
+failed (final run; the run before failed wp88 on the word "PLACSP" in the /data alert sentence, reworded, plus one
+ECONNRESET and one radio-timing flake that passed on the rerun).
 
 ## Ops for the orchestrator (production)
 

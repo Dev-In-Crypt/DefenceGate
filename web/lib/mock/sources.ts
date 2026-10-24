@@ -13,6 +13,6 @@ export function health(): Health {
   const generatedAt = sources.flatMap((s) => (s.lastRunAt ? [s.lastRunAt] : [])).sort().at(-1) ?? new Date().toISOString();
   // WP-114: one data check in alert, so the demo build shows where /data says it
   const alerts = [{ control: 'placsp_links', since: '2026-10-11T07:10:00Z', checkedAt: generatedAt,
-    message: 'Spanish data check in alert: PLACSP notices without a publication date or TED notices of Spain not linked to their PLACSP copy are above their limit.' }];
+    message: 'Spanish data check in alert: too many notices of the Spanish procurement platform have no publication date, or too many Spanish TED notices are not linked to their copy on that platform.' }];
   return { generatedAt, sources, alerts };
 }

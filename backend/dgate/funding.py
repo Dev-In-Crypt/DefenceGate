@@ -1085,8 +1085,8 @@ def run_signals(conn, now: datetime | None = None) -> dict[str, dict[str, Any]]:
 
 
 CONTROL_MESSAGES = {
-    "placsp_links": "Spanish data check in alert: PLACSP notices without a publication date or TED notices of Spain not "
-                    "linked to their PLACSP copy are above their limit.",
+    "placsp_links": "Spanish data check in alert: too many notices of the Spanish procurement platform have no publication "
+                    "date, or too many Spanish TED notices are not linked to their copy on that platform.",
     "atlas_zenodo": "Polish Atlas data check in alert: the published dataset changed since it was last checked.",
 }
 
