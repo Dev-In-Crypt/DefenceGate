@@ -760,6 +760,7 @@ def run_eu_portal() -> None:
                     except ValueError as exc:
                         log.warning("skipping malformed call: %s", exc)
                         continue
+                    call = eu_portal.with_document_time(conn, call)     # WP-113: 17:00 Brussels where the document says so
                     if h not in known:
                         key = _store_raw(code, call.native_id, clean, writer, content_hash=h)
                         db.record_raw(conn, src_id, call.native_id, h, key)

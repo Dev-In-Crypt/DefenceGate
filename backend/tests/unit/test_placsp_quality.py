@@ -208,7 +208,10 @@ def test_a_code_nobody_verified_stays_the_code():
     assert placsp.map_procedure("9") == "Abierto simplificado"
     assert placsp.map_procedure("100") == "Normas internas"
     assert placsp.map_procedure("5") == "5"          # seen once; not enough to name
-    assert placsp.map_procedure("7") == "7"          # not seen at all
+    # WP-113: 8,185 stored entries by 24 October, 3,048 of them titled as a call-off of a framework ("acuerdo marco",
+    # "basado en", "derivado")
+    assert placsp.map_procedure("7") == "Derivado de acuerdo marco"
+    assert placsp.map_procedure("8") == "8"          # seen once
     assert placsp.map_procedure(None) is None
     assert placsp.map_procedure("  ") is None
 

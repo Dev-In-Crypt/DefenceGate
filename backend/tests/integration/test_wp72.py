@@ -181,8 +181,12 @@ def test_the_remap_gives_a_held_german_notice_its_link_once(conn, fs_store):
     done = remap_source.run("de_bkms", write=True)
     assert (done.versions, done.failed, dict(done.by_field)) == (1, 0, {"source_url": 1})
     row = conn.execute("SELECT source_url, current_version FROM opportunity WHERE id = %s", (oid,)).fetchone()
-    assert row == {"source_url": "https://www.evergabe-online.de/tenderdetails.html?id=812345",
+    # WP-113: the link is the notice's own page; BT-15 (the buyer's platform) is kept as the documents link
+    assert row == {"source_url": "https://oeffentlichevergabe.de/ui/de/search/details?noticeId=129f4d26-440e-4017-91b5-df3a10cf3f30",
                    "current_version": 2}
+    docs = conn.execute("SELECT payload->>'documents_url' AS d FROM opportunity_version WHERE opportunity_id = %s AND version = 2",
+                        (oid,)).fetchone()["d"]
+    assert docs == "https://www.evergabe-online.de/tenderdetails.html?id=812345"
     assert remap_source.run("de_bkms", write=True).examined == 0
 
 

@@ -487,6 +487,23 @@ TED_PROCEDURES = {
 }
 
 
+# WP-113: TED's procedure codes before eForms (the standard forms' coded data, `PR_PROC`), as the old TED notices
+# and e-Zamowienia's TED-shaped rows state them: 11,724 TED notices with 4 and 5,896 with V showed "Not available".
+# Only the codes whose meaning is certain; E, F and B stay codes.
+TED_LEGACY_PROCEDURES = {
+    "1": "Open procedure",
+    "2": "Restricted procedure",
+    "3": "Accelerated restricted procedure",
+    "4": "Negotiated procedure",
+    "6": "Accelerated negotiated procedure",
+    "9": "Not applicable",
+    "C": "Competitive dialogue",
+    "T": "Negotiated procedure without a call for competition",
+    "V": "Award without prior publication of a contract notice",
+    "Z": "Not specified",
+}
+
+
 def procedure_label(value: str | None) -> str | None:
     """The procedure as the source states it, readable. A bare number (the numeric
     TED subtype, `16`, `29`) names nothing a reader knows and would be a guess to
@@ -496,6 +513,9 @@ def procedure_label(value: str | None) -> str | None:
     text = (value or "").strip()
     # A bare number, a one or two character legacy code ("V", "4") and a BZP form code
     # ("BZP 1.1.1") are source codes, not words a reader knows; they stay in the data.
+    legacy = TED_LEGACY_PROCEDURES.get(text.upper())
+    if legacy:
+        return legacy
     if not text or text.isdigit() or len(text) <= 2 or re.fullmatch(r"BZP [0-9.]+", text):
         return None
     known = TED_PROCEDURES.get(text.lower())
@@ -1680,14 +1700,17 @@ def get_tender(slug: str, conn=Depends(get_conn)):
     if row["suppressed"]:
         raise removed()
     out = _present(conn, [row], checked=True)[0]
-    got = conn.execute("SELECT payload->>'description' AS d FROM opportunity_version WHERE opportunity_id = %s "
-                       "ORDER BY version DESC LIMIT 1", (tender_id,)).fetchone()
+    got = conn.execute("SELECT payload->>'description' AS d, payload->>'documents_url' AS docs FROM opportunity_version "
+                       "WHERE opportunity_id = %s ORDER BY version DESC LIMIT 1", (tender_id,)).fetchone()
     out["subject"] = commercial_subject(got["d"] if got else None)
     if row["source_code"] in DOCUMENTS_SOURCES:
-        out["documentsUrl"] = out["source"]["url"]
+        # WP-113: the documents link the notice states (BT-15); a row mapped before keeps its link as the documents
+        out["documentsUrl"] = (got["docs"] if got and got["docs"] else None) or out["source"]["url"]
     else:
-        out["documentsUrl"] = next((t["url"] for t in out["sameNotice"] if t["source"] in DOCUMENTS_SOURCES
-                                    and t["url"]), None)
+        twin = next((t for t in out["sameNotice"] if t["source"] in DOCUMENTS_SOURCES and t["url"]), None)
+        docs = conn.execute("SELECT payload->>'documents_url' AS docs FROM opportunity_version WHERE opportunity_id = %s "
+                            "ORDER BY version DESC LIMIT 1", (int(twin["id"]),)).fetchone() if twin else None
+        out["documentsUrl"] = (docs["docs"] if docs and docs["docs"] else None) or (twin["url"] if twin else None)
     out.update(awarded(conn, [tender_id] + [int(t["id"]) for t in out["sameNotice"]]))
     out["stages"] = procedure_stages(conn, tender_id, [int(t["id"]) for t in out["sameNotice"]])
     out["cpvTitles"] = cpv_titles(out["cpvCodes"])

@@ -9,11 +9,15 @@ from dgate.tenders import procedure_label
     ("open", "Open procedure"),
     ("neg-w-call", "Negotiated procedure with prior call for competition"),
     ("Procédure NC", "Procédure NC"), ("ContractNotice", "Contract notice"),
+    # WP-113: TED's pre-eForms codes are the notice's own statement, spelled out (they showed "Not available")
+    ("4", "Negotiated procedure"), ("V", "Award without prior publication of a contract notice"),
+    ("6", "Accelerated negotiated procedure"), ("T", "Negotiated procedure without a call for competition"),
+    ("9", "Not applicable"), ("Z", "Not specified"),
 ])
 def test_words_are_shown(raw, shown):
     assert procedure_label(raw) == shown
 
 
-@pytest.mark.parametrize("raw", [None, "", "16", "29", "V", "4", "BZP 1.1.1", "BZP 2.1"])
+@pytest.mark.parametrize("raw", [None, "", "16", "29", "E", "F", "B", "BZP 1.1.1", "BZP 2.1"])
 def test_a_bare_code_is_not_shown(raw):
     assert procedure_label(raw) is None

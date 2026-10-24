@@ -80,7 +80,9 @@ def test_a_bare_procedure_code_is_named_and_an_unverified_one_is_left():
     assert remap_source.from_placsp_stored(stored(procedure_type="9")).procedure_type == \
         "Abierto simplificado"
     assert remap_source.from_placsp_stored(stored(procedure_type="1")).procedure_type == "Abierto"
-    assert remap_source.from_placsp_stored(stored(procedure_type="7")).procedure_type == "7"
+    # WP-113: code 7 is named now (8,185 stored entries, a call-off of a framework); 5 is still unverified
+    assert remap_source.from_placsp_stored(stored(procedure_type="7")).procedure_type == "Derivado de acuerdo marco"
+    assert remap_source.from_placsp_stored(stored(procedure_type="5")).procedure_type == "5"
     named = remap_source.from_placsp_stored(stored(procedure_type="Negociado con publicidad"))
     assert named.procedure_type == "Negociado con publicidad"
 

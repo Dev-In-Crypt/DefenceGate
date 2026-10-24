@@ -192,7 +192,7 @@ def opportunity_payload(opp: Opportunity) -> dict[str, Any]:
     # Same rule for the attributes only some sources set (TED's, migration 0030,
     # and the buyer's registration number): absent while empty, so no hash moves.
     for name in ("buyer_identifier", "notice_subtype", "procedure_identifier",
-                 "lot_count", "value_kind", "notice_date", "notice_kind"):
+                 "lot_count", "value_kind", "notice_date", "notice_kind", "documents_url"):
         if payload.get(name) is None:
             payload.pop(name, None)
     if not payload.get("other_buyers"):              # WP-95, the same rule
