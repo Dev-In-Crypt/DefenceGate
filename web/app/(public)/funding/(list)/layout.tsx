@@ -13,7 +13,8 @@ import { forwardedSearch } from '@/lib/list-bounds';
  */
 export default async function FundingListLayout({ children }: { children: React.ReactNode }) {
   const sp = await forwardedSearch();
-  if (sp && parseView(sp) === 'list') {
+  // WP-99: `fit=1` is every call on one page: no page to redirect
+  if (sp && parseView(sp) === 'list' && sp.fit !== '1') {
     const filters = parseCallFilters(sp);
     let target: string | null = null;
     try {

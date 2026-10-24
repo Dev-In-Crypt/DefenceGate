@@ -84,13 +84,17 @@ test('with a profile each call of the list gets a badge and the list can be narr
   expect(new Set(words).size, `several different verdicts in ${words.join(', ')}`).toBeGreaterThan(1);
   expect(words.some((w) => w === 'Blocked by: Organisation size'), `a large company is blocked by the size of an SME-only call: ${words.join(', ')}`).toBe(true);
 
-  const total = await listItems(page).count();
+  // WP-99: switched on, the filter opens every call of the search on one page (`fit=1`) and judges all of them, not one page
   await switchBox.check();
+  await expect(page).toHaveURL(/[?&]fit=1/);
+  await expect(page.getByRole('status').filter({ hasText: /Of the \d+ calls of this search: [^]*hidden/ })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Pagination' })).toHaveCount(0);
+  const total = await listItems(page).count();
   const hidden = await page.locator('section[aria-labelledby="results-heading"] > ul > li[hidden]').count();
   expect(hidden).toBeGreaterThan(0);
   expect(hidden).toBeLessThan(total);
-  await expect(page.getByRole('status').filter({ hasText: /hidden/ })).toBeVisible();
-  await switchBox.uncheck();
+  await page.getByLabel('Fits my profile').uncheck();
+  await expect(page).not.toHaveURL(/[?&]fit=1/);
   await expect(page.locator('section[aria-labelledby="results-heading"] > ul > li[hidden]')).toHaveCount(0);
 });
 

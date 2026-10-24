@@ -118,14 +118,14 @@ assert.equal(whatItFunds({ title: 'Counter-drone', scope: ['Unmanned systems', '
 assert.equal(whatItFunds({ title: 'X', scope: [], actionType: null }), 'X. The source gives no topic keywords for it.');
 
 // ---------------------------------------------------------------- 7. software or services; topics
-const sw: Profile = { ...emptyProfile(), country: 'PL', legalForm: 'legal_person', offering: 'software_services', step: 6, componentPct: '50', restricted: 'yes', uaEeaComponents: 'yes' };
-assert.deepEqual(skippedFields(sw), ['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta']);
+const sw: Profile = { ...emptyProfile(), country: 'PL', legalForm: 'legal_person', offering: 'software_services', step: 6, componentPct: '50', restricted: 'yes', uaComponents: 'yes', eeaComponents: 'yes' };
+assert.deepEqual(skippedFields(sw), ['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua', 'components_from_eea_efta']);
 assert.deepEqual(skippedFields({ ...sw, offering: 'products' }), []);
 const swReq = toRequest(sw)!.profile;
-assert.deepEqual([swReq.non_eu_component_cost_pct, swReq.restricted_third_country_component, swReq.components_from_ua_or_eea_efta], [null, null, null],
+assert.deepEqual([swReq.non_eu_component_cost_pct, swReq.restricted_third_country_component, swReq.components_from_ua, swReq.components_from_eea_efta], [null, null, null, null],
   'not asked, so unknown to the rules (a check), never a "not applicable" the rule text does not support');
 assert.ok(!unanswered(sw).some((u) => /component/.test(u.question)), 'the skipped questions are not listed as missing');
-assert.ok(unanswered({ ...sw, offering: 'products', restricted: '', uaEeaComponents: '' }).some((u) => /component/.test(u.question)));
+assert.ok(unanswered({ ...sw, offering: 'products', restricted: '', uaComponents: '', eeaComponents: '' }).some((u) => /component/.test(u.question)));
 assert.deepEqual(topicWords('Software, autonomy;  counter-drone, x'), ['software', 'autonomy', 'counter drone']);
 assert.equal(topicScore(['software', 'autonomy'], 'Algorithms for autonomous navigation'), 2);
 assert.equal(topicScore(['software'], 'Naval platforms'), 0);

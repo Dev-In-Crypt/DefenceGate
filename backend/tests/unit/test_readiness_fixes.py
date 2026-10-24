@@ -58,11 +58,34 @@ def test_d1_the_edip_and_usi_denominators_differ_from_safes_and_a_possibly_wrong
     for programme, code in (("EDIP", "EDIP-ORIGIN-35"), ("EDIP-USI", "USI-ORIGIN-35")):
         assert outcome(code, programme, clean(non_eu_component_cost_pct=35)) == "met"
         assert outcome(code, programme, clean(non_eu_component_cost_pct=35.01)) == "not_met"
-        assert outcome(code, programme, clean(non_eu_component_cost_pct=20, components_from_ua_or_eea_efta=True)) == "conditional"
+        # WP-99: an older client's joint "yes" does not say which place; EDIP counts both outside, USI only an EEA EFTA state, so USI asks
+        assert outcome(code, programme, clean(non_eu_component_cost_pct=20, components_from_ua_or_eea_efta=True)) == (
+            "conditional" if programme == "EDIP" else "unknown")
         assert outcome(code, programme, clean(non_eu_component_cost_pct=60, components_from_ua_or_eea_efta=True)) == "not_met"
         assert outcome(code, programme, clean(non_eu_component_cost_pct=20, components_from_ua_or_eea_efta=None)) == "unknown"
         assert outcome(code, programme, clean(non_eu_component_cost_pct=None, components_from_ua_or_eea_efta=False)) == "unknown"
     assert outcome("SAFE-ORIGIN-35", "SAFE", clean(non_eu_component_cost_pct=20, components_from_ua_or_eea_efta=True)) == "met"
+
+
+def test_wp99_components_from_ukraine_count_inside_under_usi_and_outside_under_edip():
+    ua_only = {"components_from_ua_or_eea_efta": None, "components_from_ua": True, "components_from_eea_efta": False}
+    eea_only = {"components_from_ua_or_eea_efta": None, "components_from_ua": False, "components_from_eea_efta": True}
+    assert outcome("USI-ORIGIN-35", "EDIP-USI", clean(non_eu_component_cost_pct=20, **ua_only)) == "met"
+    assert outcome("USI-ORIGIN-35", "EDIP-USI", clean(non_eu_component_cost_pct=20, **eea_only)) == "conditional"
+    assert outcome("EDIP-ORIGIN-35", "EDIP", clean(non_eu_component_cost_pct=20, **ua_only)) == "conditional"
+    assert outcome("EDIP-ORIGIN-35", "EDIP", clean(non_eu_component_cost_pct=20, **eea_only)) == "conditional"
+    none = {"components_from_ua_or_eea_efta": None, "components_from_ua": False, "components_from_eea_efta": False}
+    assert outcome("EDIP-ORIGIN-35", "EDIP", clean(non_eu_component_cost_pct=20, **none)) == "met"
+    # only one place answered: the other stays a question
+    assert outcome("USI-ORIGIN-35", "EDIP-USI", clean(non_eu_component_cost_pct=20, components_from_ua_or_eea_efta=None, components_from_ua=True)) == "unknown"
+
+
+def test_wp99_a_ukrainian_controlled_company_meets_the_usi_control_rule_and_an_eea_controlled_one_is_conditional():
+    assert outcome("USI-CONTROL", "EDIP-USI", clean(third_country_control="ua_eea_only", control_country="ua")) == "met"
+    assert outcome("USI-CONTROL", "EDIP-USI", clean(third_country_control="ua_eea_only", control_country="eea")) == "conditional"
+    assert outcome("USI-CONTROL", "EDIP-USI", clean(third_country_control="no")) == "met"
+    # the EDF and EDIP rules do not change: control from Ukraine stays a condition there
+    assert outcome("EDIP-CONTROL", "EDIP", clean(third_country_control="ua_eea_only", control_country="ua")) == "conditional"
 
 
 def test_d1_the_edip_subcontractor_allowance_is_an_information_line():
@@ -88,8 +111,10 @@ def test_wp42_r1_the_ukraine_involvement_is_a_mandatory_rule_not_an_information_
         assert a.verdict == "conditional" and a.incomplete and a.missing == ("ua_partner",), country
         a = assess(clean(country=country, executive_management_country=country, ua_partner=False), held, CONTENT.programmes["EDIP-USI"])
         assert a.verdict == "conditional" and "USI-INVOLVES-UA" in a.conditions, country
-        # it is a condition that is open, not a rule that is failed: the company is never "blocked" by it
+        # it is a condition that is open, not a rule that is failed: the company is never "blocked" by it (the verifiers of 23 October read
+        # these calls as "can only with a Ukrainian partner"); WP-99: the words say so first
         assert "USI-INVOLVES-UA" not in a.blocking
+        assert next(r.reason for r in a.rules if r.rule == "USI-INVOLVES-UA").startswith("Not without a Ukrainian partner.")
         # and with the Ukrainian partner named, nothing is open any more
         a = assess(clean(country=country, executive_management_country=country, ua_partner=True), held, CONTENT.programmes["EDIP-USI"])
         assert a.verdict == "eligible" and a.conditions == () and not a.incomplete, country

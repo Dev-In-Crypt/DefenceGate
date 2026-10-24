@@ -61,10 +61,11 @@ export async function getProjectHistory(slug: string): Promise<ProjectHistory | 
 }
 
 /** `programmes`: the programme codes to count (empty: all of them). */
-export async function getUkrainePartners(since: number, programmes: string[] = []): Promise<UkrainePartners> {
-  if (!API_BASE) return mock.ukrainePartners(since, programmes);
+export async function getUkrainePartners(since: number, programmes: string[] = [], q = ''): Promise<UkrainePartners> {
+  if (!API_BASE) return mock.ukrainePartners(since, programmes, q);
   const p = new URLSearchParams({ since: String(since) });
   if (programmes.length) p.set('programme', programmes.join(','));
+  if (q) p.set('q', q);
   return httpOrThrow<UkrainePartners>(`/v1/analytics/ukraine-partners?${p}`, 'no-store', LIST_REVALIDATE_SECONDS);
 }
 

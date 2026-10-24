@@ -58,8 +58,9 @@ export async function GET(request: Request): Promise<Response> {
   if (data === null) return refuse(422, 'A list of closed calls has no dates to come: choose Open, Opens soon or All for a calendar.');
   if (data === undefined) return refuse(502, 'The calendar could not be built right now. Try again in a few minutes.');
   const cut = data.total > 500 ? ` It holds the first 500 calls of ${data.total} for each status; narrow the filters for the rest.` : '';
+  const undated = data.undated > 0 ? ` ${data.undated} ${data.undated === 1 ? 'call of this search states no deadline (or no date to come) and is' : 'calls of this search state no deadline (or no date to come) and are'} not in it; the funding list has ${data.undated === 1 ? 'it' : 'them'}.` : '';
   return calendar(buildIcs(data.entries, hour, {
     name: 'DefenceGate funding search',
-    about: `Funding calls of one search on DefenceGate (${describeCallFilters(f).join(', ')}): deadlines, and the opening days of calls that have not opened, in UTC.${cut}`,
+    about: `Funding calls of one search on DefenceGate (${describeCallFilters(f).join(', ')}): deadlines, and the opening days of calls that have not opened, in UTC.${cut}${undated}`,
   }), 'defencegate-funding-search.ics', 'inline', data.entries.length);
 }

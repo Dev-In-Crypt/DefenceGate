@@ -223,9 +223,12 @@ def test_a_horizon_topic_limited_to_member_states_and_associated_countries_is_op
         assert (flag, reason) == (True, "topic_text_associated"), cid
         assert "limited to legal entities established in Member States and Associated Countries" in evidence
         assert "list Ukraine among the countries associated to Horizon Europe" in evidence
-    # the topics that list countries of their own ("Iceland and Norway, associated countries, OECD", "additional associated countries") are not decided
-    for cid in (33, 151, 152):
-        assert ukraine_flag(cid)[0] is None, cid
+    # the topics that list countries of their own and the associated countries ("Iceland and Norway, associated countries, OECD"): WP-99,
+    # open as the verdict reads them (verdict.country_status: the countries associated to Horizon Europe, Ukraine among them); a list of
+    # named countries without the associated ones (the Bridging topic 151) is not decided
+    for cid in (33, 152):
+        assert ukraine_flag(cid)[:2] == (True, "horizon_associated"), cid
+    assert ukraine_flag(151)[0] is None
     assert regime_of(CALLS[30]["programme"], CALLS[30]["topic"]) is HORIZON
 
 

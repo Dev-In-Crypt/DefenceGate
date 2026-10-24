@@ -359,7 +359,7 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
     if designated and p["country"]:
         who, note = _str(designated["value"]), own_note(designated)
         if re.search(r"partners?|in (?:a )?consortium with|may (?:also )?join", note, re.I):
-            lines.append(_line("designated", "Only these may apply", "check", f"The call targets {who}. Others take part only in a consortium with one: {note}", designated.get("quote")))
+            lines.append(_line("designated", "Only these may apply", "check", f"Only {who} may apply; anybody else can take part only as a partner in a consortium with one. {note}", designated.get("quote")))
         else:
             lines.append(_line("designated", "Only these may apply", "check" if kind == "public" or org == "public" else "no",
                                f"Only {who} may apply. You are not eligible unless your organisation is one.", designated.get("quote")))
@@ -372,6 +372,12 @@ def check(facts: dict[str, Any], p: dict[str, Any], ctx: dict[str, str] | None =
         verdict, reason = country_status(c, p["country"], ctx)
         line = _line("country", "Country", verdict, reason, c.get("quote"))
         lines.append(line if verdict == "no" else with_note(line, c, country_note(c, p["country"], p.get("more"))))
+    # WP-99: eligibility-check.ts, the non-government controlled areas of Ukraine and Horizon Europe: not checked, and said so
+    if p["country"] == "UA" and (p.get("more") or {}).get("uaOccupied") == "yes" and (ctx or {}).get("programme") == "HORIZON":
+        lines.append(_line("territory", "Non-government controlled areas", "check",
+                           "You said your company is established in a non-government controlled area of Ukraine. Whether the association of "
+                           "Ukraine to Horizon Europe covers those areas is not checked here: no text we hold says so. Ask the National "
+                           "Contact Point or the call’s helpdesk before you apply.", None))
 
     rule = size_rule(facts)
     sme = facts.get("sme_only")
@@ -605,16 +611,25 @@ def applicant_fit(chip: str, topic: str, profile: dict[str, Any] | None) -> dict
     return {"fit": "no", "because": [rule["title"]]}
 
 
+# WP-99: lib/fit.ts BLOCKED_AS, a blocking rule named as the fact that fails
+BLOCKED_AS = {
+    "USI-TERRITORY": "Your company is established in a non-government controlled area of Ukraine",
+}
+# WP-99: lib/fit.ts NO_UA_PARTNER
+NO_UA_PARTNER = "Not without a Ukrainian partner (you said none takes part)"
+
+
 def _one_programme(a: dict[str, Any], steps: list[dict[str, Any]]) -> dict[str, Any]:
     fixable = {s["code"] for s in steps if a["programme"] in s.get("blockingFor", [])}
     blocking = [r for r in a["rules"] if r["rule"] in a["blocking"]]
     structural = [r for r in blocking if not r.get("requirement") or r["requirement"] not in fixable]
     if structural:
-        return {"fit": "no", "because": list(dict.fromkeys(f"{a['name']}: {r['title']}" for r in structural))}
+        return {"fit": "no", "because": list(dict.fromkeys(f"{a['name']}: {BLOCKED_AS.get(r['rule'], r['title'])}" for r in structural))}
     if a["verdict"] == "blocked":
         return {"fit": "check", "because": [f"Needs first: {s['name']}" for s in steps if s["code"] in fixable]}
     if a["verdict"] == "conditional":
-        return {"fit": "check", "because": [f"{a['name']}: a condition or an answer is still open"]}
+        partner = any(r["rule"] == "USI-INVOLVES-UA" and r.get("outcome") == "conditional" for r in a["rules"])
+        return {"fit": "check", "because": [NO_UA_PARTNER if partner else f"{a['name']}: a condition or an answer is still open"]}
     return {"fit": "yes", "because": []}
 
 
@@ -663,8 +678,11 @@ def fit_word(r: dict[str, Any]) -> str:
             return b[b.rfind(": ") + 2:] if ": " in b else b
         first = rule(r["blockedBy"][0] if r["blockedBy"] else "a rule of the call")
         more = len(r["blockedBy"]) - 1
-        return f"Blocked by: {first}{f' and {more} more' if more > 0 else ''}"
+        by = "Blocked: " if first in BLOCKED_AS.values() else "Blocked by: "
+        return f"{by}{first}{f' and {more} more' if more > 0 else ''}"
     if fit == "check":
+        if NO_UA_PARTNER in r["conditions"]:
+            return NO_UA_PARTNER
         n = condition_count(r)
         return f"Nothing known blocks you, {n} {'condition' if n == 1 else 'conditions'} to check" if n > 0 else "Nothing known blocks you"
     return "Eligible" if fit == "yes" else "Rules not read"

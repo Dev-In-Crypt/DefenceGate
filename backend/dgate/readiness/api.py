@@ -275,6 +275,9 @@ class ProfileIn(BaseModel):
     non_eu_component_cost_pct: float | None = Field(default=None, ge=0, le=100)
     restricted_third_country_component: bool | None = None
     components_from_ua_or_eea_efta: bool | None = None
+    # WP-99: the same question for each place (see engine.FIELDS); an older client sends only the joint answer
+    components_from_ua: bool | None = None
+    components_from_eea_efta: bool | None = None
     safe_role: Literal["contractor", "subcontractor_involved", "other_supplier"] | None = None
     handles_classified: bool | None = None
     product_regime: Literal["none", "dual_use", "military", "unknown"] = "unknown"
@@ -331,7 +334,7 @@ class ProfileIn(BaseModel):
         return engine.Profile(**self.model_dump(exclude=set(VERDICT_ONLY)))
 
 
-VERDICT_ONLY = ("org_kind", "headcount", "in_group", "group_headcount", "control_country", "investor_precommitment", "seap_partner")
+VERDICT_ONLY = ("org_kind", "headcount", "in_group", "group_headcount", "investor_precommitment", "seap_partner")
 
 
 class AssessIn(BaseModel):

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, ChevronDown, Pencil, Printer } from 'lucide-react';
 import { Icon } from '@/components/dg/icon';
-import { countryName } from '@/lib/taxonomy';
+import { COUNTRIES, countryName } from '@/lib/taxonomy';
 import { isoDay } from '@/lib/readiness';
 import { SUPPLY_ROUTES, answerProblems, hasSupplier, skippedFields, wantsEuFunding, type Profile } from '@/lib/profile';
 import { Callout } from '@/components/dg/blocks';
@@ -96,6 +96,48 @@ function Programmes({ assessments, supplier, euFunding, skipped = [], profile }:
   );
 }
 
+/**
+ * WP-99 (p05): the programmes above are the ones with rules encoded (EDF, EDIP, its Ukraine Support Instrument, SAFE, the supply routes).
+ * The other funding a company targets, Digital Europe (the ECCC cyber calls), the EIC and the national programmes, has no programme rules
+ * here: each call's own rules are read from its document and compared with these answers on the funding list. So these cards say that and
+ * lead to the calls, with "Fits my profile" on over the whole list (`fit=1`).
+ */
+export function fundingLinks(country: string): { key: string; title: string; text: string; href: string }[] {
+  const own = country in COUNTRIES && country !== 'EU' ? country : null;
+  return [
+    { key: 'DIGITAL', title: 'Digital Europe (the ECCC cybersecurity calls among them)', href: '/funding?programme=DIGITAL&fit=1#results',
+      text: 'No programme rules are encoded here. Each call’s own rules (who may apply, the eligible countries, designated bodies such as National Coordination Centres or National Cyber Hubs) are read from its call document and compared with your answers.' },
+    { key: 'EIC', title: 'EIC (Horizon Europe): Accelerator, Pathfinder, STEP', href: '/funding?programme=HORIZON&q=EIC&fit=1#results',
+      text: 'The rules of the EIC work programme that we read (the Accelerator is for SMEs; STEP needs an investor’s pre-commitment of at least 20 % of the round) are compared with your size, group and investor answers.' },
+    { key: 'NATIONAL', title: own ? `National calls of ${countryName(own)}` : 'National funding calls', href: `/funding?programme=NATIONAL${own ? `&country=${own}` : ''}&fit=1#results`,
+      text: 'Calls of national agencies (France’s AID, Poland’s NCBR, Sweden’s Vinnova, Spain’s BDNS and others): their rules are read from the agency’s page where we hold it, and the call says when they are not.' },
+  ];
+}
+
+function OtherFunding({ country }: { country: string }) {
+  return (
+    <section aria-labelledby="other-funding" className="flex flex-col gap-3" data-other-funding>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="other-funding" className="m-0 text-h2">Digital Europe, the EIC and national calls</h2>
+        <Button href="/funding?fit=1#results" iconRight={ArrowRight}>See matching calls</Button>
+      </div>
+      <p className="m-0 max-w-prose text-body text-ink-muted">
+        These have no programme verdict above: the funding list judges each call on its own rules against your answers. “See matching calls”
+        opens every open call with “Fits my profile” on.
+      </p>
+      <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-3">
+        {fundingLinks(country).map((f) => (
+          <li key={f.key} className="flex flex-col gap-2 rounded-lg border border-edge bg-surface p-4" data-other-funding-card={f.key}>
+            <h3 className="m-0 text-body font-bold">{f.title}</h3>
+            <p className="m-0 text-small">{f.text}</p>
+            <Link href={f.href} className="mt-auto inline-flex min-h-11 items-center gap-1 font-semibold">Calls that fit your profile<Icon icon={ArrowRight} size="inline" /></Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** `fromSupplier` (WP-97): reached from the supplier profile (`?from=supplier`): "Change my answers" leads back there. */
 export function ResultsView({ fromSupplier = false }: { fromSupplier?: boolean } = {}) {
   const { profile, ready } = useProfile();
@@ -137,6 +179,7 @@ export function ResultsView({ fromSupplier = false }: { fromSupplier?: boolean }
       {result.state === 'done' && (
         <>
           <Programmes assessments={result.data.assessments} supplier={hasSupplier(profile)} euFunding={wantsEuFunding(profile)} skipped={skippedFields(profile)} profile={profile} />
+          {(!hasSupplier(profile) || wantsEuFunding(profile)) && <OtherFunding country={profile.country} />}
           {(result.data.consultants ?? []).length > 0 && (
             <section aria-labelledby="consultants" className="flex flex-col gap-3">
               <h2 id="consultants" className="m-0 text-h2">Where you need a specialist</h2>

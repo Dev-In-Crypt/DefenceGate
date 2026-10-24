@@ -14,11 +14,11 @@ export const ICS_MAX_EVENTS = 5000;
 /** Said in the calendar file and on the page for a call with several cut-offs or continuous submission. */
 export const ROLLING_NOTE = 'Continuous submission or several cut-offs: this is the next cut-off the source states (the last one when all have passed), and the call may stay open after it.';
 /**
- * The EU Funding & Tenders Portal gives a day and no time (its reference data carries midnight UTC). All 38 call documents
- * we hold that state a time say 17:00:00 Brussels time (CET or CEST), so a call can close hours before the end of its day.
- * Nothing more is claimed: the file stays an all-day event and says so (V-B C1).
+ * The EU Funding & Tenders Portal gives a day and no time (its reference data carries midnight UTC). The file stays an all-day event
+ * and says what the call page says (WP-99, p05: the file named 17:00 Brussels time where the page says the source publishes no time):
+ * no time from the source, and the call document may set an hour on that day.
  */
-export const EU_CUT_OFF_NOTE = 'No time is published; the call documents we have read set the cut-off at 17:00 Brussels time, so the call may close earlier that day.';
+export const EU_CUT_OFF_NOTE = 'The source publishes a day and no time; the call document may set a cut-off hour on that day, so check it before then.';
 const isEuPortal = (e: CalendarEntry) => /funding\s*(?:&|and)\s*tenders/i.test(e.sourceName);
 const SUMMARY_MAX = 120;
 const DESCRIPTION_MAX = 700;

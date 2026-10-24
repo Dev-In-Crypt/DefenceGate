@@ -7,7 +7,7 @@
  *   const p = loadProfile();            // null before the wizard has been started
  *   p?.country                          // 'UA', 'ES', ... or 'XX' for a country that is not listed
  *
- * What leaves the browser is `toRequest(profile)`: the answers the rules read (fourteen fields, plus the supplier page's answers that rules read) and the
+ * What leaves the browser is `toRequest(profile)`: the answers the rules read (fifteen fields, plus the supplier page's answers that rules read) and the
  * status of each requirement, sent to POST /api/readiness/assess to compute the verdict. The company
  * name and the size class are kept here for the page and are never part of that request.
  *
@@ -25,8 +25,8 @@ export const PROFILE_KEY = 'dg.profile.v1';
  * Version 3 (WP-65) added the supplier profile (`supplier`: what a parts or materials maker answers on /readiness/supplier). A version 1 or 2
  * block is read with an empty supplier profile and every other answer kept; the block is written back as version 3 at the first change.
  */
-export const PROFILE_VERSION = 4;
-const LEGACY_VERSIONS = [1, 2, 3];
+export const PROFILE_VERSION = 5;
+const LEGACY_VERSIONS = [1, 2, 3, 4];
 /**
  * Version 4 (WP-93, the eligibility check of 23 October 2026): what the size, control and EIC rules read. The kind of organisation
  * (`orgKind`), the staff count (`headcount`), whether the company is part of a group and the group's staff count, which country controls
@@ -34,6 +34,12 @@ const LEGACY_VERSIONS = [1, 2, 3];
  * as a choice (`componentBand`). A block of version 1 to 3 is read with these empty; while the staff count is unanswered the size rules
  * read the old size class instead (lib/fit.ts `headcountOf`: micro and small, fewer than 50; medium, 50 to 249; large, 250 or more), and
  * the request it sends stays what it was. An unanswered one is unknown: the rules that read it say "check", never "eligible".
+ *
+ * Version 5 (WP-99, persona round of 23 October 2026): Ukraine and the EEA EFTA states apart, because the Ukraine Support Instrument
+ * counts Ukraine as inside and an EEA EFTA state as outside. The control question offers "only by Ukraine" and "only by an EEA EFTA state"
+ * as two answers (kept as `control: 'ua_eea_only'` with `controlCountry` 'ua' or 'eea'), and the joint component question is two questions
+ * (`uaComponents`, `eeaComponents`). A version 1 to 4 block is read so: "only by Ukraine or an EEA EFTA state" without the country is
+ * unanswered again; a joint "no" (or "not sure") about components answers both questions, a joint "yes" neither (it does not say which).
  */
 
 export type Tri = 'yes' | 'no' | 'unsure' | '';
@@ -70,7 +76,7 @@ export type ControlCountry = 'ua' | 'eea' | 'cn' | 'ru_by' | 'other_non_eu' | 'u
 /** WP-93: the share of non-EU component cost as a choice; an exact share typed in `componentPct` wins. */
 export type ComponentBand = 'le35' | 'gt35' | 'unsure' | '';
 /** The answers about components a software or services company is not asked (see `Offering`). */
-export const COMPONENT_FIELDS = ['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta'] as const;
+export const COMPONENT_FIELDS = ['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua', 'components_from_eea_efta'] as const;
 /** The fields of the rules left open because the company makes software or services, for the results to say so. */
 export const skippedFields = (p: Profile): string[] => (p.offering === 'software_services' ? [...COMPONENT_FIELDS] : []);
 const TOPICS_MAX = 300;
@@ -353,7 +359,7 @@ export function roadmapProgrammes(p: Profile): string[] | null {
 }
 
 export interface Profile {
-  version: 4;
+  version: 5;
   /** The furthest wizard step reached (1 to 5), 6 once the last step was finished. */
   step: number;
   updatedAt: string | null;
@@ -389,8 +395,10 @@ export interface Profile {
   componentPct: string;
   componentBand: ComponentBand;
   restricted: Tri;
-  /** Any component from Ukraine or an EEA EFTA state (EDIP and the Ukraine Support Instrument count them differently from SAFE). */
-  uaEeaComponents: Tri;
+  /** WP-99: any component from Ukraine (inside under the Ukraine Support Instrument, outside under EDIP). */
+  uaComponents: Tri;
+  /** WP-99: any component from an EEA EFTA state (outside under the Ukraine Support Instrument). */
+  eeaComponents: Tri;
   // step 2 (WP-53, T21): the partners of the planned consortium. Unanswered is unknown, never "no".
   /** A legal entity established in Ukraine, with its executive management there, takes part: the Ukraine Support Instrument asks for one. */
   uaPartner: Tri;
@@ -440,10 +448,10 @@ export function roadmapOnlyCodes(country: string): string[] {
 
 export function emptyProfile(): Profile {
   return {
-    version: 4, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', offering: '', topics: '',
+    version: 5, step: 1, updatedAt: null, name: '', sizeClass: '', country: '', legalForm: '', applicantKind: '', offering: '', topics: '',
     orgKind: '', headcount: '', inGroup: '', groupHeadcount: '', management: '', managementCountry: '',
     control: '', controlCountry: '', investor: '', uaOccupied: '', uaPartner: '', seapPartner: '', regime: '', componentPct: '', componentBand: '', restricted: '',
-    uaEeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
+    uaComponents: '', eeaComponents: '', safeRole: '', statuses: {}, classified: '', exportIntent: '',
     supplier: emptySupplier(),
   };
 }
@@ -499,10 +507,15 @@ export function parseProfile(raw: unknown): Profile {
   }
   const sizeClass = oneOf(r.sizeClass, ['micro', 'small', 'medium', 'large', ''], '');
   const bands = HEADCOUNT_BANDS.map((b) => b.value);
-  const control = oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], '');
   const controlCountry = oneOf(r.controlCountry, ['ua', 'eea', 'cn', 'ru_by', 'other_non_eu', 'unsure', ''], '');
+  // WP-99: "only by Ukraine or an EEA EFTA state" is two answers now; without the country it says neither, and is asked again
+  const asked = oneOf(r.control, ['no', 'ua_eea_only', 'other', 'unsure', ''], '');
+  const control = asked === 'ua_eea_only' && controlCountry !== 'ua' && controlCountry !== 'eea' ? '' : asked;
+  // WP-99: the joint component answer of a version 1 to 4 block answers both questions when it is "no" or "not sure"
+  const joint = triOf(r.uaEeaComponents);
+  const fromJoint = joint === 'yes' ? '' : joint;
   return {
-    version: 4,
+    version: 5,
     step: typeof r.step === 'number' && Number.isInteger(r.step) && r.step >= 1 && r.step <= 6 ? r.step : 1,
     updatedAt: typeof r.updatedAt === 'string' ? r.updatedAt.slice(0, 40) : null,
     name: text(r.name, 120),
@@ -520,7 +533,7 @@ export function parseProfile(raw: unknown): Profile {
     managementCountry: countryCode(r.managementCountry),
     control,
     // the controlling country goes with the answer it belongs to: Ukraine or the EEA after "only by Ukraine or an EEA EFTA state", the others after "another country"
-    controlCountry: control === 'ua_eea_only' ? (['ua', 'eea', 'unsure'].includes(controlCountry) ? controlCountry : '')
+    controlCountry: control === 'ua_eea_only' ? controlCountry
       : control === 'other' ? (['cn', 'ru_by', 'other_non_eu', 'unsure'].includes(controlCountry) ? controlCountry : '') : '',
     investor: triOf(r.investor),
     uaOccupied: oneOf(r.uaOccupied, ['yes', 'no', 'unsure', ''], ''),
@@ -531,7 +544,8 @@ export function parseProfile(raw: unknown): Profile {
     componentPct: text(r.componentPct, 12),
     componentBand: oneOf(r.componentBand, ['le35', 'gt35', 'unsure', ''], ''),
     restricted: oneOf(r.restricted, ['yes', 'no', 'unsure', ''], ''),
-    uaEeaComponents: oneOf(r.uaEeaComponents, ['yes', 'no', 'unsure', ''], ''),
+    uaComponents: r.uaComponents === undefined ? fromJoint : triOf(r.uaComponents),
+    eeaComponents: r.eeaComponents === undefined ? fromJoint : triOf(r.eeaComponents),
     safeRole: oneOf(r.safeRole, ['contractor', 'subcontractor_involved', 'other_supplier', 'unsure', ''], ''),
     statuses,
     classified: oneOf(r.classified, ['yes', 'no', 'unsure', ''], ''),
@@ -552,7 +566,9 @@ export interface AssessRequest {
     ua_non_government_controlled_area: boolean | null;
     non_eu_component_cost_pct: number | null;
     restricted_third_country_component: boolean | null;
-    components_from_ua_or_eea_efta: boolean | null;
+    /** WP-99: the two places apart (the API still takes the joint `components_from_ua_or_eea_efta` of an older client). */
+    components_from_ua: boolean | null;
+    components_from_eea_efta: boolean | null;
     /** A legal entity established in Ukraine takes part in the planned consortium (null: not said). */
     ua_partner: boolean | null;
     safe_role: 'contractor' | 'subcontractor_involved' | 'other_supplier' | null;
@@ -639,7 +655,8 @@ export function toRequest(p: Profile): AssessRequest | null {
       // not asked of a software or services company (WP-91): a leftover answer is not sent, so the rules ask instead of reading it
       non_eu_component_cost_pct: p.offering === 'software_services' ? null : componentShare(p),
       restricted_third_country_component: p.offering === 'software_services' ? null : tri(p.restricted),
-      components_from_ua_or_eea_efta: p.offering === 'software_services' ? null : tri(p.uaEeaComponents),
+      components_from_ua: p.offering === 'software_services' ? null : tri(p.uaComponents),
+      components_from_eea_efta: p.offering === 'software_services' ? null : tri(p.eeaComponents),
       // a Ukrainian company is itself the entity the rule asks for; the question is not asked of it, so a leftover answer is not sent
       ua_partner: p.country === 'UA' ? null : tri(p.uaPartner),
       safe_role: p.safeRole === '' || p.safeRole === 'unsure' ? null : p.safeRole,
@@ -670,6 +687,21 @@ export function applicantFields(p: Profile): Record<string, string | boolean> {
   if (investor !== null) out.investor_precommitment = investor;
   // The size class and the SEAP-partner answer stay in the browser, as before: the API's verdict reads them as unknown (dgate/verdict.py).
   return out;
+}
+
+/**
+ * WP-99: the control question's answer as one choice: "only by Ukraine" and "only by an EEA EFTA state" are two answers, kept as
+ * `ua_eea_only` with the country. '' while unanswered.
+ */
+export type ControlChoice = 'no' | 'ua' | 'eea' | 'other' | 'unsure' | '';
+export function controlChoice(p: Profile): ControlChoice {
+  if (p.control !== 'ua_eea_only') return p.control;
+  return p.controlCountry === 'ua' || p.controlCountry === 'eea' ? p.controlCountry : '';
+}
+export function withControlChoice(p: Profile, v: Exclude<ControlChoice, ''>): Profile {
+  if (v === 'ua' || v === 'eea') return { ...p, control: 'ua_eea_only', controlCountry: v };
+  // the country asked after "another country" is kept while that is the answer
+  return { ...p, control: v, controlCountry: v === 'other' && p.control === 'other' ? p.controlCountry : '' };
 }
 
 /** The controlling country the rules read: only with the control answer it belongs to, and never "not sure". */
@@ -732,14 +764,15 @@ export function unanswered(p: Profile): Unanswered[] {
   need(2, !p.management, 'Where the executive management of your company is');
   need(2, p.management === 'other' && !p.managementCountry, 'Country of the executive management');
   need(2, !p.control, 'Whether your company is controlled from outside the EU');
-  need(2, (p.control === 'other' || p.control === 'ua_eea_only') && !p.controlCountry, 'Which country controls your company');
+  need(2, p.control === 'other' && !p.controlCountry, 'Which country controls your company');
   need(2, p.country === 'UA' && !p.uaOccupied, 'Whether you are established in an area of Ukraine the government does not control');
   need(3, !p.regime, 'Which export regime your main product is in');
   // a software or services company is not asked about components (WP-91): those rules stay open in the results, with the reason
   const products = p.offering !== 'software_services';
   need(3, products && componentShare(p) === null && p.componentBand !== 'unsure', 'What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine');
   need(3, products && !p.restricted, 'Whether a component comes from a third country that contravenes the security and defence interests of the Union');
-  need(3, products && !p.uaEeaComponents, 'Whether components originate in Ukraine or an EEA EFTA state');
+  need(3, products && !p.uaComponents, 'Whether components originate in Ukraine');
+  need(3, products && !p.eeaComponents, 'Whether components originate in an EEA EFTA state');
   need(3, !p.safeRole, 'Your role in a SAFE-supported procurement');
   need(5, !p.classified, 'Whether you will handle classified information');
   need(5, !p.exportIntent, 'Whether you export, or plan to export');
@@ -754,7 +787,7 @@ export function firstStepToAnswer(p: Profile): number {
 /** The profile fields the wizard asks (the API's `missing` may name others: the Spanish, German and NATO/EU questions of WP-64, and requirements). */
 const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'executive_management_country', 'third_country_control',
   'ua_non_government_controlled_area', 'ua_partner', 'non_eu_component_cost_pct', 'restricted_third_country_component',
-  'components_from_ua_or_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent',
+  'components_from_ua_or_eea_efta', 'components_from_ua', 'components_from_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent',
   'org_kind', 'headcount', 'in_group', 'group_headcount', 'control_country', 'investor_precommitment']);
 
 /** The fields and requirements the supplier page asks (WP-65); the results link such a question to that page. */
@@ -766,7 +799,7 @@ const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS,
  * EU funding programmes read (and the PIC) in its block "If you also want EU funding" (`EU_FUNDING_FIELDS`).
  */
 export const EU_FUNDING_FIELDS = ['legal_form', 'executive_management_country', 'third_country_control', 'non_eu_component_cost_pct',
-  'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'ua_partner', 'safe_role', 'REQ-PIC'] as const;
+  'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'components_from_ua', 'components_from_eea_efta', 'ua_partner', 'safe_role', 'REQ-PIC'] as const;
 const SUPPLIER_PAGE_ASKS: Record<string, string> = {
   handles_classified: 'q-classified', export_intent: 'q-export_intent',
   // the export authorisation is asked in the export block once the item may be on a control list; the block says what makes it appear
@@ -809,7 +842,8 @@ export function notSure(p: Profile, field: string): boolean {
   const f = field.replace(/^profile\./, '');
   const wizard: Record<string, string> = {
     handles_classified: p.classified, third_country_control: p.control, safe_role: p.safeRole, restricted_third_country_component: p.restricted,
-    components_from_ua_or_eea_efta: p.uaEeaComponents, ua_partner: p.uaPartner, ua_non_government_controlled_area: p.uaOccupied,
+    components_from_ua_or_eea_efta: p.uaComponents === 'unsure' || p.eeaComponents === 'unsure' ? 'unsure' : '',
+    components_from_ua: p.uaComponents, components_from_eea_efta: p.eeaComponents, ua_partner: p.uaPartner, ua_non_government_controlled_area: p.uaOccupied,
     non_eu_component_cost_pct: p.componentBand, control_country: p.controlCountry, investor_precommitment: p.investor, in_group: p.inGroup,
     foreign_capital: p.supplier.foreignOwner, us_components: p.supplier.usComponents,
   };
@@ -831,7 +865,7 @@ export function stepOfField(field: string): number {
   const f = field.replace(/^profile\./, '');
   if (['country', 'legal_form', 'org_kind', 'headcount', 'in_group', 'group_headcount'].includes(f)) return 1;
   if (['executive_management_country', 'third_country_control', 'ua_non_government_controlled_area', 'ua_partner', 'control_country', 'investor_precommitment'].includes(f)) return 2;
-  if (['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'safe_role', 'product_regime'].includes(f)) return 3;
+  if (['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'components_from_ua', 'components_from_eea_efta', 'safe_role', 'product_regime'].includes(f)) return 3;
   if (['handles_classified', 'export_intent'].includes(f)) return 5;
   return 1;
 }

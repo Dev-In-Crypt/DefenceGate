@@ -195,14 +195,32 @@ export interface ProgrammeFit {
   because: string[];
 }
 
+/**
+ * WP-99: a rule that blocks is named as the fact that fails, not by its title ("Not established in a non-government controlled area of
+ * Ukraine" read as if not being there blocked). The same words as backend/dgate/verdict.py BLOCKED_AS. No ": " inside: the badge keeps
+ * what follows the last one.
+ */
+export const BLOCKED_AS: Record<string, string> = {
+  'USI-TERRITORY': 'Your company is established in a non-government controlled area of Ukraine',
+};
+
+/**
+ * WP-99: the Ukraine Support Instrument asks for a Ukrainian partner and the profile says there is none. The verifiers of 23 October read
+ * those calls as "can only with a Ukrainian partner": a condition, not a block, but the badge says it first, never "nothing known blocks you".
+ */
+export const NO_UA_PARTNER = 'Not without a Ukrainian partner (you said none takes part)';
+
 function oneProgramme(a: ProgrammeAssessment, steps: RoadmapStep[]): ProgrammeFit {
   const fixable = new Set(steps.filter((s) => s.blockingFor.includes(a.programme)).map((s) => s.code));
   const blocking = a.rules.filter((r) => a.blocking.includes(r.rule));
   // The same split as the API's `call_timing`: a blocking rule is fixable only when a step of the roadmap removes it.
   const structural = blocking.filter((r) => !r.requirement || !fixable.has(r.requirement));
-  if (structural.length > 0) return { fit: 'no', because: [...new Set(structural.map((r) => `${a.name}: ${r.title}`))] };
+  if (structural.length > 0) return { fit: 'no', because: [...new Set(structural.map((r) => `${a.name}: ${BLOCKED_AS[r.rule] ?? r.title}`))] };
   if (a.verdict === 'blocked') return { fit: 'check', because: steps.filter((s) => fixable.has(s.code)).map((s) => `Needs first: ${s.name}`) };
-  if (a.verdict === 'conditional') return { fit: 'check', because: [`${a.name}: a condition or an answer is still open`] };
+  if (a.verdict === 'conditional') {
+    const partner = a.rules.some((r) => r.rule === 'USI-INVOLVES-UA' && r.outcome === 'conditional');
+    return { fit: 'check', because: [partner ? NO_UA_PARTNER : `${a.name}: a condition or an answer is still open`] };
+  }
   return { fit: 'yes', because: [] };
 }
 
@@ -283,9 +301,12 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
     const rule = (b: string) => (b.includes(': ') ? b.slice(b.lastIndexOf(': ') + 2) : b);
     const first = rule(r.blockedBy[0] ?? 'a rule of the call');
     const more = r.blockedBy.length - 1;
-    return { word: `Blocked by: ${first}${more > 0 ? ` and ${more} more` : ''}`, detail: `${FIT_MEANING.no} Blocked by: ${r.blockedBy.join('; ') || first}.` };
+    // a blocker named as a fact (BLOCKED_AS) reads "Blocked: <the fact>", a rule "Blocked by: <the rule>"
+    const by = Object.values(BLOCKED_AS).includes(first) ? 'Blocked: ' : 'Blocked by: ';
+    return { word: `${by}${first}${more > 0 ? ` and ${more} more` : ''}`, detail: `${FIT_MEANING.no} Blocked by: ${r.blockedBy.join('; ') || first}.` };
   }
   if (fit === 'check') {
+    if (r.conditions.includes(NO_UA_PARTNER)) return { word: NO_UA_PARTNER, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
     const n = conditionCount(r);
     const word = n > 0 ? `Nothing known blocks you, ${n} ${n === 1 ? 'condition' : 'conditions'} to check` : 'Nothing known blocks you';
     return { word, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };

@@ -15,6 +15,9 @@ export const SYNONYMS: string[][] = [
   ['autonomy', 'autonomous', 'uncrewed', 'robotic', 'robotics', 'swarm'],
   ['cyber', 'cybersecurity', 'cyber security', 'cyber defence'],
   ['sme', 'smes', 'small and medium', 'pme', 'pyme', 'msp'],
+  // WP-99: ASAP (the Act in Support of Ammunition Production) also finds the EDIP calls; no primary source in the repository names
+  // its successor, so no note is shown
+  ['asap', 'edip'],
 ];
 
 /**

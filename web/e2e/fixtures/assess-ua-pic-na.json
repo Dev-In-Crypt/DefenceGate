@@ -545,7 +545,7 @@
      "note": null,
      "obligation": "mandatory",
      "outcome": "met",
-     "reason": "Your company is not controlled from a third country.",
+     "reason": "Your company is not controlled from a third country other than Ukraine. Control from Ukraine is allowed under the Ukraine Support Instrument.",
      "requirement": null,
      "rule": "USI-CONTROL",
      "source": {
@@ -566,7 +566,7 @@
      "note": "Article 27(3) applies to procurement and supporting actions, paragraph 4 to industrial reinforcement actions (measured on the product whose production capacity the funding supports). Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries other than Ukraine; this service does not ask about that. The answer is about one end product.",
      "obligation": "mandatory",
      "outcome": "met",
-     "reason": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 %, and you report no component from Ukraine or an EEA EFTA state. Under the Ukraine Support Instrument the limit is 35 % of the estimated cost of the components of the end product.",
+     "reason": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 %, and you report no component from an EEA EFTA state (components from Ukraine count as inside under the Ukraine Support Instrument). Under the Ukraine Support Instrument the limit is 35 % of the estimated cost of the components of the end product.",
      "requirement": null,
      "rule": "USI-ORIGIN-35",
      "source": {

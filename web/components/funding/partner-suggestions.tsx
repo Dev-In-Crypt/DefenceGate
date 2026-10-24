@@ -85,6 +85,8 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   const topical = d.area?.topicalProjects ?? 0;
   const words = d.area?.topicWords ?? [];
   const ownHere = own ? d.countries.find((c) => c.country === own)?.organisations ?? 0 : 0;
+  // WP-99 (p08): no "put them first" for a country with no organisation in this area: it would list nothing first
+  const savedHere = saved ? d.countries.find((c) => c.country === saved)?.organisations ?? 0 : 0;
   const hint = own && !country
     ? ownHere > 0
       ? `Organisations from ${countryName(own)}, the country of your saved profile, are listed first (${ownHere} in this area).`
@@ -93,7 +95,10 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   const picker = d.area !== null && d.countries.length > 1 && (
     <div className="flex flex-col gap-1">
       <Select label="Show organisations from" options={countries} value={country} onChange={(e) => setCountry(e.target.value)} className="sm:max-w-xs" hint={hint} />
-      {saved !== '' && !country && (
+      {saved !== '' && !country && !mine && savedHere === 0 && (
+        <p className="m-0 text-small text-ink-muted" data-none-from-saved>No organisation from {countryName(saved)}, the country of your saved profile, took part in an earlier project of this area.</p>
+      )}
+      {saved !== '' && !country && (mine || savedHere > 0) && (
         <p className="m-0 flex flex-col items-start gap-0.5 text-small text-ink-muted">
           <button type="button" onClick={() => setMine(!mine)} className="inline-flex min-h-12 items-center border-0 bg-transparent p-0 text-left font-sans text-small font-semibold text-link underline">
             {mine ? 'Show the largest organisations of all countries instead' : `Put organisations from ${countryName(saved)} first`}

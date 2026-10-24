@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ApiError } from '@/lib/api';
 import { getOrganisations } from '@/lib/networks-api';
@@ -63,6 +64,12 @@ export default async function OrganisationsPage({ searchParams }: Props) {
         title="Companies"
         head={<CompaniesTabs current="organisations" />}
         scope={<ProgrammeScope filters={filters} basePath="/organisations" />}
+        listNote={filters.q && !filters.topic ? (
+          <span data-name-search>
+            These are the organisations whose name has “{filters.q}”.{' '}
+            <Link href={`/organisations${toOrgQuery({ ...filters, q: undefined, topic: filters.q, page: 1 })}`} className="font-semibold">Organisations whose projects are about “{filters.q}”</Link>.
+          </span>
+        ) : undefined}
         filterBar={<OrgFilterBar filters={filters} basePath="/organisations" />}
         noun="organisations" page={result.page} pageSize={result.pageSize} total={result.total}
         totalText={result.totalExact ? undefined : `${result.total.toLocaleString('en-GB')} or more`}

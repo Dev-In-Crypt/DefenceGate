@@ -561,8 +561,8 @@
      "question": "What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine?"
     },
     {
-     "field": "components_from_ua_or_eea_efta",
-     "question": "Do any components of your end product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"
+     "field": "components_from_eea_efta",
+     "question": "Do any components of your end product originate in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"
     },
     {
      "field": "restricted_third_country_component",
@@ -707,8 +707,8 @@
        "question": "What share of the estimated cost of the components of your end product originates outside the EU, the EEA EFTA states and Ukraine?"
       },
       {
-       "field": "components_from_ua_or_eea_efta",
-       "question": "Do any components of your end product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"
+       "field": "components_from_eea_efta",
+       "question": "Do any components of your end product originate in an EEA EFTA state (Iceland, Liechtenstein, Norway)?"
       }
      ],
      "consultant": null,
@@ -717,7 +717,7 @@
      "note": "Article 27(3) applies to procurement and supporting actions, paragraph 4 to industrial reinforcement actions (measured on the product whose production capacity the funding supports). Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries other than Ukraine; this service does not ask about that. The answer is about one end product.",
      "obligation": "mandatory",
      "outcome": "unknown",
-     "reason": "Give the share of the estimated cost of the components of your end product that originates outside the Union, the EEA EFTA states and Ukraine, and say whether any component originates in Ukraine or in an EEA EFTA state.",
+     "reason": "Give the share of the estimated cost of the components of your end product that originates outside the Union, the EEA EFTA states and Ukraine, and say whether any component originates in an EEA EFTA state.",
      "requirement": null,
      "rule": "USI-ORIGIN-35",
      "source": {

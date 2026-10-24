@@ -76,13 +76,14 @@ async function loadCalls(ref: Date): Promise<{ entries: CalendarEntry[]; upcomin
  * an Open or Closing-soon list gives its calls' deadlines, an Opens-soon list the opening days and planned deadlines, All both. A
  * Closed list has none (null). `CALL_PAGE` is a ceiling the file names when it cuts.
  */
-export async function loadFundingSearch(f: CallFilters, ref: Date = now()): Promise<{ entries: CalendarEntry[]; total: number } | null> {
+export async function loadFundingSearch(f: CallFilters, ref: Date = now()): Promise<{ entries: CalendarEntry[]; total: number; undated: number } | null> {
   const status = f.status ?? 'open';
   if (status === 'closed') return null;
   const asked: CallFilters['status'][] = status === 'all' ? ['open', 'forthcoming'] : [status];
   const pages = await Promise.all(asked.map((s) => getCalls({ ...f, status: s, sort: undefined, page: 1, pageSize: CALL_PAGE })));
-  const entries = pages.flatMap((p) => p.items).flatMap((c) => callEntries(c, ref)).sort(byTime);
-  return { entries, total: pages.reduce((n, p) => n + p.total, 0) };
+  const perCall = pages.flatMap((p) => p.items).map((c) => callEntries(c, ref));
+  // WP-99 (p09): a call of the search with no date to come (no deadline stated, a standing call) is not in the file: counted, and said
+  return { entries: perCall.flat().sort(byTime), total: pages.reduce((n, p) => n + p.total, 0), undated: perCall.filter((e) => e.length === 0).length };
 }
 
 const byTime = (a: CalendarEntry, b: CalendarEntry) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime() || a.key.localeCompare(b.key);

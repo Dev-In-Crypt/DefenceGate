@@ -845,9 +845,11 @@ def relevance(programme: str | None, call_code: str | None) -> int:
 def ukraine_partners(
     since: int = Query(DEFAULT_SINCE, ge=1990, le=2100),
     programme: str | None = Query(None, max_length=100, description="comma-separated programme codes, e.g. EDF,EDIDP; empty: all"),
+    q: str | None = Query(None, max_length=100, description="words of the projects' acronyms and titles (the funding search's synonyms)"),
     conn=Depends(get_conn),
 ):
-    """Coordinators (the prime of a funded project) whose project had a participant established in Ukraine."""
+    """Coordinators (the prime of a funded project) whose project had a participant established in Ukraine. WP-99 (p08): `q` keeps
+    the projects whose acronym or title has every word (drone also finds unmanned, UAS, UAV), so the table is the topic's."""
     programmes = _codes(programme, "programme", pattern=PROGRAMME_CODE)
     # One row per (project, Ukrainian participant): a few thousand at most, aggregated here.
     pairs = conn.execute(
@@ -868,6 +870,10 @@ def ukraine_partners(
               LEFT JOIN participation c ON c.project_id = mine.project_id AND c.role = 'coordinator' AND c.active
               LEFT JOIN organisation_merged_live cl ON cl.id = c.organisation_id
              WHERE {YEAR} >= %s""", (since,)).fetchall()
+    # the keyword first: the counts per programme below are then the keyword's too
+    query = textsearch.parse(q.replace("\x00", "")) if isinstance(q, str) and q.strip() else None
+    if query is not None:
+        pairs = [r for r in pairs if query.matches(f"{r['acronym'] or ''} {r['title'] or ''}")]
     # What each programme holds, before the filter: the page offers "all programmes" with these counts beside it (U10).
     seen: dict[str, set[int]] = {}
     for r in pairs:
@@ -910,6 +916,7 @@ def ukraine_partners(
     ua_ranked = sorted(by_ua.items(), key=lambda kv: (-len(kv[1]["relevant"]), -len(kv[1]["projects"]), kv[0]))[:20]
     return {
         "since": since, "programme": programmes, "byProgramme": by_programme,
+        "q": query.terms if query else None, "alsoSearched": query.also if query else [],
         "definition": "A coordinator is the organisation that leads a funded project (the prime of its consortium). "
                       "It is listed when a project it coordinated, started in or after the year given, had an "
                       "active participant whose country of establishment, as the source states it, is Ukraine. "

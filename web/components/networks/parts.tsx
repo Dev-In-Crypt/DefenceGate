@@ -124,7 +124,8 @@ export function OrgFilterBar({ filters, basePath }: { filters: OrgFilters; baseP
     <FilterPanel activeCount={activeOrgFilterCount(filters)}
       defaults={{ programme: PROGRAMME_CHOICES.map((p) => p.value).filter((v) => DEFENCE_PROGRAMMES.includes(v)).join(',') }}>
       <form method="get" action={basePath} role="search" aria-label="Filter organisations" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5">
-        <TextInput search name="q" maxLength={100} label="Search" placeholder="Name of the organisation" defaultValue={filters.q ?? ''} />
+        {/* WP-99 (p05): this box is the name; the topic of the projects has its own box below (a "cyber" here found names with cyber in them) */}
+        <TextInput search name="q" maxLength={100} label="Name of the organisation" placeholder="For example Thales" defaultValue={filters.q ?? ''} />
         {/* WP-91 (UX audit 6): who worked on a topic, from the titles of the projects we hold (synonyms as in the funding search) */}
         <TextInput name="topic" maxLength={100} label="Project topic" placeholder="For example drone, cyber, radar" defaultValue={filters.topic ?? ''}
           hint="Words of the projects’ titles, acronyms and EDF categories; drone also finds unmanned, UAS and UAV. Every word must be in one project." />

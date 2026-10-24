@@ -1,7 +1,8 @@
 {
  "profile": {
   "applicant_kind": null,
-  "components_from_ua_or_eea_efta": null,
+  "components_from_eea_efta": null,
+  "components_from_ua": null,
   "country": "DE",
   "de_ausfuhrliste": "unsure",
   "de_vs_nfd": true,

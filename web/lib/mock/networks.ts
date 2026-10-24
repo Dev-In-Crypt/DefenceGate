@@ -181,11 +181,14 @@ export function projectHistory(slug: string): ProjectHistory | null {
   };
 }
 
-export function ukrainePartners(since: number, programmes: string[] = []): UkrainePartners {
+export function ukrainePartners(since: number, programmes: string[] = [], q = ''): UkrainePartners {
   // The one invented Ukrainian project is an H2020 one: a filter that leaves it out leaves nothing, and says what it left out.
-  const shown = programmes.length === 0 || programmes.includes('H2020');
+  // WP-99: a keyword keeps it when its acronym or title has the word (a plain fold, the API's synonyms aside)
+  const p = PROJECTS[0];
+  const matches = !q || q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => `${p.acronym ?? ''} ${p.title}`.toLowerCase().includes(w));
+  const shown = (programmes.length === 0 || programmes.includes('H2020')) && matches;
   return {
-    since, programme: programmes, byProgramme: [{ code: 'H2020', projects: 1 }],
+    since, programme: programmes, byProgramme: matches ? [{ code: 'H2020', projects: 1 }] : [], q: q ? q.toLowerCase().split(/\s+/).filter(Boolean) : null, alsoSearched: [],
     definition: 'A coordinator is the organisation that leads a funded project (the prime of its consortium). It is listed when a project it coordinated, started in or after the year given, had an active participant whose country of establishment, as the source states it, is Ukraine. Ukrainian coordinators are counted apart. This says who partnered with Ukrainian organisations, not who controls them or what they supplied.',
     order: 'Coordinators with projects of the defence programmes come first, then those with projects of the calls we label dual-use (Horizon Europe Clusters 3 and 4 and the EIC, Horizon 2020 Secure Societies and Digital Security, FP7 Security), then the rest; within each, most projects first.',
     totals: shown ? { projects: 1, coordinators: 1, ukrainianOrganisations: 1, projectsCoordinatedFromUkraine: 0 } : { projects: 0, coordinators: 0, ukrainianOrganisations: 0, projectsCoordinatedFromUkraine: 0 },

@@ -115,6 +115,8 @@ export interface UkrainePartners {
   programme?: string[];
   /** Projects with a Ukrainian participant per programme, before the programme filter. */
   byProgramme?: { code: string; projects: number }[];
+  /** WP-99: the keyword's words (null without one) and its synonyms that were searched too. Absent on older API builds. */
+  q?: string[] | null; alsoSearched?: string[];
   totals: { projects: number; coordinators: number; ukrainianOrganisations: number; projectsCoordinatedFromUkraine: number };
   coordinators: {
     organisation: OrgRef; projects: number; ukrainianOrganisations: number; lastYear: number | null; programmes: string[];

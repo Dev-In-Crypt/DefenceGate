@@ -19,7 +19,9 @@ and the badge is computed there; this module only serves public facts about call
                        Horizon Europe projects in CORDIS (`HORIZON-CL3-2023-BM-01`; their topic codes
                        carry a `HORIZON_` prefix, so the call code is the clean one); the part alone
                        if the destination has too few organisations.
-  anything else        no area: Digital Europe, CEF and the national programmes have no project
+  Digital Europe cyber WP-99: the ECCC calls against the Horizon Europe CS and Horizon 2020 digital security
+                       projects in CORDIS, then the EDF category CYBER.
+  anything else        no area: the other Digital Europe calls, CEF and the national programmes have no project
                        data here, and the answer says so.
 
 The narrower level is used when it holds at least MIN_ORGS organisations, otherwise the broader one,
@@ -117,6 +119,18 @@ def areas_of(topic_code: str | None) -> list[Area]:
         return [Area("edf-category", f"EDF capability category {category}",
                      f"EDF projects whose factsheet file name names the category {category}, as this call's topic code does.",
                      edf_factsheets.SOURCE_CODE, category=category), broad]
+    if tokens[0] == "DIGITAL" and ("ECCC" in tokens or any(t.startswith("CYBER") for t in tokens)):
+        # WP-99 (p05): the Digital Europe cybersecurity calls (the ECCC's) have no projects of their own in the data we hold; the
+        # earlier EU cybersecurity projects are Horizon Europe's (destination CS of Cluster 3) and Horizon 2020's digital security
+        # calls in CORDIS, and the EDF's capability category CYBER after them. Our grouping by subject, said in the answer.
+        return [Area("cyber", "earlier EU cybersecurity projects (Horizon Europe and Horizon 2020)",
+                     "Projects in CORDIS of the Horizon Europe cybersecurity calls (HORIZON-CL3-<year>-CS) and of the Horizon 2020 digital "
+                     "security calls (H2020-SU-DS, H2020-SU-ICT): the Digital Europe programme's own projects are not in the project data "
+                     "we hold. Our grouping by subject, not a classification by the Commission.",
+                     "cordis", regex=r"^(HORIZON-CL3-[0-9]{4}-([0-9]{2}-)?CS-|H2020-SU-(DS|ICT)-)"),
+                Area("edf-category", "EDF capability category CYBER",
+                     "EDF projects whose factsheet file name names the category CYBER: the defence side of the same subject.",
+                     edf_factsheets.SOURCE_CODE, category="CYBER")]
     if tokens[0] == "HORIZON":
         year = next((i for i, t in enumerate(tokens) if i >= 2 and _YEAR.match(t)), None)
         if year is None:

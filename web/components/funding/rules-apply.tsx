@@ -15,6 +15,7 @@ export const UKRAINE_BASIS: Record<string, string> = {
   edf_association_unconfirmed: 'From the EDF call documents and the regulation',
   call_document_closed_list: 'From the call document’s list of eligible countries',
   topic_text_associated: 'From the topic’s own conditions and the general annexes',
+  horizon_associated: 'From the call’s list of eligible countries (open to the countries associated to Horizon Europe) and the general annexes, which list Ukraine',
 };
 
 /** One rule: a hairline above it, no box (the card around the block is the only box). */
