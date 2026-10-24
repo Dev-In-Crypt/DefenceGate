@@ -92,6 +92,10 @@ EDIP_RELATED: dict[str, tuple[tuple[str, ...], str]] = {
     "AMDS": (("AIRDEF",), "Air and missile defence systems"),
     "GNPS": (("GROUND", "NAVAL"), "Ground and naval platforms and systems"),
     "C5ISRS": (("C4ISR", "SPACE"), "C5ISR and other space-related products"),
+    # WP-109 (p08, 113: "names no capability category" though the code ends CUXS): unmanned systems fly, drive and sail; counter-unmanned
+    # systems are air defence. Our reading of the titles, as above.
+    "CUXS": (("AIR", "GROUND", "NAVAL", "AIRDEF"), "Unmanned systems and counter-unmanned systems"),
+    "CDS": (("AIRDEF",), "Counter-drone systems"),
 }
 
 
@@ -110,7 +114,8 @@ def areas_of(topic_code: str | None) -> list[Area]:
             related = EDIP_RELATED.get(tokens[-1]) if "EDIP" in tokens else None
             if related:
                 cats, title = related
-                return [Area("edf-related", f"EDF capability categories {' and '.join(cats)}",
+                names = cats[0] if len(cats) == 1 else f"{', '.join(cats[:-1])} and {cats[-1]}"
+                return [Area("edf-related", f"EDF capability categories {names}",
                              f"EDF projects of the capability categories {', '.join(cats)}, which the title of this EDIP topic "
                              f"(\"{title}\") names. Our reading of the title, not a classification by the Commission.",
                              edf_factsheets.SOURCE_CODE, categories=cats), broad]

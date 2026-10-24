@@ -12,7 +12,7 @@ export type FilterGroup = 'status' | 'programme' | 'regime' | 'country' | 'casca
 const PROGRAMME_LABEL: Partial<Record<string, string>> = { EDF: 'EDF and EDIP', 'EDIP-USI': 'EDIP USI (Ukraine Support Instrument)' };
 
 const STATUS_OPTIONS: { value: CallStatusFilter; label: string }[] = [
-  { value: 'open', label: 'Open' }, { value: 'forthcoming', label: 'Opens soon' },
+  { value: 'open', label: 'Open' }, { value: 'forthcoming', label: 'Opens soon' }, { value: 'open-forthcoming', label: 'Open and forthcoming' },
   { value: 'closing-soon', label: 'Closing soon (30 days)' },
   { value: 'closed', label: 'Closed' }, { value: 'all', label: 'All' },
 ];
@@ -45,7 +45,10 @@ export function FilterBar({ filters, basePath, hide = [], view, countries = FUND
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, call ID or keyword" defaultValue={filters.q ?? ''} hint="Titles, IDs and the source’s topic keywords, whole words; drone also finds unmanned." />
         {show('status') && (
           <FoldGroup legend="Status">
-            {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? 'open') === o.value} />)}
+            {/* WP-109: six statuses in two columns, so the folded form stays as short as with five (wp47) */}
+            <div className="grid grid-cols-2 gap-x-3">
+              {STATUS_OPTIONS.map((o) => <Choice key={o.value} type="radio" name={PARAM.status} value={o.value} label={o.label} defaultChecked={(filters.status ?? 'open') === o.value} />)}
+            </div>
           </FoldGroup>
         )}
         {show('programme') && (

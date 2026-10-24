@@ -221,12 +221,12 @@ def build_all(conn, week: str, *, now: datetime | None = None,
 
     cal = changes.funding_events(conn, countries=[], now=end, days=7, bounded=True)
     opened = conn.execute(
-        f"{CALL_SELECT} WHERE NOT c.suppressed AND c.opens_at >= %s AND c.opens_at < %s "
+        f"{CALL_SELECT} WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.opens_at >= %s AND c.opens_at < %s "
         f"AND c.id <> ALL(%s) ORDER BY c.opens_at DESC, c.id",
         (start.date(), end.date(), [e["row"]["id"] for e in cal])).fetchall()
     closing_until = end + timedelta(days=CLOSING_DAYS)
     closing = conn.execute(
-        f"{CALL_SELECT} WHERE NOT c.suppressed AND c.deadline_at >= %s AND c.deadline_at < %s "
+        f"{CALL_SELECT} WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.deadline_at >= %s AND c.deadline_at < %s "
         f"AND c.first_seen_at < %s AND c.status IN ('open', 'forthcoming') "
         f"AND COALESCE(lower(c.conditions_raw->>'deadline_model'), '') NOT IN {ROLLING_MODELS} "
         f"ORDER BY c.deadline_at, c.id", (end, closing_until, end)).fetchall()
@@ -241,7 +241,7 @@ def build_all(conn, week: str, *, now: datetime | None = None,
         conn, [(i, r.get("conditions_raw") or {}, r.get("eligibility_text"), r.get("topic_code"), r.get("type_of_action"))
                for i, r in every.items()])
     cascade_open = conn.execute(
-        f"SELECT count(*) AS n FROM call c WHERE NOT c.suppressed AND c.cascade IS TRUE "
+        f"SELECT count(*) AS n FROM call c WHERE NOT c.suppressed AND NOT c.out_of_scope AND c.cascade IS TRUE "
         f"AND {EFFECTIVE_STATUS} = 'open'").fetchone()["n"]
 
     def funder_country(row: dict[str, Any]) -> str:

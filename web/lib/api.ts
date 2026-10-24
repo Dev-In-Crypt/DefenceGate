@@ -159,10 +159,21 @@ export async function getCall(slug: string): Promise<Call | null> {
 /** The open calls a call page picks its related ones from. Start it before the call itself is read: it does not depend on it. */
 export const getOpenCallsForRelated = () => getCalls({ status: 'open', pageSize: 50 });
 
-/** The related calls of a call, from the open calls: same programme first, then same funder country. */
+/** The words of a topic code that name a subject (not the programme, the year or the kind of action) and the source's keywords, folded. */
+const NOT_SUBJECT = new Set(['HORIZON', 'DIGITAL', 'EDF', 'EDIP', 'USI', 'DEPLOY', 'CSA', 'RIA', 'IRA', 'CPA', 'FNLC', 'JU', 'OPEN', 'TOPIC']);
+function subjectWords(c: Pick<Call, 'topicId' | 'scope'>): Set<string> {
+  const code = c.topicId.toUpperCase().split(/[^A-Z]+/).filter((w) => w.length >= 3 && !NOT_SUBJECT.has(w));
+  return new Set([...code, ...c.scope.map((s) => s.trim().toLowerCase()).filter(Boolean)]);
+}
+
+/** The related calls of a call, from the open calls: the same subject first, then the same programme, then the same funder country. */
 export function relatedCallsFrom(call: Call, open: Call[]): Call[] {
   const others = open.filter((c) => c.id !== call.id);
-  const score = (c: Call) => (c.programme === call.programme ? 2 : 0) + (c.funderCountry === call.funderCountry ? 1 : 0);
+  // WP-109 (p05: the related calls of a cyber topic were AI chips): the calls that share the subject first, by the parts of the topic
+  // code (CYBER, ECCC, CL3...) and the source's keywords; the programme and the country only after them
+  const mine = subjectWords(call);
+  const shared = (c: Call) => [...subjectWords(c)].filter((w) => mine.has(w)).length;
+  const score = (c: Call) => 4 * shared(c) + (c.programme === call.programme ? 2 : 0) + (c.funderCountry === call.funderCountry ? 1 : 0);
   // A call that shares neither the programme nor the funder country is not related (site-qa2:N15: a Polish, a
   // Swedish and an EU call under a French one): fewer than three, or none, is the honest answer.
   return others.filter((c) => score(c) > 0).sort((a, b) => score(b) - score(a)).slice(0, RELATED_LIMIT);

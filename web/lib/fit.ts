@@ -15,9 +15,11 @@
  * (a legal entity established in Ukraine, a SEAP): a condition of exactly those two kinds is met by the answer, and only then is the
  * line "yes". Without the answer, or with another condition on partners, it stays "check".
  */
-import { BAND_RANGE, EU27, PARTNER_ONLY, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Verdict } from './eligibility-check';
+import { BAND_RANGE, EU27, PARTNER_ONLY, check, consortiumUnclear, partnerLine, unclearConsortiumText, type CallContext, type Controller, type EligibilityFacts, type Headcount, type Line, type OrgKind, type OrgType, type Profile as CheckProfile, type Result, type Tri, type Verdict } from './eligibility-check';
 import { controlCountryOf, managementCountryOf, type ApplicantKind, type Profile } from './profile';
 import type { Assessment, ProgrammeAssessment, RoadmapStep } from './readiness-types';
+import type { RulesApply } from './types';
+import { countryGroup } from './funding-path';
 import { plural } from './format';
 
 export type Fit = Verdict | 'unknown';
@@ -213,6 +215,13 @@ export const BLOCKED_AS: Record<string, string> = {
  */
 export const NO_UA_PARTNER = 'Not without a Ukrainian partner (you said none takes part)';
 
+/** WP-109: the badge of a call whose staff must be of one nationality (backend/dgate/verdict.py NATIONALITY_PREFIX, nationality_word). */
+export const NATIONALITY_PREFIX = 'Only if your staff are ';
+export function nationalityWord(reason: string): string {
+  const m = /Only staff of (.+?) nationality/.exec(reason);
+  return `${NATIONALITY_PREFIX}${m ? `${m[1]} nationals` : 'of the nationality the call names'}`;
+}
+
 /** WP-102 (p05, 149): a call only designated bodies may apply to, others joining them as partners (backend/dgate/verdict.py PARTNER_ONLY_WORD). */
 export const PARTNER_ONLY_WORD = 'Only as a partner of the bodies the call names';
 
@@ -314,6 +323,9 @@ export function fitLabel(r: FitResult): { word: string; detail: string } {
   if (fit === 'check') {
     if (r.conditions.includes(NO_UA_PARTNER)) return { word: NO_UA_PARTNER, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
     if (r.result?.lines.some((l) => l.label === PARTNER_ONLY)) return { word: PARTNER_ONLY_WORD, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
+    // WP-109 (owner, 24 Oct: the Cyber Defense Factory stays in "Fits" with its condition): the word names the condition
+    const nationality = r.result?.lines.find((l) => l.key === 'nationality' && l.verdict === 'check');
+    if (nationality) return { word: nationalityWord(nationality.reason), detail: [FIT_MEANING.check, nationality.reason, ...r.conditions].join(' ') };
     const n = conditionCount(r);
     const word = n > 0 ? `Nothing known blocks you, ${n} ${n === 1 ? 'condition' : 'conditions'} to check` : 'Nothing known blocks you';
     return { word, detail: [FIT_MEANING.check, ...r.conditions].join(' ') };
@@ -343,7 +355,8 @@ export function verdictLines(r: FitResult): Line[] {
  */
 export function fitOrder(r: FitResult, matched: number): number {
   const word = fitLabel(r).word;
-  const weak = word === NO_UA_PARTNER || word === PARTNER_ONLY_WORD;
+  // WP-109: a condition on the staff's nationality ranks with them (owner, 24 Oct: after the calls that match the visitor's topics)
+  const weak = word === NO_UA_PARTNER || word === PARTNER_ONLY_WORD || word.startsWith(NATIONALITY_PREFIX);
   if (matched > 0) return -(matched * 10 + (shownFit(r) === 'yes' ? 2 : weak ? 0 : 1));
   return weak ? 1 : 0;
 }
@@ -363,4 +376,72 @@ export function linesSummary(lines: Line[]): string {
   if (no > 0) return `${no} of ${n} lines ${no === 1 ? 'is a no' : 'are a no'} on your answers: read ${no === 1 ? 'it' : 'them'} first.`;
   if (check > 0) return `${check} of ${n} lines ${check === 1 ? 'needs' : 'need'} your check; none is a no.`;
   return `All ${n} lines are allowed on your answers. The call’s other conditions still apply.`;
+}
+
+// ---------------------------------------------------------------- WP-109: one verdict per call page, with or without a saved profile
+
+/** The answers of the questions on a call page: the form's, and the ones a call asks only where they matter. */
+export interface Answers extends CheckProfile {
+  /** The staff count counted with the group (a BAND_RANGE key), asked where the call has a size rule or a group staff limit. */
+  headcount?: string;
+  /** A legal entity established in Ukraine, with its executive management there, takes part: asked where the programme's rules need one. */
+  uaPartner?: Tri | '';
+}
+
+/** The saved profile as the page's answers, the starting point of a case the visitor changes (null while the country is not chosen). */
+export function answersOf(p: Profile): Answers | null {
+  const cp = checkProfileOf(p);
+  if (!cp) return null;
+  const band = p.inGroup === 'yes' ? p.groupHeadcount || '' : p.inGroup === 'no' ? p.headcount : '';
+  return { ...cp, more: undefined, kind: undefined, size: undefined, investor: undefined, headcount: band, uaPartner: p.uaPartner };
+}
+
+/** What a call page holds for its verdict: the document's facts and the programme's rules the API evaluated for each group of countries. */
+export interface PageCall { facts: EligibilityFacts | null | undefined; programme: string; topic: string; rulesApply?: RulesApply | null }
+
+/** The page asks for a Ukrainian partner where the programme's rules need one for a company of this country (the Ukraine Support Instrument). */
+export function asksUaPartner(call: Pick<PageCall, 'rulesApply'>, country: string): boolean {
+  if (!country || country === 'UA') return false;
+  return (call.rulesApply?.byCountry?.[countryGroup(country)] ?? []).some((r) => r.asks.includes('ua_partner'));
+}
+
+/**
+ * The verdict of a call for the answers given on its page (no saved profile, or a case the visitor changed): the document's facts (`check`),
+ * who may apply to the action (`rulesApply.forCompany`) and the programme's rules for the country's group (`rulesApply.byCountry`), never
+ * better than the worst of them. The first screen ("Can I apply?") and the form ("Check your company") both show this one, so the page never
+ * says two things (p09, 24 Oct: SEAP 114, USI 118, EIC 131). With a saved profile and nothing changed, both show `callFit` instead.
+ */
+export function answersFit(call: PageCall, a: Answers): FitResult {
+  const unknown: FitResult = { fit: 'unknown', result: null, conditions: [], blockedBy: [] };
+  if (!a.country) return unknown;
+  const facts = call.facts ?? {};
+  const held = Object.values(facts).some((f) => f !== undefined);
+  const size = a.headcount ? BAND_RANGE[a.headcount] : a.size;
+  const lines: Line[] = held ? [...check(facts, { ...a, size }, { programme: call.programme, topic: call.topic }).lines] : [];
+  const conditions: string[] = [];
+  const ra = call.rulesApply;
+  const companyNo = ra?.forCompany?.find((r) => r.outcome === 'not_met');
+  if (companyNo) {
+    lines.push(a.orgType === 'public'
+      ? { key: 'who', label: 'Who may apply', verdict: 'check', reason: `${companyNo.title}. Check that your organisation is one of them.` }
+      : { key: 'who', label: 'Who may apply', verdict: 'no', reason: `Companies, universities and research bodies cannot apply to this call. ${companyNo.title}.` });
+  }
+  const rows = ra?.byCountry?.[countryGroup(a.country)] ?? [];
+  for (const r of rows) {
+    if (r.outcome === 'not_met') lines.push({ key: `rule-${r.rule}`, label: r.title, verdict: 'no', reason: `A rule of the programme, not met from ${a.country === 'XX' ? 'your country' : 'this country'}: ${r.reason}` });
+    else if (r.outcome === 'conditional') lines.push({ key: `rule-${r.rule}`, label: 'Rule of the programme', verdict: 'check', reason: r.reason || r.title });
+    else if (r.asks.includes('ua_partner')) {
+      if (a.uaPartner === 'yes') lines.push({ key: 'ua-partner', label: 'Ukrainian partner', verdict: 'yes', reason: 'You said a legal entity established in Ukraine, with its executive management there, takes part.' });
+      else if (a.uaPartner === 'no') conditions.push(NO_UA_PARTNER);
+      else lines.push({ key: 'ua-partner', label: 'Ukrainian partner', verdict: 'check', reason: `Only together with a partner established in Ukraine, with its executive management there (${r.title.charAt(0).toLowerCase()}${r.title.slice(1)}).` });
+    }
+  }
+  if (lines.length === 0 && conditions.length === 0) return unknown;
+  // as `fitOf`: a call whose rule on where applicants must be established is held nowhere is never "eligible"
+  if (!facts.eligible_countries && !rows.some((r) => r.rule.endsWith('-ESTABLISH'))) {
+    lines.push({ key: 'country', label: 'Country', verdict: 'check', reason: "Where applicants must be established was not read from this call. Check the call's own conditions before you rely on this." });
+  }
+  const worst = lines.reduce<Verdict>((v, l) => (v === 'no' || l.verdict === 'no' ? 'no' : v === 'check' || l.verdict === 'check' ? 'check' : 'yes'), 'yes');
+  const fit: Verdict = conditions.length > 0 && worst === 'yes' ? 'check' : worst;
+  return { fit, result: { verdict: fit, lines }, conditions, blockedBy: lines.filter((l) => l.verdict === 'no').map((l) => l.label) };
 }

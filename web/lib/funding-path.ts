@@ -129,6 +129,18 @@ export const SUMMARY_WORD: Record<Verdict | 'unknown', string> = {
   unknown: 'Rules not read: check the call document',
 };
 
+/**
+ * WP-109 (p05, 191): the portal's topic code and the one the call document writes can differ in the last part (…-12-NATCH on the portal,
+ * …-12-NCH in the document). The document's spelling, when its sentences name the same topic with another last part; else null.
+ */
+export function otherTopicCode(topic: string, text: string): string | null {
+  const parts = topic.toUpperCase().split('-');
+  if (parts.length < 4) return null;
+  const base = parts.slice(0, -1).join('-');
+  const found = text.toUpperCase().match(new RegExp(`${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-([A-Z0-9]+)\\b`));
+  return found && found[1] !== parts[parts.length - 1] ? `${base}-${found[1]}` : null;
+}
+
 // ---------------------------------------------------------------- "What it funds"
 
 /** The commercial subject of a call in plain words: its title and the source's topic keywords. No description is stored. */

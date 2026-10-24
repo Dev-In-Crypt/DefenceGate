@@ -210,6 +210,23 @@ def opens_at(record: dict[str, Any]) -> date | None:
                       else record.get("plannedOpeningDateLong"))
 
 
+# WP-109 (p09, round 4: "non-defence Horizon topics in the open count"): the division rule above takes a whole programme part, and some
+# of its topics are plainly civil. Left out by their topic code's family (the New European Bauhaus, Cluster 6's nature topics, the RAISE
+# doctoral networks, the EuroHPC joint undertaking's quantum and computing pilots) or by a civil subject their title names (healthy ageing,
+# soil, wildlife, biodiversity). A topic under the STEP defence seal or a defence programme is never one (it returns before).
+CIVIL_FAMILIES = re.compile(r"-(?:NEB|NATURE|RAISE|EUROHPC|MISS)-")
+CIVIL_TITLES = re.compile(r"healthy ageing|\bageing\b|\bsoil\b|wildlife|biodiversity|invasive alien species", re.I)
+
+
+def civil_subject(identifier: str, title: str) -> str | None:
+    """Why a topic of a dual-use programme part is civil and not collected (None: it is not)."""
+    family = CIVIL_FAMILIES.search(identifier.upper())
+    if family:
+        return f"topic family {family.group(0).strip('-')}"
+    subject = CIVIL_TITLES.search(title)
+    return f"civil subject '{subject.group(0)}'" if subject else None
+
+
 def regime(record: dict[str, Any]) -> str | None:
     """Why this call belongs in the database, or None if it does not.
 
@@ -222,6 +239,8 @@ def regime(record: dict[str, Any]) -> str | None:
     if STEP_DEFENCE_TAG in (record.get("tags") or []):
         return "defence"
     identifier = record.get("identifier") or ""
+    if civil_subject(identifier, str(record.get("title") or "")):
+        return None
     if identifier.startswith(DUAL_USE_PREFIXES):
         return "dual_use"
     if division_code(record).startswith(DUAL_USE_DIVISIONS):

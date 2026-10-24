@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
-import { applySummary, SUMMARY_WORD } from '@/lib/funding-path';
-import { fitLabel, shownFit } from '@/lib/fit';
+import { applySummary } from '@/lib/funding-path';
+import { answersFit, answersOf, asksUaPartner, fitLabel, shownFit, type Answers, type FitResult } from '@/lib/fit';
+import type { EligibilityFacts } from '@/lib/eligibility-check';
 import { useFit } from '@/lib/fit-hooks';
 import { fitFor, isLoaded, lookupFailed } from '@/lib/fit-store';
 import type { Call } from '@/lib/types';
@@ -14,9 +15,57 @@ import { useProfile } from '@/components/readiness/use-readiness';
 
 const ICON = { yes: CircleCheck, check: CircleAlert, no: CircleX, unknown: CircleHelp } as const;
 
+export const ORG_TYPES = [
+  { value: 'sme', label: 'Small or medium enterprise' }, { value: 'large', label: 'Large company' },
+  { value: 'public', label: 'Public body' }, { value: 'university', label: 'University or research organisation' },
+  { value: 'individual', label: 'Individual (natural person)' },
+];
+
+// ---------------------------------------------------------------- WP-109: the one case of a call page
+
+/**
+ * The answers given on a call page, shared by its first screen ("Can I apply?") and its form ("Check your company"): one case, one
+ * verdict (p09, 24 Oct: the two computed their own). Absent: the visitor changed nothing, and with a saved profile both show its verdict.
+ * Kept in this page only; nothing is sent or stored.
+ */
+const cases = new Map<string, Answers>();
+const listeners = new Set<() => void>();
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+const EMPTY: Answers = { country: '', orgType: '', hasPartners: '', controlledAbroad: '' };
+
+export interface PageCase {
+  /** The answers shown: the visitor's case, else the saved profile's, else none. */
+  answers: Answers;
+  /** The visitor has changed nothing and a saved profile with a country is held: its verdict (`callFit`) is the page's. */
+  profileMode: boolean;
+  /** Change answers: the case starts from what is shown, and what only the saved profile knows no longer applies to it. */
+  set: (patch: Partial<Answers>) => void;
+}
+
+export function usePageCase(callId: string): PageCase {
+  const edited = useSyncExternalStore(subscribe, () => cases.get(callId), () => undefined);
+  const { profile, ready } = useProfile();
+  const held = ready && profile ? answersOf(profile) : null;
+  const answers = edited ?? held ?? EMPTY;
+  return {
+    answers,
+    profileMode: !edited && held !== null,
+    set: (patch) => {
+      cases.set(callId, { ...answers, ...patch });
+      for (const l of listeners) l();
+    },
+  };
+}
+
+/** The one verdict of the page in its current state: the saved profile's while nothing is changed, else the answers'. */
+export function pageFit(call: { programme: string; topicId: string } & Pick<Call, 'rulesApply' | 'documentEligibility'>, c: PageCase, own: FitResult | null): FitResult {
+  if (c.profileMode && own) return own;
+  return answersFit({ facts: call.documentEligibility?.facts as EligibilityFacts | undefined, programme: call.programme, topic: call.topicId, rulesApply: call.rulesApply }, c.answers);
+}
+
 /**
  * WP-93 (finding 5): with a saved profile, the first screen says the one verdict the list badge says (lib/fit.ts `callFit`, through the
- * same store), with what blocks or what is left to check. The country box below it still shows any other country, for that country alone.
+ * same store), with what blocks or what is left to check.
  */
 function ProfileVerdict({ id }: { id: string }) {
   const s = useFit(id);
@@ -43,44 +92,64 @@ function ProfileVerdict({ id }: { id: string }) {
           {r.conditions.filter((c) => !r.blockedBy.includes(c)).map((c) => <li key={c} data-profile-line="condition">{c}</li>)}
         </ul>
       )}
-      <p className="m-0 text-small text-ink-muted">For the profile saved in this browser; the same verdict as the list of calls. The details are further down the page.</p>
+      <p className="m-0 text-small text-ink-muted">For the profile saved in this browser; the same verdict as the list of calls and the form further down.</p>
     </div>
   );
 }
 
 /**
- * "Can I apply?" on the first screen of a call (WP-91, UX audit 6): two or three lines for one country, from the rules the API
- * evaluated for that country's group and from the call document's facts. The country is the saved profile's until the visitor
- * picks another here; nothing is sent or stored from this box. WP-93: with a saved profile and its own country, the one verdict.
+ * "Can I apply?" on the first screen of a call (WP-91, UX audit 6). WP-109: one verdict for the page. With a saved profile and nothing
+ * changed, its verdict; otherwise the verdict of the answers given here and in the form further down (the same case), with the
+ * questions this box needs: the country and the kind of organisation. The lines say what the programme's rules and the call document
+ * say for that country.
  */
 export function ApplySummary({ call }: { call: Pick<Call, 'id' | 'programme' | 'topicId' | 'rulesApply' | 'documentEligibility'> }) {
-  const { profile, ready } = useProfile();
-  const [country, setCountry] = useState('');
-  const [picked, setPicked] = useState(false);
-  useEffect(() => {
-    if (ready && profile?.country && !picked) setCountry(profile.country);
-  }, [ready, profile?.country, picked]);
-  const own = ready && Boolean(profile?.country) && country === profile?.country;
-  const summary = applySummary(call, country, profile?.applicantKind ?? '');
+  const c = usePageCase(call.id);
+  const { answers } = c;
+  const summary = applySummary(call, answers.country, answers.orgType === 'public' ? 'contracting_authority' : answers.orgType ? 'company_or_research' : '');
+  const r = c.profileMode ? null : pageFit(call, c, null);
+  const shown = r ? shownFit(r) : 'unknown';
+  const blocking = (r?.result?.lines ?? []).filter((l) => l.verdict === 'no' && l.key !== 'who' && !l.key.startsWith('rule-'));
   return (
     <section aria-labelledby="apply-summary" data-apply-summary className="flex max-w-prose flex-col gap-2 rounded-lg border border-line bg-surface p-4">
       <h2 id="apply-summary" className="m-0 text-h4">Can I apply?</h2>
-      <Select label="Your country" placeholder="Choose your country" options={COUNTRY_OPTIONS} value={country} className="sm:max-w-xs"
-        onChange={(e) => { setPicked(true); setCountry(e.target.value); }} />
+      <div className="grid gap-3 sm:grid-cols-2 print:hidden">
+        <Select label="Your country" placeholder="Choose your country" options={COUNTRY_OPTIONS} value={answers.country}
+          onChange={(e) => c.set({ country: e.target.value })} />
+        <Select label="Your kind of organisation" placeholder="Choose" options={ORG_TYPES} value={answers.orgType}
+          onChange={(e) => c.set({ orgType: e.target.value as Answers['orgType'] })} />
+        {asksUaPartner(call, answers.country) && (
+          <Select label="Does a legal entity established in Ukraine take part with you?" placeholder="Choose" className="sm:col-span-2"
+            options={[{ value: 'yes', label: 'Yes, with its executive management in Ukraine' }, { value: 'no', label: 'No' }, { value: 'unsure', label: 'Not sure' }]}
+            value={answers.uaPartner ?? ''} onChange={(e) => c.set({ uaPartner: e.target.value as Answers['uaPartner'] })} />
+        )}
+      </div>
       <div aria-live="polite" className="flex flex-col gap-1">
-        {own && <ProfileVerdict id={call.id} />}
-        {summary ? (
+        {c.profileMode && <ProfileVerdict id={call.id} />}
+        {!c.profileMode && r && answers.country && (
           <>
-            {own && <p className="m-0 mt-2 text-small font-semibold text-ink-muted">On the country alone, for any company from it:</p>}
-            <p className={own ? 'm-0 flex items-center gap-2 text-small font-semibold' : 'm-0 flex items-center gap-2 text-body font-bold'} data-verdict={summary.verdict}>
-              <Icon icon={ICON[summary.verdict]} size="button" />{SUMMARY_WORD[summary.verdict]}
+            <p className="m-0 flex items-center gap-2 text-body font-bold" data-verdict={shown} data-page-verdict>
+              <Icon icon={ICON[shown]} size="button" />{fitLabel(r).word}
             </p>
+            {blocking.length > 0 && (
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body">
+                {blocking.map((l) => <li key={l.key} data-line={`block-${l.key}`}><strong>{l.label}:</strong> {l.reason}</li>)}
+              </ul>
+            )}
+          </>
+        )}
+        {summary && answers.country ? (
+          <>
+            {c.profileMode && <p className="m-0 mt-2 text-small font-semibold text-ink-muted" data-verdict={summary.verdict}>What the rules say for any organisation of this country:</p>}
             <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-body">
               {summary.lines.map((l) => <li key={l.key} data-line={l.key}>{l.text}</li>)}
             </ul>
           </>
         ) : (
-          <p className="m-0 text-body text-ink-muted">Choose your country to see whether a company from it can apply.</p>
+          <p className="m-0 text-body text-ink-muted">Choose your country to see whether an organisation from it can apply.</p>
+        )}
+        {!c.profileMode && answers.country && (
+          <p className="m-0 text-small text-ink-muted">For the answers given here and in “Check your company” further down, which asks what else this call needs to know.</p>
         )}
       </div>
       <p className="m-0 text-small text-ink-muted">

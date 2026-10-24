@@ -37,19 +37,19 @@ CALLS = {
     86: ("EDF-2026-RA-SIMTRAIN-MSAI", "edf-category", "SIMTRAIN"),
     91: ("EDF-2026-RA-SI-UWW-CSBI-STEP", "edf-category", "UWW"),
     90: ("EDF-2026-RA-UWW-FUWN", "edf-category", "UWW"),
-    # the EDIP calls: three name an EDF capability in their title, the rest are compared with every EDF project
+    # the EDIP calls: five name an EDF capability in their title (WP-109: CDS, CUXS), the rest are compared with every EDF project
     110: ("EDF-EDIP-P-2027-FNLC-CPA-AMDS", "edf-related", ("AIRDEF",)),
     112: ("EDF-EDIP-P-2027-FNLC-CPA-GNPS", "edf-related", ("GROUND", "NAVAL")),
     111: ("EDF-EDIP-P-2027-FNLC-CPA-C5ISRS", "edf-related", ("C4ISR", "SPACE")),
     108: ("EDF-EDIP-P-2026-FNLC-CPA-AMEW", "edf", None),
-    109: ("EDF-EDIP-P-2026-FNLC-CPA-CDS", "edf", None),
+    109: ("EDF-EDIP-P-2026-FNLC-CPA-CDS", "edf-related", ("AIRDEF",)),            # WP-109
     193: ("EDF-EDIP-P-2026-FNLC-CSA-PREP", "edf", None),
     115: ("EDF-EDIP-P-2026-LS-IRA-EC", "edf", None),
     114: ("EDF-EDIP-P-2026-2027-FNLC-SA-SEAP", "edf", None),
     116: ("EDF-EDIP-P-2027-LS-IRA-KEC", "edf", None),
     117: ("EDF-EDIP-P-2027-LS-IRA-PE", "edf", None),
     118: ("EDF-EDIP-USI-2026-LS-IRA-MAB", "edf", None),
-    113: ("EDF-EDIP-USI-2027-LS-IRA-CUXS", "edf", None),
+    113: ("EDF-EDIP-USI-2027-LS-IRA-CUXS", "edf-related", ("AIR", "GROUND", "NAVAL", "AIRDEF")),   # WP-109 (p08)
 }
 
 
@@ -74,7 +74,7 @@ def test_the_edip_calls_that_were_compared_with_everything_no_longer_all_get_the
     kinds = {partners.areas_of(t)[0].kind for _, (t, k, _) in CALLS.items() if "EDIP" in t}
     assert kinds == {"edf-related", "edf"}
     related = {partners.areas_of(t)[0].label for _, (t, k, _) in CALLS.items() if k == "edf-related"}
-    assert len(related) == 3
+    assert len(related) == 4          # WP-109: CUXS has its own; CDS shares AMDS's (AIRDEF)
 
 
 def test_a_related_edip_area_still_falls_back_to_all_edf_and_says_so():

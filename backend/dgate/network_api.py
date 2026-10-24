@@ -830,7 +830,10 @@ def _org_rows(conn, ids: set[int]) -> dict[int, dict[str, Any]]:
 # view are defence-relevant: the defence programmes (2), and the research our funding list labels dual-use (1), read from the
 # project's call code as the EU portal connector reads a call (`sources/eu_portal.py`: Cluster 3 Civil Security, Cluster 4 Digital,
 # Industry and Space, the EIC) and their predecessors' security calls (Horizon 2020 Secure Societies, FP7 Security).
-DUAL_USE_CALLS = re.compile(r"^(HORIZON-CL3|HORIZON-CL4|HORIZON-EIC|H2020-SU-|H2020-SEC-|H2020-BES-|H2020-DRS-|H2020-FCT-|H2020-DS-|FP7-SEC)")
+# WP-109 (p08: "civil science first": timber and geochemistry projects of Cluster 4's RESILIENCE and HUMAN destinations, EIC Pathfinder
+# open research): of Cluster 4 only its Digital and Space destinations, of the EIC only the Accelerator, STEP and its defence calls.
+DUAL_USE_CALLS = re.compile(r"^(HORIZON-CL3|HORIZON-CL4-\d{4}-(?:\d{2}-)?(?:SPACE|DIGITAL-EMERGING)|HORIZON-EIC-\d{4}-(?:ACCELERATOR|STEP|DEFENCE)|"
+                            r"H2020-SU-|H2020-SEC-|H2020-BES-|H2020-DRS-|H2020-FCT-|H2020-DS-|FP7-SEC)")
 
 
 def relevance(programme: str | None, call_code: str | None) -> int:
@@ -923,7 +926,7 @@ def ukraine_partners(
                       "Ukrainian coordinators are counted apart. This says who partnered with Ukrainian "
                       "organisations, not who controls them or what they supplied.",
         "order": "Coordinators with projects of the defence programmes come first, then those with projects of the calls we label "
-                 "dual-use (Horizon Europe Clusters 3 and 4 and the EIC, Horizon 2020 Secure Societies and Digital Security, FP7 "
+                 "dual-use (Horizon Europe Cluster 3, the digital and space topics of Cluster 4, the EIC Accelerator and STEP, Horizon 2020 Secure Societies and Digital Security, FP7 "
                  "Security), then the rest; within each, most projects first.",
         "totals": {"projects": len(projects), "coordinators": len(by_coord),
                    "ukrainianOrganisations": len(by_ua), "projectsCoordinatedFromUkraine": len(ukrainian_led)},

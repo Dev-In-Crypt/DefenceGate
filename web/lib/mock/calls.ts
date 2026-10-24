@@ -231,6 +231,7 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
   let items = allCalls(ref).filter((c) => {
     if (status === 'open' && c.status !== 'open') return false;
     if (status === 'forthcoming' && c.status !== 'forthcoming') return false;
+    if (status === 'open-forthcoming' && c.status !== 'open' && c.status !== 'forthcoming') return false;
     if (status === 'closed' && c.status !== 'closed') return false;
     if (status === 'closing-soon') {
       const st = deadlineState(c.deadline, ref);
@@ -238,7 +239,9 @@ export function queryCalls(f: CallFilters, ref: Date = now()): Paginated<Call> {
     }
     // WP-91: as the API, EDF holds every call the portal files under it (EDIP's included), EDIP its own calls and the instrument's
     if (f.programme && !f.programme.some((p) => p === c.programme || (p === 'EDF' && c.programme === 'EDIP-USI') || (p === 'EDIP' && c.programme === 'EDIP-USI'))) return false;
-    if (f.who && c.whoMayApply !== f.who) return false;
+    // WP-109: `research` is its own answer (`researchMayApply`), as the API's RESEARCH_MAY_APPLY: the call's facts, else EDF and Horizon calls not for public bodies only
+    if (f.who === 'research' ? (c.researchMayApply ?? (['EDF', 'EDIP-USI', 'HORIZON'].includes(c.programme) && c.whoMayApply !== 'public' ? true : null)) !== true
+      : f.who && c.whoMayApply !== f.who) return false;
     if (f.regime && !f.regime.includes(c.regime)) return false;
     if (f.country && !f.country.includes(c.funderCountry)) return false;
     if (f.deadlineFrom || f.deadlineTo) {

@@ -28,12 +28,12 @@ export const PARAM = {
   cpvMain: 'cpvMain', notCpv: 'notCpv', size: 'size', who: 'who',
 } as const;
 /** WP-91: the values of `who` (the API's `whoMayApply`). */
-export const WHO_VALUES = ['companies', 'public'] as const;
-export const WHO_WORDS: Record<(typeof WHO_VALUES)[number], string> = { companies: 'Companies can take part', public: 'Public buyers only' };
+export const WHO_VALUES = ['companies', 'public', 'research'] as const;
+export const WHO_WORDS: Record<(typeof WHO_VALUES)[number], string> = { companies: 'Companies can take part', public: 'Public buyers only', research: 'Universities and research organisations' };
 /** WP-99: the badge of a call, the filter's words and the one for a call open only to designated bodies (National Cyber Hubs, NCCs). */
 export const WHO_BADGE: Record<string, string> = { ...WHO_WORDS, designated: 'Designated bodies only' };
 
-const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'closing-soon', 'closed', 'all'];
+const STATUSES: CallStatusFilter[] = ['open', 'forthcoming', 'open-forthcoming', 'closing-soon', 'closed', 'all'];
 const SORTS: CallSort[] = ['deadline-asc', 'deadline-desc', 'budget-desc'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CURRENCY_RE = /^[A-Za-z]{3}$/;
@@ -148,7 +148,7 @@ export function activeFilterCount(f: CallFilters): number {
 /* ---- An empty funding list: what was asked, and what would find something ---- */
 
 const STATUS_WORDS: Record<CallStatusFilter, string> = {
-  open: 'Open', forthcoming: 'Opens soon', 'closing-soon': 'Closing soon', closed: 'Closed', all: 'All',
+  open: 'Open', forthcoming: 'Opens soon', 'open-forthcoming': 'Open and forthcoming', 'closing-soon': 'Closing soon', closed: 'Closed', all: 'All',
 };
 
 /** The filters in force, in words, for "No calls match ...". The default status is not a choice and is named too. */

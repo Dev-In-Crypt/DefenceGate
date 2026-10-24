@@ -171,7 +171,8 @@ test('partners of the instrument rank by the call’s topic and offer Ukraine', 
   await page.getByRole('button', { name: 'Show organisations from earlier projects' }).click();
   await expect(page.locator('[data-topic-words]')).toHaveText('3 projects of this area share a word of the call’s title: supply, chain, security, critical, materials (also searched: logistics).');
   await expect(page.getByText(/2 projects in this area, latest 2024; 2 on this call’s topic\./)).toBeVisible();
-  await expect(page.getByLabel('Show organisations from').locator('option', { hasText: 'Ukraine (0)' })).toBeAttached();
+  // WP-109 (p08, 113): a country with no organisation in the area is no choice (it was "Ukraine (0)")
+  await expect(page.getByLabel('Show organisations from').locator('option', { hasText: 'Ukraine' })).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------- 8. calendar files
@@ -241,8 +242,8 @@ test('"Fits my profile" lists the calls with the visitor’s topics first', asyn
   const first = page.locator('[data-topics-matched]').first();
   await expect(first).toContainText('Matches your topic');      // WP-102: was "Matches 1 of your topic"
   await expect(first).toContainText('Space situational awareness data fusion');
-  const order = await first.evaluate((li) => getComputedStyle(li).order);
-  expect(Number(order)).toBeLessThan(0);
+  // WP-109 (p05, p08): first in the list itself, not only on screen (CSS `order` left the reading order as it was)
+  await expect(page.locator('ul[data-fit-sorted] > li:not([hidden])').first()).toContainText('Space situational awareness data fusion');
   await expect(page.getByLabel('Your topics (optional)')).toHaveValue('software');
 });
 

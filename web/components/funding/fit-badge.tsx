@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CircleAlert, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { fitLabel, fitOrder, shownFit, topicsLine } from '@/lib/fit';
@@ -47,10 +47,34 @@ export function FitItem({ id, children, className, text = '' }: { id: string; ch
   // partner the profile says it lacks, or that others join only as partners, after the rest
   const order = s.onlyFits && s.hasProfile && isLoaded(id) ? fitOrder(fitFor(id), matched) : 0;
   return (
-    <li hidden={hiddenByFilter(s, id)} className={className} style={order !== 0 ? { order } : undefined} data-topics-matched={matched || undefined} data-fit-order={order || undefined}>
+    <li hidden={hiddenByFilter(s, id)} className={className} data-topics-matched={matched || undefined} data-fit-order={order || undefined}>
       {matched > 0 && <p className="m-0 mb-1 text-small font-bold text-ink">{topicsLine(matched, s.topics.length)}</p>}
       {children}
     </li>
+  );
+}
+
+export interface FitListItem { id: string; text: string; node: React.ReactNode; heading?: React.ReactNode }
+
+/**
+ * WP-109 (p05, p08: the order "did not change"): with "Fits my profile" on, the list itself is re-ordered (`fitOrder`, a stable sort), so
+ * the page, a screen reader and a copy of its text all read the calls with the visitor's topics first. CSS `order` (WP-102) moved them on
+ * screen only. Off, the server's order and its headings (the dual-use part) are kept.
+ */
+export function FitList({ items, className }: { items: FitListItem[]; className?: string }) {
+  const s = useFitState();
+  const sorting = s.onlyFits && s.hasProfile;
+  const rank = (it: FitListItem) => (isLoaded(it.id) ? fitOrder(fitFor(it.id), topicsMatched(s, it.text)) : 0);
+  const shown = sorting ? items.map((it, i) => ({ it, i, r: rank(it) })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.it) : items;
+  return (
+    <ul className={className} data-fit-sorted={sorting || undefined}>
+      {shown.map((it) => (
+        <Fragment key={it.id}>
+          {!sorting && it.heading}
+          <FitItem id={it.id} text={it.text}>{it.node}</FitItem>
+        </Fragment>
+      ))}
+    </ul>
   );
 }
 

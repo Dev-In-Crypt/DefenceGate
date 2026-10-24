@@ -78,7 +78,9 @@ export function PartnerSuggestions({ callSlug }: { callSlug: string }) {
   }
 
   const d = result.data;
-  const countries = [{ value: '', label: 'All countries' }, ...d.countries.map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})` }))];
+  // WP-109 (p08, 113: "Ukraine (0)"): a country with no organisation in this area is no choice (the one chosen stays, to be changed)
+  const countries = [{ value: '', label: 'All countries' }, ...d.countries.filter((c) => c.organisations > 0 || c.country === country)
+    .map((c) => ({ value: c.country, label: `${countryName(c.country)} (${c.organisations})` }))];
   // The call names no capability category (or the category is too small): the list is the whole programme's, and says so.
   const wide = d.area !== null && (d.area.kind === 'edf' || d.area.kind === 'horizon-family');
   // WP-91: the organisations whose projects share a topic word of the call's title rank first (the API says which words)
