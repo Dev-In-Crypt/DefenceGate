@@ -40,13 +40,14 @@ import json
 import re
 from contextvars import ContextVar
 from datetime import date, datetime, time, timedelta, timezone
+from functools import lru_cache
 from typing import Any
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from . import award_set
+from . import award_set, cpv_labels
 from .classify import (
     CORE_SQL,
     GROUP_CIVIL_DIRECTIVE,
@@ -174,6 +175,15 @@ class AwardValue(BaseModel):
     kind: str                        # contract | framework | estimate (dgate/award_value.py)
 
 
+class ProcedureStage(BaseModel):
+    id: str
+    slug: str
+    noticeId: str
+    # the stored status of that notice: `awarded`, `cancelled`, `forthcoming` (a prior information notice), else a call
+    status: str | None
+    publishedAt: datetime | None
+
+
 class Tender(BaseModel):
     id: str
     slug: str
@@ -256,6 +266,11 @@ class Tender(BaseModel):
     awardedTo: list[AwardedTo] = []
     awardedPersons: int = 0
     awardValue: AwardValue | None = None
+    # WP-106, the notice's own page only: the other notices of the same procedure (eForms procedure identifier), the call
+    # for competition of an award and the award of a call, oldest first (`procedure_stages`).
+    stages: list[ProcedureStage] = []
+    # WP-106: the official titles of the codes (on the notice's page all of them, in a list the main code's)
+    cpvTitles: dict[str, str] = {}
 
 
 class SearchGroupRef(BaseModel):
@@ -888,6 +903,14 @@ ORDER_DEADLINE_ASC = "o.deadline_at ASC NULLS LAST, o.id ASC"
 ORDER_OPEN_DEADLINE = "(o.deadline_at IS NULL), o.deadline_at ASC, o.id ASC"
 ORDER_DEADLINE_DESC = "o.deadline_at DESC NULLS LAST, o.published_at DESC NULLS LAST, o.id DESC"
 ORDER_PUBLISHED_DESC = "coalesce(o.published_at, o.notice_date) DESC NULLS LAST, o.id DESC"
+# WP-106 (p02, p04, p07): by value and by code, each over an index of migration 0118. Amounts are never converted, so the
+# value order is per currency: EUR first, then each other currency by itself (with a `currency` filter, that one only), the
+# largest first; a placeholder amount (`PLACEHOLDER_VALUE_MAX`) or none last. The code order is the main (first) CPV code.
+_VALUE_CURRENCY = f"(CASE WHEN o.value_amount > {PLACEHOLDER_VALUE_MAX} THEN o.value_currency END)"
+ORDER_VALUE_DESC = (f"({_VALUE_CURRENCY} IS DISTINCT FROM 'EUR'), {_VALUE_CURRENCY} ASC NULLS LAST, "
+                    f"(CASE WHEN o.value_amount > {PLACEHOLDER_VALUE_MAX} THEN o.value_amount END) DESC NULLS LAST, o.id DESC")
+ORDER_CPV_ASC = "(o.cpv_codes[1]) ASC NULLS LAST, o.id ASC"
+SORT_PATTERN = "^(core-first|open-first|deadline-asc|deadline-desc|published-desc|value-desc|cpv-asc)$"
 
 
 def core_first(status: str, scope: str, sort: str | None) -> bool:
@@ -907,6 +930,10 @@ def tender_order(sort: str | None, status: str, eff: str) -> str:
         # A folder with only its award has no publication date: it sorts by the date of
         # that notice, and the site labels it as such.
         return ORDER_PUBLISHED_DESC
+    if sort == "value-desc":
+        return ORDER_VALUE_DESC
+    if sort == "cpv-asc":
+        return ORDER_CPV_ASC
     if sort == "deadline-desc" or (sort is None and status in ("closed", "planned")):
         return ORDER_DEADLINE_DESC
     return ORDER_OPEN_DEADLINE if status == "open" else ORDER_DEADLINE_ASC
@@ -1206,7 +1233,7 @@ def list_tenders(
     min_: float | None = Query(None, alias="min", ge=0, le=1e13),
     max_: float | None = Query(None, alias="max", ge=0, le=1e13),
     currency: str | None = Query(None, pattern="^[A-Za-z]{3}$"),
-    sort: str | None = Query(None, pattern="^(core-first|deadline-asc|deadline-desc|published-desc)$"),
+    sort: str | None = Query(None, pattern=SORT_PATTERN),
     page: int = Query(1, ge=1, le=1000),
     pageSize: int = Query(20, ge=1, le=MAX_PAGE_SIZE),
     confidence: str | None = Query(None, max_length=40),
@@ -1236,9 +1263,11 @@ def list_tenders(
              "sort": sort, "confidence": confidence, "cpvMain": cpvMain, "notCpv": notCpv}
     start = (page - 1) * pageSize
     served = start < MAX_OFFSET
-    if status == "all" and sort in (None, "deadline-asc"):
+    if status == "all" and sort in (None, "open-first", "deadline-asc"):
+        # WP-106 (p02, p04, p07): after the open notices the rest runs newest deadline first, as the Closed list does; the
+        # oldest first (2017 under the open ones) only when `deadline-asc` is asked for
         parts = [(status_conditions("open", eff), ORDER_OPEN_DEADLINE),
-                 (status_conditions("rest", eff), ORDER_DEADLINE_ASC)]
+                 (status_conditions("rest", eff), ORDER_DEADLINE_ASC if sort == "deadline-asc" else ORDER_DEADLINE_DESC)]
     elif core_first(status, scope, sort):
         parts = [([CORE], ORDER_OPEN_DEADLINE), ([f"NOT ({CORE})"], ORDER_OPEN_DEADLINE)]
     else:
@@ -1306,7 +1335,11 @@ def list_tenders(
         total = max(total, start + len(rows) + (1 if len(rows) >= pageSize else 0))
     from .stats import list_meta  # stats imports this module
 
-    return {"items": _present(conn, rows, checked=with_meta is True), "total": total,
+    items = _present(conn, rows, checked=with_meta is True)
+    if with_meta is True:
+        # the account code calls this function directly, as a role that may not read the award tables (see `serves_meta`)
+        items = list_item_fields(conn, items)
+    return {"items": items, "total": total,
             "totalCapped": capped, "page": page, "pageSize": pageSize, "maxOffset": MAX_OFFSET,
             "asOf": datetime.now(timezone.utc),
             "meta": list_meta(conn, "tender") if with_meta is True else {}, **search_info(q)}
@@ -1374,7 +1407,7 @@ def export_tenders(
     rows = conn.execute(sql, args).fetchall()
     more = len(rows) > limit
     rows = rows[:limit]
-    return {"items": _present(conn, rows),
+    return {"items": list_item_fields(conn, _present(conn, rows)),
             "nextCursor": str(rows[-1]["id"]) if more and rows else None}
 
 
@@ -1574,6 +1607,8 @@ def get_tender(slug: str, conn=Depends(get_conn)):
         out["documentsUrl"] = next((t["url"] for t in out["sameNotice"] if t["source"] in DOCUMENTS_SOURCES
                                     and t["url"]), None)
     out.update(awarded(conn, [tender_id] + [int(t["id"]) for t in out["sameNotice"]]))
+    out["stages"] = procedure_stages(conn, tender_id, [int(t["id"]) for t in out["sameNotice"]])
+    out["cpvTitles"] = cpv_titles(out["cpvCodes"])
     return out
 
 
@@ -1620,6 +1655,121 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
     return {"awardedTo": winners, "awardedPersons": int(notice["persons"]) if notice else 0, "awardValue": value}
 
 
+# ------------------------------------------------------------------ WP-106: list items, procedure stages
+
+STAGES_LIMIT = 10
+
+
+def procedure_stages(conn, tender_id: int, same: list[int]) -> list[dict[str, Any]]:
+    """WP-106 (p06: the call 121371 did not lead to its award 130826): the other notices of the notice's procedure (the same
+    eForms procedure identifier), defence and not removed, its own copies in other sources (`same`) left out, oldest first."""
+    rows = conn.execute(
+        """SELECT r.id, r.native_id, COALESCE(r.title_en, r.title_original) AS title, r.status, r.published_at
+             FROM opportunity o
+             JOIN opportunity r ON r.procedure_identifier = o.procedure_identifier AND r.id <> o.id
+            WHERE o.id = %s AND o.procedure_identifier IS NOT NULL AND r.is_defence AND NOT r.suppressed
+              AND r.id <> ALL(%s::bigint[])
+            ORDER BY COALESCE(r.published_at, r.notice_date) NULLS LAST, r.id
+            LIMIT %s""", (tender_id, same, STAGES_LIMIT)).fetchall()
+    return [{"id": str(r["id"]), "slug": make_slug(r["id"], redact_emails(r["title"]) or ""), "noticeId": r["native_id"],
+             "status": r["status"], "publishedAt": _day(r["published_at"])} for r in rows]
+
+
+def award_summaries(conn, keys: dict[int, list[int]]) -> dict[int, dict[str, Any]]:
+    """WP-106: what `awarded` gives one notice's page, for a whole list in four queries: for each key (a notice of the list),
+    the winners and the value of the notices of `keys[key]` (the notice and its copies in other sources). The same rules
+    as `awarded` (a test holds the two equal): legal entities only, each once, persons counted; the value the award notice
+    states with its kind, else the one winner's."""
+    pairs = [(k, i) for k, ids in keys.items() for i in dict.fromkeys([k, *ids])]
+    if not pairs:
+        return {}
+    ks, oids = [p[0] for p in pairs], [p[1] for p in pairs]
+    rows = conn.execute(
+        f"""SELECT DISTINCT ON (x.key, org.id) x.key, org.id, a.name_as_stated, a.supplier_country, a.value_amount,
+                   a.value_currency, a.value_kind
+              FROM unnest(%s::bigint[], %s::bigint[]) AS x(key, oid)
+              JOIN award a ON a.opportunity_id = x.oid
+              JOIN opportunity o ON o.id = a.opportunity_id
+              JOIN organisation raw_org ON raw_org.id = a.organisation_id
+              JOIN organisation org ON org.id = COALESCE(raw_org.merged_into, raw_org.id)
+             WHERE NOT o.suppressed AND {award_set.WINNERS}
+             ORDER BY x.key, org.id, (a.opportunity_id = x.key) DESC, a.value_amount IS NULL, a.id""", (ks, oids)).fetchall()
+    notices = {r["key"]: r for r in conn.execute(
+        """SELECT x.key, COALESCE(max(n.skipped_person), 0) AS persons,
+                  (array_agg(n.value_amount ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS va,
+                  (array_agg(n.value_currency ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vc,
+                  (array_agg(n.value_kind ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vk
+             FROM unnest(%s::bigint[], %s::bigint[]) AS x(key, oid)
+             JOIN award_notice n ON n.opportunity_id = x.oid
+            GROUP BY x.key""", (ks, oids)).fetchall()}
+    paged: set[int] = set()
+    if rows:
+        paged = {r["id"] for r in conn.execute(
+            f"SELECT DISTINCT org.id {award_set.FROM} WHERE {award_set.scope()} AND org.id = ANY(%(orgs)s)",
+            {"since": award_set.since(), "orgs": sorted({r["id"] for r in rows})}).fetchall()}
+    by_key: dict[int, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_key.setdefault(r["key"], []).append(r)
+    out: dict[int, dict[str, Any]] = {}
+    for key in keys:
+        winners = []
+        for r in sorted(by_key.get(key, []), key=lambda r: (r["name_as_stated"] or "").lower()):
+            name = redact_emails(r["name_as_stated"]).strip()
+            has_value = r["value_amount"] is not None and r["value_amount"] > PLACEHOLDER_VALUE_MAX and r["value_currency"]
+            winners.append({"name": name, "slug": make_slug(r["id"], name) if r["id"] in paged else None,
+                            "country": r["supplier_country"],
+                            "valueAmount": float(r["value_amount"]) if has_value else None,
+                            "valueCurrency": r["value_currency"].strip() if has_value else None,
+                            "valueKind": (r["value_kind"] or "contract") if has_value else None})
+        n = notices.get(key)
+        persons = int(n["persons"]) if n else 0
+        value = None
+        if n and n["vk"] and n["va"] is not None and n["va"] > PLACEHOLDER_VALUE_MAX and n["vc"]:
+            value = {"amount": float(n["va"]), "currency": n["vc"].strip(), "kind": n["vk"]}
+        elif len(winners) == 1 and winners[0]["valueAmount"] is not None and not persons:
+            value = {"amount": winners[0]["valueAmount"], "currency": winners[0]["valueCurrency"],
+                     "kind": winners[0]["valueKind"]}
+        out[key] = {"awardedTo": winners, "awardedPersons": persons, "awardValue": value}
+    return out
+
+
+def latest_descriptions(conn, ids: list[int]) -> dict[int, str | None]:
+    """The description of each notice's newest version (what `get_tender` reads for its subject), for a page at once."""
+    if not ids:
+        return {}
+    return {r["opportunity_id"]: r["d"] for r in conn.execute(
+        "SELECT DISTINCT ON (opportunity_id) opportunity_id, payload->>'description' AS d FROM opportunity_version "
+        "WHERE opportunity_id = ANY(%s) ORDER BY opportunity_id, version DESC", (ids,)).fetchall()}
+
+
+def list_item_fields(conn, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """WP-106 (p03, p06, p07): what a list item and an export row carry beyond `_present`: the subject in the notice's own
+    words (BAAINBw titles are internal numbers) and, for an award, its winners and its value with the value's kind, so a
+    list says "Awarded to ..." and "Framework ceiling" instead of "Estimated value"."""
+    if not items:
+        return items
+    ids = [int(t["id"]) for t in items]
+    awards = award_summaries(conn, {int(t["id"]): [int(s["id"]) for s in t["sameNotice"]] for t in items})
+    texts = latest_descriptions(conn, ids)
+    for t in items:
+        t.update(awards.get(int(t["id"]), {}))
+        t["subject"] = commercial_subject(texts.get(int(t["id"])))
+        t["cpvTitles"] = cpv_titles([t["cpv"]] if t.get("cpv") else [])
+    return items
+
+
+@lru_cache(maxsize=1)
+def _vocabulary() -> dict[str, str]:
+    return json.loads(cpv_labels.DATA.read_text(encoding="utf-8"))["codes"]
+
+
+def cpv_titles(codes: list[str]) -> dict[str, str]:
+    """WP-106 (p03, p04: 34330000 and 24615000 had no name): the official English titles of these codes, from the full
+    CPV 2008 vocabulary the search reads (`cpv_labels.DATA`); a code it does not hold is left out."""
+    vocabulary = _vocabulary()
+    return {c: vocabulary[c] for c in codes if c in vocabulary}
+
+
 # The sources whose notice link is the address of the procurement documents (BT-15): de_bkms (WP-72).
 DOCUMENTS_SOURCES = ("de_bkms",)
 SUBJECT_MAX = 300
@@ -1635,11 +1785,28 @@ _CONTACT = re.compile(r"@|\b(?:tel|phone|telefon|tél|tfno|contact|kontakt|conta
                       re.IGNORECASE)
 
 
+# WP-106: a run of seven or more digits standing alone is a stock, order or part number (the NATO stock number of a
+# BAAINBw part, 2520410039852): taken out of the subject, which then reads (it made the whole subject a "contact" before).
+# Taking it out also takes out any phone number written as one run of digits.
+_LONG_NUMBER = re.compile(r"(?<![\w+(])\d{7,}(?![\d)])-?")
+_INTERNATIONAL_PHONE = re.compile(r"\+\s?\d")
+# WP-106 (p02, 269322): a description that only says what a notice changed ("Modification de la date limite de réception
+# des offres") is not the subject.
+_CHANGE_TEXT = re.compile(
+    r"^(?:modification|rectificatif|avis rectificatif|report de la date|prolongation|corrigendum|change of|amendment|"
+    r"extension of|änderung|berichtigung|verlängerung|modificaci[oó]n|correcci[oó]n|ampliaci[oó]n del plazo|rettifica|"
+    r"proroga|wijziging|rectificatie|zmiana|sprostowanie|korekta)\b", re.IGNORECASE)
+
+
 def commercial_subject(text: str | None) -> str | None:
     """The first sentence of a notice's description, at most SUBJECT_MAX characters (cut at a word), or None when
-    there is none or it reads as a specification or a contact (`_TECHNICAL`, `_CONTACT`)."""
-    clean = re.sub(r"\s+", " ", redact_emails(text) or "").strip()
-    if not clean:
+    there is none, it reads as a specification or a contact (`_TECHNICAL`, `_CONTACT`), or it only says what a notice
+    changed (`_CHANGE_TEXT`). Long digit runs (`_LONG_NUMBER`) are taken out first."""
+    raw = redact_emails(text) or ""
+    if _INTERNATIONAL_PHONE.search(raw):
+        return None
+    clean = re.sub(r"\s+", " ", _LONG_NUMBER.sub(" ", raw)).strip(" ,;:-–")
+    if not clean or _CHANGE_TEXT.match(clean):
         return None
     first = re.split(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9])", clean, maxsplit=1)[0]
     if _TECHNICAL.search(first) or _CONTACT.search(first) or "[" in first:

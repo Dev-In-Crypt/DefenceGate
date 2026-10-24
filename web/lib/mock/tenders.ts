@@ -4,6 +4,7 @@ import { cpvTitle, titleHasWord } from '../cpv';
 import { weekMonday, weekOf } from '../digest';
 import { buyerNames, expand, matchesSlots, namesAll } from '../search-terms';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
+import { listOrder } from '../export-cache';
 import type {
   Buyer, BuyerFilters, CalendarItem, CalendarPage, Change, ChangeFilters, ChangePage, CountryCode, Money, Paginated, Tender, TenderFilters, TenderScope,
   TenderVersion,
@@ -202,7 +203,10 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
     return true;
   });
   const sort = f.sort ?? defaultTenderSort(status);
-  if (sort === 'published-desc') {
+  if (sort === 'value-desc' || sort === 'cpv-asc' || (status === 'all' && sort === 'open-first')) {
+    // WP-106: the API's orders, as the export applies them (lib/export-cache.ts)
+    items = listOrder(items, status, sort, scope);
+  } else if (sort === 'published-desc') {
     items = items.sort((a, b) => time(b.publishedAt ?? '1970-01-01T00:00:00Z') - time(a.publishedAt ?? '1970-01-01T00:00:00Z'));
   } else {
     const newestFirst = sort === 'deadline-desc';

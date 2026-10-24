@@ -300,7 +300,8 @@ assert.ok((TENDER_SCOPES.supply.also ?? '').includes('civil buyer') && (TENDER_S
 // N13: a notice that closes today does not "close this week"
 const noonToday = new Date('2026-10-14T09:00:00Z');
 assert.equal(getDeadline('2026-10-14T12:00:00Z', noonToday).label, 'Closes today');
-assert.equal(getDeadline('2026-10-16T12:00:00Z', noonToday).label, 'Closes this week');
+// WP-106: in days, never "this week" (Wednesday 28 October read on Saturday 24 October was "Closes this week")
+assert.equal(getDeadline('2026-10-16T12:00:00Z', noonToday).label, 'Closes in 2 days');
 // N7: a deadline more than three years ahead is a long-running notice
 assert.equal(isLongRunning({ anomalies: ['deadline-more-than-3y'] }), true);
 assert.equal(isLongRunning({ anomalies: [] }), false);

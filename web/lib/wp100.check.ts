@@ -52,13 +52,14 @@ assert.equal(tooBroad({ status: 'all', scope: 'all', publishedFrom: '2025-01-01'
 
 // ---- 3. value_kind on every row with a value ----
 const tender = (valueKind: string | null, statusNative: string, sourceId: string) => ({ valueKind, statusNative, source: { sourceId } });
-assert.equal(csvValueKind(tender('lot_sum', 'open', 'ted')), 'lot sum', 'what the notice states stands');
-assert.equal(csvValueKind(tender(null, 'open', 'es_placsp')), 'estimated');
-assert.equal(csvValueKind(tender(null, 'awarded', 'es_placsp')), 'estimated', 'a PLACSP value is its estimate or budget, whatever the status');
-assert.equal(csvValueKind(tender(null, 'open', 'fr_boamp')), 'estimated');
+// WP-106: one vocabulary with the supplier file (contract, framework ceiling, estimate): "estimated" and "lot sum" were the TED words
+assert.equal(csvValueKind(tender('lot_sum', 'open', 'ted')), 'estimate (sum of lots)', 'what the notice states stands');
+assert.equal(csvValueKind(tender(null, 'open', 'es_placsp')), 'estimate');
+assert.equal(csvValueKind(tender(null, 'awarded', 'es_placsp')), 'estimate', 'a PLACSP value is its estimate or budget, whatever the status');
+assert.equal(csvValueKind(tender(null, 'open', 'fr_boamp')), 'estimate');
 assert.equal(csvValueKind(tender(null, 'awarded', 'fr_boamp')), 'not stated', 'an award notice of another source: not guessed');
 const exportSrc = readFileSync('lib/export.ts', 'utf8');
-assert.match(exportSrc, /value \? csvValueKind\(t\) : null/);
+assert.match(exportSrc, /value \? csvValueKind\(award \? t : \{ \.\.\.t, awardValue: null \}\) : null/);
 assert.match(exportSrc, /listOrder\(read, parsed\.status, parsed\.sort, parsed\.scope\)/);
 assert.match(exportSrc, /'x-row-cap-note'/, 'the cap is said in the headers');
 assert.match(exportSrc, /link: `<\$\{b\.next\}>; rel="next"`/, 'a cut file names its next part');

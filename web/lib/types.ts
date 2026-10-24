@@ -379,9 +379,16 @@ export interface Tender {
   /** WP-95, the notice's own page only: the legal-entity winners (a supplier page link where there is one); natural persons are counted, never named. */
   awardedTo?: AwardedTo[];
   awardedPersons?: number;
-  /** WP-95: what the award states and what kind of amount it is. */
+  /** WP-95: what the award states and what kind of amount it is. WP-106: on list items and export rows too, with `awardedTo`. */
   awardValue?: { amount: number; currency: string; kind: ValueKind } | null;
+  /** WP-106, the notice's own page: the other notices of its procedure (the call of an award, the award of a call), oldest first. */
+  stages?: ProcedureStage[];
+  /** WP-106: the official CPV titles of the codes (on the page all of them, in a list the main code's), from the full vocabulary. */
+  cpvTitles?: Record<string, string>;
 }
+
+/** WP-106: another notice of the same procedure. `status` is its stored one: awarded, cancelled, forthcoming, else a call. */
+export interface ProcedureStage { id: string; slug: string; noticeId: string; status: string | null; publishedAt: IsoDateTime | null }
 
 /** WP-95: what an amount is: the contract awarded, a framework agreement's ceiling, or the buyer's estimate. */
 export type ValueKind = 'contract' | 'framework' | 'estimate';
@@ -411,7 +418,9 @@ export interface ScopeCounts {
   asOf?: IsoDateTime;
 }
 /** `core-first` (WP-87): the default of the open list, the core notices first, each part soonest deadline first. */
-export type TenderSort = 'core-first' | 'deadline-asc' | 'deadline-desc' | 'published-desc';
+export type TenderSort = 'core-first' | 'deadline-asc' | 'deadline-desc' | 'published-desc'
+  /** WP-106: `open-first` the default of All (the open notices, then the newest deadline first); by value (per currency) and by main code. */
+  | 'open-first' | 'value-desc' | 'cpv-asc';
 export interface TenderFilters {
   q?: string;
   country?: string[];
@@ -609,6 +618,8 @@ export interface Digest {
   /** Open calls with cascade funding today (not the week's). */
   cascadeOpenNow: number;
   country: string | null;
+  /** WP-106: the CPV prefixes the tender sections were narrowed to; absent or empty for the whole issue. */
+  cpv?: string[];
   previousWeek: string | null;
   nextWeek: string | null;
   /** `updatedBy` (WP-87): the source whose run that was, named on the page. */

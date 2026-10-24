@@ -21,7 +21,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     title: 'Weekly digest of defence tenders and calls',
     description: 'Each week: new and amended defence notices, funding calls that are new, opening or closing, and calls with cascade funding. Free, with an Atom feed.',
     path: '/digest',
-    noindex: Boolean(f.country),
+    noindex: Boolean(f.country || f.cpv),
   });
   return { ...meta, alternates: { ...meta.alternates, types: { 'application/atom+xml': '/digest.atom' } } };
 }
@@ -32,7 +32,7 @@ export default async function DigestPage({ searchParams }: Props) {
   const filters = parseDigestFilters(sp);
   const unknown = unknownDigestCountry(sp);
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'Weekly digest', href: '/digest' }];
-  const [issue, weeks] = await Promise.all([getDigest(undefined, filters.country).catch(() => null), getDigestWeeks().catch(() => [])]);
+  const [issue, weeks] = await Promise.all([getDigest(undefined, filters.country, filters.cpv).catch(() => null), getDigestWeeks().catch(() => [])]);
   if (!issue) {
     return (
       <>

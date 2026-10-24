@@ -35,7 +35,8 @@ export function SourceNote({ source }: { source: RSource }) {
   const url = safeHttpUrl(source.url);
   const passages = (source.text ?? '').split('\n\n').filter(Boolean).map(publicPassage);
   return (
-    <div className="flex flex-col gap-2 text-small text-ink-muted">
+    // WP-106 (p03): a reference or an address is one long word: it breaks rather than widen a 375 px page to 413
+    <div className="flex min-w-0 flex-col gap-2 text-small text-ink-muted [overflow-wrap:anywhere]">
       <p className="m-0">
         Source: {publicRef(source.ref) ?? 'see the link'}
         {url && <> · <a href={url} target="_blank" rel="noopener noreferrer" className="font-semibold">Open the source</a></>}
@@ -59,7 +60,7 @@ export function RuleItem({ rule }: { rule: RuleResult }) {
     <li className="flex flex-col gap-2 border-t border-line py-4 first:border-t-0" data-rule={rule.rule} data-outcome={rule.outcome}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <OutcomeBadge outcome={rule.outcome} />
-        <h4 className="m-0 min-w-0 flex-1 text-body font-bold">{rule.title}</h4>
+        <h4 className="m-0 min-w-0 flex-1 text-body font-bold [overflow-wrap:anywhere]">{rule.title}</h4>
         <span className="text-small text-ink-muted">{OBLIGATION_WORD[rule.obligation]}</span>
       </div>
       <p className="m-0 max-w-prose text-body">{rule.reason}</p>

@@ -206,7 +206,26 @@ export const DEFAULT_TENDER_SORT: TenderSort = 'deadline-asc';
  */
 export function defaultTenderSort(status: TenderStatusFilter | undefined): TenderSort {
   if (status === undefined || status === 'open') return 'core-first';
+  // WP-106 (p02, p04, p07): All is the open notices, then the rest newest deadline first (it began with 2017 under the open ones)
+  if (status === 'all') return 'open-first';
   return status === 'closed' || status === 'planned' ? 'deadline-desc' : DEFAULT_TENDER_SORT;
+}
+
+/**
+ * WP-106: the orders a tenders list offers for a status. `core-first` is the open list's, `open-first` the All list's; the value order is
+ * per currency (amounts are never converted), the code order by the main code.
+ */
+export function tenderSortOptions(status: TenderStatusFilter | undefined): { value: TenderSort; label: string }[] {
+  const s = status ?? DEFAULT_TENDER_STATUS;
+  return [
+    ...(s === 'open' ? [{ value: 'core-first' as const, label: 'Military goods and works first, then soonest deadline' }] : []),
+    ...(s === 'all' ? [{ value: 'open-first' as const, label: 'Open first, then the most recent deadline' }] : []),
+    { value: 'deadline-asc', label: 'Deadline, soonest first' },
+    { value: 'deadline-desc', label: 'Deadline, latest first' },
+    { value: 'published-desc', label: 'Published, newest first' },
+    { value: 'value-desc', label: 'Value, largest first (EUR, then each other currency)' },
+    { value: 'cpv-asc', label: 'Main product code, ascending' },
+  ];
 }
 export const DEFAULT_BUYER_SORT: BuyerSort = 'tenders';
 /** WP-98b (p02): with a CPV filter the buyers that bought most under the codes lead; without one, most tenders. */
@@ -215,7 +234,7 @@ export const defaultBuyerSort = (cpv: string[] | undefined): BuyerSort => (cpv?.
 const TENDER_STATUSES: TenderStatusFilter[] = ['open', 'closed', 'planned', 'all'];
 const TENDER_SCOPES: TenderScopeFilter[] = ['relevant', 'core', 'supply', 'all'];
 const GOODS = ['defence'] as const;
-const TENDER_SORTS: TenderSort[] = ['core-first', 'deadline-asc', 'deadline-desc', 'published-desc'];
+const TENDER_SORTS: TenderSort[] = ['core-first', 'open-first', 'deadline-asc', 'deadline-desc', 'published-desc', 'value-desc', 'cpv-asc'];
 const BUYER_SORTS: BuyerSort[] = ['tenders', 'name', 'cpv'];
 const COUNTRY_CODES: string[] = BUYER_COUNTRY_CODES;
 

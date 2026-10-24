@@ -10,9 +10,10 @@ import { displayName } from '@/lib/display-name';
 import { formatDateUtc, formatMoney, isPlaceholderAmount, noticeDateLabel } from '@/lib/format';
 import { safeHttpUrl } from '@/lib/safe-url';
 import { buildMetadata, tenderMeetsMinimumContent } from '@/lib/seo';
-import { sourceStatusWord, tenderChangedLabel, valueKindLabel } from '@/lib/tender-status';
+import { AWARD_VALUE_LABEL, sourceStatusWord, tenderChangedLabel, valueKindLabel } from '@/lib/tender-status';
+import { WHO_MAY_BID_NOTE, WHO_MAY_BID_UNKNOWN, whoMayBid, winnersHref } from '@/lib/who-may-bid';
 import { cpvName } from '@/lib/cpv';
-import { isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
+import { countryName, isNonEnglish, legalBasisLabel, procedureLabel, TENDER_SCOPES } from '@/lib/taxonomy';
 import { clearanceView, scopeGroupNote, subcontractingView } from '@/lib/tender-basis';
 import { cn } from '@/lib/utils';
 import { Tag } from '@/components/dg/tag';
@@ -38,8 +39,8 @@ type Props = { params: Promise<{ slug: string }> };
 const RELATED_LIMIT = 3;
 /** WP-100: a title longer than this is cut to four lines on a phone (about 18 characters a line at the phone's title size). */
 const LONG_TITLE = 80;
-/** WP-95: the label of an award's value by its kind. */
-const AWARD_VALUE_LABEL = { contract: 'Awarded value', framework: 'Framework ceiling', estimate: 'Estimated value' } as const;
+/** WP-106: what another notice of the procedure is, by its stored status. */
+const STAGE_WORD: Record<string, string> = { awarded: 'Award notice', cancelled: 'Cancellation', forthcoming: 'Prior information notice' };
 const ROW = 'grid gap-1 break-words py-2.5 sm:grid-cols-[160px_minmax(0,1fr)] sm:gap-4';
 /** The facts grid inside a titled card: the card's own header rule stands in for the first hairline. */
 const IN_CARD = 'border-b-0 [&>div:first-child]:border-t-0';
@@ -126,6 +127,10 @@ export default async function TenderDetailPage({ params }: Props) {
   const award = tender.awardValue && !isPlaceholderAmount(tender.awardValue.amount) ? tender.awardValue : null;
   // WP-100: four lines of the phone's title size hold about this much
   const longTitle = title.length > LONG_TITLE;
+  // WP-106: who may bid by the legal basis, who wins under the notice's code, the procedure's other notices
+  const bid = whoMayBid(tender.legalBasis);
+  const winners = winnersHref(tender.cpv, tender.country);
+  const stages = tender.stages ?? [];
 
   return (
     <>
@@ -277,11 +282,45 @@ export default async function TenderDetailPage({ params }: Props) {
           </div>
         )}
       >
+        {/* WP-106 (p02, p08): who may bid, as the legal basis says it, and who has won contracts under the same code */}
+        <Panel title="Who may bid">
+          <div className="flex flex-col gap-2" data-who-may-bid>
+            {bid ? (
+              <>
+                <p className="m-0 max-w-prose text-small font-semibold">{bid.act}</p>
+                <p className="m-0 max-w-prose text-body">{bid.text}</p>
+              </>
+            ) : <p className="m-0 max-w-prose text-body">{WHO_MAY_BID_UNKNOWN}</p>}
+            <p className="m-0 max-w-prose text-small text-ink-muted">{WHO_MAY_BID_NOTE}</p>
+            {winners && (
+              <Link href={winners} className="inline-flex min-h-11 items-center self-start text-small font-bold" data-who-wins>
+                Who wins such contracts{tender.country ? ` in ${countryName(tender.country)}` : ''}
+              </Link>
+            )}
+          </div>
+        </Panel>
+
+        {/* WP-106 (p06): the call of an award and the award of a call, by the procedure they share */}
+        {stages.length > 0 && (
+          <Panel title="Other notices of this procedure">
+            <ul className="m-0 flex list-none flex-col p-0" data-stages>
+              {stages.map((s, i) => (
+                <li key={s.id} className={cn('flex flex-wrap items-baseline justify-between gap-2 py-2', i > 0 && 'border-t border-line')}>
+                  <Link href={`/tenders/${s.slug}`} className="inline-flex min-h-11 items-center font-semibold">{STAGE_WORD[s.status ?? ''] ?? 'Call for competition'}</Link>
+                  <span className="font-mono text-small text-ink-muted">{s.noticeId}{s.publishedAt ? ` · ${formatDateUtc(s.publishedAt)}` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
+
         {cpvCodes.length > 0 && (
           <Panel title="CPV codes">
             <ul className="m-0 flex list-none flex-col p-0">
               {cpvCodes.map((code, i) => {
-                const label = cpvName(code);
+                // WP-106: the official title the API reads from the full vocabulary, else the selection's or its group's
+                const own = tender.cpvTitles?.[code];
+                const label = own ? { label: own, exact: true } : cpvName(code);
                 return (
                   <li key={code} className={cn(ROW, i > 0 && 'border-t border-line')}>
                     <span className="font-mono text-mono-strong tabular-nums">{code}{i === 0 && tender.cpv ? <span className="ml-2 font-sans text-label text-ink-muted">Main</span> : null}</span>
@@ -343,7 +382,7 @@ export default async function TenderDetailPage({ params }: Props) {
       </DetailLayout>
 
       {related.length > 0 && tender.buyerSlug && (
-        <section aria-labelledby="related" className="flex flex-col gap-4">
+        <section aria-labelledby="related" className="flex flex-col gap-4 print:hidden">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="related" className="m-0 text-h2">More from this buyer</h2>
             <Link href={`/buyers/${tender.buyerSlug}`} className="inline-flex min-h-11 items-center text-small font-bold">All tenders from {buyer}</Link>

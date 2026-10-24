@@ -464,7 +464,9 @@ def list_changes(
     repeats = {id(e): n for e, n in shown_rows}
     ids = [e["id"] for e in shown]
     rows = conn.execute(f"{T.TENDER_SELECT} WHERE o.id = ANY(%s)", (ids,)).fetchall() if ids else []
-    tenders = {t["id"]: t for t in T._present(conn, rows, checked=with_meta is True)}
+    # WP-106 (p04): an award row says its winners and its value, as the tender list does (an HTTP request: see `serves_meta`)
+    present = T._present(conn, rows, checked=with_meta is True)
+    tenders = {t["id"]: t for t in (T.list_item_fields(conn, present) if with_meta is True else present)}
     # The tender scope filters do not apply to funding calls; a country does (the funder's).
     if scope in (None, "core", "all") and not goods and not kind and not narrowed:
         calls = (funding_events(conn, countries=countries) if week is None else

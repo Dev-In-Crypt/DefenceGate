@@ -124,6 +124,8 @@ export function CallListTemplate({
           </div>
 
           <FilterNotices notices={notices} />
+          {/* Below lg the filters are folded away and the column is one. WP-106 (p09): the tools before the results, not after 38,000 px of them. */}
+          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="lg:hidden" total={result.total} status={filters.status} />}
           {view === 'list' && result.total > 0 && <FitFilter whole={whole} />}
           {result.search && result.search.alsoSearched.length > 0 && (
             <p className="m-0 text-small text-ink-muted">Also searched: {result.search.alsoSearched.join(', ')}.</p>
@@ -180,8 +182,6 @@ export function CallListTemplate({
             <Pagination page={result.page} total={result.total} pageSize={result.pageSize}
               hrefFor={(p) => `${basePath}${toQuery({ ...filters, page: p })}`} />
           )}
-          {/* Below lg the filters are folded away and the column is one: the tools come after the results. */}
-          {exportHref && result.total > 0 && <ResultTools csvHref={exportHref} calendarHref={calendarHref} icsHref={filters.status === 'closed' ? undefined : icsHref} className="lg:hidden" total={result.total} status={filters.status} />}
           {result.total > 0 && filters.status !== 'closed' && subscribe && <div className="lg:hidden">{subscribe}</div>}
         </ResultsRegion>
       </div>

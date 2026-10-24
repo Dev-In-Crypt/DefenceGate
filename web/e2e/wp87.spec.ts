@@ -25,7 +25,7 @@ test('the calendar reads the listâ€™s filters, says its counts beside the listâ€
   await expect(page.locator('[data-calendar-counts] a')).toHaveAttribute('href', /^\/tenders\?cpv=44&from=\d{4}-\d{2}-\d{2}$/);
   // the feed of this calendar carries the filter, and the form keeps it
   await expect(page.locator('a[download][href^="/calendar.ics"]')).toHaveAttribute('href', '/calendar.ics?kind=tenders&cpv=44');
-  await expect(page.locator('form[action="/calendar"] input[type="hidden"][name="cpv"]')).toHaveValue('44');
+  await expect(page.locator('form[action="/calendar"] input[name="cpv"]')).toHaveValue('44');   // WP-106: a field of the form now, not a hidden one
   await visit(page, '/calendar?cpvv=44', CALENDAR);
   await expect(page.getByText('Ignored filter: cpvv (not a filter of this page)')).toBeVisible();
   await visit(page, '/calendar?cpv=44', CALENDAR);

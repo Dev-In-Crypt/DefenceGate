@@ -371,13 +371,15 @@ export async function getChangesForFeed(filters: ChangeFilters, page = 1): Promi
  * does not change once its week has ended, so the site shares one cached answer per week and country. null: no such
  * issue (a week outside the archive, or not ended) or an API build that does not have the endpoint.
  */
-export async function getDigest(week?: string, country?: string): Promise<Digest | null> {
+export async function getDigest(week?: string, country?: string, cpv?: string[]): Promise<Digest | null> {
   if (!API_BASE) return null;
   const p = new URLSearchParams();
   if (week) p.set('week', week);
   if (country) p.set('country', country);
+  // WP-106: the tender sections narrowed to CPV prefixes
+  if (cpv?.length) p.set('cpv', cpv.join(','));
   const path = `/v1/digest${p.size > 0 ? `?${p.toString()}` : ''}`;
-  const got = await withLastGood(`digest:${path}`, async () => (await http<Digest>(path, 'revalidate', LIST_REVALIDATE_SECONDS)) ?? NO_ENDPOINT, { persist: !country });
+  const got = await withLastGood(`digest:${path}`, async () => (await http<Digest>(path, 'revalidate', LIST_REVALIDATE_SECONDS)) ?? NO_ENDPOINT, { persist: !country && !cpv?.length });
   return got === NO_ENDPOINT ? null : (got as Digest);
 }
 

@@ -340,7 +340,7 @@ export default async function CallDetailPage({ params }: Props) {
         ) : null}
 
         {call.partnerArea && (
-          <Panel title="Partners from earlier projects">
+          <Panel title="Partners from earlier projects" className="print:hidden">
             <PartnerSuggestions callSlug={call.slug} />
           </Panel>
         )}
@@ -399,7 +399,7 @@ export default async function CallDetailPage({ params }: Props) {
       </DetailLayout>
 
       {related.length > 0 && (
-        <section aria-labelledby="related" className="flex flex-col gap-4">
+        <section aria-labelledby="related" className="flex flex-col gap-4 print:hidden">
           <h2 id="related" className="m-0 scroll-mt-4 text-h2">Related calls</h2>
           <ul className="m-0 flex list-none flex-col gap-4 p-0">
             {related.map((c) => <li key={c.id} className="min-w-0"><CallCard call={c} headingLevel="h3" /></li>)}

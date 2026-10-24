@@ -171,7 +171,11 @@ def test_a_rare_word_over_every_status_is_read_by_its_matches(client, conn, monk
     # the order of the closed part is the list's own (deadline, then id), page after page
     rest = [i["noticeId"] for p in (1, 2, 3) for i in get(client, "/v1/tenders", q="drone", status="all", pageSize=3,
                                                          page=p)["items"]]
-    assert rest == ["NEW-1"] + [f"OLD-{i}" for i in range(6)]
+    # WP-106: the rest of All runs newest first (deadline, publication, id, all descending); oldest first when asked for
+    assert rest == ["NEW-1"] + [f"OLD-{i}" for i in reversed(range(6))]
+    asc = [i["noticeId"] for p in (1, 2, 3) for i in get(client, "/v1/tenders", q="drone", status="all", pageSize=3,
+                                                        sort="deadline-asc", page=p)["items"]]
+    assert asc == ["NEW-1"] + [f"OLD-{i}" for i in range(6)]
     closed = get(client, "/v1/tenders", q="drone", status="closed")
     assert closed["total"] == 6
     # a common word is read along the index as before (no `few`)

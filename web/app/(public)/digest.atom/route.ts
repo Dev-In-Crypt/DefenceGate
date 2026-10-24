@@ -25,11 +25,11 @@ export async function GET(request: Request): Promise<Response> {
   const filters = parseDigestFilters(sp);
   const weeks = await getDigestWeeks(FEED_ISSUES).catch(() => null);
   if (!weeks) return unavailable();
-  const got = await Promise.all(weeks.map((w) => getDigest(w.week, filters.country).catch(() => null)));
+  const got = await Promise.all(weeks.map((w) => getDigest(w.week, filters.country, filters.cpv).catch(() => null)));
   // Half a feed presented as the whole one would mislead a subscriber: an issue that cannot be read is an error.
   if (got.some((d) => d === null)) return unavailable();
   const issues = got as Digest[];
-  const body = buildDigestAtom(issues, { origin: SITE.url.replace(/\/$/, ''), country: filters.country, generatedAt: new Date().toISOString() });
+  const body = buildDigestAtom(issues, { origin: SITE.url.replace(/\/$/, ''), country: filters.country, cpv: filters.cpv, generatedAt: new Date().toISOString() });
   const lastModified = new Date(issues.reduce((m, d) => (d.weekTo > m ? d.weekTo : m), '1970-01-01T00:00:00Z'));
   const etag = etagOf(body);
   const headers = { etag, 'last-modified': lastModified.toUTCString(), 'cache-control': 'public, max-age=3600' };

@@ -27,7 +27,11 @@ const PILL: Record<StatusKind, { cls: string; label: string }> = {
 /** Always text-labelled, never colour alone. Not interactive. */
 export function StatusPill({ status, children }: { status: StatusKind; children?: React.ReactNode }) {
   const p = PILL[status];
-  return <span className={cn('inline-flex items-center whitespace-nowrap rounded-pill border border-transparent px-3 py-1.5 font-sans text-label', p.cls)}>{children ?? p.label}</span>;
+  const label = children ?? p.label;
+  // WP-106 (p01): a long label ("Open (dynamic purchasing system): first deadline passed") wraps inside the pill; it made a 375 px
+  // phone page 396 px wide. A short one stays on one line.
+  const long = typeof label === 'string' && label.length > 24;
+  return <span className={cn('inline-flex items-center rounded-pill border border-transparent px-3 py-1.5 font-sans text-label', long ? 'max-w-full whitespace-normal break-words' : 'whitespace-nowrap', p.cls)}>{label}</span>;
 }
 
 /** What a source's last run looks like once its age is read: see lib/source-status.ts. */

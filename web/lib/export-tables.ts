@@ -18,15 +18,31 @@ import type { MarketStats, SupplierContract, SupplierContracts, Tender } from '.
  * status), `not stated` for another source's award notice, whose figure may be the awarded amount or the estimate it was made
  * against.
  */
-export function csvValueKind(t: Pick<Tender, 'valueKind' | 'statusNative'> & { source: Pick<Tender['source'], 'sourceId'> }): string {
-  const stated = valueKindLabel(t.valueKind);
-  if (stated) return stated;
+export function csvValueKind(t: Pick<Tender, 'valueKind' | 'statusNative'> & Partial<Pick<Tender, 'awardValue'>> & { source: Pick<Tender['source'], 'sourceId'> }): string {
+  // WP-106 (p07): one vocabulary with the supplier file (`KIND`): an award's value by its kind, a notice's own value is an estimate
+  if (t.awardValue) return KIND[t.awardValue.kind] ?? t.awardValue.kind;
+  const awarded = sourceStatusWord(t) === 'Awarded';
+  switch ((t.valueKind ?? '').trim()) {
+    case 'estimated': return 'estimate';
+    case 'lot_sum': return 'estimate (sum of lots)';
+    case 'first_lot': return 'estimate (first lot)';
+    // TED's `total`: an award's total is a contract value or a ceiling, not told apart here; on any other notice it is its estimate
+    case 'total': return awarded ? 'not stated' : 'estimate';
+    case '': break;
+    default: return valueKindLabel(t.valueKind) ?? 'not stated';
+  }
   const placsp = /placsp/i.test(t.source.sourceId ?? '');
-  return !placsp && sourceStatusWord(t) === 'Awarded' ? 'not stated' : 'estimated';
+  return !placsp && awarded ? 'not stated' : 'estimate';
 }
 
-/** WP-95's value kinds, as the supplier page words them. */
-const KIND: Record<string, string> = { contract: 'contract', framework: 'framework ceiling', estimate: 'estimate' };
+/** WP-95's value kinds, as the supplier page words them; WP-106: the tender file's words too. */
+export const KIND: Record<string, string> = { contract: 'contract', framework: 'framework ceiling', estimate: 'estimate' };
+
+/** WP-106 (p06, p07): the winners an award names (legal entities; natural persons are counted on the page, never named), and their countries. */
+export function winnerCells(t: Partial<Pick<Tender, 'awardedTo'>>): [string, string] {
+  const w = t.awardedTo ?? [];
+  return [w.map((x) => x.name).join(' | '), w.map((x) => x.country ?? '').join(' | ')];
+}
 
 export const SUPPLIER_CONTRACT_HEADER = [
   'supplier', 'notice_id', 'title', 'buyer', 'buyer_country', 'published', 'cpv', 'value', 'currency', 'value_kind',

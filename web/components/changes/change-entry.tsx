@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { isNonEnglish } from '@/lib/taxonomy';
 import { displayName } from '@/lib/display-name';
-import { formatDateTimeUtc, formatDateUtc } from '@/lib/format';
+import { formatDateTimeUtc, formatDateUtc, formatMoney, isPlaceholderAmount } from '@/lib/format';
+import { AWARD_VALUE_LABEL, winnersLine } from '@/lib/tender-status';
 import type { Change } from '@/lib/types';
 import { Card } from '../dg/card';
 import { StatusPill, Tag } from '../dg/tag';
@@ -21,6 +22,8 @@ export function ChangeEntry({ change }: { change: Change }) {
   const isNew = change.kind === 'new' || change.kind === 'award';
   const isAward = change.kind === 'award';
   const more = (change.repeats ?? 1) - 1;
+  const winners = winnersLine(t, 2, (n) => displayName(n, 'title'));
+  const award = t.awardValue && !isPlaceholderAmount(t.awardValue.amount) ? t.awardValue : null;
   return (
     <Card as="article" className="h-full gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -36,6 +39,9 @@ export function ChangeEntry({ change }: { change: Change }) {
       </p>
       {/* WP-95: when the notice was published, and how many look-alike notices (lots, a second source) this row stands for */}
       {t.publishedAt && <p className="m-0 text-small text-ink-muted" data-published>Published {formatDateUtc(t.publishedAt)}</p>}
+      {/* WP-106 (p04): an award row says whom it names and its value, with the kind of that value */}
+      {winners && <p className="m-0 text-small" data-awarded-to><span className="text-ink-muted">Awarded to: </span><span className="font-semibold">{winners}</span></p>}
+      {award && <p className="m-0 text-small" data-award-value><span className="text-ink-muted">{AWARD_VALUE_LABEL[award.kind]}: </span><span className="font-mono tabular-nums">{formatMoney(award)}</span></p>}
       {more > 0 && <p className="m-0 text-small text-ink-muted" data-repeats>{`And ${more} more ${more === 1 ? 'notice' : 'notices'} of the same buyer with the same title (lots, or another source), listed once`}</p>}
       {isNew ? (
         <p className="sr-only">{isAward ? FIRST_COLLECTED_AWARD : FIRST_COLLECTED}</p>

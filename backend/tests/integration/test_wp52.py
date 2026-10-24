@@ -212,8 +212,12 @@ def test_all_is_the_open_notices_and_then_the_rest_and_a_page_can_hold_both(clie
         put(conn, f"O-{n}", deadline=FUTURE + timedelta(days=n))
     for n in range(4):
         put(conn, f"C-{n}", status="awarded", deadline=PAST - timedelta(days=n))
+    # WP-106 (p02, p04, p07): the rest newest deadline first, as the Closed list (it ran oldest first: 2017 under the open ones)
     pages = [ids(client, status="all", pageSize=2, page=p) for p in (1, 2, 3, 4)]
-    assert pages == [["O-0", "O-1"], ["O-2", "C-3"], ["C-2", "C-1"], ["C-0"]]
+    assert pages == [["O-0", "O-1"], ["O-2", "C-0"], ["C-1", "C-2"], ["C-3"]]
+    # the oldest first when asked for, still with the open ones first
+    asc = [ids(client, status="all", sort="deadline-asc", pageSize=2, page=p) for p in (1, 2, 3, 4)]
+    assert asc == [["O-0", "O-1"], ["O-2", "C-3"], ["C-2", "C-1"], ["C-0"]]
     assert all(listing(client, status="all", pageSize=2, page=p)["total"] == 7 for p in (1, 2, 3, 4, 5))
     assert ids(client, status="all", pageSize=2, page=5) == []
     # explicit sorts are honoured on the whole list, with no open-first rule
