@@ -3040,7 +3040,8 @@
     "org_kind": "university",
     "headcount": "2000plus",
     "in_group": false,
-    "investor_precommitment": false
+    "investor_precommitment": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -3108,7 +3109,8 @@
     "org_kind": "company",
     "headcount": "lt50",
     "in_group": false,
-    "investor_precommitment": false
+    "investor_precommitment": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -3174,7 +3176,8 @@
     "headcount": "50_249",
     "in_group": false,
     "control_country": "ua",
-    "investor_precommitment": false
+    "investor_precommitment": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -3240,7 +3243,8 @@
     "org_kind": "research",
     "headcount": "250_499",
     "in_group": false,
-    "investor_precommitment": false
+    "investor_precommitment": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -3304,7 +3308,8 @@
     "org_kind": "company",
     "headcount": "lt50",
     "in_group": false,
-    "investor_precommitment": false
+    "investor_precommitment": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -6157,7 +6162,7 @@
        "rule": "ES-NSFCC",
        "title": "NATO Facility Security Clearance Certificate (NSFCC)",
        "requirement": "REQ-FSC-ES",
-       "outcome": "unknown"
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-NATO-DOE",
