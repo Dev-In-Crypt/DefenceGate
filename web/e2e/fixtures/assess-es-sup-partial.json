@@ -1123,10 +1123,10 @@
     "conditional": 0,
     "info": 4,
     "met": 0,
-    "not_applicable": 8,
+    "not_applicable": 9,
     "not_met": 0,
     "to_obtain": 1,
-    "unknown": 8
+    "unknown": 7
    },
    "incomplete": true,
    "kind": "route",
@@ -1163,18 +1163,6 @@
     {
      "field": "homologated",
      "question": "Is your product homologated by the Ministry of Defence?"
-    },
-    {
-     "field": "nato_classified_contract",
-     "question": "Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?"
-    },
-    {
-     "field": "nsfcc_held",
-     "question": "Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?"
-    },
-    {
-     "field": "nato_staff_cleared",
-     "question": "Do the staff who need access hold NATO personnel security clearances?"
     },
     {
      "field": "nato_icb_bid",
@@ -1532,27 +1520,14 @@
      "title": "The ONS (CNI) for NATO, EU and ESA classified information"
     },
     {
-     "asks": [
-      {
-       "field": "nato_classified_contract",
-       "question": "Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?"
-      },
-      {
-       "field": "nsfcc_held",
-       "question": "Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?"
-      },
-      {
-       "field": "nato_staff_cleared",
-       "question": "Do the staff who need access hold NATO personnel security clearances?"
-      }
-     ],
+     "asks": [],
      "consultant": null,
      "denominator": null,
      "kind": "security",
      "note": null,
      "obligation": "conditional",
-     "outcome": "unknown",
-     "reason": "Say whether you hold the NSFCC and whether the staff who need access are cleared.",
+     "outcome": "not_applicable",
+     "reason": "This concerns Spanish companies in NATO contracts that involve NATO CONFIDENTIAL or higher.",
      "requirement": "REQ-FSC-ES",
      "rule": "ES-NSFCC",
      "source": {
@@ -2153,7 +2128,11 @@
  "notice": "This is a structured reading of the rules of each programme, with the text of the regulation beside every line. It is not legal advice and it does not replace the call text or the contracting authority. It does not cover the exclusion criteria and the financial and operational capacity checks of the Financial Regulation, or the conditions each call sets. The answers were not stored.",
  "roadmap": {
   "label": "vendor range, not a benchmark",
+  "leftOut": [],
+  "longest": "REQ-NCAGE",
+  "longestWithOptional": "REQ-NCAGE",
   "notAdded": [],
+  "settle": [],
   "steps": [
    {
     "blockingFor": [
@@ -2208,7 +2187,7 @@
       "title": "PIC registered on the Funding and Tenders Portal"
      }
     ],
-    "note": null,
+    "note": "The PIC itself is issued at once. Two things follow it: if a proposal is selected for funding, the Central Validation Service validates the organisation (legal entity form, a recent VAT extract, a registration extract or the statutes), and the organisation appoints a Legal Entity Appointed Representative (LEAR), who keeps its data up to date and handles electronic signatures. How long the validation takes is not stated by the source.",
     "optional": false,
     "order": 1,
     "origin": "notes",
@@ -2220,6 +2199,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
     "status": "not_held",
     "summary": "A nine-digit code issued when an organisation registers on the EU Funding and Tenders Portal. Free and immediate. Needed to apply for EDF and EDIP funding.",
@@ -2280,6 +2260,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
     "status": "not_held",
     "summary": "A five-character entity identifier from the NATO codification system. Needed for NATO and NSPA supply and for stock numbers. Free of charge.",
@@ -2331,6 +2312,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://sede.defensa.gob.es/acceda/procedimientos",
     "status": "not_held",
     "summary": "The Spanish Ministry of Defence's register of defence industry. A current certificate is needed to be in the Ministry's catalogue of actual or potential suppliers, and for PECAL and the NATO Declaration of Eligibility.",
@@ -2404,6 +2386,7 @@
      }
     ],
     "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",
+    "sizeNote": null,
     "sourceUrl": "https://nso.nato.int/",
     "status": "not_held",
     "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",
@@ -2463,6 +2446,7 @@
      }
     ],
     "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",
+    "sizeNote": null,
     "sourceUrl": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
     "status": "not_held",
     "summary": "The Spanish state certification of a quality management system against PECAL 2110 or 2310 (the Spanish editions of AQAP). It needs the RID and ISO 9001 or EN 9100 first, and the initial audit expects prior PECAL contract experience.",

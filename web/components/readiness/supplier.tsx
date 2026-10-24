@@ -222,7 +222,15 @@ export function SupplierForm({ offer = null }: { offer?: 'services' | 'products'
           value={s.euFunding} options={[...YES_NO_UNSURE]}
           hint="Supplying a ministry or a prime contractor needs none of it. Unless you answer yes, your results lead with the supply routes and your roadmap leaves out what only EU funding asks (the PIC)."
           onChange={(v) => setS('euFunding', v)} />
-        {s.euFunding === 'yes' && (
+        {/* WP-107 (p04): the funding cards of the results list these as missing; say which they are and how to reach them, and ask them on "not sure" too */}
+        {(s.euFunding === '' || s.euFunding === 'no') && (
+          <p className="m-0 max-w-prose text-small text-ink-muted" data-eu-questions-hidden>
+            The EU programmes read these answers too: the legal form, where the executive management is, control from outside the EU, the share of
+            components from outside the EU, the origin of components, a Ukrainian partner, your role in SAFE, and whether you hold a PIC. Until they are
+            answered, the EU funding cards of your results list them as missing. Answer yes or “I am not sure” above to see them here.
+          </p>
+        )}
+        {(s.euFunding === 'yes' || s.euFunding === 'unsure') && (
           <>
             <p className="m-0 max-w-prose text-small text-ink-muted" data-eu-questions>
               The questions the EU programmes read, the same answers as the readiness check&rsquo;s. Leave one empty if you do not know; its rule then stays open with its question.
@@ -293,8 +301,11 @@ function CpvPicker({ codes, onChange, error, services = false }: { codes: string
     setAdded({ set: set.label, n: take.length });
   };
   return (
-    <Fieldset id="q-cpv" legend={`CPV codes of what you make (optional, up to ${CPV_MAX})`} error={error}
-      hint={`${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
+    // WP-107 (p06): a services company is asked for the codes of what it sells, with services as the examples
+    <Fieldset id="q-cpv" legend={`CPV codes of what you ${services ? 'sell' : 'make'} (optional, up to ${CPV_MAX})`} error={error}
+      hint={services
+        ? `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you sell, on your results and in your report); no rule of the check reads them. Search by a word of the service (“warehousing”, “transport”, “catering”) or by the first digits of a code. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`
+        : `${CPV_MIN} to ${CPV_MAX} recommended for the demand map (who buys what you make, on your results and in your report); no rule of the check reads them. Search by a word of the product (“castings”, “machined parts”, “fasteners”) or by the first digits of a code; products come before the machines that make them. The codes and titles are those of the official CPV 2008 vocabulary (Publications Office of the EU, CC BY 4.0).`}>
       <div className="mt-2 flex flex-col gap-2" data-cpv-suggested>
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {sets.map((set) => (

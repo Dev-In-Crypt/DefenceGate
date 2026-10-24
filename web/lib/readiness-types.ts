@@ -68,6 +68,8 @@ export interface RoadmapStep {
   issuerNote: string | null;
   /** Why no price is shown (the issuer in the company's country is the state itself). */
   priceNote: string | null;
+  /** WP-107: a vendor range quoted for another company size than the one answered. */
+  sizeNote?: string | null;
   prerequisites: { code: string; name: string; relation: 'before' | 'before_or_with'; status: string; step: number | null }[];
   parallelWith: number[]; verificationStatus: VerificationStatus; lastReviewed: string; sourceUrl: string;
   /** What the step involves beyond cost and time (the PECAL chicken-and-egg, WP-64). */
@@ -88,6 +90,12 @@ export interface Roadmap {
   /** What a source says is on top of a range but gives no base for: shown, never added to a total. */
   notAdded: { code: string; text: string }[];
   label: string;
+  /** WP-107: the step whose track sets each total time (null when no time is needed); optional for older answers. */
+  longest?: string | null; longestWithOptional?: string | null;
+  /** WP-107: steps left out for this company (AQAP for software, services and research bodies), with the reason. */
+  leftOut?: { code: string; name: string; text: string }[];
+  /** WP-107: open rules that no certificate fixes (control and its guarantees, the 35 % rule), in the engine's words. */
+  settle?: { programme: string; programmeName: string; rule: string; title: string; outcome: Outcome; reason: string; sourceUrl: string }[];
 }
 
 export interface CallTiming {

@@ -108,7 +108,10 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
   const id = `prog-${a.programme}`;
   // WP-97: "I am not sure" is an answer: the rule stays open and a specialist or the buyer settles it; it is not counted as missing
   const unsure = profile ? a.missing.filter((m) => notSure(profile, m.field)) : [];
-  const missing = a.missing.filter((m) => !unsure.includes(m));
+  // WP-107 (p05): a software or services firm is not asked about components; those are not "missing answers" but one note, collapsed
+  const isSkipped = (m: { field: string }) => skipped.includes(m.field.replace(/^profile\./, ''));
+  const notAsked = a.missing.filter((m) => !unsure.includes(m) && isSkipped(m));
+  const missing = a.missing.filter((m) => !unsure.includes(m) && !isSkipped(m));
   return (
     <article aria-labelledby={id} className="flex flex-col gap-4 rounded-lg border border-transparent bg-surface p-5 sm:p-7" data-programme={a.programme} data-verdict={a.verdict}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -157,12 +160,9 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
             {missing.map((m) => {
               // the wizard's step, the supplier profile's question (WP-65), or the wizard's step 4 for a requirement (WP-73)
               const href = askedAt(m.field, supplier, profile);
-              const left = skipped.includes(m.field.replace(/^profile\./, ''));
               return (
                 <li key={m.field}>
-                  {left
-                    ? <span className="inline-flex min-h-12 items-center" data-skipped={m.field}>{m.question} <span className="ml-1 text-ink-muted">(left open: you make software or services; it concerns the components of the end product, so check it with whoever supplies that product)</span></span>
-                    : href
+                  {href
                     ? <Link href={href} className="inline-flex min-h-12 items-center font-semibold" {...(href.startsWith('/readiness/supplier') ? { 'data-supplier-asks': m.field } : {})}>{m.question}</Link>
                     // a question of the German or NATO/EU rules (WP-64) that no page of this check asks: the rule's source says what it means
                     : <span className="inline-flex min-h-12 items-center" data-not-asked={m.field}>{m.question} <span className="ml-1 text-ink-muted">(this check does not ask it; see the rule and its source)</span></span>}
@@ -171,6 +171,17 @@ export function ProgrammeCard({ a, headingLevel = 'h3', general = false, supplie
             })}
           </ul>
         </div>
+      )}
+      {notAsked.length > 0 && (
+        <details className="text-small" data-not-asked-components>
+          <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold">
+            Not applicable to software or services: {notAsked.length === 1 ? '1 rule on components stays open' : `${notAsked.length} rules on components stay open`}
+          </summary>
+          <p className="m-0 max-w-prose">You make software or services, so these questions were not asked. They concern the components of the end product of a funded action: check them with whoever supplies that product.</p>
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0 pb-2">
+            {notAsked.map((m) => <li key={m.field} data-skipped={m.field}>{m.question} <span className="text-ink-muted">(left open: you make software or services)</span></li>)}
+          </ul>
+        </details>
       )}
       {applies.length > 0 && <details>
         <summary className="inline-flex min-h-11 cursor-pointer items-center font-bold text-ink">

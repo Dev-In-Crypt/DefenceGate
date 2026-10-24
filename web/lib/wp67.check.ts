@@ -48,10 +48,12 @@ assert.equal(item(defence.items, 'REQ-FSC-ES').status, 'Needs an answer.');
 assert.ok(item(defence.items, 'REQ-FSC-ES').asks.some((q) => /HSEM/.test(q)));
 
 const partial = sample('es-sup-partial').plan;
+// WP-107 (p01): this company said it handles no classified information, so no HSEM line asks NATO clearance questions any more
 assert.deepEqual(partial.items.map(line), [
-  'green REQ-ISO9001', 'red REQ-NCAGE', 'red REQ-RID', 'amber REQ-PIC', 'amber REQ-AQAP2110', 'amber REQ-PECAL', 'amber REQ-EN9100', 'amber REQ-FSC-ES',
+  'green REQ-ISO9001', 'red REQ-NCAGE', 'red REQ-RID', 'amber REQ-PIC', 'amber REQ-AQAP2110', 'amber REQ-PECAL', 'amber REQ-EN9100',
   'amber REQ-EXPORT', 'amber US-COMPONENTS',
 ]);
+assert.ok(!partial.items.some((i) => i.key === 'REQ-FSC-ES'));
 // what this company did not answer stays a question on its line
 assert.ok(item(partial.items, 'REQ-NCAGE').asks.some((q) => /bought by the Ministry/.test(q)));
 assert.ok(item(partial.items, 'US-COMPONENTS').asks.some((q) => /US origin/.test(q)));
