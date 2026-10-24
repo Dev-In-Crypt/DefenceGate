@@ -1344,10 +1344,51 @@
  "notice": "This is a structured reading of the rules of each programme, with the text of the regulation beside every line. It is not legal advice and it does not replace the call text or the contracting authority. It does not cover the exclusion criteria and the financial and operational capacity checks of the Financial Regulation, or the conditions each call sets. The answers were not stored.",
  "roadmap": {
   "label": "vendor range, not a benchmark",
+  "leftOut": [],
+  "longest": "REQ-NCAGE",
+  "longestWithOptional": "REQ-AQAP2110",
   "notAdded": [
    {
     "code": "REQ-AQAP2110",
     "text": "Starting from zero without ISO 9001 adds roughly 30-40 % to the budget and 1-2 months."
+   }
+  ],
+  "settle": [
+   {
+    "outcome": "conditional",
+    "programme": "EDF",
+    "programmeName": "European Defence Fund (EDF)",
+    "reason": "Your company is established in Ukraine. Regulation (EU) 2025/2653 lists Ukraine among the associated countries of the EDF “in accordance with the conditions laid down in the EU-Ukraine Association Agreement”. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF. Treat your participation as conditional on that agreement, not confirmed, and ask the contact point of the call before you rely on it.",
+    "rule": "EDF-ESTABLISH",
+    "sourceUrl": "http://data.europa.eu/eli/reg/2021/697/oj",
+    "title": "Established in the Union or an associated country"
+   },
+   {
+    "outcome": "conditional",
+    "programme": "EDF",
+    "programmeName": "European Defence Fund (EDF)",
+    "reason": "Your executive management structures are in Ukraine. They count as being in an associated country only if the EU-Ukraine association agreement applies to the EDF. The EDF call documents of 2026 say: “Participation of entities established in Ukraine is pending the signature of the association agreement to EDF”, and we found no Official Journal text, Council decision or notice that says the EU-Ukraine association agreement applies to the EDF. Treat it as conditional, not confirmed.",
+    "rule": "EDF-EXEC-MGMT",
+    "sourceUrl": "http://data.europa.eu/eli/reg/2021/697/oj",
+    "title": "Executive management in the Union or an associated country"
+   },
+   {
+    "outcome": "not_met",
+    "programme": "EDIP",
+    "programmeName": "European Defence Industry Programme (EDIP): the Programme",
+    "reason": "Your company is established outside the EU and the EEA EFTA states. Under the EDIP Programme, recipients must be established in the Union or in an associated country. Ukraine is not an associated country of the Programme; Ukrainian companies are covered by the Ukraine Support Instrument, which has its own card.",
+    "rule": "EDIP-ESTABLISH",
+    "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
+    "title": "Established in the Union or an associated country"
+   },
+   {
+    "outcome": "not_met",
+    "programme": "EDIP",
+    "programmeName": "European Defence Industry Programme (EDIP): the Programme",
+    "reason": "Your executive management structures are outside the EU and the EEA EFTA states. Under the EDIP Programme they must be in the Union or in an associated country.",
+    "rule": "EDIP-EXEC-MGMT",
+    "sourceUrl": "http://data.europa.eu/eli/reg/2025/2643/oj",
+    "title": "Executive management in the Union or an associated country"
    }
   ],
   "steps": [
@@ -1404,7 +1445,7 @@
       "title": "PIC registered on the Funding and Tenders Portal"
      }
     ],
-    "note": null,
+    "note": "The PIC itself is issued at once. Two things follow it: if a proposal is selected for funding, the Central Validation Service validates the organisation (legal entity form, a recent VAT extract, a registration extract or the statutes), and the organisation appoints a Legal Entity Appointed Representative (LEAR), who keeps its data up to date and handles electronic signatures. How long the validation takes is not stated by the source.",
     "optional": false,
     "order": 1,
     "origin": "notes",
@@ -1416,6 +1457,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
     "status": "not_held",
     "summary": "A nine-digit code issued when an organisation registers on the EU Funding and Tenders Portal. Free and immediate. Needed to apply for EDF and EDIP funding.",
@@ -1476,6 +1518,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
     "status": "not_held",
     "summary": "A five-character entity identifier from the NATO codification system. Needed for NATO and NSPA supply and for stock numbers. Free of charge.",
@@ -1513,6 +1556,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://eur-lex.europa.eu/eli/reg/2021/821/oj",
     "status": "not_held",
     "summary": "An authorisation to export items in a controlled category. Which licence depends on whether the item is in the dual-use regime or the military regime.",
@@ -1538,7 +1582,7 @@
       "title": "Comes before AQAP 2110 quality assurance certification"
      }
     ],
-    "note": null,
+    "note": "No source we hold states the cost or the time of ISO 9001 certification itself, so none is shown: ask accredited certification bodies for a quote. The only figure in our sources is relative and comes from a vendor: starting AQAP 2110 without ISO 9001 adds roughly 30-40 % to its budget and 1-2 months.",
     "optional": true,
     "order": 4,
     "origin": "notes",
@@ -1549,6 +1593,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://www.iso.org/standard/62085.html",
     "status": "not_held",
     "summary": "The general quality management standard. AQAP 2110 contains all of ISO 9001:2015, so holding it makes the AQAP path shorter and cheaper.",
@@ -1639,6 +1684,7 @@
      }
     ],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://nso.nato.int/",
     "status": "not_held",
     "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",

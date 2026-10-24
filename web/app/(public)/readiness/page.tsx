@@ -30,7 +30,7 @@ export default async function ReadinessPage() {
     <ContentPage
       crumbs={[{ label: 'Home', href: '/' }, { label: 'Check my company', href: '/check' }, { label: 'Readiness check', href: '/readiness' }]}
       title="Readiness check"
-      lead="Answer five short sets of questions to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first."
+      lead="Answer five sets of questions (25 to 35 in all, depending on your answers) to see, programme by programme, whether your company can take part in EU defence funding and what to obtain first."
     >
       {/* WP-88: the heading says what is true of the whole flow (the next paragraph says what is sent once); the detail is collapsed. */}
       <Callout title="Your answers are not stored on our server">

@@ -17,7 +17,7 @@ import { useAssessment, useProfile } from './use-readiness';
 import { CountryRoute } from './report';
 
 /** `steps`: how many steps the figures are over; `noCost` and `noTime`: how many of them state none (T7: the headline never reads as a complete or free plan when some do not). */
-function Totals({ title, totals, id, steps, noCost, noTime }: { title: string; totals: RoadmapTotals; id: string; steps: number; noCost: number; noTime: number }) {
+function Totals({ title, totals, id, steps, noCost, noTime, longest }: { title: string; totals: RoadmapTotals; id: string; steps: number; noCost: number; noTime: number; longest?: string | null }) {
   const cost = costHeadline(totals, steps, noCost);
   return (
     <div className="flex flex-col gap-1 rounded-md bg-surface-inset p-4" data-totals={id}>
@@ -27,6 +27,8 @@ function Totals({ title, totals, id, steps, noCost, noTime }: { title: string; t
         <dt className="text-ink-muted">Time</dt>
         <dd className="m-0 font-mono tabular-nums">{timeHeadline(totals.days, steps, noTime)}</dd>
       </dl>
+      {/* WP-107 (p09): "5 to 20 days" beside an immediate PIC: the total is the slowest track, and it says which step sets it */}
+      {longest && <p className="m-0 text-small text-ink-muted" data-totals-longest>The time is that of the slowest step, {longest}; the other steps run alongside it.</p>}
     </div>
   );
 }
@@ -63,6 +65,7 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
         </div>
       </dl>
       {s.priceNote && <p className="m-0 text-small font-bold">{s.priceNote}</p>}
+      {s.sizeNote && <p className="m-0 text-small font-bold" data-step-size-note={s.code}>{s.sizeNote}</p>}
       {s.branchNote && <p className="m-0 text-small">{s.branchNote}</p>}
       {s.note && <p className="m-0 max-w-prose text-small" data-step-note={s.code}>{s.note}</p>}
 
@@ -129,14 +132,40 @@ function StepCard({ s, country, onMark }: { s: RoadmapStep; country: string; onM
   );
 }
 
+/** WP-107 (p09): the open rules no certificate fixes (control and its guarantees, the 35 % rule), so the plan follows the result. */
+function Settle({ plan }: { plan: Roadmap }) {
+  const rows = plan.settle ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <section aria-labelledby="settle" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5" data-roadmap-settle>
+      <h2 id="settle" className="m-0 text-h4">To settle first: rules no certificate fixes</h2>
+      <p className="m-0 max-w-prose text-small text-ink-muted">
+        On your answers these rules are open or not met. No step of the roadmap fixes them: a guarantee, a change of supplier or ownership, or the
+        buyer&rsquo;s reading settles them. The sources state no cost or time for them.
+      </p>
+      <ul className="m-0 flex list-none flex-col gap-3 p-0">
+        {rows.map((x) => (
+          <li key={`${x.programme}-${x.rule}`} className="flex flex-col gap-1" data-settle={x.rule}>
+            <p className="m-0 font-bold">{x.title} <span className="font-normal text-ink-muted">({x.programmeName}{x.outcome === 'not_met' ? ', not met' : ', a condition applies'})</span></p>
+            <p className="m-0 max-w-prose text-small">{x.reason}</p>
+            {safeHttpUrl(x.sourceUrl) && <a href={x.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-small font-semibold">Open the source</a>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profile; onMark: (code: string, status: 'held' | 'in_progress') => void }) {
   const byCode = new Map(plan.steps.map((s) => [s.code, s]));
+  const nameOf = (code?: string | null) => (code ? byCode.get(code)?.name ?? code : null);
   if (plan.steps.length === 0) {
     return (
-      <div data-roadmap-empty>
+      <div data-roadmap-empty className="flex flex-col gap-6">
         <EmptyState title="Nothing left to obtain" action={<Button href="/readiness/results" iconRight={ArrowRight}>Back to my results</Button>}>
           On your answers, no requirement is missing. Your results page still lists what each programme asks.
         </EmptyState>
+        <Settle plan={plan} />
       </div>
     );
   }
@@ -148,12 +177,16 @@ function RoadmapBody({ plan, profile, onMark }: { plan: Roadmap; profile: Profil
     <div className="flex flex-col gap-6">
       <AutoGrid min={320}>
         <Totals id="required" title={`What you need now (${required} ${required === 1 ? 'step' : 'steps'})`} totals={plan.totals}
-          steps={required} noCost={plan.unknownCost.length} noTime={plan.unknownDuration.length} />
+          steps={required} noCost={plan.unknownCost.length} noTime={plan.unknownDuration.length} longest={nameOf(plan.longest)} />
         {plan.steps.some((s) => s.optional) && (
           <Totals id="with-optional" title="Including what only a contract might ask for" totals={plan.totalsWithOptional}
-            steps={plan.steps.length} noCost={plan.unknownCostWithOptional.length} noTime={plan.unknownDurationWithOptional.length} />
+            steps={plan.steps.length} noCost={plan.unknownCostWithOptional.length} noTime={plan.unknownDurationWithOptional.length} longest={nameOf(plan.longestWithOptional)} />
         )}
       </AutoGrid>
+      <Settle plan={plan} />
+      {(plan.leftOut ?? []).length > 0 && (
+        <p className="m-0 max-w-prose text-small text-ink-muted" data-roadmap-left-out>{(plan.leftOut ?? []).map((x) => x.text).join(' ')}</p>
+      )}
       <Callout title="Read the ranges with care">
         <p className="m-0">{plan.label.charAt(0).toUpperCase() + plan.label.slice(1)}: the figures come from vendors and public notes, and no neutral body publishes prices. Money is shown in the currency of the source and is never converted.</p>
         {plan.unknownCost.length > 0 && <p className="m-0">No cost is stated by the source for: {plan.unknownCost.map((c) => byCode.get(c)?.name ?? c).join('; ')}. It is not counted in the totals.</p>}

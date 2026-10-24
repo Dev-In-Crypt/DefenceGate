@@ -85,6 +85,7 @@
       "description": "Register the organisation on the Funding and Tenders Portal through a six-step wizard. A nine-digit PIC is issued immediately when the wizard is complete. An EU Login account is needed. Incomplete drafts are deleted after one year.\n\nValidation by the Central Validation Service (legal entity form, a recent VAT extract, a registration extract or the statutes) is required only if a proposal is selected for funding; for many grants REA performs it. A Legal Entity Appointed Representative (LEAR) must be appointed to update the organisation's data and to handle electronic signatures. A financial capacity assessment applies to grants, except for public bodies and certain other cases.",
       "cost": {"min": 0, "max": 0, "currency": null, "basis": "free", "text": "Free"},
       "days": {"min": 0, "max": 0, "text": "Immediate on completing the registration wizard"},
+      "extras": {"roadmap_note": "The PIC itself is issued at once. Two things follow it: if a proposal is selected for funding, the Central Validation Service validates the organisation (legal entity form, a recent VAT extract, a registration extract or the statutes), and the organisation appoints a Legal Entity Appointed Representative (LEAR), who keeps its data up to date and handles electronic signatures. How long the validation takes is not stated by the source."},
       "legal_basis": null,
       "mandatory_for": "Any EDF or EDIP application.",
       "source_url": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
@@ -156,6 +157,7 @@
       "summary": "The general quality management standard. AQAP 2110 contains all of ISO 9001:2015, so holding it makes the AQAP path shorter and cheaper.",
       "description": "AQAP 2110 contains the whole of ISO 9001:2015 plus NATO-specific additions. In practice: build ISO 9001 first, then add the NATO layer. Companies that already hold ISO 9001 face a materially shorter and cheaper path to AQAP 2110.\n\nThe research behind this page has no source for the cost or duration of ISO 9001 itself, so none is shown.",
       "cost": null, "days": null,
+      "extras": {"roadmap_note": "No source we hold states the cost or the time of ISO 9001 certification itself, so none is shown: ask accredited certification bodies for a quote. The only figure in our sources is relative and comes from a vendor: starting AQAP 2110 without ISO 9001 adds roughly 30-40 % to its budget and 1-2 months."},
       "legal_basis": null,
       "mandatory_for": "Prerequisite of AQAP 2110 in practice; on the Spanish state route a formal precondition of PECAL certification (third-party, ENAC-accredited, DGAM procedure PA 4302). Not an eligibility condition of EDF, EDIP or SAFE.",
       "source_url": "https://www.iso.org/standard/62085.html",
@@ -200,6 +202,8 @@
         }
       ],
       "extras": {
+        "product_quality": true,
+        "size_basis": {"min": 30, "max": 80},
         "without_prerequisite": {"requirement": "REQ-ISO9001", "text": "Starting from zero without ISO 9001 adds roughly 30-40 % to the budget and 1-2 months."},
         "other_figures": [
           "Certification audit alone (stage 1 and 2): USD 4,000-10,000 (Ekontrol, vendor quote).",
@@ -225,6 +229,7 @@
       "summary": "The NATO quality requirement for aerospace and defence suppliers. It contains EN 9100 / AS9100 Rev D. Not an eligibility condition of EDF, EDIP or SAFE.",
       "description": "AQAP 2310 Edition B Version 2 dates from January 2022, according to the research notes. The Spanish Ministry of Defence lists PECAL 2310 Edición B Versión 1 as the equivalent of AQAP-2310 Edition B Version 1 (read on 20 October 2026), so check which version the contract names. It applies to aerospace and defence contracts that name it. Like AQAP 2110 it enters through individual contracts, not through the EDF, EDIP or SAFE regulations.\n\nThe research behind this page gives no cost for AQAP 2310 (the source says 'varies') and a duration only as 'comparable' to AQAP 2110, so neither is shown as a number.",
       "cost": null, "days": null,
+      "extras": {"product_quality": true},
       "legal_basis": "NATO AQAP 2310 Edition B (Version 2 in the research notes; Version 1 in the Spanish MoD list of PECAL equivalents)",
       "mandatory_for": "Aerospace and defence contracts that name it.",
       "source_url": "https://nso.nato.int/",
@@ -413,7 +418,7 @@
     {"requirement": "REQ-NCAGE", "country": "*", "name": "NSPA (for countries that are neither NATO members nor on the Tier 2 list)", "url": "https://eportal.nspa.nato.int/Codification/CageTool/request-new-cage", "status": "V", "notes": "Requests are made in the NCAGE Code Request Tool."},
     {"requirement": "REQ-PIC", "country": "*", "name": "European Commission, EU Funding and Tenders Portal (Participant Register)", "url": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register", "status": "V", "notes": "Same for every country. An EU Login account is needed."},
     {"requirement": "REQ-AQAP2110", "country": "ES", "name": "Spanish state route: PECAL, audited through DGAM structures", "url": null, "status": "S", "state_route": true, "notes": "The Spanish equivalent of AQAP is PECAL, audited through the structures of the Dirección General de Armamento y Material rather than a commercial certification body. On this route ISO 9001 from an ENAC-accredited body is a formal precondition, not only a practical one (DGAM procedure PA 4302); see the PECAL certification page."},
-    {"requirement": "REQ-AQAP2110", "country": "DE", "name": "Bundeswehr", "url": null, "status": "S", "state_route": true, "notes": "Administered by the Bundeswehr."},
+    {"requirement": "REQ-AQAP2110", "country": "DE", "name": "Bundeswehr", "url": null, "status": "U", "state_route": true, "notes": "Administered by the Bundeswehr.", "_wp107": "U, not S: no primary source names the German AQAP authority (searched 24 Oct 2026); the country route says Not covered yet, and the roadmap now says the same"},
     {"requirement": "REQ-AQAP2110", "country": "PL", "name": "Accredited commercial certification bodies, for example CertCom", "url": null, "status": "S", "notes": "Commercial accredited bodies operate in Poland."},
     {"requirement": "REQ-AQAP2110", "country": "UA", "name": "Commercial and partner certification bodies, for example Ekontrol (a Bureau Veritas partner)", "url": null, "status": "S", "notes": "Several bodies operate; Ekontrol is one."},
     {"requirement": "REQ-EXPORT", "country": "ES", "name": "Subdirección General de Comercio Internacional de Material de Defensa y de Doble Uso, Ministerio de Economía, Comercio y Empresa (competent authority: Secretaría de Estado de Comercio)", "url": "https://comercio.gob.es/", "status": "V", "notes": "The interministerial regulator is the JIMDDU (Junta Interministerial Reguladora del Comercio Exterior de Material de Defensa y de Doble Uso). Legal basis: Ley 53/2007 and Real Decreto 679/2014."},
@@ -2842,6 +2847,10 @@
           {
             "field": "country",
             "is": "ES"
+          },
+          {
+            "field": "handles_classified",
+            "is": true
           },
           {
             "field": "nato_classified_contract",

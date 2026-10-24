@@ -984,7 +984,11 @@
  "notice": "This is a structured reading of the rules of each programme, with the text of the regulation beside every line. It is not legal advice and it does not replace the call text or the contracting authority. It does not cover the exclusion criteria and the financial and operational capacity checks of the Financial Regulation, or the conditions each call sets. The answers were not stored.",
  "roadmap": {
   "label": "vendor range, not a benchmark",
+  "leftOut": [],
+  "longest": "REQ-NCAGE",
+  "longestWithOptional": "REQ-NCAGE",
   "notAdded": [],
+  "settle": [],
   "steps": [
    {
     "blockingFor": [
@@ -1038,6 +1042,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
     "status": "not_held",
     "summary": "A five-character entity identifier from the NATO codification system. Needed for NATO and NSPA supply and for stock numbers. Free of charge.",
@@ -1088,6 +1093,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://sede.defensa.gob.es/acceda/procedimientos",
     "status": "not_held",
     "summary": "The Spanish Ministry of Defence's register of defence industry. A current certificate is needed to be in the Ministry's catalogue of actual or potential suppliers, and for PECAL and the NATO Declaration of Eligibility.",
@@ -1140,6 +1146,7 @@
      }
     ],
     "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",
+    "sizeNote": null,
     "sourceUrl": "https://nso.nato.int/",
     "status": "not_held",
     "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",
@@ -1198,6 +1205,7 @@
      }
     ],
     "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",
+    "sizeNote": null,
     "sourceUrl": "https://www.defensa.gob.es/Galerias/portalservicios/aseguramientocalidad/AdC-17_PA4302_Ed9.PDF",
     "status": "not_held",
     "summary": "The Spanish state certification of a quality management system against PECAL 2110 or 2310 (the Spanish editions of AQAP). It needs the RID and ISO 9001 or EN 9100 first, and the initial audit expects prior PECAL contract experience.",

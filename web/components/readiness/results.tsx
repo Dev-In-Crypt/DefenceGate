@@ -114,6 +114,35 @@ export function fundingLinks(country: string): { key: string; title: string; tex
   ];
 }
 
+/**
+ * WP-107 (p09): Horizon Europe Cluster 3 (civil security) is about half of the open and forthcoming calls, and the results had no card for it.
+ * No programme verdict is computed (its rules differ by topic); the card states the regulation's general rules and leads to the CL3 calls,
+ * each judged on its own call text with "Fits my profile".
+ */
+export const HORIZON_CL3_HREF = '/funding?programme=HORIZON&q=CL3&fit=1#results';
+function HorizonCl3() {
+  return (
+    <section aria-labelledby="horizon-cl3" className="flex flex-col gap-3 rounded-lg border border-transparent bg-surface p-5 sm:p-7" data-horizon-cl3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="horizon-cl3" className="m-0 text-h3">Horizon Europe, Cluster 3: civil security for society</h2>
+        <Button href={HORIZON_CL3_HREF} variant="secondary" iconRight={ArrowRight}>Cluster 3 calls that fit your profile</Button>
+      </div>
+      <p className="m-0 max-w-prose text-body text-ink-muted">
+        No programme verdict is given here: the rules of a Cluster 3 call are set topic by topic in the work programme, and each call is judged on
+        its own text against your answers on the funding list.
+      </p>
+      <ul className="m-0 flex max-w-prose list-disc flex-col gap-1 pl-5 text-small">
+        <li>A collaborative action needs at least three independent legal entities, each established in a different EU Member State or associated country, at least one of them in a Member State (Regulation (EU) 2021/695, Article 22(2)).</li>
+        <li>For security-related topics the work programme may limit participation to entities established in Member States, or also in named associated or other countries, and exclude entities controlled from non-eligible countries (Article 22(5)). Your answer on control from outside the EU matters there.</li>
+        <li>Some topics are security-sensitive and may involve classified information: the call text says so, and those proposals go through a security scrutiny.</li>
+      </ul>
+      <p className="m-0 text-small text-ink-muted">
+        Source: <a href="http://data.europa.eu/eli/reg/2021/695/oj" target="_blank" rel="noopener noreferrer" className="font-semibold">Regulation (EU) 2021/695 (Horizon Europe), Article 22</a>.
+      </p>
+    </section>
+  );
+}
+
 function OtherFunding({ country }: { country: string }) {
   return (
     <section aria-labelledby="other-funding" className="flex flex-col gap-3" data-other-funding>
@@ -179,6 +208,7 @@ export function ResultsView({ fromSupplier = false }: { fromSupplier?: boolean }
       {result.state === 'done' && (
         <>
           <Programmes assessments={result.data.assessments} supplier={hasSupplier(profile)} euFunding={wantsEuFunding(profile)} skipped={skippedFields(profile)} profile={profile} />
+          {(!hasSupplier(profile) || wantsEuFunding(profile)) && <HorizonCl3 />}
           {(!hasSupplier(profile) || wantsEuFunding(profile)) && <OtherFunding country={profile.country} />}
           {(result.data.consultants ?? []).length > 0 && (
             <section aria-labelledby="consultants" className="flex flex-col gap-3">

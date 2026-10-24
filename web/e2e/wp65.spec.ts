@@ -95,8 +95,10 @@ test('a civilian castings maker: errors first, then exactly the request of the f
   // the questions of the Spanish route: the follow-ups appear only after their "yes"
   const spain = page.getByRole('region', { name: 'Questions of the Spanish defence supplier route (optional)' });
   await expect(spain.getByRole('group', { name: /nine months/ })).toHaveCount(0);
+  // WP-107 (p01): with no classified work the NATO CONFIDENTIAL question (and its clearance follow-ups) is not asked
+  await expect(spain.getByRole('group', { name: /NATO CONFIDENTIAL/ })).toHaveCount(0);
   for (const q of [/PECAL certificate of your quality management system/, /target PECAL 2310/, /NCAGE code to register/, /specific defence use/,
-    /NATO CONFIDENTIAL/, /NATO international competitive bidding/, /defence-related products from other EEA states/]) {
+    /NATO international competitive bidding/, /defence-related products from other EEA states/]) {
     await spain.getByRole('group', { name: q }).getByLabel('No', { exact: true }).check();
   }
   await page.getByRole('button', { name: 'Save and see my results' }).click();

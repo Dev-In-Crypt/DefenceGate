@@ -86,6 +86,8 @@ export const PROCESSES = [
   { value: 'casting', label: 'Casting' }, { value: 'forging', label: 'Forging' }, { value: 'machining', label: 'Machining' },
   { value: 'welding', label: 'Welding' }, { value: 'electronics', label: 'Electronics' }, { value: 'plastics_composites', label: 'Plastics and composites' },
   { value: 'coatings', label: 'Coatings' }, { value: 'textiles', label: 'Textiles' }, { value: 'assembly', label: 'Assembly' },
+  // WP-107 (p01): NACE 25.50 makers and harness makers did not find their process
+  { value: 'stamping', label: 'Stamping and sheet metal forming' }, { value: 'harness', label: 'Cable and wiring harness assembly' },
 ] as const;
 /** WP-97: what a services company runs instead (asked when it says it provides services; kept for its own summary, no rule reads it). */
 export const SERVICE_PROCESSES = [
@@ -110,6 +112,10 @@ export const CERTIFICATES: Holding[] = [
   // WP-97: the certificates a services company is asked for (no rule of this check reads them; kept for its summary and report)
   { key: 'ISO14001', label: 'ISO 14001 (environmental management)' }, { key: 'ISO45001', label: 'ISO 45001 (occupational health and safety)' },
   { key: 'ISO50001', label: 'ISO 50001 (energy management)' }, { key: 'VCA', label: 'VCA (safety checklist for contractors)' },
+  // WP-107 (p05): the French security qualifications a cyber firm holds (information only: no rule of this check reads them)
+  { key: 'PASSI', label: 'ANSSI PASSI qualification (France, security audit providers)' },
+  { key: 'SECNUMCLOUD', label: 'ANSSI SecNumCloud qualification (France, cloud services)' },
+  { key: 'CSPN', label: 'ANSSI CSPN certification (France, first-level security certification of a product)' },
 ];
 export const REGISTRATIONS: Holding[] = [
   { key: 'RID', label: 'RID (Registro de la Industria de Defensa)', code: 'REQ-RID', esOnly: true },
@@ -144,9 +150,10 @@ export const ES_QUESTIONS: EsQuestion[] = [
   { field: 'homologated', parent: 'homologation_mandatory', label: 'Is your product homologated by the Ministry of Defence?', when: (p) => open_(ans(p, 'specific_defence_use')) && open_(ans(p, 'homologation_mandatory')) },
   { field: 'es_defence_material_list', kind: 'enum', label: 'Is the item in Annex I of Real Decreto 679/2014 (the Spanish list of defence material, Relación de Material de Defensa)?', when: (p) => p.regime === 'military' },
   { field: 'stores_classified', parent: 'classified', label: 'Will classified information be stored on your own premises?', when: (p) => open_(p.classified) },
-  { field: 'nato_classified_contract', label: 'Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?' },
-  { field: 'nsfcc_held', parent: 'nato_classified_contract', label: 'Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?', when: (p) => open_(ans(p, 'nato_classified_contract')) },
-  { field: 'nato_staff_cleared', parent: 'nato_classified_contract', label: 'Do the staff who need access hold NATO personnel security clearances?', when: (p) => open_(ans(p, 'nato_classified_contract')) },
+  // WP-107 (p01): asked only after a "yes" or "not sure" to classified work, as the rule now applies only then (ES-NSFCC)
+  { field: 'nato_classified_contract', parent: 'classified', label: 'Does a NATO contract you target involve information classified NATO CONFIDENTIAL or higher?', when: (p) => open_(p.classified) },
+  { field: 'nsfcc_held', parent: 'nato_classified_contract', label: 'Do you hold a NATO Facility Security Clearance Certificate (NSFCC)?', when: (p) => open_(p.classified) && open_(ans(p, 'nato_classified_contract')) },
+  { field: 'nato_staff_cleared', parent: 'nato_classified_contract', label: 'Do the staff who need access hold NATO personnel security clearances?', when: (p) => open_(p.classified) && open_(ans(p, 'nato_classified_contract')) },
   { field: 'nato_icb_bid', label: 'Do you want to bid in a NATO international competitive bidding tender (NATO Security Investment Programme)?' },
   { field: 'rid_capabilities_declared', parent: 'nato_icb_bid', label: 'Have you declared your industrial capabilities in the Registro de la Industria de Defensa (RID)?', when: (p) => open_(ans(p, 'nato_icb_bid')) },
   { field: 'foreign_investor_authorised', parent: 'foreign_capital', label: 'Does the foreign investor hold an administrative authorisation of the Spanish Council of Ministers?', when: (p) => open_(p.supplier.foreignOwner) },
@@ -331,8 +338,9 @@ export function savedSupplier(p: Profile): Profile {
 /** Whether the supplier page has been used (some answer of its own is given). */
 export function hasSupplier(p: Profile): boolean {
   const s = p.supplier;
-  return s.cpv.length > 0 || s.processes.length > 0 || s.held.length > 0 || s.nace !== '' || s.region !== '' || s.foreignOwner !== ''
-    || s.usComponents !== '' || Object.keys(s.answers).length > 0 || s.euFunding !== '';
+  // WP-107: the wizard asks the EEA-recipient question (step 5) and the certificates no rule reads (step 4) too: they alone do not make a supplier
+  return s.cpv.length > 0 || s.processes.length > 0 || s.nace !== '' || s.region !== '' || s.foreignOwner !== ''
+    || s.usComponents !== '' || Object.keys(s.answers).some((k) => k !== EU_QUESTION) || s.euFunding !== '';
 }
 
 /** WP-89: the supply routes of the check (kind `route`): what a supplier's results and roadmap lead with. */
@@ -665,6 +673,8 @@ export function toRequest(p: Profile): AssessRequest | null {
       export_intent: p.exportIntent === '' ? null : p.exportIntent,
       ...applicantFields(p),
       ...supplierFields(p),
+      // WP-107: read by the roadmap only (no AQAP step for software and services firms); "products" changes nothing, so only that answer is sent
+      ...(p.offering === 'software_services' ? { offering: p.offering } : {}),
     },
     statuses,
   };
@@ -788,7 +798,9 @@ export function firstStepToAnswer(p: Profile): number {
 const WIZARD_FIELDS = new Set(['country', 'legal_form', 'applicant_kind', 'executive_management_country', 'third_country_control',
   'ua_non_government_controlled_area', 'ua_partner', 'non_eu_component_cost_pct', 'restricted_third_country_component',
   'components_from_ua_or_eea_efta', 'components_from_ua', 'components_from_eea_efta', 'safe_role', 'product_regime', 'handles_classified', 'export_intent',
-  'org_kind', 'headcount', 'in_group', 'group_headcount', 'control_country', 'investor_precommitment']);
+  'org_kind', 'headcount', 'in_group', 'group_headcount', 'control_country', 'investor_precommitment',
+  // WP-107 (p09): reported missing for every EU company and asked only on the supplier page; step 5 asks it too
+  'receives_eea_defence_products']);
 
 /** The fields and requirements the supplier page asks (WP-65); the results link such a question to that page. */
 const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS, ...DE_FIELDS, DUAL_USE_QUESTION.field, ...CLEARANCE_CODES,
@@ -801,7 +813,7 @@ const SUPPLIER_ASKS = new Set(['foreign_capital', 'us_components', ...ES_FIELDS,
 export const EU_FUNDING_FIELDS = ['legal_form', 'executive_management_country', 'third_country_control', 'non_eu_component_cost_pct',
   'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'components_from_ua', 'components_from_eea_efta', 'ua_partner', 'safe_role', 'REQ-PIC'] as const;
 const SUPPLIER_PAGE_ASKS: Record<string, string> = {
-  handles_classified: 'q-classified', export_intent: 'q-export_intent',
+  handles_classified: 'q-classified', export_intent: 'q-export_intent', [EU_QUESTION]: `q-${EU_QUESTION}`,
   // the export authorisation is asked in the export block once the item may be on a control list; the block says what makes it appear
   'REQ-EXPORT': 'sp-export',
   ...Object.fromEntries(EU_FUNDING_FIELDS.map((f) => [f, 'sp-eu'])),
@@ -866,7 +878,7 @@ export function stepOfField(field: string): number {
   if (['country', 'legal_form', 'org_kind', 'headcount', 'in_group', 'group_headcount'].includes(f)) return 1;
   if (['executive_management_country', 'third_country_control', 'ua_non_government_controlled_area', 'ua_partner', 'control_country', 'investor_precommitment'].includes(f)) return 2;
   if (['non_eu_component_cost_pct', 'restricted_third_country_component', 'components_from_ua_or_eea_efta', 'components_from_ua', 'components_from_eea_efta', 'safe_role', 'product_regime'].includes(f)) return 3;
-  if (['handles_classified', 'export_intent'].includes(f)) return 5;
+  if (['handles_classified', 'export_intent', EU_QUESTION].includes(f)) return 5;
   return 1;
 }
 

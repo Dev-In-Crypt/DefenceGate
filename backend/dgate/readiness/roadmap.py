@@ -73,8 +73,33 @@ def _state_route(content: Content, code: str, country: str | None) -> bool:
     return bool(rows) and all(i.state_route for i in rows)
 
 
+# WP-107: the staff bands of the profile (web/lib/profile.ts HEADCOUNT_BANDS), as employee ranges, to say when a vendor range quoted
+# for one size (AQAP 2110: a firm of 30-80 employees) does not fit the company's.
+HEADCOUNT_RANGES: dict[str, tuple[int, float, str]] = {
+    "lt50": (0, 49, "fewer than 50"), "50_249": (50, 249, "50 to 249"), "250_499": (250, 499, "250 to 499"),
+    "500_1999": (500, 1999, "500 to 1,999"), "2000plus": (2000, float("inf"), "2,000 or more")}
+# WP-107: the rules that no certificate fixes and that a roadmap still has to show when they are open (ownership control and its
+# guarantees, the 35 % component rule, a restricted component, the place of establishment)
+SETTLE_KINDS = ("control", "threshold", "categorical", "establishment")
+
+
+def _left_out_reason(context: Mapping[str, Any]) -> str | None:
+    """Why the product-quality steps (AQAP, named only by supply contracts) are left out for this company, or None."""
+    if context.get("offering") == "software_services":
+        return "you make software or services, not a physical product"
+    if context.get("org_kind") in ("university", "research"):
+        return "you are a university or a research organisation"
+    return None
+
+
 def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str], content: Content,
-                  country: str | None) -> dict[str, Any]:
+                  country: str | None, context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """`context` (WP-107): answers no rule reads that shape the plan: `offering`, `org_kind` (the product-quality steps that only a
+    supply contract names are left out for software, services and research bodies) and `headcount` (a vendor range quoted for another
+    size says so)."""
+    ctx = context or {}
+    skip_why = _left_out_reason(ctx)
+    left_out: dict[str, dict[str, str]] = {}
     nodes: dict[str, _Node] = {}
 
     def make(req: Requirement, status: str, optional: bool) -> _Node:
@@ -90,6 +115,11 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
         req = content.requirements[code]
         status = statuses.get(code, "not_held")
         if status in DONE:
+            return
+        if optional and skip_why and req.extras.get("product_quality"):
+            left_out[code] = {"code": code, "name": req.name,
+                              "text": f"{req.name} is left out because {skip_why}: it is a quality standard for the design, development and "
+                                      "production of products, and only a supply contract that names it asks for it."}
             return
         node = nodes.get(code)
         if node is None:
@@ -146,14 +176,23 @@ def build_roadmap(assessments: Sequence[Assessment], statuses: Mapping[str, str]
         n.req.code))
     position = {n.req.code: i + 1 for i, n in enumerate(ordered)}
     tracks = _tracks(nodes, edges, position)
-    steps = [_step(n, position, content, country, statuses, edges) for n in ordered]
+    steps = [_step(n, position, content, country, statuses, edges, ctx.get("headcount")) for n in ordered]
 
     required = [n for n in ordered if not n.optional]
+    totals, with_optional = _totals(required, edges), _totals(ordered, edges)
     return {
+        # WP-107: the step whose track sets each total time ("5 to 20 days" read as wrong beside a PIC that is immediate: it is the NCAGE code's)
+        "longest": totals.pop("longest"), "longestWithOptional": with_optional.pop("longest"),
+        # WP-107: what the plan leaves out for this company, and the open rules no certificate fixes (control guarantees, the 35 % rule)
+        "leftOut": [v for k, v in left_out.items() if k not in nodes],
+        "settle": [{"programme": a.programme, "programmeName": a.name, "rule": r.rule, "title": r.title, "outcome": r.outcome,
+                    "reason": r.reason, "sourceUrl": r.source_url}
+                   for a in assessments if a.kind != "general" for r in a.rules
+                   if r.requirement is None and r.kind in SETTLE_KINDS and r.outcome in ("not_met", "conditional")],
         "steps": steps,
         "tracks": tracks,
-        "totals": _totals(required, edges),
-        "totalsWithOptional": _totals(ordered, edges),
+        "totals": totals,
+        "totalsWithOptional": with_optional,
         "unknownCost": [n.req.code for n in required if _unknown_cost(n)],
         "unknownDuration": [n.req.code for n in required if _unknown_days(n)],
         # the same for the total that includes what only a contract might ask for (ISO 9001, with no stated cost)
@@ -234,12 +273,18 @@ def _totals(selected: list[_Node], edges: list[tuple[str, str, str]]) -> dict[st
         d = n.days
         finish[n.req.code] = (start[0] + ((d.min or 0) if d else 0), start[1] + ((d.max or 0) if d else 0))
     days = {"min": max((f[0] for f in finish.values()), default=0), "max": max((f[1] for f in finish.values()), default=0)}
-    return {"cost": sorted(money.values(), key=lambda m: m["currency"]), "freeSteps": free, "days": days}
+    longest =max(finish, key=lambda c: (finish[c][1], finish[c][0]), default=None) if days["max"] > 0 else None
+    return {"cost": sorted(money.values(), key=lambda m: m["currency"]), "freeSteps": free, "days": days, "longest": longest}
 
 
 def _step(n: _Node, position: dict[str, int], content: Content, country: str | None,
-          statuses: Mapping[str, str], edges: list[tuple[str, str, str]]) -> dict[str, Any]:
+          statuses: Mapping[str, str], edges: list[tuple[str, str, str]], headcount: str | None = None) -> dict[str, Any]:
     req = n.req
+    basis, band = req.extras.get("size_basis"), HEADCOUNT_RANGES.get(headcount or "")
+    size_note = None
+    if basis and band and n.cost is not None and n.cost.basis == "vendor_range" and (band[1] < basis["min"] or band[0] > basis["max"]):
+        size_note = (f"The source quotes this range for a firm of {basis['min']} to {basis['max']} employees; you said {band[2]}, so it may not "
+                     "fit your size, and the source gives no figure for yours.")
     issuers = content.issuers_for(req.code, country)
     prerequisites = []
     for pre, relation in req.prerequisites:
@@ -262,6 +307,7 @@ def _step(n: _Node, position: dict[str, int], content: Content, country: str | N
         "issuers": [{"country": i.country, "name": i.name, "url": i.url, "notes": i.notes,
                      "status": i.status} for i in issuers],
         "issuerNote": None if issuers else "The body that issues this has not been collected for your country.",
+        "sizeNote": size_note,
         "priceNote": ("In your country the state issues this itself, so the vendor price ranges in our sources do not apply "
                       "and none is shown.") if n.state_route else None,
         "prerequisites": prerequisites, "parallelWith": parallel_with,

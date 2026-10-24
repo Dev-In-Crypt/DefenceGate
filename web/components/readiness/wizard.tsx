@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { HEADCOUNT_BANDS, STATUS_LABEL, controlChoice, exportProfile, firstStepToAnswer, importProfile, isEu, pctProblem, unanswered, visibleCodes, withControlChoice, type Profile, type Status } from '@/lib/profile';
+import { CERTIFICATES, EU_QUESTION, HEADCOUNT_BANDS, STATUS_LABEL, controlChoice, holds, withHeld, exportProfile, firstStepToAnswer, importProfile, isEu, pctProblem, unanswered, visibleCodes, withControlChoice, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
 import { cn } from '@/lib/utils';
 import { Callout } from '@/components/dg/blocks';
@@ -117,10 +117,10 @@ export function ComponentOriginQuestions({ profile, update }: { profile: Profile
   return (
     <>
       <Radios legend="Do any components of that product originate in Ukraine?" name="ua-components"
-        hint="The Ukraine Support Instrument counts components from Ukraine as inside its 35 % limit; EDIP counts them as outside."
+        hint="The Ukraine Support Instrument treats components from Ukraine like EU ones: they do not count toward its 35 % limit on components from outside. EDIP counts them as from outside, so they do count toward its 35 %."
         value={profile.uaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, uaComponents: v }))} />
       <Radios legend="Do any components of that product originate in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="eea-components"
-        hint="The Ukraine Support Instrument counts components from these states as outside its 35 % limit; SAFE counts them as inside."
+        hint="The Ukraine Support Instrument counts components from these states as from outside, so they count toward its 35 % limit. SAFE treats them like EU ones: they do not count toward its 35 %."
         value={profile.eeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, eeaComponents: v }))} />
     </>
   );
@@ -381,6 +381,13 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 </div>
               );
             })}
+            {/* WP-107 (p05): certificates no rule reads (ISO/IEC 27001, the ANSSI qualifications), kept for the summary; the same ticks as the supplier page */}
+            <Fieldset id="q-other-certificates" legend="Other certificates you hold (optional)"
+              hint="For your own summary and supplier report. No rule of this check reads them, and no programme above asks for them.">
+              {CERTIFICATES.filter((c) => !c.code).map((c) => (
+                <Choice key={c.key} label={c.label} checked={holds(profile, c)} onChange={(e) => update((p) => withHeld(p, c, e.target.checked))} />
+              ))}
+            </Fieldset>
           </div>
         )}
 
@@ -390,6 +397,13 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               options={[...YES_NO_UNSURE]} onChange={(v) => set('classified', v)} />
             <Radios legend="Do you export, or plan to export, your product?" name="export" value={profile.exportIntent}
               options={[...EXPORT_OPTIONS]} onChange={(v) => set('exportIntent', v)} />
+            {/* WP-107 (p09): the general rule on certified recipients reads it; the results named it missing and only the supplier page asked it */}
+            {isEu(profile.country) && (
+              <Radios legend="Do you receive defence-related products from other EEA states?" name={EU_QUESTION}
+                hint="Optional. A general rule on certified recipients of defence-related products reads it; it does not change the programme verdicts."
+                value={profile.supplier.answers[EU_QUESTION] ?? ''} options={[...YES_NO_UNSURE]}
+                onChange={(v) => update((p) => ({ ...p, supplier: { ...p.supplier, answers: { ...p.supplier.answers, [EU_QUESTION]: v } } }))} />
+            )}
           </div>
         )}
 

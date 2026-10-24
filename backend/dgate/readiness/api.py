@@ -321,6 +321,8 @@ class ProfileIn(BaseModel):
     control_country: Literal["ua", "eea", "cn", "ru_by", "other_non_eu"] | None = None
     investor_precommitment: bool | None = None
     seap_partner: bool | None = None
+    # WP-107: read by the roadmap only (no rule): software and services firms get no product-quality (AQAP) step
+    offering: Literal["products", "software_services"] | None = None
 
     @field_validator("country", "executive_management_country")
     @classmethod
@@ -334,7 +336,9 @@ class ProfileIn(BaseModel):
         return engine.Profile(**self.model_dump(exclude=set(VERDICT_ONLY)))
 
 
-VERDICT_ONLY = ("org_kind", "headcount", "in_group", "group_headcount", "investor_precommitment", "seap_partner")
+VERDICT_ONLY = ("org_kind", "headcount", "in_group", "group_headcount", "investor_precommitment", "seap_partner", "offering")
+# WP-107: the answers the roadmap reads besides the rules (see roadmap.build_roadmap)
+ROADMAP_CONTEXT = ("offering", "org_kind", "headcount")
 
 
 class AssessIn(BaseModel):
@@ -372,7 +376,7 @@ def assess_all(c: Content, profile: engine.Profile, statuses: Mapping[str, str],
 
 
 def assess_payload(c: Content, profile: engine.Profile, statuses: dict[str, str],
-                   programmes: list[str] | None = None) -> dict[str, Any]:
+                   programmes: list[str] | None = None, context: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """The whole answer for one profile, a pure function of the content: the verdict of each programme,
     the rules that apply to every route, and the roadmap. Raises KeyError for an unknown programme."""
     chosen = [p for p in sorted(c.programmes.values(), key=lambda p: (p.position, p.code)) if p.kind != "general"]
@@ -384,7 +388,7 @@ def assess_payload(c: Content, profile: engine.Profile, statuses: dict[str, str]
     assessments, general = assess_all(c, profile, statuses, chosen)
     # the roadmap reads what the company said; an unasked requirement is a step as before ("not held" until marked)
     said = {k: v for k, v in statuses.items() if v != engine.STATUS_UNKNOWN}
-    plan = roadmap.build_roadmap([*assessments, *general], said, c, profile.country)
+    plan = roadmap.build_roadmap([*assessments, *general], said, c, profile.country, context)
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "rulesReviewed": c.reviewed,
@@ -404,7 +408,7 @@ def assess(body: AssessIn, conn=Depends(get_conn)):
         raise HTTPException(422, "unknown requirement code")
     profile = body.profile.to_engine()
     try:
-        out = assess_payload(c, profile, body.statuses, body.programmes)
+        out = assess_payload(c, profile, body.statuses, body.programmes, body.profile.model_dump(include=set(ROADMAP_CONTEXT)))
     except KeyError:
         raise HTTPException(422, "unknown programme") from None
     if body.call:

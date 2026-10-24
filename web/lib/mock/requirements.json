@@ -2722,6 +2722,10 @@
          "is": "ES"
         },
         {
+         "field": "handles_classified",
+         "is": true
+        },
+        {
          "field": "nato_classified_contract",
          "is": true
         }
@@ -3919,6 +3923,11 @@
      "Polish certification body CertCom: from a few thousand to a few tens of thousands of złoty (vendor statement); the on-site audit takes one to several days.",
      "Pakuła Consulting (Poland): an individual quote that scales with the size of the organisation; shorter for ISO 9001 holders."
     ],
+    "product_quality": true,
+    "size_basis": {
+     "max": 80,
+     "min": 30
+    },
     "without_prerequisite": {
      "requirement": "REQ-ISO9001",
      "text": "Starting from zero without ISO 9001 adds roughly 30-40 % to the budget and 1-2 months."
@@ -3937,7 +3946,7 @@
      "name": "Bundeswehr",
      "notes": "Administered by the Bundeswehr.",
      "url": null,
-     "verificationStatus": "S"
+     "verificationStatus": "U"
     },
     {
      "country": "PL",
@@ -4117,7 +4126,9 @@
    "days": null,
    "description": "AQAP 2310 Edition B Version 2 dates from January 2022, according to the research notes. The Spanish Ministry of Defence lists PECAL 2310 Edición B Versión 1 as the equivalent of AQAP-2310 Edition B Version 1 (read on 20 October 2026), so check which version the contract names. It applies to aerospace and defence contracts that name it. Like AQAP 2110 it enters through individual contracts, not through the EDF, EDIP or SAFE regulations.\n\nThe research behind this page gives no cost for AQAP 2310 (the source says 'varies') and a duration only as 'comparable' to AQAP 2110, so neither is shown as a number.",
    "durationNote": null,
-   "extras": {},
+   "extras": {
+    "product_quality": true
+   },
    "issuers": [
     {
      "country": "ES",
@@ -5183,7 +5194,9 @@
    "days": null,
    "description": "AQAP 2110 contains the whole of ISO 9001:2015 plus NATO-specific additions. In practice: build ISO 9001 first, then add the NATO layer. Companies that already hold ISO 9001 face a materially shorter and cheaper path to AQAP 2110.\n\nThe research behind this page has no source for the cost or duration of ISO 9001 itself, so none is shown.",
    "durationNote": null,
-   "extras": {},
+   "extras": {
+    "roadmap_note": "No source we hold states the cost or the time of ISO 9001 certification itself, so none is shown: ask accredited certification bodies for a quote. The only figure in our sources is relative and comes from a vendor: starting AQAP 2110 without ISO 9001 adds roughly 30-40 % to its budget and 1-2 months."
+   },
    "issuers": [],
    "kind": "document",
    "lastReviewed": "2026-09-07",
@@ -5830,7 +5843,9 @@
    },
    "description": "Register the organisation on the Funding and Tenders Portal through a six-step wizard. A nine-digit PIC is issued immediately when the wizard is complete. An EU Login account is needed. Incomplete drafts are deleted after one year.\n\nValidation by the Central Validation Service (legal entity form, a recent VAT extract, a registration extract or the statutes) is required only if a proposal is selected for funding; for many grants REA performs it. A Legal Entity Appointed Representative (LEAR) must be appointed to update the organisation's data and to handle electronic signatures. A financial capacity assessment applies to grants, except for public bodies and certain other cases.",
    "durationNote": null,
-   "extras": {},
+   "extras": {
+    "roadmap_note": "The PIC itself is issued at once. Two things follow it: if a proposal is selected for funding, the Central Validation Service validates the organisation (legal entity form, a recent VAT extract, a registration extract or the statutes), and the organisation appoints a Legal Entity Appointed Representative (LEAR), who keeps its data up to date and handles electronic signatures. How long the validation takes is not stated by the source."
+   },
    "issuers": [
     {
      "country": "*",

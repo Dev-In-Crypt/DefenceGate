@@ -13548,7 +13548,8 @@
     "export_intent": "within_eu",
     "org_kind": "company",
     "headcount": "lt50",
-    "in_group": false
+    "in_group": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -13674,7 +13675,8 @@
     "export_intent": "within_eu",
     "org_kind": "university",
     "headcount": "500_1999",
-    "in_group": false
+    "in_group": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -13769,7 +13771,8 @@
     "org_kind": "company",
     "headcount": "lt50",
     "in_group": false,
-    "control_country": "cn"
+    "control_country": "cn",
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",
@@ -13800,7 +13803,8 @@
     "export_intent": "within_eu",
     "org_kind": "company",
     "headcount": "lt50",
-    "in_group": false
+    "in_group": false,
+    "offering": "software_services"
    },
    "statuses": {
     "REQ-NCAGE": "not_held",

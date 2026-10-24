@@ -1507,7 +1507,11 @@
  "notice": "This is a structured reading of the rules of each programme, with the text of the regulation beside every line. It is not legal advice and it does not replace the call text or the contracting authority. It does not cover the exclusion criteria and the financial and operational capacity checks of the Financial Regulation, or the conditions each call sets. The answers were not stored.",
  "roadmap": {
   "label": "vendor range, not a benchmark",
+  "leftOut": [],
+  "longest": "REQ-NCAGE",
+  "longestWithOptional": "REQ-NCAGE",
   "notAdded": [],
+  "settle": [],
   "steps": [
    {
     "blockingFor": [
@@ -1562,7 +1566,7 @@
       "title": "PIC registered on the Funding and Tenders Portal"
      }
     ],
-    "note": null,
+    "note": "The PIC itself is issued at once. Two things follow it: if a proposal is selected for funding, the Central Validation Service validates the organisation (legal entity form, a recent VAT extract, a registration extract or the statutes), and the organisation appoints a Legal Entity Appointed Representative (LEAR), who keeps its data up to date and handles electronic signatures. How long the validation takes is not stated by the source.",
     "optional": false,
     "order": 1,
     "origin": "notes",
@@ -1572,6 +1576,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register",
     "status": "not_held",
     "summary": "A nine-digit code issued when an organisation registers on the EU Funding and Tenders Portal. Free and immediate. Needed to apply for EDF and EDIP funding.",
@@ -1630,6 +1635,7 @@
     ],
     "prerequisites": [],
     "priceNote": null,
+    "sizeNote": null,
     "sourceUrl": "https://eportal.nspa.nato.int/Codification/CageTool/",
     "status": "not_held",
     "summary": "A five-character entity identifier from the NATO codification system. Needed for NATO and NSPA supply and for stock numbers. Free of charge.",
@@ -1650,7 +1656,7 @@
       "country": "DE",
       "name": "Bundeswehr",
       "notes": "Administered by the Bundeswehr.",
-      "status": "S",
+      "status": "U",
       "url": null
      }
     ],
@@ -1701,6 +1707,7 @@
      }
     ],
     "priceNote": "In your country the state issues this itself, so the vendor price ranges in our sources do not apply and none is shown.",
+    "sizeNote": null,
     "sourceUrl": "https://nso.nato.int/",
     "status": "not_held",
     "summary": "NATO quality assurance requirements for design, development and production. Not an eligibility condition of EDF, EDIP or SAFE: it enters through individual contracts and cascades down the supply chain.",

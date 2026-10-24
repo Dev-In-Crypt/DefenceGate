@@ -82,7 +82,8 @@ SUPPLIER_PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     # a civilian automotive castings maker that answered every question of the Spanish route "no"
     "es-sup-civil": ({**_SUPPLIER_BASE, "third_country_control": "no", "handles_classified": False, "foreign_capital": False, "us_components": False,
                       "pecal_certificate_wanted": False, "pecal_2310_target": False, "ncage_need_justified": False,
-                      "specific_defence_use": False, "nato_classified_contract": False, "nato_icb_bid": False,
+                      # WP-107: no NATO-classified question without classified work (the page no longer asks or sends it)
+                      "specific_defence_use": False, "nato_icb_bid": False,
                       "receives_eea_defence_products": False},
                      {**_ES_STATUSES, "REQ-ISO9001": "held"}),
     # a machining and electronics firm already selling to the Ministry: RID, NCAGE, ISO 9001 and AQAP 2110, a French investor
