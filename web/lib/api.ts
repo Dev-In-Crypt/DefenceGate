@@ -386,16 +386,19 @@ export async function getDigestWeeks(limit = 52): Promise<DigestWeek[]> {
 
 function buyersQuery(f: BuyerFilters): string {
   const p = new URLSearchParams(toBuyerQuery(f));
+  // WP-98b: the order by the codes is the page's default with a CPV filter (so not in its address), never the API's
+  if (f.sort === 'cpv') p.set('sort', 'cpv');
   p.set('pageSize', String(f.pageSize ?? BUYER_PAGE_SIZE));
   return `?${p.toString()}`;
 }
 
-export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<Buyer> & { staleAsOf?: string }> {
+/** `cpvCountCollapsed` (WP-98b): false when the counts under the codes are the plain ones (a notice and its copy may count twice). */
+export async function getBuyers(filters: BuyerFilters = {}): Promise<Paginated<Buyer> & { staleAsOf?: string; cpvCountCollapsed?: boolean }> {
   if (API_BASE) {
     // The last good answer when the service does not answer (re-audit of 20 Oct, N2: /buyers?country=DE failed under light load).
     const shared = toBuyerQuery(filters) === '';
     const path = `/v1/buyers${buyersQuery(filters)}`;
-    return withLastGood(`buyers:${path}`, () => httpOrThrow<Paginated<Buyer>>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS), { persist: shared });
+    return withLastGood(`buyers:${path}`, () => httpOrThrow<Paginated<Buyer> & { cpvCountCollapsed?: boolean }>(path, shared ? 'revalidate' : 'no-store', LIST_REVALIDATE_SECONDS), { persist: shared });
   }
   return tenderMock.queryBuyers(filters);
 }
@@ -411,6 +414,7 @@ export async function getSuppliers(f: SupplierFilters = {}): Promise<Paginated<S
   if (f.buyerCountry) p.set('buyerCountry', f.buyerCountry);
   if (f.cpv) p.set('cpv', f.cpv);
   if (f.group) p.set('group', f.group);
+  if (f.source) p.set('source', f.source);
   if (f.sort && f.sort !== 'awards') p.set('sort', f.sort);
   if (f.page && f.page > 1) p.set('page', String(f.page));
   const filtered = p.size > 0;

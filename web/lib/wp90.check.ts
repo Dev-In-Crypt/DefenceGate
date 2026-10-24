@@ -24,8 +24,8 @@ const TITLES: Record<string, string> = {
   '34100000': 'Motor vehicles', '34300000': 'Parts and accessories for vehicles and their engines', '35300000': 'Weapons, ammunition and associated parts',
   '35810000': 'Individual equipment', '18100000': 'Occupational clothing, special workwear and accessories',
 };
-assert.deepEqual(CPV_PRESETS.map((p) => p.label), [
-  'Military electronics', 'Radar and sonar', 'Communications', 'Vehicles and parts', 'Ammunition and weapons', 'Uniforms and protective gear']);
+// WP-98b widened the uniforms and ammunition presets and added parts and the services (lib/wp98b.check.ts holds those)
+assert.deepEqual(CPV_PRESETS.slice(0, 4).map((p) => p.label), ['Military electronics', 'Radar and sonar', 'Communications', 'Vehicles and parts']);
 for (const p of CPV_PRESETS) {
   for (const code of p.codes) {
     assert.ok(CPV_FULL.has(code), `${p.id}: ${code} is a code of the vocabulary`);

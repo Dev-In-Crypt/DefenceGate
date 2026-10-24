@@ -6,9 +6,9 @@ import { FilterPanel } from '../funding/filter-panel';
 import { BUYER_COUNTRIES, CURRENCIES, SCOPE_CHOICES } from '@/lib/taxonomy';
 import {
   DEFAULT_CURRENCY, DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, MAX_QUERY_LENGTH, PARAM, TENDER_PAGE_SIZE, TENDER_PAGE_SIZES, activeBuyerFilterCount,
-  activeTenderFilterCount, defaultTenderSort, toTenderQuery,
+  activeTenderFilterCount, defaultBuyerSort, defaultTenderSort, toTenderQuery,
 } from '@/lib/filters';
-import { CPV_PRESETS, DEADLINE_PRESETS, activeDeadlinePreset, activePreset, deadlineWindow, presetPrefixes } from '@/lib/analyst';
+import { CPV_PRESETS, DEADLINE_PRESETS, PRESET_GROUPS, activeDeadlinePreset, activePreset, deadlineWindow, presetPrefixes } from '@/lib/analyst';
 import { now } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
 import { countsAsOf, overlapNote, scopeCountText } from '@/lib/list-count';
@@ -62,22 +62,28 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
         {/* WP-90: what the words are matched against, said where they are typed */}
         <TextInput search name={PARAM.q} maxLength={MAX_QUERY_LENGTH} label="Search" placeholder="Title, buyer or number" defaultValue={filters.q ?? ''}
           hint="Searches titles in the original language and in English where TED gives one, buyer names, and the English names of the notice's product codes." />
+        {/* WP-98b: goods and services, each a row of official codes (lib/analyst.ts) */}
         <div className="flex flex-col gap-1.5" data-cpv-presets>
           <span className="text-label text-ink">Product groups</span>
-          <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-            {CPV_PRESETS.map((p) => {
-              const on = preset?.id === p.id;
-              return (
-                <li key={p.id}>
-                  <Link href={`${basePath}${toTenderQuery({ ...filters, cpv: on ? undefined : presetPrefixes(p), page: 1 })}`} aria-current={on || undefined}
-                    title={`CPV ${presetPrefixes(p).join(', ')}`}
-                    className={cn('inline-flex min-h-8 items-center rounded-pill border px-3 text-small font-semibold', on ? 'border-ink bg-ink text-surface' : 'border-line text-ink')}>
-                    {p.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          {PRESET_GROUPS.map((g) => (
+            <div key={g.id} className="flex flex-col gap-1" data-preset-group={g.id}>
+              <span className="text-small text-ink-muted">{g.label}</span>
+              <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                {CPV_PRESETS.filter((p) => p.group === g.id).map((p) => {
+                  const on = preset?.id === p.id;
+                  return (
+                    <li key={p.id}>
+                      <Link href={`${basePath}${toTenderQuery({ ...filters, cpv: on ? undefined : presetPrefixes(p), page: 1 })}`} aria-current={on || undefined}
+                        title={`CPV ${presetPrefixes(p).join(', ')}`}
+                        className={cn('inline-flex min-h-8 items-center rounded-pill border px-3 text-small font-semibold', on ? 'border-ink bg-ink text-surface' : 'border-line text-ink')}>
+                        {p.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
         <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
           hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />
@@ -104,17 +110,21 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
             hint="Narrows the scope you chose to notices that say defence themselves: the directive or a military product code." />
         </FoldGroup>
         <CountryChoices selected={filters.country} open />
-        <FoldGroup legend="Deadline between (UTC)" open={false} count={(filters.deadlineFrom ? 1 : 0) + (filters.deadlineTo ? 1 : 0)}>
-          <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0 pb-1" data-deadline-presets>
+        {/* WP-98b (p03): the deadline presets in sight, not inside the folded date range */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-label text-ink">Deadline</span>
+          <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" data-deadline-presets>
             {DEADLINE_PRESETS.map((n) => (
               <li key={n}>
-                <Link href={`${basePath}${toTenderQuery({ ...filters, ...deadlineWindow(n, ref), page: 1 })}`} aria-current={deadlinePreset === n || undefined}
+                <Link href={`${basePath}${toTenderQuery({ ...filters, ...(deadlinePreset === n ? { deadlineFrom: undefined, deadlineTo: undefined } : deadlineWindow(n, ref)), page: 1 })}`} aria-current={deadlinePreset === n || undefined}
                   className={cn('inline-flex min-h-8 items-center rounded-pill border px-3 text-small font-semibold', deadlinePreset === n ? 'border-ink bg-ink text-surface' : 'border-line text-ink')}>
                   Next {n} days
                 </Link>
               </li>
             ))}
           </ul>
+        </div>
+        <FoldGroup legend="Deadline between (UTC)" open={false} count={(filters.deadlineFrom ? 1 : 0) + (filters.deadlineTo ? 1 : 0)}>
           <TextInput type="date" name={PARAM.from} aria-label="Deadline from" defaultValue={filters.deadlineFrom ?? ''} />
           <TextInput type="date" name={PARAM.to} aria-label="Deadline to" defaultValue={filters.deadlineTo ?? ''} />
         </FoldGroup>
@@ -153,7 +163,7 @@ export function BuyerFilterBar({ filters, basePath }: { filters: BuyerFilters; b
           <Choice name={PARAM.hasOpen} value="true" label="Only buyers with open tenders" defaultChecked={filters.hasOpen === true} />
         </FoldGroup>
         <CountryChoices selected={filters.country} />
-        {filters.sort && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
+        {filters.sort && filters.sort !== defaultBuyerSort(filters.cpv) && <input type="hidden" name={PARAM.sort} value={filters.sort} />}
         <div className={FORM_BUTTONS}>
           <Button type="submit">Apply filters</Button>
           <Link href={basePath} className="inline-flex min-h-11 items-center text-small font-bold">Clear all</Link>

@@ -96,6 +96,30 @@ export function FilterPanel({ activeCount, defaults = {}, children }: { activeCo
   const [open, setOpen] = useState(false);
   const { pending, epoch } = useLiveForm(ref, defaults, children);
 
+  // WP-98b (p02, 375 px: the first result 2,717 px down after Apply): below lg, Apply folds the panel and brings the results up.
+  // The live form has already sent the filters (its own submit listener); this only moves the view, once the fold is laid out
+  // (scrolled before it, the page moved up under the scroll and the chips above the results were out of sight).
+  const toResults = useRef(false);
+  useEffect(() => {
+    const form = ref.current?.querySelector('form');
+    if (!form) return;
+    const onSubmit = () => {
+      if (!window.matchMedia('(max-width: 1023.98px)').matches) return;
+      toResults.current = true;
+      setOpen(false);
+    };
+    form.addEventListener('submit', onSubmit);
+    return () => form.removeEventListener('submit', onSubmit);
+  }, [epoch]);
+  // ...and once the new list is in (the browser's scroll anchoring keeps the old heading in place when the chips arrive above it).
+  useEffect(() => {
+    if (open || pending || !toResults.current) return;
+    toResults.current = false;
+    const results = document.getElementById('results');
+    results?.scrollIntoView({ block: 'start' });
+    results?.focus({ preventScroll: true });
+  }, [open, pending, children]);
+
   return (
     <div ref={ref} aria-busy={pending} className="flex flex-col gap-3">
       <button type="button" aria-expanded={open} aria-controls="filter-panel" onClick={() => setOpen(!open)}
