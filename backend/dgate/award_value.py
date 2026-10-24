@@ -161,52 +161,117 @@ def contradicted(amount: float | None, opp: dict[str, Any]) -> bool:
     return _usable(stored) and amount > CONTRADICTED_RATIO * stored
 
 
+# WP-108 (persona round 4, p10 and p02): the same wrong-unit entry where the notice states no estimate. A figure is checked
+# against what the notice's own parts sum to (its lots' framework maxima, its winning tenders' values) and against the
+# value the procedure's other notices state (`procedure_value`, `awards.VALUE_COLUMNS`: the largest estimate of another
+# notice of the same eForms procedure, in the same currency). FASER 394720-2025 states PLN 7,247,040,000 for four tenders
+# summing to PLN 7,247,040; Imprensa Nacional Casa da Moeda 499753-2026 EUR 1,159,000,000 for a procedure estimated at
+# EUR 1,450,000.
+SET_ASIDE_ESTIMATE, SET_ASIDE_LOTS, SET_ASIDE_PROCEDURE = "estimate", "lots", "procedure"
+SET_ASIDE_REASONS = (SET_ASIDE_ESTIMATE, SET_ASIDE_LOTS, SET_ASIDE_PROCEDURE)
+# Over CONTRADICTED_RATIO times the other figure from ten million (in the notice's currency), or exactly a thousand times
+# it from a million (the amount typed in thousands): 107790-2025 states EUR 690,000,000 for a procedure of EUR 690,000.
+# ponytail: below ten million a hundredfold gap stands (a framework's estimate may be one year of several); the floor is
+# in the notice's own currency, so HUF and CZK figures reach it sooner.
+IMPLAUSIBLE_FROM = 1e7
+THOUSANDFOLD_FROM = 1e6
+
+
+def implausible_against(amount: float | None, other: float | None) -> bool:
+    """WP-108: whether `amount` is a wrong-unit entry measured against `other`, a smaller figure of the same notice or
+    procedure: over CONTRADICTED_RATIO times it from IMPLAUSIBLE_FROM, or a clean thousand times it from THOUSANDFOLD_FROM."""
+    if amount is None or not _usable(other):
+        return False
+    if amount >= IMPLAUSIBLE_FROM and amount > CONTRADICTED_RATIO * other:
+        return True
+    return amount >= THOUSANDFOLD_FROM and abs(amount / 1000 - other) < 0.01
+
+
+def procedure_set_aside(amount: float | None, opp: dict[str, Any], cur: str | None = None) -> tuple[float, str] | None:
+    """WP-108: (the procedure's estimate, its currency) when `amount` is implausible against it; None otherwise."""
+    other = float(opp["procedure_value"]) if opp.get("procedure_value") is not None else None
+    cur = cur or _currency(opp.get("value_currency"))
+    if cur and implausible_against(amount, other):
+        return round(other, 2), cur
+    return None
+
+
 def ted_value(rec: dict[str, Any] | None, opp: dict[str, Any]) -> tuple[float | None, str | None, str | None]:
     """(amount, currency, kind) of a TED result notice from its award record `rec` (with `TED_VALUE_FIELDS`, or None)
-    and its serving row `opp` (value_amount, value_currency, value_kind, notice_subtype, title_original, title_en).
-    A record that states one of the eForms value fields decides; one that states none (an older-format notice, a
-    record fetched before WP-95, an eForms notice TED answers without them) leaves the stored value as the mapper
-    chose it: a total is a contract value unless the title says framework, a sum of lot estimates an estimate.
+    and its serving row `opp` (value_amount, value_currency, value_kind, notice_subtype, title_original, title_en; WP-108
+    procedure_value). A record that states one of the eForms value fields decides; one that states none (an older-format
+    notice, a record fetched before WP-95, an eForms notice TED answers without them) leaves the stored value as the
+    mapper chose it: a total is a contract value unless the title says framework, a sum of lot estimates an estimate.
     WP-103: a figure the notice's own estimate contradicts (`contradicted`) is set aside (`ted_value_set_aside`) and
-    the estimate stands, as an estimate.
+    the estimate stands, as an estimate. WP-108: a figure implausible against the sum of the notice's own lot or tender
+    values (`implausible_against`) is set aside and that sum stands, of the same kind; one implausible against the
+    procedure's value is set aside and the procedure's estimate stands, as an estimate. `ted_value_set_aside_reason`
+    says which (`SET_ASIDE_REASONS`).
     ponytail: an eForms notice whose framework maximum TED leaves out is then read as a contract value."""
     return _ted_value(rec, opp)[:3]
 
 
 def ted_value_set_aside(rec: dict[str, Any] | None, opp: dict[str, Any]) -> float | None:
-    """WP-103: the figure `ted_value` set aside as implausible (`contradicted`), or None."""
+    """WP-103: the figure `ted_value` set aside as implausible, or None."""
     return _ted_value(rec, opp)[3]
 
 
-def _ted_value(rec: dict[str, Any] | None, opp: dict[str, Any]) -> tuple[float | None, str | None, str | None, float | None]:
+def ted_value_set_aside_reason(rec: dict[str, Any] | None, opp: dict[str, Any]) -> str | None:
+    """WP-108: why `ted_value` set its figure aside (`SET_ASIDE_REASONS`), or None."""
+    return _ted_value(rec, opp)[4]
+
+
+def _checked(amount: float, cur: str | None, kind: str, parts: float | None, opp: dict[str, Any], estimate: tuple) -> tuple:
+    """(amount, currency, kind, set aside, reason) of a candidate figure: the figure itself, or, set aside, the estimate
+    (WP-103), the sum of its parts or the procedure's estimate (WP-108)."""
+    if contradicted(amount, opp):
+        return (*estimate, round(amount, 2), SET_ASIDE_ESTIMATE)
+    if implausible_against(amount, parts):
+        return round(parts, 2), cur, kind, round(amount, 2), SET_ASIDE_LOTS
+    proc = procedure_set_aside(amount, opp, cur)
+    if proc:
+        return *proc, ESTIMATE, round(amount, 2), SET_ASIDE_PROCEDURE
+    return round(amount, 2), cur, kind, None, None
+
+
+def _ted_value(rec: dict[str, Any] | None, opp: dict[str, Any]) -> tuple:
     rec = rec or {}
     cur = (_currency(rec.get("total-value-cur")) or _currency(rec.get("result-value-cur-notice"))
            or _currency(rec.get("estimated-value-cur-proc")) or _currency(opp.get("value_currency")))
     stored = float(opp["value_amount"]) if opp.get("value_amount") is not None else None
     if any(k in rec for k in _EFORMS_VALUE_KEYS):
         estimate = (stored, cur, ESTIMATE) if _usable(stored) and cur else (None, None, None)
+        lots = [a for a in _amounts(rec.get("BT-709-LotResult")) or _amounts(rec.get("framework-maximum-value-lot"))
+                if _usable(a)]
+        lot_sum = sum(lots) if lots else None
         frame = _amount(rec.get("BT-118-NoticeResult"))
+        frame_parts = lot_sum if _usable(frame) else None       # the notice's maximum against its lots' maxima
         if not _usable(frame):
-            lots = [a for a in _amounts(rec.get("BT-709-LotResult")) or _amounts(rec.get("framework-maximum-value-lot"))
-                    if _usable(a)]
-            frame = sum(lots) if lots else None
+            frame = lot_sum
         notice = _amount(rec.get("BT-161-NoticeResult"))
         tenders = [a for a in _amounts(rec.get("BT-720-Tender")) or _amounts(rec.get("tender-value")) if _usable(a)]
-        for amount, kind in ((frame, FRAMEWORK), (notice, CONTRACT), (sum(tenders) if tenders else None, CONTRACT)):
+        tender_sum = sum(tenders) if tenders else None
+        for amount, kind, parts in ((frame, FRAMEWORK, frame_parts), (notice, CONTRACT, tender_sum),
+                                    (tender_sum, CONTRACT, None)):
             if not _usable(amount):
                 continue
-            if contradicted(amount, opp):
-                return (*estimate, round(amount, 2))
-            return round(amount, 2), cur, kind, None
+            out = _checked(amount, cur, kind, parts, opp, estimate)
+            if (out[3] is None and parts is None and opp.get("value_kind") == "total"
+                    and implausible_against(stored, amount)):
+                # WP-108: the value read from the parts stands, and the notice's own total, a wrong-unit entry of their
+                # sum (FASER 394720-2025 when TED answers its tenders and no notice value), is said and not used
+                return (*out[:3], round(stored, 2), SET_ASIDE_LOTS)
+            return out
         # the award states its values as placeholders (712069-2026: -1): what TED filled `total-value` with is the
         # procedure's estimate
-        return (*estimate, None)
+        return (*estimate, None, None)
     # no eForms value field: the stored value as the mapper chose it
     if not _usable(stored) or not cur:
-        return None, None, None, None
+        return None, None, None, None, None
     kind = opp.get("value_kind")
     if kind == "total":
-        return stored, cur, kind_of_title(opp.get("title_original"), opp.get("title_en")) or CONTRACT, None
+        title_kind = kind_of_title(opp.get("title_original"), opp.get("title_en")) or CONTRACT
+        return _checked(stored, cur, title_kind, None, opp, (None, None, None))
     if kind in ("lot_sum", "estimated"):
-        return stored, cur, ESTIMATE, None
-    return None, None, None, None
+        return stored, cur, ESTIMATE, None, None
+    return None, None, None, None, None

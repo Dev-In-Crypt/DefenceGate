@@ -1002,7 +1002,7 @@ def append_version(conn: psycopg.Connection, opp_id: int, opp: Opportunity,
 
 
 def annotate_versions(conn: psycopg.Connection, version_ids: list[int],
-                      kind: str, note: str) -> int:
+                      kind: str, note: str, fields: list[str] | None = None) -> int:
     """Attach one note of one kind to each of the given versions; returns how many
     were annotated now.
 
@@ -1011,15 +1011,47 @@ def annotate_versions(conn: psycopg.Connection, version_ids: list[int],
     bulk correction that re-derives status, value or dates from the payload a
     notice already had: the publisher amended nothing, so the corrected version
     must not read as an amendment. Idempotent: one note per version and kind.
+    WP-108: `remapped_fields` (REMAPPED_FIELDS_NOTE) with `fields`, the fields of the version that are our corrected
+    reading; the rest of the version is the publisher's change (migration 0120).
     """
     if not version_ids:
         return 0
     return conn.execute(
-        """INSERT INTO opportunity_version_note (opportunity_version_id, kind, note)
-           SELECT v, %s, %s FROM unnest(%s::bigint[]) AS v
+        """INSERT INTO opportunity_version_note (opportunity_version_id, kind, note, fields)
+           SELECT v, %s, %s, %s FROM unnest(%s::bigint[]) AS v
            ON CONFLICT (opportunity_version_id, kind) DO NOTHING""",
-        (kind, note, list(version_ids)),
+        (kind, note, fields, list(version_ids)),
     ).rowcount
+
+
+REMAPPED_FIELDS_NOTE = "remapped_fields"
+
+
+def mapper_fields(changed: list[str], prev: dict[str, Any], payload: dict[str, Any]) -> tuple[list[str], bool]:
+    """WP-103/WP-108: of a version written after the older mapping's (`older_mapping`), the changed fields that are the
+    mapper's reading (`MAPPER_OWNED`, and the status where the source's own status code did not move), and whether
+    that is all of them (then the whole version is `remapped`; otherwise the rest, a status the source moved from EV to
+    ADJ, is the publisher's and only these fields are noted)."""
+    owned = MAPPER_OWNED | ({"status"} if prev.get("status_native") == payload.get("status_native") else set())
+    ours = [f for f in changed if f in owned]
+    whole = bool(ours) and len(ours) == len(changed)
+    if not whole and "value_amount" in ours and not _tax_ratio(prev.get("value_amount"), payload.get("value_amount")):
+        # beside a real change, a value is the mapper's only where it moved by a Spanish tax rate (VAT 21/10/4 %, the
+        # Canary Islands' IGIC 7/3 %): 2026/EA15/00002526 went up eightfold with its deadline, which is the buyer's
+        ours = [f for f in ours if f not in ("value_amount", "value_currency")]
+    return ours, whole
+
+
+# The value with tax over the value without, for the Spanish rates the older PLACSP mapping included (WP-108).
+_TAX_RATIOS = (1.21, 1.10, 1.07, 1.04, 1.03)
+
+
+def _tax_ratio(before: Any, after: Any) -> bool:
+    try:
+        ratio = float(before) / float(after)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return False
+    return any(abs(ratio - r) < 0.005 for r in _TAX_RATIOS)
 
 
 def _same_entry_state(prev: dict[str, Any], payload: dict[str, Any]) -> bool:
@@ -1050,7 +1082,11 @@ def older_mapping(prev: dict[str, Any], payload: dict[str, Any]) -> bool:
     The older mapper read the value with VAT, no legal basis, and the feed's stamp as the publication date, so what
     the two say differently in the fields the mapper owns is the reading, not the publisher: on 15 October 2026 at
     06:49, 17 PLACSP notices read again showed "value changed" (71,000 to 58,677.69, i.e. / 1.21) and a publication
-    date months back as amendments (persona p10), because the entry had been stamped again since the held version."""
+    date months back as amendments (persona p10), because the entry had been stamped again since the held version.
+    WP-108 (round 4, p10): the 12 versions of 14-15 October that also moved the source's status code (EV or PUB to ADJ
+    or RES: the award) were left untagged, so their value / 1.21 (/ 1.07 with the Canary Islands' IGIC) and their
+    publication date stood as the buyer's: such a version gets its mapper fields noted (`mapper_fields`,
+    `remapped_fields`), and the status change stays the publisher's."""
     return not prev.get("source_updated_at") and bool(payload.get("source_updated_at"))
 
 
@@ -1226,6 +1262,16 @@ def upsert_opportunity(
         annotate_versions(conn, [version_id], "remapped",
                           f"{opp.source_code} entry read again under a corrected mapping: "
                           + ", ".join(changed))
+    elif older_mapping(prev, payload):
+        # WP-108: the older mapping's fields moved together with a real change (the award): only they are noted
+        ours, _ = mapper_fields(list(changed), prev, payload)
+        if ours:
+            version_id = conn.execute(
+                "SELECT id FROM opportunity_version WHERE opportunity_id = %s AND version = %s",
+                (opp_id, version)).fetchone()["id"]
+            annotate_versions(conn, [version_id], REMAPPED_FIELDS_NOTE,
+                              f"{opp.source_code} entry read again under a corrected mapping: " + ", ".join(ours),
+                              fields=ours)
     return opp_id, "changed"
 
 

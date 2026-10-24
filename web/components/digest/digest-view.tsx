@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Rss } from 'lucide-react';
-import { DIGEST_COUNTRIES, SECTIONS, countsSentence, splitByRegime, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, weekOf, type DigestFilters } from '@/lib/digest';
+import { DIGEST_COUNTRIES, SECTIONS, cancelledSince, countsSentence, splitByRegime, digestPath, noticesIn, repeatsLabel, restOfTendersHref, truncation, weekLabel, weekOf, type DigestFilters } from '@/lib/digest';
 import { now } from '@/lib/deadline';
 import { displayName } from '@/lib/display-name';
 import { formatDateTimeUtc, formatDateUtc, formatMoney, formatNumber } from '@/lib/format';
@@ -61,6 +61,7 @@ function TenderItem({ t }: { t: DigestTender }) {
     <Card as="article" className="h-full gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <Tag kind="programme">{t.kind === 'new' ? 'New notice' : 'Amended notice'}</Tag>
+        {cancelledSince(t) && <span data-cancelled><Tag>Cancelled since</Tag></span>}
         {t.country && <Tag>{t.country}</Tag>}
         {repeatsLabel(t.repeats) && <Tag><span aria-hidden="true">{repeatsLabel(t.repeats)}</span><span className="sr-only">{t.repeats} identical notices</span></Tag>}
         <time dateTime={t.day} className="ml-auto font-mono text-mono text-ink-muted">{formatDateUtc(`${t.day}T00:00:00Z`)}</time>

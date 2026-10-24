@@ -176,12 +176,15 @@ class AwardValue(BaseModel):
     # WP-103: the figure the notice states that its own estimate contradicts (set aside; `kind` is then estimate); left
     # out of the JSON when there is none, so the object is as before for every other notice
     setAside: float | None = None
+    # WP-108: why it was set aside, lots or procedure (`award_value.SET_ASIDE_REASONS`); left out for the estimate of WP-103
+    setAsideReason: str | None = None
 
     @model_serializer(mode="wrap")
     def _without_empty_set_aside(self, handler):
         out = handler(self)
-        if out.get("setAside") is None:
-            out.pop("setAside", None)
+        for key in ("setAside", "setAsideReason"):
+            if out.get(key) is None or out.get("setAside") is None:
+                out.pop(key, None)
         return out
 
 
@@ -336,7 +339,12 @@ class TenderVersion(BaseModel):
     # True for our own corrected reading of a payload we already held (`remapped`): a state
     # the archive holds, shown as such, and never counted as the publisher's amendment.
     correction: bool = False
+    # WP-108: why a correction is one: `remapped` (our corrected reading); None for the publisher's own change
+    reason: str | None = None
     changes: list[FieldChange]
+    # WP-108: the publication date the source moved in the version that made the notice awarded (it dated the notice by
+    # its award): said under the version, not a change by the buyer
+    redated: list[FieldChange] = []
 
 
 class Buyer(BaseModel):
@@ -1657,8 +1665,10 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
                   (array_agg(value_kind ORDER BY opportunity_id = %s DESC) FILTER (WHERE value_kind IS NOT NULL))[1] AS vk,
                   (array_agg(value_set_aside ORDER BY opportunity_id = %s DESC)
                        FILTER (WHERE value_kind IS NOT NULL))[1] AS sa,
+                  (array_agg(value_set_aside_reason ORDER BY opportunity_id = %s DESC)
+                       FILTER (WHERE value_kind IS NOT NULL))[1] AS sr,
                   count(*) AS read
-             FROM award_notice WHERE opportunity_id = ANY(%s)""", (ids[0], ids[0], ids[0], ids[0], ids)).fetchone()
+             FROM award_notice WHERE opportunity_id = ANY(%s)""", (ids[0], ids[0], ids[0], ids[0], ids[0], ids)).fetchone()
     paged: set[int] = set()
     if rows:
         paged = {r["id"] for r in conn.execute(
@@ -1676,7 +1686,8 @@ def awarded(conn, ids: list[int]) -> dict[str, Any]:
     value = None
     if notice and notice["vk"] and notice["va"] is not None and notice["va"] > PLACEHOLDER_VALUE_MAX and notice["vc"]:
         value = {"amount": float(notice["va"]), "currency": notice["vc"].strip(), "kind": notice["vk"],
-                 "setAside": float(notice["sa"]) if notice["sa"] is not None else None}
+                 "setAside": float(notice["sa"]) if notice["sa"] is not None else None,
+                 "setAsideReason": notice["sr"] if notice["sa"] is not None and notice["sr"] != "estimate" else None}
     elif len(winners) == 1 and winners[0]["valueAmount"] is not None and not (notice and notice["persons"]):
         value = {"amount": winners[0]["valueAmount"], "currency": winners[0]["valueCurrency"],
                  "kind": winners[0]["valueKind"]}
@@ -1729,7 +1740,9 @@ def award_summaries(conn, keys: dict[int, list[int]]) -> dict[int, dict[str, Any
                   (array_agg(n.value_currency ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vc,
                   (array_agg(n.value_kind ORDER BY n.opportunity_id = x.key DESC) FILTER (WHERE n.value_kind IS NOT NULL))[1] AS vk,
                   (array_agg(n.value_set_aside ORDER BY n.opportunity_id = x.key DESC)
-                       FILTER (WHERE n.value_kind IS NOT NULL))[1] AS sa
+                       FILTER (WHERE n.value_kind IS NOT NULL))[1] AS sa,
+                  (array_agg(n.value_set_aside_reason ORDER BY n.opportunity_id = x.key DESC)
+                       FILTER (WHERE n.value_kind IS NOT NULL))[1] AS sr
              FROM unnest(%s::bigint[], %s::bigint[]) AS x(key, oid)
              JOIN award_notice n ON n.opportunity_id = x.oid
             GROUP BY x.key""", (ks, oids)).fetchall()}
@@ -1757,7 +1770,8 @@ def award_summaries(conn, keys: dict[int, list[int]]) -> dict[int, dict[str, Any
         value = None
         if n and n["vk"] and n["va"] is not None and n["va"] > PLACEHOLDER_VALUE_MAX and n["vc"]:
             value = {"amount": float(n["va"]), "currency": n["vc"].strip(), "kind": n["vk"],
-                     "setAside": float(n["sa"]) if n["sa"] is not None else None}
+                     "setAside": float(n["sa"]) if n["sa"] is not None else None,
+                     "setAsideReason": n["sr"] if n["sa"] is not None and n["sr"] != "estimate" else None}
         elif len(winners) == 1 and winners[0]["valueAmount"] is not None and not persons:
             value = {"amount": winners[0]["valueAmount"], "currency": winners[0]["valueCurrency"],
                      "kind": winners[0]["valueKind"]}
@@ -2006,6 +2020,13 @@ REMAPPED_KIND = "remapped"
 # timeline (and is the baseline of the next change) but is marked, and no count of
 # amendments includes it.
 HISTORIC_KIND = "history"
+# WP-108 (persona p10, videoscopio 2812): a version in which only some fields are our corrected reading (`fields` of its
+# note, migration 0120) and the rest a real change: the corrected fields are a correction, the rest the publisher's.
+REMAPPED_FIELDS_KIND = "remapped_fields"
+# WP-108: why a correction entry is one (our corrected reading); and on the page, a publication date that moved in the
+# version that made the notice awarded is the source dating the notice by its award, not an amendment: it is said apart,
+# under that version (`redated`), never as a line of the buyer's change
+CORRECTION_REMAPPED = "remapped"
 
 
 def link_host(value: Any) -> str | None:
@@ -2023,7 +2044,9 @@ TIMELINE_SQL = """
     SELECT v.opportunity_id, v.version, v.observed_at, v.changed_fields,
            """ + PAYLOAD_SUBSET + """ AS payload,
            COALESCE((SELECT array_agg(n.kind) FROM opportunity_version_note n
-                      WHERE n.opportunity_version_id = v.id), '{{}}') AS kinds
+                      WHERE n.opportunity_version_id = v.id), '{{}}') AS kinds,
+           (SELECT n.fields FROM opportunity_version_note n
+             WHERE n.opportunity_version_id = v.id AND n.kind = 'remapped_fields') AS remapped_fields
       FROM opportunity_version v
      WHERE {where}
      ORDER BY v.opportunity_id, v.version"""
@@ -2053,6 +2076,40 @@ def _fold_remap(out: list[dict[str, Any]], before: dict[str, Any], after: dict[s
               or any(c["field"] != "published_at" for c in e["changes"])]
 
 
+def _change_lines(previous: dict[str, Any], payload: dict[str, Any], changed: list[str]) -> list[dict[str, Any]]:
+    """The lines a reader can see of one version against the one before it."""
+    changes = []
+    for field in changed:
+        if field not in FIELD_LABELS:
+            continue
+        before, after = previous.get(field), payload.get(field)
+        if same_value(field, before, after):
+            continue
+        if field == "source_url":
+            # A new address on the same site (the publisher's own identifier in the
+            # path) is not a change a reader can use; a move to another site is,
+            # and says which, not the two addresses.
+            host_before, host_after = link_host(before), link_host(after)
+            if host_before == host_after:
+                continue
+            changes.append({"field": field, "label": FIELD_LABELS[field],
+                            "before": host_before, "after": host_after})
+            continue
+        shown_before, shown_after = _show(field, before), _show(field, after)
+        if shown_before == shown_after:
+            continue
+        # An amount is read with the currency of the version it belongs to.
+        old_code = previous.get("value_currency") or payload.get("value_currency")
+        new_code = payload.get("value_currency") or old_code
+        human_before = _human(field, before, old_code)
+        human_after = _human(field, after, new_code)
+        if human_before == human_after:       # two spellings of one word
+            continue
+        changes.append({"field": field, "label": FIELD_LABELS[field],
+                        "before": human_before, "after": human_after})
+    return changes
+
+
 def timeline(rows: list[dict[str, Any]], *, corrections: bool = False) -> list[dict[str, Any]]:
     """The amendments of one notice, oldest first, from its version rows in order.
 
@@ -2072,6 +2129,13 @@ def timeline(rows: list[dict[str, Any]], *, corrections: bool = False) -> list[d
     holds is shown and no change is dated before it was observed (re-audit of the data pages,
     NEW-1: notice 235 dated its cancellation of 15 Oct on 30 Sep and lost the Awarded state;
     notice 6 hid the deadline it corrected on 12 Oct).
+
+    WP-108: a version noted `remapped_fields` is split: its noted fields are a correction (folded
+    for the counts, an entry of their own on the page) and the rest the publisher's change. And
+    a publication date that moved in the version that made the notice awarded is the source
+    dating the notice by its award, not an amendment: on the page it is said apart under that
+    version (`redated`), never a line of the publisher's change (persona p10, notice 2812:
+    "Published changed from 28 Sep 2026 to 3 Sep 2026" beside "Status changed to Awarded").
     """
     out: list[dict[str, Any]] = []
     previous: dict[str, Any] | None = None
@@ -2083,43 +2147,27 @@ def timeline(rows: list[dict[str, Any]], *, corrections: bool = False) -> list[d
         remapped = REMAPPED_KIND in kinds
         if previous is None:
             out.append({"version": r["version"], "detectedAt": r["observed_at"],
-                        "historic": HISTORIC_KIND in kinds, "correction": False, "changes": []})
+                        "historic": HISTORIC_KIND in kinds, "correction": False, "reason": None, "changes": []})
         elif remapped and not corrections:
             _fold_remap(out, previous, payload, r["changed_fields"] or [])
         else:
-            changes = []
-            for field in r["changed_fields"] or []:
-                if field not in FIELD_LABELS:
-                    continue
-                before, after = previous.get(field), payload.get(field)
-                if same_value(field, before, after):
-                    continue
-                if field == "source_url":
-                    # A new address on the same site (the publisher's own identifier in the
-                    # path) is not a change a reader can use; a move to another site is,
-                    # and says which, not the two addresses.
-                    host_before, host_after = link_host(before), link_host(after)
-                    if host_before == host_after:
-                        continue
-                    changes.append({"field": field, "label": FIELD_LABELS[field],
-                                    "before": host_before, "after": host_after})
-                    continue
-                shown_before, shown_after = _show(field, before), _show(field, after)
-                if shown_before == shown_after:
-                    continue
-                # An amount is read with the currency of the version it belongs to.
-                old_code = previous.get("value_currency") or payload.get("value_currency")
-                new_code = payload.get("value_currency") or old_code
-                human_before = _human(field, before, old_code)
-                human_after = _human(field, after, new_code)
-                if human_before == human_after:       # two spellings of one word
-                    continue
-                changes.append({"field": field, "label": FIELD_LABELS[field],
-                                "before": human_before, "after": human_after})
-            if any(c["field"] != "published_at" for c in changes):
-                out.append({"version": r["version"], "detectedAt": r["observed_at"],
-                            "historic": HISTORIC_KIND in kinds, "correction": remapped,
-                            "changes": changes})
+            changes = _change_lines(previous, payload, r["changed_fields"] or [])
+            fixed = set() if remapped else set(r.get("remapped_fields") or [])
+            ours = [c for c in changes if c["field"] in fixed]
+            own = [c for c in changes if c["field"] not in fixed]
+            redated: list[dict[str, Any]] = []
+            if (corrections and not remapped and payload.get("status") == "awarded"
+                    and previous.get("status") != "awarded"):
+                redated = [c for c in own if c["field"] == "published_at"]
+                own = [c for c in own if c["field"] != "published_at"]
+            if ours and not corrections:
+                _fold_remap(out, previous, payload, [c["field"] for c in ours])
+            entry = {"version": r["version"], "detectedAt": r["observed_at"], "historic": HISTORIC_KIND in kinds}
+            if any(c["field"] != "published_at" for c in own):
+                out.append({**entry, "correction": remapped, "reason": CORRECTION_REMAPPED if remapped else None,
+                            "changes": own, "redated": redated})
+            if corrections and ours:
+                out.append({**entry, "correction": True, "reason": CORRECTION_REMAPPED, "changes": ours})
         previous = payload
     for number, entry in enumerate(out, 1):
         entry["sequence"] = number

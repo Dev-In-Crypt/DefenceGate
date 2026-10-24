@@ -1,3 +1,4 @@
+import { CORRECTION_NOTE, redatedLine } from '@/lib/award-lines';
 import { formatChangeValue } from '@/lib/change-format';
 import { formatDateUtc } from '@/lib/format';
 import type { FieldChange, TenderVersion } from '@/lib/types';
@@ -29,7 +30,7 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
         const last = i === versions.length - 1;
         const seq = sequenceOf(versions, i);
         return (
-          <li key={ver.version} className="grid grid-cols-[16px_1fr] gap-x-4">
+          <li key={`${ver.version}-${ver.reason ?? ''}-${i}`} className="grid grid-cols-[16px_1fr] gap-x-4">
             <div className="relative flex justify-center">
               <span className={cn('relative z-10 mt-1.5 size-2.5 rounded-pill border-2', i === 0 ? 'border-ink bg-ink' : 'border-line bg-surface')} />
               {!last && <span className="absolute -bottom-1.5 top-4 w-0.5 bg-line" />}
@@ -44,9 +45,7 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
                 </span>
               )}
               {ver.correction && (
-                <span className="text-small text-ink-muted">
-                  We read the notice we already held again with a corrected reading: the publisher did not change it on this date, and it is not counted as a change.
-                </span>
+                <span className="text-small text-ink-muted">{CORRECTION_NOTE}</span>
               )}
               {ver.changes.length === 0 ? (
                 <span className="text-body">First observed by DefenceGate</span>
@@ -55,6 +54,8 @@ export function VersionTimeline({ versions }: { versions: TenderVersion[] }) {
                   {ver.changes.map((c, n) => <li key={`${c.field}-${n}`} className="min-w-0 text-body">{describeChange(c)}</li>)}
                 </ul>
               )}
+              {/* WP-108: the source's own re-dating with the award, never a line of the buyer's change */}
+              {redatedLine(ver) && <span className="text-small text-ink-muted" data-redated>{redatedLine(ver)}</span>}
             </div>
           </li>
         );

@@ -54,12 +54,17 @@ from ..award_value import (
     CONTRACT,
     ESTIMATE,
     FRAMEWORK,
+    SET_ASIDE_ESTIMATE,
+    SET_ASIDE_PROCEDURE,
     TED_VALUE_FIELDS,
+    THOUSANDFOLD_FROM,
     contradicted,
     kind_of_title,
     placsp_kind,
+    procedure_set_aside,
     ted_value,
     ted_value_set_aside,
+    ted_value_set_aside_reason,
 )
 from ..awards import VALUE_COLUMNS, refresh_award_twins
 from ..config import settings
@@ -67,7 +72,8 @@ from ..placsp_awards import framework_of
 from ..sources import USER_AGENT, new_client, ted
 
 _TED_ROWS = f"""SELECT n.opportunity_id AS id, o.native_id, n.value_amount AS n_va, n.value_currency AS n_vc,
-                       n.value_kind AS n_vk, n.value_set_aside AS n_sa, n.winners_seen, {VALUE_COLUMNS}
+                       n.value_kind AS n_vk, n.value_set_aside AS n_sa, n.value_set_aside_reason AS n_sr,
+                       n.winners_seen, {VALUE_COLUMNS}
                   FROM award_notice n JOIN opportunity o ON o.id = n.opportunity_id
                  WHERE o.source_id = (SELECT id FROM source WHERE code = 'ted')"""
 
@@ -82,10 +88,15 @@ def _same(held: Any, new: float | None) -> bool:
     return held is None if new is None else held is not None and float(held) == new
 
 
-def _write_ted(conn, r: dict[str, Any], value: tuple, c: Counter, write: bool, set_aside: float | None = None) -> None:
+def _write_ted(conn, r: dict[str, Any], value: tuple, c: Counter, write: bool, set_aside: float | None = None,
+               reason: str | None = None) -> None:
     va, vc, vk = value
-    same = r["n_vk"] == vk and r["n_vc"] == vc and _same(r["n_va"], va) and _same(r.get("n_sa"), set_aside)
+    reason = reason if set_aside is not None else None
+    same = (r["n_vk"] == vk and r["n_vc"] == vc and _same(r["n_va"], va) and _same(r.get("n_sa"), set_aside)
+            and r.get("n_sr") == reason)
     c[f"ted_{vk or 'none'}"] += 1
+    if reason:
+        c[f"ted_set_aside_{reason}"] += 1
     if same:
         return
     c["ted_notices_changed"] += 1
@@ -93,8 +104,8 @@ def _write_ted(conn, r: dict[str, Any], value: tuple, c: Counter, write: bool, s
         c[f"ted_{r['n_vk']}_to_{vk or 'none'}"] += 1
     if not write:
         return
-    conn.execute("UPDATE award_notice SET value_amount = %s, value_currency = %s, value_kind = %s, value_set_aside = %s "
-                 "WHERE opportunity_id = %s", (va, vc, vk, set_aside, r["id"]))
+    conn.execute("UPDATE award_notice SET value_amount = %s, value_currency = %s, value_kind = %s, value_set_aside = %s, "
+                 "value_set_aside_reason = %s WHERE opportunity_id = %s", (va, vc, vk, set_aside, reason, r["id"]))
     if r["winners_seen"] == 1:
         c["ted_award_rows"] += conn.execute(
             """UPDATE award SET value_amount = %s, value_currency = %s, value_kind = %s
@@ -127,7 +138,7 @@ def run_ted(conn, *, fetch: bool, write: bool, pause: float = 1.0, examples: lis
                 if examples is not None and value[2] in ("framework", "estimate") and len(examples) < 15:
                     examples.append(f"{r['native_id']}: {value[2]} {value[0]} {value[1]} (stored {r['value_amount']} "
                                     f"{r['value_kind']})")
-                _write_ted(conn, r, value, c, write, ted_value_set_aside(rec, r))
+                _write_ted(conn, r, value, c, write, ted_value_set_aside(rec, r), ted_value_set_aside_reason(rec, r))
             if write:
                 conn.commit()
     finally:
@@ -137,19 +148,27 @@ def run_ted(conn, *, fetch: bool, write: bool, pause: float = 1.0, examples: lis
 
 
 def run_set_aside(conn, *, write: bool, examples: list[str] | None = None) -> Counter:
-    """WP-103, step 3: a held TED figure that the notice's own estimate contradicts is set aside; the estimate stands."""
+    """WP-103, step 3: a held TED figure that the notice's own estimate contradicts is set aside; the estimate stands.
+    WP-108: and one implausible against the estimate another notice of its procedure states
+    (`award_value.procedure_set_aside`); that estimate stands, as an estimate."""
     c: Counter = Counter()
-    rows = conn.execute(f"""{_TED_ROWS} AND n.value_kind IN ('{CONTRACT}', '{FRAMEWORK}') AND n.value_amount >= 1e9
-                             ORDER BY n.opportunity_id""").fetchall()
+    rows = conn.execute(f"""{_TED_ROWS} AND n.value_kind IN ('{CONTRACT}', '{FRAMEWORK}')
+                             AND n.value_amount >= {THOUSANDFOLD_FROM} ORDER BY n.opportunity_id""").fetchall()
     for r in rows:
-        if not contradicted(float(r["n_va"]), r):
-            continue
+        held = float(r["n_va"])
+        if contradicted(held, r):
+            reason, value = SET_ASIDE_ESTIMATE, (float(r["value_amount"]), r["value_currency"], ESTIMATE)
+        else:
+            proc = procedure_set_aside(held, r, r["n_vc"])
+            if proc is None:
+                continue
+            reason, value = SET_ASIDE_PROCEDURE, (*proc, ESTIMATE)
         c["ted_values_set_aside"] += 1
-        if examples is not None and len(examples) < 15:
-            examples.append(f"{r['native_id']}: {r['n_vk']} {r['n_va']} {r['n_vc']} set aside, estimate "
-                            f"{r['value_amount']} {r['value_currency']}")
-        _write_ted(conn, r, (float(r["value_amount"]), r["value_currency"], ESTIMATE), Counter(), write,
-                   float(r["n_va"]))
+        c[f"ted_values_set_aside_{reason}"] += 1
+        if examples is not None and len(examples) < 40:
+            examples.append(f"{r['native_id']}: {r['n_vk']} {r['n_va']} {r['n_vc']} set aside ({reason}), "
+                            f"{value[0]} {value[1]} stands")
+        _write_ted(conn, r, value, Counter(), write, held, reason)
     if write:
         conn.commit()
     return c
@@ -227,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
         for e in examples:
             print("  " + e)
     if set_aside:
-        print("TED figures set aside as implausible (first 15):")
+        print("TED figures set aside as implausible (first 40):")
         for e in set_aside:
             print("  " + e)
     if links:
