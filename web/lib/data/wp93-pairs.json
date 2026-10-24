@@ -2240,9 +2240,9 @@
    "from": "B/docs/dep12.txt",
    "facts": {
     "designated_applicants": {
-     "value": "public bodies acting as National Cyber Hubs",
+     "value": "National Cyber Hubs",
      "confidence": 1,
-     "quote": "The targeted stakeholders under a) and b) above are public bodies acting as National Cyber Hubs, as identified by Member States linked to a \"call for expression of interest to deploy and operate National Cyber Hub platforms to improve the detection of cybersecurity threats and share cybersecurity data in the EU\".",
+     "quote": "only entities designated at Member State level as National Cyber Hubs are allowed to apply for funding and the project should be mono-beneficiary.",
      "note": null,
      "verified": true,
      "origin": "rule_reading"
@@ -3273,7 +3273,7 @@
      "value": "French",
      "note": "Only staff of French nationality may submit the application and contribute to the project.",
      "quote": "",
-     "confidence": 1.0,
+     "confidence": 1,
      "scope": "call_document"
     }
    }
@@ -3287,7 +3287,7 @@
      "value": 1999,
      "note": "The consolidated staff count, counted with the group, must be under 2000.",
      "quote": "",
-     "confidence": 1.0,
+     "confidence": 1,
      "scope": "call_document"
     }
    }
@@ -3344,9 +3344,9 @@
      "quote": "Please be aware that all topics of this call are subject to restrictions due to security, therefore entities must not be directly or indirectly controlled from a country that is not an eligible country."
     },
     "designated_applicants": {
-     "value": "public bodies acting as National Cyber Hubs",
+     "value": "National Cyber Hubs",
      "note": null,
-     "quote": "The targeted stakeholders under a) and b) above are public bodies acting as National Cyber Hubs, as identified by Member States linked to a \"call for expression of interest to deploy and operate National Cyber Hub platforms to improve the detection of cybersecurity threats and share cybersecurity data in the EU\".",
+     "quote": "only entities designated at Member State level as National Cyber Hubs are allowed to apply for funding and the project should be mono-beneficiary.",
      "scope": "call_document"
     }
    }
@@ -3456,32 +3456,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -3494,62 +3500,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -3562,52 +3580,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -3620,37 +3648,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -3663,17 +3698,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -3686,107 +3724,128 @@
       {
        "rule": "ES-RID",
        "title": "Registration in the defence industry register (RID)",
-       "requirement": "REQ-RID"
+       "requirement": "REQ-RID",
+       "outcome": "unknown"
       },
       {
        "rule": "ES-PECAL-CONTRACT",
        "title": "PECAL quality requirements come with the contract",
-       "requirement": "REQ-PECAL"
+       "requirement": "REQ-PECAL",
+       "outcome": "info"
       },
       {
        "rule": "ES-AOC-CLAUSE",
        "title": "Quality clauses and the DGAM-endorsed certificate of conformity",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "ES-PECAL-CERT",
        "title": "PECAL certification of your quality management system (DGAM)",
-       "requirement": "REQ-PECAL"
+       "requirement": "REQ-PECAL",
+       "outcome": "unknown"
       },
       {
        "rule": "ES-PECAL-ISO",
        "title": "ISO 9001 or EN 9100 as a formal precondition of PECAL",
-       "requirement": "REQ-ISO9001"
+       "requirement": "REQ-ISO9001",
+       "outcome": "unknown"
       },
       {
        "rule": "Q-ISO9001-FILTER",
        "title": "ISO 9001 as a filter",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "Q-EN9100-FILTER",
        "title": "EN 9100 for PECAL 2310",
-       "requirement": "REQ-EN9100"
+       "requirement": "REQ-EN9100",
+       "outcome": "unknown"
       },
       {
        "rule": "ES-NCAGE",
        "title": "NCAGE code (Spain)",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "unknown"
       },
       {
        "rule": "ES-CATALOG-CLAUSE",
        "title": "Catalogation clause in Armed Forces supply contracts",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "ES-HOMOLOG",
        "title": "Defence homologation of the product (RD 165/2010)",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "ES-HSEM",
        "title": "Company security clearance (HSEM) for bidders and subcontractors",
-       "requirement": "REQ-FSC-ES"
+       "requirement": "REQ-FSC-ES",
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-HSES",
        "title": "Establishment security clearance (HSES) for storing classified information",
-       "requirement": "REQ-HSES-ES"
+       "requirement": "REQ-HSES-ES",
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-HSEM-ISSUER",
        "title": "Who processes the HSEM and HSES for Ministry of Defence contracts",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-ONS-ROLE",
        "title": "The ONS (CNI) for NATO, EU and ESA classified information",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-NSFCC",
        "title": "NATO Facility Security Clearance Certificate (NSFCC)",
-       "requirement": "REQ-FSC-ES"
+       "requirement": "REQ-FSC-ES",
+       "outcome": "unknown"
       },
       {
        "rule": "ES-NATO-DOE",
        "title": "Declaration of Eligibility for NATO international competitive bidding",
-       "requirement": "REQ-RID"
+       "requirement": "REQ-RID",
+       "outcome": "unknown"
       },
       {
        "rule": "ES-EXPORT-MIL",
        "title": "Spanish licence for exports and intra-EU shipments of defence material",
-       "requirement": "REQ-EXPORT"
+       "requirement": "REQ-EXPORT",
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-LGTC",
        "title": "Global licence for transfers of defence-material components",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "ES-FOREIGN-CAPITAL",
        "title": "Foreign investor: Council of Ministers authorisation",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "ES-CERTIFIED-RECIPIENT",
        "title": "Certified recipient of defence products from other EEA states",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "ES-MOD-EXPORT-ROLE",
        "title": "Ministry of Defence documents in export control (DIGEID)",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       }
      ]
     }
@@ -3840,32 +3899,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -3878,62 +3943,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -3946,52 +4023,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4004,37 +4091,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4047,17 +4141,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -4104,32 +4201,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4142,62 +4245,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -4210,52 +4325,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4268,37 +4393,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4311,17 +4443,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "met"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -4347,32 +4482,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4385,62 +4526,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -4453,52 +4606,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4511,37 +4674,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4554,17 +4724,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "met"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -4590,32 +4763,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4631,62 +4810,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -4699,52 +4890,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4757,37 +4958,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4800,17 +5008,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -4862,32 +5073,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -4900,62 +5117,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -4968,52 +5197,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5026,37 +5265,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5069,17 +5315,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -5117,32 +5366,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5155,62 +5410,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -5226,52 +5493,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5284,37 +5561,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5327,17 +5611,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -5380,32 +5667,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5418,62 +5711,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -5486,52 +5791,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5544,37 +5859,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5587,17 +5909,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -5640,32 +5965,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5678,62 +6009,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -5746,52 +6089,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "to_obtain"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5804,37 +6157,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5847,17 +6207,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -5909,32 +6272,38 @@
       {
        "rule": "EDF-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDF-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDF-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -5947,62 +6316,74 @@
       {
        "rule": "EDIP-CPA-APPLICANT",
        "title": "Who may apply: contracting authorities, international organisations, SEAPs and the EDA",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-PREP-APPLICANT",
        "title": "Who may apply: a SEAP or a group of Member States",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-SEAP-APPLICANT",
        "title": "Who may apply: an established SEAP",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "EDIP-ESTABLISH",
        "title": "Established in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-EXEC-MGMT",
        "title": "Executive management in the Union or an associated country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-CONTROL",
        "title": "Not controlled by a non-associated third country",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "EDIP-ORIGIN-35",
        "title": "Components from outside the Union and associated countries: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "EDIP-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "EDIP-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "EDIP-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     },
@@ -6015,52 +6396,62 @@
       {
        "rule": "USI-LEGAL-ENTITY",
        "title": "Legal entity: a legal person, or an entity without legal personality that is accepted",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ESTABLISH",
        "title": "Established in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-EXEC-MGMT",
        "title": "Executive management in the Union or in Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-TERRITORY",
        "title": "Not established in a non-government controlled area of Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "not_applicable"
       },
       {
        "rule": "USI-CONTROL",
        "title": "Not controlled by a non-associated third country other than Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "met"
       },
       {
        "rule": "USI-ORIGIN-35",
        "title": "Components from outside the Union and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "USI-PIC",
        "title": "PIC registered on the Funding and Tenders Portal",
-       "requirement": "REQ-PIC"
+       "requirement": "REQ-PIC",
+       "outcome": "met"
       },
       {
        "rule": "USI-INVOLVES-UA",
        "title": "The action involves Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "conditional"
       },
       {
        "rule": "USI-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -6073,37 +6464,44 @@
       {
        "rule": "SAFE-ESTABLISH",
        "title": "Established in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-EXEC-MGMT",
        "title": "Executive management in the Union, an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-CONTROL",
        "title": "Not controlled by a third country other than an EEA EFTA state or Ukraine",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-ORIGIN-35",
        "title": "Components from outside the Union, the EEA EFTA states and Ukraine: at most 35 % of component cost",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-NO-RESTRICTED",
        "title": "No component from a third country that contravenes the Union's security and defence interests",
-       "requirement": null
+       "requirement": null,
+       "outcome": "unknown"
       },
       {
        "rule": "SAFE-SUBCONTRACT-RELIEF",
        "title": "Subcontractors outside the Union: the 15 to 35 % allowance",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       },
       {
        "rule": "SAFE-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       }
      ]
     },
@@ -6116,17 +6514,20 @@
       {
        "rule": "NATO-NCAGE",
        "title": "NCAGE code",
-       "requirement": "REQ-NCAGE"
+       "requirement": "REQ-NCAGE",
+       "outcome": "to_obtain"
       },
       {
        "rule": "NATO-AQAP",
        "title": "AQAP quality certification",
-       "requirement": "REQ-AQAP2110"
+       "requirement": "REQ-AQAP2110",
+       "outcome": "info"
       },
       {
        "rule": "NATO-AQAP-ED",
        "title": "AQAP editions as the Spanish Ministry of Defence lists them",
-       "requirement": null
+       "requirement": null,
+       "outcome": "info"
       }
      ]
     }
@@ -6403,9 +6804,9 @@
   "P1|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -6525,9 +6926,9 @@
   "P1|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -6673,7 +7074,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -6767,7 +7168,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -7096,9 +7497,9 @@
   "P10|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -7218,9 +7619,9 @@
   "P10|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -7366,7 +7767,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -7460,7 +7861,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -7789,9 +8190,9 @@
   "P2|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -7911,9 +8312,9 @@
   "P2|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -8059,7 +8460,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -8153,7 +8554,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -8482,9 +8883,9 @@
   "P3|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -8604,9 +9005,9 @@
   "P3|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -8752,7 +9153,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -8846,7 +9247,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -9175,9 +9576,9 @@
   "P4|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -9297,9 +9698,9 @@
   "P4|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -9445,7 +9846,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -9539,7 +9940,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -10143,7 +10544,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -10237,7 +10638,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -10567,9 +10968,9 @@
   "P6|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -10689,9 +11090,9 @@
   "P6|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -10837,7 +11238,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -10931,7 +11332,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -11532,7 +11933,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -11626,7 +12027,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -11955,9 +12356,9 @@
   "P8|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -12077,9 +12478,9 @@
   "P8|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 1 condition to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -12225,7 +12626,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -12319,7 +12720,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -12648,9 +13049,9 @@
   "P9|113": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -12770,9 +13171,9 @@
   "P9|118": {
    "fit": "check",
    "shown": "check",
-   "word": "Nothing known blocks you, 2 conditions to check",
+   "word": "Not without a Ukrainian partner (you said none takes part)",
    "conditions": [
-    "EDIP: Ukraine Support Instrument: a condition or an answer is still open"
+    "Not without a Ukrainian partner (you said none takes part)"
    ],
    "lines": [
     {
@@ -12918,7 +13319,7 @@
     {
      "key": "designated",
      "verdict": "check",
-     "reason": "The call targets National Coordination Centres. Others take part only in a consortium with one: Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
+     "reason": "Only National Coordination Centres may apply; anybody else can take part only as a partner in a consortium with one. Others may take part in a consortium with them: This call targets National Coordination Centres which have been recognized by the Commission as having the capacity to manage funds to achieve the mission and objectives laid down in the Regulation establishing the European Cybersecurity Industrial, Technology and Research Competence Centre and the Network of National Coordination Centres and other private and other private and public entities in"
     },
     {
      "key": "country",
@@ -13012,7 +13413,7 @@
     {
      "key": "designated",
      "verdict": "no",
-     "reason": "Only public bodies acting as National Cyber Hubs may apply. You are not eligible unless your organisation is one."
+     "reason": "Only National Cyber Hubs may apply. You are not eligible unless your organisation is one."
     },
     {
      "key": "country",
@@ -13105,7 +13506,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": false,
-    "components_from_ua_or_eea_efta": false,
+    "components_from_ua": false,
+    "components_from_eea_efta": false,
     "ua_partner": false,
     "safe_role": "other_supplier",
     "handles_classified": false,
@@ -13137,7 +13539,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": null,
-    "components_from_ua_or_eea_efta": null,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": false,
     "safe_role": "other_supplier",
     "handles_classified": false,
@@ -13167,7 +13570,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": false,
-    "components_from_ua_or_eea_efta": false,
+    "components_from_ua": false,
+    "components_from_eea_efta": false,
     "ua_partner": false,
     "safe_role": "contractor",
     "handles_classified": true,
@@ -13197,7 +13601,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": false,
-    "components_from_ua_or_eea_efta": false,
+    "components_from_ua": false,
+    "components_from_eea_efta": false,
     "ua_partner": false,
     "safe_role": "contractor",
     "handles_classified": false,
@@ -13228,7 +13633,8 @@
     "ua_non_government_controlled_area": false,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": false,
-    "components_from_ua_or_eea_efta": true,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": null,
     "safe_role": "contractor",
     "handles_classified": false,
@@ -13259,7 +13665,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": null,
-    "components_from_ua_or_eea_efta": null,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": false,
     "safe_role": null,
     "handles_classified": null,
@@ -13289,7 +13696,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": null,
-    "components_from_ua_or_eea_efta": null,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": false,
     "safe_role": null,
     "handles_classified": true,
@@ -13320,7 +13728,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": null,
-    "components_from_ua_or_eea_efta": null,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": false,
     "safe_role": null,
     "handles_classified": true,
@@ -13350,7 +13759,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": null,
-    "components_from_ua_or_eea_efta": null,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": false,
     "safe_role": null,
     "handles_classified": false,
@@ -13381,7 +13791,8 @@
     "ua_non_government_controlled_area": null,
     "non_eu_component_cost_pct": null,
     "restricted_third_country_component": null,
-    "components_from_ua_or_eea_efta": null,
+    "components_from_ua": null,
+    "components_from_eea_efta": null,
     "ua_partner": false,
     "safe_role": null,
     "handles_classified": false,

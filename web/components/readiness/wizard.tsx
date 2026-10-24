@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Download, Trash2, Upload } from 'lucide-react';
 import { BUYER_COUNTRIES } from '@/lib/taxonomy';
-import { HEADCOUNT_BANDS, STATUS_LABEL, exportProfile, firstStepToAnswer, importProfile, pctProblem, unanswered, visibleCodes, type Profile, type Status } from '@/lib/profile';
+import { HEADCOUNT_BANDS, STATUS_LABEL, controlChoice, exportProfile, firstStepToAnswer, importProfile, isEu, pctProblem, unanswered, visibleCodes, withControlChoice, type Profile, type Status } from '@/lib/profile';
 import { requirementSlug } from '@/lib/readiness';
 import { cn } from '@/lib/utils';
 import { Callout } from '@/components/dg/blocks';
@@ -49,7 +49,8 @@ export const YES_NO_UNSURE = [{ value: 'yes', label: 'Yes' }, { value: 'no', lab
 /** WP-89: the options of the questions the supplier page asks too ("If you also want EU funding"), the same words in both places. */
 export const LEGAL_FORM_OPTIONS = [{ value: 'legal_person', label: 'A legal person, for example a company, a foundation or a public body' }, { value: 'natural_person', label: 'A natural person, for example a sole trader acting in their own name' }, { value: 'no_legal_personality', label: 'An entity without legal personality, for example some partnerships' }] as const;
 export const MANAGEMENT_OPTIONS = [{ value: 'same', label: 'In the country where the company is established' }, { value: 'other', label: 'In another country' }] as const;
-export const CONTROL_OPTIONS = [{ value: 'no', label: 'No' }, { value: 'ua_eea_only', label: 'Yes, but only by Ukraine or an EEA EFTA state (Iceland, Liechtenstein, Norway)' }, { value: 'other', label: 'Yes, by another country or an entity from another country' }, { value: 'unsure', label: 'I am not sure' }] as const;
+// WP-99: Ukraine and the EEA EFTA states are two answers (the Ukraine Support Instrument allows control from Ukraine; an EEA EFTA state is a condition)
+export const CONTROL_OPTIONS = [{ value: 'no', label: 'No' }, { value: 'ua', label: 'Yes, but only by Ukraine (for example Ukrainian owners)' }, { value: 'eea', label: 'Yes, but only by an EEA EFTA state (Iceland, Liechtenstein, Norway)' }, { value: 'other', label: 'Yes, by another country or an entity from another country' }, { value: 'unsure', label: 'I am not sure' }] as const;
 export const SAFE_ROLE_OPTIONS = [{ value: 'contractor', label: 'We would be the contractor' }, { value: 'subcontractor_involved', label: 'We would be a subcontractor of that kind (critical inputs, at least 15 % of the contract value, access to classified information)' }, { value: 'other_supplier', label: 'We would supply components or services below that level' }, { value: 'unsure', label: 'I am not sure' }] as const;
 
 // ---------------------------------------------------------------- WP-93: the questions the size, control and EIC rules read (wizard and supplier page)
@@ -84,20 +85,44 @@ export const ORG_KIND_OPTIONS = [
   { value: 'company', label: 'A company' }, { value: 'university', label: 'A university or another higher-education institution' },
   { value: 'research', label: 'A research organisation that is not a university' },
 ] as const;
-const CONTROL_UA_EEA = [{ value: 'ua', label: 'Ukraine' }, { value: 'eea', label: 'An EEA EFTA state (Iceland, Liechtenstein, Norway)' }, { value: 'unsure', label: 'I am not sure' }] as const;
 const CONTROL_OTHER = [
   { value: 'cn', label: 'China' }, { value: 'ru_by', label: 'Russia or Belarus' }, { value: 'other_non_eu', label: 'Another country outside the EU' },
   { value: 'unsure', label: 'I am not sure' },
 ] as const;
 
-/** Which country controls a company controlled from outside the EU: some calls exclude control by China only, others admit control from an eligible country. */
-export function ControlCountryQuestion({ profile, update }: { profile: Profile; update: Update }) {
-  if (profile.control !== 'ua_eea_only' && profile.control !== 'other') return null;
+/**
+ * The control question (wizard and supplier page), with the country asked after "another country": some calls exclude control by China
+ * only, others admit control from an eligible country. WP-99: Ukraine and the EEA EFTA states are answers of their own, and a company
+ * established outside the EU gets a hint (a Ukrainian-owned Ukrainian company hesitated between "No" and "only by Ukraine").
+ */
+export function ControlQuestion({ profile, update, hint }: { profile: Profile; update: Update; hint: string }) {
+  const outside = profile.country !== '' && !isEu(profile.country);
   return (
-    <Radios legend="Which country controls your company?" name="control-country" value={profile.controlCountry}
-      hint="Some calls exclude only entities controlled by China; others accept control from a country that is itself eligible under the call."
-      options={profile.control === 'ua_eea_only' ? [...CONTROL_UA_EEA] : [...CONTROL_OTHER]}
-      onChange={(v) => update((p) => ({ ...p, controlCountry: v }))} />
+    <>
+      <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control"
+        hint={outside ? `${hint} Your company is established outside the EU: if its owners are from ${profile.country === 'UA' ? 'Ukraine' : 'your country'}, it is controlled from outside the EU${profile.country === 'UA' ? ', so choose “Yes, but only by Ukraine”' : ''}.` : hint}
+        value={controlChoice(profile)} options={[...CONTROL_OPTIONS]}
+        onChange={(v) => update((p) => withControlChoice(p, v))} />
+      {profile.control === 'other' && (
+        <Radios legend="Which country controls your company?" name="control-country" value={profile.controlCountry}
+          hint="Some calls exclude only entities controlled by China; others accept control from a country that is itself eligible under the call."
+          options={[...CONTROL_OTHER]} onChange={(v) => update((p) => ({ ...p, controlCountry: v }))} />
+      )}
+    </>
+  );
+}
+
+/** WP-99: where components come from, Ukraine and the EEA EFTA states apart (the Ukraine Support Instrument counts Ukraine as inside). */
+export function ComponentOriginQuestions({ profile, update }: { profile: Profile; update: Update }) {
+  return (
+    <>
+      <Radios legend="Do any components of that product originate in Ukraine?" name="ua-components"
+        hint="The Ukraine Support Instrument counts components from Ukraine as inside its 35 % limit; EDIP counts them as outside."
+        value={profile.uaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, uaComponents: v }))} />
+      <Radios legend="Do any components of that product originate in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="eea-components"
+        hint="The Ukraine Support Instrument counts components from these states as outside its 35 % limit; SAFE counts them as inside."
+        value={profile.eeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => update((p) => ({ ...p, eeaComponents: v }))} />
+    </>
   );
 }
 
@@ -281,12 +306,8 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 error={needManagement && !profile.managementCountry ? 'Choose the country of the executive management to go on.' : undefined}
                 onChange={(e) => { setNeedManagement(false); set('managementCountry', e.target.value); }} />
             )}
-            <Radios legend="Is your company controlled by a country or an entity outside the EU?" name="control"
-              hint="Think of the ultimate owners, not only the first shareholder. Control from an EEA EFTA state or Ukraine is treated differently by each programme."
-              value={profile.control}
-              options={[...CONTROL_OPTIONS]}
-              onChange={(v) => set('control', v)} />
-            <ControlCountryQuestion profile={profile} update={update} />
+            <ControlQuestion profile={profile} update={update}
+              hint="Think of the ultimate owners, not only the first shareholder. Control from an EEA EFTA state or Ukraine is treated differently by each programme." />
             {profile.country === 'UA' && (
               <Radios legend="Is your company established in an area of Ukraine that the Ukrainian government does not control?" name="occupied"
                 value={profile.uaOccupied} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaOccupied', v)} />
@@ -319,7 +340,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
               onChange={(v) => set('regime', v)} />
             {profile.offering === 'software_services' ? (
               <p className="m-0 max-w-prose rounded-md bg-surface-inset p-3 text-small" data-skipped-components>
-                You said you make software or services, so the three questions about the components of an end product are not asked. The rules
+                You said you make software or services, so the four questions about the components of an end product are not asked. The rules
                 on component origin (at most 35 % of the component cost from outside the Union, no component from a third country that contravenes
                 its security interests) apply to the end product of a funded action, not to a company as such: your results show them as open,
                 to check with whoever supplies that product.{' '}
@@ -332,9 +353,7 @@ export function Wizard({ requirements }: { requirements: WizardRequirement[] }) 
                 <Radios legend="Does any component come from a third country that contravenes the security and defence interests of the Union and its Member States?" name="restricted"
                   hint="The regulation gives no list of such countries. If you are unsure, ask the contracting authority."
                   value={profile.restricted} options={[...YES_NO_UNSURE]} onChange={(v) => set('restricted', v)} />
-                <Radios legend="Do any components of that product originate in Ukraine or in an EEA EFTA state (Iceland, Liechtenstein, Norway)?" name="ua-eea-components"
-                  hint="EDIP and the Ukraine Support Instrument count components from these places differently from SAFE, so the 35 % limit cannot be judged without this answer."
-                  value={profile.uaEeaComponents} options={[...YES_NO_UNSURE]} onChange={(v) => set('uaEeaComponents', v)} />
+                <ComponentOriginQuestions profile={profile} update={update} />
               </>
             )}
             <Radios legend="In a SAFE-supported procurement, what would your role be?" name="safe-role" value={profile.safeRole}

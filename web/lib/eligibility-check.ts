@@ -430,7 +430,7 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     const note = ownNote(designated);
     const partners = /partners?|in (?:a )?consortium with|may (?:also )?join/i.test(note);
     lines.push(partners
-      ? { key: 'designated', label: 'Only these may apply', verdict: 'check', reason: `The call targets ${who}. Others take part only in a consortium with one: ${note}`, quote: designated.quote }
+      ? { key: 'designated', label: 'Only these may apply', verdict: 'check', reason: `Only ${who} may apply; anybody else can take part only as a partner in a consortium with one. ${note}`, quote: designated.quote }
       : { key: 'designated', label: 'Only these may apply', verdict: p.kind === 'public' || p.orgType === 'public' ? 'check' : 'no', reason: `Only ${who} may apply. You are not eligible unless your organisation is one.`, quote: designated.quote });
   }
   // WP-93 (fix 9): "at least 2 Border or Coast Guard Authorities as beneficiaries" is who must be in the consortium, not who may apply.
@@ -444,6 +444,12 @@ export function check(facts: EligibilityFacts, p: Profile, ctx?: CallContext): R
     const s = countryStatus(c, p.country, ctx);
     const line: Line = { key: 'country', label: 'Country', verdict: s.verdict, reason: s.reason, quote: c.quote };
     lines.push(s.verdict === 'no' ? line : withNote(line, c, countryNote(c, p.country, p.more)));
+  }
+  // WP-99: the Ukraine Support Instrument excludes the non-government controlled areas of Ukraine (Regulation (EU) 2025/2643, Article 26(1));
+  // for Horizon Europe (and its EIC) no text we hold says whether Ukraine's association covers them. Said, not left in silence.
+  if (p.country === 'UA' && p.more?.uaOccupied === 'yes' && ctx?.programme === 'HORIZON') {
+    lines.push({ key: 'territory', label: 'Non-government controlled areas', verdict: 'check',
+      reason: 'You said your company is established in a non-government controlled area of Ukraine. Whether the association of Ukraine to Horizon Europe covers those areas is not checked here: no text we hold says so. Ask the National Contact Point or the call’s helpdesk before you apply.' });
   }
 
   const rule = sizeRule(facts);

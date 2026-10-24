@@ -32,27 +32,27 @@ ES_ONLY = ["REQ-REOCE", "REQ-FSC-ES"]
 PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     "ua": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
             "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
-            "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+            "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
             "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
             "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
            {code: "not_held" for code in STATUS_CODES}),
     # the Ukrainian company after it marked its PIC as done in the roadmap: the answer the page re-scores to
     "ua-pic": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
                 "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
-                "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+                "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
                 "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
                 "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
                {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "held"}),
     # the same company after it answered "Not applicable to us" for the PIC (WP-53, T4): the rule is left out, it is not "met"
     "ua-pic-na": ({"country": "UA", "legal_form": "legal_person", "executive_management_country": "UA", "third_country_control": "no",
                    "ua_non_government_controlled_area": False, "non_eu_component_cost_pct": 20.0,
-                   "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+                   "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
                    "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": False,
                    "product_regime": "dual_use", "export_intent": "outside_eu", "ua_partner": None},
                   {**{code: "not_held" for code in STATUS_CODES}, "REQ-PIC": "not_applicable"}),
     "es": ({"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
             "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": 10.0,
-            "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+            "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
             "safe_role": "contractor", "applicant_kind": "company_or_research", "handles_classified": True,
             "product_regime": "military", "export_intent": "outside_eu", "ua_partner": None},
            {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
@@ -60,7 +60,7 @@ PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
     # questionnaire asks the questions of the Spanish defence supplier route: those rules say "unknown" and name the question
     "es-auto": ({"country": "ES", "legal_form": "legal_person", "executive_management_country": "ES", "third_country_control": "no",
                  "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": 15.0,
-                 "restricted_third_country_component": False, "components_from_ua_or_eea_efta": False,
+                 "restricted_third_country_component": False, "components_from_ua": False, "components_from_eea_efta": False,
                  "safe_role": "other_supplier", "applicant_kind": "company_or_research", "handles_classified": False,
                  "product_regime": "none", "export_intent": "within_eu", "ua_partner": None},
                 {**{code: "not_held" for code in STATUS_CODES + ES_ONLY}, "REQ-ISO9001": "held"}),
@@ -74,7 +74,7 @@ PROFILES: dict[str, tuple[dict[str, Any], dict[str, str]]] = {
 # questions with and without the supplier page.
 _SUPPLIER_BASE = {"country": "ES", "legal_form": None, "applicant_kind": None, "executive_management_country": None,
                   "third_country_control": None, "ua_non_government_controlled_area": None, "non_eu_component_cost_pct": None,
-                  "restricted_third_country_component": None, "components_from_ua_or_eea_efta": None, "ua_partner": None,
+                  "restricted_third_country_component": None, "components_from_ua": None, "components_from_eea_efta": None, "ua_partner": None,
                   "safe_role": None, "product_regime": "unknown", "export_intent": None}
 _PAGE_ASKS = ["REQ-NCAGE", "REQ-ISO9001", "REQ-EN9100", "REQ-AQAP2110", "REQ-AQAP2310", "REQ-RID", "REQ-PECAL"]
 _ES_STATUSES = {code: "not_held" if code in _PAGE_ASKS else "unknown" for code in STATUS_CODES + ES_ONLY + ["REQ-RID", "REQ-PECAL"]}

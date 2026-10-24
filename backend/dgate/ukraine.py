@@ -16,6 +16,10 @@ sentence it rests on. In this order:
                       "legal entities established in Member States and Associated Countries", and the
                       general annexes list Ukraine among the countries associated to Horizon Europe.
                       Two sentences we hold; true (V2-B9).
+  5b. `horizon_associated`  WP-99: a Horizon Europe call (the EIC is part of it) whose own list of eligible countries (the call's or the
+                      topic's, not the general annexes') is open to the countries associated to Horizon Europe, read as the verdict
+                      reads it (verdict.country_status, web/lib/eligibility-check.ts countryStatus); Ukraine is one (the same
+                      association list, verdict.ASSOCIATED, from the general annexes). The badge, the filter and the verdict agree.
   6. `programme_rule` the regime's own Regulation decides: the Ukraine Support Instrument is open to
                       Ukraine (Regulation (EU) 2025/2643, Article 26(1)). The EDIP Programme: recipients must be
                       established in the Union or an associated country, and Ukraine is not one (Articles 9(1) and 2),
@@ -41,10 +45,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from . import eligibility
+from . import eligibility, verdict
 from .regime import EDF, EDIP, HORIZON, USI, regime_of
 
-REASONS = ("call_document", "call_document_closed_list", "topic_text", "call_text", "topic_text_associated",
+REASONS = ("call_document", "call_document_closed_list", "topic_text", "call_text", "topic_text_associated", "horizon_associated",
            "programme_rule", "edf_association_unconfirmed", "not_stated")
 EVIDENCE_MAX = 450
 
@@ -157,6 +161,11 @@ def decide(call: dict[str, Any], facts: dict[str, Any]) -> tuple[bool | None, st
         m = _HORIZON_TOPIC.search(re.sub(r"\s+", " ", topic or ""))
         if m:
             return True, "topic_text_associated", _clip(f"Topic conditions: “{m.group(0).strip()}” {HORIZON_ANNEX}")
+        if fact and fact["scope"] != "general":
+            ok, _ = verdict.country_status(fact, "UA", {"programme": HORIZON.code, "topic": call.get("topic_code") or ""})
+            if ok == "yes":
+                listed = fact.get("quote") or str(fact.get("value") or "")
+                return True, "horizon_associated", _clip(f"Eligible countries: “{listed}” {HORIZON_ANNEX}")
     return None, "not_stated", None
 
 

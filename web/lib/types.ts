@@ -9,7 +9,9 @@ export type CurrencyCode = string;
 /** WP-91: 'EDIP-USI' is a topic of EDIP's Ukraine Support Instrument, which the portal files under the EDF (the API reads it from the topic code). */
 export type ProgrammeCode = 'EDF' | 'EDIP' | 'EDIP-USI' | 'HORIZON' | 'DIGITAL' | 'CEF' | 'NATIONAL';
 /** WP-91: who may apply, as the API reads it from the rules and the stored call data; null where nothing we hold says. */
-export type WhoMayApply = 'companies' | 'public';
+export type WhoMayApply = 'companies' | 'public' | 'designated';
+/** The values of the filter `who` (WP-99: a call open only to designated bodies is in neither). */
+export type WhoFilter = 'companies' | 'public';
 export type Regime = 'defence' | 'dual-use';
 export type CallStatus = 'open' | 'forthcoming' | 'closed';
 /** Deadline presentation state, derived in lib/deadline.ts — never stored. 'none' = no stated deadline. */
@@ -234,7 +236,7 @@ export interface CallFilters {
   /** Only calls open to Ukrainian participants (the flag is true; unknown is not included). */
   ukraine?: boolean;
   /** WP-91: who may apply (`whoMayApply`): a call nothing we hold speaks for is in neither. */
-  who?: WhoMayApply;
+  who?: WhoFilter;
   page?: number;
   pageSize?: number;
 }

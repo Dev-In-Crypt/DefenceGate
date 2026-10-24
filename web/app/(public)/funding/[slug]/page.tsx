@@ -32,7 +32,7 @@ import { FollowButton, SaveButton } from '@/components/account/save-button';
 import { LongText } from '@/components/funding/long-text';
 import { mergeSameText } from '@/lib/long-text';
 import { whatItFunds } from '@/lib/funding-path';
-import { WHO_WORDS } from '@/lib/filters';
+import { WHO_BADGE } from '@/lib/filters';
 import { ApplySummary, UkraineOnly } from '@/components/funding/apply-summary';
 
 export const revalidate = 300;
@@ -142,7 +142,7 @@ export default async function CallDetailPage({ params }: Props) {
             <Tag>{REGIMES[call.regime]}</Tag>
             {call.cascade === true && <Tag>Cascade funding</Tag>}
             {call.openToUkraine === true && <Tag>Open to Ukraine</Tag>}
-            {call.whoMayApply && <Tag>{WHO_WORDS[call.whoMayApply]}</Tag>}
+            {call.whoMayApply && <Tag>{WHO_BADGE[call.whoMayApply]}</Tag>}
             {call.smeOnly === true && <Tag>SMEs only</Tag>}
             <StatusPill status={callStatusKind(call.status, d.state, call.openingDate)} />
           </div>

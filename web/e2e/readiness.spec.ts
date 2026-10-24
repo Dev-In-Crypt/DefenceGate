@@ -48,7 +48,8 @@ async function answerUkraine(page: Page) {
   await page.getByLabel('Dual-use (on the Annex I list)').check();
   await page.getByLabel(/Share of component cost from outside the EU/).fill('20');
   await group(page, /component come from a third country/).getByLabel('No', { exact: true }).check();
-  await group(page, /originate in Ukraine or in an EEA EFTA state/).getByLabel('No', { exact: true }).check();
+  await group(page, /originate in Ukraine\?/).getByLabel('No', { exact: true }).check();
+  await group(page, /originate in an EEA EFTA state/).getByLabel('No', { exact: true }).check();
   await group(page, /what would your role be/).getByLabel('We would be the contractor').check();
   await next(page);
   await next(page);       // certifications: nothing held
@@ -68,7 +69,8 @@ async function answerSpain(page: Page) {
   await page.getByLabel('Military (on the Common Military List)').check();
   await page.getByLabel(/Share of component cost from outside the EU/).fill('10');
   await group(page, /component come from a third country/).getByLabel('No', { exact: true }).check();
-  await group(page, /originate in Ukraine or in an EEA EFTA state/).getByLabel('No', { exact: true }).check();
+  await group(page, /originate in Ukraine\?/).getByLabel('No', { exact: true }).check();
+  await group(page, /originate in an EEA EFTA state/).getByLabel('No', { exact: true }).check();
   await group(page, /what would your role be/).getByLabel('We would be the contractor').check();
   await next(page);
   await page.getByLabel('ISO 9001 quality management certificate').selectOption({ label: 'We hold it' });

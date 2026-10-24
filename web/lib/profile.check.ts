@@ -3,11 +3,11 @@
  * Run from web/:  node scripts/run-checks.mjs   (npm run check)
  */
 import assert from 'node:assert/strict';
-import { PROFILE_KEY, answerProblems, emptyProfile, exportProfile, firstStepToAnswer, importProfile, isFinished, managementCountryOf, parsePct, parseProfile, pctProblem, stepOfField, toRequest, unanswered, visibleCodes, withStatus, type Profile } from './profile';
+import { PROFILE_KEY, answerProblems, controlChoice, emptyProfile, exportProfile, firstStepToAnswer, importProfile, isFinished, managementCountryOf, parsePct, parseProfile, pctProblem, stepOfField, toRequest, unanswered, visibleCodes, withControlChoice, withStatus, type Profile } from './profile';
 
 const ua: Profile = {
   ...emptyProfile(), step: 6, management: 'same', name: 'Secret Ltd', sizeClass: 'small', country: 'UA', legalForm: 'legal_person', control: 'no', uaOccupied: 'no', regime: 'dual_use',
-  componentPct: '20', restricted: 'no', uaEeaComponents: 'no', safeRole: 'contractor', classified: 'no', exportIntent: 'outside_eu',
+  componentPct: '20', restricted: 'no', uaComponents: 'no', eeaComponents: 'no', safeRole: 'contractor', classified: 'no', exportIntent: 'outside_eu',
 };
 
 // Nothing can be asked before a country is chosen.
@@ -17,7 +17,7 @@ assert.equal(toRequest(emptyProfile()), null);
 const req = toRequest(ua)!;
 assert.deepEqual(req.profile, {
   country: 'UA', legal_form: 'legal_person', applicant_kind: null, executive_management_country: 'UA', third_country_control: 'no', ua_non_government_controlled_area: false,
-  non_eu_component_cost_pct: 20, restricted_third_country_component: false, components_from_ua_or_eea_efta: false, ua_partner: null, safe_role: 'contractor', handles_classified: false,
+  non_eu_component_cost_pct: 20, restricted_third_country_component: false, components_from_ua: false, components_from_eea_efta: false, ua_partner: null, safe_role: 'contractor', handles_classified: false,
   product_regime: 'dual_use', export_intent: 'outside_eu',
 });
 assert.ok(!JSON.stringify(req).includes('Secret'), 'the company name must not leave the browser');
@@ -35,17 +35,17 @@ assert.equal(esReq.statuses['REQ-ISO9001'], 'held');
 assert.equal(Object.keys(esReq.statuses).length, 9);
 
 // "Not sure" and an empty answer are unknown (null), never "no".
-const unsure: Profile = { ...ua, control: 'unsure', restricted: 'unsure', classified: '', componentPct: '', exportIntent: '', regime: '', uaEeaComponents: 'unsure', safeRole: 'unsure', legalForm: '' };
+const unsure: Profile = { ...ua, control: 'unsure', restricted: 'unsure', classified: '', componentPct: '', exportIntent: '', regime: '', uaComponents: 'unsure', eeaComponents: 'unsure', safeRole: 'unsure', legalForm: '' };
 const u = toRequest(unsure)!.profile;
-assert.deepEqual([u.third_country_control, u.restricted_third_country_component, u.handles_classified, u.non_eu_component_cost_pct, u.export_intent, u.product_regime, u.components_from_ua_or_eea_efta, u.safe_role, u.legal_form],
-  [null, null, null, null, null, 'unknown', null, null, null]);
+assert.deepEqual([u.third_country_control, u.restricted_third_country_component, u.handles_classified, u.non_eu_component_cost_pct, u.export_intent, u.product_regime, u.components_from_ua, u.components_from_eea_efta, u.safe_role, u.legal_form],
+  [null, null, null, null, null, 'unknown', null, null, null, null]);
 
 // The legal form and the SAFE role are sent as given (D2, D5); a stored value that is not one of ours becomes the empty answer.
 assert.equal(toRequest({ ...ua, legalForm: 'natural_person' })!.profile.legal_form, 'natural_person');
 assert.equal(toRequest({ ...ua, safeRole: 'other_supplier' })!.profile.safe_role, 'other_supplier');
 assert.equal(parseProfile({ ...ua, legalForm: 'sole_trader', safeRole: 'boss' }).legalForm, '');
 assert.equal(parseProfile({ ...ua, legalForm: 'sole_trader', safeRole: 'boss' }).safeRole, '');
-assert.equal(parseProfile({ ...ua, uaEeaComponents: 'maybe' }).uaEeaComponents, '');
+assert.equal(parseProfile({ ...ua, uaComponents: 'maybe' }).uaComponents, '');
 
 // V2-B1: what the organisation is. Unanswered is unknown (null), never "a company"; a stored value that is not one of ours is dropped.
 assert.equal(emptyProfile().applicantKind, '');
@@ -73,13 +73,13 @@ delete legacy.management;
 assert.equal(parseProfile(legacy).management, '', 'a version 1 "same country" cannot be told from the radio that was ticked for the visitor');
 assert.equal(parseProfile({ ...legacy, managementSameCountry: false, managementCountry: 'CH' }).management, 'other');
 assert.equal(parseProfile({ ...legacy, managementSameCountry: false, managementCountry: 'CH' }).managementCountry, 'CH');
-assert.equal(parseProfile(legacy).version, 4, 'it is written back as the current version (4 since WP-93)');
+assert.equal(parseProfile(legacy).version, 5, 'it is written back as the current version (5 since WP-99)');
 assert.equal(parseProfile(legacy).country, 'UA', 'the other answers are kept');
 assert.equal(parseProfile(legacy).uaPartner, '');
 assert.equal(parseProfile({ ...ua, management: 'sideways' }).management, '');
 assert.equal(PROFILE_KEY, 'dg.profile.v1', 'the key keeps its name; the version is inside the block');
 const imported = importProfile(JSON.stringify(legacy));
-assert.ok(imported.ok && imported.profile.management === '' && imported.profile.version === 4, 'a version 1 file can still be loaded');
+assert.ok(imported.ok && imported.profile.management === '' && imported.profile.version === 5, 'a version 1 file can still be loaded');
 
 // WP-53, T21: the partner questions. Unanswered and "not sure" are unknown (null), never "no"; a Ukrainian company is not asked.
 const pl: Profile = { ...ua, country: 'PL', uaOccupied: '' };
@@ -131,7 +131,7 @@ assert.deepEqual(answerProblems(ua), []);
 assert.deepEqual(parseProfile(null), emptyProfile());
 assert.deepEqual(parseProfile('x'), emptyProfile());
 assert.deepEqual(parseProfile([]), emptyProfile());
-assert.deepEqual(parseProfile({ version: 5, country: 'UA' }), emptyProfile(), 'a version this code does not know (5, after WP-93 made 4 the current one) is refused');
+assert.deepEqual(parseProfile({ version: 6, country: 'UA' }), emptyProfile(), 'a version this code does not know (6, after WP-99 made 5 the current one) is refused');
 assert.deepEqual(parseProfile({ version: 0, country: 'UA' }), emptyProfile());
 const read = parseProfile({ ...ua, country: 'ukraine', control: 'maybe', componentPct: '', step: 99, statuses: { 'REQ-PIC': 'held', 'REQ-NOPE': 'held', 'REQ-NCAGE': 'done' }, name: 'x'.repeat(500) });
 assert.equal(read.country, '');
@@ -181,4 +181,26 @@ assert.equal(importProfile('not json').ok, false);
 assert.equal(importProfile('x'.repeat(30000)).ok, false, 'a size limit');
 const hostile = importProfile(JSON.stringify({ ...ua, country: 'ZZZ', control: 'maybe', statuses: { 'REQ-PIC': 'held', EVIL: 'held' }, __proto__: { polluted: 1 } }));
 assert.ok(hostile.ok && hostile.profile.country === '' && hostile.profile.control === '' && !('EVIL' in hostile.profile.statuses), 'every field is checked on the way in');
+
+// WP-99: version 5 keeps Ukraine and the EEA EFTA states apart. A version 4 block is read so: "only by Ukraine or an EEA EFTA state" with
+// its country is the answer of that country, without it unanswered again; a joint "no" (or "not sure") about components answers both
+// questions, a joint "yes" neither (it does not say which).
+const v4 = { ...ua, version: 4, uaEeaComponents: 'no', uaComponents: undefined, eeaComponents: undefined };
+assert.equal(parseProfile(v4).version, 5);
+assert.deepEqual([parseProfile(v4).uaComponents, parseProfile(v4).eeaComponents], ['no', 'no']);
+assert.deepEqual([parseProfile({ ...v4, uaEeaComponents: 'yes' }).uaComponents, parseProfile({ ...v4, uaEeaComponents: 'yes' }).eeaComponents], ['', '']);
+assert.deepEqual([parseProfile({ ...v4, uaEeaComponents: 'unsure' }).uaComponents, parseProfile({ ...v4, uaEeaComponents: 'unsure' }).eeaComponents], ['unsure', 'unsure']);
+assert.equal(controlChoice(parseProfile({ ...v4, control: 'ua_eea_only', controlCountry: 'ua' })), 'ua');
+assert.equal(controlChoice(parseProfile({ ...v4, control: 'ua_eea_only', controlCountry: 'eea' })), 'eea');
+assert.equal(parseProfile({ ...v4, control: 'ua_eea_only', controlCountry: 'unsure' }).control, '', 'neither country: asked again');
+assert.ok(unanswered(parseProfile({ ...v4, control: 'ua_eea_only', controlCountry: '' })).some((x) => /controlled from outside the EU/.test(x.question)));
+// the choice and what is kept, and the request: a Ukrainian-controlled company sends the control and the country
+const byUa = withControlChoice(ua, 'ua');
+assert.deepEqual([byUa.control, byUa.controlCountry, controlChoice(byUa)], ['ua_eea_only', 'ua', 'ua']);
+assert.deepEqual([toRequest(byUa)!.profile.third_country_control, toRequest(byUa)!.profile.control_country], ['ua_eea_only', 'ua']);
+assert.deepEqual([withControlChoice(byUa, 'no').control, withControlChoice(byUa, 'no').controlCountry], ['no', '']);
+const byCn = { ...withControlChoice(ua, 'other'), controlCountry: 'cn' as const };
+assert.equal(withControlChoice(byCn, 'other').controlCountry, 'cn', 'the country after "another country" is kept');
+assert.deepEqual([toRequest({ ...ua, uaComponents: 'yes', eeaComponents: 'no' })!.profile.components_from_ua, toRequest({ ...ua, uaComponents: 'yes', eeaComponents: 'no' })!.profile.components_from_eea_efta], [true, false]);
+assert.ok(!('components_from_ua_or_eea_efta' in toRequest(ua)!.profile), 'the joint answer is not sent any more');
 console.log('profile.check ok');

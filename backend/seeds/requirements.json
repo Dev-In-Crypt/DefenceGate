@@ -830,7 +830,7 @@
       "texts": {
         "requires": "Legal entities established in the non-government controlled areas of Ukraine are not eligible.",
         "met": "Your company is not established in a non-government controlled area of Ukraine.",
-        "not_met": "Legal entities established in the non-government controlled areas of Ukraine are not eligible.",
+        "not_met": "Your company is established in a non-government controlled area of Ukraine. Legal entities established there are not eligible for funding under this Regulation.",
         "unknown": "Say whether your company is established in an area of Ukraine that the Ukrainian government does not control.",
         "not_applicable": "This rule only concerns companies established in Ukraine."
       },
@@ -846,14 +846,17 @@
       "code": "USI-CONTROL", "programmes": ["EDIP-USI"], "position": 4,
       "title": "Not controlled by a non-associated third country other than Ukraine",
       "obligation": "mandatory", "kind": "control", "requirement": null,
-      "condition": {"field": "third_country_control", "is": "no"},
+      "condition": {"any": [
+        {"field": "third_country_control", "is": "no"},
+        {"all": [{"field": "third_country_control", "is": "ua_eea_only"}, {"field": "control_country", "is": "ua"}]}
+      ]},
       "conditional_when": {"any": [
         {"field": "third_country_control", "is": "ua_eea_only"},
         {"all": [{"field": "third_country_control", "is": "other"}, {"field": "country", "in": ["EU"]}]}
       ]},
       "texts": {
         "requires": "Recipients must not be subject to control by a non-associated third country other than Ukraine, or by another third-country entity; a legal entity established in the Union may be eligible if guarantees approved by its Member State are made available to the Commission.",
-        "met": "Your company is not controlled from a third country.",
+        "met": "Your company is not controlled from a third country other than Ukraine. Control from Ukraine is allowed under the Ukraine Support Instrument.",
         "not_met": "Your company is controlled from a non-associated third country. The exception for guarantees applies only to a legal entity established in the Union, so a company established in Ukraine cannot rely on it.",
         "conditional": "Your company is controlled from outside the Union. Control from Ukraine is not a problem under the Ukraine Support Instrument. Control from an EEA EFTA state counts as control by an associated country only if that state applies the Regulation. Control from any other third country is allowed only for a company established in the Union, and only if guarantees approved by the Member State where it is established, such as adequate measures after an investment screening, are made available to the Commission.",
         "unknown": "Say whether your company is controlled by a country or an entity outside the EU, the EEA EFTA states and Ukraine. If you do not know, find out who your ultimate owners are."
@@ -1716,7 +1719,7 @@
             }
           },
           {
-            "field": "components_from_ua_or_eea_efta",
+            "field": "components_from_eea_efta",
             "is": false
           }
         ]
@@ -1729,10 +1732,10 @@
       },
       "texts": {
         "requires": "In procurement and industrial reinforcement under the Ukraine Support Instrument, the cost of components originating outside the Union and Ukraine may be at most 35 % of the estimated cost of the components of the end product.",
-        "met": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 %, and you report no component from Ukraine or an EEA EFTA state. Under the Ukraine Support Instrument the limit is 35 % of the estimated cost of the components of the end product.",
-        "conditional": "Your share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 %, but some components come from Ukraine or an EEA EFTA state. Under the Ukraine Support Instrument, components from Ukraine count as inside, but the Article names only the Union and Ukraine, so components from an EEA EFTA state count as coming from outside: add their share to your figure, and the total may not exceed 35 %.",
+        "met": "The share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 %, and you report no component from an EEA EFTA state (components from Ukraine count as inside under the Ukraine Support Instrument). Under the Ukraine Support Instrument the limit is 35 % of the estimated cost of the components of the end product.",
+        "conditional": "Your share of components from outside the Union, the EEA EFTA states and Ukraine is within 35 %, but some components come from an EEA EFTA state. Under the Ukraine Support Instrument, components from Ukraine count as inside, but the Article names only the Union and Ukraine, so components from an EEA EFTA state count as coming from outside: add their share to your figure, and the total may not exceed 35 %.",
         "not_met": "More than 35 % of the estimated cost of the components of the end product comes from outside the Union, the EEA EFTA states and Ukraine. Under the Ukraine Support Instrument the limit is 35 % for components from outside the Union and Ukraine, and components from EEA EFTA states count against it as well.",
-        "unknown": "Give the share of the estimated cost of the components of your end product that originates outside the Union, the EEA EFTA states and Ukraine, and say whether any component originates in Ukraine or in an EEA EFTA state."
+        "unknown": "Give the share of the estimated cost of the components of your end product that originates outside the Union, the EEA EFTA states and Ukraine, and say whether any component originates in an EEA EFTA state."
       },
       "note": "Article 27(3) applies to procurement and supporting actions, paragraph 4 to industrial reinforcement actions (measured on the product whose production capacity the funding supports). Paragraph 5 also requires that recipients can decide on the design of the products without restrictions imposed by non-associated third countries other than Ukraine; this service does not ask about that. The answer is about one end product.",
       "source_url": "http://data.europa.eu/eli/reg/2025/2643/oj",
@@ -1841,7 +1844,7 @@
       "texts": {
         "requires": "An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there.",
         "met": "The action involves a legal entity established in Ukraine: your company, if it is established there, or the partner you named in your planned consortium. Its executive management structure must be in Ukraine too (see the rule on executive management).",
-        "conditional": "Your company is not established in Ukraine, and you said that no legal entity established in Ukraine takes part in your planned consortium. An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there, so you can take part only with such a partner. The call documents add that a single applicant must itself be established in Ukraine.",
+        "conditional": "Not without a Ukrainian partner. Your company is not established in Ukraine, and you said that no legal entity established in Ukraine takes part in your planned consortium. An action under the Ukraine Support Instrument must be carried out by, or with the involvement of, at a minimum, Ukraine or one legal entity established in Ukraine that also has its executive management structure there, so you can take part only with such a partner. The call documents add that a single applicant must itself be established in Ukraine.",
         "not_met": "No entity established in Ukraine is involved in the action, so it cannot be funded under the Ukraine Support Instrument.",
         "unknown": "Say whether a legal entity established in Ukraine, with its executive management structure there, takes part in your planned consortium. This check does not assume a partner: without the answer it never reads as a plain yes."
       },

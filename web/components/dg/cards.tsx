@@ -4,7 +4,7 @@ import { callStatusKind, getCallDeadline, getTenderDeadline, localDeadline, now 
 import { formatDateUtc, funderLine, isPlaceholderAmount, openingPhrase, variantsLine } from '@/lib/format';
 import { anomalyNotes, isLongRunning, tenderChangedLabel, tenderStatusView } from '@/lib/tender-status';
 import { PROGRAMMES, REGIMES, isNonEnglish } from '@/lib/taxonomy';
-import { WHO_WORDS } from '@/lib/filters';
+import { WHO_BADGE } from '@/lib/filters';
 import { displayName } from '@/lib/display-name';
 import { cpvOwnName } from '@/lib/cpv';
 import { matchedCpv } from '@/lib/tender-basis';
@@ -72,7 +72,7 @@ export function CallCard({ call, headingLevel = 'h2', budgetRepeated = false }: 
             <Tag>{REGIMES[call.regime]}</Tag>
             <Tag>{call.funderCountry}</Tag>
             {/* WP-91: who may apply, where the rules or the source say (a few EDIP calls are for public bodies only) */}
-            {call.whoMayApply && <span data-who={call.whoMayApply} className="contents"><Tag>{WHO_WORDS[call.whoMayApply]}</Tag></span>}
+            {call.whoMayApply && <span data-who={call.whoMayApply} className="contents"><Tag>{WHO_BADGE[call.whoMayApply]}</Tag></span>}
             {/* WP-92: the call document reserves it for SMEs */}
             {call.smeOnly === true && <span data-sme-only className="contents"><Tag>SMEs only</Tag></span>}
             {call.cascade === true && <Tag>Cascade funding</Tag>}

@@ -75,7 +75,7 @@ if (process.env.WP93_PRINT) console.log(`with version 3 answers only: ${oldOk}/6
 
 // 4. Old profiles keep working; an unanswered new question is a "check", never "eligible" (P10 without its WP-93 answers on the SME-only Accelerator).
 const old = parseProfile(data.profiles.P10.stored);
-assert.equal(old.version, 4);
+assert.equal(old.version, 5);
 assert.equal(old.headcount, '', 'a version 3 block has no staff count');
 assert.equal(old.sizeClass, 'small', 'its size class is kept and still read');
 assert.ok(unanswered(old).some((u) => /part of a group/.test(u.question)), 'the group question is listed as unanswered');
