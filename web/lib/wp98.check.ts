@@ -21,7 +21,7 @@ assert.deepEqual(foldWords('Materiały wybuchowe, Frästeile'), ['materialy', 'w
 const groupOf = (q: string) => expand(q.split(/\s+/)).groups.map((g) => g.id);
 for (const [q, id] of [
   ['fardamento', 'uniforms'], ['botas', 'uniforms'], ['vêtements', 'uniforms'], ['Bekleidung', 'uniforms'], ['odzież', 'uniforms'], ['kleding', 'uniforms'],
-  ['Ersatzteile', 'spare-parts'], ['Drehteile', 'spare-parts'], ['recambios', 'spare-parts'], ['części zamienne', 'spare-parts'], ['spare parts', 'spare-parts'],
+  ['Ersatzteile', 'spare-parts'], ['Drehteile', 'machining'],   /* WP-110: own group */ ['recambios', 'spare-parts'], ['części zamienne', 'spare-parts'], ['spare parts', 'spare-parts'],
   ['Drohnen', 'drones'], ['drony', 'drones'], ['UAV', 'drones'], ['brandstof', 'fuel'], ['paliwo', 'fuel'], ['logistiek', 'logistics'],
   ['amunicja', 'ammunition'], ['materiały wybuchowe', 'ammunition'], ['Sprengstoff', 'ammunition'], ['night vision', 'night-vision'], ['body armour', 'body-armour'],
 ] as const) assert.deepEqual(groupOf(q), [id], q);

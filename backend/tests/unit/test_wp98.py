@@ -36,7 +36,7 @@ def test_every_code_of_a_group_is_under_a_code_of_the_vocabulary():
     ("fr", "vêtements", "uniforms"), ("fr", "pièces détachées", "spare-parts"), ("fr", "carburant", "fuel"),
     ("fr", "explosifs", "ammunition"), ("fr", "vision nocturne", "night-vision"), ("fr", "gilets pare-balles", "body-armour"),
     ("de", "Bekleidung", "uniforms"), ("de", "Stiefel", "uniforms"), ("de", "Ersatzteile", "spare-parts"),
-    ("de", "Drehteile", "spare-parts"), ("de", "Frästeile", "spare-parts"), ("de", "Drohnen", "drones"),
+    ("de", "Drehteile", "machining"), ("de", "Frästeile", "machining"), ("de", "Drohnen", "drones"),   # WP-110: own group
     ("de", "Kraftstoff", "fuel"), ("de", "Logistik", "logistics"), ("de", "Munition", "ammunition"),
     ("de", "Sprengstoff", "ammunition"), ("de", "Schutzwesten", "body-armour"), ("de", "Nachtsicht", "night-vision"),
     ("pl", "odzież", "uniforms"), ("pl", "mundury", "uniforms"), ("pl", "obuwie", "uniforms"),
@@ -85,8 +85,9 @@ def test_the_search_sql_of_a_group_is_a_few_regular_expressions_over_the_titles(
     assert rx and all(p.count("|") < tenders.RX_TERMS for p in rx)
     assert "buyer_name ~" not in search                           # a product word names no buyer
     assert " ".join(where).count("%s") == len(params)              # every placeholder has its value
-    # the typed word still reads the buyer's name as before
-    assert "ts.buyer_name LIKE dg_word_pattern(%s)" in search
+    # WP-110 (round-4 re-check): a typed product word no longer reads the buyer's name either (the Polish cyberspace
+    # centre made all its notices "cyber"); a word of no group still does (test_wp110)
+    assert "ts.buyer_name" not in search
     info = tenders.search_info("fardamento")
     assert info["searchGroups"][0]["id"] == "uniforms" and "Bekleidung" in info["alsoSearched"]
-    assert tenders.search_info(None) == {"alsoSearched": [], "searchGroups": []}
+    assert tenders.search_info(None) == {"alsoSearched": [], "searchGroups": [], "cpvHints": []}

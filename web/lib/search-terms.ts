@@ -89,12 +89,13 @@ const phrase = (term: string[], have: string[]) => {
 
 /**
  * Whether the texts of a notice fill every slot, as the API reads them: the typed words each begin a word of a title or the buyer's name
- * (in any order); a term of the group begins a word of a title (a term of several words: that phrase).
+ * (in any order; a product group's words a title only); a term of the group begins a word of a title (a term of several words: that phrase).
  */
 export function matchesSlots(slots: string[][][], titles: (string | null | undefined)[], buyer: string | null | undefined): boolean {
   const t = titles.flatMap(words);
   const all = [...t, ...words(buyer)];
-  return slots.every(([typed, ...terms]) => typed.every((w) => begins(w, all)) || terms.some((term) => phrase(term, t)));
+  // WP-110: the typed words of a product group (a slot with terms) read the titles only, never the buyer's name
+  return slots.every(([typed, ...terms]) => typed.every((w) => begins(w, terms.length ? t : all)) || terms.some((term) => phrase(term, t)));
 }
 
 /**

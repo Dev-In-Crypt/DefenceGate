@@ -17,7 +17,7 @@ import { TenderCard } from '@/components/dg/cards';
 import { ClassifiedNote } from '@/components/dg/basis-chips';
 import { ListPage } from '@/components/dg/list-page';
 import { TenderFilterBar } from '@/components/tenders/filter-bars';
-import { AlsoSearched, GroupSuggestions } from '@/components/tenders/search-terms-note';
+import { AlsoSearched, CpvHints, GroupSuggestions } from '@/components/tenders/search-terms-note';
 import { SaveSearch } from '@/components/account/save-search';
 import { FilterChips } from '@/components/tenders/filter-chips';
 import { CoverageNote } from '@/components/dg/coverage-note';
@@ -53,6 +53,8 @@ export default async function TendersPage({ searchParams }: Props) {
   // A page past the end is the last page, not an empty list.
   // The list serves no position past `maxOffset`, so the last page is the last one it can show (and never a 503).
   const reachable = reachableTotal(result);
+  // WP-110: a hint opens the same list by the code instead of the words
+  const cpvHref = (prefix: string) => `/tenders${toTenderQuery({ ...filters, q: undefined, cpv: [prefix], page: 1 })}`;
   const last = lastPage(reachable, result.pageSize);
   if (reachable > 0 && (filters.page ?? 1) > last) redirect(`/tenders${toTenderQuery({ ...filters, page: last })}`);
   const tenderSources = health.sources.filter((s) => s.type === 'tenders').length;
@@ -82,12 +84,13 @@ export default async function TendersPage({ searchParams }: Props) {
       sort={{ value: filters.sort ?? defaultTenderSort(filters.status), options: tenderSortOptions(filters.status) }}
       notices={[...(stale ? [stale] : []), ...ignoredFilters(sp, 'tenders')]}
       clearHref="/tenders"
-      listNote={<><AlsoSearched also={result.alsoSearched} /><ClassifiedNote tenders={result.items} /></>}
+      listNote={<><AlsoSearched also={result.alsoSearched} /><CpvHints hints={result.cpvHints} hrefFor={cpvHref} /><ClassifiedNote tenders={result.items} /></>}
       emptyTitle="No tenders match these filters"
       emptyText={<>
         Try a wider deadline range or fewer countries. Closed tenders are hidden unless you choose Closed or All, and a military product code bought by a municipality or a hospital (dual-use) is hidden unless you choose the scope All.
         {/* WP-98: the words name a product group: its codes find notices whatever language their titles are in */}
         <AlsoSearched also={result.alsoSearched} />
+        <CpvHints hints={result.cpvHints} hrefFor={cpvHref} />
         <GroupSuggestions groups={result.searchGroups} hrefFor={(cpv) => `/tenders${toTenderQuery({ ...filters, q: undefined, cpv, page: 1 })}`} />
       </>}
       hrefFor={(p) => `/tenders${toTenderQuery({ ...filters, page: p })}`}

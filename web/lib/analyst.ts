@@ -46,6 +46,13 @@ export type CpvPreset = (typeof CPV_PRESETS)[number];
 /** The prefixes a preset puts in the CPV filter. */
 export const presetPrefixes = (p: Pick<CpvPreset, 'codes'>): string[] => p.codes.map(cpvPrefix);
 
+/**
+ * WP-110 (p06: "Vehicle repair and maintenance" listed a gate repair, 50100000 among the secondary codes of a works notice): a services
+ * preset reads the notice's main code only (`cpvMain`), as works notices list the services of the works as secondary codes. A goods
+ * preset reads every code, as stated beside it: a part is often a secondary code of a vehicle or a ship.
+ */
+export const presetMainOnly = (p: Pick<CpvPreset, 'group'>): boolean => p.group === 'services';
+
 /** The preset the CPV filter is set to, if it is one exactly (any order). */
 export function activePreset(cpv: string[] | undefined): CpvPreset | null {
   if (!cpv?.length) return null;

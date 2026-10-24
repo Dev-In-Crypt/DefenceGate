@@ -42,7 +42,8 @@ test('product groups for goods and services, and the deadline presets in sight',
   await expect(page.locator('details [data-deadline-presets]')).toHaveCount(0);
   await shot(page, 'tenders-presets');
   await presets.getByRole('link', { name: 'Transport and logistics' }).click();
-  await expect(page).toHaveURL(/cpv=601%2C631%2C6352%2C637$/);
+  // WP-110: a services preset reads the main code only
+  await expect(page).toHaveURL(/cpv=601%2C631%2C6352%2C637&cpvMain=true$/);
   await openFilters(page);
   await expect(page.locator('[data-cpv-presets] a[aria-current="true"]')).toHaveText('Transport and logistics');
 });

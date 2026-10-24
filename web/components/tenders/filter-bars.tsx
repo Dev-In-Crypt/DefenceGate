@@ -8,7 +8,7 @@ import {
   DEFAULT_CURRENCY, DEFAULT_TENDER_SCOPE, DEFAULT_TENDER_STATUS, MAX_QUERY_LENGTH, PARAM, TENDER_PAGE_SIZE, TENDER_PAGE_SIZES, activeBuyerFilterCount,
   activeTenderFilterCount, defaultBuyerSort, defaultTenderSort, toTenderQuery,
 } from '@/lib/filters';
-import { CPV_PRESETS, DEADLINE_PRESETS, PRESET_GROUPS, activeDeadlinePreset, activePreset, deadlineWindow, presetPrefixes } from '@/lib/analyst';
+import { CPV_PRESETS, DEADLINE_PRESETS, PRESET_GROUPS, activeDeadlinePreset, activePreset, deadlineWindow, presetMainOnly, presetPrefixes } from '@/lib/analyst';
 import { now } from '@/lib/deadline';
 import { cn } from '@/lib/utils';
 import { countsAsOf, overlapNote, scopeCountText } from '@/lib/list-count';
@@ -73,8 +73,8 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
                   const on = preset?.id === p.id;
                   return (
                     <li key={p.id}>
-                      <Link href={`${basePath}${toTenderQuery({ ...filters, cpv: on ? undefined : presetPrefixes(p), page: 1 })}`} aria-current={on || undefined}
-                        title={`CPV ${presetPrefixes(p).join(', ')}`}
+                      <Link href={`${basePath}${toTenderQuery({ ...filters, cpv: on ? undefined : presetPrefixes(p), cpvMain: on ? undefined : presetMainOnly(p) || undefined, page: 1 })}`} aria-current={on || undefined}
+                        title={`CPV ${presetPrefixes(p).join(', ')}${presetMainOnly(p) ? ', main code only' : ', any code of the notice'}`}
                         className={cn('inline-flex min-h-8 items-center rounded-pill border px-3 text-small font-semibold', on ? 'border-ink bg-ink text-surface' : 'border-line text-ink')}>
                         {p.label}
                       </Link>
@@ -86,7 +86,7 @@ export function TenderFilterBar({ filters, basePath, scopeCounts, countsNote }: 
           ))}
         </div>
         <TextInput name={PARAM.cpv} maxLength={200} label="CPV code" placeholder="For example 35 or 35120000" defaultValue={filters.cpv?.join(', ') ?? ''}
-          hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />
+          hint={preset ? `${preset.label}: ${preset.codes.length} official codes and everything under them${presetMainOnly(preset) ? ', as the main product code (a works notice lists the services of the works as further codes)' : ', as any code of the notice'}. Starts with the digits you enter; separate several with commas.` : 'Starts with the digits you enter. Separate several with commas.'} />
         <Choice name={PARAM.cpvMain} value="true" label="Main product code only" defaultChecked={filters.cpvMain === true}
           hint="Reads the code a notice names first, not the others it lists." />
         <TextInput name={PARAM.notCpv} maxLength={200} label="Leave out product codes" placeholder="For example 3511" defaultValue={filters.notCpv?.join(', ') ?? ''}

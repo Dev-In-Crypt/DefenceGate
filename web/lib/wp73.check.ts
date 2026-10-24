@@ -76,7 +76,8 @@ const src = [...files('app'), ...files('components'), ...files('lib')].filter((f
 const statics = src.filter((f) => /from ['"][^'"]*(cpv-full\.json|cpv-full)['"]/.test(readFileSync(f, 'utf8')));
 assert.deepEqual(statics.map((f) => f.replace(/\\/g, '/')), ['lib/cpv-full.ts'], 'the full list is imported statically by lib/cpv-full.ts only');
 const dynamic = src.filter((f) => readFileSync(f, 'utf8').includes("import('@/lib/cpv-full')")).map((f) => f.replace(/\\/g, '/'));
-assert.deepEqual(dynamic, ['components/readiness/use-readiness.ts']);
+// WP-110: and the CPV finder's search box (the full vocabulary on the first keystroke)
+assert.deepEqual(dynamic, ['components/cpv/cpv-browser.tsx', 'components/readiness/use-readiness.ts']);
 
 // ------------------------------------------------------------- MJ-2 and MJ-5
 assert.equal(cpvProblem([]), null);

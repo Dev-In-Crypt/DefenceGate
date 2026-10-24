@@ -1,6 +1,6 @@
 import { sourceById } from './sources';
 import { now } from '../deadline';
-import { cpvTitle, titleHasWord } from '../cpv';
+import { cpvDictionaryTitle, cpvTitle, titleHasWord } from '../cpv';
 import { weekMonday, weekOf } from '../digest';
 import { buyerNames, expand, matchesSlots, namesAll } from '../search-terms';
 import { BUYER_PAGE_SIZE, TENDER_PAGE_SIZE, defaultTenderSort } from '../filters';
@@ -231,7 +231,19 @@ export function queryTenders(f: TenderFilters, ref: Date = now()): Paginated<Ten
   return {
     items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, totalCapped: false, page, pageSize, asOf: ref.toISOString(),
     alsoSearched: terms?.also ?? [], searchGroups: (terms?.groups ?? []).map(({ id, label, cpv }) => ({ id, label, cpv })),
+    cpvHints: cpvHints(terms?.groups ?? []),
   };
+}
+
+/** WP-110: as the API's `tenders.cpv_hints` for the groups (the demo knows the titles of the finder and the product words). */
+function cpvHints(groups: { cpv: string[] }[]): { code: string; title: string; prefix: string }[] {
+  const out: { code: string; title: string; prefix: string }[] = [];
+  for (const p of groups.flatMap((g) => g.cpv)) {
+    const code = `${p}00000000`.slice(0, 8);
+    const title = cpvDictionaryTitle(code);
+    if (title && !out.some((h) => h.code === code)) out.push({ code, title, prefix: p.replace(/0+$/, '') || p });
+  }
+  return out.slice(0, 4);
 }
 
 /**

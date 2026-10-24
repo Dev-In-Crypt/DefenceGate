@@ -24,8 +24,10 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from .normalise import _TRANSLITERATE
+from .search_terms import groups
 
 STOP_WORDS = frozenset({"a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with"})
 
@@ -45,6 +47,13 @@ SYNONYMS: tuple[tuple[str, ...], ...] = (
 )
 
 MAX_TERMS = 8
+
+
+@lru_cache(maxsize=1)
+def _rows() -> tuple[tuple[str, ...], ...]:
+    """WP-110: the product groups of the tender search (`search_terms`, the other languages' words), for the funding
+    search's words SYNONYMS does not know: "cybersécurité" found no funding call and the header search said no open calls, though ECCC cyber calls were open."""
+    return tuple(tuple(dict.fromkeys(fold(" ".join(t)) for t in g.terms)) for g in groups())
 
 
 def fold(text: str) -> str:
@@ -90,7 +99,7 @@ class Query:
                    for group in self.alternatives)
 
 
-def parse(q: str | None) -> Query | None:
+def parse(q: str | None, products: bool = False) -> Query | None:
     """None when the text holds no word at all (a query of punctuation searches nothing)."""
     typed = words(q or "")[: MAX_TERMS * 2]
     kept = [w for w in typed if w not in STOP_WORDS] or typed
@@ -100,7 +109,9 @@ def parse(q: str | None) -> Query | None:
     query = Query(terms=kept)
     for word in kept:
         group = [[word]]
-        for row in SYNONYMS:
+        # WP-110: the product groups only for a word the funding synonyms do not know (drone, cyber keep their own rows)
+        known = any(word in row for row in SYNONYMS)
+        for row in (_rows() if products and not known else SYNONYMS):
             if word in row:
                 for other in row:
                     if other != word:

@@ -9,7 +9,8 @@ import { PageHeader } from '@/components/dg/page-header';
 import { Card } from '@/components/dg/card';
 import { SiteSearchForm } from '@/components/dg/site-search';
 import { ErrorState } from '@/components/dg/feedback';
-import { AlsoSearched, GroupSuggestions } from '@/components/tenders/search-terms-note';
+import { AlsoSearched, CpvHints, GroupSuggestions } from '@/components/tenders/search-terms-note';
+import { ApiError } from '@/lib/api';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -21,7 +22,7 @@ export const metadata: Metadata = buildMetadata({
   noindex: true,
 });
 
-type Key = keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed'>;
+type Key = keyof Omit<SiteSearch, 'q' | 'alsoSearched' | 'searchGroups' | 'buyerNamed' | 'cpvHints'>;
 interface Row { href: string; title: string; line: string }
 
 const where = (country: string | null | undefined) => (country ? countryName(country) : null);
@@ -36,8 +37,9 @@ function rows(s: SiteSearch, key: Key): Row[] {
       line: join(c.programmeName, c.deadline ? `Deadline ${formatDateUtc(c.deadline)}` : 'No fixed deadline') }));
     case 'buyers': return s.buyers.items.map((b) => ({ href: `/buyers/${b.slug}`, title: displayName(b.name),
       line: join(where(b.country), `${formatNumber(b.tenderCount)} ${plural(b.tenderCount, 'tender')}, ${formatNumber(b.openCount)} open`) }));
+    // WP-110 (p07): a company found by a name it was published under says that name ("Leonardo" found Megmar as a consortium partner)
     case 'suppliers': return s.suppliers.items.map((x) => ({ href: `/suppliers/${x.slug}`, title: displayName(x.name),
-      line: join(where(x.country), `${formatNumber(x.awardCount)} ${plural(x.awardCount, 'contract')} won`) }));
+      line: join(where(x.country), `${formatNumber(x.awardCount)} ${plural(x.awardCount, 'contract')} won`, x.matchedAs ? `named in an award as “${x.matchedAs}”` : null) }));
     case 'organisations': return s.organisations.items.map((o) => ({ href: `/organisations/${o.slug}`, title: displayName(o.name),
       line: join(where(o.country), `${formatNumber(o.defenceProjects)} defence ${plural(o.defenceProjects, 'project')}`) }));
   }
@@ -71,6 +73,8 @@ function BuyerTenders({ s }: { s: SiteSearch }) {
   );
 }
 
+const cpvHref = (prefix: string) => `/tenders?${new URLSearchParams({ cpv: prefix })}`;
+
 function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts'][number] }) {
   const g: SearchGroup<unknown> = s[part.key];
   const all = seeAllHref(part.key, s.q);
@@ -81,13 +85,14 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
       {part.key === 'tenders' && <BuyerTenders s={s} />}
       {g.error ? (
         <p className="m-0 text-body text-ink-muted">
-          {g.error === 'slow' ? 'This part of the search took too long.' : 'This list does not search for these words.'}{' '}
+          {g.error === 'slow' ? 'This part of the search took too long.' : g.error === 'busy' ? 'This part of the search is busy right now.' : 'This list does not search for these words.'}{' '}
           <Link href={all} className="font-semibold">Search the list itself</Link>
         </p>
       ) : g.total === 0 ? (
         <div className="m-0 text-body text-ink-muted">
           No {part.noun} match.
           {part.key === 'tenders' && <AlsoSearched also={s.alsoSearched} />}
+          {part.key === 'tenders' && <CpvHints hints={s.cpvHints} hrefFor={cpvHref} />}
           {part.key === 'tenders' && <GroupSuggestions groups={s.searchGroups} hrefFor={(cpv) => `/tenders?${new URLSearchParams({ cpv: cpv.join(',') })}`} />}
         </div>
       ) : (
@@ -104,6 +109,7 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
           </ul>
           <Link href={all} className="inline-flex min-h-11 items-center self-start text-small font-bold">See {g.total === 1 && !g.atLeast ? 'the' : 'all'} {total} {g.total === 1 && !g.atLeast ? part.one : part.noun}</Link>
           {part.key === 'tenders' && <AlsoSearched also={s.alsoSearched} />}
+          {part.key === 'tenders' && <CpvHints hints={s.cpvHints} hrefFor={cpvHref} />}
         </>
       )}
     </div>
@@ -113,19 +119,20 @@ function Part({ s, part }: { s: SiteSearch; part: (typeof GROUPS)[number]['parts
 export default async function SearchPage({ searchParams }: Props) {
   const q = searchQuery((await searchParams).q);
   // A search the data service did not answer (busy, too many searches from one address) says so; the lists still work.
-  const result = q ? await getSearch(q).catch(() => 'failed' as const) : null;
+  // WP-110: too many searches from one address (429: the round-4 auditors were ten on one address) is said as such.
+  const result = q ? await getSearch(q).catch((e) => (e instanceof ApiError && e.status === 429 ? 'limited' as const : 'failed' as const)) : null;
   return (
     <>
       <PageHeader crumbs={[{ label: 'Home', href: '/' }, { label: 'Search', href: '/search' }]} title="Search"
         lead={q ? undefined : 'One search over tenders, funding calls, buyers and companies. Each part shows its first five matches and leads to the full list.'}>
         <SiteSearchForm id="page-search" defaultValue={q} className="max-w-2xl" />
       </PageHeader>
-      {result === 'failed' && (
-        <ErrorState title="The search is not available right now" retryHref={`/search?${new URLSearchParams({ q })}`}>
-          Try again in a minute, or search one list: <Link href={seeAllHref('tenders', q)} className="font-semibold">tenders</Link>, <Link href={seeAllHref('funding', q)} className="font-semibold">funding</Link>, <Link href={seeAllHref('buyers', q)} className="font-semibold">buyers</Link> or <Link href={seeAllHref('suppliers', q)} className="font-semibold">companies</Link>.
+      {(result === 'failed' || result === 'limited') && (
+        <ErrorState title={result === 'limited' ? 'Too many searches from your network just now' : 'The search is not available right now'} retryHref={`/search?${new URLSearchParams({ q })}`}>
+          {result === 'limited' ? 'The number of searches a minute from one internet address is limited, and an office behind one address shares the limit. ' : ''}Try again in a minute, or search one list: <Link href={seeAllHref('tenders', q)} className="font-semibold">tenders</Link>, <Link href={seeAllHref('funding', q)} className="font-semibold">funding</Link>, <Link href={seeAllHref('buyers', q)} className="font-semibold">buyers</Link> or <Link href={seeAllHref('suppliers', q)} className="font-semibold">companies</Link>.
         </ErrorState>
       )}
-      {result && result !== 'failed' && (
+      {result && result !== 'failed' && result !== 'limited' && (
         <section aria-labelledby="results-heading" className="flex flex-col gap-4">
           <h2 id="results-heading" className="m-0 text-h2">Results for “{result.q}”</h2>
           <div className="grid gap-4 lg:grid-cols-2">

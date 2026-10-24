@@ -291,6 +291,14 @@ class SearchGroupRef(BaseModel):
     cpv: list[str]
 
 
+class CpvHint(BaseModel):
+    """WP-110: "Did you mean CPV 31611000 Wiring sets?": a code the search words name, with its official title."""
+    code: str
+    title: str
+    # the prefix the tender list's `cpv` filter reads for it (31611 for 31611000)
+    prefix: str
+
+
 class TenderPage(BaseModel):
     items: list[Tender]
     total: int
@@ -309,12 +317,45 @@ class TenderPage(BaseModel):
     # (`search_terms`), so the page can say what else was searched and, with nothing found, offer the group's codes.
     alsoSearched: list[str] = []
     searchGroups: list[SearchGroupRef] = []
+    cpvHints: list[CpvHint] = []
+
+
+MAX_CPV_HINTS = 4
+
+
+def cpv_hints(e: Any) -> list[dict[str, str]]:
+    """WP-110: the codes the words name, for "Did you mean CPV ...?": a product group's suggested codes (`cpv`: also
+    codes the search itself does not read, 35400000 for Ersatzteile, whose BAAINBw part orders are titled by order number)
+    as the code of each prefix, and for a word of no group the codes whose title it begins (`codes_for_word`), at most
+    MAX_CPV_HINTS, each with its official title (a prefix the vocabulary has no code for is left out)."""
+    vocabulary = _vocabulary()
+    prefixes: list[str] = []
+    for alts, g in zip(e.slots, e.slot_groups, strict=True):
+        if g is not None:
+            prefixes += list(g.cpv)
+        elif len(e.slots) == 1:
+            # A search of one word of no group: the codes named by the word itself, its title's first word that word or its
+            # plural ("Radar", "Warehousing services"), not those that list it ("Parts of radio and radar") or begin with it
+            # ("van" is not "Vanadium"). A name of several words ("Ministerie van Defensie") names no code.
+            word = " ".join(fold_words(alts[0][0]))
+            forms = {word, word + "s", word + "es"}
+            prefixes += sorted((c for c in codes_for_word(alts[0][0])
+                                if (fold_words(vocabulary.get(c, "")) or [""])[0] in forms),
+                               key=lambda c: (len(vocabulary.get(c, "")), c))       # the shortest title, the thing itself, first
+    out: list[dict[str, str]] = []
+    for p in dict.fromkeys(prefixes):
+        code = (p + "0" * 8)[:8]
+        if code in vocabulary and all(h["code"] != code for h in out):
+            out.append({"code": code, "title": vocabulary[code], "prefix": p.rstrip("0") or p})
+    return out[:MAX_CPV_HINTS]
 
 
 def search_info(q: str | None) -> dict[str, Any]:
-    """WP-98: `alsoSearched` and `searchGroups` of a search text (empty without one)."""
-    e = expand(search_words((q if isinstance(q, str) else "").replace("\x00", "").strip()))
-    return {"alsoSearched": e.also, "searchGroups": [{"id": g.id, "label": g.label, "cpv": list(g.cpv)} for g in e.groups]}
+    """WP-98: `alsoSearched` and `searchGroups` of a search text (empty without one); WP-110: `cpvHints`."""
+    text = (q if isinstance(q, str) else "").replace("\x00", "").strip()
+    e = expand(search_words(text))
+    return {"alsoSearched": e.also, "searchGroups": [{"id": g.id, "label": g.label, "cpv": list(g.cpv)} for g in e.groups],
+            "cpvHints": [] if NOTICE_NUMBER.match(text) else cpv_hints(e)}
 
 
 class FieldChange(BaseModel):
@@ -391,8 +432,9 @@ CPV_PREFIX = re.compile(r"^[0-9]{2,8}$")
 # WP-89: a notice with any CPV code under one of the prefixes (as typed: the tender list's `cpv` reading), over the
 # defence-scope GIN index of migration 0099 (`award_set.CPV_MATCH` with the prefixes as given).
 CPV_HEADS = "dgate_cpv_heads(o.cpv_codes) && %s::text[]"
-# WP-101: the same over the code heads stored for the search (`opportunity_search`, migration 0113)
-TS_CPV_HEADS = "ts.cpv_heads && %s::text[]"
+# WP-110: the code heads stored for the search (`opportunity_search`, migration 0113), of the notice's main code only
+# (migration 0122): what the search reads a code by (WP-101 read the heads of every code, `ts.cpv_heads`)
+TS_MAIN_HEADS = "ts.main_heads && %s::text[]"
 
 
 def cpv_prefixes(value: str | None, name: str = "cpv") -> list[str]:
@@ -1022,48 +1064,56 @@ def _tender_filters(q, country, cpv, status, scope, goods, buyer, from_, to, min
         # candidate of the trigram indexes is re-checked against stored text, where `dg_fold` of the title per term made
         # "Drehteile Frästeile" 12.6 s on production. A withheld buyer has no name there. The condition is a correlated
         # EXISTS so that the collapse rules (`collapse_clauses`, which rewrite `o.` for the twin) read the twin's own row.
+        # WP-110 (round-4 re-check): the codes are read by the notice's MAIN code (`ts.main_heads`, migration 0122): over any
+        # code, CPV 45311000 Electrical wiring work beside a canteen's construction made it a "wiring harness". A slot of a
+        # product group reads the group's own codes (`anchors`), not the titles of codes its words begin ("wiring" named
+        # 45311000), and its words never read the buyer's name (the Polish cyberspace centre made all its notices "cyber").
         per_word = ("(ts.title_en LIKE dg_word_pattern(%s) "
                     "OR ts.title_original LIKE dg_word_pattern(%s) "
                     "OR ts.buyer_name LIKE dg_word_pattern(%s){labels})")
+        product_word = "(ts.title_en LIKE dg_word_pattern(%s) OR ts.title_original LIKE dg_word_pattern(%s))"
         slots = []
-        for alts in expand(words).slots:
+        expanded = expand(words)
+        for alts, group in zip(expanded.slots, expanded.slot_groups, strict=True):
             alt_sql = []
             # The typed words stay words in any order (below); the group's other terms are phrases, as written
             singles = alts[1:]
-            if singles:
-                # The other terms of a group as one regular expression per column ("a word begins with one of them",
-                # a term of several words as that phrase, over the same trigram indexes). In chunks of RX_TERMS: over a
-                # longer alternation pg_trgm keeps fewer trigrams and the index hands back ten times the matches to
-                # re-check (drone: 12,966 candidates for 1,306 matches; 4 terms: exact). Titles only: a product word in
-                # another language names no buyer, and over the buyer names the short terms (UAV, UAS) made 15,000 index
-                # candidates to re-check (5 s for q=drone&status=all). The code overlaps go last.
+            if group is not None:
+                # A product group: the typed words (all of them, any order) or a term of the group (a phrase) in a title,
+                # or the main code under one of the group's anchors.
+                # The other terms of a group as one regular expression per column ("a word begins with one of them", a
+                # term of several words as that phrase, over the same trigram indexes). In chunks of RX_TERMS: over a longer
+                # alternation pg_trgm keeps fewer trigrams and the index hands back ten times the matches to re-check
+                # (drone: 12,966 candidates for 1,306 matches; 4 terms: exact). Titles only.
                 folded = [re.escape(" ".join(fold_words(" ".join(t)))) for t in singles]
                 for k in range(0, len(folded), RX_TERMS):
                     rx = " (?:" + "|".join(folded[k:k + RX_TERMS]) + ")"
                     alt_sql.append("ts.title_en ~ %s OR ts.title_original ~ %s")
                     params += [rx] * 2
-                codes = sorted({c for t in singles
-                                for c in (codes_for_word(t[0]) if len(t) == 1 else codes_for_words(tuple(t)))})
-                if codes:
-                    alt_sql.append(TS_CPV_HEADS)
-                    params.append(codes)
+                if group.anchors:
+                    alt_sql.append(TS_MAIN_HEADS)
+                    params.append(list(group.anchors))
+                alt_sql.append("(" + " AND ".join([product_word] * len(alts[0])) + ")")
+                params += [w for w in alts[0] for _ in range(2)]
+                slots.append("(" + " OR ".join(alt_sql) + ")")
+                continue
             for alt in alts[:1]:
                 ands = []
                 for w in alt:
                     codes = codes_for_word(w)
-                    ands.append(per_word.format(labels=f" OR {TS_CPV_HEADS}" if codes else ""))
+                    ands.append(per_word.format(labels=f" OR {TS_MAIN_HEADS}" if codes else ""))
                     params += [w] * 3 + ([list(codes)] if codes else [])
                 together = codes_for_words(tuple(alt)) if len(alt) > 1 else ()
                 if together:
                     params.append(list(together))
-                alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {TS_CPV_HEADS}" if together else ""))
+                alt_sql.append("(" + " AND ".join(ands) + ")" + (f" OR {TS_MAIN_HEADS}" if together else ""))
             slots.append("(" + " OR ".join(alt_sql) + ")")
         # (one slot of several words has just read them together)
         together = codes_for_words(tuple(words)) if len(words) > 1 and len(slots) > 1 else ()
         if together:
             params.append(list(together))
         where.append("EXISTS (SELECT 1 FROM opportunity_search ts WHERE ts.id = o.id AND ((" + " AND ".join(slots) + ")"
-                     + (f" OR {TS_CPV_HEADS}" if together else "") + " OR ts.native_id ILIKE %s))")
+                     + (f" OR {TS_MAIN_HEADS}" if together else "") + " OR ts.native_id ILIKE %s))")
         params.append(_like(text))
     countries = _split(country, "country", upper=True, max_length=2)
     if len(countries) == 1:
@@ -1831,17 +1881,86 @@ _CHANGE_TEXT = re.compile(
     r"proroga|wijziging|rectificatie|zmiana|sprostowanie|korekta)\b", re.IGNORECASE)
 
 
+# WP-110 (p04: "Amunicja kal." on the page and the card of a 7.62 mm ammunition tender): a full stop after one of these
+# (folded: lower case, dots taken out) or after a single letter ends an abbreviation, not the sentence.
+_ABBREVIATIONS = frozenset({
+    "kal", "nr", "ok", "tj", "np", "tzn", "wg", "zob", "poz", "pkt", "ust", "ul", "al", "godz", "zl", "szt", "kpl", "jw", "sp",
+    "ca", "zb", "bzw", "inkl", "exkl", "ggf", "vgl", "usw", "evtl", "lfd", "str", "abs", "gem", "ff", "bspw", "dh", "ua",
+    "etc", "eg", "ie", "approx", "no", "nos", "art", "vs", "cf", "incl", "excl", "ref", "fig", "dept", "co", "ltd", "inc", "st",
+    "núm", "num", "pág", "pag", "aprox", "ud", "uds", "sr", "sra", "cía", "av", "avda", "nº", "n°", "env", "réf", "cie", "mme",
+    "dr", "prof", "ing", "mgr", "inż", "płk", "gen", "mjr", "kpt", "ppłk", "por", "tel", "fax", "ext", "min", "max", "mod",
+})
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9])")
+
+
+def first_sentence(text: str) -> str:
+    """The text up to the first full stop (or ! ?) that ends a sentence: one followed by a space and a capital or a digit,
+    and not ending an abbreviation (`_ABBREVIATIONS`, a single letter, "z.B.")."""
+    for m in _SENTENCE_END.finditer(text):
+        head = text[:m.start()]
+        if head.endswith("."):
+            last = re.split(r"\s", head[:-1])[-1]
+            word = last.replace(".", "").casefold()
+            if len(word) <= 1 or word in _ABBREVIATIONS or "." in last:
+                continue
+        return head
+    return text
+
+
+# WP-110 (p03, BAAINBw subjects in the list: "...FAHRZE", "100 EA", "Versorgungsnummer", the buyer's address):
+# an address block of a letter head: a postcode and town line (with the name and street lines above it), a street line, and
+# the labels and dates of such a head ("Öffentlicher Auftraggeber:", "Referat: I2.2 M", "bis 29.05.2025").
+_POSTCODE_LINE = re.compile(r"^(?:[A-Z]{1,2}-)?\d{4,5}\s+\D{2,}$")
+_STREET_LINE = re.compile(r"(?i)^\D*(?:str\.|straße|strasse|weg|ring|platz|allee|gasse|ufer|damm|calle|rue|ulica|ul\.)\s*\d+\w?$")
+_HEAD_LINE = re.compile(r"(?i)^(?:öffentlicher auftraggeber|auftraggeber|auftragnehmer|referat|lieferdatum|laufzeit|bis|vergabestelle"
+                        r"|contracting authority|contractor)\b[:\s]*.*$|^\s*bis\s+\d")
+# a supply item number and its label ("(Vers.Art. 2520-124147925)", "Versorgungs-Artikel-Nummer 4810124237469")
+_ITEM_NUMBER = re.compile(r"(?i),?\s*\(?\b(?:versorgungs[- ]?(?:artikel[- ]?)?nummer|versorgungsnummer|vers\.?\s?art\.?(?:[- ]?nr\.?)?"
+                          r"|versnr\.?|nsn)\s*[:.]?\s*[\d][\d\s\-./]*\)?")
+# an internal reference at the start of a line ("Q/I2BQ/PA103/MA447 Beschaffung ...")
+_LEADING_REFERENCE = re.compile(r"^(?:[A-Z0-9]+/){2,}[A-Z0-9]+\s*[-:.]*\s*")
+# what is left without a word of four letters or more but units is no subject ("3.564.000 EA", "100 EA")
+_UNIT_WORDS = frozenset({"stück", "stueck", "einheiten", "units", "pieces", "unidades", "sztuk", "pezzi", "stuks", "unités"})
+# BAAINBw's item name field holds 40 characters: a name of exactly that length before the item number is cut mid-word
+# ("GELENKWELLE MIT AUSGLEICHSGELENK, FAHRZE"). ponytail: one source's field width; widen if another source cuts the same way
+_CUT_NAME_LENGTH = 40
+
+
+def _without_letter_head(raw: str) -> str:
+    """The description without an address block and the labels of a letter head, and an internal reference at the start of
+    a line: only when it has an address block (a postcode and town line), so an ordinary description is never touched."""
+    lines = [ln.strip() for ln in raw.splitlines()]
+    blocks = [i for i, ln in enumerate(lines) if _POSTCODE_LINE.match(ln)]
+    if not blocks:
+        return raw
+    drop = {j for i in blocks for j in (i - 2, i - 1, i) if j >= 0}
+    kept = [ln for j, ln in enumerate(lines) if j not in drop and ln and not _STREET_LINE.match(ln) and not _HEAD_LINE.match(ln)]
+    return "\n".join(_LEADING_REFERENCE.sub("", ln).strip(" .:-–") for ln in kept)
+
+
+def _meaningful(text: str) -> bool:
+    return any(len(w) >= 4 and w.casefold() not in _UNIT_WORDS for w in re.findall(r"[^\W\d_]+", text))
+
+
 def commercial_subject(text: str | None) -> str | None:
     """The first sentence of a notice's description, at most SUBJECT_MAX characters (cut at a word), or None when
     there is none, it reads as a specification or a contact (`_TECHNICAL`, `_CONTACT`), or it only says what a notice
-    changed (`_CHANGE_TEXT`). Long digit runs (`_LONG_NUMBER`) are taken out first."""
+    changed (`_CHANGE_TEXT`). Long digit runs (`_LONG_NUMBER`) are taken out first. WP-110: a letter head's address and
+    labels, supply item numbers and an internal reference are taken out, a name the source cut at its field width loses its
+    cut word, and what is left without a word (a quantity, "100 EA") is no subject: the list shows the title then."""
     raw = redact_emails(text) or ""
     if _INTERNATIONAL_PHONE.search(raw):
+        return None
+    raw = _ITEM_NUMBER.sub("", _without_letter_head(raw))
+    cut = re.match(r"^([^\n]{%d})\s+\d{7,}" % _CUT_NAME_LENGTH, raw)
+    if cut and re.search(r"[^\W\d_]$", cut.group(1)) and " " in cut.group(1):
+        raw = cut.group(1).rsplit(" ", 1)[0].rstrip(" ,;:-") + raw[cut.end():]
+    if not _meaningful(raw):
         return None
     clean = re.sub(r"\s+", " ", _LONG_NUMBER.sub(" ", raw)).strip(" ,;:-–")
     if not clean or _CHANGE_TEXT.match(clean):
         return None
-    first = re.split(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9])", clean, maxsplit=1)[0]
+    first = first_sentence(clean)
     if _TECHNICAL.search(first) or _CONTACT.search(first) or "[" in first:
         return None
     if len(first) > SUBJECT_MAX:

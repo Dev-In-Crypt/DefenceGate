@@ -764,7 +764,8 @@ def list_funding(
     search = None
     if q and q.replace("\x00", "").strip():
         # Word search over the call texts, in Python (textsearch.py): the SQL then takes the ids.
-        query = textsearch.parse(q.replace("\x00", ""))
+        # WP-110: with the product words of the tender search ("cybersécurité" found no ECCC cyber call)
+        query = textsearch.parse(q.replace("\x00", ""), products=True)
         hits = [r["id"] for r in conn.execute(SEARCH_TEXT).fetchall()
                 if query is not None and query.matches(r["text"], r["codes"])]
         where.append("c.id = ANY(%s)")

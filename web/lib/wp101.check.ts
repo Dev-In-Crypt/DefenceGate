@@ -13,13 +13,15 @@ import { NOTICE_NUMBER, buyerNames, expand, matchesSlots, tenderListQuery } from
 const e = expand(['Drehteile', 'Frästeile']);
 assert.equal(e.slots.length, 1);
 assert.deepEqual(e.slots[0][0], ['Drehteile', 'Frästeile']);
-assert.ok(!e.also.includes('Drehteile') && !e.also.includes('Frästeile') && e.also.includes('Ersatzteile'), e.also.join(', '));
+// WP-110: machining is a group of its own (general spare parts came first, p03)
+assert.ok(!e.also.includes('Drehteile') && !e.also.includes('Frästeile') && e.also.includes('Zerspanung'), e.also.join(', '));
 assert.ok(matchesSlots(e.slots, ['Frästeile für Kettenfahrzeuge'], null));
-assert.ok(matchesSlots(e.slots, ['Ersatzteile Leopard 2'], null));
+assert.ok(!matchesSlots(e.slots, ['Ersatzteile Leopard 2'], null));
 assert.ok(!matchesSlots(e.slots, ['Reinigung der Kaserne'], null));
 assert.equal(expand(['Drehteile', 'Munition']).slots.length, 2);
-for (const [q, id] of [['Zerspanung', 'spare-parts'], ['CNC', 'spare-parts'], ['harness', 'wiring'], ['Kabelbaum', 'wiring'], ['Stanzteile', 'stampings'],
-  ['Gussteile', 'castings'], ['cyber', 'cyber'], ['cybersécurité', 'cyber'], ['SSI', 'cyber'], ['Cybersicherheit', 'cyber'], ['lont', 'ammunition']] as const) {
+// WP-110: machining its own group; "SSI" (French fire safety system) no longer cyber (lib/wp110.check.ts)
+for (const [q, id] of [['Zerspanung', 'machining'], ['CNC', 'machining'], ['harness', 'wiring'], ['Kabelbaum', 'wiring'], ['Stanzteile', 'stampings'],
+  ['Gussteile', 'castings'], ['cyber', 'cyber'], ['cybersécurité', 'cyber'], ['Cybersicherheit', 'cyber'], ['lont', 'ammunition']] as const) {
   assert.deepEqual(expand([q]).groups.map((g) => g.id), [id], q);
 }
 for (const abbr of ['RBLog', 'AU', 'WOG', 'JW', 'NAVARM', 'TERRARM', 'ARMAEREO']) assert.ok(buyerNames(abbr).length > 0, abbr);

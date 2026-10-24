@@ -17,9 +17,10 @@ def test_a_run_of_terms_of_one_group_is_one_slot():
     assert len(e.slots) == 1                                  # was two slots of the same 17 terms: 12.6 s, a 503
     typed, *terms = e.slots[0]
     assert typed == ["Drehteile", "Frästeile"]                # both words, in any order ...
-    assert ["Ersatzteile"] in terms and ["Drehteile"] in terms and ["Frästeile"] in terms   # ... or any term of the group
-    assert "Drehteile" not in e.also and "Frästeile" not in e.also and "Ersatzteile" in e.also
-    assert [g.id for g in e.groups] == ["spare-parts"]
+    # ... or any term of the group. WP-110: machining is a group of its own (general spare parts came first, p03)
+    assert ["Zerspanung"] in terms and ["Drehteile"] in terms and ["Frästeile"] in terms and ["Ersatzteile"] not in terms
+    assert "Drehteile" not in e.also and "Frästeile" not in e.also and "Zerspanung" in e.also
+    assert [g.id for g in e.groups] == ["machining"]
     assert len(S.expand(["spare", "parts", "Ersatzteile"]).slots) == 1
     # terms of two groups, or a word of no group between them, stay slots of their own
     assert len(S.expand(["Drehteile", "Munition"]).slots) == 2
@@ -27,11 +28,13 @@ def test_a_run_of_terms_of_one_group_is_one_slot():
 
 
 @pytest.mark.parametrize("words, group", [
-    ("Zerspanung", "spare-parts"), ("CNC", "spare-parts"), ("Präzisionsteile", "spare-parts"), ("mecanizado", "spare-parts"),
-    ("harness", "wiring"), ("wiring", "wiring"), ("Kabelbaum", "wiring"), ("mazo de cables", "wiring"),
+    # WP-110: machining is a group of its own; "wiring" alone (any cabling) is no longer a term of the harness group, "SSI"
+    # (French: fire safety system) no longer cyber -- see test_wp110
+    ("Zerspanung", "machining"), ("CNC", "machining"), ("Präzisionsteile", "machining"), ("mecanizado", "machining"),
+    ("harness", "wiring"), ("wiring harness", "wiring"), ("Kabelbaum", "wiring"), ("mazo de cables", "wiring"),
     ("stamping", "stampings"), ("Stanzteile", "stampings"), ("emboutissage", "stampings"),
     ("castings", "castings"), ("Gussteile", "castings"), ("fonderie", "castings"),
-    ("cyber", "cyber"), ("cybersecurity", "cyber"), ("cybersécurité", "cyber"), ("SSI", "cyber"), ("Cybersicherheit", "cyber"),
+    ("cyber", "cyber"), ("cybersecurity", "cyber"), ("cybersécurité", "cyber"), ("Cybersicherheit", "cyber"),
     ("detonators", "ammunition"), ("lont", "ammunition"), ("detonating cord", "ammunition"),
 ])
 def test_the_product_words_of_the_personas_have_a_group(words, group):
